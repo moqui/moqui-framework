@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.entity;
 
+import org.moqui.BaseException;
 import org.moqui.entity.EntityException;
 import org.moqui.entity.EntityValue;
 import org.moqui.impl.entity.EntityJavaUtil.EntityConditionParameter;
@@ -39,7 +40,8 @@ public class EntityValueImpl extends EntityValueBase {
     public EntityValue cloneValue() {
         EntityValueImpl newObj = new EntityValueImpl(getEntityDefinition(), getEntityFacadeImpl());
         newObj.getValueMap().putAll(getValueMap());
-        if (getDbValueMap() != null) newObj.setDbValueMap(new HashMap<>(getDbValueMap()));
+        HashMap<String, Object> dbValueMap = getDbValueMap();
+        if (dbValueMap != null) newObj.setDbValueMap(dbValueMap);
         // don't set mutable (default to mutable even if original was not) or modified (start out not modified)
         return newObj;
     }
@@ -161,7 +163,7 @@ public class EntityValueImpl extends EntityValueBase {
                 String txName = "[could not get]";
                 try {
                     txName = efi.ecfi.transactionFacade.getTransactionManager().getTransaction().toString();
-                } catch (Exception txe) { logger.warn("Error getting transaction name: " + txe.toString()); }
+                } catch (Exception txe) { if (logger.isTraceEnabled()) logger.trace("Error getting transaction name: " + txe.toString()); }
                 throw new EntityException("Error in update of " + this.toString() + " tx " + txName + " con " + eqb.connection.toString(), e);
             } finally {
                 try { eqb.closeAll(); }
@@ -202,8 +204,7 @@ public class EntityValueImpl extends EntityValueBase {
                 else eqb.makeConnection();
                 eqb.makePreparedStatement();
                 eqb.setPreparedStatementValues();
-                if (eqb.executeUpdate() == 0)
-                    logger.info("Tried to delete a value that does not exist " + this.toString());
+                if (eqb.executeUpdate() == 0) logger.info("Tried to delete a value that does not exist " + this.toString(), new BaseException("location"));
             } catch (Exception e) {
                 throw new EntityException("Error in delete of " + this.toString(), e);
             } finally {
@@ -235,7 +236,7 @@ public class EntityValueImpl extends EntityValueBase {
         StringBuilder sql = eqb.sqlTopLevel;
         sql.append("SELECT ");
         // NOTE: cast here is needed to resolve compile warning, even if there may be a IDE warning
-        eqb.makeSqlSelectFields(allFieldArray, null);
+        eqb.makeSqlSelectFields(allFieldArray, null, false);
 
         sql.append(" FROM ").append(ed.getFullTableName()).append(" WHERE ");
 

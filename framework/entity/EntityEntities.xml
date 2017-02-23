@@ -27,6 +27,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="pkRestCombinedValue" type="text-medium"/>
         <field name="oldValueText" type="text-long"/>
         <field name="newValueText" type="text-long"/>
+        <field name="changeReason" type="text-medium"/>
         <field name="changedDate" type="date-time"/>
         <field name="changedByUserId" type="text-medium"/>
         <field name="changedInVisitId" type="text-medium"/>

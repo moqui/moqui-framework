@@ -56,9 +56,9 @@ public abstract class EntityValueBase implements EntityValue {
     private transient TransactionCache txCacheInternal = null;
     private transient EntityDefinition entityDefinitionTransient = null;
 
-    private transient Map<String, Object> dbValueMap = null;
+    private transient HashMap<String, Object> dbValueMap = null;
+    private transient HashMap<String, Object> oldDbValueMap = null;
     private transient Map<String, Object> internalPkMap = null;
-    private transient Map<String, Object> oldDbValueMap = null;
     private transient Map<String, Map<String, String>> localizedByLocaleByField = null;
 
     private transient boolean modified = false;
@@ -73,7 +73,6 @@ public abstract class EntityValueBase implements EntityValue {
         efiTransient = efip;
         entityName = ed.fullEntityName;
         entityDefinitionTransient = ed;
-        // NOTE: not serializing modified, mutable, isFromDb... if it is a copy we don't care if it gets modified, etc
     }
 
     @Override public void writeExternal(ObjectOutput out) throws IOException {
@@ -106,13 +105,14 @@ public abstract class EntityValueBase implements EntityValue {
     }
 
     public HashMap<String, Object> getValueMap() { return valueMapInternal; }
-    protected Map<String, Object> getDbValueMap() { return dbValueMap; }
+    protected HashMap<String, Object> getDbValueMap() { return dbValueMap; }
 
     protected void setDbValueMap(Map<String, Object> map) {
         dbValueMap = new HashMap<>();
         FieldInfo[] nonPkFields = getEntityDefinition().entityInfo.nonPkFieldInfoArray;
         for (int i = 0; i < nonPkFields.length; i++) {
             FieldInfo fi = nonPkFields[i];
+            if (!map.containsKey(fi.name)) continue;
             Object curValue = map.get(fi.name);
             dbValueMap.put(fi.name, curValue);
             if (!valueMapInternal.containsKey(fi.name)) valueMapInternal.put(fi.name, curValue);
@@ -350,19 +350,11 @@ public abstract class EntityValueBase implements EntityValue {
             Object thisValue = valueMapInternal.get(pkField);
             Object thatValue = evbValue.get(pkField);
             if (thisValue == null) {
-                if (thatValue != null) {
-                    allMatch = false;
-                    break;
-                }
+                if (thatValue != null) { allMatch = false; break; }
             } else {
-                if (!thisValue.equals(thatValue)) {
-                    allMatch = false;
-                    break;
-                }
-
+                if (!thisValue.equals(thatValue)) { allMatch = false; break; }
             }
         }
-
         return allMatch;
     }
 
@@ -582,14 +574,10 @@ public abstract class EntityValueBase implements EntityValue {
 
                 Object value = get(fieldName);
                 Object oldValue = oldValues != null ? oldValues.get(fieldName) : null;
-
                 if (isUpdate) {
                     // if isUpdate but old value == new value, then it hasn't been updated, so skip it
-                    if (value == null) {
-                        if (oldValue == null) continue;
-                    } else {
-                        if (value.equals(oldValue)) continue;
-                    }
+                    if (value == null) { if (oldValue == null) continue; }
+                    else { if (value.equals(oldValue)) continue; }
                 } else {
                     // if it's a create and there is no value don't log a change
                     if (value == null) continue;
@@ -597,12 +585,21 @@ public abstract class EntityValueBase implements EntityValue {
 
                 // don't skip for this, if a field was reset then we want to record that: if (!value) continue
 
+                // check for a changeReason
+                String changeReason = null;
+                Object changeReasonObj = ec.contextStack.getByString(fieldName.concat("_changeReason"));
+                if (changeReasonObj != null) {
+                    changeReason = changeReasonObj.toString();
+                    if (changeReason.isEmpty()) changeReason = null;
+                }
+
                 String stackNameString = ec.artifactExecutionFacade.getStackNameString();
                 if (stackNameString.length() > 4000) stackNameString = stackNameString.substring(0, 4000);
                 LinkedHashMap<String, Object> parms = new LinkedHashMap<>();
                 parms.put("changedEntityName", getEntityName());
                 parms.put("changedFieldName", fieldName);
                 parms.put("newValueText", ObjectUtilities.toPlainString(value));
+                if (changeReason != null) parms.put("changeReason", changeReason);
                 parms.put("changedDate", nowTimestamp);
                 parms.put("changedByUserId", ec.getUser().getUserId());
                 parms.put("changedInVisitId", ec.getUser().getVisitId());
@@ -762,6 +759,7 @@ public abstract class EntityValueBase implements EntityValue {
                     if (newValue.containsPrimaryKey()) {
                         newValue.checkFks(true);
                         newValue.create();
+                        logger.warn("Created dummy " + newValue.getEntityName() + " PK " + newValue.getPrimaryKeys());
                     }
                 } else {
                     return false;
@@ -1059,7 +1057,7 @@ public abstract class EntityValueBase implements EntityValue {
             } else {
                 if (!curValue.equals(value)) {
                     modified = true;
-                    if (dbValueMap == null) dbValueMap = new LinkedHashMap<>();
+                    if (dbValueMap == null) dbValueMap = new HashMap<>();
                     dbValueMap.put(name, curValue);
                 }
             }
@@ -1120,7 +1118,8 @@ public abstract class EntityValueBase implements EntityValue {
     @Override public abstract EntityValue cloneValue();
     public abstract EntityValue cloneDbValue(boolean getOld);
 
-    private boolean doDataFeed() {
+    private boolean doDataFeed(ExecutionContextImpl ec) {
+        if (ec.artifactExecutionFacade.entityDataFeedDisabled()) return false;
         // skip ArtifactHitBin, causes funny recursion
         return !"moqui.server.ArtifactHitBin".equals(entityName);
     }
@@ -1152,6 +1151,7 @@ public abstract class EntityValueBase implements EntityValue {
                 if (newVal != null) valueMapInternal.put(fieldName, newVal);
             } finally {
                 ec.getContext().pop();
+                if (dbValueMap != null) ec.getContext().pop();
             }
         }
     }
@@ -1183,7 +1183,7 @@ public abstract class EntityValueBase implements EntityValue {
             efi.runEecaRules(entityName, this, "create", true);
 
             // do this before the db change so modified flag isn't cleared
-            if (doDataFeed()) efi.getEntityDataFeed().dataFeedCheckAndRegister(this, false, valueMapInternal, null);
+            if (doDataFeed(ec)) efi.getEntityDataFeed().dataFeedCheckAndRegister(this, false, valueMapInternal, null);
 
             // if there is not a txCache or the txCache doesn't handle the create, call the abstract method to create the main record
             TransactionCache curTxCache = getTxCache(ecfi);
@@ -1244,7 +1244,7 @@ public abstract class EntityValueBase implements EntityValue {
         if (hasFieldDefaults) checkSetFieldDefaults(ed, ec, true);
 
         // if there is one or more DataFeed configs associated with this entity get info about them
-        boolean curDataFeed = doDataFeed();
+        boolean curDataFeed = doDataFeed(ec);
         if (curDataFeed) {
             ArrayList<EntityDataFeed.DocumentEntityInfo> entityInfoList = efi.getEntityDataFeed().getDataFeedEntityInfoList(entityName);
             if (entityInfoList.size() == 0) curDataFeed = false;
@@ -1327,6 +1327,7 @@ public abstract class EntityValueBase implements EntityValue {
             if (curTxCache == null || !curTxCache.update(this)) {
                 // no TX cache update, etc: ready to do actual update
                 updateExtended(pkFieldArray, nonPkFieldArray, null);
+                // if ("OrderHeader".equals(ed.getEntityName()) && "55500".equals(valueMapInternal.get("orderId"))) logger.warn("Called updateExtended order " + this.valueMapInternal.toString());
             }
 
             // clear the entity cache
@@ -1446,7 +1447,7 @@ public abstract class EntityValueBase implements EntityValue {
             // call the abstract method
             if (!retVal) {
                 retVal = this.refreshExtended();
-                if (retVal && curTxCache != null) curTxCache.onePut(this);
+                if (retVal && curTxCache != null) curTxCache.onePut(this, false);
             }
 
             // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(fullEntityName, this, "find-one", false);
@@ -1458,6 +1459,9 @@ public abstract class EntityValueBase implements EntityValue {
         return retVal;
     }
     public abstract boolean refreshExtended();
+
+    @Override public String getEtlType() { return entityName; }
+    @Override public Map<String, Object> getEtlValues() { return valueMapInternal; }
 
     private static class EntityFieldEntry implements Entry<String, Object> {
         protected FieldInfo fi;

@@ -42,24 +42,29 @@ class FtlMarkdownTemplateRenderer implements TemplateRenderer {
     }
 
     void render(String location, Writer writer) {
-        Template theTemplate;
-        if (templateFtlLocationCache instanceof MCache) {
-            MCache<String, Template> mCache = (MCache) templateFtlLocationCache;
-            ResourceReference rr = ecfi.resourceFacade.getLocationReference(location);
-            long lastModified = rr != null ? rr.getLastModified() : 0L;
-            theTemplate = mCache.get(location, lastModified);
-        } else {
-            // TODO: doesn't support on the fly reloading without cache expire/clear!
-            theTemplate = templateFtlLocationCache.get(location);
+        boolean hasVersion = location.indexOf("#") > 0
+        Template theTemplate = null
+        if (!hasVersion) {
+            if (templateFtlLocationCache instanceof MCache) {
+                MCache<String, Template> mCache = (MCache) templateFtlLocationCache
+                ResourceReference rr = ecfi.resourceFacade.getLocationReference(location)
+                long lastModified = rr != null ? rr.getLastModified() : 0L
+                theTemplate = mCache.get(location, lastModified)
+            } else {
+                // TODO: doesn't support on the fly reloading without cache expire/clear!
+                theTemplate = templateFtlLocationCache.get(location)
+            }
         }
-        if (theTemplate == null) theTemplate = makeTemplate(location)
+        if (theTemplate == null) theTemplate = makeTemplate(location, hasVersion)
         if (theTemplate == null) throw new IllegalArgumentException("Could not find template at ${location}")
-        theTemplate.createProcessingEnvironment(ecfi.executionContext.context, writer).process()
+        theTemplate.createProcessingEnvironment(ecfi.getEci().contextStack, writer).process()
     }
 
-    protected Template makeTemplate(String location) {
-        Template theTemplate = (Template) templateFtlLocationCache.get(location)
-        if (theTemplate != null) return theTemplate
+    protected Template makeTemplate(String location, boolean hasVersion) {
+        if (!hasVersion) {
+            Template theTemplate = (Template) templateFtlLocationCache.get(location)
+            if (theTemplate != null) return theTemplate
+        }
 
         Template newTemplate
         try {
@@ -81,7 +86,7 @@ class FtlMarkdownTemplateRenderer implements TemplateRenderer {
             throw new IllegalArgumentException("Error while initializing template at [${location}]", e)
         }
 
-        if (newTemplate) templateFtlLocationCache.put(location, newTemplate)
+        if (!hasVersion && newTemplate != null) templateFtlLocationCache.put(location, newTemplate)
         return newTemplate
     }
 

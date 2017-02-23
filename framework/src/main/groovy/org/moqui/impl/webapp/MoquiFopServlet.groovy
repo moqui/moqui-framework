@@ -65,13 +65,18 @@ class MoquiFopServlet extends HttpServlet {
         ec.initWebFacade(moquiWebappName, request, response)
         ec.web.requestAttributes.put("moquiRequestStartTime", startTime)
 
-        String filename = ec.web.parameters.get("filename") as String
+        String filename = (ec.web.parameters.get("filename") as String) ?: (ec.web.parameters.get("saveFilename") as String)
 
         String xslFoText = null
         try {
             ScreenRender sr = ec.screen.makeRender().webappName(moquiWebappName).renderMode("xsl-fo")
                     .rootScreenFromHost(request.getServerName()).screenPath(pathInfo.split("/") as List)
             xslFoText = sr.render()
+
+            if (ec.message.hasError()) {
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, ec.message.errorsString)
+                return
+            }
 
             // logger.warn("======== XSL-FO content:\n${xslFoText}")
             if (logger.traceEnabled) logger.trace("XSL-FO content:\n${xslFoText}")

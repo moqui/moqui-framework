@@ -18,19 +18,37 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- moqui.resource -->
     <!-- ========================================================= -->
 
-    <entity entity-name="DbResource" package="moqui.resource" use="nontransactional">
+    <entity entity-name="DbResource" package="moqui.resource" use="nontransactional" short-alias="dbResources">
         <field name="resourceId" type="id" is-pk="true"/>
         <field name="parentResourceId" type="id"/>
         <field name="filename" type="text-medium"/>
         <field name="isFile" type="text-indicator"/>
+        <relationship type="one-nofk" related="moqui.resource.DbResourceFile" short-alias="file" mutable="true"/>
+        <relationship type="many" related="moqui.resource.DbResourceFileHistory" short-alias="histories">
+            <key-map field-name="resourceId"/></relationship>
         <index name="DB_RES_PARENT"><index-field name="parentResourceId"/></index>
         <index name="DB_RES_PAR_FN" unique="true"><index-field name="parentResourceId"/><index-field name="filename"/></index>
     </entity>
     <entity entity-name="DbResourceFile" package="moqui.resource" use="nontransactional">
         <field name="resourceId" type="id" is-pk="true"/>
         <field name="mimeType" type="text-medium"/>
+        <field name="versionName" type="text-short"/>
+        <field name="rootVersionName" type="text-short"/>
         <field name="fileData" type="binary-very-long"/>
-        <relationship type="one" related="moqui.resource.DbResource"/>
+        <relationship type="one" related="moqui.resource.DbResource" short-alias="dbResource"/>
+        <relationship type="many" related="moqui.resource.DbResourceFileHistory" short-alias="histories">
+            <key-map field-name="resourceId"/></relationship>
+    </entity>
+    <entity entity-name="DbResourceFileHistory" package="moqui.resource" use="nontransactional">
+        <field name="resourceId" type="id" is-pk="true"/>
+        <field name="versionName" type="text-short" is-pk="true"/>
+        <field name="previousVersionName" type="text-short"/>
+        <field name="versionDate" type="date-time"/>
+        <field name="userId" type="id"/>
+        <field name="isDiff" type="text-indicator"/>
+        <field name="fileData" type="binary-very-long"/>
+        <relationship type="one" related="moqui.resource.DbResourceFile"/>
+        <relationship type="one-nofk" related="moqui.security.UserAccount" short-alias="user"/>
     </entity>
 
     <!-- ========================================================= -->
@@ -43,6 +61,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="pagePath" type="text-medium"/>
         <field name="parentWikiPageId" type="id"/>
         <field name="createdByUserId" type="id"/>
+        <field name="publishedVersionName" type="text-short"/>
         <field name="restrictView" type="text-indicator"/>
         <field name="restrictUpdate" type="text-indicator"/>
         <relationship type="one" related="moqui.resource.wiki.WikiSpace" short-alias="space"/>
@@ -58,7 +77,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="oldPagePath" type="text-medium"/>
         <field name="userId" type="id"/>
         <field name="changeDateTime" type="date-time"/>
-        <!-- TODO: add rev data for pages in JCR -->
+        <field name="versionName" type="text-short"/>
         <relationship type="one" related="moqui.resource.wiki.WikiPage" short-alias="page"/>
         <relationship type="one-nofk" related="moqui.security.UserAccount" short-alias="user"/>
     </entity>
@@ -87,6 +106,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="decoratorScreenLocation" type="text-medium"/>
         <field name="restrictView" type="text-indicator"/>
         <field name="restrictUpdate" type="text-indicator"/>
+        <field name="allowAnyHtml" type="text-indicator"/>
     </entity>
     <entity entity-name="WikiSpaceUser" package="moqui.resource.wiki" use="nontransactional">
         <field name="wikiSpaceId" type="id" is-pk="true"/>

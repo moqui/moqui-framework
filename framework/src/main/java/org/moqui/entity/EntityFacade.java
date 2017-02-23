@@ -20,6 +20,7 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
 
+import org.moqui.etl.SimpleEtl;
 import org.moqui.util.MNode;
 import org.w3c.dom.Element;
 
@@ -159,6 +160,8 @@ public interface EntityFacade {
      * @return EntityDataWriter instance
      */
     EntityDataWriter makeDataWriter();
+
+    SimpleEtl.Loader makeEtlLoader();
 
     /** Make an EntityValue and populate it with the data (attributes and sub-elements) from the given XML element.
      *

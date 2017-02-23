@@ -19,6 +19,7 @@ import org.moqui.entity.EntityListIterator;
 import org.moqui.entity.EntityValue;
 import org.moqui.impl.entity.condition.EntityConditionImplBase;
 import org.moqui.impl.entity.EntityJavaUtil.FieldOrderOptions;
+import org.moqui.util.MNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,7 +56,7 @@ public class EntityFindImpl extends EntityFindBase {
         EntityFindBuilder efb = new EntityFindBuilder(ed, this);
 
         // SELECT fields
-        efb.makeSqlSelectFields(fieldInfoArray, fieldOptionsArray);
+        efb.makeSqlSelectFields(fieldInfoArray, fieldOptionsArray, false);
         // FROM Clause
         efb.makeSqlFromClause(fieldInfoArray);
 
@@ -93,7 +94,6 @@ public class EntityFindImpl extends EntityFindBase {
                     if (fi == null) break;
                     fi.getResultSetValue(rs, i + 1, valueMap, efi);
                 }
-
             } else {
                 if (isTraceEnabled) logger.trace("Result set was empty for find on entity " + entityName + " with condition " + condSql);
             }
@@ -103,10 +103,8 @@ public class EntityFindImpl extends EntityFindBase {
             throw new EntityException("Error finding value", e);
         } finally {
             try { efb.closeAll(); }
-            catch (SQLException sqle) { //noinspection ThrowFromFinallyBlock
-                throw new EntityException("Error finding value", sqle); }
+            catch (SQLException sqle) { logger.error("Error closing query", sqle); }
         }
-
 
         return newEntityValue;
     }
@@ -118,13 +116,13 @@ public class EntityFindImpl extends EntityFindBase {
         EntityDefinition ed = this.getEntityDef();
 
         // table doesn't exist, just return empty ELI
-        if (!ed.tableExistsDbMetaOnly()) return new EntityListIteratorWrapper(new ArrayList<EntityValue>(), ed, efi);
+        if (!ed.tableExistsDbMetaOnly()) return new EntityListIteratorWrapper(new ArrayList<>(), ed, efi, null, null);
 
         EntityFindBuilder efb = new EntityFindBuilder(ed, this);
         if (getDistinct()) efb.makeDistinct();
 
         // select fields
-        efb.makeSqlSelectFields(fieldInfoArray, fieldOptionsArray);
+        efb.makeSqlSelectFields(fieldInfoArray, fieldOptionsArray, false);
         // FROM Clause
         efb.makeSqlFromClause(fieldInfoArray);
 
@@ -141,7 +139,6 @@ public class EntityFindImpl extends EntityFindBase {
             efb.startHavingClause();
             havingCondition.makeSqlWhere(efb);
         }
-
 
         // ORDER BY clause
         efb.makeOrderByClause(orderByExpanded);
@@ -163,21 +160,18 @@ public class EntityFindImpl extends EntityFindBase {
             efb.setPreparedStatementValues();
 
             ResultSet rs = efb.executeQuery();
-            elii = new EntityListIteratorImpl(con, rs, ed, fieldInfoArray, efi, txCache);
+            elii = new EntityListIteratorImpl(con, rs, ed, fieldInfoArray, efi, txCache, whereCondition, orderByExpanded);
             // ResultSet will be closed in the EntityListIterator
             efb.releaseAll();
         } catch (EntityException e) {
             try { efb.closeAll(); }
-            catch (SQLException sqle) { //noinspection ThrowFromFinallyBlock
-                throw new EntityException("Error in find", sqle); }
+            catch (SQLException sqle) { logger.error("Error closing query", sqle); }
             throw e;
         } catch (Throwable t) {
             try { efb.closeAll(); }
-            catch (SQLException sqle) { //noinspection ThrowFromFinallyBlock
-                throw new EntityException("Error finding value", sqle); }
+            catch (SQLException sqle) { logger.error("Error closing query", sqle); }
             throw new EntityException("Error in find", t);
         }
-
 
         return elii;
     }
@@ -192,8 +186,13 @@ public class EntityFindImpl extends EntityFindBase {
 
         EntityFindBuilder efb = new EntityFindBuilder(ed, this);
 
+        ArrayList<MNode> entityConditionList = ed.internalEntityNode.children("entity-condition");
+        MNode condNode = entityConditionList != null && entityConditionList.size() > 0 ? entityConditionList.get(0) : null;
+        boolean isDistinct = getDistinct() || (ed.isViewEntity && condNode != null && "true".equals(condNode.attribute("distinct")));
+        boolean isGroupBy = ed.entityInfo.hasFunctionAlias;
+
         // count function instead of select fields
-        efb.makeCountFunction(fieldInfoArray);
+        efb.makeCountFunction(fieldInfoArray, fieldOptionsArray, isDistinct, isGroupBy);
         // FROM Clause
         efb.makeSqlFromClause(fieldInfoArray);
 
@@ -211,8 +210,7 @@ public class EntityFindImpl extends EntityFindBase {
             havingCondition.makeSqlWhere(efb);
         }
 
-
-        efb.closeCountFunctionIfGroupBy();
+        efb.closeCountSubSelect(fieldInfoArray.length, isDistinct, isGroupBy);
 
         // run the SQL now that it is built
         long count = 0;
@@ -232,10 +230,8 @@ public class EntityFindImpl extends EntityFindBase {
             throw new EntityException("Error finding count", e);
         } finally {
             try { efb.closeAll(); }
-            catch (SQLException sqle) { //noinspection ThrowFromFinallyBlock
-                throw new EntityException("Error finding value", sqle); }
+            catch (SQLException sqle) { logger.error("Error closing query", sqle); }
         }
-
 
         return count;
     }

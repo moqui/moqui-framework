@@ -18,10 +18,7 @@ import groovy.lang.Closure;
 import java.io.Externalizable;
 import java.io.Writer;
 import java.sql.Timestamp;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.RandomAccess;
+import java.util.*;
 
 /**
  * Contains a list of EntityValue objects.
@@ -134,6 +131,7 @@ public interface EntityList extends List<EntityValue>, Iterable<EntityValue>, Cl
      * in the Map for each value. */
     List<Map<String, Object>> getPlainValueList(int dependentLevels);
     List<Map<String, Object>> getMasterValueList(String name);
+    ArrayList<Map<String, Object>> getValueMapList();
 
     EntityList cloneList();
 

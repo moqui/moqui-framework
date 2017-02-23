@@ -96,7 +96,7 @@ class SystemScreenRenderTests extends Specification {
         // Security screens
         "Security/UserAccount/UserAccountList?username=john.doe" | "john.doe" | "John Doe"
         "Security/UserAccount/UserAccountDetail?userId=EX_JOHN_DOE" |
-                "john.doe@test.com" | "Administrators (full access)"
+                "john.doe@moqui.org" | "Administrators (full access)"
         "Security/UserGroup/UserGroupList" | "Administrators (full access)" | ""
         "Security/UserGroup/UserGroupDetail?userGroupId=ADMIN" |
                 "" | "System App (via root screen)"

@@ -104,6 +104,20 @@ public class StringUtilities {
         return newValue.toString();
     }
 
+    public static String replaceNonAlphaNumeric(String origString, char chr) {
+        if (origString == null || origString.isEmpty()) return origString;
+        int origLength = origString.length();
+        char[] orig = origString.toCharArray();
+        char[] repl = new char[origLength];
+        int replIdx = 0;
+        for (int i = 0; i < origLength; i++) {
+            char ochr = orig[i];
+            if (Character.isLetterOrDigit(ochr)) { repl[replIdx++] = ochr; }
+            else { if (replIdx == 0 || repl[replIdx-1] != chr) { repl[replIdx++] = chr; } }
+        }
+        return new String(repl, 0, replIdx);
+    }
+
     public static String decodeFromXml(String original) {
         if (original == null || original.isEmpty()) return original;
         int pos = original.indexOf("&");

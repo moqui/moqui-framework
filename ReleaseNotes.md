@@ -5,16 +5,33 @@
 
 Moqui Framework 2.0.1 is a patch level new feature and bug fix release.
 
+This release is primarily for the purpose of bug fixes, but has a few minor new features like DbResource and WikiPage version 
+management and a simple tool for ETL.
+
+There are also various changes for better server side handling of the new Vue based hybrid static/dynamic XML Screen rendering.
+See the moqui-runtime release notes for more details.
+
 ### New Features
 
 - Service jobs may now have a lastRunTime parameter passed by the job scheduler; lastRunTime on lock and passed to service is now
   the last run time without an error
+- Multi service calls now pass results from previous calls to subsequent calls if parameter names match, and return results
 - view-entity now supports member-entity with entity-condition and no key-map for more flexible join expressions
+- TransactionCache now handles more situations like using EntityListIterator.next() calls and not just getCompleteList(), and 
+  deletes through the tx cache are more cleanly handled for records created through the tx cache
+- ResourceReference support for versions in supported implementations, initially DbResourceReference
+- ResourceFacade locations now support a version suffix following a hash
+- Improved wiki services to track version along with underlying ResourceReference
+- New SimpleEtl class plus support for extract and load through EntityFacade
+- Various improvements in send#EmailTemplate, email view tracking with transparent pixel image
 
 ### Bug Fixes
 
 - Improved exception (throwable) handling for service jobs, now handled like other errors and don't break the scheduler
 - Fixed field.@hide attribute not working with runtime conditions, now evaluated each time a form-list is rendered
+- Fixed long standing issue with distinct counts and limited selected fields, now uses a distinct sub-select under a count select
+- Fixed issue with XML entity data loading using sub-elements for related entities and under those sub-elements for field data
+- Fixed regression in EntityFind where cache was used even if forUpdate was set 
 
 ## Release 2.0.0 - 24 Nov 2016
 
@@ -504,6 +521,13 @@ Gradle tasks.
 
 
 ## Long Term To Do List - aka Informal Road Map
+
+- PDF, Office, etc document indexing for wiki attachments (using Apache Tika)
+- Wiki page version history with full content history diff, etc; store just differences, lib for that?
+  - https://code.google.com/archive/p/java-diff-utils/
+    - compile group: 'com.googlecode.java-diff-utils', name: 'diffutils', version: '1.3.0'
+  - https://bitbucket.org/cowwoc/google-diff-match-patch/
+    - compile group: 'org.bitbucket.cowwoc', name: 'diff-match-patch', version: '1.1'
 
 - Option for transition to only mount if all response URLs for screen paths exist
 

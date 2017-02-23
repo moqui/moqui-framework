@@ -19,6 +19,7 @@ import org.apache.commons.csv.CSVFormat
 import org.apache.commons.csv.CSVParser
 import org.apache.commons.csv.CSVRecord
 import org.moqui.BaseException
+import org.moqui.impl.context.TransactionFacadeImpl
 import org.moqui.resource.ResourceReference
 import org.moqui.context.TransactionFacade
 import org.moqui.entity.EntityDataLoader
@@ -40,6 +41,7 @@ import org.xml.sax.helpers.DefaultHandler
 import javax.sql.rowset.serial.SerialBlob
 import javax.xml.parsers.SAXParser
 import javax.xml.parsers.SAXParserFactory
+import java.nio.charset.StandardCharsets
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 
@@ -237,7 +239,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         // logger.warn("========== Waiting 45s to attach profiler")
         // Thread.sleep(45000)
 
-        TransactionFacade tf = efi.ecfi.transactionFacade
+        TransactionFacadeImpl tf = efi.ecfi.transactionFacade
         tf.runRequireNew(transactionTimeout, "Error loading entity data", false, true, {
             // load the XML text in its own transaction
             if (this.xmlText) {
@@ -519,7 +521,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                         if (prevValueMap.containsKey(relationshipName)) {
                             Object prevRelValue = prevValueMap.get(relationshipName)
                             if (prevRelValue instanceof List) {
-                                prevRelValue.add(curRelMap)
+                                ((List) prevRelValue).add(curRelMap)
                             } else {
                                 prevValueMap.put(relationshipName, [prevRelValue, curRelMap])
                             }
@@ -532,7 +534,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                         if (rootValueMap.containsKey(relationshipName)) {
                             Object prevRelValue = rootValueMap.get(relationshipName)
                             if (prevRelValue instanceof List) {
-                                prevRelValue.add(curRelMap)
+                                ((List) prevRelValue).add(curRelMap)
                             } else {
                                 rootValueMap.put(relationshipName, [prevRelValue, curRelMap])
                             }
@@ -551,7 +553,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                         if (prevValueMap.containsKey(relationshipName)) {
                             Object prevRelValue = prevValueMap.get(relationshipName)
                             if (prevRelValue instanceof List) {
-                                prevRelValue.add(curRelMap)
+                                ((List) prevRelValue).add(curRelMap)
                             } else {
                                 prevValueMap.put(relationshipName, [prevRelValue, curRelMap])
                             }
@@ -564,7 +566,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                         if (rootValueMap.containsKey(relationshipName)) {
                             Object prevRelValue = rootValueMap.get(relationshipName)
                             if (prevRelValue instanceof List) {
-                                prevRelValue.add(curRelMap)
+                                ((List) prevRelValue).add(curRelMap)
                             } else {
                                 rootValueMap.put(relationshipName, [prevRelValue, curRelMap])
                             }
@@ -635,17 +637,29 @@ class EntityDataLoaderImpl implements EntityDataLoader {
 
             if (currentFieldName != null) {
                 if (currentFieldValue) {
-                    if (currentEntityDef != null) {
-                        if (currentEntityDef.isField(currentFieldName)) {
-                            FieldInfo fieldInfo = currentEntityDef.getFieldInfo(currentFieldName)
+                    EntityDefinition checkEd = currentEntityDef
+                    Map addToMap = rootValueMap
+                    if (relatedEdStack) {
+                        checkEd = relatedEdStack.get(0)
+                        addToMap = valueMapStack.get(0)
+                    }
+                    if (checkEd != null) {
+                        if (checkEd.isField(currentFieldName)) {
+                            FieldInfo fieldInfo = checkEd.getFieldInfo(currentFieldName)
                             if ("binary-very-long".equals(fieldInfo.type)) {
-                                byte[] binData = Base64.getDecoder().decode(currentFieldValue.toString())
-                                rootValueMap.put(currentFieldName, new SerialBlob(binData))
+                                String curStringValue = currentFieldValue.toString()
+                                try {
+                                    byte[] binData = Base64.getDecoder().decode(curStringValue)
+                                    addToMap.put(currentFieldName, new SerialBlob(binData))
+                                } catch (IllegalArgumentException e) {
+                                    if (logger.isTraceEnabled()) logger.trace("Value for binary-very-long field ${currentFieldName} entity ${checkEd.getFullEntityName()} is not Base64, using UTF-8 bytes")
+                                    addToMap.put(currentFieldName, new SerialBlob(curStringValue.getBytes(StandardCharsets.UTF_8)))
+                                }
                             } else {
-                                rootValueMap.put(currentFieldName, currentFieldValue.toString())
+                                addToMap.put(currentFieldName, currentFieldValue.toString())
                             }
                         } else {
-                            logger.warn("Ignoring invalid field name [${currentFieldName}] found for the entity ${currentEntityDef.getFullEntityName()} with value ${currentFieldValue} (line ${locator?.lineNumber})")
+                            logger.warn("Ignoring invalid field name ${currentFieldName} found for entity ${checkEd.getFullEntityName()} (line ${locator?.lineNumber}) with value: ${currentFieldValue}")
                         }
                     } else if (currentServiceDef != null) {
                         rootValueMap.put(currentFieldName, currentFieldValue)
@@ -704,7 +718,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             }
         }
 
-        public void setDocumentLocator(Locator locator) {
+        void setDocumentLocator(Locator locator) {
             this.locator = locator;
         }
     }

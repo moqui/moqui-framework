@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.context.renderer
 
+import groovy.transform.CompileStatic
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.resource.ResourceReference
 import org.moqui.context.TemplateRenderer
@@ -25,6 +26,7 @@ import org.slf4j.LoggerFactory
 
 import javax.cache.Cache
 
+@CompileStatic
 class MarkdownTemplateRenderer implements TemplateRenderer {
     protected final static Logger logger = LoggerFactory.getLogger(MarkdownTemplateRenderer.class)
 
@@ -43,31 +45,32 @@ class MarkdownTemplateRenderer implements TemplateRenderer {
     }
 
     void render(String location, Writer writer) {
-        String mdText;
-        if (templateMarkdownLocationCache instanceof MCache) {
-            MCache<String, String> mCache = (MCache) templateMarkdownLocationCache;
-            ResourceReference rr = ecfi.resourceFacade.getLocationReference(location);
-            long lastModified = rr != null ? rr.getLastModified() : 0L;
-            mdText = mCache.get(location, lastModified);
-        } else {
-            // TODO: doesn't support on the fly reloading without cache expire/clear!
-            mdText = templateMarkdownLocationCache.get(location);
-        }
-
-        if (mdText) {
-            writer.write(mdText)
-            return
+        boolean hasVersion = location.indexOf("#") > 0
+        String mdText
+        if (!hasVersion) {
+            if (templateMarkdownLocationCache instanceof MCache) {
+                MCache<String, String> mCache = (MCache) templateMarkdownLocationCache
+                ResourceReference rr = ecfi.resourceFacade.getLocationReference(location)
+                long lastModified = rr != null ? rr.getLastModified() : 0L
+                mdText = (String) mCache.get(location, lastModified)
+            } else {
+                // TODO: doesn't support on the fly reloading without cache expire/clear!
+                mdText = (String) templateMarkdownLocationCache.get(location)
+            }
+            if (mdText != null && !mdText.isEmpty()) {
+                writer.write(mdText)
+                return
+            }
         }
 
         String sourceText = ecfi.resourceFacade.getLocationText(location, false)
-        if (!sourceText) {
+        if (sourceText == null || sourceText.isEmpty()) {
             logger.warn("In Markdown template render got no text from location ${location}")
             return
         }
 
         //ScreenRenderImpl sri = (ScreenRenderImpl) ecfi.getExecutionContext().getContext().get("sri")
         // how to set base URL? if (sri != null) builder.setBase(sri.getBaseLinkUri())
-
         /*
         Markdown4jProcessor markdown4jProcessor = new Markdown4jProcessor()
         mdText = markdown4jProcessor.process(sourceText)
@@ -76,8 +79,9 @@ class MarkdownTemplateRenderer implements TemplateRenderer {
         PegDownProcessor pdp = new PegDownProcessor(pegDownOptions)
         mdText = pdp.markdownToHtml(sourceText)
 
-        if (mdText) {
-            templateMarkdownLocationCache.put(location, mdText)
+        // logger.warn("==== render md at ${location} version ${hasVersion} sourceText ${sourceText.length() > 100 ? sourceText.substring(0, 100) : sourceText}\nmdText ${mdText.length() > 100 ? mdText.substring(0, 100) : mdText}")
+        if (mdText != null && !mdText.isEmpty()) {
+            if (!hasVersion) templateMarkdownLocationCache.put(location, mdText)
             writer.write(mdText)
         }
     }

@@ -38,7 +38,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 @CompileStatic
-public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
+class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
     protected final static Logger logger = LoggerFactory.getLogger(ArtifactExecutionFacadeImpl.class)
 
     protected ExecutionContextImpl eci
@@ -52,6 +52,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
     protected boolean tarpitDisabled = false
     protected boolean entityEcaDisabled = false
     protected boolean entityAuditLogDisabled = false
+    protected boolean entityDataFeedDisabled = false
 
     ArtifactExecutionFacadeImpl(ExecutionContextImpl eci) {
         this.eci = eci
@@ -200,21 +201,25 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
         if (aeii.authorizedActionEnum != ArtifactExecutionInfo.AUTHZA_ALL) aeii.authorizedActionEnum = ArtifactExecutionInfo.AUTHZA_VIEW
     }
 
-    boolean disableAuthz() { boolean alreadyDisabled = this.authzDisabled; this.authzDisabled = true; return alreadyDisabled }
-    void enableAuthz() { this.authzDisabled = false }
+    boolean disableAuthz() { boolean alreadyDisabled = authzDisabled; authzDisabled = true; return alreadyDisabled }
+    void enableAuthz() { authzDisabled = false }
     boolean getAuthzDisabled() { return authzDisabled }
 
-    boolean disableTarpit() { boolean alreadyDisabled = this.tarpitDisabled; this.tarpitDisabled = true; return alreadyDisabled }
-    void enableTarpit() { this.tarpitDisabled = false }
+    boolean disableTarpit() { boolean alreadyDisabled = tarpitDisabled; tarpitDisabled = true; return alreadyDisabled }
+    void enableTarpit() { tarpitDisabled = false }
     // boolean getTarpitDisabled() { return tarpitDisabled }
 
-    boolean disableEntityEca() { boolean alreadyDisabled = this.entityEcaDisabled; this.entityEcaDisabled = true; return alreadyDisabled }
-    void enableEntityEca() { this.entityEcaDisabled = false }
-    boolean entityEcaDisabled() { return this.entityEcaDisabled }
+    boolean disableEntityEca() { boolean alreadyDisabled = entityEcaDisabled; entityEcaDisabled = true; return alreadyDisabled }
+    void enableEntityEca() { entityEcaDisabled = false }
+    boolean entityEcaDisabled() { return entityEcaDisabled }
 
-    boolean disableEntityAuditLog() { boolean alreadyDisabled = this.entityAuditLogDisabled; this.entityAuditLogDisabled = true; return alreadyDisabled }
-    void enableEntityAuditLog() { this.entityAuditLogDisabled = false }
-    boolean entityAuditLogDisabled() { return this.entityAuditLogDisabled }
+    boolean disableEntityAuditLog() { boolean alreadyDisabled = entityAuditLogDisabled; entityAuditLogDisabled = true; return alreadyDisabled }
+    void enableEntityAuditLog() { entityAuditLogDisabled = false }
+    boolean entityAuditLogDisabled() { return entityAuditLogDisabled }
+
+    boolean disableEntityDataFeed() { boolean alreadyDisabled = entityDataFeedDisabled; entityDataFeedDisabled = true; return alreadyDisabled }
+    void enableEntityDataFeed() { entityDataFeedDisabled = false }
+    boolean entityDataFeedDisabled() { return entityDataFeedDisabled }
 
     /** Checks to see if username is permitted to access given resource.
      *
@@ -365,7 +370,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
             } else {
                 StringBuilder warning = new StringBuilder()
                 warning.append("User [${userId}] is not authorized for ${aeii.getTypeDescription()} [${aeii.getName()}] because of a deny record [type:${artifactTypeEnum.name()},action:${aeii.getActionEnum().name()}], here is the current artifact stack:")
-                for (def warnAei in this.stack) warning.append("\n").append(warnAei.toString())
+                for (warnAei in this.stack) warning.append("\n").append(warnAei.toString())
                 logger.warn(warning.toString())
 
                 eci.getService().sync().name("create", "moqui.security.ArtifactAuthzFailure").parameters(
@@ -410,7 +415,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
             if (logger.isDebugEnabled()) {
                 StringBuilder warning = new StringBuilder()
                 warning.append("User [${userId}] is not authorized for ${aeii.getTypeDescription()} [${aeii.getName()}] because of no allow record [type:${artifactTypeEnum.name()},action:${aeii.getActionEnum().name()}]\nlastAeii=[${lastAeii}]\nHere is the artifact stack:")
-                for (def warnAei in this.stack) warning.append("\n").append(warnAei)
+                for (warnAei in this.stack) warning.append("\n").append(warnAei)
                 logger.debug(warning.toString())
             }
 

@@ -23,6 +23,7 @@ import org.apache.commons.fileupload.disk.DiskFileItemFactory
 import org.apache.commons.fileupload.servlet.ServletFileUpload
 import org.moqui.context.*
 import org.moqui.entity.EntityNotFoundException
+import org.moqui.entity.EntityValue
 import org.moqui.entity.EntityValueNotFoundException
 import org.moqui.util.WebUtilities
 import org.moqui.impl.context.ExecutionContextFactoryImpl.WebappInfo
@@ -178,6 +179,8 @@ class WebFacadeImpl implements WebFacade {
     /** Apache Commons FileUpload does not support string array so when using multiple select and there's a duplicate
      * fieldName convert value to an array list when fieldName is already in multipart parameters. */
     private void addValueToMultipartParameterMap(String key, Object value) {
+        // change &nbsp; (\u00a0) to null, used as a placeholder when empty string doesn't work
+        if ("\u00a0".equals(value)) value = null
         Object previousValue = multiPartParameters.put(key, value)
         if (previousValue != null) {
             List<Object> valueList = new ArrayList<>()
@@ -568,6 +571,7 @@ class WebFacadeImpl implements WebFacade {
         String jsonStr
         if (responseObj instanceof CharSequence) {
             jsonStr = responseObj.toString()
+            responseObj = null
         } else {
             if (eci.message.messages) {
                 if (responseObj == null) {
@@ -581,40 +585,29 @@ class WebFacadeImpl implements WebFacade {
             }
 
             if (eci.getMessage().hasError()) {
-                JsonBuilder jb = new JsonBuilder()
                 // if the responseObj is a Map add all of it's data
-                if (responseObj instanceof Map) {
-                    // only add an errors if it is not a jsonrpc response (JSON RPC has it's own error handling)
-                    if (!responseObj.containsKey("jsonrpc")) {
-                        Map responseMap = new HashMap()
-                        responseMap.putAll(responseObj)
-                        responseMap.put("errors", eci.message.errorsString)
-                        responseObj = responseMap
-                    }
-                    jb.call(responseObj)
-                } else if (responseObj != null) {
-                    logger.error("Error found when sending JSON string but JSON object is not a Map so not sending: ${eci.message.errorsString}")
-                    jb.call(responseObj)
+                // only add an errors if it is not a jsonrpc response (JSON RPC has it's own error handling)
+                if (responseObj instanceof Map && !responseObj.containsKey("errors") && !responseObj.containsKey("jsonrpc")) {
+                    Map responseMap = new HashMap()
+                    responseMap.putAll(responseObj)
+                    responseMap.put("errors", eci.message.errorsString)
+                    responseObj = responseMap
+                } else if (responseObj != null && !(responseObj instanceof Map)) {
+                    logger.error("Error found when sending JSON string but JSON object is not a Map so not sending errors: ${eci.message.errorsString}")
                 }
-
-                jsonStr = jb.toString()
                 response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR)
-            } else if (responseObj != null) {
-                // logger.warn("========== Sending JSON for object: ${responseObj}")
-                JsonBuilder jb = new JsonBuilder()
-                if (responseObj instanceof Map) {
-                    jb.call((Map) responseObj)
-                } else if (responseObj instanceof List) {
-                    jb.call((List) responseObj)
-                } else {
-                    jb.call((Object) responseObj)
-                }
-                jsonStr = jb.toPrettyString()
-                response.setStatus(HttpServletResponse.SC_OK)
             } else {
-                jsonStr = ""
                 response.setStatus(HttpServletResponse.SC_OK)
             }
+        }
+
+        // logger.warn("========== Sending JSON for object: ${responseObj}")
+        if (responseObj != null) {
+            JsonBuilder jb = new JsonBuilder()
+            if (responseObj instanceof Map) { jb.call((Map) responseObj) }
+            else if (responseObj instanceof List) { jb.call((List) responseObj) }
+            else { jb.call((Object) responseObj) }
+            jsonStr = jb.toPrettyString()
         }
 
         if (!jsonStr) return
@@ -712,14 +705,18 @@ class WebFacadeImpl implements WebFacade {
     }
     static void sendResourceResponseInternal(String location, boolean inline, ExecutionContextImpl eci, HttpServletResponse response) {
         ResourceReference rr = eci.resource.getLocationReference(location)
-        if (rr == null) throw new IllegalArgumentException("Resource not found at: ${location}")
-        response.setContentType(rr.contentType)
+        if (rr == null) {
+            logger.warn("Sending not found response, resource not found at: ${location}")
+            response.sendError(HttpServletResponse.SC_NOT_FOUND)
+            return
+        }
+        String contentType = rr.getContentType()
+        if (contentType) response.setContentType(contentType)
         if (inline) {
             response.addHeader("Content-Disposition", "inline")
         } else {
             response.addHeader("Content-Disposition", "attachment; filename=\"${rr.getFileName()}\"; filename*=utf-8''${StringUtilities.encodeAsciiFilename(rr.getFileName())}")
         }
-        String contentType = rr.getContentType()
         if (!contentType || ResourceReference.isBinaryContentType(contentType)) {
             InputStream is = rr.openStream()
             try {
@@ -994,6 +991,36 @@ class WebFacadeImpl implements WebFacade {
         if (requestParameters) parms.putAll(requestParameters)
         if (requestAttributes) parms.putAll(requestAttributes)
         session.setAttribute("moqui.error.parameters", parms)
+    }
+
+    static byte[] trackingPng = [(byte)0x89,0x50,0x4E,0x47,0x0D,0x0A,0x1A,0x0A,0x00,0x00,0x00,0x0D,0x49,0x48,0x44,0x52,0x00,0x00,0x00,
+                                 0x01,0x00,0x00,0x00,0x01,0x08,0x06,0x00,0x00,0x00,0x1F,0x15,(byte)0xC4,(byte)0x89,0x00,0x00,0x00,0x0B,
+                                 0x49,0x44,0x41,0x54,0x78,(byte)0xDA,0x63,0x60,0x00,0x02,0x00,0x00,0x05,0x00,0x01,(byte)0xE9,(byte)0xFA,
+                                 (byte)0xDC,(byte)0xD8,0x00,0x00,0x00,0x00,0x49,0x45,0x4E,0x44,(byte)0xAE,0x42,0x60,(byte)0x82]
+    void viewEmailMessage() {
+        // first send the empty image
+        response.setContentType('image/png')
+        response.addHeader("Content-Disposition", "inline")
+        OutputStream os = response.outputStream
+        try { os.write(trackingPng) } finally { os.close() }
+        // mark the message viewed
+        try {
+            String emailMessageId = eci.contextStack.get("emailMessageId")
+            if (emailMessageId != null && !emailMessageId.isEmpty()) {
+                int dotIndex = emailMessageId.indexOf(".")
+                if (dotIndex > 0) emailMessageId = emailMessageId.substring(0, dotIndex)
+                EntityValue emailMessage = eci.entity.find("moqui.basic.email.EmailMessage").condition("emailMessageId", emailMessageId)
+                        .disableAuthz().one()
+                if (emailMessage == null) {
+                    logger.warn("Tried to mark EmailMessage ${emailMessageId} viewed but not found")
+                } else if (!"ES_VIEWED".equals(emailMessage.statusId)) {
+                    eci.service.sync().name("update#moqui.basic.email.EmailMessage").parameter("emailMessageId", emailMessageId)
+                            .parameter("statusId", "ES_VIEWED").parameter("receivedDate", eci.user.nowTimestamp).disableAuthz().call()
+                }
+            }
+        } catch (Throwable t) {
+            logger.error("Error marking EmailMessage viewed", t)
+        }
     }
 
     protected DiskFileItemFactory makeDiskFileItemFactory() {

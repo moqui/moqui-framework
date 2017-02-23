@@ -52,8 +52,23 @@ try {
         if (emailTemplate.bccAddresses) bccAddresses = bccAddresses + "," + emailTemplate.bccAddresses
     } else { bccAddresses = emailTemplate.bccAddresses }
 
-    // prepare the subject
-    String subject = ec.resource.expand((String) emailTemplate.subject, "")
+    // prepare the fromAddress, fromName, subject; no type or def so that they go into the context for templates
+    fromAddress = ec.resource.expand((String) emailTemplate.fromAddress, "")
+    fromName = ec.resource.expand((String) emailTemplate.fromName, "")
+    subject = ec.resource.expand((String) emailTemplate.subject, "")
+
+    // create an moqui.basic.email.EmailMessage record with info about this sent message
+    // NOTE: can do anything with? purposeEnumId
+    if (createEmailMessage) {
+        Map cemParms = [statusId:"ES_DRAFT", subject:subject,
+                        fromAddress:fromAddress, toAddresses:toAddresses, ccAddresses:ccAddresses, bccAddresses:bccAddresses,
+                        contentType:"text/html", emailTypeEnumId:emailTypeEnumId,
+                        emailTemplateId:emailTemplateId, emailServerId:emailTemplate.emailServerId,
+                        fromUserId:(fromUserId ?: ec.user?.userId), toUserId:toUserId]
+        Map cemResults = ec.service.sync().name("create", "moqui.basic.email.EmailMessage").requireNewTransaction(true)
+                .parameters(cemParms).disableAuthz().call()
+        emailMessageId = cemResults.emailMessageId
+    }
 
     // prepare the html message
     def bodyRender = ec.screen.makeRender().rootScreen((String) emailTemplate.bodyScreenLocation)
@@ -66,31 +81,26 @@ try {
             .webappName((String) emailTemplate.webappName).renderMode("text")
     String bodyText = bodyTextRender.render()
 
-    // create an moqui.basic.email.EmailMessage record with info about this sent message
-    // NOTE: can do anything with: purposeEnumId, toUserId?
-    if (createEmailMessage) {
-        Map cemParms = [sentDate:ec.user.nowTimestamp, statusId:"ES_READY", subject:subject, body:bodyHtml,
-                        fromAddress:emailTemplate.fromAddress, toAddresses:toAddresses,
-                        ccAddresses:ccAddresses, bccAddresses:bccAddresses,
-                        contentType:"text/html", emailTemplateId:emailTemplateId, emailServerId:emailTemplate.emailServerId,
-                        fromUserId:ec.user?.userId]
-        Map cemResults = ec.service.sync().name("create", "moqui.basic.email.EmailMessage").requireNewTransaction(true)
-                .parameters(cemParms).disableAuthz().call()
-        emailMessageId = cemResults.emailMessageId
+    if (emailMessageId) {
+        ec.service.sync().name("update", "moqui.basic.email.EmailMessage").requireNewTransaction(true)
+                .parameters([emailMessageId:emailMessageId, statusId:"ES_READY", body:bodyHtml, bodyText:bodyText])
+                .disableAuthz().call()
     }
 
     def emailTemplateAttachmentList = emailTemplate."moqui.basic.email.EmailTemplateAttachment"
     emailServer = emailTemplate."moqui.basic.email.EmailServer"
 
     // check a couple of required fields
-    if (!emailServer) ec.message.addError(ec.resource.expand('No EmailServer record found for EmailTemplate [${emailTemplateId}]',''))
-    if (emailServer && !emailServer.smtpHost)
-        ec.message.addError(ec.resource.expand('SMTP Host is empty for EmailServer [${emailServer.emailServerId}]',''))
-    if (emailTemplate && !emailTemplate.fromAddress)
-        ec.message.addError(ec.resource.expand('From address is empty for EmailTemplate [${emailTemplateId}]',''))
+    if (!emailServer) ec.message.addError(ec.resource.expand('No EmailServer record found for EmailTemplate ${emailTemplateId}',''))
+    if (emailTemplate && !fromAddress) ec.message.addError(ec.resource.expand('From address is empty for EmailTemplate ${emailTemplateId}',''))
     if (ec.message.hasError()) {
         logger.info("Error sending email: ${ec.message.getErrorsString()}\nbodyHtml:\n${bodyHtml}\nbodyText:\n${bodyText}")
-        if (emailMessageId) logger.info("Email with error saved as Readyin EmailMessage [${emailMessageId}]")
+        if (emailMessageId) logger.info("Email with error saved as Ready in EmailMessage [${emailMessageId}]")
+        return
+    }
+    if (emailServer && !emailServer.smtpHost) {
+        logger.warn("SMTP Host is empty for EmailServer ${emailServer.emailServerId}, not sending email ${emailMessageId} template ${emailTemplateId}")
+        // logger.warn("SMTP Host is empty for EmailServer ${emailServer.emailServerId}, not sending email:\nbodyHtml:\n${bodyHtml}\nbodyText:\n${bodyText}")
         return
     }
 
@@ -118,19 +128,19 @@ try {
     email.setSubject(subject)
 
     // set from, reply to, bounce addresses
-    email.setFrom((String) emailTemplate.fromAddress, (String) emailTemplate.fromName)
+    email.setFrom(fromAddress, fromName)
     if (emailTemplate.replyToAddresses) {
         def rtList = ((String) emailTemplate.replyToAddresses).split(",")
-        for (def address in rtList) email.addReplyTo(address.trim())
+        for (address in rtList) email.addReplyTo(address.trim())
     }
     if (emailTemplate.bounceAddress) email.setBounceAddress((String) emailTemplate.bounceAddress)
 
     // set to, cc, bcc addresses
     def toList = ((String) toAddresses).split(",")
-    for (def toAddress in toList) email.addTo(toAddress.trim())
+    for (toAddress in toList) email.addTo(toAddress.trim())
     if (ccAddresses) {
         def ccList = ((String) ccAddresses).split(",")
-        for (def ccAddress in ccList) email.addCc(ccAddress.trim())
+        for (ccAddress in ccList) email.addCc(ccAddress.trim())
     }
     if (bccAddresses) {
         def bccList = ((String) bccAddresses).split(",")
@@ -143,7 +153,7 @@ try {
     if (bodyText) email.setTextMsg(bodyText)
     //email.setTextMsg("Your email client does not support HTML messages")
 
-    for (def emailTemplateAttachment in emailTemplateAttachmentList) {
+    for (emailTemplateAttachment in emailTemplateAttachmentList) {
         if (emailTemplateAttachment.screenRenderMode) {
             def attachmentRender = ec.screen.makeRender().rootScreen((String) emailTemplateAttachment.attachmentLocation)
                     .webappName((String) emailTemplate.webappName).renderMode((String) emailTemplateAttachment.screenRenderMode)
@@ -177,8 +187,9 @@ try {
     messageId = email.send()
 
     if (emailMessageId) {
-        ec.service.sync().name("update", "moqui.basic.email.EmailMessage")
-                .parameters([emailMessageId:emailMessageId, statusId:"ES_SENT", messageId:messageId]).disableAuthz().call()
+        ec.service.sync().name("update", "moqui.basic.email.EmailMessage").requireNewTransaction(true)
+                .parameters([emailMessageId:emailMessageId, sentDate:ec.user.nowTimestamp, statusId:"ES_SENT", messageId:messageId])
+                .disableAuthz().call()
     }
 
     return

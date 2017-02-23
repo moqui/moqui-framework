@@ -36,7 +36,7 @@ import org.slf4j.LoggerFactory
 import java.sql.Timestamp
 
 @CompileStatic
-public class EntityAutoServiceRunner implements ServiceRunner {
+class EntityAutoServiceRunner implements ServiceRunner {
     protected final static Logger logger = LoggerFactory.getLogger(EntityAutoServiceRunner.class)
 
     final static Set<String> verbSet = new HashSet(['create', 'update', 'delete', 'store'])
@@ -166,7 +166,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
                     "could not find a valid combination of primary key settings to do a create operation; options include: " +
                     "1. a single entity primary-key field for primary auto-sequencing with or without matching in-parameter, and with or without matching out-parameter for the possibly sequenced value, " +
                     "2. a 2-part entity primary-key with one part passed in as an in-parameter (existing primary pk value) and with or without the other part defined as an out-parameter (the secodnary pk to sub-sequence), " +
-                    "3. all entity pk fields are passed into the service");
+                    "3. all entity pk fields are passed into the service")
         }
 
         // logger.info("In auto createEntity allPksIn [${allPksIn}] isSinglePk [${isSinglePk}] isDoublePk [${isDoublePk}] newEntityValue final [${newEntityValue}]")
@@ -358,7 +358,7 @@ public class EntityAutoServiceRunner implements ServiceRunner {
 
         // add in all of the main entity's primary key fields, this is necessary for auto-generated, and to
         //     allow them to be left out of related records
-        if (parentPks) parameters.putAll(parentPks)
+        if (parentPks != null) parameters.putAll(parentPks)
 
         checkFromDate(ed, parameters, result, ecfi)
 
@@ -409,13 +409,13 @@ public class EntityAutoServiceRunner implements ServiceRunner {
         if (parentPks) sharedPkMap.putAll(parentPks)
 
         Map nonFieldEntries = ed.entityInfo.cloneMapRemoveFields(parameters, null)
-        for (Map.Entry entry in nonFieldEntries.entrySet()) {
+        if (nonFieldEntries.size() > 0) for (Map.Entry entry in nonFieldEntries.entrySet()) {
             Object relParmObj = entry.getValue()
-            if (!relParmObj) continue
+            if (relParmObj == null) continue
             // if the entry is not a Map or List ignore it, we're only looking for those
             if (!(relParmObj instanceof Map) && !(relParmObj instanceof List)) continue
-
             String entryName = (String) entry.getKey()
+
             if (parentPks != null && parentPks.containsKey(entryName)) continue
             if (otherFieldsToSkip.contains(entryName)) continue
 

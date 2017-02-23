@@ -127,6 +127,9 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="background-message" type="xs:string">
                 <xs:annotation><xs:documentation>After the form is submitted in the background show this message in a dialog.</xs:documentation></xs:annotation>
             </xs:attribute>
+            <xs:attribute name="server-static" type="xs:string">
+                <xs:annotation><xs:documentation>See details for the screen.@server-static attribute. Defaults to the screen's value.</xs:documentation></xs:annotation>
+            </xs:attribute>
         </xs:complexType>
     </xs:element>
 
@@ -225,6 +228,9 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="dynamic" type="boolean" default="false">
                 <xs:annotation><xs:documentation>If true then this form will be considered dynamic and the internal
                     definition will be built up each time it is used instead of only when first referred to.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="server-static" type="xs:string">
+                <xs:annotation><xs:documentation>See details for the screen.@server-static attribute. Defaults to the screen's value.</xs:documentation></xs:annotation>
             </xs:attribute>
         </xs:complexType>
     </xs:element>
@@ -430,18 +436,12 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="type" default="span">
                 <xs:simpleType><xs:restriction base="xs:token">
                     <xs:enumeration value="p"/>
-                    <xs:enumeration value="pre"/>
-                    <xs:enumeration value="code"/>
-                    <xs:enumeration value="div"/>
-                    <xs:enumeration value="span"/>
-                    <xs:enumeration value="strong"/>
-                    <xs:enumeration value="i"/>
-                    <xs:enumeration value="h1"/>
-                    <xs:enumeration value="h2"/>
-                    <xs:enumeration value="h3"/>
-                    <xs:enumeration value="h4"/>
-                    <xs:enumeration value="h5"/>
-                    <xs:enumeration value="h6"/>
+                    <xs:enumeration value="pre"/><xs:enumeration value="code"/>
+                    <xs:enumeration value="div"/><xs:enumeration value="span"/>
+                    <xs:enumeration value="strong"/><xs:enumeration value="i"/>
+                    <xs:enumeration value="h1"/><xs:enumeration value="h2"/><xs:enumeration value="h3"/>
+                    <xs:enumeration value="h4"/><xs:enumeration value="h5"/><xs:enumeration value="h6"/>
+                    <xs:enumeration value="dt"/><xs:enumeration value="dd"/>
                 </xs:restriction></xs:simpleType>
             </xs:attribute>
             <xs:attribute name="id" type="xs:string"/>
@@ -474,16 +474,10 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="text" type="xs:string" use="required"/>
             <xs:attribute name="type" default="span">
                 <xs:simpleType><xs:restriction base="xs:token">
-                    <xs:enumeration value="p"/>
-                    <xs:enumeration value="pre"/>
-                    <xs:enumeration value="span"/>
-                    <xs:enumeration value="div"/>
-                    <xs:enumeration value="strong"/>
-                    <xs:enumeration value="h1"/>
-                    <xs:enumeration value="h2"/>
-                    <xs:enumeration value="h3"/>
-                    <xs:enumeration value="h4"/>
-                    <xs:enumeration value="h5"/>
+                    <xs:enumeration value="p"/><xs:enumeration value="pre"/>
+                    <xs:enumeration value="span"/><xs:enumeration value="div"/><xs:enumeration value="strong"/>
+                    <xs:enumeration value="h1"/><xs:enumeration value="h2"/><xs:enumeration value="h3"/>
+                    <xs:enumeration value="h4"/><xs:enumeration value="h5"/>
                 </xs:restriction></xs:simpleType>
             </xs:attribute>
             <xs:attribute name="widget-type" default="textarea">
@@ -1081,6 +1075,9 @@ along with this software (see the LICENSE.md file). If not, see
             </xs:attribute>
             <xs:attribute name="label-field" type="xs:string" default="label">
                 <xs:annotation><xs:documentation>The field in the result that represents the label for the option.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="depends-optional" type="boolean" default="false">
+                <xs:annotation><xs:documentation>Set to true to get options even if a depends-on field is empty.</xs:documentation></xs:annotation>
             </xs:attribute>
         </xs:complexType>
     </xs:element>

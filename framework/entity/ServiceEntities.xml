@@ -14,6 +14,17 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-2.0.xsd">
 
+    <entity entity-name="ServiceRegister" package="moqui.service" use="configuration" cache="true">
+        <field name="serviceRegisterId" type="id" is-pk="true"/>
+        <field name="serviceTypeEnumId" type="id"/>
+        <field name="description" type="text-medium"/>
+        <field name="serviceName" type="text-medium"/>
+        <field name="configParameters" type="text-medium"/>
+        <relationship type="one" title="ServiceRegisterType" related="moqui.basic.Enumeration" short-alias="serviceTypeEnum">
+            <key-map field-name="serviceTypeEnumId"/></relationship>
+        <seed-data><moqui.basic.EnumerationType description="Service Register Type" enumTypeId="ServiceRegisterType"/></seed-data>
+    </entity>
+
     <!-- ========================================================= -->
     <!-- moqui.service.job -->
     <!-- ========================================================= -->

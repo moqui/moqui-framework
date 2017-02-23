@@ -24,6 +24,8 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="bccAddresses" type="String"><description>Comma separated list of BCC email addresses</description></parameter>
             <parameter name="bodyParameters" type="Map"/>
             <parameter name="createEmailMessage" type="Boolean" default="true"/>
+            <parameter name="emailTypeEnumId"/>
+            <parameter name="fromUserId"/><parameter name="toUserId"/>
         </in-parameters>
         <out-parameters>
             <parameter name="messageId"><description>From the Message-ID email header field.</description></parameter>

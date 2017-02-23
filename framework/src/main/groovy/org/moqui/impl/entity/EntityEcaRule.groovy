@@ -57,16 +57,19 @@ class EntityEcaRule {
         // see if we match this event and should run
 
         // check this first since it is the most common disqualifier
-        String attrName = "on-${operation}"
-        if (eecaNode.attribute(attrName) != "true") return
+        String attrName = "on-".concat(operation)
+        if (!"true".equals(eecaNode.attribute(attrName))) return
 
-        if (entityName != eecaNode.attribute("entity")) return
-        if (ec.getMessage().hasError() && eecaNode.attribute("run-on-error") != "true") return
+        if (!entityName.equals(eecaNode.attribute("entity"))) return
+        if (ec.messageFacade.hasError() && !"true".equals(eecaNode.attribute("run-on-error"))) return
 
         EntityValue curValue = null
 
+        boolean isDelete = "delete".equals(operation)
+        boolean isUpdate = !isDelete && "update".equals(operation)
+
         // grab DB values before a delete so they are available after; this modifies fieldValues used by EntityValueBase
-        if (before && operation == "delete" && eecaNode.attribute("get-entire-entity") == "true") {
+        if (before && isDelete && eecaNode.attribute("get-entire-entity") == "true") {
             // fill in any missing (unset) values from the DB
             if (curValue == null) curValue = getDbValue(fieldValues)
             if (curValue != null) {
@@ -78,7 +81,7 @@ class EntityEcaRule {
 
         // do this before even if EECA rule runs after to get the original value from the DB and put in the entity's dbValue Map
         EntityValue originalValue = null
-        if (before && (operation == "update" || operation == "delete") && eecaNode.attribute("get-original-value") == "true") {
+        if (before && (isUpdate || isDelete) && "true".equals(eecaNode.attribute("get-original-value"))) {
             if (curValue == null) curValue = getDbValue(fieldValues)
             originalValue = curValue
             // also put DB values in the fieldValues EntityValue if it isn't from DB (to have for future reference)
@@ -88,16 +91,16 @@ class EntityEcaRule {
             }
         }
 
-        if (before && eecaNode.attribute("run-before") != "true") return
-        if (!before && eecaNode.attribute("run-before") == "true") return
+        if (before && !"true".equals(eecaNode.attribute("run-before"))) return
+        if (!before && "true".equals(eecaNode.attribute("run-before"))) return
 
         // now if we're running after the entity operation, pull the original value from the
         if (!before && fieldValues instanceof EntityValueBase && fieldValues.getIsFromDb() &&
-                (operation == "update" || operation == "delete") && eecaNode.attribute("get-original-value") == "true") {
+                (isUpdate || isDelete) && eecaNode.attribute("get-original-value") == "true") {
             originalValue = fieldValues.cloneDbValue(true)
         }
 
-        if ((operation == "update" || operation == "delete") && eecaNode.attribute("get-entire-entity") == "true") {
+        if ((isUpdate || isDelete) && eecaNode.attribute("get-entire-entity") == "true") {
             // fill in any missing (unset) values from the DB
             if (curValue == null) curValue = getDbValue(fieldValues)
             if (curValue != null) {
