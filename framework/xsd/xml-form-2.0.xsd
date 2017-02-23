@@ -229,13 +229,10 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:annotation><xs:documentation>If true then this form will be considered dynamic and the internal
                     definition will be built up each time it is used instead of only when first referred to.</xs:documentation></xs:annotation>
             </xs:attribute>
-<<<<<<< HEAD
             <xs:attribute name="server-static" type="xs:string">
                 <xs:annotation><xs:documentation>See details for the screen.@server-static attribute. Defaults to the screen's value.</xs:documentation></xs:annotation>
-=======
             <xs:attribute name="button-content-to-display" type="boolean" default="false">
                 <xs:annotation><xs:documentation>Shows a total in the pagination section.</xs:documentation></xs:annotation>
->>>>>>> refs/remotes/origin/main_develop_update_161229
             </xs:attribute>
         </xs:complexType>
     </xs:element>
