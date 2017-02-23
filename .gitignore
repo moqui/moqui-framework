@@ -1,9 +1,10 @@
 # separate addons file to add/override components
-myaddons.xml
+# myaddons.xml
 
 # gradle/build files
 build
 .gradle
+.shelf
 /framework/dependencies
 
 # build generated files
