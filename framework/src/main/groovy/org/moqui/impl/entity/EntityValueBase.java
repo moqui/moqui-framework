@@ -1282,9 +1282,13 @@ public abstract class EntityValueBase implements EntityValue {
                 FieldInfo fieldInfo = allNonPkFieldArray[i];
                 String fieldName = fieldInfo.name;
                 if (isFieldModified(fieldName)) {
+                    if (fieldInfo.isLastUpdatedStamp) {
+                        // more stringent is modified check for lastUpdatedStamp
+                        if (dbValueMap == null || dbValueMap.get(fieldName) == null) continue;
+                        modifiedLastUpdatedStamp = true;
+                    }
                     nonPkFieldArray[nonPkFieldArrayIndex] = fieldInfo;
                     nonPkFieldArrayIndex++;
-                    if (fieldInfo.isLastUpdatedStamp) modifiedLastUpdatedStamp = true;
                     if (createOnlyAny && fieldInfo.createOnly) {
                         if (changedCreateOnlyFields == null) changedCreateOnlyFields = new ArrayList<>();
                         changedCreateOnlyFields.add(fieldName);
