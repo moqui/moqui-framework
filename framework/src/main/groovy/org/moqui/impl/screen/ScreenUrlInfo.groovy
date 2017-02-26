@@ -80,8 +80,6 @@ class ScreenUrlInfo {
 
     /** All screens found in the path list */
     ArrayList<ScreenDefinition> screenPathDefList = new ArrayList<ScreenDefinition>()
-    /** The list of screens to render, starting with the root screen OR the last standalone screen if applicable */
-    ArrayList<ScreenDefinition> screenRenderDefList = new ArrayList<ScreenDefinition>()
     int renderPathDifference = 0
     /** positive lastStandalone means how many to include from the end back, negative how many path elements to skip from the beginning */
     int lastStandalone = 0
@@ -218,8 +216,8 @@ class ScreenUrlInfo {
     }
 
     ScreenDefinition getParentScreen() {
-        if (screenRenderDefList.size() > 1) {
-            return screenRenderDefList.get(screenRenderDefList.size() - 2)
+        if (screenPathDefList.size() > 1) {
+            return screenPathDefList.get(screenPathDefList.size() - 2)
         } else {
             return null
         }
@@ -364,6 +362,8 @@ class ScreenUrlInfo {
         // TODO: use this in all calling code (expand url before creating/caching so that we have the full/unique one)
         // support string expansion if there is a "${"
         // if (fromScreenPath.contains('${')) fromScreenPath = ec.getResource().expand(fromScreenPath, "")
+
+        ArrayList<ScreenDefinition> screenRenderDefList = new ArrayList<ScreenDefinition>()
 
         ArrayList<String> subScreenPath = parseSubScreenPath(rootSd, fromSd, fromPathList, fromScreenPath, pathParameterMap, sfi)
         if (subScreenPath == null) {
@@ -638,18 +638,17 @@ class ScreenUrlInfo {
         sui.sfi = this.sfi
         sui.rootSd = this.rootSd
         sui.fromSd = this.fromSd
-        sui.fromPathList = this.fromPathList!=null ? new ArrayList<String>(this.fromPathList) : null
+        sui.fromPathList = this.fromPathList != null ? new ArrayList<String>(this.fromPathList) : null
         sui.fromScreenPath = this.fromScreenPath
-        sui.pathParameterMap = this.pathParameterMap!=null ? new HashMap(this.pathParameterMap) : null
+        sui.pathParameterMap = this.pathParameterMap != null ? new HashMap(this.pathParameterMap) : null
         sui.requireEncryption = this.requireEncryption
         sui.beginTransaction = this.beginTransaction
-        sui.fullPathNameList = this.fullPathNameList!=null ? new ArrayList<String>(this.fullPathNameList) : null
-        sui.minimalPathNameList = this.minimalPathNameList!=null ? new ArrayList<String>(this.minimalPathNameList) : null
-        sui.fileResourcePathList = this.fileResourcePathList!=null ? new ArrayList<String>(this.fileResourcePathList) : null
+        sui.fullPathNameList = this.fullPathNameList != null ? new ArrayList<String>(this.fullPathNameList) : null
+        sui.minimalPathNameList = this.minimalPathNameList != null ? new ArrayList<String>(this.minimalPathNameList) : null
+        sui.fileResourcePathList = this.fileResourcePathList != null ? new ArrayList<String>(this.fileResourcePathList) : null
         sui.fileResourceRef = this.fileResourceRef
         sui.fileResourceContentType = this.fileResourceContentType
-        sui.screenPathDefList = this.screenPathDefList!=null ? new ArrayList<ScreenDefinition>(this.screenPathDefList) : null
-        sui.screenRenderDefList = this.screenRenderDefList!=null ? new ArrayList<ScreenDefinition>(this.screenRenderDefList) : null
+        sui.screenPathDefList = this.screenPathDefList != null ? new ArrayList<ScreenDefinition>(this.screenPathDefList) : null
         sui.renderPathDifference = this.renderPathDifference
         sui.lastStandalone = this.lastStandalone
         sui.targetScreen = this.targetScreen
