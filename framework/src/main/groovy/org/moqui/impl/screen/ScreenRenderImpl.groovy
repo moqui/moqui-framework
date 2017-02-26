@@ -1207,6 +1207,10 @@ class ScreenRenderImpl implements ScreenRender {
     }
 
     String getFieldValueString(MNode widgetNode) {
+        return getFieldValueString(widgetNode, ec.user.locale)
+    }
+
+    String getFieldValueString(MNode widgetNode, Locale locale) {
         MNode fieldNodeWrapper = widgetNode.parent.parent
         String defaultValue = widgetNode.attribute("default-value")
         if (defaultValue == null) defaultValue = ""
@@ -1219,9 +1223,14 @@ class ScreenRenderImpl implements ScreenRender {
         Object obj = getFieldValue(fieldNodeWrapper, defaultValue)
         if (obj == null) return ""
         if (obj instanceof String) return (String) obj
-        String strValue = ec.l10nFacade.format(obj, format)
+        String strValue = ec.l10nFacade.format(obj, format, locale)
         return strValue
     }
+
+    String getFieldValueStringUS(MNode widgetNode) {
+        return getFieldValueString(widgetNode, new Locale("en", "US"))
+    }
+
     String getFieldValueString(MNode fieldNodeWrapper, String defaultValue, String format) {
         Object obj = getFieldValue(fieldNodeWrapper, defaultValue)
         if (obj == null) return ""
