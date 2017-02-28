@@ -61,6 +61,7 @@ public class ServiceDefinition {
     public final XmlAction xmlAction;
 
     public final String authenticate;
+    public final ArtifactExecutionInfo.AuthzAction authzAction;
     public final String serviceType;
     public final ServiceRunner serviceRunner;
     public final boolean txIgnore;
@@ -86,6 +87,13 @@ public class ServiceDefinition {
         serviceNameNoHash = makeServiceNameNoHash(path, verb, noun);
         location = serviceNode.attribute("location");
         method = serviceNode.attribute("method");
+
+        ArtifactExecutionInfo.AuthzAction tempAction = null;
+        String authzActionAttr = serviceNode.attribute("authz-action");
+        if (authzActionAttr != null && !authzActionAttr.isEmpty()) tempAction = ArtifactExecutionInfo.authzActionByName.get(authzActionAttr);
+        if (tempAction == null) tempAction = verbAuthzActionEnumMap.get(verb);
+        if (tempAction == null) tempAction = ArtifactExecutionInfo.AUTHZA_ALL;
+        authzAction = tempAction;
 
         MNode inParameters = new MNode("in-parameters", null);
         MNode outParameters = new MNode("out-parameters", null);

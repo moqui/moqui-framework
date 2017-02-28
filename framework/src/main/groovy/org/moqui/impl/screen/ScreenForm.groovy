@@ -91,7 +91,7 @@ class ScreenForm {
 
     boolean isDisplayOnly() {
         ContextStack cs = ecfi.getEci().contextStack
-        return cs.getByString("formDisplayOnly") == "true" || cs.getByString("formDisplayOnly_${formName}") == "true"
+        return "true".equals(cs.getByString("formDisplayOnly")) || "true".equals(cs.getByString("formDisplayOnly_${formName}"))
     }
     boolean hasDataPrep() { return entityFindNode != null }
 
@@ -355,24 +355,21 @@ class ScreenForm {
         if (isDynamic) {
             MNode newFormNode = new MNode(internalFormNode.name, null)
             initForm(internalFormNode, newFormNode)
-            if (dbFormNodeList) {
-                for (MNode dbFormNode in dbFormNodeList) mergeFormNodes(newFormNode, dbFormNode, false, true)
-            }
+            if (dbFormNodeList != null) for (MNode dbFormNode in dbFormNodeList) mergeFormNodes(newFormNode, dbFormNode, false, true)
             return newFormNode
-        } else if (dbFormNodeList || displayOnly) {
+        } else if ((dbFormNodeList != null && dbFormNodeList.size() > 0) || displayOnly) {
             MNode newFormNode = new MNode(internalFormNode.name, null)
             // deep copy true to avoid bleed over of new fields and such
             mergeFormNodes(newFormNode, internalFormNode, true, true)
             // logger.warn("========== merging in dbFormNodeList: ${dbFormNodeList}", new BaseException("getOrCreateFormNode call location"))
-            for (MNode dbFormNode in dbFormNodeList) mergeFormNodes(newFormNode, dbFormNode, false, true)
+            if (dbFormNodeList != null) for (MNode dbFormNode in dbFormNodeList) mergeFormNodes(newFormNode, dbFormNode, false, true)
 
             if (displayOnly) {
                 // change all non-display fields to simple display elements
                 for (MNode fieldNode in newFormNode.children("field")) {
                     // don't replace header form, should be just for searching: if (fieldNode."header-field") fieldSubNodeToDisplay(newFormNode, fieldNode, (Node) fieldNode."header-field"[0])
-                    for (MNode conditionalFieldNode in fieldNode.children("conditional-field")) {
+                    for (MNode conditionalFieldNode in fieldNode.children("conditional-field"))
                         fieldSubNodeToDisplay(conditionalFieldNode)
-                    }
                     if (fieldNode.hasChild("default-field")) fieldSubNodeToDisplay(fieldNode.first("default-field"))
                 }
             }
@@ -407,16 +404,16 @@ class ScreenForm {
         if (widgetNode == null) return
         if (widgetNode.name.contains("display") || displayOnlyIgnoreNodeNames.contains(widgetNode.name)) return
 
-        if (widgetNode.name == "reset" || widgetNode.name == "submit") {
+        if ("reset".equalsIgnoreCase(widgetNode.name) || "submit".equalsIgnoreCase(widgetNode.name)) {
             fieldSubNode.children.remove(0)
             return
         }
 
-        if (widgetNode.name == "link") {
+        if ("link".equalsIgnoreCase(widgetNode.name)) {
             // if it goes to a transition with service-call or actions then remove it, otherwise leave it
             String urlType = widgetNode.attribute('url-type')
-            if ((!urlType || urlType == "transition") &&
-                    sd.getTransitionItem(widgetNode.attribute('url'), null).hasActionsOrSingleService()) {
+            if ((urlType == null || urlType.isEmpty() || "transition".equals(urlType)) &&
+                    sd.getTransitionItem(widgetNode.attribute('url'), null)?.hasActionsOrSingleService()) {
                 fieldSubNode.children.remove(0)
             }
             return

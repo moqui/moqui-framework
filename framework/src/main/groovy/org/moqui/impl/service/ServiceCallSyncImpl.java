@@ -193,7 +193,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         // NOTE: don't require authz if the service def doesn't authenticate
         // NOTE: if no sd then requiresAuthz is false, ie let the authz get handled at the entity level (but still put
         //     the service on the stack)
-        ArtifactExecutionInfo.AuthzAction authzAction = ServiceDefinition.verbAuthzActionEnumMap.get(verb);
+        ArtifactExecutionInfo.AuthzAction authzAction = sd != null ? sd.authzAction : ServiceDefinition.verbAuthzActionEnumMap.get(verb);
         if (authzAction == null) authzAction = ArtifactExecutionInfo.AUTHZA_ALL;
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(serviceName, ArtifactExecutionInfo.AT_SERVICE,
                 authzAction, serviceType).setParameters(currentParameters);
