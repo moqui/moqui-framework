@@ -96,6 +96,7 @@ class EntityFacadeImpl implements EntityFacade {
         entityConditionFactory = new EntityConditionFactoryImpl(this)
 
         MNode entityFacadeNode = getEntityFacadeNode()
+        entityFacadeNode.setSystemExpandAttributes(true)
         defaultGroupName = entityFacadeNode.attribute("default-group-name")
         sequencedIdPrefix = entityFacadeNode.attribute("sequenced-id-prefix") ?: null
         queryStats = entityFacadeNode.attribute("query-stats") == "true"

@@ -19,6 +19,7 @@
     <default-property name="entity_ds_schema" value=""/>
     <default-property name="entity_ds_user" value="sa"/>
     <default-property name="entity_ds_password" value="sa"/>
+    <default-property name="entity_ds_crypt_pass" value="MoquiDefaultPassword:CHANGEME"/>
 
     <tools empty-db-load="seed,seed-initial,install" worker-queue="65535" worker-pool-core="4" worker-pool-max="16" worker-pool-alive="60">
         <tool-factory class="org.moqui.impl.tools.MCacheToolFactory" init-priority="03" disabled="false"/>
@@ -268,8 +269,7 @@
 
     <entity-facade default-group-name="transactional" entity-eca-enabled="true" sequenced-id-prefix=""
             distributed-cache-invalidate="false" dci-topic-factory="" query-stats="false"
-            crypt-salt="SkcorIuqom" crypt-iter="10" crypt-algo="PBEWithMD5AndDES" crypt-pass="">
-        <!-- NOTE: no crypt-pass attribute by default, must specify in your conf file! -->
+            crypt-salt="SkcorIuqom" crypt-iter="10" crypt-algo="PBEWithMD5AndDES" crypt-pass="${entity_ds_crypt_pass}">
         <!-- The entity-facade.@default-group-name=transactional, so if other entity groups do not have a data source
             the transactional group's datasource will be used. -->
 

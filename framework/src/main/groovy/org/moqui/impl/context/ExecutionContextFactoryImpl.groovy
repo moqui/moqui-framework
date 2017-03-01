@@ -57,8 +57,6 @@ import javax.servlet.ServletContext
 import javax.servlet.http.HttpServletRequest
 import javax.websocket.server.ServerContainer
 import java.lang.management.ManagementFactory
-import java.lang.management.ThreadInfo
-import java.lang.management.ThreadMXBean
 import java.sql.Timestamp
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.ConcurrentLinkedQueue
