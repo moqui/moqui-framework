@@ -675,7 +675,7 @@ public class ServiceDefinition {
         } else if ("text-email".equals(validateName)) {
             String str = pv.toString();
             if (!emailValidator.isValid(str)) {
-                Map<String, String> map = new HashMap<>(1); map.put("str", str);
+                Map<String, Object> map = new HashMap<>(1); map.put("str", str);
                 eci.getMessage().addValidationError(null, parameterName, serviceName, eci.getResource().expand("Value entered (${str}) is not a valid email address.", "", map), null);
                 return false;
             }
@@ -684,7 +684,7 @@ public class ServiceDefinition {
         } else if ("text-url".equals(validateName)) {
             String str = pv.toString();
             if (!urlValidator.isValid(str)) {
-                Map<String, String> map = new HashMap<>(1); map.put("str", str);
+                Map<String, Object> map = new HashMap<>(1); map.put("str", str);
                 eci.getMessage().addValidationError(null, parameterName, serviceName, eci.getResource().expand("Value entered (${str}) is not a valid URL.", "", map), null);
                 return false;
             }
@@ -694,7 +694,7 @@ public class ServiceDefinition {
             String str = pv.toString();
             for (char c : str.toCharArray()) {
                 if (!Character.isLetter(c)) {
-                    Map<String, String> map = new HashMap<>(1); map.put("str", str);
+                    Map<String, Object> map = new HashMap<>(1); map.put("str", str);
                     eci.getMessage().addValidationError(null, parameterName, serviceName, eci.getResource().expand("Value entered (${str}) must have only letters.", "", map), null);
                     return false;
                 }
@@ -705,7 +705,7 @@ public class ServiceDefinition {
             String str = pv.toString();
             for (char c : str.toCharArray()) {
                 if (!Character.isDigit(c)) {
-                    Map<String, String> map = new HashMap<>(1); map.put("str", str);
+                    Map<String, Object> map = new HashMap<>(1); map.put("str", str);
                     eci.getMessage().addValidationError(null, parameterName, serviceName, eci.getResource().expand("Value [${str}] must have only digits.", "", map), null);
                     return false;
                 }
@@ -771,7 +771,7 @@ public class ServiceDefinition {
             CreditCardValidator ccv = new CreditCardValidator(creditCardTypes);
             String str = pv.toString();
             if (!ccv.isValid(str)) {
-                Map<String, String> map = new HashMap<>(1); map.put("str", str);
+                Map<String, Object> map = new HashMap<>(1); map.put("str", str);
                 eci.getMessage().addValidationError(null, parameterName, serviceName, eci.getResource().expand("Value entered (${str}) is not a valid credit card number.", "", map), null);
                 return false;
             }

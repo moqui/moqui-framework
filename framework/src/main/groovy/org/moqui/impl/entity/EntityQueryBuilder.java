@@ -24,6 +24,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 public class EntityQueryBuilder {
     protected static final Logger logger = LoggerFactory.getLogger(EntityQueryBuilder.class);
@@ -80,7 +81,7 @@ public class EntityQueryBuilder {
         return ps;
     }
 
-    ResultSet executeQuery() throws EntityException {
+    ResultSet executeQuery() throws SQLException {
         if (ps == null) throw new IllegalStateException("Cannot Execute Query, no PreparedStatement in place");
         boolean isError = false;
         boolean queryStats = efi.getQueryStats();
@@ -96,13 +97,14 @@ public class EntityQueryBuilder {
             return rs;
         } catch (SQLException sqle) {
             isError = true;
-            throw new EntityException("Error in query for:" + sqlTopLevel, sqle);
+            logger.warn("Error in JDBC query for SQL " + sqlTopLevel);
+            throw sqle;
         } finally {
             if (queryStats) efi.saveQueryStats(mainEntityDefinition, finalSql, queryTime, isError);
         }
     }
 
-    int executeUpdate() throws EntityException {
+    int executeUpdate() throws SQLException {
         if (ps == null) throw new IllegalStateException("Cannot Execute Update, no PreparedStatement in place");
         boolean isError = false;
         boolean queryStats = efi.getQueryStats();
@@ -120,7 +122,8 @@ public class EntityQueryBuilder {
             return rows;
         } catch (SQLException sqle) {
             isError = true;
-            throw new EntityException("Error in update for:" + sqlTopLevel, sqle);
+            logger.warn("Error in JDBC update for SQL " + sqlTopLevel);
+            throw sqle;
         } finally {
             if (queryStats) efi.saveQueryStats(mainEntityDefinition, finalSql, queryTime, isError);
         }
@@ -208,6 +211,18 @@ public class EntityQueryBuilder {
 
         } else {
             sqlTopLevel.append("*");
+        }
+    }
+
+    public void addWhereClause(FieldInfo[] pkFieldArray, HashMap<String, Object> valueMapInternal) {
+        sqlTopLevel.append(" WHERE ");
+        int sizePk = pkFieldArray.length;
+        for (int i = 0; i < sizePk; i++) {
+            FieldInfo fieldInfo = pkFieldArray[i];
+            if (fieldInfo == null) break;
+            if (i > 0) sqlTopLevel.append(" AND ");
+            sqlTopLevel.append(fieldInfo.getFullColumnName()).append("=?");
+            parameters.add(new EntityJavaUtil.EntityConditionParameter(fieldInfo, valueMapInternal.get(fieldInfo.name), this));
         }
     }
 
