@@ -13,9 +13,9 @@
  */
 package org.moqui.impl.entity
 
+import org.moqui.Moqui
+import org.moqui.context.ExecutionContext
 import org.moqui.entity.EntityException
-import org.moqui.impl.context.ExecutionContextImpl
-
 import java.sql.SQLException
 
 /** Wrap an SqlException for more user friendly error messages */
@@ -53,25 +53,35 @@ class EntitySqlException extends EntityException {
      */
 
     private String sqlState = null
-    private String overrideMessage = null
 
-    EntitySqlException(String str, SQLException nested, ExecutionContextImpl eci) {
+    EntitySqlException(String str, SQLException nested) {
         super(str, nested)
-        overrideMessage = str
         getSQLState(nested)
+    }
+
+    @Override String getMessage() {
+        String overrideMessage = super.getMessage()
         if (sqlState != null) {
             // try full string
             String msg = messageBySqlCode.get(sqlState)
             // try first 2 chars
             if (msg == null && sqlState.length() >= 2) msg = messageBySqlCode.get(sqlState.substring(0,2))
             // localize and append
-            if (msg != null) overrideMessage += ': ' + eci.l10nFacade.localize(msg)
+            if (msg != null) {
+                try {
+                    ExecutionContext ec = Moqui.getExecutionContext()
+                    // TODO: need a different approach for localization, getting from DB may not be reliable after an error and may cause other errors (especially with Postgres and the auto rollback only)
+                    // overrideMessage += ': ' + ec.l10n.localize(msg)
+                    overrideMessage += ': ' + msg
+                } catch (Throwable t) {
+                    System.out.println("Error localizing override message " + t.toString())
+                }
+            }
         }
         overrideMessage += ' [' + sqlState + ']'
+        return overrideMessage
     }
-
-    @Override String getMessage() { return overrideMessage }
-    @Override String toString() { return overrideMessage }
+    @Override String toString() { return getMessage() }
 
     String getSQLState(SQLException ex) {
         if (sqlState != null) return sqlState

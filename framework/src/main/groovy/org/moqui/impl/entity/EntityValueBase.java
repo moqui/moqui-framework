@@ -1168,8 +1168,11 @@ public abstract class EntityValueBase implements EntityValue {
         Map<String, Object> errorContext = new HashMap<>();
         errorContext.put("entityName", ed.getEntityName()); errorContext.put("primaryKeys", getPrimaryKeys());
         String errorMessage = null;
-        try { errorMessage = ec.resourceFacade.expand(expandMsg, null, errorContext); }
-        catch (Throwable t) { logger.trace("Error expanding error message", t); }
+        // TODO: need a different approach for localization, getting from DB may not be reliable after an error and may cause other errors (especially with Postgres and the auto rollback only)
+        if (false && !"LocalizedMessage".equals(ed.getEntityName())) {
+            try { errorMessage = ec.resourceFacade.expand(expandMsg, null, errorContext); }
+            catch (Throwable t) { logger.trace("Error expanding error message", t); }
+        }
         if (errorMessage == null) errorMessage = baseMsg + " " + ed.getEntityName() + " " + getPrimaryKeys();
         return errorMessage;
     }
@@ -1215,7 +1218,7 @@ public abstract class EntityValueBase implements EntityValue {
             // run EECA after rules
             efi.runEecaRules(entityName, this, "create", false);
         } catch (SQLException e) {
-            throw new EntitySqlException(makeErrorMsg("Error creating", CREATE_ERROR, ed, ec), e, ec);
+            throw new EntitySqlException(makeErrorMsg("Error creating", CREATE_ERROR, ed, ec), e);
         } catch (Exception e) {
             throw new EntityException(makeErrorMsg("Error creating", CREATE_ERROR, ed, ec), e);
         } finally {
@@ -1363,7 +1366,7 @@ public abstract class EntityValueBase implements EntityValue {
             // run EECA after rules
             efi.runEecaRules(entityName, this, "update", false);
         } catch (SQLException e) {
-            throw new EntitySqlException(makeErrorMsg("Error updating", UPDATE_ERROR, ed, ec), e, ec);
+            throw new EntitySqlException(makeErrorMsg("Error updating", UPDATE_ERROR, ed, ec), e);
         } catch (Exception e) {
             throw new EntityException(makeErrorMsg("Error updating", UPDATE_ERROR, ed, ec), e);
         } finally {
@@ -1439,7 +1442,7 @@ public abstract class EntityValueBase implements EntityValue {
             // run EECA after rules
             efi.runEecaRules(entityName, this, "delete", false);
         } catch (SQLException e) {
-            throw new EntitySqlException(makeErrorMsg("Error deleting", DELETE_ERROR, ed, ec), e, ec);
+            throw new EntitySqlException(makeErrorMsg("Error deleting", DELETE_ERROR, ed, ec), e);
         } catch (Exception e) {
             throw new EntityException(makeErrorMsg("Error deleting", DELETE_ERROR, ed, ec), e);
         } finally {
@@ -1486,7 +1489,7 @@ public abstract class EntityValueBase implements EntityValue {
 
             // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(fullEntityName, this, "find-one", false);
         } catch (SQLException e) {
-            throw new EntitySqlException(makeErrorMsg("Error finding", REFRESH_ERROR, ed, ec), e, ec);
+            throw new EntitySqlException(makeErrorMsg("Error finding", REFRESH_ERROR, ed, ec), e);
         } catch (Exception e) {
             throw new EntityException(makeErrorMsg("Error finding", REFRESH_ERROR, ed, ec), e);
         } finally {

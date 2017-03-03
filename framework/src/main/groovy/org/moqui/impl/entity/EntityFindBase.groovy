@@ -638,8 +638,11 @@ abstract class EntityFindBase implements EntityFind {
         Map<String, Object> errorContext = new HashMap<>()
         errorContext.put("entityName", ed.getEntityName()); errorContext.put("condition", cond)
         String errorMessage = null
-        try { errorMessage = ec.resourceFacade.expand(expandMsg, null, errorContext) }
-        catch (Throwable t) { logger.trace("Error expanding error message", t) }
+        // TODO: need a different approach for localization, getting from DB may not be reliable after an error and may cause other errors (especially with Postgres and the auto rollback only)
+        if (false && !"LocalizedMessage".equals(ed.getEntityName())) {
+            try { errorMessage = ec.resourceFacade.expand(expandMsg, null, errorContext) }
+            catch (Throwable t) { logger.trace("Error expanding error message", t) }
+        }
         if (errorMessage == null) errorMessage = baseMsg + " " + ed.getEntityName() + " by " + cond
         return errorMessage
     }
@@ -816,7 +819,7 @@ abstract class EntityFindBase implements EntityFind {
                     EntityValueBase fuDbValue
                     EntityConditionImplBase cond = isViewEntity ? getConditionForQuery(ed, whereCondition) : whereCondition
                     try { fuDbValue = oneExtended(cond, fieldInfoArray, fieldOptionsArray) }
-                    catch (SQLException e) { throw new EntitySqlException(makeErrorMsg("Error finding one", ONE_ERROR, cond, ed, ec), e, ec) }
+                    catch (SQLException e) { throw new EntitySqlException(makeErrorMsg("Error finding one", ONE_ERROR, cond, ed, ec), e) }
                     catch (Exception e) { throw new EntityException(makeErrorMsg("Error finding one", ONE_ERROR, cond, ed, ec), e) }
 
                     if (txCache.isReadOnly()) {
@@ -859,7 +862,7 @@ abstract class EntityFindBase implements EntityFind {
 
             EntityConditionImplBase cond = isViewEntity ? getConditionForQuery(ed, whereCondition) : whereCondition
             try { newEntityValue = oneExtended(cond, fieldInfoArray, fieldOptionsArray) }
-            catch (SQLException e) { throw new EntitySqlException(makeErrorMsg("Error finding one", ONE_ERROR, cond, ed, ec), e, ec) }
+            catch (SQLException e) { throw new EntitySqlException(makeErrorMsg("Error finding one", ONE_ERROR, cond, ed, ec), e) }
             catch (Exception e) { throw new EntityException(makeErrorMsg("Error finding one", ONE_ERROR, cond, ed, ec), e) }
 
             // it didn't come from the txCache so put it there
@@ -1045,7 +1048,7 @@ abstract class EntityFindBase implements EntityFind {
             // call the abstract method
             EntityListIterator eli
             try { eli = iteratorExtended(queryWhereCondition, havingCondition, orderByExpanded, fieldInfoArray, fieldOptionsArray) }
-            catch (SQLException e) { throw new EntitySqlException(makeErrorMsg("Error finding list of", LIST_ERROR, queryWhereCondition, ed, ec), e, ec) }
+            catch (SQLException e) { throw new EntitySqlException(makeErrorMsg("Error finding list of", LIST_ERROR, queryWhereCondition, ed, ec), e) }
             catch (Exception e) { throw new EntityException(makeErrorMsg("Error finding list of", LIST_ERROR, queryWhereCondition, ed, ec), e) }
 
             MNode databaseNode = this.efi.getDatabaseNode(ed.getEntityGroupName())
@@ -1171,7 +1174,7 @@ abstract class EntityFindBase implements EntityFind {
         // call the abstract method
         EntityListIterator eli
         try { eli = iteratorExtended(whereCondition, havingCondition, orderByExpanded, fieldInfoArray, fieldOptionsArray) }
-        catch (SQLException e) { throw new EntitySqlException(makeErrorMsg("Error finding list of", LIST_ERROR, whereCondition, ed, ec), e, ec) }
+        catch (SQLException e) { throw new EntitySqlException(makeErrorMsg("Error finding list of", LIST_ERROR, whereCondition, ed, ec), e) }
         catch (Exception e) { throw new EntityException(makeErrorMsg("Error finding list of", LIST_ERROR, whereCondition, ed, ec), e) }
 
         // NOTE: if we are doing offset/limit with a cursor no good way to limit results, but we'll at least jump to the offset
@@ -1284,7 +1287,7 @@ abstract class EntityFindBase implements EntityFind {
 
             // call the abstract method
             try { count = countExtended(queryWhereCondition, havingCondition, fieldInfoArray, fieldOptionsArray) }
-            catch (SQLException e) { throw new EntitySqlException(makeErrorMsg("Error finding count of", COUNT_ERROR, queryWhereCondition, ed, ec), e, ec) }
+            catch (SQLException e) { throw new EntitySqlException(makeErrorMsg("Error finding count of", COUNT_ERROR, queryWhereCondition, ed, ec), e) }
             catch (Exception e) { throw new EntityException(makeErrorMsg("Error finding count of", COUNT_ERROR, queryWhereCondition, ed, ec), e) }
 
             if (doCache) entityCountCache.put(whereCondition, count)

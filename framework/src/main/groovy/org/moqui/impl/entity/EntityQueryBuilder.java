@@ -97,7 +97,7 @@ public class EntityQueryBuilder {
             return rs;
         } catch (SQLException sqle) {
             isError = true;
-            logger.warn("Error in JDBC query for SQL " + sqlTopLevel);
+            // logger.warn("Error in JDBC query for SQL " + sqlTopLevel);
             throw sqle;
         } finally {
             if (queryStats) efi.saveQueryStats(mainEntityDefinition, finalSql, queryTime, isError);
@@ -122,7 +122,7 @@ public class EntityQueryBuilder {
             return rows;
         } catch (SQLException sqle) {
             isError = true;
-            logger.warn("Error in JDBC update for SQL " + sqlTopLevel);
+            // logger.warn("Error in JDBC update for SQL " + sqlTopLevel);
             throw sqle;
         } finally {
             if (queryStats) efi.saveQueryStats(mainEntityDefinition, finalSql, queryTime, isError);
