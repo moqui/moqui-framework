@@ -596,7 +596,7 @@
         <database name="postgres" use-fk-initially-deferred="false" join-style="ansi" result-fetch-size="50"
                   default-isolation-level="ReadCommitted" use-tm-join="true" default-test-query="SELECT 1"
                   default-jdbc-driver="org.postgresql.Driver" default-xa-ds-class="org.postgresql.xa.PGXADataSource"
-                  default-startup-add-missing="true" default-runtime-add-missing="false">
+                  default-startup-add-missing="true" default-runtime-add-missing="false" use-binary-type-for-blob="true">
             <!-- NOTE: when Postgres JDBC driver updated can set use-tm-join="true" -->
             <database-type type="number-float" sql-type="FLOAT8"/>
 
