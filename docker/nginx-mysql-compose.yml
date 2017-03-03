@@ -1,8 +1,6 @@
-# A Docker Compose application with mysql and virtual hosting through
-# nginx-proxy supporting multiple moqui instances on different hosts.
+# A Docker Compose application with mysql and virtual hosting through nginx-proxy for multiple moqui instances on different hosts.
 
-# This has no moqui instances, meant to be a shell for externally
-# managed moqui containers.
+# This has no moqui instances, meant to be a shell for externally managed moqui containers.
 
 # Run with something like:
 # $ docker-compose -f nginx-mysql-compose.yml -p moqui up -d

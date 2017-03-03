@@ -24,10 +24,11 @@ services:
     restart: unless-stopped
     ports:
       - 80:80
-      # - 443:443
+      - 443:443
     volumes:
       - /var/run/docker.sock:/tmp/docker.sock:ro
-      # - /path/to/certs:/etc/nginx/certs
+      # note: .crt, .key, and .dhparam.pem files start with the domain name in VIRTUAL_HOST (ie 'moqui.local.*') or use CERT_NAME env var
+      - ./certs:/etc/nginx/certs
   moqui-server:
     image: moqui
     container_name: moqui-server
@@ -42,7 +43,7 @@ services:
      - ./runtime/ecomponent:/opt/moqui/runtime/ecomponent
      - ./runtime/log:/opt/moqui/runtime/log
      - ./runtime/txlog:/opt/moqui/runtime/txlog
-     # this one isn't needed: - ./runtime/db:/opt/moqui/runtime/db
+     # this one isn't needed when not using H2/etc: - ./runtime/db:/opt/moqui/runtime/db
      - ./runtime/elasticsearch:/opt/moqui/runtime/elasticsearch
     environment:
      - entity_ds_db_conf=mysql
@@ -53,11 +54,13 @@ services:
      - entity_ds_password=moqui
      - entity_ds_crypt_pass='MoquiDefaultPassword:CHANGEME'
      # CHANGE ME - note that VIRTUAL_HOST is for nginx-proxy so it picks up this container as one it should reverse proxy
+     # this can be a comma separate list of hosts like 'example.com,www.example.com'
      - VIRTUAL_HOST=moqui.local
+     # moqui will accept traffic from other hosts but these are the values used for URL writing when specified:
      - webapp_http_host=moqui.local
      - webapp_http_port=80
-     # - webapp_https_port=443
-     # - webapp_https_enabled=true
+     - webapp_https_port=443
+     - webapp_https_enabled=true
 
   moqui-database:
     image: mysql:5.7
@@ -66,8 +69,8 @@ services:
     # uncomment this to expose the port for use outside other containers
     # ports:
     #  - 3306:3306
-    # edit these as needed to map configuration and data storage
     volumes:
+     # edit these as needed to map configuration and data storage
      - ./db/mysql/data:/var/lib/mysql
      # - /my/mysql/conf.d:/etc/mysql/conf.d
     environment:
