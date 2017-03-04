@@ -130,8 +130,10 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="fieldNameAlias" type="text-medium"><description>Alias to put in document output for field name
             (ie final part of fieldPath only). Defaults to final part of fieldPath. Must be unique within the document
             and can be used in EntityCondition passed into the EntityFacade.findDataDocuments() method.</description></field>
-        <field name="sortable" type="text-indicator"><description>It indicates whether the field could be search as keyword
-            other than full text. If elasticsearch as underlying search service, the search field would be field.keyword</description></field>
+        <field name="sortable" type="text-indicator"><description>Indicates the field should be sortable. This is needed because
+            in ElasticSearch we have two string types to work with: text (tokenized for search, not sortable) and keyword (sortable
+            but not tokenized for search). In ElasticSearch this adds [field name].keyword field of type keyword to sort on if the
+            entity field is a 'text' type ElasticSearch field.</description></field>
         <relationship type="one" related="moqui.entity.document.DataDocument"/>
     </entity>
     <entity entity-name="DataDocumentRelAlias" package="moqui.entity.document" use="configuration">
