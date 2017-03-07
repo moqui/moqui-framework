@@ -110,12 +110,7 @@ public class WebUtilities {
                     if ("\u00a0".equals(singleVal)) {
                         reqParmMap.put(entry.getKey(), null);
                     } else {
-                        if (singleVal.contains(",")) {
-                            // for some reason with multiple parameters of the same name they are put into a comma separated string (found in Jetty, happens in others?)
-                            reqParmMap.put(entry.getKey(), Arrays.asList(singleVal.split(",")));
-                        } else {
-                            reqParmMap.put(entry.getKey(), singleVal);
-                        }
+                        reqParmMap.put(entry.getKey(), singleVal);
                     }
                 } else {
                     reqParmMap.put(entry.getKey(), Arrays.asList(valArray));
