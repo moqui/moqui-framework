@@ -101,6 +101,21 @@ along with this software (see the LICENSE.md file). If not, see
                     </xs:restriction>
                 </xs:simpleType>
             </xs:attribute>
+            <xs:attribute name="authz-action">
+                <xs:annotation><xs:documentation>
+                    The authz action to use when checking authorization for this service (using ArtifactAuthz records).
+                    If not specified defaults to all unless the verb corresponds to an authz action.
+                </xs:documentation></xs:annotation>
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <xs:enumeration value="view"/>
+                        <xs:enumeration value="create"/>
+                        <xs:enumeration value="update"/>
+                        <xs:enumeration value="delete"/>
+                        <xs:enumeration value="all"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
             <xs:attribute name="allow-remote" type="boolean" default="false">
                 <xs:annotation><xs:documentation>Defaults to false meaning this service cannot be called through remote
                     interfaces such as JSON-RPC and XML-RPC. If set to true it can be. Before settings to true make sure

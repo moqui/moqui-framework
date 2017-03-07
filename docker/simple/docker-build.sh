@@ -1,6 +1,9 @@
 #! /bin/bash
 
+echo "Usage: docker-build.sh [<moqui directory like ../..>] [<group/name:tag>]"
+
 MOQUI_HOME="${1:-../..}"
+NAME_TAG="${2:-moqui}"
 
 if [ -f $MOQUI_HOME/moqui-plus-runtime.war ]
 then
@@ -21,7 +24,7 @@ else
     exit 1
 fi
 
-docker build -t moqui .
+docker build -t $NAME_TAG .
 
 rm -Rf META-INF WEB-INF execlib
 rm *.class

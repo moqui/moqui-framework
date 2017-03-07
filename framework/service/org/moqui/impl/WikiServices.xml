@@ -183,8 +183,8 @@ along with this software (see the LICENSE.md file). If not, see
 
             <set field="pageName" from="pageReference?.fileName"/>
             <if condition="pageName?.contains('.')">
-                <set field="wikiType" from="pageName.substring(pageName.indexOf('.')+1)"/>
-                <set field="pageName" from="pageName.substring(0, pageName.indexOf('.'))"/>
+                <set field="wikiType" from="pageName.substring(pageName.lastIndexOf('.')+1)"/>
+                <set field="pageName" from="pageName.substring(0, pageName.lastIndexOf('.'))"/>
             </if>
 
             <set field="pathForParentPath" from="pageReference.getActualChildPath() ?: pagePath"/>
@@ -254,7 +254,9 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="pagePath"><description>Defaults to parentPath/pageName (both may be empty, resulting in empty pagePath)</description></parameter>
             <parameter name="parentPath"/>
             <parameter name="pageName" required="true">
-                <description>This is required for better usability. If pageName == wikiSpaceId is treated as the root page.</description></parameter>
+                <description>This is required for better usability. If pageName == wikiSpaceId is treated as the root page.</description>
+                <matches regexp="[\w\.\-, ]*" message="Invalid page name (letters, digits, [.,-_ ] only)"/>
+            </parameter>
             <parameter name="wikiType" default-value="md"/>
             <parameter name="pageText" allow-html="any"><description>If WikiSpace.allowAnyHtml = Y will be stored as-is, otherwise filtered like parameter.allow-html=safe.</description></parameter>
         </in-parameters>

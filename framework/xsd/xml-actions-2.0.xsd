@@ -268,6 +268,10 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="ignore-if-empty" type="boolean" default="false">
                 <xs:annotation><xs:documentation>Leave out the constraint if valid-date is empty or null. Defaults to false.</xs:documentation></xs:annotation>
             </xs:attribute>
+            <xs:attribute name="ignore" type="xs:string" default="false">
+                <xs:annotation><xs:documentation>Ignore the econdition (leave out of the find) if set to true or expression evaluates to true.
+                    Defaults to false.</xs:documentation></xs:annotation>
+            </xs:attribute>
         </xs:complexType>
     </xs:element>
 
@@ -523,7 +527,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:annotation><xs:documentation>If true make a condition specified value or null as valid matches.</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="ignore" type="xs:string" default="false">
-                <xs:annotation><xs:documentation>Ignore the econdition (leave out of the find) if set to true.
+                <xs:annotation><xs:documentation>Ignore the econdition (leave out of the find) if set to true or expression evaluates to true.
                     Defaults to false.</xs:documentation></xs:annotation>
             </xs:attribute>
         </xs:complexType>

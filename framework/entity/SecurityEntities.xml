@@ -275,12 +275,18 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="UserGroup" package="moqui.security" use="configuration" short-alias="userGroups">
         <field name="userGroupId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
+        <field name="groupTypeEnumId" type="id"/>
+        <relationship type="one" title="UserGroupType" related="moqui.basic.Enumeration" short-alias="groupTypeEnum">
+            <key-map field-name="groupTypeEnumId"/></relationship>
         <relationship type="many" related="moqui.security.UserGroupPermission" short-alias="permissions">
             <key-map field-name="userGroupId"/></relationship>
         <relationship type="many" related="moqui.security.UserGroupPreference" short-alias="preferences">
             <key-map field-name="userGroupId"/></relationship>
         <relationship type="many" related="moqui.security.ArtifactAuthz" short-alias="authz">
             <key-map field-name="userGroupId"/></relationship>
+        <seed-data>
+            <moqui.basic.EnumerationType description="User Group Type" enumTypeId="UserGroupType"/>
+        </seed-data>
     </entity>
     <entity entity-name="UserGroupMember" package="moqui.security" use="configuration" cache="true">
         <field name="userGroupId" type="id" is-pk="true"/>
@@ -339,6 +345,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="successfulLogin" type="text-indicator"/>
         <relationship type="one-nofk" related="moqui.security.UserAccount" short-alias="user">
             <description>No FK in order to allow externally authenticated users.</description></relationship>
+        <relationship type="one" related="moqui.server.Visit" short-alias="visit"/>
     </entity>
     <entity entity-name="UserPasswordHistory" package="moqui.security" use="nontransactional" cache="never">
         <field name="userId" type="id" is-pk="true"/>

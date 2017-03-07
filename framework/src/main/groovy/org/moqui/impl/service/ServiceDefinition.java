@@ -61,6 +61,7 @@ public class ServiceDefinition {
     public final XmlAction xmlAction;
 
     public final String authenticate;
+    public final ArtifactExecutionInfo.AuthzAction authzAction;
     public final String serviceType;
     public final ServiceRunner serviceRunner;
     public final boolean txIgnore;
@@ -86,6 +87,13 @@ public class ServiceDefinition {
         serviceNameNoHash = makeServiceNameNoHash(path, verb, noun);
         location = serviceNode.attribute("location");
         method = serviceNode.attribute("method");
+
+        ArtifactExecutionInfo.AuthzAction tempAction = null;
+        String authzActionAttr = serviceNode.attribute("authz-action");
+        if (authzActionAttr != null && !authzActionAttr.isEmpty()) tempAction = ArtifactExecutionInfo.authzActionByName.get(authzActionAttr);
+        if (tempAction == null) tempAction = verbAuthzActionEnumMap.get(verb);
+        if (tempAction == null) tempAction = ArtifactExecutionInfo.AUTHZA_ALL;
+        authzAction = tempAction;
 
         MNode inParameters = new MNode("in-parameters", null);
         MNode outParameters = new MNode("out-parameters", null);
@@ -667,7 +675,7 @@ public class ServiceDefinition {
         } else if ("text-email".equals(validateName)) {
             String str = pv.toString();
             if (!emailValidator.isValid(str)) {
-                Map<String, String> map = new HashMap<>(1); map.put("str", str);
+                Map<String, Object> map = new HashMap<>(1); map.put("str", str);
                 eci.getMessage().addValidationError(null, parameterName, serviceName, eci.getResource().expand("Value entered (${str}) is not a valid email address.", "", map), null);
                 return false;
             }
@@ -676,7 +684,7 @@ public class ServiceDefinition {
         } else if ("text-url".equals(validateName)) {
             String str = pv.toString();
             if (!urlValidator.isValid(str)) {
-                Map<String, String> map = new HashMap<>(1); map.put("str", str);
+                Map<String, Object> map = new HashMap<>(1); map.put("str", str);
                 eci.getMessage().addValidationError(null, parameterName, serviceName, eci.getResource().expand("Value entered (${str}) is not a valid URL.", "", map), null);
                 return false;
             }
@@ -686,7 +694,7 @@ public class ServiceDefinition {
             String str = pv.toString();
             for (char c : str.toCharArray()) {
                 if (!Character.isLetter(c)) {
-                    Map<String, String> map = new HashMap<>(1); map.put("str", str);
+                    Map<String, Object> map = new HashMap<>(1); map.put("str", str);
                     eci.getMessage().addValidationError(null, parameterName, serviceName, eci.getResource().expand("Value entered (${str}) must have only letters.", "", map), null);
                     return false;
                 }
@@ -697,7 +705,7 @@ public class ServiceDefinition {
             String str = pv.toString();
             for (char c : str.toCharArray()) {
                 if (!Character.isDigit(c)) {
-                    Map<String, String> map = new HashMap<>(1); map.put("str", str);
+                    Map<String, Object> map = new HashMap<>(1); map.put("str", str);
                     eci.getMessage().addValidationError(null, parameterName, serviceName, eci.getResource().expand("Value [${str}] must have only digits.", "", map), null);
                     return false;
                 }
@@ -763,7 +771,7 @@ public class ServiceDefinition {
             CreditCardValidator ccv = new CreditCardValidator(creditCardTypes);
             String str = pv.toString();
             if (!ccv.isValid(str)) {
-                Map<String, String> map = new HashMap<>(1); map.put("str", str);
+                Map<String, Object> map = new HashMap<>(1); map.put("str", str);
                 eci.getMessage().addValidationError(null, parameterName, serviceName, eci.getResource().expand("Value entered (${str}) is not a valid credit card number.", "", map), null);
                 return false;
             }
@@ -797,6 +805,7 @@ public class ServiceDefinition {
         map.put("view", ArtifactExecutionInfo.AUTHZA_VIEW);
         map.put("find", ArtifactExecutionInfo.AUTHZA_VIEW);
         map.put("get", ArtifactExecutionInfo.AUTHZA_VIEW);
+        map.put("search", ArtifactExecutionInfo.AUTHZA_VIEW);
         verbAuthzActionEnumMap = map;
     }
 

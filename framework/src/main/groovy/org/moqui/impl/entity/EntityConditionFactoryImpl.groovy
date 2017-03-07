@@ -153,7 +153,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
                 continue
             }
             if (curObj instanceof EntityConditionImplBase) {
-                EntityCondition curCond = (EntityConditionImplBase) curObj
+                EntityConditionImplBase curCond = (EntityConditionImplBase) curObj
                 newList.add(curCond)
                 continue
             }
@@ -266,8 +266,9 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
         return new DateCondition(fromFieldName, thruFieldName,
                 (compareStamp != (Object) null) ? compareStamp : efi.ecfi.getEci().userFacade.getNowTimestamp())
     }
-    EntityCondition makeConditionDate(String fromFieldName, String thruFieldName, Timestamp compareStamp, boolean ignoreIfEmpty) {
+    EntityCondition makeConditionDate(String fromFieldName, String thruFieldName, Timestamp compareStamp, boolean ignoreIfEmpty, String ignore) {
         if (ignoreIfEmpty && (Object) compareStamp == null) return null
+        if (efi.ecfi.resourceFacade.condition(ignore, null)) return null
         return new DateCondition(fromFieldName, thruFieldName,
                 (compareStamp != (Object) null) ? compareStamp : efi.ecfi.getEci().userFacade.getNowTimestamp())
     }
@@ -298,11 +299,13 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
         }
     }
 
-    EntityCondition makeActionCondition(String fieldName, String operator, String fromExpr, String value, String toFieldName, boolean ignoreCase, boolean ignoreIfEmpty, boolean orNull, String ignore) {
+    EntityCondition makeActionCondition(String fieldName, String operator, String fromExpr, String value, String toFieldName,
+                                        boolean ignoreCase, boolean ignoreIfEmpty, boolean orNull, String ignore) {
         Object from = fromExpr ? this.efi.ecfi.resourceFacade.expression(fromExpr, "") : null
         return makeActionConditionDirect(fieldName, operator, from, value, toFieldName, ignoreCase, ignoreIfEmpty, orNull, ignore)
     }
-    EntityCondition makeActionConditionDirect(String fieldName, String operator, Object fromObj, String value, String toFieldName, boolean ignoreCase, boolean ignoreIfEmpty, boolean orNull, String ignore) {
+    EntityCondition makeActionConditionDirect(String fieldName, String operator, Object fromObj, String value, String toFieldName,
+                                              boolean ignoreCase, boolean ignoreIfEmpty, boolean orNull, String ignore) {
         // logger.info("TOREMOVE makeActionCondition(fieldName ${fieldName}, operator ${operator}, fromExpr ${fromExpr}, value ${value}, toFieldName ${toFieldName}, ignoreCase ${ignoreCase}, ignoreIfEmpty ${ignoreIfEmpty}, orNull ${orNull}, ignore ${ignore})")
 
         if (efi.ecfi.resourceFacade.condition(ignore, null)) return null

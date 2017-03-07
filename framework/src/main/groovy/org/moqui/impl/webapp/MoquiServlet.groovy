@@ -137,7 +137,7 @@ class MoquiServlet extends HttpServlet {
     static void sendErrorResponse(HttpServletRequest request, HttpServletResponse response, int errorCode, String errorType,
             String message, Throwable origThrowable, ExecutionContextFactoryImpl ecfi, String moquiWebappName, ScreenRenderImpl sri) {
         String acceptHeader = request.getHeader("Accept")
-        if (ecfi == null || (sri?.screenUrlInfo?.targetTransitionActualName) || (acceptHeader && !acceptHeader.contains("text/html"))) {
+        if (ecfi == null || (acceptHeader && !acceptHeader.contains("text/html")) || ("rest".equals(sri?.screenUrlInfo?.targetScreen?.screenName))) {
             response.sendError(errorCode, message)
             return
         }

@@ -63,10 +63,10 @@ dependencies {
     compile project(':moqui-util')
 
     // Groovy
-    compile 'org.codehaus.groovy:groovy:2.4.8' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-json:2.4.8' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-templates:2.4.8' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-xml:2.4.8' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy:2.4.9' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-json:2.4.9' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-templates:2.4.9' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-xml:2.4.9' // Apache 2.0
     // jansi is needed for groovydoc only, so in providedCompile (not included in war)
     compileOnly 'org.fusesource.jansi:jansi:1.14'
     // Findbugs need only during compile (used by freemarker and various moqui classes)
@@ -118,7 +118,7 @@ dependencies {
     compile 'com.h2database:h2:1.4.193' // MPL 2.0, EPL 1.0
 
     // Jetty HTTP Client
-    compile 'org.eclipse.jetty:jetty-client:9.4.1.v20170120' // Apache 2.0
+    compile 'org.eclipse.jetty:jetty-client:9.4.2.v20170220' // Apache 2.0
 
     // javax.mail
     compile 'com.sun.mail:javax.mail:1.5.6' // CDDL
@@ -134,10 +134,10 @@ dependencies {
     compile 'org.apache.shiro:shiro-web:1.3.2' // Apache 2.0
 
     // SLF4J, Log4j 2 (note Log4j 2 is used by various libraries, best not to replace it even if mostly possible with SLF4J)
-    compile 'org.slf4j:slf4j-api:1.7.22'
-    runtime 'org.apache.logging.log4j:log4j-core:2.8'
-    runtime 'org.apache.logging.log4j:log4j-api:2.8'
-    runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.8'
+    compile 'org.slf4j:slf4j-api:1.7.24'
+    runtime 'org.apache.logging.log4j:log4j-core:2.8.1'
+    runtime 'org.apache.logging.log4j:log4j-api:2.8.1'
+    runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.8.1'
 
     // SubEtha SMTP (module as depends on old javax.mail location; also uses SLF4J, activation included elsewhere)
     compile module('org.subethamail:subethasmtp:3.1.7')
@@ -150,7 +150,7 @@ dependencies {
     // compile module('org.apache.xmlrpc:xmlrpc-client:3.1.3') // Apache 2.0
 
     // Snake YAML
-    compile 'org.yaml:snakeyaml:1.17' // Apache 2.0
+    compile 'org.yaml:snakeyaml:1.18' // Apache 2.0
 
     // Apache Jackrabbit - uncomment here or include elsewhere when Jackrabbit repository configurations are used
     // compile 'org.apache.jackrabbit:jackrabbit-jcr-rmi:2.12.1' // Apache 2.0
@@ -173,14 +173,14 @@ dependencies {
 
     // ========== executable war dependencies ==========
     // Jetty
-    execWarRuntime 'org.eclipse.jetty:jetty-server:9.4.1.v20170120' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.4.1.v20170120' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.4.1.v20170120' // Apache 2.0
-    execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.4.1.v20170120') // Apache 2.0
-    execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.4.1.v20170120') // Apache 2.0
-    execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.4.1.v20170120') // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-server:9.4.2.v20170220' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.4.2.v20170220' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.4.2.v20170220' // Apache 2.0
+    execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.4.2.v20170220') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.4.2.v20170220') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.4.2.v20170220') // Apache 2.0
     // only include this if using Endpoint and MessageHandler annotations:
-    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:9.4.1.v20170120') // Apache 2.0
+    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:9.4.2.v20170220') // Apache 2.0
 }
 
 // setup task dependencies to make sure the start sourceSets always get run

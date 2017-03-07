@@ -96,6 +96,7 @@ class EntityFacadeImpl implements EntityFacade {
         entityConditionFactory = new EntityConditionFactoryImpl(this)
 
         MNode entityFacadeNode = getEntityFacadeNode()
+        entityFacadeNode.setSystemExpandAttributes(true)
         defaultGroupName = entityFacadeNode.attribute("default-group-name")
         sequencedIdPrefix = entityFacadeNode.attribute("sequenced-id-prefix") ?: null
         queryStats = entityFacadeNode.attribute("query-stats") == "true"
@@ -1299,7 +1300,8 @@ class EntityFacadeImpl implements EntityFacade {
             for (MNode df in node.children("date-filter"))
                 ef.condition(getConditionFactoryImpl().makeConditionDate(df.attribute("from-field-name") ?: "fromDate",
                         df.attribute("thru-field-name") ?: "thruDate",
-                        (df.attribute("valid-date") ? ecfi.resourceFacade.expression(df.attribute("valid-date"), null) as Timestamp : ecfi.eci.user.nowTimestamp)))
+                        (df.attribute("valid-date") ? ecfi.resourceFacade.expression(df.attribute("valid-date"), null) as Timestamp : null),
+                        'true'.equals(df.attribute("ignore-if-empty")), df.attribute("ignore") ?: 'false'))
         }
 
         for (MNode ecn in node.children("econdition")) {

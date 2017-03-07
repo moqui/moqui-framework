@@ -57,7 +57,7 @@ task cleanPlusRuntime(type: Delete) { delete file(plusRuntimeName) }
 task cleanOther(type: Delete) { delete fileTree(dir: '.', includes: ['**/.nbattrs', '**/*~', '**/.#*', '**/.DS_Store', '**/*.rej', '**/*.orig']) }
 
 task cleanAll { dependsOn clean, allCleanTasks, cleanDb, cleanOrientDb, cleanElasticSearch, cleanTxLog, cleanLog,
-        cleanLoadSave, cleanPlusRuntime, cleanOther }
+        cleanLoadSave, cleanPlusRuntime }
 
 // ========== check/update tasks ==========
 

@@ -84,11 +84,11 @@ class DbResourceReference extends BaseResourceReference {
     @Override URL getUrl() { return null }
 
     @Override boolean supportsDirectory() { true }
-    @Override boolean isFile() { return getDbResource(true)?.isFile == "Y" }
+    @Override boolean isFile() { return "Y".equals(getDbResource(true)?.isFile) }
     @Override boolean isDirectory() {
         if (!getPath()) return true // consider root a directory
         EntityValue dbr = getDbResource(true)
-        return dbr != null && dbr.isFile != "Y"
+        return dbr != null && !"Y".equals(dbr.isFile)
     }
     @Override List<ResourceReference> getDirectoryEntries() {
         List<ResourceReference> dirEntries = new LinkedList()
@@ -112,12 +112,10 @@ class DbResourceReference extends BaseResourceReference {
     @Override long getLastModified() {
         EntityValue dbr = getDbResource(true)
         if (dbr == null) return 0
-        if (dbr.isFile == "Y") {
+        if ("Y".equals(dbr.isFile)) {
             EntityValue dbrf = ecf.entity.find("moqui.resource.DbResourceFile").condition("resourceId", resourceId)
                     .selectField("lastUpdatedStamp").useCache(false).one()
-            if (dbrf != null) {
-                return dbrf.getTimestamp("lastUpdatedStamp").getTime()
-            }
+            if (dbrf != null) return dbrf.getTimestamp("lastUpdatedStamp").getTime()
         }
         return dbr.getTimestamp("lastUpdatedStamp").getTime()
     }
