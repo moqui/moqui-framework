@@ -32,6 +32,7 @@ import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
+import javax.annotation.Nonnull;
 import javax.sql.rowset.serial.SerialBlob;
 import javax.sql.rowset.serial.SerialException;
 import java.io.IOException;
@@ -39,15 +40,22 @@ import java.io.ObjectInput;
 import java.io.ObjectOutput;
 import java.io.Writer;
 import java.math.BigDecimal;
+import java.sql.SQLException;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
-
 import java.util.*;
 
 public abstract class EntityValueBase implements EntityValue {
     protected static final Logger logger = LoggerFactory.getLogger(EntityValueBase.class);
+
+    // these error strings are here for convenience for LocalizedMessage records
+    // NOTE: don't change these unless there is a really good reason, will break localization
+    private static final String CREATE_ERROR = "Error creating ${entityName} ${primaryKeys}";
+    private static final String UPDATE_ERROR = "Error updating ${entityName} ${primaryKeys}";
+    private static final String DELETE_ERROR = "Error deleting ${entityName} ${primaryKeys}";
+    private static final String REFRESH_ERROR = "Error finding ${entityName} ${primaryKeys}";
 
     private String entityName;
     final HashMap<String, Object> valueMapInternal = new HashMap<>();
@@ -1084,8 +1092,8 @@ public abstract class EntityValueBase implements EntityValue {
     }
 
     @Override public void clear() { modified = true; valueMapInternal.clear(); }
-    @Override public Set<String> keySet() { return new HashSet<>(getEntityDefinition().getAllFieldNames()); }
-    @Override public Collection<Object> values() {
+    @Override public @Nonnull Set<String> keySet() { return new HashSet<>(getEntityDefinition().getAllFieldNames()); }
+    @Override public @Nonnull Collection<Object> values() {
         // everything needs to go through the get method, so iterate through the fields and get the values
         List<String> allFieldNames = getEntityDefinition().getAllFieldNames();
         List<Object> values = new ArrayList<>(allFieldNames.size());
@@ -1093,7 +1101,7 @@ public abstract class EntityValueBase implements EntityValue {
         return values;
     }
 
-    @Override public Set<Entry<String, Object>> entrySet() {
+    @Override public @Nonnull Set<Entry<String, Object>> entrySet() {
         // everything needs to go through the get method, so iterate through the fields and get the values
         FieldInfo[] allFieldInfos = getEntityDefinition().entityInfo.allFieldInfoArray;
         Set<Entry<String, Object>> entries = new HashSet<>();
@@ -1156,6 +1164,19 @@ public abstract class EntityValueBase implements EntityValue {
         }
     }
 
+    private String makeErrorMsg(String baseMsg, String expandMsg, EntityDefinition ed, ExecutionContextImpl ec) {
+        Map<String, Object> errorContext = new HashMap<>();
+        errorContext.put("entityName", ed.getEntityName()); errorContext.put("primaryKeys", getPrimaryKeys());
+        String errorMessage = null;
+        // TODO: need a different approach for localization, getting from DB may not be reliable after an error and may cause other errors (especially with Postgres and the auto rollback only)
+        if (false && !"LocalizedMessage".equals(ed.getEntityName())) {
+            try { errorMessage = ec.resourceFacade.expand(expandMsg, null, errorContext); }
+            catch (Throwable t) { logger.trace("Error expanding error message", t); }
+        }
+        if (errorMessage == null) errorMessage = baseMsg + " " + ed.getEntityName() + " " + getPrimaryKeys();
+        return errorMessage;
+    }
+
     @Override
     public EntityValue create() {
         final EntityDefinition ed = getEntityDefinition();
@@ -1196,6 +1217,10 @@ public abstract class EntityValueBase implements EntityValue {
             handleAuditLog(false, null, ed, ec);
             // run EECA after rules
             efi.runEecaRules(entityName, this, "create", false);
+        } catch (SQLException e) {
+            throw new EntitySqlException(makeErrorMsg("Error creating", CREATE_ERROR, ed, ec), e);
+        } catch (Exception e) {
+            throw new EntityException(makeErrorMsg("Error creating", CREATE_ERROR, ed, ec), e);
         } finally {
             // pop the ArtifactExecutionInfo to clean it up, also counts artifact hit
             aefi.pop(aei);
@@ -1204,7 +1229,7 @@ public abstract class EntityValueBase implements EntityValue {
         return this;
     }
 
-    public void basicCreate(Connection con) {
+    public void basicCreate(Connection con) throws SQLException {
         EntityDefinition ed = getEntityDefinition();
         FieldInfo[] allFieldArray = ed.entityInfo.allFieldInfoArray;
         FieldInfo[] fieldArray = new FieldInfo[allFieldArray.length];
@@ -1224,7 +1249,7 @@ public abstract class EntityValueBase implements EntityValue {
      * This method should create a corresponding record in the datasource. NOTE: fieldInfoArray may have null values
      * after valid ones, the length is not the actual number of fields.
      */
-    public abstract void createExtended(FieldInfo[] fieldInfoArray, Connection con);
+    public abstract void createExtended(FieldInfo[] fieldInfoArray, Connection con) throws SQLException;
 
     @Override
     public EntityValue update() {
@@ -1340,6 +1365,10 @@ public abstract class EntityValueBase implements EntityValue {
             if (needsAuditLog) handleAuditLog(true, originalValues, ed, ec);
             // run EECA after rules
             efi.runEecaRules(entityName, this, "update", false);
+        } catch (SQLException e) {
+            throw new EntitySqlException(makeErrorMsg("Error updating", UPDATE_ERROR, ed, ec), e);
+        } catch (Exception e) {
+            throw new EntityException(makeErrorMsg("Error updating", UPDATE_ERROR, ed, ec), e);
         } finally {
             // pop the ArtifactExecutionInfo to clean it up, also counts artifact hit
             aefi.pop(aei);
@@ -1348,7 +1377,7 @@ public abstract class EntityValueBase implements EntityValue {
         return this;
     }
 
-    public void basicUpdate(Connection con) {
+    public void basicUpdate(Connection con) throws SQLException {
         EntityDefinition ed = getEntityDefinition();
 
         /* Shouldn't need this any more, was from a weird old issue:
@@ -1378,7 +1407,7 @@ public abstract class EntityValueBase implements EntityValue {
      * This method should update the corresponding record in the datasource. NOTE: fieldInfoArray may have null values
      * after valid ones, the length is not the actual number of fields.
      */
-    public abstract void updateExtended(FieldInfo[] pkFieldArray, FieldInfo[] nonPkFieldArray, Connection con);
+    public abstract void updateExtended(FieldInfo[] pkFieldArray, FieldInfo[] nonPkFieldArray, Connection con) throws SQLException;
 
     @Override
     public EntityValue delete() {
@@ -1412,6 +1441,10 @@ public abstract class EntityValueBase implements EntityValue {
             efi.getEntityCache().clearCacheForValue(this, false);
             // run EECA after rules
             efi.runEecaRules(entityName, this, "delete", false);
+        } catch (SQLException e) {
+            throw new EntitySqlException(makeErrorMsg("Error deleting", DELETE_ERROR, ed, ec), e);
+        } catch (Exception e) {
+            throw new EntityException(makeErrorMsg("Error deleting", DELETE_ERROR, ed, ec), e);
         } finally {
             // pop the ArtifactExecutionInfo to clean it up, also counts artifact hit
             aefi.pop(aei);
@@ -1420,7 +1453,7 @@ public abstract class EntityValueBase implements EntityValue {
         return this;
     }
 
-    public abstract void deleteExtended(Connection con);
+    public abstract void deleteExtended(Connection con) throws SQLException;
 
     @Override
     public boolean refresh() {
@@ -1455,6 +1488,10 @@ public abstract class EntityValueBase implements EntityValue {
             }
 
             // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(fullEntityName, this, "find-one", false);
+        } catch (SQLException e) {
+            throw new EntitySqlException(makeErrorMsg("Error finding", REFRESH_ERROR, ed, ec), e);
+        } catch (Exception e) {
+            throw new EntityException(makeErrorMsg("Error finding", REFRESH_ERROR, ed, ec), e);
         } finally {
             // pop the ArtifactExecutionInfo to clean it up, also counts artifact hit
             aefi.pop(aei);
@@ -1462,7 +1499,7 @@ public abstract class EntityValueBase implements EntityValue {
 
         return retVal;
     }
-    public abstract boolean refreshExtended();
+    public abstract boolean refreshExtended() throws SQLException;
 
     @Override public String getEtlType() { return entityName; }
     @Override public Map<String, Object> getEtlValues() { return valueMapInternal; }

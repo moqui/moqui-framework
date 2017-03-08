@@ -19,11 +19,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Element;
 
+import javax.swing.text.MaskFormatter;
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.SecureRandom;
+import java.text.ParseException;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
@@ -235,6 +237,17 @@ public class StringUtilities {
 
     public static String paddedString(String input, Integer desiredLength, boolean rightPad) {
         return paddedString(input, desiredLength, ' ', rightPad);
+    }
+
+    public static MaskFormatter masker(String mask, String placeholder) throws ParseException {
+        if (mask == null || mask.isEmpty()) return null;
+        MaskFormatter formatter = new MaskFormatter(mask);
+        formatter.setValueContainsLiteralCharacters(false);
+        if (placeholder != null && !placeholder.isEmpty()) {
+            if (placeholder.length() == 1) formatter.setPlaceholderCharacter(placeholder.charAt(0));
+            else formatter.setPlaceholder(placeholder);
+        }
+        return formatter;
     }
 
     public static String getRandomString(int length) {

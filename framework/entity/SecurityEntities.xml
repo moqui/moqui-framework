@@ -345,6 +345,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="successfulLogin" type="text-indicator"/>
         <relationship type="one-nofk" related="moqui.security.UserAccount" short-alias="user">
             <description>No FK in order to allow externally authenticated users.</description></relationship>
+        <relationship type="one" related="moqui.server.Visit" short-alias="visit"/>
     </entity>
     <entity entity-name="UserPasswordHistory" package="moqui.security" use="nontransactional" cache="never">
         <field name="userId" type="id" is-pk="true"/>

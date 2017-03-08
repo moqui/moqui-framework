@@ -13,7 +13,6 @@
  */
 package org.moqui.impl.entity;
 
-import org.moqui.BaseException;
 import org.moqui.entity.EntityException;
 import org.moqui.entity.EntityValue;
 import org.moqui.impl.entity.EntityJavaUtil.EntityConditionParameter;
@@ -31,10 +30,8 @@ public class EntityValueImpl extends EntityValueBase {
 
     /** Default constructor for deserialization ONLY. */
     public EntityValueImpl() { }
-
-    public EntityValueImpl(EntityDefinition ed, EntityFacadeImpl efip) {
-        super(ed, efip);
-    }
+    /** Primary constructor, generally used only internally by EntityFacade */
+    public EntityValueImpl(EntityDefinition ed, EntityFacadeImpl efip) { super(ed, efip); }
 
     @Override
     public EntityValue cloneValue() {
@@ -58,7 +55,7 @@ public class EntityValueImpl extends EntityValueBase {
 
     @SuppressWarnings("MismatchedQueryAndUpdateOfStringBuilder")
     @Override
-    public void createExtended(FieldInfo[] fieldInfoArray, Connection con) {
+    public void createExtended(FieldInfo[] fieldInfoArray, Connection con) throws SQLException {
         EntityDefinition ed = getEntityDefinition();
         EntityFacadeImpl efi = getEntityFacadeImpl();
 
@@ -104,19 +101,22 @@ public class EntityValueImpl extends EntityValueBase {
                 // if (ed.entityName == "Subscription") logger.warn("Create ${this.toString()} tx ${efi.getEcfi().transaction.getTransactionManager().getTransaction()} con ${eqb.connection}")
                 eqb.executeUpdate();
                 setSyncedWithDb();
-            } catch (Exception e) {
-                throw new EntityException("Error in create of " + this.toString(), e);
+            } catch (SQLException e) {
+                String txName = "[could not get]";
+                try { txName = efi.ecfi.transactionFacade.getTransactionManager().getTransaction().toString(); }
+                catch (Exception txe) { if (logger.isTraceEnabled()) logger.trace("Error getting transaction name: " + txe.toString()); }
+                logger.warn("Error creating " + this.toString() + " tx " + txName + " con " + eqb.connection.toString() + ": " + e.toString());
+                throw e;
             } finally {
                 try { eqb.closeAll(); }
-                catch (SQLException sqle) { //noinspection ThrowFromFinallyBlock
-                    throw new EntityException("Error in create of " + this.toString(), sqle); }
+                catch (SQLException sqle) { logger.error("Error in JDBC close in create of " + this.toString(), sqle); }
             }
         }
     }
 
     @SuppressWarnings("MismatchedQueryAndUpdateOfStringBuilder")
     @Override
-    public void updateExtended(FieldInfo[] pkFieldArray, FieldInfo[] nonPkFieldArray, Connection con) {
+    public void updateExtended(FieldInfo[] pkFieldArray, FieldInfo[] nonPkFieldArray, Connection con) throws SQLException {
         EntityDefinition ed = getEntityDefinition();
         final EntityFacadeImpl efi = getEntityFacadeImpl();
 
@@ -137,15 +137,7 @@ public class EntityValueImpl extends EntityValueBase {
                 parameters.add(new EntityConditionParameter(fieldInfo, valueMapInternal.get(fieldInfo.name), eqb));
             }
 
-            sql.append(" WHERE ");
-            int sizePk = pkFieldArray.length;
-            for (int i = 0; i < sizePk; i++) {
-                FieldInfo fieldInfo = pkFieldArray[i];
-                if (fieldInfo == null) break;
-                if (i > 0) sql.append(" AND ");
-                sql.append(fieldInfo.getFullColumnName()).append("=?");
-                parameters.add(new EntityConditionParameter(fieldInfo, valueMapInternal.get(fieldInfo.name), eqb));
-            }
+            eqb.addWhereClause(pkFieldArray, valueMapInternal);
 
             try {
                 efi.getEntityDbMeta().checkTableRuntime(ed);
@@ -159,23 +151,22 @@ public class EntityValueImpl extends EntityValueBase {
                 if (eqb.executeUpdate() == 0)
                     throw new EntityException("Tried to update a value that does not exist [" + this.toString() + "]. SQL used was " + eqb.sqlTopLevel.toString() + ", parameters were " + eqb.parameters.toString());
                 setSyncedWithDb();
-            } catch (Exception e) {
+            } catch (SQLException e) {
                 String txName = "[could not get]";
-                try {
-                    txName = efi.ecfi.transactionFacade.getTransactionManager().getTransaction().toString();
-                } catch (Exception txe) { if (logger.isTraceEnabled()) logger.trace("Error getting transaction name: " + txe.toString()); }
-                throw new EntityException("Error in update of " + this.toString() + " tx " + txName + " con " + eqb.connection.toString(), e);
+                try { txName = efi.ecfi.transactionFacade.getTransactionManager().getTransaction().toString(); }
+                catch (Exception txe) { if (logger.isTraceEnabled()) logger.trace("Error getting transaction name: " + txe.toString()); }
+                logger.warn("Error updating " + this.toString() + " tx " + txName + " con " + eqb.connection.toString() + ": " + e.toString());
+                throw e;
             } finally {
                 try { eqb.closeAll(); }
-                catch (SQLException sqle) { //noinspection ThrowFromFinallyBlock
-                    throw new EntityException("Error in update of " + this.toString(), sqle); }
+                catch (SQLException sqle) { logger.error("Error in JDBC close in update of " + this.toString(), sqle); }
             }
         }
     }
 
     @SuppressWarnings("MismatchedQueryAndUpdateOfStringBuilder")
     @Override
-    public void deleteExtended(Connection con) {
+    public void deleteExtended(Connection con) throws SQLException {
         EntityDefinition ed = getEntityDefinition();
         EntityFacadeImpl efi = getEntityFacadeImpl();
 
@@ -183,19 +174,11 @@ public class EntityValueImpl extends EntityValueBase {
             throw new EntityException("Delete not implemented for view-entity");
         } else {
             EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi);
-            ArrayList<EntityConditionParameter> parameters = eqb.parameters;
             StringBuilder sql = eqb.sqlTopLevel;
-            sql.append("DELETE FROM ").append(ed.getFullTableName()).append(" WHERE ");
+            sql.append("DELETE FROM ").append(ed.getFullTableName());
 
             FieldInfo[] pkFieldArray = ed.entityInfo.pkFieldInfoArray;
-            int sizePk = pkFieldArray.length;
-            for (int i = 0; i < sizePk; i++) {
-                FieldInfo fieldInfo = pkFieldArray[i];
-                if (fieldInfo == null) break;
-                if (i > 0) sql.append(" AND ");
-                sql.append(fieldInfo.getFullColumnName()).append("=?");
-                parameters.add(new EntityConditionParameter(fieldInfo, valueMapInternal.get(fieldInfo.name), eqb));
-            }
+            eqb.addWhereClause(pkFieldArray, valueMapInternal);
 
             try {
                 efi.getEntityDbMeta().checkTableRuntime(ed);
@@ -204,20 +187,23 @@ public class EntityValueImpl extends EntityValueBase {
                 else eqb.makeConnection();
                 eqb.makePreparedStatement();
                 eqb.setPreparedStatementValues();
-                if (eqb.executeUpdate() == 0) logger.info("Tried to delete a value that does not exist " + this.toString(), new BaseException("location"));
-            } catch (Exception e) {
-                throw new EntityException("Error in delete of " + this.toString(), e);
+                if (eqb.executeUpdate() == 0) logger.info("Tried to delete a value that does not exist " + this.toString());
+            } catch (SQLException e) {
+                String txName = "[could not get]";
+                try { txName = efi.ecfi.transactionFacade.getTransactionManager().getTransaction().toString(); }
+                catch (Exception txe) { if (logger.isTraceEnabled()) logger.trace("Error getting transaction name: " + txe.toString()); }
+                logger.warn("Error deleting " + this.toString() + " tx " + txName + " con " + eqb.connection.toString() + ": " + e.toString());
+                throw e;
             } finally {
                 try { eqb.closeAll(); }
-                catch (SQLException sqle) { //noinspection ThrowFromFinallyBlock
-                    throw new EntityException("Error in delete of " + this.toString(), sqle); }
+                catch (SQLException sqle) { logger.error("Error in JDBC close in delete of " + this.toString(), sqle); }
             }
         }
     }
 
     @SuppressWarnings("MismatchedQueryAndUpdateOfStringBuilder")
     @Override
-    public boolean refreshExtended() {
+    public boolean refreshExtended() throws SQLException {
         EntityDefinition ed = getEntityDefinition();
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo;
         EntityFacadeImpl efi = getEntityFacadeImpl();
@@ -273,12 +259,15 @@ public class EntityValueImpl extends EntityValueBase {
                 if (logger.isTraceEnabled())
                     logger.trace("No record found in refresh for entity [" + getEntityName() + "] with values [" + String.valueOf(getValueMap()) + "]");
             }
-        } catch (Exception e) {
-            throw new EntityException("Error in refresh of " + this.toString(), e);
+        } catch (SQLException e) {
+            String txName = "[could not get]";
+            try { txName = efi.ecfi.transactionFacade.getTransactionManager().getTransaction().toString(); }
+            catch (Exception txe) { if (logger.isTraceEnabled()) logger.trace("Error getting transaction name: " + txe.toString()); }
+            logger.warn("Error finding " + this.toString() + " tx " + txName + " con " + eqb.connection.toString() + ": " + e.toString());
+            throw e;
         } finally {
             try { eqb.closeAll(); }
-            catch (SQLException sqle) { //noinspection ThrowFromFinallyBlock
-                throw new EntityException("Error in refresh of " + this.toString(), sqle); }
+            catch (SQLException sqle) { logger.error("Error in JDBC close in refresh of " + this.toString(), sqle); }
         }
 
         return retVal;
