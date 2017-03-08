@@ -245,6 +245,7 @@ along with this software (see the LICENSE.md file). If not, see
             <description>Set to random password for password reset, can be used only to update password</description></field>
         <field name="passwordSalt" type="text-medium"/>
         <field name="passwordHashType" type="text-short"/>
+        <field name="passwordBase64" type="text-indicator"><description>Set to Y is currentPassword Base64 encoded, defaults to Hex encoded</description></field>
         <field name="passwordSetDate" type="date-time"/>
         <field name="passwordHint" type="text-medium"/>
         <field name="hasLoggedOut" type="text-indicator"/>
