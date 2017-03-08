@@ -766,13 +766,15 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         return internalSecurityManager
     }
-    CredentialsMatcher getCredentialsMatcher(String hashType) {
+    CredentialsMatcher getCredentialsMatcher(String hashType, boolean isBase64) {
         HashedCredentialsMatcher hcm = new HashedCredentialsMatcher()
         if (hashType) {
             hcm.setHashAlgorithmName(hashType)
         } else {
             hcm.setHashAlgorithmName(getPasswordHashType())
         }
+        // in Shiro this defaults to true, which is the default unless UserAccount.passwordBase64 = 'Y'
+        hcm.setStoredCredentialsHexEncoded(!isBase64)
         return hcm
     }
     // NOTE: may not be used
