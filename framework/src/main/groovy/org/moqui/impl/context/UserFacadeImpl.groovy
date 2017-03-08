@@ -510,7 +510,7 @@ class UserFacadeImpl implements UserFacade {
         }
 
         // lookup login key, by hashed key
-        String hashedKey = eci.ecfi.getSimpleHash(loginKey, "", eci.ecfi.getLoginKeyHashType())
+        String hashedKey = eci.ecfi.getSimpleHash(loginKey, "", eci.ecfi.getLoginKeyHashType(), false)
         EntityValue userLoginKey = eci.getEntity().find("moqui.security.UserLoginKey")
                 .condition("loginKey", hashedKey).disableAuthz().one()
 
@@ -541,7 +541,7 @@ class UserFacadeImpl implements UserFacade {
         String loginKey = StringUtilities.getRandomString(40)
 
         // save hashed in UserLoginKey, calc expire and set from/thru dates
-        String hashedKey = eci.ecfi.getSimpleHash(loginKey, "", eci.ecfi.getLoginKeyHashType())
+        String hashedKey = eci.ecfi.getSimpleHash(loginKey, "", eci.ecfi.getLoginKeyHashType(), false)
         int expireHours = eci.ecfi.getLoginKeyExpireHours()
         Timestamp fromDate = getNowTimestamp()
         long thruTime = fromDate.getTime() + (expireHours * 60*60*1000)
