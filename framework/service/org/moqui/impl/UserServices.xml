@@ -118,6 +118,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <service-call name="org.moqui.impl.UserServices.update#PasswordInternal"
                 in-map="[userId:userId, newPassword:newPassword, newPasswordVerify:newPasswordVerify]"/>
+            <message>Password updated for user ${userAccount.username}</message>
         </actions>
     </service>
     <service verb="update" noun="PasswordInternal" authenticate="false" allow-remote="false">
@@ -200,8 +201,6 @@ along with this software (see the LICENSE.md file). If not, see
                 <field-map field-name="resetPassword" from="null"/>
                 <field-map field-name="disabled" value="N"/>
             </service-call>
-
-            <message>Password updated for user ${userAccount.username}</message>
         </actions>
     </service>
 
