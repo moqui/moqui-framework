@@ -112,6 +112,9 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:annotation><xs:documentation>If set to false no ArtifactHit or ArtifactHitBin data will be kept for
                     this screen and for any content or transitions under the screen.</xs:documentation></xs:annotation>
             </xs:attribute>
+            <xs:attribute name="history" type="boolean" default="true">
+                <xs:annotation><xs:documentation>If set to false this screen will not be saved in the screen/URL history.</xs:documentation></xs:annotation>
+            </xs:attribute>
             <xs:attribute name="login-path" type="xs:string" default="/Login">
                 <xs:annotation><xs:documentation>If specified will be used as the login screen path for this screen and
                     any subscreens, otherwise defaults to "/Login".</xs:documentation></xs:annotation>
