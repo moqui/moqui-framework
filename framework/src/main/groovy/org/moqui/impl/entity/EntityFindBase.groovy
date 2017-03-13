@@ -997,9 +997,8 @@ abstract class EntityFindBase implements EntityFind {
             if (getDistinct() && fieldsToSelect != null && fieldsToSelect.size() > 0 && orderByExpandedSize > 0) {
                 for (int i = 0; i < orderByExpandedSize; i++) {
                     String orderByField = (String) orderByExpanded.get(i)
-                    //EntityQueryBuilder.FieldOrderOptions foo = new EntityQueryBuilder.FieldOrderOptions(orderByField)
-                    //localFts.add(foo.fieldName)
-                    if (!fieldsToSelect.contains(orderByField)) fieldsToSelect.add(orderByField)
+                    FieldOrderOptions foo = new FieldOrderOptions(orderByField)
+                    if (!fieldsToSelect.contains(foo.fieldName)) fieldsToSelect.add(foo.fieldName)
                 }
             }
 
@@ -1121,9 +1120,8 @@ abstract class EntityFindBase implements EntityFind {
         // order by fields need to be selected (at least on some databases, Derby is one of them)
         if (getDistinct() && fieldsToSelect != null && fieldsToSelect.size() > 0 && orderByExpanded.size() > 0) {
             for (String orderByField in orderByExpanded) {
-                //EntityFindBuilder.FieldOrderOptions foo = new EntityFindBuilder.FieldOrderOptions(orderByField)
-                //fieldsToSelect.add(foo.fieldName)
-                if (!fieldsToSelect.contains(orderByField)) fieldsToSelect.add(orderByField)
+                FieldOrderOptions foo = new FieldOrderOptions(orderByField)
+                if (!fieldsToSelect.contains(foo.fieldName)) fieldsToSelect.add(foo.fieldName)
             }
         }
 
