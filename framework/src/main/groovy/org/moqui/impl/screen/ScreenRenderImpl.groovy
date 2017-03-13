@@ -1571,8 +1571,9 @@ class ScreenRenderImpl implements ScreenRender {
             lastImage = buildUrl(lastImage).url
         String lastTitle = fullUrlInfo.targetScreen.getDefaultMenuName()
         if (lastTitle.contains('${')) lastTitle = ec.resourceFacade.expand(lastTitle, "")
-        Map lastMap = [name:lastPathItem, title:lastTitle, path:lastPath,
-                       pathWithParams:currentPath.toString(), image:lastImage, extraPathList:extraPathList]
+        List<Map<String, Object>> screenDocList = fullUrlInfo.targetScreen.getScreenDocumentInfoList()
+        Map lastMap = [name:lastPathItem, title:lastTitle, path:lastPath, pathWithParams:currentPath.toString(), image:lastImage,
+                extraPathList:extraPathList, screenDocList:screenDocList]
         if ("icon".equals(lastImageType)) lastMap.imageType = "icon"
         menuDataList.add(lastMap)
         // not needed: screenStatic:fullUrlInfo.targetScreen.isServerStatic(renderMode)
