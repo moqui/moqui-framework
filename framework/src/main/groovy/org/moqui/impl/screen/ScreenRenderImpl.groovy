@@ -1116,6 +1116,11 @@ class ScreenRenderImpl implements ScreenRender {
         ScreenUrlInfo ui = ScreenUrlInfo.getScreenUrlInfo(this, fromSd, fromPathList, subscreenPath, 0)
         return ui.getInstance(this, null)
     }
+    UrlInstance buildUrlFromTarget(String subscreenPathOrig) {
+        String subscreenPath = subscreenPathOrig?.contains("\${") ? ec.resource.expand(subscreenPathOrig, "") : subscreenPathOrig
+        ScreenUrlInfo ui = ScreenUrlInfo.getScreenUrlInfo(this, screenUrlInfo.targetScreen, screenUrlInfo.preTransitionPathNameList, subscreenPath, 0)
+        return ui.getInstance(this, null)
+    }
 
     UrlInstance makeUrlByType(String origUrl, String urlType, MNode parameterParentNode, String expandTransitionUrlString) {
         Boolean expandTransitionUrl = expandTransitionUrlString != null ? "true".equals(expandTransitionUrlString) : null
@@ -1124,9 +1129,9 @@ class ScreenRenderImpl implements ScreenRender {
         String urlTypeExpanded = ec.resource.expand(urlType, "")
         switch (urlTypeExpanded) {
             // for transition we want a URL relative to the current screen, so just pass that to buildUrl
-            case "transition": suInfo = buildUrlInfo(origUrl); break;
-            case "screen": suInfo = buildUrlInfo(origUrl); break;
-            case "content": throw new IllegalArgumentException("The url-type of content is not yet supported"); break;
+            case "transition": suInfo = buildUrlInfo(origUrl); break
+            case "screen": suInfo = buildUrlInfo(origUrl); break
+            case "content": throw new IllegalArgumentException("The url-type of content is not yet supported"); break
             case "plain":
             default:
                 String url = ec.resource.expand(origUrl, "")

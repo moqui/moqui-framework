@@ -46,6 +46,16 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="subscreenName" type="text-medium"/>
     </entity>
 
+    <!-- ========== Screen Documentation ========== -->
+    <entity entity-name="ScreenDocument" package="moqui.screen" use="configuration" cache="true">
+        <field name="screenLocation" type="text-medium" is-pk="true"/>
+        <field name="docIndex" type="number-integer" is-pk="true">
+            <description>Part of the key (used to reference within a screen) and for sort order</description></field>
+        <field name="locale" type="text-short"/>
+        <field name="docTitle" type="text-medium"/>
+        <field name="docLocation" type="text-medium"/>
+    </entity>
+
     <!-- ========== Theme ========== -->
     <entity entity-name="ScreenTheme" package="moqui.screen" use="configuration" cache="true">
         <field name="screenThemeId" type="id" is-pk="true"/>
