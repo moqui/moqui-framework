@@ -275,6 +275,36 @@ public class CollectionUtilities {
         }
     }
 
+    /** Returns Map with total, squaredTotal, count, average, stdDev, maximum; fieldName field in Maps must have type BigDecimal;
+     * if count of non-null fields is less than 2 returns null as cannot calculate a standard deviation */
+    public static Map<String, BigDecimal> stdDevMaxFromMapField(List<Map<String, Object>> dataList, String fieldName, BigDecimal stdDevMultiplier) {
+        BigDecimal total = BigDecimal.ZERO;
+        BigDecimal squaredTotal = BigDecimal.ZERO;
+        int count = 0;
+        for (Map<String, Object> dataMap : dataList) {
+            if (dataMap == null) continue;
+            BigDecimal value = (BigDecimal) dataMap.get(fieldName);
+            if (value == null) continue;
+            total = total.add(value);
+            squaredTotal = squaredTotal.add(value.multiply(value));
+            count++;
+        }
+        if (count < 2) return null;
+
+        BigDecimal countBd = new BigDecimal(count);
+        BigDecimal average = total.divide(countBd, BigDecimal.ROUND_HALF_UP);
+        double totalDouble = total.doubleValue();
+        BigDecimal stdDev = new BigDecimal(Math.sqrt(Math.abs(squaredTotal.doubleValue() - ((totalDouble*totalDouble) / count)) / (count - 1)));
+
+        Map<String, BigDecimal> retMap = new HashMap<>(6);
+        retMap.put("total", total); retMap.put("squaredTotal", squaredTotal); retMap.put("count", countBd);
+        retMap.put("average", average); retMap.put("stdDev", stdDev);
+
+        if (stdDevMultiplier != null) retMap.put("maximum", average.add(stdDev.multiply(stdDevMultiplier)));
+
+        return retMap;
+    }
+
     /** Find a field value in a nested Map containing fields, Maps, and Collections of Maps (Lists, etc) */
     public static Object findFieldNestedMap(String key, Map theMap) {
         if (theMap.containsKey(key)) return theMap.get(key);

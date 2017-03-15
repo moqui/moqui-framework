@@ -120,9 +120,11 @@ class ScreenDefinition {
             transitionByName.put(ti.method == "any" ? ti.name : ti.name + "#" + ti.method, ti)
         }
 
+        // default/automatic transitions
         if (!transitionByName.containsKey("actions")) transitionByName.put("actions", new ActionsTransitionItem(this))
         if (!transitionByName.containsKey("formSelectColumns")) transitionByName.put("formSelectColumns", new FormSelectColumnsTransitionItem(this))
         if (!transitionByName.containsKey("formSaveFind")) transitionByName.put("formSaveFind", new FormSavedFindsTransitionItem(this))
+        if (!transitionByName.containsKey("screenDoc")) transitionByName.put("screenDoc", new ScreenDocumentTransitionItem(this))
 
         // subscreens
         defaultSubscreensItem = subscreensNode?.attribute("default-item")
@@ -532,6 +534,37 @@ class ScreenDefinition {
         return contentRef
     }
 
+    List<Map<String, Object>> getScreenDocumentInfoList() {
+        String localeString = sfi.ecfi.getEci().userFacade.getLocale().toString()
+        int localeUnderscoreIndex = localeString.indexOf('_')
+        String langString = null
+        // look for locale match, lang only match, or null
+        if (localeUnderscoreIndex > 0) langString = localeString.substring(0, localeUnderscoreIndex)
+
+        // do very simple cached query for all, then filter in iterator by locale
+        EntityList list = sfi.ecfi.entityFacade.find("moqui.screen.ScreenDocument").condition("screenLocation", location)
+                .orderBy("docIndex").useCache(true).disableAuthz().list()
+        int listSize = list.size()
+
+        List<Map<String, Object>> outList = new ArrayList<>(listSize)
+        for (int i = 0; i < listSize; i++) {
+            EntityValue screenDoc = (EntityValue) list.get(i)
+            String docLocale = screenDoc.getNoCheckSimple("locale")
+            if (docLocale != null && (!localeString.equals(docLocale) || (langString != null && !langString.equals(docLocale)))) continue
+            String title = screenDoc.getNoCheckSimple("docTitle")
+            if (title == null) {
+                String loc = screenDoc.getNoCheckSimple("docLocation")
+                int fnStart = loc.lastIndexOf("/") + 1
+                if (fnStart == -1) fnStart = 0
+                int fnEnd = loc.indexOf(".", fnStart)
+                if (fnEnd == -1) fnEnd = loc.length()
+                title = loc.substring(fnStart, fnEnd)
+            }
+            outList.add([title:title, index:(Long) screenDoc.getNoCheckSimple("docIndex")])
+        }
+        return outList
+    }
+
     @Override
     String toString() { return location }
 
@@ -752,7 +785,6 @@ class ScreenDefinition {
         }
     }
 
-    @CompileStatic
     static class ActionsTransitionItem extends TransitionItem {
         ActionsTransitionItem(ScreenDefinition parentScreen) {
             super(parentScreen)
@@ -871,6 +903,37 @@ class ScreenDefinition {
         }
     }
 
+    /** Special automatic transition to get content of a ScreenDocument by docIndex */
+    static class ScreenDocumentTransitionItem extends TransitionItem {
+        ScreenDocumentTransitionItem(ScreenDefinition parentScreen) {
+            super(parentScreen)
+            name = "screenDoc"; method = "any"; location = "${parentScreen.location}.transition\$${name}"
+            transitionNode = null; beginTransaction = false; readOnly = true; requireSessionToken = false
+            defaultResponse = new ResponseItem(new MNode("default-response", [type:"none"]), this, parentScreen)
+        }
+
+        ResponseItem run(ScreenRenderImpl sri) {
+            ExecutionContextImpl eci = sri.ec
+            String docIndexString = eci.contextStack.getByString("docIndex")
+            if (docIndexString == null || docIndexString.isEmpty()) {
+                sri.response.sendError(HttpServletResponse.SC_NOT_FOUND, "No docIndex specified")
+                return defaultResponse
+            }
+            Long docIndex = docIndexString as Long
+            EntityValue screenDocument = eci.entityFacade.find("moqui.screen.ScreenDocument")
+                    .condition("screenLocation", parentScreen.location).condition("docIndex", docIndex)
+                    .useCache(true).disableAuthz().one()
+            if (screenDocument == null) {
+                sri.response.sendError(HttpServletResponse.SC_NOT_FOUND, "No document found for index ${docIndex}")
+                return defaultResponse
+            }
+
+            String location = screenDocument.getNoCheckSimple("docLocation")
+            eci.resourceFacade.template(location, sri.response.getWriter())
+
+            return defaultResponse
+        }
+    }
 
     @CompileStatic
     static class ResponseItem {
