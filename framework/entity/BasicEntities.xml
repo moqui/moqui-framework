@@ -64,6 +64,7 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="EnumGroupMember" package="moqui.basic" use="configuration" cache="true">
         <field name="enumGroupEnumId" type="id" is-pk="true"/>
         <field name="enumId" type="id" is-pk="true"/>
+        <field name="sequenceNum" type="number-integer"/>
         <relationship type="one" title="EnumGroup" related="moqui.basic.Enumeration">
             <key-map field-name="enumGroupEnumId"/></relationship>
         <relationship type="one" related="moqui.basic.Enumeration"/>
@@ -72,11 +73,13 @@ along with this software (see the LICENSE.md file). If not, see
         </seed-data>
     </entity>
     <view-entity entity-name="EnumAndGroup" package="moqui.basic" cache="true">
-        <member-entity entity-alias="ENUM" entity-name="moqui.basic.Enumeration"/>
-        <member-entity entity-alias="EGM" entity-name="moqui.basic.EnumGroupMember" join-from-alias="ENUM">
+        <description>For getting EnumGroup members by enumGroupEnumId</description>
+        <member-entity entity-alias="EGM" entity-name="moqui.basic.EnumGroupMember"/>
+        <member-entity entity-alias="ENUM" entity-name="moqui.basic.Enumeration" join-from-alias="EGM">
             <key-map field-name="enumId"/></member-entity>
-        <alias-all entity-alias="ENUM"/>
         <alias-all entity-alias="EGM"/>
+        <alias-all entity-alias="ENUM"><exclude field="sequenceNum"/></alias-all>
+        <!-- better not to do this, sequence in group member records: <alias name="enumSequenceNum" entity-alias="ENUM" field="sequenceNum"/> -->
     </view-entity>
 
     <!-- ========== Geo ========== -->
