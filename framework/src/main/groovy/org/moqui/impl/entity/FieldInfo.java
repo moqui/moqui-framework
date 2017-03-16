@@ -366,7 +366,7 @@ public class FieldInfo {
             try {
                 value = EntityJavaUtil.enDeCrypt(original, false, efi);
             } catch (Exception e) {
-                logger.error("Error decrypting field [${fieldInfo.name}] of entity [${entityName}]", e);
+                logger.error("Error decrypting field [" + name + "] of entity [" + entityName + "]", e);
             }
         }
 
