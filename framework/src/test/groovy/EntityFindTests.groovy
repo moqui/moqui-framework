@@ -229,6 +229,25 @@ class EntityFindTests extends Specification {
         reset.typeDescription == "Country"
     }
 
+    def "auto cache clear for count by is not null after update"() {
+        when:
+        long before = ec.entity.find("moqui.basic.Enumeration").condition("enumCode", "is-not-null", null).useCache(true).count()
+        EntityValue enumVal = ec.entity.find("moqui.basic.Enumeration").condition("enumId", "DST_PURCHASED_DATA").useCache(false).one()
+        enumVal.enumCode = "TEST"
+        enumVal.update()
+        long after = ec.entity.find("moqui.basic.Enumeration").condition("enumCode", "is-not-null", null).useCache(true).count()
+
+        // set it back so data isn't funny after tests, and test clear after reset to null
+        enumVal.enumCode = null
+        enumVal.update()
+        long reset = ec.entity.find("moqui.basic.Enumeration").condition("enumCode", "is-not-null", null).useCache(true).count()
+        // logger.warn("count before ${before} after ${after} reset ${reset}")
+
+        then:
+        before + 1 == after
+        reset == before
+    }
+
     def "no cache with for update"() {
         when:
         // do query on Geo which has cache=true, with for-update it should not use the cache
