@@ -16,6 +16,7 @@ package org.moqui.impl.util
 import groovy.transform.CompileStatic
 import org.apache.shiro.authc.*
 import org.apache.shiro.authc.credential.CredentialsMatcher
+import org.apache.shiro.authz.Authorizer
 import org.apache.shiro.authz.Permission
 import org.apache.shiro.authz.UnauthorizedException
 import org.apache.shiro.realm.Realm
@@ -36,7 +37,7 @@ import org.slf4j.LoggerFactory
 import java.sql.Timestamp
 
 @CompileStatic
-class MoquiShiroRealm implements Realm {
+class MoquiShiroRealm implements Realm, Authorizer {
     protected final static Logger logger = LoggerFactory.getLogger(MoquiShiroRealm.class)
 
     protected ExecutionContextFactoryImpl ecfi
@@ -212,7 +213,7 @@ class MoquiShiroRealm implements Realm {
             loginAfterAlways(eci, userId, token.credentials as String, successful)
         }
 
-        return info;
+        return info
     }
 
     static boolean checkCredentials(String username, String password, ExecutionContextFactoryImpl ecfi) {
