@@ -86,7 +86,7 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
 
         // if ("AT_XML_SCREEN" == aeii.typeEnumId) logger.warn("TOREMOVE artifact push ${username} - ${aeii}")
 
-        if (!isPermitted(aeii, lastAeii, requiresAuthz, true, true)) {
+        if (!isPermitted(aeii, lastAeii, requiresAuthz, true, true, null)) {
             Deque<ArtifactExecutionInfo> curStack = getStack()
             StringBuilder warning = new StringBuilder()
             warning.append("User ${eci.user.username ?: eci.user.userId} is not authorized for ${aeii.getActionDescription()} on ${aeii.getTypeDescription()} ${aeii.getName()}")
@@ -238,11 +238,10 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
         String name = resourceAccess.substring(secondColon + 1)
 
         return eci.artifactExecutionFacade.isPermitted(new ArtifactExecutionInfoImpl(name, typeEnum, actionEnum, ""),
-                null, true, true, false)
+                null, true, true, false, null)
     }
 
-    boolean isPermitted(ArtifactExecutionInfoImpl aeii, ArtifactExecutionInfoImpl lastAeii,
-                        boolean requiresAuthz, boolean countTarpit, boolean isAccess) {
+    boolean isPermitted(ArtifactExecutionInfoImpl aeii, ArtifactExecutionInfoImpl lastAeii, boolean requiresAuthz, boolean countTarpit, boolean isAccess, LinkedList<ArtifactExecutionInfoImpl> currentStack) {
         ArtifactExecutionInfo.ArtifactType artifactTypeEnum = aeii.internalTypeEnum
         boolean isEntity = ArtifactExecutionInfo.AT_ENTITY.is(artifactTypeEnum)
         // right off record whether authz is required and is access
@@ -349,7 +348,7 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                 } else if (denyAacv == null && ArtifactExecutionInfo.AUTHZT_ALLOW.is(authzType)) {
                     // see if there are any denies in AEIs on lower on the stack
                     boolean ancestorDeny = false
-                    for (ArtifactExecutionInfoImpl ancestorAeii in artifactExecutionInfoStack)
+                    for (ArtifactExecutionInfoImpl ancestorAeii in (currentStack ?: artifactExecutionInfoStack))
                         if (ArtifactExecutionInfo.AUTHZT_DENY.is(ancestorAeii.getAuthorizedAuthzType())) ancestorDeny = true
 
                     if (!ancestorDeny) allowAacv = aacv
