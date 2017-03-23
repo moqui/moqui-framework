@@ -130,10 +130,12 @@ public class EntityFindImpl extends EntityFindBase {
             efb.startHavingClause();
             havingCondition.makeSqlWhere(efb);
         }
+
+        boolean hasLimitOffset = limit != null || offset != null;
         // ORDER BY clause
-        efb.makeOrderByClause(orderByExpanded);
+        efb.makeOrderByClause(orderByExpanded, hasLimitOffset);
         // LIMIT/OFFSET clause
-        efb.addLimitOffset(getLimit(), getOffset());
+        if (hasLimitOffset) efb.addLimitOffset(limit, offset);
         // FOR UPDATE
         if (getForUpdate()) efb.makeForUpdate();
 

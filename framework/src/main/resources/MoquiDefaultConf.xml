@@ -473,11 +473,12 @@
         <datasource group-name="transactional" database-conf-name="mssql" schema-name="">
             <inline-jdbc jdbc-uri="jdbc:sqlserver://localhost:1433;databaseName=moqui" jdbc-username="moqui" jdbc-password="moqui"/>
         </datasource>
+
+        NOTE: for MS SQL Server 2012 and later can use offset-style=fetch for better performance and consistent behavior
         -->
-        <database name="mssql" join-style="ansi" default-isolation-level="ReadCommitted" offset-style="cursor"
+        <database name="mssql" join-style="ansi" default-isolation-level="ReadCommitted" offset-style="fetch"
                 default-test-query="SELECT 1" default-jdbc-driver="com.microsoft.sqlserver.jdbc.SQLServerDriver"
                 default-xa-ds-class="com.microsoft.sqlserver.jdbc.SQLServerXADataSource">
-            <!-- NOTE: for MS SQL Server 2012 and later can use offset-style=fetch for better performance and consistent behavior -->
             <database-type type="id" sql-type="NVARCHAR(40)"/>
             <database-type type="id-long" sql-type="NVARCHAR(255)"/>
 

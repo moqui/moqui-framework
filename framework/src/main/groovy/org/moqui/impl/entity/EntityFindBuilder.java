@@ -40,37 +40,6 @@ public class EntityFindBuilder extends EntityQueryBuilder {
         sqlTopLevel.append("SELECT ");
     }
 
-    public void addLimitOffset(Integer limit, Integer offset) {
-        if (limit == null && offset == null) return;
-
-        MNode databaseNode = this.efi.getDatabaseNode(getMainEntityDefinition().getEntityGroupName());
-        // if no databaseNode do nothing, means it is not a standard SQL/JDBC database
-        if (databaseNode != null) {
-            String offsetStyle = databaseNode.attribute("offset-style");
-            if ("limit".equals(offsetStyle)) {
-                // use the LIMIT/OFFSET style
-                sqlTopLevel.append(" LIMIT ").append(limit != null && limit > 0 ? limit : "ALL");
-                sqlTopLevel.append(" OFFSET ").append(offset != null ? offset : 0);
-            } else if ("fetch".equals(offsetStyle) || offsetStyle == null || offsetStyle.length() == 0) {
-                // use SQL2008 OFFSET/FETCH style by default
-                if (offset != null) sqlTopLevel.append(" OFFSET ").append(offset).append(" ROWS");
-                if (limit != null) sqlTopLevel.append(" FETCH FIRST ").append(limit).append(" ROWS ONLY");
-            }
-            // do nothing here for offset-style=cursor, taken care of in EntityFindImpl
-        }
-    }
-
-    /** Adds FOR UPDATE, should be added to end of query */
-    public void makeForUpdate() {
-        MNode databaseNode = efi.getDatabaseNode(getMainEntityDefinition().getEntityGroupName());
-        String forUpdateStr = databaseNode.attribute("for-update");
-        if (forUpdateStr != null && forUpdateStr.length() > 0) {
-            sqlTopLevel.append(" ").append(forUpdateStr);
-        } else {
-            sqlTopLevel.append(" FOR UPDATE");
-        }
-    }
-
     public void makeDistinct() { sqlTopLevel.append("DISTINCT "); }
 
     public void makeCountFunction(FieldInfo[] fieldInfoArray, FieldOrderOptions[] fieldOptionsArray, boolean isDistinct, boolean isGroupBy) {
@@ -427,9 +396,12 @@ public class EntityFindBuilder extends EntityQueryBuilder {
 
     public void startHavingClause() { sqlTopLevel.append(" HAVING "); }
 
-    public void makeOrderByClause(ArrayList<String> orderByFieldList) {
+    public void makeOrderByClause(ArrayList<String> orderByFieldList, boolean hasLimitOffset) {
         int obflSize = orderByFieldList.size();
-        if (obflSize == 0) return;
+        if (obflSize == 0) {
+            if (hasLimitOffset) sqlTopLevel.append(" ORDER BY 1");
+            return;
+        }
 
         sqlTopLevel.append(" ORDER BY ");
         for (int i = 0; i < obflSize; i++) {
@@ -452,6 +424,36 @@ public class EntityFindBuilder extends EntityQueryBuilder {
             if (foo.getCaseUpperLower() != null && typeValue == 1) sqlTopLevel.append(")");
             sqlTopLevel.append(foo.getDescending() ? " DESC" : " ASC");
             if (foo.getNullsFirstLast() != null) sqlTopLevel.append(foo.getNullsFirstLast() ? " NULLS FIRST" : " NULLS LAST");
+        }
+    }
+    public void addLimitOffset(Integer limit, Integer offset) {
+        if (limit == null && offset == null) return;
+
+        MNode databaseNode = this.efi.getDatabaseNode(getMainEntityDefinition().getEntityGroupName());
+        // if no databaseNode do nothing, means it is not a standard SQL/JDBC database
+        if (databaseNode != null) {
+            String offsetStyle = databaseNode.attribute("offset-style");
+            if ("limit".equals(offsetStyle)) {
+                // use the LIMIT/OFFSET style
+                sqlTopLevel.append(" LIMIT ").append(limit != null && limit > 0 ? limit : "ALL");
+                sqlTopLevel.append(" OFFSET ").append(offset != null ? offset : 0);
+            } else if (offsetStyle == null || offsetStyle.length() == 0 || "fetch".equals(offsetStyle)) {
+                // use SQL2008 OFFSET/FETCH style by default
+                sqlTopLevel.append(" OFFSET ").append(offset != null ? offset.toString() : '0').append(" ROWS");
+                if (limit != null) sqlTopLevel.append(" FETCH FIRST ").append(limit).append(" ROWS ONLY");
+            }
+            // do nothing here for offset-style=cursor, taken care of in EntityFindImpl
+        }
+    }
+
+    /** Adds FOR UPDATE, should be added to end of query */
+    public void makeForUpdate() {
+        MNode databaseNode = efi.getDatabaseNode(getMainEntityDefinition().getEntityGroupName());
+        String forUpdateStr = databaseNode.attribute("for-update");
+        if (forUpdateStr != null && forUpdateStr.length() > 0) {
+            sqlTopLevel.append(" ").append(forUpdateStr);
+        } else {
+            sqlTopLevel.append(" FOR UPDATE");
         }
     }
 

@@ -23,8 +23,9 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="clientIpTimeZone"/>
         </out-parameters>
         <actions>
-            <entity-find-one entity-name="moqui.server.Visit" value-field="visit" for-update="true"/>
-            <if condition="!visit"><return message="No visit found with ID ${visitId}"/></if>
+            <entity-find-one entity-name="moqui.server.Visit" value-field="visit"/>
+            <!-- don't lock the Visit, ie no for-update="true" just in case this takes a long time to run -->
+            <if condition="visit == null"><return message="No visit found with ID ${visitId}"/></if>
             <if condition="!visit.clientIpAddress"><return message="Visit with ID ${visitId} has no clientIpAddress"/></if>
 
             <if condition="!visit.clientIpAddress.contains('.')"><return message="IP address not a IPv4 address"/></if>
