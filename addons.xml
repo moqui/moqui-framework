@@ -56,6 +56,7 @@
     <component name="moqui-zh_CN-addon" group="chunlinyao" version="" branch="master"/><!-- no releases -->
     <component name="moqui-graphql" group="shendepu" version="" branch="master"/><!-- no releases -->
     <component name="moqui-react-ssr" group="shendepu" version="" branch="master"/><!-- no releases -->
+    <component name="moqui-captcha" group="shendepu" version="" branch="master"/><!-- no releases -->
     <component name="OFBizToMantle" group="jonesde" version="" branch="master"/><!-- no releases -->
 
     <!-- Component Sets -->
