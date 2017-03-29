@@ -1590,10 +1590,12 @@ class ScreenForm {
         }
 
         List<Map<String, Object>> getUserFormListFinds(ExecutionContextImpl ec) {
-            EntityList flfuList = ec.entity.find("moqui.screen.form.FormListFindUser")
-                    .condition("userId", ec.user.userId).useCache(true).list()
-            EntityList flfugList = ec.entity.find("moqui.screen.form.FormListFindUserGroup")
-                    .condition("userGroupId", EntityCondition.IN, ec.user.userGroupIdSet).useCache(true).list()
+            EntityList flfuList = ec.entity.find("moqui.screen.form.FormListFindUserView")
+                    .condition("userId", ec.user.userId)
+                    .condition("formLocation", screenForm.location).useCache(true).list()
+            EntityList flfugList = ec.entity.find("moqui.screen.form.FormListFindUserGroupView")
+                    .condition("userGroupId", EntityCondition.IN, ec.user.userGroupIdSet)
+                    .condition("formLocation", screenForm.location).useCache(true).list()
             Set<String> userOnlyFlfIdSet = new HashSet<>()
             Set<String> formListFindIdSet = new HashSet<>()
             for (EntityValue ev in flfuList) {
