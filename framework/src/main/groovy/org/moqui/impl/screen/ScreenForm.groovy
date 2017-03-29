@@ -1889,9 +1889,18 @@ class ScreenForm {
                 } else {
                     EntityValue formConfig = ec.entity.makeValue("moqui.screen.form.FormConfig").set("formLocation", formLocation)
                             .setSequencedIdPrimary().create()
-                    flf.formConfigId = formConfig.getNoCheckSimple("formConfigId")
+                    flfFormConfigId = (String) formConfig.getNoCheckSimple("formConfigId")
+                    flf.formConfigId = flfFormConfigId
                 }
                 for (EntityValue fcf in formConfigFieldList) fcf.cloneValue().set("formConfigId", flfFormConfigId).create()
+            } else {
+                // clear previouse FormConfig
+                String flfFormConfigId = (String) flf.getNoCheckSimple("formConfigId")
+                flf.formConfigId = null
+                if (flfFormConfigId != null && !flfFormConfigId.isEmpty()) {
+                    ec.entity.find("moqui.screen.form.FormConfigField").condition("formConfigId", flfFormConfigId).deleteAll()
+                }
+                ec.entity.find("moqui.screen.form.FormConfigField").condition("formConfigId", flfFormConfigId).deleteAll()
             }
 
             if (cs.description) flf.description = cs.description
