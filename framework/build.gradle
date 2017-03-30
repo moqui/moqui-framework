@@ -102,7 +102,7 @@ dependencies {
     compile module('com.cronutils:cron-utils:5.0.5') // Apache 2.0
 
     // Freemarker
-    compile 'org.freemarker:freemarker:2.3.25-incubating' // Apache 2.0
+    compile 'org.freemarker:freemarker:2.3.26-incubating' // Apache 2.0
 
     // Java Specifications
     compile 'javax.transaction:jta:1.1'

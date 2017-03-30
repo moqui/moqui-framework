@@ -53,7 +53,7 @@ dependencies {
     // SLF4J
     compile 'org.slf4j:slf4j-api:1.7.25'
     // Freemarker
-    compile 'org.freemarker:freemarker:2.3.25-incubating' // Apache 2.0
+    compile 'org.freemarker:freemarker:2.3.26-incubating' // Apache 2.0
     // Groovy
     compile 'org.codehaus.groovy:groovy:2.4.10' // Apache 2.0
     compile 'org.codehaus.groovy:groovy-json:2.4.10' // Apache 2.0
