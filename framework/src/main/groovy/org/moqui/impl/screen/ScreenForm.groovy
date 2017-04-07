@@ -1523,15 +1523,27 @@ class ScreenForm {
             String listName = formInstance.formNode.attribute("list")
             MNode entityFindNode = screenForm.entityFindNode
             if (entityFindNode != null) {
-                EntityFind ef = ecfi.entityFacade.find(entityFindNode)
+                EntityFindBase ef = (EntityFindBase) ecfi.entityFacade.find(entityFindNode)
 
                 // if no select-field add one for each form field displayed in a column that is a valid entity field name
                 // if (ef.getSelectFields() == null || ef.getSelectFields().size() == 0) {
                 // always do this even if there are some entity-find.select-field elements, support specifying some fields that are always selected
                 for (String fieldName in displayedFieldSet) ef.selectField(fieldName)
+                // don't order by fields not in displayedFieldSet
+                ArrayList<String> orderByFields = ef.orderByFields
+                for (int i = 0; i < orderByFields.size(); ) {
+                    String obfString = (String) orderByFields.get(i)
+                    EntityJavaUtil.FieldOrderOptions foo = EntityJavaUtil.makeFieldOrderOptions(obfString)
+                    if (displayedFieldSet.contains(foo.fieldName)) {
+                        i++
+                    } else {
+                        orderByFields.remove(i)
+                    }
+                }
+                // always select hidden fields
                 ArrayList<String> hiddenNames = formInstance.getListHiddenFieldNameList()
                 int hiddenNamesSize = hiddenNames.size()
-                for (int i = 0; i < hiddenNamesSize; i++) { String fn = (String) hiddenNames.get(i); ef.selectField(fn); }
+                for (int i = 0; i < hiddenNamesSize; i++) { String fn = (String) hiddenNames.get(i); ef.selectField(fn) }
 
                 // logger.info("TOREMOVE form-list.entity-find: ${ef.toString()}")
 

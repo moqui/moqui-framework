@@ -557,6 +557,7 @@ abstract class EntityFindBase implements EntityFind {
         return this
     }
     @Override List<String> getOrderBy() { return orderByFields != null ? Collections.unmodifiableList(orderByFields) : null }
+    ArrayList<String> getOrderByFields() { return orderByFields }
 
     @Override EntityFind useCache(Boolean useCache) { this.useCache = useCache; return this }
     @Override boolean getUseCache() { return this.useCache }
