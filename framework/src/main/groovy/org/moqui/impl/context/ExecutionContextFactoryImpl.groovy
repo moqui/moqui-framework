@@ -538,7 +538,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         for (ComponentInfo ci in componentInfoMap.values()) {
             ResourceReference classesRr = ci.componentRr.getChild("classes")
             if (classesRr.exists && classesRr.supportsDirectory() && classesRr.isDirectory()) {
-                moquiClassLoader.addClassesDirectory(new File(classesRr.getUri()))
+                moquiClassLoader.addClassesDirectory(new File(classesRr.getUrl().getPath()))
             }
 
             ResourceReference libRr = ci.componentRr.getChild("lib")

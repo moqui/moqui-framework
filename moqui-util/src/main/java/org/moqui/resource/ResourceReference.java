@@ -81,8 +81,15 @@ public abstract class ResourceReference implements Serializable {
                 // NOTE: this doesn't seem to work on Windows for local files: when protocol is plain "file" and path starts
                 //     with a drive letter like "C:\moqui\..." it produces a parse error showing the URI as "file://C:/..."
                 if (logger.isTraceEnabled()) logger.trace("Getting URI for URL " + locUrl.toExternalForm());
+                String path = locUrl.getPath();
+
+                // Support Windows local files.
+                if ("file".equals(locUrl.getProtocol())) {
+                    if (!path.startsWith("/"))
+                        path = "/" + path;
+                }
                 return new URI(locUrl.getProtocol(), locUrl.getUserInfo(), locUrl.getHost(),
-                        locUrl.getPort(), locUrl.getPath(), locUrl.getQuery(), locUrl.getRef());
+                        locUrl.getPort(), path, locUrl.getQuery(), locUrl.getRef());
             } else {
                 String loc = getLocation();
                 if (loc == null || loc.isEmpty()) return null;
