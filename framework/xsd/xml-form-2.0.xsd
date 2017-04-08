@@ -838,14 +838,12 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:element name="drop-down" substitutionGroup="SubFields">
         <xs:complexType>
             <xs:sequence>
-                <xs:choice>
-                    <xs:element ref="dynamic-options"/>
-                    <xs:choice minOccurs="0" maxOccurs="unbounded">
-                        <xs:element ref="entity-options"/>
-                        <xs:element ref="list-options"/>
-                        <xs:element ref="option"/>
-                    </xs:choice>
+                <xs:choice minOccurs="0" maxOccurs="unbounded">
+                    <xs:element ref="entity-options"/>
+                    <xs:element ref="list-options"/>
+                    <xs:element ref="option"/>
                 </xs:choice>
+                <xs:element minOccurs="0" ref="dynamic-options"/>
             </xs:sequence>
             <xs:attribute name="allow-empty" type="xs:string" default="false"/>
             <xs:attribute name="allow-multiple" type="xs:string" default="false"/>
