@@ -855,8 +855,6 @@ along with this software (see the LICENSE.md file). If not, see
             </xs:attribute>
             <xs:attribute name="current-description" type="xs:string"/>
             <xs:attribute name="combo-box" type="boolean" default="false"/>
-            <xs:attribute name="search" type="boolean">
-                <xs:annotation><xs:documentation>By default shows search box if more than a certain number of results (10)</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="style" type="xs:string"/>
         </xs:complexType>
     </xs:element>
