@@ -1531,7 +1531,7 @@ class ScreenForm {
                 for (String fieldName in displayedFieldSet) ef.selectField(fieldName)
                 // don't order by fields not in displayedFieldSet
                 ArrayList<String> orderByFields = ef.orderByFields
-                for (int i = 0; i < orderByFields.size(); ) {
+                if (orderByFields != null) for (int i = 0; i < orderByFields.size(); ) {
                     String obfString = (String) orderByFields.get(i)
                     EntityJavaUtil.FieldOrderOptions foo = EntityJavaUtil.makeFieldOrderOptions(obfString)
                     if (displayedFieldSet.contains(foo.fieldName)) {
