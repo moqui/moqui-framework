@@ -1077,6 +1077,10 @@ along with this software (see the LICENSE.md file). If not, see
                 Key press debounce delay for server-search.</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="min-length" type="xs:nonNegativeInteger" default="1"><xs:annotation><xs:documentation>
                 Min term length to search for server-search, can be zero to populate immediately.</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="parameter-map" type="xs:string">
+                <xs:annotation><xs:documentation>A Map to get parameter names and values from for search and dynamic default requests.
+                    This is named to follow the pattern for parameters used elsewhere.</xs:documentation></xs:annotation>
+            </xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="depends-on">
