@@ -116,6 +116,12 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="formConfigId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
         <field name="formLocation" type="text-medium"/>
+        <relationship type="many" related="moqui.screen.form.FormConfigField" short-alias="fields">
+            <key-map field-name="formConfigId"/></relationship>
+        <relationship type="many" related="moqui.screen.form.FormConfigUser" short-alias="users">
+            <key-map field-name="formConfigId"/></relationship>
+        <relationship type="many" related="moqui.screen.form.FormConfigUserGroup" short-alias="userGroups">
+            <key-map field-name="formConfigId"/></relationship>
     </entity>
     <entity entity-name="FormConfigField" package="moqui.screen.form" use="configuration">
         <field name="formConfigId" type="id" is-pk="true"/>
@@ -155,6 +161,12 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="formConfigId" type="id"/>
         <!-- may be useful for certain search backed forms: <field name="searchString" type="text-medium"/> -->
         <relationship type="one" related="moqui.screen.form.FormConfig"/>
+        <relationship type="many" related="moqui.screen.form.FormListFindField" short-alias="fields">
+            <key-map field-name="formListFindId"/></relationship>
+        <relationship type="many" related="moqui.screen.form.FormListFindUser" short-alias="users">
+            <key-map field-name="formListFindId"/></relationship>
+        <relationship type="many" related="moqui.screen.form.FormListFindUserGroup" short-alias="userGroups">
+            <key-map field-name="formListFindId"/></relationship>
     </entity>
     <entity entity-name="FormListFindField" package="moqui.screen.form" use="configuration">
         <description>Has fields for the various options in search-form-inputs/searchFormInputs()/searchFormMap()</description>
