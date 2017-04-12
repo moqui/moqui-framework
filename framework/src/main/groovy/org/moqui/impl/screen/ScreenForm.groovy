@@ -1819,19 +1819,19 @@ class ScreenForm {
         ContextStack cs = ec.contextStack
 
         String formListFindId = (String) cs.formListFindId
-        EntityValue flf = formListFindId ? ec.entity.find("moqui.screen.form.FormListFind")
+        EntityValue flf = formListFindId != null && !formListFindId.isEmpty() ? ec.entity.find("moqui.screen.form.FormListFind")
                 .condition("formListFindId", formListFindId).useCache(false).one() : null
 
         boolean isDelete = cs.containsKey("DeleteFind")
 
         if (isDelete) {
-            if (flf == null) { ec.messageFacade.addError("Saved find with ID ${formListFindId} not found, not deleting"); return null; }
+            if (flf == null) { ec.messageFacade.addError("Saved find with ID ${formListFindId} not found, not deleting"); return null }
 
             // delete FormListFindUser record; if there are no other FormListFindUser records or FormListFindUserGroup
             //     records, delete the FormListFind
             EntityValue flfu = ec.entity.find("moqui.screen.form.FormListFindUser").condition("userId", userId)
                     .condition("formListFindId", formListFindId).useCache(false).one()
-            // NOTE: if no FormListFindUser nothing to delete... consider removing form from all groups the user is in?
+            // NOTE: if no FormListFindUser nothing to delete... consider removing form from all groups the user is in? best not to, affects other users especially for ALL_USERS
             if (flfu == null) return null
             flfu.delete()
 
@@ -1866,8 +1866,9 @@ class ScreenForm {
         FormInstance formInstance = screenForm.getFormInstance()
 
         String formConfigId = formInstance.getUserActiveFormConfigId(ec)
+        if ((formConfigId == null || formConfigId.isEmpty()) && flf != null) formConfigId = flf.formConfigId
         EntityList formConfigFieldList = null
-        if (formConfigId) {
+        if (formConfigId != null && !formConfigId.isEmpty()) {
             formConfigFieldList = ec.entityFacade.find("moqui.screen.form.FormConfigField")
                     .condition("formConfigId", formConfigId).useCache(true).list()
         }
@@ -1891,8 +1892,13 @@ class ScreenForm {
                     ec.message.addError("You are not associated with Saved Find ${formListFindId}, cannot update")
                     return formListFindId
                 }
+                // is associated with a group but we want to only update for a user, so treat this as if it is not based on existing
+                flf = null
+                formListFindId = null
             }
+        }
 
+        if (flf != null) {
             // save the FormConfig fields if needed, create a new FormConfig for the FormListFind or removing existing as needed
             if (formConfigFieldList != null && formConfigFieldList.size() > 0) {
                 String flfFormConfigId = (String) flf.getNoCheckSimple("formConfigId")
@@ -1906,16 +1912,15 @@ class ScreenForm {
                 }
                 for (EntityValue fcf in formConfigFieldList) fcf.cloneValue().set("formConfigId", flfFormConfigId).create()
             } else {
-                // clear previouse FormConfig
+                // clear previous FormConfig
                 String flfFormConfigId = (String) flf.getNoCheckSimple("formConfigId")
                 flf.formConfigId = null
-                if (flfFormConfigId != null && !flfFormConfigId.isEmpty()) {
+                if (flfFormConfigId != null && !flfFormConfigId.isEmpty())
                     ec.entity.find("moqui.screen.form.FormConfigField").condition("formConfigId", flfFormConfigId).deleteAll()
-                }
                 ec.entity.find("moqui.screen.form.FormConfigField").condition("formConfigId", flfFormConfigId).deleteAll()
             }
 
-            if (cs.description) flf.description = cs.description
+            if (cs._findDescription) flf.description = cs._findDescription
             if (cs.orderByField) flf.orderByField = cs.orderByField
             if (flf.isModified()) flf.update()
 
@@ -1934,7 +1939,7 @@ class ScreenForm {
 
             flf = ec.entity.makeValue("moqui.screen.form.FormListFind")
             flf.formLocation = formLocation
-            flf.description = cs.description ?: "${ec.user.username} - ${ec.l10n.format(ec.user.nowTimestamp, "yyyy-MM-dd HH:mm")}"
+            flf.description = cs._findDescription ?: "${ec.user.username} - ${ec.l10n.format(ec.user.nowTimestamp, "yyyy-MM-dd HH:mm")}"
             if (cs.orderByField) flf.orderByField = cs.orderByField
             if (formConfig != null) flf.formConfigId = formConfig.formConfigId
             flf.setSequencedIdPrimary()
