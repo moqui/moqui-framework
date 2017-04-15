@@ -362,7 +362,7 @@ public class ScreenFacadeImpl implements ScreenFacade {
             sections = sd.sectionByName.size()
             transitions = sd.transitionByName.size()
             for (TransitionItem ti in sd.transitionByName.values()) if (ti.hasActionsOrSingleService()) transitionsWithActions++
-            isNonPlaceholder = forms > 0 || sections > 0 || transitions > 3
+            isNonPlaceholder = forms > 0 || sections > 0 || transitions > 4
             // if (isNonPlaceholder) logger.info("Screen ${name} forms ${forms} sections ${sections} transitions ${transitions}")
 
             // trickle up totals
