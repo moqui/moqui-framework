@@ -478,7 +478,8 @@
         -->
         <database name="mssql" join-style="ansi" default-isolation-level="ReadCommitted" offset-style="fetch"
                 default-test-query="SELECT 1" default-jdbc-driver="com.microsoft.sqlserver.jdbc.SQLServerDriver"
-                default-xa-ds-class="com.microsoft.sqlserver.jdbc.SQLServerXADataSource">
+                default-xa-ds-class="com.microsoft.sqlserver.jdbc.SQLServerXADataSource"
+                default-startup-add-missing="true" default-runtime-add-missing="false">
             <database-type type="id" sql-type="NVARCHAR(40)"/>
             <database-type type="id-long" sql-type="NVARCHAR(255)"/>
 
