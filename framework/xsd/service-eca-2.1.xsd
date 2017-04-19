@@ -13,7 +13,7 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
-    <xs:include schemaLocation="xml-actions-2.0.xsd"/>
+    <xs:include schemaLocation="xml-actions-2.1.xsd"/>
     
     <xs:element name="secas">
         <xs:complexType>
