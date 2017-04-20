@@ -48,9 +48,9 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="relatedEnumId" type="id"/>
         <relationship type="one" related="moqui.basic.EnumerationType" short-alias="type"/>
         <relationship type="one-nofk" title="Parent" related="moqui.basic.Enumeration" short-alias="parent">
-            <key-map field-name="parentEnumId"/></relationship>
+            <key-map field-name="parentEnumId" related="enumId"/></relationship>
         <relationship type="one-nofk" title="Related" related="moqui.basic.Enumeration" short-alias="related">
-            <key-map field-name="relatedEnumId"/></relationship>
+            <key-map field-name="relatedEnumId" related="enumId"/></relationship>
         <seed-data>
             <moqui.basic.EnumerationType enumTypeId="_NA_" description="Not Applicable"/>
             <moqui.basic.Enumeration enumId="_NA_" enumTypeId="_NA_" description="Not Applicable"/>
