@@ -49,6 +49,7 @@ public class FieldInfo {
     public final int typeValue;
     private final boolean isTextVeryLong;
     public final boolean isPk;
+    public final boolean notNull;
     private final boolean encrypt;
     final boolean isSimple;
     final boolean enableLocalization;
@@ -86,6 +87,7 @@ public class FieldInfo {
             throw new EntityException("No type specified or found for field " + name + " on entity " + entityName);
         }
         isPk = "true".equals(fnAttrs.get("is-pk"));
+        notNull = "true".equals(fnAttrs.get("not-null"));
         encrypt = "true".equals(fnAttrs.get("encrypt"));
         enableLocalization = "true".equals(fnAttrs.get("enable-localization"));
         isSimple = !enableLocalization;
