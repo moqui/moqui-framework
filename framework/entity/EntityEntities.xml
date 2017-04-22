@@ -113,6 +113,8 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="dataDocumentId"/></relationship>
         <relationship type="many" related="moqui.entity.feed.DataFeedDocument" short-alias="feeds">
             <key-map field-name="dataDocumentId"/></relationship>
+        <relationship type="one-nofk" related="moqui.entity.document.DataDocumentIndexSetting" short-alias="indexSetting">
+            <key-map field-name="indexName"/></relationship>
         <master>
             <detail relationship="fields"/><detail relationship="relAliases"/>
             <detail relationship="conditions"/><detail relationship="links"/>
@@ -135,6 +137,34 @@ along with this software (see the LICENSE.md file). If not, see
             but not tokenized for search). In ElasticSearch this adds [field name].keyword field of type keyword to sort on if the
             entity field is a 'text' type ElasticSearch field.</description></field>
         <relationship type="one" related="moqui.entity.document.DataDocument"/>
+        <relationship type="many" related="moqui.entity.document.DataDocumentFieldMapping" short-alias="mappings">
+            <key-map field-name="dataDocumentId"/><key-map field-name="fieldPath"/></relationship>
+    </entity>
+    <entity entity-name="DataDocumentFieldMapping" package="moqui.entity.document" use="configuration">
+        <field name="dataDocumentId" type="id" is-pk="true"/>
+        <field name="fieldPath" type="text-medium" is-pk="true"/>
+        <field name="mappingParameter" type="text-short" is-pk="true"/>
+        <field name="mappingValue" type="text-medium" not-null="true"/>
+        <relationship type="one" related="moqui.entity.document.DataDocumentField">
+            <key-map field-name="dataDocumentId"/><key-map field-name="fieldPath"/></relationship>
+    </entity>
+    <entity entity-name="DataDocumentIndexSetting" package="moqui.entity.document" use="configuration">
+        <field name="indexName" type="text-medium" is-pk="true"/>
+        <field name="settings" type="text-long"><description>The setting should be in JSON format. e.g.
+            {
+              "analysis": {
+                "analyzer": {
+                  "my_analyzer": {
+                    "type": "custom",
+                    "tokenizer": "standard",
+                    "filter": ["standard"],
+                    "char_filter": ["html_strip"]
+                  }
+                }
+              }
+            }
+        </description></field>
+        <relationship type="many" related="moqui.entity.document.DataDocument"/>
     </entity>
     <entity entity-name="DataDocumentRelAlias" package="moqui.entity.document" use="configuration">
         <field name="dataDocumentId" type="id" is-pk="true"/>
