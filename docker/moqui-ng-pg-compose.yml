@@ -64,8 +64,7 @@ services:
      - webapp_https_enabled=true
 
   moqui-database:
-    # note that 9.6 is available but testing with 9.5 as it is more commonly used still
-    image: postgres:9.5
+    image: postgres:9.6
     container_name: moqui-database
     restart: unless-stopped
     # uncomment this to expose the port for use outside other containers
