@@ -1315,7 +1315,7 @@ class EntityFacadeImpl implements EntityFacade {
 
         if (node.hasChild("having-econditions")) {
             for (MNode havingCond in node.children("having-econditions"))
-                ef.havingCondition(getConditionFactoryImpl().makeActionCondition(havingCond))
+                ef.havingCondition(getConditionFactoryImpl().makeActionConditions(havingCond))
         }
 
         return ef

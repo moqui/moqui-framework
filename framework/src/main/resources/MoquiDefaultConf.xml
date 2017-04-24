@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!-- No copyright or license for configuration file, details here are not considered a creative work. -->
-<moqui-conf xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/moqui-conf-2.0.xsd">
+<moqui-conf xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/moqui-conf-2.1.xsd">
 
     <!-- Settings in this file can be overridden in a component (MoquiConf.xml) and/or runtime conf file that has
         any of the desired sub-elements. -->
@@ -473,11 +473,13 @@
         <datasource group-name="transactional" database-conf-name="mssql" schema-name="">
             <inline-jdbc jdbc-uri="jdbc:sqlserver://localhost:1433;databaseName=moqui" jdbc-username="moqui" jdbc-password="moqui"/>
         </datasource>
+
+        NOTE: for MS SQL Server 2012 and later can use offset-style=fetch for better performance and consistent behavior
         -->
-        <database name="mssql" join-style="ansi" default-isolation-level="ReadCommitted" offset-style="cursor"
+        <database name="mssql" join-style="ansi" default-isolation-level="ReadCommitted" offset-style="fetch"
                 default-test-query="SELECT 1" default-jdbc-driver="com.microsoft.sqlserver.jdbc.SQLServerDriver"
-                default-xa-ds-class="com.microsoft.sqlserver.jdbc.SQLServerXADataSource">
-            <!-- NOTE: for MS SQL Server 2012 and later can use offset-style=fetch for better performance and consistent behavior -->
+                default-xa-ds-class="com.microsoft.sqlserver.jdbc.SQLServerXADataSource"
+                default-startup-add-missing="true" default-runtime-add-missing="false">
             <database-type type="id" sql-type="NVARCHAR(40)"/>
             <database-type type="id-long" sql-type="NVARCHAR(255)"/>
 

@@ -13,9 +13,9 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
-    <xs:include schemaLocation="common-types-2.0.xsd"/>
-    <xs:include schemaLocation="xml-actions-2.0.xsd"/>
-    <xs:include schemaLocation="xml-form-2.0.xsd"/>
+    <xs:include schemaLocation="common-types-2.1.xsd"/>
+    <xs:include schemaLocation="xml-actions-2.1.xsd"/>
+    <xs:include schemaLocation="xml-form-2.1.xsd"/>
 
     <!-- ================ Shared Elements ================ -->
     <xs:group name="section-elements">
@@ -111,6 +111,9 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="track-artifact-hit" type="boolean" default="true">
                 <xs:annotation><xs:documentation>If set to false no ArtifactHit or ArtifactHitBin data will be kept for
                     this screen and for any content or transitions under the screen.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="history" type="boolean" default="true">
+                <xs:annotation><xs:documentation>If set to false this screen will not be saved in the screen/URL history.</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="login-path" type="xs:string" default="/Login">
                 <xs:annotation><xs:documentation>If specified will be used as the login screen path for this screen and

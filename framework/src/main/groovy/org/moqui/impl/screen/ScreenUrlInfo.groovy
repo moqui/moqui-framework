@@ -239,7 +239,7 @@ class ScreenUrlInfo {
             // logger.warn("======== Not caching isPermitted, username=${username}, fullPathNameList=${fullPathNameList}")
         }
 
-        Deque<ArtifactExecutionInfoImpl> artifactExecutionInfoStack = new LinkedList<ArtifactExecutionInfoImpl>()
+        LinkedList<ArtifactExecutionInfoImpl> artifactExecutionInfoStack = new LinkedList<ArtifactExecutionInfoImpl>()
 
         int screenPathDefListSize = screenPathDefList.size()
         for (int i = 0; i < screenPathDefListSize; i++) {
@@ -256,7 +256,7 @@ class ScreenUrlInfo {
 
             String requireAuthentication = screenNode.attribute('require-authentication')
             if (!aefi.isPermitted(aeii, lastAeii,
-                    isLast ? (!requireAuthentication || "true".equals(requireAuthentication)) : false, false, false)) {
+                    isLast ? (!requireAuthentication || "true".equals(requireAuthentication)) : false, false, false, artifactExecutionInfoStack)) {
                 // logger.warn("TOREMOVE user ${username} is NOT allowed to view screen at path ${this.fullPathNameList} because of screen at ${screenDef.location}")
                 if (permittedCacheKey != null) aefi.screenPermittedCache.put(permittedCacheKey, false)
                 return false
@@ -277,7 +277,7 @@ class ScreenUrlInfo {
             ArtifactExecutionInfoImpl aeii = new ArtifactExecutionInfoImpl(serviceName, ArtifactExecutionInfo.AT_SERVICE, authzAction, null)
 
             ArtifactExecutionInfoImpl lastAeii = (ArtifactExecutionInfoImpl) artifactExecutionInfoStack.peekFirst()
-            if (!aefi.isPermitted(aeii, lastAeii, true, false, false)) {
+            if (!aefi.isPermitted(aeii, lastAeii, true, false, false, null)) {
                 // logger.warn("TOREMOVE user ${username} is NOT allowed to run transition at path ${this.fullPathNameList} because of screen at ${screenDef.location}")
                 if (permittedCacheKey != null) aefi.screenPermittedCache.put(permittedCacheKey, false)
                 return false

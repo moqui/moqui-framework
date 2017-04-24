@@ -226,6 +226,8 @@ class WebFacadeImpl implements WebFacade {
         if (sui.lastStandalone || targetScreen.isStandalone()) return
         // don't save transition requests, just screens
         if (urlInstanceOrig.getTargetTransition() != null) return
+        // if history=false on the screen don't save
+        if ("false".equals(targetScreen.screenNode.attribute("history"))) return
 
         LinkedList<Map> screenHistoryList = (LinkedList<Map>) session.getAttribute("moqui.screen.history")
         if (screenHistoryList == null) {
@@ -246,8 +248,6 @@ class WebFacadeImpl implements WebFacade {
         if (firstItem != null && firstItem.url == urlWithParams) return
 
         String targetMenuName = targetScreen.getDefaultMenuName()
-        // may need a better way to identify login screens, for now just look for "Login"
-        if (targetMenuName == "Login") return
 
 
         StringBuilder nameBuilder = new StringBuilder()

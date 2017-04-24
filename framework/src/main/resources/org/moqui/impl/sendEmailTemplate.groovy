@@ -147,6 +147,8 @@ try {
         for (def bccAddress in bccList) email.addBcc(bccAddress.trim())
     }
 
+    email.setCharset("utf-8")
+
     // set the html message
     if (bodyHtml) email.setHtmlMsg(bodyHtml)
     // set the alternative plain text message

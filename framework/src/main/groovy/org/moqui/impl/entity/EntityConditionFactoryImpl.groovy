@@ -498,9 +498,9 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
         case ComparisonOperator.NOT_LIKE:
             return !ObjectUtilities.compareLike(value1, value2)
         case ComparisonOperator.IS_NULL:
-            return value2 == null
+            return value1 == null
         case ComparisonOperator.IS_NOT_NULL:
-            return value2 != null
+            return value1 != null
         }
         // default return false
         return false

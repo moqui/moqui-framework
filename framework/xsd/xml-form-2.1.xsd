@@ -13,8 +13,8 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
-    <xs:include schemaLocation="common-types-2.0.xsd"/>
-    <xs:include schemaLocation="xml-actions-2.0.xsd"/>
+    <xs:include schemaLocation="common-types-2.1.xsd"/>
+    <xs:include schemaLocation="xml-actions-2.1.xsd"/>
 
     <xs:element name="AllWidgets" abstract="true"/>
     <xs:element name="StandaloneFields" abstract="true"/>
@@ -838,35 +838,24 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:element name="drop-down" substitutionGroup="SubFields">
         <xs:complexType>
             <xs:sequence>
-                <xs:choice>
-                    <xs:element ref="dynamic-options"/>
-                    <xs:choice minOccurs="0" maxOccurs="unbounded">
-                        <xs:element ref="entity-options"/>
-                        <xs:element ref="list-options"/>
-                        <xs:element ref="option"/>
-                    </xs:choice>
+                <xs:choice minOccurs="0" maxOccurs="unbounded">
+                    <xs:element ref="entity-options"/>
+                    <xs:element ref="list-options"/>
+                    <xs:element ref="option"/>
                 </xs:choice>
+                <xs:element minOccurs="0" ref="dynamic-options"/>
             </xs:sequence>
             <xs:attribute name="allow-empty" type="xs:string" default="false"/>
             <xs:attribute name="allow-multiple" type="xs:string" default="false"/>
             <xs:attribute name="size" type="xs:integer" default="1"/>
-            <xs:attribute name="current" default="selected">
-                <xs:simpleType>
-                    <xs:restriction base="xs:token">
-                        <xs:enumeration value="first-in-list"/>
-                        <xs:enumeration value="selected"/>
-                    </xs:restriction>
-                </xs:simpleType>
-            </xs:attribute>
+            <xs:attribute name="current" default="selected"><xs:simpleType><xs:restriction base="xs:token">
+                <xs:enumeration value="first-in-list"/><xs:enumeration value="selected"/></xs:restriction></xs:simpleType></xs:attribute>
             <xs:attribute name="no-current-selected-key" type="xs:string">
                 <xs:annotation><xs:documentation>The key to mark as selected when there is no current entry value.</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="current-description" type="xs:string"/>
             <xs:attribute name="combo-box" type="boolean" default="false"/>
-            <xs:attribute name="search" type="boolean" default="true"/>
-            <xs:attribute name="style" type="xs:string">
-                <xs:annotation><xs:documentation>This should only be used in an emergency, such as the issue with Chosen in a popup.</xs:documentation></xs:annotation>
-            </xs:attribute>
+            <xs:attribute name="style" type="xs:string"/>
         </xs:complexType>
     </xs:element>
     <xs:element name="file" substitutionGroup="SubFields">
@@ -953,7 +942,7 @@ along with this software (see the LICENSE.md file). If not, see
                     this transition as the source of the auto-complete options.</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="ac-delay" type="xs:positiveInteger" default="300"/>
-            <xs:attribute name="ac-min-length" type="xs:positiveInteger" default="1"/>
+            <xs:attribute name="ac-min-length" type="xs:nonNegativeInteger" default="1"/>
             <xs:attribute name="ac-show-value" type="boolean" default="false">
                 <xs:annotation><xs:documentation>If true the value of the currently selected option will show next to
                     the autocomplete input box.</xs:documentation></xs:annotation>
@@ -1078,6 +1067,19 @@ along with this software (see the LICENSE.md file). If not, see
             </xs:attribute>
             <xs:attribute name="depends-optional" type="boolean" default="false">
                 <xs:annotation><xs:documentation>Set to true to get options even if a depends-on field is empty.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="server-search" type="boolean" default="false">
+                <xs:annotation><xs:documentation>For drop-down if true pass search term to server to filter results.
+                    Transition that processes results should limit options. Sort of like an autocomplete and supports the same
+                    transitions as text-line with @ac-transition unless pagination (infinite scroll) is needed then transition must
+                    return object with options, pageSize, and count properties.</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="delay" type="xs:positiveInteger" default="300"><xs:annotation><xs:documentation>
+                Key press debounce delay for server-search.</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="min-length" type="xs:nonNegativeInteger" default="1"><xs:annotation><xs:documentation>
+                Min term length to search for server-search, can be zero to populate immediately.</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="parameter-map" type="xs:string">
+                <xs:annotation><xs:documentation>A Map to get parameter names and values from for search and dynamic default requests.
+                    This is named to follow the pattern for parameters used elsewhere.</xs:documentation></xs:annotation>
             </xs:attribute>
         </xs:complexType>
     </xs:element>

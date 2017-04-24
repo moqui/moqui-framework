@@ -1,15 +1,17 @@
 
 # Moqui Framework Release Notes
 
-## Release 2.0.1 - Not Yet Released
+## Release 2.1.0 - Not Yet Released
 
-Moqui Framework 2.0.1 is a patch level new feature and bug fix release.
+Moqui Framework 2.1.0 is a minor new feature and bug fix release.
 
-This release is primarily for the purpose of bug fixes, but has a few minor new features like DbResource and WikiPage version 
-management and a simple tool for ETL.
+This release has a few bug fixes from the 2.0.0 release and has minor new features like DbResource and WikiPage version management, 
+a simple tool for ETL, and various XML Screen and Form widget options and usability improvements. This release was originally 
+planned to be a patch level release primarily for bug fixes but very soon after the 2.0.0 release work start on the Vue based client
+rendering (SPA) functionality and various other new features that due to business deals progressed quickly.
 
-There are also various changes for better server side handling of the new Vue based hybrid static/dynamic XML Screen rendering.
-See the moqui-runtime release notes for more details.
+There are various changes for better server side handling of the new Vue based hybrid static/dynamic XML Screen rendering.
+See the moqui-runtime release notes for more details. Some of these changes may be useful for other client rendering purposes.
 
 ### New Features
 

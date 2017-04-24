@@ -18,17 +18,17 @@ along with this software (see the LICENSE.md file). If not, see
 <catalog xmlns="urn:oasis:names:tc:entity:xmlns:xml:catalog">
     <!-- <public publicId="-//W3C//DTD SVG 1.0//EN" uri="svg10.dtd"/> -->
 
-    <system systemId="http://moqui.org/xsd/email-eca-2.0.xsd" uri="email-eca-2.0.xsd"/>
-    <system systemId="http://moqui.org/xsd/entity-definition-2.0.xsd" uri="entity-definition-2.0.xsd"/>
-    <system systemId="http://moqui.org/xsd/entity-eca-2.0.xsd" uri="entity-eca-2.0.xsd"/>
+    <system systemId="http://moqui.org/xsd/email-eca-2.1.xsd" uri="email-eca-2.1.xsd"/>
+    <system systemId="http://moqui.org/xsd/entity-definition-2.1.xsd" uri="entity-definition-2.1.xsd"/>
+    <system systemId="http://moqui.org/xsd/entity-eca-2.1.xsd" uri="entity-eca-2.1.xsd"/>
 
-    <system systemId="http://moqui.org/xsd/moqui-conf-2.0.xsd" uri="moqui-conf-2.0.xsd"/>
+    <system systemId="http://moqui.org/xsd/moqui-conf-2.1.xsd" uri="moqui-conf-2.1.xsd"/>
 
-    <system systemId="http://moqui.org/xsd/rest-api-2.0.xsd" uri="rest-api-2.0.xsd"/>
-    <system systemId="http://moqui.org/xsd/service-definition-2.0.xsd" uri="service-definition-2.0.xsd"/>
-    <system systemId="http://moqui.org/xsd/service-eca-2.0.xsd" uri="service-eca-2.0.xsd"/>
+    <system systemId="http://moqui.org/xsd/rest-api-2.1.xsd" uri="rest-api-2.1.xsd"/>
+    <system systemId="http://moqui.org/xsd/service-definition-2.1.xsd" uri="service-definition-2.1.xsd"/>
+    <system systemId="http://moqui.org/xsd/service-eca-2.1.xsd" uri="service-eca-2.1.xsd"/>
 
-    <system systemId="http://moqui.org/xsd/xml-actions-2.0.xsd" uri="xml-actions-2.0.xsd"/>
-    <system systemId="http://moqui.org/xsd/xml-form-2.0.xsd" uri="xml-form-2.0.xsd"/>
-    <system systemId="http://moqui.org/xsd/xml-screen-2.0.xsd" uri="xml-screen-2.0.xsd"/>
+    <system systemId="http://moqui.org/xsd/xml-actions-2.1.xsd" uri="xml-actions-2.1.xsd"/>
+    <system systemId="http://moqui.org/xsd/xml-form-2.1.xsd" uri="xml-form-2.1.xsd"/>
+    <system systemId="http://moqui.org/xsd/xml-screen-2.1.xsd" uri="xml-screen-2.1.xsd"/>
 </catalog>

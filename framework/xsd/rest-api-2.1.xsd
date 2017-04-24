@@ -15,7 +15,7 @@ along with this software (see the LICENSE.md file). If not, see
 
 <!-- NOTE: files using this schema are found in the service directory in a component when named *.rest.xml -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
-    <xs:include schemaLocation="common-types-2.0.xsd"/>
+    <xs:include schemaLocation="common-types-2.1.xsd"/>
 
     <xs:element name="resource">
         <xs:complexType>

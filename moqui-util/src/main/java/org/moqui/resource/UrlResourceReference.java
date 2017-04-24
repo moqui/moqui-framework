@@ -94,6 +94,8 @@ public class UrlResourceReference extends ResourceReference {
     @Override public InputStream openStream() {
         try {
             return locationUrl.openStream();
+        } catch (FileNotFoundException e) {
+            return null;
         } catch (IOException e) {
             throw new BaseException("Error opening stream for " + locationUrl.toString(), e);
         }

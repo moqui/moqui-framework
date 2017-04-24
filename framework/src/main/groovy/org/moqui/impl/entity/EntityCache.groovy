@@ -334,12 +334,20 @@ class EntityCache {
             String countKey = countKeyBase.concat(fullEntityName)
             if (localCacheMap.containsKey(countKey)) {
                 Cache<EntityCondition, Long> entityCountCache = ed.getCacheCount(this)
+                // with so little information about count cache results we can't do RA and checking conditions fails to clear in
+                //     cases where a value no longer matches, would handle newly matched clearing where count increases but not no
+                //     longer matches cases where count decreases
+                // no choice but to clear the whole cache
+                entityCountCache.clear()
+                /*
                 Iterator<Cache.Entry<EntityCondition, Long>> eccIterator = entityCountCache.iterator()
                 while (eccIterator.hasNext()) {
                     Cache.Entry<EntityCondition, Long> entry = (Cache.Entry<EntityCondition, Long>) eccIterator.next()
                     EntityCondition ec = (EntityCondition) entry.getKey()
-                    if (ec.mapMatches(evbMap)) eccIterator.remove()
+                    logger.warn("checking count condition: ${ec.toString()} matches? ${ec.mapMatchesAny(evbMap) || ec.mapKeysNotContained(evbMap)}")
+                    if (ec.mapMatchesAny(evbMap) || ec.mapKeysNotContained(evbMap)) eccIterator.remove()
                 }
+                */
             }
         } catch (Throwable t) {
             logger.error("Suppressed error in entity cache clearing [${evb.getEntityName()}; ${isCreate ? 'create' : 'non-create'}]", t)
