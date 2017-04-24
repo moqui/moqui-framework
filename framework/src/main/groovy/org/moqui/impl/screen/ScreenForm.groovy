@@ -1245,8 +1245,7 @@ class ScreenForm {
         private static boolean isListFieldHiddenWidget(MNode fieldNode) {
             // if default-field or any conditional-field don't have hidden or ignored elements then it's not hidden
             MNode defaultField = fieldNode.first("default-field")
-            if (defaultField == null) return false
-            if (!defaultField.hasChild("hidden") && !defaultField.hasChild("ignored")) return false
+            if (defaultField != null && !defaultField.hasChild("hidden") && !defaultField.hasChild("ignored")) return false
             List<MNode> condFieldList = fieldNode.children("conditional-field")
             for (MNode condField in condFieldList) if (!condField.hasChild("hidden") && !condField.hasChild("ignored")) return false
             return true
@@ -1544,7 +1543,12 @@ class ScreenForm {
                 // always select hidden fields
                 ArrayList<String> hiddenNames = formInstance.getListHiddenFieldNameList()
                 int hiddenNamesSize = hiddenNames.size()
-                for (int i = 0; i < hiddenNamesSize; i++) { String fn = (String) hiddenNames.get(i); ef.selectField(fn) }
+                for (int i = 0; i < hiddenNamesSize; i++) {
+                    String fn = (String) hiddenNames.get(i)
+                    MNode fieldNode = formInstance.getFieldNode(fn)
+                    if (!fieldNode.hasChild("default-field")) continue
+                    ef.selectField(fn)
+                }
 
                 // logger.info("TOREMOVE form-list.entity-find: ${ef.toString()}")
 
