@@ -196,6 +196,19 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="locale" type="text-short" is-pk="true"/>
         <field name="localized" type="text-long"/>
     </entity>
+    <entity entity-name="LocalizedService" package="moqui.basic" use="configuration" authorize-skip="view" cache="true">
+        <field name="serviceTypeEnumId" type="id" is-pk="true"/>
+        <field name="locale" type="text-short" is-pk="true"/>
+        <field name="serviceName" type="text-short"/>
+        <relationship type="one" title="LocalizedServiceType" related="moqui.basic.Enumeration" short-alias="type">
+            <key-map field-name="serviceTypeEnumId"/></relationship>
+        <seed-data>
+            <moqui.basic.EnumerationType enumTypeId="LocalizedServiceType"
+                                         description="Services that can be defined for each specific localization"/>
+            <moqui.basic.Enumeration enumTypeId="LocalizedServiceType" enumId="LstGeoRegionsForDropDown"
+                description="List of regions to display in a drop-down when selecting a containing region"/>
+        </seed-data>
+    </entity>
 
     <!-- ========== Status ========== -->
     <entity entity-name="StatusItem" package="moqui.basic" use="configuration" short-alias="statuses" cache="true">
