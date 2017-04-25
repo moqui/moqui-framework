@@ -149,6 +149,7 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Geo Group Member" enumId="GAT_GROUP_MEMBER" enumTypeId="GeoAssocType"/>
             <moqui.basic.Enumeration description="Region of a Larger Geo" enumId="GAT_REGIONS" enumTypeId="GeoAssocType"/>
             <moqui.basic.Enumeration description="Administrative City" enumId="GAT_COUNTY_SEAT" enumTypeId="GeoAssocType"/>
+            <moqui.basic.Enumeration description="Division of Region for PostalAddress Purposes" enumId="GAT_POSTALADDR_DIV" enumTypeId="GeoAssocType"/>
         </seed-data>
     </entity>
     <view-entity entity-name="GeoAssocAndToDetail" package="moqui.basic">
@@ -195,19 +196,6 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="pkValue" type="text-medium" is-pk="true"/>
         <field name="locale" type="text-short" is-pk="true"/>
         <field name="localized" type="text-long"/>
-    </entity>
-    <entity entity-name="LocalizedService" package="moqui.basic" use="configuration" authorize-skip="view" cache="true">
-        <field name="serviceTypeEnumId" type="id" is-pk="true"/>
-        <field name="locale" type="text-short" is-pk="true"/>
-        <field name="serviceName" type="text-short"/>
-        <relationship type="one" title="LocalizedServiceType" related="moqui.basic.Enumeration" short-alias="type">
-            <key-map field-name="serviceTypeEnumId"/></relationship>
-        <seed-data>
-            <moqui.basic.EnumerationType enumTypeId="LocalizedServiceType"
-                                         description="Services that can be defined for each specific localization"/>
-            <moqui.basic.Enumeration enumTypeId="LocalizedServiceType" enumId="LstGeoRegionsForDropDown"
-                description="List of regions to display in a drop-down when selecting a containing region"/>
-        </seed-data>
     </entity>
 
     <!-- ========== Status ========== -->
