@@ -370,7 +370,13 @@ class ServiceFacadeImpl implements ServiceFacade {
                 lst = new ArrayList<>()
                 secaRulesByServiceName.put(serviceName, lst)
             }
-            lst.add(ser)
+            // insert by priority
+            int insertIdx = 0
+            for (int i = 0; i < lst.size(); i++) {
+                ServiceEcaRule lstSer = (ServiceEcaRule) lst.get(i)
+                if (lstSer.priority <= ser.priority) { insertIdx++ } else { break }
+            }
+            lst.add(insertIdx, ser)
             numLoaded++
         }
         if (logger.isTraceEnabled()) logger.trace("Loaded [${numLoaded}] Service ECA rules from [${rr.location}]")
