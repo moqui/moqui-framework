@@ -491,12 +491,12 @@ abstract class EntityFindBase implements EntityFind {
                 Object thruValue = inputFieldsMap.get(fn + "_thru")
                 if (thruValue && thruValue instanceof CharSequence) thruValue = ed.convertFieldString(fn, thruValue.toString(), ec)
 
-                if (fromValue) {
+                if (fromValue != null) {
                     this.condition(efi.entityConditionFactory.makeCondition(fn, EntityCondition.GREATER_THAN_EQUAL_TO, fromValue))
                     addedConditions = true
                 }
-                if (thruValue) {
-                    this.condition(efi.entityConditionFactory.makeCondition(fn, EntityCondition.LESS_THAN, thruValue))
+                if (thruValue != null) {
+                    this.condition(efi.entityConditionFactory.makeCondition(fn, EntityCondition.LESS_THAN_EQUAL_TO, thruValue))
                     addedConditions = true
                 }
             }
