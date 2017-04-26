@@ -115,7 +115,7 @@ dependencies {
     // compile 'javax.jms:jms:1.1'
 
     // H2 Database
-    compile 'com.h2database:h2:1.4.194' // MPL 2.0, EPL 1.0
+    compile 'com.h2database:h2:1.4.195' // MPL 2.0, EPL 1.0
 
     // Jetty HTTP Client
     compile 'org.eclipse.jetty:jetty-client:9.4.4.v20170414' // Apache 2.0
