@@ -429,28 +429,28 @@ abstract class EntityFindBase implements EntityFind {
                                     not ? EntityCondition.NOT_EQUAL : EntityCondition.EQUALS, convertedValue)
                             if (ic) cond.ignoreCase()
                         }
-                        break;
+                        break
                     case "like":
                         if (value) {
                             cond = efi.entityConditionFactory.makeCondition(fn,
                                     not ? EntityCondition.NOT_LIKE : EntityCondition.LIKE, value)
                             if (ic) cond.ignoreCase()
                         }
-                        break;
+                        break
                     case "contains":
                         if (value) {
                             cond = efi.entityConditionFactory.makeCondition(fn,
                                     not ? EntityCondition.NOT_LIKE : EntityCondition.LIKE, "%${value}%")
                             if (ic) cond.ignoreCase()
                         }
-                        break;
+                        break
                     case "begins":
                         if (value) {
                             cond = efi.entityConditionFactory.makeCondition(fn,
                                     not ? EntityCondition.NOT_LIKE : EntityCondition.LIKE, "${value}%")
                             if (ic) cond.ignoreCase()
                         }
-                        break;
+                        break
                     case "empty":
                         cond = efi.entityConditionFactory.makeCondition(
                                 efi.entityConditionFactory.makeCondition(fn,
@@ -458,7 +458,7 @@ abstract class EntityFindBase implements EntityFind {
                                 not ? EntityCondition.JoinOperator.AND : EntityCondition.JoinOperator.OR,
                                 efi.entityConditionFactory.makeCondition(fn,
                                         not ? EntityCondition.NOT_EQUAL : EntityCondition.EQUALS, ""))
-                        break;
+                        break
                     case "in":
                         if (value) {
                             Collection valueList = null
@@ -473,7 +473,7 @@ abstract class EntityFindBase implements EntityFind {
 
                             }
                         }
-                        break;
+                        break
                 }
                 if (cond != null) {
                     this.condition(cond)
@@ -491,11 +491,11 @@ abstract class EntityFindBase implements EntityFind {
                 Object thruValue = inputFieldsMap.get(fn + "_thru")
                 if (thruValue && thruValue instanceof CharSequence) thruValue = ed.convertFieldString(fn, thruValue.toString(), ec)
 
-                if (fromValue != null) {
+                if (!ObjectUtilities.isEmpty(fromValue)) {
                     this.condition(efi.entityConditionFactory.makeCondition(fn, EntityCondition.GREATER_THAN_EQUAL_TO, fromValue))
                     addedConditions = true
                 }
-                if (thruValue != null) {
+                if (!ObjectUtilities.isEmpty(thruValue)) {
                     this.condition(efi.entityConditionFactory.makeCondition(fn, EntityCondition.LESS_THAN_EQUAL_TO, thruValue))
                     addedConditions = true
                 }
