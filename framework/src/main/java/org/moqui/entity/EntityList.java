@@ -55,6 +55,13 @@ public interface EntityList extends List<EntityValue>, Iterable<EntityValue>, Cl
     EntityList filterByAnd(Map<String, Object> fields);
     EntityList filterByAnd(Map<String, Object> fields, Boolean include);
 
+    /** Modify this EntityList so that it contains only the values that match the values in the namesAndValues parameter.
+     *
+     *@param namesAndValues Must be an even number of parameters as field name then value repeated as needed
+     *@return List of EntityValue objects that match the values in the fields parameter.
+     */
+    EntityList filterByAnd(Object... namesAndValues);
+
     EntityList removeByAnd(Map<String, Object> fields);
 
     /** Modify this EntityList so that it includes (or excludes) values matching the condition.

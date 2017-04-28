@@ -147,6 +147,14 @@ public class EntityListImpl implements EntityList {
         }
         return this;
     }
+    @Override public EntityList filterByAnd(Object... namesAndValues) {
+        if (namesAndValues.length == 0) return this;
+        if (namesAndValues.length % 2 != 0) throw new IllegalArgumentException("Must pass an even number of parameters for name/value pairs");
+        Map<String, Object> fields = new HashMap<>();
+        for (int i = 0; i < namesAndValues.length; i+=2) fields.put((String) namesAndValues[i], namesAndValues[i+1]);
+        return filterByAnd(fields);
+    }
+
 
     @Override public EntityList filter(Closure<Boolean> closure, Boolean include) {
         if (fromCache) return this.cloneList().filter(closure, include);
@@ -437,6 +445,7 @@ public class EntityListImpl implements EntityList {
         @Override public EntityList filterByDate(String fromDateName, String thruDateName, Timestamp moment, boolean ignoreIfEmpty) { return this; }
         @Override public EntityList filterByAnd(Map<String, Object> fields) { return this; }
         @Override public EntityList filterByAnd(Map<String, Object> fields, Boolean include) { return this; }
+        @Override public EntityList filterByAnd(Object... namesAndValues) { return this; }
         @Override public EntityList removeByAnd(Map<String, Object> fields) { return this; }
         @Override public EntityList filterByCondition(EntityCondition condition, Boolean include) { return this; }
         @Override public EntityList filter(Closure<Boolean> closure, Boolean include) { return this; }
