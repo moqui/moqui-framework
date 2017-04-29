@@ -966,7 +966,7 @@ class ScreenForm {
 
     static void addFieldOption(LinkedHashMap<String, String> options, MNode fieldNode, MNode childNode, Map listOption,
                                ExecutionContext ec) {
-        EntityValueBase listOptionEvb = listOption instanceof EntityValueBase ? listOption : null
+        EntityValueBase listOptionEvb = listOption instanceof EntityValueBase ? (EntityValueBase) listOption : (EntityValueBase) null
         if (listOptionEvb != null) {
             ec.context.push(listOptionEvb.getMap())
         } else {
