@@ -165,6 +165,7 @@ task loadProduction(type: JavaExec) {
     main = '-jar'
     def argList = [warName, 'load']
     if (project.properties.containsKey('types')) argList.add("types=${types}")
+    else argList.add("types=seed,seed-initial,install")
     args = argList
 }
 
