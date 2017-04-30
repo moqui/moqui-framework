@@ -33,7 +33,7 @@ public class AggregationUtil {
     protected final static Logger logger = LoggerFactory.getLogger(AggregationUtil.class);
     protected final static boolean isTraceEnabled = logger.isTraceEnabled();
 
-    public enum AggregateFunction { MIN, MAX, SUM, AVG, COUNT }
+    public enum AggregateFunction { MIN, MAX, SUM, AVG, COUNT, FIRST, LAST }
     private static final BigDecimal BIG_DECIMAL_TWO = new BigDecimal(2);
 
     public static class AggregateField {
@@ -331,6 +331,12 @@ public class AggregationUtil {
                 Integer existingCount = (Integer) resultMap.get(fieldName);
                 if (existingCount == null) existingCount = 0;
                 resultMap.put(fieldName, existingCount + 1);
+                break;
+            case FIRST:
+                if (!resultMap.containsKey(fieldName)) resultMap.put(fieldName, fieldValue);
+                break;
+            case LAST:
+                resultMap.put(fieldName, fieldValue);
                 break;
         }
     }
