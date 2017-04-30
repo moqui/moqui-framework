@@ -581,7 +581,17 @@ along with this software (see the LICENSE.md file). If not, see
                     <xs:enumeration value="sub-list"/>
                 </xs:restriction></xs:simpleType>
             </xs:attribute>
-            <xs:attribute name="show-total" type="boolean" default="false"/>
+            <xs:attribute name="show-total" default="false">
+                <xs:annotation><xs:documentation>
+                    For form-list only. If anything but false for any field a totals row is added to the output based on the
+                    rows currently displayed. The 'true' option is the same as 'sum'.
+                </xs:documentation></xs:annotation>
+                <xs:simpleType><xs:restriction base="xs:token">
+                    <xs:enumeration value="true"/><xs:enumeration value="false"/><xs:enumeration value="sum"/>
+                    <xs:enumeration value="min"/><xs:enumeration value="max"/>
+                    <xs:enumeration value="avg"/><xs:enumeration value="count"/>
+                </xs:restriction></xs:simpleType>
+            </xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="header-field">
