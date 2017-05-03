@@ -77,6 +77,8 @@ public class AggregationUtil {
         ArrayList<Map<String, Object>> resultList = new ArrayList<>();
         if (listObj == null) return resultList;
 
+        // for (Object result : (Iterable) listObj) logger.warn("Aggregate Input: " + result.toString());
+
         long startTime = System.currentTimeMillis();
         Map<Map<String, Object>, Map<String, Object>> groupRows = new HashMap<>();
         Map<String, Object> totalsMap = new HashMap<>();
@@ -264,7 +266,7 @@ public class AggregationUtil {
             }
             if (subListMap != null) {
                 ArrayList<Map<String, Object>> subList = (ArrayList<Map<String, Object>>) resultMap.get("aggregateSubList");
-                subList.add(subListMap);
+                if (subList != null) subList.add(subListMap);
             }
         }
 

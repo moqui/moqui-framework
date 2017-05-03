@@ -1529,16 +1529,16 @@ class ScreenForm {
             if (entityFindNode != null) {
                 EntityFindBase ef = (EntityFindBase) ecfi.entityFacade.find(entityFindNode)
 
-                // if no select-field add one for each form field displayed in a column that is a valid entity field name
-                // if (ef.getSelectFields() == null || ef.getSelectFields().size() == 0) {
+                // don't do this, use explicit select-field fields plus display/hidden fields: if (ef.getSelectFields() == null || ef.getSelectFields().size() == 0) {
                 // always do this even if there are some entity-find.select-field elements, support specifying some fields that are always selected
                 for (String fieldName in displayedFieldSet) ef.selectField(fieldName)
+                List<String> selFields = ef.getSelectFields()
                 // don't order by fields not in displayedFieldSet
                 ArrayList<String> orderByFields = ef.orderByFields
                 if (orderByFields != null) for (int i = 0; i < orderByFields.size(); ) {
                     String obfString = (String) orderByFields.get(i)
                     EntityJavaUtil.FieldOrderOptions foo = EntityJavaUtil.makeFieldOrderOptions(obfString)
-                    if (displayedFieldSet.contains(foo.fieldName)) {
+                    if (displayedFieldSet.contains(foo.fieldName) || selFields.contains(foo.fieldName)) {
                         i++
                     } else {
                         orderByFields.remove(i)
