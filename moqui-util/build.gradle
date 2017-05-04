@@ -55,10 +55,10 @@ dependencies {
     // Freemarker
     compile 'org.freemarker:freemarker:2.3.26-incubating' // Apache 2.0
     // Groovy
-    compile 'org.codehaus.groovy:groovy:2.4.10' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-json:2.4.10' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy:2.4.11' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-json:2.4.11' // Apache 2.0
     // Jetty HTTP Client
-    compile 'org.eclipse.jetty:jetty-client:9.4.4.v20170414' // Apache 2.0
+    compile 'org.eclipse.jetty:jetty-client:9.4.5.v20170502' // Apache 2.0
 }
 
 jar {
