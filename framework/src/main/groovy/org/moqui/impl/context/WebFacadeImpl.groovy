@@ -229,9 +229,9 @@ class WebFacadeImpl implements WebFacade {
         // if history=false on the screen don't save
         if ("false".equals(targetScreen.screenNode.attribute("history"))) return
 
-        LinkedList<Map> screenHistoryList = (LinkedList<Map>) session.getAttribute("moqui.screen.history")
+        List<Map> screenHistoryList = (List<Map>) session.getAttribute("moqui.screen.history")
         if (screenHistoryList == null) {
-            screenHistoryList = new LinkedList<Map>()
+            screenHistoryList = Collections.<Map>synchronizedList(new LinkedList<Map>())
             session.setAttribute("moqui.screen.history", screenHistoryList)
         }
 
@@ -288,25 +288,25 @@ class WebFacadeImpl implements WebFacade {
             if (paramBuilder.length() > 0) nameBuilder.append(' (').append(paramBuilder.toString()).append(')')
         }
 
-        // remove existing item(s) from list with same URL
-        Iterator<Map> screenHistoryIter = screenHistoryList.iterator()
-        while (screenHistoryIter.hasNext()) {
-            Map screenHistory = screenHistoryIter.next()
-            if (screenHistory.url == urlWithParams) screenHistoryIter.remove()
+        synchronized (screenHistoryList) {
+            // remove existing item(s) from list with same URL
+            Iterator<Map> screenHistoryIter = screenHistoryList.iterator()
+            while (screenHistoryIter.hasNext()) {
+                Map screenHistory = screenHistoryIter.next()
+                if (screenHistory.url == urlWithParams) screenHistoryIter.remove()
+            }
+            // add to history list
+            screenHistoryList.add(0, [name:nameBuilder.toString(), url:urlWithParams, urlNoParams:urlNoParams,
+                    image:sui.menuImage, imageType:sui.menuImageType, screenLocation:targetScreen.getLocation()])
+            // trim the list if needed; keep 40, whatever uses it may display less
+            while (screenHistoryList.size() > 40) screenHistoryList.remove(40)
         }
-
-        // add to history list
-        screenHistoryList.addFirst([name:nameBuilder.toString(), url:urlWithParams, urlNoParams:urlNoParams,
-                image:sui.menuImage, imageType:sui.menuImageType, screenLocation:targetScreen.getLocation()])
-
-        // trim the list if needed; keep 40, whatever uses it may display less
-        while (screenHistoryList.size() > 40) screenHistoryList.removeLast()
     }
 
     @Override
     List<Map> getScreenHistory() {
-        LinkedList<Map> histList = (LinkedList<Map>) session.getAttribute("moqui.screen.history")
-        if (histList == null) histList = new LinkedList<Map>()
+        List<Map> histList = (List<Map>) session.getAttribute("moqui.screen.history")
+        if (histList == null) histList = Collections.<Map>synchronizedList(new LinkedList<Map>())
         return histList
     }
 
@@ -573,12 +573,13 @@ class WebFacadeImpl implements WebFacade {
             jsonStr = responseObj.toString()
             responseObj = null
         } else {
+            Map responseMap = responseObj instanceof Map ? (Map) responseObj : null
+
             if (eci.message.messages) {
                 if (responseObj == null) {
                     responseObj = [messages:eci.message.getMessagesString()] as Map<String, Object>
-                } else if (responseObj instanceof Map && !responseObj.containsKey("messages")) {
-                    Map responseMap = new HashMap()
-                    responseMap.putAll(responseObj as Map)
+                } else if (responseMap != null && !responseMap.containsKey("messages")) {
+                    responseMap = new HashMap(responseMap)
                     responseMap.put("messages", eci.message.getMessagesString())
                     responseObj = responseMap
                 }
@@ -587,9 +588,8 @@ class WebFacadeImpl implements WebFacade {
             if (eci.getMessage().hasError()) {
                 // if the responseObj is a Map add all of it's data
                 // only add an errors if it is not a jsonrpc response (JSON RPC has it's own error handling)
-                if (responseObj instanceof Map && !responseObj.containsKey("errors") && !responseObj.containsKey("jsonrpc")) {
-                    Map responseMap = new HashMap()
-                    responseMap.putAll(responseObj)
+                if (responseMap != null && !responseMap.containsKey("errors") && !responseMap.containsKey("jsonrpc")) {
+                    responseMap = new HashMap(responseMap)
                     responseMap.put("errors", eci.message.errorsString)
                     responseObj = responseMap
                 } else if (responseObj != null && !(responseObj instanceof Map)) {
