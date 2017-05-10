@@ -149,6 +149,7 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Geo Group Member" enumId="GAT_GROUP_MEMBER" enumTypeId="GeoAssocType"/>
             <moqui.basic.Enumeration description="Region of a Larger Geo" enumId="GAT_REGIONS" enumTypeId="GeoAssocType"/>
             <moqui.basic.Enumeration description="Administrative City" enumId="GAT_COUNTY_SEAT" enumTypeId="GeoAssocType"/>
+            <moqui.basic.Enumeration description="Division of Region for PostalAddress Purposes" enumId="GAT_POSTALADDR_DIV" enumTypeId="GeoAssocType"/>
         </seed-data>
     </entity>
     <view-entity entity-name="GeoAssocAndToDetail" package="moqui.basic">

@@ -18,7 +18,7 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="get" noun="GeoRegionsForDropDown" allow-remote="true">
         <in-parameters>
             <parameter name="geoId"/>
-            <parameter name="geoAssocTypeEnumId" default-value="GAT_REGIONS"/>
+            <parameter name="geoAssocTypeEnumId" default-value="GAT_POSTALADDR_DIV"/>
             <parameter name="geoTypeEnumId"/>
         </in-parameters>
         <out-parameters><parameter name="resultList" type="List"><parameter name="result" type="Map"/></parameter></out-parameters>
@@ -30,6 +30,14 @@ along with this software (see the LICENSE.md file). If not, see
                     <econdition field-name="geoTypeEnumId" ignore-if-empty="true"/>
                     <order-by field-name="geoName"/>
                 </entity-find>
+                <if condition="geoList.size() == 0">
+                    <set field="geoAssocTypeEnumId" value="GAT_REGIONS"/>
+                    <entity-find entity-name="moqui.basic.GeoAssocAndToDetail" list="geoList">
+                        <econdition field-name="geoId"/><econdition field-name="geoAssocTypeEnumId"/>
+                        <econdition field-name="geoTypeEnumId" ignore-if-empty="true"/>
+                        <order-by field-name="geoName"/>
+                    </entity-find>
+                </if>
                 <script>for (geo in geoList) resultList.add([geoId:geo.toGeoId, label:(geo.geoCodeAlpha2 ? geo.geoCodeAlpha2 + ' - ' : '') + geo.geoName,
                         geoName:geo.geoName, geoCodeAlpha2:geo.geoCodeAlpha2])</script>
             </if>
