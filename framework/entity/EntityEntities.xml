@@ -164,6 +164,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="linkUrl" type="text-medium"/>
         <field name="urlType" type="text-short" default="'plain'">
             <description>Must match an option for the XML Screen link.@url-type attribute. Defaults to 'plain'.</description></field>
+        <field name="condition" type="text-long"/>
         <relationship type="one" related="moqui.entity.document.DataDocument"/>
     </entity>
 
