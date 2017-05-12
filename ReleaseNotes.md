@@ -15,17 +15,21 @@ See the moqui-runtime release notes for more details. Some of these changes may 
 
 ### New Features
 
+- Various library updates
+- Improved Docker Compose samples with HTTPS and PostgreSQL
+- Multi service calls now pass results from previous calls to subsequent calls if parameter names match, and return results
 - Service jobs may now have a lastRunTime parameter passed by the job scheduler; lastRunTime on lock and passed to service is now
   the last run time without an error
-- Multi service calls now pass results from previous calls to subsequent calls if parameter names match, and return results
 - view-entity now supports member-entity with entity-condition and no key-map for more flexible join expressions
 - TransactionCache now handles more situations like using EntityListIterator.next() calls and not just getCompleteList(), and 
   deletes through the tx cache are more cleanly handled for records created through the tx cache
-- ResourceReference support for versions in supported implementations, initially DbResourceReference
+- ResourceReference support for versions in supported implementations (initially DbResourceReference)
 - ResourceFacade locations now support a version suffix following a hash
 - Improved wiki services to track version along with underlying ResourceReference
 - New SimpleEtl class plus support for extract and load through EntityFacade
 - Various improvements in send#EmailTemplate, email view tracking with transparent pixel image
+- Improvements for form-list aggregations and show-total now supports avg, count, min, max, first, and last in addition to sum
+- Improved SQLException handling with more useful messages and error codes from database
 
 ### Bug Fixes
 
@@ -33,7 +37,8 @@ See the moqui-runtime release notes for more details. Some of these changes may 
 - Fixed field.@hide attribute not working with runtime conditions, now evaluated each time a form-list is rendered
 - Fixed long standing issue with distinct counts and limited selected fields, now uses a distinct sub-select under a count select
 - Fixed issue with XML entity data loading using sub-elements for related entities and under those sub-elements for field data
-- Fixed regression in EntityFind where cache was used even if forUpdate was set 
+- Fixed regression in EntityFind where cache was used even if forUpdate was set
+- Fixed concurrency issue with screen history (symptom was NPE on iterator.next() call)
 
 ## Release 2.0.0 - 24 Nov 2016
 
