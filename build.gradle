@@ -46,18 +46,21 @@ def getComponentTestTasks() {
 
 task clean(type: Delete) { delete file(warName); delete file(execTempDir) }
 task cleanTempDir(type: Delete) { delete file(execTempDir) }
-task cleanDb { doLast { if (!file(moquiRuntime).exists()) return; delete files(file(moquiRuntime+'/db/derby').listFiles()) - files(moquiRuntime+'/db/derby/derby.properties'); delete file(moquiRuntime+'/db/h2') } }
-task cleanOrientDb(type: Delete) { delete file(moquiRuntime+'/db/orientdb/databases') }
-task cleanElasticSearch(type: Delete) { delete file(moquiRuntime+'/elasticsearch/data') }
+task cleanDb { doLast {
+    if (!file(moquiRuntime).exists()) return
+    delete files(file(moquiRuntime+'/db/derby').listFiles()) - files(moquiRuntime+'/db/derby/derby.properties')
+    delete file(moquiRuntime+'/db/h2')
+    delete file(moquiRuntime+'/db/orientdb/databases')
+    delete file(moquiRuntime+'/elasticsearch/data')
+    delete fileTree(dir: moquiRuntime+'/txlog', include: '*')
+} }
 task cleanLog(type: Delete) { delete fileTree(dir: moquiRuntime+'/log', include: '*') }
-task cleanTxLog(type: Delete) { delete fileTree(dir: moquiRuntime+'/txlog', include: '*') }
 task cleanLoadSave(type: Delete) { delete file('SaveH2.zip'); delete file('SaveDEFAULT.zip');
     delete file('SaveTransactional.zip'); delete file('SaveAnalytical.zip'); delete file('SaveOrientDb.zip'); delete file('SaveElasticSearch.zip') }
 task cleanPlusRuntime(type: Delete) { delete file(plusRuntimeName) }
 task cleanOther(type: Delete) { delete fileTree(dir: '.', includes: ['**/.nbattrs', '**/*~', '**/.#*', '**/.DS_Store', '**/*.rej', '**/*.orig']) }
 
-task cleanAll { dependsOn clean, allCleanTasks, cleanDb, cleanOrientDb, cleanElasticSearch, cleanTxLog, cleanLog,
-        cleanLoadSave, cleanPlusRuntime }
+task cleanAll { dependsOn clean, allCleanTasks, cleanDb, cleanLog, cleanLoadSave, cleanPlusRuntime }
 
 // ========== check/update tasks ==========
 
@@ -186,7 +189,7 @@ task loadSave {
 
 task reloadSave {
     description "After a loadSave clean database (H2, Derby), OrientDB, and ElasticSearch files and reload from saved copy"
-    dependsOn cleanTempDir, cleanDb, cleanOrientDb, cleanElasticSearch, cleanTxLog, cleanLog
+    dependsOn cleanTempDir, cleanDb, cleanLog
     dependsOn allBuildTasks
     doLast {
         if (file('SaveDerby.zip').exists()) copy { from zipTree('SaveDerby.zip'); into file(moquiRuntime+'/db/derby/moqui') }
