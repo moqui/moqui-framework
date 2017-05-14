@@ -30,6 +30,7 @@ See the moqui-runtime release notes for more details. Some of these changes may 
 - Various improvements in send#EmailTemplate, email view tracking with transparent pixel image
 - Improvements for form-list aggregations and show-total now supports avg, count, min, max, first, and last in addition to sum
 - Improved SQLException handling with more useful messages and error codes from database
+- Added view-entity.member-relationship element as a simpler alternative to member-entity using existing relationships
 
 ### Bug Fixes
 
