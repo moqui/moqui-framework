@@ -31,6 +31,8 @@ See the moqui-runtime release notes for more details. Some of these changes may 
 - Improvements for form-list aggregations and show-total now supports avg, count, min, max, first, and last in addition to sum
 - Improved SQLException handling with more useful messages and error codes from database
 - Added view-entity.member-relationship element as a simpler alternative to member-entity using existing relationships
+- DataDocumentField now has a functionName attribute for functions on fields in a DataDocument based query 
+- Any DataDocument can now be treated as an entity using the name pattern DataDocument.${dataDocumentId}
 
 ### Bug Fixes
 

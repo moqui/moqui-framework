@@ -21,18 +21,15 @@ import org.moqui.util.MNode
 @CompileStatic
 class EntityDynamicViewImpl implements EntityDynamicView {
 
-    protected EntityFindImpl entityFind;
+    protected EntityFacadeImpl efi
 
     protected String entityName = "DynamicView"
     protected MNode entityNode = new MNode("view-entity", ["package":"dynamic", "entity-name":"DynamicView", "is-dynamic-view":"true"])
 
-    EntityDynamicViewImpl(EntityFindImpl entityFind) {
-        this.entityFind = entityFind
-    }
+    EntityDynamicViewImpl(EntityFindImpl entityFind) { this.efi = entityFind.efi }
+    EntityDynamicViewImpl(EntityFacadeImpl efi) { this.efi = efi }
 
-    EntityDefinition makeEntityDefinition() {
-        return new EntityDefinition(this.entityFind.efi, this.entityNode)
-    }
+    EntityDefinition makeEntityDefinition() { return new EntityDefinition(efi, entityNode) }
 
     @Override
     EntityDynamicView setEntityName(String entityName) {
@@ -60,7 +57,7 @@ class EntityDynamicViewImpl implements EntityDynamicView {
         MNode joinFromMemberEntityNode =
                 entityNode.first({ MNode it -> it.name == "member-entity" && it.attribute("entity-alias") == joinFromAlias })
         String entityName = joinFromMemberEntityNode.attribute("entity-name")
-        EntityDefinition joinFromEd = entityFind.efi.getEntityDefinition(entityName)
+        EntityDefinition joinFromEd = efi.getEntityDefinition(entityName)
         EntityJavaUtil.RelationshipInfo relInfo = joinFromEd.getRelationshipInfo(relationshipName)
         if (relInfo == null) throw new EntityException("Relationship not found with name [${relationshipName}] on entity [${entityName}]")
 

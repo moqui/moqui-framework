@@ -124,9 +124,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="fieldPath" type="text-medium" is-pk="true"><description>String formatted like
             "RelationshipName:RelationshipName:fieldName" with zero or more relationship names. If there is no
             relationship name the field is on the primary entity. More than one relationship names means follow that
-            path of relationships to get to the field. For DataFeed to work properly all relationship names should
-            include a hash (#) between the title and related entity name, and a fully qualified related entity name (ie
-            with entity package).</description></field>
+            path of relationships to get to the field.</description></field>
         <field name="fieldNameAlias" type="text-medium"><description>Alias to put in document output for field name
             (ie final part of fieldPath only). Defaults to final part of fieldPath. Must be unique within the document
             and can be used in EntityCondition passed into the EntityFacade.findDataDocuments() method.</description></field>
@@ -134,6 +132,8 @@ along with this software (see the LICENSE.md file). If not, see
             in ElasticSearch we have two string types to work with: text (tokenized for search, not sortable) and keyword (sortable
             but not tokenized for search). In ElasticSearch this adds [field name].keyword field of type keyword to sort on if the
             entity field is a 'text' type ElasticSearch field.</description></field>
+        <field name="functionName" type="text-short"><description>If specific the field is queried with the given function.
+            Must be one of the functions available in the view-entity.alias.@function attribute.</description></field>
         <relationship type="one" related="moqui.entity.document.DataDocument"/>
     </entity>
     <entity entity-name="DataDocumentRelAlias" package="moqui.entity.document" use="configuration">
