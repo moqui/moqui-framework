@@ -108,11 +108,25 @@ class ScreenTree {
                     // run actions
                     if (tn.actions != null) tn.actions.run(eci)
 
-                    String id = eci.getResource().expand((String) tn.linkNode.attribute("id"), tn.location + ".id")
-                    String text = eci.getResource().expand((String) tn.linkNode.attribute("text"), tn.location + ".text")
-                    ScreenUrlInfo.UrlInstance urlInstance = ((ScreenRenderImpl) cs.get("sri"))
-                            .makeUrlByType((String) tn.linkNode.attribute("url"), (String) tn.linkNode.attribute("url-type") ?: "transition",
+                    MNode showNode = tn.linkNode != null ? tn.linkNode : tn.labelNode
+                    String id = eci.getResource().expand((String) showNode.attribute("id"), tn.location + ".id")
+                    String text = eci.getResource().expand((String) showNode.attribute("text"), tn.location + ".text")
+                    Map aAttrMap = (Map) null
+                    if (tn.linkNode != null) {
+                        ScreenUrlInfo.UrlInstance urlInstance = ((ScreenRenderImpl) cs.get("sri")).makeUrlByType((String) tn.linkNode.attribute("url"),
+                                (String) tn.linkNode.attribute("url-type") ?: "transition",
                                 tn.linkNode, (String) tn.linkNode.attribute("expand-transition-url") ?: "true")
+
+                        boolean noParam = tn.linkNode.attribute("url-noparam") == "true"
+                        String urlText = noParam ? urlInstance.getPath() : urlInstance.getPathWithParams()
+                        String hrefText = urlText
+                        String loadId = tn.linkNode.attribute("dynamic-load-id")
+                        if (loadId) {
+                            // NOTE: the void(0) is needed for Firefox and other browsers that render the result of the JS expression
+                            hrefText = "javascript:{\$('#${loadId}').load('${urlText}'); void(0);}"
+                        }
+                        aAttrMap = [href:hrefText, loadId:loadId, urlText:urlText]
+                    }
 
                     // now get children to check if has some, and if in treeOpenPath include them
                     List<Map> childNodeList = null
@@ -124,18 +138,10 @@ class ScreenTree {
                         cs.pop()
                     }
 
-                    boolean noParam = tn.linkNode.attribute("url-noparam") == "true"
-                    String urlText = noParam ? urlInstance.getPath() : urlInstance.getPathWithParams()
-                    String hrefText = urlText
-                    String loadId = tn.linkNode.attribute("dynamic-load-id")
-                    if (loadId) {
-                        // NOTE: the void(0) is needed for Firefox and other browsers that render the result of the JS expression
-                        hrefText = "javascript:{\$('#${loadId}').load('${urlText}'); void(0);}"
-                    }
-
                     // NOTE: passing href as either URL or JS to load (for static rendering with jstree), plus plain loadId and urlText for more dynamic stuff
-                    Map<String, Object> subNodeMap = [id:id, text:text, a_attr:[href:hrefText, loadId:loadId, urlText:urlText],
+                    Map<String, Object> subNodeMap = [id:id, text:text,
                             li_attr:["treeNodeName":tn.treeNodeNode.attribute("name")]] as Map<String, Object>
+                    if (aAttrMap != null) subNodeMap.a_attr = aAttrMap
                     if (((String) cs.get("treeOpenPath"))?.startsWith(id)) {
                         subNodeMap.state = [opened:true, selected:(cs.get("treeOpenPath") == id)] as Map<String, Object>
                         subNodeMap.children = childNodeList
@@ -176,6 +182,7 @@ class ScreenTree {
         protected XmlAction condition = null
         protected XmlAction actions = null
         protected MNode linkNode = null
+        protected MNode labelNode = null
         protected List<TreeSubNode> subNodeList = []
 
         TreeNode(ScreenTree screenTree, MNode treeNodeNode, String location) {
@@ -183,6 +190,7 @@ class ScreenTree {
             this.treeNodeNode = treeNodeNode
             this.location = location
             this.linkNode = treeNodeNode.first("link")
+            this.labelNode = treeNodeNode.first("label")
 
             // prep condition
             if (treeNodeNode.hasChild("condition") && treeNodeNode.first("condition").children) {

@@ -842,7 +842,10 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:sequence>
                 <xs:element minOccurs="0" ref="condition"/>
                 <xs:element minOccurs="0" ref="actions"/>
-                <xs:element ref="link"/>
+                <xs:choice>
+                    <xs:element ref="link"/>
+                    <xs:element ref="label"/>
+                </xs:choice>
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="tree-sub-node"/>
             </xs:sequence>
             <xs:attribute type="xs:string" name="name" use="required"/>
