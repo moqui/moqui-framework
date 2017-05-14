@@ -367,7 +367,11 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:complexType>
             <xs:sequence>
                 <xs:element minOccurs="0" ref="description"/>
-                <xs:element maxOccurs="unbounded" ref="member-entity"/>
+                <xs:element ref="member-entity"/>
+                <xs:choice minOccurs="0" maxOccurs="unbounded">
+                    <xs:element ref="member-entity"/>
+                    <xs:element ref="member-relationship"/>
+                </xs:choice>
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="alias-all"/>
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="alias"/>
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="relationship"/>
@@ -390,6 +394,18 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="entity-alias" type="name-plain" use="required"/>
             <xs:attribute name="entity-name" type="name-full" use="required"/>
             <xs:attribute name="join-from-alias" type="name-plain" use="optional"/>
+            <xs:attribute name="join-optional" type="boolean" use="optional"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="member-relationship">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="description"/>
+                <xs:element minOccurs="0" ref="entity-condition"/>
+            </xs:sequence>
+            <xs:attribute name="entity-alias" type="name-plain" use="required"/>
+            <xs:attribute name="join-from-alias" type="name-plain" use="required"/>
+            <xs:attribute name="relationship" type="name-full" use="required"/>
             <xs:attribute name="join-optional" type="boolean" use="optional"/>
         </xs:complexType>
     </xs:element>

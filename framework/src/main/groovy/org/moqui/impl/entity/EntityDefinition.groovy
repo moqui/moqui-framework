@@ -114,13 +114,45 @@ public class EntityDefinition {
             memberEntityFieldAliases = [:]
             memberEntityAliasMap = [:]
 
+            // expand member-relationship into member-entity
+            if (internalEntityNode.hasChild("member-relationship")) for (MNode memberRel in internalEntityNode.children("member-relationship")) {
+                String joinFromAlias = memberRel.attribute("join-from-alias")
+                String relName = memberRel.attribute("relationship")
+                MNode jfme = internalEntityNode.first("member-entity", "entity-alias", joinFromAlias)
+                if (jfme == null) throw new EntityException("Could not find member-entity ${joinFromAlias} referenced in member-relationship ${memberRel.attribute("entity-alias")} of view-entity ${fullEntityName}")
+                String fromEntityName = jfme.attribute("entity-name")
+                EntityDefinition jfed = efi.getEntityDefinition(fromEntityName)
+                if (jfed == null) throw new EntityException("No definition found for member-entity ${jfme.attribute("entity-alias")} name ${fromEntityName} in view-entity ${fullEntityName}")
+
+                // can't use getRelationshipInfo as not all entities loaded: RelationshipInfo relInfo = jfed.getRelationshipInfo(relName)
+                MNode relNode = jfed.internalEntityNode.first({ MNode it -> "relationship".equals(it.name) &&
+                        (relName.equals(it.attribute("short-alias")) || relName.equals(it.attribute("related")) ||
+                                relName.equals(it.attribute("related") + '#' + it.attribute("related"))) })
+                if (relNode == null) throw new EntityException("Could not find relationship ${relName} from member-entity ${joinFromAlias} referenced in member-relationship ${memberRel.attribute("entity-alias")} of view-entity ${fullEntityName}")
+
+                // mutate the current MNode
+                memberRel.setName("member-entity")
+                memberRel.attributes.put("entity-name", relNode.attribute("related"))
+                ArrayList<MNode> kmList = relNode.children("key-map")
+                if (kmList) {
+                    for (MNode keyMap in relNode.children("key-map"))
+                        memberRel.append("key-map", ["field-name":keyMap.attribute("field-name"), "related":keyMap.attribute("related")])
+                } else {
+                    EntityDefinition relEd = efi.getEntityDefinition(relNode.attribute("related"))
+                    for (String pkName in relEd.getPkFieldNames()) memberRel.append("key-map", ["field-name":pkName, "related":pkName])
+                }
+            }
+
+            if (internalEntityNode.hasChild("member-relationship"))
+                logger.warn("view-entity ${fullEntityName} members: ${internalEntityNode.children("member-entity")}")
+
             // get group, etc from member-entity
             Set<String> allGroupNames = new TreeSet<>()
             for (MNode memberEntity in internalEntityNode.children("member-entity")) {
                 String memberEntityName = memberEntity.attribute("entity-name")
                 memberEntityAliasMap.put(memberEntity.attribute("entity-alias"), memberEntity)
-                EntityDefinition memberEd = this.efi.getEntityDefinition(memberEntityName)
-                if (memberEd == null) throw new EntityException("No definition found for member entity alias ${memberEntity.attribute("entity-alias")} name ${memberEntityName} in view-entity ${fullEntityName}")
+                EntityDefinition memberEd = efi.getEntityDefinition(memberEntityName)
+                if (memberEd == null) throw new EntityException("No definition found for member-entity ${memberEntity.attribute("entity-alias")} name ${memberEntityName} in view-entity ${fullEntityName}")
                 MNode memberEntityNode = memberEd.getEntityNode()
                 String groupNameAttr = memberEntityNode.attribute("group") ?: memberEntityNode.attribute("group-name")
                 if (groupNameAttr == null || groupNameAttr.length() == 0) {
@@ -148,7 +180,7 @@ public class EntityDefinition {
                 MNode memberEntity = memberEntityAliasMap.get(entityAlias)
                 if (memberEntity == null) throw new EntityException("Could not find member-entity with entity-alias ${entityAlias} in view-entity ${fullEntityName}")
 
-                EntityDefinition memberEd = this.efi.getEntityDefinition(memberEntity.attribute("entity-name"))
+                EntityDefinition memberEd = efi.getEntityDefinition(memberEntity.attribute("entity-name"))
                 String fieldName = aliasNode.attribute("field") ?: aliasNode.attribute("name")
                 MNode fieldNode = memberEd.getFieldNode(fieldName)
                 if (fieldNode == null) throw new EntityException("In view-entity ${fullEntityName} alias ${aliasNode.attribute("name")} referred to field ${fieldName} that does not exist on entity ${memberEd.fullEntityName}.")
@@ -853,9 +885,9 @@ public class EntityDefinition {
         String outValue
         if (value instanceof Timestamp) {
             // use a Long number, no TZ issues
-            outValue = value.getTime() as String
+            outValue = ((Timestamp) value).getTime() as String
         } else if (value instanceof BigDecimal) {
-            outValue = value.toPlainString()
+            outValue = ((BigDecimal) value).toPlainString()
         } else {
             outValue = fieldInfo.convertToString(value)
         }
