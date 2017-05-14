@@ -424,6 +424,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
             if (foo.getCaseUpperLower() != null && typeValue == 1) sqlTopLevel.append(")");
             sqlTopLevel.append(foo.getDescending() ? " DESC" : " ASC");
             if (foo.getNullsFirstLast() != null) sqlTopLevel.append(foo.getNullsFirstLast() ? " NULLS FIRST" : " NULLS LAST");
+            else sqlTopLevel.append(" NULLS LAST");
         }
     }
     public void addLimitOffset(Integer limit, Integer offset) {
