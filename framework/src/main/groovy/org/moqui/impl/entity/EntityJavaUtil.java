@@ -486,12 +486,15 @@ public class EntityJavaUtil {
         public final Map<String, String> keyMap;
         public final boolean dependent;
         public final boolean mutable;
+        public final boolean isAutoReverse;
 
         RelationshipInfo(MNode relNode, EntityDefinition fromEd, EntityFacadeImpl efi) {
             this.relNode = relNode;
             this.fromEd = fromEd;
             type = relNode.attribute("type");
             isTypeOne = type.startsWith("one");
+            isAutoReverse = "true".equals(relNode.attribute("is-auto-reverse"));
+
             String titleAttr = relNode.attribute("title");
             title = titleAttr != null && !titleAttr.isEmpty() ? titleAttr : null;
             String relatedAttr = relNode.attribute("related");
