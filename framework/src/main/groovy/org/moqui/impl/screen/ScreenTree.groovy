@@ -71,13 +71,13 @@ class ScreenTree {
             }
         }
 
-        List outputNodeList = getChildNodes(currentSubNodeList, eci, cs)
+        List outputNodeList = getChildNodes(currentSubNodeList, eci, cs, true)
 
         // logger.warn("========= outputNodeList = ${outputNodeList}")
         eci.getWeb().sendJsonResponse(outputNodeList)
     }
 
-    List<Map> getChildNodes(List<TreeSubNode> currentSubNodeList, ExecutionContextImpl eci, ContextStack cs) {
+    List<Map> getChildNodes(List<TreeSubNode> currentSubNodeList, ExecutionContextImpl eci, ContextStack cs, boolean recurse) {
         List<Map> outputNodeList = []
 
         for (TreeSubNode tsn in currentSubNodeList) {
@@ -128,21 +128,25 @@ class ScreenTree {
                         aAttrMap = [href:hrefText, loadId:loadId, urlText:urlText]
                     }
 
+                    boolean isOpen = ((String) cs.get("treeOpenPath"))?.startsWith(id)
+
                     // now get children to check if has some, and if in treeOpenPath include them
                     List<Map> childNodeList = null
-                    cs.push()
-                    try {
-                        cs.put("treeNodeId", id)
-                        childNodeList = getChildNodes(tn.subNodeList, eci, cs)
-                    } finally {
-                        cs.pop()
+                    if (recurse) {
+                        cs.push()
+                        try {
+                            cs.put("treeNodeId", id)
+                            childNodeList = getChildNodes(tn.subNodeList, eci, cs, isOpen)
+                        } finally {
+                            cs.pop()
+                        }
                     }
 
                     // NOTE: passing href as either URL or JS to load (for static rendering with jstree), plus plain loadId and urlText for more dynamic stuff
                     Map<String, Object> subNodeMap = [id:id, text:text,
                             li_attr:["treeNodeName":tn.treeNodeNode.attribute("name")]] as Map<String, Object>
                     if (aAttrMap != null) subNodeMap.a_attr = aAttrMap
-                    if (((String) cs.get("treeOpenPath"))?.startsWith(id)) {
+                    if (isOpen) {
                         subNodeMap.state = [opened:true, selected:(cs.get("treeOpenPath") == id)] as Map<String, Object>
                         subNodeMap.children = childNodeList
                     } else {
