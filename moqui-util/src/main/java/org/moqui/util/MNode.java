@@ -133,7 +133,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
 
     /* ========== Fields ========== */
 
-    private final String nodeName;
+    private String nodeName;
     private final Map<String, String> attributeMap = new LinkedHashMap<>();
     private MNode parentNode = null;
     private ArrayList<MNode> childList = null;
@@ -198,6 +198,13 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
     public Object getAt(String name) { return getObject(name); }
 
     public String getName() { return nodeName; }
+    public void setName(String name) {
+        if (parentNode != null && parentNode.childrenByName != null) {
+            parentNode.childrenByName.remove(name);
+            parentNode.childrenByName.remove(nodeName);
+        }
+        nodeName = name;
+    }
     public Map<String, String> getAttributes() { return attributeMap; }
     public String attribute(String attrName) {
         String attrValue = attributeMap.get(attrName);
@@ -953,8 +960,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
     private static class FtlNodeListWrapper implements TemplateSequenceModel {
         ArrayList<TemplateModel> nodeList = new ArrayList<>();
         FtlNodeListWrapper(ArrayList<MNode> mnodeList, MNode parentNode) {
-            if (mnodeList != null) for (int i = 0; i < mnodeList.size(); i++)
-                nodeList.add(mnodeList.get(i));
+            if (mnodeList != null) nodeList.addAll(mnodeList);
         }
         FtlNodeListWrapper(String text, MNode parentNode) {
             nodeList.add(new FtlTextWrapper(text, parentNode));
