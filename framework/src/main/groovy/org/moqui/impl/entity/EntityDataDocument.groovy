@@ -123,7 +123,7 @@ class EntityDataDocument {
     EntityDefinition makeEntityDefinition(String dataDocumentId) {
         EntityValue dataDocument = efi.fastFindOne("moqui.entity.document.DataDocument", true, false, dataDocumentId)
         if (dataDocument == null) throw new EntityException("No DataDocument found with ID ${dataDocumentId}")
-        EntityList dataDocumentFieldList = dataDocument.findRelated("moqui.entity.document.DataDocumentField", null, null, true, false)
+        EntityList dataDocumentFieldList = dataDocument.findRelated("moqui.entity.document.DataDocumentField", null, ['sequenceNum', 'fieldPath'], true, false)
 
         String primaryEntityName = dataDocument.getNoCheckSimple("primaryEntityName")
         EntityDefinition primaryEd = efi.getEntityDefinition(primaryEntityName)
@@ -151,7 +151,7 @@ class EntityDataDocument {
     EntityFind makeDataDocumentFind(String dataDocumentId) {
         EntityValue dataDocument = efi.fastFindOne("moqui.entity.document.DataDocument", true, false, dataDocumentId)
         if (dataDocument == null) throw new EntityException("No DataDocument found with ID ${dataDocumentId}")
-        EntityList dataDocumentFieldList = dataDocument.findRelated("moqui.entity.document.DataDocumentField", null, null, true, false)
+        EntityList dataDocumentFieldList = dataDocument.findRelated("moqui.entity.document.DataDocumentField", null, ['sequenceNum', 'fieldPath'], true, false)
         EntityList dataDocumentConditionList = dataDocument.findRelated("moqui.entity.document.DataDocumentCondition", null, null, true, false)
 
         String primaryEntityName = dataDocument.getNoCheckSimple("primaryEntityName")

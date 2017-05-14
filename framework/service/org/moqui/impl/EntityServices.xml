@@ -41,11 +41,18 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
+    <service verb="create" noun="DataDocument" type="entity-auto">
+        <in-parameters>
+            <auto-parameters include="nonpk"/>
+            <parameter name="dataDocumentId" required="true"><matches regexp="\w*" message="Must contain only letters and digits"/></parameter>
+            <parameter name="indexName"><matches regexp="[a-z0-9]*" message="Must contain only lower case letters and digits"/></parameter>
+        </in-parameters>
+    </service>
     <service verb="clone" noun="DataDocument">
         <in-parameters>
             <parameter name="dataDocumentId" required="true"/>
-            <parameter name="newDataDocumentId" required="true"/>
-            <parameter name="newIndexName" required="true"/>
+            <parameter name="newDataDocumentId" required="true"><matches regexp="\w*" message="Must contain only letters and digits"/></parameter>
+            <parameter name="newIndexName"><matches regexp="[a-z0-9]*" message="Must contain only lower case letters and digits"/></parameter>
             <parameter name="copyConditions" default="false" type="Boolean"/>
             <parameter name="copyLinks" default="false" type="Boolean"/>
         </in-parameters>
@@ -59,7 +66,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <entity-find-one entity-name="moqui.entity.document.DataDocument" value-field="dataDocument" cache="false"/>
             <set field="dataDocument.dataDocumentId" from="newDataDocumentId"/>
-            <set field="dataDocument.indexName" from="newIndexName"/>
+            <if condition="newIndexName"><set field="dataDocument.indexName" from="newIndexName"/></if>
             <entity-create value-field="dataDocument"/>
 
             <entity-find entity-name="moqui.entity.document.DataDocumentField" list="ddfList">

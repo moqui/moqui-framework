@@ -134,6 +134,7 @@ along with this software (see the LICENSE.md file). If not, see
             entity field is a 'text' type ElasticSearch field.</description></field>
         <field name="functionName" type="text-short"><description>If specific the field is queried with the given function.
             Must be one of the functions available in the view-entity.alias.@function attribute.</description></field>
+        <field name="sequenceNum" type="number-integer"/>
         <relationship type="one" related="moqui.entity.document.DataDocument"/>
     </entity>
     <entity entity-name="DataDocumentRelAlias" package="moqui.entity.document" use="configuration">
@@ -160,7 +161,7 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="DataDocumentLink" package="moqui.entity.document" use="configuration">
         <description>This is a very simple sort of condition to constrain data document output.</description>
         <field name="dataDocumentId" type="id" is-pk="true"/>
-        <field name="label" type="text-short" is-pk="true"/>
+        <field name="label" type="text-medium" is-pk="true"/>
         <field name="linkUrl" type="text-medium"/>
         <field name="urlType" type="text-short" default="'plain'">
             <description>Must match an option for the XML Screen link.@url-type attribute. Defaults to 'plain'.</description></field>
