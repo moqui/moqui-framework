@@ -116,11 +116,17 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="update" noun="DataDocumentField">
         <in-parameters>
             <parameter name="dataDocumentId" required="true"/>
+            <parameter name="fieldSeqId"/>
             <parameter name="fieldPath" required="true"/>
             <auto-parameters entity-name="moqui.entity.document.DataDocumentField" include="nonpk"/>
         </in-parameters>
         <actions>
             <if condition="fieldNameAlias"><set field="fieldNameAlias" from="prettyToCamelCase(fieldNameAlias, false)"/></if>
+            <if condition="!fieldSeqId">
+                <entity-find entity-name="moqui.entity.document.DataDocumentField" list="ddfList">
+                    <econdition field-name="dataDocumentId"/><econdition field-name="fieldPath"/></entity-find>
+                <set field="fieldSeqId" from="ddfList ? ddfList[0].fieldSeqId : null"/>
+            </if>
             <service-call name="update#moqui.entity.document.DataDocumentField" in-map="context"/>
         </actions>
     </service>

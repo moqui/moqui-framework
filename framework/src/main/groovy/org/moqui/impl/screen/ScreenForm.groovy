@@ -553,7 +553,8 @@ class ScreenForm {
 
     void addAutoEntityField(EntityDefinition ed, String fieldName, String fieldType,
                             MNode newFieldNode, MNode subFieldNode, MNode baseFormNode) {
-        String efType = ed.getFieldInfo(fieldName).type ?: "text-long"
+        FieldInfo fieldInfo = ed.getFieldInfo(fieldName)
+        String efType = fieldInfo.type ?: "text-long"
 
         // to see if this should be a drop-down with data from another entity,
         // find first relationship that has this field as the only key map and is not a many relationship
@@ -664,6 +665,13 @@ class ScreenForm {
             } else if (efType.startsWith("number-") || efType.startsWith("currency-")) {
                 headerFieldNode.append("range-find", [size:'10'])
                 newFieldNode.attributes.put("align", "right")
+                String function = fieldInfo.fieldNode.attribute("function")
+                if (function != null && function in ['min', 'max', 'avg']) {
+                    newFieldNode.attributes.put("show-total", function)
+                } else {
+                    newFieldNode.attributes.put("show-total", "sum")
+                }
+
             } else {
                 if (oneRelNode != null) {
                     addEntityFieldDropDown(oneRelNode, headerFieldNode, relatedEd, relKeyField, "")
