@@ -168,6 +168,19 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="condition" type="text-long"/>
         <relationship type="one" related="moqui.entity.document.DataDocument"/>
     </entity>
+    <entity entity-name="DataDocumentUserGroup" package="moqui.entity.document" use="configuration">
+        <description>Use this entity to allow a user group access to the DataDocument (for reports, etc). For all users use userGroupId="ALL_USERS".</description>
+        <field name="dataDocumentId" type="id" is-pk="true"/>
+        <field name="userGroupId" type="id" is-pk="true"/>
+        <relationship type="one" related="moqui.entity.document.DataDocument" short-alias="document"/>
+        <relationship type="one" related="moqui.security.UserGroup" short-alias="group"/>
+    </entity>
+    <view-entity entity-name="DataDocumentAndUserGroup" package="moqui.entity.document">
+        <member-entity entity-alias="DDUG" entity-name="moqui.entity.document.DataDocumentUserGroup"/>
+        <member-relationship entity-alias="DDOC" join-from-alias="DDUG" relationship="document"/>
+        <alias-all entity-alias="DDOC"/><alias-all entity-alias="DDUG"/>
+    </view-entity>
+
 
     <!-- ========================================================= -->
     <!-- moqui.entity.feed -->
