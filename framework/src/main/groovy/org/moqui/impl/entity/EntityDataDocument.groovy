@@ -131,7 +131,7 @@ class EntityDataDocument {
 
         Map<String, Object> fieldTree = [:]
         Map<String, String> fieldAliasPathMap = [:]
-        populateFieldTreeAndAliasPathMap(dataDocumentFieldList, primaryPkFieldNames, fieldTree, fieldAliasPathMap)
+        populateFieldTreeAndAliasPathMap(dataDocumentFieldList, primaryPkFieldNames, fieldTree, fieldAliasPathMap, false)
 
         EntityDynamicViewImpl dynamicView = new EntityDynamicViewImpl(efi)
         dynamicView.entityNode.attributes.put("package", "DataDocument")
@@ -161,7 +161,7 @@ class EntityDataDocument {
         // build the field tree, nested Maps for relationship field path elements and field alias String for field name path elements
         Map<String, Object> fieldTree = [:]
         Map<String, String> fieldAliasPathMap = [:]
-        populateFieldTreeAndAliasPathMap(dataDocumentFieldList, primaryPkFieldNames, fieldTree, fieldAliasPathMap)
+        populateFieldTreeAndAliasPathMap(dataDocumentFieldList, primaryPkFieldNames, fieldTree, fieldAliasPathMap, false)
 
         return makeDataDocumentFind(dataDocumentId, primaryEntityName, fieldTree, fieldAliasPathMap, dataDocumentConditionList, null, null)
     }
@@ -237,7 +237,7 @@ class EntityDataDocument {
         // build the field tree, nested Maps for relationship field path elements and field alias String for field name path elements
         Map<String, Object> fieldTree = [:]
         Map<String, String> fieldAliasPathMap = [:]
-        populateFieldTreeAndAliasPathMap(dataDocumentFieldList, primaryPkFieldNames, fieldTree, fieldAliasPathMap)
+        populateFieldTreeAndAliasPathMap(dataDocumentFieldList, primaryPkFieldNames, fieldTree, fieldAliasPathMap, true)
         // logger.warn("=========== ${dataDocumentId} fieldTree=${fieldTree}")
         // logger.warn("=========== ${dataDocumentId} fieldAliasPathMap=${fieldAliasPathMap}")
 
@@ -338,7 +338,7 @@ class EntityDataDocument {
     }
 
     static void populateFieldTreeAndAliasPathMap(EntityList dataDocumentFieldList, List<String> primaryPkFieldNames,
-                                          Map<String, Object> fieldTree, Map<String, String> fieldAliasPathMap) {
+                                          Map<String, Object> fieldTree, Map<String, String> fieldAliasPathMap, boolean allPks) {
         for (EntityValue dataDocumentField in dataDocumentFieldList) {
             String fieldPath = dataDocumentField.getNoCheckSimple("fieldPath")
             Iterator<String> fieldPathElementIter = fieldPath.split(":").iterator()
@@ -360,9 +360,11 @@ class EntityDataDocument {
             }
         }
         // make sure all PK fields of the primary entity are aliased
-        for (String pkFieldName in primaryPkFieldNames) if (!fieldAliasPathMap.containsKey(pkFieldName)) {
-            fieldTree.put(pkFieldName, pkFieldName)
-            fieldAliasPathMap.put(pkFieldName, pkFieldName)
+        if (allPks) {
+            for (String pkFieldName in primaryPkFieldNames) if (!fieldAliasPathMap.containsKey(pkFieldName)) {
+                fieldTree.put(pkFieldName, pkFieldName)
+                fieldAliasPathMap.put(pkFieldName, pkFieldName)
+            }
         }
     }
 
