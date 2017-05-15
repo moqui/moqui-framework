@@ -102,6 +102,14 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
         </actions>
     </service>
+    <service verb="update" noun="DataDocumentField" type="entity-auto">
+        <in-parameters>
+            <parameter name="dataDocumentId" required="true"/>
+            <parameter name="fieldPath" required="true"/>
+            <auto-parameters entity-name="DataDocumentField" include="nonpk"/>
+            <parameter name="fieldNameAlias"><matches regexp="[a-zA-Z0-9]*" message="Must contain only letters and digits"/></parameter>
+        </in-parameters>
+    </service>
 
     <service verb="send" noun="DataDocumentNotifications" authenticate="false">
         <description>

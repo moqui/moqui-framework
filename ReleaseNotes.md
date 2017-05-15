@@ -13,6 +13,12 @@ rendering (SPA) functionality and various other new features that due to busines
 There are various changes for better server side handling of the new Vue based hybrid static/dynamic XML Screen rendering.
 See the moqui-runtime release notes for more details. Some of these changes may be useful for other client rendering purposes.
 
+### Non Backward Compatible Changes
+
+- DataDocument JSON generation no longer automatically adds all primary key fields of the primary entity to allow for aggregation
+  by function in DataDocument based queries (where DataDocument is used to create a dynamic view entity); for ElasticSearch indexing
+  a unique ID is required so all primary key fields of the primary entity should be defined
+
 ### New Features
 
 - Various library updates

@@ -57,9 +57,7 @@ class EntityDataDocument {
         PrintWriter pw = new PrintWriter(outFile)
 
         pw.write("[\n")
-
         int valuesWritten = writeDocumentsToWriter(pw, dataDocumentIds, condition, fromUpdateStamp, thruUpdatedStamp, prettyPrint)
-
         pw.write("{}\n]\n")
         pw.close()
         efi.ecfi.getEci().message.addMessage(efi.ecfi.resource.expand('Wrote ${valuesWritten} documents to file ${filename}','',[valuesWritten:valuesWritten,filename:filename]))
@@ -88,9 +86,7 @@ class EntityDataDocument {
 
             PrintWriter pw = new PrintWriter(outFile)
             pw.write("[\n")
-
             valuesWritten += writeDocumentsToWriter(pw, [dataDocumentId], condition, fromUpdateStamp, thruUpdatedStamp, prettyPrint)
-
             pw.write("{}\n]\n")
             pw.close()
             efi.ecfi.getEci().message.addMessage(efi.ecfi.resource.expand('Wrote ${valuesWritten} records to file ${filename}','',[valuesWritten:valuesWritten, filename:filename]))
@@ -104,15 +100,18 @@ class EntityDataDocument {
         int valuesWritten = 0
 
         for (String dataDocumentId in dataDocumentIds) {
-            List<Map> documentList = getDataDocuments(dataDocumentId, condition, fromUpdateStamp, thruUpdatedStamp)
-            for (Map document in documentList) {
+            ArrayList<Map> documentList = getDataDocuments(dataDocumentId, condition, fromUpdateStamp, thruUpdatedStamp)
+            int docListSize = documentList.size()
+            for (int i = 0; i < docListSize; i++) {
+                Map document = (Map) documentList.get(i)
                 String json = JsonOutput.toJson(document)
                 if (prettyPrint) {
                     pw.write(JsonOutput.prettyPrint(json))
                 } else {
                     pw.write(json)
                 }
-                pw.write(",\n")
+                if ((i + 1) < docListSize) pw.write(",")
+                pw.write("\n")
                 valuesWritten++
             }
         }
@@ -220,8 +219,7 @@ class EntityDataDocument {
         return mainFind
     }
 
-    ArrayList<Map> getDataDocuments(String dataDocumentId, EntityCondition condition, Timestamp fromUpdateStamp,
-                                    Timestamp thruUpdatedStamp) {
+    ArrayList<Map> getDataDocuments(String dataDocumentId, EntityCondition condition, Timestamp fromUpdateStamp, Timestamp thruUpdatedStamp) {
         ExecutionContextImpl eci = efi.ecfi.getEci()
 
         EntityValue dataDocument = efi.fastFindOne("moqui.entity.document.DataDocument", true, false, dataDocumentId)
@@ -237,7 +235,7 @@ class EntityDataDocument {
         // build the field tree, nested Maps for relationship field path elements and field alias String for field name path elements
         Map<String, Object> fieldTree = [:]
         Map<String, String> fieldAliasPathMap = [:]
-        populateFieldTreeAndAliasPathMap(dataDocumentFieldList, primaryPkFieldNames, fieldTree, fieldAliasPathMap, true)
+        populateFieldTreeAndAliasPathMap(dataDocumentFieldList, primaryPkFieldNames, fieldTree, fieldAliasPathMap, false)
         // logger.warn("=========== ${dataDocumentId} fieldTree=${fieldTree}")
         // logger.warn("=========== ${dataDocumentId} fieldAliasPathMap=${fieldAliasPathMap}")
 
@@ -250,9 +248,13 @@ class EntityDataDocument {
                 dataDocumentConditionList, fromUpdateStamp, thruUpdatedStamp)
         if (condition != null) mainFind.condition(condition)
 
+        boolean hasAllPrimaryPks = true
+        for (String pkFieldName in primaryPkFieldNames) if (!fieldAliasPathMap.containsKey(pkFieldName)) hasAllPrimaryPks = false
+
         // do the one big query
         EntityListIterator mainEli = mainFind.iterator()
-        Map<String, Map<String, Object>> documentMapMap = [:]
+        Map<String, Map<String, Object>> documentMapMap = hasAllPrimaryPks ? new LinkedHashMap<>() : null
+        ArrayList<Map<String, Object>> documentMapList = hasAllPrimaryPks ? null : new ArrayList<>()
         try {
             EntityValue ev
             while ((ev = (EntityValue) mainEli.next()) != null) {
@@ -260,6 +262,7 @@ class EntityDataDocument {
 
                 StringBuffer pkCombinedSb = new StringBuffer()
                 for (String pkFieldName in primaryPkFieldNames) {
+                    if (!fieldAliasPathMap.containsKey(pkFieldName)) continue
                     if (pkCombinedSb.length() > 0) pkCombinedSb.append("::")
                     pkCombinedSb.append((String) ev.getNoCheckSimple(pkFieldName))
                 }
@@ -273,14 +276,16 @@ class EntityDataDocument {
                   - Map for primary entity with primaryEntityName as key
                   - nested List of Maps for each related entity with aliased fields with relationship name as key
                  */
-                Map<String, Object> docMap = documentMapMap.get(docId)
+                Map<String, Object> docMap = hasAllPrimaryPks ? documentMapMap.get(docId) : null
                 if (docMap == null) {
                     // add special entries
-                    docMap = [_type:dataDocumentId, _id:docId] as Map<String, Object>
+                    docMap = new LinkedHashMap<>()
+                    docMap.put("_type", dataDocumentId)
+                    if (docId) docMap.put("_id", docId)
                     docMap.put('_timestamp', eci.l10nFacade.format(
                             thruUpdatedStamp ?: new Timestamp(System.currentTimeMillis()), "yyyy-MM-dd'T'HH:mm:ssZ"))
                     String _index = dataDocument.indexName
-                    docMap.put('_index', _index.toLowerCase())
+                    if (_index) docMap.put('_index', _index.toLowerCase())
                     docMap.put('_entity', primaryEd.getShortOrFullEntityName())
 
                     // add Map for primary entity
@@ -297,7 +302,8 @@ class EntityDataDocument {
                     // docMap.put((String) relationshipAliasMap.get(primaryEntityName) ?: primaryEntityName, primaryEntityMap)
                     docMap.putAll(primaryEntityMap)
 
-                    documentMapMap.put(docId, docMap)
+                    if (hasAllPrimaryPks) documentMapMap.put(docId, docMap)
+                    else documentMapList.add(docMap)
                 }
 
                 // recursively add Map or List of Maps for each related entity
@@ -308,14 +314,20 @@ class EntityDataDocument {
         }
 
         // make the actual list and return it
-        ArrayList<Map> documentMapList = new ArrayList<>(documentMapMap.size())
-        for (Map.Entry<String, Map> documentMapEntry in documentMapMap.entrySet()) {
-            Map docMap = documentMapEntry.getValue()
+        if (hasAllPrimaryPks) {
+            documentMapList = new ArrayList<>(documentMapMap.size())
+            documentMapList.addAll(documentMapMap.values())
+        }
+        for (int i = 0; i < documentMapList.size(); ) {
+            Map<String, Object> docMap = (Map<String, Object>) documentMapList.get(i)
             // call the manualDataServiceName service for each document
             if (dataDocument.getNoCheckSimple("manualDataServiceName")) {
                 Map result = efi.ecfi.serviceFacade.sync().name((String) dataDocument.getNoCheckSimple("manualDataServiceName"))
                         .parameters([dataDocumentId:dataDocumentId, document:docMap]).call()
-                if (result.document) docMap = (Map) result.document
+                if (result.document) {
+                    docMap = (Map<String, Object>) result.document
+                    documentMapList.set(i, docMap)
+                }
             }
 
             // check postQuery conditions
@@ -323,7 +335,7 @@ class EntityDataDocument {
             for (EntityValue dataDocumentCondition in dataDocumentConditionList) if (dataDocumentCondition.postQuery == "Y") {
                 Set<Object> valueSet = new HashSet<Object>()
                 CollectionUtilities.findAllFieldsNestedMap((String) dataDocumentCondition.getNoCheckSimple("fieldNameAlias"), docMap, valueSet)
-                if (!valueSet) {
+                if (valueSet.size() == 0) {
                     if (!dataDocumentCondition.getNoCheckSimple("fieldValue")) { continue }
                     else { allPassed = false; break }
                 }
@@ -332,8 +344,13 @@ class EntityDataDocument {
                 if (!(fieldValueObj in valueSet)) { allPassed = false; break }
             }
 
-            if (allPassed) documentMapList.add(docMap)
+            if (allPassed) {
+                i++
+            } else {
+                documentMapList.remove(i)
+            }
         }
+
         return documentMapList
     }
 
