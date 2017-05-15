@@ -45,14 +45,14 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters>
             <auto-parameters include="nonpk"/>
             <parameter name="dataDocumentId" required="true"><matches regexp="\w*" message="Must contain only letters and digits"/></parameter>
-            <parameter name="indexName"><matches regexp="[a-z0-9]*" message="Must contain only lower case letters and digits"/></parameter>
+            <parameter name="indexName"><matches regexp="[a-z0-9_]*" message="Must contain only lower case letters, digits, and underscore"/></parameter>
         </in-parameters>
     </service>
     <service verb="clone" noun="DataDocument">
         <in-parameters>
             <parameter name="dataDocumentId" required="true"/>
             <parameter name="newDataDocumentId" required="true"><matches regexp="\w*" message="Must contain only letters and digits"/></parameter>
-            <parameter name="newIndexName"><matches regexp="[a-z0-9]*" message="Must contain only lower case letters and digits"/></parameter>
+            <parameter name="newIndexName"><matches regexp="[a-z0-9_]*" message="Must contain only lower case letters, digits, and underscore"/></parameter>
             <parameter name="copyConditions" default="false" type="Boolean"/>
             <parameter name="copyLinks" default="false" type="Boolean"/>
         </in-parameters>
