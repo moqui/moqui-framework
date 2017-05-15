@@ -97,12 +97,13 @@ class EntityDataDocument {
 
     int writeDocumentsToWriter(Writer pw, List<String> dataDocumentIds, EntityCondition condition,
                                Timestamp fromUpdateStamp, Timestamp thruUpdatedStamp, boolean prettyPrint) {
+        if (dataDocumentIds == null || dataDocumentIds.size() == 0) return 0
         int valuesWritten = 0
-
         for (String dataDocumentId in dataDocumentIds) {
             ArrayList<Map> documentList = getDataDocuments(dataDocumentId, condition, fromUpdateStamp, thruUpdatedStamp)
             int docListSize = documentList.size()
             for (int i = 0; i < docListSize; i++) {
+                if (valuesWritten > 0) pw.write(",\n")
                 Map document = (Map) documentList.get(i)
                 String json = JsonOutput.toJson(document)
                 if (prettyPrint) {
@@ -110,11 +111,10 @@ class EntityDataDocument {
                 } else {
                     pw.write(json)
                 }
-                if ((i + 1) < docListSize) pw.write(",")
-                pw.write("\n")
                 valuesWritten++
             }
         }
+        if (valuesWritten > 0) pw.write("\n")
 
         return valuesWritten
     }
