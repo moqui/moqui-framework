@@ -102,13 +102,27 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
         </actions>
     </service>
-    <service verb="update" noun="DataDocumentField" type="entity-auto">
+    <service verb="create" noun="DataDocumentField">
         <in-parameters>
             <parameter name="dataDocumentId" required="true"/>
             <parameter name="fieldPath" required="true"/>
-            <auto-parameters entity-name="DataDocumentField" include="nonpk"/>
-            <parameter name="fieldNameAlias"><matches regexp="[a-zA-Z0-9]*" message="Must contain only letters and digits"/></parameter>
+            <auto-parameters entity-name="moqui.entity.document.DataDocumentField" include="nonpk"/>
         </in-parameters>
+        <actions>
+            <if condition="fieldNameAlias"><set field="fieldNameAlias" from="prettyToCamelCase(fieldNameAlias, false)"/></if>
+            <service-call name="create#moqui.entity.document.DataDocumentField" in-map="context"/>
+        </actions>
+    </service>
+    <service verb="update" noun="DataDocumentField">
+        <in-parameters>
+            <parameter name="dataDocumentId" required="true"/>
+            <parameter name="fieldPath" required="true"/>
+            <auto-parameters entity-name="moqui.entity.document.DataDocumentField" include="nonpk"/>
+        </in-parameters>
+        <actions>
+            <if condition="fieldNameAlias"><set field="fieldNameAlias" from="prettyToCamelCase(fieldNameAlias, false)"/></if>
+            <service-call name="update#moqui.entity.document.DataDocumentField" in-map="context"/>
+        </actions>
     </service>
 
     <service verb="send" noun="DataDocumentNotifications" authenticate="false">
