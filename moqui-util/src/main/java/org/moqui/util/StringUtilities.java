@@ -106,6 +106,18 @@ public class StringUtilities {
         return newValue.toString();
     }
 
+    public static String camelCaseToPretty(String camelCase) {
+        StringBuilder prettyName = new StringBuilder();
+        for (String part : camelCase.split("(?=[A-Z])")) {
+            if (prettyName.length() > 0) prettyName.append(" ");
+            if (part.equalsIgnoreCase("id")) part = "ID";
+            prettyName.append(part);
+        }
+        char firstChar = prettyName.charAt(0);
+        if (Character.isLowerCase(firstChar)) prettyName.setCharAt(0, Character.toUpperCase(firstChar));
+        return prettyName.toString();
+    }
+
     public static String replaceNonAlphaNumeric(String origString, char chr) {
         if (origString == null || origString.isEmpty()) return origString;
         int origLength = origString.length();
