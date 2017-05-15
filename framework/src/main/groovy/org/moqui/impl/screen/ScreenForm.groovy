@@ -639,9 +639,18 @@ class ScreenForm {
             String textStr
             if (relDefaultDescriptionField) textStr = "\${" + relDefaultDescriptionField + " ?: ''} [\${" + relKeyField + "}]"
             else textStr = "[\${" + relKeyField + "}]"
-            if (oneRelNode != null) subFieldNode.append("display-entity",
-                    ["entity-name":(oneRelNode.attribute("related") ?: oneRelNode.attribute("related-entity-name")), "text":textStr])
-            else subFieldNode.append("display", null)
+            if (oneRelNode != null) {
+                subFieldNode.append("display-entity",
+                        ["entity-name":(oneRelNode.attribute("related") ?: oneRelNode.attribute("related-entity-name")), "text":textStr])
+            } else {
+                Map<String, String> attrs = (Map<String, String>) null
+                if (efType.equals("currency-amount")) {
+                    attrs = [format:"#,##0.00"]
+                } else if (efType.equals("currency-precise")) {
+                    attrs = [format:"#,##0.000"]
+                }
+                subFieldNode.append("display", attrs)
+            }
             break
         case "find-display":
             if (baseFormNode.name == "form-list" && !newFieldNode.hasChild("header-field"))
@@ -653,7 +662,8 @@ class ScreenForm {
             } else if (efType == "date-time") {
                 headerFieldNode.append("date-period", null)
             } else if (efType.startsWith("number-") || efType.startsWith("currency-")) {
-                headerFieldNode.append("range-find", [size:'4'])
+                headerFieldNode.append("range-find", [size:'10'])
+                newFieldNode.attributes.put("align", "right")
             } else {
                 if (oneRelNode != null) {
                     addEntityFieldDropDown(oneRelNode, headerFieldNode, relatedEd, relKeyField, "")
@@ -668,7 +678,13 @@ class ScreenForm {
                 subFieldNode.append("display-entity", ["text":textStr,
                         "entity-name":(oneRelNode.attribute("related") ?: oneRelNode.attribute("related-entity-name"))])
             } else {
-                subFieldNode.append("display", null)
+                Map<String, String> attrs = (Map<String, String>) null
+                if (efType.equals("currency-amount")) {
+                    attrs = [format:"#,##0.00"]
+                } else if (efType.equals("currency-precise")) {
+                    attrs = [format:"#,##0.000"]
+                }
+                subFieldNode.append("display", attrs)
             }
             break
         case "hidden":
