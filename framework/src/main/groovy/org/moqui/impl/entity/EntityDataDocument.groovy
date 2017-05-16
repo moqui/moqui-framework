@@ -370,7 +370,7 @@ class EntityDataDocument {
                     String fieldName = dataDocumentField.getNoCheckSimple("fieldNameAlias") ?: fieldPathElement
                     String function = dataDocumentField.getNoCheckSimple("functionName")
                     if (function != null && !function.isEmpty() && !fieldPathElement.contains("#"))
-                        fieldPathElement = fieldPathElement+ '#' + dataDocumentField.getNoCheckSimple("functionName")
+                        fieldPathElement = fieldPathElement + '#' + dataDocumentField.getNoCheckSimple("functionName")
                     currentTree.put(fieldPathElement, fieldName)
                     fieldAliasPathMap.put(fieldName, fieldPath)
                 }

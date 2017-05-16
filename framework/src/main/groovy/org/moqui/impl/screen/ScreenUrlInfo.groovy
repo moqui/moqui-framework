@@ -865,6 +865,13 @@ class ScreenUrlInfo {
             if (ps.length() > 0) url = url.concat("?").concat(ps)
             return url
         }
+        String getUrlWithParams(String extension) {
+            String ps = getParameterString()
+            String url = getUrl()
+            if (extension != null && !extension.isEmpty()) url = url.concat(".").concat(extension)
+            if (ps.length() > 0) url = url.concat("?").concat(ps)
+            return url
+        }
 
         String getMinimalPathUrl() { return sui.getMinimalPathUrlWithBase(sui.getBaseUrl(sri)) }
         String getMinimalPathUrlWithParams() {
