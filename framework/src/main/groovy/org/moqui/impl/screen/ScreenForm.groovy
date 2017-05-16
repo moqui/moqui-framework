@@ -969,13 +969,18 @@ class ScreenForm {
                         eli.close()
                     }
                 } else {
+                    String keyAttr = childNode.attribute("key")
+                    String textAttr = childNode.attribute("text")
                     for (Object listOption in listObject) {
                         if (listOption instanceof Map) {
                             addFieldOption(options, fieldNode, childNode, (Map) listOption, ec)
                         } else {
-                            String loString = ObjectUtilities.toPlainString(listOption)
-                            if (loString != null) options.put(loString, loString)
-                            // addFieldOption(options, fieldNode, childNode, [entry:listOption], ec)
+                            if (keyAttr != null || textAttr != null) {
+                                addFieldOption(options, fieldNode, childNode, [entry:listOption], ec)
+                            } else {
+                                String loString = ObjectUtilities.toPlainString(listOption)
+                                if (loString != null) options.put(loString, loString)
+                            }
                         }
                     }
                 }
