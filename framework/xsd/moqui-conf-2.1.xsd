@@ -742,6 +742,10 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="use-schema-for-all" default="false" type="boolean">
                 <xs:annotation><xs:documentation>Set to true to include the schema name for primary keys, foreign keys, and indexes.</xs:documentation></xs:annotation>
             </xs:attribute>
+            <xs:attribute name="never-nulls" default="false" type="boolean">
+                <xs:annotation><xs:documentation>Never use NULLS FIRST/LAST in ORDER BY clause</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="never-try-insert" default="false" type="boolean">
+                <xs:annotation><xs:documentation>Never use try insert feature when storing a record</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="use-binary-type-for-blob" default="false" type="boolean"/>
             <xs:attribute name="table-engine" type="xs:string"/>
             <xs:attribute name="character-set" type="xs:string"/>

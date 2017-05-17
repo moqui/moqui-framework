@@ -403,6 +403,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
             return;
         }
 
+        MNode databaseNode = this.efi.getDatabaseNode(getMainEntityDefinition().getEntityGroupName());
         sqlTopLevel.append(" ORDER BY ");
         for (int i = 0; i < obflSize; i++) {
             String fieldName = orderByFieldList.get(i);
@@ -423,8 +424,10 @@ public class EntityFindBuilder extends EntityQueryBuilder {
             sqlTopLevel.append(fieldInfo.getFullColumnName());
             if (foo.getCaseUpperLower() != null && typeValue == 1) sqlTopLevel.append(")");
             sqlTopLevel.append(foo.getDescending() ? " DESC" : " ASC");
-            if (foo.getNullsFirstLast() != null) sqlTopLevel.append(foo.getNullsFirstLast() ? " NULLS FIRST" : " NULLS LAST");
-            else sqlTopLevel.append(" NULLS LAST");
+            if (!"true".equals(databaseNode.attribute("never-nulls"))) {
+                if (foo.getNullsFirstLast() != null) sqlTopLevel.append(foo.getNullsFirstLast() ? " NULLS FIRST" : " NULLS LAST");
+                else sqlTopLevel.append(" NULLS LAST");
+            }
         }
     }
     public void addLimitOffset(Integer limit, Integer offset) {
