@@ -161,14 +161,14 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" related="moqui.entity.document.DataDocument"/>
     </entity>
     <entity entity-name="DataDocumentLink" package="moqui.entity.document" use="configuration">
-        <description>This is a very simple sort of condition to constrain data document output.</description>
+        <description>Associate links with a DataDocument to use in applications for links to details, edit screens, etc for search results.</description>
         <field name="dataDocumentId" type="id" is-pk="true"/>
         <field name="linkSeqId" type="id" is-pk="true"/>
         <field name="label" type="text-medium"/>
         <field name="linkUrl" type="text-medium"/>
         <field name="urlType" type="text-short" default="'plain'">
             <description>Must match an option for the XML Screen link.@url-type attribute. Defaults to 'plain'.</description></field>
-        <field name="condition" type="text-long"/>
+        <field name="linkCondition" type="text-long"/>
         <relationship type="one" related="moqui.entity.document.DataDocument"/>
     </entity>
     <entity entity-name="DataDocumentUserGroup" package="moqui.entity.document" use="configuration">
