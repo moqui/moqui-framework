@@ -19,10 +19,9 @@ See the moqui-runtime release notes for more details. Some of these changes may 
   by function in DataDocument based queries (where DataDocument is used to create a dynamic view entity); for ElasticSearch indexing
   a unique ID is required so all primary key fields of the primary entity should be defined
 - The DataDocumentField, DataDocumentCondition, and DataDocumentLink entities now have an artificial/sequenced secondary key instead 
-  of using another field (fieldPath, fieldNameAlias, label); existing tables will work without the PK change but only one field per 
-  fieldPath and one condition per fieldNameAlias may be used; to update the PK on DataDocumentField the fieldSeqId must be set, this 
-  can be set for the Mantle DataDocument records by reloading the seed data files which now have them set for reloading seed without 
-  duplicating fields
+  of using another field (fieldPath, fieldNameAlias, label); existing tables may work with some things but reloading seed data will
+  fail if you have any DataDocument records in place; these are typically seed data records so the easiest way to update/migrate
+  is to drop the tables for DataDocumentField/Link/Condition entities and then reload seed data as normal for a code update
 
 ### New Features
 
