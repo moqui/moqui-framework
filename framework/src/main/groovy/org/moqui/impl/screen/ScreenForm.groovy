@@ -1606,7 +1606,7 @@ class ScreenForm {
                     ef.selectField(fn)
                 }
 
-                logger.info("TOREMOVE form-list.entity-find: ${ef.toString()}\ndisplayedFieldSet: ${displayedFieldSet}")
+                // logger.warn("TOREMOVE form-list.entity-find: ${ef.toString()}\ndisplayedFieldSet: ${displayedFieldSet}")
 
                 // run the query
                 EntityList efList = ef.list()

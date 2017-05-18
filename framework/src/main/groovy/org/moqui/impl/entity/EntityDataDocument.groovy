@@ -116,99 +116,83 @@ class EntityDataDocument {
         return valuesWritten
     }
 
-    EntityDefinition makeEntityDefinition(String dataDocumentId) {
-        EntityValue dataDocument = efi.fastFindOne("moqui.entity.document.DataDocument", true, false, dataDocumentId)
-        if (dataDocument == null) throw new EntityException("No DataDocument found with ID ${dataDocumentId}")
-        EntityList dataDocumentFieldList = dataDocument.findRelated("moqui.entity.document.DataDocumentField", null, ['sequenceNum', 'fieldPath'], true, false)
 
-        String primaryEntityName = dataDocument.getNoCheckSimple("primaryEntityName")
-        EntityDefinition primaryEd = efi.getEntityDefinition(primaryEntityName)
-        List<String> primaryPkFieldNames = primaryEd.getPkFieldNames()
-
+    static class DataDocumentInfo {
+        String dataDocumentId
+        EntityValue dataDocument
+        EntityList dataDocumentFieldList
+        String primaryEntityName
+        EntityDefinition primaryEd
+        ArrayList<String> primaryPkFieldNames
         Map<String, Object> fieldTree = [:]
         Map<String, String> fieldAliasPathMap = [:]
-        populateFieldTreeAndAliasPathMap(dataDocumentFieldList, primaryPkFieldNames, fieldTree, fieldAliasPathMap, false)
+        EntityDefinition entityDef
 
-        EntityDynamicViewImpl dynamicView = new EntityDynamicViewImpl(efi)
-        dynamicView.entityNode.attributes.put("package", "DataDocument")
-        dynamicView.entityNode.attributes.put("entity-name", dataDocumentId)
+        DataDocumentInfo(String dataDocumentId, EntityFacadeImpl efi) {
+            this.dataDocumentId = dataDocumentId
 
-        // add member entities and field aliases to dynamic view
-        dynamicView.addMemberEntity("PRIM_ENT", primaryEntityName, null, null, null)
-        AtomicInteger incrementer = new AtomicInteger()
-        fieldTree.put("_ALIAS", "PRIM_ENT")
-        addDataDocRelatedEntity(dynamicView, "PRIM_ENT", fieldTree, incrementer, makeDdfByAlias(dataDocumentFieldList))
+            dataDocument = efi.fastFindOne("moqui.entity.document.DataDocument", true, false, dataDocumentId)
+            if (dataDocument == null) throw new EntityException("No DataDocument found with ID ${dataDocumentId}")
+            dataDocumentFieldList = dataDocument.findRelated("moqui.entity.document.DataDocumentField", null, ['sequenceNum', 'fieldPath'], true, false)
 
-        EntityDefinition ed = dynamicView.makeEntityDefinition()
-        // logger.warn("Returning DataDoc ent def ${ed.entityNode}")
-        return ed
+            primaryEntityName = (String) dataDocument.getNoCheckSimple("primaryEntityName")
+            primaryEd = efi.getEntityDefinition(primaryEntityName)
+            primaryPkFieldNames = primaryEd.getPkFieldNames()
+
+            populateFieldTreeAndAliasPathMap(dataDocumentFieldList, primaryPkFieldNames, fieldTree, fieldAliasPathMap, false)
+
+            EntityDynamicViewImpl dynamicView = new EntityDynamicViewImpl(efi)
+            dynamicView.entityNode.attributes.put("package", "DataDocument")
+            dynamicView.entityNode.attributes.put("entity-name", dataDocumentId)
+
+            // add member entities and field aliases to dynamic view
+            dynamicView.addMemberEntity("PRIM", primaryEntityName, null, null, null)
+            AtomicInteger incrementer = new AtomicInteger()
+            fieldTree.put("_ALIAS", "PRIM")
+            addDataDocRelatedEntity(dynamicView, "PRIM", fieldTree, incrementer, makeDdfByAlias(dataDocumentFieldList))
+            // logger.warn("=========== ${dataDocumentId} fieldTree=${fieldTree}")
+            // logger.warn("=========== ${dataDocumentId} fieldAliasPathMap=${fieldAliasPathMap}")
+
+            entityDef = dynamicView.makeEntityDefinition()
+        }
+    }
+
+    EntityDefinition makeEntityDefinition(String dataDocumentId) {
+        DataDocumentInfo ddi = new DataDocumentInfo(dataDocumentId, efi)
+        return ddi.entityDef
     }
 
     EntityFind makeDataDocumentFind(String dataDocumentId) {
-        EntityValue dataDocument = efi.fastFindOne("moqui.entity.document.DataDocument", true, false, dataDocumentId)
-        if (dataDocument == null) throw new EntityException("No DataDocument found with ID ${dataDocumentId}")
-        EntityList dataDocumentFieldList = dataDocument.findRelated("moqui.entity.document.DataDocumentField", null, ['sequenceNum', 'fieldPath'], true, false)
-        EntityList dataDocumentConditionList = dataDocument.findRelated("moqui.entity.document.DataDocumentCondition", null, null, true, false)
-
-        String primaryEntityName = dataDocument.getNoCheckSimple("primaryEntityName")
-        EntityDefinition primaryEd = efi.getEntityDefinition(primaryEntityName)
-        List<String> primaryPkFieldNames = primaryEd.getPkFieldNames()
-
-        // build the field tree, nested Maps for relationship field path elements and field alias String for field name path elements
-        Map<String, Object> fieldTree = [:]
-        Map<String, String> fieldAliasPathMap = [:]
-        populateFieldTreeAndAliasPathMap(dataDocumentFieldList, primaryPkFieldNames, fieldTree, fieldAliasPathMap, false)
-
-        return makeDataDocumentFind(dataDocumentId, primaryEntityName, fieldTree, fieldAliasPathMap, dataDocumentFieldList,
-                dataDocumentConditionList, null, null)
+        DataDocumentInfo ddi = new DataDocumentInfo(dataDocumentId, efi)
+        EntityList dataDocumentConditionList = ddi.dataDocument.findRelated("moqui.entity.document.DataDocumentCondition", null, null, true, false)
+        return makeDataDocumentFind(ddi, dataDocumentConditionList, null, null)
     }
 
-    private static Map<String, EntityValue> makeDdfByAlias(EntityList dataDocumentFieldList) {
-        Map<String, EntityValue> ddfByAlias = new HashMap<>()
-        int ddfSize = dataDocumentFieldList.size()
-        for (int i = 0; i < ddfSize; i++) {
-            EntityValue ddf = (EntityValue) dataDocumentFieldList.get(i)
-            String alias = (String) ddf.getNoCheckSimple("fieldNameAlias")
-            if (alias == null || alias.isEmpty()) {
-                String fieldPath = (String) ddf.getNoCheckSimple("fieldPath")
-                alias = fieldPath.substring(fieldPath.lastIndexOf(":") + 1)
-            }
-            ddfByAlias.put(alias, ddf)
-        }
-        return ddfByAlias
-    }
-    EntityFind makeDataDocumentFind(String dataDocumentId, String primaryEntityName, Map<String, Object> fieldTree,
-            Map<String, String> fieldAliasPathMap, EntityList dataDocumentFieldList, EntityList dataDocumentConditionList,
-            Timestamp fromUpdateStamp, Timestamp thruUpdatedStamp) {
+    EntityFind makeDataDocumentFind(DataDocumentInfo ddi, EntityList dataDocumentConditionList,
+                                    Timestamp fromUpdateStamp, Timestamp thruUpdatedStamp) {
         // build the query condition for the primary entity and all related entities
-        EntityFind mainFind = efi.find(primaryEntityName)
-        EntityDynamicViewImpl dynamicView = (EntityDynamicViewImpl) mainFind.makeEntityDynamicView()
-        dynamicView.entityNode.attributes.put("package", "DataDocument")
-        dynamicView.entityNode.attributes.put("entity-name", dataDocumentId)
-
-        // add member entities and field aliases to dynamic view
-        dynamicView.addMemberEntity("PRIM_ENT", primaryEntityName, null, null, null)
-        AtomicInteger incrementer = new AtomicInteger()
-        fieldTree.put("_ALIAS", "PRIM_ENT")
-        addDataDocRelatedEntity(dynamicView, "PRIM_ENT", fieldTree, incrementer, makeDdfByAlias(dataDocumentFieldList))
-
-        // logger.warn("dynamicView ${dataDocumentId}: ${dynamicView.entityNode.toString()}")
+        EntityDefinition ed = ddi.entityDef
+        EntityFind mainFind = ed.makeEntityFind()
 
         // add conditions
-        for (EntityValue dataDocumentCondition in dataDocumentConditionList) {
-            String fieldAlias = (String) dataDocumentCondition.getNoCheckSimple("fieldNameAlias")
-            if (!fieldAliasPathMap.containsKey(fieldAlias))
-                throw new EntityException("Found DataDocumentCondition with fieldNameAlias [${fieldAlias}] that is not aliased in DataDocument [${dataDocumentId}]")
-            if (dataDocumentCondition.getNoCheckSimple("postQuery") != "Y") {
-                mainFind.condition(fieldAlias, ((String) dataDocumentCondition.getNoCheckSimple("operator")) ?: 'equals',
-                        dataDocumentCondition.getNoCheckSimple("fieldValue"))
+        if (dataDocumentConditionList != null && dataDocumentConditionList.size() > 0) {
+            ExecutionContextImpl eci = efi.ecfi.getEci()
+            for (EntityValue dataDocumentCondition in dataDocumentConditionList) {
+                String fieldAlias = (String) dataDocumentCondition.getNoCheckSimple("fieldNameAlias")
+                FieldInfo fi = ed.getFieldInfo(fieldAlias)
+                if (fi == null) throw new EntityException("Found DataDocument Condition with alias [${fieldAlias}] that is not aliased in DataDocument ${ddi.dataDocumentId}")
+                if (dataDocumentCondition.getNoCheckSimple("postQuery") != "Y") {
+                    String stringVal = (String) dataDocumentCondition.getNoCheckSimple("fieldValue")
+                    Object objVal = fi.convertFromString(stringVal, eci.l10nFacade)
+                    mainFind.condition(fieldAlias, ((String) dataDocumentCondition.getNoCheckSimple("operator")) ?: 'equals', objVal)
+                }
             }
         }
 
         // create a condition with an OR list of date range comparisons to check that at least one member-entity has lastUpdatedStamp in range
         if ((Object) fromUpdateStamp != null || (Object) thruUpdatedStamp != null) {
             List<EntityCondition> dateRangeOrCondList = []
-            for (MNode memberEntityNode in dynamicView.getMemberEntityNodes()) {
+            for (MNode memberEntityNode in ed.entityNode.children("member-entity")) {
                 ConditionField ludCf = new ConditionAlias(memberEntityNode.attribute("entity-alias"),
                         "lastUpdatedStamp", efi.getEntityDefinition(memberEntityNode.attribute("entity-name")))
                 List<EntityCondition> dateRangeFieldCondList = []
@@ -236,34 +220,20 @@ class EntityDataDocument {
     ArrayList<Map> getDataDocuments(String dataDocumentId, EntityCondition condition, Timestamp fromUpdateStamp, Timestamp thruUpdatedStamp) {
         ExecutionContextImpl eci = efi.ecfi.getEci()
 
-        EntityValue dataDocument = efi.fastFindOne("moqui.entity.document.DataDocument", true, false, dataDocumentId)
-        if (dataDocument == null) throw new EntityException("No DataDocument found with ID ${dataDocumentId}")
-        EntityList dataDocumentFieldList = dataDocument.findRelated("moqui.entity.document.DataDocumentField", null, null, true, false)
-        EntityList dataDocumentRelAliasList = dataDocument.findRelated("moqui.entity.document.DataDocumentRelAlias", null, null, true, false)
-        EntityList dataDocumentConditionList = dataDocument.findRelated("moqui.entity.document.DataDocumentCondition", null, null, true, false)
-
-        String primaryEntityName = dataDocument.getNoCheckSimple("primaryEntityName")
-        EntityDefinition primaryEd = efi.getEntityDefinition(primaryEntityName)
-        List<String> primaryPkFieldNames = primaryEd.getPkFieldNames()
-
-        // build the field tree, nested Maps for relationship field path elements and field alias String for field name path elements
-        Map<String, Object> fieldTree = [:]
-        Map<String, String> fieldAliasPathMap = [:]
-        populateFieldTreeAndAliasPathMap(dataDocumentFieldList, primaryPkFieldNames, fieldTree, fieldAliasPathMap, false)
-        // logger.warn("=========== ${dataDocumentId} fieldTree=${fieldTree}")
-        // logger.warn("=========== ${dataDocumentId} fieldAliasPathMap=${fieldAliasPathMap}")
+        DataDocumentInfo ddi = new DataDocumentInfo(dataDocumentId, efi)
+        EntityList dataDocumentRelAliasList = ddi.dataDocument.findRelated("moqui.entity.document.DataDocumentRelAlias", null, null, true, false)
+        EntityList dataDocumentConditionList = ddi.dataDocument.findRelated("moqui.entity.document.DataDocumentCondition", null, null, true, false)
 
         // make the relationship alias Map
         Map relationshipAliasMap = [:]
         for (EntityValue dataDocumentRelAlias in dataDocumentRelAliasList)
             relationshipAliasMap.put(dataDocumentRelAlias.getNoCheckSimple("relationshipName"), dataDocumentRelAlias.getNoCheckSimple("documentAlias"))
 
-        EntityFind mainFind = makeDataDocumentFind(dataDocumentId, primaryEntityName, fieldTree, fieldAliasPathMap,
-                dataDocumentFieldList, dataDocumentConditionList, fromUpdateStamp, thruUpdatedStamp)
+        EntityFind mainFind = makeDataDocumentFind(ddi, dataDocumentConditionList, fromUpdateStamp, thruUpdatedStamp)
         if (condition != null) mainFind.condition(condition)
 
         boolean hasAllPrimaryPks = true
-        for (String pkFieldName in primaryPkFieldNames) if (!fieldAliasPathMap.containsKey(pkFieldName)) hasAllPrimaryPks = false
+        for (String pkFieldName in ddi.primaryPkFieldNames) if (!ddi.fieldAliasPathMap.containsKey(pkFieldName)) hasAllPrimaryPks = false
 
         // do the one big query
         EntityListIterator mainEli = mainFind.iterator()
@@ -275,8 +245,8 @@ class EntityDataDocument {
                 // logger.warn("=========== DataDocument query result for ${dataDocumentId}: ${ev}")
 
                 StringBuffer pkCombinedSb = new StringBuffer()
-                for (String pkFieldName in primaryPkFieldNames) {
-                    if (!fieldAliasPathMap.containsKey(pkFieldName)) continue
+                for (String pkFieldName in ddi.primaryPkFieldNames) {
+                    if (!ddi.fieldAliasPathMap.containsKey(pkFieldName)) continue
                     if (pkCombinedSb.length() > 0) pkCombinedSb.append("::")
                     pkCombinedSb.append((String) ev.getNoCheckSimple(pkFieldName))
                 }
@@ -298,13 +268,13 @@ class EntityDataDocument {
                     if (docId) docMap.put("_id", docId)
                     docMap.put('_timestamp', eci.l10nFacade.format(
                             thruUpdatedStamp ?: new Timestamp(System.currentTimeMillis()), "yyyy-MM-dd'T'HH:mm:ssZ"))
-                    String _index = dataDocument.indexName
+                    String _index = ddi.dataDocument.indexName
                     if (_index) docMap.put('_index', _index.toLowerCase())
-                    docMap.put('_entity', primaryEd.getShortOrFullEntityName())
+                    docMap.put('_entity', ddi.primaryEd.getShortOrFullEntityName())
 
                     // add Map for primary entity
                     Map primaryEntityMap = [:]
-                    for (Map.Entry fieldTreeEntry in fieldTree.entrySet()) {
+                    for (Map.Entry fieldTreeEntry in ddi.fieldTree.entrySet()) {
                         Object entryValue = fieldTreeEntry.getValue()
                         // if ("_ALIAS".equals(fieldTreeEntry.getKey())) continue
                         if (entryValue instanceof ArrayList) {
@@ -324,7 +294,7 @@ class EntityDataDocument {
                 }
 
                 // recursively add Map or List of Maps for each related entity
-                populateDataDocRelatedMap(ev, docMap, primaryEd, fieldTree, relationshipAliasMap, false)
+                populateDataDocRelatedMap(ev, docMap, ddi.primaryEd, ddi.fieldTree, relationshipAliasMap, false)
             }
         } finally {
             mainEli.close()
@@ -335,7 +305,7 @@ class EntityDataDocument {
             documentMapList = new ArrayList<>(documentMapMap.size())
             documentMapList.addAll(documentMapMap.values())
         }
-        String manualDataServiceName = (String) dataDocument.getNoCheckSimple("manualDataServiceName")
+        String manualDataServiceName = (String) ddi.dataDocument.getNoCheckSimple("manualDataServiceName")
         for (int i = 0; i < documentMapList.size(); ) {
             Map<String, Object> docMap = (Map<String, Object>) documentMapList.get(i)
             // call the manualDataServiceName service for each document
@@ -369,7 +339,7 @@ class EntityDataDocument {
         return documentMapList
     }
 
-    static void populateFieldTreeAndAliasPathMap(EntityList dataDocumentFieldList, List<String> primaryPkFieldNames,
+    private static void populateFieldTreeAndAliasPathMap(EntityList dataDocumentFieldList, List<String> primaryPkFieldNames,
                                           Map<String, Object> fieldTree, Map<String, String> fieldAliasPathMap, boolean allPks) {
         for (EntityValue dataDocumentField in dataDocumentFieldList) {
             String fieldPath = dataDocumentField.getNoCheckSimple("fieldPath")
@@ -483,20 +453,34 @@ class EntityDataDocument {
         }
     }
 
-    protected void addDataDocRelatedEntity(EntityDynamicViewImpl dynamicView, String parentEntityAlias, Map fieldTreeCurrent,
-                                           AtomicInteger incrementer, Map<String, EntityValue> ddfByAlias) {
+    private static Map<String, EntityValue> makeDdfByAlias(EntityList dataDocumentFieldList) {
+        Map<String, EntityValue> ddfByAlias = new HashMap<>()
+        int ddfSize = dataDocumentFieldList.size()
+        for (int i = 0; i < ddfSize; i++) {
+            EntityValue ddf = (EntityValue) dataDocumentFieldList.get(i)
+            String alias = (String) ddf.getNoCheckSimple("fieldNameAlias")
+            if (alias == null || alias.isEmpty()) {
+                String fieldPath = (String) ddf.getNoCheckSimple("fieldPath")
+                alias = fieldPath.substring(fieldPath.lastIndexOf(":") + 1)
+            }
+            ddfByAlias.put(alias, ddf)
+        }
+        return ddfByAlias
+    }
+    private static void addDataDocRelatedEntity(EntityDynamicViewImpl dynamicView, String parentEntityAlias, Map fieldTreeCurrent,
+                                                AtomicInteger incrementer, Map<String, EntityValue> ddfByAlias) {
         for (Map.Entry fieldTreeEntry in fieldTreeCurrent.entrySet()) {
             if ("_ALIAS".equals(fieldTreeEntry.getKey())) continue
             Object entryValue = fieldTreeEntry.getValue()
             if (entryValue instanceof Map) {
                 Map fieldTreeChild = (Map) entryValue
                 // add member entity, and entity alias in "_ALIAS" entry
-                String entityAlias = "MEMBER" + incrementer.getAndIncrement()
+                String entityAlias = "MBR" + incrementer.getAndIncrement()
                 dynamicView.addRelationshipMember(entityAlias, parentEntityAlias, (String) fieldTreeEntry.getKey(), true)
                 fieldTreeChild.put("_ALIAS", entityAlias)
                 // now time to recurse
                 addDataDocRelatedEntity(dynamicView, entityAlias, fieldTreeChild, incrementer, ddfByAlias)
-            } else {
+            } else if (entryValue instanceof ArrayList) {
                 // add alias for field
                 String entityAlias = fieldTreeCurrent.get("_ALIAS")
                 ArrayList<String> fieldAliasList = (ArrayList<String>) entryValue
