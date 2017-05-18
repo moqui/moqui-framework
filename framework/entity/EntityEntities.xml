@@ -133,6 +133,7 @@ along with this software (see the LICENSE.md file). If not, see
             in ElasticSearch we have two string types to work with: text (tokenized for search, not sortable) and keyword (sortable
             but not tokenized for search). In ElasticSearch this adds [field name].keyword field of type keyword to sort on if the
             entity field is a 'text' type ElasticSearch field.</description></field>
+        <field name="defaultDisplay" type="text-indicator"><description>Fields displayed by default, set to N to not display in output.</description></field>
         <field name="functionName" type="text-short"><description>If specific the field is queried with the given function.
             Must be one of the functions available in the view-entity.alias.@function attribute.</description></field>
         <field name="sequenceNum" type="number-integer" default="fieldSeqId as int"/>

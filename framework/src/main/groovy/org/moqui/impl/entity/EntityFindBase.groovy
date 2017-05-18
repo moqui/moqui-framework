@@ -121,12 +121,21 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override
     EntityFind condition(String fieldName, EntityCondition.ComparisonOperator operator, Object value) {
-        if (operator == EntityCondition.EQUALS) return condition(fieldName, value)
-        return condition(efi.entityConditionFactory.makeCondition(fieldName, operator, value))
+        EntityDefinition ed = getEntityDef()
+        FieldInfo fi = ed.getFieldInfo(fieldName)
+        if (fi == null) throw new EntityException("Field ${fieldName} not found on entity ${entityName}, cannot add condition")
+        if (operator == null) operator = EntityCondition.EQUALS
+        if (ed.isViewEntity && fi.fieldNode.attribute("function")) {
+            return havingCondition(new FieldValueCondition(fi.conditionField, operator, value))
+        } else {
+            if (EntityCondition.EQUALS.is(operator)) return condition(fieldName, value)
+            return condition(new FieldValueCondition(fi.conditionField, operator, value))
+        }
     }
     @Override
     EntityFind condition(String fieldName, String operator, Object value) {
-        EntityCondition.ComparisonOperator opObj = EntityConditionFactoryImpl.stringComparisonOperatorMap.get(operator)
+        EntityCondition.ComparisonOperator opObj = operator == null || operator.isEmpty() ?
+                EntityCondition.EQUALS : EntityConditionFactoryImpl.stringComparisonOperatorMap.get(operator)
         if (opObj == null) throw new IllegalArgumentException("Operator [${operator}] is not a valid field comparison operator")
         return condition(fieldName, opObj, value)
     }

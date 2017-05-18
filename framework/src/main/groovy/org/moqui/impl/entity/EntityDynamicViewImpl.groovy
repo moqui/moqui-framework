@@ -73,8 +73,7 @@ class EntityDynamicViewImpl implements EntityDynamicView {
 
     MNode getViewEntityNode() { return entityNode }
 
-    @Override
-    List<MNode> getMemberEntityNodes() { return entityNode.children("member-entity") }
+    @Override List<MNode> getMemberEntityNodes() { return entityNode.children("member-entity") }
 
     @Override
     EntityDynamicView addAliasAll(String entityAlias, String prefix) {
@@ -87,12 +86,18 @@ class EntityDynamicViewImpl implements EntityDynamicView {
         entityNode.append("alias", ["entity-alias":entityAlias, "name":name])
         return this
     }
-
     @Override
     EntityDynamicView addAlias(String entityAlias, String name, String field, String function) {
-        entityNode.append("alias", ["entity-alias":entityAlias, "name":name, "field":field, "function":function])
+        return addAlias(entityAlias, name, field, function, null)
+    }
+    EntityDynamicView addAlias(String entityAlias, String name, String field, String function, String defaultDisplay) {
+        MNode aNode = entityNode.append("alias", ["entity-alias":entityAlias, name:name])
+        if (field != null && !field.isEmpty()) aNode.attributes.put("field", field)
+        if (function != null && !function.isEmpty()) aNode.attributes.put("function", function)
+        if (defaultDisplay != null && !defaultDisplay.isEmpty()) aNode.attributes.put("default-display", defaultDisplay)
         return this
     }
+    MNode getAlias(String name) { return entityNode.first("alias", "name", name) }
 
     @Override
     EntityDynamicView addRelationship(String type, String title, String relatedEntityName, Map<String, String> entityKeyMaps) {
