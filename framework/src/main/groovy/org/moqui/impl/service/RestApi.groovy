@@ -36,6 +36,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import javax.cache.Cache
+import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
 
 @CompileStatic
@@ -614,7 +615,12 @@ class RestApi {
         }
 
         RestResult runByMethod(List<String> pathList, ExecutionContext ec) {
-            String method = ec.web.getRequest().getMethod().toLowerCase()
+            HttpServletRequest request = ec.web.getRequest()
+            String method = request.getMethod().toLowerCase()
+            if ("post".equals(method)) {
+                String ovdMethod = request.getHeader("X-HTTP-Method-Override")
+                if (ovdMethod != null && !ovdMethod.isEmpty()) method = ovdMethod.toLowerCase()
+            }
             MethodHandler mh = methodMap.get(method)
             if (mh == null) throw new MethodNotSupportedException("Method ${method} not supported at ${pathList}")
             return mh.run(pathList, ec)

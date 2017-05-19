@@ -762,6 +762,12 @@ class WebFacadeImpl implements WebFacade {
             return
         }
 
+        String method = request.getMethod()
+        if ("post".equalsIgnoreCase(method)) {
+            String ovdMethod = request.getHeader("X-HTTP-Method-Override")
+            if (ovdMethod != null && !ovdMethod.isEmpty()) method = ovdMethod.toLowerCase()
+        }
+
         try {
             // logger.warn("====== parameters: ${parmStack.toString()}")
             long startTime = System.currentTimeMillis()
@@ -777,17 +783,17 @@ class WebFacadeImpl implements WebFacade {
                         sendJsonError(HttpServletResponse.SC_BAD_REQUEST, errMsg)
                         return
                     }
-                    // logger.warn("========== REST ${request.getMethod()} ${request.getPathInfo()} ${extraPathNameList}; body list object: ${bodyListObj}")
+                    // logger.warn("========== REST ${method} ${request.getPathInfo()} ${extraPathNameList}; body list object: ${bodyListObj}")
                     parmStack.push()
                     parmStack.putAll((Map) bodyListObj)
-                    Object responseObj = eci.getEntity().rest(request.getMethod(), extraPathNameList, parmStack, masterNameInPath)
+                    Object responseObj = eci.getEntity().rest(method, extraPathNameList, parmStack, masterNameInPath)
                     responseList.add(responseObj ?: [:])
                     parmStack.pop()
                 }
                 response.addIntHeader('X-Run-Time-ms', (System.currentTimeMillis() - startTime) as int)
                 sendJsonResponse(responseList)
             } else {
-                Object responseObj = eci.getEntity().rest(request.getMethod(), extraPathNameList, parmStack, masterNameInPath)
+                Object responseObj = eci.getEntity().rest(method, extraPathNameList, parmStack, masterNameInPath)
                 response.addIntHeader('X-Run-Time-ms', (System.currentTimeMillis() - startTime) as int)
 
                 if (parmStack.xTotalCount != null) response.addIntHeader('X-Total-Count', parmStack.xTotalCount as int)
