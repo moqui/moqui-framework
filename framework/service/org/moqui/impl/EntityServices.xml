@@ -41,12 +41,34 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
-    <service verb="create" noun="DataDocument" type="entity-auto">
+    <service verb="create" noun="DataDocument">
         <in-parameters>
             <auto-parameters include="nonpk"/>
             <parameter name="dataDocumentId" required="true"><matches regexp="\w*" message="Must contain only letters and digits"/></parameter>
             <parameter name="indexName"><matches regexp="[a-z0-9_]*" message="Must contain only lower case letters, digits, and underscore"/></parameter>
+            <parameter name="userGroupId"/>
         </in-parameters>
+        <actions>
+            <service-call name="create#moqui.entity.document.DataDocument" in-map="context" out-map="context"/>
+            <if condition="userGroupId"><service-call name="create#moqui.entity.document.DataDocumentUserGroup"
+                    in-map="[dataDocumentId:dataDocumentId, userGroupId:userGroupId]"/></if>
+        </actions>
+    </service>
+    <service verb="update" noun="DataDocument">
+        <implements service="org.moqui.impl.EntityServices.create#DataDocument"/>
+        <actions>
+            <service-call name="update#moqui.entity.document.DataDocument" in-map="context" out-map="context"/>
+            <if condition="userGroupId">
+                <entity-find entity-name="moqui.entity.document.DataDocumentUserGroup" list="ddugList">
+                    <econdition field-name="dataDocumentId"/></entity-find>
+                <if condition="ddugList.size() == 1 &amp;&amp; ddugList[0].userGroupId != userGroupId">
+                    <service-call name="delete#moqui.entity.document.DataDocumentUserGroup"
+                            in-map="[dataDocumentId:dataDocumentId, userGroupId:ddugList[0].userGroupId]"/>
+                    <service-call name="create#moqui.entity.document.DataDocumentUserGroup"
+                            in-map="[dataDocumentId:dataDocumentId, userGroupId:userGroupId]"/>
+                </if>
+            </if>
+        </actions>
     </service>
     <service verb="clone" noun="DataDocument">
         <in-parameters>
