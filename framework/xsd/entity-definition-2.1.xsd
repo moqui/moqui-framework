@@ -394,7 +394,8 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="entity-alias" type="name-plain" use="required"/>
             <xs:attribute name="entity-name" type="name-full" use="required"/>
             <xs:attribute name="join-from-alias" type="name-plain" use="optional"/>
-            <xs:attribute name="join-optional" type="boolean" use="optional"/>
+            <xs:attribute name="join-optional" type="boolean" default="false"/>
+            <xs:attribute name="sub-select" type="boolean" default="false"/>
         </xs:complexType>
     </xs:element>
     <xs:element name="member-relationship">
@@ -406,7 +407,8 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="entity-alias" type="name-plain" use="required"/>
             <xs:attribute name="join-from-alias" type="name-plain" use="required"/>
             <xs:attribute name="relationship" type="name-full" use="required"/>
-            <xs:attribute name="join-optional" type="boolean" use="optional"/>
+            <xs:attribute name="join-optional" type="boolean" default="false"/>
+            <xs:attribute name="sub-select" type="boolean" default="false"/>
         </xs:complexType>
     </xs:element>
 
@@ -463,7 +465,7 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:annotation>
             <xs:documentation>
                 In every SELECT statement, the fields that are normally used are really defined to be expressions.
-                This means for example that you can supply an expression like (discountPercent * 100) in place of  just a field name.
+                This means for example that you can supply an expression like (discountPercent * 100) in place of just a field name.
                 The complex-alias tag is the way to do this.
 
                 The argument to the right of operator = can be any operator valid for that data type on the database system you are using.
