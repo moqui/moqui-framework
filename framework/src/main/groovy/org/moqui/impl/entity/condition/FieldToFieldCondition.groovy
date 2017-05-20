@@ -15,8 +15,11 @@ package org.moqui.impl.entity.condition
 
 import groovy.transform.CompileStatic
 import org.moqui.entity.EntityCondition
+import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityQueryBuilder
 import org.moqui.impl.entity.EntityConditionFactoryImpl
+import org.moqui.impl.entity.FieldInfo
+import org.moqui.util.MNode
 
 @CompileStatic
 class FieldToFieldCondition implements EntityConditionImplBase {
@@ -25,7 +28,7 @@ class FieldToFieldCondition implements EntityConditionImplBase {
     protected EntityCondition.ComparisonOperator operator
     protected ConditionField toField
     protected boolean ignoreCase = false
-    protected int curHashCode;
+    protected int curHashCode
 
     FieldToFieldCondition(ConditionField field, EntityCondition.ComparisonOperator operator, ConditionField toField) {
         this.field = field
@@ -35,24 +38,42 @@ class FieldToFieldCondition implements EntityConditionImplBase {
     }
 
     @Override
-    void makeSqlWhere(EntityQueryBuilder eqb) {
+    void makeSqlWhere(EntityQueryBuilder eqb, EntityDefinition subMemberEd) {
         StringBuilder sql = eqb.sqlTopLevel
+        EntityDefinition mainEd = eqb.getMainEd()
+        FieldInfo fi = field.getFieldInfo(mainEd)
+        FieldInfo toFi = toField.getFieldInfo(mainEd)
+
         int typeValue = -1
         if (ignoreCase) {
-            typeValue = field.getFieldInfo(eqb.getMainEd())?.typeValue ?: 1
+            typeValue = fi?.typeValue ?: 1
             if (typeValue == 1) sql.append("UPPER(")
         }
-        sql.append(field.getColumnName(eqb.getMainEd()))
+        if (subMemberEd != null) {
+            MNode aliasNode = fi.fieldNode
+            String aliasField = aliasNode.attribute("field")
+            if (aliasField == null || aliasField.isEmpty()) aliasField = fi.name
+            sql.append(subMemberEd.getColumnName(aliasField))
+        } else {
+            sql.append(field.getColumnName(mainEd))
+        }
         if (ignoreCase && typeValue == 1) sql.append(")")
 
         sql.append(' ').append(EntityConditionFactoryImpl.getComparisonOperatorString(operator)).append(' ')
 
         int toTypeValue = -1
         if (ignoreCase) {
-            toTypeValue = toField.getFieldInfo(eqb.getMainEd())?.typeValue ?: 1
+            toTypeValue = toField.getFieldInfo(mainEd)?.typeValue ?: 1
             if (toTypeValue == 1) sql.append("UPPER(")
         }
-        sql.append(toField.getColumnName(eqb.getMainEd()))
+        if (subMemberEd != null) {
+            MNode aliasNode = toFi.fieldNode
+            String aliasField = aliasNode.attribute("field")
+            if (aliasField == null || aliasField.isEmpty()) aliasField = toFi.name
+            sql.append(subMemberEd.getColumnName(aliasField))
+        } else {
+            sql.append(toField.getColumnName(mainEd))
+        }
         if (ignoreCase && toTypeValue == 1) sql.append(")")
     }
 
@@ -63,11 +84,12 @@ class FieldToFieldCondition implements EntityConditionImplBase {
     @Override
     boolean mapMatchesAny(Map<String, Object> map) { return mapMatches(map) }
     @Override
-    public boolean mapKeysNotContained(Map<String, Object> map) { return !map.containsKey(field.fieldName) && !map.containsKey(toField.fieldName) }
+    boolean mapKeysNotContained(Map<String, Object> map) { return !map.containsKey(field.fieldName) && !map.containsKey(toField.fieldName) }
 
     @Override
     boolean populateMap(Map<String, Object> map) { return false }
 
+    @Override
     void getAllAliases(Set<String> entityAliasSet, Set<String> fieldAliasSet) {
         // this will only be called for view-entity, so we'll either have a entityAlias or an aliased fieldName
         if (field instanceof ConditionAlias) {
@@ -79,6 +101,22 @@ class FieldToFieldCondition implements EntityConditionImplBase {
             entityAliasSet.add(((ConditionAlias) toField).entityAlias)
         } else {
             fieldAliasSet.add(toField.fieldName)
+        }
+    }
+    @Override
+    EntityConditionImplBase filter(String entityAlias, EntityDefinition mainEd) {
+        // only called for view-entity
+        MNode fieldMe = field.getFieldInfo(mainEd).memberEntityNode
+        MNode toFieldMe = toField.getFieldInfo(mainEd).memberEntityNode
+        if (entityAlias == null) {
+            if ((fieldMe != null && "true".equalsIgnoreCase(fieldMe.attribute("sub-select"))) &&
+                    (toFieldMe != null && "true".equalsIgnoreCase(toFieldMe.attribute("sub-select"))) &&
+                    fieldMe.attribute("entity-alias").equals(toFieldMe.attribute("entity-alias"))) return null
+            return this
+        } else {
+            if ((fieldMe != null && entityAlias.equals(fieldMe.attribute("entity-alias"))) &&
+                    (toFieldMe != null && entityAlias.equals(toFieldMe.attribute("entity-alias")))) return this
+            return null
         }
     }
 

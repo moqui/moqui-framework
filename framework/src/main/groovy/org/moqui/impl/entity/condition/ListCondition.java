@@ -14,6 +14,7 @@
 package org.moqui.impl.entity.condition;
 
 import org.moqui.impl.entity.EntityConditionFactoryImpl;
+import org.moqui.impl.entity.EntityDefinition;
 import org.moqui.impl.entity.EntityQueryBuilder;
 import org.moqui.entity.EntityCondition;
 
@@ -72,7 +73,7 @@ public class ListCondition implements EntityConditionImplBase {
 
     @SuppressWarnings("MismatchedQueryAndUpdateOfStringBuilder")
     @Override
-    public void makeSqlWhere(EntityQueryBuilder eqb) {
+    public void makeSqlWhere(EntityQueryBuilder eqb, EntityDefinition subMemberEd) {
         if (conditionListSize == 0) return;
 
         StringBuilder sql = eqb.sqlTopLevel;
@@ -81,7 +82,7 @@ public class ListCondition implements EntityConditionImplBase {
         for (int i = 0; i < conditionListSize; i++) {
             EntityConditionImplBase condition = conditionList.get(i);
             if (i > 0) sql.append(' ').append(joinOpString).append(' ');
-            condition.makeSqlWhere(eqb);
+            condition.makeSqlWhere(eqb, subMemberEd);
         }
         if (conditionListSize > 1) sql.append(')');
     }
@@ -134,6 +135,20 @@ public class ListCondition implements EntityConditionImplBase {
             condition.getAllAliases(entityAliasSet, fieldAliasSet);
         }
     }
+    @Override
+    public EntityConditionImplBase filter(String entityAlias, EntityDefinition mainEd) {
+        ArrayList<EntityConditionImplBase> filteredList = new ArrayList<>(conditionList.size());
+        for (int i = 0; i < conditionListSize; i++) {
+            EntityConditionImplBase curCond = conditionList.get(i);
+            EntityConditionImplBase filterCond = curCond.filter(entityAlias, mainEd);
+            if (filterCond != null) filteredList.add(filterCond);
+        }
+        int filteredSize = filteredList.size();
+        if (filteredSize == conditionListSize) return this;
+        if (filteredSize == 1) return filteredList.get(0);
+        if (filteredSize == 0) return null;
+        return new ListCondition(filteredList, operator);
+    }
 
     @Override
     public EntityCondition ignoreCase() { throw new IllegalArgumentException("Ignore case not supported for this type of condition."); }
@@ -149,11 +164,8 @@ public class ListCondition implements EntityConditionImplBase {
         return sb.toString();
     }
 
-    @Override
-    public int hashCode() { return curHashCode; }
-    private int createHashCode() {
-        return (conditionList != null ? conditionList.hashCode() : 0) + operator.hashCode();
-    }
+    @Override public int hashCode() { return curHashCode; }
+    private int createHashCode() { return (conditionList != null ? conditionList.hashCode() : 0) + operator.hashCode(); }
 
     @Override
     public boolean equals(Object o) {

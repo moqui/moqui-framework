@@ -18,6 +18,7 @@ import org.moqui.entity.EntityException;
 import org.moqui.impl.entity.*;
 import org.moqui.impl.entity.EntityJavaUtil.EntityConditionParameter;
 
+import org.moqui.util.MNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,13 +61,13 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
     public boolean getIgnoreCase() { return ignoreCase; }
 
     @Override
-    public void makeSqlWhere(EntityQueryBuilder eqb) {
+    public void makeSqlWhere(EntityQueryBuilder eqb, EntityDefinition subMemberEd) {
         @SuppressWarnings("MismatchedQueryAndUpdateOfStringBuilder")
         StringBuilder sql = eqb.sqlTopLevel;
         boolean valueDone = false;
         EntityDefinition mainEd = eqb.getMainEd();
         FieldInfo fi = field.getFieldInfo(mainEd);
-        if (fi == null) throw new EntityException("Could not find field " + field.fieldName + " in entity " + eqb.getMainEd().getFullEntityName());
+        if (fi == null) throw new EntityException("Could not find field " + field.fieldName + " in entity " + mainEd.getFullEntityName());
 
         if (value instanceof Collection && ((Collection) value).isEmpty()) {
             if (operator == IN) {
@@ -78,7 +79,14 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
             }
         } else {
             if (ignoreCase && fi.typeValue == 1) sql.append("UPPER(");
-            sql.append(field.getColumnName(mainEd));
+            if (subMemberEd != null) {
+                MNode aliasNode = fi.fieldNode;
+                String aliasField = aliasNode.attribute("field");
+                if (aliasField == null || aliasField.isEmpty()) aliasField = fi.name;
+                sql.append(subMemberEd.getColumnName(aliasField));
+            } else {
+                sql.append(field.getColumnName(mainEd));
+            }
             if (ignoreCase && fi.typeValue == 1) sql.append(')');
             sql.append(' ');
 
@@ -152,12 +160,26 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
         return true;
     }
 
+    @Override
     public void getAllAliases(Set<String> entityAliasSet, Set<String> fieldAliasSet) {
         // this will only be called for view-entity, so we'll either have a entityAlias or an aliased fieldName
         if (field instanceof ConditionAlias) {
             entityAliasSet.add(((ConditionAlias) field).entityAlias);
         } else {
             fieldAliasSet.add(field.fieldName);
+        }
+    }
+    @Override
+    public EntityConditionImplBase filter(String entityAlias, EntityDefinition mainEd) {
+        // only called for view-entity
+        FieldInfo fi = field.getFieldInfo(mainEd);
+        MNode fieldMe = fi.memberEntityNode;
+        if (entityAlias == null) {
+            if (fieldMe != null && "true".equalsIgnoreCase(fieldMe.attribute("sub-select"))) return null;
+            return this;
+        } else {
+            if (fieldMe != null && entityAlias.equals(fieldMe.attribute("entity-alias"))) return this;
+            return null;
         }
     }
 

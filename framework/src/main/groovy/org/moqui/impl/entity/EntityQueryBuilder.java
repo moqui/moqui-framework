@@ -152,12 +152,23 @@ public class EntityQueryBuilder {
         connection = null;
     }
 
-    public static String[] sanitizeChars = {".", "(", ")", "+", "-", "*", "/", "<", ">", "=", "!", " ", "'", "%", ",", ":"};
     public static String sanitizeColumnName(String colName) {
         StringBuilder interim = new StringBuilder(colName);
-        for (int i = 0; i < sanitizeChars.length; i++) {
-            int idx; String sanChar = sanitizeChars[i];
-            while ((idx = interim.indexOf(sanChar)) >= 0) interim.setCharAt(idx, '_');
+        boolean lastUnderscore = false;
+        for (int i = 0; i < interim.length(); ) {
+            char curChar = interim.charAt(i);
+            if (Character.isLetterOrDigit(curChar)) {
+                i++;
+                lastUnderscore = false;
+            } else {
+                if (lastUnderscore) {
+                    interim.deleteCharAt(i);
+                } else {
+                    interim.setCharAt(i, '_');
+                    i++;
+                    lastUnderscore = true;
+                }
+            }
         }
         while (interim.charAt(0) == '_') interim.deleteCharAt(0);
         while (interim.charAt(interim.length() - 1) == '_') interim.deleteCharAt(interim.length() - 1);
@@ -225,6 +236,4 @@ public class EntityQueryBuilder {
             parameters.add(new EntityJavaUtil.EntityConditionParameter(fieldInfo, valueMapInternal.get(fieldInfo.name), this));
         }
     }
-
-    public final EntityDefinition getMainEntityDefinition() { return mainEntityDefinition; }
 }
