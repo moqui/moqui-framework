@@ -30,11 +30,16 @@ import java.util.TreeSet;
 public class EntityFindBuilder extends EntityQueryBuilder {
     protected static final Logger logger = LoggerFactory.getLogger(EntityFindBuilder.class);
 
-    protected EntityFindBase entityFindBase;
+    private EntityFindBase entityFindBase;
+    private EntityConditionImplBase whereCondition;
+    private FieldInfo[] fieldInfoArray;
 
-    public EntityFindBuilder(EntityDefinition entityDefinition, EntityFindBase entityFindBase) {
+    public EntityFindBuilder(EntityDefinition entityDefinition, EntityFindBase entityFindBase,
+                             EntityConditionImplBase whereCondition, FieldInfo[] fieldInfoArray) {
         super(entityDefinition, entityFindBase.efi);
         this.entityFindBase = entityFindBase;
+        this.whereCondition = whereCondition;
+        this.fieldInfoArray = fieldInfoArray;
 
         // this is always going to start with "SELECT ", so just set it here
         sqlTopLevel.append("SELECT ");
@@ -42,7 +47,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
 
     public void makeDistinct() { sqlTopLevel.append("DISTINCT "); }
 
-    public void makeCountFunction(FieldInfo[] fieldInfoArray, FieldOrderOptions[] fieldOptionsArray, boolean isDistinct, boolean isGroupBy) {
+    public void makeCountFunction(FieldOrderOptions[] fieldOptionsArray, boolean isDistinct, boolean isGroupBy) {
         int fiaLength = fieldInfoArray.length;
         if (isGroupBy || (isDistinct && fiaLength > 0)) {
             sqlTopLevel.append("COUNT(*) FROM (SELECT ");
@@ -86,11 +91,11 @@ public class EntityFindBuilder extends EntityQueryBuilder {
         }
     }
 
-    public void makeSqlFromClause(FieldInfo[] fieldInfoArray) {
-        makeSqlFromClause(getMainEntityDefinition(), fieldInfoArray, sqlTopLevel, null);
+    public void makeSqlFromClause() {
+        makeSqlFromClause(mainEntityDefinition, sqlTopLevel, null);
     }
 
-    public void makeSqlFromClause(final EntityDefinition localEntityDefinition, FieldInfo[] fieldInfoArray,
+    public void makeSqlFromClause(final EntityDefinition localEntityDefinition,
                                   StringBuilder localBuilder, Set<String> additionalFieldsUsed) {
         localBuilder.append(" FROM ");
 
@@ -105,7 +110,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
                         databaseNode.attribute("name"));
             }
 
-            boolean useParenthesis = ("ansi".equals(joinStyle));
+            boolean useParenthesis = "ansi".equals(joinStyle);
 
             ArrayList<MNode> memberEntityNodes = entityNode.children("member-entity");
             int memberEntityNodesSize = memberEntityNodes.size();
@@ -142,8 +147,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
             // get a list of entity aliases used
             for (String fieldName : fieldUsedSet) {
                 FieldInfo fi = localEntityDefinition.getFieldInfo(fieldName);
-                if (fi == null)
-                    throw new EntityException("Could not find field " + fieldName + " in entity " + localEntityDefinition.getFullEntityName());
+                if (fi == null) throw new EntityException("Could not find field " + fieldName + " in entity " + localEntityDefinition.getFullEntityName());
                 entityAliasUsedSet.addAll(fi.entityAliasUsedSet);
             }
 
@@ -213,7 +217,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
 
                 if (isFirst) {
                     // first link, add link entity for this one only, for others add related link entity
-                    makeSqlViewTableName(linkEntityDefinition, fieldInfoArray, localBuilder);
+                    makeSqlViewTableName(linkEntityDefinition, localBuilder);
                     localBuilder.append(" ").append(joinFromAlias);
 
                     joinedAliasSet.add(joinFromAlias);
@@ -237,13 +241,18 @@ public class EntityFindBuilder extends EntityQueryBuilder {
                     localBuilder.append(" INNER JOIN ");
                 }
 
-                makeSqlViewTableName(relatedLinkEntityDefinition, fieldInfoArray, localBuilder);
+                boolean subSelect = "true".equals(relatedMemberEntityNode.attribute("sub-select"));
+                if (subSelect) {
+                    makeSqlMemberSubSelect(entityAlias, relatedMemberEntityNode, relatedLinkEntityDefinition, localBuilder);
+                } else {
+                    makeSqlViewTableName(relatedLinkEntityDefinition, localBuilder);
+                }
                 localBuilder.append(" ").append(entityAlias).append(" ON ");
 
                 ArrayList<MNode> keyMaps = relatedMemberEntityNode.children("key-map");
                 ArrayList<MNode> entityConditionList = relatedMemberEntityNode.children("entity-condition");
                 if ((keyMaps == null || keyMaps.size() == 0) && (entityConditionList == null || entityConditionList.size() == 0)) {
-                    throw new IllegalArgumentException("No member-entity/join key-maps found for the " + joinFromAlias +
+                    throw new EntityException("No member-entity/join key-maps found for the " + joinFromAlias +
                             " and the " + entityAlias + " member-entities of the " + localEntityDefinition.fullEntityName + " view-entity.");
                 }
 
@@ -281,7 +290,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
                     MNode entityCondition = entityConditionList.get(0);
                     EntityConditionImplBase linkEcib = localEntityDefinition.makeViewListCondition(entityCondition);
                     if (keyMapsSize > 0) localBuilder.append(" AND ");
-                    linkEcib.makeSqlWhere(this);
+                    linkEcib.makeSqlWhere(this, null);
                 }
 
                 isFirst = false;
@@ -299,9 +308,13 @@ public class EntityFindBuilder extends EntityQueryBuilder {
                 if (joinedAliasSet.contains(memberEntityAlias)) continue;
 
                 EntityDefinition fromEntityDefinition = efi.getEntityDefinition(memberEntity.attribute("entity-name"));
-                if (fromEmpty) fromEmpty = false;
-                else localBuilder.append(", ");
-                makeSqlViewTableName(fromEntityDefinition, fieldInfoArray, localBuilder);
+                if (fromEmpty) { fromEmpty = false; } else  { localBuilder.append(", "); }
+                boolean subSelect = "true".equals(memberEntity.attribute("sub-select"));
+                if (subSelect) {
+                    makeSqlMemberSubSelect(memberEntityAlias, memberEntity, fromEntityDefinition, localBuilder);
+                } else {
+                    makeSqlViewTableName(fromEntityDefinition, localBuilder);
+                }
                 localBuilder.append(" ").append(memberEntityAlias);
             }
         } else {
@@ -309,36 +322,39 @@ public class EntityFindBuilder extends EntityQueryBuilder {
         }
     }
 
-    public void makeSqlViewTableName(EntityDefinition localEntityDefinition, FieldInfo[] fieldInfoArray, StringBuilder localBuilder) {
+    public void makeSqlViewTableName(EntityDefinition localEntityDefinition, StringBuilder localBuilder) {
         EntityJavaUtil.EntityInfo entityInfo = localEntityDefinition.entityInfo;
         if (entityInfo.isView) {
             localBuilder.append("(SELECT ");
 
-            boolean isFirst = true;
             // fields used for group by clause
             Set<String> localFieldsToSelect = new HashSet<>();
             // additional fields to consider when trimming the member-entities to join
             Set<String> additionalFieldsUsed = new HashSet<>();
-            for (MNode aliasNode : localEntityDefinition.getEntityNode().children("alias")) {
+            ArrayList<MNode> aliasList = localEntityDefinition.getEntityNode().children("alias");
+            int aliasListSize = aliasList.size();
+            for (int i = 0; i < aliasListSize; i++) {
+                MNode aliasNode = aliasList.get(i);
                 String aliasName = aliasNode.attribute("name");
                 String aliasField = aliasNode.attribute("field");
                 if (aliasField == null || aliasField.length() == 0) aliasField = aliasName;
                 localFieldsToSelect.add(aliasName);
                 additionalFieldsUsed.add(aliasField);
-                if (isFirst) isFirst = false;
-                else localBuilder.append(", ");
+                if (i > 0) localBuilder.append(", ");
                 localBuilder.append(localEntityDefinition.getColumnName(aliasName));
                 // TODO: are the next two lines really needed? have removed AS stuff elsewhere since it is not commonly used and not needed
                 //localBuilder.append(" AS ")
                 //localBuilder.append(sanitizeColumnName(localEntityDefinition.getColumnName(aliasName), false)))
             }
 
-            makeSqlFromClause(localEntityDefinition, fieldInfoArray, localBuilder, additionalFieldsUsed);
+            makeSqlFromClause(localEntityDefinition, localBuilder, additionalFieldsUsed);
 
+            // TODO: refactor this like below to do in the main loop; this is currently unused though (view-entity as member-entity for sub-select)
             StringBuilder gbClause = new StringBuilder();
             if (entityInfo.hasFunctionAlias) {
                 // do a different approach to GROUP BY: add all fields that are selected and don't have a function
-                for (MNode aliasNode : localEntityDefinition.getEntityNode().children("alias")) {
+                for (int i = 0; i < aliasListSize; i++) {
+                    MNode aliasNode = aliasList.get(i);
                     String nameAttr = aliasNode.attribute("name");
                     String functionAttr = aliasNode.attribute("function");
                     if (localFieldsToSelect.contains(nameAttr) && (functionAttr == null || functionAttr.isEmpty())) {
@@ -358,23 +374,114 @@ public class EntityFindBuilder extends EntityQueryBuilder {
             localBuilder.append(localEntityDefinition.getFullTableName());
         }
     }
+    // (SELECT INVOICE_ID, SUM(AMOUNT_APPLIED) AS AMOUNT_APPLIED FROM PAYMENT_APPLICATION WHERE APPLIED_DATE < '2017-03-31 23:59:59' GROUP BY INVOICE_ID) PAPP
+    public void makeSqlMemberSubSelect(String entityAlias, MNode memberEntity, EntityDefinition localEntityDefinition,
+                                       StringBuilder localBuilder) {
+        localBuilder.append("(SELECT ");
 
-    public void startWhereClause() { sqlTopLevel.append(" WHERE "); }
+        // add any fields needed to join this to another member-entity, even if not in the main set of selected fields
+        TreeSet<String> joinFields = new TreeSet<>();
+        ArrayList<MNode> keyMapList = memberEntity.children("key-map");
+        for (int i = 0; i < keyMapList.size(); i++) {
+            MNode keyMap = keyMapList.get(i);
+            String relFn = keyMap.attribute("related");
+            if (relFn == null || relFn.isEmpty()) relFn = keyMap.attribute("field-name");
+            joinFields.add(relFn);
+        }
+        ArrayList<MNode> entityConditionList = memberEntity.children("entity-condition");
+        if (entityConditionList != null && entityConditionList.size() > 0) {
+            MNode entCondNode = entityConditionList.get(0);
+            ArrayList<MNode> econdNodes = entCondNode.descendants("econdition");
+            for (int i = 0; i < econdNodes.size(); i++) {
+                MNode econd = econdNodes.get(i);
+                if (entityAlias.equals(econd.attribute("entity-alias"))) joinFields.add(econd.attribute("field-name"));
+                if (entityAlias.equals(econd.attribute("to-entity-alias"))) joinFields.add(econd.attribute("to-field-name"));
+            }
+        }
 
-    public void makeGroupByClause(FieldInfo[] fieldInfoArray) {
-        EntityJavaUtil.EntityInfo entityInfo = getMainEntityDefinition().entityInfo;
+        // additional fields to consider when trimming the member-entities to join
+        Set<String> additionalFieldsUsed = new HashSet<>();
+        boolean hasFunction = false;
+        boolean hasSelected = false;
+        StringBuilder gbClause = new StringBuilder();
+        for (int i = 0; i < fieldInfoArray.length; i++) {
+            FieldInfo aliasFi = fieldInfoArray[i];
+            if (!aliasFi.entityAliasUsedSet.contains(entityAlias)) continue;
+            MNode aliasNode = aliasFi.fieldNode;
+            String aliasName = aliasFi.name;
+            String aliasField = aliasNode.attribute("field");
+            if (aliasField == null || aliasField.isEmpty()) aliasField = aliasName;
+            additionalFieldsUsed.add(aliasField);
+            joinFields.remove(aliasField);
+            if (hasSelected) { localBuilder.append(", "); } else { hasSelected = true; }
+            // NOTE: this doesn't support various things that EntityDefinition.makeFullColumnName() does like case/when, complex-alias, etc
+            // those are difficult to pick out in nested XML elements where the 'alias' element has no entity-alias, and may not be needed at this level (try to handle at top level)
+            String function = aliasNode.attribute("function");
+            if (function != null && !function.isEmpty()) {
+                String colName = EntityDefinition.getFunctionPrefix(function) + localEntityDefinition.getColumnName(aliasField) + ")";
+                localBuilder.append(colName).append(" AS ").append(sanitizeColumnName(colName));
+                hasFunction = true;
+            } else {
+                String colName = localEntityDefinition.getColumnName(aliasField);
+                localBuilder.append(colName);
+                if (gbClause.length() > 0) gbClause.append(", ");
+                gbClause.append(colName);
+            }
+        }
+        // do the actual add of join field columns to select and group by
+        for (String joinField : joinFields) {
+            if (hasSelected) { localBuilder.append(", "); } else { hasSelected = true; }
+            String colName = localEntityDefinition.getColumnName(joinField);
+            localBuilder.append(colName);
+            if (gbClause.length() > 0) gbClause.append(", ");
+            gbClause.append(colName);
+        }
+
+        makeSqlFromClause(localEntityDefinition, localBuilder, additionalFieldsUsed);
+
+        // add where clause, just for conditions on aliased fields on this entity-alias
+        EntityConditionImplBase condition = whereCondition != null ? whereCondition.filter(entityAlias, mainEntityDefinition) : null;
+        if (condition != null) {
+            sqlTopLevel.append(" WHERE ");
+            condition.makeSqlWhere(this, localEntityDefinition);
+        }
+
+        if (hasFunction && gbClause.length() > 0) {
+            localBuilder.append(" GROUP BY ");
+            localBuilder.append(gbClause.toString());
+        }
+
+        localBuilder.append(")");
+    }
+
+    public void makeWhereClause() {
+        if (whereCondition == null) return;
+        EntityConditionImplBase condition = whereCondition;
+        if (mainEntityDefinition.hasSubSelectMembers) {
+            condition = condition.filter(null, mainEntityDefinition);
+            if (condition == null) return;
+        }
+        sqlTopLevel.append(" WHERE ");
+        condition.makeSqlWhere(this, null);
+    }
+
+    public void makeGroupByClause() {
+        EntityJavaUtil.EntityInfo entityInfo = mainEntityDefinition.entityInfo;
         if (!entityInfo.isView) return;
 
         StringBuilder gbClause = new StringBuilder();
         if (entityInfo.hasFunctionAlias) {
             // do a different approach to GROUP BY: add all fields that are selected and don't have a function
-            for (MNode aliasNode : this.getMainEntityDefinition().getEntityNode().children("alias")) {
+            ArrayList<MNode> aliasList = mainEntityDefinition.getEntityNode().children("alias");
+            int aliasListSize = aliasList.size();
+            for (int i = 0; i < aliasListSize; i++) {
+                MNode aliasNode = aliasList.get(i);
                 String functionAttr = aliasNode.attribute("function");
                 if (functionAttr == null || functionAttr.isEmpty()) {
                     String aliasName = aliasNode.attribute("name");
                     FieldInfo foundFi = null;
-                    for (int i = 0; i < fieldInfoArray.length; i++) {
-                        FieldInfo fi = fieldInfoArray[i];
+                    for (int j = 0; j < fieldInfoArray.length; j++) {
+                        FieldInfo fi = fieldInfoArray[j];
                         if (fi != null && fi.name.equals(aliasName)) {
                             foundFi = fi;
                             break;
@@ -394,7 +501,11 @@ public class EntityFindBuilder extends EntityQueryBuilder {
         }
     }
 
-    public void startHavingClause() { sqlTopLevel.append(" HAVING "); }
+    public void makeHavingClause(EntityConditionImplBase condition) {
+        if (condition == null) return;
+        sqlTopLevel.append(" HAVING ");
+        condition.makeSqlWhere(this, null);
+    }
 
     public void makeOrderByClause(ArrayList<String> orderByFieldList, boolean hasLimitOffset) {
         int obflSize = orderByFieldList.size();
@@ -430,7 +541,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
     public void addLimitOffset(Integer limit, Integer offset) {
         if (limit == null && offset == null) return;
 
-        MNode databaseNode = this.efi.getDatabaseNode(getMainEntityDefinition().getEntityGroupName());
+        MNode databaseNode = this.efi.getDatabaseNode(mainEntityDefinition.getEntityGroupName());
         // if no databaseNode do nothing, means it is not a standard SQL/JDBC database
         if (databaseNode != null) {
             String offsetStyle = databaseNode.attribute("offset-style");
@@ -449,7 +560,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
 
     /** Adds FOR UPDATE, should be added to end of query */
     public void makeForUpdate() {
-        MNode databaseNode = efi.getDatabaseNode(getMainEntityDefinition().getEntityGroupName());
+        MNode databaseNode = efi.getDatabaseNode(mainEntityDefinition.getEntityGroupName());
         String forUpdateStr = databaseNode.attribute("for-update");
         if (forUpdateStr != null && forUpdateStr.length() > 0) {
             sqlTopLevel.append(" ").append(forUpdateStr);

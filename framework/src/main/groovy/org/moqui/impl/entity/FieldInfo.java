@@ -54,6 +54,7 @@ public class FieldInfo {
     final boolean enableLocalization;
     final boolean createOnly;
     final boolean isLastUpdatedStamp;
+    public final MNode memberEntityNode;
     final Set<String> entityAliasUsedSet = new HashSet<>();
 
     public FieldInfo(EntityDefinition ed, MNode fieldNode) {
@@ -113,7 +114,12 @@ public class FieldInfo {
 
         if (ed.isViewEntity) {
             String entityAlias = fieldNode.attribute("entity-alias");
-            if (entityAlias != null && entityAlias.length() > 0) entityAliasUsedSet.add(entityAlias);
+            if (entityAlias != null && entityAlias.length() > 0) {
+                entityAliasUsedSet.add(entityAlias);
+                memberEntityNode = ed.memberEntityAliasMap.get(entityAlias);
+            } else {
+                memberEntityNode = null;
+            }
             ArrayList<MNode> cafList = fieldNode.descendants("complex-alias-field");
             int cafListSize = cafList.size();
             for (int i = 0; i < cafListSize; i++) {
@@ -121,6 +127,8 @@ public class FieldInfo {
                 String cafEntityAlias = cafNode.attribute("entity-alias");
                 if (cafEntityAlias != null && cafEntityAlias.length() > 0) entityAliasUsedSet.add(cafEntityAlias);
             }
+        } else {
+            memberEntityNode = null;
         }
     }
 

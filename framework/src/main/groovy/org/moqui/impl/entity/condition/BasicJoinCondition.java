@@ -14,6 +14,7 @@
 package org.moqui.impl.entity.condition;
 
 import org.moqui.entity.EntityCondition;
+import org.moqui.impl.entity.EntityDefinition;
 import org.moqui.impl.entity.EntityQueryBuilder;
 import org.moqui.impl.entity.EntityConditionFactoryImpl;
 
@@ -43,12 +44,12 @@ public class BasicJoinCondition implements EntityConditionImplBase {
 
     @Override
     @SuppressWarnings("MismatchedQueryAndUpdateOfStringBuilder")
-    public void makeSqlWhere(EntityQueryBuilder eqb) {
+    public void makeSqlWhere(EntityQueryBuilder eqb, EntityDefinition subMemberEd) {
         StringBuilder sql = eqb.sqlTopLevel;
         sql.append('(');
-        lhsInternal.makeSqlWhere(eqb);
+        lhsInternal.makeSqlWhere(eqb, subMemberEd);
         sql.append(' ').append(EntityConditionFactoryImpl.getJoinOperatorString(this.operator)).append(' ');
-        rhsInternal.makeSqlWhere(eqb);
+        rhsInternal.makeSqlWhere(eqb, subMemberEd);
         sql.append(')');
     }
 
@@ -83,6 +84,17 @@ public class BasicJoinCondition implements EntityConditionImplBase {
     public void getAllAliases(Set<String> entityAliasSet, Set<String> fieldAliasSet) {
         lhsInternal.getAllAliases(entityAliasSet, fieldAliasSet);
         rhsInternal.getAllAliases(entityAliasSet, fieldAliasSet);
+    }
+    @Override
+    public EntityConditionImplBase filter(String entityAlias, EntityDefinition mainEd) {
+        EntityConditionImplBase filterLhs = lhsInternal.filter(entityAlias, mainEd);
+        EntityConditionImplBase filterRhs = rhsInternal.filter(entityAlias, mainEd);
+        if (filterLhs != null) {
+            if (filterRhs != null) return this;
+            else return filterLhs;
+        } else {
+            return filterRhs;
+        }
     }
 
     @Override

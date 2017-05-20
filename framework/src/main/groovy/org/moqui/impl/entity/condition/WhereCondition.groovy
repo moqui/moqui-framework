@@ -15,8 +15,8 @@ package org.moqui.impl.entity.condition
 
 import groovy.transform.CompileStatic
 import org.moqui.entity.EntityCondition
+import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityQueryBuilder
-import org.moqui.impl.entity.EntityConditionFactoryImpl
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -29,8 +29,7 @@ class WhereCondition implements EntityConditionImplBase {
         this.sqlWhereClause = sqlWhereClause != null ? sqlWhereClause : ""
     }
 
-    @Override
-    void makeSqlWhere(EntityQueryBuilder eqb) { eqb.sqlTopLevel.append(this.sqlWhereClause) }
+    @Override void makeSqlWhere(EntityQueryBuilder eqb, EntityDefinition subMemberEd) { eqb.sqlTopLevel.append(this.sqlWhereClause) }
 
     @Override
     boolean mapMatches(Map<String, Object> map) {
@@ -47,25 +46,19 @@ class WhereCondition implements EntityConditionImplBase {
         return true
     }
     @Override
-    public boolean mapKeysNotContained(Map<String, Object> map) {
+    boolean mapKeysNotContained(Map<String, Object> map) {
         // always consider matching so cache values are cleared
         logger.warn("The mapMatchesAny for the SQL Where Condition is not supported, text is [${this.sqlWhereClause}]")
         return true
     }
 
-    @Override
-    boolean populateMap(Map<String, Object> map) { return false }
+    @Override boolean populateMap(Map<String, Object> map) { return false }
+    @Override void getAllAliases(Set<String> entityAliasSet, Set<String> fieldAliasSet) { }
+    @Override EntityConditionImplBase filter(String entityAlias, EntityDefinition mainEd) { return entityAlias == null ? this : null }
 
-    void getAllAliases(Set<String> entityAliasSet, Set<String> fieldAliasSet) { }
-
-    @Override
-    EntityCondition ignoreCase() { throw new IllegalArgumentException("Ignore case not supported for this type of condition.") }
-
-    @Override
-    String toString() { return sqlWhereClause }
-
-    @Override
-    int hashCode() { return (sqlWhereClause != null ? sqlWhereClause.hashCode() : 0) }
+    @Override EntityCondition ignoreCase() { throw new IllegalArgumentException("Ignore case not supported for this type of condition.") }
+    @Override String toString() { return sqlWhereClause }
+    @Override int hashCode() { return (sqlWhereClause != null ? sqlWhereClause.hashCode() : 0) }
 
     @Override
     boolean equals(Object o) {
@@ -75,12 +68,6 @@ class WhereCondition implements EntityConditionImplBase {
         return true
     }
 
-    @Override
-    void writeExternal(ObjectOutput out) throws IOException {
-        out.writeUTF(sqlWhereClause)
-    }
-    @Override
-    void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
-        sqlWhereClause = objectInput.readUTF()
-    }
+    @Override void writeExternal(ObjectOutput out) throws IOException { out.writeUTF(sqlWhereClause) }
+    @Override void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException { sqlWhereClause = objectInput.readUTF() }
 }

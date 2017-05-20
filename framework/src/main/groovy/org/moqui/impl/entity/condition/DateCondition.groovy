@@ -15,8 +15,9 @@ package org.moqui.impl.entity.condition
 
 import groovy.transform.CompileStatic
 import org.moqui.entity.EntityCondition
+import org.moqui.impl.entity.EntityDefinition
+
 import java.sql.Timestamp
-import org.moqui.impl.entity.EntityConditionFactoryImpl
 import org.moqui.impl.entity.EntityQueryBuilder
 
 @CompileStatic
@@ -36,31 +37,24 @@ class DateCondition implements EntityConditionImplBase, Externalizable {
         hashCodeInternal = createHashCode()
     }
 
-    @Override
-    void makeSqlWhere(EntityQueryBuilder eqb) {
-        conditionInternal.makeSqlWhere(eqb)
-    }
+    @Override void makeSqlWhere(EntityQueryBuilder eqb, EntityDefinition subMemberEd) { conditionInternal.makeSqlWhere(eqb, subMemberEd) }
 
+    @Override
     void getAllAliases(Set<String> entityAliasSet, Set<String> fieldAliasSet) {
         fieldAliasSet.add(fromFieldName)
         fieldAliasSet.add(thruFieldName)
     }
+    @Override EntityConditionImplBase filter(String entityAlias, EntityDefinition mainEd) { return conditionInternal.filter(entityAlias, mainEd) }
 
-    @Override
-    boolean mapMatches(Map<String, Object> map) { return conditionInternal.mapMatches(map) }
-    @Override
-    boolean mapMatchesAny(Map<String, Object> map) { return conditionInternal.mapMatchesAny(map) }
-    @Override
-    boolean mapKeysNotContained(Map<String, Object> map) { return conditionInternal.mapKeysNotContained(map) }
+    @Override boolean mapMatches(Map<String, Object> map) { return conditionInternal.mapMatches(map) }
+    @Override boolean mapMatchesAny(Map<String, Object> map) { return conditionInternal.mapMatchesAny(map) }
+    @Override boolean mapKeysNotContained(Map<String, Object> map) { return conditionInternal.mapKeysNotContained(map) }
 
-    @Override
-    boolean populateMap(Map<String, Object> map) { return false }
+    @Override boolean populateMap(Map<String, Object> map) { return false }
 
-    @Override
-    EntityCondition ignoreCase() { throw new IllegalArgumentException("Ignore case not supported for DateCondition.") }
+    @Override EntityCondition ignoreCase() { throw new IllegalArgumentException("Ignore case not supported for DateCondition.") }
 
-    @Override
-    String toString() { return conditionInternal.toString() }
+    @Override String toString() { return conditionInternal.toString() }
 
     private EntityConditionImplBase makeConditionInternal() {
         ConditionField fromFieldCf = new ConditionField(fromFieldName)
@@ -75,8 +69,7 @@ class DateCondition implements EntityConditionImplBase, Externalizable {
         ] as List<EntityConditionImplBase>, EntityCondition.JoinOperator.AND)
     }
 
-    @Override
-    int hashCode() { return hashCodeInternal }
+    @Override int hashCode() { return hashCodeInternal }
     private int createHashCode() {
         return compareStamp.hashCode() + fromFieldName.hashCode() + thruFieldName.hashCode()
     }
