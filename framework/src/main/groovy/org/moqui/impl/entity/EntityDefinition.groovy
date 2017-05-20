@@ -284,7 +284,7 @@ class EntityDefinition {
                 colNameBuilder.append(" WHEN ").append(whenNode.attribute("expression")).append(" THEN ")
                 MNode whenComplexAliasNode = whenNode.first("complex-alias")
                 if (whenComplexAliasNode == null) throw new EntityException("No complex-alias element under case.when in alias ${fieldNode.attribute("name")} in view-entity ${getFullEntityName()}")
-                buildComplexAliasName(whenComplexAliasNode, colNameBuilder)
+                buildComplexAliasName(whenComplexAliasNode, colNameBuilder, true)
             }
 
             MNode elseNode = caseNode.first("else")
@@ -292,12 +292,12 @@ class EntityDefinition {
                 colNameBuilder.append(" ELSE ")
                 MNode elseComplexAliasNode = elseNode.first("complex-alias")
                 if (elseComplexAliasNode == null) throw new EntityException("No complex-alias element under case.else in alias ${fieldNode.attribute("name")} in view-entity ${getFullEntityName()}")
-                buildComplexAliasName(elseComplexAliasNode, colNameBuilder)
+                buildComplexAliasName(elseComplexAliasNode, colNameBuilder, true)
             }
 
             colNameBuilder.append(" END")
         } else if (complexAliasNode != null) {
-            buildComplexAliasName(fieldNode, colNameBuilder)
+            buildComplexAliasName(complexAliasNode, colNameBuilder, !hasFunction)
         } else {
             // column name for view-entity (prefix with "${entity-alias}.")
             colNameBuilder.append(entityAlias).append('.')
@@ -307,7 +307,7 @@ class EntityDefinition {
 
         return colNameBuilder.toString()
     }
-    private void buildComplexAliasName(MNode parentNode, StringBuilder colNameBuilder) {
+    private void buildComplexAliasName(MNode parentNode, StringBuilder colNameBuilder, boolean addParens) {
         String expression = parentNode.attribute("expression")
         // NOTE: this is expanded in FieldInfo.getFullColumnName() if needed
         if (expression != null && expression.length() > 0) colNameBuilder.append(expression)
@@ -319,13 +319,13 @@ class EntityDefinition {
         String operator = parentNode.attribute("operator")
         if (operator == null || operator.length() == 0) operator = "+"
 
-        if (childListSize > 1) colNameBuilder.append('(')
+        if (addParens && childListSize > 1) colNameBuilder.append('(')
         for (int i = 0; i < childListSize; i++) {
             MNode childNode = (MNode) childList.get(i)
             if (i > 0) colNameBuilder.append(' ').append(operator).append(' ')
 
             if ("complex-alias".equals(childNode.name)) {
-                buildComplexAliasName(childNode, colNameBuilder)
+                buildComplexAliasName(childNode, colNameBuilder, true)
             } else if ("complex-alias-field".equals(childNode.name)) {
                 String entityAlias = childNode.attribute("entity-alias")
                 String basicColName = getBasicFieldColName(entityAlias, childNode.attribute("field"))
@@ -344,7 +344,7 @@ class EntityDefinition {
                 colNameBuilder.append(colName)
             }
         }
-        if (childListSize > 1) colNameBuilder.append(')')
+        if (addParens && childListSize > 1) colNameBuilder.append(')')
     }
     protected static String getFunctionPrefix(String function) {
         return (function == "count-distinct") ? "COUNT(DISTINCT " : function.toUpperCase() + '('

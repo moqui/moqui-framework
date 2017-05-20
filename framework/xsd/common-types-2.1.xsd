@@ -141,14 +141,11 @@ along with this software (see the LICENSE.md file). If not, see
 
     <xs:simpleType name="aggregate-function">
         <xs:restriction base="xs:token">
-            <xs:enumeration value="min"/>
-            <xs:enumeration value="max"/>
-            <xs:enumeration value="sum"/>
-            <xs:enumeration value="avg"/>
-            <xs:enumeration value="count"/>
-            <xs:enumeration value="count-distinct"/>
-            <xs:enumeration value="upper"/>
-            <xs:enumeration value="lower"/>
+            <xs:enumeration value="min"/><xs:enumeration value="max"/>
+            <xs:enumeration value="sum"/><xs:enumeration value="avg"/>
+            <xs:enumeration value="count"/><xs:enumeration value="count-distinct"/>
+            <xs:enumeration value="upper"/><xs:enumeration value="lower"/>
+            <xs:enumeration value="concat"/><xs:enumeration value="concat_ws"/>
         </xs:restriction>
     </xs:simpleType>
     <xs:simpleType name="isolation-level">
