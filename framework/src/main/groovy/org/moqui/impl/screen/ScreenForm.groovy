@@ -1601,7 +1601,8 @@ class ScreenForm {
                     } else {
                         count = ef.count()
                         pageIndex = ef.pageIndex
-                        if (ef.limit == null) { pageSize = count } else { pageSize = ef.pageSize }
+                        if (ef.limit == null) { pageSize = count > 20 ? count : 20 }
+                        else { pageSize = ef.pageSize }
                     }
                     long maxIndex = (new BigDecimal(count-1)).divide(new BigDecimal(pageSize), 0, BigDecimal.ROUND_DOWN).longValue()
                     long pageRangeLow = (pageIndex * pageSize) + 1
