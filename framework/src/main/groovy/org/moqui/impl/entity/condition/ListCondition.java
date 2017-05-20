@@ -145,9 +145,15 @@ public class ListCondition implements EntityConditionImplBase {
         }
         int filteredSize = filteredList.size();
         if (filteredSize == conditionListSize) return this;
-        if (filteredSize == 1) return filteredList.get(0);
         if (filteredSize == 0) return null;
-        return new ListCondition(filteredList, operator);
+        // keep OR conditions together: return all if entityAlias is null (top-level where) or null if not (sub-select where)
+        if (operator == OR) {
+            if (entityAlias == null) return this;
+            return null;
+        } else {
+            if (filteredSize == 1) return filteredList.get(0);
+            return new ListCondition(filteredList, operator);
+        }
     }
 
     @Override
