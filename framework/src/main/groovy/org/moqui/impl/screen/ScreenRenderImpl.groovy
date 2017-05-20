@@ -440,7 +440,7 @@ class ScreenRenderImpl implements ScreenRender {
                     }
 
                     if (!sendJsonRedirect(fullUrl)) {
-                        String fullUrlString = fullUrl.getUrlWithParams()
+                        String fullUrlString = fullUrl.getUrlWithParams(screenUrlInfo.targetTransitionExtension)
                         if (logger.isInfoEnabled()) logger.info("Transition ${screenUrlInfo.getFullPathNameList().join("/")} in ${System.currentTimeMillis() - renderStartTime}ms, redirecting to screen path URL: ${fullUrlString}")
                         response.sendRedirect(fullUrlString)
                     }

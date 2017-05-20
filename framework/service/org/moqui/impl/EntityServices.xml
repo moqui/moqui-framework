@@ -41,18 +41,40 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
-    <service verb="create" noun="DataDocument" type="entity-auto">
+    <service verb="create" noun="DataDocument">
         <in-parameters>
             <auto-parameters include="nonpk"/>
             <parameter name="dataDocumentId" required="true"><matches regexp="\w*" message="Must contain only letters and digits"/></parameter>
-            <parameter name="indexName"><matches regexp="[a-z0-9]*" message="Must contain only lower case letters and digits"/></parameter>
+            <parameter name="indexName"><matches regexp="[a-z0-9_]*" message="Must contain only lower case letters, digits, and underscore"/></parameter>
+            <parameter name="userGroupId"/>
         </in-parameters>
+        <actions>
+            <service-call name="create#moqui.entity.document.DataDocument" in-map="context" out-map="context"/>
+            <if condition="userGroupId"><service-call name="create#moqui.entity.document.DataDocumentUserGroup"
+                    in-map="[dataDocumentId:dataDocumentId, userGroupId:userGroupId]"/></if>
+        </actions>
+    </service>
+    <service verb="update" noun="DataDocument">
+        <implements service="org.moqui.impl.EntityServices.create#DataDocument"/>
+        <actions>
+            <service-call name="update#moqui.entity.document.DataDocument" in-map="context" out-map="context"/>
+            <if condition="userGroupId">
+                <entity-find entity-name="moqui.entity.document.DataDocumentUserGroup" list="ddugList">
+                    <econdition field-name="dataDocumentId"/></entity-find>
+                <if condition="ddugList.size() == 1 &amp;&amp; ddugList[0].userGroupId != userGroupId">
+                    <service-call name="delete#moqui.entity.document.DataDocumentUserGroup"
+                            in-map="[dataDocumentId:dataDocumentId, userGroupId:ddugList[0].userGroupId]"/>
+                    <service-call name="create#moqui.entity.document.DataDocumentUserGroup"
+                            in-map="[dataDocumentId:dataDocumentId, userGroupId:userGroupId]"/>
+                </if>
+            </if>
+        </actions>
     </service>
     <service verb="clone" noun="DataDocument">
         <in-parameters>
             <parameter name="dataDocumentId" required="true"/>
             <parameter name="newDataDocumentId" required="true"><matches regexp="\w*" message="Must contain only letters and digits"/></parameter>
-            <parameter name="newIndexName"><matches regexp="[a-z0-9]*" message="Must contain only lower case letters and digits"/></parameter>
+            <parameter name="newIndexName"><matches regexp="[a-z0-9_]*" message="Must contain only lower case letters, digits, and underscore"/></parameter>
             <parameter name="copyConditions" default="false" type="Boolean"/>
             <parameter name="copyLinks" default="false" type="Boolean"/>
         </in-parameters>
@@ -102,13 +124,33 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
         </actions>
     </service>
-    <service verb="update" noun="DataDocumentField" type="entity-auto">
+    <service verb="create" noun="DataDocumentField">
         <in-parameters>
             <parameter name="dataDocumentId" required="true"/>
             <parameter name="fieldPath" required="true"/>
-            <auto-parameters entity-name="DataDocumentField" include="nonpk"/>
-            <parameter name="fieldNameAlias"><matches regexp="[a-zA-Z0-9]*" message="Must contain only letters and digits"/></parameter>
+            <auto-parameters entity-name="moqui.entity.document.DataDocumentField" include="nonpk"/>
         </in-parameters>
+        <actions>
+            <if condition="fieldNameAlias"><set field="fieldNameAlias" from="prettyToCamelCase(fieldNameAlias, false)"/></if>
+            <service-call name="create#moqui.entity.document.DataDocumentField" in-map="context"/>
+        </actions>
+    </service>
+    <service verb="update" noun="DataDocumentField">
+        <in-parameters>
+            <parameter name="dataDocumentId" required="true"/>
+            <parameter name="fieldSeqId"/>
+            <parameter name="fieldPath" required="true"/>
+            <auto-parameters entity-name="moqui.entity.document.DataDocumentField" include="nonpk"/>
+        </in-parameters>
+        <actions>
+            <if condition="fieldNameAlias"><set field="fieldNameAlias" from="prettyToCamelCase(fieldNameAlias, false)"/></if>
+            <if condition="!fieldSeqId">
+                <entity-find entity-name="moqui.entity.document.DataDocumentField" list="ddfList">
+                    <econdition field-name="dataDocumentId"/><econdition field-name="fieldPath"/></entity-find>
+                <set field="fieldSeqId" from="ddfList ? ddfList[0].fieldSeqId : null"/>
+            </if>
+            <service-call name="update#moqui.entity.document.DataDocumentField" in-map="context"/>
+        </actions>
     </service>
 
     <service verb="send" noun="DataDocumentNotifications" authenticate="false">

@@ -18,6 +18,10 @@ See the moqui-runtime release notes for more details. Some of these changes may 
 - DataDocument JSON generation no longer automatically adds all primary key fields of the primary entity to allow for aggregation
   by function in DataDocument based queries (where DataDocument is used to create a dynamic view entity); for ElasticSearch indexing
   a unique ID is required so all primary key fields of the primary entity should be defined
+- The DataDocumentField, DataDocumentCondition, and DataDocumentLink entities now have an artificial/sequenced secondary key instead 
+  of using another field (fieldPath, fieldNameAlias, label); existing tables may work with some things but reloading seed data will
+  fail if you have any DataDocument records in place; these are typically seed data records so the easiest way to update/migrate
+  is to drop the tables for DataDocumentField/Link/Condition entities and then reload seed data as normal for a code update
 
 ### New Features
 
