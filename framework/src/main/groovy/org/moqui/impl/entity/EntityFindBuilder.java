@@ -514,7 +514,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
             return;
         }
 
-        MNode databaseNode = this.efi.getDatabaseNode(getMainEntityDefinition().getEntityGroupName());
+        MNode databaseNode = this.efi.getDatabaseNode(mainEntityDefinition.getEntityGroupName());
         sqlTopLevel.append(" ORDER BY ");
         for (int i = 0; i < obflSize; i++) {
             String fieldName = orderByFieldList.get(i);
