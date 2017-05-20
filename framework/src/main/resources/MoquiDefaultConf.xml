@@ -517,7 +517,7 @@
                     jdbc-username="moqui" jdbc-password="moqui"/>
         </datasource>
         -->
-        <database name="mysql" join-style="ansi-no-parenthesis" offset-style="limit"
+        <database name="mysql" join-style="ansi-no-parenthesis" offset-style="limit" never-nulls="true"
                 table-engine="InnoDB" character-set="utf8" collate="utf8_general_ci"
                 default-isolation-level="ReadCommitted" use-tm-join="true"
                 default-jdbc-driver="com.mysql.jdbc.Driver"
@@ -595,7 +595,7 @@
             <inline-jdbc jdbc-uri="jdbc:postgresql://127.0.0.1/moqui" jdbc-username="moqui" jdbc-password="moqui"/>
         </datasource>
         -->
-        <database name="postgres" use-fk-initially-deferred="false" join-style="ansi" result-fetch-size="50"
+        <database name="postgres" use-fk-initially-deferred="false" join-style="ansi" result-fetch-size="50" never-try-insert="true"
                   default-isolation-level="ReadCommitted" use-tm-join="true" default-test-query="SELECT 1"
                   default-jdbc-driver="org.postgresql.Driver" default-xa-ds-class="org.postgresql.xa.PGXADataSource"
                   default-startup-add-missing="true" default-runtime-add-missing="false" use-binary-type-for-blob="true">

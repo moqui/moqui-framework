@@ -1282,10 +1282,18 @@ class EntityFacadeImpl implements EntityFacade {
     @Override
     EntityFind find(MNode node) {
         String entityName = node.attribute("entity-name")
+        if (entityName != null && entityName.contains("\${")) entityName = ecfi.resourceFacade.expand(entityName, null)
         // don't check entityName empty, getEntityDefinition() does it
         EntityDefinition ed = getEntityDefinition(entityName)
         if (ed == null) throw new EntityException("No entity found with name ${entityName}")
-        EntityFind ef = ed.makeEntityFind()
+        EntityFind ef
+        if (ed.isDynamicView && entityName.startsWith("DataDocument.")) {
+            // see if it happens to be a DataDocument and if so make a special find that has its conditions too
+            // TODO: consider addition condition methods to EntityDynamicView and handling this lower level instead of here
+            ef = entityDataDocument.makeDataDocumentFind(entityName.substring(entityName.indexOf(".") + 1))
+        } else {
+            ef = ed.makeEntityFind()
+        }
 
         String cache = node.attribute("cache")
         if (cache != null && !cache.isEmpty()) { ef.useCache("true".equals(cache)) }

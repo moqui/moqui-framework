@@ -537,11 +537,22 @@ class ScreenForm {
     void addEntityFields(EntityDefinition ed, String include, String fieldType, Set<String> excludes, MNode baseFormNode) {
         for (String fieldName in ed.getFieldNames("all".equals(include) || "pk".equals(include), "all".equals(include) || "nonpk".equals(include))) {
             if (excludes != null && excludes.contains(fieldName)) continue
-            String efType = ed.getFieldInfo(fieldName).type ?: "text-long"
-            if (baseFormNode.name == "form-list" && efType in ['text-long', 'text-very-long', 'binary-very-long']) continue
+            FieldInfo fi = ed.getFieldInfo(fieldName)
+            String efType = fi.type ?: "text-long"
+            boolean makeDefaultField = true
+            if ("form-list".equals(baseFormNode.name)) {
+                Boolean displayField = (Boolean) null
+                String defaultDisplay = fi.fieldNode.attribute("default-display")
+                if (defaultDisplay != null && !defaultDisplay.isEmpty()) displayField = "true".equals(defaultDisplay)
+                if (displayField == null && efType in ['text-long', 'text-very-long', 'binary-very-long']) {
+                    // allow find by and display text-long even if not the default, but in form-list never do anything with text-very-long or binary-very-long
+                    if ("text-long".equals(efType)) { displayField = false } else { continue }
+                }
+                makeDefaultField = displayField == null || displayField.booleanValue()
+            }
 
             MNode newFieldNode = new MNode("field", [name:fieldName, "validate-entity":ed.getFullEntityName(), "validate-field":fieldName])
-            MNode subFieldNode = newFieldNode.append("default-field", null)
+            MNode subFieldNode = makeDefaultField ? newFieldNode.append("default-field", null) : null
 
             addAutoEntityField(ed, fieldName, fieldType, newFieldNode, subFieldNode, baseFormNode)
 
@@ -551,9 +562,9 @@ class ScreenForm {
         // logger.info("TOREMOVE: after addEntityFields formNode is: ${baseFormNode}")
     }
 
-    void addAutoEntityField(EntityDefinition ed, String fieldName, String fieldType,
-                            MNode newFieldNode, MNode subFieldNode, MNode baseFormNode) {
-        String efType = ed.getFieldInfo(fieldName).type ?: "text-long"
+    void addAutoEntityField(EntityDefinition ed, String fieldName, String fieldType, MNode newFieldNode, MNode subFieldNode, MNode baseFormNode) {
+        FieldInfo fieldInfo = ed.getFieldInfo(fieldName)
+        String efType = fieldInfo.type ?: "text-long"
 
         // to see if this should be a drop-down with data from another entity,
         // find first relationship that has this field as the only key map and is not a many relationship
@@ -584,6 +595,12 @@ class ScreenForm {
                 break
             }
 
+            // handle header-field
+            if (baseFormNode.name == "form-list" && !newFieldNode.hasChild("header-field"))
+                newFieldNode.append("header-field", ["show-order-by":"case-insensitive"])
+
+            // handle sub field (default-field)
+            if (subFieldNode == null) break
             /* NOTE: used to do this but doesn't make sense for main use of this in ServiceRun/etc screens; for app
                 forms should separates pks and use display or hidden instead of edit:
             List<String> pkFieldNameSet = ed.getPkFieldNames()
@@ -592,8 +609,6 @@ class ScreenForm {
             } else {
             }
             */
-            if (baseFormNode.name == "form-list" && !newFieldNode.hasChild("header-field"))
-                newFieldNode.append("header-field", ["show-order-by":"case-insensitive"])
             if (efType.startsWith("date") || efType.startsWith("time")) {
                 MNode dateTimeNode = subFieldNode.append("date-time", [type:efType])
                 if (fieldName == "fromDate") dateTimeNode.attributes.put("default-value", "\${ec.l10n.format(ec.user.nowTimestamp, 'yyyy-MM-dd HH:mm')}")
@@ -619,8 +634,11 @@ class ScreenForm {
             }
             break
         case "find":
+            // handle header-field
             if (baseFormNode.name == "form-list" && !newFieldNode.hasChild("header-field"))
                 newFieldNode.append("header-field", ["show-order-by":"case-insensitive"])
+            // handle sub field (default-field)
+            if (subFieldNode == null) break
             if (efType.startsWith("date") || efType.startsWith("time")) {
                 subFieldNode.append("date-find", [type:efType])
             } else if (efType.startsWith("number-") || efType.startsWith("currency-")) {
@@ -634,8 +652,11 @@ class ScreenForm {
             }
             break
         case "display":
+            // handle header-field
             if (baseFormNode.name == "form-list" && !newFieldNode.hasChild("header-field"))
                 newFieldNode.append("header-field", ["show-order-by":"case-insensitive"])
+            // handle sub field (default-field)
+            if (subFieldNode == null) break
             String textStr
             if (relDefaultDescriptionField) textStr = "\${" + relDefaultDescriptionField + " ?: ''} [\${" + relKeyField + "}]"
             else textStr = "[\${" + relKeyField + "}]"
@@ -653,6 +674,7 @@ class ScreenForm {
             }
             break
         case "find-display":
+            // handle header-field
             if (baseFormNode.name == "form-list" && !newFieldNode.hasChild("header-field"))
                 newFieldNode.append("header-field", ["show-order-by":"case-insensitive"])
             MNode headerFieldNode = newFieldNode.hasChild("header-field") ?
@@ -664,6 +686,13 @@ class ScreenForm {
             } else if (efType.startsWith("number-") || efType.startsWith("currency-")) {
                 headerFieldNode.append("range-find", [size:'10'])
                 newFieldNode.attributes.put("align", "right")
+                String function = fieldInfo.fieldNode.attribute("function")
+                if (function != null && function in ['min', 'max', 'avg']) {
+                    newFieldNode.attributes.put("show-total", function)
+                } else {
+                    newFieldNode.attributes.put("show-total", "sum")
+                }
+
             } else {
                 if (oneRelNode != null) {
                     addEntityFieldDropDown(oneRelNode, headerFieldNode, relatedEd, relKeyField, "")
@@ -671,6 +700,8 @@ class ScreenForm {
                     headerFieldNode.append("text-find", ['hide-options':'true', size:'15'])
                 }
             }
+            // handle sub field (default-field)
+            if (subFieldNode == null) break
             if (oneRelNode != null) {
                 String textStr
                 if (relDefaultDescriptionField) textStr = "\${" + relDefaultDescriptionField + " ?: ''} [\${" + relKeyField + "}]"
@@ -693,7 +724,7 @@ class ScreenForm {
         }
 
         // NOTE: don't like where this is located, would be nice to have a generic way for forms to add this sort of thing
-        if (oneRelNode != null) {
+        if (oneRelNode != null && subFieldNode != null) {
             if (internalFormNode.attribute("name") == "UpdateMasterEntityValue") {
                 MNode linkNode = subFieldNode.append("link", [url:"edit",
                         text:("Edit ${relatedEd.getPrettyName(null, null)} [\${fieldValues." + keyField + "}]").toString(),
@@ -961,13 +992,18 @@ class ScreenForm {
                         eli.close()
                     }
                 } else {
+                    String keyAttr = childNode.attribute("key")
+                    String textAttr = childNode.attribute("text")
                     for (Object listOption in listObject) {
                         if (listOption instanceof Map) {
                             addFieldOption(options, fieldNode, childNode, (Map) listOption, ec)
                         } else {
-                            String loString = ObjectUtilities.toPlainString(listOption)
-                            if (loString != null) options.put(loString, loString)
-                            // addFieldOption(options, fieldNode, childNode, [entry:listOption], ec)
+                            if (keyAttr != null || textAttr != null) {
+                                addFieldOption(options, fieldNode, childNode, [entry:listOption], ec)
+                            } else {
+                                String loString = ObjectUtilities.toPlainString(listOption)
+                                if (loString != null) options.put(loString, loString)
+                            }
                         }
                     }
                 }
@@ -1570,7 +1606,7 @@ class ScreenForm {
                     ef.selectField(fn)
                 }
 
-                // logger.info("TOREMOVE form-list.entity-find: ${ef.toString()}")
+                // logger.warn("TOREMOVE form-list.entity-find: ${ef.toString()}\ndisplayedFieldSet: ${displayedFieldSet}")
 
                 // run the query
                 EntityList efList = ef.list()

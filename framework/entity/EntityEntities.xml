@@ -121,7 +121,8 @@ along with this software (see the LICENSE.md file). If not, see
     </entity>
     <entity entity-name="DataDocumentField" package="moqui.entity.document" use="configuration">
         <field name="dataDocumentId" type="id" is-pk="true"/>
-        <field name="fieldPath" type="text-medium" is-pk="true"><description>String formatted like
+        <field name="fieldSeqId" type="id" is-pk="true"/>
+        <field name="fieldPath" type="text-medium"><description>String formatted like
             "RelationshipName:RelationshipName:fieldName" with zero or more relationship names. If there is no
             relationship name the field is on the primary entity. More than one relationship names means follow that
             path of relationships to get to the field.</description></field>
@@ -132,9 +133,10 @@ along with this software (see the LICENSE.md file). If not, see
             in ElasticSearch we have two string types to work with: text (tokenized for search, not sortable) and keyword (sortable
             but not tokenized for search). In ElasticSearch this adds [field name].keyword field of type keyword to sort on if the
             entity field is a 'text' type ElasticSearch field.</description></field>
+        <field name="defaultDisplay" type="text-indicator"><description>Fields displayed by default, set to N to not display in output.</description></field>
         <field name="functionName" type="text-short"><description>If specific the field is queried with the given function.
             Must be one of the functions available in the view-entity.alias.@function attribute.</description></field>
-        <field name="sequenceNum" type="number-integer"/>
+        <field name="sequenceNum" type="number-integer" default="fieldSeqId as int"/>
         <relationship type="one" related="moqui.entity.document.DataDocument"/>
     </entity>
     <entity entity-name="DataDocumentRelAlias" package="moqui.entity.document" use="configuration">
@@ -148,7 +150,8 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="DataDocumentCondition" package="moqui.entity.document" use="configuration">
         <description>This is a very simple sort of condition to constrain data document output.</description>
         <field name="dataDocumentId" type="id" is-pk="true"/>
-        <field name="fieldNameAlias" type="text-medium" is-pk="true"/>
+        <field name="conditionSeqId" type="id" is-pk="true"/>
+        <field name="fieldNameAlias" type="text-medium"/>
         <field name="fieldValue" type="text-medium"/>
         <field name="operator" type="text-short"><description>Must be a valid value like those in the
             econdition.@operator attribute. Ignored if postQuery=Y. Defaults (like that attribute) to 'equals'.</description></field>
@@ -159,13 +162,14 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" related="moqui.entity.document.DataDocument"/>
     </entity>
     <entity entity-name="DataDocumentLink" package="moqui.entity.document" use="configuration">
-        <description>This is a very simple sort of condition to constrain data document output.</description>
+        <description>Associate links with a DataDocument to use in applications for links to details, edit screens, etc for search results.</description>
         <field name="dataDocumentId" type="id" is-pk="true"/>
-        <field name="label" type="text-medium" is-pk="true"/>
+        <field name="linkSeqId" type="id" is-pk="true"/>
+        <field name="label" type="text-medium"/>
         <field name="linkUrl" type="text-medium"/>
         <field name="urlType" type="text-short" default="'plain'">
             <description>Must match an option for the XML Screen link.@url-type attribute. Defaults to 'plain'.</description></field>
-        <field name="condition" type="text-long"/>
+        <field name="linkCondition" type="text-long"/>
         <relationship type="one" related="moqui.entity.document.DataDocument"/>
     </entity>
     <entity entity-name="DataDocumentUserGroup" package="moqui.entity.document" use="configuration">

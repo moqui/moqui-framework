@@ -238,11 +238,21 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
                         // could be same as field name, but not if aliased with different name
                         String aliasName = aliasNode.attribute("name")
                         ConditionField cf = findEd != null ? findEd.getFieldInfo(aliasName).conditionField : new ConditionField(aliasName)
-                        condList.add(new FieldValueCondition(cf, compOp, value))
+                        if (ComparisonOperator.NOT_EQUAL.is(compOp) || ComparisonOperator.NOT_IN.is(compOp) || ComparisonOperator.NOT_LIKE.is(compOp)) {
+                            condList.add(makeConditionImpl(new FieldValueCondition(cf, compOp, value), JoinOperator.OR,
+                                    new FieldValueCondition(cf, ComparisonOperator.EQUALS, null)))
+                        } else {
+                            condList.add(new FieldValueCondition(cf, compOp, value))
+                        }
                     }
                 } else {
                     ConditionField cf = findEd != null ? findEd.getFieldInfo(fieldName).conditionField : new ConditionField(fieldName)
-                    condList.add(new FieldValueCondition(cf, compOp, value))
+                    if (ComparisonOperator.NOT_EQUAL.is(compOp) || ComparisonOperator.NOT_IN.is(compOp) || ComparisonOperator.NOT_LIKE.is(compOp)) {
+                        condList.add(makeConditionImpl(new FieldValueCondition(cf, compOp, value), JoinOperator.OR,
+                                new FieldValueCondition(cf, ComparisonOperator.EQUALS, null)))
+                    } else {
+                        condList.add(new FieldValueCondition(cf, compOp, value))
+                    }
                 }
 
             }

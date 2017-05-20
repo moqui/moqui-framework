@@ -390,7 +390,14 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             ec = edli.getEfi().ecfi.getEci()
         }
         void handleValue(EntityValue value) {
-            if (edli.useTryInsert) {
+            boolean tryInsert = edli.useTryInsert
+            if (tryInsert && value instanceof EntityValueBase) {
+                EntityValueBase evb = (EntityValueBase) value
+                MNode databaseNode = ec.entityFacade.getDatabaseNode(evb.getEntityDefinition().getEntityGroupName())
+                if ("true".equals(databaseNode.attribute("never-try-insert"))) tryInsert = false
+            }
+
+            if (tryInsert) {
                 try {
                     value.create()
                 } catch (EntityException e) {

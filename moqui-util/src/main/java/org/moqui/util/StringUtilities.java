@@ -107,6 +107,7 @@ public class StringUtilities {
     }
 
     public static String camelCaseToPretty(String camelCase) {
+        if (camelCase == null || camelCase.length() == 0) return "";
         StringBuilder prettyName = new StringBuilder();
         for (String part : camelCase.split("(?=[A-Z])")) {
             if (prettyName.length() > 0) prettyName.append(" ");
@@ -116,6 +117,23 @@ public class StringUtilities {
         char firstChar = prettyName.charAt(0);
         if (Character.isLowerCase(firstChar)) prettyName.setCharAt(0, Character.toUpperCase(firstChar));
         return prettyName.toString();
+    }
+    public static String prettyToCamelCase(String pretty, boolean firstUpper) {
+        if (pretty == null || pretty.length() == 0) return "";
+        StringBuilder camelCase = new StringBuilder();
+        char[] prettyChars = pretty.toCharArray();
+        boolean upperNext = firstUpper;
+        for (int i = 0; i < prettyChars.length; i++) {
+            char curChar = prettyChars[i];
+            if (Character.isLetterOrDigit(curChar)) {
+                curChar = upperNext ? Character.toUpperCase(curChar) : Character.toLowerCase(curChar);
+                camelCase.append(curChar);
+                upperNext = false;
+            } else {
+                upperNext = true;
+            }
+        }
+        return camelCase.toString();
     }
 
     public static String replaceNonAlphaNumeric(String origString, char chr) {
