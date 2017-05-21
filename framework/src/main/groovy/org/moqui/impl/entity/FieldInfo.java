@@ -98,7 +98,7 @@ public class FieldInfo {
         String enableAuditLogAttr = fieldNode.attribute("enable-audit-log");
         enableAuditLog = enableAuditLogAttr != null ? enableAuditLogAttr : ed.internalEntityNode.attribute("enable-audit-log");
 
-        String fcn = ed.makeFullColumnName(fieldNode);
+        String fcn = ed.makeFullColumnName(fieldNode, true);
         if (fcn == null) {
             fullColumnNameInternal = columnName;
             expandColumnName = null;

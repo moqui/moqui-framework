@@ -417,7 +417,12 @@ public class EntityFindBuilder extends EntityQueryBuilder {
             // NOTE: this doesn't support various things that EntityDefinition.makeFullColumnName() does like case/when, complex-alias, etc
             // those are difficult to pick out in nested XML elements where the 'alias' element has no entity-alias, and may not be needed at this level (try to handle at top level)
             String function = aliasNode.attribute("function");
-            if (function != null && !function.isEmpty()) {
+            MNode complexAliasNode = aliasNode.first("complex-alias");
+            if (complexAliasNode != null) {
+                String colName = mainEntityDefinition.makeFullColumnName(aliasNode, false);
+                localBuilder.append(colName).append(" AS ").append(sanitizeColumnName(colName));
+                if (function != null && !function.isEmpty()) hasFunction = true;
+            } else if (function != null && !function.isEmpty()) {
                 String colName = EntityDefinition.getFunctionPrefix(function) + localEntityDefinition.getColumnName(aliasField) + ")";
                 localBuilder.append(colName).append(" AS ").append(sanitizeColumnName(colName));
                 hasFunction = true;
