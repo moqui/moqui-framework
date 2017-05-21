@@ -43,6 +43,11 @@ See the moqui-runtime release notes for more details. Some of these changes may 
 - Added view-entity.member-relationship element as a simpler alternative to member-entity using existing relationships
 - DataDocumentField now has a functionName attribute for functions on fields in a DataDocument based query 
 - Any DataDocument can now be treated as an entity using the name pattern DataDocument.${dataDocumentId}
+- Sub-select (sub-query) is now supported for view-entity by a simple flag on member-entity (or member-relationship); this changes
+  the query structure so the member entity is joined in a select clause with any conditions for fields on that member entity put
+  in its where clause instead of the where clause for the top-level select; any fields selected are selected in the sub-select as
+  are any fields used for the join ON conditions; the first example of this is the InvoicePaymentApplicationSummary view-entity in
+  mantle-usl which also uses alias.@function and alias.complex-alias to use concat_ws for combined name aliases
 
 ### Bug Fixes
 
