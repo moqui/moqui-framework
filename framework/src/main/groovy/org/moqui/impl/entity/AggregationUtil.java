@@ -72,7 +72,7 @@ public class AggregationUtil {
 
 
     @SuppressWarnings("unchecked")
-    public ArrayList<Map<String, Object>> aggregateList(Object listObj, boolean makeSubList, ExecutionContextImpl eci) {
+    public ArrayList<Map<String, Object>> aggregateList(Object listObj, Set<String> includeFields, boolean makeSubList, ExecutionContextImpl eci) {
         if (groupFields == null || groupFields.length == 0) makeSubList = false;
         ArrayList<Map<String, Object>> resultList = new ArrayList<>();
         if (listObj == null) return resultList;
@@ -89,13 +89,13 @@ public class AggregationUtil {
             if (listObj instanceof RandomAccess) {
                 for (int i = 0; i < listSize; i++) {
                     Object curObject = listList.get(i);
-                    processAggregateOriginal(curObject, resultList, groupRows, totalsMap, i, (i < (listSize - 1)), makeSubList, eci);
+                    processAggregateOriginal(curObject, resultList, includeFields, groupRows, totalsMap, i, (i < (listSize - 1)), makeSubList, eci);
                     originalCount++;
                 }
             } else {
                 int i = 0;
                 for (Object curObject : listList) {
-                    processAggregateOriginal(curObject, resultList, groupRows, totalsMap, i, (i < (listSize - 1)), makeSubList, eci);
+                    processAggregateOriginal(curObject, resultList, includeFields, groupRows, totalsMap, i, (i < (listSize - 1)), makeSubList, eci);
                     i++;
                     originalCount++;
                 }
@@ -105,7 +105,7 @@ public class AggregationUtil {
             int i = 0;
             while (listIter.hasNext()) {
                 Object curObject = listIter.next();
-                processAggregateOriginal(curObject, resultList, groupRows, totalsMap, i, listIter.hasNext(), makeSubList, eci);
+                processAggregateOriginal(curObject, resultList, includeFields, groupRows, totalsMap, i, listIter.hasNext(), makeSubList, eci);
                 i++;
                 originalCount++;
             }
@@ -114,7 +114,7 @@ public class AggregationUtil {
             int listSize = listArray.length;
             for (int i = 0; i < listSize; i++) {
                 Object curObject = listArray[i];
-                processAggregateOriginal(curObject, resultList, groupRows, totalsMap, i, (i < (listSize - 1)), makeSubList, eci);
+                processAggregateOriginal(curObject, resultList, includeFields, groupRows, totalsMap, i, (i < (listSize - 1)), makeSubList, eci);
                 originalCount++;
             }
         } else {
@@ -141,7 +141,7 @@ public class AggregationUtil {
     }
 
     @SuppressWarnings("unchecked")
-    private void processAggregateOriginal(Object curObject, ArrayList<Map<String, Object>> resultList,
+    private void processAggregateOriginal(Object curObject, ArrayList<Map<String, Object>> resultList, Set<String> includeFields,
                                           Map<Map<String, Object>, Map<String, Object>> groupRows, Map<String, Object> totalsMap,
                                           int index, boolean hasNext, boolean makeSubList, ExecutionContextImpl eci) {
         Map curMap = null;
@@ -188,6 +188,7 @@ public class AggregationUtil {
             groupByMap = new HashMap<>();
             for (int i = 0; i < groupFields.length; i++) {
                 String groupBy = groupFields[i];
+                if (!includeFields.contains(groupBy)) continue;
                 groupByMap.put(groupBy, getField(groupBy, context, curObject, curIsMap));
             }
             resultMap = groupRows.get(groupByMap);
@@ -203,6 +204,7 @@ public class AggregationUtil {
                 Object fieldValue = getField(fieldName, context, curObject, curIsMap);
                 // don't want to put null values, a waste of time/space; if count aggregate continue so it isn't counted
                 if (fieldValue == null) continue;
+
                 // handle subList
                 if (makeSubList && aggField.subList) {
                     // NOTE: may have an issue here not using contextTopMap as starting point for sub-list entry, ie row-actions values lost if not referenced in a field name/from
@@ -243,6 +245,8 @@ public class AggregationUtil {
                 AggregateField aggField = aggregateFields[i];
                 String fieldName = aggField.fieldName;
                 Object fieldValue = getField(fieldName, context, curObject, curIsMap);
+                // don't want to put null values, a waste of time/space; if count aggregate continue so it isn't counted
+                if (fieldValue == null) continue;
 
                 if (aggField.subList) {
                     // NOTE: may have an issue here not using contextTopMap as starting point for sub-list entry, ie row-actions values lost if not referenced in a field name/from

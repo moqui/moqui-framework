@@ -1577,6 +1577,7 @@ class ScreenForm {
         Object getListObject(boolean aggregateList) {
             Object listObject
             String listName = formInstance.formNode.attribute("list")
+            Set<String> includeFields = new HashSet<>(displayedFieldSet)
             MNode entityFindNode = screenForm.entityFindNode
             if (entityFindNode != null) {
                 EntityFindBase ef = (EntityFindBase) ecfi.entityFacade.find(entityFindNode)
@@ -1604,6 +1605,7 @@ class ScreenForm {
                     MNode fieldNode = formInstance.getFieldNode(fn)
                     if (!fieldNode.hasChild("default-field")) continue
                     ef.selectField(fn)
+                    includeFields.add(fn)
                 }
 
                 // logger.warn("TOREMOVE form-list.entity-find: ${ef.toString()}\ndisplayedFieldSet: ${displayedFieldSet}")
@@ -1660,7 +1662,7 @@ class ScreenForm {
 
             // NOTE: always call AggregationUtil.aggregateList, passing aggregateList to tell it to do sub-lists or not
             // this does the pre-processing for all form-list renders, handles row-actions, field.@from, etc
-            return formInstance.aggregationUtil.aggregateList(listObject, aggregateList, ecfi.getEci())
+            return formInstance.aggregationUtil.aggregateList(listObject, includeFields, aggregateList, ecfi.getEci())
         }
 
         List<Map<String, Object>> getUserFormListFinds(ExecutionContextImpl ec) {
