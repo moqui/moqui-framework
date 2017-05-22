@@ -98,7 +98,7 @@ dependencies {
     compile 'commons-logging:commons-logging:1.2' // Apache 2.0
     compile 'commons-validator:commons-validator:1.6' // Apache 2.0
 
-    // cron-utils
+    // cron-utils (NOTE: not updating to 6.0.0 as adds dependency on Guava and threetenbp, evidently for pre Java 8 support but huge libs not worth it)
     compile module('com.cronutils:cron-utils:5.0.5') // Apache 2.0
 
     // Freemarker
@@ -130,8 +130,8 @@ dependencies {
     compile 'org.pegdown:pegdown:1.6.0' // Apache 2.0
 
     // Apache Shiro
-    compile 'org.apache.shiro:shiro-core:1.3.2' // Apache 2.0
-    compile 'org.apache.shiro:shiro-web:1.3.2' // Apache 2.0
+    compile module('org.apache.shiro:shiro-core:1.4.0') // Apache 2.0
+    compile module('org.apache.shiro:shiro-web:1.4.0') // Apache 2.0
 
     // SLF4J, Log4j 2 (note Log4j 2 is used by various libraries, best not to replace it even if mostly possible with SLF4J)
     compile 'org.slf4j:slf4j-api:1.7.25'
