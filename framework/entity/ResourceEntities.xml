@@ -69,7 +69,21 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="createdByUserId" related="userId"/></relationship>
         <relationship type="many" related="moqui.resource.wiki.WikiPageHistory" short-alias="histories">
             <key-map field-name="wikiPageId"/></relationship>
+        <relationship type="many" related="WikiPageCategoryMember" short-alias="categories">
+            <key-map field-name="wikePageId"/></relationship>
         <index name="WIKIPAGE_SPCPTH" unique="true"><index-field name="wikiSpaceId"/><index-field name="pagePath"/></index>
+    </entity>
+    <entity entity-name="WikiPageCategory" package="moqui.resource.wiki" use="nontransactional">
+        <field name="wikiPageCategoryId" type="id" is-pk="true"/>
+        <field name="categoryName" type="text-medium"/>
+    </entity>
+    <entity entity-name="WikiPageCategoryMember" package="moqui.resource.wiki" use="nontransactional">
+        <field name="wikiPageCategoryId" type="id" is-pk="true"/>
+        <field name="wikiPageId" type="id" is-pk="true"/>
+        <relationship type="one" related="moqui.resource.wiki.WikiPageCategory" short-alias="category">
+            <key-map field-name="wikiPageCategoryId" /></relationship>
+        <relationship type="one" related="moqui.resource.wiki.WikiPage" short-alias="member">
+            <key-map field-name="wikiPageId"/></relationship>
     </entity>
     <entity entity-name="WikiPageHistory" package="moqui.resource.wiki" use="nontransactional" cache="never">
         <field name="wikiPageId" type="id" is-pk="true"/>
