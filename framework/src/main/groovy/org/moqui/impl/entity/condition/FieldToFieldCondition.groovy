@@ -106,8 +106,8 @@ class FieldToFieldCondition implements EntityConditionImplBase {
     @Override
     EntityConditionImplBase filter(String entityAlias, EntityDefinition mainEd) {
         // only called for view-entity
-        MNode fieldMe = field.getFieldInfo(mainEd).memberEntityNode
-        MNode toFieldMe = toField.getFieldInfo(mainEd).memberEntityNode
+        MNode fieldMe = field.getFieldInfo(mainEd).directMemberEntityNode
+        MNode toFieldMe = toField.getFieldInfo(mainEd).directMemberEntityNode
         if (entityAlias == null) {
             if ((fieldMe != null && "true".equalsIgnoreCase(fieldMe.attribute("sub-select"))) &&
                     (toFieldMe != null && "true".equalsIgnoreCase(toFieldMe.attribute("sub-select"))) &&

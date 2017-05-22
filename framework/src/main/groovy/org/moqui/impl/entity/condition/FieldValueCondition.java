@@ -173,7 +173,7 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
     public EntityConditionImplBase filter(String entityAlias, EntityDefinition mainEd) {
         // only called for view-entity
         FieldInfo fi = field.getFieldInfo(mainEd);
-        MNode fieldMe = fi.memberEntityNode;
+        MNode fieldMe = fi.directMemberEntityNode;
         if (entityAlias == null) {
             if (fieldMe != null && "true".equalsIgnoreCase(fieldMe.attribute("sub-select"))) return null;
             return this;

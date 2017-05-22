@@ -57,6 +57,7 @@ public class FieldInfo {
     final boolean createOnly;
     final boolean isLastUpdatedStamp;
     public final MNode memberEntityNode;
+    public final MNode directMemberEntityNode;
     public final boolean hasAggregateFunction;
     final Set<String> entityAliasUsedSet = new HashSet<>();
 
@@ -122,6 +123,7 @@ public class FieldInfo {
                 entityAliasUsedSet.add(entityAlias);
                 tempMembEntNode = ed.memberEntityAliasMap.get(entityAlias);
             }
+            directMemberEntityNode = tempMembEntNode;
             ArrayList<MNode> cafList = fieldNode.descendants("complex-alias-field");
             int cafListSize = cafList.size();
             for (int i = 0; i < cafListSize; i++) {
@@ -137,6 +139,7 @@ public class FieldInfo {
             hasAggregateFunction = aggFunctions.contains(fieldNode.attribute("function"));
         } else {
             memberEntityNode = null;
+            directMemberEntityNode = null;
             hasAggregateFunction = false;
         }
     }
