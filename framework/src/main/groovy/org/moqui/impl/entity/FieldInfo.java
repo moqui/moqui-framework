@@ -33,6 +33,8 @@ import java.util.*;
 public class FieldInfo {
     protected final static Logger logger = LoggerFactory.getLogger(FieldInfo.class);
     protected final static boolean isTraceEnabled = logger.isTraceEnabled();
+    public final static String[] aggFunctionArray = {"min", "max", "sum", "avg", "count", "count-distinct"};
+    public final static Set<String> aggFunctions = new HashSet<>(Arrays.asList(aggFunctionArray));
 
     public final EntityDefinition ed;
     public final MNode fieldNode;
@@ -55,6 +57,7 @@ public class FieldInfo {
     final boolean createOnly;
     final boolean isLastUpdatedStamp;
     public final MNode memberEntityNode;
+    public final boolean hasAggregateFunction;
     final Set<String> entityAliasUsedSet = new HashSet<>();
 
     public FieldInfo(EntityDefinition ed, MNode fieldNode) {
@@ -113,12 +116,11 @@ public class FieldInfo {
         }
 
         if (ed.isViewEntity) {
+            MNode tempMembEntNode = null;
             String entityAlias = fieldNode.attribute("entity-alias");
             if (entityAlias != null && entityAlias.length() > 0) {
                 entityAliasUsedSet.add(entityAlias);
-                memberEntityNode = ed.memberEntityAliasMap.get(entityAlias);
-            } else {
-                memberEntityNode = null;
+                tempMembEntNode = ed.memberEntityAliasMap.get(entityAlias);
             }
             ArrayList<MNode> cafList = fieldNode.descendants("complex-alias-field");
             int cafListSize = cafList.size();
@@ -127,8 +129,15 @@ public class FieldInfo {
                 String cafEntityAlias = cafNode.attribute("entity-alias");
                 if (cafEntityAlias != null && cafEntityAlias.length() > 0) entityAliasUsedSet.add(cafEntityAlias);
             }
+            if (tempMembEntNode == null && entityAliasUsedSet.size() == 1) {
+                String singleEntityAlias = entityAliasUsedSet.iterator().next();
+                tempMembEntNode = ed.memberEntityAliasMap.get(singleEntityAlias);
+            }
+            memberEntityNode = tempMembEntNode;
+            hasAggregateFunction = aggFunctions.contains(fieldNode.attribute("function"));
         } else {
             memberEntityNode = null;
+            hasAggregateFunction = false;
         }
     }
 

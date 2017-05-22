@@ -476,26 +476,13 @@ public class EntityFindBuilder extends EntityQueryBuilder {
 
         StringBuilder gbClause = new StringBuilder();
         if (entityInfo.hasFunctionAlias) {
-            // do a different approach to GROUP BY: add all fields that are selected and don't have a function
-            ArrayList<MNode> aliasList = mainEntityDefinition.getEntityNode().children("alias");
-            int aliasListSize = aliasList.size();
-            for (int i = 0; i < aliasListSize; i++) {
-                MNode aliasNode = aliasList.get(i);
-                String functionAttr = aliasNode.attribute("function");
-                if (functionAttr == null || functionAttr.isEmpty()) {
-                    String aliasName = aliasNode.attribute("name");
-                    FieldInfo foundFi = null;
-                    for (int j = 0; j < fieldInfoArray.length; j++) {
-                        FieldInfo fi = fieldInfoArray[j];
-                        if (fi != null && fi.name.equals(aliasName)) {
-                            foundFi = fi;
-                            break;
-                        }
-                    }
-                    if (foundFi != null) {
-                        if (gbClause.length() > 0) gbClause.append(", ");
-                        gbClause.append(foundFi.getFullColumnName());
-                    }
+            // do a different approach to GROUP BY: add all fields that are selected and don't have a function or that are in a sub-select
+            for (int j = 0; j < fieldInfoArray.length; j++) {
+                FieldInfo fi = fieldInfoArray[j];
+                if (fi == null) continue;
+                if (!fi.hasAggregateFunction || (fi.memberEntityNode != null && "true".equals(fi.memberEntityNode.attribute("sub-select")))) {
+                    if (gbClause.length() > 0) gbClause.append(", ");
+                    gbClause.append(fi.getFullColumnName());
                 }
             }
         }
