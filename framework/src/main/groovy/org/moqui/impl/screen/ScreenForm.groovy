@@ -1631,7 +1631,11 @@ class ScreenForm {
                 boolean doPaginate = sfiNode != null && !"false".equals(sfiNode.attribute("paginate"))
                 if (doPaginate) {
                     long count, pageSize, pageIndex
-                    if (useCache) {
+                    if (ef.getLimit() == null) {
+                        count = efList.size()
+                        pageSize = count > 20 ? count : 20
+                        pageIndex = efList.pageIndex
+                    } else if (useCache) {
                         count = efList.size()
                         efList.filterByLimit(sfiNode.attribute("input-fields-map"), true)
                         pageSize = efList.pageSize
@@ -1639,8 +1643,7 @@ class ScreenForm {
                     } else {
                         count = ef.count()
                         pageIndex = ef.pageIndex
-                        if (ef.limit == null) { pageSize = count > 20 ? count : 20 }
-                        else { pageSize = ef.pageSize }
+                        pageSize = ef.pageSize
                     }
                     long maxIndex = (new BigDecimal(count-1)).divide(new BigDecimal(pageSize), 0, BigDecimal.ROUND_DOWN).longValue()
                     long pageRangeLow = (pageIndex * pageSize) + 1

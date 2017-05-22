@@ -163,9 +163,15 @@ return;
     </#if>
     <#if doPaginate>
         <#if !useCache>
-            ${listName}Count = ${listName}_xafind.count()
-            ${listName}PageIndex = ${listName}_xafind.pageIndex
-            if (${listName}_xafind.limit == null) { ${listName}PageSize = ${listName}Count } else { ${listName}PageSize = ${listName}_xafind.pageSize }
+            if (${listName}_xafind.getLimit() == null) {
+                ${listName}Count = ${listName}.size()
+                ${listName}PageIndex = ${listName}.pageIndex
+                ${listName}PageSize = ${listName}Count > 20 ? ${listName}Count : 20
+            } else {
+                ${listName}Count = ${listName}_xafind.count()
+                ${listName}PageIndex = ${listName}_xafind.pageIndex
+                ${listName}PageSize = ${listName}_xafind.pageSize
+            }
         </#if>
         ${listName}PageMaxIndex = ((BigDecimal) (${listName}Count - 1)).divide(${listName}PageSize ?: (${listName}Count - 1), 0, BigDecimal.ROUND_DOWN) as int
         ${listName}PageRangeLow = ${listName}PageIndex * ${listName}PageSize + 1

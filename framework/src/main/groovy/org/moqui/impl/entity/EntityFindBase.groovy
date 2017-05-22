@@ -407,7 +407,7 @@ abstract class EntityFindBase implements EntityFind {
         }
 
         // if there is a pageNoLimit clear out the limit regardless of other settings
-        if (inputFieldsMap?.get("pageNoLimit") == "true" || inputFieldsMap?.get("pageNoLimit") == true) {
+        if ("true".equals(inputFieldsMap?.get("pageNoLimit")) || inputFieldsMap?.get("pageNoLimit") == true) {
             offset = null
             limit = null
         }
