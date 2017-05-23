@@ -41,6 +41,7 @@ import java.util.Map;
 public class EntityJavaUtil {
     protected final static Logger logger = LoggerFactory.getLogger(EntityJavaUtil.class);
     protected final static boolean isTraceEnabled = logger.isTraceEnabled();
+    private static final String PLACEHOLDER = "PLHLDR";
 
     private static final int saltBytes = 8;
     static String enDeCrypt(String value, boolean encrypt, EntityFacadeImpl efi) {
@@ -370,15 +371,17 @@ public class EntityJavaUtil {
             for (int i = 0; i < size; i++) {
                 FieldInfo fi = fieldInfoArray[i];
                 String fieldName = fi.name;
-                String sourceFieldName;
+                String srcName;
                 if (hasNamePrefix) {
-                    sourceFieldName = namePrefix + Character.toUpperCase(fieldName.charAt(0)) + fieldName.substring(1);
+                    srcName = namePrefix + Character.toUpperCase(fieldName.charAt(0)) + fieldName.substring(1);
                 } else {
-                    sourceFieldName = fieldName;
+                    srcName = fieldName;
                 }
 
-                Object value = srcIsEntityValueBase? evb.getValueMap().get(sourceFieldName) : src.get(sourceFieldName);
-                if (value != null || (srcIsEntityValueBase ? evb.isFieldSet(sourceFieldName) : src.containsKey(sourceFieldName))) {
+                Object value = srcIsEntityValueBase? evb.getValueMap().getOrDefault(srcName, PLACEHOLDER) : src.getOrDefault(srcName, PLACEHOLDER);
+                boolean srcNotContains = false;
+                if (value == PLACEHOLDER) { srcNotContains = true; value = null; }
+                if (value != null || !srcNotContains) {
                     boolean isCharSequence = false;
                     boolean isEmpty = false;
                     if (value == null) {
@@ -401,7 +404,7 @@ public class EntityJavaUtil {
                             if (destIsEntityValueBase) destEvb.putNoCheck(fieldName, value);
                             else dest.put(fieldName, value);
                         }
-                    } else if (setIfEmpty && src.containsKey(sourceFieldName)) {
+                    } else if (setIfEmpty && !srcNotContains) {
                         // treat empty String as null, otherwise set as whatever null or empty type it is
                         if (value != null && isCharSequence) {
                             if (destIsEntityValueBase) destEvb.putNoCheck(fieldName, null);
@@ -430,8 +433,10 @@ public class EntityJavaUtil {
                 FieldInfo fi = fieldInfoArray[i];
                 String fieldName = fi.name;
 
-                Object value = srcIsEntityValueBase? evb.getValueMap().get(fieldName) : src.get(fieldName);
-                if (value != null || (srcIsEntityValueBase ? evb.isFieldSet(fieldName) : src.containsKey(fieldName))) {
+                Object value = srcIsEntityValueBase ? evb.getValueMap().getOrDefault(fieldName, PLACEHOLDER) : src.getOrDefault(fieldName, PLACEHOLDER);
+                boolean srcNotContains = false;
+                if (value == PLACEHOLDER) { srcNotContains = true; value = null; }
+                if (value != null || !srcNotContains) {
                     boolean isCharSequence = false;
                     boolean isEmpty = false;
                     if (value == null) {
@@ -452,7 +457,7 @@ public class EntityJavaUtil {
                         } else {
                             dest.putNoCheck(fieldName, value);
                         }
-                    } else if (src.containsKey(fieldName)) {
+                    } else if (!srcNotContains) {
                         // treat empty String as null, otherwise set as whatever null or empty type it is
                         dest.putNoCheck(fieldName, null);
                     }
