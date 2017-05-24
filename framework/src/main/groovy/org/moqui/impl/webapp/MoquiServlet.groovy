@@ -117,7 +117,12 @@ class MoquiServlet extends HttpServlet {
                             errorsString, t, ecfi, webappName, sri)
                 }
             } else {
-                logger.error("Internal error processing request: " + t.message, t)
+                String tString = t.toString()
+                if (tString.contains("org.eclipse.jetty.io.EofException")) {
+                    logger.error("Internal error processing request: " + tString)
+                } else {
+                    logger.error("Internal error processing request: " + tString, t)
+                }
                 sendErrorResponse(request, response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "internal-error",
                         t.message, t, ecfi, webappName, sri)
             }

@@ -422,8 +422,13 @@ class TransactionFacadeImpl implements TransactionFacade {
                 return
             }
 
-            logger.warn("Transaction rollback. The rollback was originally caused by: ${causeMessage}", causeThrowable)
-            logger.warn("Transaction rollback for [${causeMessage}]. Here is the current location: ", new BaseException("Rollback location"))
+            String causeString = causeThrowable.toString()
+            if (causeString.contains("org.eclipse.jetty.io.EofException")) {
+                logger.warn("Transaction rollback. The rollback was originally caused by: ${causeMessage}\n${causeString}")
+            } else {
+                logger.warn("Transaction rollback. The rollback was originally caused by: ${causeMessage}", causeThrowable)
+                logger.warn("Transaction rollback for [${causeMessage}]. Here is the current location: ", new BaseException("Rollback location"))
+            }
 
             txStackInfo.closeTxConnections()
             ut.rollback()
@@ -446,8 +451,13 @@ class TransactionFacadeImpl implements TransactionFacade {
             if (status != Status.STATUS_NO_TRANSACTION) {
                 if (status != Status.STATUS_MARKED_ROLLBACK) {
                     Exception rbLocation = new BaseException("Set rollback only location")
-                    logger.warn("Transaction set rollback only. The rollback was originally caused by: ${causeMessage}", causeThrowable)
-                    logger.warn("Transaction set rollback only for [${causeMessage}]. Here is the current location: ", rbLocation)
+                    String causeString = causeThrowable.toString()
+                    if (causeString.contains("org.eclipse.jetty.io.EofException")) {
+                        logger.warn("Transaction rollback. The rollback was originally caused by: ${causeMessage}\n${causeString}")
+                    } else {
+                        logger.warn("Transaction set rollback only. The rollback was originally caused by: ${causeMessage}", causeThrowable)
+                        logger.warn("Transaction set rollback only for [${causeMessage}]. Here is the current location: ", rbLocation)
+                    }
 
                     ut.setRollbackOnly()
                     // do this after setRollbackOnly so it only tracks it if rollback-only was actually set

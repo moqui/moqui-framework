@@ -67,7 +67,9 @@ public class XmlAction {
             return script.run();
         } catch (Throwable t) {
             // NOTE: not logging full stack trace, only needed when lots of threads are running to pin down error (always logged later)
-            logger.error("Error running groovy script (" + t.toString() + "): \n" + writeGroovyWithLines() + "\n");
+            String tString = t.toString();
+            if (!tString.contains("org.eclipse.jetty.io.EofException"))
+                logger.error("Error running groovy script (" + t.toString() + "): \n" + writeGroovyWithLines() + "\n");
             throw t;
         }
     }

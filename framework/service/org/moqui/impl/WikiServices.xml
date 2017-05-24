@@ -386,6 +386,9 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters>
             <parameter name="wikiSpaceId" required="true"/>
             <parameter name="currentPagePath"><description>If specified all pages starting with this path will be excluded</description></parameter>
+            <parameter name="wikiPageCategoryId" required="false">
+                <description>If specified then flat list contains only items with this category assigned.</description>
+            </parameter>
         </in-parameters>
         <out-parameters>
             <parameter name="allChildFileFlatList" type="List"><parameter name="childInfo" type="Map">
@@ -415,6 +418,28 @@ along with this software (see the LICENSE.md file). If not, see
                 ]]></script>
                 <script>filterMapList(rootChildResourceList, [path:currentPagePath], true)</script>
             </if>
+
+            <!-- if category is specified then remove all children which don't have this category -->
+            <if condition="wikiPageCategoryId">
+                <script><![CDATA[
+                    int allChildFileFlatSize = allChildFileFlatList.size()
+                    for (int i = 0; i < allChildFileFlatSize;) {
+                        Map allChildFileFlat = (Map) allChildFileFlatList.get(i)
+                        if (allChildFileFlat) {
+                            resultMap = ec.service.sync().name('org.moqui.impl.WikiServices.get#WikiPageId')
+                                .parameters([wikiSpaceId:wikiSpaceId, pagePath:allChildFileFlat.path, createIfMissing: false])
+                                .call()
+                            def wikiPageId = resultMap.wikiPageId
+                            if (wikiPageId && ec.entity.find("WikiPageCategoryMember")
+                                    .condition([wikiPageId:wikiPageId, wikiPageCategoryId:wikiPageCategoryId]).one())
+                            { i++ } else {
+                                allChildFileFlatList.remove(i); allChildFileFlatSize--
+                            }
+                        }
+                    }
+                ]]></script>
+            </if>
+
             <!-- <iterate list="allChildFileFlatList" entry="allChildFileFlat">
                 <log level="warn" message="============= allChildFileFlat=${allChildFileFlat}"/>
             </iterate>
