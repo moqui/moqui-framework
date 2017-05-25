@@ -172,34 +172,50 @@ class ScreenRenderImpl implements ScreenRender {
     }
     boolean sendJsonRedirect(UrlInstance fullUrl) {
         if ("json".equals(screenUrlInfo.targetTransitionExtension) || request?.getHeader("Accept")?.contains("application/json")) {
-            Map<String, Object> responseMap = new HashMap<>()
-            // add saveMessagesToSession, saveRequestParametersToSession/saveErrorParametersToSession data
-            // add all plain object data from session?
-            if (ec.message.getMessages().size() > 0) responseMap.put("messages", ec.message.messages)
-            if (ec.message.getErrors().size() > 0) responseMap.put("errors", ec.message.errors)
-            if (ec.message.getValidationErrors().size() > 0) {
-                List<ValidationError> valErrorList = ec.message.getValidationErrors()
-                int valErrorListSize = valErrorList.size()
-                ArrayList<Map> valErrMapList = new ArrayList<>(valErrorListSize)
-                for (int i = 0; i < valErrorListSize; i++) valErrMapList.add(valErrorList.get(i).getMap())
-                responseMap.put("validationErrors", valErrMapList)
-            }
-
-            Map parms = new HashMap()
-            if (ec.web.requestParameters != null) parms.putAll(ec.web.requestParameters)
-            if (ec.web.requestAttributes != null) parms.putAll(ec.web.requestAttributes)
-            responseMap.put("currentParameters", ContextJavaUtil.unwrapMap(parms))
-
+            Map<String, Object> responseMap = getBasicResponseMap()
             // add screen path, parameters from fullUrl
             responseMap.put("screenPathList", fullUrl.sui.fullPathNameList)
             responseMap.put("screenParameters", fullUrl.getParameterMap())
             responseMap.put("screenUrl", fullUrl.getPathWithParams())
-
+            // send it
             ec.web.sendJsonResponse(responseMap)
             return true
         } else {
             return false
         }
+    }
+    boolean sendJsonRedirect(String plainUrl) {
+        if ("json".equals(screenUrlInfo.targetTransitionExtension) || request?.getHeader("Accept")?.contains("application/json")) {
+            Map<String, Object> responseMap = getBasicResponseMap()
+            // the plain URL, send as redirect URL
+            responseMap.put("redirectUrl", plainUrl)
+            // send it
+            ec.web.sendJsonResponse(responseMap)
+            return true
+        } else {
+            return false
+        }
+    }
+    Map<String, Object> getBasicResponseMap() {
+        Map<String, Object> responseMap = new HashMap<>()
+        // add saveMessagesToSession, saveRequestParametersToSession/saveErrorParametersToSession data
+        // add all plain object data from session?
+        if (ec.message.getMessages().size() > 0) responseMap.put("messages", ec.message.messages)
+        if (ec.message.getErrors().size() > 0) responseMap.put("errors", ec.message.errors)
+        if (ec.message.getValidationErrors().size() > 0) {
+            List<ValidationError> valErrorList = ec.message.getValidationErrors()
+            int valErrorListSize = valErrorList.size()
+            ArrayList<Map> valErrMapList = new ArrayList<>(valErrorListSize)
+            for (int i = 0; i < valErrorListSize; i++) valErrMapList.add(valErrorList.get(i).getMap())
+            responseMap.put("validationErrors", valErrMapList)
+        }
+
+        Map parms = new HashMap()
+        if (ec.web.requestParameters != null) parms.putAll(ec.web.requestParameters)
+        if (ec.web.requestAttributes != null) parms.putAll(ec.web.requestAttributes)
+        responseMap.put("currentParameters", ContextJavaUtil.unwrapMap(parms))
+
+        return responseMap
     }
 
     protected void internalRender() {
@@ -410,7 +426,9 @@ class ScreenRenderImpl implements ScreenRender {
                     }
                     // NOTE: even if transition extension is json still send redirect when we just have a plain url
                     if (logger.isInfoEnabled()) logger.info("Transition ${screenUrlInfo.getFullPathNameList().join("/")} in ${System.currentTimeMillis() - renderStartTime}ms, redirecting to plain URL: ${fullUrl}")
-                    response.sendRedirect(fullUrl)
+                    if (!sendJsonRedirect(fullUrl)) {
+                        response.sendRedirect(fullUrl)
+                    }
                 } else {
                     // default is screen-path
                     UrlInstance fullUrl = buildUrl(rootScreenDef, screenUrlInfo.preTransitionPathNameList, url)
