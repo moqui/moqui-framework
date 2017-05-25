@@ -1,12 +1,12 @@
 /*
- * This software is in the public domain under CC0 1.0 Universal plus a 
+ * This software is in the public domain under CC0 1.0 Universal plus a
  * Grant of Patent License.
- * 
+ *
  * To the extent possible under law, the author(s) have dedicated all
  * copyright and related and neighboring rights to this software to the
  * public domain worldwide. This software is distributed without any
  * warranty.
- * 
+ *
  * You should have received a copy of the CC0 Public Domain Dedication
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
@@ -391,17 +391,29 @@ class UserFacadeImpl implements UserFacade {
             thruCal.add(Calendar.DAY_OF_YEAR, 7)
             // have last 7d also include today (like 30d)
             if (offset == -1) thruCal.add(Calendar.DAY_OF_YEAR, 1)
-        } else if (period == "month") {
-            fromCal.set(Calendar.DAY_OF_MONTH, fromCal.getActualMinimum(Calendar.DAY_OF_MONTH))
-            fromCal.add(Calendar.MONTH, offset)
-            thruCal = (Calendar) fromCal.clone()
-            thruCal.add(Calendar.MONTH, 1)
         } else if (period == "30d") {
             fromCal.add(Calendar.DAY_OF_YEAR, offset * 30)
             thruCal = (Calendar) fromCal.clone()
             thruCal.add(Calendar.DAY_OF_YEAR, 30)
             // have last 30d also include today to make it a more useful default
             if (offset == -1) thruCal.add(Calendar.DAY_OF_YEAR, 1)
+        } else if (period == "60d") {
+            fromCal.add(Calendar.DAY_OF_YEAR, offset * 60)
+            thruCal = (Calendar) fromCal.clone()
+            thruCal.add(Calendar.DAY_OF_YEAR, 60)
+            // have last 60d also include today to make it a more useful default
+            if (offset == -1) thruCal.add(Calendar.DAY_OF_YEAR, 1)
+        } else if (period == "90d") {
+            fromCal.add(Calendar.DAY_OF_YEAR, offset * 90)
+            thruCal = (Calendar) fromCal.clone()
+            thruCal.add(Calendar.DAY_OF_YEAR, 90)
+            // have last 90d also include today to make it a more useful default
+            if (offset == -1) thruCal.add(Calendar.DAY_OF_YEAR, 1)
+        } else if (period == "month") {
+            fromCal.set(Calendar.DAY_OF_MONTH, fromCal.getActualMinimum(Calendar.DAY_OF_MONTH))
+            fromCal.add(Calendar.MONTH, offset)
+            thruCal = (Calendar) fromCal.clone()
+            thruCal.add(Calendar.MONTH, 1)
         } else if (period == "year") {
             fromCal.set(Calendar.DAY_OF_YEAR, fromCal.getActualMinimum(Calendar.DAY_OF_YEAR))
             fromCal.add(Calendar.YEAR, offset)
