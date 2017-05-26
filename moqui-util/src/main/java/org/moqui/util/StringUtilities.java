@@ -26,9 +26,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.SecureRandom;
 import java.text.ParseException;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 /**
  * These are utilities that should exist elsewhere, but I can't find a good simple library for them, and they are
@@ -287,6 +285,13 @@ public class StringUtilities {
         String randomStr = Base64.getUrlEncoder().encodeToString(randomBytes);
         if (randomStr.length() > length) randomStr = randomStr.substring(0, length);
         return randomStr;
+    }
+
+    public static ArrayList<String> getYearList(int years) {
+        ArrayList<String> yearList = new ArrayList<>(years);
+        int startYear = Calendar.getInstance().get(Calendar.YEAR);
+        for (int i = 0; i < years; i++) yearList.add(Integer.toString(startYear + i));
+        return yearList;
     }
 
     /** Convert any value from 0 to 999 inclusive, to a string. */

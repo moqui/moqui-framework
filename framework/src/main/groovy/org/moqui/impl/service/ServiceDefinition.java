@@ -729,12 +729,11 @@ public class ServiceDefinition {
                 // handle after date/time/date-time depending on type of parameter, support "now" too
                 Calendar compareCal;
                 if ("now".equals(after)) {
-                    compareCal = Calendar.getInstance();
-                    compareCal.setTimeInMillis(eci.getUser().getNowTimestamp().getTime());
+                    compareCal = eci.getL10n().parseDateTime(eci.getL10n().format(eci.getUser().getNowTimestamp(), format), format);
                 } else {
                     compareCal = eci.getL10n().parseDateTime(after, format);
                 }
-                if (cal != null && !cal.after(compareCal)) {
+                if (cal != null && cal.compareTo(compareCal) < 0) {
                     Map<String, Object> map = new HashMap<>(2); map.put("pv", pv); map.put("after", after);
                     eci.getMessage().addValidationError(null, parameterName, serviceName, eci.getResource().expand("Value entered (${pv}) is before ${after}.", "", map), null);
                     return false;
@@ -746,12 +745,11 @@ public class ServiceDefinition {
                 // handle after date/time/date-time depending on type of parameter, support "now" too
                 Calendar compareCal;
                 if ("now".equals(before)) {
-                    compareCal = Calendar.getInstance();
-                    compareCal.setTimeInMillis(eci.getUser().getNowTimestamp().getTime());
+                    compareCal = eci.getL10n().parseDateTime(eci.getL10n().format(eci.getUser().getNowTimestamp(), format), format);
                 } else {
                     compareCal = eci.getL10n().parseDateTime(before, format);
                 }
-                if (cal != null && !cal.before(compareCal)) {
+                if (cal != null && cal.compareTo(compareCal) > 0) {
                     Map<String, Object> map = new HashMap<>(1); map.put("pv", pv);
                     eci.getMessage().addValidationError(null, parameterName, serviceName, eci.getResource().expand("Value entered (${pv}) is after ${before}.", "", map), null);
                     return false;
