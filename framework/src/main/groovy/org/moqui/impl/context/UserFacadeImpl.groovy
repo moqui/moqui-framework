@@ -370,45 +370,48 @@ class UserFacadeImpl implements UserFacade {
     }
 
     @Override
-    List<Timestamp> getPeriodRange(String period, String poffset) {
-        period = (period ?: "day").toLowerCase()
+    ArrayList<Timestamp> getPeriodRange(String period, String poffset) { return getPeriodRange(period, poffset, null) }
+    @Override
+    ArrayList<Timestamp> getPeriodRange(String period, String poffset, String pdate) {
         int offset = (poffset ?: "0") as int
+        java.sql.Date sqlDate = (pdate != null && !pdate.isEmpty()) ? eci.l10nFacade.parseDate(pdate, null) : null
+        return getPeriodRange(period, offset, sqlDate)
+    }
+    @Override
+    ArrayList<Timestamp> getPeriodRange(String period, int offset, java.sql.Date sqlDate) {
+        period = (period ?: "day").toLowerCase()
+        boolean perIsNumber = Character.isDigit(period.charAt(0))
 
         Calendar basisCal = getCalendarSafe()
-        basisCal.set(Calendar.HOUR_OF_DAY, 0); basisCal.set(Calendar.MINUTE, 0);
-        basisCal.set(Calendar.SECOND, 0); basisCal.set(Calendar.MILLISECOND, 0);
+        if (sqlDate != null) basisCal.setTimeInMillis(sqlDate.getTime())
+        basisCal.set(Calendar.HOUR_OF_DAY, 0); basisCal.set(Calendar.MINUTE, 0)
+        basisCal.set(Calendar.SECOND, 0); basisCal.set(Calendar.MILLISECOND, 0)
         // this doesn't seem to work to set the time to midnight: basisCal.setTime(new java.sql.Date(nowTimestamp.time))
-        Calendar fromCal = basisCal
+        Calendar fromCal = (Calendar) basisCal.clone()
         Calendar thruCal
-        if (period == "week") {
+        if (perIsNumber && period.endsWith("d")) {
+            int days = Integer.parseInt(period.substring(0, period.length() - 1))
+            if (offset < 0) {
+                fromCal.add(Calendar.DAY_OF_YEAR, offset * days)
+                thruCal = (Calendar) basisCal.clone()
+                // also include today (or anchor date in pdate)
+                thruCal.add(Calendar.DAY_OF_YEAR, 1)
+            } else {
+                // fromCal already set to basisCal, just set thruCal
+                thruCal = (Calendar) basisCal.clone()
+                thruCal.add(Calendar.DAY_OF_YEAR, (offset + 1) * days)
+            }
+        } else if (perIsNumber && period.endsWith("r")) {
+            int days = Integer.parseInt(period.substring(0, period.length() - 1))
+            if (offset < 0) offset = -offset
+            fromCal.add(Calendar.DAY_OF_YEAR, -offset * days)
+            thruCal = (Calendar) basisCal.clone()
+            thruCal.add(Calendar.DAY_OF_YEAR, offset * days)
+        } else if (period == "week") {
             fromCal.set(Calendar.DAY_OF_WEEK, fromCal.getFirstDayOfWeek())
             fromCal.add(Calendar.WEEK_OF_YEAR, offset)
             thruCal = (Calendar) fromCal.clone()
             thruCal.add(Calendar.WEEK_OF_YEAR, 1)
-        } else if (period == "7d") {
-            fromCal.add(Calendar.DAY_OF_YEAR, offset * 7)
-            thruCal = (Calendar) fromCal.clone()
-            thruCal.add(Calendar.DAY_OF_YEAR, 7)
-            // have last 7d also include today (like 30d)
-            if (offset == -1) thruCal.add(Calendar.DAY_OF_YEAR, 1)
-        } else if (period == "30d") {
-            fromCal.add(Calendar.DAY_OF_YEAR, offset * 30)
-            thruCal = (Calendar) fromCal.clone()
-            thruCal.add(Calendar.DAY_OF_YEAR, 30)
-            // have last 30d also include today to make it a more useful default
-            if (offset == -1) thruCal.add(Calendar.DAY_OF_YEAR, 1)
-        } else if (period == "60d") {
-            fromCal.add(Calendar.DAY_OF_YEAR, offset * 60)
-            thruCal = (Calendar) fromCal.clone()
-            thruCal.add(Calendar.DAY_OF_YEAR, 60)
-            // have last 60d also include today to make it a more useful default
-            if (offset == -1) thruCal.add(Calendar.DAY_OF_YEAR, 1)
-        } else if (period == "90d") {
-            fromCal.add(Calendar.DAY_OF_YEAR, offset * 90)
-            thruCal = (Calendar) fromCal.clone()
-            thruCal.add(Calendar.DAY_OF_YEAR, 90)
-            // have last 90d also include today to make it a more useful default
-            if (offset == -1) thruCal.add(Calendar.DAY_OF_YEAR, 1)
         } else if (period == "month") {
             fromCal.set(Calendar.DAY_OF_MONTH, fromCal.getActualMinimum(Calendar.DAY_OF_MONTH))
             fromCal.add(Calendar.MONTH, offset)
@@ -426,7 +429,10 @@ class UserFacadeImpl implements UserFacade {
             thruCal.add(Calendar.DAY_OF_YEAR, 1)
         }
 
-        return [new Timestamp(fromCal.getTimeInMillis()), new Timestamp(thruCal.getTimeInMillis())]
+        ArrayList<Timestamp> rangeList = new ArrayList<>(2)
+        rangeList.add(new Timestamp(fromCal.getTimeInMillis()))
+        rangeList.add(new Timestamp(thruCal.getTimeInMillis()))
+        return rangeList
     }
 
     @Override

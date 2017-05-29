@@ -489,7 +489,8 @@ abstract class EntityFindBase implements EntityFind {
                     addedConditions = true
                 }
             } else if (inputFieldsMap.get(fn + "_period")) {
-                List<Timestamp> range = ec.user.getPeriodRange((String) inputFieldsMap.get(fn + "_period"), (String) inputFieldsMap.get(fn + "_poffset"))
+                List<Timestamp> range = ec.user.getPeriodRange((String) inputFieldsMap.get(fn + "_period"),
+                        (String) inputFieldsMap.get(fn + "_poffset"), (String) inputFieldsMap.get(fn + "_pdate"))
                 this.condition(efi.entityConditionFactory.makeCondition(fn, EntityCondition.GREATER_THAN_EQUAL_TO, range.get(0)))
                 this.condition(efi.entityConditionFactory.makeCondition(fn, EntityCondition.LESS_THAN, range.get(1)))
                 addedConditions = true
