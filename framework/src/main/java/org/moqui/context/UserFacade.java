@@ -70,7 +70,13 @@ public interface UserFacade {
     Timestamp getNowTimestamp();
     /** Get a Calendar object with user's TimeZone and Locale set, and set to same time as returned by getNowTimestamp(). */
     Calendar getNowCalendar();
-    List<Timestamp> getPeriodRange(String period, String poffset);
+
+    /** Get a Timestamp range (from/thru) based on period (day, week, month, year; 7d, 30d, etc), offset, and anchor date (defaults to now)
+     * @return ArrayList with 2 entries, entry 0 is the from Timestamp, entry 1 is the thru Timestamp
+     */
+    ArrayList<Timestamp> getPeriodRange(String period, String poffset, String pdate);
+    ArrayList<Timestamp> getPeriodRange(String period, int poffset, java.sql.Date pdate);
+    ArrayList<Timestamp> getPeriodRange(String period, String poffset);
 
     /** Set an EffectiveTime for the current context which will then be returned from the getNowTimestamp() method.
      * This is used to test past and future behavior of applications.
