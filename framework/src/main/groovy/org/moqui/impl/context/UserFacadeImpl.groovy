@@ -380,6 +380,7 @@ class UserFacadeImpl implements UserFacade {
     @Override
     ArrayList<Timestamp> getPeriodRange(String period, int offset, java.sql.Date sqlDate) {
         period = (period ?: "day").toLowerCase()
+        boolean perIsNumber = Character.isDigit(period.charAt(0))
 
         Calendar basisCal = getCalendarSafe()
         if (sqlDate != null) basisCal.setTimeInMillis(sqlDate.getTime())
@@ -388,7 +389,7 @@ class UserFacadeImpl implements UserFacade {
         // this doesn't seem to work to set the time to midnight: basisCal.setTime(new java.sql.Date(nowTimestamp.time))
         Calendar fromCal = (Calendar) basisCal.clone()
         Calendar thruCal
-        if (period.endsWith("d")) {
+        if (perIsNumber && period.endsWith("d")) {
             int days = Integer.parseInt(period.substring(0, period.length() - 1))
             if (offset < 0) {
                 fromCal.add(Calendar.DAY_OF_YEAR, offset * days)
@@ -400,7 +401,7 @@ class UserFacadeImpl implements UserFacade {
                 thruCal = (Calendar) basisCal.clone()
                 thruCal.add(Calendar.DAY_OF_YEAR, (offset + 1) * days)
             }
-        } else if (period.endsWith("r")) {
+        } else if (perIsNumber && period.endsWith("r")) {
             int days = Integer.parseInt(period.substring(0, period.length() - 1))
             if (offset < 0) offset = -offset
             fromCal.add(Calendar.DAY_OF_YEAR, -offset * days)
