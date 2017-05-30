@@ -30,6 +30,7 @@ import org.moqui.impl.service.ServiceFacadeImpl
 import org.moqui.impl.service.ServiceRunner
 import org.moqui.service.ServiceException
 import org.moqui.util.ObjectUtilities
+import org.moqui.util.StringUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -117,11 +118,14 @@ class EntityAutoServiceRunner implements ServiceRunner {
         // see if all PK fields were passed in
         boolean allPksIn = true
         int pkSize = pkFieldInfos.length
+        ArrayList<String> missingPkFields = (ArrayList<String>) null
         for (int i = 0; i < pkSize; i++) {
-            FieldInfo fieldInfo = pkFieldInfos[i]
+            FieldInfo fieldInfo = (FieldInfo) pkFieldInfos[i]
             Object pkValue = parameters.get(fieldInfo.name)
             if (ObjectUtilities.isEmpty(pkValue) && (fieldInfo.defaultStr == null || fieldInfo.defaultStr.isEmpty())) {
                 allPksIn = false
+                if (missingPkFields == null) missingPkFields = new ArrayList<>()
+                missingPkFields.add(fieldInfo.name)
             }
         }
         boolean isSinglePk = pkSize == 1
@@ -161,12 +165,16 @@ class EntityAutoServiceRunner implements ServiceRunner {
             /* **** plain specified primary key **** */
             newEntityValue.setFields(parameters, true, null, true)
         } else {
-            logger.error("Entity [${ed.fullEntityName}] auto create pk fields ${ed.getPkFieldNames()} incomplete: ${parameters}")
-            throw new ServiceException("In entity-auto create service for entity [${ed.fullEntityName}]: " +
-                    "could not find a valid combination of primary key settings to do a create operation; options include: " +
+            logger.error("Entity [${ed.fullEntityName}] auto create pk fields ${ed.getPkFieldNames()} incomplete: ${parameters}" +
+                    "\nCould not find a valid combination of primary key settings to do a create operation; options include: " +
                     "1. a single entity primary-key field for primary auto-sequencing with or without matching in-parameter, and with or without matching out-parameter for the possibly sequenced value, " +
                     "2. a 2-part entity primary-key with one part passed in as an in-parameter (existing primary pk value) and with or without the other part defined as an out-parameter (the secodnary pk to sub-sequence), " +
                     "3. all entity pk fields are passed into the service")
+            if (missingPkFields.size() == 1) {
+                throw new ServiceException("Required field ${StringUtilities.camelCaseToPretty(missingPkFields.get(0))} is missing, cannot create ${StringUtilities.camelCaseToPretty(ed.entityName)}")
+            } else {
+                throw new ServiceException("Required fields ${missingPkFields.collect({ StringUtilities.camelCaseToPretty(it) }).join(', ')} are missing, cannot create ${StringUtilities.camelCaseToPretty(ed.entityName)}")
+            }
         }
 
         // logger.info("In auto createEntity allPksIn [${allPksIn}] isSinglePk [${isSinglePk}] isDoublePk [${isDoublePk}] newEntityValue final [${newEntityValue}]")
