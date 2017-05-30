@@ -976,7 +976,7 @@ class ScreenDefinition {
         boolean checkCondition(ExecutionContextImpl ec) { return condition ? condition.checkCondition(ec) : true }
 
         String getType() { return type }
-        String getUrl() { return parentScreen.sfi.ecfi.resourceFacade.expand(url, "") }
+        String getUrl() { return parentScreen.sfi.ecfi.resourceFacade.expandNoL10n(url, "") }
         String getUrlType() { return urlType }
         boolean getSaveCurrentScreen() { return saveCurrentScreen }
         boolean getSaveParameters() { return saveParameters }
