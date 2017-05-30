@@ -56,6 +56,7 @@ public abstract class EntityValueBase implements EntityValue {
     private static final String UPDATE_ERROR = "Error updating ${entityName} ${primaryKeys}";
     private static final String DELETE_ERROR = "Error deleting ${entityName} ${primaryKeys}";
     private static final String REFRESH_ERROR = "Error finding ${entityName} ${primaryKeys}";
+    private static final String PLACEHOLDER = "PLHLDR";
 
     private String entityName;
     final HashMap<String, Object> valueMapInternal = new HashMap<>();
@@ -138,11 +139,20 @@ public abstract class EntityValueBase implements EntityValue {
     @Override public String getEntityName() { return entityName; }
     @Override public boolean isModified() { return modified; }
     @Override public boolean isFieldModified(String name) {
+        Object valueMapValue = valueMapInternal.getOrDefault(name, PLACEHOLDER);
+        // identity compare as alternative to containsKey() call, if is PLACEHOLDER then Map didn't contain the key
+        if (valueMapValue == PLACEHOLDER) return false;
+        if (dbValueMap == null) return true;
+        Object dbValue = dbValueMap.getOrDefault(name, PLACEHOLDER);
+        if (dbValue == PLACEHOLDER) return true;
+        return (valueMapValue == null && dbValue != null) || (valueMapValue != null && !valueMapValue.equals(dbValue));
+        /*
         if (!valueMapInternal.containsKey(name)) return false;
         if (dbValueMap == null || !dbValueMap.containsKey(name)) return true;
         Object valueMapValue = valueMapInternal.get(name);
         Object dbValue = dbValueMap.get(name);
         return (valueMapValue == null && dbValue != null) || (valueMapValue != null && !valueMapValue.equals(dbValue));
+        */
     }
     @Override public boolean isFieldSet(String name) { return valueMapInternal.containsKey(name); }
     @Override public boolean isField(String name) { return getEntityDefinition().isField(name); }

@@ -490,7 +490,7 @@ class EntityDataDocument {
                     EntityValue ddf = ddfByAlias.get(fieldAlias)
                     if (ddf == null) throw new EntityException("Could not find DataDocumentField for field alias ${fieldName}")
                     dynamicView.addAlias(entityAlias, fieldAlias, fieldName, (String) ddf.getNoCheckSimple("functionName"),
-                            (String) ddf.getNoCheckSimple("defaultDisplay"))
+                            "N".equals(ddf.getNoCheckSimple("defaultDisplay")) ? "false" : null)
                 }
             }
         }
