@@ -58,6 +58,15 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.EnumerationType description="Boolean (Yes/No)" enumTypeId="BooleanYN"/>
             <moqui.basic.Enumeration description="Yes" enumId="BlY" enumTypeId="BooleanYN"/>
             <moqui.basic.Enumeration description="No" enumId="BlN" enumTypeId="BooleanYN"/>
+
+            <moqui.basic.EnumerationType description="Day of Week" enumTypeId="DayOfWeek"/>
+            <moqui.basic.Enumeration description="Sunday" enumId="DowSunday" enumTypeId="DayOfWeek"/>
+            <moqui.basic.Enumeration description="Monday" enumId="DowMonday" enumTypeId="DayOfWeek"/>
+            <moqui.basic.Enumeration description="Tuesday" enumId="DowTuesday" enumTypeId="DayOfWeek"/>
+            <moqui.basic.Enumeration description="Wednesday" enumId="DowWednesday" enumTypeId="DayOfWeek"/>
+            <moqui.basic.Enumeration description="Thursday" enumId="DowThursday" enumTypeId="DayOfWeek"/>
+            <moqui.basic.Enumeration description="Friday" enumId="DowFriday" enumTypeId="DayOfWeek"/>
+            <moqui.basic.Enumeration description="Saturday" enumId="DowSaturday" enumTypeId="DayOfWeek"/>
         </seed-data>
         <master><detail relationship="type"/><detail relationship="parent"/><detail relationship="related"/></master>
     </entity>
