@@ -60,13 +60,13 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="No" enumId="BlN" enumTypeId="BooleanYN"/>
 
             <moqui.basic.EnumerationType description="Day of Week" enumTypeId="DayOfWeek"/>
-            <moqui.basic.Enumeration description="Sunday" enumId="DowSunday" sequenceNum="0" enumCode="SUNDAY" enumTypeId="DayOfWeek"/>
             <moqui.basic.Enumeration description="Monday" enumId="DowMonday" sequenceNum="1" enumCode="MONDAY" enumTypeId="DayOfWeek"/>
             <moqui.basic.Enumeration description="Tuesday" enumId="DowTuesday" sequenceNum="2" enumCode="TUESDAY" enumTypeId="DayOfWeek"/>
             <moqui.basic.Enumeration description="Wednesday" enumId="DowWednesday" sequenceNum="3" enumCode="WEDNESDAY" enumTypeId="DayOfWeek"/>
             <moqui.basic.Enumeration description="Thursday" enumId="DowThursday" sequenceNum="4" enumCode="THURSDAY" enumTypeId="DayOfWeek"/>
             <moqui.basic.Enumeration description="Friday" enumId="DowFriday" sequenceNum="5" enumCode="FRIDAY" enumTypeId="DayOfWeek"/>
             <moqui.basic.Enumeration description="Saturday" enumId="DowSaturday" sequenceNum="6" enumCode="SATURDAY" enumTypeId="DayOfWeek"/>
+            <moqui.basic.Enumeration description="Sunday" enumId="DowSunday" sequenceNum="7" enumCode="SUNDAY" enumTypeId="DayOfWeek"/>
         </seed-data>
         <master><detail relationship="type"/><detail relationship="parent"/><detail relationship="related"/></master>
     </entity>
