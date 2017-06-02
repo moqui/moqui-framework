@@ -405,12 +405,16 @@ class EntityDataDocument {
                         for (Map candidateMap in relatedEntityDocList) {
                             boolean allMatch = true
                             for (Map.Entry fieldTreeChildEntry in fieldTreeChild.entrySet()) {
-                                if (fieldTreeChildEntry.getValue() instanceof String) {
-                                    if ("_ALIAS".equals(fieldTreeChildEntry.getKey())) continue
-                                    String fieldName = fieldTreeChildEntry.getValue()
-                                    if (candidateMap.get(fieldName) != ev.get(fieldName)) {
-                                        allMatch = false
-                                        break
+                                if ("_ALIAS".equals(fieldTreeChildEntry.getKey())) continue
+                                Object entryValue = fieldTreeChildEntry.getValue()
+                                if (entryValue instanceof ArrayList) {
+                                    ArrayList<String> fieldAliasList = (ArrayList<String>) entryValue
+                                    for (int i = 0; i < fieldAliasList.size(); i++) {
+                                        String fieldAlias = (String) fieldAliasList.get(i)
+                                        if (candidateMap.get(fieldAlias) != ev.get(fieldAlias)) {
+                                            allMatch = false
+                                            break
+                                        }
                                     }
                                 }
                             }

@@ -54,6 +54,7 @@ See the moqui-runtime release notes for more details. Some of these changes may 
 - Improved exception (throwable) handling for service jobs, now handled like other errors and don't break the scheduler
 - Fixed field.@hide attribute not working with runtime conditions, now evaluated each time a form-list is rendered
 - Fixed long standing issue with distinct counts and limited selected fields, now uses a distinct sub-select under a count select
+- Fixed long standing issue where view-entity aliased fields were not decrypted
 - Fixed issue with XML entity data loading using sub-elements for related entities and under those sub-elements for field data
 - Fixed regression in EntityFind where cache was used even if forUpdate was set
 - Fixed concurrency issue with screen history (symptom was NPE on iterator.next() call)
