@@ -187,8 +187,9 @@ class EntityDefinition {
                 MNode fieldNode = memberEd.getFieldNode(fieldName)
                 if (fieldNode == null) throw new EntityException("In view-entity ${fullEntityName} alias ${aliasNode.attribute("name")} referred to field ${fieldName} that does not exist on entity ${memberEd.fullEntityName}.")
                 if (!aliasNode.attribute("type")) aliasNode.attributes.put("type", fieldNode.attribute("type"))
-                if (fieldNode.attribute("is-pk") == "true") aliasNode.attributes.put("is-pk", "true")
-                if (fieldNode.attribute("enable-localization") == "true") aliasNode.attributes.put("enable-localization", "true")
+                if ("true".equals(fieldNode.attribute("is-pk"))) aliasNode.attributes.put("is-pk", "true")
+                if ("true".equals(fieldNode.attribute("enable-localization"))) aliasNode.attributes.put("enable-localization", "true")
+                if ("true".equals(fieldNode.attribute("encrypt"))) aliasNode.attributes.put("encrypt", "true")
 
                 // add to aliases by field name by entity name
                 if (!memberEntityFieldAliases.containsKey(memberEd.getFullEntityName())) memberEntityFieldAliases.put(memberEd.getFullEntityName(), [:])

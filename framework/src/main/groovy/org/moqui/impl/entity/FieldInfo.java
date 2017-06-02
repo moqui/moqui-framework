@@ -262,7 +262,6 @@ public class FieldInfo {
         return outValue;
     }
 
-    @SuppressWarnings("ThrowFromFinallyBlock")
     void getResultSetValue(ResultSet rs, int index, HashMap<String, Object> valueMap,
                                   EntityFacadeImpl efi) throws EntityException {
         if (typeValue == -1) throw new EntityException("No typeValue found for " + entityName + "." + name);
@@ -342,11 +341,8 @@ public class FieldInfo {
                         if (logger.isTraceEnabled()) logger.trace("Class not found: Unable to cast BLOB data to an Java object for field [" + name + "] (" + index + "); most likely because it is a straight byte[], so just using the raw bytes: " + ex.toString());
                     } finally {
                         if (inStream != null) {
-                            try {
-                                inStream.close();
-                            } catch (IOException e) {
-                                throw new EntityException("Unable to close binary input stream for field [" + name + "] (" + index + "): " + e.toString(), e);
-                            }
+                            try { inStream.close(); }
+                            catch (IOException e) { logger.error("Unable to close binary input stream for field [" + name + "] (" + index + "): " + e.toString(), e); }
                         }
                     }
                 }
