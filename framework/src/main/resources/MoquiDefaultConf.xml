@@ -545,9 +545,10 @@
 
             <database-type type="binary-very-long" sql-type="LONGBLOB"/>
 
-            <inline-jdbc><xa-properties pinGlobalTxToPhysicalConnection="true" autoReconnectForPools="true" useUnicode="true" encoding="UTF-8"
-                    serverName="${entity_ds_host}" port="${entity_ds_port?:'3306'}" databaseName="${entity_ds_database}"
-                    user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
+            <!-- default max connections for MySQL is 151 -->
+            <inline-jdbc pool-maxsize="140"><xa-properties pinGlobalTxToPhysicalConnection="true" autoReconnectForPools="true"
+                    useUnicode="true" encoding="UTF-8" serverName="${entity_ds_host}" port="${entity_ds_port?:'3306'}"
+                    databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
         </database>
         <!--
         * Oracle:
@@ -608,7 +609,8 @@
 
             <database-type type="binary-very-long" sql-type="BYTEA"/>
 
-            <inline-jdbc><xa-properties serverName="${entity_ds_host}" portNumber="${entity_ds_port?:'5432'}"
+            <!-- default max connections for PostgreSQL is 100 -->
+            <inline-jdbc pool-maxsize="90"><xa-properties serverName="${entity_ds_host}" portNumber="${entity_ds_port?:'5432'}"
                     databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
         </database>
     </database-list>

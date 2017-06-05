@@ -1,3 +1,16 @@
+/*
+ * This software is in the public domain under CC0 1.0 Universal plus a
+ * Grant of Patent License.
+ *
+ * To the extent possible under law, the author(s) have dedicated all
+ * copyright and related and neighboring rights to this software to the
+ * public domain worldwide. This software is distributed without any
+ * warranty.
+ *
+ * You should have received a copy of the CC0 Public Domain Dedication
+ * along with this software (see the LICENSE.md file). If not, see
+ * <http://creativecommons.org/publicdomain/zero/1.0/>.
+ */
 package org.moqui.impl.entity;
 
 import groovy.lang.Closure;
@@ -117,10 +130,17 @@ public class EntityListImpl implements EntityList {
         int fieldsSize = fields.size();
         String[] names = new String[fieldsSize];
         Object[] values = new Object[fieldsSize];
+        boolean hasSetValue = false;
         int fieldIndex = 0;
         for (Map.Entry<String, Object> entry : fields.entrySet()) {
             names[fieldIndex] = entry.getKey();
-            values[fieldIndex] = entry.getValue();
+            Object val = entry.getValue();
+            values[fieldIndex] = val;
+            if (val instanceof Collection) {
+                hasSetValue = true;
+                if (!(val instanceof Set))
+                    values[fieldIndex] = new HashSet((Collection) val);
+            }
             fieldIndex++;
         }
 
@@ -133,10 +153,15 @@ public class EntityListImpl implements EntityList {
                 Object compValue = values[i];
                 if (curValue == null) {
                     matches = compValue == null;
-                    if (!matches) break;
-                } else if (!curValue.equals(compValue)) {
-                    matches = false;
-                    break;
+                    if (!matches) { matches = false; break; }
+                } else {
+                    if (hasSetValue && compValue instanceof Set) {
+                        Set valSet = (Set) compValue;
+                        if (!valSet.contains(curValue)) { matches = false; break; }
+                    } else if (!curValue.equals(compValue)) {
+                        matches = false;
+                        break;
+                    }
                 }
             }
             if ((matches && !include) || (!matches && include)) {

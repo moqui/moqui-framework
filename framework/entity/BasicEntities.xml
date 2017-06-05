@@ -51,6 +51,8 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="parentEnumId"/></relationship>
         <relationship type="one-nofk" title="Related" related="moqui.basic.Enumeration" short-alias="related">
             <key-map field-name="relatedEnumId"/></relationship>
+        <relationship type="many" related="moqui.basic.EnumGroupMember" short-alias="groupMembers">
+            <key-map field-name="enumId" related="enumGroupEnumId"/></relationship>
         <seed-data>
             <moqui.basic.EnumerationType enumTypeId="_NA_" description="Not Applicable"/>
             <moqui.basic.Enumeration enumId="_NA_" enumTypeId="_NA_" description="Not Applicable"/>
@@ -78,6 +80,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="enumGroupEnumId" type="id" is-pk="true"/>
         <field name="enumId" type="id" is-pk="true"/>
         <field name="sequenceNum" type="number-integer"/>
+        <field name="memberInfo" type="text-short"><description>General info about the member, usage is specific to the enum group</description></field>
         <relationship type="one" title="EnumGroup" related="moqui.basic.Enumeration">
             <key-map field-name="enumGroupEnumId"/></relationship>
         <relationship type="one" related="moqui.basic.Enumeration"/>
