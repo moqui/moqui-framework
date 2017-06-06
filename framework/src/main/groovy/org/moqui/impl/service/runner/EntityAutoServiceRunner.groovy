@@ -366,7 +366,10 @@ class EntityAutoServiceRunner implements ServiceRunner {
 
         // add in all of the main entity's primary key fields, this is necessary for auto-generated, and to
         //     allow them to be left out of related records
-        if (parentPks != null) parameters.putAll(parentPks)
+        if (parentPks != null) {
+            for (Map.Entry<String, Object> entry in parentPks.entrySet())
+                if (!parameters.containsKey(entry.key)) parameters.put(entry.key, entry.value)
+        }
 
         checkFromDate(ed, parameters, result, ecfi)
 
@@ -438,8 +441,8 @@ class EntityAutoServiceRunner implements ServiceRunner {
                 subEd = relInfo.relatedEd
 
                 // this is a relationship so add mapped key fields to the parentPks if any field names are different
-                pkMap = relInfo.getTargetParameterMap(sharedPkMap)
-                pkMap.putAll(sharedPkMap)
+                pkMap = new HashMap<>(sharedPkMap)
+                pkMap.putAll(relInfo.getTargetParameterMap(sharedPkMap))
             } else if (efi.isEntityDefined(entryName)) {
                 subEd = efi.getEntityDefinition(entryName)
                 pkMap = sharedPkMap
