@@ -809,6 +809,7 @@ public class ServiceDefinition {
 
     @SuppressWarnings("unchecked")
     public static void nestedRemoveNullsFromResultMap(Map<String, Object> result) {
+        if (result == null) return;
         Iterator<Map.Entry<String, Object>> iter = result.entrySet().iterator();
         while (iter.hasNext()) {
             Map.Entry<String, Object> entry = iter.next();
