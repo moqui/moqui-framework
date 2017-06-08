@@ -276,6 +276,13 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" title="To" related="moqui.basic.StatusItem" short-alias="toStatus">
             <key-map field-name="toStatusId" related="statusId"/></relationship>
     </entity>
+    <view-entity entity-name="StatusFlowItemDetail" package="moqui.basic">
+        <member-entity entity-alias="SFI" entity-name="moqui.basic.StatusFlowItem"/>
+        <member-entity entity-alias="SI" entity-name="moqui.basic.StatusItem" join-from-alias="SFI">
+            <key-map field-name="statusId"/></member-entity>
+        <alias-all entity-alias="SFI"/>
+        <alias-all entity-alias="SI"><exclude field="statusId"/></alias-all>
+    </view-entity>
     <view-entity entity-name="StatusFlowTransitionToDetail" package="moqui.basic">
         <member-entity entity-alias="SFT" entity-name="moqui.basic.StatusFlowTransition"/>
         <member-entity entity-alias="SI" entity-name="moqui.basic.StatusItem" join-from-alias="SFT">
