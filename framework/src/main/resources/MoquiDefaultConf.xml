@@ -407,8 +407,8 @@
             <database-type type="currency-amount" sql-type="DECIMAL(22,2)"/>
             <database-type type="currency-precise" sql-type="DECIMAL(23,3)"/>
 
-            <inline-jdbc><xa-properties driverType="4" serverName="${entity_ds_host}" portNumber="${entity_ds_port?:'50000'}"
-                    databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
+            <inline-jdbc><xa-properties serverName="${entity_ds_host}" databaseName="${entity_ds_database}"
+                    user="${entity_ds_user}" password="${entity_ds_password}" cursorHold="false" threadUsed="false"/></inline-jdbc>
         </database>
         <!--
         * Derby:
