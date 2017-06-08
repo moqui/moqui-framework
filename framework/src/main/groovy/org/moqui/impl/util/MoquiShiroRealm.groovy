@@ -159,20 +159,21 @@ class MoquiShiroRealm implements Realm, Authorizer {
             if (userId != null && loginNode.attribute("history-store") != "false") {
                 Timestamp fromDate = eci.getUser().getNowTimestamp()
                 EntityValue curUlh = eci.entity.find("moqui.security.UserLoginHistory")
-                        .condition([userId:userId, fromDate:fromDate] as Map<String, Object>).disableAuthz().one()
+                        .condition("userId", userId).condition("fromDate", fromDate).disableAuthz().one()
                 if (curUlh == null) {
                     Map<String, Object> ulhContext = [userId:userId, fromDate:fromDate,
                             visitId:eci.user.visitId, successfulLogin:(successful?"Y":"N")] as Map<String, Object>
                     if (!successful && loginNode.attribute("history-incorrect-password") != "false") ulhContext.passwordUsed = passwordUsed
-                    try {
-                        eci.service.sync().name("create", "moqui.security.UserLoginHistory").parameters(ulhContext)
-                                .requireNewTransaction(true).disableAuthz().call()
-                        // we want to ignore errors from this, may happen in high-volume inserts where we don't care about the records so much anyway
-                        eci.getMessage().clearErrors()
-                    } catch (EntityException ee) {
-                        // this blows up on MySQL, may in other cases, and is only so important so log a warning but don't rethrow
-                        logger.warn("UserLoginHistory create failed: ${ee.toString()}")
-                    }
+                    ExecutionContextFactoryImpl ecfi = eci.ecfi
+                    eci.runInWorkerThread({
+                        try {
+                            ecfi.serviceFacade.sync().name("create", "moqui.security.UserLoginHistory")
+                                    .parameters(ulhContext).disableAuthz().call()
+                        } catch (EntityException ee) {
+                            // this blows up sometimes on MySQL, may in other cases, and is only so important so log a warning but don't rethrow
+                            logger.warn("UserLoginHistory create failed: ${ee.toString()}")
+                        }
+                    })
                 } else {
                     logger.warn("Not creating UserLoginHistory, found existing record for userId [${userId}] and fromDate [${fromDate}]")
                 }
