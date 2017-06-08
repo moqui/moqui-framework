@@ -172,19 +172,19 @@ task loadProduction(type: JavaExec) {
     args = argList
 }
 
+task saveDb { doLast {
+    if (file(moquiRuntime+'/db/derby/moqui').exists())
+        ant.zip(destfile: 'SaveDerby.zip') { fileset(dir: moquiRuntime+'/db/derby/moqui') { include(name: '**/*') } }
+    if (file(moquiRuntime+'/db/h2').exists())
+        ant.zip(destfile: 'SaveH2.zip') { fileset(dir: moquiRuntime+'/db/h2') { include(name: '**/*') } }
+    if (file(moquiRuntime+'/db/orientdb/databases').exists())
+        ant.zip(destfile: 'SaveOrientDb.zip') { fileset(dir: moquiRuntime+'/db/orientdb/databases') { include(name: '**/*') } }
+    if (file(moquiRuntime+'/elasticsearch/data').exists())
+        ant.zip(destfile: 'SaveElasticSearch.zip') { fileset(dir: moquiRuntime+'/elasticsearch/data') { include(name: '**/*') } }
+} }
 task loadSave {
     description "Clean all, build and load, then save database (H2, Derby), OrientDB, and ElasticSearch files; to be used before reloadSave"
-    dependsOn cleanAll, load
-    doLast {
-        if (file(moquiRuntime+'/db/derby/moqui').exists())
-            ant.zip(destfile: 'SaveDerby.zip') { fileset(dir: moquiRuntime+'/db/derby/moqui') { include(name: '**/*') } }
-        if (file(moquiRuntime+'/db/h2').exists())
-            ant.zip(destfile: 'SaveH2.zip') { fileset(dir: moquiRuntime+'/db/h2') { include(name: '**/*') } }
-        if (file(moquiRuntime+'/db/orientdb/databases').exists())
-            ant.zip(destfile: 'SaveOrientDb.zip') { fileset(dir: moquiRuntime+'/db/orientdb/databases') { include(name: '**/*') } }
-        if (file(moquiRuntime+'/elasticsearch/data').exists())
-            ant.zip(destfile: 'SaveElasticSearch.zip') { fileset(dir: moquiRuntime+'/elasticsearch/data') { include(name: '**/*') } }
-    }
+    dependsOn cleanAll, load, saveDb
 }
 
 task reloadSave {
