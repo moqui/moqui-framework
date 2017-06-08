@@ -468,10 +468,10 @@
         * MS SQL Server:
         <datasource group-name="transactional" database-conf-name="mssql" schema-name="">
             <inline-jdbc><xa-properties user="moqui" password="moqui" serverName="localhost" portNumber="1433"
-                    databaseName="moqui"/></inline-jdbc>
+                    databaseName="moqui" selectMethod="Cursor"/></inline-jdbc>
         </datasource>
         <datasource group-name="transactional" database-conf-name="mssql" schema-name="">
-            <inline-jdbc jdbc-uri="jdbc:sqlserver://localhost:1433;databaseName=moqui" jdbc-username="moqui" jdbc-password="moqui"/>
+            <inline-jdbc jdbc-uri="jdbc:sqlserver://localhost:1433;databaseName=moqui;SelectMethod=Cursor" jdbc-username="moqui" jdbc-password="moqui"/>
         </datasource>
 
         NOTE: for MS SQL Server 2012 and later can use offset-style=fetch for better performance and consistent behavior
@@ -503,7 +503,8 @@
             <database-type type="binary-very-long" sql-type="IMAGE"/>
 
             <inline-jdbc><xa-properties serverName="${entity_ds_host}" portNumber="${entity_ds_port?:'1433'}"
-                    databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
+                    databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"
+                    selectMethod="Cursor"/></inline-jdbc>
         </database>
         <!--
         * MySQL (similar for Percona Server, MariaDB, AWS Aurora):
