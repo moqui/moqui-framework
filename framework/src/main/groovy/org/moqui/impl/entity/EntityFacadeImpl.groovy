@@ -490,36 +490,21 @@ class EntityFacadeImpl implements EntityFacade {
                     continue
                 }
 
+                List<String> locList = (List<String>) entityLocationCache.get(entityName)
+                if (locList == null) {
+                    locList = new LinkedList<>()
+                    locList.add(entityRr.location)
+                    entityLocationCache.put(entityName, locList)
+                } else if (!locList.contains(entityRr.location)) {
+                    locList.add(entityRr.location)
+                }
+
                 if (packageName != null && packageName.length() > 0) {
                     String fullEntityName = packageName.concat(".").concat(entityName)
-                    List<String> pkgList = (List<String>) entityLocationCache.get(fullEntityName)
-                    if (pkgList == null) {
-                        pkgList = new LinkedList<>()
-                        pkgList.add(entityRr.location)
-                        entityLocationCache.put(fullEntityName, pkgList)
-                    } else if (!pkgList.contains(entityRr.location)) {
-                        pkgList.add(entityRr.location)
-                    }
+                    if (!entityLocationCache.containsKey(fullEntityName)) entityLocationCache.put(fullEntityName, locList)
                 }
-
                 if (shortAlias != null && shortAlias.length() > 0) {
-                    List<String> aliasList = (List<String>) entityLocationCache.get(shortAlias)
-                    if (aliasList == null) {
-                        aliasList = new LinkedList<>()
-                        aliasList.add(entityRr.location)
-                        entityLocationCache.put(shortAlias, aliasList)
-                    } else if (!aliasList.contains(entityRr.location)) {
-                        aliasList.add(entityRr.location)
-                    }
-                }
-
-                List<String> nameList = (List<String>) entityLocationCache.get(entityName)
-                if (nameList == null) {
-                    nameList = new LinkedList<>()
-                    nameList.add(entityRr.location)
-                    entityLocationCache.put(entityName, nameList)
-                } else if (!nameList.contains(entityRr.location)) {
-                    nameList.add(entityRr.location)
+                    if (!entityLocationCache.containsKey(shortAlias)) entityLocationCache.put(shortAlias, locList)
                 }
 
                 numEntities++
