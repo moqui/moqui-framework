@@ -58,6 +58,8 @@ class UserFacadeImpl implements UserFacade {
 
     // there may be non-web visits, so keep a copy of the visitId here
     protected String visitId = (String) null
+    protected EntityValue visitInternal = (EntityValue) null
+    protected String visitorIdInternal = (String) null
 
     // we mostly want this for the Locale default, and may be useful for other things
     protected HttpServletRequest request = (HttpServletRequest) null
@@ -166,6 +168,7 @@ class UserFacadeImpl implements UserFacade {
                     response.addCookie(visitorCookie)
                 }
             }
+            visitorIdInternal = cookieVisitorId
 
             if (!isJustContent && !"false".equals(serverStatsNode.attribute('visit-enabled'))) {
                 // create and persist Visit
@@ -259,11 +262,8 @@ class UserFacadeImpl implements UserFacade {
     }
 
 
-    @Override
-    Locale getLocale() { return currentInfo.localeCache }
-
-    @Override
-    void setLocale(Locale locale) {
+    @Override Locale getLocale() { return currentInfo.localeCache }
+    @Override void setLocale(Locale locale) {
         if (currentInfo.userAccount != null) {
             eci.transaction.runUseOrBegin(null, "Error saving locale", {
                 boolean alreadyDisabled = eci.getArtifactExecution().disableAuthz()
@@ -277,17 +277,13 @@ class UserFacadeImpl implements UserFacade {
         currentInfo.localeCache = locale
     }
 
-    @Override
-    TimeZone getTimeZone() { return currentInfo.tzCache }
-
+    @Override TimeZone getTimeZone() { return currentInfo.tzCache }
     Calendar getCalendarSafe() {
         return Calendar.getInstance(currentInfo.tzCache != null ? currentInfo.tzCache : TimeZone.getDefault(),
                 currentInfo.localeCache != null ? currentInfo.localeCache :
                         (request != null ? request.getLocale() : Locale.getDefault()))
     }
-
-    @Override
-    void setTimeZone(TimeZone tz) {
+    @Override void setTimeZone(TimeZone tz) {
         if (currentInfo.userAccount != null) {
             eci.transaction.runUseOrBegin(null, "Error saving timeZone", {
                 boolean alreadyDisabled = eci.getArtifactExecution().disableAuthz()
@@ -301,11 +297,8 @@ class UserFacadeImpl implements UserFacade {
         currentInfo.tzCache = tz
     }
 
-    @Override
-    String getCurrencyUomId() { return currentInfo.currencyUomId }
-
-    @Override
-    void setCurrencyUomId(String uomId) {
+    @Override String getCurrencyUomId() { return currentInfo.currencyUomId }
+    @Override void setCurrencyUomId(String uomId) {
         if (currentInfo.userAccount != null) {
             eci.transaction.runUseOrBegin(null, "Error saving currencyUomId", {
                 boolean alreadyDisabled = eci.getArtifactExecution().disableAuthz()
@@ -319,8 +312,7 @@ class UserFacadeImpl implements UserFacade {
         currentInfo.currencyUomId = uomId
     }
 
-    @Override
-    String getPreference(String preferenceKey) {
+    @Override String getPreference(String preferenceKey) {
         String userId = getUserId()
         return getPreference(preferenceKey, userId)
     }
@@ -336,8 +328,7 @@ class UserFacadeImpl implements UserFacade {
         return up?.preferenceValue
     }
 
-    @Override
-    void setPreference(String preferenceKey, String preferenceValue) {
+    @Override void setPreference(String preferenceKey, String preferenceValue) {
         String userId = getUserId()
         if (!userId) throw new IllegalStateException("Cannot set preference with key [${preferenceKey}], no user logged in.")
         boolean alreadyDisabled = eci.getArtifactExecution().disableAuthz()
@@ -353,32 +344,26 @@ class UserFacadeImpl implements UserFacade {
         }
     }
 
-    @Override
-    Map<String, Object> getContext() { return currentInfo.getUserContext() }
+    @Override Map<String, Object> getContext() { return currentInfo.getUserContext() }
 
-    @Override
-    Timestamp getNowTimestamp() {
+    @Override Timestamp getNowTimestamp() {
         // NOTE: review Timestamp and nowTimestamp use, have things use this by default (except audit/etc where actual date/time is needed
         return ((Object) this.effectiveTime != null) ? this.effectiveTime : new Timestamp(System.currentTimeMillis())
     }
 
-    @Override
-    Calendar getNowCalendar() {
+    @Override Calendar getNowCalendar() {
         Calendar nowCal = getCalendarSafe()
         nowCal.setTimeInMillis(getNowTimestamp().getTime())
         return nowCal
     }
 
-    @Override
-    ArrayList<Timestamp> getPeriodRange(String period, String poffset) { return getPeriodRange(period, poffset, null) }
-    @Override
-    ArrayList<Timestamp> getPeriodRange(String period, String poffset, String pdate) {
+    @Override ArrayList<Timestamp> getPeriodRange(String period, String poffset) { return getPeriodRange(period, poffset, null) }
+    @Override ArrayList<Timestamp> getPeriodRange(String period, String poffset, String pdate) {
         int offset = (poffset ?: "0") as int
         java.sql.Date sqlDate = (pdate != null && !pdate.isEmpty()) ? eci.l10nFacade.parseDate(pdate, null) : null
         return getPeriodRange(period, offset, sqlDate)
     }
-    @Override
-    ArrayList<Timestamp> getPeriodRange(String period, int offset, java.sql.Date sqlDate) {
+    @Override ArrayList<Timestamp> getPeriodRange(String period, int offset, java.sql.Date sqlDate) {
         period = (period ?: "day").toLowerCase()
         boolean perIsNumber = Character.isDigit(period.charAt(0))
 
@@ -435,11 +420,9 @@ class UserFacadeImpl implements UserFacade {
         return rangeList
     }
 
-    @Override
-    void setEffectiveTime(Timestamp effectiveTime) { this.effectiveTime = effectiveTime }
+    @Override void setEffectiveTime(Timestamp effectiveTime) { this.effectiveTime = effectiveTime }
 
-    @Override
-    boolean loginUser(String username, String password) {
+    @Override boolean loginUser(String username, String password) {
         if (username == null || username.isEmpty()) {
             eci.message.addError(eci.l10n.localize("No username specified"))
             return false
@@ -512,16 +495,14 @@ class UserFacadeImpl implements UserFacade {
         return true
     }
 
-    @Override
-    void logoutUser() {
+    @Override void logoutUser() {
         // before logout trigger the before-logout actions
         if (eci.getWebImpl() != null) eci.getWebImpl().runBeforeLogoutActions()
 
         popUser()
     }
 
-    @Override
-    boolean loginUserKey(String loginKey) {
+    @Override boolean loginUserKey(String loginKey) {
         if (!loginKey) {
             eci.message.addError(eci.l10n.localize("No login key specified"))
             return false
@@ -550,8 +531,7 @@ class UserFacadeImpl implements UserFacade {
                 .condition("userId", userLoginKey.userId).disableAuthz().one()
         return internalLoginUser(userAccount.getString("username"))
     }
-    @Override
-    String getLoginKey() {
+    @Override String getLoginKey() {
         String userId = getUserId()
         if (!userId) throw new IllegalStateException("No active user, cannot get login key")
 
@@ -574,8 +554,7 @@ class UserFacadeImpl implements UserFacade {
         return loginKey
     }
 
-    @Override
-    boolean loginAnonymousIfNoUser() {
+    @Override boolean loginAnonymousIfNoUser() {
         if (currentInfo.username == null && !currentInfo.loggedInAnonymous) {
             currentInfo.loggedInAnonymous = true
             return true
@@ -586,8 +565,8 @@ class UserFacadeImpl implements UserFacade {
     void logoutAnonymousOnly() { currentInfo.loggedInAnonymous = false }
     boolean getLoggedInAnonymous() { return currentInfo.loggedInAnonymous }
 
-    @Override
-    boolean hasPermission(String userPermissionId) { return hasPermissionById(getUserId(), userPermissionId, getNowTimestamp(), eci) }
+    @Override boolean hasPermission(String userPermissionId) {
+        return hasPermissionById(getUserId(), userPermissionId, getNowTimestamp(), eci) }
 
     static boolean hasPermission(String username, String userPermissionId, Timestamp whenTimestamp, ExecutionContextImpl eci) {
         EntityValue ua = eci.entityFacade.fastFindOne("moqui.security.UserAccount", true, true, username)
@@ -604,8 +583,7 @@ class UserFacadeImpl implements UserFacade {
                 .filterByDate("permissionFromDate", "permissionThruDate", whenTimestamp)) as boolean
     }
 
-    @Override
-    boolean isInGroup(String userGroupId) { return isInGroup(getUserId(), userGroupId, getNowTimestamp(), eci) }
+    @Override boolean isInGroup(String userGroupId) { return isInGroup(getUserId(), userGroupId, getNowTimestamp(), eci) }
 
     static boolean isInGroup(String username, String userGroupId, Timestamp whenTimestamp, ExecutionContextImpl eci) {
         EntityValue ua = eci.entityFacade.fastFindOne("moqui.security.UserAccount", true, true, username)
@@ -620,8 +598,7 @@ class UserFacadeImpl implements UserFacade {
                 .useCache(true).disableAuthz().list().filterByDate("fromDate", "thruDate", whenTimestamp)) as boolean
     }
 
-    @Override
-    Set<String> getUserGroupIdSet() {
+    @Override Set<String> getUserGroupIdSet() {
         // first get the groups the user is in (cached), always add the "ALL_USERS" group to it
         if (!currentInfo.userId) return allUserGroupIdOnly
         if (currentInfo.internalUserGroupIdSet == null) currentInfo.internalUserGroupIdSet = getUserGroupIdSet(currentInfo.userId)
@@ -672,25 +649,23 @@ class UserFacadeImpl implements UserFacade {
         return currentInfo.internalArtifactAuthzCheckList
     }
 
-    @Override
-    String getUserId() { return currentInfo.userId }
+    @Override String getUserId() { return currentInfo.userId }
+    @Override String getUsername() { return currentInfo.username }
+    @Override EntityValue getUserAccount() { return currentInfo.getUserAccount() }
 
-    @Override
-    String getUsername() { return currentInfo.username }
-
-    @Override
-    EntityValue getUserAccount() { return currentInfo.getUserAccount() }
-
-    @Override
-    String getVisitUserId() { return visitId ? getVisit().userId : null }
-
-    @Override
-    String getVisitId() { return visitId }
-
-    @Override
-    EntityValue getVisit() {
+    @Override String getVisitUserId() { return visitId ? getVisit().userId : null }
+    @Override String getVisitId() { return visitId }
+    @Override EntityValue getVisit() {
+        if (visitInternal != null) return visitInternal
         if (visitId == null || visitId.isEmpty()) return null
-        return eci.entityFacade.fastFindOne("moqui.server.Visit", true, true, visitId)
+        visitInternal = eci.entityFacade.fastFindOne("moqui.server.Visit", false, true, visitId)
+        return visitInternal
+    }
+    @Override String getVisitorId() {
+        if (visitorIdInternal != null) return visitorIdInternal
+        EntityValue visitLocal = getVisit()
+        visitorIdInternal = visitLocal != null ? visitLocal.getNoCheckSimple("visitorId") : null
+        return visitorIdInternal
     }
 
     // ========== UserInfo ==========

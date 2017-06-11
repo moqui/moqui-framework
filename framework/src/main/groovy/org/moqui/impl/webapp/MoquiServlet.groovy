@@ -20,6 +20,9 @@ import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.screen.ScreenRenderImpl
 import org.moqui.util.MNode
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
+import org.slf4j.MDC
 
 import javax.servlet.ServletConfig
 import javax.servlet.http.HttpServlet
@@ -30,8 +33,6 @@ import javax.servlet.ServletException
 import org.moqui.context.ArtifactAuthorizationException
 import org.moqui.context.ExecutionContext
 
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
 
 @CompileStatic
 class MoquiServlet extends HttpServlet {
@@ -67,6 +68,10 @@ class MoquiServlet extends HttpServlet {
         String pathInfo = request.getPathInfo()
 
         if (logger.traceEnabled) logger.trace("Start request to [${pathInfo}] at time [${startTime}] in session [${request.session.id}] thread [${Thread.currentThread().id}:${Thread.currentThread().name}]")
+
+        if (MDC.get("moqui_userId") != null) logger.warn("In MoquiServlet.service there is already a userId in thread (${Thread.currentThread().id}:${Thread.currentThread().name}), removing")
+        MDC.remove("moqui_userId")
+        MDC.remove("moqui_visitorId")
 
         ExecutionContextImpl activeEc = ecfi.activeContext.get()
         if (activeEc != null && activeEc.forThreadId != Thread.currentThread().id) {

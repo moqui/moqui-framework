@@ -136,7 +136,7 @@ public interface UserFacade {
 
     /** @return ID for the current visit (aka session; from the Visit entity). Depending on the artifact being executed this may be null. */
     String getVisitId();
-
     /** @return The current visit (aka session; from the Visit entity). Depending on the artifact being executed this may be null. */
     EntityValue getVisit();
+    String getVisitorId();
 }
