@@ -14,6 +14,8 @@
 package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
+import org.apache.logging.log4j.LogManager
+import org.apache.logging.log4j.core.LoggerContext
 import org.apache.shiro.SecurityUtils
 import org.apache.shiro.authc.credential.CredentialsMatcher
 import org.apache.shiro.authc.credential.HashedCredentialsMatcher
@@ -126,6 +128,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     private SimpleTopic<NotificationMessageImpl> notificationMessageTopic = null
     private NotificationWebSocketListener notificationWebSocketListener = new NotificationWebSocketListener()
 
+    protected ArrayList<LogEventSubscriber> logEventSubscribers = new ArrayList<>()
+
     // ======== Permanent Delegated Facades ========
     @SuppressWarnings("GrFinalVariableAccess") public final CacheFacadeImpl cacheFacade
     @SuppressWarnings("GrFinalVariableAccess") public final LoggerFacadeImpl loggerFacade
@@ -198,6 +202,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // init the configuration (merge from component and runtime conf files)
         confXmlRoot = initConfig(baseConfigNode, runtimeConfXmlRoot)
 
+        reconfigureLog4j()
         workerPool = makeWorkerPool()
         preFacadeInit()
 
@@ -249,6 +254,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // init the configuration (merge from component and runtime conf files)
         confXmlRoot = initConfig(baseConfigNode, runtimeConfXmlRoot)
 
+        reconfigureLog4j()
         workerPool = makeWorkerPool()
         preFacadeInit()
 
@@ -272,6 +278,16 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         postFacadeInit()
 
         logger.info("Execution Context Factory initialized in ${(System.currentTimeMillis() - initStartTime)/1000} seconds")
+    }
+
+    protected void reconfigureLog4j() {
+        URL log4j2Url = this.class.getClassLoader().getResource("log4j2.xml")
+        if (log4j2Url == null) {
+            logger.warn("No log4j2.xml file found on the classpath, no reconfiguring Log4J")
+            return
+        }
+        final LoggerContext ctx = (LoggerContext) LogManager.getContext(true)
+        ctx.setConfigLocation(log4j2Url.toURI())
     }
 
     protected MNode initBaseConfig(MNode runtimeConfXmlRoot) {
@@ -300,7 +316,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         logger.info("Initializing Moqui Framework version ${moquiVersion ?: 'Unknown'}\n - runtime directory: ${this.runtimePath}\n - runtime config:    ${this.runtimeConfPath}")
 
         URL defaultConfUrl = this.class.getClassLoader().getResource("MoquiDefaultConf.xml")
-        if (!defaultConfUrl) throw new IllegalArgumentException("Could not find MoquiDefaultConf.xml file on the classpath")
+        if (defaultConfUrl == null) throw new IllegalArgumentException("Could not find MoquiDefaultConf.xml file on the classpath")
         MNode newConfigXmlRoot = MNode.parse(defaultConfUrl.toString(), defaultConfUrl.newInputStream())
 
         // just merge the component configuration, needed before component init is done
@@ -729,6 +745,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         nml.init(this)
         registeredNotificationMessageListeners.add(nml)
     }
+    @Override void registerLogEventSubscriber(@Nonnull LogEventSubscriber subscriber) { logEventSubscribers.add(subscriber) }
+    @Override List<LogEventSubscriber> getLogEventSubscribers() { return Collections.unmodifiableList(logEventSubscribers) }
+
     /** Called by NotificationMessageImpl.send(), send to topic (possibly distributed) */
     void sendNotificationMessageToTopic(NotificationMessageImpl nmi) {
         if (notificationMessageTopic != null) {
@@ -1341,6 +1360,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                     break
                 } catch (Throwable t) {
                     logger.error("Error saving ArtifactHits, retrying (${retryCount})", t)
+                    retryCount--
                 }
             }
         }
