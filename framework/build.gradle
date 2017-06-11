@@ -138,8 +138,6 @@ dependencies {
     compile 'org.apache.logging.log4j:log4j-core:2.8.2'
     compile 'org.apache.logging.log4j:log4j-api:2.8.2'
     runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.8.2'
-    // required for use of Log4j2 JsonLayout
-    compile 'com.fasterxml.jackson.core:jackson-databind:2.8.8.1'
 
     // SubEtha SMTP (module as depends on old javax.mail location; also uses SLF4J, activation included elsewhere)
     compile module('org.subethamail:subethasmtp:3.1.7')
