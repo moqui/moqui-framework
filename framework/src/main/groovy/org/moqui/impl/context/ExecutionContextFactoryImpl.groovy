@@ -142,7 +142,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     /** The main worker pool for services, running async closures and runnables, etc */
     @SuppressWarnings("GrFinalVariableAccess") public final ThreadPoolExecutor workerPool
     /** An executor for the scheduled job runner */
-    public final ScheduledThreadPoolExecutor scheduledExecutor = new ScheduledThreadPoolExecutor(2)
+    public final ScheduledThreadPoolExecutor scheduledExecutor = new ScheduledThreadPoolExecutor(4)
 
     /**
      * This constructor gets runtime directory and conf file location from a properties file on the classpath so that
