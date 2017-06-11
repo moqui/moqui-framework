@@ -14,7 +14,6 @@
 package org.moqui.impl.context;
 
 import groovy.lang.Closure;
-import org.moqui.BaseException;
 import org.moqui.context.*;
 import org.moqui.entity.EntityFacade;
 import org.moqui.entity.EntityFind;
@@ -29,6 +28,7 @@ import org.moqui.util.ContextBinding;
 import org.moqui.util.ContextStack;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -179,6 +179,11 @@ public class ExecutionContextImpl implements ExecutionContext {
         // this is the beginning of a request, so trigger before-request actions
         wfi.runBeforeRequestActions();
 
+        String userId = userFacade.getUserId();
+        if (userId != null && !userId.isEmpty()) MDC.put("moqui_userId", userId);
+        String visitorId = userFacade.getVisitorId();
+        if (visitorId != null && !visitorId.isEmpty()) MDC.put("moqui_visitorId", visitorId);
+
         if (loggerDirect.isTraceEnabled()) loggerDirect.trace("ExecutionContextImpl WebFacade initialized");
     }
 
@@ -222,6 +227,9 @@ public class ExecutionContextImpl implements ExecutionContext {
         // clear out the ECFI's reference to this as well
         ecfi.activeContext.remove();
         ecfi.activeContextMap.remove(Thread.currentThread().getId());
+
+        MDC.remove("moqui_userId");
+        MDC.remove("moqui_visitorId");
 
         if (loggerDirect.isTraceEnabled()) loggerDirect.trace("ExecutionContextImpl destroyed");
     }
