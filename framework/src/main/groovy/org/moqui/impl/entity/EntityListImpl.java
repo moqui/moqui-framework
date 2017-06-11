@@ -138,8 +138,7 @@ public class EntityListImpl implements EntityList {
             values[fieldIndex] = val;
             if (val instanceof Collection) {
                 hasSetValue = true;
-                if (!(val instanceof Set))
-                    values[fieldIndex] = new HashSet((Collection) val);
+                if (!(val instanceof Set)) values[fieldIndex] = new HashSet<Object>((Collection<? extends Object>) val);
             }
             fieldIndex++;
         }

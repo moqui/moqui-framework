@@ -29,10 +29,12 @@ https://logging.apache.org/log4j/2.x/manual/layouts.html#PatternLayout
             </Policies>
             <DefaultRolloverStrategy max="20"/>
         </RollingFile>
+        <MoquiLog4jAppender name="MoquiSubscribers"/>
         <Async name="AsyncLog">
             <AppenderRef ref="STDOUT"/>
             <AppenderRef ref="LogFile"/>
             <AppenderRef ref="ErrorFile"/>
+            <AppenderRef ref="MoquiSubscribers"/>
         </Async>
         <Console name="STDOUT" target="SYSTEM_OUT">
             <PatternLayout pattern="%highlight{%d{HH:mm:ss.SSS} %5p %12.12t %38.38c{1.9.1.}} %m%n"/>
