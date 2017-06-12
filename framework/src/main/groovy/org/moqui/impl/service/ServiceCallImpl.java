@@ -104,14 +104,14 @@ public class ServiceCallImpl implements ServiceCall {
         // Before scheduling the service check a few basic things so they show up sooner than later:
         ServiceDefinition sd = sfi.getServiceDefinition(getServiceName());
         if (sd == null && !isEntityAutoPattern())
-            throw new IllegalArgumentException("Could not find service with name [" + getServiceName() + "]");
+            throw new ServiceException("Could not find service with name [" + getServiceName() + "]");
 
         if (sd != null) {
             String serviceType = sd.serviceType;
             if (serviceType == null || serviceType.isEmpty()) serviceType = "inline";
-            if ("interface".equals(serviceType)) throw new IllegalArgumentException("Cannot run interface service [" + getServiceName() + "]");
+            if ("interface".equals(serviceType)) throw new ServiceException("Cannot run interface service [" + getServiceName() + "]");
             ServiceRunner sr = sfi.getServiceRunner(serviceType);
-            if (sr == null) throw new IllegalArgumentException("Could not find service runner for type [" + serviceType + "] for service [" + getServiceName() + "]");
+            if (sr == null) throw new ServiceException("Could not find service runner for type [" + serviceType + "] for service [" + getServiceName() + "]");
             // validation
             parameters = sd.convertValidateCleanParameters(parameters, eci);
             // if error(s) in parameters, return now with no results

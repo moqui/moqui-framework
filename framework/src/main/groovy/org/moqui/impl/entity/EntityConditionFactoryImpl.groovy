@@ -14,6 +14,7 @@
 package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
+import org.moqui.BaseArtifactException
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityCondition.ComparisonOperator
 import org.moqui.entity.EntityCondition.JoinOperator
@@ -112,7 +113,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
                 if (curCond == null) continue
                 // this is all they could be, all that is supported right now
                 if (curCond instanceof EntityConditionImplBase) newList.add((EntityConditionImplBase) curCond)
-                else throw new IllegalArgumentException("EntityCondition of type [${curCond.getClass().getName()}] not supported")
+                else throw new BaseArtifactException("EntityCondition of type [${curCond.getClass().getName()}] not supported")
             }
         } else {
             Iterator<EntityCondition> conditionIter = conditionList.iterator()
@@ -121,7 +122,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
                 if (curCond == null) continue
                 // this is all they could be, all that is supported right now
                 if (curCond instanceof EntityConditionImplBase) newList.add((EntityConditionImplBase) curCond)
-                else throw new IllegalArgumentException("EntityCondition of type [${curCond.getClass().getName()}] not supported")
+                else throw new BaseArtifactException("EntityCondition of type [${curCond.getClass().getName()}] not supported")
             }
         }
         if (newList == null || newList.size() == 0) return null
@@ -157,7 +158,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
                 newList.add(curCond)
                 continue
             }
-            throw new IllegalArgumentException("The conditionList parameter must contain only Map and EntityCondition objects, found entry of type [${curObj.getClass().getName()}]")
+            throw new BaseArtifactException("The conditionList parameter must contain only Map and EntityCondition objects, found entry of type [${curObj.getClass().getName()}]")
         }
         if (newList.size() == 0) return null
         if (newList.size() == 1) {

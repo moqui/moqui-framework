@@ -15,7 +15,7 @@ package org.moqui.impl.screen
 
 import groovy.json.JsonSlurper
 import groovy.transform.CompileStatic
-import org.moqui.BaseException
+import org.moqui.BaseArtifactException
 import org.moqui.context.ExecutionContext
 import org.moqui.entity.*
 import org.moqui.impl.actions.XmlAction
@@ -130,7 +130,7 @@ class ScreenForm {
                 ScreenForm esf = sd.getForm(extendsForm)
                 formNode = esf?.getOrCreateFormNode()
             }
-            if (formNode == null) throw new IllegalArgumentException("Cound not find extends form [${extendsForm}] referred to in form [${newFormNode.attribute("name")}] of screen [${sd.location}]")
+            if (formNode == null) throw new BaseArtifactException("Cound not find extends form [${extendsForm}] referred to in form [${newFormNode.attribute("name")}] of screen [${sd.location}]")
             mergeFormNodes(newFormNode, formNode, true, true)
         }
 
@@ -162,7 +162,7 @@ class ScreenForm {
                         continue
                     }
                 }
-                throw new IllegalArgumentException("Cound not find service [${serviceName}] or entity noun referred to in auto-fields-service of form [${newFormNode.attribute("name")}] of screen [${sd.location}]")
+                throw new BaseArtifactException("Cound not find service [${serviceName}] or entity noun referred to in auto-fields-service of form [${newFormNode.attribute("name")}] of screen [${sd.location}]")
             } else if (formSubNode.name == "auto-fields-entity") {
                 String entityName = formSubNode.attribute("entity-name")
                 if (isDynamic) entityName = ecfi.resourceFacade.expand(entityName, "")
@@ -179,7 +179,7 @@ class ScreenForm {
                             excludes, newFormNode)
                     continue
                 }
-                throw new IllegalArgumentException("Cound not find entity [${entityName}] referred to in auto-fields-entity of form [${newFormNode.attribute("name")}] of screen [${sd.location}]")
+                throw new BaseArtifactException("Cound not find entity [${entityName}] referred to in auto-fields-entity of form [${newFormNode.attribute("name")}] of screen [${sd.location}]")
             }
         }
 
@@ -265,7 +265,7 @@ class ScreenForm {
             boolean alreadyDisabled = ecfi.getEci().artifactExecutionFacade.disableAuthz()
             try {
                 EntityValue dbForm = ecfi.entityFacade.fastFindOne("moqui.screen.form.DbForm", true, false, formId)
-                if (dbForm == null) throw new BaseException("Could not find DbForm record with ID [${formId}]")
+                if (dbForm == null) throw new BaseArtifactException("Could not find DbForm record with ID [${formId}]")
                 dbFormNode = new MNode((dbForm.isListForm == "Y" ? "form-list" : "form-single"), null)
 
                 EntityList dbFormFieldList = ecfi.entityFacade.find("moqui.screen.form.DbFormField").condition("formId", formId)
@@ -279,7 +279,7 @@ class ScreenForm {
                     if (dbFormField.tooltip) subFieldNode.attributes.put("tooltip", (String) dbFormField.tooltip)
 
                     String fieldType = dbFormField.fieldTypeEnumId
-                    if (!fieldType) throw new IllegalArgumentException("DbFormField record with formId [${formId}] and fieldName [${fieldName}] has no fieldTypeEnumId")
+                    if (!fieldType) throw new BaseArtifactException("DbFormField record with formId [${formId}] and fieldName [${fieldName}] has no fieldTypeEnumId")
 
                     String widgetName = fieldType.substring(6)
                     MNode widgetNode = subFieldNode.append(widgetName, null)
@@ -799,14 +799,14 @@ class ScreenForm {
             List<MNode> setNodeList = widgetNode.children("set")
 
             String templateLocation = widgetNode.attribute("location")
-            if (!templateLocation) throw new IllegalArgumentException("widget-template-include.@location cannot be empty")
-            if (!templateLocation.contains("#")) throw new IllegalArgumentException("widget-template-include.@location must contain a hash/pound sign to separate the file location and widget-template.@name: [${templateLocation}]")
+            if (!templateLocation) throw new BaseArtifactException("widget-template-include.@location cannot be empty")
+            if (!templateLocation.contains("#")) throw new BaseArtifactException("widget-template-include.@location must contain a hash/pound sign to separate the file location and widget-template.@name: [${templateLocation}]")
             String fileLocation = templateLocation.substring(0, templateLocation.indexOf("#"))
             String widgetTemplateName = templateLocation.substring(templateLocation.indexOf("#") + 1)
 
             MNode widgetTemplatesNode = ecfi.screenFacade.getWidgetTemplatesNodeByLocation(fileLocation)
             MNode widgetTemplateNode = widgetTemplatesNode?.first({ MNode it -> it.attribute("name") == widgetTemplateName })
-            if (widgetTemplateNode == null) throw new IllegalArgumentException("Could not find widget-template [${widgetTemplateName}] in [${fileLocation}]")
+            if (widgetTemplateNode == null) throw new BaseArtifactException("Could not find widget-template [${widgetTemplateName}] in [${fileLocation}]")
 
             // remove the widget-template-include node
             fieldSubNode.children.remove(0)
@@ -840,7 +840,7 @@ class ScreenForm {
                 return
             }
         }
-        throw new IllegalArgumentException("Cound not find service [${serviceName}] or entity noun referred to in auto-fields-service of form [${baseFormNode.attribute("name")}] of screen [${sd.location}]")
+        throw new BaseArtifactException("Cound not find service [${serviceName}] or entity noun referred to in auto-fields-service of form [${baseFormNode.attribute("name")}] of screen [${sd.location}]")
     }
     void addAutoServiceField(ServiceDefinition sd, String parameterName, String fieldType,
                              MNode newFieldNode, MNode subFieldNode, MNode baseFormNode) {
@@ -853,7 +853,7 @@ class ScreenForm {
         }
         MNode parameterNode = sd.serviceNode.first({ MNode it -> it.name == "in-parameters" && it.attribute("name") == parameterName })
 
-        if (parameterNode == null) throw new IllegalArgumentException("Cound not find parameter [${parameterName}] in service [${sd.serviceName}] referred to in auto-widget-service of form [${baseFormNode.attribute("name")}] of screen [${sd.location}]")
+        if (parameterNode == null) throw new BaseArtifactException("Cound not find parameter [${parameterName}] in service [${sd.serviceName}] referred to in auto-widget-service of form [${baseFormNode.attribute("name")}] of screen [${sd.location}]")
         addAutoServiceField(nounEd, parameterNode, fieldType, sd.verb, newFieldNode, subFieldNode, baseFormNode)
     }
 
@@ -867,7 +867,7 @@ class ScreenForm {
             // ignore, anticipating there may be no entity def
             if (logger.isTraceEnabled()) logger.trace("Ignoring entity exception, not necessarily an entity name: ${e.toString()}")
         }
-        if (ed == null) throw new IllegalArgumentException("Cound not find entity [${entityName}] referred to in auto-widget-entity of form [${baseFormNode.attribute("name")}] of screen [${sd.location}]")
+        if (ed == null) throw new BaseArtifactException("Cound not find entity [${entityName}] referred to in auto-widget-entity of form [${baseFormNode.attribute("name")}] of screen [${sd.location}]")
         addAutoEntityField(ed, widgetNode.attribute("field-name")?:fieldNode.attribute("name"),
                 widgetNode.attribute("field-type")?:"find-display", fieldNode, fieldSubNode, baseFormNode)
     }
@@ -1164,7 +1164,7 @@ class ScreenForm {
             // check aggregate defs
             if (hasAggregate) {
                 if (aggregateGroupFieldList == null) {
-                    throw new IllegalArgumentException("Form ${formNode.attribute('name')} has aggregate fields but no group-by field, must have at least one")
+                    throw new BaseArtifactException("Form ${formNode.attribute('name')} has aggregate fields but no group-by field, must have at least one")
                 } else {
                     // make group fields array
                     int groupFieldSize = aggregateGroupFieldList.size()
@@ -1212,17 +1212,17 @@ class ScreenForm {
 
         MNode getFieldValidateNode(String fieldName) {
             MNode fieldNode = (MNode) fieldNodeMap.get(fieldName)
-            if (fieldNode == null) throw new IllegalArgumentException("Tried to get in-parameter node for field [${fieldName}] that doesn't exist in form [${location}]")
+            if (fieldNode == null) throw new BaseArtifactException("Tried to get in-parameter node for field [${fieldName}] that doesn't exist in form [${location}]")
             String validateService = fieldNode.attribute('validate-service')
             String validateEntity = fieldNode.attribute('validate-entity')
             if (validateService) {
                 ServiceDefinition sd = ecfi.serviceFacade.getServiceDefinition(validateService)
-                if (sd == null) throw new IllegalArgumentException("Invalid validate-service name [${validateService}] in field [${fieldName}] of form [${location}]")
+                if (sd == null) throw new BaseArtifactException("Invalid validate-service name [${validateService}] in field [${fieldName}] of form [${location}]")
                 MNode parameterNode = sd.getInParameter((String) fieldNode.attribute('validate-parameter') ?: fieldName)
                 return parameterNode
             } else if (validateEntity) {
                 EntityDefinition ed = ecfi.entityFacade.getEntityDefinition(validateEntity)
-                if (ed == null) throw new IllegalArgumentException("Invalid validate-entity name [${validateEntity}] in field [${fieldName}] of form [${location}]")
+                if (ed == null) throw new BaseArtifactException("Invalid validate-entity name [${validateEntity}] in field [${fieldName}] of form [${location}]")
                 MNode efNode = ed.getFieldNode((String) fieldNode.attribute('validate-field') ?: fieldName)
                 return efNode
             }
@@ -1364,7 +1364,7 @@ class ScreenForm {
                         MNode frNode = (MNode) fieldRefNodes.get(fi)
                         String fieldName = frNode.attribute("name")
                         MNode fieldNode = (MNode) fieldNodeMap.get(fieldName)
-                        if (fieldNode == null) throw new IllegalArgumentException("Could not find field ${fieldName} referenced in form-list-column.field-ref in form at ${screenForm.location}")
+                        if (fieldNode == null) throw new BaseArtifactException("Could not find field ${fieldName} referenced in form-list-column.field-ref in form at ${screenForm.location}")
                         // skip hidden fields, they are handled separately
                         if (isListFieldHiddenWidget(fieldNode)) continue
 
@@ -1412,7 +1412,7 @@ class ScreenForm {
                 String fieldName = (String) fcfValue.getNoCheckSimple("fieldName")
                 MNode fieldNode = (MNode) fieldNodeMap.get(fieldName)
                 if (fieldNode == null) {
-                    //throw new IllegalArgumentException("Could not find field ${fieldName} referenced in FormConfigField record for ID ${fcfValue.formConfigId} user ${eci.user.userId}, form at ${screenForm.location}")
+                    //throw new BaseArtifactException("Could not find field ${fieldName} referenced in FormConfigField record for ID ${fcfValue.formConfigId} user ${eci.user.userId}, form at ${screenForm.location}")
                     logger.warn("Could not find field ${fieldName} referenced in FormConfigField record for ID ${fcfValue.formConfigId} user ${eci.user.userId}, form at ${screenForm.location}. removing it")
                     fcfValue.delete()
                     continue
@@ -1791,7 +1791,7 @@ class ScreenForm {
 
             // now we have all fixed widths, calculate and set percent widths
             int widthForPercentCols = lineWidth - fixedColsWidth
-            if (widthForPercentCols < 0) throw new IllegalArgumentException("In form ${formName} fixed width columns exceeded total line characters ${originalLineWidth} by ${-widthForPercentCols} characters")
+            if (widthForPercentCols < 0) throw new BaseArtifactException("In form ${formName} fixed width columns exceeded total line characters ${originalLineWidth} by ${-widthForPercentCols} characters")
             int percentColsCount = numCols - fixedColsCount
 
             // scale column percents to 100, fill in missing

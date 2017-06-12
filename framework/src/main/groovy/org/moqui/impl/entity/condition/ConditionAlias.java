@@ -13,7 +13,7 @@
  */
 package org.moqui.impl.entity.condition;
 
-import org.moqui.BaseException;
+import org.moqui.BaseArtifactException;
 import org.moqui.impl.entity.EntityDefinition;
 import org.moqui.impl.entity.FieldInfo;
 
@@ -33,9 +33,9 @@ public class ConditionAlias extends ConditionField implements Externalizable {
 
     public ConditionAlias() { }
     public ConditionAlias(String entityAlias, String fieldName, EntityDefinition aliasEntityDef) {
-        if (fieldName == null) throw new BaseException("Empty fieldName not allowed");
-        if (entityAlias == null) throw new BaseException("Empty entityAlias not allowed");
-        if (aliasEntityDef == null) throw new BaseException("Null aliasEntityDef not allowed");
+        if (fieldName == null) throw new BaseArtifactException("Empty fieldName not allowed");
+        if (entityAlias == null) throw new BaseArtifactException("Empty entityAlias not allowed");
+        if (aliasEntityDef == null) throw new BaseArtifactException("Null aliasEntityDef not allowed");
         this.fieldName = fieldName.intern();
         this.entityAlias = entityAlias.intern();
 

@@ -24,6 +24,7 @@ import org.moqui.entity.EntityValue;
 import org.moqui.impl.actions.XmlAction;
 import org.moqui.impl.context.ExecutionContextImpl;
 import org.moqui.impl.entity.EntityDefinition;
+import org.moqui.service.ServiceException;
 import org.moqui.util.CollectionUtilities;
 import org.moqui.util.MNode;
 import org.moqui.util.ObjectUtilities;
@@ -104,7 +105,7 @@ public class ServiceDefinition {
             String implRequired = implementsNode.attribute("required");// no default here, only used if has a value
             if (implRequired != null && implRequired.isEmpty()) implRequired = null;
             ServiceDefinition sd = sfi.getServiceDefinition(implServiceName);
-            if (sd == null) throw new IllegalArgumentException("Service " + implServiceName +
+            if (sd == null) throw new ServiceException("Service " + implServiceName +
                     " not found, specified in service.implements in service " + serviceName);
 
             // these are the first params to be set, so just deep copy them over
@@ -233,10 +234,10 @@ public class ServiceDefinition {
     private void mergeAutoParameters(MNode parametersNode, MNode autoParameters) {
         String entityName = autoParameters.attribute("entity-name");
         if (entityName == null || entityName.isEmpty()) entityName = noun;
-        if (entityName == null || entityName.isEmpty()) throw new IllegalArgumentException("Error in auto-parameters in service " +
+        if (entityName == null || entityName.isEmpty()) throw new ServiceException("Error in auto-parameters in service " +
                 serviceName + ", no auto-parameters.@entity-name and no service.@noun for a default");
         EntityDefinition ed = sfi.ecfi.entityFacade.getEntityDefinition(entityName);
-        if (ed == null) throw new IllegalArgumentException("Error in auto-parameters in service " + serviceName + ", the entity-name or noun [" + entityName + "] is not a valid entity name");
+        if (ed == null) throw new ServiceException("Error in auto-parameters in service " + serviceName + ", the entity-name or noun [" + entityName + "] is not a valid entity name");
 
         Set<String> fieldsToExclude = new HashSet<>();
         for (MNode excludeNode : autoParameters.children("exclude")) {

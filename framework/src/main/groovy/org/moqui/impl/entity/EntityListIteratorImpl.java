@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.entity;
 
+import org.moqui.BaseArtifactException;
 import org.moqui.entity.*;
 import org.moqui.impl.context.TransactionCache;
 import org.moqui.util.CollectionUtilities;
@@ -347,7 +348,7 @@ public class EntityListIteratorImpl implements EntityListIterator {
 
     @Override
     public void set(EntityValue e) {
-        throw new IllegalArgumentException("EntityListIterator.set() not currently supported");
+        throw new BaseArtifactException("EntityListIterator.set() not currently supported");
         // TODO implement this
         // TODO: call EECAs
         // TODO: notify cache clear
@@ -355,7 +356,7 @@ public class EntityListIteratorImpl implements EntityListIterator {
 
     @Override
     public void add(EntityValue e) {
-        throw new IllegalArgumentException("EntityListIterator.add() not currently supported");
+        throw new BaseArtifactException("EntityListIterator.add() not currently supported");
         // TODO implement this
     }
 

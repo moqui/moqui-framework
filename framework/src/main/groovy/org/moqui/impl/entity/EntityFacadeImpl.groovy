@@ -15,6 +15,7 @@ package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
 import org.codehaus.groovy.runtime.typehandling.GroovyCastException
+import org.moqui.BaseArtifactException
 import org.moqui.BaseException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.etl.SimpleEtl
@@ -1667,7 +1668,7 @@ class EntityFacadeImpl implements EntityFacade {
     @Override
     EntityListIterator sqlFind(String sql, List<Object> sqlParameterList, String entityName, List<String> fieldList) {
         if (sqlParameterList == null || fieldList == null || sqlParameterList.size() != fieldList.size())
-            throw new IllegalArgumentException("For sqlFind sqlParameterList and fieldList must not be null and must be the same size")
+            throw new BaseArtifactException("For sqlFind sqlParameterList and fieldList must not be null and must be the same size")
         EntityDefinition ed = this.getEntityDefinition(entityName)
         this.entityDbMeta.checkTableRuntime(ed)
 
@@ -1678,7 +1679,7 @@ class EntityFacadeImpl implements EntityFacade {
             int fiArrayIndex = 0
             for (String fieldName in fieldList) {
                 FieldInfo fi = ed.getFieldInfo(fieldName)
-                if (fi == null) throw new IllegalArgumentException("Field ${fieldName} not found for entity ${entityName}")
+                if (fi == null) throw new BaseArtifactException("Field ${fieldName} not found for entity ${entityName}")
                 fiArray[fiArrayIndex] = fi
                 fiArrayIndex++
             }
@@ -1897,7 +1898,7 @@ class EntityFacadeImpl implements EntityFacade {
                 return
             }
             EntityDefinition ed = efi.getEntityDefinition(entityName)
-            if (ed == null) throw new BaseException("Could not find entity ${entityName}")
+            if (ed == null) throw new BaseArtifactException("Could not find entity ${entityName}")
             // NOTE: the following uses the same pattern as EntityDataLoaderImpl.LoadValueHandler
             if (dummyFks || useTryInsert) {
                 EntityValue curValue = ed.makeEntityValue()

@@ -14,6 +14,7 @@
 package org.moqui.impl.entity.condition;
 
 import org.moqui.entity.EntityCondition;
+import org.moqui.entity.EntityException;
 import org.moqui.impl.entity.EntityDefinition;
 import org.moqui.impl.entity.EntityQueryBuilder;
 import org.moqui.impl.entity.EntityConditionFactoryImpl;
@@ -98,7 +99,7 @@ public class BasicJoinCondition implements EntityConditionImplBase {
     }
 
     @Override
-    public EntityCondition ignoreCase() { throw new IllegalArgumentException("Ignore case not supported for BasicJoinCondition"); }
+    public EntityCondition ignoreCase() { throw new EntityException("Ignore case not supported for BasicJoinCondition"); }
 
     @Override
     public String toString() {

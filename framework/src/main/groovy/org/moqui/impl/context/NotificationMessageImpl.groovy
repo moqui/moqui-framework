@@ -16,6 +16,7 @@ package org.moqui.impl.context
 import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 import groovy.transform.CompileStatic
+import org.moqui.BaseArtifactException
 import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
 import org.moqui.context.NotificationMessage
@@ -255,7 +256,7 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
     @Override NotificationMessage markSent(String userId) {
         // if no notificationMessageId there is nothing to do, this isn't persisted as far as we know
         if (!notificationMessageId) return this
-        if (!userId) throw new IllegalArgumentException("Must specify userId to mark notification message sent")
+        if (!userId) throw new BaseArtifactException("Must specify userId to mark notification message sent")
 
         ExecutionContextImpl eci = ecfi.getEci()
         boolean alreadyDisabled = eci.getArtifactExecution().disableAuthz()
@@ -274,7 +275,7 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
     @Override NotificationMessage markViewed(String userId) {
         // if no notificationMessageId there is nothing to do, this isn't persisted as far as we know
         if (!notificationMessageId) return this
-        if (!userId) throw new IllegalArgumentException("Must specify userId to mark notification message received")
+        if (!userId) throw new BaseArtifactException("Must specify userId to mark notification message received")
 
         markViewed(notificationMessageId, userId, ecfi.getEci())
         return this

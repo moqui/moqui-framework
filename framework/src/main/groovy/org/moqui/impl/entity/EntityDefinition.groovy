@@ -14,6 +14,7 @@
 package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
+import org.moqui.BaseArtifactException
 import org.moqui.entity.EntityFind
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.condition.ConditionAlias
@@ -699,7 +700,7 @@ class EntityDefinition {
             this.parentEd = parentEd
             relationshipName = detailNode.attribute("relationship")
             relInfo = parentEd.getRelationshipInfo(relationshipName)
-            if (relInfo == null) throw new IllegalArgumentException("Invalid relationship name [${relationshipName}] for entity ${parentEd.getFullEntityName()}")
+            if (relInfo == null) throw new BaseArtifactException("Invalid relationship name [${relationshipName}] for entity ${parentEd.getFullEntityName()}")
             // logger.warn("Following relationship ${relationshipName}")
 
             List<MNode> detailNodeList = detailNode.children("detail")
@@ -712,7 +713,7 @@ class EntityDefinition {
             if (relatedMasterName) {
                 ArrayList<MasterDetail> combinedList = new ArrayList<MasterDetail>(internalDetailList)
                 MasterDefinition relatedMaster = relInfo.relatedEd.getMasterDefinition(relatedMasterName)
-                if (relatedMaster == null) throw new IllegalArgumentException("Invalid use-master value [${relatedMasterName}], master not found in entity ${relInfo.relatedEntityName}")
+                if (relatedMaster == null) throw new BaseArtifactException("Invalid use-master value [${relatedMasterName}], master not found in entity ${relInfo.relatedEntityName}")
                 // logger.warn("Including master ${relatedMasterName} on entity ${relInfo.relatedEd.getFullEntityName()}")
 
                 combinedList.addAll(relatedMaster.detailList)

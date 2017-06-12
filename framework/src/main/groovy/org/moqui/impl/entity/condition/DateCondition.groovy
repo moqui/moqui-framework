@@ -15,6 +15,7 @@ package org.moqui.impl.entity.condition
 
 import groovy.transform.CompileStatic
 import org.moqui.entity.EntityCondition
+import org.moqui.entity.EntityException
 import org.moqui.impl.entity.EntityDefinition
 
 import java.sql.Timestamp
@@ -52,7 +53,7 @@ class DateCondition implements EntityConditionImplBase, Externalizable {
 
     @Override boolean populateMap(Map<String, Object> map) { return false }
 
-    @Override EntityCondition ignoreCase() { throw new IllegalArgumentException("Ignore case not supported for DateCondition.") }
+    @Override EntityCondition ignoreCase() { throw new EntityException("Ignore case not supported for DateCondition.") }
 
     @Override String toString() { return conditionInternal.toString() }
 

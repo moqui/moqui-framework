@@ -15,7 +15,7 @@ package org.moqui.impl.screen
 
 import groovy.transform.CompileStatic
 import org.codehaus.groovy.runtime.InvokerHelper
-import org.moqui.BaseException
+import org.moqui.BaseArtifactException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.ExecutionContext
 import org.moqui.impl.context.ContextJavaUtil
@@ -115,7 +115,7 @@ class ScreenDefinition {
             ScreenDefinition includeScreen = ecfi.screenFacade.getScreenDefinition(transitionInclNode.attribute("location"))
             if (includeScreen != null) dependsOnScreenLocations.add(includeScreen.location)
             MNode transitionNode = includeScreen?.getTransitionItem(transitionInclNode.attribute("name"), transitionInclNode.attribute("method"))?.transitionNode
-            if (transitionNode == null) throw new IllegalArgumentException("For transition-include could not find transition ${transitionInclNode.attribute("name")} with method ${transitionInclNode.attribute("method")} in screen at ${transitionInclNode.attribute("location")}")
+            if (transitionNode == null) throw new BaseArtifactException("For transition-include could not find transition ${transitionInclNode.attribute("name")} with method ${transitionInclNode.attribute("method")} in screen at ${transitionInclNode.attribute("location")}")
             TransitionItem ti = new TransitionItem(transitionNode, this)
             transitionByName.put(ti.method == "any" ? ti.name : ti.name + "#" + ti.method, ti)
         }
@@ -203,7 +203,7 @@ class ScreenDefinition {
 
         ScreenDefinition includeScreen = sfi.getEcfi().screenFacade.getScreenDefinition(location)
         ScreenSection includeSection = includeScreen?.getSection(sectionName)
-        if (includeSection == null) throw new IllegalArgumentException("Could not find section [${sectionNode.attribute("name")} to include at location [${sectionNode.attribute("location")}]")
+        if (includeSection == null) throw new BaseArtifactException("Could not find section [${sectionNode.attribute("name")} to include at location [${sectionNode.attribute("location")}]")
         sectionByName.put(sectionNode.attribute("name"), includeSection)
         dependsOnScreenLocations.add(location)
 
@@ -499,17 +499,17 @@ class ScreenDefinition {
 
     ScreenSection getSection(String sectionName) {
         ScreenSection ss = sectionByName.get(sectionName)
-        if (ss == null) throw new BaseException("Could not find section ${sectionName} in screen ${getLocation()}")
+        if (ss == null) throw new BaseArtifactException("Could not find section ${sectionName} in screen ${getLocation()}")
         return ss
     }
     ScreenForm getForm(String formName) {
         ScreenForm sf = formByName.get(formName)
-        if (sf == null) throw new BaseException("Could not find form ${formName} in screen ${getLocation()}")
+        if (sf == null) throw new BaseArtifactException("Could not find form ${formName} in screen ${getLocation()}")
         return sf
     }
     ScreenTree getTree(String treeName) {
         ScreenTree st = treeByName.get(treeName)
-        if (st == null) throw new BaseException("Could not find tree ${treeName} in screen ${getLocation()}")
+        if (st == null) throw new BaseArtifactException("Could not find tree ${treeName} in screen ${getLocation()}")
         return st
     }
 
@@ -799,7 +799,7 @@ class ScreenDefinition {
             ContextStack context = ec.contextStack
             context.put("sri", sri)
             WebFacade wf = ec.getWeb()
-            if (wf == null) throw new BaseException("Cannot run actions transition outside of a web request")
+            if (wf == null) throw new BaseArtifactException("Cannot run actions transition outside of a web request")
 
             ArrayList<String> extraPathList = sri.screenUrlInfo.extraPathNameList
             if (extraPathList != null && extraPathList.size() > 0) {
@@ -807,7 +807,7 @@ class ScreenDefinition {
                 // is it a form or tree?
                 ScreenForm form = parentScreen.formByName.get(partName)
                 if (form != null) {
-                    if (!form.hasDataPrep()) throw new BaseException("Found form ${partName} in screen ${parentScreen.getScreenName()} but it does not have its own data preparation")
+                    if (!form.hasDataPrep()) throw new BaseArtifactException("Found form ${partName} in screen ${parentScreen.getScreenName()} but it does not have its own data preparation")
                     ScreenForm.FormInstance formInstance = form.getFormInstance()
                     if (formInstance.isList()) {
                         ScreenForm.FormListRenderInfo renderInfo = formInstance.makeFormListRenderInfo()
@@ -832,7 +832,7 @@ class ScreenDefinition {
                     if (tree != null) {
                         tree.sendSubNodeJson()
                     } else {
-                        throw new BaseException("Could not find form or tree named ${partName} in screen ${parentScreen.getScreenName()} so cannot run its actions")
+                        throw new BaseArtifactException("Could not find form or tree named ${partName} in screen ${parentScreen.getScreenName()} so cannot run its actions")
                     }
                 }
             } else {

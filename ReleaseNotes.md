@@ -15,6 +15,7 @@ See the moqui-runtime release notes for more details. Some of these changes may 
 
 ### Non Backward Compatible Changes
 
+- New compile dependency on Log4J2 and not just SLF4J
 - DataDocument JSON generation no longer automatically adds all primary key fields of the primary entity to allow for aggregation
   by function in DataDocument based queries (where DataDocument is used to create a dynamic view entity); for ElasticSearch indexing
   a unique ID is required so all primary key fields of the primary entity should be defined
@@ -26,6 +27,9 @@ See the moqui-runtime release notes for more details. Some of these changes may 
 ### New Features
 
 - Various library updates
+- SLF4J MDC now used to track moqui_userId and moqui_visitorId for logging
+- New ExecutionContextFactory.registerLogEventSubscriber() method to register for Log4J2 LogEvent processing, initially used in the
+  moqui-elasticsearch component to send log messages to ElasticSearch for use in the new LogViewer screen in the System app
 - Improved Docker Compose samples with HTTPS and PostgreSQL
 - Multi service calls now pass results from previous calls to subsequent calls if parameter names match, and return results
 - Service jobs may now have a lastRunTime parameter passed by the job scheduler; lastRunTime on lock and passed to service is now

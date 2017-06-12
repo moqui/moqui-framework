@@ -19,16 +19,16 @@
 
 import org.apache.commons.mail.DefaultAuthenticator
 import org.apache.commons.mail.HtmlEmail
-
-import javax.mail.util.ByteArrayDataSource
-import javax.activation.DataSource
-import org.moqui.BaseException
+import org.moqui.BaseArtifactException
 import org.moqui.impl.context.ExecutionContextImpl
+
+import javax.activation.DataSource
+import javax.mail.util.ByteArrayDataSource
+import javax.xml.transform.stream.StreamSource
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
-import javax.xml.transform.stream.StreamSource
 
 Logger logger = LoggerFactory.getLogger("org.moqui.impl.sendEmailTemplate")
 
@@ -197,5 +197,5 @@ try {
     return
 } catch (Throwable t) {
     logger.info("Error in sendEmailTemplate groovy", t)
-    throw new BaseException("Error in sendEmailTemplate", t)
+    throw new BaseArtifactException("Error in sendEmailTemplate", t)
 }

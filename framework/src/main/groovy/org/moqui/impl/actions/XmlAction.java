@@ -17,7 +17,7 @@ import freemarker.core.Environment;
 import groovy.lang.Script;
 import org.codehaus.groovy.runtime.DefaultGroovyMethods;
 import org.codehaus.groovy.runtime.InvokerHelper;
-import org.moqui.BaseException;
+import org.moqui.BaseArtifactException;
 import org.moqui.impl.context.ExecutionContextFactoryImpl;
 import org.moqui.impl.context.ExecutionContextImpl;
 import org.moqui.util.MNode;
@@ -121,9 +121,8 @@ public class XmlAction {
             groovyString = outWriter.toString();
         } catch (Exception e) {
             logger.error("Error reading XML actions from [" + location + "], text: " + xmlNode.toString());
-            throw new BaseException("Error reading XML actions from [" + location + "]", e);
+            throw new BaseArtifactException("Error reading XML actions from [" + location + "]", e);
         }
-
 
         if (logger.isTraceEnabled()) logger.trace("XML actions at [" + location + "] produced groovy script:\n" + groovyString + "\nFrom xmlNode:" + xmlNode.toString());
 

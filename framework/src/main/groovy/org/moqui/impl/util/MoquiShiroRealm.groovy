@@ -22,7 +22,7 @@ import org.apache.shiro.authz.UnauthorizedException
 import org.apache.shiro.realm.Realm
 import org.apache.shiro.subject.PrincipalCollection
 import org.apache.shiro.util.SimpleByteSource
-
+import org.moqui.BaseArtifactException
 import org.moqui.Moqui
 import org.moqui.entity.EntityException
 import org.moqui.entity.EntityValue
@@ -259,15 +259,15 @@ class MoquiShiroRealm implements Realm, Authorizer {
     }
 
     boolean isPermitted(PrincipalCollection principalCollection, Permission permission) {
-        throw new IllegalArgumentException("Authorization of Permission through Shiro not yet supported")
+        throw new BaseArtifactException("Authorization of Permission through Shiro not yet supported")
     }
 
     boolean[] isPermitted(PrincipalCollection principalCollection, List<Permission> permissions) {
-        throw new IllegalArgumentException("Authorization of Permission through Shiro not yet supported")
+        throw new BaseArtifactException("Authorization of Permission through Shiro not yet supported")
     }
 
     boolean isPermittedAll(PrincipalCollection principalCollection, Collection<Permission> permissions) {
-        throw new IllegalArgumentException("Authorization of Permission through Shiro not yet supported")
+        throw new BaseArtifactException("Authorization of Permission through Shiro not yet supported")
     }
 
     void checkPermission(PrincipalCollection principalCollection, Permission permission) {
@@ -275,7 +275,7 @@ class MoquiShiroRealm implements Realm, Authorizer {
         // see: http://www.jarvana.com/jarvana/view/org/apache/shiro/shiro-core/1.1.0/shiro-core-1.1.0-javadoc.jar!/org/apache/shiro/authz/Permission.html
         // also look at DomainPermission, can extend for Moqui artifacts
         // this.checkPermission(principalCollection, permission.?)
-        throw new IllegalArgumentException("Authorization of Permission through Shiro not yet supported")
+        throw new BaseArtifactException("Authorization of Permission through Shiro not yet supported")
     }
 
     void checkPermission(PrincipalCollection principalCollection, String permission) {

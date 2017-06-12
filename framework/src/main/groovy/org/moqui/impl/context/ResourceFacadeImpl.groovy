@@ -15,7 +15,7 @@ package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
 import org.codehaus.groovy.runtime.InvokerHelper
-import org.moqui.BaseException
+import org.moqui.BaseArtifactException
 import org.moqui.context.*
 import org.moqui.impl.context.reference.BaseResourceReference
 import org.moqui.impl.context.renderer.FtlTemplateRenderer
@@ -221,7 +221,7 @@ class ResourceFacadeImpl implements ResourceFacade {
 
         String scheme = getLocationScheme(location)
         Class rrClass = resourceReferenceClasses.get(scheme)
-        if (rrClass == null) throw new IllegalArgumentException("Prefix (${scheme}) not supported for location [${location}]")
+        if (rrClass == null) throw new BaseArtifactException("Prefix (${scheme}) not supported for location [${location}]")
 
         ResourceReference rr = (ResourceReference) rrClass.newInstance()
         if (rr instanceof BaseResourceReference) {
@@ -390,7 +390,7 @@ class ResourceFacadeImpl implements ResourceFacade {
         } else {
             // see if the extension is known
             ScriptEngine engine = scriptEngineManager.getEngineByExtension(extension)
-            if (engine == null) throw new IllegalArgumentException("Cannot run script [${location}], unknown extension (not in Moqui Conf file, and unkown to Java ScriptEngineManager).")
+            if (engine == null) throw new BaseArtifactException("Cannot run script [${location}], unknown extension (not in Moqui Conf file, and unkown to Java ScriptEngineManager).")
             return JavaxScriptRunner.bindAndRun(location, ec, engine, ecfi.cacheFacade.getCache("resource.script${extension}.location"))
         }
     }
@@ -436,7 +436,7 @@ class ResourceFacadeImpl implements ResourceFacade {
             script.setBinding(null)
             return result as boolean
         } catch (Exception e) {
-            throw new IllegalArgumentException("Error in condition [${expression}] from [${debugLocation}]", e)
+            throw new BaseArtifactException("Error in condition [${expression}] from [${debugLocation}]", e)
         }
     }
     @Override boolean condition(String expression, String debugLocation, Map additionalContext) {
@@ -466,7 +466,7 @@ class ResourceFacadeImpl implements ResourceFacade {
             script.setBinding(null)
             return result
         } catch (Exception e) {
-            throw new IllegalArgumentException("Error in field expression [${expression}] from [${debugLocation}]", e)
+            throw new BaseArtifactException("Error in field expression [${expression}] from [${debugLocation}]", e)
         }
     }
     @Override Object expression(String expr, String debugLocation, Map additionalContext) {
@@ -525,7 +525,7 @@ class ResourceFacadeImpl implements ResourceFacade {
                 script.setBinding(null)
                 return result as String
             } catch (Exception e) {
-                throw new IllegalArgumentException("Error in string expression [${expression}] from ${debugLocation}", e)
+                throw new BaseArtifactException("Error in string expression [${expression}] from ${debugLocation}", e)
             }
         } finally {
             if (doPushPop) { cs.pop(); cs.pop() }
@@ -566,7 +566,7 @@ class ResourceFacadeImpl implements ResourceFacade {
 
     @Override
     void xslFoTransform(StreamSource xslFoSrc, StreamSource xsltSrc, OutputStream out, String contentType) {
-        if (xslFoHandlerFactory == null) throw new BaseException("No XSL-FO Handler ToolFactory found (from resource-facade.@xsl-fo-handler-factory)")
+        if (xslFoHandlerFactory == null) throw new BaseArtifactException("No XSL-FO Handler ToolFactory found (from resource-facade.@xsl-fo-handler-factory)")
 
         TransformerFactory factory = TransformerFactory.newInstance()
         factory.setURIResolver(new LocalResolver(ecfi, factory.getURIResolver()))
@@ -579,10 +579,10 @@ class ResourceFacadeImpl implements ResourceFacade {
         // There's a ThreadLocal memory leak in XALANJ, reported in 2005 but still not fixed in 2016
         // The memory it prevent GC depend on the fo file size and the thread pool size. So use a separate thread to workaround.
         // https://issues.apache.org/jira/browse/XALANJ-2195
-        BaseException transformException = null
+        BaseArtifactException transformException = null
         ExecutionContextImpl.ThreadPoolRunnable runnable = new ExecutionContextImpl.ThreadPoolRunnable(ecfi.getEci(), {
             try { transformer.transform(xslFoSrc, new SAXResult(contentHandler)) }
-            catch (Throwable t) { transformException = new BaseException("Error transforming XSL-FO to ${contentType}", t) }
+            catch (Throwable t) { transformException = new BaseArtifactException("Error transforming XSL-FO to ${contentType}", t) }
         })
         Thread transThread = new Thread(runnable)
         transThread.start()

@@ -363,10 +363,15 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
         }
     }
 
-    @Override
-    public String toString() {
+    @Override public String toString() {
         return "[name:'" + nameInternal + "', type:'" + internalTypeEnum + "', action:'" + internalActionEnum + "', required: " + internalAuthzWasRequired + ", granted:" + internalAuthzWasGranted + ", user:'" + internalAuthorizedUserId + "', authz:'" + internalAuthorizedAuthzType + "', authAction:'" + internalAuthorizedActionEnum + "', inheritable:" + internalAuthorizationInheritable + ", runningTime:" + getRunningTime() + "]";
     }
+    @Override public String toBasicString() {
+        String actionStr = internalActionEnum.toString();
+        if (actionDetail != null && !actionDetail.isEmpty()) actionStr = actionStr + ':' + actionDetail;
+        return internalTypeEnum.toString() + ':' + nameInternal + '(' + actionStr + ')';
+    }
+
 
     public static class ArtifactAuthzCheck {
         public String userGroupId, artifactAuthzId, authzServiceName;

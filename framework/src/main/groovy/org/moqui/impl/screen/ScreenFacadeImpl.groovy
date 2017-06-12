@@ -15,7 +15,7 @@ package org.moqui.impl.screen
 
 import freemarker.template.Template
 import groovy.transform.CompileStatic
-import org.moqui.BaseException
+import org.moqui.BaseArtifactException
 import org.moqui.resource.ResourceReference
 import org.moqui.screen.ScreenFacade
 import org.moqui.screen.ScreenRender
@@ -31,7 +31,7 @@ import org.slf4j.LoggerFactory
 import javax.cache.Cache
 
 @CompileStatic
-public class ScreenFacadeImpl implements ScreenFacade {
+class ScreenFacadeImpl implements ScreenFacade {
     protected final static Logger logger = LoggerFactory.getLogger(ScreenFacadeImpl.class)
 
     protected final ExecutionContextFactoryImpl ecfi
@@ -185,7 +185,7 @@ public class ScreenFacadeImpl implements ScreenFacade {
         }
 
         MNode screenNode = MNode.parse(screenRr)
-        if (screenNode == null) throw new IllegalArgumentException("Cound not find definition for screen location ${location}")
+        if (screenNode == null) throw new BaseArtifactException("Cound not find definition for screen location ${location}")
 
         sd = new ScreenDefinition(this, screenNode, location)
         // logger.warn("========= loaded screen [${location}] supports LM ${screenRr.supportsLastModified()}, LM: ${screenRr.getLastModified()}")
@@ -209,7 +209,7 @@ public class ScreenFacadeImpl implements ScreenFacade {
                 return esf?.getOrCreateFormNode()
             }
         } else {
-            throw new IllegalArgumentException("Must use full form location (with #) to get a form node, [${location}] has no hash (#).")
+            throw new BaseArtifactException("Must use full form location (with #) to get a form node, [${location}] has no hash (#).")
         }
     }
 
@@ -223,7 +223,7 @@ public class ScreenFacadeImpl implements ScreenFacade {
         if (template != null) return template
 
         template = makeTemplateByMode(renderMode)
-        if (template == null) throw new IllegalArgumentException("Could not find screen render template for mode [${renderMode}]")
+        if (template == null) throw new BaseArtifactException("Could not find screen render template for mode [${renderMode}]")
         return template
     }
 
@@ -234,7 +234,7 @@ public class ScreenFacadeImpl implements ScreenFacade {
         MNode stoNode = ecfi.getConfXmlRoot().first("screen-facade")
                 .first({ MNode it -> it.name == "screen-text-output" && it.attribute("type") == renderMode })
         String templateLocation = stoNode != null ? stoNode.attribute("macro-template-location") : null
-        if (!templateLocation) throw new IllegalArgumentException("Could not find macro-template-location for render mode (screen-text-output.@type) [${renderMode}]")
+        if (!templateLocation) throw new BaseArtifactException("Could not find macro-template-location for render mode (screen-text-output.@type) [${renderMode}]")
         // NOTE: this is a special case where we need something to call #recurse so that all includes can be straight libraries
         String rootTemplate = """<#include "${templateLocation}"/><#visit widgetsNode>"""
 
@@ -243,7 +243,7 @@ public class ScreenFacadeImpl implements ScreenFacade {
             newTemplate = new Template("moqui.automatic.${renderMode}", new StringReader(rootTemplate),
                     ecfi.resourceFacade.ftlTemplateRenderer.getFtlConfiguration())
         } catch (Exception e) {
-            throw new IllegalArgumentException("Error while initializing Screen Widgets template at [${templateLocation}]", e)
+            throw new BaseArtifactException("Error while initializing Screen Widgets template at [${templateLocation}]", e)
         }
 
         screenTemplateModeCache.put(renderMode, newTemplate)
@@ -271,7 +271,7 @@ public class ScreenFacadeImpl implements ScreenFacade {
             newTemplate = new Template(filename, new StringReader(rootTemplate),
                     ecfi.resourceFacade.ftlTemplateRenderer.getFtlConfiguration())
         } catch (Exception e) {
-            throw new IllegalArgumentException("Error while initializing Screen Widgets template at [${templateLocation}]", e)
+            throw new BaseArtifactException("Error while initializing Screen Widgets template at [${templateLocation}]", e)
         }
 
         screenTemplateLocationCache.put(templateLocation, newTemplate)
@@ -315,7 +315,7 @@ public class ScreenFacadeImpl implements ScreenFacade {
             }
         }
         if (wildcardHost != null) return wildcardHost.attribute("location")
-        throw new BaseException("Could not find root screen for host: ${host}")
+        throw new BaseArtifactException("Could not find root screen for host: ${host}")
     }
 
     /** Called from ArtifactStats screen */

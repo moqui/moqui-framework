@@ -136,7 +136,7 @@ abstract class EntityFindBase implements EntityFind {
     EntityFind condition(String fieldName, String operator, Object value) {
         EntityCondition.ComparisonOperator opObj = operator == null || operator.isEmpty() ?
                 EntityCondition.EQUALS : EntityConditionFactoryImpl.stringComparisonOperatorMap.get(operator)
-        if (opObj == null) throw new IllegalArgumentException("Operator [${operator}] is not a valid field comparison operator")
+        if (opObj == null) throw new EntityException("Operator [${operator}] is not a valid field comparison operator")
         return condition(fieldName, opObj, value)
     }
 
@@ -710,7 +710,7 @@ abstract class EntityFindBase implements EntityFind {
     }
 
     protected EntityValue oneInternal(ExecutionContextImpl ec, EntityDefinition ed) throws EntityException, SQLException {
-        if (this.dynamicView != null) throw new IllegalArgumentException("Dynamic View not supported for 'one' find.")
+        if (this.dynamicView != null) throw new EntityException("Dynamic View not supported for 'one' find.")
 
         boolean isViewEntity = ed.isViewEntity
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
