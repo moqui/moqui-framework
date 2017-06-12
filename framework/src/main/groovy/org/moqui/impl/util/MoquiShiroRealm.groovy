@@ -136,7 +136,8 @@ class MoquiShiroRealm implements Realm, Authorizer {
         }
 
         // update visit if no user in visit yet
-        EntityValue visit = eci.user.visit
+        String visitId = eci.userFacade.getVisitId()
+        EntityValue visit = eci.entityFacade.find("moqui.server.Visit").condition("visitId", visitId).disableAuthz().one()
         if (visit != null) {
             if (!visit.getNoCheckSimple("userId")) {
                 eci.service.sync().name("update", "moqui.server.Visit").parameter("visitId", visit.visitId)
