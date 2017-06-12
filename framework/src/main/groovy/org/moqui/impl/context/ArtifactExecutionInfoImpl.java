@@ -114,11 +114,12 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
 
     @Override
     public boolean getAuthorizationWasRequired() { return internalAuthzWasRequired; }
-    void setAuthzReqdAndIsAccess(boolean authzReqd, boolean isAccess) {
+    public ArtifactExecutionInfoImpl setAuthzReqdAndIsAccess(boolean authzReqd, boolean isAccess) {
         internalAuthzWasRequired = authzReqd;
         this.isAccess = isAccess;
+        return this;
     }
-    public void setTrackArtifactHit(boolean tah) { trackArtifactHit = tah; }
+    public ArtifactExecutionInfoImpl setTrackArtifactHit(boolean tah) { trackArtifactHit = tah; return this; }
     @Override
     public boolean getAuthorizationWasGranted() { return internalAuthzWasGranted; }
     void setAuthorizationWasGranted(boolean value) { internalAuthzWasGranted = value ? Boolean.TRUE : Boolean.FALSE; }
