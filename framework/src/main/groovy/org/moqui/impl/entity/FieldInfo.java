@@ -13,7 +13,7 @@
  */
 package org.moqui.impl.entity;
 
-import org.moqui.BaseException;
+import org.moqui.BaseArtifactException;
 import org.moqui.entity.EntityException;
 import org.moqui.impl.context.L10nFacadeImpl;
 import org.moqui.impl.entity.condition.ConditionField;
@@ -162,17 +162,17 @@ public class FieldInfo {
                 case 2: // outValue = java.sql.Timestamp.valueOf(value);
                     if (isEmpty) { outValue = null; break; }
                     outValue = l10n.parseTimestamp(value, null);
-                    if (outValue == null) throw new BaseException("The value [" + value + "] is not a valid date/time for field " + entityName + "." + name);
+                    if (outValue == null) throw new BaseArtifactException("The value [" + value + "] is not a valid date/time for field " + entityName + "." + name);
                     break;
                 case 3: // outValue = java.sql.Time.valueOf(value);
                     if (isEmpty) { outValue = null; break; }
                     outValue = l10n.parseTime(value, null);
-                    if (outValue == null) throw new BaseException("The value [" + value + "] is not a valid time for field " + entityName + "." + name);
+                    if (outValue == null) throw new BaseArtifactException("The value [" + value + "] is not a valid time for field " + entityName + "." + name);
                     break;
                 case 4: // outValue = java.sql.Date.valueOf(value);
                     if (isEmpty) { outValue = null; break; }
                     outValue = l10n.parseDate(value, null);
-                    if (outValue == null) throw new BaseException("The value [" + value + "] is not a valid date for field " + entityName + "." + name);
+                    if (outValue == null) throw new BaseArtifactException("The value [" + value + "] is not a valid date for field " + entityName + "." + name);
                     break;
                 case 5: // outValue = Integer.valueOf(value); break
                 case 6: // outValue = Long.valueOf(value); break
@@ -182,7 +182,7 @@ public class FieldInfo {
                     if (isEmpty) { outValue = null; break; }
                     BigDecimal bdVal = l10n.parseNumber(value, null);
                     if (bdVal == null) {
-                        throw new BaseException("The value [" + value + "] is not valid for type " + javaType + " for field " + entityName + "." + name);
+                        throw new BaseArtifactException("The value [" + value + "] is not valid for type " + javaType + " for field " + entityName + "." + name);
                     } else {
                         bdVal = bdVal.stripTrailingZeros();
                         switch (typeValue) {
@@ -202,7 +202,7 @@ public class FieldInfo {
                     try {
                         outValue = new SerialBlob(value.getBytes());
                     } catch (SQLException e) {
-                        throw new BaseException("Error creating SerialBlob for value [" + value + "] for field " + entityName + "." + name);
+                        throw new BaseArtifactException("Error creating SerialBlob for value [" + value + "] for field " + entityName + "." + name);
                     }
                     break;
                 case 13: outValue = value; break;
@@ -216,7 +216,7 @@ public class FieldInfo {
                 default: outValue = value; break;
             }
         } catch (IllegalArgumentException e) {
-            throw new BaseException("The value [" + value + "] is not valid for type " + javaType + " for field " + entityName + "." + name, e);
+            throw new BaseArtifactException("The value [" + value + "] is not valid for type " + javaType + " for field " + entityName + "." + name, e);
         }
 
         return outValue;
@@ -256,7 +256,7 @@ public class FieldInfo {
                 default: outValue = value.toString(); break;
             }
         } catch (IllegalArgumentException e) {
-            throw new BaseException("The value [" + value + "] is not valid for type " + javaType + " for field " + entityName + "." + name, e);
+            throw new BaseArtifactException("The value [" + value + "] is not valid for type " + javaType + " for field " + entityName + "." + name, e);
         }
 
         return outValue;
@@ -377,7 +377,7 @@ public class FieldInfo {
 
         // if field is to be encrypted, do it now
         if (value != null && encrypt) {
-            if (typeValue != 1) throw new IllegalArgumentException("The encrypt attribute was set to true on non-String field " + name + " of entity " + entityName);
+            if (typeValue != 1) throw new EntityException("The encrypt attribute was set to true on non-String field " + name + " of entity " + entityName);
             String original = value.toString();
             try {
                 value = EntityJavaUtil.enDeCrypt(original, false, efi);
@@ -415,7 +415,7 @@ public class FieldInfo {
 
             // if field is to be encrypted, do it now
             if (encrypt) {
-                if (localTypeValue != 1) throw new IllegalArgumentException("The encrypt attribute was set to true on non-String field " + name + " of entity " + entityName);
+                if (localTypeValue != 1) throw new EntityException("The encrypt attribute was set to true on non-String field " + name + " of entity " + entityName);
                 String original = value.toString();
                 value = EntityJavaUtil.enDeCrypt(original, true, efi);
             }
@@ -453,7 +453,7 @@ public class FieldInfo {
                         } else if (valClass == java.util.Date.class) {
                             ps.setTimestamp(index, new Timestamp(((java.util.Date) value).getTime()), efi.getCalendarForTzLc());
                         } else {
-                            throw new IllegalArgumentException("Class " + valClass.getName() + " not allowed for date-time (Timestamp) fields, for field " + entityName + "." + name);
+                            throw new EntityException("Class " + valClass.getName() + " not allowed for date-time (Timestamp) fields, for field " + entityName + "." + name);
                         }
                     } else { ps.setNull(index, Types.TIMESTAMP); }
                     break;
@@ -475,7 +475,7 @@ public class FieldInfo {
                         } else if (valClass == java.util.Date.class) {
                             ps.setDate(index, new java.sql.Date(((java.util.Date) value).getTime()), efi.getCalendarForTzLc());
                         } else {
-                            throw new IllegalArgumentException("Class " + valClass.getName() + " not allowed for date fields, for field " + entityName + "." + name);
+                            throw new EntityException("Class " + valClass.getName() + " not allowed for date fields, for field " + entityName + "." + name);
                         }
                     } else { ps.setNull(index, Types.DATE); }
                     break;
@@ -496,7 +496,7 @@ public class FieldInfo {
                         } else if (value instanceof Number) {
                             ps.setDouble(index, ((Number) value).doubleValue());
                         } else {
-                            throw new IllegalArgumentException("Class " + valClass.getName() + " not allowed for number-decimal (BigDecimal) fields, for field " + entityName + "." + name);
+                            throw new EntityException("Class " + valClass.getName() + " not allowed for number-decimal (BigDecimal) fields, for field " + entityName + "." + name);
                         }
                     } else { ps.setNull(index, Types.NUMERIC); } break;
                 case 10: if (value != null) { ps.setBoolean(index, (Boolean) value); } else { ps.setNull(index, Types.BOOLEAN); } break;
@@ -541,7 +541,7 @@ public class FieldInfo {
                         ps.setBytes(index, valueBlob.getBytes(1, (int) valueBlob.length()));
                     } else {
                         if (value != null) {
-                            throw new IllegalArgumentException("Type not supported for BLOB field: " + value.getClass().getName() + ", for field " + entityName + "." + name);
+                            throw new EntityException("Type not supported for BLOB field: " + value.getClass().getName() + ", for field " + entityName + "." + name);
                         } else {
                             if (useBinaryTypeForBlob) { ps.setNull(index, Types.BINARY); } else { ps.setNull(index, Types.BLOB); }
                         }

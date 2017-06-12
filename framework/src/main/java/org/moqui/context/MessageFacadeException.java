@@ -13,15 +13,10 @@
  */
 package org.moqui.context;
 
-import org.moqui.BaseException;
+import org.moqui.BaseArtifactException;
 
-public class MessageFacadeException extends BaseException {
+public class MessageFacadeException extends BaseArtifactException {
     protected final MessageFacade messageFacade;
-
-    public MessageFacadeException(MessageFacade mf, Throwable nested) {
-        super(mf.getErrorsString(), nested);
-        messageFacade = mf;
-    }
-
+    public MessageFacadeException(MessageFacade mf, Throwable nested) { super(mf.getErrorsString(), nested); messageFacade = mf; }
     public MessageFacade getMessageFacade() { return messageFacade; }
 }

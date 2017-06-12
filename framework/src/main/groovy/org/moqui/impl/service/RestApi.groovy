@@ -788,7 +788,7 @@ class RestApi {
                 if (value instanceof Integer) {
                     response.setIntHeader(entry.key, (int) value)
                 } else if (value instanceof Date) {
-                    response.setDateHeader(entry.key, value.getTime())
+                    response.setDateHeader(entry.key, ((Date) value).getTime())
                 } else {
                     response.setHeader(entry.key, value.toString())
                 }

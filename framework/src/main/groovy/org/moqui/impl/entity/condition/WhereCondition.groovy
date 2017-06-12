@@ -15,6 +15,7 @@ package org.moqui.impl.entity.condition
 
 import groovy.transform.CompileStatic
 import org.moqui.entity.EntityCondition
+import org.moqui.entity.EntityException
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityQueryBuilder
 import org.slf4j.Logger
@@ -56,7 +57,7 @@ class WhereCondition implements EntityConditionImplBase {
     @Override void getAllAliases(Set<String> entityAliasSet, Set<String> fieldAliasSet) { }
     @Override EntityConditionImplBase filter(String entityAlias, EntityDefinition mainEd) { return entityAlias == null ? this : null }
 
-    @Override EntityCondition ignoreCase() { throw new IllegalArgumentException("Ignore case not supported for this type of condition.") }
+    @Override EntityCondition ignoreCase() { throw new EntityException("Ignore case not supported for this type of condition.") }
     @Override String toString() { return sqlWhereClause }
     @Override int hashCode() { return (sqlWhereClause != null ? sqlWhereClause.hashCode() : 0) }
 

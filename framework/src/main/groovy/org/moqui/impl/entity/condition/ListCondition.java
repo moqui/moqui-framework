@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.entity.condition;
 
+import org.moqui.entity.EntityException;
 import org.moqui.impl.entity.EntityConditionFactoryImpl;
 import org.moqui.impl.entity.EntityDefinition;
 import org.moqui.impl.entity.EntityQueryBuilder;
@@ -157,7 +158,7 @@ public class ListCondition implements EntityConditionImplBase {
     }
 
     @Override
-    public EntityCondition ignoreCase() { throw new IllegalArgumentException("Ignore case not supported for this type of condition."); }
+    public EntityCondition ignoreCase() { throw new EntityException("Ignore case not supported for this type of condition."); }
 
     @Override
     public String toString() {

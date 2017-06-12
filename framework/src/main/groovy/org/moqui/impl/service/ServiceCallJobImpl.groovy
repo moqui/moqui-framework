@@ -15,6 +15,7 @@ package org.moqui.impl.service
 
 import groovy.json.JsonOutput
 import groovy.transform.CompileStatic
+import org.moqui.BaseArtifactException
 import org.moqui.Moqui
 import org.moqui.context.NotificationMessage
 import org.moqui.entity.EntityList
@@ -52,7 +53,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
         // get ServiceJob, make sure exists
         this.jobName = jobName
         serviceJob = eci.entityFacade.fastFindOne("moqui.service.job.ServiceJob", true, true, jobName)
-        if (serviceJob == null) throw new IllegalArgumentException("No ServiceJob record found for jobName ${jobName}")
+        if (serviceJob == null) throw new BaseArtifactException("No ServiceJob record found for jobName ${jobName}")
 
         // set ServiceJobParameter values
         EntityList serviceJobParameters = eci.entity.find("moqui.service.job.ServiceJobParameter")
@@ -273,6 +274,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
             } catch (Throwable t) {
                 logger.error("Error in service job handling", t)
                 // better to not throw? seems to cause issue with scheduler: throw t
+                return null
             } finally {
                 if (threadEci != null) threadEci.destroy()
             }

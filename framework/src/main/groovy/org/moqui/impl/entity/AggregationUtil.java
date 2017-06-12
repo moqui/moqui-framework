@@ -17,7 +17,7 @@ import groovy.lang.MissingPropertyException;
 import groovy.lang.Script;
 import org.codehaus.groovy.runtime.DefaultGroovyMethods;
 import org.codehaus.groovy.runtime.InvokerHelper;
-import org.moqui.BaseException;
+import org.moqui.BaseArtifactException;
 import org.moqui.entity.EntityValue;
 import org.moqui.impl.actions.XmlAction;
 import org.moqui.impl.context.ExecutionContextImpl;
@@ -118,7 +118,7 @@ public class AggregationUtil {
                 originalCount++;
             }
         } else {
-            throw new BaseException("form-list list " + listName + " is a type we don't know how to iterate: " + listObj.getClass().getName());
+            throw new BaseArtifactException("form-list list " + listName + " is a type we don't know how to iterate: " + listObj.getClass().getName());
         }
 
         if (hasSubListTotals) {

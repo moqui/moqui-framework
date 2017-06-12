@@ -14,7 +14,7 @@
 package org.moqui.impl.screen
 
 import groovy.transform.CompileStatic
-import org.moqui.BaseException
+import org.moqui.BaseArtifactException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.ExecutionContext
 import org.moqui.resource.ResourceReference
@@ -146,7 +146,7 @@ class ScreenUrlInfo {
         String webappName = request.servletContext.getInitParameter("moqui-name")
         String rootScreenLocation = sfi.rootScreenFromHost(request.getServerName(), webappName)
         ScreenDefinition rootScreenDef = sfi.getScreenDefinition(rootScreenLocation)
-        if (rootScreenDef == null) throw new BaseException("Could not find root screen at location ${rootScreenLocation}")
+        if (rootScreenDef == null) throw new BaseArtifactException("Could not find root screen at location ${rootScreenLocation}")
 
         String pathInfo = request.getPathInfo()
         ArrayList<String> screenPath = new ArrayList<>()
@@ -302,7 +302,7 @@ class ScreenUrlInfo {
             if (baseUrl && baseUrl.charAt(baseUrl.length()-1) == (char) '/') baseUrl = baseUrl.substring(0, baseUrl.length()-1)
         } else {
             if (sri.webappName == null || sri.webappName.length() == 0)
-                throw new BaseException("No webappName specified, cannot get base URL for screen location ${sri.rootScreenLocation}")
+                throw new BaseArtifactException("No webappName specified, cannot get base URL for screen location ${sri.rootScreenLocation}")
             baseUrl = WebFacadeImpl.getWebappRootUrl(sri.webappName, sri.servletContextPath, true,
                     this.requireEncryption, sri.ec)
         }

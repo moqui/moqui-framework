@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.entity;
 
+import org.moqui.BaseArtifactException;
 import org.moqui.entity.EntityException;
 import org.moqui.impl.entity.condition.EntityConditionImplBase;
 import org.moqui.impl.entity.EntityJavaUtil.FieldOrderOptions;
@@ -106,7 +107,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
             final String joinStyle = jsAttr != null && jsAttr.length() > 0 ? jsAttr : "ansi";
 
             if (!"ansi".equals(joinStyle) && !"ansi-no-parenthesis".equals(joinStyle)) {
-                throw new IllegalArgumentException("The join-style " + joinStyle + " is not supported, found on database " +
+                throw new BaseArtifactException("The join-style " + joinStyle + " is not supported, found on database " +
                         databaseNode.attribute("name"));
             }
 

@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.context;
 
+import org.moqui.BaseArtifactException;
 import org.moqui.context.L10nFacade;
 import org.moqui.entity.EntityValue;
 import org.moqui.entity.EntityFind;
@@ -53,7 +54,7 @@ public class L10nFacadeImpl implements L10nFacade {
         int originalLength = original.length();
         if (originalLength == 0) return "";
         if (originalLength > 255) {
-            throw new IllegalArgumentException("Original String cannot be more than 255 characters long, passed in string was " + originalLength + " characters long");
+            throw new BaseArtifactException("Original String cannot be more than 255 characters long, passed in string was " + originalLength + " characters long");
         }
 
         if (locale == null) locale = getLocale();

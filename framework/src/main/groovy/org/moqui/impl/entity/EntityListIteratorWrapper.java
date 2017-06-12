@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.entity;
 
+import org.moqui.BaseArtifactException;
 import org.moqui.entity.EntityCondition;
 import org.moqui.entity.EntityList;
 import org.moqui.entity.EntityListIterator;
@@ -157,21 +158,21 @@ class EntityListIteratorWrapper implements EntityListIterator {
     }
 
     @Override public void remove() {
-        throw new IllegalArgumentException("EntityListIteratorWrapper.remove() not currently supported");
+        throw new BaseArtifactException("EntityListIteratorWrapper.remove() not currently supported");
         // TODO implement this
         // TODO: call EECAs
         // TODO: notify cache clear
     }
 
     @Override public void set(EntityValue e) {
-        throw new IllegalArgumentException("EntityListIteratorWrapper.set() not currently supported");
+        throw new BaseArtifactException("EntityListIteratorWrapper.set() not currently supported");
         // TODO implement this
         // TODO: call EECAs
         // TODO: notify cache clear
     }
 
     @Override public void add(EntityValue e) {
-        throw new IllegalArgumentException("EntityListIteratorWrapper.add() not currently supported");
+        throw new BaseArtifactException("EntityListIteratorWrapper.add() not currently supported");
         // TODO implement this
     }
 

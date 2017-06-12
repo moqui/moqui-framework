@@ -48,7 +48,7 @@ public class EntityJavaUtil {
         MNode entityFacadeNode = efi.ecfi.getConfXmlRoot().first("entity-facade");
         String pwStr = entityFacadeNode.attribute("crypt-pass");
         if (pwStr == null || pwStr.length() == 0)
-            throw new IllegalArgumentException("No entity-facade.@crypt-pass setting found, NOT doing encryption");
+            throw new EntityException("No entity-facade.@crypt-pass setting found, NOT doing encryption");
 
         String saltStr = entityFacadeNode.attribute("crypt-salt");
         byte[] salt = (saltStr != null && saltStr.length() > 0 ? saltStr : "default1").getBytes();
