@@ -614,7 +614,7 @@ class ScreenRenderImpl implements ScreenRender {
         MNode screenNode = sd.getScreenNode()
         String requireAuthentication = screenNode.attribute("require-authentication")
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(sd.location,
-                ArtifactExecutionInfo.AT_XML_SCREEN, ArtifactExecutionInfo.AUTHZA_VIEW, outputContentType)
+                ArtifactExecutionInfo.AT_XML_SCREEN, ArtifactExecutionInfo.AUTHZA_VIEW, outputContentType).setTrackArtifactHit(false)
         ec.artifactExecutionFacade.pushInternal(aei, !activeScreenHasNext ? (!requireAuthentication || requireAuthentication == "true") : false)
 
         boolean loggedInAnonymous = false
