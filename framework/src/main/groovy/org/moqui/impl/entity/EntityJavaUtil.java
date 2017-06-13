@@ -561,7 +561,7 @@ public class EntityJavaUtil {
     }
 
     private static Map<String, String> camelToUnderscoreMap = new HashMap<>();
-    static String camelCaseToUnderscored(String camelCase) {
+    public static String camelCaseToUnderscored(String camelCase) {
         if (camelCase == null || camelCase.length() == 0) return "";
         String usv = camelToUnderscoreMap.get(camelCase);
         if (usv != null) return usv;
