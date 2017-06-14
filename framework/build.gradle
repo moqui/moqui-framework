@@ -162,9 +162,6 @@ dependencies {
     // Liquibase (for future reference, not used yet)
     // compile 'org.liquibase:liquibase-core:3.4.2' // Apache 2.0
 
-    // typescript4j: not currently used, may use in the future for transpiling TS to JS on the server
-    // compile 'com.mangofactory:typescript4j:0.4.0'
-
     // ========== test dependencies ==========
     // spock-core depends on groovy-all but we are including selected groovy modules, so don't get its dependencies
     testCompile module('org.spockframework:spock-core:1.1-groovy-2.4') // Apache 2.0
