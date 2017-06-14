@@ -506,10 +506,12 @@ along with this software (see the LICENSE.md file). If not, see
                 </xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="menu-include" type="boolean" default="true"/>
-            <xs:attribute name="disable-when" type="xs:positiveInteger">
+            <!-- no longer supported, may support again in the future (see ScreenDefinition.SubscreensItem.getDisable(), not used anywhere)
+            <xs:attribute name="disable-when" type="xs:string">
                 <xs:annotation><xs:documentation>This condition is run the subscreens menu is rendered to see if the
                     item is available (otherwise the button/link/etc is disabled).</xs:documentation></xs:annotation>
             </xs:attribute>
+            -->
         </xs:complexType>
     </xs:element>
     <xs:element name="subscreens-menu" substitutionGroup="AllWidgets">
