@@ -180,7 +180,7 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.Uom abbreviation="km/s" description="Kilometers per second" uomId="VEL_km_s" uomTypeEnumId="UT_VELOCITY_MEASURE"/>
 
     <moqui.basic.UomConversion uomConversionId="VEL_m_hr_m_s" uomId="VEL_m_hr" toUomId="VEL_m_s" conversionFactor="0.0002777778"/>
-    <moqui.basic.UomConversion uomConversionId="VEL_m_min_m_s" uomId="VEL_m_min" toUomId="VEL_m_s" conversionFactor="0.0166666666666667"/>
+    <moqui.basic.UomConversion uomConversionId="VEL_m_min_m_s" uomId="VEL_m_min" toUomId="VEL_m_s" conversionFactor="0.016666666667"/>
     <!-- <moqui.basic.UomConversion uomConversionId="VEL_m_s_m_s" uomId="VEL_m_s" toUomId="VEL_m_s" conversionFactor="1"/> -->
     <moqui.basic.UomConversion uomConversionId="VEL_ft_hr_m_s" uomId="VEL_ft_hr" toUomId="VEL_m_s" conversionFactor="0.00008466667"/>
     <moqui.basic.UomConversion uomConversionId="VEL_ft_min_m_s" uomId="VEL_ft_min" toUomId="VEL_m_s" conversionFactor="0.00508"/>
@@ -188,13 +188,13 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.UomConversion uomConversionId="VEL_fur_hr_m_s" uomId="VEL_fur_hr" toUomId="VEL_m_s" conversionFactor="0.05588"/>
     <moqui.basic.UomConversion uomConversionId="VEL_fur_min_m_s" uomId="VEL_fur_min" toUomId="VEL_m_s" conversionFactor="3.3528"/>
     <moqui.basic.UomConversion uomConversionId="VEL_fur_s_m_s" uomId="VEL_fur_s" toUomId="VEL_m_s" conversionFactor="201.168"/>
-    <moqui.basic.UomConversion uomConversionId="VEL_kn_m_s" uomId="VEL_kn" toUomId="VEL_m_s" conversionFactor="0.514444444444444"/>
-    <moqui.basic.UomConversion uomConversionId="VEL_M_m_s" uomId="VEL_M" toUomId="VEL_m_s" conversionFactor="0.514444444444444"/>
+    <moqui.basic.UomConversion uomConversionId="VEL_kn_m_s" uomId="VEL_kn" toUomId="VEL_m_s" conversionFactor="0.514444444444"/>
+    <moqui.basic.UomConversion uomConversionId="VEL_M_m_s" uomId="VEL_M" toUomId="VEL_m_s" conversionFactor="0.514444444444"/>
     <moqui.basic.UomConversion uomConversionId="VEL_MPH_m_s" uomId="VEL_MPH" toUomId="VEL_m_s" conversionFactor="0.44704"/>
     <moqui.basic.UomConversion uomConversionId="VEL_mi_min_m_s" uomId="VEL_mi_min" toUomId="VEL_m_s" conversionFactor="26.8224"/>
     <moqui.basic.UomConversion uomConversionId="VEL_mi_s_m_s" uomId="VEL_mi_s" toUomId="VEL_m_s" conversionFactor="1609.344"/>
-    <moqui.basic.UomConversion uomConversionId="VEL_KPH_m_s" uomId="VEL_KPH" toUomId="VEL_m_s" conversionFactor="0.2777777777777778"/>
-    <moqui.basic.UomConversion uomConversionId="VEL_km_min_m_s" uomId="VEL_km_min" toUomId="VEL_m_s" conversionFactor="16.666666666666668"/>
+    <moqui.basic.UomConversion uomConversionId="VEL_KPH_m_s" uomId="VEL_KPH" toUomId="VEL_m_s" conversionFactor="0.277777777778"/>
+    <moqui.basic.UomConversion uomConversionId="VEL_km_min_m_s" uomId="VEL_km_min" toUomId="VEL_m_s" conversionFactor="16.666666666667"/>
     <moqui.basic.UomConversion uomConversionId="VEL_km_s_m_s" uomId="VEL_km_s" toUomId="VEL_m_s" conversionFactor="1000"/>
 
     <!-- =============== Area =============== -->
