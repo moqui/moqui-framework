@@ -450,7 +450,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         }
         void handlePlainMap(String entityName, Map value) {
             EntityDefinition ed = edli.getEfi().getEntityDefinition(entityName)
-            edli.getEfi().addValuesFromPlainMapRecursive(ed, value, el)
+            edli.getEfi().addValuesFromPlainMapRecursive(ed, value, el, null)
         }
         void handleService(ServiceCallSync scs) { logger.warn("For load to EntityList not calling service [${scs.getServiceName()}] with parameters ${scs.getCurrentParameters()}") }
     }

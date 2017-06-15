@@ -48,7 +48,8 @@ class EntityAutoServiceRunner implements ServiceRunner {
 
     EntityAutoServiceRunner() {}
 
-    ServiceRunner init(ServiceFacadeImpl sfi) { this.sfi = sfi; ecfi = sfi.ecfi; return this }
+    @Override ServiceRunner init(ServiceFacadeImpl sfi) { this.sfi = sfi; ecfi = sfi.ecfi; return this }
+    @Override void destroy() { }
 
     // TODO: add update-expire and delete-expire entity-auto service verbs for entities with from/thru dates
     // TODO: add find (using search input parameters) and find-one (using literal PK, or as many PK fields as are passed on) entity-auto verbs
@@ -191,6 +192,13 @@ class EntityAutoServiceRunner implements ServiceRunner {
                                 Map<String, Object> result, ArrayList<String> outParamNames, Map<String, Object> parentPks) {
         EntityValue newEntityValue = ed.makeEntityValue()
 
+        // add in all of the main entity's primary key fields, this is necessary for auto-generated, and to
+        //     allow them to be left out of related records
+        if (parentPks != null) {
+            for (Map.Entry<String, Object> entry in parentPks.entrySet())
+                if (!parameters.containsKey(entry.key)) parameters.put(entry.key, entry.value)
+        }
+
         checkFromDate(ed, parameters, result, ecfi)
 
         Map<String, Object> tempResult = [:]
@@ -212,25 +220,28 @@ class EntityAutoServiceRunner implements ServiceRunner {
         // NOTE: keep a separate Map of parent PK values to pass down, can't just be current record's PK fields because
         //     we allow other entities to be nested, and they may have nested records that depend ANY ancestor's PKs
         // this returns a clone or new Map, so we'll modify it freely
-        Map pkMap = newEntityValue.getPrimaryKeys()
-        if (parentPks) pkMap.putAll(parentPks)
+        Map<String, Object> sharedPkMap = newEntityValue.getPrimaryKeys()
+        if (parentPks != null) {
+            for (Map.Entry<String, Object> entry in parentPks.entrySet())
+                if (!sharedPkMap.containsKey(entry.key)) sharedPkMap.put(entry.key, entry.value)
+        }
 
         // if a PK field has a @default get it and return it
         ArrayList<String> pkFieldNames = ed.getPkFieldNames()
         int size = pkFieldNames.size()
         for (int i = 0; i < size; i++) {
-            String pkName = pkFieldNames.get(i)
+            String pkName = (String) pkFieldNames.get(i)
             FieldInfo pkInfo = ed.getFieldInfo(pkName)
-            if (pkInfo.defaultStr) {
+            if (pkInfo.defaultStr != null && !pkInfo.defaultStr.isEmpty()) {
                 tempResult.put(pkName, newEntityValue.getNoCheckSimple(pkName))
             }
         }
 
-        // check parameters Map for relationships
+        // check parameters Map for relationships and other entities
         Map nonFieldEntries = ed.entityInfo.cloneMapRemoveFields(parameters, null)
         for (Map.Entry entry in nonFieldEntries.entrySet()) {
             Object relParmObj = entry.getValue()
-            if (!relParmObj) continue
+            if (relParmObj == null) continue
             // if the entry is not a Map or List ignore it, we're only looking for those
             if (!(relParmObj instanceof Map) && !(relParmObj instanceof List)) continue
 
@@ -239,6 +250,7 @@ class EntityAutoServiceRunner implements ServiceRunner {
             if (otherFieldsToSkip.contains(entryName)) continue
 
             EntityDefinition subEd = null
+            Map<String, Object> pkMap = null
             RelationshipInfo relInfo = ed.getRelationshipInfo(entryName)
             if (relInfo != null) {
                 if (!relInfo.mutable) {
@@ -246,8 +258,12 @@ class EntityAutoServiceRunner implements ServiceRunner {
                     continue
                 }
                 subEd = relInfo.relatedEd
+                // this is a relationship so add mapped key fields to the parentPks if any field names are different
+                pkMap = new HashMap<>(sharedPkMap)
+                pkMap.putAll(relInfo.getTargetParameterMap(sharedPkMap))
             } else if (efi.isEntityDefined(entryName)) {
                 subEd = efi.getEntityDefinition(entryName)
+                pkMap = sharedPkMap
             }
             if (subEd == null) {
                 // this happens a lot, extra stuff passed to the service call, so be quiet unless trace is on
@@ -257,26 +273,19 @@ class EntityAutoServiceRunner implements ServiceRunner {
 
             boolean isEntityValue = relParmObj instanceof EntityValue
             if (relParmObj instanceof Map && !isEntityValue) {
-                Map relParmMap = (Map) relParmObj
                 Map relResults = [:]
-                // add in all of the main entity's primary key fields, this is necessary for auto-generated, and to
-                //     allow them to be left out of related records
-                relParmMap.putAll(pkMap)
-                createRecursive(ecfi, efi, subEd, relParmMap, relResults, null, pkMap)
+                createRecursive(ecfi, efi, subEd, (Map) relParmObj, relResults, null, pkMap)
                 tempResult.put(entryName, relResults)
             } else if (relParmObj instanceof List) {
                 List relResultList = []
                 for (Object relParmEntry in relParmObj) {
                     Map relResults = [:]
                     if (relParmEntry instanceof Map) {
-                        Map relParmMap = (Map) relParmEntry
-                        relParmMap.putAll(pkMap)
-                        createRecursive(ecfi, efi, subEd, relParmMap, relResults, null, pkMap)
+                        createRecursive(ecfi, efi, subEd, (Map) relParmEntry, relResults, null, pkMap)
                     } else {
                         logger.warn("In entity auto create for entity ${ed.getFullEntityName()} found list for sub-object ${entryName} with a non-Map entry: ${relParmEntry}")
                     }
                     relResultList.add(relResults)
-
                 }
                 tempResult.put(entryName, relResultList)
             } else {
@@ -289,69 +298,6 @@ class EntityAutoServiceRunner implements ServiceRunner {
         }
 
         result.putAll(tempResult)
-    }
-
-    /* This should only be called if statusId is a field of the entity and lookedUpValue != null */
-    protected static void checkStatus(EntityDefinition ed, Map<String, Object> parameters, Map<String, Object> result,
-                                      ArrayList<String> outParamNames, EntityValue lookedUpValue, EntityFacadeImpl efi) {
-        if (!parameters.containsKey("statusId")) return
-
-        // populate the oldStatusId out if there is a service parameter for it, and before we do the set non-pk fields
-        if (outParamNames == null || outParamNames.size() == 0 || outParamNames.contains("oldStatusId")) {
-            result.put("oldStatusId", lookedUpValue.getNoCheckSimple("statusId"))
-        }
-        if (outParamNames == null || outParamNames.size() == 0 || outParamNames.contains("statusChanged")) {
-            result.put("statusChanged", !(lookedUpValue.getNoCheckSimple("statusId") == parameters.get("statusId")))
-            // logger.warn("========= oldStatusId=${result.oldStatusId}, statusChanged=${result.statusChanged}, lookedUpValue.statusId=${lookedUpValue.statusId}, parameters.statusId=${parameters.statusId}, lookedUpValue=${lookedUpValue}")
-        }
-
-        // do the StatusValidChange check
-        String parameterStatusId = (String) parameters.get("statusId")
-        if (parameterStatusId) {
-            String lookedUpStatusId = (String) lookedUpValue.getNoCheckSimple("statusId")
-            if (lookedUpStatusId && !parameterStatusId.equals(lookedUpStatusId)) {
-                // there was an old status, and in this call we are trying to change it, so do the StatusFlowTransition check
-                // NOTE that we are using a cached list from a common pattern so it should generally be there instead of a count that wouldn't
-                EntityList statusFlowTransitionList = efi.find("moqui.basic.StatusFlowTransition")
-                        .condition(["statusId":lookedUpStatusId, "toStatusId":parameterStatusId] as Map<String, Object>).useCache(true).list()
-                if (!statusFlowTransitionList) {
-                    // uh-oh, no valid change...
-                    throw new ServiceException("In entity-auto update service for entity [${ed.fullEntityName}] no status change was found going from status [${lookedUpStatusId}] to status [${parameterStatusId}]")
-                }
-            }
-        }
-
-        // NOTE: nothing here to maintain the status history, that should be done with a custom service called by SECA rule or with audit log on field
-    }
-
-    static void updateEntity(ExecutionContextImpl eci, EntityDefinition ed, Map<String, Object> parameters,
-                                    Map<String, Object> result, ArrayList<String> outParamNames, EntityValue preLookedUpValue) {
-        ExecutionContextFactoryImpl ecfi = eci.ecfi
-        EntityFacadeImpl efi = eci.getEntityFacade()
-
-        EntityValue lookedUpValue = preLookedUpValue ?: efi.makeValue(ed.getFullEntityName()).setFields(parameters, true, null, true)
-        // this is much slower, and we don't need to do the query: sfi.getEcfi().getEntityFacade().find(ed.entityName).condition(parameters).useCache(false).one()
-        if (lookedUpValue == null) throw new EntityValueNotFoundException("In entity-auto update service for entity [${ed.fullEntityName}] value not found, cannot update; using parameters [${parameters}]")
-
-        if (parameters.containsKey("statusId") && ed.isField("statusId")) {
-            // do the actual query so we'll have the current statusId
-            Map<String, Object> pkParms = ed.getPrimaryKeys(parameters)
-            lookedUpValue = preLookedUpValue ?: efi.find(ed.getFullEntityName()).condition(pkParms).useCache(false).one()
-            if (lookedUpValue == null) throw new EntityValueNotFoundException("In entity-auto update service for entity [${ed.fullEntityName}] value not found, cannot update; using parameters [${parameters}]")
-
-            checkStatus(ed, parameters, result, outParamNames, lookedUpValue, efi)
-        }
-
-        lookedUpValue.setFields(parameters, true, null, false)
-        // logger.info("In auto updateEntity lookedUpValue final [${((EntityValueBase) lookedUpValue).getValueMap()}] for parameters [${parameters}]")
-        lookedUpValue.update()
-
-        storeRelated(ecfi, efi, (EntityValueBase) lookedUpValue, parameters, result, null)
-    }
-
-    static void deleteEntity(ExecutionContextImpl eci, EntityDefinition ed, Map<String, Object> parameters) {
-        EntityValue ev = eci.getEntityFacade().makeValue(ed.fullEntityName).setFields(parameters, true, null, true)
-        ev.delete()
     }
 
     /** Does a create if record does not exist, or update if it does. */
@@ -417,7 +363,10 @@ class EntityAutoServiceRunner implements ServiceRunner {
         //     we allow other entities to be nested, and they may have nested records that depend ANY ancestor's PKs
         // this returns a clone or new Map, so we'll modify it freely
         Map<String, Object> sharedPkMap = parentValue.getPrimaryKeys()
-        if (parentPks) sharedPkMap.putAll(parentPks)
+        if (parentPks != null) {
+            for (Map.Entry<String, Object> entry in parentPks.entrySet())
+                if (!sharedPkMap.containsKey(entry.key)) sharedPkMap.put(entry.key, entry.value)
+        }
 
         Map nonFieldEntries = ed.entityInfo.cloneMapRemoveFields(parameters, null)
         if (nonFieldEntries.size() > 0) for (Map.Entry entry in nonFieldEntries.entrySet()) {
@@ -425,8 +374,8 @@ class EntityAutoServiceRunner implements ServiceRunner {
             if (relParmObj == null) continue
             // if the entry is not a Map or List ignore it, we're only looking for those
             if (!(relParmObj instanceof Map) && !(relParmObj instanceof List)) continue
-            String entryName = (String) entry.getKey()
 
+            String entryName = (String) entry.getKey()
             if (parentPks != null && parentPks.containsKey(entryName)) continue
             if (otherFieldsToSkip.contains(entryName)) continue
 
@@ -455,9 +404,8 @@ class EntityAutoServiceRunner implements ServiceRunner {
 
             boolean isEntityValue = relParmObj instanceof EntityValue
             if (relParmObj instanceof Map && !isEntityValue) {
-                Map relParmMap = (Map) relParmObj
                 Map relResults = [:]
-                storeRecursive(ecfi, efi, subEd, relParmMap, relResults, null, pkMap)
+                storeRecursive(ecfi, efi, subEd, (Map) relParmObj, relResults, null, pkMap)
                 result.put(entryName, relResults)
             } else if (relParmObj instanceof List) {
                 List relResultList = []
@@ -469,7 +417,6 @@ class EntityAutoServiceRunner implements ServiceRunner {
                         logger.warn("In entity auto create for entity ${ed.getFullEntityName()} found list for sub-object ${entryName} with a non-Map entry: ${relParmEntry}")
                     }
                     relResultList.add(relResults)
-
                 }
                 result.put(entryName, relResultList)
             } else {
@@ -482,5 +429,66 @@ class EntityAutoServiceRunner implements ServiceRunner {
         }
     }
 
-    void destroy() { }
+    /* This should only be called if statusId is a field of the entity and lookedUpValue != null */
+    protected static void checkStatus(EntityDefinition ed, Map<String, Object> parameters, Map<String, Object> result,
+                                      ArrayList<String> outParamNames, EntityValue lookedUpValue, EntityFacadeImpl efi) {
+        if (!parameters.containsKey("statusId")) return
+
+        // populate the oldStatusId out if there is a service parameter for it, and before we do the set non-pk fields
+        if (outParamNames == null || outParamNames.size() == 0 || outParamNames.contains("oldStatusId")) {
+            result.put("oldStatusId", lookedUpValue.getNoCheckSimple("statusId"))
+        }
+        if (outParamNames == null || outParamNames.size() == 0 || outParamNames.contains("statusChanged")) {
+            result.put("statusChanged", !(lookedUpValue.getNoCheckSimple("statusId") == parameters.get("statusId")))
+            // logger.warn("========= oldStatusId=${result.oldStatusId}, statusChanged=${result.statusChanged}, lookedUpValue.statusId=${lookedUpValue.statusId}, parameters.statusId=${parameters.statusId}, lookedUpValue=${lookedUpValue}")
+        }
+
+        // do the StatusValidChange check
+        String parameterStatusId = (String) parameters.get("statusId")
+        if (parameterStatusId) {
+            String lookedUpStatusId = (String) lookedUpValue.getNoCheckSimple("statusId")
+            if (lookedUpStatusId && !parameterStatusId.equals(lookedUpStatusId)) {
+                // there was an old status, and in this call we are trying to change it, so do the StatusFlowTransition check
+                // NOTE that we are using a cached list from a common pattern so it should generally be there instead of a count that wouldn't
+                EntityList statusFlowTransitionList = efi.find("moqui.basic.StatusFlowTransition")
+                        .condition(["statusId":lookedUpStatusId, "toStatusId":parameterStatusId] as Map<String, Object>).useCache(true).list()
+                if (!statusFlowTransitionList) {
+                    // uh-oh, no valid change...
+                    throw new ServiceException("In entity-auto update service for entity [${ed.fullEntityName}] no status change was found going from status [${lookedUpStatusId}] to status [${parameterStatusId}]")
+                }
+            }
+        }
+
+        // NOTE: nothing here to maintain the status history, that should be done with a custom service called by SECA rule or with audit log on field
+    }
+
+    static void updateEntity(ExecutionContextImpl eci, EntityDefinition ed, Map<String, Object> parameters,
+                             Map<String, Object> result, ArrayList<String> outParamNames, EntityValue preLookedUpValue) {
+        ExecutionContextFactoryImpl ecfi = eci.ecfi
+        EntityFacadeImpl efi = eci.getEntityFacade()
+
+        EntityValue lookedUpValue = preLookedUpValue ?: efi.makeValue(ed.getFullEntityName()).setFields(parameters, true, null, true)
+        // this is much slower, and we don't need to do the query: sfi.getEcfi().getEntityFacade().find(ed.entityName).condition(parameters).useCache(false).one()
+        if (lookedUpValue == null) throw new EntityValueNotFoundException("In entity-auto update service for entity [${ed.fullEntityName}] value not found, cannot update; using parameters [${parameters}]")
+
+        if (parameters.containsKey("statusId") && ed.isField("statusId")) {
+            // do the actual query so we'll have the current statusId
+            Map<String, Object> pkParms = ed.getPrimaryKeys(parameters)
+            lookedUpValue = preLookedUpValue ?: efi.find(ed.getFullEntityName()).condition(pkParms).useCache(false).one()
+            if (lookedUpValue == null) throw new EntityValueNotFoundException("In entity-auto update service for entity [${ed.fullEntityName}] value not found, cannot update; using parameters [${parameters}]")
+
+            checkStatus(ed, parameters, result, outParamNames, lookedUpValue, efi)
+        }
+
+        lookedUpValue.setFields(parameters, true, null, false)
+        // logger.info("In auto updateEntity lookedUpValue final [${((EntityValueBase) lookedUpValue).getValueMap()}] for parameters [${parameters}]")
+        lookedUpValue.update()
+
+        storeRelated(ecfi, efi, (EntityValueBase) lookedUpValue, parameters, result, null)
+    }
+
+    static void deleteEntity(ExecutionContextImpl eci, EntityDefinition ed, Map<String, Object> parameters) {
+        EntityValue ev = eci.getEntityFacade().makeValue(ed.fullEntityName).setFields(parameters, true, null, true)
+        ev.delete()
+    }
 }

@@ -1621,44 +1621,70 @@ class EntityFacadeImpl implements EntityFacade {
         if (ed == null) throw new EntityNotFoundException("Not entity found with name ${entityName}")
 
         EntityList valueList = new EntityListImpl(this)
-        addValuesFromPlainMapRecursive(ed, value, valueList)
+        addValuesFromPlainMapRecursive(ed, value, valueList, null)
         return valueList
     }
-    void addValuesFromPlainMapRecursive(EntityDefinition ed, Map value, EntityList valueList) {
+    void addValuesFromPlainMapRecursive(EntityDefinition ed, Map value, EntityList valueList, Map<String, Object> parentPks) {
+        // add in all of the main entity's primary key fields, this is necessary for auto-generated, and to
+        //     allow them to be left out of related records
+        if (parentPks != null) {
+            for (Map.Entry<String, Object> entry in parentPks.entrySet())
+                if (!value.containsKey(entry.key)) value.put(entry.key, entry.value)
+        }
+
         EntityValue newEntityValue = makeValue(ed.getFullEntityName())
         newEntityValue.setFields(value, true, null, null)
         valueList.add(newEntityValue)
 
-        Map pkMap = newEntityValue.getPrimaryKeys()
+        Map<String, Object> sharedPkMap = newEntityValue.getPrimaryKeys()
+        if (parentPks != null) {
+            for (Map.Entry<String, Object> entry in parentPks.entrySet())
+                if (!sharedPkMap.containsKey(entry.key)) sharedPkMap.put(entry.key, entry.value)
+        }
 
-        // check parameters Map for relationships
-        for (RelationshipInfo relInfo in ed.getRelationshipsInfo(false)) {
-            Object relParmObj = value.get(relInfo.shortAlias)
-            String relKey = null
-            if (relParmObj != null && !ObjectUtilities.isEmpty(relParmObj)) {
-                relKey = relInfo.shortAlias
-            } else {
-                relParmObj = value.get(relInfo.relationshipName)
-                if (relParmObj) relKey = relInfo.relationshipName
+        // check parameters Map for relationships and other entities
+        Map nonFieldEntries = ed.entityInfo.cloneMapRemoveFields(value, null)
+        for (Map.Entry entry in nonFieldEntries.entrySet()) {
+            Object relParmObj = entry.getValue()
+            if (relParmObj == null) continue
+            // if the entry is not a Map or List ignore it, we're only looking for those
+            if (!(relParmObj instanceof Map) && !(relParmObj instanceof List)) continue
+
+            String entryName = (String) entry.getKey()
+            if (parentPks != null && parentPks.containsKey(entryName)) continue
+            if (EntityAutoServiceRunner.otherFieldsToSkip.contains(entryName)) continue
+
+            EntityDefinition subEd = null
+            Map<String, Object> pkMap = null
+            RelationshipInfo relInfo = ed.getRelationshipInfo(entryName)
+            if (relInfo != null) {
+                if (!relInfo.mutable) continue
+                subEd = relInfo.relatedEd
+                // this is a relationship so add mapped key fields to the parentPks if any field names are different
+                pkMap = new HashMap<>(sharedPkMap)
+                pkMap.putAll(relInfo.getTargetParameterMap(sharedPkMap))
+            } else if (isEntityDefined(entryName)) {
+                subEd = getEntityDefinition(entryName)
+                pkMap = sharedPkMap
             }
-            if (relParmObj != null && !ObjectUtilities.isEmpty(relParmObj)) {
-                if (relParmObj instanceof Map) {
-                    // add in all of the main entity's primary key fields, this is necessary for auto-generated, and to
-                    //     allow them to be left out of related records
-                    Map relParmMap = (Map) relParmObj
-                    relParmMap.putAll(pkMap)
-                    addValuesFromPlainMapRecursive(relInfo.relatedEd, relParmMap, valueList)
-                } else if (relParmObj instanceof List) {
-                    for (Object relParmEntry in relParmObj) {
-                        if (relParmEntry instanceof Map) {
-                            Map relParmEntryMap = (Map) relParmEntry
-                            relParmEntryMap.putAll(pkMap)
-                            addValuesFromPlainMapRecursive(relInfo.relatedEd, relParmEntryMap, valueList)
-                        } else {
-                            logger.warn("In entity auto create for entity ${ed.getFullEntityName()} found list for relationship ${relKey} with a non-Map entry: ${relParmEntry}")
-                        }
+            if (subEd == null) continue
 
+            boolean isEntityValue = relParmObj instanceof EntityValue
+            if (relParmObj instanceof Map && !isEntityValue) {
+                addValuesFromPlainMapRecursive(subEd, (Map) relParmObj, valueList, pkMap)
+            } else if (relParmObj instanceof List) {
+                for (Object relParmEntry in relParmObj) {
+                    if (relParmEntry instanceof Map) {
+                        addValuesFromPlainMapRecursive(subEd, (Map) relParmEntry, valueList, pkMap)
+                    } else {
+                        logger.warn("In entity values from plain map for entity ${ed.getFullEntityName()} found list for sub-object ${entryName} with a non-Map entry: ${relParmEntry}")
                     }
+                }
+            } else {
+                if (isEntityValue) {
+                    if (logger.isTraceEnabled()) logger.trace("In entity values from plain map for entity ${ed.getFullEntityName()} found sub-object ${entryName} which is not a Map or List: ${relParmObj}")
+                } else {
+                    logger.warn("In entity values from plain map for entity ${ed.getFullEntityName()} found sub-object ${entryName} which is not a Map or List: ${relParmObj}")
                 }
             }
         }
