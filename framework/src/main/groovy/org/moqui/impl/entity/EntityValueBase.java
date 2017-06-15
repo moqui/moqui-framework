@@ -1468,6 +1468,7 @@ public abstract class EntityValueBase implements EntityValue {
     @Override
     public boolean refresh() {
         final EntityDefinition ed = getEntityDefinition();
+        final EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo;
         final EntityFacadeImpl efi = getEntityFacadeImpl();
         final ExecutionContextFactoryImpl ecfi = efi.ecfi;
         final ExecutionContextImpl ec = ecfi.getEci();
@@ -1479,6 +1480,9 @@ public abstract class EntityValueBase implements EntityValue {
             if (logger.isTraceEnabled()) logger.trace("Entity " + getEntityName() + " has no primary key fields, cannot do refresh.");
             return false;
         }
+
+        // check/set defaults
+        if (entityInfo.hasFieldDefaults) checkSetFieldDefaults(ed, ec, null);
 
         // do the artifact push/authz
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(entityName, ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "refresh").setParameters(valueMapInternal);
