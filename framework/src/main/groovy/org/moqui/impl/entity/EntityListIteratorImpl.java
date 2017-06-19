@@ -16,6 +16,7 @@ package org.moqui.impl.entity;
 import org.moqui.BaseArtifactException;
 import org.moqui.entity.*;
 import org.moqui.impl.context.TransactionCache;
+import org.moqui.impl.entity.EntityJavaUtil.FindAugmentInfo;
 import org.moqui.util.CollectionUtilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,12 +34,13 @@ public class EntityListIteratorImpl implements EntityListIterator {
     private final TransactionCache txCache;
     protected final Connection con;
     private final ResultSet rs;
-    private final ArrayList<EntityValueBase> txcList;
+    private final FindAugmentInfo findAugmentInfo;
     private final int txcListSize;
     private int txcListIndex = -1;
     private final EntityDefinition entityDefinition;
     protected final FieldInfo[] fieldInfoArray;
     private final int fieldInfoListSize;
+    private final EntityCondition queryCondition;
     private final CollectionUtilities.MapOrderByComparator orderByComparator;
     /** This is needed to determine if the ResultSet is empty as cheaply as possible. */
     private boolean haveMadeValue = false;
@@ -52,21 +54,21 @@ public class EntityListIteratorImpl implements EntityListIterator {
         this.entityDefinition = entityDefinition;
         fieldInfoListSize = fieldInfoArray.length;
         this.fieldInfoArray = fieldInfoArray;
+        this.queryCondition = queryCondition;
         this.txCache = txCache;
         if (txCache != null && queryCondition != null) {
             orderByComparator = obf != null && obf.size() > 0 ? new CollectionUtilities.MapOrderByComparator(obf) : null;
             // add all created values (updated and deleted values will be handled by the next() method
-            ArrayList<EntityValueBase> cvList = txCache.getCreatedValueList(entityDefinition.getFullEntityName(), queryCondition);
-            txcListSize = cvList.size();
-            if (txcListSize > 0) {
-                txcList = cvList;
+            findAugmentInfo = txCache.getFindAugmentInfo(entityDefinition.getFullEntityName(), queryCondition);
+            if (findAugmentInfo.valueListSize > 0) {
                 // update the order if we know the order by field list
-                if (orderByComparator != null) txcList.sort(orderByComparator);
+                if (orderByComparator != null) findAugmentInfo.valueList.sort(orderByComparator);
+                txcListSize = findAugmentInfo.valueListSize;
             } else {
-                txcList = null;
+                txcListSize = 0;
             }
         } else {
-            txcList = null;
+            findAugmentInfo = null;
             txcListSize = 0;
             orderByComparator = null;
         }
@@ -131,7 +133,7 @@ public class EntityListIteratorImpl implements EntityListIterator {
         EntityValueImpl newEntityValue = new EntityValueImpl(entityDefinition, efi);
         HashMap<String, Object> valueMap = newEntityValue.getValueMap();
         if (txcListIndex >= 0) {
-            return txcList.get(txcListIndex);
+            return findAugmentInfo.valueList.get(txcListIndex);
         } else {
             for (int i = 0; i < fieldInfoListSize; i++) {
                 FieldInfo fi = fieldInfoArray[i];
@@ -201,7 +203,7 @@ public class EntityListIteratorImpl implements EntityListIterator {
             if (rs.next()) {
                 EntityValueBase evb = currentEntityValueBase();
                 if (txCache != null) {
-                    EntityJavaUtil.WriteMode writeMode = txCache.checkUpdateValue(evb);
+                    EntityJavaUtil.WriteMode writeMode = txCache.checkUpdateValue(evb, findAugmentInfo);
                     // if deleted skip this value
                     if (writeMode == EntityJavaUtil.WriteMode.DELETE) return next();
                 }
@@ -231,7 +233,7 @@ public class EntityListIteratorImpl implements EntityListIterator {
             if (rs.previous()) {
                 EntityValueBase evb = (EntityValueBase) currentEntityValue();
                 if (txCache != null) {
-                    EntityJavaUtil.WriteMode writeMode = txCache.checkUpdateValue(evb);
+                    EntityJavaUtil.WriteMode writeMode = txCache.checkUpdateValue(evb, findAugmentInfo);
                     // if deleted skip this value
                     if (writeMode == EntityJavaUtil.WriteMode.DELETE) return this.previous();
                 }
@@ -259,7 +261,7 @@ public class EntityListIteratorImpl implements EntityListIterator {
             EntityValue value;
             while ((value = next()) != null) list.add(value);
 
-            if (txcList != null) {
+            if (findAugmentInfo != null) {
                 // all created, updated, and deleted values will be handled by the next() method
                 // update the order if we know the order by field list
                 if (orderByComparator != null) list.sort(orderByComparator);
