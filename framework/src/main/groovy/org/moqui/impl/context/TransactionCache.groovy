@@ -23,8 +23,9 @@ import org.moqui.impl.entity.EntityFindBase
 import org.moqui.impl.entity.EntityJavaUtil
 import org.moqui.impl.entity.EntityListImpl
 import org.moqui.impl.entity.EntityValueBase
-import org.moqui.impl.entity.EntityJavaUtil.WriteMode
 import org.moqui.impl.entity.EntityJavaUtil.EntityWriteInfo
+import org.moqui.impl.entity.EntityJavaUtil.FindAugmentInfo
+import org.moqui.impl.entity.EntityJavaUtil.WriteMode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -379,7 +380,7 @@ class TransactionCache implements Synchronization {
     }
 
     // NOTE: no need to filter EntityList or EntityListIterator, they do it internally by calling this method
-    WriteMode checkUpdateValue(EntityValueBase evb) {
+    WriteMode checkUpdateValue(EntityValueBase evb, FindAugmentInfo fai) {
         Map<String, Object> key = makeKey(evb)
         if (key == null) return null
         EntityWriteInfo firstEwi = (EntityWriteInfo) firstWriteInfoMap.get(key)
@@ -389,22 +390,43 @@ class TransactionCache implements Synchronization {
             onePut(evb, false)
             return null
         }
-        if (firstEwi.writeMode == WriteMode.CREATE) {
+        if (WriteMode.CREATE.is(firstEwi.writeMode)) {
             throw new EntityException("Found value from database that matches a value created in the write-through transaction cache, throwing error now instead of waiting to fail on commit")
         }
-        if (currentEwi.writeMode == WriteMode.UPDATE) {
+        if (WriteMode.UPDATE.is(currentEwi.writeMode)) {
+            if (fai != null && ((fai.econd != null && !fai.econd.mapMatches(currentEwi.evb)) || fai.foundUpdated.contains(currentEwi.evb.getPrimaryKeys()))) {
+                // current value no longer matches, tell ELII to skip it (same as DELETE)
+                return WriteMode.DELETE
+            }
             evb.setFields(currentEwi.evb, true, null, false)
             // add to readCache
             onePut(evb, false)
         }
         return currentEwi.writeMode
     }
-    ArrayList<EntityValueBase> getCreatedValueList(String entityName, EntityCondition ec) {
+    FindAugmentInfo getFindAugmentInfo(String entityName, EntityCondition econd) {
         ArrayList<EntityValueBase> valueList = new ArrayList<>()
+
+        // also get values that have been updated so that they should now be included in the list
+        Set<Map> foundUpdated = new HashSet<>()
+        if (econd != null) {
+            int writeInfoListSize = writeInfoList.size()
+            for (int i = 0; i < writeInfoListSize; i++) {
+                EntityWriteInfo ewi = (EntityWriteInfo) writeInfoList.get(i)
+                if (WriteMode.UPDATE.is(ewi.writeMode) && entityName.equals(ewi.evb.getEntityName()) && econd.mapMatches(ewi.evb)) {
+                    foundUpdated.add(ewi.evb.getPrimaryKeys())
+                    valueList.add(ewi.evb)
+                }
+            }
+        }
+
         Map<Map, EntityValueBase> createMap = getCreateByEntityMap(entityName)
-        if (createMap.size() == 0) return valueList
-        for (EntityValueBase evb in createMap.values()) if (ec.mapMatches(evb)) valueList.add(evb)
-        return valueList
+        if (createMap.size() > 0) for (EntityValueBase evb in createMap.values()) {
+            if (econd.mapMatches(evb) && (foundUpdated.size() == 0 || !foundUpdated.contains(evb.getPrimaryKeys())))
+                valueList.add(evb)
+        }
+        // if (entityName.contains("OrderPart")) logger.warn("OP tx cache list: ${valueList}")
+        return new FindAugmentInfo(valueList, foundUpdated, econd)
     }
 
     void flushCache(boolean clearRead) {
