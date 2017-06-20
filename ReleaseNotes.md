@@ -23,6 +23,9 @@ See the moqui-runtime release notes for more details. Some of these changes may 
   of using another field (fieldPath, fieldNameAlias, label); existing tables may work with some things but reloading seed data will
   fail if you have any DataDocument records in place; these are typically seed data records so the easiest way to update/migrate
   is to drop the tables for DataDocumentField/Link/Condition entities and then reload seed data as normal for a code update
+- If using moqui-elasticsearch the index approach has changed to one index per DataDocument to prep for ES6 and improve the
+  performance and index types by field name; to update an existing instance it is best to start with an empty ES instance or at
+  least delete old indexes and re-index based on data feeds
 
 ### New Features
 
