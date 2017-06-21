@@ -635,22 +635,13 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/>
             <xs:attribute name="id" type="xs:string"/>
             <xs:attribute name="style" type="xs:string"/>
-            <xs:attribute name="type" default="div">
-                <xs:simpleType>
-                    <xs:restriction base="xs:token">
-                        <xs:enumeration value="div"/>
-                        <xs:enumeration value="span"/>
-                        <xs:enumeration value="ul"/>
-                        <xs:enumeration value="li"/>
-                        <xs:enumeration value="dl"/>
-                        <xs:enumeration value="dd"/>
-                        <xs:enumeration value="header"/>
-                        <xs:enumeration value="footer"/>
-                        <xs:enumeration value="code"/>
-                        <xs:enumeration value="pre"/>
-                    </xs:restriction>
-                </xs:simpleType>
-            </xs:attribute>
+            <xs:attribute name="type" default="div"><xs:simpleType><xs:restriction base="xs:token">
+                <xs:enumeration value="div"/><xs:enumeration value="span"/>
+                <xs:enumeration value="ul"/><xs:enumeration value="li"/>
+                <xs:enumeration value="dl"/><xs:enumeration value="dd"/>
+                <xs:enumeration value="header"/><xs:enumeration value="footer"/>
+                <xs:enumeration value="code"/><xs:enumeration value="pre"/>
+            </xs:restriction></xs:simpleType></xs:attribute>
         </xs:complexType>
     </xs:element>
 
@@ -668,6 +659,10 @@ along with this software (see the LICENSE.md file). If not, see
                 </xs:choice>
             </xs:sequence>
             <xs:attribute name="id" type="xs:string"/>
+            <xs:attribute name="type" default="default"><xs:simpleType><xs:restriction base="xs:token">
+                <xs:enumeration value="default"/><xs:enumeration value="primary"/><xs:enumeration value="success"/>
+                <xs:enumeration value="info"/><xs:enumeration value="warning"/><xs:enumeration value="danger"/>
+            </xs:restriction></xs:simpleType></xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="box-header">
