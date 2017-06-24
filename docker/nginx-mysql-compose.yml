@@ -21,6 +21,8 @@ services:
       - /var/run/docker.sock:/tmp/docker.sock:ro
       # note: .crt, .key, and .dhparam.pem files start with the domain name in VIRTUAL_HOST (ie 'moqui.local.*') or use CERT_NAME env var
       - ./certs:/etc/nginx/certs
+      - ./nginx/my_proxy.conf:/etc/nginx/conf.d/my_proxy.conf
+
   moqui-database:
     image: mysql:5.7
     container_name: moqui-database

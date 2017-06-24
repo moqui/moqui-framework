@@ -413,16 +413,16 @@ class EntityDbMeta {
 
                 if (commonChars > 0) {
                     indexName.append(edEntityName)
-                    for (char cc in title.substring(0, commonChars).chars) if (cc.isUpperCase()) indexName.append(cc)
+                    for (char cc in title.substring(0, commonChars).chars) if (Character.isUpperCase(cc)) indexName.append(cc)
                     indexName.append(title.substring(commonChars))
                     indexName.append(relatedEntityName.substring(0, relEndCommonChars + 1))
                     if (relEndCommonChars < (relLength - 1)) for (char cc in relatedEntityName.substring(relEndCommonChars + 1).chars)
-                        if (cc.isUpperCase()) indexName.append(cc)
+                        if (Character.isUpperCase(cc)) indexName.append(cc)
                 } else {
                     indexName.append(edEntityName).append(title)
                     indexName.append(relatedEntityName.substring(0, relEndCommonChars + 1))
                     if (relEndCommonChars < (relLength - 1)) for (char cc in relatedEntityName.substring(relEndCommonChars + 1).chars)
-                        if (cc.isUpperCase()) indexName.append(cc)
+                        if (Character.isUpperCase(cc)) indexName.append(cc)
                 }
 
                 // logger.warn("Index for entity [${ed.getFullEntityName()}], title=${title}, commonChars=${commonChars}, indexName=${indexName}")
@@ -567,7 +567,7 @@ class EntityDbMeta {
                 String relatedEntityName = relEd.entityInfo.internalEntityName
                 if (commonChars > 0) {
                     constraintName.append(ed.entityInfo.internalEntityName)
-                    for (char cc in title.substring(0, commonChars).chars) if (cc.isUpperCase()) constraintName.append(cc)
+                    for (char cc in title.substring(0, commonChars).chars) if (Character.isUpperCase(cc)) constraintName.append(cc)
                     constraintName.append(title.substring(commonChars)).append(relatedEntityName)
                 } else {
                     constraintName.append(ed.entityInfo.internalEntityName).append(title).append(relatedEntityName)
