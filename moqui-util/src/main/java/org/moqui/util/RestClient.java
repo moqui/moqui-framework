@@ -64,10 +64,8 @@ public class RestClient {
 
     /** URL object including protocol, host, path, parameters, etc */
     public RestClient uri(URI uri) { this.uri = uri; return this; }
-
     public UriBuilder uri() { return new UriBuilder(this); }
-
-    URI getUri() { return uri; }
+    public URI getUri() { return uri; }
 
     /** Sets the HTTP request method, defaults to 'GET'; must be in the METHODS array */
     public RestClient method(String method) {
