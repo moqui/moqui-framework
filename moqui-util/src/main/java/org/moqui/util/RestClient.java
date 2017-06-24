@@ -164,6 +164,7 @@ public class RestClient {
         ContentResponse response = null;
 
         SslContextFactory sslContextFactory = new SslContextFactory();
+        sslContextFactory.setTrustAll(true);
         HttpClient httpClient = new HttpClient(sslContextFactory);
 
         try {
