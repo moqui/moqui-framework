@@ -67,6 +67,8 @@ public class RestClient {
 
     public UriBuilder uri() { return new UriBuilder(this); }
 
+    URI getUri() { return uri; }
+
     /** Sets the HTTP request method, defaults to 'GET'; must be in the METHODS array */
     public RestClient method(String method) {
         if (method == null || method.isEmpty()) {

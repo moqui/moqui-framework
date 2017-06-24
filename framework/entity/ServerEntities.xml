@@ -207,7 +207,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <envs envName="webapp_http_host" envValue="${appInstance.hostName}"/>
                 <envs envName="webapp_http_port" envValue="80"/>
                 <envs envName="webapp_https_port" envValue="443"/>
-                <envs envName="webapp_https_enabled" envValue="false"/><!-- NOTE: change this for real production setups! -->
+                <envs envName="webapp_https_enabled" envValue="true"/><!-- NOTE: change this to false for dev/test without https -->
 
                 <envs envName="entity_ds_db_conf" envValue="${appInstance.database?.type?.confName?:''}"/>
                 <envs envName="entity_ds_host" envValue="${appInstance.database?.instanceAddress ?: appInstance.database?.hostAddress ?: ''}"/>
