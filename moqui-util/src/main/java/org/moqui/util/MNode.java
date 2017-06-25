@@ -110,6 +110,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
 
     public static MNode parseRootOnly(ResourceReference rr) {
         InputStream is = rr.openStream();
+        if (is == null) return null;
         try {
             return parseRootOnly(rr.getLocation(), new InputSource(is));
         } finally {
