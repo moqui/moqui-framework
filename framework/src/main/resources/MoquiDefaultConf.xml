@@ -519,7 +519,7 @@
         </datasource>
         -->
         <database name="mysql" join-style="ansi-no-parenthesis" offset-style="limit" never-nulls="true"
-                table-engine="InnoDB" character-set="utf8" collate="utf8_general_ci"
+                table-engine="InnoDB" character-set="utf8" collate="utf8_general_ci" fk-style="name_fk"
                 default-isolation-level="ReadCommitted" use-tm-join="true"
                 default-jdbc-driver="com.mysql.jdbc.Driver"
                 default-xa-ds-class="com.mysql.jdbc.jdbc2.optional.MysqlXADataSource"
