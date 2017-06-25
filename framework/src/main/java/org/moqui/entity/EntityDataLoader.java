@@ -81,6 +81,8 @@ public interface EntityDataLoader {
      */
     EntityDataLoader disableEntityEca(boolean disable);
     EntityDataLoader disableAuditLog(boolean disable);
+    EntityDataLoader disableFkCreate(boolean disable);
+    EntityDataLoader disableDataFeed(boolean disable);
 
     EntityDataLoader csvDelimiter(char delimiter);
     EntityDataLoader csvCommentStart(char commentStart);
