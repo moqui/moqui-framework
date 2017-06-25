@@ -52,6 +52,7 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
     protected boolean tarpitDisabled = false
     protected boolean entityEcaDisabled = false
     protected boolean entityAuditLogDisabled = false
+    protected boolean entityFkCreateDisabled = false
     protected boolean entityDataFeedDisabled = false
 
     ArtifactExecutionFacadeImpl(ExecutionContextImpl eci) {
@@ -217,6 +218,10 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
     boolean disableEntityAuditLog() { boolean alreadyDisabled = entityAuditLogDisabled; entityAuditLogDisabled = true; return alreadyDisabled }
     void enableEntityAuditLog() { entityAuditLogDisabled = false }
     boolean entityAuditLogDisabled() { return entityAuditLogDisabled }
+
+    boolean disableEntityFkCreate() { boolean alreadyDisabled = entityFkCreateDisabled; entityFkCreateDisabled = true; return alreadyDisabled }
+    void enableEntityFkCreate() { entityFkCreateDisabled = false }
+    boolean entityFkCreateDisabled() { return entityFkCreateDisabled }
 
     boolean disableEntityDataFeed() { boolean alreadyDisabled = entityDataFeedDisabled; entityDataFeedDisabled = true; return alreadyDisabled }
     void enableEntityDataFeed() { entityDataFeedDisabled = false }
