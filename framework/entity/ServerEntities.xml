@@ -222,13 +222,13 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- these have no registryLocation, username, etc as they are intended to be pulled from Docker Hub -->
             <moqui.server.instance.InstanceImage instanceImageId="DockerMoquiFramework" imageTypeId="moqui" hostTypeId="docker"
-                    imageName="moqui/MoquiFramework:latest"/>
-            <moqui.server.instance.InstanceImage instanceImageId="DockerMoquiEcosystem" imageTypeId="moqui" hostTypeId="docker"
-                    imageName="moqui/MoquiEcosystem:latest"/>
+                    imageName="moqui/moquiframework:latest"/>
+            <moqui.server.instance.InstanceImage instanceImageId="DockerMoquiDemo" imageTypeId="moqui" hostTypeId="docker"
+                    imageName="moqui/moquidemo:latest"/>
             <moqui.server.instance.InstanceImage instanceImageId="DockerHiveMind" imageTypeId="moqui" hostTypeId="docker"
-                    imageName="moqui/HiveMind:latest"/>
+                    imageName="moqui/hivemind:latest"/>
             <moqui.server.instance.InstanceImage instanceImageId="DockerPopCommerce" imageTypeId="moqui" hostTypeId="docker"
-                    imageName="moqui/PopCommerce:latest"/>
+                    imageName="moqui/popcommerce:latest"/>
             <!-- this is mainly for local testing -->
             <moqui.server.instance.InstanceImage instanceImageId="DockerMoquiLocal" imageTypeId="moqui" hostTypeId="docker"
                     imageName="moqui"/>
