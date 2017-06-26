@@ -20,6 +20,16 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- org.moqui.impl.EntityServices.search#DataDocuments moved to org.moqui.search.SearchServices.search#DataDocuments -->
     <!-- org.moqui.impl.EntityServices.search#CountBySource moved to org.moqui.search.SearchServices.search#CountBySource -->
 
+    <!-- 2017-06: clean out DataDocument tables for update/recreate:
+        - DROP TABLE DATA_DOCUMENT_LINK
+        - DROP TABLE DATA_DOCUMENT_CONDITION
+        - DROP TABLE DATA_DOCUMENT_REL_ALIAS
+        - DROP TABLE DATA_DOCUMENT_FIELD
+        - DROP TABLE DATA_DOCUMENT_USER_GROUP
+        - DROP TABLE DATA_DOCUMENT
+        - restart, load seed, index feeds
+    -->
+
     <service verb="get" noun="DataFeedDocuments">
         <in-parameters>
             <parameter name="dataFeedId" required="true"/>
@@ -224,6 +234,13 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="import" noun="EntityDataSnapshot" transaction-timeout="3600">
         <in-parameters>
             <parameter name="zipFilename" required="true"/>
+            <parameter name="dummyFks" type="Boolean" default="false"/>
+            <parameter name="useTryInsert" type="Boolean" default="false"/>
+            <parameter name="disableEntityEca" type="Boolean" default="true"/>
+            <parameter name="disableAuditLog" type="Boolean" default="true"/>
+            <parameter name="disableFkCreate" type="Boolean" default="true"/>
+            <parameter name="disableDataFeed" type="Boolean" default="true"/>
+            <parameter name="transactionTimeout" type="Integer" default="3600"/>
         </in-parameters>
         <out-parameters><parameter name="recordsLoaded" type="Long"/></out-parameters>
         <actions>
@@ -231,10 +248,13 @@ along with this software (see the LICENSE.md file). If not, see
                 import org.moqui.entity.EntityDataLoader
                 import org.moqui.context.ExecutionContext
                 ExecutionContext ec = context.ec
-                EntityDataLoader edl = ec.entity.makeDataLoader().dummyFks(true).useTryInsert(true).disableEntityEca(true)
-                        .disableAuditLog(true).transactionTimeout(3600)
+                EntityDataLoader edl = ec.entity.makeDataLoader().dummyFks(dummyFks).useTryInsert(useTryInsert)
+                        .disableEntityEca(disableEntityEca).disableAuditLog(disableAuditLog)
+                        .disableFkCreate(disableFkCreate).disableDataFeed(disableDataFeed)
+                        .transactionTimeout(transactionTimeout)
                 edl.location(ec.factory.getRuntimePath() + "/db/snapshot/" + (String) zipFilename)
                 recordsLoaded = edl.load()
+                ec.cache.getCache("entity.sequence.bank")?.clear()
             ]]></script>
         </actions>
     </service>
