@@ -148,12 +148,11 @@ public class MCache<K, V> implements Cache<K, V> {
         return entry.value;
     }
     /** Get an entry, if it is in the cache and not expired, otherwise returns null. The policy can be null to use cache's policy. */
-    public MEntry<K, V> getEntry(final K key, final ExpiryPolicy policy) {
-        return getEntryInternal(key, policy, null, 0);
-    }
+    public MEntry<K, V> getEntry(final K key, final ExpiryPolicy policy) { return getEntryInternal(key, policy, null, 0); }
     /** Simple entry get, doesn't check if expired. */
     public MEntry<K, V> getEntryNoCheck(K key) {
         if (isClosed) throw new IllegalStateException("Cache " + name + " is closed");
+        if (key == null) throw new IllegalArgumentException("Cache key cannot be null");
         MEntry<K, V> entry = entryStore.get(key);
         if (entry != null) {
             if (statsEnabled) { stats.gets++; stats.hits++; }
@@ -166,6 +165,7 @@ public class MCache<K, V> implements Cache<K, V> {
     }
     private MEntry<K, V> getEntryInternal(final K key, final ExpiryPolicy policy, final Long expireBeforeTime, long currentTime) {
         if (isClosed) throw new IllegalStateException("Cache " + name + " is closed");
+        if (key == null) throw new IllegalArgumentException("Cache key cannot be null");
         MEntry<K, V> entry = entryStore.get(key);
 
         if (entry != null) {
@@ -209,6 +209,7 @@ public class MCache<K, V> implements Cache<K, V> {
     }
     private MEntry<K, V> getCheckExpired(K key) {
         if (isClosed) throw new IllegalStateException("Cache " + name + " is closed");
+        if (key == null) throw new IllegalArgumentException("Cache key cannot be null");
         MEntry<K, V> entry = entryStore.get(key);
         if (hasExpiry && entry != null && entry.isExpired(accessDuration, creationDuration, updateDuration)) {
             entryStore.remove(key);
@@ -219,6 +220,7 @@ public class MCache<K, V> implements Cache<K, V> {
     }
     private MEntry<K, V> getCheckExpired(K key, long currentTime) {
         if (isClosed) throw new IllegalStateException("Cache " + name + " is closed");
+        if (key == null) throw new IllegalArgumentException("Cache key cannot be null");
         MEntry<K, V> entry = entryStore.get(key);
         if (hasExpiry && entry != null && entry.isExpired(currentTime, accessDuration, creationDuration, updateDuration)) {
             entryStore.remove(key);
