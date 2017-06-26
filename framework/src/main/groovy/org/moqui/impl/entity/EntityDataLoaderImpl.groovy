@@ -66,6 +66,8 @@ class EntityDataLoaderImpl implements EntityDataLoader {
     boolean dummyFks = false
     boolean disableEeca = false
     boolean disableAuditLog = false
+    boolean disableFkCreate = false
+    boolean disableDataFeed = false
 
     char csvDelimiter = ','
     char csvCommentStart = '#'
@@ -101,6 +103,8 @@ class EntityDataLoaderImpl implements EntityDataLoader {
     @Override EntityDataLoader dummyFks(boolean dummyFks) { this.dummyFks = dummyFks; return this }
     @Override EntityDataLoader disableEntityEca(boolean disable) { disableEeca = disable; return this }
     @Override EntityDataLoader disableAuditLog(boolean disable) { disableAuditLog = disable; return this }
+    @Override EntityDataLoader disableFkCreate(boolean disable) { disableFkCreate = disable; return this }
+    @Override EntityDataLoader disableDataFeed(boolean disable) { disableDataFeed = disable; return this }
 
     @Override EntityDataLoader csvDelimiter(char delimiter) { this.csvDelimiter = delimiter; return this }
     @Override EntityDataLoader csvCommentStart(char commentStart) { this.csvCommentStart = commentStart; return this }
@@ -173,6 +177,10 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         if (this.disableEeca) reenableEeca = !eci.artifactExecutionFacade.disableEntityEca()
         boolean reenableAuditLog = false
         if (this.disableAuditLog) reenableAuditLog = !eci.artifactExecutionFacade.disableEntityAuditLog()
+        boolean reenableFkCreate = false
+        if (this.disableFkCreate) reenableFkCreate = !eci.artifactExecutionFacade.disableEntityFkCreate()
+        boolean reenableDataFeed = false
+        if (this.disableDataFeed) reenableDataFeed = !eci.artifactExecutionFacade.disableEntityDataFeed()
 
         // if no xmlText or locations, so find all of the component and entity-facade files
         if (!this.xmlText && !this.csvText && !this.jsonText && !this.locationList) {
@@ -277,6 +285,8 @@ class EntityDataLoaderImpl implements EntityDataLoader {
 
         if (reenableEeca) eci.artifactExecutionFacade.enableEntityEca()
         if (reenableAuditLog) eci.artifactExecutionFacade.enableEntityAuditLog()
+        if (reenableFkCreate) eci.artifactExecutionFacade.enableEntityFkCreate()
+        if (reenableDataFeed) eci.artifactExecutionFacade.enableEntityDataFeed()
 
         // logger.warn("========== Done loading, waiting for a long time so process is still running for profiler")
         // Thread.sleep(60*1000*100)

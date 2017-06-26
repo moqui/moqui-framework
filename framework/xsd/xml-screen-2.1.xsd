@@ -635,22 +635,13 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/>
             <xs:attribute name="id" type="xs:string"/>
             <xs:attribute name="style" type="xs:string"/>
-            <xs:attribute name="type" default="div">
-                <xs:simpleType>
-                    <xs:restriction base="xs:token">
-                        <xs:enumeration value="div"/>
-                        <xs:enumeration value="span"/>
-                        <xs:enumeration value="ul"/>
-                        <xs:enumeration value="li"/>
-                        <xs:enumeration value="dl"/>
-                        <xs:enumeration value="dd"/>
-                        <xs:enumeration value="header"/>
-                        <xs:enumeration value="footer"/>
-                        <xs:enumeration value="code"/>
-                        <xs:enumeration value="pre"/>
-                    </xs:restriction>
-                </xs:simpleType>
-            </xs:attribute>
+            <xs:attribute name="type" default="div"><xs:simpleType><xs:restriction base="xs:token">
+                <xs:enumeration value="div"/><xs:enumeration value="span"/>
+                <xs:enumeration value="ul"/><xs:enumeration value="li"/>
+                <xs:enumeration value="dl"/><xs:enumeration value="dd"/>
+                <xs:enumeration value="header"/><xs:enumeration value="footer"/>
+                <xs:enumeration value="code"/><xs:enumeration value="pre"/>
+            </xs:restriction></xs:simpleType></xs:attribute>
         </xs:complexType>
     </xs:element>
 
@@ -668,6 +659,7 @@ along with this software (see the LICENSE.md file). If not, see
                 </xs:choice>
             </xs:sequence>
             <xs:attribute name="id" type="xs:string"/>
+            <xs:attribute name="type" type="color-context" default="default"/>
         </xs:complexType>
     </xs:element>
     <xs:element name="box-header">
@@ -774,6 +766,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="width" type="xs:string" default="760"/>
             <xs:attribute name="height" type="xs:string" default="600"/>
             <xs:attribute name="condition" type="xs:string"/>
+            <xs:attribute name="type" type="color-context" default="primary"/>
         </xs:complexType>
     </xs:element>
     <xs:element name="dynamic-dialog" substitutionGroup="StandaloneFields">
@@ -789,6 +782,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="parameter-map" type="xs:string"><xs:annotation><xs:documentation>A Map to get parameter
                 names and values from in addition to the parameter sub-elements.</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="condition" type="xs:string"/>
+            <xs:attribute name="type" type="color-context" default="primary"/>
         </xs:complexType>
     </xs:element>
     <xs:element name="dynamic-container" substitutionGroup="StandaloneFields">

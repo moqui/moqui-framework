@@ -15,6 +15,7 @@ package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
 import org.moqui.impl.entity.EntityJavaUtil.RelationshipInfo
+import org.moqui.util.CollectionUtilities
 import org.moqui.util.MNode
 
 import java.sql.Connection
@@ -90,11 +91,11 @@ class EntityDbMeta {
         entityTablesChecked.remove(ed.getFullEntityName())
         checkTableRuntime(ed)
     }
-
     void forceCheckExistingTables() {
         entityTablesChecked.clear()
         for (String entityName in efi.getAllEntityNames()) {
             EntityDefinition ed = efi.getEntityDefinition(entityName)
+            if (ed.isViewEntity) continue
             if (tableExists(ed)) checkTableRuntime(ed)
         }
     }
@@ -413,16 +414,16 @@ class EntityDbMeta {
 
                 if (commonChars > 0) {
                     indexName.append(edEntityName)
-                    for (char cc in title.substring(0, commonChars).chars) if (cc.isUpperCase()) indexName.append(cc)
+                    for (char cc in title.substring(0, commonChars).chars) if (Character.isUpperCase(cc)) indexName.append(cc)
                     indexName.append(title.substring(commonChars))
                     indexName.append(relatedEntityName.substring(0, relEndCommonChars + 1))
                     if (relEndCommonChars < (relLength - 1)) for (char cc in relatedEntityName.substring(relEndCommonChars + 1).chars)
-                        if (cc.isUpperCase()) indexName.append(cc)
+                        if (Character.isUpperCase(cc)) indexName.append(cc)
                 } else {
                     indexName.append(edEntityName).append(title)
                     indexName.append(relatedEntityName.substring(0, relEndCommonChars + 1))
                     if (relEndCommonChars < (relLength - 1)) for (char cc in relatedEntityName.substring(relEndCommonChars + 1).chars)
-                        if (cc.isUpperCase()) indexName.append(cc)
+                        if (Character.isUpperCase(cc)) indexName.append(cc)
                 }
 
                 // logger.warn("Index for entity [${ed.getFullEntityName()}], title=${title}, commonChars=${commonChars}, indexName=${indexName}")
@@ -450,13 +451,34 @@ class EntityDbMeta {
     }
 
     /** Loop through all known entities and for each that has an existing table check each foreign key to see if it
-     * exists in the database, and if it doesn't but the related table does then add the foreign key. */
-    void createForeignKeysForExistingTables() {
+     * exists in the database, and if it doesn't but the related table does exist then add the foreign key. */
+    int createForeignKeysForExistingTables() {
+        int created = 0
         for (String en in efi.getAllEntityNames()) {
             EntityDefinition ed = efi.getEntityDefinition(en)
-            if (tableExists(ed)) createForeignKeys(ed, true)
+            if (ed.isViewEntity) continue
+            if (tableExists(ed)) {
+                int result = createForeignKeys(ed, true)
+                logger.info("Created ${result} FKs for entity ${ed.fullEntityName}")
+                created += result
+            }
         }
+        return created
     }
+    int dropAllForeignKeys() {
+        int dropped = 0
+        for (String en in efi.getAllEntityNames()) {
+            EntityDefinition ed = efi.getEntityDefinition(en)
+            if (ed.isViewEntity) continue
+            if (tableExists(ed)) {
+                int result = dropForeignKeys(ed)
+                logger.info("Dropped ${result} FKs for entity ${ed.fullEntityName}")
+                dropped += result
+            }
+        }
+        return dropped
+    }
+
 
     Boolean foreignKeyExists(EntityDefinition ed, RelationshipInfo relInfo) {
         String groupName = ed.getEntityGroupName()
@@ -522,10 +544,81 @@ class EntityDbMeta {
             if (con != null) con.close()
         }
     }
+    String getForeignKeyName(EntityDefinition ed, RelationshipInfo relInfo) {
+        String groupName = ed.getEntityGroupName()
+        EntityDefinition relEd = relInfo.relatedEd
+        Connection con = null
+        ResultSet ikSet1 = null
+        ResultSet ikSet2 = null
+        try {
+            con = efi.getConnection(groupName)
+            DatabaseMetaData dbData = con.getMetaData()
 
-    void createForeignKeys(EntityDefinition ed, boolean checkFkExists) {
+            // don't rely on constraint name, look at related table name, keys
+
+            // get set of fields on main entity to match against (more unique than fields on related entity)
+            Map keyMap = relInfo.keyMap
+            List<String> fieldNames = new ArrayList(keyMap.keySet())
+            Map<String, Set<String>> fieldsByFkName = new HashMap<>()
+
+            ikSet1 = dbData.getImportedKeys(null, ed.getSchemaName(), ed.getTableName())
+            while (ikSet1.next()) {
+                String pkTable = ikSet1.getString("PKTABLE_NAME")
+                // logger.info("FK exists [${ed.getFullEntityName()}] - [${relNode."@title"}${relEd.getFullEntityName()}] PKTABLE_NAME [${ikSet.getString("PKTABLE_NAME")}] PKCOLUMN_NAME [${ikSet.getString("PKCOLUMN_NAME")}] FKCOLUMN_NAME [${ikSet.getString("FKCOLUMN_NAME")}]")
+                if (pkTable != relEd.getTableName() && pkTable != relEd.getTableName().toLowerCase()) continue
+                String fkCol = ikSet1.getString("FKCOLUMN_NAME")
+                String fkName = ikSet1.getString("FK_NAME")
+                // logger.warn("FK pktable ${pkTable} fkcol ${fkCol} fkName ${fkName}")
+                if (!fkName) continue
+                for (String fn in fieldNames) {
+                    String fnColName = ed.getColumnName(fn)
+                    if (fnColName == fkCol || fnColName.toLowerCase() == fkCol) {
+                        CollectionUtilities.addToSetInMap(fkName, fn, fieldsByFkName)
+                        break
+                    }
+                }
+            }
+            if (fieldNames.size() > 0) {
+                // try with lower case table name
+                ikSet2 = dbData.getImportedKeys(null, ed.getSchemaName(), ed.getTableName().toLowerCase())
+                while (ikSet2.next()) {
+                    String pkTable = ikSet2.getString("PKTABLE_NAME")
+                    // logger.info("FK exists [${ed.getFullEntityName()}] - [${relNode."@title"}${relEd.getFullEntityName()}] PKTABLE_NAME [${ikSet.getString("PKTABLE_NAME")}] PKCOLUMN_NAME [${ikSet.getString("PKCOLUMN_NAME")}] FKCOLUMN_NAME [${ikSet.getString("FKCOLUMN_NAME")}]")
+                    if (pkTable != relEd.getTableName() && pkTable != relEd.getTableName().toLowerCase()) continue
+                    String fkCol = ikSet2.getString("FKCOLUMN_NAME")
+                    String fkName = ikSet2.getString("FK_NAME")
+                    // logger.warn("FK pktable ${pkTable} fkcol ${fkCol} fkName ${fkName}")
+                    if (!fkName) continue
+                    for (String fn in fieldNames) {
+                        String fnColName = ed.getColumnName(fn)
+                        if (fnColName == fkCol || fnColName.toLowerCase() == fkCol) {
+                            CollectionUtilities.addToSetInMap(fkName, fn, fieldsByFkName)
+                            break
+                        }
+                    }
+                }
+            }
+
+            // logger.warn("fieldNames: ${fieldNames}"); logger.warn("fieldsByFkName: ${fieldsByFkName}")
+            for (Map.Entry<String, Set<String>> entry in fieldsByFkName.entrySet()) {
+                if (entry.value.containsAll(fieldNames)) return entry.key
+            }
+            return null
+        } catch (Exception e) {
+            logger.error("Exception getting foreign key name for table ${ed.getTableName()}", e)
+            return null
+        } finally {
+            if (ikSet1 != null && !ikSet1.isClosed()) ikSet1.close()
+            if (ikSet2 != null && !ikSet2.isClosed()) ikSet2.close()
+            if (con != null) con.close()
+        }
+    }
+
+    int createForeignKeys(EntityDefinition ed, boolean checkFkExists) {
         if (ed == null) throw new IllegalArgumentException("No EntityDefinition specified, cannot create foreign keys")
         if (ed.isViewEntity) throw new IllegalArgumentException("Cannot create foreign keys for a view entity")
+
+        if (ed.getEfi().ecfi.getEci().artifactExecutionFacade.entityFkCreateDisabled()) return 0
 
         // NOTE: in order to get all FKs in place by the time they are used we will probably need to check all incoming
         //     FKs as well as outgoing because of entity use order, tables not rechecked after first hit, etc
@@ -535,10 +628,10 @@ class EntityDbMeta {
         String groupName = ed.getEntityGroupName()
         MNode databaseNode = efi.getDatabaseNode(groupName)
 
-        if (databaseNode.attribute("use-foreign-keys") == "false") return
-
+        if (databaseNode.attribute("use-foreign-keys") == "false") return 0
         int constraintNameClipLength = (databaseNode.attribute("constraint-name-clip-length")?:"30") as int
 
+        int created = 0
         for (RelationshipInfo relInfo in ed.getRelationshipsInfo(false)) {
             if (relInfo.type != "one") continue
 
@@ -556,31 +649,13 @@ class EntityDbMeta {
                 // if we get a null back there was an error, and we'll try to create the FK, which may result in another error
             }
 
-            StringBuilder constraintName = new StringBuilder()
-            if (relInfo.relNode.attribute("fk-name")) constraintName.append(relInfo.relNode.attribute("fk-name"))
-            if (!constraintName) {
-                String title = relInfo.title ?: ""
-                String edEntityName = ed.entityInfo.internalEntityName
-                int commonChars = 0
-                while (title.length() > commonChars && edEntityName.length() > commonChars &&
-                        title.charAt(commonChars) == edEntityName.charAt(commonChars)) commonChars++
-                String relatedEntityName = relEd.entityInfo.internalEntityName
-                if (commonChars > 0) {
-                    constraintName.append(ed.entityInfo.internalEntityName)
-                    for (char cc in title.substring(0, commonChars).chars) if (cc.isUpperCase()) constraintName.append(cc)
-                    constraintName.append(title.substring(commonChars)).append(relatedEntityName)
-                } else {
-                    constraintName.append(ed.entityInfo.internalEntityName).append(title).append(relatedEntityName)
-                }
-                // logger.warn("ed.getFullEntityName()=${ed.entityName}, title=${title}, commonChars=${commonChars}, constraintName=${constraintName}")
-            }
-            shrinkName(constraintName, constraintNameClipLength)
+            String constraintName = makeFkConstraintName(ed, relInfo, constraintNameClipLength)
 
             Map keyMap = relInfo.keyMap
             List<String> keyMapKeys = new ArrayList(keyMap.keySet())
             StringBuilder sql = new StringBuilder("ALTER TABLE ").append(ed.getFullTableName()).append(" ADD ")
             if (databaseNode.attribute("fk-style") == "name_fk") {
-                sql.append(" FOREIGN KEY ").append(constraintName.toString()).append(" (")
+                sql.append("FOREIGN KEY ").append(constraintName).append(" (")
                 boolean isFirst = true
                 for (String fieldName in keyMapKeys) {
                     if (isFirst) isFirst = false else sql.append(", ")
@@ -590,13 +665,13 @@ class EntityDbMeta {
             } else {
                 sql.append("CONSTRAINT ")
                 if (databaseNode.attribute("use-schema-for-all") == "true") sql.append(ed.getSchemaName() ? ed.getSchemaName() + "." : "")
-                sql.append(constraintName.toString()).append(" FOREIGN KEY (")
+                sql.append(constraintName).append(" FOREIGN KEY (")
                 boolean isFirst = true
                 for (String fieldName in keyMapKeys) {
                     if (isFirst) isFirst = false else sql.append(", ")
                     sql.append(ed.getColumnName(fieldName))
                 }
-                sql.append(")");
+                sql.append(")")
             }
             sql.append(" REFERENCES ").append(relEd.getFullTableName()).append(" (")
             boolean isFirst = true
@@ -610,7 +685,81 @@ class EntityDbMeta {
             }
 
             runSqlUpdate(sql, groupName)
+            created++
         }
+        return created
+    }
+
+    int dropForeignKeys(EntityDefinition ed) {
+        if (ed == null) throw new IllegalArgumentException("No EntityDefinition specified, cannot drop foreign keys")
+        if (ed.isViewEntity) throw new IllegalArgumentException("Cannot drop foreign keys for a view entity")
+
+        // NOTE: in order to get all FKs in place by the time they are used we will probably need to check all incoming
+        //     FKs as well as outgoing because of entity use order, tables not rechecked after first hit, etc
+        // NOTE2: with the createForeignKeysForExistingTables() method this isn't strictly necessary, that can be run
+        //     after the system is run for a bit and/or all tables desired have been created and it will take care of it
+
+        String groupName = ed.getEntityGroupName()
+        MNode databaseNode = efi.getDatabaseNode(groupName)
+
+        if (databaseNode.attribute("use-foreign-keys") == "false") return 0
+        int constraintNameClipLength = (databaseNode.attribute("constraint-name-clip-length")?:"30") as int
+
+        int dropped = 0
+        for (RelationshipInfo relInfo in ed.getRelationshipsInfo(false)) {
+            if (relInfo.type != "one") continue
+
+            EntityDefinition relEd = relInfo.relatedEd
+            if (!tableExists(relEd)) {
+                if (logger.traceEnabled) logger.trace("Not dropping foreign key from entity ${ed.getFullEntityName()} to related entity ${relEd.getFullEntityName()} because related entity does not yet have a table")
+                continue
+            }
+            Boolean fkExists = foreignKeyExists(ed, relInfo)
+            if (fkExists != null && !fkExists) {
+                if (logger.traceEnabled) logger.trace("Not dropping foreign key from entity ${ed.getFullEntityName()} to related entity ${relEd.getFullEntityName()} with title ${relInfo.relNode.attribute("title")} because it does not exist (matched by key mappings)")
+                continue
+            }
+
+            String fkName = getForeignKeyName(ed, relInfo)
+            String constraintName = fkName ?: makeFkConstraintName(ed, relInfo, constraintNameClipLength)
+
+            StringBuilder sql = new StringBuilder("ALTER TABLE ").append(ed.getFullTableName()).append(" DROP ")
+            if (databaseNode.attribute("fk-style") == "name_fk") {
+                sql.append("FOREIGN KEY ").append(constraintName.toString())
+            } else {
+                sql.append("CONSTRAINT ")
+                if (databaseNode.attribute("use-schema-for-all") == "true") sql.append(ed.getSchemaName() ? ed.getSchemaName() + "." : "")
+                sql.append(constraintName.toString())
+            }
+
+            Integer records = runSqlUpdate(sql, groupName)
+            if (records != null) dropped++
+        }
+        return dropped
+    }
+
+    static String makeFkConstraintName(EntityDefinition ed, RelationshipInfo relInfo, int constraintNameClipLength) {
+        StringBuilder constraintName = new StringBuilder()
+        if (relInfo.relNode.attribute("fk-name")) constraintName.append(relInfo.relNode.attribute("fk-name"))
+        if (!constraintName) {
+            EntityDefinition relEd = relInfo.relatedEd
+            String title = relInfo.title ?: ""
+            String edEntityName = ed.entityInfo.internalEntityName
+            int commonChars = 0
+            while (title.length() > commonChars && edEntityName.length() > commonChars &&
+                    title.charAt(commonChars) == edEntityName.charAt(commonChars)) commonChars++
+            String relatedEntityName = relEd.entityInfo.internalEntityName
+            if (commonChars > 0) {
+                constraintName.append(ed.entityInfo.internalEntityName)
+                for (char cc in title.substring(0, commonChars).chars) if (Character.isUpperCase(cc)) constraintName.append(cc)
+                constraintName.append(title.substring(commonChars)).append(relatedEntityName)
+            } else {
+                constraintName.append(ed.entityInfo.internalEntityName).append(title).append(relatedEntityName)
+            }
+            // logger.warn("ed.getFullEntityName()=${ed.entityName}, title=${title}, commonChars=${commonChars}, constraintName=${constraintName}")
+        }
+        shrinkName(constraintName, constraintNameClipLength)
+        return constraintName.toString()
     }
 
     static void shrinkName(StringBuilder name, int maxLength) {
@@ -627,10 +776,10 @@ class EntityDbMeta {
     }
 
     final ReentrantLock sqlLock = new ReentrantLock()
-    int runSqlUpdate(CharSequence sql, String groupName) {
+    Integer runSqlUpdate(CharSequence sql, String groupName) {
         // only do one DB meta data operation at a time; may lock above before checking for existence of something to make sure it doesn't get created twice
         sqlLock.lock()
-        int records = 0
+        Integer records = null
         try {
             // use a short timeout here just in case this is in the middle of stuff going on with tables locked, may happen a lot for FK ops
             efi.ecfi.transactionFacade.runRequireNew(10, "Error in DB meta data change", useTxForMetaData, true, {

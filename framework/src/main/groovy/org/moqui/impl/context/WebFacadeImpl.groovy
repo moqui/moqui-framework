@@ -593,7 +593,7 @@ class WebFacadeImpl implements WebFacade {
                     responseMap.put("errors", eci.message.errorsString)
                     responseObj = responseMap
                 } else if (responseObj != null && !(responseObj instanceof Map)) {
-                    logger.error("Error found when sending JSON string but JSON object is not a Map so not sending errors: ${eci.message.errorsString}")
+                    logger.error("Error found when sending JSON string, JSON object is not a Map so not adding errors to return: ${eci.message.errorsString}")
                 }
                 response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR)
             } else {
