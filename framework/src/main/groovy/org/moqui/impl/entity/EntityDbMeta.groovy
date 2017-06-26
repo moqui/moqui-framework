@@ -15,6 +15,7 @@ package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
 import org.moqui.impl.entity.EntityJavaUtil.RelationshipInfo
+import org.moqui.util.CollectionUtilities
 import org.moqui.util.MNode
 
 import java.sql.Connection
@@ -456,7 +457,11 @@ class EntityDbMeta {
         for (String en in efi.getAllEntityNames()) {
             EntityDefinition ed = efi.getEntityDefinition(en)
             if (ed.isViewEntity) continue
-            if (tableExists(ed)) created += createForeignKeys(ed, true)
+            if (tableExists(ed)) {
+                int result = createForeignKeys(ed, true)
+                logger.info("Created ${result} FKs for entity ${ed.fullEntityName}")
+                created += result
+            }
         }
         return created
     }
@@ -465,7 +470,11 @@ class EntityDbMeta {
         for (String en in efi.getAllEntityNames()) {
             EntityDefinition ed = efi.getEntityDefinition(en)
             if (ed.isViewEntity) continue
-            if (tableExists(ed)) dropped += dropForeignKeys(ed)
+            if (tableExists(ed)) {
+                int result = dropForeignKeys(ed)
+                logger.info("Dropped ${result} FKs for entity ${ed.fullEntityName}")
+                dropped += result
+            }
         }
         return dropped
     }
@@ -528,6 +537,75 @@ class EntityDbMeta {
             return (fieldNames.size() == 0)
         } catch (Exception e) {
             logger.error("Exception checking to see if foreign key exists for table ${ed.getTableName()}", e)
+            return null
+        } finally {
+            if (ikSet1 != null && !ikSet1.isClosed()) ikSet1.close()
+            if (ikSet2 != null && !ikSet2.isClosed()) ikSet2.close()
+            if (con != null) con.close()
+        }
+    }
+    String getForeignKeyName(EntityDefinition ed, RelationshipInfo relInfo) {
+        String groupName = ed.getEntityGroupName()
+        EntityDefinition relEd = relInfo.relatedEd
+        Connection con = null
+        ResultSet ikSet1 = null
+        ResultSet ikSet2 = null
+        try {
+            con = efi.getConnection(groupName)
+            DatabaseMetaData dbData = con.getMetaData()
+
+            // don't rely on constraint name, look at related table name, keys
+
+            // get set of fields on main entity to match against (more unique than fields on related entity)
+            Map keyMap = relInfo.keyMap
+            List<String> fieldNames = new ArrayList(keyMap.keySet())
+            Map<String, Set<String>> fieldsByFkName = new HashMap<>()
+
+            ikSet1 = dbData.getImportedKeys(null, ed.getSchemaName(), ed.getTableName())
+            while (ikSet1.next()) {
+                String pkTable = ikSet1.getString("PKTABLE_NAME")
+                // logger.info("FK exists [${ed.getFullEntityName()}] - [${relNode."@title"}${relEd.getFullEntityName()}] PKTABLE_NAME [${ikSet.getString("PKTABLE_NAME")}] PKCOLUMN_NAME [${ikSet.getString("PKCOLUMN_NAME")}] FKCOLUMN_NAME [${ikSet.getString("FKCOLUMN_NAME")}]")
+                if (pkTable != relEd.getTableName() && pkTable != relEd.getTableName().toLowerCase()) continue
+                String fkCol = ikSet1.getString("FKCOLUMN_NAME")
+                String fkName = ikSet1.getString("FK_NAME")
+                // logger.warn("FK pktable ${pkTable} fkcol ${fkCol} fkName ${fkName}")
+                if (!fkName) continue
+                for (String fn in fieldNames) {
+                    String fnColName = ed.getColumnName(fn)
+                    if (fnColName == fkCol || fnColName.toLowerCase() == fkCol) {
+                        CollectionUtilities.addToSetInMap(fkName, fn, fieldsByFkName)
+                        break
+                    }
+                }
+            }
+            if (fieldNames.size() > 0) {
+                // try with lower case table name
+                ikSet2 = dbData.getImportedKeys(null, ed.getSchemaName(), ed.getTableName().toLowerCase())
+                while (ikSet2.next()) {
+                    String pkTable = ikSet2.getString("PKTABLE_NAME")
+                    // logger.info("FK exists [${ed.getFullEntityName()}] - [${relNode."@title"}${relEd.getFullEntityName()}] PKTABLE_NAME [${ikSet.getString("PKTABLE_NAME")}] PKCOLUMN_NAME [${ikSet.getString("PKCOLUMN_NAME")}] FKCOLUMN_NAME [${ikSet.getString("FKCOLUMN_NAME")}]")
+                    if (pkTable != relEd.getTableName() && pkTable != relEd.getTableName().toLowerCase()) continue
+                    String fkCol = ikSet2.getString("FKCOLUMN_NAME")
+                    String fkName = ikSet2.getString("FK_NAME")
+                    // logger.warn("FK pktable ${pkTable} fkcol ${fkCol} fkName ${fkName}")
+                    if (!fkName) continue
+                    for (String fn in fieldNames) {
+                        String fnColName = ed.getColumnName(fn)
+                        if (fnColName == fkCol || fnColName.toLowerCase() == fkCol) {
+                            CollectionUtilities.addToSetInMap(fkName, fn, fieldsByFkName)
+                            break
+                        }
+                    }
+                }
+            }
+
+            // logger.warn("fieldNames: ${fieldNames}"); logger.warn("fieldsByFkName: ${fieldsByFkName}")
+            for (Map.Entry<String, Set<String>> entry in fieldsByFkName.entrySet()) {
+                if (entry.value.containsAll(fieldNames)) return entry.key
+            }
+            return null
+        } catch (Exception e) {
+            logger.error("Exception getting foreign key name for table ${ed.getTableName()}", e)
             return null
         } finally {
             if (ikSet1 != null && !ikSet1.isClosed()) ikSet1.close()
@@ -642,7 +720,8 @@ class EntityDbMeta {
                 continue
             }
 
-            String constraintName = makeFkConstraintName(ed, relInfo, constraintNameClipLength)
+            String fkName = getForeignKeyName(ed, relInfo)
+            String constraintName = fkName ?: makeFkConstraintName(ed, relInfo, constraintNameClipLength)
 
             StringBuilder sql = new StringBuilder("ALTER TABLE ").append(ed.getFullTableName()).append(" DROP ")
             if (databaseNode.attribute("fk-style") == "name_fk") {
@@ -653,8 +732,8 @@ class EntityDbMeta {
                 sql.append(constraintName.toString())
             }
 
-            runSqlUpdate(sql, groupName)
-            dropped++
+            Integer records = runSqlUpdate(sql, groupName)
+            if (records != null) dropped++
         }
         return dropped
     }
@@ -697,10 +776,10 @@ class EntityDbMeta {
     }
 
     final ReentrantLock sqlLock = new ReentrantLock()
-    int runSqlUpdate(CharSequence sql, String groupName) {
+    Integer runSqlUpdate(CharSequence sql, String groupName) {
         // only do one DB meta data operation at a time; may lock above before checking for existence of something to make sure it doesn't get created twice
         sqlLock.lock()
-        int records = 0
+        Integer records = null
         try {
             // use a short timeout here just in case this is in the middle of stuff going on with tables locked, may happen a lot for FK ops
             efi.ecfi.transactionFacade.runRequireNew(10, "Error in DB meta data change", useTxForMetaData, true, {
