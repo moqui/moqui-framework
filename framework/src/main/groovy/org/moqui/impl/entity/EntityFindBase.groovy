@@ -672,7 +672,7 @@ abstract class EntityFindBase implements EntityFind {
             ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
                     ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "one")
             // really worth the overhead? if so change to handle singleCondField: .setParameters(simpleAndMap)
-            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView)
+            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView, false)
 
             try {
                 return oneInternal(ec, ed)
@@ -694,7 +694,7 @@ abstract class EntityFindBase implements EntityFind {
 
             ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
                     ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "one")
-            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView)
+            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView, false)
 
             try {
                 EntityValue ev = oneInternal(ec, ed)
@@ -921,7 +921,7 @@ abstract class EntityFindBase implements EntityFind {
 
             ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
                     ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "list")
-            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView)
+            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView, false)
             try {
                 return listInternal(ec, ed)
             } finally {
@@ -941,7 +941,7 @@ abstract class EntityFindBase implements EntityFind {
 
             ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
                     ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "list")
-            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView)
+            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView, false)
             try {
                 EntityList el = listInternal(ec, ed)
                 return el.getMasterValueList(name)
@@ -1092,7 +1092,7 @@ abstract class EntityFindBase implements EntityFind {
 
             ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
                     ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "iterator")
-            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView)
+            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView, false)
             try {
                 return iteratorInternal(ec, ed)
             } finally {
@@ -1214,7 +1214,7 @@ abstract class EntityFindBase implements EntityFind {
 
             ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
                     ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "count")
-            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView)
+            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView, false)
             try {
                 return countInternal(ec, ed)
             } finally {

@@ -572,7 +572,7 @@ class ScreenRenderImpl implements ScreenRender {
         // the transition itself, it's fine
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(sd.location,
                 ArtifactExecutionInfo.AT_XML_SCREEN, ArtifactExecutionInfo.AUTHZA_VIEW, null)
-        ec.artifactExecutionFacade.pushInternal(aei, false)
+        ec.artifactExecutionFacade.pushInternal(aei, false, false)
 
         boolean loggedInAnonymous = false
         ResponseItem ri = (ResponseItem) null
@@ -615,7 +615,7 @@ class ScreenRenderImpl implements ScreenRender {
         String requireAuthentication = screenNode.attribute("require-authentication")
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(sd.location,
                 ArtifactExecutionInfo.AT_XML_SCREEN, ArtifactExecutionInfo.AUTHZA_VIEW, outputContentType).setTrackArtifactHit(false)
-        ec.artifactExecutionFacade.pushInternal(aei, !activeScreenHasNext ? (!requireAuthentication || requireAuthentication == "true") : false)
+        ec.artifactExecutionFacade.pushInternal(aei, !activeScreenHasNext ? (!requireAuthentication || requireAuthentication == "true") : false, false)
 
         boolean loggedInAnonymous = false
         try {
@@ -701,7 +701,7 @@ class ScreenRenderImpl implements ScreenRender {
 
                     ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(permSd.location,
                             ArtifactExecutionInfo.AT_XML_SCREEN, ArtifactExecutionInfo.AUTHZA_VIEW, outputContentType)
-                    ec.artifactExecutionFacade.pushInternal(aei, false)
+                    ec.artifactExecutionFacade.pushInternal(aei, false, false)
                     aeiList.add(aei)
                 }
             }
