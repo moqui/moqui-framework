@@ -63,10 +63,10 @@ dependencies {
     compile project(':moqui-util')
 
     // Groovy
-    compile 'org.codehaus.groovy:groovy:2.4.11' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-json:2.4.11' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-templates:2.4.11' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-xml:2.4.11' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy:2.4.12' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-json:2.4.12' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-templates:2.4.12' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-xml:2.4.12' // Apache 2.0
     // jansi is needed for groovydoc only, so in providedCompile (not included in war)
     compileOnly 'org.fusesource.jansi:jansi:1.16'
     // Findbugs need only during compile (used by freemarker and various moqui classes)
