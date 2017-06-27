@@ -638,7 +638,7 @@ class RestApi {
             aei.setTrackArtifactHit(false)
             // NOTE: consider setting parameters on aei, but don't like setting entire context, currently used for entity/service calls
             ec.artifactExecutionFacade.pushInternal(aei, !moreInPath ?
-                    (requireAuthentication == null || requireAuthentication.length() == 0 || "true".equals(requireAuthentication)) : false)
+                    (requireAuthentication == null || requireAuthentication.length() == 0 || "true".equals(requireAuthentication)) : false, true)
 
             boolean loggedInAnonymous = false
             if ("anonymous-all".equals(requireAuthentication)) {
