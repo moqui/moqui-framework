@@ -40,6 +40,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import javax.servlet.ServletContext
+import javax.servlet.ServletInputStream
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
 import javax.servlet.http.HttpSession
@@ -108,25 +109,31 @@ class WebFacadeImpl implements WebFacade {
         // if there is a JSON document submitted consider those as parameters too
         String contentType = request.getHeader("Content-Type")
         if (contentType != null && contentType.length() > 0 && (contentType.contains("application/json") || contentType.contains("text/json"))) {
-            JsonSlurper slurper = new JsonSlurper()
-            Object jsonObj = null
-            try {
-                jsonObj = slurper.parse(new BufferedReader(new InputStreamReader(request.getInputStream(),
-                        request.getCharacterEncoding() ?: "UTF-8")))
-            } catch (Throwable t) {
-                logger.error("Error parsing HTTP request body JSON: ${t.toString()}", t)
-                jsonParameters = [_requestBodyJsonParseError:t.getMessage()] as Map<String, Object>
+            // read the body first to make sure it isn't empty, better support clients that pass a Content-Type but no content (even though they shouldn't)
+            StringBuilder bodyBuilder = new StringBuilder()
+            BufferedReader reader = request.getReader()
+            if (reader != null) {
+                String curLine
+                while ((curLine = reader.readLine()) != null) bodyBuilder.append(curLine)
             }
-            if (jsonObj instanceof Map) {
-                jsonParameters = (Map<String, Object>) jsonObj
-            } else if (jsonObj instanceof List) {
-                jsonParameters = [_requestBodyJsonList:jsonObj]
+            if (bodyBuilder.length() > 0) {
+                JsonSlurper slurper = new JsonSlurper()
+                Object jsonObj = null
+                try {
+                    jsonObj = slurper.parseText(bodyBuilder.toString())
+                } catch (Throwable t) {
+                    logger.error("Error parsing HTTP request body JSON: ${t.toString()}", t)
+                    jsonParameters = [_requestBodyJsonParseError:t.getMessage()] as Map<String, Object>
+                }
+                if (jsonObj instanceof Map) {
+                    jsonParameters = (Map<String, Object>) jsonObj
+                } else if (jsonObj instanceof List) {
+                    jsonParameters = [_requestBodyJsonList:jsonObj]
+                }
+                // logger.warn("=========== Got JSON HTTP request body: ${jsonParameters}")
             }
-            // logger.warn("=========== Got JSON HTTP request body: ${jsonParameters}")
-        }
-
-        // if this is a multi-part request, get the data for it
-        if (ServletFileUpload.isMultipartContent(request)) {
+        } else if (ServletFileUpload.isMultipartContent(request)) {
+            // if this is a multi-part request, get the data for it
             multiPartParameters = new HashMap()
             FileItemFactory factory = makeDiskFileItemFactory()
             ServletFileUpload upload = new ServletFileUpload(factory)
