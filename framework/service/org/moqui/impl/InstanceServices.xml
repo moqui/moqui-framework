@@ -188,8 +188,8 @@ along with this software (see the LICENSE.md file). If not, see
                 }
             } catch (Exception e) {
                 moquiConnectSuccess = false
-                ec.logger.log(ec.logger.ERROR_INT, "Error connecting to Moqui server", e)
-                ec.message.addError("Error connecting to Moqui server: ${e.toString()}")
+                ec.logger.log(ec.logger.ERROR_INT, "Error connecting to Moqui server at ${restClient.getUri()?.toString()}", e)
+                ec.message.addMessage("Error connecting to Moqui server at ${restClient.getUri()?.toString()}: ${e.toString()}")
             }
         ]]></script></actions>
     </service>

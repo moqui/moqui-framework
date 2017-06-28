@@ -514,7 +514,7 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                 if (tarpitLockList.size() > 0) {
                     Timestamp releaseDateTime = tarpitLockList.first.getTimestamp('releaseDateTime')
                     int retryAfterSeconds = ((releaseDateTime.getTime() - System.currentTimeMillis())/1000).intValue()
-                    throw new ArtifactTarpitException("User ${userId} has accessed ${aeii.getTypeDescription()} ${aeii.getName()} too many times and may not again until ${releaseDateTime} (retry after ${retryAfterSeconds} seconds)".toString(), retryAfterSeconds)
+                    throw new ArtifactTarpitException("User ${userId} has accessed ${aeii.getTypeDescription()} ${aeii.getName()} too many times and may not again until ${eci.l10nFacade.format(releaseDateTime, 'yyyy-MM-dd HH:mm:ss')} (retry after ${retryAfterSeconds} seconds)".toString(), retryAfterSeconds)
                 }
             }
             // record the tarpit lock
