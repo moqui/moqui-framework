@@ -43,13 +43,14 @@ class MoquiServlet extends HttpServlet {
     @Override
     void init(ServletConfig config) throws ServletException {
         super.init(config)
-        logger.info("${config.getServletName()} initialized for webapp ${config.getServletContext().getInitParameter("moqui-name")}")
+        String webappName = config.getInitParameter("moqui-name") ?: config.getServletContext().getInitParameter("moqui-name")
+        logger.info("${config.getServletName()} initialized for webapp ${webappName}")
     }
 
     @Override
     void service(HttpServletRequest request, HttpServletResponse response) {
         ExecutionContextFactoryImpl ecfi = (ExecutionContextFactoryImpl) getServletContext().getAttribute("executionContextFactory")
-        String webappName = getServletContext().getInitParameter("moqui-name")
+        String webappName = getInitParameter("moqui-name") ?: getServletContext().getInitParameter("moqui-name")
 
         // check for and cleanly handle when executionContextFactory is not in place in ServletContext attr
         if (ecfi == null || webappName == null) {

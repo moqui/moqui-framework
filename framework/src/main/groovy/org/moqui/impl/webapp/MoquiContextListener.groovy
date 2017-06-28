@@ -19,10 +19,8 @@ import org.moqui.util.MNode
 
 import javax.servlet.DispatcherType
 import javax.servlet.Filter
-import javax.servlet.FilterConfig
 import javax.servlet.FilterRegistration
 import javax.servlet.Servlet
-import javax.servlet.ServletConfig
 import javax.servlet.ServletContext
 import javax.servlet.ServletContextEvent
 import javax.servlet.ServletContextListener
@@ -115,11 +113,10 @@ class MoquiContextListener implements ServletContextListener {
                 String servletName = servletNode.attribute("name")
                 try {
                     Servlet servlet = (Servlet) Thread.currentThread().getContextClassLoader().loadClass(servletNode.attribute("class")).newInstance()
-                    MapServletConfig servletConfig = new MapServletConfig(servletName, sc)
-                    for (MNode initParamNode in servletNode.children("init-param"))
-                        servletConfig.setParameter(initParamNode.attribute("name"), initParamNode.attribute("value") ?: "")
-                    servlet.init(servletConfig)
                     ServletRegistration.Dynamic servletReg = sc.addServlet(servletName, servlet)
+
+                    for (MNode initParamNode in servletNode.children("init-param"))
+                        servletReg.setInitParameter(initParamNode.attribute("name"), initParamNode.attribute("value") ?: "")
 
                     String loadOnStartupStr = servletNode.attribute("load-on-startup") ?: "1"
                     servletReg.setLoadOnStartup(loadOnStartupStr as int)
@@ -205,34 +202,6 @@ class MoquiContextListener implements ServletContextListener {
         logger.info("Destroyed Moqui Execution Context Factory for webapp [${webappId}]")
     }
 
-    static class MapFilterConfig implements FilterConfig {
-        private String name
-        private ServletContext sc
-        private Map<String, String> parameters = new HashMap<>()
-        MapFilterConfig(String name, ServletContext sc) {
-            this.name = name
-            this.sc = sc
-        }
-        void setParameter(String name, String value) { parameters.put(name, value) }
-        @Override String getFilterName() { return name }
-        @Override ServletContext getServletContext() { return sc }
-        @Override String getInitParameter(String name) { return parameters.get(name) }
-        @Override Enumeration<String> getInitParameterNames() { return Collections.enumeration(parameters.keySet()) }
-    }
-    static class MapServletConfig implements ServletConfig {
-        private String name
-        private ServletContext sc
-        private Map<String, String> parameters = new HashMap<>()
-        MapServletConfig(String name, ServletContext sc) {
-            this.name = name
-            this.sc = sc
-        }
-        void setParameter(String name, String value) { parameters.put(name, value) }
-        @Override String getServletName() { return name }
-        @Override ServletContext getServletContext() { return sc }
-        @Override String getInitParameter(String name) { return parameters.get(name) }
-        @Override Enumeration<String> getInitParameterNames() { return Collections.enumeration(parameters.keySet()) }
-    }
     static class MoquiServerEndpointConfigurator extends ServerEndpointConfig.Configurator {
         // for a good explanation of javax.websocket details related to this see:
         // http://stackoverflow.com/questions/17936440/accessing-httpsession-from-httpservletrequest-in-a-web-socket-serverendpoint
