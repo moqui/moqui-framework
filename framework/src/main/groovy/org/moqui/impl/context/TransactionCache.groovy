@@ -411,11 +411,15 @@ class TransactionCache implements Synchronization {
         Set<Map> foundUpdated = new HashSet<>()
         if (econd != null) {
             int writeInfoListSize = writeInfoList.size()
-            for (int i = 0; i < writeInfoListSize; i++) {
+            // go through backwards to get the most recent only
+            for (int i = (writeInfoListSize - 1); i >= 0 ; i--) {
                 EntityWriteInfo ewi = (EntityWriteInfo) writeInfoList.get(i)
                 if (WriteMode.UPDATE.is(ewi.writeMode) && entityName.equals(ewi.evb.getEntityName()) && econd.mapMatches(ewi.evb)) {
-                    foundUpdated.add(ewi.evb.getPrimaryKeys())
-                    valueList.add(ewi.evb)
+                    Map<String, Object> pkMap = ewi.evb.getPrimaryKeys()
+                    if (!foundUpdated.contains(pkMap)) {
+                        foundUpdated.add(pkMap)
+                        valueList.add(ewi.evb)
+                    }
                 }
             }
         }

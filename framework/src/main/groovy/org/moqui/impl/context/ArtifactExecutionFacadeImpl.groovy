@@ -70,15 +70,15 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
     @Override
     ArtifactExecutionInfo push(String name, ArtifactExecutionInfo.ArtifactType typeEnum, ArtifactExecutionInfo.AuthzAction actionEnum, boolean requiresAuthz) {
         ArtifactExecutionInfoImpl aeii = new ArtifactExecutionInfoImpl(name, typeEnum, actionEnum, "")
-        pushInternal(aeii, requiresAuthz)
+        pushInternal(aeii, requiresAuthz, true)
         return aeii
     }
     @Override
     void push(ArtifactExecutionInfo aei, boolean requiresAuthz) {
         ArtifactExecutionInfoImpl aeii = (ArtifactExecutionInfoImpl) aei
-        pushInternal(aeii, requiresAuthz)
+        pushInternal(aeii, requiresAuthz, true)
     }
-    void pushInternal(ArtifactExecutionInfoImpl aeii, boolean requiresAuthz) {
+    void pushInternal(ArtifactExecutionInfoImpl aeii, boolean requiresAuthz, boolean countTarpit) {
         ArtifactExecutionInfoImpl lastAeii = (ArtifactExecutionInfoImpl) artifactExecutionInfoStack.peekFirst()
 
         // always do this regardless of the authz checks, etc; keep a history of artifacts run
@@ -87,7 +87,7 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
 
         // if ("AT_XML_SCREEN" == aeii.typeEnumId) logger.warn("TOREMOVE artifact push ${username} - ${aeii}")
 
-        if (!isPermitted(aeii, lastAeii, requiresAuthz, true, true, null)) {
+        if (!isPermitted(aeii, lastAeii, requiresAuthz, countTarpit, true, null)) {
             Deque<ArtifactExecutionInfo> curStack = getStack()
             StringBuilder warning = new StringBuilder()
             warning.append("User ${eci.user.username ?: eci.user.userId} is not authorized for ${aeii.getActionDescription()} on ${aeii.getTypeDescription()} ${aeii.getName()}")
@@ -246,7 +246,8 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                 null, true, true, false, null)
     }
 
-    boolean isPermitted(ArtifactExecutionInfoImpl aeii, ArtifactExecutionInfoImpl lastAeii, boolean requiresAuthz, boolean countTarpit, boolean isAccess, LinkedList<ArtifactExecutionInfoImpl> currentStack) {
+    boolean isPermitted(ArtifactExecutionInfoImpl aeii, ArtifactExecutionInfoImpl lastAeii, boolean requiresAuthz, boolean countTarpit,
+                        boolean isAccess, LinkedList<ArtifactExecutionInfoImpl> currentStack) {
         ArtifactExecutionInfo.ArtifactType artifactTypeEnum = aeii.internalTypeEnum
         boolean isEntity = ArtifactExecutionInfo.AT_ENTITY.is(artifactTypeEnum)
         // right off record whether authz is required and is access
@@ -264,8 +265,9 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
         ExecutionContextFactoryImpl ecfi = eci.ecfi
         UserFacadeImpl ufi = eci.userFacade
 
-        if (!isEntity && countTarpit && !tarpitDisabled && Boolean.TRUE.is((Boolean) ecfi.artifactTypeTarpitEnabled.get(artifactTypeEnum))) {
-            checkTarpit(aeii, requiresAuthz)
+        if (!isEntity && countTarpit && !tarpitDisabled && Boolean.TRUE.is((Boolean) ecfi.artifactTypeTarpitEnabled.get(artifactTypeEnum)) &&
+                (requiresAuthz || (!ArtifactExecutionInfo.AT_XML_SCREEN.is(artifactTypeEnum) && !ArtifactExecutionInfo.AT_REST_PATH.is(artifactTypeEnum)))) {
+            checkTarpit(aeii)
         }
 
         // if last was an always allow, then don't bother checking for deny/etc - this is a common case
@@ -445,16 +447,14 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
         // return true
     }
 
-    protected void checkTarpit(ArtifactExecutionInfoImpl aeii, boolean requiresAuthz) {
+    protected void checkTarpit(ArtifactExecutionInfoImpl aeii) {
+        // logger.warn("Count tarpit ${aeii.toBasicString()}", new BaseException("loc"))
+
         ExecutionContextFactoryImpl ecfi = eci.ecfi
         UserFacadeImpl ufi = eci.userFacade
         ArtifactExecutionInfo.ArtifactType artifactTypeEnum = aeii.internalTypeEnum
 
-        ArrayList<Map<String, Object>> artifactTarpitCheckList = (ArrayList<Map<String, Object>>) null
-        // only check screens if they are the final screen in the chain (the target screen)
-        if (requiresAuthz || !ArtifactExecutionInfo.AT_XML_SCREEN.is(artifactTypeEnum)) {
-            artifactTarpitCheckList = ufi.getArtifactTarpitCheckList(artifactTypeEnum)
-        }
+        ArrayList<Map<String, Object>> artifactTarpitCheckList = ufi.getArtifactTarpitCheckList(artifactTypeEnum)
         if (artifactTarpitCheckList == null || artifactTarpitCheckList.size() == 0) return
 
         boolean alreadyDisabled = disableAuthz()

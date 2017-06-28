@@ -197,7 +197,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         if (authzAction == null) authzAction = ArtifactExecutionInfo.AUTHZA_ALL;
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(serviceName, ArtifactExecutionInfo.AT_SERVICE,
                 authzAction, serviceType).setParameters(currentParameters);
-        eci.artifactExecutionFacade.pushInternal(aei, (sd != null && "true".equals(sd.authenticate)));
+        eci.artifactExecutionFacade.pushInternal(aei, (sd != null && "true".equals(sd.authenticate)), true);
 
         // must be done after the artifact execution push so that AEII object to set anonymous authorized is in place
         boolean loggedInAnonymous = false;
