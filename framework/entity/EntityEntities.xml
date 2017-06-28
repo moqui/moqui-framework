@@ -122,13 +122,19 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="DataDocumentField" package="moqui.entity.document" use="configuration">
         <field name="dataDocumentId" type="id" is-pk="true"/>
         <field name="fieldSeqId" type="id" is-pk="true"/>
-        <field name="fieldPath" type="text-medium"><description>String formatted like
-            "RelationshipName:RelationshipName:fieldName" with zero or more relationship names. If there is no
-            relationship name the field is on the primary entity. More than one relationship names means follow that
-            path of relationships to get to the field.</description></field>
+        <field name="fieldPath" type="text-medium"><description>
+            String formatted like "RelationshipName:RelationshipName:fieldName" with zero or more relationship names.
+            If there is no relationship name the field is on the primary entity. More than one relationship names means
+            follow that path of relationships to get to the field.
+
+            This may also contain a Groovy expression using other fields in the current Map/Object in the document by
+            the path or any parent Map/Object above it in the document. When an expression is used a fieldNameAlias is required.
+        </description></field>
         <field name="fieldNameAlias" type="text-medium"><description>Alias to put in document output for field name
             (ie final part of fieldPath only). Defaults to final part of fieldPath. Must be unique within the document
             and can be used in EntityCondition passed into the EntityFacade.findDataDocuments() method.</description></field>
+        <field name="fieldType" type="text-short"><description>The ElasticSearch field type to use, default is based on entity
+            field type or for expression fields defaults to 'double'.</description></field>
         <field name="sortable" type="text-indicator"><description>Indicates the field should be sortable. This is needed because
             in ElasticSearch we have two string types to work with: text (tokenized for search, not sortable) and keyword (sortable
             but not tokenized for search). In ElasticSearch this adds [field name].keyword field of type keyword to sort on if the
