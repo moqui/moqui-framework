@@ -31,9 +31,9 @@ import org.slf4j.LoggerFactory
 
 
 Logger logger = LoggerFactory.getLogger("org.moqui.impl.sendEmailTemplate")
+ExecutionContextImpl ec = context.ec
 
 try {
-    ExecutionContextImpl ec = context.ec
 
     // logger.info("sendEmailTemplate with emailTemplateId [${emailTemplateId}], bodyParameters [${bodyParameters}]")
 
@@ -120,7 +120,7 @@ try {
     }
     if (emailServer.smtpSsl == "Y") {
         email.setSSLOnConnect(true)
-        // email.setSslSmtpPort(port as String)
+        email.setSslSmtpPort(port as String)
         // email.setSSLCheckServerIdentity(true)
     }
 
@@ -181,21 +181,27 @@ try {
         }
     }
 
-    if (logger.infoEnabled) logger.info("Sending email [${email.getSubject()}] from ${email.getFromAddress()} to ${email.getToAddresses()} cc ${email.getCcAddresses()} bcc ${email.getBccAddresses()} via ${emailServer.mailUsername}@${email.getHostName()}:${email.getSmtpPort()} SSL? ${email.isSSLOnConnect()}:${email.isSSLCheckServerIdentity()} TLS? ${email.isStartTLSEnabled()}:${email.isStartTLSRequired()}")
+    if (logger.infoEnabled) logger.info("Sending email [${email.getSubject()}] from ${email.getFromAddress()} to ${email.getToAddresses()} cc ${email.getCcAddresses()} bcc ${email.getBccAddresses()} via ${emailServer.mailUsername}@${email.getHostName()}:${email.getSmtpPort()} SSL? ${email.isSSLOnConnect()}:${email.isSSLCheckServerIdentity()} StartTLS? ${email.isStartTLSEnabled()}:${email.isStartTLSRequired()}")
     if (logger.traceEnabled) logger.trace("Sending email [${email.getSubject()}] to ${email.getToAddresses()} with bodyHtml:\n${bodyHtml}\nbodyText:\n${bodyText}")
     // email.setDebug(true)
 
     // send the email
-    messageId = email.send()
+    try {
+        messageId = email.send()
 
-    if (emailMessageId) {
-        ec.service.sync().name("update", "moqui.basic.email.EmailMessage").requireNewTransaction(true)
-                .parameters([emailMessageId:emailMessageId, sentDate:ec.user.nowTimestamp, statusId:"ES_SENT", messageId:messageId])
-                .disableAuthz().call()
+        if (emailMessageId) {
+            ec.service.sync().name("update", "moqui.basic.email.EmailMessage").requireNewTransaction(true)
+                    .parameters([emailMessageId:emailMessageId, sentDate:ec.user.nowTimestamp, statusId:"ES_SENT", messageId:messageId])
+                    .disableAuthz().call()
+        }
+    } catch (Throwable t) {
+        logger.error("Error in sendEmailTemplate", t)
+        ec.message.addMessage("Error sending email: ${t.toString()}")
     }
 
     return
 } catch (Throwable t) {
-    logger.info("Error in sendEmailTemplate groovy", t)
-    throw new BaseArtifactException("Error in sendEmailTemplate", t)
+    logger.error("Error in sendEmailTemplate", t)
+    ec.message.addMessage("Error sending email: ${t.toString()}")
+    // don't rethrow: throw new BaseArtifactException("Error in sendEmailTemplate", t)
 }
