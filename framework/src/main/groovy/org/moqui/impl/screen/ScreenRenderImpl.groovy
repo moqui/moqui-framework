@@ -14,6 +14,7 @@
 package org.moqui.impl.screen
 
 import freemarker.template.Template
+import groovy.json.JsonSlurper
 import groovy.transform.CompileStatic
 import org.moqui.BaseArtifactException
 import org.moqui.BaseException
@@ -24,6 +25,7 @@ import org.moqui.entity.EntityList
 import org.moqui.entity.EntityListIterator
 import org.moqui.entity.EntityValue
 import org.moqui.impl.entity.EntityFacadeImpl
+import org.moqui.screen.ScreenTest
 import org.moqui.util.WebUtilities
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ContextJavaUtil
@@ -1379,6 +1381,38 @@ class ScreenRenderImpl implements ScreenRender {
 
     LinkedHashMap<String, String> getFieldOptions(MNode widgetNode) {
         return ScreenForm.getFieldOptions(widgetNode, ec)
+    }
+
+    /** This is messy, does a server-side/internal 'test' render so we can get the label/description for the current value
+     * from the transition written for client access. */
+    String getFieldTransitionValue(String transition, String term, String labelField) {
+        if (term == null || term.isEmpty()) return null
+
+        UrlInstance transUrl = buildUrl(transition)
+        ScreenTest screenTest = sfi.makeTest().rootScreen(rootScreenLocation)
+        Map<String, Object> parameters = new HashMap<>(1); parameters.put("term", term)
+        ScreenTest.ScreenTestRender str = screenTest.render(transUrl.getPathWithParams(), parameters, null)
+        String output = str.getOutput()
+
+        String transValue = null
+        Object jsonObj = null
+        try {
+            jsonObj = new JsonSlurper().parseText(output)
+            if (jsonObj instanceof List && ((List) jsonObj).size() > 0) {
+                Object firstObj = ((List) jsonObj).get(0)
+                if (firstObj instanceof Map) {
+                    transValue = ((Map) firstObj).get(labelField)
+                } else {
+                    transValue = firstObj.toString()
+                }
+            } else if (jsonObj instanceof Map) {
+                transValue = ((Map) jsonObj).get(labelField)
+            }
+        } catch (Throwable t) {
+            transValue = output
+        }
+
+        return transValue
     }
 
     boolean isInCurrentScreenPath(List<String> pathNameList) {
