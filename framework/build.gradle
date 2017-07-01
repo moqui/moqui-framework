@@ -119,6 +119,7 @@ dependencies {
 
     // Jetty HTTP Client
     compile 'org.eclipse.jetty:jetty-client:9.4.6.v20170531' // Apache 2.0
+    compile 'org.eclipse.jetty:jetty-proxy:9.4.6.v20170531' // Apache 2.0
 
     // javax.mail
     compile 'com.sun.mail:javax.mail:1.5.6' // CDDL
