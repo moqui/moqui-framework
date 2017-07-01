@@ -281,6 +281,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="name" type="xs:string" use="required"/>
             <xs:attribute name="class" type="xs:string" use="required"/>
             <xs:attribute name="load-on-startup" type="xs:nonNegativeInteger" default="1"/>
+            <xs:attribute name="async-supported" type="boolean" default="false"/>
             <xs:attribute name="enabled" type="boolean" default="true"/>
         </xs:complexType>
     </xs:element>

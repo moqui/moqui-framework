@@ -76,8 +76,10 @@ class MoquiContextListener implements ServletContextListener {
                 try {
                     Filter filter = (Filter) Thread.currentThread().getContextClassLoader().loadClass(filterNode.attribute("class")).newInstance()
                     FilterRegistration.Dynamic filterReg = sc.addFilter(filterName, filter)
-                    for (MNode initParamNode in filterNode.children("init-param"))
+                    for (MNode initParamNode in filterNode.children("init-param")) {
+                        initParamNode.setSystemExpandAttributes(true)
                         filterReg.setInitParameter(initParamNode.attribute("name"), initParamNode.attribute("value") ?: "")
+                    }
 
                     EnumSet<DispatcherType> dispatcherTypes = EnumSet.noneOf(DispatcherType.class)
                     for (MNode dispatcherNode in filterNode.children("dispatcher"))
@@ -115,11 +117,15 @@ class MoquiContextListener implements ServletContextListener {
                     Servlet servlet = (Servlet) Thread.currentThread().getContextClassLoader().loadClass(servletNode.attribute("class")).newInstance()
                     ServletRegistration.Dynamic servletReg = sc.addServlet(servletName, servlet)
 
-                    for (MNode initParamNode in servletNode.children("init-param"))
+                    for (MNode initParamNode in servletNode.children("init-param")) {
+                        initParamNode.setSystemExpandAttributes(true)
                         servletReg.setInitParameter(initParamNode.attribute("name"), initParamNode.attribute("value") ?: "")
+                    }
 
                     String loadOnStartupStr = servletNode.attribute("load-on-startup") ?: "1"
                     servletReg.setLoadOnStartup(loadOnStartupStr as int)
+
+                    if ("true".equals(servletNode.attribute("async-supported"))) servletReg.setAsyncSupported(true)
 
                     Set<String> urlPatternSet = new LinkedHashSet<>()
                     for (MNode urlPatternNode in servletNode.children("url-pattern")) urlPatternSet.add(urlPatternNode.getText())
