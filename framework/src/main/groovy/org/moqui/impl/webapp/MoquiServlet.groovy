@@ -16,6 +16,7 @@ package org.moqui.impl.webapp
 import groovy.transform.CompileStatic
 import org.moqui.context.ArtifactTarpitException
 import org.moqui.context.AuthenticationRequiredException
+import org.moqui.context.ArtifactAuthorizationException
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.screen.ScreenRenderImpl
@@ -29,9 +30,6 @@ import javax.servlet.http.HttpServlet
 import javax.servlet.http.HttpServletResponse
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.ServletException
-
-import org.moqui.context.ArtifactAuthorizationException
-import org.moqui.context.ExecutionContext
 
 
 @CompileStatic
@@ -152,7 +150,7 @@ class MoquiServlet extends HttpServlet {
             response.sendError(errorCode, message)
             return
         }
-        ExecutionContext ec = ecfi.getExecutionContext()
+        ExecutionContextImpl ec = ecfi.getEci()
         MNode errorScreenNode = ecfi.getWebappInfo(moquiWebappName)?.getErrorScreenNode(errorType)
         if (errorScreenNode != null) {
             try {

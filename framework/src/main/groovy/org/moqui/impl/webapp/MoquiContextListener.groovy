@@ -81,6 +81,8 @@ class MoquiContextListener implements ServletContextListener {
                         filterReg.setInitParameter(initParamNode.attribute("name"), initParamNode.attribute("value") ?: "")
                     }
 
+                    if ("true".equals(filterNode.attribute("async-supported"))) filterReg.setAsyncSupported(true)
+
                     EnumSet<DispatcherType> dispatcherTypes = EnumSet.noneOf(DispatcherType.class)
                     for (MNode dispatcherNode in filterNode.children("dispatcher"))
                         dispatcherTypes.add(DispatcherType.valueOf(dispatcherNode.getText()))
@@ -89,7 +91,7 @@ class MoquiContextListener implements ServletContextListener {
                     for (MNode urlPatternNode in filterNode.children("url-pattern")) urlPatternSet.add(urlPatternNode.getText())
                     String[] urlPatterns = urlPatternSet.toArray(new String[urlPatternSet.size()])
 
-                    filterReg.addMappingForUrlPatterns(dispatcherTypes, false, urlPatterns)
+                    filterReg.addMappingForUrlPatterns(dispatcherTypes.size() > 0 ? dispatcherTypes : null, false, urlPatterns)
 
                     logger.info("Added webapp filter ${filterName} on: ${urlPatterns}, ${dispatcherTypes}")
                 } catch (Exception e) {

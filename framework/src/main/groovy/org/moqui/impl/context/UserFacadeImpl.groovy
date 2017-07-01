@@ -22,6 +22,7 @@ import org.moqui.impl.screen.ScreenUrlInfo
 import org.moqui.impl.util.MoquiShiroRealm
 import org.moqui.util.MNode
 import org.moqui.util.StringUtilities
+import org.moqui.util.WebUtilities
 
 import javax.websocket.server.HandshakeRequest
 import java.sql.Timestamp
@@ -99,7 +100,8 @@ class UserFacadeImpl implements UserFacade {
 
         // check for HTTP Basic Authorization for Authentication purposes
         // NOTE: do this even if there is another user logged in, will go on stack
-        Map secureParameters = eci.webImpl.getSecureRequestParameters()
+        Map secureParameters = eci.webImpl != null ? eci.webImpl.getSecureRequestParameters() :
+                (!request.getQueryString() ? WebUtilities.simplifyRequestParameters(request) : [:])
         String authzHeader = request.getHeader("Authorization")
         if (authzHeader != null && authzHeader.length() > 6 && authzHeader.startsWith("Basic ")) {
             String basicAuthEncoded = authzHeader.substring(6).trim()
@@ -128,7 +130,8 @@ class UserFacadeImpl implements UserFacade {
         if (eci.messageFacade.hasError()) request.setAttribute("moqui.login.error", "true")
 
         this.visitId = session.getAttribute("moqui.visitId")
-        if (!this.visitId && !eci.getSkipStats()) {
+        // NOTE: only tracking Visitor and Visit if there is a WebFacadeImpl in place
+        if (eci.webImpl != null && !this.visitId && !eci.getSkipStats()) {
             MNode serverStatsNode = eci.ecfi.getServerStatsNode()
             ScreenUrlInfo sui = ScreenUrlInfo.getScreenUrlInfo(eci.screenFacade, request)
             boolean isJustContent = sui.fileResourceRef != null
@@ -174,7 +177,7 @@ class UserFacadeImpl implements UserFacade {
                 // create and persist Visit
                 String contextPath = session.getServletContext().getContextPath()
                 String webappId = contextPath.length() > 1 ? contextPath.substring(1) : "ROOT"
-                String fullUrl = eci.web.requestUrl
+                String fullUrl = eci.webImpl.requestUrl
                 fullUrl = (fullUrl.length() > 255) ? fullUrl.substring(0, 255) : fullUrl.toString()
                 Map<String, Object> parameters = new HashMap<String, Object>([sessionId:session.id, webappName:webappId,
                         fromDate:new Timestamp(session.getCreationTime()),
@@ -424,11 +427,11 @@ class UserFacadeImpl implements UserFacade {
 
     @Override boolean loginUser(String username, String password) {
         if (username == null || username.isEmpty()) {
-            eci.message.addError(eci.l10n.localize("No username specified"))
+            eci.messageFacade.addError(eci.l10n.localize("No username specified"))
             return false
         }
         if (password == null || password.isEmpty()) {
-            eci.message.addError(eci.l10n.localize("No password specified"))
+            eci.messageFacade.addError(eci.l10n.localize("No password specified"))
             return false
         }
 
@@ -451,7 +454,7 @@ class UserFacadeImpl implements UserFacade {
             // others to consider handling differently (these all inherit from AuthenticationException):
             //     UnknownAccountException, IncorrectCredentialsException, ExpiredCredentialsException,
             //     CredentialsException, LockedAccountException, DisabledAccountException, ExcessiveAttemptsException
-            eci.message.addError(ae.message)
+            eci.messageFacade.addError(ae.message)
             logger.warn("Login failure: ${eci.message.errorsString}", ae)
             return false
         }
