@@ -253,10 +253,11 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:sequence>
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="init-param"/>
                 <xs:element minOccurs="1" maxOccurs="unbounded" name="url-pattern" type="xs:string"/>
-                <xs:element minOccurs="1" maxOccurs="unbounded" name="dispatcher" type="xs:string"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" name="dispatcher" type="xs:string"/>
             </xs:sequence>
             <xs:attribute name="name" type="xs:string" use="required"/>
             <xs:attribute name="class" type="xs:string" use="required"/>
+            <xs:attribute name="async-supported" type="boolean" default="false"/>
             <xs:attribute name="enabled" type="boolean" default="true"/>
         </xs:complexType>
     </xs:element>
