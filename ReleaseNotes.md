@@ -26,6 +26,7 @@ See the moqui-runtime release notes for more details. Some of these changes may 
 - If using moqui-elasticsearch the index approach has changed to one index per DataDocument to prep for ES6 and improve the
   performance and index types by field name; to update an existing instance it is best to start with an empty ES instance or at
   least delete old indexes and re-index based on data feeds
+- The default Dockerfile now runs the web server on port 80 instead of 8080 within the container
 
 ### New Features
 
@@ -33,7 +34,10 @@ See the moqui-runtime release notes for more details. Some of these changes may 
 - SLF4J MDC now used to track moqui_userId and moqui_visitorId for logging
 - New ExecutionContextFactory.registerLogEventSubscriber() method to register for Log4J2 LogEvent processing, initially used in the
   moqui-elasticsearch component to send log messages to ElasticSearch for use in the new LogViewer screen in the System app
-- Improved Docker Compose samples with HTTPS and PostgreSQL
+- Improved Docker Compose samples with HTTPS and PostgreSQL, new file for Kibana behind transparent proxy servlet in Moqui
+- Added MoquiAuthFilter that can be used to require authorization and specified permission for arbitrary paths such as servlets;
+  this is used along with the Jetty ProxyServlet$Transparent to provide secure access to things server only accessible tools like
+  ElasticSearch (on /elastic) and Kibana (on /kibana) in the moqui-elasticsearch component
 - Multi service calls now pass results from previous calls to subsequent calls if parameter names match, and return results
 - Service jobs may now have a lastRunTime parameter passed by the job scheduler; lastRunTime on lock and passed to service is now
   the last run time without an error
