@@ -19,7 +19,8 @@
 
 import org.apache.commons.mail.DefaultAuthenticator
 import org.apache.commons.mail.HtmlEmail
-import org.moqui.BaseArtifactException
+import org.moqui.entity.EntityList
+import org.moqui.entity.EntityValue
 import org.moqui.impl.context.ExecutionContextImpl
 
 import javax.activation.DataSource
@@ -40,7 +41,7 @@ try {
     // add the bodyParameters to the context so they are available throughout this script
     if (bodyParameters) context.putAll(bodyParameters)
 
-    def emailTemplate = ec.entity.find("moqui.basic.email.EmailTemplate").condition("emailTemplateId", emailTemplateId).one()
+    EntityValue emailTemplate = ec.entity.find("moqui.basic.email.EmailTemplate").condition("emailTemplateId", emailTemplateId).one()
     if (emailTemplate == null) ec.message.addError(ec.resource.expand('No EmailTemplate record found for ID [${emailTemplateId}]',''))
     if (ec.message.hasError()) return
 
@@ -61,7 +62,7 @@ try {
     // NOTE: can do anything with? purposeEnumId
     if (createEmailMessage) {
         Map cemParms = [statusId:"ES_DRAFT", subject:subject,
-                        fromAddress:fromAddress, toAddresses:toAddresses, ccAddresses:ccAddresses, bccAddresses:bccAddresses,
+                        fromAddress:fromAddress, fromName:fromName, toAddresses:toAddresses, ccAddresses:ccAddresses, bccAddresses:bccAddresses,
                         contentType:"text/html", emailTypeEnumId:emailTypeEnumId,
                         emailTemplateId:emailTemplateId, emailServerId:emailTemplate.emailServerId,
                         fromUserId:(fromUserId ?: ec.user?.userId), toUserId:toUserId]
@@ -87,18 +88,18 @@ try {
                 .disableAuthz().call()
     }
 
-    def emailTemplateAttachmentList = emailTemplate."moqui.basic.email.EmailTemplateAttachment"
-    emailServer = emailTemplate."moqui.basic.email.EmailServer"
+    EntityList emailTemplateAttachmentList = (EntityList) emailTemplate.attachments
+    emailServer = (EntityValue) emailTemplate.server
 
     // check a couple of required fields
-    if (!emailServer) ec.message.addError(ec.resource.expand('No EmailServer record found for EmailTemplate ${emailTemplateId}',''))
-    if (emailTemplate && !fromAddress) ec.message.addError(ec.resource.expand('From address is empty for EmailTemplate ${emailTemplateId}',''))
+    if (emailServer == null) ec.message.addError(ec.resource.expand('No EmailServer record found for EmailTemplate ${emailTemplateId}',''))
+    if (!fromAddress) ec.message.addError(ec.resource.expand('From address is empty for EmailTemplate ${emailTemplateId}',''))
     if (ec.message.hasError()) {
         logger.info("Error sending email: ${ec.message.getErrorsString()}\nbodyHtml:\n${bodyHtml}\nbodyText:\n${bodyText}")
         if (emailMessageId) logger.info("Email with error saved as Ready in EmailMessage [${emailMessageId}]")
         return
     }
-    if (emailServer && !emailServer.smtpHost) {
+    if (!emailServer.smtpHost) {
         logger.warn("SMTP Host is empty for EmailServer ${emailServer.emailServerId}, not sending email ${emailMessageId} template ${emailTemplateId}")
         // logger.warn("SMTP Host is empty for EmailServer ${emailServer.emailServerId}, not sending email:\nbodyHtml:\n${bodyHtml}\nbodyText:\n${bodyText}")
         return
@@ -108,6 +109,7 @@ try {
     int port = (emailServer.smtpPort ?: "25") as int
 
     HtmlEmail email = new HtmlEmail()
+    email.setCharset("utf-8")
     email.setHostName(host)
     email.setSmtpPort(port)
     if (emailServer.mailUsername) {
@@ -147,15 +149,13 @@ try {
         for (def bccAddress in bccList) email.addBcc(bccAddress.trim())
     }
 
-    email.setCharset("utf-8")
-
     // set the html message
     if (bodyHtml) email.setHtmlMsg(bodyHtml)
     // set the alternative plain text message
     if (bodyText) email.setTextMsg(bodyText)
     //email.setTextMsg("Your email client does not support HTML messages")
 
-    for (emailTemplateAttachment in emailTemplateAttachmentList) {
+    for (EntityValue emailTemplateAttachment in emailTemplateAttachmentList) {
         if (emailTemplateAttachment.screenRenderMode) {
             def attachmentRender = ec.screen.makeRender().rootScreen((String) emailTemplateAttachment.attachmentLocation)
                     .webappName((String) emailTemplate.webappName).renderMode((String) emailTemplateAttachment.screenRenderMode)

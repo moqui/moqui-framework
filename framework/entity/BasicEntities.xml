@@ -409,6 +409,7 @@ along with this software (see the LICENSE.md file). If not, see
         <!-- Removed because unused and causes row size to be too long (in MySQL, others?): <field name="note" type="text-long"/> -->
         <field name="headersString" type="text-very-long"/>
         <field name="fromAddress" type="text-medium"/>
+        <field name="fromName" type="text-medium"/>
         <field name="toAddresses" type="text-long"/>
         <field name="ccAddresses" type="text-long"/>
         <field name="bccAddresses" type="text-long"/>
@@ -455,6 +456,7 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ES_SENT" toStatusId="ES_VIEWED" transitionName="View"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ES_SENT" toStatusId="ES_BOUNCED" transitionName="Bounce"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ES_RECEIVED" toStatusId="ES_VIEWED" transitionName="View"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ES_BOUNCED" toStatusId="ES_SENT" transitionName="Send"/>
 
             <!-- Email Type -->
             <moqui.basic.EnumerationType description="Email Type" enumTypeId="EmailType"/>
@@ -529,8 +531,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="webappName" type="text-medium"/>
         <field name="sendPartial" type="text-indicator"/>
         <relationship type="one" related="moqui.basic.email.EmailServer" short-alias="server"/>
-        <relationship type="many" related="moqui.basic.email.EmailTemplateAttachment"
-                short-alias="attachments" mutable="true">
+        <relationship type="many" related="moqui.basic.email.EmailTemplateAttachment" short-alias="attachments">
             <key-map field-name="emailTemplateId"/></relationship>
         <master><detail relationship="server"/><detail relationship="attachments"/></master>
     </entity>
