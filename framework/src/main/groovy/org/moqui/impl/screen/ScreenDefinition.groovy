@@ -1041,7 +1041,7 @@ class ScreenDefinition {
             ExecutionContextFactoryImpl ecfi = parentScreen.sfi.ecfi
             ResourceReference screenRr = ecfi.resourceFacade.getLocationReference(location)
             MNode screenNode = MNode.parseRootOnly(screenRr)
-            return getPrettyMenuName(screenNode.attribute("default-menu-title"), location, ecfi)
+            return getPrettyMenuName(screenNode?.attribute("default-menu-title"), location, ecfi)
         }
 
         String getName() { return name }
