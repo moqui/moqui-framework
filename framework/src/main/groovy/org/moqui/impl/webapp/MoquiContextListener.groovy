@@ -84,8 +84,11 @@ class MoquiContextListener implements ServletContextListener {
                     if ("true".equals(filterNode.attribute("async-supported"))) filterReg.setAsyncSupported(true)
 
                     EnumSet<DispatcherType> dispatcherTypes = EnumSet.noneOf(DispatcherType.class)
-                    for (MNode dispatcherNode in filterNode.children("dispatcher"))
-                        dispatcherTypes.add(DispatcherType.valueOf(dispatcherNode.getText()))
+                    for (MNode dispatcherNode in filterNode.children("dispatcher")) {
+                        DispatcherType dt = DispatcherType.valueOf(dispatcherNode.getText())
+                        if (dt == null) { logger.warn("Got invalid DispatcherType ${dispatcherNode.getText()} for filter ${filterName}") }
+                        dispatcherTypes.add(dt)
+                    }
 
                     Set<String> urlPatternSet = new LinkedHashSet<>()
                     for (MNode urlPatternNode in filterNode.children("url-pattern")) urlPatternSet.add(urlPatternNode.getText())
