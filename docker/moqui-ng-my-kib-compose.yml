@@ -38,7 +38,6 @@ services:
     restart: unless-stopped
     links:
      - moqui-database
-     - kibana
     volumes:
      - ./runtime/conf:/opt/moqui/runtime/conf
      - ./runtime/lib:/opt/moqui/runtime/lib
