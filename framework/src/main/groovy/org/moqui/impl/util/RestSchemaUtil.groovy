@@ -128,8 +128,8 @@ class RestSchemaUtil {
         String prettyName = ed.getPrettyName(null, null)
         String refName = name
         if (masterName) {
-            refName = "${name}.${masterName}"
-            prettyName = prettyName + " (Master: ${masterName})"
+            refName = "${name}.${masterName}".toString()
+            prettyName = "${prettyName} (Master: ${masterName})".toString()
         }
         if (pkOnly) {
             name = name + ".PK"
@@ -161,8 +161,7 @@ class RestSchemaUtil {
             definitionsMap = [:]
             definitionsMap.put('paginationParameters', jsonPaginationParameters)
         }
-        if (definitionsMap != null && !definitionsMap.containsKey(name))
-            definitionsMap.put(refName, schema)
+        if (definitionsMap != null && !definitionsMap.containsKey(refName)) definitionsMap.put(refName, schema)
 
         if (!pkOnly && (masterName || masterDetail != null)) {
             // add only relationships from master definition or detail

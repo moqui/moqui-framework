@@ -92,6 +92,8 @@ services:
     restart: unless-stopped
     # ports:
     #  - 127.0.0.1:5601:5601
+    links:
+     - moqui-server
     volumes:
      - ./kibana:/etc/kibana
     # environment:
