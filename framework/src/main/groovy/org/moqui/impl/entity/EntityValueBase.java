@@ -436,7 +436,7 @@ public abstract class EntityValueBase implements EntityValue {
         try {
             if (o instanceof byte[]) return new SerialBlob((byte[]) o);
         } catch (Exception e) {
-            throw new EntityException("Error getting SerialBloc for field " + name + " in entity " + entityName, e);
+            throw new EntityException("Error getting SerialBlob for field " + name + " in entity " + entityName, e);
         }
         // try groovy...
         return DefaultGroovyMethods.asType(o, SerialBlob.class);
