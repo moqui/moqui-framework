@@ -342,7 +342,7 @@ class WebFacadeStub implements WebFacade {
         Enumeration getLocales() { return null }
 
         @Override
-        boolean isSecure() { return false }
+        boolean isSecure() { return true }
 
         @Override
         RequestDispatcher getRequestDispatcher(String s) { return null }
