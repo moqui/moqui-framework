@@ -219,8 +219,8 @@ along with this software (see the LICENSE.md file). If not, see
         <description>Disable an account (set disabled=Y, disabledDateTime=now)</description>
         <in-parameters><parameter name="userId" required="true"/></in-parameters>
         <actions>
-            <service-call name="update#moqui.security.UserAccount"
-                    in-map="[userId:userId, disabled:'Y', disabledDateTime:ec.user.nowTimestamp]"/>
+            <!-- set disabledDateTime to null so that account is permanently disabled (won't auto enable after wait period) -->
+            <service-call name="update#moqui.security.UserAccount" in-map="[userId:userId, disabled:'Y', disabledDateTime:null]"/>
         </actions>
     </service>
     <service verb="reset" noun="Password" authenticate="anonymous-all" allow-remote="true">
