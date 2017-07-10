@@ -1313,7 +1313,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                     ConcurrentLinkedQueue<ArtifactHitInfo> queue = ecfi.deferredHitInfoQueue
                     // split into maxCreates chunks, repeat based on initial size (may be added to while running)
                     int remainingCreates = queue.size()
-                    if (remainingCreates > maxCreates) logger.warn("Deferred ArtifactHit create queue size ${remainingCreates} is greater than max creates per chunk ${maxCreates}")
+                    // if (remainingCreates > maxCreates) logger.warn("Deferred ArtifactHit create queue size ${remainingCreates} is greater than max creates per chunk ${maxCreates}")
                     while (remainingCreates > 0) {
                         flushQueue(queue)
                         remainingCreates -= maxCreates
