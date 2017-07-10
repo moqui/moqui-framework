@@ -20,16 +20,6 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- org.moqui.impl.EntityServices.search#DataDocuments moved to org.moqui.search.SearchServices.search#DataDocuments -->
     <!-- org.moqui.impl.EntityServices.search#CountBySource moved to org.moqui.search.SearchServices.search#CountBySource -->
 
-    <!-- 2017-06: clean out DataDocument tables for update/recreate:
-        - DROP TABLE DATA_DOCUMENT_LINK
-        - DROP TABLE DATA_DOCUMENT_CONDITION
-        - DROP TABLE DATA_DOCUMENT_REL_ALIAS
-        - DROP TABLE DATA_DOCUMENT_FIELD
-        - DROP TABLE DATA_DOCUMENT_USER_GROUP
-        - DROP TABLE DATA_DOCUMENT
-        - restart, load seed, index feeds
-    -->
-
     <service verb="get" noun="DataFeedDocuments">
         <in-parameters>
             <parameter name="dataFeedId" required="true"/>
@@ -199,6 +189,36 @@ along with this software (see the LICENSE.md file). If not, see
             </iterate>
         </actions>
     </service>
+
+    <!-- 2017-06: clean out DataDocument and DataFeed tables for update/recreate:
+        - DROP TABLE DATA_FEED_DOCUMENT
+        - DROP TABLE DATA_FEED
+
+        - DROP TABLE DATA_DOCUMENT_LINK
+        - DROP TABLE DATA_DOCUMENT_CONDITION
+        - DROP TABLE DATA_DOCUMENT_REL_ALIAS
+        - DROP TABLE DATA_DOCUMENT_FIELD
+        - DROP TABLE DATA_DOCUMENT_USER_GROUP
+        - DROP TABLE DATA_DOCUMENT
+        - restart, load seed, index feeds
+    -->
+    <service verb="delete" noun="AllDataDocumentsAndFeeds">
+        <description>To fully update data documents and feeds from seed data: run this, import 'seed' data, run feed indexes.
+            If any custom data documents (not in seed data) are in place they will be lost.</description>
+        <actions>
+            <entity-delete-by-condition entity-name="moqui.entity.feed.DataFeedDocument"/>
+            <entity-delete-by-condition entity-name="moqui.entity.feed.DataFeed"/>
+
+            <entity-delete-by-condition entity-name="moqui.entity.document.DataDocumentUserGroup"/>
+            <entity-delete-by-condition entity-name="moqui.entity.document.DataDocumentLink"/>
+            <entity-delete-by-condition entity-name="moqui.entity.document.DataDocumentCondition"/>
+            <entity-delete-by-condition entity-name="moqui.entity.document.DataDocumentRelAlias"/>
+            <entity-delete-by-condition entity-name="moqui.entity.document.DataDocumentField"/>
+            <entity-delete-by-condition entity-name="moqui.entity.document.DataDocument"/>
+        </actions>
+    </service>
+
+    <!-- ========== Entity Data Snapshots Services ========== -->
 
     <service verb="export" noun="EntityDataSnapshot" transaction-timeout="3600">
         <in-parameters>
