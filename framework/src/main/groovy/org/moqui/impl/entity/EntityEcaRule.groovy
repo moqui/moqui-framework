@@ -83,11 +83,13 @@ class EntityEcaRule {
         EntityValue originalValue = null
         if (before && (isUpdate || isDelete) && "true".equals(eecaNode.attribute("get-original-value"))) {
             if (curValue == null) curValue = getDbValue(fieldValues)
-            originalValue = curValue
-            // also put DB values in the fieldValues EntityValue if it isn't from DB (to have for future reference)
-            if (fieldValues instanceof EntityValueBase && !fieldValues.getIsFromDb()) {
-                // NOTE: fresh from the DB the valueMap will have clean values and the dbValueMap will be null
-                fieldValues.setDbValueMap(((EntityValueBase) originalValue).getValueMap())
+            if (curValue != null) {
+                originalValue = curValue
+                // also put DB values in the fieldValues EntityValue if it isn't from DB (to have for future reference)
+                if (fieldValues instanceof EntityValueBase && !((EntityValueBase) fieldValues).getIsFromDb()) {
+                    // NOTE: fresh from the DB the valueMap will have clean values and the dbValueMap will be null
+                    ((EntityValueBase) fieldValues).setDbValueMap(((EntityValueBase) originalValue).getValueMap())
+                }
             }
         }
 
@@ -95,9 +97,9 @@ class EntityEcaRule {
         if (!before && "true".equals(eecaNode.attribute("run-before"))) return
 
         // now if we're running after the entity operation, pull the original value from the
-        if (!before && fieldValues instanceof EntityValueBase && fieldValues.getIsFromDb() &&
+        if (!before && fieldValues instanceof EntityValueBase && ((EntityValueBase) fieldValues).getIsFromDb() &&
                 (isUpdate || isDelete) && eecaNode.attribute("get-original-value") == "true") {
-            originalValue = fieldValues.cloneDbValue(true)
+            originalValue = ((EntityValueBase) fieldValues).cloneDbValue(true)
         }
 
         if ((isUpdate || isDelete) && eecaNode.attribute("get-entire-entity") == "true") {
