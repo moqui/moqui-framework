@@ -440,8 +440,8 @@ class UserFacadeImpl implements UserFacade {
         desc.append(' ')
 
         if (period == "day") desc.append(eci.getL10n().localize("Day"))
-        else if (period == "7d") desc.append('7').append(eci.getL10n().localize("Days"))
-        else if (period == "30d") desc.append('30').append(eci.getL10n().localize("Days"))
+        else if (period == "7d") desc.append('7 ').append(eci.getL10n().localize("Days"))
+        else if (period == "30d") desc.append('30 ').append(eci.getL10n().localize("Days"))
         else if (period == "week") desc.append(eci.getL10n().localize("Week"))
         else if (period == "month") desc.append(eci.getL10n().localize("Month"))
         else if (period == "quarter") desc.append(eci.getL10n().localize("Quarter"))
