@@ -504,11 +504,13 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- NOTE: these are skeleton settings and some fields need to be filled in (probably best with another data file)
                 for your specific installation in order to be functional -->
-            <moqui.basic.email.EmailServer emailServerId="SYSTEM"
-                    smtpHost="" smtpPort="465" smtpStartTls="N" smtpSsl="Y"
-                    storeHost="" storePort="993" storeProtocol="imaps" storeFolder=""
-                    storeDelete="N" storeMarkSeen="Y" storeSkipSeen="Y"
-                    mailUsername="" mailPassword=""/>
+            <moqui.basic.email.EmailServer emailServerId="SYSTEM"/>
+            <!-- Example values, not actually loaded because would overwrite updated values on seed reload:
+                smtpHost="smtp.gmail.com" smtpPort="587" smtpStartTls="Y" smtpSsl="N"
+                storeHost="imap.gmail.com" storePort="993" storeProtocol="imaps" storeFolder=""
+                storeDelete="N" storeMarkSeen="Y" storeSkipSeen="Y"
+                mailUsername="CHANGEME@gmail.com" mailPassword="CHANGEME"
+            -->
             <!-- Other common values:
                 smtpPort="25" (std) smtpPort="465" (ssmtp) smtpPort="587" (ssmtp?)
                 storeProtocol="imap" storePort="143" (std) storePort="585" (imap4-ssl) storePort="993" (imaps)

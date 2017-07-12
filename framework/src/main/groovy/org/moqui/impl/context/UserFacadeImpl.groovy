@@ -405,6 +405,13 @@ class UserFacadeImpl implements UserFacade {
             fromCal.add(Calendar.MONTH, offset)
             thruCal = (Calendar) fromCal.clone()
             thruCal.add(Calendar.MONTH, 1)
+        } else if (period == "quarter") {
+            fromCal.set(Calendar.DAY_OF_MONTH, fromCal.getActualMinimum(Calendar.DAY_OF_MONTH))
+            int quarterNumber = (fromCal.get(Calendar.MONTH) / 3) as int
+            fromCal.set(Calendar.MONTH, (quarterNumber * 3))
+            fromCal.add(Calendar.MONTH, (offset * 3))
+            thruCal = (Calendar) fromCal.clone()
+            thruCal.add(Calendar.MONTH, 3)
         } else if (period == "year") {
             fromCal.set(Calendar.DAY_OF_YEAR, fromCal.getActualMinimum(Calendar.DAY_OF_YEAR))
             fromCal.add(Calendar.YEAR, offset)
@@ -421,6 +428,34 @@ class UserFacadeImpl implements UserFacade {
         rangeList.add(new Timestamp(fromCal.getTimeInMillis()))
         rangeList.add(new Timestamp(thruCal.getTimeInMillis()))
         return rangeList
+    }
+
+    @Override String getPeriodDescription(String period, String poffset, String pdate) {
+        ArrayList<Timestamp> rangeList = getPeriodRange(period, poffset, pdate)
+        StringBuilder desc = new StringBuilder()
+        if (poffset == "0") desc.append(eci.getL10n().localize("This"))
+        else if (poffset == "-1") desc.append(eci.getL10n().localize("Last"))
+        else if (poffset == "1") desc.append(eci.getL10n().localize("Next"))
+        else desc.append(poffset)
+        desc.append(' ')
+
+        if (period == "day") desc.append(eci.getL10n().localize("Day"))
+        else if (period == "7d") desc.append('7 ').append(eci.getL10n().localize("Days"))
+        else if (period == "30d") desc.append('30 ').append(eci.getL10n().localize("Days"))
+        else if (period == "week") desc.append(eci.getL10n().localize("Week"))
+        else if (period == "month") desc.append(eci.getL10n().localize("Month"))
+        else if (period == "quarter") desc.append(eci.getL10n().localize("Quarter"))
+        else if (period == "year") desc.append(eci.getL10n().localize("Year"))
+        else if (period == "7r") desc.append("+/-7d")
+        else if (period == "30r") desc.append("+/-30d")
+
+        if (pdate) desc.append(" ").append(eci.getL10n().localize("from##period")).append(" ").append(pdate)
+
+        desc.append(" (").append(eci.l10n.format(rangeList[0], 'yyyy-MM-dd')).append(' ')
+                .append(eci.getL10n().localize("to##period")).append(' ')
+                .append(eci.l10n.format(rangeList[1] - 1, 'yyyy-MM-dd')).append(')')
+
+        return desc.toString()
     }
 
     @Override void setEffectiveTime(Timestamp effectiveTime) { this.effectiveTime = effectiveTime }
