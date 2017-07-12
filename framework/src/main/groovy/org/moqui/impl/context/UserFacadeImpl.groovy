@@ -430,7 +430,7 @@ class UserFacadeImpl implements UserFacade {
         return rangeList
     }
 
-    String getPeriodDescription(String period, String poffset, String pdate) {
+    @Override String getPeriodDescription(String period, String poffset, String pdate) {
         ArrayList<Timestamp> rangeList = getPeriodRange(period, poffset, pdate)
         StringBuilder desc = new StringBuilder()
         if (poffset == "0") desc.append(eci.getL10n().localize("This"))
