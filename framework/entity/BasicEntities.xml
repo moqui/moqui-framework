@@ -352,9 +352,16 @@ along with this software (see the LICENSE.md file). If not, see
                 direction the offset is subtracted first, then divided by the factor.
             </description>
         </field>
+        <field name="purposeEnumId" type="id"/>
         <relationship type="one" related="moqui.basic.Uom" short-alias="uom"/>
         <relationship type="one" title="To" related="moqui.basic.Uom" short-alias="toUom">
             <key-map field-name="toUomId" related="uomId"/></relationship>
+        <relationship type="one" related="moqui.basic.Enumeration" title="UomConversionPurposeType">
+            <key-map field-name="purposeEnumId" related="enumId"/>
+        </relationship>
+        <seed-data>
+            <moqui.basic.EnumerationType description="Uom Conversion Purpose Type" enumTypeId="UomConversionPurposeType"/>
+        </seed-data>
     </entity>
     <view-entity entity-name="UomConversionAndToDetail" package="moqui.basic">
         <member-entity entity-alias="UOMC" entity-name="moqui.basic.UomConversion"/>
