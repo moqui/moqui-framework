@@ -172,15 +172,17 @@ class ScreenRenderImpl implements ScreenRender {
             if (logger.isInfoEnabled()) logger.info("Redirecting to ${redirectUrl} instead of rendering ${this.getScreenUrlInfo().getFullPathNameList()}")
         }
     }
-    boolean sendJsonRedirect(UrlInstance fullUrl) {
+    boolean sendJsonRedirect(UrlInstance fullUrl, Long renderStartTime) {
         if ("json".equals(screenUrlInfo.targetTransitionExtension) || request?.getHeader("Accept")?.contains("application/json")) {
+            String pathWithParams = fullUrl.getPathWithParams()
             Map<String, Object> responseMap = getBasicResponseMap()
             // add screen path, parameters from fullUrl
             responseMap.put("screenPathList", fullUrl.sui.fullPathNameList)
             responseMap.put("screenParameters", fullUrl.getParameterMap())
-            responseMap.put("screenUrl", fullUrl.getPathWithParams())
+            responseMap.put("screenUrl", pathWithParams)
             // send it
             ec.web.sendJsonResponse(responseMap)
+            if (logger.isInfoEnabled()) logger.info("Transition ${screenUrlInfo.getFullPathNameList().join("/")}${renderStartTime != null ? ' in ' + (System.currentTimeMillis() - renderStartTime) + 'ms' : ''}, JSON redirect to: ${pathWithParams}")
             return true
         } else {
             return false
@@ -370,7 +372,7 @@ class ScreenRenderImpl implements ScreenRender {
             }
 
             if ("none".equals(ri.type)) {
-                if (logger.isInfoEnabled()) logger.info("Transition ${screenUrlInfo.getFullPathNameList().join("/")} in ${System.currentTimeMillis() - renderStartTime}ms, type none response")
+                if (logger.isTraceEnabled()) logger.trace("Transition ${screenUrlInfo.getFullPathNameList().join("/")} in ${System.currentTimeMillis() - renderStartTime}ms, type none response")
                 return
             }
 
@@ -459,7 +461,7 @@ class ScreenRenderImpl implements ScreenRender {
                         }
                     }
 
-                    if (!sendJsonRedirect(fullUrl)) {
+                    if (!sendJsonRedirect(fullUrl, renderStartTime)) {
                         String fullUrlString = fullUrl.getUrlWithParams(screenUrlInfo.targetTransitionExtension)
                         if (logger.isInfoEnabled()) logger.info("Transition ${screenUrlInfo.getFullPathNameList().join("/")} in ${System.currentTimeMillis() - renderStartTime}ms, redirecting to screen path URL: ${fullUrlString}")
                         response.sendRedirect(fullUrlString)
@@ -563,8 +565,10 @@ class ScreenRenderImpl implements ScreenRender {
             }
         } else {
             doActualRender()
-            if (response != null && logger.isInfoEnabled())
-                logger.info("${screenUrlInfo.getFullPathNameList().join("/")} in ${(System.currentTimeMillis()-renderStartTime)}ms (${response.getContentType()}) session ${request.session.id}")
+            if (response != null && logger.isInfoEnabled()) {
+                Map<String, Object> reqParms = web?.getRequestParameters()
+                logger.info("${screenUrlInfo.getFullPathNameList().join("/")} ${reqParms != null && reqParms.size() > 0 ? reqParms : '[]'} in ${(System.currentTimeMillis()-renderStartTime)}ms (${response.getContentType()}) session ${request.session.id}")
+            }
         }
     }
 

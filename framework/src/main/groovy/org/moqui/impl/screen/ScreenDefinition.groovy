@@ -866,7 +866,7 @@ class ScreenDefinition {
             redirectUrl.addParameters(sri.getCurrentScreenUrl().getParameterMap()).removeParameter("columnsTree")
                     .removeParameter("formLocation").removeParameter("ResetColumns").removeParameter("SaveColumns")
 
-            if (!sri.sendJsonRedirect(redirectUrl)) sri.response.sendRedirect(redirectUrl.getUrlWithParams())
+            if (!sri.sendJsonRedirect(redirectUrl, null)) sri.response.sendRedirect(redirectUrl.getUrlWithParams())
             return defaultResponse
         }
     }
@@ -898,7 +898,7 @@ class ScreenDefinition {
             Map<String, Object> flfInfo = ScreenForm.getFormListFindInfo(formListFindId, sri.ec, null)
             fwdInstance.addParameters((Map<String, String>) flfInfo.findParameters)
 
-            if (!sri.sendJsonRedirect(fwdInstance)) sri.response.sendRedirect(fwdInstance.getUrlWithParams())
+            if (!sri.sendJsonRedirect(fwdInstance, null)) sri.response.sendRedirect(fwdInstance.getUrlWithParams())
             return noneResponse
         }
     }
