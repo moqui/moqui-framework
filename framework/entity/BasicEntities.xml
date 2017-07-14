@@ -356,11 +356,10 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" related="moqui.basic.Uom" short-alias="uom"/>
         <relationship type="one" title="To" related="moqui.basic.Uom" short-alias="toUom">
             <key-map field-name="toUomId" related="uomId"/></relationship>
-        <relationship type="one" related="moqui.basic.Enumeration" title="UomConversionPurposeType">
-            <key-map field-name="purposeEnumId" related="enumId"/>
-        </relationship>
+        <relationship type="one" related="moqui.basic.Enumeration" title="UomConversionPurpose">
+            <key-map field-name="purposeEnumId" related="enumId"/></relationship>
         <seed-data>
-            <moqui.basic.EnumerationType description="Uom Conversion Purpose Type" enumTypeId="UomConversionPurposeType"/>
+            <moqui.basic.EnumerationType description="Uom Conversion Purpose" enumTypeId="UomConversionPurpose"/>
         </seed-data>
     </entity>
     <view-entity entity-name="UomConversionAndToDetail" package="moqui.basic">
