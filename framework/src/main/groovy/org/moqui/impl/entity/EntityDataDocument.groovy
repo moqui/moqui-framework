@@ -365,7 +365,7 @@ class EntityDataDocument {
         }
         return fieldPathElementList
     }
-    private static void populateFieldTreeAndAliasPathMap(EntityList dataDocumentFieldList, List<String> primaryPkFieldNames,
+    static void populateFieldTreeAndAliasPathMap(EntityList dataDocumentFieldList, List<String> primaryPkFieldNames,
                                           Map<String, Object> fieldTree, Map<String, String> fieldAliasPathMap, AtomicBoolean hasExprMut, boolean allPks) {
         for (EntityValue dataDocumentField in dataDocumentFieldList) {
             String fieldPath = (String) dataDocumentField.getNoCheckSimple("fieldPath")
