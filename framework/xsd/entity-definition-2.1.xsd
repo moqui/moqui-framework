@@ -454,6 +454,11 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="name" type="name-field" use="required"/>
             <xs:attribute name="field" type="name-field"/>
             <xs:attribute name="function" type="aggregate-function"/>
+            <xs:attribute name="is-aggregate" type="boolean">
+                <xs:annotation><xs:documentation>Specify if the function is an aggregate function.
+                    If unspecified determined automatically from function attribute.
+                </xs:documentation></xs:annotation>
+            </xs:attribute>
             <xs:attribute name="type" type="field-type-options" use="optional">
                 <xs:annotation><xs:documentation>Normally determined automatically from the entity field it is based on
                     but needs to be specified for complex-alias with a function if you want something other than
