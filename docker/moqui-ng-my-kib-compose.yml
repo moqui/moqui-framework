@@ -63,6 +63,8 @@ services:
      - webapp_http_port=80
      - webapp_https_port=443
      - webapp_https_enabled=true
+     - default_locale=en_US
+     - default_time_zone='US/Pacific'
      # settings for kibana proxy
      - kibana_host=kibana
 
