@@ -43,8 +43,8 @@ public class L10nFacadeImpl implements L10nFacade {
 
     public L10nFacadeImpl(ExecutionContextImpl eci) { this.eci = eci; }
 
-    protected Locale getLocale() { return eci.getUser().getLocale(); }
-    protected TimeZone getTimeZone() { return eci.getUser().getTimeZone(); }
+    protected Locale getLocale() { return eci.userFacade.getLocale(); }
+    protected TimeZone getTimeZone() { return eci.userFacade.getTimeZone(); }
 
     @Override
     public String localize(String original) { return localize(original, getLocale()); }

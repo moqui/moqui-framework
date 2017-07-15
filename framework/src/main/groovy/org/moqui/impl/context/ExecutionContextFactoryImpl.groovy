@@ -359,6 +359,27 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             }
         }
 
+        // if there are default_locale or default_time_zone Java props or system env vars set defaults
+        String localeStr = SystemBinding.getPropOrEnv("default_locale")
+        if (localeStr) {
+            try {
+                int usIdx = localeStr.indexOf("_")
+                Locale.setDefault(usIdx < 0 ? new Locale(localeStr) :
+                        new Locale(localeStr.substring(0, usIdx), localeStr.substring(usIdx+1).toUpperCase()))
+            } catch (Throwable t) {
+                logger.error("Error setting default locale to ${localeStr}: ${t.toString()}")
+            }
+        }
+        String tzStr = SystemBinding.getPropOrEnv("default_time_zone")
+        if (tzStr) {
+            try {
+                TimeZone.setDefault(TimeZone.getTimeZone(tzStr))
+            } catch (Throwable t) {
+                logger.error("Error setting default time zone to ${tzStr}: ${t.toString()}")
+            }
+        }
+        logger.info("Default locale ${Locale.getDefault()}, time zone ${TimeZone.getDefault()}")
+
         return baseConfigNode
     }
 
@@ -411,6 +432,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             logger.warn("Could not save ${confSaveFile.absolutePath} file: ${e.toString()}")
         }
 
+        // get localhost address for ongoing use
         try {
             localhostAddress = InetAddress.getLocalHost()
         } catch (UnknownHostException e) {

@@ -790,9 +790,9 @@ class UserFacadeImpl implements UserFacade {
 
                 String localeStr = ua.locale
                 if (localeStr != null && localeStr.length() > 0) {
-                    localeCache = localeStr.contains("_") ?
-                        new Locale(localeStr.substring(0, localeStr.indexOf("_")), localeStr.substring(localeStr.indexOf("_")+1).toUpperCase()) :
-                        new Locale(localeStr)
+                    int usIdx = localeStr.indexOf("_")
+                    localeCache = usIdx < 0 ? new Locale(localeStr) :
+                            new Locale(localeStr.substring(0, usIdx), localeStr.substring(usIdx+1).toUpperCase())
                 } else {
                     localeCache = ufi.request != null ? ufi.request.getLocale() : Locale.getDefault()
                 }

@@ -6,6 +6,10 @@
         any of the desired sub-elements. -->
 
     <!-- Default properties are only set if there is no Java property or environment variable of the same name (or with underscores replaced by dots) -->
+
+    <default-property name="default_locale" value="en_US"/>
+    <default-property name="default_time_zone" value="US/Pacific"/>
+
     <default-property name="webapp_http_host" value=""/>
     <default-property name="webapp_http_port" value=""/>
     <default-property name="webapp_https_port" value=""/>

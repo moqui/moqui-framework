@@ -26,6 +26,8 @@ services:
      - entity_ds_user=moqui
      - entity_ds_password=moqui
      - entity_ds_crypt_pass='MoquiDefaultPassword:CHANGEME'
+     - default_locale=en_US
+     - default_time_zone='US/Pacific'
 
   moqui-database:
     image: mysql:5.7
