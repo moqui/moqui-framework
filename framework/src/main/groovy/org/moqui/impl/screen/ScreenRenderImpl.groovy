@@ -1281,6 +1281,9 @@ class ScreenRenderImpl implements ScreenRender {
     String getFieldValuePlainString(MNode fieldNodeWrapper, String defaultValue) {
         // NOTE: defaultValue is handled below so that for a plain string it is not run through expand
         Object obj = getFieldValue(fieldNodeWrapper, "")
+        if (obj instanceof BigDecimal) {
+            obj = ec.l10nFacade.format(obj, null)
+        }
         if (ObjectUtilities.isEmpty(obj) && defaultValue != null && defaultValue.length() > 0)
             return ec.resourceFacade.expandNoL10n(defaultValue, "")
         return ObjectUtilities.toPlainString(obj)
