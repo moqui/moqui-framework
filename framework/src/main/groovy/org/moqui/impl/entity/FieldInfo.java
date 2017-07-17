@@ -136,7 +136,9 @@ public class FieldInfo {
                 tempMembEntNode = ed.memberEntityAliasMap.get(singleEntityAlias);
             }
             memberEntityNode = tempMembEntNode;
-            hasAggregateFunction = aggFunctions.contains(fieldNode.attribute("function"));
+            String isAggregateAttr = fieldNode.attribute("is-aggregate");
+            hasAggregateFunction = isAggregateAttr != null ? "true".equalsIgnoreCase(isAggregateAttr) :
+                    aggFunctions.contains(fieldNode.attribute("function"));
         } else {
             memberEntityNode = null;
             directMemberEntityNode = null;
