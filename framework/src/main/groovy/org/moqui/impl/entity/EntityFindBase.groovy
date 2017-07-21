@@ -121,13 +121,22 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override
     EntityFind condition(String fieldName, EntityCondition.ComparisonOperator operator, Object value) {
-        if (operator == EntityCondition.EQUALS) return condition(fieldName, value)
-        return condition(efi.entityConditionFactory.makeCondition(fieldName, operator, value))
+        EntityDefinition ed = getEntityDef()
+        FieldInfo fi = ed.getFieldInfo(fieldName)
+        if (fi == null) throw new EntityException("Field ${fieldName} not found on entity ${entityName}, cannot add condition")
+        if (operator == null) operator = EntityCondition.EQUALS
+        if (ed.isViewEntity && fi.fieldNode.attribute("function")) {
+            return havingCondition(new FieldValueCondition(fi.conditionField, operator, value))
+        } else {
+            if (EntityCondition.EQUALS.is(operator)) return condition(fieldName, value)
+            return condition(new FieldValueCondition(fi.conditionField, operator, value))
+        }
     }
     @Override
     EntityFind condition(String fieldName, String operator, Object value) {
-        EntityCondition.ComparisonOperator opObj = EntityConditionFactoryImpl.stringComparisonOperatorMap.get(operator)
-        if (opObj == null) throw new IllegalArgumentException("Operator [${operator}] is not a valid field comparison operator")
+        EntityCondition.ComparisonOperator opObj = operator == null || operator.isEmpty() ?
+                EntityCondition.EQUALS : EntityConditionFactoryImpl.stringComparisonOperatorMap.get(operator)
+        if (opObj == null) throw new EntityException("Operator [${operator}] is not a valid field comparison operator")
         return condition(fieldName, opObj, value)
     }
 
@@ -398,7 +407,7 @@ abstract class EntityFindBase implements EntityFind {
         }
 
         // if there is a pageNoLimit clear out the limit regardless of other settings
-        if (inputFieldsMap?.get("pageNoLimit") == "true" || inputFieldsMap?.get("pageNoLimit") == true) {
+        if ("true".equals(inputFieldsMap?.get("pageNoLimit")) || inputFieldsMap?.get("pageNoLimit") == true) {
             offset = null
             limit = null
         }
@@ -429,28 +438,28 @@ abstract class EntityFindBase implements EntityFind {
                                     not ? EntityCondition.NOT_EQUAL : EntityCondition.EQUALS, convertedValue)
                             if (ic) cond.ignoreCase()
                         }
-                        break;
+                        break
                     case "like":
                         if (value) {
                             cond = efi.entityConditionFactory.makeCondition(fn,
                                     not ? EntityCondition.NOT_LIKE : EntityCondition.LIKE, value)
                             if (ic) cond.ignoreCase()
                         }
-                        break;
+                        break
                     case "contains":
                         if (value) {
                             cond = efi.entityConditionFactory.makeCondition(fn,
                                     not ? EntityCondition.NOT_LIKE : EntityCondition.LIKE, "%${value}%")
                             if (ic) cond.ignoreCase()
                         }
-                        break;
+                        break
                     case "begins":
                         if (value) {
                             cond = efi.entityConditionFactory.makeCondition(fn,
                                     not ? EntityCondition.NOT_LIKE : EntityCondition.LIKE, "${value}%")
                             if (ic) cond.ignoreCase()
                         }
-                        break;
+                        break
                     case "empty":
                         cond = efi.entityConditionFactory.makeCondition(
                                 efi.entityConditionFactory.makeCondition(fn,
@@ -458,7 +467,7 @@ abstract class EntityFindBase implements EntityFind {
                                 not ? EntityCondition.JoinOperator.AND : EntityCondition.JoinOperator.OR,
                                 efi.entityConditionFactory.makeCondition(fn,
                                         not ? EntityCondition.NOT_EQUAL : EntityCondition.EQUALS, ""))
-                        break;
+                        break
                     case "in":
                         if (value) {
                             Collection valueList = null
@@ -473,14 +482,15 @@ abstract class EntityFindBase implements EntityFind {
 
                             }
                         }
-                        break;
+                        break
                 }
                 if (cond != null) {
                     this.condition(cond)
                     addedConditions = true
                 }
             } else if (inputFieldsMap.get(fn + "_period")) {
-                List<Timestamp> range = ec.user.getPeriodRange((String) inputFieldsMap.get(fn + "_period"), (String) inputFieldsMap.get(fn + "_poffset"))
+                List<Timestamp> range = ec.user.getPeriodRange((String) inputFieldsMap.get(fn + "_period"),
+                        (String) inputFieldsMap.get(fn + "_poffset"), (String) inputFieldsMap.get(fn + "_pdate"))
                 this.condition(efi.entityConditionFactory.makeCondition(fn, EntityCondition.GREATER_THAN_EQUAL_TO, range.get(0)))
                 this.condition(efi.entityConditionFactory.makeCondition(fn, EntityCondition.LESS_THAN, range.get(1)))
                 addedConditions = true
@@ -491,12 +501,12 @@ abstract class EntityFindBase implements EntityFind {
                 Object thruValue = inputFieldsMap.get(fn + "_thru")
                 if (thruValue && thruValue instanceof CharSequence) thruValue = ed.convertFieldString(fn, thruValue.toString(), ec)
 
-                if (fromValue) {
+                if (!ObjectUtilities.isEmpty(fromValue)) {
                     this.condition(efi.entityConditionFactory.makeCondition(fn, EntityCondition.GREATER_THAN_EQUAL_TO, fromValue))
                     addedConditions = true
                 }
-                if (thruValue) {
-                    this.condition(efi.entityConditionFactory.makeCondition(fn, EntityCondition.LESS_THAN, thruValue))
+                if (!ObjectUtilities.isEmpty(thruValue)) {
+                    this.condition(efi.entityConditionFactory.makeCondition(fn, EntityCondition.LESS_THAN_EQUAL_TO, thruValue))
                     addedConditions = true
                 }
             }
@@ -662,7 +672,7 @@ abstract class EntityFindBase implements EntityFind {
             ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
                     ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "one")
             // really worth the overhead? if so change to handle singleCondField: .setParameters(simpleAndMap)
-            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView)
+            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView, false)
 
             try {
                 return oneInternal(ec, ed)
@@ -684,7 +694,7 @@ abstract class EntityFindBase implements EntityFind {
 
             ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
                     ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "one")
-            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView)
+            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView, false)
 
             try {
                 EntityValue ev = oneInternal(ec, ed)
@@ -700,7 +710,7 @@ abstract class EntityFindBase implements EntityFind {
     }
 
     protected EntityValue oneInternal(ExecutionContextImpl ec, EntityDefinition ed) throws EntityException, SQLException {
-        if (this.dynamicView != null) throw new IllegalArgumentException("Dynamic View not supported for 'one' find.")
+        if (this.dynamicView != null) throw new EntityException("Dynamic View not supported for 'one' find.")
 
         boolean isViewEntity = ed.isViewEntity
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
@@ -911,7 +921,7 @@ abstract class EntityFindBase implements EntityFind {
 
             ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
                     ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "list")
-            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView)
+            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView, false)
             try {
                 return listInternal(ec, ed)
             } finally {
@@ -931,7 +941,7 @@ abstract class EntityFindBase implements EntityFind {
 
             ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
                     ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "list")
-            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView)
+            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView, false)
             try {
                 EntityList el = listInternal(ec, ed)
                 return el.getMasterValueList(name)
@@ -1082,7 +1092,7 @@ abstract class EntityFindBase implements EntityFind {
 
             ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
                     ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "iterator")
-            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView)
+            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView, false)
             try {
                 return iteratorInternal(ec, ed)
             } finally {
@@ -1204,7 +1214,7 @@ abstract class EntityFindBase implements EntityFind {
 
             ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
                     ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "count")
-            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView)
+            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView, false)
             try {
                 return countInternal(ec, ed)
             } finally {

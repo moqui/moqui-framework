@@ -15,7 +15,7 @@ package org.moqui.impl.screen
 
 import groovy.json.JsonSlurper
 import groovy.transform.CompileStatic
-import org.moqui.BaseException
+import org.moqui.BaseArtifactException
 import org.moqui.context.ExecutionContext
 import org.moqui.entity.*
 import org.moqui.impl.actions.XmlAction
@@ -130,7 +130,7 @@ class ScreenForm {
                 ScreenForm esf = sd.getForm(extendsForm)
                 formNode = esf?.getOrCreateFormNode()
             }
-            if (formNode == null) throw new IllegalArgumentException("Cound not find extends form [${extendsForm}] referred to in form [${newFormNode.attribute("name")}] of screen [${sd.location}]")
+            if (formNode == null) throw new BaseArtifactException("Cound not find extends form [${extendsForm}] referred to in form [${newFormNode.attribute("name")}] of screen [${sd.location}]")
             mergeFormNodes(newFormNode, formNode, true, true)
         }
 
@@ -162,7 +162,7 @@ class ScreenForm {
                         continue
                     }
                 }
-                throw new IllegalArgumentException("Cound not find service [${serviceName}] or entity noun referred to in auto-fields-service of form [${newFormNode.attribute("name")}] of screen [${sd.location}]")
+                throw new BaseArtifactException("Cound not find service [${serviceName}] or entity noun referred to in auto-fields-service of form [${newFormNode.attribute("name")}] of screen [${sd.location}]")
             } else if (formSubNode.name == "auto-fields-entity") {
                 String entityName = formSubNode.attribute("entity-name")
                 if (isDynamic) entityName = ecfi.resourceFacade.expand(entityName, "")
@@ -179,7 +179,7 @@ class ScreenForm {
                             excludes, newFormNode)
                     continue
                 }
-                throw new IllegalArgumentException("Cound not find entity [${entityName}] referred to in auto-fields-entity of form [${newFormNode.attribute("name")}] of screen [${sd.location}]")
+                throw new BaseArtifactException("Cound not find entity [${entityName}] referred to in auto-fields-entity of form [${newFormNode.attribute("name")}] of screen [${sd.location}]")
             }
         }
 
@@ -265,7 +265,7 @@ class ScreenForm {
             boolean alreadyDisabled = ecfi.getEci().artifactExecutionFacade.disableAuthz()
             try {
                 EntityValue dbForm = ecfi.entityFacade.fastFindOne("moqui.screen.form.DbForm", true, false, formId)
-                if (dbForm == null) throw new BaseException("Could not find DbForm record with ID [${formId}]")
+                if (dbForm == null) throw new BaseArtifactException("Could not find DbForm record with ID [${formId}]")
                 dbFormNode = new MNode((dbForm.isListForm == "Y" ? "form-list" : "form-single"), null)
 
                 EntityList dbFormFieldList = ecfi.entityFacade.find("moqui.screen.form.DbFormField").condition("formId", formId)
@@ -279,7 +279,7 @@ class ScreenForm {
                     if (dbFormField.tooltip) subFieldNode.attributes.put("tooltip", (String) dbFormField.tooltip)
 
                     String fieldType = dbFormField.fieldTypeEnumId
-                    if (!fieldType) throw new IllegalArgumentException("DbFormField record with formId [${formId}] and fieldName [${fieldName}] has no fieldTypeEnumId")
+                    if (!fieldType) throw new BaseArtifactException("DbFormField record with formId [${formId}] and fieldName [${fieldName}] has no fieldTypeEnumId")
 
                     String widgetName = fieldType.substring(6)
                     MNode widgetNode = subFieldNode.append(widgetName, null)
@@ -537,11 +537,22 @@ class ScreenForm {
     void addEntityFields(EntityDefinition ed, String include, String fieldType, Set<String> excludes, MNode baseFormNode) {
         for (String fieldName in ed.getFieldNames("all".equals(include) || "pk".equals(include), "all".equals(include) || "nonpk".equals(include))) {
             if (excludes != null && excludes.contains(fieldName)) continue
-            String efType = ed.getFieldInfo(fieldName).type ?: "text-long"
-            if (baseFormNode.name == "form-list" && efType in ['text-long', 'text-very-long', 'binary-very-long']) continue
+            FieldInfo fi = ed.getFieldInfo(fieldName)
+            String efType = fi.type ?: "text-long"
+            boolean makeDefaultField = true
+            if ("form-list".equals(baseFormNode.name)) {
+                Boolean displayField = (Boolean) null
+                String defaultDisplay = fi.fieldNode.attribute("default-display")
+                if (defaultDisplay != null && !defaultDisplay.isEmpty()) displayField = "true".equals(defaultDisplay)
+                if (displayField == null && efType in ['text-long', 'text-very-long', 'binary-very-long']) {
+                    // allow find by and display text-long even if not the default, but in form-list never do anything with text-very-long or binary-very-long
+                    if ("text-long".equals(efType)) { displayField = false } else { continue }
+                }
+                makeDefaultField = displayField == null || displayField.booleanValue()
+            }
 
             MNode newFieldNode = new MNode("field", [name:fieldName, "validate-entity":ed.getFullEntityName(), "validate-field":fieldName])
-            MNode subFieldNode = newFieldNode.append("default-field", null)
+            MNode subFieldNode = makeDefaultField ? newFieldNode.append("default-field", null) : null
 
             addAutoEntityField(ed, fieldName, fieldType, newFieldNode, subFieldNode, baseFormNode)
 
@@ -551,9 +562,9 @@ class ScreenForm {
         // logger.info("TOREMOVE: after addEntityFields formNode is: ${baseFormNode}")
     }
 
-    void addAutoEntityField(EntityDefinition ed, String fieldName, String fieldType,
-                            MNode newFieldNode, MNode subFieldNode, MNode baseFormNode) {
-        String efType = ed.getFieldInfo(fieldName).type ?: "text-long"
+    void addAutoEntityField(EntityDefinition ed, String fieldName, String fieldType, MNode newFieldNode, MNode subFieldNode, MNode baseFormNode) {
+        FieldInfo fieldInfo = ed.getFieldInfo(fieldName)
+        String efType = fieldInfo.type ?: "text-long"
 
         // to see if this should be a drop-down with data from another entity,
         // find first relationship that has this field as the only key map and is not a many relationship
@@ -584,6 +595,12 @@ class ScreenForm {
                 break
             }
 
+            // handle header-field
+            if (baseFormNode.name == "form-list" && !newFieldNode.hasChild("header-field"))
+                newFieldNode.append("header-field", ["show-order-by":"case-insensitive"])
+
+            // handle sub field (default-field)
+            if (subFieldNode == null) break
             /* NOTE: used to do this but doesn't make sense for main use of this in ServiceRun/etc screens; for app
                 forms should separates pks and use display or hidden instead of edit:
             List<String> pkFieldNameSet = ed.getPkFieldNames()
@@ -592,8 +609,6 @@ class ScreenForm {
             } else {
             }
             */
-            if (baseFormNode.name == "form-list" && !newFieldNode.hasChild("header-field"))
-                newFieldNode.append("header-field", ["show-order-by":"case-insensitive"])
             if (efType.startsWith("date") || efType.startsWith("time")) {
                 MNode dateTimeNode = subFieldNode.append("date-time", [type:efType])
                 if (fieldName == "fromDate") dateTimeNode.attributes.put("default-value", "\${ec.l10n.format(ec.user.nowTimestamp, 'yyyy-MM-dd HH:mm')}")
@@ -619,8 +634,11 @@ class ScreenForm {
             }
             break
         case "find":
+            // handle header-field
             if (baseFormNode.name == "form-list" && !newFieldNode.hasChild("header-field"))
                 newFieldNode.append("header-field", ["show-order-by":"case-insensitive"])
+            // handle sub field (default-field)
+            if (subFieldNode == null) break
             if (efType.startsWith("date") || efType.startsWith("time")) {
                 subFieldNode.append("date-find", [type:efType])
             } else if (efType.startsWith("number-") || efType.startsWith("currency-")) {
@@ -634,16 +652,29 @@ class ScreenForm {
             }
             break
         case "display":
+            // handle header-field
             if (baseFormNode.name == "form-list" && !newFieldNode.hasChild("header-field"))
                 newFieldNode.append("header-field", ["show-order-by":"case-insensitive"])
+            // handle sub field (default-field)
+            if (subFieldNode == null) break
             String textStr
             if (relDefaultDescriptionField) textStr = "\${" + relDefaultDescriptionField + " ?: ''} [\${" + relKeyField + "}]"
             else textStr = "[\${" + relKeyField + "}]"
-            if (oneRelNode != null) subFieldNode.append("display-entity",
-                    ["entity-name":(oneRelNode.attribute("related") ?: oneRelNode.attribute("related-entity-name")), "text":textStr])
-            else subFieldNode.append("display", null)
+            if (oneRelNode != null) {
+                subFieldNode.append("display-entity",
+                        ["entity-name":(oneRelNode.attribute("related") ?: oneRelNode.attribute("related-entity-name")), "text":textStr])
+            } else {
+                Map<String, String> attrs = (Map<String, String>) null
+                if (efType.equals("currency-amount")) {
+                    attrs = [format:"#,##0.00"]
+                } else if (efType.equals("currency-precise")) {
+                    attrs = [format:"#,##0.000"]
+                }
+                subFieldNode.append("display", attrs)
+            }
             break
         case "find-display":
+            // handle header-field
             if (baseFormNode.name == "form-list" && !newFieldNode.hasChild("header-field"))
                 newFieldNode.append("header-field", ["show-order-by":"case-insensitive"])
             MNode headerFieldNode = newFieldNode.hasChild("header-field") ?
@@ -653,7 +684,15 @@ class ScreenForm {
             } else if (efType == "date-time") {
                 headerFieldNode.append("date-period", null)
             } else if (efType.startsWith("number-") || efType.startsWith("currency-")) {
-                headerFieldNode.append("range-find", [size:'4'])
+                headerFieldNode.append("range-find", [size:'10'])
+                newFieldNode.attributes.put("align", "right")
+                String function = fieldInfo.fieldNode.attribute("function")
+                if (function != null && function in ['min', 'max', 'avg']) {
+                    newFieldNode.attributes.put("show-total", function)
+                } else {
+                    newFieldNode.attributes.put("show-total", "sum")
+                }
+
             } else {
                 if (oneRelNode != null) {
                     addEntityFieldDropDown(oneRelNode, headerFieldNode, relatedEd, relKeyField, "")
@@ -661,6 +700,8 @@ class ScreenForm {
                     headerFieldNode.append("text-find", ['hide-options':'true', size:'15'])
                 }
             }
+            // handle sub field (default-field)
+            if (subFieldNode == null) break
             if (oneRelNode != null) {
                 String textStr
                 if (relDefaultDescriptionField) textStr = "\${" + relDefaultDescriptionField + " ?: ''} [\${" + relKeyField + "}]"
@@ -668,7 +709,13 @@ class ScreenForm {
                 subFieldNode.append("display-entity", ["text":textStr,
                         "entity-name":(oneRelNode.attribute("related") ?: oneRelNode.attribute("related-entity-name"))])
             } else {
-                subFieldNode.append("display", null)
+                Map<String, String> attrs = (Map<String, String>) null
+                if (efType.equals("currency-amount")) {
+                    attrs = [format:"#,##0.00"]
+                } else if (efType.equals("currency-precise")) {
+                    attrs = [format:"#,##0.000"]
+                }
+                subFieldNode.append("display", attrs)
             }
             break
         case "hidden":
@@ -677,7 +724,7 @@ class ScreenForm {
         }
 
         // NOTE: don't like where this is located, would be nice to have a generic way for forms to add this sort of thing
-        if (oneRelNode != null) {
+        if (oneRelNode != null && subFieldNode != null) {
             if (internalFormNode.attribute("name") == "UpdateMasterEntityValue") {
                 MNode linkNode = subFieldNode.append("link", [url:"edit",
                         text:("Edit ${relatedEd.getPrettyName(null, null)} [\${fieldValues." + keyField + "}]").toString(),
@@ -752,14 +799,14 @@ class ScreenForm {
             List<MNode> setNodeList = widgetNode.children("set")
 
             String templateLocation = widgetNode.attribute("location")
-            if (!templateLocation) throw new IllegalArgumentException("widget-template-include.@location cannot be empty")
-            if (!templateLocation.contains("#")) throw new IllegalArgumentException("widget-template-include.@location must contain a hash/pound sign to separate the file location and widget-template.@name: [${templateLocation}]")
+            if (!templateLocation) throw new BaseArtifactException("widget-template-include.@location cannot be empty")
+            if (!templateLocation.contains("#")) throw new BaseArtifactException("widget-template-include.@location must contain a hash/pound sign to separate the file location and widget-template.@name: [${templateLocation}]")
             String fileLocation = templateLocation.substring(0, templateLocation.indexOf("#"))
             String widgetTemplateName = templateLocation.substring(templateLocation.indexOf("#") + 1)
 
             MNode widgetTemplatesNode = ecfi.screenFacade.getWidgetTemplatesNodeByLocation(fileLocation)
             MNode widgetTemplateNode = widgetTemplatesNode?.first({ MNode it -> it.attribute("name") == widgetTemplateName })
-            if (widgetTemplateNode == null) throw new IllegalArgumentException("Could not find widget-template [${widgetTemplateName}] in [${fileLocation}]")
+            if (widgetTemplateNode == null) throw new BaseArtifactException("Could not find widget-template [${widgetTemplateName}] in [${fileLocation}]")
 
             // remove the widget-template-include node
             fieldSubNode.children.remove(0)
@@ -793,7 +840,7 @@ class ScreenForm {
                 return
             }
         }
-        throw new IllegalArgumentException("Cound not find service [${serviceName}] or entity noun referred to in auto-fields-service of form [${baseFormNode.attribute("name")}] of screen [${sd.location}]")
+        throw new BaseArtifactException("Cound not find service [${serviceName}] or entity noun referred to in auto-fields-service of form [${baseFormNode.attribute("name")}] of screen [${sd.location}]")
     }
     void addAutoServiceField(ServiceDefinition sd, String parameterName, String fieldType,
                              MNode newFieldNode, MNode subFieldNode, MNode baseFormNode) {
@@ -806,7 +853,7 @@ class ScreenForm {
         }
         MNode parameterNode = sd.serviceNode.first({ MNode it -> it.name == "in-parameters" && it.attribute("name") == parameterName })
 
-        if (parameterNode == null) throw new IllegalArgumentException("Cound not find parameter [${parameterName}] in service [${sd.serviceName}] referred to in auto-widget-service of form [${baseFormNode.attribute("name")}] of screen [${sd.location}]")
+        if (parameterNode == null) throw new BaseArtifactException("Cound not find parameter [${parameterName}] in service [${sd.serviceName}] referred to in auto-widget-service of form [${baseFormNode.attribute("name")}] of screen [${sd.location}]")
         addAutoServiceField(nounEd, parameterNode, fieldType, sd.verb, newFieldNode, subFieldNode, baseFormNode)
     }
 
@@ -820,7 +867,7 @@ class ScreenForm {
             // ignore, anticipating there may be no entity def
             if (logger.isTraceEnabled()) logger.trace("Ignoring entity exception, not necessarily an entity name: ${e.toString()}")
         }
-        if (ed == null) throw new IllegalArgumentException("Cound not find entity [${entityName}] referred to in auto-widget-entity of form [${baseFormNode.attribute("name")}] of screen [${sd.location}]")
+        if (ed == null) throw new BaseArtifactException("Cound not find entity [${entityName}] referred to in auto-widget-entity of form [${baseFormNode.attribute("name")}] of screen [${sd.location}]")
         addAutoEntityField(ed, widgetNode.attribute("field-name")?:fieldNode.attribute("name"),
                 widgetNode.attribute("field-type")?:"find-display", fieldNode, fieldSubNode, baseFormNode)
     }
@@ -945,13 +992,18 @@ class ScreenForm {
                         eli.close()
                     }
                 } else {
+                    String keyAttr = childNode.attribute("key")
+                    String textAttr = childNode.attribute("text")
                     for (Object listOption in listObject) {
                         if (listOption instanceof Map) {
                             addFieldOption(options, fieldNode, childNode, (Map) listOption, ec)
                         } else {
-                            String loString = ObjectUtilities.toPlainString(listOption)
-                            if (loString != null) options.put(loString, loString)
-                            // addFieldOption(options, fieldNode, childNode, [entry:listOption], ec)
+                            if (keyAttr != null || textAttr != null) {
+                                addFieldOption(options, fieldNode, childNode, [entry:listOption], ec)
+                            } else {
+                                String loString = ObjectUtilities.toPlainString(listOption)
+                                if (loString != null) options.put(loString, loString)
+                            }
                         }
                     }
                 }
@@ -966,7 +1018,7 @@ class ScreenForm {
 
     static void addFieldOption(LinkedHashMap<String, String> options, MNode fieldNode, MNode childNode, Map listOption,
                                ExecutionContext ec) {
-        EntityValueBase listOptionEvb = listOption instanceof EntityValueBase ? listOption : null
+        EntityValueBase listOptionEvb = listOption instanceof EntityValueBase ? (EntityValueBase) listOption : (EntityValueBase) null
         if (listOptionEvb != null) {
             ec.context.push(listOptionEvb.getMap())
         } else {
@@ -1040,7 +1092,7 @@ class ScreenForm {
         private String[] aggregateGroupFields = (String[]) null
         private AggregateField[] aggregateFields = (AggregateField[]) null
         private Map<String, AggregateField> aggregateFieldMap = new HashMap<>()
-        private HashSet<String> showTotalFields = (HashSet<String>) null
+        private HashMap<String, String> showTotalFields = (HashMap<String, String>) null
         private AggregationUtil aggregationUtil = (AggregationUtil) null
 
         FormInstance(ScreenForm screenForm) {
@@ -1077,10 +1129,11 @@ class ScreenForm {
                     }
                     if (fieldNode.attribute("hide")) hasFieldHideAttrs = true
 
-                    boolean isShowTotal = "true".equals(fieldNode.attribute("show-total"))
-                    if (isShowTotal) {
-                        if (showTotalFields == null) showTotalFields = new LinkedHashSet<>()
-                        showTotalFields.add(fieldName)
+                    String showTotal = fieldNode.attribute("show-total")
+                    if ("false".equals(showTotal)) { showTotal = null } else if ("true".equals(showTotal)) { showTotal = "sum" }
+                    if (showTotal != null && !showTotal.isEmpty()) {
+                        if (showTotalFields == null) showTotalFields = new HashMap<>()
+                        showTotalFields.put(fieldName, showTotal)
                     }
 
                     String aggregate = fieldNode.attribute("aggregate")
@@ -1095,14 +1148,14 @@ class ScreenForm {
                             if (af == null) logger.error("Ignoring aggregate ${aggregate} on field ${fieldName} in form ${formNode.attribute('name')}, not a valid function, group-by, or sub-list")
                         }
 
-                        aggregateFieldMap.put(fieldName, new AggregateField(fieldName, af, isGroupBy, isSubList, isShowTotal,
+                        aggregateFieldMap.put(fieldName, new AggregateField(fieldName, af, isGroupBy, isSubList, showTotal,
                                 ecfi.resourceFacade.getGroovyClass(fieldNode.attribute("from"))))
                         if (isGroupBy) {
                             if (aggregateGroupFieldList == null) aggregateGroupFieldList = new ArrayList<>()
                             aggregateGroupFieldList.add(fieldName)
                         }
                     } else {
-                        aggregateFieldMap.put(fieldName, new AggregateField(fieldName, null, false, false, isShowTotal,
+                        aggregateFieldMap.put(fieldName, new AggregateField(fieldName, null, false, false, showTotal,
                                 ecfi.resourceFacade.getGroovyClass(fieldNode.attribute("from"))))
                     }
                 }
@@ -1111,7 +1164,7 @@ class ScreenForm {
             // check aggregate defs
             if (hasAggregate) {
                 if (aggregateGroupFieldList == null) {
-                    throw new IllegalArgumentException("Form ${formNode.attribute('name')} has aggregate fields but no group-by field, must have at least one")
+                    throw new BaseArtifactException("Form ${formNode.attribute('name')} has aggregate fields but no group-by field, must have at least one")
                 } else {
                     // make group fields array
                     int groupFieldSize = aggregateGroupFieldList.size()
@@ -1126,7 +1179,7 @@ class ScreenForm {
                 AggregateField aggField = (AggregateField) aggregateFieldMap.get(fieldName)
                 if (aggField == null) {
                     MNode fieldNode = fieldNodeMap.get(fieldName)
-                    aggField = new AggregateField(fieldName, null, false, false, showTotalFields?.contains(fieldName),
+                    aggField = new AggregateField(fieldName, null, false, false, showTotalFields?.get(fieldName),
                             ecfi.resourceFacade.getGroovyClass(fieldNode.attribute("from")))
                 }
                 aggregateFields[i] = aggField
@@ -1159,17 +1212,17 @@ class ScreenForm {
 
         MNode getFieldValidateNode(String fieldName) {
             MNode fieldNode = (MNode) fieldNodeMap.get(fieldName)
-            if (fieldNode == null) throw new IllegalArgumentException("Tried to get in-parameter node for field [${fieldName}] that doesn't exist in form [${location}]")
+            if (fieldNode == null) throw new BaseArtifactException("Tried to get in-parameter node for field [${fieldName}] that doesn't exist in form [${location}]")
             String validateService = fieldNode.attribute('validate-service')
             String validateEntity = fieldNode.attribute('validate-entity')
             if (validateService) {
                 ServiceDefinition sd = ecfi.serviceFacade.getServiceDefinition(validateService)
-                if (sd == null) throw new IllegalArgumentException("Invalid validate-service name [${validateService}] in field [${fieldName}] of form [${location}]")
+                if (sd == null) throw new BaseArtifactException("Invalid validate-service name [${validateService}] in field [${fieldName}] of form [${location}]")
                 MNode parameterNode = sd.getInParameter((String) fieldNode.attribute('validate-parameter') ?: fieldName)
                 return parameterNode
             } else if (validateEntity) {
                 EntityDefinition ed = ecfi.entityFacade.getEntityDefinition(validateEntity)
-                if (ed == null) throw new IllegalArgumentException("Invalid validate-entity name [${validateEntity}] in field [${fieldName}] of form [${location}]")
+                if (ed == null) throw new BaseArtifactException("Invalid validate-entity name [${validateEntity}] in field [${fieldName}] of form [${location}]")
                 MNode efNode = ed.getFieldNode((String) fieldNode.attribute('validate-field') ?: fieldName)
                 return efNode
             }
@@ -1311,7 +1364,7 @@ class ScreenForm {
                         MNode frNode = (MNode) fieldRefNodes.get(fi)
                         String fieldName = frNode.attribute("name")
                         MNode fieldNode = (MNode) fieldNodeMap.get(fieldName)
-                        if (fieldNode == null) throw new IllegalArgumentException("Could not find field ${fieldName} referenced in form-list-column.field-ref in form at ${screenForm.location}")
+                        if (fieldNode == null) throw new BaseArtifactException("Could not find field ${fieldName} referenced in form-list-column.field-ref in form at ${screenForm.location}")
                         // skip hidden fields, they are handled separately
                         if (isListFieldHiddenWidget(fieldNode)) continue
 
@@ -1359,7 +1412,7 @@ class ScreenForm {
                 String fieldName = (String) fcfValue.getNoCheckSimple("fieldName")
                 MNode fieldNode = (MNode) fieldNodeMap.get(fieldName)
                 if (fieldNode == null) {
-                    //throw new IllegalArgumentException("Could not find field ${fieldName} referenced in FormConfigField record for ID ${fcfValue.formConfigId} user ${eci.user.userId}, form at ${screenForm.location}")
+                    //throw new BaseArtifactException("Could not find field ${fieldName} referenced in FormConfigField record for ID ${fcfValue.formConfigId} user ${eci.user.userId}, form at ${screenForm.location}")
                     logger.warn("Could not find field ${fieldName} referenced in FormConfigField record for ID ${fcfValue.formConfigId} user ${eci.user.userId}, form at ${screenForm.location}. removing it")
                     fcfValue.delete()
                     continue
@@ -1524,20 +1577,21 @@ class ScreenForm {
         Object getListObject(boolean aggregateList) {
             Object listObject
             String listName = formInstance.formNode.attribute("list")
+            Set<String> includeFields = new HashSet<>(displayedFieldSet)
             MNode entityFindNode = screenForm.entityFindNode
             if (entityFindNode != null) {
                 EntityFindBase ef = (EntityFindBase) ecfi.entityFacade.find(entityFindNode)
 
-                // if no select-field add one for each form field displayed in a column that is a valid entity field name
-                // if (ef.getSelectFields() == null || ef.getSelectFields().size() == 0) {
+                // don't do this, use explicit select-field fields plus display/hidden fields: if (ef.getSelectFields() == null || ef.getSelectFields().size() == 0) {
                 // always do this even if there are some entity-find.select-field elements, support specifying some fields that are always selected
                 for (String fieldName in displayedFieldSet) ef.selectField(fieldName)
+                List<String> selFields = ef.getSelectFields()
                 // don't order by fields not in displayedFieldSet
                 ArrayList<String> orderByFields = ef.orderByFields
                 if (orderByFields != null) for (int i = 0; i < orderByFields.size(); ) {
                     String obfString = (String) orderByFields.get(i)
                     EntityJavaUtil.FieldOrderOptions foo = EntityJavaUtil.makeFieldOrderOptions(obfString)
-                    if (displayedFieldSet.contains(foo.fieldName)) {
+                    if (displayedFieldSet.contains(foo.fieldName) || selFields.contains(foo.fieldName)) {
                         i++
                     } else {
                         orderByFields.remove(i)
@@ -1551,9 +1605,10 @@ class ScreenForm {
                     MNode fieldNode = formInstance.getFieldNode(fn)
                     if (!fieldNode.hasChild("default-field")) continue
                     ef.selectField(fn)
+                    includeFields.add(fn)
                 }
 
-                // logger.info("TOREMOVE form-list.entity-find: ${ef.toString()}")
+                // logger.warn("TOREMOVE form-list.entity-find: ${ef.toString()}\ndisplayedFieldSet: ${displayedFieldSet}")
 
                 // run the query
                 EntityList efList = ef.list()
@@ -1576,7 +1631,11 @@ class ScreenForm {
                 boolean doPaginate = sfiNode != null && !"false".equals(sfiNode.attribute("paginate"))
                 if (doPaginate) {
                     long count, pageSize, pageIndex
-                    if (useCache) {
+                    if (ef.getLimit() == null) {
+                        count = efList.size()
+                        pageSize = count > 20 ? count : 20
+                        pageIndex = efList.pageIndex
+                    } else if (useCache) {
                         count = efList.size()
                         efList.filterByLimit(sfiNode.attribute("input-fields-map"), true)
                         pageSize = efList.pageSize
@@ -1584,7 +1643,7 @@ class ScreenForm {
                     } else {
                         count = ef.count()
                         pageIndex = ef.pageIndex
-                        if (ef.limit == null) { pageSize = count } else { pageSize = ef.pageSize }
+                        pageSize = ef.pageSize
                     }
                     long maxIndex = (new BigDecimal(count-1)).divide(new BigDecimal(pageSize), 0, BigDecimal.ROUND_DOWN).longValue()
                     long pageRangeLow = (pageIndex * pageSize) + 1
@@ -1606,7 +1665,7 @@ class ScreenForm {
 
             // NOTE: always call AggregationUtil.aggregateList, passing aggregateList to tell it to do sub-lists or not
             // this does the pre-processing for all form-list renders, handles row-actions, field.@from, etc
-            return formInstance.aggregationUtil.aggregateList(listObject, aggregateList, ecfi.getEci())
+            return formInstance.aggregationUtil.aggregateList(listObject, includeFields, aggregateList, ecfi.getEci())
         }
 
         List<Map<String, Object>> getUserFormListFinds(ExecutionContextImpl ec) {
@@ -1732,7 +1791,7 @@ class ScreenForm {
 
             // now we have all fixed widths, calculate and set percent widths
             int widthForPercentCols = lineWidth - fixedColsWidth
-            if (widthForPercentCols < 0) throw new IllegalArgumentException("In form ${formName} fixed width columns exceeded total line characters ${originalLineWidth} by ${-widthForPercentCols} characters")
+            if (widthForPercentCols < 0) throw new BaseArtifactException("In form ${formName} fixed width columns exceeded total line characters ${originalLineWidth} by ${-widthForPercentCols} characters")
             int percentColsCount = numCols - fixedColsCount
 
             // scale column percents to 100, fill in missing

@@ -286,14 +286,16 @@ class EntityDataFeed {
         Map<String, Object> fieldTree = [:]
         for (EntityValue dataDocumentField in dataDocumentFieldList) {
             String fieldPath = (String) dataDocumentField.fieldPath
-            Iterator<String> fieldPathElementIter = fieldPath.split(":").iterator()
+            if (fieldPath.contains("(")) continue
             Map currentTree = fieldTree
             DocumentEntityInfo currentEntityInfo = entityInfoMap.get(primaryEntityName)
             StringBuilder currentRelationshipPath = new StringBuilder()
             EntityDefinition currentEd = primaryEd
-            while (fieldPathElementIter.hasNext()) {
-                String fieldPathElement = fieldPathElementIter.next()
-                if (fieldPathElementIter.hasNext()) {
+            ArrayList<String> fieldPathElementList = EntityDataDocument.fieldPathToList(fieldPath)
+            int fieldPathElementListSize = fieldPathElementList.size()
+            for (int i = 0; i < fieldPathElementListSize; i++) {
+                String fieldPathElement = (String) fieldPathElementList.get(i)
+                if (i < (fieldPathElementListSize - 1)) {
                     if (currentRelationshipPath.length() > 0) currentRelationshipPath.append(":")
                     currentRelationshipPath.append(fieldPathElement)
 

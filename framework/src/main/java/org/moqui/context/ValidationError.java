@@ -13,8 +13,7 @@
  */
 package org.moqui.context;
 
-import org.moqui.BaseException;
-
+import org.moqui.BaseArtifactException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -27,7 +26,7 @@ import java.util.Map;
  * things are running, and then all of them can be shown in context of the fields with the errors.
  */
 @SuppressWarnings("unused")
-public class ValidationError extends BaseException {
+public class ValidationError extends BaseArtifactException {
     protected final String form;
     protected final String field;
     protected final String serviceName;

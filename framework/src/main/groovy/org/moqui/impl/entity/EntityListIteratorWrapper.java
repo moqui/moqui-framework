@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.entity;
 
+import org.moqui.BaseArtifactException;
 import org.moqui.entity.EntityCondition;
 import org.moqui.entity.EntityList;
 import org.moqui.entity.EntityListIterator;
@@ -36,17 +37,28 @@ class EntityListIteratorWrapper implements EntityListIterator {
     private boolean haveMadeValue = false;
     protected boolean closed = false;
 
-    EntityListIteratorWrapper(List<EntityValue> valueList, EntityDefinition entityDefinition, EntityFacadeImpl efi,
+    EntityListIteratorWrapper(List<EntityValue> valList, EntityDefinition entityDefinition, EntityFacadeImpl efi,
                               EntityCondition queryCondition, ArrayList<String> obf) {
+        valueList = new ArrayList<>(valList);
         this.efi = efi;
-        this.valueList = valueList;
         this.entityDefinition = entityDefinition;
         TransactionCache txCache = efi.ecfi.transactionFacade.getTransactionCache();
         if (txCache != null && queryCondition != null) {
             // add all created values (updated and deleted values will be handled by the next() method
-            ArrayList<EntityValueBase> txcList = txCache.getCreatedValueList(entityDefinition.getFullEntityName(), queryCondition);
-            if (txcList.size() > 0) {
-                valueList.addAll(txcList);
+            EntityJavaUtil.FindAugmentInfo tempFai = txCache.getFindAugmentInfo(entityDefinition.getFullEntityName(), queryCondition);
+            if (tempFai.valueListSize > 0) {
+                // remove update values already in list
+                if (tempFai.foundUpdated.size() > 0) {
+                    for (int i = 0; i < valueList.size(); ) {
+                        EntityValue ev = valueList.get(i);
+                        if (tempFai.foundUpdated.contains(ev.getPrimaryKeys())) {
+                            valueList.remove(i);
+                        } else {
+                            i++;
+                        }
+                    }
+                }
+                valueList.addAll(tempFai.valueList);
                 // update the order if we know the order by field list
                 if (obf != null && obf.size() > 0) valueList.sort(new CollectionUtilities.MapOrderByComparator(obf));
             }
@@ -157,21 +169,21 @@ class EntityListIteratorWrapper implements EntityListIterator {
     }
 
     @Override public void remove() {
-        throw new IllegalArgumentException("EntityListIteratorWrapper.remove() not currently supported");
+        throw new BaseArtifactException("EntityListIteratorWrapper.remove() not currently supported");
         // TODO implement this
         // TODO: call EECAs
         // TODO: notify cache clear
     }
 
     @Override public void set(EntityValue e) {
-        throw new IllegalArgumentException("EntityListIteratorWrapper.set() not currently supported");
+        throw new BaseArtifactException("EntityListIteratorWrapper.set() not currently supported");
         // TODO implement this
         // TODO: call EECAs
         // TODO: notify cache clear
     }
 
     @Override public void add(EntityValue e) {
-        throw new IllegalArgumentException("EntityListIteratorWrapper.add() not currently supported");
+        throw new BaseArtifactException("EntityListIteratorWrapper.add() not currently supported");
         // TODO implement this
     }
 

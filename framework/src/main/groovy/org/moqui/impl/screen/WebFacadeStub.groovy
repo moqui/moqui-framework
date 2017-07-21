@@ -84,8 +84,7 @@ class WebFacadeStub implements WebFacade {
     String getResponseText() { responseWriter.flush(); return responseWriter.toString() }
     HttpServletResponseStub getHttpServletResponseStub() { return httpServletResponse }
 
-    @Override
-    String getRequestUrl() { return "TestRequestUrl" }
+    @Override String getRequestUrl() { return "TestRequestUrl" }
 
     @Override
     Map<String, Object> getParameters() {
@@ -99,34 +98,22 @@ class WebFacadeStub implements WebFacade {
         return parameters
     }
 
-    @Override
-    HttpServletRequest getRequest() { return httpServletRequest }
-    @Override
-    Map<String, Object> getRequestAttributes() { return requestParameters }
-    @Override
-    Map<String, Object> getRequestParameters() { return requestParameters }
-    @Override
-    Map<String, Object> getSecureRequestParameters() { return requestParameters }
+    @Override HttpServletRequest getRequest() { return httpServletRequest }
+    @Override Map<String, Object> getRequestAttributes() { return requestParameters }
+    @Override Map<String, Object> getRequestParameters() { return requestParameters }
+    @Override Map<String, Object> getSecureRequestParameters() { return requestParameters }
 
-    @Override
-    String getHostName(boolean withPort) { return withPort ? "localhost:8080" : "localhost" }
+    @Override String getHostName(boolean withPort) { return withPort ? "localhost:443" : "localhost" }
 
-    @Override
-    HttpServletResponse getResponse() { return httpServletResponse }
-    @Override
-    HttpSession getSession() { return httpSession }
-    @Override
-    Map<String, Object> getSessionAttributes() { return sessionAttributes }
-    @Override
-    String getSessionToken() { return "TestSessionToken" }
-    @Override
-    ServletContext getServletContext() { return servletContext }
-    @Override
-    Map<String, Object> getApplicationAttributes() { return sessionAttributes }
+    @Override HttpServletResponse getResponse() { return httpServletResponse }
+    @Override HttpSession getSession() { return httpSession }
+    @Override Map<String, Object> getSessionAttributes() { return sessionAttributes }
+    @Override String getSessionToken() { return "TestSessionToken" }
+    @Override ServletContext getServletContext() { return servletContext }
+    @Override Map<String, Object> getApplicationAttributes() { return sessionAttributes }
 
-    @Override
-    String getWebappRootUrl(boolean requireFullUrl, Boolean useEncryption) {
-        return "http://localhost:8080"
+    @Override String getWebappRootUrl(boolean requireFullUrl, Boolean useEncryption) {
+        return useEncryption ? "https://localhost" : "http://localhost"
     }
 
     Map<String, Object> getErrorParameters() { return null }
@@ -134,8 +121,7 @@ class WebFacadeStub implements WebFacade {
     List<String> getSavedErrors() { return null }
     List<ValidationError> getSavedValidationErrors() { return null }
 
-    @Override
-    List<Map> getScreenHistory() { return (List<Map>) sessionAttributes.get("moqui.screen.history") ?: new ArrayList<Map>() }
+    @Override List<Map> getScreenHistory() { return (List<Map>) sessionAttributes.get("moqui.screen.history") ?: new ArrayList<Map>() }
 
     @Override
     void sendJsonResponse(Object responseObj) {
@@ -220,8 +206,7 @@ class WebFacadeStub implements WebFacade {
         Enumeration getHeaderNames() { return null }
         int getIntHeader(String s) { return 0 }
 
-        @Override
-        String getMethod() { return wfs.requestMethod }
+        @Override String getMethod() { return wfs.requestMethod }
 
         @Override
         String getPathInfo() {
@@ -259,50 +244,33 @@ class WebFacadeStub implements WebFacade {
             return null
         }
 
-        @Override
-        String getServletPath() { return "" }
-        @Override
-        HttpSession getSession(boolean b) { return wfs.httpSession }
-        @Override
-        HttpSession getSession() { return wfs.httpSession }
+        @Override String getServletPath() { return "" }
+        @Override HttpSession getSession(boolean b) { return wfs.httpSession }
+        @Override HttpSession getSession() { return wfs.httpSession }
 
-        @Override
-        boolean isRequestedSessionIdValid() { return true }
-        @Override
-        boolean isRequestedSessionIdFromCookie() { return false }
-        @Override
-        boolean isRequestedSessionIdFromURL() { return false }
-        @Override
-        boolean isRequestedSessionIdFromUrl() { return false }
+        @Override boolean isRequestedSessionIdValid() { return true }
+        @Override boolean isRequestedSessionIdFromCookie() { return false }
+        @Override boolean isRequestedSessionIdFromURL() { return false }
+        @Override boolean isRequestedSessionIdFromUrl() { return false }
 
-        @Override
-        Object getAttribute(String s) { return wfs.requestParameters.get(s) }
-        @Override
-        Enumeration getAttributeNames() { return wfs.requestParameters.keySet() as Enumeration }
+        @Override Object getAttribute(String s) { return wfs.requestParameters.get(s) }
+        @Override Enumeration getAttributeNames() { return wfs.requestParameters.keySet() as Enumeration }
 
-        @Override
-        String getCharacterEncoding() { return "UTF-8" }
-        @Override
-        void setCharacterEncoding(String s) throws UnsupportedEncodingException { }
-        @Override
-        int getContentLength() { return 0 }
-        @Override
-        String getContentType() { return null }
-        @Override
-        ServletInputStream getInputStream() throws IOException { return null }
+        @Override String getCharacterEncoding() { return "UTF-8" }
+        @Override void setCharacterEncoding(String s) throws UnsupportedEncodingException { }
+        @Override int getContentLength() { return 0 }
+        @Override String getContentType() { return null }
+        @Override ServletInputStream getInputStream() throws IOException { return null }
 
-        @Override
-        String getParameter(String s) { return wfs.requestParameters.get(s) as String }
-        @Override
-        Enumeration getParameterNames() {
+        @Override String getParameter(String s) { return wfs.requestParameters.get(s) as String }
+        @Override Enumeration getParameterNames() {
             return new Enumeration() {
                 Iterator i = wfs.requestParameters.keySet().iterator()
                 boolean hasMoreElements() { return i.hasNext() }
                 Object nextElement() { return i.next() }
             }
         }
-        @Override
-        String[] getParameterValues(String s) {
+        @Override String[] getParameterValues(String s) {
             Object valObj = wfs.requestParameters.get(s)
             if (valObj != null) {
                 String[] retVal = new String[1]
@@ -312,84 +280,50 @@ class WebFacadeStub implements WebFacade {
                 return null
             }
         }
-        @Override
-        Map getParameterMap() { return wfs.requestParameters }
+        @Override Map getParameterMap() { return wfs.requestParameters }
 
-        @Override
-        String getProtocol() { return "HTTP/1.1" }
-        @Override
-        String getScheme() { return "http" }
-        @Override
-        String getServerName() { return "localhost" }
-        @Override
-        int getServerPort() { return 8080 }
+        @Override String getProtocol() { return "HTTP/1.1" }
+        @Override String getScheme() { return "https" }
+        @Override String getServerName() { return "localhost" }
+        @Override int getServerPort() { return 443 }
 
-        @Override
-        BufferedReader getReader() throws IOException { return null }
-        @Override
-        String getRemoteAddr() { return "TestRemoteAddr" }
-        @Override
-        String getRemoteHost() { return "TestRemoteHost" }
+        @Override BufferedReader getReader() throws IOException { return null }
+        @Override String getRemoteAddr() { return "TestRemoteAddr" }
+        @Override String getRemoteHost() { return "TestRemoteHost" }
 
-        @Override
-        void setAttribute(String s, Object o) { wfs.requestParameters.put(s, o) }
-        @Override
-        void removeAttribute(String s) { wfs.requestParameters.remove(s) }
+        @Override void setAttribute(String s, Object o) { wfs.requestParameters.put(s, o) }
+        @Override void removeAttribute(String s) { wfs.requestParameters.remove(s) }
 
-        @Override
-        Locale getLocale() { return Locale.ENGLISH }
-        @Override
-        Enumeration getLocales() { return null }
+        @Override Locale getLocale() { return Locale.ENGLISH }
+        @Override Enumeration getLocales() { return null }
 
-        @Override
-        boolean isSecure() { return false }
+        @Override boolean isSecure() { return true }
 
-        @Override
-        RequestDispatcher getRequestDispatcher(String s) { return null }
+        @Override RequestDispatcher getRequestDispatcher(String s) { return null }
 
-        @Override
-        String getRealPath(String s) { return null }
+        @Override String getRealPath(String s) { return null }
 
-        @Override
-        int getRemotePort() { return 0 }
-        @Override
-        String getLocalName() { return "TestLocalName" }
-        @Override
-        String getLocalAddr() { return "TestLocalAddr" }
-        @Override
-        int getLocalPort() { return 8080 }
+        @Override int getRemotePort() { return 0 }
+        @Override String getLocalName() { return "TestLocalName" }
+        @Override String getLocalAddr() { return "TestLocalAddr" }
+        @Override int getLocalPort() { return 443 }
 
         // ========== New methods for Servlet 3.1 ==========
-        @Override
-        String changeSessionId() { throw new UnsupportedOperationException() }
-        @Override
-        boolean authenticate(HttpServletResponse response) throws IOException, ServletException { throw new UnsupportedOperationException() }
-        @Override
-        void login(String username, String password) throws ServletException { throw new UnsupportedOperationException() }
-        @Override
-        void logout() throws ServletException { throw new UnsupportedOperationException() }
-        @Override
-        Collection<Part> getParts() throws IOException, ServletException { throw new UnsupportedOperationException() }
-        @Override
-        Part getPart(String name) throws IOException, ServletException { throw new UnsupportedOperationException() }
-        @Override
-        def <T extends HttpUpgradeHandler> T upgrade(Class<T> handlerClass) throws IOException, ServletException { return null }
-        @Override
-        long getContentLengthLong() { return 0 }
-        @Override
-        ServletContext getServletContext() { return wfs.servletContext }
-        @Override
-        AsyncContext startAsync() throws IllegalStateException { throw new UnsupportedOperationException("startAsync not supported") }
-        @Override
-        AsyncContext startAsync(ServletRequest servletRequest, ServletResponse servletResponse) throws IllegalStateException { return null }
-        @Override
-        boolean isAsyncStarted() { return false }
-        @Override
-        boolean isAsyncSupported() { return false }
-        @Override
-        AsyncContext getAsyncContext() { throw new UnsupportedOperationException("getAsyncContext not supported") }
-        @Override
-        DispatcherType getDispatcherType() { throw new UnsupportedOperationException("getDispatcherType not supported") }
+        @Override String changeSessionId() { throw new UnsupportedOperationException() }
+        @Override boolean authenticate(HttpServletResponse response) throws IOException, ServletException { throw new UnsupportedOperationException() }
+        @Override void login(String username, String password) throws ServletException { throw new UnsupportedOperationException() }
+        @Override void logout() throws ServletException { throw new UnsupportedOperationException() }
+        @Override Collection<Part> getParts() throws IOException, ServletException { throw new UnsupportedOperationException() }
+        @Override Part getPart(String name) throws IOException, ServletException { throw new UnsupportedOperationException() }
+        @Override def <T extends HttpUpgradeHandler> T upgrade(Class<T> handlerClass) throws IOException, ServletException { return null }
+        @Override long getContentLengthLong() { return 0 }
+        @Override ServletContext getServletContext() { return wfs.servletContext }
+        @Override AsyncContext startAsync() throws IllegalStateException { throw new UnsupportedOperationException("startAsync not supported") }
+        @Override AsyncContext startAsync(ServletRequest servletRequest, ServletResponse servletResponse) throws IllegalStateException { return null }
+        @Override boolean isAsyncStarted() { return false }
+        @Override boolean isAsyncSupported() { return false }
+        @Override AsyncContext getAsyncContext() { throw new UnsupportedOperationException("getAsyncContext not supported") }
+        @Override DispatcherType getDispatcherType() { throw new UnsupportedOperationException("getDispatcherType not supported") }
     }
 
     static class HttpSessionStub implements HttpSession {
@@ -404,28 +338,20 @@ class WebFacadeStub implements WebFacade {
         int getMaxInactiveInterval() { return 0 }
         HttpSessionContext getSessionContext() { return null }
 
-        @Override
-        Object getAttribute(String s) { return wfs.sessionAttributes.get(s) }
-        @Override
-        Object getValue(String s) { return wfs.sessionAttributes.get(s) }
-        @Override
-        Enumeration getAttributeNames() {
+        @Override Object getAttribute(String s) { return wfs.sessionAttributes.get(s) }
+        @Override Object getValue(String s) { return wfs.sessionAttributes.get(s) }
+        @Override Enumeration getAttributeNames() {
             return new Enumeration() {
                 Iterator i = wfs.sessionAttributes.keySet().iterator()
                 boolean hasMoreElements() { return i.hasNext() }
                 Object nextElement() { return i.next() }
             }
         }
-        @Override
-        String[] getValueNames() { return null }
-        @Override
-        void setAttribute(String s, Object o) { wfs.sessionAttributes.put(s, o) }
-        @Override
-        void putValue(String s, Object o) { wfs.sessionAttributes.put(s, o) }
-        @Override
-        void removeAttribute(String s) { wfs.sessionAttributes.remove(s) }
-        @Override
-        void removeValue(String s) { wfs.sessionAttributes.remove(s) }
+        @Override String[] getValueNames() { return null }
+        @Override void setAttribute(String s, Object o) { wfs.sessionAttributes.put(s, o) }
+        @Override void putValue(String s, Object o) { wfs.sessionAttributes.put(s, o) }
+        @Override void removeAttribute(String s) { wfs.sessionAttributes.remove(s) }
+        @Override void removeValue(String s) { wfs.sessionAttributes.remove(s) }
 
         void invalidate() { }
         boolean isNew() { return false }
@@ -454,91 +380,54 @@ class WebFacadeStub implements WebFacade {
         String getRealPath(String s) { return null }
         String getServerInfo() { return "Web Facade Stub/1.0" }
 
-        @Override
-        String getInitParameter(String s) { return s == "moqui-name" ? "webroot" : null }
-        @Override
-        Enumeration getInitParameterNames() {
+        @Override String getInitParameter(String s) { return s == "moqui-name" ? "webroot" : null }
+        @Override Enumeration getInitParameterNames() {
             return new Enumeration() {
                 Iterator i = ['moqui-name'].iterator()
                 boolean hasMoreElements() { return i.hasNext() }
                 Object nextElement() { return i.next() }
             }
         }
-        @Override
-        Object getAttribute(String s) { return wfs.sessionAttributes.get(s) }
-        @Override
-        Enumeration getAttributeNames() {
+        @Override Object getAttribute(String s) { return wfs.sessionAttributes.get(s) }
+        @Override Enumeration getAttributeNames() {
             return new Enumeration() {
                 Iterator i = wfs.sessionAttributes.keySet().iterator()
                 boolean hasMoreElements() { return i.hasNext() }
                 Object nextElement() { return i.next() }
             }
         }
-        @Override
-        void setAttribute(String s, Object o) { wfs.sessionAttributes.put(s, o) }
-        @Override
-        void removeAttribute(String s) { wfs.sessionAttributes.remove(s) }
-        @Override
-        String getServletContextName() { return "Moqui Root Webapp" }
+        @Override void setAttribute(String s, Object o) { wfs.sessionAttributes.put(s, o) }
+        @Override void removeAttribute(String s) { wfs.sessionAttributes.remove(s) }
+        @Override String getServletContextName() { return "Moqui Root Webapp" }
 
         // ========== New methods for Servlet 3.1 ==========
-        @Override
-        int getEffectiveMajorVersion() { return 3 }
-        @Override
-        int getEffectiveMinorVersion() { return 1 }
-        @Override
-        boolean setInitParameter(String name, String value) { return false }
-        @Override
-        ServletRegistration.Dynamic addServlet(String servletName, String className) { throw new UnsupportedOperationException() }
-        @Override
-        ServletRegistration.Dynamic addServlet(String servletName, Servlet servlet) { throw new UnsupportedOperationException() }
-        @Override
-        ServletRegistration.Dynamic addServlet(String servletName, Class<? extends Servlet> servletClass) {
-            throw new UnsupportedOperationException() }
-        @Override
-        def <T extends Servlet> T createServlet(Class<T> clazz) throws ServletException { throw new UnsupportedOperationException() }
-        @Override
-        ServletRegistration getServletRegistration(String servletName) { throw new UnsupportedOperationException() }
-        @Override
-        Map<String, ? extends ServletRegistration> getServletRegistrations() { throw new UnsupportedOperationException() }
-        @Override
-        FilterRegistration.Dynamic addFilter(String filterName, String className) { throw new UnsupportedOperationException() }
-        @Override
-        FilterRegistration.Dynamic addFilter(String filterName, Filter filter) { throw new UnsupportedOperationException() }
-        @Override
-        FilterRegistration.Dynamic addFilter(String filterName, Class<? extends Filter> filterClass) {
-            throw new UnsupportedOperationException() }
-        @Override
-        def <T extends Filter> T createFilter(Class<T> clazz) throws ServletException { throw new UnsupportedOperationException() }
-        @Override
-        FilterRegistration getFilterRegistration(String filterName) { throw new UnsupportedOperationException() }
-        @Override
-        Map<String, ? extends FilterRegistration> getFilterRegistrations() { throw new UnsupportedOperationException() }
-        @Override
-        SessionCookieConfig getSessionCookieConfig() { throw new UnsupportedOperationException() }
-        @Override
-        void setSessionTrackingModes(Set<SessionTrackingMode> sessionTrackingModes) { throw new UnsupportedOperationException() }
-        @Override
-        Set<SessionTrackingMode> getDefaultSessionTrackingModes() { throw new UnsupportedOperationException() }
-        @Override
-        Set<SessionTrackingMode> getEffectiveSessionTrackingModes() { throw new UnsupportedOperationException() }
-        @Override
-        void addListener(String className) { throw new UnsupportedOperationException() }
-        @Override
-        def <T extends EventListener> void addListener(T t) { throw new UnsupportedOperationException() }
-        @Override
-        void addListener(Class<? extends EventListener> listenerClass) { throw new UnsupportedOperationException() }
-        @Override
-        def <T extends EventListener> T createListener(Class<T> clazz) throws ServletException {
-            throw new UnsupportedOperationException() }
-        @Override
-        JspConfigDescriptor getJspConfigDescriptor() { throw new UnsupportedOperationException() }
-        @Override
-        ClassLoader getClassLoader() { throw new UnsupportedOperationException() }
-        @Override
-        void declareRoles(String... roleNames) { throw new UnsupportedOperationException() }
-        @Override
-        String getVirtualServerName() { throw new UnsupportedOperationException() }
+        @Override int getEffectiveMajorVersion() { return 3 }
+        @Override int getEffectiveMinorVersion() { return 1 }
+        @Override boolean setInitParameter(String name, String value) { return false }
+        @Override ServletRegistration.Dynamic addServlet(String servletName, String className) { throw new UnsupportedOperationException() }
+        @Override ServletRegistration.Dynamic addServlet(String servletName, Servlet servlet) { throw new UnsupportedOperationException() }
+        @Override ServletRegistration.Dynamic addServlet(String servletName, Class<? extends Servlet> servletClass) { throw new UnsupportedOperationException() }
+        @Override def <T extends Servlet> T createServlet(Class<T> clazz) throws ServletException { throw new UnsupportedOperationException() }
+        @Override ServletRegistration getServletRegistration(String servletName) { throw new UnsupportedOperationException() }
+        @Override Map<String, ? extends ServletRegistration> getServletRegistrations() { throw new UnsupportedOperationException() }
+        @Override FilterRegistration.Dynamic addFilter(String filterName, String className) { throw new UnsupportedOperationException() }
+        @Override FilterRegistration.Dynamic addFilter(String filterName, Filter filter) { throw new UnsupportedOperationException() }
+        @Override FilterRegistration.Dynamic addFilter(String filterName, Class<? extends Filter> filterClass) { throw new UnsupportedOperationException() }
+        @Override def <T extends Filter> T createFilter(Class<T> clazz) throws ServletException { throw new UnsupportedOperationException() }
+        @Override FilterRegistration getFilterRegistration(String filterName) { throw new UnsupportedOperationException() }
+        @Override Map<String, ? extends FilterRegistration> getFilterRegistrations() { throw new UnsupportedOperationException() }
+        @Override SessionCookieConfig getSessionCookieConfig() { throw new UnsupportedOperationException() }
+        @Override void setSessionTrackingModes(Set<SessionTrackingMode> sessionTrackingModes) { throw new UnsupportedOperationException() }
+        @Override Set<SessionTrackingMode> getDefaultSessionTrackingModes() { throw new UnsupportedOperationException() }
+        @Override Set<SessionTrackingMode> getEffectiveSessionTrackingModes() { throw new UnsupportedOperationException() }
+        @Override void addListener(String className) { throw new UnsupportedOperationException() }
+        @Override def <T extends EventListener> void addListener(T t) { throw new UnsupportedOperationException() }
+        @Override void addListener(Class<? extends EventListener> listenerClass) { throw new UnsupportedOperationException() }
+        @Override def <T extends EventListener> T createListener(Class<T> clazz) throws ServletException { throw new UnsupportedOperationException() }
+        @Override JspConfigDescriptor getJspConfigDescriptor() { throw new UnsupportedOperationException() }
+        @Override ClassLoader getClassLoader() { throw new UnsupportedOperationException() }
+        @Override void declareRoles(String... roleNames) { throw new UnsupportedOperationException() }
+        @Override String getVirtualServerName() { throw new UnsupportedOperationException() }
     }
 
     static class HttpServletResponseStub implements HttpServletResponse {
@@ -551,86 +440,51 @@ class WebFacadeStub implements WebFacade {
         int status = SC_OK
         Map<String, Object> headers = [:]
 
-        HttpServletResponseStub(WebFacadeStub wfs) {
-            this.wfs = wfs
-        }
+        HttpServletResponseStub(WebFacadeStub wfs) { this.wfs = wfs }
 
-        @Override
-        void addCookie(Cookie cookie) { }
+        @Override void addCookie(Cookie cookie) { }
 
-        @Override
-        boolean containsHeader(String s) { return headers.containsKey(s) }
+        @Override boolean containsHeader(String s) { return headers.containsKey(s) }
 
-        @Override
-        String encodeURL(String s) { return null }
-        @Override
-        String encodeRedirectURL(String s) { return null }
-        @Override
-        String encodeUrl(String s) { return null }
-        @Override
-        String encodeRedirectUrl(String s) { return null }
+        @Override String encodeURL(String s) { return null }
+        @Override String encodeRedirectURL(String s) { return null }
+        @Override String encodeUrl(String s) { return null }
+        @Override String encodeRedirectUrl(String s) { return null }
 
-        @Override
-        void sendError(int i, String s) throws IOException { status = i; wfs.responseWriter.append(s) }
-        @Override
-        void sendError(int i) throws IOException { status = i }
-        @Override
-        void sendRedirect(String s) throws IOException { logger.info("HttpServletResponseStub sendRedirect to: ${s}") }
+        @Override void sendError(int i, String s) throws IOException { status = i; wfs.responseWriter.append(s) }
+        @Override void sendError(int i) throws IOException { status = i }
+        @Override void sendRedirect(String s) throws IOException { logger.info("HttpServletResponseStub sendRedirect to: ${s}") }
 
-        @Override
-        void setDateHeader(String s, long l) { headers.put(s, l) }
-        @Override
-        void addDateHeader(String s, long l) { headers.put(s, l) }
-        @Override
-        void setHeader(String s, String s1) { headers.put(s, s1) }
-        @Override
-        void addHeader(String s, String s1) { headers.put(s, s1) }
-        @Override
-        void setIntHeader(String s, int i) { headers.put(s, i) }
-        @Override
-        void addIntHeader(String s, int i) { headers.put(s, i) }
+        @Override void setDateHeader(String s, long l) { headers.put(s, l) }
+        @Override void addDateHeader(String s, long l) { headers.put(s, l) }
+        @Override void setHeader(String s, String s1) { headers.put(s, s1) }
+        @Override void addHeader(String s, String s1) { headers.put(s, s1) }
+        @Override void setIntHeader(String s, int i) { headers.put(s, i) }
+        @Override void addIntHeader(String s, int i) { headers.put(s, i) }
 
-        @Override
-        void setStatus(int i, String s) { status = i; wfs.responseWriter.append(s) }
+        @Override void setStatus(int i, String s) { status = i; wfs.responseWriter.append(s) }
 
-        @Override
-        String getCharacterEncoding() { return characterEncoding }
-        @Override
-        String getContentType() { return contentType }
+        @Override String getCharacterEncoding() { return characterEncoding }
+        @Override String getContentType() { return contentType }
 
-        @Override
-        ServletOutputStream getOutputStream() throws IOException {
-            throw new UnsupportedOperationException("Using WebFacadeStub getOutputStream is not supported")
-        }
-        @Override
-        PrintWriter getWriter() throws IOException { return wfs.responsePrintWriter }
+        @Override ServletOutputStream getOutputStream() throws IOException {
+            throw new UnsupportedOperationException("Using WebFacadeStub getOutputStream is not supported") }
+        @Override PrintWriter getWriter() throws IOException { return wfs.responsePrintWriter }
 
-        @Override
-        void setBufferSize(int i) { }
-        @Override
-        int getBufferSize() { return wfs.responseWriter.getBuffer().length() }
+        @Override void setBufferSize(int i) { }
+        @Override int getBufferSize() { return wfs.responseWriter.getBuffer().length() }
 
-        @Override
-        void flushBuffer() throws IOException { wfs.responseWriter.flush() }
-        @Override
-        void resetBuffer() { wfs.responseWriter = new StringWriter() }
-        @Override
-        boolean isCommitted() { return false }
-        @Override
-        void reset() { resetBuffer(); status = SC_OK; headers.clear() }
-        @Override
-        void setLocale(Locale locale) { this.locale = locale }
-        @Override
-        Locale getLocale() { return locale }
+        @Override void flushBuffer() throws IOException { wfs.responseWriter.flush() }
+        @Override void resetBuffer() { wfs.responseWriter = new StringWriter() }
+        @Override boolean isCommitted() { return false }
+        @Override void reset() { resetBuffer(); status = SC_OK; headers.clear() }
+        @Override void setLocale(Locale locale) { this.locale = locale }
+        @Override Locale getLocale() { return locale }
 
         // ========== New methods for Servlet 3.1 ==========
-        @Override
-        String getHeader(String name) { return headers.get(name) as String }
-        @Override
-        Collection<String> getHeaders(String name) { return [headers.get(name) as String] }
-        @Override
-        Collection<String> getHeaderNames() { return headers.keySet() }
-        @Override
-        void setContentLengthLong(long len) { }
+        @Override String getHeader(String name) { return headers.get(name) as String }
+        @Override Collection<String> getHeaders(String name) { return [headers.get(name) as String] }
+        @Override Collection<String> getHeaderNames() { return headers.keySet() }
+        @Override void setContentLengthLong(long len) { }
     }
 }

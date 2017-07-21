@@ -110,7 +110,7 @@ class EntityFindTests extends Specification {
         [testMedium:"Test Name", testIndicator_op: "empty"] | "EXTST1"
         [testMedium:"Test Name", testLong_op: "empty"] | "EXTST1"
         [testMedium:"Test Name", testDateTime_from: "", testDateTime_thru: ""] | "EXTST1"
-        [testMedium:"Test Name", testDateTime_from: timestamp, testDateTime_thru: timestamp] | null
+        [testMedium:"Test Name", testDateTime_from: timestamp, testDateTime_thru: timestamp - 1] | null
         [testMedium:"Test Name", testDateTime_from: timestamp, testDateTime_thru: timestamp + 1] | "EXTST1"
         [testNumberInteger:4321, testMedium_not: "Y", testMedium_op: "equals", testMedium: ""] | "EXTST1"
         [testNumberInteger:4321, testMedium_not: "Y", testMedium_op: "empty"] | "EXTST1"

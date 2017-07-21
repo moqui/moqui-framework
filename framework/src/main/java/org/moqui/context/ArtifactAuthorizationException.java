@@ -13,22 +13,19 @@
  */
 package org.moqui.context;
 
-import org.moqui.BaseException;
+import org.moqui.BaseArtifactException;
 
 import java.util.Deque;
 
 /** Thrown when artifact authz fails. */
-public class ArtifactAuthorizationException extends BaseException {
+public class ArtifactAuthorizationException extends BaseArtifactException {
     private ArtifactExecutionInfo artifactInfo = null;
-    private Deque<ArtifactExecutionInfo> artifactStack = null;
 
     public ArtifactAuthorizationException(String str) { super(str); }
     public ArtifactAuthorizationException(String str, ArtifactExecutionInfo curInfo, Deque<ArtifactExecutionInfo> curStack) {
-        super(str);
+        super(str, curStack);
         artifactInfo = curInfo;
-        artifactStack = curStack;
     }
 
     public ArtifactExecutionInfo getArtifactInfo() { return artifactInfo; }
-    public Deque<ArtifactExecutionInfo> getArtifactStack() { return artifactStack; }
 }

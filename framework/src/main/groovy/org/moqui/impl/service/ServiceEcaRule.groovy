@@ -34,6 +34,7 @@ class ServiceEcaRule {
 
     protected final MNode secaNode
     public final String location, serviceName, serviceNameNoHash, when
+    public final int priority
     protected final boolean runOnError
 
     protected final XmlAction condition
@@ -46,6 +47,7 @@ class ServiceEcaRule {
         serviceNameNoHash = serviceName.replace("#", "")
         when = secaNode.attribute("when")
         runOnError = secaNode.attribute("run-on-error") == "true"
+        priority = (secaNode.attribute("priority") ?: "5") as int
 
         // prep condition
         if (secaNode.hasChild("condition") && secaNode.first("condition").children) {

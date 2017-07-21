@@ -21,18 +21,15 @@ import org.moqui.util.MNode
 @CompileStatic
 class EntityDynamicViewImpl implements EntityDynamicView {
 
-    protected EntityFindImpl entityFind;
+    protected EntityFacadeImpl efi
 
     protected String entityName = "DynamicView"
     protected MNode entityNode = new MNode("view-entity", ["package":"dynamic", "entity-name":"DynamicView", "is-dynamic-view":"true"])
 
-    EntityDynamicViewImpl(EntityFindImpl entityFind) {
-        this.entityFind = entityFind
-    }
+    EntityDynamicViewImpl(EntityFindImpl entityFind) { this.efi = entityFind.efi }
+    EntityDynamicViewImpl(EntityFacadeImpl efi) { this.efi = efi }
 
-    EntityDefinition makeEntityDefinition() {
-        return new EntityDefinition(this.entityFind.efi, this.entityNode)
-    }
+    EntityDefinition makeEntityDefinition() { return new EntityDefinition(efi, entityNode) }
 
     @Override
     EntityDynamicView setEntityName(String entityName) {
@@ -60,7 +57,7 @@ class EntityDynamicViewImpl implements EntityDynamicView {
         MNode joinFromMemberEntityNode =
                 entityNode.first({ MNode it -> it.name == "member-entity" && it.attribute("entity-alias") == joinFromAlias })
         String entityName = joinFromMemberEntityNode.attribute("entity-name")
-        EntityDefinition joinFromEd = entityFind.efi.getEntityDefinition(entityName)
+        EntityDefinition joinFromEd = efi.getEntityDefinition(entityName)
         EntityJavaUtil.RelationshipInfo relInfo = joinFromEd.getRelationshipInfo(relationshipName)
         if (relInfo == null) throw new EntityException("Relationship not found with name [${relationshipName}] on entity [${entityName}]")
 
@@ -76,8 +73,7 @@ class EntityDynamicViewImpl implements EntityDynamicView {
 
     MNode getViewEntityNode() { return entityNode }
 
-    @Override
-    List<MNode> getMemberEntityNodes() { return entityNode.children("member-entity") }
+    @Override List<MNode> getMemberEntityNodes() { return entityNode.children("member-entity") }
 
     @Override
     EntityDynamicView addAliasAll(String entityAlias, String prefix) {
@@ -90,12 +86,18 @@ class EntityDynamicViewImpl implements EntityDynamicView {
         entityNode.append("alias", ["entity-alias":entityAlias, "name":name])
         return this
     }
-
     @Override
     EntityDynamicView addAlias(String entityAlias, String name, String field, String function) {
-        entityNode.append("alias", ["entity-alias":entityAlias, "name":name, "field":field, "function":function])
+        return addAlias(entityAlias, name, field, function, null)
+    }
+    EntityDynamicView addAlias(String entityAlias, String name, String field, String function, String defaultDisplay) {
+        MNode aNode = entityNode.append("alias", ["entity-alias":entityAlias, name:name])
+        if (field != null && !field.isEmpty()) aNode.attributes.put("field", field)
+        if (function != null && !function.isEmpty()) aNode.attributes.put("function", function)
+        if (defaultDisplay != null && !defaultDisplay.isEmpty()) aNode.attributes.put("default-display", defaultDisplay)
         return this
     }
+    MNode getAlias(String name) { return entityNode.first("alias", "name", name) }
 
     @Override
     EntityDynamicView addRelationship(String type, String title, String relatedEntityName, Map<String, String> entityKeyMaps) {

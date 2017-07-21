@@ -71,7 +71,6 @@ public class EntityValueImpl extends EntityValueBase {
 
             int size = fieldInfoArray.length;
             for (int i = 0; i < size; i++) {
-                // explicit cast to avoid Groovy castToType
                 FieldInfo fieldInfo = fieldInfoArray[i];
                 if (fieldInfo == null) break;
                 if (i > 0) {

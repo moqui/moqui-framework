@@ -20,6 +20,7 @@ import freemarker.ext.beans.BeansWrapperBuilder;
 import freemarker.template.*;
 import groovy.transform.CompileStatic;
 
+import org.moqui.BaseArtifactException;
 import org.moqui.BaseException;
 import org.moqui.context.ExecutionContextFactory;
 import org.moqui.resource.ResourceReference;
@@ -57,7 +58,7 @@ public class FtlTemplateRenderer implements TemplateRenderer {
         Template theTemplate = getFtlTemplateByLocation(location);
         try {
             theTemplate.createProcessingEnvironment(ecfi.getEci().contextStack, writer).process();
-        } catch (Exception e) { throw new BaseException("Error rendering template at " + location, e); }
+        } catch (Exception e) { throw new BaseArtifactException("Error rendering template at " + location, e); }
     }
     public String stripTemplateExtension(String fileName) { return fileName.contains(".ftl") ? fileName.replace(".ftl", "") : fileName; }
 
@@ -81,7 +82,7 @@ public class FtlTemplateRenderer implements TemplateRenderer {
             }
         }
         if (theTemplate == null) theTemplate = makeTemplate(location, hasVersion);
-        if (theTemplate == null) throw new IllegalArgumentException("Could not find template at " + location);
+        if (theTemplate == null) throw new BaseArtifactException("Could not find template at " + location);
         return theTemplate;
     }
 
@@ -97,7 +98,7 @@ public class FtlTemplateRenderer implements TemplateRenderer {
             templateReader = new InputStreamReader(ecfi.resourceFacade.getLocationStream(location), "UTF-8");
             newTemplate = new Template(location, templateReader, getFtlConfiguration());
         } catch (Exception e) {
-            throw new IllegalArgumentException("Error while initializing template at " + location, e);
+            throw new BaseArtifactException("Error while initializing template at " + location, e);
         } finally {
             if (templateReader != null) {
                 try { templateReader.close(); }

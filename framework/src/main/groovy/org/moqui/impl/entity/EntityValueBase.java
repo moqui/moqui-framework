@@ -56,6 +56,7 @@ public abstract class EntityValueBase implements EntityValue {
     private static final String UPDATE_ERROR = "Error updating ${entityName} ${primaryKeys}";
     private static final String DELETE_ERROR = "Error deleting ${entityName} ${primaryKeys}";
     private static final String REFRESH_ERROR = "Error finding ${entityName} ${primaryKeys}";
+    private static final String PLACEHOLDER = "PLHLDR";
 
     private String entityName;
     final HashMap<String, Object> valueMapInternal = new HashMap<>();
@@ -138,11 +139,20 @@ public abstract class EntityValueBase implements EntityValue {
     @Override public String getEntityName() { return entityName; }
     @Override public boolean isModified() { return modified; }
     @Override public boolean isFieldModified(String name) {
+        Object valueMapValue = valueMapInternal.getOrDefault(name, PLACEHOLDER);
+        // identity compare as alternative to containsKey() call, if is PLACEHOLDER then Map didn't contain the key
+        if (valueMapValue == PLACEHOLDER) return false;
+        if (dbValueMap == null) return true;
+        Object dbValue = dbValueMap.getOrDefault(name, PLACEHOLDER);
+        if (dbValue == PLACEHOLDER) return true;
+        return (valueMapValue == null && dbValue != null) || (valueMapValue != null && !valueMapValue.equals(dbValue));
+        /*
         if (!valueMapInternal.containsKey(name)) return false;
         if (dbValueMap == null || !dbValueMap.containsKey(name)) return true;
         Object valueMapValue = valueMapInternal.get(name);
         Object dbValue = dbValueMap.get(name);
         return (valueMapValue == null && dbValue != null) || (valueMapValue != null && !valueMapValue.equals(dbValue));
+        */
     }
     @Override public boolean isFieldSet(String name) { return valueMapInternal.containsKey(name); }
     @Override public boolean isField(String name) { return getEntityDefinition().isField(name); }
@@ -426,7 +436,7 @@ public abstract class EntityValueBase implements EntityValue {
         try {
             if (o instanceof byte[]) return new SerialBlob((byte[]) o);
         } catch (Exception e) {
-            throw new EntityException("Error getting SerialBloc for field " + name + " in entity " + entityName, e);
+            throw new EntityException("Error getting SerialBlob for field " + name + " in entity " + entityName, e);
         }
         // try groovy...
         return DefaultGroovyMethods.asType(o, SerialBlob.class);
@@ -1197,7 +1207,7 @@ public abstract class EntityValueBase implements EntityValue {
 
         // do the artifact push/authz
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(entityName, ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_CREATE, "create").setParameters(valueMapInternal);
-        aefi.pushInternal(aei, !entityInfo.authorizeSkipCreate);
+        aefi.pushInternal(aei, !entityInfo.authorizeSkipCreate, false);
 
         try {
             // run EECA before rules
@@ -1290,7 +1300,7 @@ public abstract class EntityValueBase implements EntityValue {
 
         // do the artifact push/authz
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(entityName, ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_UPDATE, "update").setParameters(valueMapInternal);
-        aefi.pushInternal(aei, !entityInfo.authorizeSkipTrue);
+        aefi.pushInternal(aei, !entityInfo.authorizeSkipTrue, false);
 
         try {
             // run EECA before rules
@@ -1322,8 +1332,8 @@ public abstract class EntityValueBase implements EntityValue {
             }
 
             // if (ed.getEntityName() == "foo") logger.warn("================ evb.update() ${getEntityName()} nonPkFieldList=${nonPkFieldList};\nvalueMap=${valueMap};\noldValues=${oldValues}")
-            if (nonPkFieldArrayIndex == 0) {
-                if (logger.isTraceEnabled()) logger.trace("Not doing update on entity with no populated non-PK fields; entity=" + this.toString());
+            if (nonPkFieldArrayIndex == 0 || (nonPkFieldArrayIndex == 1 && modifiedLastUpdatedStamp)) {
+                if (logger.isTraceEnabled()) logger.trace("Not doing update on entity with no changed non-PK fields; value=" + this.toString());
                 return this;
             }
 
@@ -1423,7 +1433,7 @@ public abstract class EntityValueBase implements EntityValue {
 
         // do the artifact push/authz
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(entityName, ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_DELETE, "delete").setParameters(valueMapInternal);
-        aefi.pushInternal(aei, !entityInfo.authorizeSkipTrue);
+        aefi.pushInternal(aei, !entityInfo.authorizeSkipTrue, false);
 
         try {
             // run EECA before rules
@@ -1458,6 +1468,7 @@ public abstract class EntityValueBase implements EntityValue {
     @Override
     public boolean refresh() {
         final EntityDefinition ed = getEntityDefinition();
+        final EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo;
         final EntityFacadeImpl efi = getEntityFacadeImpl();
         final ExecutionContextFactoryImpl ecfi = efi.ecfi;
         final ExecutionContextImpl ec = ecfi.getEci();
@@ -1470,9 +1481,12 @@ public abstract class EntityValueBase implements EntityValue {
             return false;
         }
 
+        // check/set defaults
+        if (entityInfo.hasFieldDefaults) checkSetFieldDefaults(ed, ec, null);
+
         // do the artifact push/authz
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(entityName, ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "refresh").setParameters(valueMapInternal);
-        aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView);
+        aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView, false);
 
         boolean retVal = false;
         try {

@@ -14,6 +14,8 @@
 package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
+import org.apache.logging.log4j.LogManager
+import org.apache.logging.log4j.core.LoggerContext
 import org.apache.shiro.SecurityUtils
 import org.apache.shiro.authc.credential.CredentialsMatcher
 import org.apache.shiro.authc.credential.HashedCredentialsMatcher
@@ -126,6 +128,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     private SimpleTopic<NotificationMessageImpl> notificationMessageTopic = null
     private NotificationWebSocketListener notificationWebSocketListener = new NotificationWebSocketListener()
 
+    protected ArrayList<LogEventSubscriber> logEventSubscribers = new ArrayList<>()
+
     // ======== Permanent Delegated Facades ========
     @SuppressWarnings("GrFinalVariableAccess") public final CacheFacadeImpl cacheFacade
     @SuppressWarnings("GrFinalVariableAccess") public final LoggerFacadeImpl loggerFacade
@@ -138,7 +142,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     /** The main worker pool for services, running async closures and runnables, etc */
     @SuppressWarnings("GrFinalVariableAccess") public final ThreadPoolExecutor workerPool
     /** An executor for the scheduled job runner */
-    public final ScheduledThreadPoolExecutor scheduledExecutor = new ScheduledThreadPoolExecutor(2)
+    public final ScheduledThreadPoolExecutor scheduledExecutor = new ScheduledThreadPoolExecutor(4)
 
     /**
      * This constructor gets runtime directory and conf file location from a properties file on the classpath so that
@@ -198,6 +202,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // init the configuration (merge from component and runtime conf files)
         confXmlRoot = initConfig(baseConfigNode, runtimeConfXmlRoot)
 
+        reconfigureLog4j()
         workerPool = makeWorkerPool()
         preFacadeInit()
 
@@ -249,6 +254,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // init the configuration (merge from component and runtime conf files)
         confXmlRoot = initConfig(baseConfigNode, runtimeConfXmlRoot)
 
+        reconfigureLog4j()
         workerPool = makeWorkerPool()
         preFacadeInit()
 
@@ -272,6 +278,16 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         postFacadeInit()
 
         logger.info("Execution Context Factory initialized in ${(System.currentTimeMillis() - initStartTime)/1000} seconds")
+    }
+
+    protected void reconfigureLog4j() {
+        URL log4j2Url = this.class.getClassLoader().getResource("log4j2.xml")
+        if (log4j2Url == null) {
+            logger.warn("No log4j2.xml file found on the classpath, no reconfiguring Log4J")
+            return
+        }
+        final LoggerContext ctx = (LoggerContext) LogManager.getContext(true)
+        ctx.setConfigLocation(log4j2Url.toURI())
     }
 
     protected MNode initBaseConfig(MNode runtimeConfXmlRoot) {
@@ -300,7 +316,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         logger.info("Initializing Moqui Framework version ${moquiVersion ?: 'Unknown'}\n - runtime directory: ${this.runtimePath}\n - runtime config:    ${this.runtimeConfPath}")
 
         URL defaultConfUrl = this.class.getClassLoader().getResource("MoquiDefaultConf.xml")
-        if (!defaultConfUrl) throw new IllegalArgumentException("Could not find MoquiDefaultConf.xml file on the classpath")
+        if (defaultConfUrl == null) throw new IllegalArgumentException("Could not find MoquiDefaultConf.xml file on the classpath")
         MNode newConfigXmlRoot = MNode.parse(defaultConfUrl.toString(), defaultConfUrl.newInputStream())
 
         // just merge the component configuration, needed before component init is done
@@ -342,6 +358,27 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                 if (valueAttr != null && !valueAttr.isEmpty()) System.setProperty(propName, SystemBinding.expand(valueAttr))
             }
         }
+
+        // if there are default_locale or default_time_zone Java props or system env vars set defaults
+        String localeStr = SystemBinding.getPropOrEnv("default_locale")
+        if (localeStr) {
+            try {
+                int usIdx = localeStr.indexOf("_")
+                Locale.setDefault(usIdx < 0 ? new Locale(localeStr) :
+                        new Locale(localeStr.substring(0, usIdx), localeStr.substring(usIdx+1).toUpperCase()))
+            } catch (Throwable t) {
+                logger.error("Error setting default locale to ${localeStr}: ${t.toString()}")
+            }
+        }
+        String tzStr = SystemBinding.getPropOrEnv("default_time_zone")
+        if (tzStr) {
+            try {
+                TimeZone.setDefault(TimeZone.getTimeZone(tzStr))
+            } catch (Throwable t) {
+                logger.error("Error setting default time zone to ${tzStr}: ${t.toString()}")
+            }
+        }
+        logger.info("Default locale ${Locale.getDefault()}, time zone ${TimeZone.getDefault()}")
 
         return baseConfigNode
     }
@@ -395,6 +432,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             logger.warn("Could not save ${confSaveFile.absolutePath} file: ${e.toString()}")
         }
 
+        // get localhost address for ongoing use
         try {
             localhostAddress = InetAddress.getLocalHost()
         } catch (UnknownHostException e) {
@@ -729,6 +767,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         nml.init(this)
         registeredNotificationMessageListeners.add(nml)
     }
+    @Override void registerLogEventSubscriber(@Nonnull LogEventSubscriber subscriber) { logEventSubscribers.add(subscriber) }
+    @Override List<LogEventSubscriber> getLogEventSubscribers() { return Collections.unmodifiableList(logEventSubscribers) }
+
     /** Called by NotificationMessageImpl.send(), send to topic (possibly distributed) */
     void sendNotificationMessageToTopic(NotificationMessageImpl nmi) {
         if (notificationMessageTopic != null) {
@@ -1294,7 +1335,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                     ConcurrentLinkedQueue<ArtifactHitInfo> queue = ecfi.deferredHitInfoQueue
                     // split into maxCreates chunks, repeat based on initial size (may be added to while running)
                     int remainingCreates = queue.size()
-                    if (remainingCreates > maxCreates) logger.warn("Deferred ArtifactHit create queue size ${remainingCreates} is greater than max creates per chunk ${maxCreates}")
+                    // if (remainingCreates > maxCreates) logger.warn("Deferred ArtifactHit create queue size ${remainingCreates} is greater than max creates per chunk ${maxCreates}")
                     while (remainingCreates > 0) {
                         flushQueue(queue)
                         remainingCreates -= maxCreates
@@ -1341,6 +1382,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                     break
                 } catch (Throwable t) {
                     logger.error("Error saving ArtifactHits, retrying (${retryCount})", t)
+                    retryCount--
                 }
             }
         }

@@ -88,6 +88,7 @@ along with this software (see the LICENSE.md file). If not, see
                 </xs:simpleType>
             </xs:attribute>
             <xs:attribute name="run-on-error" type="boolean" default="false"/>
+            <xs:attribute name="priority" type="xs:positiveInteger" default="5"/>
         </xs:complexType>
     </xs:element>
 </xs:schema>

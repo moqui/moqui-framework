@@ -16,6 +16,7 @@ package org.moqui.impl.context.renderer
 import groovy.text.GStringTemplateEngine
 import groovy.text.Template
 import groovy.transform.CompileStatic
+import org.moqui.BaseArtifactException
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.resource.ResourceReference
 import org.moqui.context.TemplateRenderer
@@ -65,7 +66,7 @@ class GStringTemplateRenderer implements TemplateRenderer {
             theTemplate = templateGStringLocationCache.get(location);
         }
         if (!theTemplate) theTemplate = makeGStringTemplate(location)
-        if (!theTemplate) throw new IllegalArgumentException("Could not find template at [${location}]")
+        if (!theTemplate) throw new BaseArtifactException("Could not find template at [${location}]")
         return theTemplate
     }
     protected Template makeGStringTemplate(String location) {
@@ -79,7 +80,7 @@ class GStringTemplateRenderer implements TemplateRenderer {
             GStringTemplateEngine gste = new GStringTemplateEngine()
             newTemplate = gste.createTemplate(templateReader)
         } catch (Exception e) {
-            throw new IllegalArgumentException("Error while initializing template at [${location}]", e)
+            throw new BaseArtifactException("Error while initializing template at [${location}]", e)
         } finally {
             if (templateReader != null) templateReader.close()
         }
