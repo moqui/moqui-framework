@@ -51,9 +51,24 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="parentEnumId"/></relationship>
         <relationship type="one-nofk" title="Related" related="moqui.basic.Enumeration" short-alias="related">
             <key-map field-name="relatedEnumId"/></relationship>
+        <relationship type="many" related="moqui.basic.EnumGroupMember" short-alias="groupMembers">
+            <key-map field-name="enumId" related="enumGroupEnumId"/></relationship>
         <seed-data>
             <moqui.basic.EnumerationType enumTypeId="_NA_" description="Not Applicable"/>
             <moqui.basic.Enumeration enumId="_NA_" enumTypeId="_NA_" description="Not Applicable"/>
+
+            <moqui.basic.EnumerationType description="Boolean (Yes/No)" enumTypeId="BooleanYN"/>
+            <moqui.basic.Enumeration description="Yes" enumId="BlY" enumTypeId="BooleanYN"/>
+            <moqui.basic.Enumeration description="No" enumId="BlN" enumTypeId="BooleanYN"/>
+
+            <moqui.basic.EnumerationType description="Day of Week" enumTypeId="DayOfWeek"/>
+            <moqui.basic.Enumeration description="Monday" enumId="DowMonday" sequenceNum="1" enumCode="MONDAY" enumTypeId="DayOfWeek"/>
+            <moqui.basic.Enumeration description="Tuesday" enumId="DowTuesday" sequenceNum="2" enumCode="TUESDAY" enumTypeId="DayOfWeek"/>
+            <moqui.basic.Enumeration description="Wednesday" enumId="DowWednesday" sequenceNum="3" enumCode="WEDNESDAY" enumTypeId="DayOfWeek"/>
+            <moqui.basic.Enumeration description="Thursday" enumId="DowThursday" sequenceNum="4" enumCode="THURSDAY" enumTypeId="DayOfWeek"/>
+            <moqui.basic.Enumeration description="Friday" enumId="DowFriday" sequenceNum="5" enumCode="FRIDAY" enumTypeId="DayOfWeek"/>
+            <moqui.basic.Enumeration description="Saturday" enumId="DowSaturday" sequenceNum="6" enumCode="SATURDAY" enumTypeId="DayOfWeek"/>
+            <moqui.basic.Enumeration description="Sunday" enumId="DowSunday" sequenceNum="7" enumCode="SUNDAY" enumTypeId="DayOfWeek"/>
         </seed-data>
         <master><detail relationship="type"/><detail relationship="parent"/><detail relationship="related"/></master>
     </entity>
@@ -65,6 +80,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="enumGroupEnumId" type="id" is-pk="true"/>
         <field name="enumId" type="id" is-pk="true"/>
         <field name="sequenceNum" type="number-integer"/>
+        <field name="memberInfo" type="text-short"><description>General info about the member, usage is specific to the enum group</description></field>
         <relationship type="one" title="EnumGroup" related="moqui.basic.Enumeration">
             <key-map field-name="enumGroupEnumId"/></relationship>
         <relationship type="one" related="moqui.basic.Enumeration"/>
@@ -260,6 +276,13 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" title="To" related="moqui.basic.StatusItem" short-alias="toStatus">
             <key-map field-name="toStatusId" related="statusId"/></relationship>
     </entity>
+    <view-entity entity-name="StatusFlowItemDetail" package="moqui.basic">
+        <member-entity entity-alias="SFI" entity-name="moqui.basic.StatusFlowItem"/>
+        <member-entity entity-alias="SI" entity-name="moqui.basic.StatusItem" join-from-alias="SFI">
+            <key-map field-name="statusId"/></member-entity>
+        <alias-all entity-alias="SFI"/>
+        <alias-all entity-alias="SI"><exclude field="statusId"/></alias-all>
+    </view-entity>
     <view-entity entity-name="StatusFlowTransitionToDetail" package="moqui.basic">
         <member-entity entity-alias="SFT" entity-name="moqui.basic.StatusFlowTransition"/>
         <member-entity entity-alias="SI" entity-name="moqui.basic.StatusItem" join-from-alias="SFT">
@@ -323,15 +346,21 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="toUomId" type="id"/>
         <field name="fromDate" type="date-time"/>
         <field name="thruDate" type="date-time"/>
-        <field name="conversionFactor" type="number-decimal"/>
+        <field name="conversionFactor" type="number-float"/>
         <field name="conversionOffset" type="number-decimal">
             <description>The factor is multiplied first, then the offset is added. When converting in the reverse
                 direction the offset is subtracted first, then divided by the factor.
             </description>
         </field>
+        <field name="purposeEnumId" type="id"/>
         <relationship type="one" related="moqui.basic.Uom" short-alias="uom"/>
         <relationship type="one" title="To" related="moqui.basic.Uom" short-alias="toUom">
             <key-map field-name="toUomId" related="uomId"/></relationship>
+        <relationship type="one" related="moqui.basic.Enumeration" title="UomConversionPurpose">
+            <key-map field-name="purposeEnumId" related="enumId"/></relationship>
+        <seed-data>
+            <moqui.basic.EnumerationType description="Uom Conversion Purpose" enumTypeId="UomConversionPurpose"/>
+        </seed-data>
     </entity>
     <view-entity entity-name="UomConversionAndToDetail" package="moqui.basic">
         <member-entity entity-alias="UOMC" entity-name="moqui.basic.UomConversion"/>
@@ -386,6 +415,7 @@ along with this software (see the LICENSE.md file). If not, see
         <!-- Removed because unused and causes row size to be too long (in MySQL, others?): <field name="note" type="text-long"/> -->
         <field name="headersString" type="text-very-long"/>
         <field name="fromAddress" type="text-medium"/>
+        <field name="fromName" type="text-medium"/>
         <field name="toAddresses" type="text-long"/>
         <field name="ccAddresses" type="text-long"/>
         <field name="bccAddresses" type="text-long"/>
@@ -432,6 +462,7 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ES_SENT" toStatusId="ES_VIEWED" transitionName="View"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ES_SENT" toStatusId="ES_BOUNCED" transitionName="Bounce"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ES_RECEIVED" toStatusId="ES_VIEWED" transitionName="View"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ES_BOUNCED" toStatusId="ES_SENT" transitionName="Send"/>
 
             <!-- Email Type -->
             <moqui.basic.EnumerationType description="Email Type" enumTypeId="EmailType"/>
@@ -479,11 +510,13 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- NOTE: these are skeleton settings and some fields need to be filled in (probably best with another data file)
                 for your specific installation in order to be functional -->
-            <moqui.basic.email.EmailServer emailServerId="SYSTEM"
-                    smtpHost="" smtpPort="465" smtpStartTls="N" smtpSsl="Y"
-                    storeHost="" storePort="993" storeProtocol="imaps" storeFolder=""
-                    storeDelete="N" storeMarkSeen="Y" storeSkipSeen="Y"
-                    mailUsername="" mailPassword=""/>
+            <moqui.basic.email.EmailServer emailServerId="SYSTEM"/>
+            <!-- Example values, not actually loaded because would overwrite updated values on seed reload:
+                smtpHost="smtp.gmail.com" smtpPort="587" smtpStartTls="Y" smtpSsl="N"
+                storeHost="imap.gmail.com" storePort="993" storeProtocol="imaps" storeFolder=""
+                storeDelete="N" storeMarkSeen="Y" storeSkipSeen="Y"
+                mailUsername="CHANGEME@gmail.com" mailPassword="CHANGEME"
+            -->
             <!-- Other common values:
                 smtpPort="25" (std) smtpPort="465" (ssmtp) smtpPort="587" (ssmtp?)
                 storeProtocol="imap" storePort="143" (std) storePort="585" (imap4-ssl) storePort="993" (imaps)
@@ -506,8 +539,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="webappName" type="text-medium"/>
         <field name="sendPartial" type="text-indicator"/>
         <relationship type="one" related="moqui.basic.email.EmailServer" short-alias="server"/>
-        <relationship type="many" related="moqui.basic.email.EmailTemplateAttachment"
-                short-alias="attachments" mutable="true">
+        <relationship type="many" related="moqui.basic.email.EmailTemplateAttachment" short-alias="attachments">
             <key-map field-name="emailTemplateId"/></relationship>
         <master><detail relationship="server"/><detail relationship="attachments"/></master>
     </entity>

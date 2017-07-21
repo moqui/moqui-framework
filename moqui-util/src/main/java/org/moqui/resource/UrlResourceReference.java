@@ -24,6 +24,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.TreeSet;
 
 public class UrlResourceReference extends ResourceReference {
     private static final Logger logger = LoggerFactory.getLogger(UrlResourceReference.class);
@@ -147,8 +148,9 @@ public class UrlResourceReference extends ResourceReference {
             String baseLocation = getLocation();
             if (baseLocation.endsWith("/")) baseLocation = baseLocation.substring(0, baseLocation.length() - 1);
             File[] listFiles = f.listFiles();
-            if (listFiles != null) for (File dirFile : listFiles)
-                children.add(new UrlResourceReference().init(baseLocation + "/" + dirFile.getName()));
+            TreeSet<String> fileNameSet = new TreeSet<>();
+            if (listFiles != null) for (File dirFile : listFiles) fileNameSet.add(dirFile.getName());
+            for (String filename : fileNameSet) children.add(new UrlResourceReference().init(baseLocation + "/" + filename));
             return children;
         } else {
             throw new IllegalArgumentException("Children not supported for resource with protocol [" + locationUrl.getProtocol() + "]");

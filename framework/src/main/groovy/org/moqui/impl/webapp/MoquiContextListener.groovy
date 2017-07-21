@@ -19,10 +19,8 @@ import org.moqui.util.MNode
 
 import javax.servlet.DispatcherType
 import javax.servlet.Filter
-import javax.servlet.FilterConfig
 import javax.servlet.FilterRegistration
 import javax.servlet.Servlet
-import javax.servlet.ServletConfig
 import javax.servlet.ServletContext
 import javax.servlet.ServletContextEvent
 import javax.servlet.ServletContextListener
@@ -78,18 +76,25 @@ class MoquiContextListener implements ServletContextListener {
                 try {
                     Filter filter = (Filter) Thread.currentThread().getContextClassLoader().loadClass(filterNode.attribute("class")).newInstance()
                     FilterRegistration.Dynamic filterReg = sc.addFilter(filterName, filter)
-                    for (MNode initParamNode in filterNode.children("init-param"))
+                    for (MNode initParamNode in filterNode.children("init-param")) {
+                        initParamNode.setSystemExpandAttributes(true)
                         filterReg.setInitParameter(initParamNode.attribute("name"), initParamNode.attribute("value") ?: "")
+                    }
+
+                    if ("true".equals(filterNode.attribute("async-supported"))) filterReg.setAsyncSupported(true)
 
                     EnumSet<DispatcherType> dispatcherTypes = EnumSet.noneOf(DispatcherType.class)
-                    for (MNode dispatcherNode in filterNode.children("dispatcher"))
-                        dispatcherTypes.add(DispatcherType.valueOf(dispatcherNode.getText()))
+                    for (MNode dispatcherNode in filterNode.children("dispatcher")) {
+                        DispatcherType dt = DispatcherType.valueOf(dispatcherNode.getText())
+                        if (dt == null) { logger.warn("Got invalid DispatcherType ${dispatcherNode.getText()} for filter ${filterName}") }
+                        dispatcherTypes.add(dt)
+                    }
 
                     Set<String> urlPatternSet = new LinkedHashSet<>()
                     for (MNode urlPatternNode in filterNode.children("url-pattern")) urlPatternSet.add(urlPatternNode.getText())
                     String[] urlPatterns = urlPatternSet.toArray(new String[urlPatternSet.size()])
 
-                    filterReg.addMappingForUrlPatterns(dispatcherTypes, false, urlPatterns)
+                    filterReg.addMappingForUrlPatterns(dispatcherTypes.size() > 0 ? dispatcherTypes : null, false, urlPatterns)
 
                     logger.info("Added webapp filter ${filterName} on: ${urlPatterns}, ${dispatcherTypes}")
                 } catch (Exception e) {
@@ -115,14 +120,17 @@ class MoquiContextListener implements ServletContextListener {
                 String servletName = servletNode.attribute("name")
                 try {
                     Servlet servlet = (Servlet) Thread.currentThread().getContextClassLoader().loadClass(servletNode.attribute("class")).newInstance()
-                    MapServletConfig servletConfig = new MapServletConfig(servletName, sc)
-                    for (MNode initParamNode in servletNode.children("init-param"))
-                        servletConfig.setParameter(initParamNode.attribute("name"), initParamNode.attribute("value") ?: "")
-                    servlet.init(servletConfig)
                     ServletRegistration.Dynamic servletReg = sc.addServlet(servletName, servlet)
+
+                    for (MNode initParamNode in servletNode.children("init-param")) {
+                        initParamNode.setSystemExpandAttributes(true)
+                        servletReg.setInitParameter(initParamNode.attribute("name"), initParamNode.attribute("value") ?: "")
+                    }
 
                     String loadOnStartupStr = servletNode.attribute("load-on-startup") ?: "1"
                     servletReg.setLoadOnStartup(loadOnStartupStr as int)
+
+                    if ("true".equals(servletNode.attribute("async-supported"))) servletReg.setAsyncSupported(true)
 
                     Set<String> urlPatternSet = new LinkedHashSet<>()
                     for (MNode urlPatternNode in servletNode.children("url-pattern")) urlPatternSet.add(urlPatternNode.getText())
@@ -205,34 +213,6 @@ class MoquiContextListener implements ServletContextListener {
         logger.info("Destroyed Moqui Execution Context Factory for webapp [${webappId}]")
     }
 
-    static class MapFilterConfig implements FilterConfig {
-        private String name
-        private ServletContext sc
-        private Map<String, String> parameters = new HashMap<>()
-        MapFilterConfig(String name, ServletContext sc) {
-            this.name = name
-            this.sc = sc
-        }
-        void setParameter(String name, String value) { parameters.put(name, value) }
-        @Override String getFilterName() { return name }
-        @Override ServletContext getServletContext() { return sc }
-        @Override String getInitParameter(String name) { return parameters.get(name) }
-        @Override Enumeration<String> getInitParameterNames() { return Collections.enumeration(parameters.keySet()) }
-    }
-    static class MapServletConfig implements ServletConfig {
-        private String name
-        private ServletContext sc
-        private Map<String, String> parameters = new HashMap<>()
-        MapServletConfig(String name, ServletContext sc) {
-            this.name = name
-            this.sc = sc
-        }
-        void setParameter(String name, String value) { parameters.put(name, value) }
-        @Override String getServletName() { return name }
-        @Override ServletContext getServletContext() { return sc }
-        @Override String getInitParameter(String name) { return parameters.get(name) }
-        @Override Enumeration<String> getInitParameterNames() { return Collections.enumeration(parameters.keySet()) }
-    }
     static class MoquiServerEndpointConfigurator extends ServerEndpointConfig.Configurator {
         // for a good explanation of javax.websocket details related to this see:
         // http://stackoverflow.com/questions/17936440/accessing-httpsession-from-httpservletrequest-in-a-web-socket-serverendpoint

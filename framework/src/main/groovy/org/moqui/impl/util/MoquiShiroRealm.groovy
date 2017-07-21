@@ -22,7 +22,7 @@ import org.apache.shiro.authz.UnauthorizedException
 import org.apache.shiro.realm.Realm
 import org.apache.shiro.subject.PrincipalCollection
 import org.apache.shiro.util.SimpleByteSource
-
+import org.moqui.BaseArtifactException
 import org.moqui.Moqui
 import org.moqui.entity.EntityException
 import org.moqui.entity.EntityValue
@@ -136,7 +136,8 @@ class MoquiShiroRealm implements Realm, Authorizer {
         }
 
         // update visit if no user in visit yet
-        EntityValue visit = eci.user.visit
+        String visitId = eci.userFacade.getVisitId()
+        EntityValue visit = eci.entityFacade.find("moqui.server.Visit").condition("visitId", visitId).disableAuthz().one()
         if (visit != null) {
             if (!visit.getNoCheckSimple("userId")) {
                 eci.service.sync().name("update", "moqui.server.Visit").parameter("visitId", visit.visitId)
@@ -159,20 +160,21 @@ class MoquiShiroRealm implements Realm, Authorizer {
             if (userId != null && loginNode.attribute("history-store") != "false") {
                 Timestamp fromDate = eci.getUser().getNowTimestamp()
                 EntityValue curUlh = eci.entity.find("moqui.security.UserLoginHistory")
-                        .condition([userId:userId, fromDate:fromDate] as Map<String, Object>).disableAuthz().one()
+                        .condition("userId", userId).condition("fromDate", fromDate).disableAuthz().one()
                 if (curUlh == null) {
                     Map<String, Object> ulhContext = [userId:userId, fromDate:fromDate,
                             visitId:eci.user.visitId, successfulLogin:(successful?"Y":"N")] as Map<String, Object>
                     if (!successful && loginNode.attribute("history-incorrect-password") != "false") ulhContext.passwordUsed = passwordUsed
-                    try {
-                        eci.service.sync().name("create", "moqui.security.UserLoginHistory").parameters(ulhContext)
-                                .requireNewTransaction(true).disableAuthz().call()
-                        // we want to ignore errors from this, may happen in high-volume inserts where we don't care about the records so much anyway
-                        eci.getMessage().clearErrors()
-                    } catch (EntityException ee) {
-                        // this blows up on MySQL, may in other cases, and is only so important so log a warning but don't rethrow
-                        logger.warn("UserLoginHistory create failed: ${ee.toString()}")
-                    }
+                    ExecutionContextFactoryImpl ecfi = eci.ecfi
+                    eci.runInWorkerThread({
+                        try {
+                            ecfi.serviceFacade.sync().name("create", "moqui.security.UserLoginHistory")
+                                    .parameters(ulhContext).disableAuthz().call()
+                        } catch (EntityException ee) {
+                            // this blows up sometimes on MySQL, may in other cases, and is only so important so log a warning but don't rethrow
+                            logger.warn("UserLoginHistory create failed: ${ee.toString()}")
+                        }
+                    })
                 } else {
                     logger.warn("Not creating UserLoginHistory, found existing record for userId [${userId}] and fromDate [${fromDate}]")
                 }
@@ -258,15 +260,15 @@ class MoquiShiroRealm implements Realm, Authorizer {
     }
 
     boolean isPermitted(PrincipalCollection principalCollection, Permission permission) {
-        throw new IllegalArgumentException("Authorization of Permission through Shiro not yet supported")
+        throw new BaseArtifactException("Authorization of Permission through Shiro not yet supported")
     }
 
     boolean[] isPermitted(PrincipalCollection principalCollection, List<Permission> permissions) {
-        throw new IllegalArgumentException("Authorization of Permission through Shiro not yet supported")
+        throw new BaseArtifactException("Authorization of Permission through Shiro not yet supported")
     }
 
     boolean isPermittedAll(PrincipalCollection principalCollection, Collection<Permission> permissions) {
-        throw new IllegalArgumentException("Authorization of Permission through Shiro not yet supported")
+        throw new BaseArtifactException("Authorization of Permission through Shiro not yet supported")
     }
 
     void checkPermission(PrincipalCollection principalCollection, Permission permission) {
@@ -274,7 +276,7 @@ class MoquiShiroRealm implements Realm, Authorizer {
         // see: http://www.jarvana.com/jarvana/view/org/apache/shiro/shiro-core/1.1.0/shiro-core-1.1.0-javadoc.jar!/org/apache/shiro/authz/Permission.html
         // also look at DomainPermission, can extend for Moqui artifacts
         // this.checkPermission(principalCollection, permission.?)
-        throw new IllegalArgumentException("Authorization of Permission through Shiro not yet supported")
+        throw new BaseArtifactException("Authorization of Permission through Shiro not yet supported")
     }
 
     void checkPermission(PrincipalCollection principalCollection, String permission) {

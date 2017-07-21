@@ -6,6 +6,10 @@
         any of the desired sub-elements. -->
 
     <!-- Default properties are only set if there is no Java property or environment variable of the same name (or with underscores replaced by dots) -->
+
+    <default-property name="default_locale" value="en_US"/>
+    <default-property name="default_time_zone" value="US/Pacific"/>
+
     <default-property name="webapp_http_host" value=""/>
     <default-property name="webapp_http_port" value=""/>
     <default-property name="webapp_https_port" value=""/>
@@ -407,8 +411,8 @@
             <database-type type="currency-amount" sql-type="DECIMAL(22,2)"/>
             <database-type type="currency-precise" sql-type="DECIMAL(23,3)"/>
 
-            <inline-jdbc><xa-properties driverType="4" serverName="${entity_ds_host}" portNumber="${entity_ds_port?:'50000'}"
-                    databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
+            <inline-jdbc><xa-properties serverName="${entity_ds_host}" databaseName="${entity_ds_database}"
+                    user="${entity_ds_user}" password="${entity_ds_password}" cursorHold="false" threadUsed="false"/></inline-jdbc>
         </database>
         <!--
         * Derby:
@@ -468,10 +472,10 @@
         * MS SQL Server:
         <datasource group-name="transactional" database-conf-name="mssql" schema-name="">
             <inline-jdbc><xa-properties user="moqui" password="moqui" serverName="localhost" portNumber="1433"
-                    databaseName="moqui"/></inline-jdbc>
+                    databaseName="moqui" selectMethod="Cursor"/></inline-jdbc>
         </datasource>
         <datasource group-name="transactional" database-conf-name="mssql" schema-name="">
-            <inline-jdbc jdbc-uri="jdbc:sqlserver://localhost:1433;databaseName=moqui" jdbc-username="moqui" jdbc-password="moqui"/>
+            <inline-jdbc jdbc-uri="jdbc:sqlserver://localhost:1433;databaseName=moqui;SelectMethod=Cursor" jdbc-username="moqui" jdbc-password="moqui"/>
         </datasource>
 
         NOTE: for MS SQL Server 2012 and later can use offset-style=fetch for better performance and consistent behavior
@@ -503,7 +507,8 @@
             <database-type type="binary-very-long" sql-type="IMAGE"/>
 
             <inline-jdbc><xa-properties serverName="${entity_ds_host}" portNumber="${entity_ds_port?:'1433'}"
-                    databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
+                    databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"
+                    selectMethod="Cursor"/></inline-jdbc>
         </database>
         <!--
         * MySQL (similar for Percona Server, MariaDB, AWS Aurora):
@@ -517,8 +522,8 @@
                     jdbc-username="moqui" jdbc-password="moqui"/>
         </datasource>
         -->
-        <database name="mysql" join-style="ansi-no-parenthesis" offset-style="limit"
-                table-engine="InnoDB" character-set="utf8" collate="utf8_general_ci"
+        <database name="mysql" join-style="ansi-no-parenthesis" offset-style="limit" never-nulls="true"
+                table-engine="InnoDB" character-set="utf8" collate="utf8_general_ci" fk-style="name_fk"
                 default-isolation-level="ReadCommitted" use-tm-join="true"
                 default-jdbc-driver="com.mysql.jdbc.Driver"
                 default-xa-ds-class="com.mysql.jdbc.jdbc2.optional.MysqlXADataSource"
@@ -545,9 +550,10 @@
 
             <database-type type="binary-very-long" sql-type="LONGBLOB"/>
 
-            <inline-jdbc><xa-properties pinGlobalTxToPhysicalConnection="true" autoReconnectForPools="true" useUnicode="true" encoding="UTF-8"
-                    serverName="${entity_ds_host}" port="${entity_ds_port?:'3306'}" databaseName="${entity_ds_database}"
-                    user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
+            <!-- default max connections for MySQL is 151 -->
+            <inline-jdbc pool-maxsize="140"><xa-properties pinGlobalTxToPhysicalConnection="true" autoReconnectForPools="true"
+                    useUnicode="true" encoding="UTF-8" serverName="${entity_ds_host}" port="${entity_ds_port?:'3306'}"
+                    databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
         </database>
         <!--
         * Oracle:
@@ -595,7 +601,7 @@
             <inline-jdbc jdbc-uri="jdbc:postgresql://127.0.0.1/moqui" jdbc-username="moqui" jdbc-password="moqui"/>
         </datasource>
         -->
-        <database name="postgres" use-fk-initially-deferred="false" join-style="ansi" result-fetch-size="50"
+        <database name="postgres" use-fk-initially-deferred="false" join-style="ansi" result-fetch-size="50" never-try-insert="true"
                   default-isolation-level="ReadCommitted" use-tm-join="true" default-test-query="SELECT 1"
                   default-jdbc-driver="org.postgresql.Driver" default-xa-ds-class="org.postgresql.xa.PGXADataSource"
                   default-startup-add-missing="true" default-runtime-add-missing="false" use-binary-type-for-blob="true">
@@ -608,7 +614,8 @@
 
             <database-type type="binary-very-long" sql-type="BYTEA"/>
 
-            <inline-jdbc><xa-properties serverName="${entity_ds_host}" portNumber="${entity_ds_port?:'5432'}"
+            <!-- default max connections for PostgreSQL is 100 -->
+            <inline-jdbc pool-maxsize="90"><xa-properties serverName="${entity_ds_host}" portNumber="${entity_ds_port?:'5432'}"
                     databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
         </database>
     </database-list>

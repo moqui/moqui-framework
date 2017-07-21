@@ -14,7 +14,7 @@
 package org.moqui.impl.context.reference
 
 import groovy.transform.CompileStatic
-import org.moqui.BaseException
+import org.moqui.BaseArtifactException
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.resource.ResourceReference
@@ -149,13 +149,13 @@ class DbResourceReference extends BaseResourceReference {
             // first make sure the directory exists that this is in
             List<String> filenameList = new ArrayList<>(Arrays.asList(getPath().split("/")))
             int filenameListSize = filenameList.size()
-            if (filenameListSize == 0) throw new BaseException("Cannot put file at empty location ${getPath()}")
+            if (filenameListSize == 0) throw new BaseArtifactException("Cannot put file at empty location ${getPath()}")
             String filename = filenameList.get(filenameList.size()-1)
             // remove the current filename from the list, and find ID of parent directory for path
             filenameList.remove(filenameList.size()-1)
             String parentResourceId = findDirectoryId(filenameList, true)
 
-            if (parentResourceId == null) throw new BaseException("Could not find directory to put new file in at ${filenameList}")
+            if (parentResourceId == null) throw new BaseArtifactException("Could not find directory to put new file in at ${filenameList}")
 
             // lock the parentResourceId
             ecf.entity.find("moqui.resource.DbResource").condition("resourceId", parentResourceId)
@@ -236,7 +236,7 @@ class DbResourceReference extends BaseResourceReference {
                 }
                 if (directoryValue != null) {
                     if (directoryValue.isFile == "Y") {
-                        throw new BaseException("Tried to find a directory in a path but found file instead at ${filename} under DbResource ${parentResourceId}")
+                        throw new BaseArtifactException("Tried to find a directory in a path but found file instead at ${filename} under DbResource ${parentResourceId}")
                     } else {
                         parentResourceId = directoryValue.resourceId
                         // logger.warn("=============== put text to ${location}, found existing dir ${filename}")
@@ -255,10 +255,10 @@ class DbResourceReference extends BaseResourceReference {
             logger.warn("Could not find dbresource at [${getPath()}]")
             return
         }
-        if (!newLocation) throw new IllegalArgumentException("No location specified, not moving resource at ${getLocation()}")
+        if (!newLocation) throw new BaseArtifactException("No location specified, not moving resource at ${getLocation()}")
         // ResourceReference newRr = ecf.resource.getLocationReference(newLocation)
         if (!newLocation.startsWith(locationPrefix))
-            throw new IllegalArgumentException("Location [${newLocation}] is not a dbresource location, not moving resource at ${getLocation()}")
+            throw new BaseArtifactException("Location [${newLocation}] is not a dbresource location, not moving resource at ${getLocation()}")
 
         List<String> filenameList = new ArrayList<>(Arrays.asList(newLocation.substring(locationPrefix.length()).split("/")))
         if (filenameList) {

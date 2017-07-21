@@ -14,7 +14,10 @@
     <!-- Apache Commons FileUpload Cleanup; this must be configured here as it is a ServletContextListener -->
     <listener><listener-class>org.apache.commons.fileupload.servlet.FileCleanerCleanup</listener-class></listener>
 
-    <!-- timeout session in 60 minutes without a request;
-        note that this may be overridden with webapp.session-config.@timeout in the Moqui Conf XML file -->
-    <session-config><session-timeout>60</session-timeout></session-config>
+    <session-config>
+        <!-- session timeout in minutes; note that this may be overridden with webapp.session-config.@timeout in the Moqui Conf XML file -->
+        <session-timeout>60</session-timeout>
+        <cookie-config><http-only>true</http-only></cookie-config>
+        <tracking-mode>COOKIE</tracking-mode>
+    </session-config>
 </web-app>

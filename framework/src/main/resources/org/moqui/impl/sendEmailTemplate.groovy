@@ -19,28 +19,29 @@
 
 import org.apache.commons.mail.DefaultAuthenticator
 import org.apache.commons.mail.HtmlEmail
-
-import javax.mail.util.ByteArrayDataSource
-import javax.activation.DataSource
-import org.moqui.BaseException
+import org.moqui.entity.EntityList
+import org.moqui.entity.EntityValue
 import org.moqui.impl.context.ExecutionContextImpl
+
+import javax.activation.DataSource
+import javax.mail.util.ByteArrayDataSource
+import javax.xml.transform.stream.StreamSource
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
-import javax.xml.transform.stream.StreamSource
 
 Logger logger = LoggerFactory.getLogger("org.moqui.impl.sendEmailTemplate")
+ExecutionContextImpl ec = context.ec
 
 try {
-    ExecutionContextImpl ec = context.ec
 
     // logger.info("sendEmailTemplate with emailTemplateId [${emailTemplateId}], bodyParameters [${bodyParameters}]")
 
     // add the bodyParameters to the context so they are available throughout this script
     if (bodyParameters) context.putAll(bodyParameters)
 
-    def emailTemplate = ec.entity.find("moqui.basic.email.EmailTemplate").condition("emailTemplateId", emailTemplateId).one()
+    EntityValue emailTemplate = ec.entity.find("moqui.basic.email.EmailTemplate").condition("emailTemplateId", emailTemplateId).one()
     if (emailTemplate == null) ec.message.addError(ec.resource.expand('No EmailTemplate record found for ID [${emailTemplateId}]',''))
     if (ec.message.hasError()) return
 
@@ -61,7 +62,7 @@ try {
     // NOTE: can do anything with? purposeEnumId
     if (createEmailMessage) {
         Map cemParms = [statusId:"ES_DRAFT", subject:subject,
-                        fromAddress:fromAddress, toAddresses:toAddresses, ccAddresses:ccAddresses, bccAddresses:bccAddresses,
+                        fromAddress:fromAddress, fromName:fromName, toAddresses:toAddresses, ccAddresses:ccAddresses, bccAddresses:bccAddresses,
                         contentType:"text/html", emailTypeEnumId:emailTypeEnumId,
                         emailTemplateId:emailTemplateId, emailServerId:emailTemplate.emailServerId,
                         fromUserId:(fromUserId ?: ec.user?.userId), toUserId:toUserId]
@@ -87,18 +88,18 @@ try {
                 .disableAuthz().call()
     }
 
-    def emailTemplateAttachmentList = emailTemplate."moqui.basic.email.EmailTemplateAttachment"
-    emailServer = emailTemplate."moqui.basic.email.EmailServer"
+    EntityList emailTemplateAttachmentList = (EntityList) emailTemplate.attachments
+    emailServer = (EntityValue) emailTemplate.server
 
     // check a couple of required fields
-    if (!emailServer) ec.message.addError(ec.resource.expand('No EmailServer record found for EmailTemplate ${emailTemplateId}',''))
-    if (emailTemplate && !fromAddress) ec.message.addError(ec.resource.expand('From address is empty for EmailTemplate ${emailTemplateId}',''))
+    if (emailServer == null) ec.message.addError(ec.resource.expand('No EmailServer record found for EmailTemplate ${emailTemplateId}',''))
+    if (!fromAddress) ec.message.addError(ec.resource.expand('From address is empty for EmailTemplate ${emailTemplateId}',''))
     if (ec.message.hasError()) {
         logger.info("Error sending email: ${ec.message.getErrorsString()}\nbodyHtml:\n${bodyHtml}\nbodyText:\n${bodyText}")
         if (emailMessageId) logger.info("Email with error saved as Ready in EmailMessage [${emailMessageId}]")
         return
     }
-    if (emailServer && !emailServer.smtpHost) {
+    if (!emailServer.smtpHost) {
         logger.warn("SMTP Host is empty for EmailServer ${emailServer.emailServerId}, not sending email ${emailMessageId} template ${emailTemplateId}")
         // logger.warn("SMTP Host is empty for EmailServer ${emailServer.emailServerId}, not sending email:\nbodyHtml:\n${bodyHtml}\nbodyText:\n${bodyText}")
         return
@@ -108,6 +109,7 @@ try {
     int port = (emailServer.smtpPort ?: "25") as int
 
     HtmlEmail email = new HtmlEmail()
+    email.setCharset("utf-8")
     email.setHostName(host)
     email.setSmtpPort(port)
     if (emailServer.mailUsername) {
@@ -120,7 +122,7 @@ try {
     }
     if (emailServer.smtpSsl == "Y") {
         email.setSSLOnConnect(true)
-        // email.setSslSmtpPort(port as String)
+        email.setSslSmtpPort(port as String)
         // email.setSSLCheckServerIdentity(true)
     }
 
@@ -147,15 +149,13 @@ try {
         for (def bccAddress in bccList) email.addBcc(bccAddress.trim())
     }
 
-    email.setCharset("utf-8")
-
     // set the html message
     if (bodyHtml) email.setHtmlMsg(bodyHtml)
     // set the alternative plain text message
     if (bodyText) email.setTextMsg(bodyText)
     //email.setTextMsg("Your email client does not support HTML messages")
 
-    for (emailTemplateAttachment in emailTemplateAttachmentList) {
+    for (EntityValue emailTemplateAttachment in emailTemplateAttachmentList) {
         if (emailTemplateAttachment.screenRenderMode) {
             def attachmentRender = ec.screen.makeRender().rootScreen((String) emailTemplateAttachment.attachmentLocation)
                     .webappName((String) emailTemplate.webappName).renderMode((String) emailTemplateAttachment.screenRenderMode)
@@ -181,21 +181,27 @@ try {
         }
     }
 
-    if (logger.infoEnabled) logger.info("Sending email [${email.getSubject()}] from ${email.getFromAddress()} to ${email.getToAddresses()} cc ${email.getCcAddresses()} bcc ${email.getBccAddresses()} via ${emailServer.mailUsername}@${email.getHostName()}:${email.getSmtpPort()} SSL? ${email.isSSLOnConnect()}:${email.isSSLCheckServerIdentity()} TLS? ${email.isStartTLSEnabled()}:${email.isStartTLSRequired()}")
+    if (logger.infoEnabled) logger.info("Sending email [${email.getSubject()}] from ${email.getFromAddress()} to ${email.getToAddresses()} cc ${email.getCcAddresses()} bcc ${email.getBccAddresses()} via ${emailServer.mailUsername}@${email.getHostName()}:${email.getSmtpPort()} SSL? ${email.isSSLOnConnect()}:${email.isSSLCheckServerIdentity()} StartTLS? ${email.isStartTLSEnabled()}:${email.isStartTLSRequired()}")
     if (logger.traceEnabled) logger.trace("Sending email [${email.getSubject()}] to ${email.getToAddresses()} with bodyHtml:\n${bodyHtml}\nbodyText:\n${bodyText}")
     // email.setDebug(true)
 
     // send the email
-    messageId = email.send()
+    try {
+        messageId = email.send()
 
-    if (emailMessageId) {
-        ec.service.sync().name("update", "moqui.basic.email.EmailMessage").requireNewTransaction(true)
-                .parameters([emailMessageId:emailMessageId, sentDate:ec.user.nowTimestamp, statusId:"ES_SENT", messageId:messageId])
-                .disableAuthz().call()
+        if (emailMessageId) {
+            ec.service.sync().name("update", "moqui.basic.email.EmailMessage").requireNewTransaction(true)
+                    .parameters([emailMessageId:emailMessageId, sentDate:ec.user.nowTimestamp, statusId:"ES_SENT", messageId:messageId])
+                    .disableAuthz().call()
+        }
+    } catch (Throwable t) {
+        logger.error("Error in sendEmailTemplate", t)
+        ec.message.addMessage("Error sending email: ${t.toString()}")
     }
 
     return
 } catch (Throwable t) {
-    logger.info("Error in sendEmailTemplate groovy", t)
-    throw new BaseException("Error in sendEmailTemplate", t)
+    logger.error("Error in sendEmailTemplate", t)
+    ec.message.addMessage("Error sending email: ${t.toString()}")
+    // don't rethrow: throw new BaseArtifactException("Error in sendEmailTemplate", t)
 }

@@ -253,10 +253,11 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:sequence>
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="init-param"/>
                 <xs:element minOccurs="1" maxOccurs="unbounded" name="url-pattern" type="xs:string"/>
-                <xs:element minOccurs="1" maxOccurs="unbounded" name="dispatcher" type="xs:string"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" name="dispatcher" type="xs:string"/>
             </xs:sequence>
             <xs:attribute name="name" type="xs:string" use="required"/>
             <xs:attribute name="class" type="xs:string" use="required"/>
+            <xs:attribute name="async-supported" type="boolean" default="false"/>
             <xs:attribute name="enabled" type="boolean" default="true"/>
         </xs:complexType>
     </xs:element>
@@ -281,6 +282,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="name" type="xs:string" use="required"/>
             <xs:attribute name="class" type="xs:string" use="required"/>
             <xs:attribute name="load-on-startup" type="xs:nonNegativeInteger" default="1"/>
+            <xs:attribute name="async-supported" type="boolean" default="false"/>
             <xs:attribute name="enabled" type="boolean" default="true"/>
         </xs:complexType>
     </xs:element>
@@ -742,6 +744,10 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="use-schema-for-all" default="false" type="boolean">
                 <xs:annotation><xs:documentation>Set to true to include the schema name for primary keys, foreign keys, and indexes.</xs:documentation></xs:annotation>
             </xs:attribute>
+            <xs:attribute name="never-nulls" default="false" type="boolean">
+                <xs:annotation><xs:documentation>Never use NULLS FIRST/LAST in ORDER BY clause</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="never-try-insert" default="false" type="boolean">
+                <xs:annotation><xs:documentation>Never use try insert feature when storing a record</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="use-binary-type-for-blob" default="false" type="boolean"/>
             <xs:attribute name="table-engine" type="xs:string"/>
             <xs:attribute name="character-set" type="xs:string"/>

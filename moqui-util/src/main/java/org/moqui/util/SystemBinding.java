@@ -27,14 +27,7 @@ public class SystemBinding extends Binding {
 
     private SystemBinding() { super(); }
 
-    @Override
-    public Object getVariable(String name) {
-        // NOTE: this code is part of the original Groovy groovy.lang.Binding.getVariable() method and leaving it out
-        //     is the reason to override this method:
-        //if (result == null && !variables.containsKey(name)) {
-        //    throw new MissingPropertyException(name, this.getClass());
-        //}
-
+    public static String getPropOrEnv(String name) {
         // start with System properties
         String value = System.getProperty(name);
         if (value != null && !value.isEmpty()) return value;
@@ -51,10 +44,19 @@ public class SystemBinding extends Binding {
             value = System.getenv(dotName);
             if (value != null && !value.isEmpty()) return value;
         }
-
         if (isTraceEnabled) logger.trace("No '" + name + (dotName != null ? "' (or '" + dotName + "')" : "'") +
                 " system property or environment variable found, using empty string");
         return "";
+    }
+
+    @Override
+    public Object getVariable(String name) {
+        // NOTE: this code is part of the original Groovy groovy.lang.Binding.getVariable() method and leaving it out
+        //     is the reason to override this method:
+        //if (result == null && !variables.containsKey(name)) {
+        //    throw new MissingPropertyException(name, this.getClass());
+        //}
+        return getPropOrEnv(name);
     }
 
     @Override

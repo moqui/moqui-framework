@@ -24,6 +24,9 @@ along with this software (see the LICENSE.md file). If not, see
             allow this service to be called remotely.</description>
         <implements service="org.moqui.EmailServices.send#EmailTemplate"/>
     </service>
+    <service verb="send" noun="EmailMessage" type="script" location="classpath://org/moqui/impl/sendEmailMessage.groovy">
+        <in-parameters><parameter name="emailMessageId" required="true"/></in-parameters>
+    </service>
 
     <service verb="poll" noun="EmailServer" authenticate="anonymous-all" type="script" transaction-timeout="600"
             location="classpath://org/moqui/impl/pollEmailServer.groovy"

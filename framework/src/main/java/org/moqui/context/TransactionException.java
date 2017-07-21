@@ -13,18 +13,12 @@
  */
 package org.moqui.context;
 
-import org.moqui.BaseException;
+import org.moqui.BaseArtifactException;
 
 /**
  * TransactionException
  */
-public class TransactionException extends BaseException {
-
-    public TransactionException(String str) {
-        super(str);
-    }
-
-    public TransactionException(String str, Throwable nested) {
-        super(str, nested);
-    }
+public class TransactionException extends BaseArtifactException {
+    public TransactionException(String str) { super(str); }
+    public TransactionException(String str, Throwable nested) { super(str, nested); }
 }

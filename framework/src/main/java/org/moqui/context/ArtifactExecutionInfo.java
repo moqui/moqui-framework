@@ -75,4 +75,5 @@ public interface ArtifactExecutionInfo {
     BigDecimal getPercentOfParentTime();
 
     void print(Writer writer, int level, boolean children);
+    String toBasicString();
 }
