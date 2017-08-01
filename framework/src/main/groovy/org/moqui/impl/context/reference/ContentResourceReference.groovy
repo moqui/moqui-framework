@@ -57,7 +57,7 @@ class ContentResourceReference extends BaseResourceReference {
 
         this.repositoryName = repositoryName
         this.nodePath = node.path
-        this.location = "${locationPrefix}${repositoryName}/${nodePath}"
+        this.location = "${locationPrefix}${repositoryName}${nodePath}"
         this.theNode = node
         return this
     }
@@ -209,10 +209,12 @@ class ContentResourceReference extends BaseResourceReference {
 
         // make sure the target folder exists
         List<String> nodePathList = new ArrayList<>(Arrays.asList(newCrr.getNodePath().split('/')))
+        if (nodePathList && nodePathList[0] == "") nodePathList.remove(0)
         if (nodePathList) nodePathList.remove(nodePathList.size()-1)
         findDirectoryNode(session, nodePathList, true)
 
         session.move(this.getNodePath(), newCrr.getNodePath())
+        session.save()
 
         this.theNode = null
     }
@@ -230,7 +232,12 @@ class ContentResourceReference extends BaseResourceReference {
     @Override boolean delete() {
         javax.jcr.Node curNode = getNode()
         if (curNode == null) return false
-        curNode.remove()
+
+        Session session = ((ResourceFacadeImpl) ecf.resource).getContentRepositorySession(repositoryName)
+        session.removeItem(nodePath)
+        session.save()
+
+        this.theNode = null
         return true
     }
 
