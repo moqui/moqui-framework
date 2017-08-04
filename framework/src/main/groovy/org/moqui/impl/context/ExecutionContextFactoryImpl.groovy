@@ -373,6 +373,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         String tzStr = SystemBinding.getPropOrEnv("default_time_zone")
         if (tzStr) {
             try {
+                logger.info("Found default_time_zone ${tzStr}: ${TimeZone.getTimeZone(tzStr)}")
                 TimeZone.setDefault(TimeZone.getTimeZone(tzStr))
             } catch (Throwable t) {
                 logger.error("Error setting default time zone to ${tzStr}: ${t.toString()}")
@@ -451,8 +452,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         for (ArtifactType at in ArtifactType.values()) {
             MNode artifactStats = getArtifactStatsNode(at.name(), null)
             if (artifactStats == null) {
-                artifactPersistHitByTypeEnum.put(at, false)
-                artifactPersistBinByTypeEnum.put(at, false)
+                artifactPersistHitByTypeEnum.put(at, Boolean.FALSE)
+                artifactPersistBinByTypeEnum.put(at, Boolean.FALSE)
             } else {
                 artifactPersistHitByTypeEnum.put(at, "true".equals(artifactStats.attribute("persist-hit")))
                 artifactPersistBinByTypeEnum.put(at, "true".equals(artifactStats.attribute("persist-bin")))
