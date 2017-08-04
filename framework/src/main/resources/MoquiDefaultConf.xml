@@ -9,6 +9,7 @@
 
     <default-property name="default_locale" value="en_US"/>
     <default-property name="default_time_zone" value="US/Pacific"/>
+    <default-property name="database_time_zone" value="US/Pacific"/>
 
     <default-property name="webapp_http_host" value=""/>
     <default-property name="webapp_http_port" value=""/>
@@ -273,7 +274,7 @@
 
     <entity-facade default-group-name="transactional" entity-eca-enabled="true" sequenced-id-prefix=""
             distributed-cache-invalidate="false" dci-topic-factory="" query-stats="false"
-            database-locale="${default_locale}" database-time-zone="${default_time_zone}"
+            database-locale="${default_locale}" database-time-zone="${database_time_zone ?: default_time_zone}"
             crypt-salt="SkcorIuqom" crypt-iter="10" crypt-algo="PBEWithMD5AndDES" crypt-pass="${entity_ds_crypt_pass}">
         <!-- The entity-facade.@default-group-name=transactional, so if other entity groups do not have a data source
             the transactional group's datasource will be used. -->

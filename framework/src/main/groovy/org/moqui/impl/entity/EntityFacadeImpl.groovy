@@ -108,7 +108,8 @@ class EntityFacadeImpl implements EntityFacade {
                 theTimeZone = TimeZone.getTimeZone((String) entityFacadeNode.attribute("database-time-zone"))
             } catch (Exception e) { logger.warn("Error parsing database-time-zone: ${e.toString()}") }
         }
-        databaseTimeZone = theTimeZone ?: TimeZone.getDefault()
+        databaseTimeZone = theTimeZone != null ? theTimeZone : TimeZone.getDefault()
+        logger.info("Database time zone is ${databaseTimeZone}")
         Locale theLocale = null
         if (entityFacadeNode.attribute("database-locale")) {
             try {
