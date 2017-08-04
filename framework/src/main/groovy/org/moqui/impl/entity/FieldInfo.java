@@ -312,7 +312,9 @@ public class FieldInfo {
                 }
                 break;
             case 3: value = rs.getTime(index, efi.getCalendarForTzLc()); break;
-            case 4: value = rs.getDate(index, efi.getCalendarForTzLc()); break;
+            // for Date don't pass 2nd param efi.getCalendarForTzLc(), causes issues when Java TZ different from DB TZ
+            // when the JDBC driver converts a string to a Date it uses the TZ from the Calendar but we want the Java default TZ
+            case 4: value = rs.getDate(index); break;
             case 5: int intValue = rs.getInt(index); if (!rs.wasNull()) value = intValue; break;
             case 6: long longValue = rs.getLong(index); if (!rs.wasNull()) value = longValue; break;
             case 7: float floatValue = rs.getFloat(index); if (!rs.wasNull()) value = floatValue; break;
@@ -471,7 +473,7 @@ public class FieldInfo {
                         if (valClass == java.sql.Date.class) {
                             java.sql.Date dt = (java.sql.Date) value;
                             // logger.warn("=================== setting date dt=${dt} dt long=${dt.getTime()}, cal=${cal}")
-                            ps.setDate(index, dt, efi.getCalendarForTzLc());
+                            ps.setDate(index, dt); // Date was likely generated in Java TZ and that's what we want, if DB TZ is different we don't want it to use that
                         } else if (valClass == Timestamp.class) {
                             ps.setDate(index, new java.sql.Date(((Timestamp) value).getTime()), efi.getCalendarForTzLc());
                         } else if (valClass == java.util.Date.class) {
