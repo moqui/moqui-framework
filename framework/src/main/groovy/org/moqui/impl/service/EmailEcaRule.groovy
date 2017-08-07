@@ -24,6 +24,7 @@ import org.slf4j.LoggerFactory
 
 import javax.mail.*
 import javax.mail.internet.MimeMessage
+import javax.mail.internet.MimeUtility
 import java.sql.Timestamp
 
 @CompileStatic
@@ -123,7 +124,7 @@ class EmailEcaRule {
                 Map outMap = ec.serviceFacade.sync().name("create#moqui.basic.email.EmailMessage")
                         .parameters([sentDate:fields.sentDate, receivedDate:fields.receivedDate, statusId:'ES_RECEIVED',
                                      subject:fields.subject, body:bodyPartList[0].contentText,
-                                     fromAddress:fields.from, toAddresses:fields.toList?.toString(),
+                                     fromAddress:MimeUtility.decodeText(fields.from.toString()), toAddresses:MimeUtility.decodeText(fields.toList?.toString()),
                                      ccAddresses:fields.ccList?.toString(), bccAddresses:fields.bccList?.toString(),
                                      messageId:message.getMessageID(), emailServerId:emailServerId])
                         .disableAuthz().call()
@@ -181,13 +182,18 @@ class EmailEcaRule {
 
             //only PDF and JPG
             def contentTypeSpec = part.getContentType().toLowerCase();
-            Boolean doRunExtraction;
+            Boolean doRunExtraction = false;
+            String newFileName = MimeUtility.decodeText(part.getFileName())
 
-            if (contentTypeSpec.startsWith('application/pdf;')) {
+            if (contentTypeSpec.startsWith('application/pdf')) {
                 doRunExtraction = true
-            } else if (contentTypeSpec.startsWith('image/jpeg;')) {
+            } else if (contentTypeSpec.startsWith('image/jpeg')) {
+                doRunExtraction = true
+            } else if (contentTypeSpec.startsWith('application/zip')) {
                 doRunExtraction = true
             }
+
+            logger.info("fileName: ${newFileName}, type: ${contentTypeSpec}, doExtraction: ${doRunExtraction}")
 
             //logger.info("part.getContentType() = " + part.getContentType())
             /*switch (contentTypeSpec.toLowerCase()) {
@@ -204,7 +210,7 @@ class EmailEcaRule {
 
             if (doRunExtraction) {
                 ec.serviceFacade.sync().name("EmailContentServices.create#ContentFromByte")
-                        .parameters([emailMessageId:emailMessageId,contentFileByte:result,filename:part.getFileName()])
+                        .parameters([emailMessageId:emailMessageId,contentFileByte:result,filename:newFileName])
                         .disableAuthz().call()
             }
         }
