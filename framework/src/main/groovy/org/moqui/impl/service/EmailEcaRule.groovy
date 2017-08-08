@@ -191,6 +191,8 @@ class EmailEcaRule {
                 doRunExtraction = true
             } else if (contentTypeSpec.startsWith('application/zip')) {
                 doRunExtraction = true
+            } else if (contentTypeSpec.startsWith('application/octet-stream')) {
+                doRunExtraction = true
             }
 
             logger.info("fileName: ${newFileName}, type: ${contentTypeSpec}, doExtraction: ${doRunExtraction}")
