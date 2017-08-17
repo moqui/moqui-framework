@@ -945,10 +945,16 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="default-value" type="xs:string"/>
             <xs:attribute name="disabled" default="false" type="boolean"/>
             <xs:attribute name="format" type="xs:string">
-                <xs:annotation><xs:documentation>Used to format the output of Number/Time/Date/Timestamp/etc objects.
+                <xs:annotation><xs:documentation>Used to parse and format the output of Number/Time/Date/Timestamp/etc objects.
                     With auto-fields-service will inherit from service parameter.</xs:documentation></xs:annotation>
             </xs:attribute>
-            <xs:attribute name="ac-transition" type="xs:string" use="optional">
+            <xs:attribute name="mask" type="xs:string">
+                <xs:annotation><xs:documentation>A mask for guiding and filtering input, uses RobinHerbots/Inputmask.
+                    For a simple mask use '9' for digits, 'a' for letters, and '*' for digits or letters.
+                    This may also be an alias for a predefined mask.</xs:documentation></xs:annotation>
+            </xs:attribute>
+
+            <xs:attribute name="ac-transition" type="xs:string">
                 <xs:annotation><xs:documentation>If specified the text-line will have auto-complete added to it with
                     this transition as the source of the auto-complete options.</xs:documentation></xs:annotation>
             </xs:attribute>
@@ -958,7 +964,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:annotation><xs:documentation>If true the value of the currently selected option will show next to
                     the autocomplete input box.</xs:documentation></xs:annotation>
             </xs:attribute>
-            <xs:attribute name="ac-initial-text" type="xs:string" use="optional"/>
+            <xs:attribute name="ac-initial-text" type="xs:string"/>
             <xs:attribute name="ac-use-actual" type="boolean" default="false">
                 <xs:annotation><xs:documentation>If true the value enterred in the input box will be used even if no
                     autocomplete option is selected.</xs:documentation></xs:annotation>

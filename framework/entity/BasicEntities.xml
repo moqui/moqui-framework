@@ -45,6 +45,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="enumCode" type="text-medium"/>
         <field name="sequenceNum" type="number-integer"/>
         <field name="description" type="text-medium" enable-localization="true"/>
+        <field name="optionValue" type="text-medium"><description>Usage depends on enum type such as an ID format or mask.</description></field>
         <field name="relatedEnumId" type="id"/>
         <relationship type="one" related="moqui.basic.EnumerationType" short-alias="type"/>
         <relationship type="one-nofk" title="Parent" related="moqui.basic.Enumeration" short-alias="parent">
