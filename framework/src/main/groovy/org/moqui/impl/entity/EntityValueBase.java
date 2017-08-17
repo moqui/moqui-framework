@@ -1533,12 +1533,12 @@ public abstract class EntityValueBase implements EntityValue {
             return fi.name.hashCode() + (val != null ? val.hashCode() : 0);
         }
         @Override public boolean equals(Object obj) {
-            if (obj instanceof EntityFieldEntry) {
-                EntityFieldEntry other = (EntityFieldEntry) obj;
-                return fi.name.equals(other.fi.name) && getValue().equals(other.getValue());
-            } else {
-                return false;
-            }
+            if (!(obj instanceof EntityFieldEntry)) return false;
+            EntityFieldEntry other = (EntityFieldEntry) obj;
+            if (!fi.name.equals(other.fi.name)) return false;
+            Object thisVal = getValue();
+            Object otherVal = other.getValue();
+            return thisVal == null ? otherVal == null : thisVal.equals(otherVal);
         }
     }
 
