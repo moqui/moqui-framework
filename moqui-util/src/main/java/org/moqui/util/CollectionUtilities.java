@@ -85,8 +85,8 @@ public class CollectionUtilities {
         return remove;
     }
 
-    public static void filterMapListByDate(List<Map> theList, String fromDateName, String thruDateName, Timestamp compareStamp) {
-        if (theList == null || theList.size() == 0) return;
+    public static List<Map> filterMapListByDate(List<Map> theList, String fromDateName, String thruDateName, Timestamp compareStamp) {
+        if (theList == null || theList.size() == 0) return theList;
 
         if (fromDateName == null || fromDateName.isEmpty()) fromDateName = "fromDate";
         if (thruDateName == null || thruDateName.isEmpty()) thruDateName = "thruDate";
@@ -104,6 +104,7 @@ public class CollectionUtilities {
             Timestamp thruDate = DefaultGroovyMethods.asType(curMap.get(thruDateName), Timestamp.class);
             if (thruDate != null && compareStamp.compareTo(thruDate) >= 0) theIterator.remove();
         }
+        return theList;
     }
 
     public static void filterMapListByDate(List<Map> theList, String fromDateName, String thruDateName, Timestamp compareStamp, boolean ignoreIfEmpty) {
