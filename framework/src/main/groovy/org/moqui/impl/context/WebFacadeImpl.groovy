@@ -735,7 +735,9 @@ class WebFacadeImpl implements WebFacade {
                     os.close()
                 }
             } finally {
-                is.close()
+                if(is != null){
+                    is.close()
+                }
             }
         } else {
             String rrText = rr.getText()
