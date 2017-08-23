@@ -87,6 +87,9 @@ public interface ScreenRender {
      */
     ScreenRender webappName(String wan);
 
+    /** By default history is not saved, set to true to save this screen render in the web session history */
+    ScreenRender saveHistory(boolean sh);
+
     /** Render a screen to a response using the current context. The screen will run in a sub-context so the original
      * context will not be changed. The request will be used to check web settings such as secure connection, etc.
      */

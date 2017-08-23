@@ -13,10 +13,10 @@
  */
 package org.moqui.entity;
 
+import org.moqui.etl.SimpleEtl;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
-import javax.annotation.Nonnull;
 import javax.sql.rowset.serial.SerialBlob;
 import java.io.Externalizable;
 import java.io.Writer;
@@ -28,7 +28,7 @@ import java.util.Set;
 
 /** Entity Value Interface - Represents a single database record. */
 @SuppressWarnings("unused")
-public interface EntityValue extends Map<String, Object>, Externalizable, Comparable<EntityValue>, Cloneable {
+public interface EntityValue extends Map<String, Object>, Externalizable, Comparable<EntityValue>, Cloneable, SimpleEtl.Entry {
 
     String getEntityName();
 

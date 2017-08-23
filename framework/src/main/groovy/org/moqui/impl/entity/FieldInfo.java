@@ -13,7 +13,7 @@
  */
 package org.moqui.impl.entity;
 
-import org.moqui.BaseException;
+import org.moqui.BaseArtifactException;
 import org.moqui.entity.EntityException;
 import org.moqui.impl.context.L10nFacadeImpl;
 import org.moqui.impl.entity.condition.ConditionField;
@@ -33,6 +33,8 @@ import java.util.*;
 public class FieldInfo {
     protected final static Logger logger = LoggerFactory.getLogger(FieldInfo.class);
     protected final static boolean isTraceEnabled = logger.isTraceEnabled();
+    public final static String[] aggFunctionArray = {"min", "max", "sum", "avg", "count", "count-distinct"};
+    public final static Set<String> aggFunctions = new HashSet<>(Arrays.asList(aggFunctionArray));
 
     public final EntityDefinition ed;
     public final MNode fieldNode;
@@ -54,6 +56,9 @@ public class FieldInfo {
     final boolean enableLocalization;
     final boolean createOnly;
     final boolean isLastUpdatedStamp;
+    public final MNode memberEntityNode;
+    public final MNode directMemberEntityNode;
+    public final boolean hasAggregateFunction;
     final Set<String> entityAliasUsedSet = new HashSet<>();
 
     public FieldInfo(EntityDefinition ed, MNode fieldNode) {
@@ -97,7 +102,7 @@ public class FieldInfo {
         String enableAuditLogAttr = fieldNode.attribute("enable-audit-log");
         enableAuditLog = enableAuditLogAttr != null ? enableAuditLogAttr : ed.internalEntityNode.attribute("enable-audit-log");
 
-        String fcn = ed.makeFullColumnName(fieldNode);
+        String fcn = ed.makeFullColumnName(fieldNode, true);
         if (fcn == null) {
             fullColumnNameInternal = columnName;
             expandColumnName = null;
@@ -112,8 +117,13 @@ public class FieldInfo {
         }
 
         if (ed.isViewEntity) {
+            MNode tempMembEntNode = null;
             String entityAlias = fieldNode.attribute("entity-alias");
-            if (entityAlias != null && entityAlias.length() > 0) entityAliasUsedSet.add(entityAlias);
+            if (entityAlias != null && entityAlias.length() > 0) {
+                entityAliasUsedSet.add(entityAlias);
+                tempMembEntNode = ed.memberEntityAliasMap.get(entityAlias);
+            }
+            directMemberEntityNode = tempMembEntNode;
             ArrayList<MNode> cafList = fieldNode.descendants("complex-alias-field");
             int cafListSize = cafList.size();
             for (int i = 0; i < cafListSize; i++) {
@@ -121,6 +131,18 @@ public class FieldInfo {
                 String cafEntityAlias = cafNode.attribute("entity-alias");
                 if (cafEntityAlias != null && cafEntityAlias.length() > 0) entityAliasUsedSet.add(cafEntityAlias);
             }
+            if (tempMembEntNode == null && entityAliasUsedSet.size() == 1) {
+                String singleEntityAlias = entityAliasUsedSet.iterator().next();
+                tempMembEntNode = ed.memberEntityAliasMap.get(singleEntityAlias);
+            }
+            memberEntityNode = tempMembEntNode;
+            String isAggregateAttr = fieldNode.attribute("is-aggregate");
+            hasAggregateFunction = isAggregateAttr != null ? "true".equalsIgnoreCase(isAggregateAttr) :
+                    aggFunctions.contains(fieldNode.attribute("function"));
+        } else {
+            memberEntityNode = null;
+            directMemberEntityNode = null;
+            hasAggregateFunction = false;
         }
     }
 
@@ -142,17 +164,17 @@ public class FieldInfo {
                 case 2: // outValue = java.sql.Timestamp.valueOf(value);
                     if (isEmpty) { outValue = null; break; }
                     outValue = l10n.parseTimestamp(value, null);
-                    if (outValue == null) throw new BaseException("The value [" + value + "] is not a valid date/time for field " + entityName + "." + name);
+                    if (outValue == null) throw new BaseArtifactException("The value [" + value + "] is not a valid date/time for field " + entityName + "." + name);
                     break;
                 case 3: // outValue = java.sql.Time.valueOf(value);
                     if (isEmpty) { outValue = null; break; }
                     outValue = l10n.parseTime(value, null);
-                    if (outValue == null) throw new BaseException("The value [" + value + "] is not a valid time for field " + entityName + "." + name);
+                    if (outValue == null) throw new BaseArtifactException("The value [" + value + "] is not a valid time for field " + entityName + "." + name);
                     break;
                 case 4: // outValue = java.sql.Date.valueOf(value);
                     if (isEmpty) { outValue = null; break; }
                     outValue = l10n.parseDate(value, null);
-                    if (outValue == null) throw new BaseException("The value [" + value + "] is not a valid date for field " + entityName + "." + name);
+                    if (outValue == null) throw new BaseArtifactException("The value [" + value + "] is not a valid date for field " + entityName + "." + name);
                     break;
                 case 5: // outValue = Integer.valueOf(value); break
                 case 6: // outValue = Long.valueOf(value); break
@@ -162,7 +184,7 @@ public class FieldInfo {
                     if (isEmpty) { outValue = null; break; }
                     BigDecimal bdVal = l10n.parseNumber(value, null);
                     if (bdVal == null) {
-                        throw new BaseException("The value [" + value + "] is not valid for type " + javaType + " for field " + entityName + "." + name);
+                        throw new BaseArtifactException("The value [" + value + "] is not valid for type " + javaType + " for field " + entityName + "." + name);
                     } else {
                         bdVal = bdVal.stripTrailingZeros();
                         switch (typeValue) {
@@ -182,7 +204,7 @@ public class FieldInfo {
                     try {
                         outValue = new SerialBlob(value.getBytes());
                     } catch (SQLException e) {
-                        throw new BaseException("Error creating SerialBlob for value [" + value + "] for field " + entityName + "." + name);
+                        throw new BaseArtifactException("Error creating SerialBlob for value [" + value + "] for field " + entityName + "." + name);
                     }
                     break;
                 case 13: outValue = value; break;
@@ -196,7 +218,7 @@ public class FieldInfo {
                 default: outValue = value; break;
             }
         } catch (IllegalArgumentException e) {
-            throw new BaseException("The value [" + value + "] is not valid for type " + javaType + " for field " + entityName + "." + name, e);
+            throw new BaseArtifactException("The value [" + value + "] is not valid for type " + javaType + " for field " + entityName + "." + name, e);
         }
 
         return outValue;
@@ -236,13 +258,12 @@ public class FieldInfo {
                 default: outValue = value.toString(); break;
             }
         } catch (IllegalArgumentException e) {
-            throw new BaseException("The value [" + value + "] is not valid for type " + javaType + " for field " + entityName + "." + name, e);
+            throw new BaseArtifactException("The value [" + value + "] is not valid for type " + javaType + " for field " + entityName + "." + name, e);
         }
 
         return outValue;
     }
 
-    @SuppressWarnings("ThrowFromFinallyBlock")
     void getResultSetValue(ResultSet rs, int index, HashMap<String, Object> valueMap,
                                   EntityFacadeImpl efi) throws EntityException {
         if (typeValue == -1) throw new EntityException("No typeValue found for " + entityName + "." + name);
@@ -291,7 +312,9 @@ public class FieldInfo {
                 }
                 break;
             case 3: value = rs.getTime(index, efi.getCalendarForTzLc()); break;
-            case 4: value = rs.getDate(index, efi.getCalendarForTzLc()); break;
+            // for Date don't pass 2nd param efi.getCalendarForTzLc(), causes issues when Java TZ different from DB TZ
+            // when the JDBC driver converts a string to a Date it uses the TZ from the Calendar but we want the Java default TZ
+            case 4: value = rs.getDate(index); break;
             case 5: int intValue = rs.getInt(index); if (!rs.wasNull()) value = intValue; break;
             case 6: long longValue = rs.getLong(index); if (!rs.wasNull()) value = longValue; break;
             case 7: float floatValue = rs.getFloat(index); if (!rs.wasNull()) value = floatValue; break;
@@ -322,11 +345,8 @@ public class FieldInfo {
                         if (logger.isTraceEnabled()) logger.trace("Class not found: Unable to cast BLOB data to an Java object for field [" + name + "] (" + index + "); most likely because it is a straight byte[], so just using the raw bytes: " + ex.toString());
                     } finally {
                         if (inStream != null) {
-                            try {
-                                inStream.close();
-                            } catch (IOException e) {
-                                throw new EntityException("Unable to close binary input stream for field [" + name + "] (" + index + "): " + e.toString(), e);
-                            }
+                            try { inStream.close(); }
+                            catch (IOException e) { logger.error("Unable to close binary input stream for field [" + name + "] (" + index + "): " + e.toString(), e); }
                         }
                     }
                 }
@@ -361,12 +381,12 @@ public class FieldInfo {
 
         // if field is to be encrypted, do it now
         if (value != null && encrypt) {
-            if (typeValue != 1) throw new IllegalArgumentException("The encrypt attribute was set to true on non-String field " + name + " of entity " + entityName);
+            if (typeValue != 1) throw new EntityException("The encrypt attribute was set to true on non-String field " + name + " of entity " + entityName);
             String original = value.toString();
             try {
                 value = EntityJavaUtil.enDeCrypt(original, false, efi);
             } catch (Exception e) {
-                logger.error("Error decrypting field [${fieldInfo.name}] of entity [${entityName}]", e);
+                logger.error("Error decrypting field [" + name + "] of entity [" + entityName + "]", e);
             }
         }
 
@@ -399,7 +419,7 @@ public class FieldInfo {
 
             // if field is to be encrypted, do it now
             if (encrypt) {
-                if (localTypeValue != 1) throw new IllegalArgumentException("The encrypt attribute was set to true on non-String field " + name + " of entity " + entityName);
+                if (localTypeValue != 1) throw new EntityException("The encrypt attribute was set to true on non-String field " + name + " of entity " + entityName);
                 String original = value.toString();
                 value = EntityJavaUtil.enDeCrypt(original, true, efi);
             }
@@ -437,7 +457,7 @@ public class FieldInfo {
                         } else if (valClass == java.util.Date.class) {
                             ps.setTimestamp(index, new Timestamp(((java.util.Date) value).getTime()), efi.getCalendarForTzLc());
                         } else {
-                            throw new IllegalArgumentException("Class " + valClass.getName() + " not allowed for date-time (Timestamp) fields, for field " + entityName + "." + name);
+                            throw new EntityException("Class " + valClass.getName() + " not allowed for date-time (Timestamp) fields, for field " + entityName + "." + name);
                         }
                     } else { ps.setNull(index, Types.TIMESTAMP); }
                     break;
@@ -453,13 +473,13 @@ public class FieldInfo {
                         if (valClass == java.sql.Date.class) {
                             java.sql.Date dt = (java.sql.Date) value;
                             // logger.warn("=================== setting date dt=${dt} dt long=${dt.getTime()}, cal=${cal}")
-                            ps.setDate(index, dt, efi.getCalendarForTzLc());
+                            ps.setDate(index, dt); // Date was likely generated in Java TZ and that's what we want, if DB TZ is different we don't want it to use that
                         } else if (valClass == Timestamp.class) {
                             ps.setDate(index, new java.sql.Date(((Timestamp) value).getTime()), efi.getCalendarForTzLc());
                         } else if (valClass == java.util.Date.class) {
                             ps.setDate(index, new java.sql.Date(((java.util.Date) value).getTime()), efi.getCalendarForTzLc());
                         } else {
-                            throw new IllegalArgumentException("Class " + valClass.getName() + " not allowed for date fields, for field " + entityName + "." + name);
+                            throw new EntityException("Class " + valClass.getName() + " not allowed for date fields, for field " + entityName + "." + name);
                         }
                     } else { ps.setNull(index, Types.DATE); }
                     break;
@@ -480,7 +500,7 @@ public class FieldInfo {
                         } else if (value instanceof Number) {
                             ps.setDouble(index, ((Number) value).doubleValue());
                         } else {
-                            throw new IllegalArgumentException("Class " + valClass.getName() + " not allowed for number-decimal (BigDecimal) fields, for field " + entityName + "." + name);
+                            throw new EntityException("Class " + valClass.getName() + " not allowed for number-decimal (BigDecimal) fields, for field " + entityName + "." + name);
                         }
                     } else { ps.setNull(index, Types.NUMERIC); } break;
                 case 10: if (value != null) { ps.setBoolean(index, (Boolean) value); } else { ps.setNull(index, Types.BOOLEAN); } break;
@@ -525,7 +545,7 @@ public class FieldInfo {
                         ps.setBytes(index, valueBlob.getBytes(1, (int) valueBlob.length()));
                     } else {
                         if (value != null) {
-                            throw new IllegalArgumentException("Type not supported for BLOB field: " + value.getClass().getName() + ", for field " + entityName + "." + name);
+                            throw new EntityException("Type not supported for BLOB field: " + value.getClass().getName() + ", for field " + entityName + "." + name);
                         } else {
                             if (useBinaryTypeForBlob) { ps.setNull(index, Types.BINARY); } else { ps.setNull(index, Types.BLOB); }
                         }
@@ -543,4 +563,6 @@ public class FieldInfo {
             throw new EntityException("Error while setting value for field " + entityName + "." + name + ": " + e.toString(), e);
         }
     }
+
+    @Override public String toString() { return name; }
 }

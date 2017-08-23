@@ -110,7 +110,7 @@ class EntityFindTests extends Specification {
         [testMedium:"Test Name", testIndicator_op: "empty"] | "EXTST1"
         [testMedium:"Test Name", testLong_op: "empty"] | "EXTST1"
         [testMedium:"Test Name", testDateTime_from: "", testDateTime_thru: ""] | "EXTST1"
-        [testMedium:"Test Name", testDateTime_from: timestamp, testDateTime_thru: timestamp] | null
+        [testMedium:"Test Name", testDateTime_from: timestamp, testDateTime_thru: timestamp - 1] | null
         [testMedium:"Test Name", testDateTime_from: timestamp, testDateTime_thru: timestamp + 1] | "EXTST1"
         [testNumberInteger:4321, testMedium_not: "Y", testMedium_op: "equals", testMedium: ""] | "EXTST1"
         [testNumberInteger:4321, testMedium_not: "Y", testMedium_op: "empty"] | "EXTST1"
@@ -227,5 +227,33 @@ class EntityFindTests extends Specification {
         before.typeDescription == "Country"
         after.typeDescription == "Country2"
         reset.typeDescription == "Country"
+    }
+
+    def "auto cache clear for count by is not null after update"() {
+        when:
+        long before = ec.entity.find("moqui.basic.Enumeration").condition("enumCode", "is-not-null", null).useCache(true).count()
+        EntityValue enumVal = ec.entity.find("moqui.basic.Enumeration").condition("enumId", "DST_PURCHASED_DATA").useCache(false).one()
+        enumVal.enumCode = "TEST"
+        enumVal.update()
+        long after = ec.entity.find("moqui.basic.Enumeration").condition("enumCode", "is-not-null", null).useCache(true).count()
+
+        // set it back so data isn't funny after tests, and test clear after reset to null
+        enumVal.enumCode = null
+        enumVal.update()
+        long reset = ec.entity.find("moqui.basic.Enumeration").condition("enumCode", "is-not-null", null).useCache(true).count()
+        // logger.warn("count before ${before} after ${after} reset ${reset}")
+
+        then:
+        before + 1 == after
+        reset == before
+    }
+
+    def "no cache with for update"() {
+        when:
+        // do query on Geo which has cache=true, with for-update it should not use the cache
+        EntityValue geo = ec.entity.find("moqui.basic.Geo").condition("geoId", "USA").forUpdate(true).one()
+
+        then:
+        geo.isMutable()
     }
 }

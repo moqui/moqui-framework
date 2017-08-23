@@ -16,7 +16,7 @@
 // tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:unchecked" }
 // tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:deprecation" }
 
-version = '2.0.1-SNAPSHOT'
+version = '2.1.0-rc2'
 
 apply plugin: 'groovy'
 apply plugin: 'war'
@@ -30,12 +30,12 @@ buildscript {
         // uncomment to add the Error Prone compiler: maven { url "https://plugins.gradle.org/m2/" }
     }
     dependencies {
-        classpath 'com.github.ben-manes:gradle-versions-plugin:0.13.0'
+        classpath 'com.github.ben-manes:gradle-versions-plugin:0.15.0'
         // uncomment to add the Error Prone compiler: classpath 'net.ltgt.gradle:gradle-errorprone-plugin:0.0.8'
     }
 }
 dependencyUpdates.resolutionStrategy = { componentSelection { rules -> rules.all { ComponentSelection selection ->
-    boolean rejected = ['alpha', 'beta', 'rc', 'cr', 'm'].any { qualifier -> selection.candidate.version ==~ /(?i).*[.-]${qualifier}[.\d-]*/ }
+    boolean rejected = ['alpha', 'beta', 'rc', 'cr', 'm', 'b'].any { qualifier -> selection.candidate.version ==~ /(?i).*[.-]${qualifier}[.\d-]*/ }
     if (rejected) selection.reject('Release candidate')
 } } }
 
@@ -63,12 +63,12 @@ dependencies {
     compile project(':moqui-util')
 
     // Groovy
-    compile 'org.codehaus.groovy:groovy:2.4.7' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-json:2.4.7' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-templates:2.4.7' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-xml:2.4.7' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy:2.4.12' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-json:2.4.12' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-templates:2.4.12' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-xml:2.4.12' // Apache 2.0
     // jansi is needed for groovydoc only, so in providedCompile (not included in war)
-    compileOnly 'org.fusesource.jansi:jansi:1.14'
+    compileOnly 'org.fusesource.jansi:jansi:1.16'
     // Findbugs need only during compile (used by freemarker and various moqui classes)
     compileOnly 'com.google.code.findbugs:annotations:3.0.1'
 
@@ -82,27 +82,27 @@ dependencies {
     // CUPS4J - print through CUPS server
     compile name: 'cups4j', version: '0.6.4' // LGPL <== NOTE!
     // CUPS4J sepends on Apache HTTP Client (unfortunate, adds about 1.1MB)
-    compile 'org.apache.httpcomponents:httpclient:4.5.2'
+    compile 'org.apache.httpcomponents:httpclient:4.5.3'
 
     // ========== Libraries from jcenter ==========
 
     // Apache Commons
     compile 'org.apache.commons:commons-csv:1.4' // Apache 2.0
     compile 'org.apache.commons:commons-email:1.4' // Apache 2.0
-    compile 'org.apache.commons:commons-lang3:3.5' // Apache 2.0; used by cron-utils
+    compile 'org.apache.commons:commons-lang3:3.6' // Apache 2.0; used by cron-utils
     compile 'commons-beanutils:commons-beanutils:1.9.3' // Apache 2.0
     compile 'commons-collections:commons-collections:3.2.2' // Apache 2.0
     compile 'commons-digester:commons-digester:2.1' // Apache 2.0
-    compile 'commons-fileupload:commons-fileupload:1.3.2' // Apache 2.0
+    compile 'commons-fileupload:commons-fileupload:1.3.3' // Apache 2.0
     compile 'commons-io:commons-io:2.5' // Apache 2.0
     compile 'commons-logging:commons-logging:1.2' // Apache 2.0
-    compile 'commons-validator:commons-validator:1.5.1' // Apache 2.0
+    compile 'commons-validator:commons-validator:1.6' // Apache 2.0
 
-    // cron-utils
-    compile module('com.cronutils:cron-utils:5.0.4') // Apache 2.0
+    // cron-utils (NOTE: not updating to 6.0.0 as adds dependency on Guava and threetenbp, evidently for pre Java 8 support but huge libs not worth it)
+    compile module('com.cronutils:cron-utils:5.0.5') // Apache 2.0
 
     // Freemarker
-    compile 'org.freemarker:freemarker:2.3.25-incubating' // Apache 2.0
+    compile 'org.freemarker:freemarker:2.3.26-incubating' // Apache 2.0
 
     // Java Specifications
     compile 'javax.transaction:jta:1.1'
@@ -115,34 +115,30 @@ dependencies {
     // compile 'javax.jms:jms:1.1'
 
     // H2 Database
-    compile 'com.h2database:h2:1.4.193' // MPL 2.0, EPL 1.0
-
-    // Apache HTTP Components
-    // compile 'org.apache.httpcomponents:httpclient:4.5.2' // Apache 2.0
-    // compile 'org.apache.httpcomponents:httpcore:4.4.5' // Apache 2.0
+    compile 'com.h2database:h2:1.4.196' // MPL 2.0, EPL 1.0
 
     // Jetty HTTP Client
-    compile 'org.eclipse.jetty:jetty-client:9.3.14.v20161028' // Apache 2.0
+    compile 'org.eclipse.jetty:jetty-client:9.4.6.v20170531' // Apache 2.0
+    compile 'org.eclipse.jetty:jetty-proxy:9.4.6.v20170531' // Apache 2.0
 
     // javax.mail
     compile 'com.sun.mail:javax.mail:1.5.6' // CDDL
 
     // JSoup (HTML parser, cleaner)
-    compile 'org.jsoup:jsoup:1.9.2' // MIT
+    compile 'org.jsoup:jsoup:1.10.3' // MIT
 
     // Pegdown (Markdown renderer; depends on parboiled, asm)
     compile 'org.pegdown:pegdown:1.6.0' // Apache 2.0
 
     // Apache Shiro
-    compile 'org.apache.shiro:shiro-core:1.3.2' // Apache 2.0
-    compile 'org.apache.shiro:shiro-web:1.3.2' // Apache 2.0
+    compile module('org.apache.shiro:shiro-core:1.4.0') // Apache 2.0
+    compile module('org.apache.shiro:shiro-web:1.4.0') // Apache 2.0
 
     // SLF4J, Log4j 2 (note Log4j 2 is used by various libraries, best not to replace it even if mostly possible with SLF4J)
-    compile 'org.slf4j:slf4j-api:1.7.21'
-    runtime 'org.apache.logging.log4j:log4j-core:2.6.2'
-    runtime 'org.apache.logging.log4j:log4j-api:2.6.2'
-    runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.6.2'
-    // NOTE: ElasticSearch 5.0.1 extends the ThrowableProxy class in a way that depends on 2.6.2, can't use 2.7 for now see issue #140
+    compile 'org.slf4j:slf4j-api:1.7.25'
+    compile 'org.apache.logging.log4j:log4j-core:2.8.2'
+    compile 'org.apache.logging.log4j:log4j-api:2.8.2'
+    runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.8.2'
 
     // SubEtha SMTP (module as depends on old javax.mail location; also uses SLF4J, activation included elsewhere)
     compile module('org.subethamail:subethasmtp:3.1.7')
@@ -155,7 +151,7 @@ dependencies {
     // compile module('org.apache.xmlrpc:xmlrpc-client:3.1.3') // Apache 2.0
 
     // Snake YAML
-    compile 'org.yaml:snakeyaml:1.17' // Apache 2.0
+    compile 'org.yaml:snakeyaml:1.18' // Apache 2.0
 
     // Apache Jackrabbit - uncomment here or include elsewhere when Jackrabbit repository configurations are used
     // compile 'org.apache.jackrabbit:jackrabbit-jcr-rmi:2.12.1' // Apache 2.0
@@ -167,25 +163,22 @@ dependencies {
     // Liquibase (for future reference, not used yet)
     // compile 'org.liquibase:liquibase-core:3.4.2' // Apache 2.0
 
-    // typescript4j: not currently used, may use in the future for transpiling TS to JS on the server
-    // compile 'com.mangofactory:typescript4j:0.4.0'
-
     // ========== test dependencies ==========
     // spock-core depends on groovy-all but we are including selected groovy modules, so don't get its dependencies
-    testCompile module('org.spockframework:spock-core:1.0-groovy-2.4') // Apache 2.0
+    testCompile module('org.spockframework:spock-core:1.1-groovy-2.4') // Apache 2.0
     testCompile 'junit:junit:4.12' // Apache 2.0
     testCompile 'org.hamcrest:hamcrest-core:1.3' // BSD 3-Clause
 
     // ========== executable war dependencies ==========
     // Jetty
-    execWarRuntime 'org.eclipse.jetty:jetty-server:9.3.14.v20161028' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.3.14.v20161028' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.3.14.v20161028' // Apache 2.0
-    execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.3.14.v20161028') // Apache 2.0
-    execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.3.14.v20161028') // Apache 2.0
-    execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.3.14.v20161028') // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-server:9.4.6.v20170531' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.4.6.v20170531' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.4.6.v20170531' // Apache 2.0
+    execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.4.6.v20170531') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.4.6.v20170531') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.4.6.v20170531') // Apache 2.0
     // only include this if using Endpoint and MessageHandler annotations:
-    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:9.3.14.v20161028') // Apache 2.0
+    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:9.4.6.v20170531') // Apache 2.0
 }
 
 // setup task dependencies to make sure the start sourceSets always get run

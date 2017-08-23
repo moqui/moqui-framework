@@ -1,0 +1,41 @@
+# A Docker Compose application with postgres and virtual hosting through nginx-proxy for multiple moqui instances on different hosts.
+
+# This has no moqui instances, meant to be a shell for externally managed moqui containers.
+
+# Run with something like:
+# $ docker-compose -f nginx-postgres-compose.yml -p moqui up -d
+# This sets the project/app name to 'moqui' and the network will be 'moqui_default', to be used by external moqui containers
+
+version: "2"
+services:
+  nginx-proxy:
+    # For documentation on SSL and other settings see:
+    # https://github.com/jwilder/nginx-proxy
+    image: jwilder/nginx-proxy
+    container_name: nginx-proxy
+    restart: unless-stopped
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      # note: .crt, .key, and .dhparam.pem files start with the domain name in VIRTUAL_HOST (ie 'moqui.local.*') or use CERT_NAME env var
+      - ./certs:/etc/nginx/certs
+      - ./nginx/my_proxy.conf:/etc/nginx/conf.d/my_proxy.conf
+
+  moqui-database:
+    image: postgres:9.6
+    container_name: moqui-database
+    restart: unless-stopped
+    # uncomment this to expose the port for use outside other containers
+    # ports:
+     - 127.0.0.1:5432:5432
+    volumes:
+     # edit these as needed to map configuration and data storage
+     - ./db/postgres/data:/var/lib/postgresql/data
+    environment:
+     - POSTGRES_DB=moqui
+     - POSTGRES_DB_SCHEMA=public
+     - POSTGRES_USER=moqui
+     - POSTGRES_PASSWORD=moqui
+     # PGDATA, POSTGRES_INITDB_ARGS

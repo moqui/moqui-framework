@@ -14,8 +14,11 @@
 package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
+import org.moqui.BaseException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.entity.*
+import org.moqui.etl.SimpleEtl
+import org.moqui.etl.SimpleEtl.StopException
 import org.moqui.impl.context.ArtifactExecutionFacadeImpl
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ExecutionContextImpl
@@ -31,11 +34,18 @@ import org.slf4j.LoggerFactory
 
 import javax.cache.Cache
 import java.sql.ResultSet
+import java.sql.SQLException
 import java.sql.Timestamp
 
 @CompileStatic
 abstract class EntityFindBase implements EntityFind {
     protected final static Logger logger = LoggerFactory.getLogger(EntityFindBase.class)
+
+    // these error strings are here for convenience for LocalizedMessage records
+    // NOTE: don't change these unless there is a really good reason, will break localization
+    private static final String ONE_ERROR = 'Error finding one ${entityName} by ${condition}'
+    private static final String LIST_ERROR = 'Error finding list of ${entityName} by ${condition}'
+    private static final String COUNT_ERROR = 'Error finding count of ${entityName} by ${condition}'
 
     final static int defaultResultSetType = ResultSet.TYPE_FORWARD_ONLY
 
@@ -111,13 +121,22 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override
     EntityFind condition(String fieldName, EntityCondition.ComparisonOperator operator, Object value) {
-        if (operator == EntityCondition.EQUALS) return condition(fieldName, value)
-        return condition(efi.entityConditionFactory.makeCondition(fieldName, operator, value))
+        EntityDefinition ed = getEntityDef()
+        FieldInfo fi = ed.getFieldInfo(fieldName)
+        if (fi == null) throw new EntityException("Field ${fieldName} not found on entity ${entityName}, cannot add condition")
+        if (operator == null) operator = EntityCondition.EQUALS
+        if (ed.isViewEntity && fi.fieldNode.attribute("function")) {
+            return havingCondition(new FieldValueCondition(fi.conditionField, operator, value))
+        } else {
+            if (EntityCondition.EQUALS.is(operator)) return condition(fieldName, value)
+            return condition(new FieldValueCondition(fi.conditionField, operator, value))
+        }
     }
     @Override
     EntityFind condition(String fieldName, String operator, Object value) {
-        EntityCondition.ComparisonOperator opObj = EntityConditionFactoryImpl.stringComparisonOperatorMap.get(operator)
-        if (opObj == null) throw new IllegalArgumentException("Operator [${operator}] is not a valid field comparison operator")
+        EntityCondition.ComparisonOperator opObj = operator == null || operator.isEmpty() ?
+                EntityCondition.EQUALS : EntityConditionFactoryImpl.stringComparisonOperatorMap.get(operator)
+        if (opObj == null) throw new EntityException("Operator [${operator}] is not a valid field comparison operator")
         return condition(fieldName, opObj, value)
     }
 
@@ -388,7 +407,7 @@ abstract class EntityFindBase implements EntityFind {
         }
 
         // if there is a pageNoLimit clear out the limit regardless of other settings
-        if (inputFieldsMap?.get("pageNoLimit") == "true" || inputFieldsMap?.get("pageNoLimit") == true) {
+        if ("true".equals(inputFieldsMap?.get("pageNoLimit")) || inputFieldsMap?.get("pageNoLimit") == true) {
             offset = null
             limit = null
         }
@@ -419,28 +438,28 @@ abstract class EntityFindBase implements EntityFind {
                                     not ? EntityCondition.NOT_EQUAL : EntityCondition.EQUALS, convertedValue)
                             if (ic) cond.ignoreCase()
                         }
-                        break;
+                        break
                     case "like":
                         if (value) {
                             cond = efi.entityConditionFactory.makeCondition(fn,
                                     not ? EntityCondition.NOT_LIKE : EntityCondition.LIKE, value)
                             if (ic) cond.ignoreCase()
                         }
-                        break;
+                        break
                     case "contains":
                         if (value) {
                             cond = efi.entityConditionFactory.makeCondition(fn,
                                     not ? EntityCondition.NOT_LIKE : EntityCondition.LIKE, "%${value}%")
                             if (ic) cond.ignoreCase()
                         }
-                        break;
+                        break
                     case "begins":
                         if (value) {
                             cond = efi.entityConditionFactory.makeCondition(fn,
                                     not ? EntityCondition.NOT_LIKE : EntityCondition.LIKE, "${value}%")
                             if (ic) cond.ignoreCase()
                         }
-                        break;
+                        break
                     case "empty":
                         cond = efi.entityConditionFactory.makeCondition(
                                 efi.entityConditionFactory.makeCondition(fn,
@@ -448,7 +467,7 @@ abstract class EntityFindBase implements EntityFind {
                                 not ? EntityCondition.JoinOperator.AND : EntityCondition.JoinOperator.OR,
                                 efi.entityConditionFactory.makeCondition(fn,
                                         not ? EntityCondition.NOT_EQUAL : EntityCondition.EQUALS, ""))
-                        break;
+                        break
                     case "in":
                         if (value) {
                             Collection valueList = null
@@ -463,14 +482,15 @@ abstract class EntityFindBase implements EntityFind {
 
                             }
                         }
-                        break;
+                        break
                 }
                 if (cond != null) {
                     this.condition(cond)
                     addedConditions = true
                 }
             } else if (inputFieldsMap.get(fn + "_period")) {
-                List<Timestamp> range = ec.user.getPeriodRange((String) inputFieldsMap.get(fn + "_period"), (String) inputFieldsMap.get(fn + "_poffset"))
+                List<Timestamp> range = ec.user.getPeriodRange((String) inputFieldsMap.get(fn + "_period"),
+                        (String) inputFieldsMap.get(fn + "_poffset"), (String) inputFieldsMap.get(fn + "_pdate"))
                 this.condition(efi.entityConditionFactory.makeCondition(fn, EntityCondition.GREATER_THAN_EQUAL_TO, range.get(0)))
                 this.condition(efi.entityConditionFactory.makeCondition(fn, EntityCondition.LESS_THAN, range.get(1)))
                 addedConditions = true
@@ -481,12 +501,12 @@ abstract class EntityFindBase implements EntityFind {
                 Object thruValue = inputFieldsMap.get(fn + "_thru")
                 if (thruValue && thruValue instanceof CharSequence) thruValue = ed.convertFieldString(fn, thruValue.toString(), ec)
 
-                if (fromValue) {
+                if (!ObjectUtilities.isEmpty(fromValue)) {
                     this.condition(efi.entityConditionFactory.makeCondition(fn, EntityCondition.GREATER_THAN_EQUAL_TO, fromValue))
                     addedConditions = true
                 }
-                if (thruValue) {
-                    this.condition(efi.entityConditionFactory.makeCondition(fn, EntityCondition.LESS_THAN, thruValue))
+                if (!ObjectUtilities.isEmpty(thruValue)) {
+                    this.condition(efi.entityConditionFactory.makeCondition(fn, EntityCondition.LESS_THAN_EQUAL_TO, thruValue))
                     addedConditions = true
                 }
             }
@@ -503,10 +523,10 @@ abstract class EntityFindBase implements EntityFind {
         if (fieldToSelect.contains(",")) {
             for (String ftsPart in fieldToSelect.split(",")) {
                 String selectName = ftsPart.trim()
-                if (getEntityDef().isField(selectName)) fieldsToSelect.add(selectName)
+                if (getEntityDef().isField(selectName) && !fieldsToSelect.contains(selectName)) fieldsToSelect.add(selectName)
             }
         } else {
-            if (getEntityDef().isField(fieldToSelect)) fieldsToSelect.add(fieldToSelect)
+            if (getEntityDef().isField(fieldToSelect) && !fieldsToSelect.contains(fieldToSelect)) fieldsToSelect.add(fieldToSelect)
         }
         return this
     }
@@ -547,6 +567,7 @@ abstract class EntityFindBase implements EntityFind {
         return this
     }
     @Override List<String> getOrderBy() { return orderByFields != null ? Collections.unmodifiableList(orderByFields) : null }
+    ArrayList<String> getOrderByFields() { return orderByFields }
 
     @Override EntityFind useCache(Boolean useCache) { this.useCache = useCache; return this }
     @Override boolean getUseCache() { return this.useCache }
@@ -607,6 +628,7 @@ abstract class EntityFindBase implements EntityFind {
         if (dynamicView != null) return false
         if (havingEntityCondition != null) return false
         if (limit != null || offset != null) return false
+        if (forUpdate) return false
         if (useCache != null) {
             boolean useCacheLocal = useCache.booleanValue()
             if (!useCacheLocal) return false
@@ -623,6 +645,18 @@ abstract class EntityFindBase implements EntityFind {
                 "OFFSET [${offset}] LIMIT [${limit}] FOR UPDATE [${forUpdate}]"
     }
 
+    private static String makeErrorMsg(String baseMsg, String expandMsg, EntityConditionImplBase cond, EntityDefinition ed, ExecutionContextImpl ec) {
+        Map<String, Object> errorContext = new HashMap<>()
+        errorContext.put("entityName", ed.getEntityName()); errorContext.put("condition", cond)
+        String errorMessage = null
+        // TODO: need a different approach for localization, getting from DB may not be reliable after an error and may cause other errors (especially with Postgres and the auto rollback only)
+        if (false && !"LocalizedMessage".equals(ed.getEntityName())) {
+            try { errorMessage = ec.resourceFacade.expand(expandMsg, null, errorContext) }
+            catch (Throwable t) { logger.trace("Error expanding error message", t) }
+        }
+        if (errorMessage == null) errorMessage = baseMsg + " " + ed.getEntityName() + " by " + cond
+        return errorMessage
+    }
     // ======================== Find and Abstract Methods ========================
 
     abstract EntityDynamicView makeEntityDynamicView()
@@ -638,7 +672,7 @@ abstract class EntityFindBase implements EntityFind {
             ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
                     ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "one")
             // really worth the overhead? if so change to handle singleCondField: .setParameters(simpleAndMap)
-            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView)
+            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView, false)
 
             try {
                 return oneInternal(ec, ed)
@@ -650,8 +684,33 @@ abstract class EntityFindBase implements EntityFind {
             if (enableAuthz) aefi.enableAuthz()
         }
     }
-    protected EntityValue oneInternal(ExecutionContextImpl ec, EntityDefinition ed) throws EntityException {
-        if (this.dynamicView != null) throw new IllegalArgumentException("Dynamic View not supported for 'one' find.")
+    @Override
+    Map<String, Object> oneMaster(String name) {
+        ExecutionContextImpl ec = efi.ecfi.getEci()
+        ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
+        boolean enableAuthz = disableAuthz ? !aefi.disableAuthz() : false
+        try {
+            EntityDefinition ed = getEntityDef()
+
+            ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
+                    ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "one")
+            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView, false)
+
+            try {
+                EntityValue ev = oneInternal(ec, ed)
+                if (ev == null) return null
+                return ev.getMasterValueMap(name)
+            } finally {
+                // pop the ArtifactExecutionInfo
+                aefi.pop(aei)
+            }
+        } finally {
+            if (enableAuthz) aefi.enableAuthz()
+        }
+    }
+
+    protected EntityValue oneInternal(ExecutionContextImpl ec, EntityDefinition ed) throws EntityException, SQLException {
+        if (this.dynamicView != null) throw new EntityException("Dynamic View not supported for 'one' find.")
 
         boolean isViewEntity = ed.isViewEntity
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
@@ -767,8 +826,13 @@ abstract class EntityFindBase implements EntityFind {
             } else {
                 // if forUpdate unless this was a TX CREATE it'll be in the DB and should be locked, so do the query
                 //     anyway, but ignore the result unless it's a read only tx cache
-                if (forUpdate && !txCache.isTxCreate(txcValue)) {
-                    EntityValueBase fuDbValue = oneExtended(isViewEntity ? getConditionForQuery(ed, whereCondition) : whereCondition, fieldInfoArray, fieldOptionsArray)
+                if (forUpdate && !txCache.isKnownLocked(txcValue) && !txCache.isTxCreate(txcValue)) {
+                    EntityValueBase fuDbValue
+                    EntityConditionImplBase cond = isViewEntity ? getConditionForQuery(ed, whereCondition) : whereCondition
+                    try { fuDbValue = oneExtended(cond, fieldInfoArray, fieldOptionsArray) }
+                    catch (SQLException e) { throw new EntitySqlException(makeErrorMsg("Error finding one", ONE_ERROR, cond, ed, ec), e) }
+                    catch (Exception e) { throw new EntityException(makeErrorMsg("Error finding one", ONE_ERROR, cond, ed, ec), e) }
+
                     if (txCache.isReadOnly()) {
                         // is read only tx cache so use the value from the DB
                         newEntityValue = fuDbValue
@@ -789,7 +853,7 @@ abstract class EntityFindBase implements EntityFind {
                                 if (compareObj != baseObj) fieldDiffBuilder.append("- ").append(entry.key).append(": ")
                                         .append(compareObj).append(" (txc) != ").append(baseObj).append(" (db)\n")
                             }
-                            logger.warn("Did for update query and result did not match value in transaction cache: \n${fieldDiffBuilder}")
+                            logger.warn("Did for update query on ${ed.getFullEntityName()} and result did not match value in transaction cache: \n${fieldDiffBuilder}", new BaseException("location"))
                         }
                         newEntityValue = txcValue
                     }
@@ -807,10 +871,13 @@ abstract class EntityFindBase implements EntityFind {
             this.resultSetType = ResultSet.TYPE_FORWARD_ONLY
             this.resultSetConcurrency = ResultSet.CONCUR_READ_ONLY
 
-            newEntityValue = oneExtended(isViewEntity ? getConditionForQuery(ed, whereCondition) : whereCondition, fieldInfoArray, fieldOptionsArray)
+            EntityConditionImplBase cond = isViewEntity ? getConditionForQuery(ed, whereCondition) : whereCondition
+            try { newEntityValue = oneExtended(cond, fieldInfoArray, fieldOptionsArray) }
+            catch (SQLException e) { throw new EntitySqlException(makeErrorMsg("Error finding one", ONE_ERROR, cond, ed, ec), e) }
+            catch (Exception e) { throw new EntityException(makeErrorMsg("Error finding one", ONE_ERROR, cond, ed, ec), e) }
 
             // it didn't come from the txCache so put it there
-            if (txCache != null) txCache.onePut(newEntityValue)
+            if (txCache != null) txCache.onePut(newEntityValue, forUpdate)
 
             // put it in whether null or not (already know cacheHit is null)
             if (doCache) efi.getEntityCache().putInOneCache(ed, whereCondition, newEntityValue, entityOneCache)
@@ -842,32 +909,7 @@ abstract class EntityFindBase implements EntityFind {
 
     /** The abstract oneExtended method to implement */
     abstract EntityValueBase oneExtended(EntityConditionImplBase whereCondition, FieldInfo[] fieldInfoArray,
-                                         FieldOrderOptions[] fieldOptionsArray) throws EntityException
-
-    @Override
-    Map<String, Object> oneMaster(String name) {
-        ExecutionContextImpl ec = efi.ecfi.getEci()
-        ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
-        boolean enableAuthz = disableAuthz ? !aefi.disableAuthz() : false
-        try {
-            EntityDefinition ed = getEntityDef()
-
-            ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
-                    ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "one")
-            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView)
-
-            try {
-                EntityValue ev = oneInternal(ec, ed)
-                if (ev == null) return null
-                return ev.getMasterValueMap(name)
-            } finally {
-                // pop the ArtifactExecutionInfo
-                aefi.pop(aei)
-            }
-        } finally {
-            if (enableAuthz) aefi.enableAuthz()
-        }
-    }
+                                         FieldOrderOptions[] fieldOptionsArray) throws SQLException
 
     @Override
     EntityList list() throws EntityException {
@@ -879,7 +921,7 @@ abstract class EntityFindBase implements EntityFind {
 
             ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
                     ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "list")
-            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView)
+            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView, false)
             try {
                 return listInternal(ec, ed)
             } finally {
@@ -889,7 +931,30 @@ abstract class EntityFindBase implements EntityFind {
             if (enableAuthz) aefi.enableAuthz()
         }
     }
-    protected EntityList listInternal(ExecutionContextImpl ec, EntityDefinition ed) throws EntityException {
+    @Override
+    List<Map<String, Object>> listMaster(String name) {
+        ExecutionContextImpl ec = efi.ecfi.getEci()
+        ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
+        boolean enableAuthz = disableAuthz ? !aefi.disableAuthz() : false
+        try {
+            EntityDefinition ed = getEntityDef()
+
+            ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
+                    ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "list")
+            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView, false)
+            try {
+                EntityList el = listInternal(ec, ed)
+                return el.getMasterValueList(name)
+            } finally {
+                // pop the ArtifactExecutionInfo
+                aefi.pop(aei)
+            }
+        } finally {
+            if (enableAuthz) aefi.enableAuthz()
+        }
+    }
+
+    protected EntityList listInternal(ExecutionContextImpl ec, EntityDefinition ed) throws EntityException, SQLException {
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
         boolean isViewEntity = entityInfo.isView
 
@@ -943,9 +1008,8 @@ abstract class EntityFindBase implements EntityFind {
             if (getDistinct() && fieldsToSelect != null && fieldsToSelect.size() > 0 && orderByExpandedSize > 0) {
                 for (int i = 0; i < orderByExpandedSize; i++) {
                     String orderByField = (String) orderByExpanded.get(i)
-                    //EntityQueryBuilder.FieldOrderOptions foo = new EntityQueryBuilder.FieldOrderOptions(orderByField)
-                    //localFts.add(foo.fieldName)
-                    fieldsToSelect.add(orderByField)
+                    FieldOrderOptions foo = new FieldOrderOptions(orderByField)
+                    if (!fieldsToSelect.contains(foo.fieldName)) fieldsToSelect.add(foo.fieldName)
                 }
             }
 
@@ -992,11 +1056,10 @@ abstract class EntityFindBase implements EntityFind {
             }
 
             // call the abstract method
-            EntityListIterator eli = iteratorExtended(queryWhereCondition, havingCondition, orderByExpanded,
-                    fieldInfoArray, fieldOptionsArray)
-            // these are used by the TransactionCache methods to augment the resulting list and maintain the sort order
-            eli.setQueryCondition(queryWhereCondition)
-            eli.setOrderByFields(orderByExpanded)
+            EntityListIterator eli
+            try { eli = iteratorExtended(queryWhereCondition, havingCondition, orderByExpanded, fieldInfoArray, fieldOptionsArray) }
+            catch (SQLException e) { throw new EntitySqlException(makeErrorMsg("Error finding list of", LIST_ERROR, queryWhereCondition, ed, ec), e) }
+            catch (Exception e) { throw new EntityException(makeErrorMsg("Error finding list of", LIST_ERROR, queryWhereCondition, ed, ec), e) }
 
             MNode databaseNode = this.efi.getDatabaseNode(ed.getEntityGroupName())
             if (limit != null && databaseNode != null && "cursor".equals(databaseNode.attribute("offset-style"))) {
@@ -1020,49 +1083,31 @@ abstract class EntityFindBase implements EntityFind {
     }
 
     @Override
-    List<Map<String, Object>> listMaster(String name) {
+    EntityListIterator iterator() throws EntityException {
         ExecutionContextImpl ec = efi.ecfi.getEci()
         ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
-        boolean enableAuthz = disableAuthz ? !aefi.disableAuthz() : false
+        boolean enableAuthz = disableAuthz ? !ec.artifactExecutionFacade.disableAuthz() : false
         try {
             EntityDefinition ed = getEntityDef()
 
             ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
-                    ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "list")
-            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView)
+                    ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "iterator")
+            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView, false)
             try {
-                EntityList el = listInternal(ec, ed)
-                return el.getMasterValueList(name)
+                return iteratorInternal(ec, ed)
             } finally {
-                // pop the ArtifactExecutionInfo
                 aefi.pop(aei)
             }
-        } finally {
-            if (enableAuthz) aefi.enableAuthz()
-        }
-    }
-
-    @Override
-    EntityListIterator iterator() throws EntityException {
-        ExecutionContextImpl ec = efi.ecfi.getEci()
-        boolean enableAuthz = disableAuthz ? !ec.artifactExecutionFacade.disableAuthz() : false
-        try {
-            return iteratorInternal(ec)
         } finally {
             if (enableAuthz) ec.artifactExecutionFacade.enableAuthz()
         }
     }
-    protected EntityListIterator iteratorInternal(ExecutionContextImpl ec) throws EntityException {
-        EntityDefinition ed = getEntityDef()
+    protected EntityListIterator iteratorInternal(ExecutionContextImpl ec, EntityDefinition ed) throws EntityException, SQLException {
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
         boolean isViewEntity = entityInfo.isView
         ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
 
         if (entityInfo.isInvalidViewEntity) throw new EntityException("Cannot do find for view-entity with name ${entityName} because it has no member entities or no aliased fields.")
-
-        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
-                ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "iterator")
-        aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView)
 
         // there may not be a simpleAndMap, but that's all we have that can be treated directly by the EECA
         // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(ed.getFullEntityName(), simpleAndMap, "find-iterator", true)
@@ -1086,9 +1131,8 @@ abstract class EntityFindBase implements EntityFind {
         // order by fields need to be selected (at least on some databases, Derby is one of them)
         if (getDistinct() && fieldsToSelect != null && fieldsToSelect.size() > 0 && orderByExpanded.size() > 0) {
             for (String orderByField in orderByExpanded) {
-                //EntityFindBuilder.FieldOrderOptions foo = new EntityFindBuilder.FieldOrderOptions(orderByField)
-                //fieldsToSelect.add(foo.fieldName)
-                fieldsToSelect.add(orderByField)
+                FieldOrderOptions foo = new FieldOrderOptions(orderByField)
+                if (!fieldsToSelect.contains(foo.fieldName)) fieldsToSelect.add(foo.fieldName)
             }
         }
 
@@ -1137,9 +1181,10 @@ abstract class EntityFindBase implements EntityFind {
         }
 
         // call the abstract method
-        EntityListIterator eli = iteratorExtended(whereCondition, havingCondition, orderByExpanded, fieldInfoArray, fieldOptionsArray)
-        eli.setQueryCondition(whereCondition)
-        eli.setOrderByFields(orderByExpanded)
+        EntityListIterator eli
+        try { eli = iteratorExtended(whereCondition, havingCondition, orderByExpanded, fieldInfoArray, fieldOptionsArray) }
+        catch (SQLException e) { throw new EntitySqlException(makeErrorMsg("Error finding list of", LIST_ERROR, whereCondition, ed, ec), e) }
+        catch (Exception e) { throw new EntityException(makeErrorMsg("Error finding list of", LIST_ERROR, whereCondition, ed, ec), e) }
 
         // NOTE: if we are doing offset/limit with a cursor no good way to limit results, but we'll at least jump to the offset
         MNode databaseNode = this.efi.getDatabaseNode(ed.getEntityGroupName())
@@ -1152,35 +1197,37 @@ abstract class EntityFindBase implements EntityFind {
         }
 
         // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(ed.getFullEntityName(), simpleAndMap, "find-iterator", false)
-        // pop the ArtifactExecutionInfo, also counts artifact hit
-        aefi.pop(aei)
 
         return eli
     }
 
     abstract EntityListIterator iteratorExtended(EntityConditionImplBase whereCondition, EntityConditionImplBase havingCondition,
-                                                 ArrayList<String> orderByExpanded, FieldInfo[] fieldInfoArray,
-                                                 FieldOrderOptions[] fieldOptionsArray)
+            ArrayList<String> orderByExpanded, FieldInfo[] fieldInfoArray, FieldOrderOptions[] fieldOptionsArray) throws SQLException
 
     @Override
     long count() throws EntityException {
         ExecutionContextImpl ec = efi.ecfi.getEci()
+        ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
         boolean enableAuthz = disableAuthz ? !ec.artifactExecutionFacade.disableAuthz() : false
         try {
-            return countInternal(ec)
+            EntityDefinition ed = getEntityDef()
+
+            ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
+                    ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "count")
+            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView, false)
+            try {
+                return countInternal(ec, ed)
+            } finally {
+                aefi.pop(aei)
+            }
         } finally {
             if (enableAuthz) ec.artifactExecutionFacade.enableAuthz()
         }
     }
-    protected long countInternal(ExecutionContextImpl ec) throws EntityException {
-        EntityDefinition ed = getEntityDef()
+    protected long countInternal(ExecutionContextImpl ec, EntityDefinition ed) throws EntityException, SQLException {
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
         boolean isViewEntity = entityInfo.isView
         ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
-
-        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
-                ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "count")
-        aefi.pushInternal(aei, !entityInfo.authorizeSkipView)
 
         // there may not be a simpleAndMap, but that's all we have that can be treated directly by the EECA
         // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(ed.getFullEntityName(), simpleAndMap, "find-count", true)
@@ -1229,6 +1276,7 @@ abstract class EntityFindBase implements EntityFind {
                 }
                 if (!hasFieldOptions) fieldOptionsArray = (FieldOrderOptions[]) null
             }
+            // logger.warn("fieldsToSelect: ${fieldsToSelect} fieldInfoArray: ${fieldInfoArray}")
 
             if (isViewEntity) {
                 MNode entityConditionNode = ed.entityConditionNode
@@ -1247,20 +1295,20 @@ abstract class EntityFindBase implements EntityFind {
             }
 
             // call the abstract method
-            count = countExtended(queryWhereCondition, havingCondition, fieldInfoArray, fieldOptionsArray)
+            try { count = countExtended(queryWhereCondition, havingCondition, fieldInfoArray, fieldOptionsArray) }
+            catch (SQLException e) { throw new EntitySqlException(makeErrorMsg("Error finding count of", COUNT_ERROR, queryWhereCondition, ed, ec), e) }
+            catch (Exception e) { throw new EntityException(makeErrorMsg("Error finding count of", COUNT_ERROR, queryWhereCondition, ed, ec), e) }
 
             if (doCache) entityCountCache.put(whereCondition, count)
         }
 
         // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(ed.getFullEntityName(), simpleAndMap, "find-count", false)
-        // pop the ArtifactExecutionInfo, also counts artifact hit
-        aefi.pop(aei)
 
         return count
     }
 
     abstract long countExtended(EntityConditionImplBase whereCondition, EntityConditionImplBase havingCondition,
-                                FieldInfo[] fieldInfoArray, FieldOrderOptions[] fieldOptionsArray) throws EntityException
+                                FieldInfo[] fieldInfoArray, FieldOrderOptions[] fieldOptionsArray) throws SQLException
 
     @Override
     long updateAll(Map<String, ?> fieldsToSet) {
@@ -1335,5 +1383,20 @@ abstract class EntityFindBase implements EntityFind {
             if (eli != null) eli.close()
         }
         return totalDeleted
+    }
+
+    @Override
+    void extract(SimpleEtl etl) {
+        EntityListIterator eli = iterator()
+        try {
+            EntityValue ev
+            while ((ev = eli.next()) != null) {
+                etl.processEntry(ev)
+            }
+        } catch (StopException e) {
+            logger.warn("EntityFind extract stopped on: " + (e.getCause()?.toString() ?: e.toString()))
+        } finally {
+            eli.close()
+        }
     }
 }

@@ -13,8 +13,8 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
-    <xs:include schemaLocation="common-types-2.0.xsd"/>
-    <xs:include schemaLocation="xml-actions-2.0.xsd"/>
+    <xs:include schemaLocation="common-types-2.1.xsd"/>
+    <xs:include schemaLocation="xml-actions-2.1.xsd"/>
 
     <xs:element name="AllWidgets" abstract="true"/>
     <xs:element name="StandaloneFields" abstract="true"/>
@@ -127,6 +127,9 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="background-message" type="xs:string">
                 <xs:annotation><xs:documentation>After the form is submitted in the background show this message in a dialog.</xs:documentation></xs:annotation>
             </xs:attribute>
+            <xs:attribute name="server-static" type="xs:string">
+                <xs:annotation><xs:documentation>See details for the screen.@server-static attribute. Defaults to the screen's value.</xs:documentation></xs:annotation>
+            </xs:attribute>
         </xs:complexType>
     </xs:element>
 
@@ -225,6 +228,9 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="dynamic" type="boolean" default="false">
                 <xs:annotation><xs:documentation>If true then this form will be considered dynamic and the internal
                     definition will be built up each time it is used instead of only when first referred to.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="server-static" type="xs:string">
+                <xs:annotation><xs:documentation>See details for the screen.@server-static attribute. Defaults to the screen's value.</xs:documentation></xs:annotation>
             </xs:attribute>
         </xs:complexType>
     </xs:element>
@@ -430,18 +436,12 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="type" default="span">
                 <xs:simpleType><xs:restriction base="xs:token">
                     <xs:enumeration value="p"/>
-                    <xs:enumeration value="pre"/>
-                    <xs:enumeration value="code"/>
-                    <xs:enumeration value="div"/>
-                    <xs:enumeration value="span"/>
-                    <xs:enumeration value="strong"/>
-                    <xs:enumeration value="i"/>
-                    <xs:enumeration value="h1"/>
-                    <xs:enumeration value="h2"/>
-                    <xs:enumeration value="h3"/>
-                    <xs:enumeration value="h4"/>
-                    <xs:enumeration value="h5"/>
-                    <xs:enumeration value="h6"/>
+                    <xs:enumeration value="pre"/><xs:enumeration value="code"/>
+                    <xs:enumeration value="div"/><xs:enumeration value="span"/>
+                    <xs:enumeration value="strong"/><xs:enumeration value="i"/>
+                    <xs:enumeration value="h1"/><xs:enumeration value="h2"/><xs:enumeration value="h3"/>
+                    <xs:enumeration value="h4"/><xs:enumeration value="h5"/><xs:enumeration value="h6"/>
+                    <xs:enumeration value="dt"/><xs:enumeration value="dd"/>
                 </xs:restriction></xs:simpleType>
             </xs:attribute>
             <xs:attribute name="id" type="xs:string"/>
@@ -474,16 +474,10 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="text" type="xs:string" use="required"/>
             <xs:attribute name="type" default="span">
                 <xs:simpleType><xs:restriction base="xs:token">
-                    <xs:enumeration value="p"/>
-                    <xs:enumeration value="pre"/>
-                    <xs:enumeration value="span"/>
-                    <xs:enumeration value="div"/>
-                    <xs:enumeration value="strong"/>
-                    <xs:enumeration value="h1"/>
-                    <xs:enumeration value="h2"/>
-                    <xs:enumeration value="h3"/>
-                    <xs:enumeration value="h4"/>
-                    <xs:enumeration value="h5"/>
+                    <xs:enumeration value="p"/><xs:enumeration value="pre"/>
+                    <xs:enumeration value="span"/><xs:enumeration value="div"/><xs:enumeration value="strong"/>
+                    <xs:enumeration value="h1"/><xs:enumeration value="h2"/><xs:enumeration value="h3"/>
+                    <xs:enumeration value="h4"/><xs:enumeration value="h5"/>
                 </xs:restriction></xs:simpleType>
             </xs:attribute>
             <xs:attribute name="widget-type" default="textarea">
@@ -587,7 +581,18 @@ along with this software (see the LICENSE.md file). If not, see
                     <xs:enumeration value="sub-list"/>
                 </xs:restriction></xs:simpleType>
             </xs:attribute>
-            <xs:attribute name="show-total" type="boolean" default="false"/>
+            <xs:attribute name="show-total" default="false">
+                <xs:annotation><xs:documentation>
+                    For form-list only. If anything but false for any field a totals row is added to the output based on the
+                    rows currently displayed. The 'true' option is the same as 'sum'.
+                </xs:documentation></xs:annotation>
+                <xs:simpleType><xs:restriction base="xs:token">
+                    <xs:enumeration value="true"/><xs:enumeration value="false"/><xs:enumeration value="sum"/>
+                    <xs:enumeration value="min"/><xs:enumeration value="max"/>
+                    <xs:enumeration value="avg"/><xs:enumeration value="count"/>
+                    <xs:enumeration value="first"/><xs:enumeration value="last"/>
+                </xs:restriction></xs:simpleType>
+            </xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="header-field">
@@ -844,35 +849,24 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:element name="drop-down" substitutionGroup="SubFields">
         <xs:complexType>
             <xs:sequence>
-                <xs:choice>
-                    <xs:element ref="dynamic-options"/>
-                    <xs:choice minOccurs="0" maxOccurs="unbounded">
-                        <xs:element ref="entity-options"/>
-                        <xs:element ref="list-options"/>
-                        <xs:element ref="option"/>
-                    </xs:choice>
+                <xs:choice minOccurs="0" maxOccurs="unbounded">
+                    <xs:element ref="entity-options"/>
+                    <xs:element ref="list-options"/>
+                    <xs:element ref="option"/>
                 </xs:choice>
+                <xs:element minOccurs="0" ref="dynamic-options"/>
             </xs:sequence>
             <xs:attribute name="allow-empty" type="xs:string" default="false"/>
             <xs:attribute name="allow-multiple" type="xs:string" default="false"/>
             <xs:attribute name="size" type="xs:integer" default="1"/>
-            <xs:attribute name="current" default="selected">
-                <xs:simpleType>
-                    <xs:restriction base="xs:token">
-                        <xs:enumeration value="first-in-list"/>
-                        <xs:enumeration value="selected"/>
-                    </xs:restriction>
-                </xs:simpleType>
-            </xs:attribute>
+            <xs:attribute name="current" default="selected"><xs:simpleType><xs:restriction base="xs:token">
+                <xs:enumeration value="first-in-list"/><xs:enumeration value="selected"/></xs:restriction></xs:simpleType></xs:attribute>
             <xs:attribute name="no-current-selected-key" type="xs:string">
                 <xs:annotation><xs:documentation>The key to mark as selected when there is no current entry value.</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="current-description" type="xs:string"/>
             <xs:attribute name="combo-box" type="boolean" default="false"/>
-            <xs:attribute name="search" type="boolean" default="true"/>
-            <xs:attribute name="style" type="xs:string">
-                <xs:annotation><xs:documentation>This should only be used in an emergency, such as the issue with Chosen in a popup.</xs:documentation></xs:annotation>
-            </xs:attribute>
+            <xs:attribute name="style" type="xs:string"/>
         </xs:complexType>
     </xs:element>
     <xs:element name="file" substitutionGroup="SubFields">
@@ -951,20 +945,26 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="default-value" type="xs:string"/>
             <xs:attribute name="disabled" default="false" type="boolean"/>
             <xs:attribute name="format" type="xs:string">
-                <xs:annotation><xs:documentation>Used to format the output of Number/Time/Date/Timestamp/etc objects.
+                <xs:annotation><xs:documentation>Used to parse and format the output of Number/Time/Date/Timestamp/etc objects.
                     With auto-fields-service will inherit from service parameter.</xs:documentation></xs:annotation>
             </xs:attribute>
-            <xs:attribute name="ac-transition" type="xs:string" use="optional">
+            <xs:attribute name="mask" type="xs:string">
+                <xs:annotation><xs:documentation>A mask for guiding and filtering input, uses RobinHerbots/Inputmask.
+                    For a simple mask use '9' for digits, 'a' for letters, and '*' for digits or letters.
+                    This may also be an alias for a predefined mask.</xs:documentation></xs:annotation>
+            </xs:attribute>
+
+            <xs:attribute name="ac-transition" type="xs:string">
                 <xs:annotation><xs:documentation>If specified the text-line will have auto-complete added to it with
                     this transition as the source of the auto-complete options.</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="ac-delay" type="xs:positiveInteger" default="300"/>
-            <xs:attribute name="ac-min-length" type="xs:positiveInteger" default="1"/>
+            <xs:attribute name="ac-min-length" type="xs:nonNegativeInteger" default="1"/>
             <xs:attribute name="ac-show-value" type="boolean" default="false">
                 <xs:annotation><xs:documentation>If true the value of the currently selected option will show next to
                     the autocomplete input box.</xs:documentation></xs:annotation>
             </xs:attribute>
-            <xs:attribute name="ac-initial-text" type="xs:string" use="optional"/>
+            <xs:attribute name="ac-initial-text" type="xs:string"/>
             <xs:attribute name="ac-use-actual" type="boolean" default="false">
                 <xs:annotation><xs:documentation>If true the value enterred in the input box will be used even if no
                     autocomplete option is selected.</xs:documentation></xs:annotation>
@@ -1081,6 +1081,22 @@ along with this software (see the LICENSE.md file). If not, see
             </xs:attribute>
             <xs:attribute name="label-field" type="xs:string" default="label">
                 <xs:annotation><xs:documentation>The field in the result that represents the label for the option.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="depends-optional" type="boolean" default="false">
+                <xs:annotation><xs:documentation>Set to true to get options even if a depends-on field is empty.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="server-search" type="boolean" default="false">
+                <xs:annotation><xs:documentation>For drop-down if true pass search term to server to filter results.
+                    Transition that processes results should limit options. Sort of like an autocomplete and supports the same
+                    transitions as text-line with @ac-transition unless pagination (infinite scroll) is needed then transition must
+                    return object with options, pageSize, and count properties.</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="delay" type="xs:positiveInteger" default="300"><xs:annotation><xs:documentation>
+                Key press debounce delay for server-search.</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="min-length" type="xs:nonNegativeInteger" default="1"><xs:annotation><xs:documentation>
+                Min term length to search for server-search, can be zero to populate immediately.</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="parameter-map" type="xs:string">
+                <xs:annotation><xs:documentation>A Map to get parameter names and values from for search and dynamic default requests.
+                    This is named to follow the pattern for parameters used elsewhere.</xs:documentation></xs:annotation>
             </xs:attribute>
         </xs:complexType>
     </xs:element>

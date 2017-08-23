@@ -13,9 +13,9 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
-    <xs:include schemaLocation="common-types-2.0.xsd"/>
-    <xs:include schemaLocation="xml-actions-2.0.xsd"/>
-    <xs:include schemaLocation="xml-form-2.0.xsd"/>
+    <xs:include schemaLocation="common-types-2.1.xsd"/>
+    <xs:include schemaLocation="xml-actions-2.1.xsd"/>
+    <xs:include schemaLocation="xml-form-2.1.xsd"/>
 
     <!-- ================ Shared Elements ================ -->
     <xs:group name="section-elements">
@@ -112,6 +112,9 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:annotation><xs:documentation>If set to false no ArtifactHit or ArtifactHitBin data will be kept for
                     this screen and for any content or transitions under the screen.</xs:documentation></xs:annotation>
             </xs:attribute>
+            <xs:attribute name="history" type="boolean" default="true">
+                <xs:annotation><xs:documentation>If set to false this screen will not be saved in the screen/URL history.</xs:documentation></xs:annotation>
+            </xs:attribute>
             <xs:attribute name="login-path" type="xs:string" default="/Login">
                 <xs:annotation><xs:documentation>If specified will be used as the login screen path for this screen and
                     any subscreens, otherwise defaults to "/Login".</xs:documentation></xs:annotation>
@@ -120,6 +123,15 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:annotation><xs:documentation>If set to true arbitrary path follow this screen's path is allowed.
                     Default is false and an exception will be thrown if there is extra path that does not match a
                     subscreen, a transition, or content below the screen.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="server-static" type="xs:string">
+                <xs:annotation><xs:documentation>
+                    The render modes where the results of this screen are always the same and the screen render results may be cached (on server and/or client).
+                    This applies to all screens that are designed for client rendering when the screen is written to fully support it (filling in data with additional requests).
+                    Placeholder screens are automatically server static, ie with just subscreens-panel, subscreens-active, and subscreens-menu elements.
+                    Can be any valid render mode. Default supported modes include: text, html, vuet, xsl-fo, xml, and csv.
+                    Values can be comma separated to apply to multiple render modes. A value of "any" will apply to all render modes.
+                </xs:documentation></xs:annotation>
             </xs:attribute>
         </xs:complexType>
     </xs:element>
@@ -494,10 +506,12 @@ along with this software (see the LICENSE.md file). If not, see
                 </xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="menu-include" type="boolean" default="true"/>
-            <xs:attribute name="disable-when" type="xs:positiveInteger">
+            <!-- no longer supported, may support again in the future (see ScreenDefinition.SubscreensItem.getDisable(), not used anywhere)
+            <xs:attribute name="disable-when" type="xs:string">
                 <xs:annotation><xs:documentation>This condition is run the subscreens menu is rendered to see if the
                     item is available (otherwise the button/link/etc is disabled).</xs:documentation></xs:annotation>
             </xs:attribute>
+            -->
         </xs:complexType>
     </xs:element>
     <xs:element name="subscreens-menu" substitutionGroup="AllWidgets">
@@ -506,7 +520,6 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:simpleType><xs:restriction base="xs:token">
                     <xs:enumeration value="tab"/>
                     <xs:enumeration value="popup"/>
-                    <xs:enumeration value="popup-tree"/>
                 </xs:restriction></xs:simpleType>
             </xs:attribute>
             <xs:attribute name="id" type="xs:string" use="required"/>
@@ -532,8 +545,6 @@ along with this software (see the LICENSE.md file). If not, see
             </xs:attribute>
             <xs:attribute name="id" type="xs:string" use="required"/>
             <xs:attribute name="title" type="xs:string"/>
-            <xs:attribute name="menu-width" type="xs:string"/>
-            <xs:attribute name="dynamic" type="boolean" default="false"/>
             <xs:attribute name="header-menus-id" type="xs:string" default="header-menus"/>
         </xs:complexType>
     </xs:element>
@@ -624,20 +635,13 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/>
             <xs:attribute name="id" type="xs:string"/>
             <xs:attribute name="style" type="xs:string"/>
-            <xs:attribute name="type" default="div">
-                <xs:simpleType>
-                    <xs:restriction base="xs:token">
-                        <xs:enumeration value="div"/>
-                        <xs:enumeration value="span"/>
-                        <xs:enumeration value="ul"/>
-                        <xs:enumeration value="li"/>
-                        <xs:enumeration value="header"/>
-                        <xs:enumeration value="footer"/>
-                        <xs:enumeration value="code"/>
-                        <xs:enumeration value="pre"/>
-                    </xs:restriction>
-                </xs:simpleType>
-            </xs:attribute>
+            <xs:attribute name="type" default="div"><xs:simpleType><xs:restriction base="xs:token">
+                <xs:enumeration value="div"/><xs:enumeration value="span"/>
+                <xs:enumeration value="ul"/><xs:enumeration value="li"/>
+                <xs:enumeration value="dl"/><xs:enumeration value="dd"/>
+                <xs:enumeration value="header"/><xs:enumeration value="footer"/>
+                <xs:enumeration value="code"/><xs:enumeration value="pre"/>
+            </xs:restriction></xs:simpleType></xs:attribute>
         </xs:complexType>
     </xs:element>
 
@@ -655,6 +659,7 @@ along with this software (see the LICENSE.md file). If not, see
                 </xs:choice>
             </xs:sequence>
             <xs:attribute name="id" type="xs:string"/>
+            <xs:attribute name="type" type="color-context" default="default"/>
         </xs:complexType>
     </xs:element>
     <xs:element name="box-header">
@@ -704,10 +709,6 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element ref="panel-footer" minOccurs="0"/>
             </xs:sequence>
             <xs:attribute name="id" type="xs:string"/>
-            <xs:attribute name="dynamic" default="false" type="boolean"><xs:annotation><xs:documentation>
-                When true uses a dynamic layout, by default with jQuery Layout (see http://layout.jquery-dev.net/).
-                When false (default) uses a static HTML/CSS layout.
-            </xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:attributeGroup name="attlist.panel.header-footer">
@@ -764,6 +765,8 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="button-text" type="xs:string" use="required"/>
             <xs:attribute name="width" type="xs:string" default="760"/>
             <xs:attribute name="height" type="xs:string" default="600"/>
+            <xs:attribute name="condition" type="xs:string"/>
+            <xs:attribute name="type" type="color-context" default="primary"/>
         </xs:complexType>
     </xs:element>
     <xs:element name="dynamic-dialog" substitutionGroup="StandaloneFields">
@@ -778,6 +781,8 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="transition" type="xs:string" use="required"/>
             <xs:attribute name="parameter-map" type="xs:string"><xs:annotation><xs:documentation>A Map to get parameter
                 names and values from in addition to the parameter sub-elements.</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="condition" type="xs:string"/>
+            <xs:attribute name="type" type="color-context" default="primary"/>
         </xs:complexType>
     </xs:element>
     <xs:element name="dynamic-container" substitutionGroup="StandaloneFields">
@@ -822,7 +827,8 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element maxOccurs="unbounded" ref="tree-sub-node"/>
             </xs:sequence>
             <xs:attribute type="xs:string" name="name" use="required"/>
-            <xs:attribute type="xs:string" name="transition" default="getTreeSubNodes"/>
+            <xs:attribute type="xs:string" name="transition">
+                <xs:annotation><xs:documentation>If not specified uses actions/${tree.@name}</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute type="xs:string" name="open-path" use="optional"/>
             <!-- <xs:attribute type="xs:string" name="open-depth" default="0"/> -->
         </xs:complexType>
@@ -832,7 +838,10 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:sequence>
                 <xs:element minOccurs="0" ref="condition"/>
                 <xs:element minOccurs="0" ref="actions"/>
-                <xs:element ref="link"/>
+                <xs:choice>
+                    <xs:element ref="link"/>
+                    <xs:element ref="label"/>
+                </xs:choice>
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="tree-sub-node"/>
             </xs:sequence>
             <xs:attribute type="xs:string" name="name" use="required"/>
@@ -867,7 +876,8 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:extension base="xs:string">
                     <xs:attribute name="type" type="xs:string" default="any">
                         <xs:annotation><xs:documentation>
-                            Can be anything. Default supported values include: text, cwiki, html, xsl-fo, xml, and csv.
+                            Can be any valid render mode. Default supported modes include: text, html, vuet, xsl-fo, xml, and csv.
+                            Values can be comma separated to apply to multiple render modes.
                             A value of "any" will cause it to be used if no other element matches the current output type.
                         </xs:documentation></xs:annotation>
                     </xs:attribute>

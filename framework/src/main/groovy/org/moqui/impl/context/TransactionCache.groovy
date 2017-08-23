@@ -23,8 +23,9 @@ import org.moqui.impl.entity.EntityFindBase
 import org.moqui.impl.entity.EntityJavaUtil
 import org.moqui.impl.entity.EntityListImpl
 import org.moqui.impl.entity.EntityValueBase
-import org.moqui.impl.entity.EntityJavaUtil.WriteMode
 import org.moqui.impl.entity.EntityJavaUtil.EntityWriteInfo
+import org.moqui.impl.entity.EntityJavaUtil.FindAugmentInfo
+import org.moqui.impl.entity.EntityJavaUtil.WriteMode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -45,13 +46,14 @@ class TransactionCache implements Synchronization {
     protected ExecutionContextFactoryImpl ecfi
     private boolean readOnly
 
-    private Map<Map, EntityValueBase> readOneCache = [:]
+    private Map<Map, EntityValueBase> readOneCache = new HashMap<>()
+    private Set<Map> knownLocked = new HashSet<>()
     private Map<String, Map<EntityCondition, EntityListImpl>> readListCache = [:]
 
     private Map<Map, EntityWriteInfo> firstWriteInfoMap = new HashMap<Map, EntityWriteInfo>()
     private Map<Map, EntityWriteInfo> lastWriteInfoMap = new HashMap<Map, EntityWriteInfo>()
     private ArrayList<EntityWriteInfo> writeInfoList = new ArrayList<EntityWriteInfo>(50)
-    private LinkedHashMap<String, Map<Map, EntityValueBase>> createByEntityRef = new LinkedHashMap<String, Map<Map, EntityValueBase>>()
+    private LinkedHashMap<String, LinkedHashMap<Map, EntityValueBase>> createByEntityRef = new LinkedHashMap<>()
 
     TransactionCache(ExecutionContextFactoryImpl ecfi, boolean readOnly) {
         this.ecfi = ecfi
@@ -66,10 +68,10 @@ class TransactionCache implements Synchronization {
     }
     void makeWriteThrough() { readOnly = false }
 
-    Map<Map, EntityValueBase> getCreateByEntityMap(String entityName) {
-        Map createMap = createByEntityRef.get(entityName)
+    LinkedHashMap<Map, EntityValueBase> getCreateByEntityMap(String entityName) {
+        LinkedHashMap<Map, EntityValueBase> createMap = createByEntityRef.get(entityName)
         if (createMap == null) {
-            createMap = [:]
+            createMap = new LinkedHashMap<>()
             createByEntityRef.put(entityName, createMap)
         }
         return createMap
@@ -125,6 +127,9 @@ class TransactionCache implements Synchronization {
                 if (entry.getKey().mapMatches(evb)) entry.getValue().add(evb)
             }
         }
+
+        // consider created records locked to avoid forUpdate queries
+        knownLocked.add(key)
 
         return !readOnly
     }
@@ -194,10 +199,24 @@ class TransactionCache implements Synchronization {
     boolean delete(EntityValueBase evb) {
         Map<String, Object> key = makeKey(evb)
         if (key == null) return false
+        // logger.warn("txc delete ${key}")
 
         if (!readOnly) {
-            EntityWriteInfo newEwi = new EntityWriteInfo(evb, WriteMode.DELETE)
-            addWriteInfo(key, newEwi)
+            EntityWriteInfo currentEwi = firstWriteInfoMap.get(key)
+            if (currentEwi != null && currentEwi.writeMode == WriteMode.CREATE) {
+                // if was created in TX cache but never written to DB just clear all changes
+                firstWriteInfoMap.remove(key)
+                lastWriteInfoMap.remove(key)
+                for (int i = 0; i < writeInfoList.size(); ) {
+                    EntityWriteInfo ewi = (EntityWriteInfo) writeInfoList.get(i)
+                    if (key.equals(makeKey(ewi.evb))) { writeInfoList.remove(i) }
+                    else { i++ }
+                }
+                getCreateByEntityMap(evb.getEntityName()).remove(evb.getPrimaryKeys())
+            } else {
+                EntityWriteInfo newEwi = new EntityWriteInfo(evb, WriteMode.DELETE)
+                addWriteInfo(key, newEwi)
+            }
         }
 
         // remove from readCache if needed
@@ -209,7 +228,7 @@ class TransactionCache implements Synchronization {
                 if (entry.getKey().mapMatches(evb)) {
                     Iterator existingEvIter = entry.getValue().iterator()
                     while (existingEvIter.hasNext()) {
-                        EntityValue existingEv = existingEvIter.next()
+                        EntityValue existingEv = (EntityValue) existingEvIter.next()
                         if (evb.getPrimaryKeys() == existingEv.getPrimaryKeys()) existingEvIter.remove()
                     }
                 }
@@ -249,6 +268,12 @@ class TransactionCache implements Synchronization {
         return currentEwi.writeMode == WriteMode.CREATE
     }
 
+    boolean isKnownLocked(EntityValueBase evb) {
+        if (readOnly || knownLocked.size() == 0) return false
+        Map<String, Object> key = makeKey(evb)
+        if (key == null) return false
+        return knownLocked.contains(key)
+    }
     EntityValueBase oneGet(EntityFindBase efb) {
         // NOTE: do nothing here on forUpdate, handled by caller
         Map<String, Object> key = makeKeyFind(efb)
@@ -265,7 +290,7 @@ class TransactionCache implements Synchronization {
         EntityValueBase evb = (EntityValueBase) readOneCache.get(key)?.cloneValue()
         return evb
     }
-    void onePut(EntityValueBase evb) {
+    void onePut(EntityValueBase evb, boolean forUpdate) {
         Map<String, Object> key = makeKey(evb)
         if (key == null) return
         EntityWriteInfo currentEwi = (EntityWriteInfo) lastWriteInfoMap.get(key)
@@ -275,6 +300,8 @@ class TransactionCache implements Synchronization {
         if (currentEwi == null || currentEwi.writeMode != WriteMode.DELETE) readOneCache.put(key, (EntityValueBase) evb.cloneValue())
 
         // if (evb.getEntityDefinition().getEntityName() == "Asset") logger.warn("=========== onePut of Asset ${evb.get('assetId')}", new Exception("Location"))
+
+        if (forUpdate) knownLocked.add(key)
     }
 
     EntityListImpl listGet(EntityDefinition ed, EntityCondition whereCondition, List<String> orderByExpanded) {
@@ -320,8 +347,12 @@ class TransactionCache implements Synchronization {
                     EntityListImpl createdValueList = new EntityListImpl(ecfi.entityFacade)
                     Map createMap = createByEntityRef.get(ed.getFullEntityName())
                     if (createMap != null) {
-                        for (EntityValueBase createEvb in createMap.values())
-                            if (whereCondition.mapMatches(createEvb)) createdValueList.add(createEvb)
+                        for (Object createEvbObj in createMap.values()) {
+                            if (createEvbObj instanceof EntityValueBase) {
+                                EntityValueBase createEvb = (EntityValueBase) createEvbObj
+                                if (whereCondition.mapMatches(createEvb)) createdValueList.add(createEvb)
+                            }
+                        }
                     }
 
                     listPut(ed, whereCondition, createdValueList)
@@ -349,32 +380,57 @@ class TransactionCache implements Synchronization {
     }
 
     // NOTE: no need to filter EntityList or EntityListIterator, they do it internally by calling this method
-    WriteMode checkUpdateValue(EntityValueBase evb) {
+    WriteMode checkUpdateValue(EntityValueBase evb, FindAugmentInfo fai) {
         Map<String, Object> key = makeKey(evb)
         if (key == null) return null
         EntityWriteInfo firstEwi = (EntityWriteInfo) firstWriteInfoMap.get(key)
         EntityWriteInfo currentEwi = (EntityWriteInfo) lastWriteInfoMap.get(key)
         if (currentEwi == null) {
             // add to readCache for future reference
-            onePut(evb)
+            onePut(evb, false)
             return null
         }
-        if (firstEwi.writeMode == WriteMode.CREATE) {
+        if (WriteMode.CREATE.is(firstEwi.writeMode)) {
             throw new EntityException("Found value from database that matches a value created in the write-through transaction cache, throwing error now instead of waiting to fail on commit")
         }
-        if (currentEwi.writeMode == WriteMode.UPDATE) {
+        if (WriteMode.UPDATE.is(currentEwi.writeMode)) {
+            if (fai != null && ((fai.econd != null && !fai.econd.mapMatches(currentEwi.evb)) || fai.foundUpdated.contains(currentEwi.evb.getPrimaryKeys()))) {
+                // current value no longer matches, tell ELII to skip it (same as DELETE)
+                return WriteMode.DELETE
+            }
             evb.setFields(currentEwi.evb, true, null, false)
             // add to readCache
-            onePut(evb)
+            onePut(evb, false)
         }
         return currentEwi.writeMode
     }
-    List<EntityValueBase> getCreatedValueList(String entityName, EntityCondition ec) {
-        List<EntityValueBase> valueList = []
+    FindAugmentInfo getFindAugmentInfo(String entityName, EntityCondition econd) {
+        ArrayList<EntityValueBase> valueList = new ArrayList<>()
+
+        // also get values that have been updated so that they should now be included in the list
+        Set<Map> foundUpdated = new HashSet<>()
+        if (econd != null) {
+            int writeInfoListSize = writeInfoList.size()
+            // go through backwards to get the most recent only
+            for (int i = (writeInfoListSize - 1); i >= 0 ; i--) {
+                EntityWriteInfo ewi = (EntityWriteInfo) writeInfoList.get(i)
+                if (WriteMode.UPDATE.is(ewi.writeMode) && entityName.equals(ewi.evb.getEntityName()) && econd.mapMatches(ewi.evb)) {
+                    Map<String, Object> pkMap = ewi.evb.getPrimaryKeys()
+                    if (!foundUpdated.contains(pkMap)) {
+                        foundUpdated.add(pkMap)
+                        valueList.add(ewi.evb)
+                    }
+                }
+            }
+        }
+
         Map<Map, EntityValueBase> createMap = getCreateByEntityMap(entityName)
-        if (createMap == null || createMap.size() == 0) return valueList
-        for (EntityValueBase evb in createMap.values()) if (ec.mapMatches(evb)) valueList.add(evb)
-        return valueList
+        if (createMap.size() > 0) for (EntityValueBase evb in createMap.values()) {
+            if (econd.mapMatches(evb) && (foundUpdated.size() == 0 || !foundUpdated.contains(evb.getPrimaryKeys())))
+                valueList.add(evb)
+        }
+        // if (entityName.contains("OrderPart")) logger.warn("OP tx cache list: ${valueList}")
+        return new FindAugmentInfo(valueList, foundUpdated, econd)
     }
 
     void flushCache(boolean clearRead) {
@@ -382,6 +438,7 @@ class TransactionCache implements Synchronization {
         try {
             int writeInfoListSize = writeInfoList.size()
             if (writeInfoListSize > 0) {
+                // logger.error("Tx cache flush at", new BaseException("txc flush"))
                 EntityFacadeImpl efi = ecfi.entityFacade
 
                 long startTime = System.currentTimeMillis()
@@ -432,8 +489,6 @@ class TransactionCache implements Synchronization {
         }
     }
 
-    @Override
-    void beforeCompletion() { flushCache(true) }
-    @Override
-    void afterCompletion(int i) { }
+    @Override void beforeCompletion() { flushCache(true) }
+    @Override void afterCompletion(int i) { }
 }

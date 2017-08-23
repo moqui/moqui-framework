@@ -15,13 +15,16 @@ package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
 import org.codehaus.groovy.runtime.typehandling.GroovyCastException
+import org.moqui.BaseArtifactException
 import org.moqui.BaseException
 import org.moqui.context.ArtifactExecutionInfo
+import org.moqui.etl.SimpleEtl
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.condition.EntityConditionImplBase
 import org.moqui.impl.entity.condition.FieldValueCondition
 import org.moqui.impl.entity.condition.ListCondition
+import org.moqui.impl.service.runner.EntityAutoServiceRunner
 import org.moqui.resource.ResourceReference
 import org.moqui.entity.*
 import org.moqui.impl.context.ArtifactExecutionFacadeImpl
@@ -94,6 +97,7 @@ class EntityFacadeImpl implements EntityFacade {
         entityConditionFactory = new EntityConditionFactoryImpl(this)
 
         MNode entityFacadeNode = getEntityFacadeNode()
+        entityFacadeNode.setSystemExpandAttributes(true)
         defaultGroupName = entityFacadeNode.attribute("default-group-name")
         sequencedIdPrefix = entityFacadeNode.attribute("sequenced-id-prefix") ?: null
         queryStats = entityFacadeNode.attribute("query-stats") == "true"
@@ -104,7 +108,8 @@ class EntityFacadeImpl implements EntityFacade {
                 theTimeZone = TimeZone.getTimeZone((String) entityFacadeNode.attribute("database-time-zone"))
             } catch (Exception e) { logger.warn("Error parsing database-time-zone: ${e.toString()}") }
         }
-        databaseTimeZone = theTimeZone ?: TimeZone.getDefault()
+        databaseTimeZone = theTimeZone != null ? theTimeZone : TimeZone.getDefault()
+        logger.info("Database time zone is ${databaseTimeZone}")
         Locale theLocale = null
         if (entityFacadeNode.attribute("database-locale")) {
             try {
@@ -487,36 +492,21 @@ class EntityFacadeImpl implements EntityFacade {
                     continue
                 }
 
+                List<String> locList = (List<String>) entityLocationCache.get(entityName)
+                if (locList == null) {
+                    locList = new LinkedList<>()
+                    locList.add(entityRr.location)
+                    entityLocationCache.put(entityName, locList)
+                } else if (!locList.contains(entityRr.location)) {
+                    locList.add(entityRr.location)
+                }
+
                 if (packageName != null && packageName.length() > 0) {
                     String fullEntityName = packageName.concat(".").concat(entityName)
-                    List<String> pkgList = (List<String>) entityLocationCache.get(fullEntityName)
-                    if (pkgList == null) {
-                        pkgList = new LinkedList<>()
-                        pkgList.add(entityRr.location)
-                        entityLocationCache.put(fullEntityName, pkgList)
-                    } else if (!pkgList.contains(entityRr.location)) {
-                        pkgList.add(entityRr.location)
-                    }
+                    if (!entityLocationCache.containsKey(fullEntityName)) entityLocationCache.put(fullEntityName, locList)
                 }
-
                 if (shortAlias != null && shortAlias.length() > 0) {
-                    List<String> aliasList = (List<String>) entityLocationCache.get(shortAlias)
-                    if (aliasList == null) {
-                        aliasList = new LinkedList<>()
-                        aliasList.add(entityRr.location)
-                        entityLocationCache.put(shortAlias, aliasList)
-                    } else if (!aliasList.contains(entityRr.location)) {
-                        aliasList.add(entityRr.location)
-                    }
-                }
-
-                List<String> nameList = (List<String>) entityLocationCache.get(entityName)
-                if (nameList == null) {
-                    nameList = new LinkedList<>()
-                    nameList.add(entityRr.location)
-                    entityLocationCache.put(entityName, nameList)
-                } else if (!nameList.contains(entityRr.location)) {
-                    nameList.add(entityRr.location)
+                    if (!entityLocationCache.containsKey(shortAlias)) entityLocationCache.put(shortAlias, locList)
                 }
 
                 numEntities++
@@ -722,7 +712,7 @@ class EntityFacadeImpl implements EntityFacade {
                 }
             }
             // copy master nodes (will be merged on parse)
-            // TODO: check master/detail existance before append it into entityNode
+            // TODO: check master/detail existence before append it into entityNode
             for (MNode copyNode in extendEntity.children("master")) entityNode.append(copyNode)
         }
 
@@ -999,7 +989,11 @@ class EntityFacadeImpl implements EntityFacade {
         ed = (EntityDefinition) entityDefinitionCache.get(entityName)
         if (ed != null) return ed
         if (entityName.isEmpty()) return null
-        return loadEntityDefinition(entityName)
+        if (entityName.startsWith("DataDocument.")) {
+            return entityDataDocument.makeEntityDefinition(entityName.substring(entityName.indexOf(".") + 1))
+        } else {
+            return loadEntityDefinition(entityName)
+        }
     }
 
     // used in tools screens
@@ -1118,6 +1112,11 @@ class EntityFacadeImpl implements EntityFacade {
     protected MNode getDatabaseNodeByConf(String confName) {
         return ecfi.confXmlRoot.first("database-list")
                 .first({ MNode it -> it.name == 'database' && it.attribute("name") == confName })
+    }
+    String getDatabaseConfName(String entityName) {
+        MNode dsNode = getDatasourceNode(getEntityGroupName(entityName))
+        if (dsNode == null) return null
+        return dsNode.attribute("database-conf-name")
     }
 
     MNode getDatasourceNode(String groupName) {
@@ -1244,8 +1243,7 @@ class EntityFacadeImpl implements EntityFacade {
         return dsiList
     }
 
-    @Override
-    EntityConditionFactory getConditionFactory() { return this.entityConditionFactory }
+    @Override EntityConditionFactory getConditionFactory() { return this.entityConditionFactory }
     EntityConditionFactoryImpl getConditionFactoryImpl() { return this.entityConditionFactory }
 
     @Override
@@ -1261,15 +1259,28 @@ class EntityFacadeImpl implements EntityFacade {
         // don't check entityName empty, getEntityDefinition() does it
         EntityDefinition ed = getEntityDefinition(entityName)
         if (ed == null) throw new EntityException("No entity found with name ${entityName}")
+        if (ed.isDynamicView && entityName.startsWith("DataDocument.")) {
+            // see if it happens to be a DataDocument and if so make a special find that has its conditions too
+            // TODO: consider addition condition methods to EntityDynamicView and handling this lower level instead of here
+            return entityDataDocument.makeDataDocumentFind(entityName.substring(entityName.indexOf(".") + 1))
+        }
         return ed.makeEntityFind()
     }
     @Override
     EntityFind find(MNode node) {
         String entityName = node.attribute("entity-name")
+        if (entityName != null && entityName.contains("\${")) entityName = ecfi.resourceFacade.expand(entityName, null)
         // don't check entityName empty, getEntityDefinition() does it
         EntityDefinition ed = getEntityDefinition(entityName)
         if (ed == null) throw new EntityException("No entity found with name ${entityName}")
-        EntityFind ef = ed.makeEntityFind()
+        EntityFind ef
+        if (ed.isDynamicView && entityName.startsWith("DataDocument.")) {
+            // see if it happens to be a DataDocument and if so make a special find that has its conditions too
+            // TODO: consider addition condition methods to EntityDynamicView and handling this lower level instead of here
+            ef = entityDataDocument.makeDataDocumentFind(entityName.substring(entityName.indexOf(".") + 1))
+        } else {
+            ef = ed.makeEntityFind()
+        }
 
         String cache = node.attribute("cache")
         if (cache != null && !cache.isEmpty()) { ef.useCache("true".equals(cache)) }
@@ -1298,7 +1309,8 @@ class EntityFacadeImpl implements EntityFacade {
             for (MNode df in node.children("date-filter"))
                 ef.condition(getConditionFactoryImpl().makeConditionDate(df.attribute("from-field-name") ?: "fromDate",
                         df.attribute("thru-field-name") ?: "thruDate",
-                        (df.attribute("valid-date") ? ecfi.resourceFacade.expression(df.attribute("valid-date"), null) as Timestamp : ecfi.eci.user.nowTimestamp)))
+                        (df.attribute("valid-date") ? ecfi.resourceFacade.expression(df.attribute("valid-date"), null) as Timestamp : null),
+                        'true'.equals(df.attribute("ignore-if-empty")), df.attribute("ignore") ?: 'false'))
         }
 
         for (MNode ecn in node.children("econdition")) {
@@ -1312,7 +1324,7 @@ class EntityFacadeImpl implements EntityFacade {
 
         if (node.hasChild("having-econditions")) {
             for (MNode havingCond in node.children("having-econditions"))
-                ef.havingCondition(getConditionFactoryImpl().makeActionCondition(havingCond))
+                ef.havingCondition(getConditionFactoryImpl().makeActionConditions(havingCond))
         }
 
         return ef
@@ -1346,7 +1358,7 @@ class EntityFacadeImpl implements EntityFacade {
             ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(ed.getFullEntityName(),
                     ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_VIEW, "one")
             // really worth the overhead? if so change to handle singleCondField: .setParameters(simpleAndMap)
-            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView)
+            aefi.pushInternal(aei, !ed.entityInfo.authorizeSkipView, false)
 
             try {
                 boolean doCache = useCache != null ? (useCache.booleanValue() ? !entityInfo.neverCache : false) : "true".equals(entityInfo.useCache)
@@ -1610,43 +1622,70 @@ class EntityFacadeImpl implements EntityFacade {
         if (ed == null) throw new EntityNotFoundException("Not entity found with name ${entityName}")
 
         EntityList valueList = new EntityListImpl(this)
-        addValuesFromPlainMapRecursive(ed, value, valueList)
+        addValuesFromPlainMapRecursive(ed, value, valueList, null)
         return valueList
     }
-    void addValuesFromPlainMapRecursive(EntityDefinition ed, Map value, EntityList valueList) {
+    void addValuesFromPlainMapRecursive(EntityDefinition ed, Map value, EntityList valueList, Map<String, Object> parentPks) {
+        // add in all of the main entity's primary key fields, this is necessary for auto-generated, and to
+        //     allow them to be left out of related records
+        if (parentPks != null) {
+            for (Map.Entry<String, Object> entry in parentPks.entrySet())
+                if (!value.containsKey(entry.key)) value.put(entry.key, entry.value)
+        }
+
         EntityValue newEntityValue = makeValue(ed.getFullEntityName())
         newEntityValue.setFields(value, true, null, null)
         valueList.add(newEntityValue)
 
-        Map pkMap = newEntityValue.getPrimaryKeys()
+        Map<String, Object> sharedPkMap = newEntityValue.getPrimaryKeys()
+        if (parentPks != null) {
+            for (Map.Entry<String, Object> entry in parentPks.entrySet())
+                if (!sharedPkMap.containsKey(entry.key)) sharedPkMap.put(entry.key, entry.value)
+        }
 
-        // check parameters Map for relationships
-        for (RelationshipInfo relInfo in ed.getRelationshipsInfo(false)) {
-            Object relParmObj = value.get(relInfo.shortAlias)
-            String relKey = null
-            if (relParmObj != null && !ObjectUtilities.isEmpty(relParmObj)) {
-                relKey = relInfo.shortAlias
-            } else {
-                relParmObj = value.get(relInfo.relationshipName)
-                if (relParmObj) relKey = relInfo.relationshipName
+        // check parameters Map for relationships and other entities
+        Map nonFieldEntries = ed.entityInfo.cloneMapRemoveFields(value, null)
+        for (Map.Entry entry in nonFieldEntries.entrySet()) {
+            Object relParmObj = entry.getValue()
+            if (relParmObj == null) continue
+            // if the entry is not a Map or List ignore it, we're only looking for those
+            if (!(relParmObj instanceof Map) && !(relParmObj instanceof List)) continue
+
+            String entryName = (String) entry.getKey()
+            if (parentPks != null && parentPks.containsKey(entryName)) continue
+            if (EntityAutoServiceRunner.otherFieldsToSkip.contains(entryName)) continue
+
+            EntityDefinition subEd = null
+            Map<String, Object> pkMap = null
+            RelationshipInfo relInfo = ed.getRelationshipInfo(entryName)
+            if (relInfo != null) {
+                if (!relInfo.mutable) continue
+                subEd = relInfo.relatedEd
+                // this is a relationship so add mapped key fields to the parentPks if any field names are different
+                pkMap = new HashMap<>(sharedPkMap)
+                pkMap.putAll(relInfo.getTargetParameterMap(sharedPkMap))
+            } else if (isEntityDefined(entryName)) {
+                subEd = getEntityDefinition(entryName)
+                pkMap = sharedPkMap
             }
-            if (relParmObj != null && !ObjectUtilities.isEmpty(relParmObj)) {
-                if (relParmObj instanceof Map) {
-                    // add in all of the main entity's primary key fields, this is necessary for auto-generated, and to
-                    //     allow them to be left out of related records
-                    relParmObj.putAll(pkMap)
-                    addValuesFromPlainMapRecursive(relInfo.relatedEd, relParmObj, valueList)
-                } else if (relParmObj instanceof List) {
-                    for (Object relParmEntry in relParmObj) {
-                        if (relParmEntry instanceof Map) {
-                            Map relParmEntryMap = (Map) relParmEntry
-                            relParmEntryMap.putAll(pkMap)
-                            addValuesFromPlainMapRecursive(relInfo.relatedEd, relParmEntryMap, valueList)
-                        } else {
-                            logger.warn("In entity auto create for entity ${ed.getFullEntityName()} found list for relationship ${relKey} with a non-Map entry: ${relParmEntry}")
-                        }
+            if (subEd == null) continue
 
+            boolean isEntityValue = relParmObj instanceof EntityValue
+            if (relParmObj instanceof Map && !isEntityValue) {
+                addValuesFromPlainMapRecursive(subEd, (Map) relParmObj, valueList, pkMap)
+            } else if (relParmObj instanceof List) {
+                for (Object relParmEntry in relParmObj) {
+                    if (relParmEntry instanceof Map) {
+                        addValuesFromPlainMapRecursive(subEd, (Map) relParmEntry, valueList, pkMap)
+                    } else {
+                        logger.warn("In entity values from plain map for entity ${ed.getFullEntityName()} found list for sub-object ${entryName} with a non-Map entry: ${relParmEntry}")
                     }
+                }
+            } else {
+                if (isEntityValue) {
+                    if (logger.isTraceEnabled()) logger.trace("In entity values from plain map for entity ${ed.getFullEntityName()} found sub-object ${entryName} which is not a Map or List: ${relParmObj}")
+                } else {
+                    logger.warn("In entity values from plain map for entity ${ed.getFullEntityName()} found sub-object ${entryName} which is not a Map or List: ${relParmObj}")
                 }
             }
         }
@@ -1656,7 +1695,7 @@ class EntityFacadeImpl implements EntityFacade {
     @Override
     EntityListIterator sqlFind(String sql, List<Object> sqlParameterList, String entityName, List<String> fieldList) {
         if (sqlParameterList == null || fieldList == null || sqlParameterList.size() != fieldList.size())
-            throw new IllegalArgumentException("For sqlFind sqlParameterList and fieldList must not be null and must be the same size")
+            throw new BaseArtifactException("For sqlFind sqlParameterList and fieldList must not be null and must be the same size")
         EntityDefinition ed = this.getEntityDefinition(entityName)
         this.entityDbMeta.checkTableRuntime(ed)
 
@@ -1667,7 +1706,7 @@ class EntityFacadeImpl implements EntityFacade {
             int fiArrayIndex = 0
             for (String fieldName in fieldList) {
                 FieldInfo fi = ed.getFieldInfo(fieldName)
-                if (fi == null) throw new IllegalArgumentException("Field ${fieldName} not found for entity ${entityName}")
+                if (fi == null) throw new BaseArtifactException("Field ${fieldName} not found for entity ${entityName}")
                 fiArray[fiArrayIndex] = fi
                 fiArrayIndex++
             }
@@ -1686,7 +1725,7 @@ class EntityFacadeImpl implements EntityFacade {
             ResultSet rs = ps.executeQuery()
             if (logger.traceEnabled) logger.trace("Executed query with SQL [${sql}] and parameters [${sqlParameterList}] in [${(System.currentTimeMillis()-timeBefore)/1000}] seconds")
             // make and return the eli
-            EntityListIterator eli = new EntityListIteratorImpl(con, rs, ed, fiArray, this, null)
+            EntityListIterator eli = new EntityListIteratorImpl(con, rs, ed, fiArray, this, null, null, null)
             return eli
         } catch (SQLException e) {
             throw new EntityException("SQL Exception with statement:" + sql + "; " + e.toString(), e)
@@ -1856,7 +1895,7 @@ class EntityFacadeImpl implements EntityFacade {
         if (ds == null) throw new EntityException("Cannot get JDBC Connection for group-name [${groupName}] because it has no DataSource")
         Connection newCon
         if (ds instanceof XADataSource) {
-            newCon = tfi.enlistConnection(ds.getXAConnection())
+            newCon = tfi.enlistConnection(((XADataSource) ds).getXAConnection())
         } else {
             newCon = ds.getConnection()
         }
@@ -1864,11 +1903,71 @@ class EntityFacadeImpl implements EntityFacade {
         return newCon
     }
 
-    @Override
-    EntityDataLoader makeDataLoader() { return new EntityDataLoaderImpl(this) }
+    @Override EntityDataLoader makeDataLoader() { return new EntityDataLoaderImpl(this) }
+    @Override EntityDataWriter makeDataWriter() { return new EntityDataWriterImpl(this) }
 
-    @Override
-    EntityDataWriter makeDataWriter() { return new EntityDataWriterImpl(this) }
+    @Override SimpleEtl.Loader makeEtlLoader() { return new EtlLoader(this) }
+    static class EtlLoader implements SimpleEtl.Loader {
+        private boolean beganTransaction = false
+        private EntityFacadeImpl efi
+        private boolean useTryInsert = false, dummyFks = false
+        EtlLoader(EntityFacadeImpl efi) { this.efi = efi }
+        EtlLoader useTryInsert() { useTryInsert = true; return this }
+        EtlLoader dummyFks() { dummyFks = true; return this }
+
+        @Override void init(Integer timeout) {
+            if (!efi.ecfi.transactionFacade.isTransactionActive()) beganTransaction = efi.ecfi.transactionFacade.begin(timeout)
+        }
+        @Override void load(SimpleEtl.Entry entry) throws Exception {
+            String entityName = entry.getEtlType()
+            if (!efi.isEntityDefined(entityName)) {
+                logger.info("Tried to load ETL entry with invalid entity name " + entityName)
+                return
+            }
+            EntityDefinition ed = efi.getEntityDefinition(entityName)
+            if (ed == null) throw new BaseArtifactException("Could not find entity ${entityName}")
+            // NOTE: the following uses the same pattern as EntityDataLoaderImpl.LoadValueHandler
+            if (dummyFks || useTryInsert) {
+                EntityValue curValue = ed.makeEntityValue()
+                curValue.setAll(entry.getEtlValues())
+                if (useTryInsert) {
+                    try {
+                        curValue.create()
+                    } catch (EntityException ce) {
+                        if (logger.isTraceEnabled()) logger.trace("Insert failed, trying update (${ce.toString()})")
+                        boolean noFksMissing = true
+                        if (dummyFks) noFksMissing = curValue.checkFks(true)
+                        // retry, then if this fails we have a real error so let the exception fall through
+                        // if there were no FKs missing then just do an update, if there were that may have been the error so createOrUpdate
+                        if (noFksMissing) {
+                            try {
+                                curValue.update()
+                            } catch (EntityException ue) {
+                                logger.error("Error in update after attempt to create (tryInsert), here is the create error: ", ce)
+                                throw ue
+                            }
+                        } else {
+                            curValue.createOrUpdate()
+                        }
+                    }
+                } else {
+                    if (dummyFks) curValue.checkFks(true)
+                    curValue.createOrUpdate()
+                }
+            } else {
+                Map<String, Object> results = new HashMap()
+                EntityAutoServiceRunner.storeEntity(efi.ecfi.getEci(), ed, entry.getEtlValues(), results, null)
+                if (results.size() > 0) entry.getEtlValues().putAll(results)
+            }
+        }
+        @Override void complete(SimpleEtl etl) {
+            if (etl.hasError()) {
+                efi.ecfi.transactionFacade.rollback(beganTransaction, "Error in ETL load", etl.getSingleErrorCause())
+            } else if (beganTransaction) {
+                efi.ecfi.transactionFacade.commit()
+            }
+        }
+    }
 
     @Override
     EntityValue makeValue(Element element) {

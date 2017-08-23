@@ -1,0 +1,14 @@
+Generated on 2017-03-02 with:
+
+$ openssl req -x509 -nodes -days 3650 -newkey rsa:2048 -keyout moqui.local.key -out moqui.local.crt
+
+Country Name (2 letter code) [AU]:US
+State or Province Name (full name) [Some-State]:Washington
+Locality Name (eg, city) []:
+Organization Name (eg, company) [Internet Widgits Pty Ltd]:Moqui Ecosystem
+Organizational Unit Name (eg, section) []:
+Common Name (e.g. server FQDN or YOUR name) []:moqui.local
+Email Address []:moqui@googlegroups.com
+
+$ openssl dhparam -out moqui.local.dhparam.pem 2048
+

@@ -38,7 +38,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 @CompileStatic
-public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
+class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
     protected final static Logger logger = LoggerFactory.getLogger(ArtifactExecutionFacadeImpl.class)
 
     protected ExecutionContextImpl eci
@@ -52,6 +52,8 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
     protected boolean tarpitDisabled = false
     protected boolean entityEcaDisabled = false
     protected boolean entityAuditLogDisabled = false
+    protected boolean entityFkCreateDisabled = false
+    protected boolean entityDataFeedDisabled = false
 
     ArtifactExecutionFacadeImpl(ExecutionContextImpl eci) {
         this.eci = eci
@@ -68,15 +70,15 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
     @Override
     ArtifactExecutionInfo push(String name, ArtifactExecutionInfo.ArtifactType typeEnum, ArtifactExecutionInfo.AuthzAction actionEnum, boolean requiresAuthz) {
         ArtifactExecutionInfoImpl aeii = new ArtifactExecutionInfoImpl(name, typeEnum, actionEnum, "")
-        pushInternal(aeii, requiresAuthz)
+        pushInternal(aeii, requiresAuthz, true)
         return aeii
     }
     @Override
     void push(ArtifactExecutionInfo aei, boolean requiresAuthz) {
         ArtifactExecutionInfoImpl aeii = (ArtifactExecutionInfoImpl) aei
-        pushInternal(aeii, requiresAuthz)
+        pushInternal(aeii, requiresAuthz, true)
     }
-    void pushInternal(ArtifactExecutionInfoImpl aeii, boolean requiresAuthz) {
+    void pushInternal(ArtifactExecutionInfoImpl aeii, boolean requiresAuthz, boolean countTarpit) {
         ArtifactExecutionInfoImpl lastAeii = (ArtifactExecutionInfoImpl) artifactExecutionInfoStack.peekFirst()
 
         // always do this regardless of the authz checks, etc; keep a history of artifacts run
@@ -85,16 +87,17 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
 
         // if ("AT_XML_SCREEN" == aeii.typeEnumId) logger.warn("TOREMOVE artifact push ${username} - ${aeii}")
 
-        if (!isPermitted(aeii, lastAeii, requiresAuthz, true, true)) {
+        if (!isPermitted(aeii, lastAeii, requiresAuthz, countTarpit, true, null)) {
             Deque<ArtifactExecutionInfo> curStack = getStack()
             StringBuilder warning = new StringBuilder()
-            warning.append("User ${eci.user.userId} is not authorized for ${aeii.getActionDescription()} on ${aeii.getTypeDescription()} ${aeii.getName()}\n")
-            warning.append("Current artifact info: ${aeii.toString()}\n")
-            warning.append("Current artifact stack:")
-            for (ArtifactExecutionInfo warnAei in curStack) warning.append("\n").append(warnAei.toString())
+            warning.append("User ${eci.user.username ?: eci.user.userId} is not authorized for ${aeii.getActionDescription()} on ${aeii.getTypeDescription()} ${aeii.getName()}")
 
             ArtifactAuthorizationException e = new ArtifactAuthorizationException(warning.toString(), aeii, curStack)
-            // logger.warn("Artifact authorization failed: " + warning.toString())
+            // end users see this message in vuet mode so better not to add all of this to the main message:
+            warning.append("\nCurrent artifact info: ${aeii.toString()}\n")
+            warning.append("Current artifact stack:")
+            for (ArtifactExecutionInfo warnAei in curStack) warning.append("\n").append(warnAei.toString())
+            logger.warn("Artifact authorization failed: " + warning.toString())
             throw e
         }
 
@@ -200,21 +203,29 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
         if (aeii.authorizedActionEnum != ArtifactExecutionInfo.AUTHZA_ALL) aeii.authorizedActionEnum = ArtifactExecutionInfo.AUTHZA_VIEW
     }
 
-    boolean disableAuthz() { boolean alreadyDisabled = this.authzDisabled; this.authzDisabled = true; return alreadyDisabled }
-    void enableAuthz() { this.authzDisabled = false }
+    boolean disableAuthz() { boolean alreadyDisabled = authzDisabled; authzDisabled = true; return alreadyDisabled }
+    void enableAuthz() { authzDisabled = false }
     boolean getAuthzDisabled() { return authzDisabled }
 
-    boolean disableTarpit() { boolean alreadyDisabled = this.tarpitDisabled; this.tarpitDisabled = true; return alreadyDisabled }
-    void enableTarpit() { this.tarpitDisabled = false }
+    boolean disableTarpit() { boolean alreadyDisabled = tarpitDisabled; tarpitDisabled = true; return alreadyDisabled }
+    void enableTarpit() { tarpitDisabled = false }
     // boolean getTarpitDisabled() { return tarpitDisabled }
 
-    boolean disableEntityEca() { boolean alreadyDisabled = this.entityEcaDisabled; this.entityEcaDisabled = true; return alreadyDisabled }
-    void enableEntityEca() { this.entityEcaDisabled = false }
-    boolean entityEcaDisabled() { return this.entityEcaDisabled }
+    boolean disableEntityEca() { boolean alreadyDisabled = entityEcaDisabled; entityEcaDisabled = true; return alreadyDisabled }
+    void enableEntityEca() { entityEcaDisabled = false }
+    boolean entityEcaDisabled() { return entityEcaDisabled }
 
-    boolean disableEntityAuditLog() { boolean alreadyDisabled = this.entityAuditLogDisabled; this.entityAuditLogDisabled = true; return alreadyDisabled }
-    void enableEntityAuditLog() { this.entityAuditLogDisabled = false }
-    boolean entityAuditLogDisabled() { return this.entityAuditLogDisabled }
+    boolean disableEntityAuditLog() { boolean alreadyDisabled = entityAuditLogDisabled; entityAuditLogDisabled = true; return alreadyDisabled }
+    void enableEntityAuditLog() { entityAuditLogDisabled = false }
+    boolean entityAuditLogDisabled() { return entityAuditLogDisabled }
+
+    boolean disableEntityFkCreate() { boolean alreadyDisabled = entityFkCreateDisabled; entityFkCreateDisabled = true; return alreadyDisabled }
+    void enableEntityFkCreate() { entityFkCreateDisabled = false }
+    boolean entityFkCreateDisabled() { return entityFkCreateDisabled }
+
+    boolean disableEntityDataFeed() { boolean alreadyDisabled = entityDataFeedDisabled; entityDataFeedDisabled = true; return alreadyDisabled }
+    void enableEntityDataFeed() { entityDataFeedDisabled = false }
+    boolean entityDataFeedDisabled() { return entityDataFeedDisabled }
 
     /** Checks to see if username is permitted to access given resource.
      *
@@ -232,11 +243,11 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
         String name = resourceAccess.substring(secondColon + 1)
 
         return eci.artifactExecutionFacade.isPermitted(new ArtifactExecutionInfoImpl(name, typeEnum, actionEnum, ""),
-                null, true, true, false)
+                null, true, true, false, null)
     }
 
-    boolean isPermitted(ArtifactExecutionInfoImpl aeii, ArtifactExecutionInfoImpl lastAeii,
-                        boolean requiresAuthz, boolean countTarpit, boolean isAccess) {
+    boolean isPermitted(ArtifactExecutionInfoImpl aeii, ArtifactExecutionInfoImpl lastAeii, boolean requiresAuthz, boolean countTarpit,
+                        boolean isAccess, LinkedList<ArtifactExecutionInfoImpl> currentStack) {
         ArtifactExecutionInfo.ArtifactType artifactTypeEnum = aeii.internalTypeEnum
         boolean isEntity = ArtifactExecutionInfo.AT_ENTITY.is(artifactTypeEnum)
         // right off record whether authz is required and is access
@@ -254,8 +265,9 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
         ExecutionContextFactoryImpl ecfi = eci.ecfi
         UserFacadeImpl ufi = eci.userFacade
 
-        if (!isEntity && countTarpit && !tarpitDisabled && Boolean.TRUE.is((Boolean) ecfi.artifactTypeTarpitEnabled.get(artifactTypeEnum))) {
-            checkTarpit(aeii, requiresAuthz)
+        if (!isEntity && countTarpit && !tarpitDisabled && Boolean.TRUE.is((Boolean) ecfi.artifactTypeTarpitEnabled.get(artifactTypeEnum)) &&
+                (requiresAuthz || (!ArtifactExecutionInfo.AT_XML_SCREEN.is(artifactTypeEnum) && !ArtifactExecutionInfo.AT_REST_PATH.is(artifactTypeEnum)))) {
+            checkTarpit(aeii)
         }
 
         // if last was an always allow, then don't bother checking for deny/etc - this is a common case
@@ -343,7 +355,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                 } else if (denyAacv == null && ArtifactExecutionInfo.AUTHZT_ALLOW.is(authzType)) {
                     // see if there are any denies in AEIs on lower on the stack
                     boolean ancestorDeny = false
-                    for (ArtifactExecutionInfoImpl ancestorAeii in artifactExecutionInfoStack)
+                    for (ArtifactExecutionInfoImpl ancestorAeii in (currentStack ?: artifactExecutionInfoStack))
                         if (ArtifactExecutionInfo.AUTHZT_DENY.is(ancestorAeii.getAuthorizedAuthzType())) ancestorDeny = true
 
                     if (!ancestorDeny) allowAacv = aacv
@@ -365,7 +377,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
             } else {
                 StringBuilder warning = new StringBuilder()
                 warning.append("User [${userId}] is not authorized for ${aeii.getTypeDescription()} [${aeii.getName()}] because of a deny record [type:${artifactTypeEnum.name()},action:${aeii.getActionEnum().name()}], here is the current artifact stack:")
-                for (def warnAei in this.stack) warning.append("\n").append(warnAei.toString())
+                for (warnAei in this.stack) warning.append("\n").append(warnAei.toString())
                 logger.warn(warning.toString())
 
                 eci.getService().sync().name("create", "moqui.security.ArtifactAuthzFailure").parameters(
@@ -410,7 +422,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
             if (logger.isDebugEnabled()) {
                 StringBuilder warning = new StringBuilder()
                 warning.append("User [${userId}] is not authorized for ${aeii.getTypeDescription()} [${aeii.getName()}] because of no allow record [type:${artifactTypeEnum.name()},action:${aeii.getActionEnum().name()}]\nlastAeii=[${lastAeii}]\nHere is the artifact stack:")
-                for (def warnAei in this.stack) warning.append("\n").append(warnAei)
+                for (warnAei in this.stack) warning.append("\n").append(warnAei)
                 logger.debug(warning.toString())
             }
 
@@ -435,16 +447,14 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
         // return true
     }
 
-    protected void checkTarpit(ArtifactExecutionInfoImpl aeii, boolean requiresAuthz) {
+    protected void checkTarpit(ArtifactExecutionInfoImpl aeii) {
+        // logger.warn("Count tarpit ${aeii.toBasicString()}", new BaseException("loc"))
+
         ExecutionContextFactoryImpl ecfi = eci.ecfi
         UserFacadeImpl ufi = eci.userFacade
         ArtifactExecutionInfo.ArtifactType artifactTypeEnum = aeii.internalTypeEnum
 
-        ArrayList<Map<String, Object>> artifactTarpitCheckList = (ArrayList<Map<String, Object>>) null
-        // only check screens if they are the final screen in the chain (the target screen)
-        if (requiresAuthz || !ArtifactExecutionInfo.AT_XML_SCREEN.is(artifactTypeEnum)) {
-            artifactTarpitCheckList = ufi.getArtifactTarpitCheckList(artifactTypeEnum)
-        }
+        ArrayList<Map<String, Object>> artifactTarpitCheckList = ufi.getArtifactTarpitCheckList(artifactTypeEnum)
         if (artifactTarpitCheckList == null || artifactTarpitCheckList.size() == 0) return
 
         boolean alreadyDisabled = disableAuthz()
@@ -479,7 +489,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                         ArrayList<Long> hitTimeListCopy = new ArrayList<Long>(hitTimeList)
                         for (int htlInd = 0; htlInd < hitTimeListCopy.size(); htlInd++) {
                             Long hitTime = (Long) hitTimeListCopy.get(htlInd)
-                            if ((hitTime - checkTime) < maxHitsDuration) hitsInDuration++
+                            if (hitTime != null && ((hitTime - checkTime) < maxHitsDuration)) hitsInDuration++
                         }
                     }
                     // logger.warn("TOREMOVE artifact [${tarpitKey}], now has ${hitsInDuration} hits in ${maxHitsDuration} seconds")
@@ -504,7 +514,7 @@ public class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                 if (tarpitLockList.size() > 0) {
                     Timestamp releaseDateTime = tarpitLockList.first.getTimestamp('releaseDateTime')
                     int retryAfterSeconds = ((releaseDateTime.getTime() - System.currentTimeMillis())/1000).intValue()
-                    throw new ArtifactTarpitException("User ${userId} has accessed ${aeii.getTypeDescription()} ${aeii.getName()} too many times and may not again until ${releaseDateTime} (retry after ${retryAfterSeconds} seconds)".toString(), retryAfterSeconds)
+                    throw new ArtifactTarpitException("User ${userId} has accessed ${aeii.getTypeDescription()} ${aeii.getName()} too many times and may not again until ${eci.l10nFacade.format(releaseDateTime, 'yyyy-MM-dd HH:mm:ss')} (retry after ${retryAfterSeconds} seconds)".toString(), retryAfterSeconds)
                 }
             }
             // record the tarpit lock

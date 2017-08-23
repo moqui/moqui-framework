@@ -1,20 +1,74 @@
 
 # Moqui Framework Release Notes
 
-## Release 2.0.1 - Not Yet Released
+## Release 2.1.0 - Not Yet Released
 
-Moqui Framework 2.0.1 is a patch level new feature and bug fix release.
+Moqui Framework 2.1.0 is a minor new feature and bug fix release.
+
+This release has a few bug fixes from the 2.0.0 release and has minor new features like DbResource and WikiPage version management, 
+a simple tool for ETL, and various XML Screen and Form widget options and usability improvements. This release was originally 
+planned to be a patch level release primarily for bug fixes but very soon after the 2.0.0 release work start on the Vue based client
+rendering (SPA) functionality and various other new features that due to business deals progressed quickly.
+
+There are various changes for better server side handling of the new Vue based hybrid static/dynamic XML Screen rendering.
+See the moqui-runtime release notes for more details. Some of these changes may be useful for other client rendering purposes.
+
+### Non Backward Compatible Changes
+
+- New compile dependency on Log4J2 and not just SLF4J
+- DataDocument JSON generation no longer automatically adds all primary key fields of the primary entity to allow for aggregation
+  by function in DataDocument based queries (where DataDocument is used to create a dynamic view entity); for ElasticSearch indexing
+  a unique ID is required so all primary key fields of the primary entity should be defined
+- The DataDocumentField, DataDocumentCondition, and DataDocumentLink entities now have an artificial/sequenced secondary key instead 
+  of using another field (fieldPath, fieldNameAlias, label); existing tables may work with some things but reloading seed data will
+  fail if you have any DataDocument records in place; these are typically seed data records so the easiest way to update/migrate
+  is to drop the tables for DataDocumentField/Link/Condition entities and then reload seed data as normal for a code update
+- If using moqui-elasticsearch the index approach has changed to one index per DataDocument to prep for ES6 and improve the
+  performance and index types by field name; to update an existing instance it is best to start with an empty ES instance or at
+  least delete old indexes and re-index based on data feeds
+- The default Dockerfile now runs the web server on port 80 instead of 8080 within the container
 
 ### New Features
 
+- Various library updates
+- SLF4J MDC now used to track moqui_userId and moqui_visitorId for logging
+- New ExecutionContextFactory.registerLogEventSubscriber() method to register for Log4J2 LogEvent processing, initially used in the
+  moqui-elasticsearch component to send log messages to ElasticSearch for use in the new LogViewer screen in the System app
+- Improved Docker Compose samples with HTTPS and PostgreSQL, new file for Kibana behind transparent proxy servlet in Moqui
+- Added MoquiAuthFilter that can be used to require authorization and specified permission for arbitrary paths such as servlets;
+  this is used along with the Jetty ProxyServlet$Transparent to provide secure access to things server only accessible tools like
+  ElasticSearch (on /elastic) and Kibana (on /kibana) in the moqui-elasticsearch component
+- Multi service calls now pass results from previous calls to subsequent calls if parameter names match, and return results
 - Service jobs may now have a lastRunTime parameter passed by the job scheduler; lastRunTime on lock and passed to service is now
   the last run time without an error
 - view-entity now supports member-entity with entity-condition and no key-map for more flexible join expressions
+- TransactionCache now handles more situations like using EntityListIterator.next() calls and not just getCompleteList(), and 
+  deletes through the tx cache are more cleanly handled for records created through the tx cache
+- ResourceReference support for versions in supported implementations (initially DbResourceReference)
+- ResourceFacade locations now support a version suffix following a hash
+- Improved wiki services to track version along with underlying ResourceReference
+- New SimpleEtl class plus support for extract and load through EntityFacade
+- Various improvements in send#EmailTemplate, email view tracking with transparent pixel image
+- Improvements for form-list aggregations and show-total now supports avg, count, min, max, first, and last in addition to sum
+- Improved SQLException handling with more useful messages and error codes from database
+- Added view-entity.member-relationship element as a simpler alternative to member-entity using existing relationships
+- DataDocumentField now has a functionName attribute for functions on fields in a DataDocument based query 
+- Any DataDocument can now be treated as an entity using the name pattern DataDocument.${dataDocumentId}
+- Sub-select (sub-query) is now supported for view-entity by a simple flag on member-entity (or member-relationship); this changes
+  the query structure so the member entity is joined in a select clause with any conditions for fields on that member entity put
+  in its where clause instead of the where clause for the top-level select; any fields selected are selected in the sub-select as
+  are any fields used for the join ON conditions; the first example of this is the InvoicePaymentApplicationSummary view-entity in
+  mantle-usl which also uses alias.@function and alias.complex-alias to use concat_ws for combined name aliases
 
 ### Bug Fixes
 
 - Improved exception (throwable) handling for service jobs, now handled like other errors and don't break the scheduler
 - Fixed field.@hide attribute not working with runtime conditions, now evaluated each time a form-list is rendered
+- Fixed long standing issue with distinct counts and limited selected fields, now uses a distinct sub-select under a count select
+- Fixed long standing issue where view-entity aliased fields were not decrypted
+- Fixed issue with XML entity data loading using sub-elements for related entities and under those sub-elements for field data
+- Fixed regression in EntityFind where cache was used even if forUpdate was set
+- Fixed concurrency issue with screen history (symptom was NPE on iterator.next() call)
 
 ## Release 2.0.0 - 24 Nov 2016
 
@@ -504,6 +558,13 @@ Gradle tasks.
 
 
 ## Long Term To Do List - aka Informal Road Map
+
+- PDF, Office, etc document indexing for wiki attachments (using Apache Tika)
+- Wiki page version history with full content history diff, etc; store just differences, lib for that?
+  - https://code.google.com/archive/p/java-diff-utils/
+    - compile group: 'com.googlecode.java-diff-utils', name: 'diffutils', version: '1.3.0'
+  - https://bitbucket.org/cowwoc/google-diff-match-patch/
+    - compile group: 'org.bitbucket.cowwoc', name: 'diff-match-patch', version: '1.1'
 
 - Option for transition to only mount if all response URLs for screen paths exist
 

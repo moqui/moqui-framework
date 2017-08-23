@@ -54,7 +54,7 @@ class SystemScreenRenderTests extends Specification {
     @Unroll
     def "render system screen #screenPath (#containsText1, #containsText2)"() {
         setup:
-        ScreenTestRender str = screenTest.render(screenPath, null, null)
+        ScreenTestRender str = screenTest.render(screenPath, [lastStandalone:"-2"], null)
         // logger.info("Rendered ${screenPath} in ${str.getRenderTime()}ms")
         boolean contains1 = containsText1 ? str.assertContains(containsText1) : true
         boolean contains2 = containsText2 ? str.assertContains(containsText2) : true
@@ -96,7 +96,7 @@ class SystemScreenRenderTests extends Specification {
         // Security screens
         "Security/UserAccount/UserAccountList?username=john.doe" | "john.doe" | "John Doe"
         "Security/UserAccount/UserAccountDetail?userId=EX_JOHN_DOE" |
-                "john.doe@test.com" | "Administrators (full access)"
+                "john.doe@moqui.org" | "Administrators (full access)"
         "Security/UserGroup/UserGroupList" | "Administrators (full access)" | ""
         "Security/UserGroup/UserGroupDetail?userGroupId=ADMIN" |
                 "" | "System App (via root screen)"

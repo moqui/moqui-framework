@@ -14,6 +14,7 @@
 package org.moqui.impl.entity.condition;
 
 import org.moqui.entity.EntityCondition;
+import org.moqui.impl.entity.EntityDefinition;
 import org.moqui.impl.entity.EntityQueryBuilder;
 
 import java.io.IOException;
@@ -26,36 +27,22 @@ public class TrueCondition implements EntityConditionImplBase {
 
     public TrueCondition() { }
 
-    @Override
-    public void makeSqlWhere(EntityQueryBuilder eqb) { eqb.sqlTopLevel.append("1=1"); }
+    @Override public void makeSqlWhere(EntityQueryBuilder eqb, EntityDefinition subMemberEd) { eqb.sqlTopLevel.append("1=1"); }
 
-    @Override
-    public boolean mapMatches(Map<String, Object> map) { return true; }
-    @Override
-    public boolean mapMatchesAny(Map<String, Object> map) { return true; }
-    @Override
-    public boolean mapKeysNotContained(Map<String, Object> map) { return true; }
+    @Override public boolean mapMatches(Map<String, Object> map) { return true; }
+    @Override public boolean mapMatchesAny(Map<String, Object> map) { return true; }
+    @Override public boolean mapKeysNotContained(Map<String, Object> map) { return true; }
 
-    @Override
-    public boolean populateMap(Map<String, Object> map) { return true; }
+    @Override public boolean populateMap(Map<String, Object> map) { return true; }
+    @Override public void getAllAliases(Set<String> entityAliasSet, Set<String> fieldAliasSet) { }
+    @Override public EntityConditionImplBase filter(String entityAlias, EntityDefinition mainEd) { return entityAlias == null ? this : null; }
 
-    @Override
-    public void getAllAliases(Set<String> entityAliasSet, Set<String> fieldAliasSet) { }
+    @Override public EntityCondition ignoreCase() { return this; }
+    @Override public String toString() { return "1=1"; }
 
-    @Override
-    public EntityCondition ignoreCase() { return this; }
+    @Override public int hashCode() { return 127; }
+    @Override public boolean equals(Object o) { return !(o == null || o.getClass() != thisClass); }
 
-    @Override
-    public String toString() { return "1=1"; }
-
-    @Override
-    public int hashCode() { return 127; }
-
-    @Override
-    public boolean equals(Object o) { return !(o == null || o.getClass() != thisClass); }
-
-    @Override
-    public void writeExternal(ObjectOutput out) throws IOException { }
-    @Override
-    public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException { }
+    @Override public void writeExternal(ObjectOutput out) throws IOException { }
+    @Override public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException { }
 }

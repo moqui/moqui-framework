@@ -14,6 +14,7 @@
 package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
+import org.moqui.BaseArtifactException
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityCondition.ComparisonOperator
 import org.moqui.entity.EntityCondition.JoinOperator
@@ -112,7 +113,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
                 if (curCond == null) continue
                 // this is all they could be, all that is supported right now
                 if (curCond instanceof EntityConditionImplBase) newList.add((EntityConditionImplBase) curCond)
-                else throw new IllegalArgumentException("EntityCondition of type [${curCond.getClass().getName()}] not supported")
+                else throw new BaseArtifactException("EntityCondition of type [${curCond.getClass().getName()}] not supported")
             }
         } else {
             Iterator<EntityCondition> conditionIter = conditionList.iterator()
@@ -121,7 +122,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
                 if (curCond == null) continue
                 // this is all they could be, all that is supported right now
                 if (curCond instanceof EntityConditionImplBase) newList.add((EntityConditionImplBase) curCond)
-                else throw new IllegalArgumentException("EntityCondition of type [${curCond.getClass().getName()}] not supported")
+                else throw new BaseArtifactException("EntityCondition of type [${curCond.getClass().getName()}] not supported")
             }
         }
         if (newList == null || newList.size() == 0) return null
@@ -153,11 +154,11 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
                 continue
             }
             if (curObj instanceof EntityConditionImplBase) {
-                EntityCondition curCond = (EntityConditionImplBase) curObj
+                EntityConditionImplBase curCond = (EntityConditionImplBase) curObj
                 newList.add(curCond)
                 continue
             }
-            throw new IllegalArgumentException("The conditionList parameter must contain only Map and EntityCondition objects, found entry of type [${curObj.getClass().getName()}]")
+            throw new BaseArtifactException("The conditionList parameter must contain only Map and EntityCondition objects, found entry of type [${curObj.getClass().getName()}]")
         }
         if (newList.size() == 0) return null
         if (newList.size() == 1) {
@@ -238,11 +239,21 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
                         // could be same as field name, but not if aliased with different name
                         String aliasName = aliasNode.attribute("name")
                         ConditionField cf = findEd != null ? findEd.getFieldInfo(aliasName).conditionField : new ConditionField(aliasName)
-                        condList.add(new FieldValueCondition(cf, compOp, value))
+                        if (ComparisonOperator.NOT_EQUAL.is(compOp) || ComparisonOperator.NOT_IN.is(compOp) || ComparisonOperator.NOT_LIKE.is(compOp)) {
+                            condList.add(makeConditionImpl(new FieldValueCondition(cf, compOp, value), JoinOperator.OR,
+                                    new FieldValueCondition(cf, ComparisonOperator.EQUALS, null)))
+                        } else {
+                            condList.add(new FieldValueCondition(cf, compOp, value))
+                        }
                     }
                 } else {
                     ConditionField cf = findEd != null ? findEd.getFieldInfo(fieldName).conditionField : new ConditionField(fieldName)
-                    condList.add(new FieldValueCondition(cf, compOp, value))
+                    if (ComparisonOperator.NOT_EQUAL.is(compOp) || ComparisonOperator.NOT_IN.is(compOp) || ComparisonOperator.NOT_LIKE.is(compOp)) {
+                        condList.add(makeConditionImpl(new FieldValueCondition(cf, compOp, value), JoinOperator.OR,
+                                new FieldValueCondition(cf, ComparisonOperator.EQUALS, null)))
+                    } else {
+                        condList.add(new FieldValueCondition(cf, compOp, value))
+                    }
                 }
 
             }
@@ -266,8 +277,9 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
         return new DateCondition(fromFieldName, thruFieldName,
                 (compareStamp != (Object) null) ? compareStamp : efi.ecfi.getEci().userFacade.getNowTimestamp())
     }
-    EntityCondition makeConditionDate(String fromFieldName, String thruFieldName, Timestamp compareStamp, boolean ignoreIfEmpty) {
+    EntityCondition makeConditionDate(String fromFieldName, String thruFieldName, Timestamp compareStamp, boolean ignoreIfEmpty, String ignore) {
         if (ignoreIfEmpty && (Object) compareStamp == null) return null
+        if (efi.ecfi.resourceFacade.condition(ignore, null)) return null
         return new DateCondition(fromFieldName, thruFieldName,
                 (compareStamp != (Object) null) ? compareStamp : efi.ecfi.getEci().userFacade.getNowTimestamp())
     }
@@ -298,11 +310,13 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
         }
     }
 
-    EntityCondition makeActionCondition(String fieldName, String operator, String fromExpr, String value, String toFieldName, boolean ignoreCase, boolean ignoreIfEmpty, boolean orNull, String ignore) {
+    EntityCondition makeActionCondition(String fieldName, String operator, String fromExpr, String value, String toFieldName,
+                                        boolean ignoreCase, boolean ignoreIfEmpty, boolean orNull, String ignore) {
         Object from = fromExpr ? this.efi.ecfi.resourceFacade.expression(fromExpr, "") : null
         return makeActionConditionDirect(fieldName, operator, from, value, toFieldName, ignoreCase, ignoreIfEmpty, orNull, ignore)
     }
-    EntityCondition makeActionConditionDirect(String fieldName, String operator, Object fromObj, String value, String toFieldName, boolean ignoreCase, boolean ignoreIfEmpty, boolean orNull, String ignore) {
+    EntityCondition makeActionConditionDirect(String fieldName, String operator, Object fromObj, String value, String toFieldName,
+                                              boolean ignoreCase, boolean ignoreIfEmpty, boolean orNull, String ignore) {
         // logger.info("TOREMOVE makeActionCondition(fieldName ${fieldName}, operator ${operator}, fromExpr ${fromExpr}, value ${value}, toFieldName ${toFieldName}, ignoreCase ${ignoreCase}, ignoreIfEmpty ${ignoreIfEmpty}, orNull ${orNull}, ignore ${ignore})")
 
         if (efi.ecfi.resourceFacade.condition(ignore, null)) return null
@@ -495,9 +509,9 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
         case ComparisonOperator.NOT_LIKE:
             return !ObjectUtilities.compareLike(value1, value2)
         case ComparisonOperator.IS_NULL:
-            return value2 == null
+            return value1 == null
         case ComparisonOperator.IS_NOT_NULL:
-            return value2 != null
+            return value1 != null
         }
         // default return false
         return false

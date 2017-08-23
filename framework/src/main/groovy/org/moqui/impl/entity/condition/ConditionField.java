@@ -13,7 +13,7 @@
  */
 package org.moqui.impl.entity.condition;
 
-import org.moqui.BaseException;
+import org.moqui.BaseArtifactException;
 import org.moqui.impl.entity.EntityDefinition;
 import org.moqui.impl.entity.FieldInfo;
 
@@ -27,12 +27,12 @@ public class ConditionField implements Externalizable {
 
     public ConditionField() { }
     public ConditionField(String fieldName) {
-        if (fieldName == null) throw new BaseException("Empty fieldName not allowed");
+        if (fieldName == null) throw new BaseArtifactException("Empty fieldName not allowed");
         this.fieldName = fieldName.intern();
         curHashCode = this.fieldName.hashCode();
     }
     public ConditionField(FieldInfo fi) {
-        if (fi == null) throw new BaseException("FieldInfo required");
+        if (fi == null) throw new BaseArtifactException("FieldInfo required");
         fieldInfo = fi;
         // fi.name is interned in makeFieldInfo()
         fieldName = fi.name;

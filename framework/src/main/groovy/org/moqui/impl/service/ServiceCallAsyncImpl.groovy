@@ -15,8 +15,6 @@ package org.moqui.impl.service
 
 import groovy.transform.CompileStatic
 import org.moqui.Moqui
-import org.moqui.context.ArtifactExecutionInfo
-import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.service.ServiceCallAsync
 import org.moqui.service.ServiceException

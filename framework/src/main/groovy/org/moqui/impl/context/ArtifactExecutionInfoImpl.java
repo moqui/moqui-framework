@@ -114,11 +114,12 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
 
     @Override
     public boolean getAuthorizationWasRequired() { return internalAuthzWasRequired; }
-    void setAuthzReqdAndIsAccess(boolean authzReqd, boolean isAccess) {
+    public ArtifactExecutionInfoImpl setAuthzReqdAndIsAccess(boolean authzReqd, boolean isAccess) {
         internalAuthzWasRequired = authzReqd;
         this.isAccess = isAccess;
+        return this;
     }
-    public void setTrackArtifactHit(boolean tah) { trackArtifactHit = tah; }
+    public ArtifactExecutionInfoImpl setTrackArtifactHit(boolean tah) { trackArtifactHit = tah; return this; }
     @Override
     public boolean getAuthorizationWasGranted() { return internalAuthzWasGranted; }
     void setAuthorizationWasGranted(boolean value) { internalAuthzWasGranted = value ? Boolean.TRUE : Boolean.FALSE; }
@@ -363,10 +364,15 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
         }
     }
 
-    @Override
-    public String toString() {
+    @Override public String toString() {
         return "[name:'" + nameInternal + "', type:'" + internalTypeEnum + "', action:'" + internalActionEnum + "', required: " + internalAuthzWasRequired + ", granted:" + internalAuthzWasGranted + ", user:'" + internalAuthorizedUserId + "', authz:'" + internalAuthorizedAuthzType + "', authAction:'" + internalAuthorizedActionEnum + "', inheritable:" + internalAuthorizationInheritable + ", runningTime:" + getRunningTime() + "]";
     }
+    @Override public String toBasicString() {
+        String actionStr = internalActionEnum.toString();
+        if (actionDetail != null && !actionDetail.isEmpty()) actionStr = actionStr + ':' + actionDetail;
+        return internalTypeEnum.toString() + ':' + nameInternal + '(' + actionStr + ')';
+    }
+
 
     public static class ArtifactAuthzCheck {
         public String userGroupId, artifactAuthzId, authzServiceName;
