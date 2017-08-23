@@ -712,7 +712,7 @@ class WebFacadeImpl implements WebFacade {
     }
     static void sendResourceResponseInternal(String location, boolean inline, ExecutionContextImpl eci, HttpServletResponse response) {
         ResourceReference rr = eci.resource.getLocationReference(location)
-        if (rr == null) {
+        if (rr == null || (rr.supportsExists() && !rr.getExists())) {
             logger.warn("Sending not found response, resource not found at: ${location}")
             response.sendError(HttpServletResponse.SC_NOT_FOUND)
             return
@@ -724,8 +724,14 @@ class WebFacadeImpl implements WebFacade {
         } else {
             response.addHeader("Content-Disposition", "attachment; filename=\"${rr.getFileName()}\"; filename*=utf-8''${StringUtilities.encodeAsciiFilename(rr.getFileName())}")
         }
-        if (!contentType || ResourceReference.isBinaryContentType(contentType)) {
+        if (contentType == null || contentType.isEmpty() || ResourceReference.isBinaryContentType(contentType)) {
             InputStream is = rr.openStream()
+            if (is == null) {
+                logger.warn("Sending not found response, openStream returned null for location: ${location}")
+                response.sendError(HttpServletResponse.SC_NOT_FOUND)
+                return
+            }
+
             try {
                 OutputStream os = response.outputStream
                 try {
