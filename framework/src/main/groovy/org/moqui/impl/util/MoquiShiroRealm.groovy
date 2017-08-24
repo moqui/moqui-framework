@@ -198,13 +198,15 @@ class MoquiShiroRealm implements Realm, Authorizer {
             info = new SimpleAuthenticationInfo(username, newUserAccount.currentPassword,
                     newUserAccount.passwordSalt ? new SimpleByteSource((String) newUserAccount.passwordSalt) : null,
                     realmName)
-            // check the password (credentials for this case)
-            CredentialsMatcher cm = ecfi.getCredentialsMatcher((String) newUserAccount.passwordHashType, "Y".equals(newUserAccount.passwordBase64))
-            if (!cm.doCredentialsMatch(token, info)) {
-                // if failed on password, increment in new transaction to make sure it sticks
-                ecfi.serviceFacade.sync().name("org.moqui.impl.UserServices.increment#UserAccountFailedLogins")
-                        .parameters((Map<String, Object>) [userId:newUserAccount.userId]).requireNewTransaction(true).call()
-                throw new IncorrectCredentialsException(ecfi.resource.expand('Username ${username} and/or password incorrect','',[username:username]))
+            if (!(token instanceof ForceLoginToken)) {
+                // check the password (credentials for this case)
+                CredentialsMatcher cm = ecfi.getCredentialsMatcher((String) newUserAccount.passwordHashType, "Y".equals(newUserAccount.passwordBase64))
+                if (!cm.doCredentialsMatch(token, info)) {
+                    // if failed on password, increment in new transaction to make sure it sticks
+                    ecfi.serviceFacade.sync().name("org.moqui.impl.UserServices.increment#UserAccountFailedLogins")
+                            .parameters((Map<String, Object>) [userId:newUserAccount.userId]).requireNewTransaction(true).call()
+                    throw new IncorrectCredentialsException(ecfi.resource.expand('Username ${username} and/or password incorrect','',[username:username]))
+                }
             }
 
             loginPostPassword(eci, newUserAccount)
@@ -228,6 +230,12 @@ class MoquiShiroRealm implements Realm, Authorizer {
         CredentialsMatcher cm = ecfi.getCredentialsMatcher((String) newUserAccount.passwordHashType, "Y".equals(newUserAccount.passwordBase64))
         UsernamePasswordToken token = new UsernamePasswordToken(username, password)
         return cm.doCredentialsMatch(token, info)
+    }
+
+    static class ForceLoginToken extends UsernamePasswordToken {
+        ForceLoginToken(final String username, final boolean rememberMe) {
+            super (username, 'force', rememberMe)
+        }
     }
 
     // ========== Authorization Methods ==========
