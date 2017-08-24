@@ -470,8 +470,7 @@ class UserFacadeImpl implements UserFacade {
             return false
         }
 
-        UsernamePasswordToken token = new UsernamePasswordToken(username, password)
-        token.rememberMe = true
+        UsernamePasswordToken token = new UsernamePasswordToken(username, password, true)
         Subject loginSubject = makeEmptySubject()
         try {
             loginSubject.login(token)
@@ -504,30 +503,24 @@ class UserFacadeImpl implements UserFacade {
             return false
         }
 
-        // since this doesn't go through the Shiro realm and do validations, do them now
+        UsernamePasswordToken token = new MoquiShiroRealm.ForceLoginToken(username, true)
+        Subject loginSubject = makeEmptySubject()
         try {
-            EntityValue newUserAccount = MoquiShiroRealm.loginPrePassword(eci, username)
-            MoquiShiroRealm.loginPostPassword(eci, newUserAccount)
-            // don't save the history, this is used for async/scheduled service calls and often has ms time conflicts
-            // also used in REST and other API calls with login key, high volume and better not to save
-            // MoquiShiroRealm.loginAfterAlways(eci, (String) newUserAccount.userId, null, true)
+            loginSubject.login(token)
+
+            // do this first so that the rest will be done as this user
+            // just in case there is already a user authenticated push onto a stack to remember
+            pushUserSubject(loginSubject)
+
+            // after successful login trigger the after-login actions
+            if (eci.getWebImpl() != null) {
+                eci.getWebImpl().runAfterLoginActions()
+                eci.getWebImpl().getRequest().setAttribute("moqui.request.authenticated", "true")
+            }
         } catch (AuthenticationException ae) {
-            // others to consider handling differently (these all inherit from AuthenticationException):
-            //     UnknownAccountException, IncorrectCredentialsException, ExpiredCredentialsException,
-            //     CredentialsException, LockedAccountException, DisabledAccountException, ExcessiveAttemptsException
             eci.messageFacade.addError(ae.message)
             logger.warn("Login failure: ${eci.message.errorsString}", ae)
             return false
-        }
-
-        // do this first so that the rest will be done as this user
-        // just in case there is already a user authenticated push onto a stack to remember
-        pushUser(username)
-
-        // after successful login trigger the after-login actions
-        if (eci.getWebImpl() != null) {
-            eci.getWebImpl().runAfterLoginActions()
-            eci.getWebImpl().getRequest().setAttribute("moqui.request.authenticated", "true")
         }
 
         return true
