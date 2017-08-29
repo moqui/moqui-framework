@@ -358,7 +358,10 @@ public class EntityFindBuilder extends EntityQueryBuilder {
                     MNode aliasNode = aliasList.get(i);
                     String nameAttr = aliasNode.attribute("name");
                     String functionAttr = aliasNode.attribute("function");
-                    if (localFieldsToSelect.contains(nameAttr) && (functionAttr == null || functionAttr.isEmpty())) {
+                    String isAggregateAttr = aliasNode.attribute("is-aggregate");
+                    boolean isAggFunction = isAggregateAttr != null ? "true".equalsIgnoreCase(isAggregateAttr) :
+                            FieldInfo.aggFunctions.contains(functionAttr);
+                    if (localFieldsToSelect.contains(nameAttr) && isAggFunction == false) {
                         if (gbClause.length() > 0) gbClause.append(", ");
                         gbClause.append(localEntityDefinition.getColumnName(nameAttr));
                     }
@@ -402,7 +405,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
 
         // additional fields to consider when trimming the member-entities to join
         Set<String> additionalFieldsUsed = new HashSet<>();
-        boolean hasFunction = false;
+        boolean hasAggregateFunction = false;
         boolean hasSelected = false;
         StringBuilder gbClause = new StringBuilder();
         for (int i = 0; i < fieldInfoArray.length; i++) {
@@ -418,15 +421,25 @@ public class EntityFindBuilder extends EntityQueryBuilder {
             // NOTE: this doesn't support various things that EntityDefinition.makeFullColumnName() does like case/when, complex-alias, etc
             // those are difficult to pick out in nested XML elements where the 'alias' element has no entity-alias, and may not be needed at this level (try to handle at top level)
             String function = aliasNode.attribute("function");
+            String isAggregateAttr = aliasNode.attribute("is-aggregate");
+            boolean isAggFunction = isAggregateAttr != null ? "true".equalsIgnoreCase(isAggregateAttr) :
+                    FieldInfo.aggFunctions.contains(function);
+            hasAggregateFunction = hasAggregateFunction || isAggFunction;
             MNode complexAliasNode = aliasNode.first("complex-alias");
             if (complexAliasNode != null) {
                 String colName = mainEntityDefinition.makeFullColumnName(aliasNode, false);
                 localBuilder.append(colName).append(" AS ").append(sanitizeColumnName(colName));
-                if (function != null && !function.isEmpty()) hasFunction = true;
+                if (isAggFunction == false) {
+                    if (gbClause.length() > 0) gbClause.append(", ");
+                    gbClause.append(sanitizeColumnName(colName));
+                }
             } else if (function != null && !function.isEmpty()) {
                 String colName = EntityDefinition.getFunctionPrefix(function) + localEntityDefinition.getColumnName(aliasField) + ")";
                 localBuilder.append(colName).append(" AS ").append(sanitizeColumnName(colName));
-                hasFunction = true;
+                if (isAggFunction == false) {
+                    if (gbClause.length() > 0) gbClause.append(", ");
+                    gbClause.append(sanitizeColumnName(colName));
+                }
             } else {
                 String colName = localEntityDefinition.getColumnName(aliasField);
                 localBuilder.append(colName);
@@ -452,7 +465,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
             condition.makeSqlWhere(this, localEntityDefinition);
         }
 
-        if (hasFunction && gbClause.length() > 0) {
+        if (hasAggregateFunction && gbClause.length() > 0) {
             localBuilder.append(" GROUP BY ");
             localBuilder.append(gbClause.toString());
         }
