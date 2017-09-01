@@ -660,10 +660,16 @@ along with this software (see the LICENSE.md file). If not, see
             </xs:sequence>
             <xs:attribute name="id" type="xs:string"/>
             <xs:attribute name="type" type="color-context" default="default"/>
+            <xs:attribute name="initial" default="open"><xs:simpleType><xs:restriction base="xs:token">
+                <xs:enumeration value="open"/><xs:enumeration value="closed"/>
+                <!-- for future, save state in UserPreference: <xs:enumeration value="user"/> -->
+            </xs:restriction></xs:simpleType></xs:attribute>
         </xs:complexType>
     </xs:element>
-    <xs:element name="box-header">
-        <xs:complexType><xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/></xs:complexType></xs:element>
+    <xs:element name="box-header"><xs:complexType>
+        <xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:attribute name="title" type="xs:string"/>
+    </xs:complexType></xs:element>
     <xs:element name="box-toolbar">
         <xs:complexType><xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/></xs:complexType></xs:element>
     <xs:element name="box-body">
