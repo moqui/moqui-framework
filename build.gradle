@@ -41,7 +41,17 @@ def getComponentTestTasks() {
         testTasks.addAll(subProject.getTasksByName('test', false))
     return testTasks
 }
-
+def getDefaultPropertyKeys() {
+    def defaultProperties = []
+    Node confXml = new XmlParser().parse(file('framework/src/main/resources/MoquiDefaultConf.xml'))
+    for (Node defaultProperty in confXml.'default-property') {
+        defaultProperties << defaultProperty.'@name'
+    }
+    defaultProperties
+}
+allTestTasks.each {
+    it.systemProperties << System.properties.subMap(getDefaultPropertyKeys())
+}
 // ========== clean tasks ==========
 
 task clean(type: Delete) { delete file(warName); delete file(execTempDir) }
