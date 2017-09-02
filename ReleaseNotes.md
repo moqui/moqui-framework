@@ -722,6 +722,9 @@ Gradle tasks.
     - allow mapping DataDocument operations as well
     - Add attribute for resource/method like screen for anonymous and no authz access
   - OAuth2 Support
+    - Simple OAuth2 for authentication only
+      - https://tools.ietf.org/html/draft-ietf-oauth-v2-27#section-4.4
+      - use current api key functionality, or expand for limiting tokens to a particular client by registered client ID
     - Use Apache Oltu, see https://cwiki.apache.org/confluence/display/OLTU/OAuth+2.0+Authorization+Server
     - Spec at http://tools.ietf.org/html/rfc6749
     - http://oltu.apache.org/apidocs/oauth2/reference/org/apache/oltu/oauth2/as/request/package-summary.html
