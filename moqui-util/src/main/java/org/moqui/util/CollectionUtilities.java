@@ -20,6 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.Timestamp;
 import java.util.*;
 
@@ -273,6 +274,26 @@ public class CollectionUtilities {
             if (curObj instanceof BigDecimal) curVal = (BigDecimal) curObj;
             else curVal = new BigDecimal(curObj.toString());
             theMap.put(key, curVal.add(value));
+        }
+    }
+
+    public static void addBigDecimalsInMap(Map<String, Object> baseMap, Map<String, Object> addMap) {
+        if (baseMap == null || addMap == null) return;
+        for (Map.Entry<String, Object> entry : addMap.entrySet()) {
+            if (!(entry.getValue() instanceof BigDecimal)) continue;
+            BigDecimal addVal = (BigDecimal) entry.getValue();
+            Object baseObj = baseMap.get(entry.getKey());
+            if (baseObj == null || !(baseObj instanceof BigDecimal)) baseObj = BigDecimal.ZERO;
+            BigDecimal baseVal = (BigDecimal) baseObj;
+            baseMap.put(entry.getKey(), baseVal.add(addVal));
+        }
+    }
+    public static void divideBigDecimalsInMap(Map<String, Object> baseMap, BigDecimal divisor) {
+        if (baseMap == null || divisor == null || divisor.doubleValue() == 0.0) return;
+        for (Map.Entry<String, Object> entry : baseMap.entrySet()) {
+            if (!(entry.getValue() instanceof BigDecimal)) continue;
+            BigDecimal baseVal = (BigDecimal) entry.getValue();
+            entry.setValue(baseVal.divide(divisor, BigDecimal.ROUND_HALF_UP));
         }
     }
 
