@@ -202,7 +202,7 @@ along with this software (see the LICENSE.md file). If not, see
 
     <!-- ========== Localized ========== -->
     <entity entity-name="LocalizedMessage" package="moqui.basic" use="configuration" authorize-skip="view" cache="true">
-        <field name="original" type="text-medium" is-pk="true"/>
+        <field name="original" type="text-long" is-pk="true"/>
         <field name="locale" type="text-short" is-pk="true"/>
         <field name="localized" type="text-long"/>
     </entity>
