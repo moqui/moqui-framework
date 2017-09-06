@@ -662,10 +662,14 @@ public abstract class EntityValueBase implements EntityValue {
                                   Boolean useCache, Boolean forUpdate) {
         EntityJavaUtil.RelationshipInfo relInfo = getEntityDefinition().getRelationshipInfo(relationshipName);
         if (relInfo == null) throw new EntityException("Relationship " + relationshipName + " not found in entity " + entityName);
+        return findRelated(relInfo, byAndFields, orderBy, useCache, forUpdate);
+    }
 
+    private EntityList findRelated(final EntityJavaUtil.RelationshipInfo relInfo, Map<String, Object> byAndFields,
+                                   List<String> orderBy, Boolean useCache, Boolean forUpdate) {
         String relatedEntityName = relInfo.relatedEntityName;
         Map<String, String> keyMap = relInfo.keyMap;
-        if (keyMap == null || keyMap.size() == 0) throw new EntityException("Relationship " + relationshipName + " in entity " + entityName + " has no key-map sub-elements and no default values");
+        if (keyMap == null || keyMap.size() == 0) throw new EntityException("Relationship " + relInfo.relationshipName + " in entity " + entityName + " has no key-map sub-elements and no default values");
 
         // make a Map where the key is the related entity's field name, and the value is the value from this entity
         Map<String, Object> condMap = new HashMap<>();
@@ -717,6 +721,22 @@ public abstract class EntityValueBase implements EntityValue {
     }
 
     @Override
+    public EntityList findRelatedFk(Set<String> skipEntities) {
+        EntityList relatedList = new EntityListImpl(getEntityFacadeImpl());
+        ArrayList<EntityJavaUtil.RelationshipInfo> relInfoList = getEntityDefinition().getRelationshipsInfo(false);
+        int relInfoListSize = relInfoList.size();
+        for (int i = 0; i < relInfoListSize; i++) {
+            EntityJavaUtil.RelationshipInfo relInfo = relInfoList.get(i);
+            EntityJavaUtil.RelationshipInfo reverseInfo = relInfo.findReverse();
+            if (!reverseInfo.isTypeOne || (skipEntities != null && (skipEntities.contains(reverseInfo.fromEd.fullEntityName) ||
+                    skipEntities.contains(reverseInfo.fromEd.getShortAlias())))) continue;
+            EntityList curList = findRelated(relInfo, null, null, null, null);
+            relatedList.addAll(curList);
+        }
+        return relatedList;
+    }
+
+    @Override
     public void deleteRelated(String relationshipName) {
         // NOTE: this does a select for update, may consider not doing that by default
         EntityList relatedList = findRelated(relationshipName, null, null, false, true);
@@ -745,14 +765,17 @@ public abstract class EntityValueBase implements EntityValue {
         if (foundNonDeleteRelated) return false;
 
         // delete related records to delete
-        for (String delRelName : relationshipsToDelete) {
-            deleteRelated(delRelName);
-        }
+        for (String delRelName : relationshipsToDelete) deleteRelated(delRelName);
 
         // delete this record
         delete();
 
         return true;
+    }
+
+    @Override
+    public void deleteWithCascade(Set<String> clearRefEntities) {
+        // TODO implement
     }
 
     @Override
