@@ -545,6 +545,18 @@ public class EntityJavaUtil {
             }
             return false;
         }
+        public RelationshipInfo findReverse() {
+            ArrayList<RelationshipInfo> relInfoList = relatedEd.getRelationshipsInfo(false);
+            int relInfoListSize = relInfoList.size();
+            for (int i = 0; i < relInfoListSize; i++) {
+                EntityJavaUtil.RelationshipInfo relInfo = relInfoList.get(i);
+                if (fromEd.fullEntityName.equals(relInfo.relatedEntityName) &&
+                        ((title == null && relInfo.title == null) || (title != null && title.equals(relInfo.title)))) {
+                    return relInfo;
+                }
+            }
+            return null;
+        }
         public Map<String, Object> getTargetParameterMap(Map valueSource) {
             if (valueSource == null || valueSource.isEmpty()) return new LinkedHashMap<>();
             Map<String, Object> targetParameterMap = new HashMap<>();
