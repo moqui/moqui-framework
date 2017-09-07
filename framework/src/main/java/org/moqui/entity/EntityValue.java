@@ -31,6 +31,7 @@ import java.util.Set;
 public interface EntityValue extends Map<String, Object>, Externalizable, Comparable<EntityValue>, Cloneable, SimpleEtl.Entry {
 
     String getEntityName();
+    String getEntityNamePretty();
 
     /** Returns true if any field has been modified */
     boolean isModified();
@@ -240,13 +241,15 @@ public interface EntityValue extends Map<String, Object>, Externalizable, Compar
      * To clear the reference (set fields to null) instead of deleting records specify the entity names, related to this or any
      * related entity, in the clearRefEntities parameter.
      *
-     * To check for records that should prevent a delete use findRelatedFk().
+     * To check for records that should prevent a delete you can optionally pass a Set of entities names in the
+     * validateAllowDeleteEntities parameter. If this is not null an exception will be thrown instead of deleting
+     * any record for an entity NOT in that Set.
      *
      * WARNING: this may delete records you don't want to. Look at the nested relationships in the Entity Reference in the
      * Tools app to see what might might get deleted (anything with a type one relationship to this entity, or recursing
      * anything with a type one relationship to those).
      */
-    void deleteWithCascade(Set<String> clearRefEntities);
+    void deleteWithCascade(Set<String> clearRefEntities, Set<String> validateAllowDeleteEntities);
 
     /**
      * Checks to see if all foreign key records exist in the database (records this record refers to).
