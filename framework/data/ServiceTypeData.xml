@@ -18,7 +18,7 @@ along with this software (see the LICENSE.md file). If not, see
 
     <moqui.service.job.ServiceJob jobName="clean_ArtifactData_daily" description="Clean Artifact Data: ArtifactHit, ArtifactHitBin"
             serviceName="org.moqui.impl.ServerServices.clean#ArtifactData" cronExpression="0 0 2 * * ?" paused="N">
-        <parameters parameterName="daysToKeep" parameterValue="30"/>
+        <parameters parameterName="daysToKeep" parameterValue="90"/>
     </moqui.service.job.ServiceJob>
     <moqui.service.job.ServiceJob jobName="clean_ServiceJobRun_daily" description="Clean ServiceJobRun Data"
             serviceName="org.moqui.impl.ServiceServices.clean#ServiceJobRun" cronExpression="0 0 2 * * ?" paused="N">
