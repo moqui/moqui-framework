@@ -116,6 +116,19 @@ class EntityFindTests extends Specification {
         [testNumberInteger:4321, testMedium_not: "Y", testMedium_op: "empty"] | "EXTST1"
     }
 
+    def "find EnumerationType related FK"() {
+        when:
+        EntityValue enumType = ec.entity.find("moqui.basic.EnumerationType").condition("enumTypeId", "DataSourceType").one()
+        EntityList enums = enumType.findRelatedFk(null)
+        // for (EntityValue val in enums) logger.warn("DST Enum ${val.getEntityName()} ${val}")
+
+        EntityList noEnums = enumType.findRelatedFk(new HashSet(["moqui.basic.Enumeration"]))
+
+        then:
+        enums.size() > 4
+        noEnums.size() == 0
+    }
+
     def "auto cache clear for list"() {
         // update the testMedium and make sure we get the new value
         when:
