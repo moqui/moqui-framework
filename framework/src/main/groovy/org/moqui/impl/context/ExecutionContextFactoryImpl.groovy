@@ -1618,7 +1618,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             httpPort = webappNode.attribute("http-port") ?: null
             httpHost = webappNode.attribute("http-host") ?: null
             httpsPort = webappNode.attribute("https-port") ?: null
-            httpsHost = webappNode.attribute("https-host") ?: httpPort ?: null
+            httpsHost = webappNode.attribute("https-host") ?: httpHost ?: null
             httpsEnabled = "true".equals(webappNode.attribute("https-enabled"))
             requireSessionToken = !"false".equals(webappNode.attribute("require-session-token"))
 
