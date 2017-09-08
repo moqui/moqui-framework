@@ -125,7 +125,7 @@ class EntityFindTests extends Specification {
         EntityList noEnums = enumType.findRelatedFk(new HashSet(["moqui.basic.Enumeration"]))
 
         then:
-        enums.size() > 4
+        enums.size() >= 4
         noEnums.size() == 0
     }
 
