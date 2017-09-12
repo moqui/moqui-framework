@@ -7,6 +7,9 @@
 
     <!-- Default properties are only set if there is no Java property or environment variable of the same name (or with underscores replaced by dots) -->
 
+    <!-- recommended values: production, dev, test; any code may look at these Java System properties to vary behavior (System.getProperty("instance_purpose")) -->
+    <default-property name="instance_purpose" value="production"/>
+
     <default-property name="default_locale" value="en_US"/>
     <default-property name="default_time_zone" value="US/Pacific"/>
     <default-property name="database_time_zone" value="US/Pacific"/>
