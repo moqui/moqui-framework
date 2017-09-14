@@ -87,7 +87,7 @@ dependencies {
     // ========== Libraries from jcenter ==========
 
     // Apache Commons
-    compile 'org.apache.commons:commons-csv:1.4' // Apache 2.0
+    compile 'org.apache.commons:commons-csv:1.5' // Apache 2.0
     compile 'org.apache.commons:commons-email:1.5' // Apache 2.0
     compile 'org.apache.commons:commons-lang3:3.6' // Apache 2.0; used by cron-utils
     compile 'commons-beanutils:commons-beanutils:1.9.3' // Apache 2.0
