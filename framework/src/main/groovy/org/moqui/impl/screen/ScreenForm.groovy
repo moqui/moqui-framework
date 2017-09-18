@@ -1625,6 +1625,7 @@ class ScreenForm {
                 // put in context for external use
                 ContextStack context = ecfi.getEci().contextStack
                 context.put(listName, efList)
+                context.put(listName.concat("_xafind"), ef)
 
                 // handle pagination, etc parameters like XML Actions entity-find
                 MNode sfiNode = entityFindNode.first("search-form-inputs")

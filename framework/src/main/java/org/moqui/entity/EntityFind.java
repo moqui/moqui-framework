@@ -15,6 +15,7 @@ package org.moqui.entity;
 
 import org.moqui.etl.SimpleEtl;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -288,4 +289,8 @@ public interface EntityFind extends java.io.Serializable, SimpleEtl.Extractor {
      * @throws EntityException
      */
     long deleteAll() throws EntityException;
+
+    /** If supported by underlying data source get the text (SQL, etc) used for the find query.
+     * Will have multiple values if multiple queries done with this find. */
+    ArrayList<String> getQueryTextList();
 }

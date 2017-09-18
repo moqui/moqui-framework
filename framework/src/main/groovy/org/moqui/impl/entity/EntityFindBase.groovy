@@ -80,6 +80,9 @@ abstract class EntityFindBase implements EntityFind {
 
     protected boolean disableAuthz = false
 
+    protected ArrayList<String> queryTextList = new ArrayList<>()
+
+
     EntityFindBase(EntityFacadeImpl efi, String entityName) {
         this.efi = efi
         this.entityName = entityName
@@ -1399,4 +1402,7 @@ abstract class EntityFindBase implements EntityFind {
             eli.close()
         }
     }
+
+    @Override
+    ArrayList<String> getQueryTextList() { return queryTextList }
 }
