@@ -85,22 +85,20 @@ public class EntityQueryBuilder {
         if (ps == null) throw new IllegalStateException("Cannot Execute Query, no PreparedStatement in place");
         boolean isError = false;
         boolean queryStats = efi.getQueryStats();
-        long queryTime = 0;
+        long beforeQuery = queryStats ? System.nanoTime() : 0;
         try {
             final long timeBefore = isDebugEnabled ? System.currentTimeMillis() : 0L;
-            long beforeQuery = queryStats ? System.nanoTime() : 0;
             rs = ps.executeQuery();
-            if (queryStats) queryTime = System.nanoTime() - beforeQuery;
-            if (isDebugEnabled) logger.debug("Executed query with SQL [" + sqlTopLevel +
+            if (isDebugEnabled) logger.debug("Executed query with SQL [" + finalSql +
                     "] and parameters [" + parameters + "] in [" +
                     ((System.currentTimeMillis() - timeBefore) / 1000) + "] seconds");
             return rs;
         } catch (SQLException sqle) {
             isError = true;
-            // logger.warn("Error in JDBC query for SQL " + sqlTopLevel);
+            logger.warn("Error in JDBC query for SQL " + finalSql);
             throw sqle;
         } finally {
-            if (queryStats) efi.saveQueryStats(mainEntityDefinition, finalSql, queryTime, isError);
+            if (queryStats) efi.saveQueryStats(mainEntityDefinition, finalSql, System.nanoTime() - beforeQuery, isError);
         }
     }
 
@@ -108,24 +106,21 @@ public class EntityQueryBuilder {
         if (ps == null) throw new IllegalStateException("Cannot Execute Update, no PreparedStatement in place");
         boolean isError = false;
         boolean queryStats = efi.getQueryStats();
-        long queryTime = 0;
+        long beforeQuery = queryStats ? System.nanoTime() : 0;
         try {
             final long timeBefore = isDebugEnabled ? System.currentTimeMillis() : 0L;
-            long beforeQuery = queryStats ? System.nanoTime() : 0;
             final int rows = ps.executeUpdate();
-            if (queryStats) queryTime = System.nanoTime() - beforeQuery;
-
-            if (isDebugEnabled) logger.debug("Executed update with SQL [" + sqlTopLevel +
+            if (isDebugEnabled) logger.debug("Executed update with SQL [" + finalSql +
                     "] and parameters [" + parameters + "] in [" +
                     ((System.currentTimeMillis() - timeBefore) / 1000) + "] seconds changing [" +
                     rows + "] rows");
             return rows;
         } catch (SQLException sqle) {
             isError = true;
-            // logger.warn("Error in JDBC update for SQL " + sqlTopLevel);
+            logger.warn("Error in JDBC update for SQL " + finalSql);
             throw sqle;
         } finally {
-            if (queryStats) efi.saveQueryStats(mainEntityDefinition, finalSql, queryTime, isError);
+            if (queryStats) efi.saveQueryStats(mainEntityDefinition, finalSql, System.nanoTime() - beforeQuery, isError);
         }
     }
 

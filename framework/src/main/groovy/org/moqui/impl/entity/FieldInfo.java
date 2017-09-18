@@ -40,6 +40,7 @@ public class FieldInfo {
     public final MNode fieldNode;
     public final String entityName;
     public final String name;
+    public final String aliasFieldName;
     public final ConditionField conditionField;
     public final String type;
     public final String columnName;
@@ -68,8 +69,7 @@ public class FieldInfo {
 
         Map<String, String> fnAttrs = fieldNode.getAttributes();
         String nameAttr = fnAttrs.get("name");
-        if (nameAttr == null)
-            throw new EntityException("No name attribute specified for field in entity " + entityName);
+        if (nameAttr == null) throw new EntityException("No name attribute specified for field in entity " + entityName);
         name = nameAttr.intern();
         conditionField = new ConditionField(this);
         String columnNameAttr = fnAttrs.get("column-name");
@@ -117,6 +117,8 @@ public class FieldInfo {
         }
 
         if (ed.isViewEntity) {
+            String fieldAttr = fieldNode.attribute("field");
+            aliasFieldName = fieldAttr != null && !fieldAttr.isEmpty() ? fieldAttr : name;
             MNode tempMembEntNode = null;
             String entityAlias = fieldNode.attribute("entity-alias");
             if (entityAlias != null && entityAlias.length() > 0) {
@@ -140,6 +142,7 @@ public class FieldInfo {
             hasAggregateFunction = isAggregateAttr != null ? "true".equalsIgnoreCase(isAggregateAttr) :
                     aggFunctions.contains(fieldNode.attribute("function"));
         } else {
+            aliasFieldName = null;
             memberEntityNode = null;
             directMemberEntityNode = null;
             hasAggregateFunction = false;
