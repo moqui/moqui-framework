@@ -175,7 +175,7 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
         FieldInfo fi = field.getFieldInfo(mainEd);
         MNode fieldMe = fi.directMemberEntityNode;
         if (entityAlias == null) {
-            if (fieldMe != null && "true".equalsIgnoreCase(fieldMe.attribute("sub-select"))) return null;
+            if (fieldMe != null && "true".equals(fieldMe.attribute("sub-select"))) return null;
             return this;
         } else {
             if (fieldMe != null && entityAlias.equals(fieldMe.attribute("entity-alias"))) return this;

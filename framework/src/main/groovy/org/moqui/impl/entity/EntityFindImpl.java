@@ -91,6 +91,7 @@ public class EntityFindImpl extends EntityFindBase {
             }
 
             if (isTraceEnabled && rs.next()) logger.trace("Found more than one result for condition " + condSql + " on entity " + entityName);
+            queryTextList.add(efb.finalSql);
         } finally {
             try { efb.closeAll(); }
             catch (SQLException sqle) { logger.error("Error closing query", sqle); }
@@ -146,6 +147,7 @@ public class EntityFindImpl extends EntityFindBase {
             elii = new EntityListIteratorImpl(con, rs, ed, fieldInfoArray, efi, txCache, whereCondition, orderByExpanded);
             // ResultSet will be closed in the EntityListIterator
             efb.releaseAll();
+            queryTextList.add(efb.finalSql);
         } catch (Throwable t) {
             // close the ResultSet/etc on error as there won't be an ELI
             try { efb.closeAll(); }
@@ -199,6 +201,7 @@ public class EntityFindImpl extends EntityFindBase {
 
             ResultSet rs = efb.executeQuery();
             if (rs.next()) count = rs.getLong(1);
+            queryTextList.add(efb.finalSql);
         } finally {
             try { efb.closeAll(); }
             catch (SQLException sqle) { logger.error("Error closing query", sqle); }
