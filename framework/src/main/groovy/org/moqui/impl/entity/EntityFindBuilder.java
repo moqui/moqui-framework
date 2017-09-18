@@ -93,11 +93,12 @@ public class EntityFindBuilder extends EntityQueryBuilder {
     }
 
     public void makeSqlFromClause() {
-        makeSqlFromClause(mainEntityDefinition, sqlTopLevel, null);
+        makeSqlFromClause(mainEntityDefinition, sqlTopLevel, whereCondition,
+                (EntityConditionImplBase) entityFindBase.getHavingEntityCondition(), null);
     }
 
-    public void makeSqlFromClause(final EntityDefinition localEntityDefinition,
-                                  StringBuilder localBuilder, Set<String> additionalFieldsUsed) {
+    public void makeSqlFromClause(final EntityDefinition localEntityDefinition, StringBuilder localBuilder,
+                EntityConditionImplBase localWhereCondition, EntityConditionImplBase localHavingCondition, Set<String> additionalFieldsUsed) {
         localBuilder.append(" FROM ");
 
         if (localEntityDefinition.isViewEntity) {
@@ -120,31 +121,35 @@ public class EntityFindBuilder extends EntityQueryBuilder {
             //     that is not selected or ordered by
             Set<String> entityAliasUsedSet = new HashSet<>();
             Set<String> fieldUsedSet = new HashSet<>();
+
             EntityConditionImplBase viewWhere = localEntityDefinition.makeViewWhereCondition();
             if (viewWhere != null) viewWhere.getAllAliases(entityAliasUsedSet, fieldUsedSet);
-            EntityConditionImplBase whereEntityCondition = entityFindBase.getWhereEntityConditionInternal(localEntityDefinition);
-            if (whereEntityCondition != null) whereEntityCondition.getAllAliases(entityAliasUsedSet, fieldUsedSet);
-            if (entityFindBase.getHavingEntityCondition() != null)
-                ((EntityConditionImplBase) entityFindBase.getHavingEntityCondition()).getAllAliases(entityAliasUsedSet, fieldUsedSet);
+            if (localWhereCondition != null) localWhereCondition.getAllAliases(entityAliasUsedSet, fieldUsedSet);
+            if (localHavingCondition != null) localHavingCondition.getAllAliases(entityAliasUsedSet, fieldUsedSet);
 
-            for (int i = 0; i < fieldInfoArray.length; i++) {
-                FieldInfo fi = fieldInfoArray[i];
-                if (fi == null) break;
-                fieldUsedSet.add(fi.name);
-            }
-
-            ArrayList<String> orderByFields = entityFindBase.orderByFields;
-            if (orderByFields != null) {
-                int orderByFieldsSize = orderByFields.size();
-                for (int i = 0; i < orderByFieldsSize; i++) {
-                    String orderByField = orderByFields.get(i);
-                    EntityJavaUtil.FieldOrderOptions foo = new EntityJavaUtil.FieldOrderOptions(orderByField);
-                    fieldUsedSet.add(foo.getFieldName());
+            // logger.warn("SQL from viewWhere " + viewWhere + " localWhereCondition " + localWhereCondition + " localHavingCondition " + localHavingCondition);
+            // logger.warn("SQL from fieldUsedSet " + fieldUsedSet + " additionalFieldsUsed " + additionalFieldsUsed);
+            if (additionalFieldsUsed == null) {
+                for (int i = 0; i < fieldInfoArray.length; i++) {
+                    FieldInfo fi = fieldInfoArray[i];
+                    if (fi == null) break;
+                    fieldUsedSet.add(fi.name);
                 }
+
+                ArrayList<String> orderByFields = entityFindBase.orderByFields;
+                if (orderByFields != null) {
+                    int orderByFieldsSize = orderByFields.size();
+                    for (int i = 0; i < orderByFieldsSize; i++) {
+                        String orderByField = orderByFields.get(i);
+                        EntityJavaUtil.FieldOrderOptions foo = new EntityJavaUtil.FieldOrderOptions(orderByField);
+                        fieldUsedSet.add(foo.getFieldName());
+                    }
+                }
+            } else {
+                // additional fields to look for, when this is a sub-select for a member-entity that is a view-entity
+                fieldUsedSet.addAll(additionalFieldsUsed);
             }
 
-            // additional fields to look for, when this is a sub-select for a member-entity that is a view-entity
-            if (additionalFieldsUsed != null) fieldUsedSet.addAll(additionalFieldsUsed);
             // get a list of entity aliases used
             for (String fieldName : fieldUsedSet) {
                 FieldInfo fi = localEntityDefinition.getFieldInfo(fieldName);
@@ -218,7 +223,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
 
                 if (isFirst) {
                     // first link, add link entity for this one only, for others add related link entity
-                    makeSqlViewTableName(linkEntityDefinition, localBuilder);
+                    makeSqlViewTableName(linkEntityDefinition, localBuilder, localWhereCondition, localHavingCondition);
                     localBuilder.append(" ").append(joinFromAlias);
 
                     joinedAliasSet.add(joinFromAlias);
@@ -246,7 +251,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
                 if (subSelect) {
                     makeSqlMemberSubSelect(entityAlias, relatedMemberEntityNode, relatedLinkEntityDefinition, localBuilder);
                 } else {
-                    makeSqlViewTableName(relatedLinkEntityDefinition, localBuilder);
+                    makeSqlViewTableName(relatedLinkEntityDefinition, localBuilder, localWhereCondition, localHavingCondition);
                 }
                 localBuilder.append(" ").append(entityAlias).append(" ON ");
 
@@ -281,7 +286,13 @@ public class EntityFindBuilder extends EntityQueryBuilder {
 
                     localBuilder.append(entityAlias);
                     localBuilder.append(".");
-                    localBuilder.append(relatedLinkEntityDefinition.getColumnName(relatedFieldName));
+                    FieldInfo relatedFieldInfo = relatedLinkEntityDefinition.getFieldInfo(relatedFieldName);
+                    if (relatedFieldInfo == null) throw new EntityException("Invalid field name " + relatedFieldName + " for entity " + relatedLinkEntityDefinition.fullEntityName);
+                    if (subSelect) {
+                        localBuilder.append(EntityJavaUtil.camelCaseToUnderscored(relatedFieldInfo.name));
+                    } else {
+                        localBuilder.append(relatedFieldInfo.getFullColumnName());
+                    }
                     // NOTE: sanitizeColumnName here breaks the generated SQL, in the case of a view within a view we want EAO.EAI.COL_NAME...
                     // localBuilder.append(sanitizeColumnName(relatedLinkEntityDefinition.getColumnName(relatedFieldName, false)))
                 }
@@ -310,11 +321,10 @@ public class EntityFindBuilder extends EntityQueryBuilder {
 
                 EntityDefinition fromEntityDefinition = efi.getEntityDefinition(memberEntity.attribute("entity-name"));
                 if (fromEmpty) { fromEmpty = false; } else  { localBuilder.append(", "); }
-                boolean subSelect = "true".equals(memberEntity.attribute("sub-select"));
-                if (subSelect) {
+                if ("true".equals(memberEntity.attribute("sub-select"))) {
                     makeSqlMemberSubSelect(memberEntityAlias, memberEntity, fromEntityDefinition, localBuilder);
                 } else {
-                    makeSqlViewTableName(fromEntityDefinition, localBuilder);
+                    makeSqlViewTableName(fromEntityDefinition, localBuilder, localWhereCondition, localHavingCondition);
                 }
                 localBuilder.append(" ").append(memberEntityAlias);
             }
@@ -323,7 +333,8 @@ public class EntityFindBuilder extends EntityQueryBuilder {
         }
     }
 
-    public void makeSqlViewTableName(EntityDefinition localEntityDefinition, StringBuilder localBuilder) {
+    public void makeSqlViewTableName(EntityDefinition localEntityDefinition, StringBuilder localBuilder,
+                EntityConditionImplBase localWhereCondition, EntityConditionImplBase localHavingCondition) {
         EntityJavaUtil.EntityInfo entityInfo = localEntityDefinition.entityInfo;
         if (entityInfo.isView) {
             localBuilder.append("(SELECT ");
@@ -348,7 +359,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
                 //localBuilder.append(sanitizeColumnName(localEntityDefinition.getColumnName(aliasName), false)))
             }
 
-            makeSqlFromClause(localEntityDefinition, localBuilder, additionalFieldsUsed);
+            makeSqlFromClause(localEntityDefinition, localBuilder, localWhereCondition, localHavingCondition, additionalFieldsUsed);
 
             // TODO: refactor this like below to do in the main loop; this is currently unused though (view-entity as member-entity for sub-select)
             StringBuilder gbClause = new StringBuilder();
@@ -361,7 +372,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
                     String isAggregateAttr = aliasNode.attribute("is-aggregate");
                     boolean isAggFunction = isAggregateAttr != null ? "true".equalsIgnoreCase(isAggregateAttr) :
                             FieldInfo.aggFunctions.contains(functionAttr);
-                    if (localFieldsToSelect.contains(nameAttr) && isAggFunction == false) {
+                    if (localFieldsToSelect.contains(nameAttr) && !isAggFunction) {
                         if (gbClause.length() > 0) gbClause.append(", ");
                         gbClause.append(localEntityDefinition.getColumnName(nameAttr));
                     }
@@ -378,7 +389,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
             localBuilder.append(localEntityDefinition.getFullTableName());
         }
     }
-    // (SELECT INVOICE_ID, SUM(AMOUNT_APPLIED) AS AMOUNT_APPLIED FROM PAYMENT_APPLICATION WHERE APPLIED_DATE < '2017-03-31 23:59:59' GROUP BY INVOICE_ID) PAPP
+
     public void makeSqlMemberSubSelect(String entityAlias, MNode memberEntity, EntityDefinition localEntityDefinition,
                                        StringBuilder localBuilder) {
         localBuilder.append("(SELECT ");
@@ -411,57 +422,116 @@ public class EntityFindBuilder extends EntityQueryBuilder {
         for (int i = 0; i < fieldInfoArray.length; i++) {
             FieldInfo aliasFi = fieldInfoArray[i];
             if (!aliasFi.entityAliasUsedSet.contains(entityAlias)) continue;
-            MNode aliasNode = aliasFi.fieldNode;
-            String aliasName = aliasFi.name;
-            String aliasField = aliasNode.attribute("field");
-            if (aliasField == null || aliasField.isEmpty()) aliasField = aliasName;
-            additionalFieldsUsed.add(aliasField);
-            joinFields.remove(aliasField);
-            if (hasSelected) { localBuilder.append(", "); } else { hasSelected = true; }
-            // NOTE: this doesn't support various things that EntityDefinition.makeFullColumnName() does like case/when, complex-alias, etc
-            // those are difficult to pick out in nested XML elements where the 'alias' element has no entity-alias, and may not be needed at this level (try to handle at top level)
-            String function = aliasNode.attribute("function");
-            String isAggregateAttr = aliasNode.attribute("is-aggregate");
-            boolean isAggFunction = isAggregateAttr != null ? "true".equalsIgnoreCase(isAggregateAttr) :
-                    FieldInfo.aggFunctions.contains(function);
-            hasAggregateFunction = hasAggregateFunction || isAggFunction;
-            MNode complexAliasNode = aliasNode.first("complex-alias");
-            if (complexAliasNode != null) {
-                String colName = mainEntityDefinition.makeFullColumnName(aliasNode, false);
-                localBuilder.append(colName).append(" AS ").append(sanitizeColumnName(colName));
-                if (isAggFunction == false) {
-                    if (gbClause.length() > 0) gbClause.append(", ");
-                    gbClause.append(sanitizeColumnName(colName));
-                }
-            } else if (function != null && !function.isEmpty()) {
-                String colName = EntityDefinition.getFunctionPrefix(function) + localEntityDefinition.getColumnName(aliasField) + ")";
-                localBuilder.append(colName).append(" AS ").append(sanitizeColumnName(colName));
-                if (isAggFunction == false) {
-                    if (gbClause.length() > 0) gbClause.append(", ");
-                    gbClause.append(sanitizeColumnName(colName));
+
+            if (localEntityDefinition.isViewEntity) {
+                // get the outer alias node
+                String outerAliasField = aliasFi.aliasFieldName;
+                // get the local entity (sub-select) field node (may be alias node if sub-select on view-entity)
+                FieldInfo localFi = localEntityDefinition.getFieldInfo(outerAliasField);
+
+                MNode aliasNode = aliasFi.fieldNode;
+                MNode complexAliasNode = aliasNode.first("complex-alias");
+                if (complexAliasNode != null) {
+                    boolean foundOtherEntityAlias = false;
+                    ArrayList<MNode> complexAliasFields = complexAliasNode.descendants("complex-alias-field");
+                    for (int cafIdx = 0; cafIdx < complexAliasFields.size(); cafIdx++) {
+                        MNode cafNode = complexAliasFields.get(cafIdx);
+                        if (entityAlias.equals(cafNode.attribute("entity-alias"))) {
+                            String cafField = cafNode.attribute("field");
+                            additionalFieldsUsed.add(cafField);
+                            joinFields.remove(cafField);
+                        } else {
+                            foundOtherEntityAlias = true;
+                        }
+                    }
+                    if (foundOtherEntityAlias) {
+                        // if we found another entity alias not all on this sub-select entity (or view-entity)
+                        // TODO only select part that is - IFF not already selected to make sure is selected for outer select
+                    } else {
+                        if (localFi == null) throw new EntityException("Could not find field " + outerAliasField + " on entity " + entityAlias + ":" + localEntityDefinition.fullEntityName);
+                        String colName = localFi.getFullColumnName();
+                        if (hasSelected) { localBuilder.append(", "); } else { hasSelected = true; }
+                        localBuilder.append(colName).append(" AS ").append(EntityJavaUtil.camelCaseToUnderscored(localFi.name));
+                        if (localFi.hasAggregateFunction) {
+                            hasAggregateFunction = true;
+                        } else {
+                            if (gbClause.length() > 0) gbClause.append(", ");
+                            gbClause.append(EntityJavaUtil.camelCaseToUnderscored(localFi.name));
+                        }
+                    }
+                } else {
+                    if (localFi == null) throw new EntityException("Could not find field " + outerAliasField + " on entity " + entityAlias + ":" + localEntityDefinition.fullEntityName);
+                    additionalFieldsUsed.add(outerAliasField);
+                    joinFields.remove(outerAliasField);
+
+                    if (hasSelected) { localBuilder.append(", "); } else { hasSelected = true; }
+                    localBuilder.append(localFi.getFullColumnName()).append(" AS ").append(EntityJavaUtil.camelCaseToUnderscored(localFi.name));
+                    if (localFi.hasAggregateFunction) {
+                        hasAggregateFunction = true;
+                    } else {
+                        if (gbClause.length() > 0) gbClause.append(", ");
+                        gbClause.append(EntityJavaUtil.camelCaseToUnderscored(localFi.name));
+                    }
                 }
             } else {
-                String colName = localEntityDefinition.getColumnName(aliasField);
-                localBuilder.append(colName);
-                if (gbClause.length() > 0) gbClause.append(", ");
-                gbClause.append(colName);
+                MNode aliasNode = aliasFi.fieldNode;
+                String aliasName = aliasFi.name;
+                String aliasField = aliasNode.attribute("field");
+                if (aliasField == null || aliasField.isEmpty()) aliasField = aliasName;
+                additionalFieldsUsed.add(aliasField);
+                joinFields.remove(aliasField);
+                if (hasSelected) { localBuilder.append(", "); } else { hasSelected = true; }
+                // NOTE: this doesn't support various things that EntityDefinition.makeFullColumnName() does like case/when, complex-alias, etc
+                // those are difficult to pick out in nested XML elements where the 'alias' element has no entity-alias, and may not be needed at this level (try to handle at top level)
+                String function = aliasNode.attribute("function");
+                String isAggregateAttr = aliasNode.attribute("is-aggregate");
+                boolean isAggFunction = isAggregateAttr != null ? "true".equalsIgnoreCase(isAggregateAttr) :
+                        FieldInfo.aggFunctions.contains(function);
+                hasAggregateFunction = hasAggregateFunction || isAggFunction;
+                MNode complexAliasNode = aliasNode.first("complex-alias");
+                if (complexAliasNode != null) {
+                    String colName = mainEntityDefinition.makeFullColumnName(aliasNode, false);
+                    localBuilder.append(colName).append(" AS ").append(EntityJavaUtil.camelCaseToUnderscored(aliasName));
+                    if (!isAggFunction) {
+                        if (gbClause.length() > 0) gbClause.append(", ");
+                        gbClause.append(sanitizeColumnName(colName));
+                    }
+                } else if (function != null && !function.isEmpty()) {
+                    String colName = EntityDefinition.getFunctionPrefix(function) + localEntityDefinition.getColumnName(aliasField) + ")";
+                    localBuilder.append(colName).append(" AS ").append(EntityJavaUtil.camelCaseToUnderscored(aliasName));
+                    if (!isAggFunction) {
+                        if (gbClause.length() > 0) gbClause.append(", ");
+                        gbClause.append(sanitizeColumnName(colName));
+                    }
+                } else {
+                    String colName = localEntityDefinition.getColumnName(aliasField);
+                    localBuilder.append(colName);
+                    if (gbClause.length() > 0) gbClause.append(", ");
+                    gbClause.append(colName);
+                }
             }
         }
         // do the actual add of join field columns to select and group by
         for (String joinField : joinFields) {
             if (hasSelected) { localBuilder.append(", "); } else { hasSelected = true; }
+            String asName = EntityJavaUtil.camelCaseToUnderscored(joinField);
             String colName = localEntityDefinition.getColumnName(joinField);
-            localBuilder.append(colName);
+            localBuilder.append(colName).append(" AS ").append(asName);
             if (gbClause.length() > 0) gbClause.append(", ");
-            gbClause.append(colName);
+            gbClause.append(asName);
         }
 
-        makeSqlFromClause(localEntityDefinition, localBuilder, additionalFieldsUsed);
+        // where condition to use for FROM clause (field filtering) and for sub-select WHERE clause
+        EntityConditionImplBase condition = whereCondition != null ? whereCondition.filter(entityAlias, mainEntityDefinition) : null;
+
+        // logger.warn("makeSqlMemberSubSelect SQL so far " + localBuilder.toString());
+        // logger.warn("Calling makeSqlFromClause for " + entityAlias + ":" + localEntityDefinition.getEntityName() + " addtl fields " + additionalFieldsUsed);
+        makeSqlFromClause(localEntityDefinition, localBuilder, condition, null, additionalFieldsUsed);
 
         // add where clause, just for conditions on aliased fields on this entity-alias
-        EntityConditionImplBase condition = whereCondition != null ? whereCondition.filter(entityAlias, mainEntityDefinition) : null;
         if (condition != null) {
-            sqlTopLevel.append(" WHERE ");
+            // TODO NOTE was sqlTopLevel
+            localBuilder.append(" WHERE ");
             condition.makeSqlWhere(this, localEntityDefinition);
         }
 
@@ -494,7 +564,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
             for (int j = 0; j < fieldInfoArray.length; j++) {
                 FieldInfo fi = fieldInfoArray[j];
                 if (fi == null) continue;
-                if (!fi.hasAggregateFunction || (fi.memberEntityNode != null && "true".equals(fi.memberEntityNode.attribute("sub-select")))) {
+                if (!fi.hasAggregateFunction) {
                     if (gbClause.length() > 0) gbClause.append(", ");
                     gbClause.append(fi.getFullColumnName());
                 }
