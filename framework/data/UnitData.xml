@@ -64,6 +64,10 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.Uom abbreviation="score" description="Score" uomId="TF_score" uomTypeEnumId="UT_TIME_FREQ_MEASURE"/>
     <moqui.basic.Uom abbreviation="century" description="Century" uomId="TF_century" uomTypeEnumId="UT_TIME_FREQ_MEASURE"/>
     <moqui.basic.Uom abbreviation="millenium" description="Millenium" uomId="TF_millenium" uomTypeEnumId="UT_TIME_FREQ_MEASURE"/>
+    <moqui.basic.Uom abbreviation="yearmonth" description="Month of year" uomId="TF_yr_mon" uomTypeEnumId="UT_TIME_FREQ_MEASURE"/>
+    <moqui.basic.Uom abbreviation="weekday" description="Day of week" uomId="TF_wk_day" uomTypeEnumId="UT_TIME_FREQ_MEASURE"/>
+    <moqui.basic.Uom abbreviation="monthday" description="Day of month" uomId="TF_mon_day" uomTypeEnumId="UT_TIME_FREQ_MEASURE"/>
+    <moqui.basic.Uom abbreviation="monthweekday" description="Day of week in month" uomId="TF_mon_wk_day" uomTypeEnumId="UT_TIME_FREQ_MEASURE"/>
 
     <moqui.basic.UomConversion uomConversionId="TIME_FREQ_s_ms" uomId="TF_s" toUomId="TF_ms" conversionFactor="1000"/>
     <moqui.basic.UomConversion uomConversionId="TIME_FREQ_min_s" uomId="TF_min" toUomId="TF_s" conversionFactor="60"/>
