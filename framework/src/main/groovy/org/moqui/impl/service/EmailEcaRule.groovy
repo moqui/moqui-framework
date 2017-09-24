@@ -148,7 +148,20 @@ class EmailEcaRule {
     static List<Map> makeBodyPartList(Part part) {
         List<Map> bodyPartList = []
         Object content = part.getContent()
-        Map bpMap = [contentType:part.getContentType(), filename:part.getFileName(), disposition:part.getDisposition()?.toLowerCase()]
+
+        String extractedFileName = null
+
+        try {
+            extractedFileName = part.getFileName()
+        } catch (Exception ex) {
+            return  bodyPartList
+        }
+
+        Map bpMap = [
+                contentType:part.getContentType(),
+                filename:extractedFileName,
+                disposition:part.getDisposition()?.toLowerCase()
+        ]
         if (content instanceof CharSequence) {
             bpMap.contentText = content.toString()
             bodyPartList.add(bpMap)
@@ -183,19 +196,25 @@ class EmailEcaRule {
             //only PDF and JPG
             def contentTypeSpec = part.getContentType().toLowerCase();
             Boolean doRunExtraction = false;
-            String newFileName = MimeUtility.decodeText(part.getFileName())
+            String newFileName = null;
 
-            if (contentTypeSpec.startsWith('application/pdf')) {
-                doRunExtraction = true
-            } else if (contentTypeSpec.startsWith('image/jpeg')) {
-                doRunExtraction = true
-            } else if (contentTypeSpec.startsWith('application/zip')) {
-                doRunExtraction = true
-            } else if (contentTypeSpec.startsWith('application/octet-stream')) {
-                doRunExtraction = true
+            try {
+                newFileName = MimeUtility.decodeText(part.getFileName())
+
+                if (contentTypeSpec.startsWith('application/pdf')) {
+                    doRunExtraction = true
+                } else if (contentTypeSpec.startsWith('image/jpeg')) {
+                    doRunExtraction = true
+                } else if (contentTypeSpec.startsWith('application/zip')) {
+                    doRunExtraction = true
+                } else if (contentTypeSpec.startsWith('application/octet-stream')) {
+                    doRunExtraction = true
+                }
+
+                logger.info("fileName: ${newFileName}, type: ${contentTypeSpec}, doExtraction: ${doRunExtraction}")
+            } catch (Exception ex) {
+                logger.warn("Cannot extract file name, proceeding without it")
             }
-
-            logger.info("fileName: ${newFileName}, type: ${contentTypeSpec}, doExtraction: ${doRunExtraction}")
 
             //logger.info("part.getContentType() = " + part.getContentType())
             /*switch (contentTypeSpec.toLowerCase()) {
