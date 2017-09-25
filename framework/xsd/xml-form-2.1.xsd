@@ -69,7 +69,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:choice minOccurs="0" maxOccurs="unbounded">
                     <xs:element minOccurs="0" ref="auto-fields-service"/>
                     <xs:element minOccurs="0" ref="auto-fields-entity"/>
-                    <xs:element minOccurs="0" ref="field"/>
+                    <xs:element minOccurs="0" name="field" type="form-field-single"/>
                 </xs:choice>
                 <xs:element minOccurs="0" ref="field-layout"/>
             </xs:sequence>
@@ -150,7 +150,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:choice minOccurs="0" maxOccurs="unbounded">
                     <xs:element minOccurs="0" ref="auto-fields-service"/>
                     <xs:element minOccurs="0" ref="auto-fields-entity"/>
-                    <xs:element minOccurs="0" ref="field"/>
+                    <xs:element minOccurs="0" name="field" type="form-field-list"/>
                 </xs:choice>
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="form-list-column"/>
             </xs:sequence>
@@ -516,85 +516,94 @@ along with this software (see the LICENSE.md file). If not, see
 
   <!-- ================== Input Fields ==================== -->
     <xs:element name="SubFields" abstract="true"/>
-    <xs:element name="field">
-        <xs:complexType>
-            <xs:sequence>
-                <xs:element minOccurs="0" ref="header-field"/>
-                <xs:element minOccurs="0" maxOccurs="unbounded" ref="conditional-field"/>
-                <xs:element minOccurs="0" ref="default-field"/>
-                <!-- tabled, not to be part of 1.0: <xs:element minOccurs="0" maxOccurs="unbounded" ref="visible-when"/> -->
-            </xs:sequence>
-            <xs:attribute name="name" type="name-parameter" use="required">
-                <xs:annotation><xs:documentation>A unique name for this field. Used for the parameter name, referencing
-                    the field in other places, etc.</xs:documentation></xs:annotation>
-            </xs:attribute>
-            <xs:attribute name="from" type="xs:string"><!-- was 'entry-name' -->
-                <xs:annotation><xs:documentation>A Groovy expression to get the value of the field from the context; may be a simple
-                    context field name, arithmetic expression, include function calls, etc.</xs:documentation></xs:annotation>
-            </xs:attribute>
-            <xs:attribute name="hide" type="xs:string">
-                <xs:annotation><xs:documentation>If false field will always be visible (at least the title if nothing
-                    else). If true will always be hidden regardless of title and widgets defined. If empty (default)
-                    will guess based on definition of field.
 
-                    Note that for form-list fields this governs the entire column for the field, and not just a single
-                    row.</xs:documentation></xs:annotation>
-            </xs:attribute>
-            <xs:attribute name="validate-service" type="xs:string"/>
-            <xs:attribute name="validate-parameter" type="xs:string"/>
-            <xs:attribute name="validate-entity" type="xs:string"/>
-            <xs:attribute name="validate-field" type="xs:string"/>
+    <xs:complexType name="form-field-base">
+        <xs:attribute name="name" type="name-parameter" use="required">
+            <xs:annotation><xs:documentation>A unique name for this field. Used for the parameter name, referencing
+                the field in other places, etc.</xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="from" type="xs:string"><!-- was 'entry-name' -->
+            <xs:annotation><xs:documentation>A Groovy expression to get the value of the field from the context; may be a simple
+                context field name, arithmetic expression, include function calls, etc.</xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="hide" type="xs:string">
+            <xs:annotation><xs:documentation>If false field will always be visible (at least the title if nothing
+                else). If true will always be hidden regardless of title and widgets defined. If empty (default)
+                will guess based on definition of field.
 
-            <xs:attribute name="print-width" type="xs:nonNegativeInteger"><xs:annotation><xs:documentation>
-                Column width when printing (formatted text, xsl-fo render modes); when there are multiple fields in a
-                column the highest width is used; not on form-list-column because that is dynamic with select-columns.
+                Note that for form-list fields this governs the entire column for the field, and not just a single
+                row.</xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="validate-service" type="xs:string"/>
+        <xs:attribute name="validate-parameter" type="xs:string"/>
+        <xs:attribute name="validate-entity" type="xs:string"/>
+        <xs:attribute name="validate-field" type="xs:string"/>
+    </xs:complexType>
+    <xs:complexType name="form-field-single"><xs:complexContent><xs:extension base="form-field-base">
+        <xs:sequence>
+            <xs:element minOccurs="0" maxOccurs="unbounded" ref="conditional-field"/>
+            <xs:element minOccurs="0" ref="default-field"/>
+            <!-- tabled, not to be part of 1.0: <xs:element minOccurs="0" maxOccurs="unbounded" ref="visible-when"/> -->
+        </xs:sequence>
+    </xs:extension></xs:complexContent></xs:complexType>
+    <xs:complexType name="form-field-list"><xs:complexContent><xs:extension base="form-field-base">
+        <xs:sequence>
+            <xs:element minOccurs="0" ref="header-field"/>
+            <xs:element minOccurs="0" ref="first-row-field"/>
+            <xs:element minOccurs="0" maxOccurs="unbounded" ref="conditional-field"/>
+            <xs:element minOccurs="0" ref="default-field"/>
+            <xs:element minOccurs="0" ref="last-row-field"/>
+        </xs:sequence>
+        <xs:attribute name="print-width" type="xs:nonNegativeInteger"><xs:annotation><xs:documentation>
+            Column width when printing (formatted text, xsl-fo render modes); when there are multiple fields in a
+            column the highest width is used; not on form-list-column because that is dynamic with select-columns.
 
-                By default display, display-entity, are printed and link is printed if it is an anchor (not a button).
-                Set to zero (0) to not print this field.
-            </xs:documentation></xs:annotation></xs:attribute>
-            <xs:attribute name="print-width-type" default="percent"><xs:annotation><xs:documentation>The type of print
-                width, default to percent and can be characters.</xs:documentation></xs:annotation>
-                <xs:simpleType><xs:restriction base="xs:token">
-                    <xs:enumeration value="percent"/>
-                    <xs:enumeration value="characters"/>
-                </xs:restriction></xs:simpleType>
-            </xs:attribute>
-            <xs:attribute name="align" default="left">
-                <xs:simpleType><xs:restriction base="xs:token">
-                    <xs:enumeration value="left"/>
-                    <xs:enumeration value="center"/>
-                    <xs:enumeration value="right"/>
-                </xs:restriction></xs:simpleType>
-            </xs:attribute>
-            <xs:attribute name="aggregate">
-                <xs:annotation><xs:documentation>
-                    For form-list only. Use to combine rows during render with summary fields (where this is a function), or in
-                    a sub-list under a row with values common among the combined rows.
+            By default display, display-entity, are printed and link is printed if it is an anchor (not a button).
+            Set to zero (0) to not print this field.
+        </xs:documentation></xs:annotation></xs:attribute>
+        <xs:attribute name="print-width-type" default="percent"><xs:annotation><xs:documentation>The type of print
+            width, default to percent and can be characters.</xs:documentation></xs:annotation>
+            <xs:simpleType><xs:restriction base="xs:token">
+                <xs:enumeration value="percent"/>
+                <xs:enumeration value="characters"/>
+            </xs:restriction></xs:simpleType>
+        </xs:attribute>
+        <xs:attribute name="align" default="left">
+            <xs:simpleType><xs:restriction base="xs:token">
+                <xs:enumeration value="left"/>
+                <xs:enumeration value="center"/>
+                <xs:enumeration value="right"/>
+            </xs:restriction></xs:simpleType>
+        </xs:attribute>
+        <xs:attribute name="aggregate">
+            <xs:annotation><xs:documentation>
+                For form-list only. Use to combine rows during render with summary fields (where this is a function), or in
+                a sub-list under a row with values common among the combined rows.
 
-                    To use this at least one field must have at least one field with aggregate=group-by for efficiently finding
-                    rows to combine.
-                </xs:documentation></xs:annotation>
-                <xs:simpleType><xs:restriction base="xs:token">
-                    <xs:enumeration value="min"/><xs:enumeration value="max"/><xs:enumeration value="sum"/>
-                    <xs:enumeration value="avg"/><xs:enumeration value="count"/>
-                    <xs:enumeration value="group-by"/>
-                    <xs:enumeration value="sub-list"/>
-                </xs:restriction></xs:simpleType>
-            </xs:attribute>
-            <xs:attribute name="show-total" default="false">
-                <xs:annotation><xs:documentation>
-                    For form-list only. If anything but false for any field a totals row is added to the output based on the
-                    rows currently displayed. The 'true' option is the same as 'sum'.
-                </xs:documentation></xs:annotation>
-                <xs:simpleType><xs:restriction base="xs:token">
-                    <xs:enumeration value="true"/><xs:enumeration value="false"/><xs:enumeration value="sum"/>
-                    <xs:enumeration value="min"/><xs:enumeration value="max"/>
-                    <xs:enumeration value="avg"/><xs:enumeration value="count"/>
-                    <xs:enumeration value="first"/><xs:enumeration value="last"/>
-                </xs:restriction></xs:simpleType>
-            </xs:attribute>
-        </xs:complexType>
-    </xs:element>
+                To use this at least one field must have at least one field with aggregate=group-by for efficiently finding
+                rows to combine.
+            </xs:documentation></xs:annotation>
+            <xs:simpleType><xs:restriction base="xs:token">
+                <xs:enumeration value="min"/><xs:enumeration value="max"/><xs:enumeration value="sum"/>
+                <xs:enumeration value="avg"/><xs:enumeration value="count"/>
+                <xs:enumeration value="group-by"/>
+                <xs:enumeration value="sub-list"/>
+            </xs:restriction></xs:simpleType>
+        </xs:attribute>
+        <xs:attribute name="show-total" default="false">
+            <xs:annotation><xs:documentation>
+                For form-list only. If anything but false for any field a totals row is added to the output based on the
+                rows currently displayed. The 'true' option is the same as 'sum'.
+            </xs:documentation></xs:annotation>
+            <xs:simpleType><xs:restriction base="xs:token">
+                <xs:enumeration value="true"/><xs:enumeration value="false"/><xs:enumeration value="sum"/>
+                <xs:enumeration value="min"/><xs:enumeration value="max"/>
+                <xs:enumeration value="avg"/><xs:enumeration value="count"/>
+                <xs:enumeration value="first"/><xs:enumeration value="last"/>
+            </xs:restriction></xs:simpleType>
+        </xs:attribute>
+    </xs:extension></xs:complexContent></xs:complexType>
+
     <xs:element name="header-field">
         <xs:annotation><xs:documentation>
             Only applicable to fields until a form-list element.
@@ -629,38 +638,20 @@ along with this software (see the LICENSE.md file). If not, see
                 for the container around the field (table cell, etc).</xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
-    <xs:element name="conditional-field">
-        <xs:complexType>
-            <xs:sequence>
-                <xs:element minOccurs="0" maxOccurs="unbounded" ref="StandaloneFields"/>
-                <xs:choice>
-                    <xs:element minOccurs="0" ref="SubFields"/>
-                    <xs:element minOccurs="0" maxOccurs="unbounded" ref="AllWidgets"/>
-                </xs:choice>
-                <xs:element minOccurs="0" maxOccurs="unbounded" ref="StandaloneFields"/>
-                <xs:element minOccurs="0" maxOccurs="unbounded" ref="set"/>
-            </xs:sequence>
-            <xs:attribute name="condition" type="xs:string" use="required">
-                <xs:annotation><xs:documentation>A boolean expression in Groovy.</xs:documentation></xs:annotation>
-            </xs:attribute>
-            <xs:attributeGroup ref="attlist.conditional-field"/>
-        </xs:complexType>
-    </xs:element>
-    <xs:element name="default-field">
-        <xs:complexType>
-            <xs:sequence>
-                <xs:element minOccurs="0" maxOccurs="unbounded" ref="StandaloneFields"/>
-                <xs:choice>
-                    <xs:element minOccurs="0" ref="SubFields"/>
-                    <xs:element minOccurs="0" maxOccurs="unbounded" ref="AllWidgets"/>
-                </xs:choice>
-                <xs:element minOccurs="0" maxOccurs="unbounded" ref="StandaloneFields"/>
-                <xs:element minOccurs="0" maxOccurs="unbounded" ref="set"/>
-            </xs:sequence>
-            <xs:attributeGroup ref="attlist.conditional-field"/>
-        </xs:complexType>
-    </xs:element>
-    <xs:attributeGroup name="attlist.conditional-field">
+    <xs:element name="conditional-field" type="form-list-conditional-field"/>
+    <xs:element name="default-field" type="form-list-default-field"/>
+    <xs:element name="first-row-field" type="form-list-default-field"/>
+    <xs:element name="last-row-field" type="form-list-default-field"/>
+    <xs:complexType name="form-list-default-field">
+        <xs:sequence>
+            <xs:element minOccurs="0" maxOccurs="unbounded" ref="StandaloneFields"/>
+            <xs:choice>
+                <xs:element minOccurs="0" ref="SubFields"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="AllWidgets"/>
+            </xs:choice>
+            <xs:element minOccurs="0" maxOccurs="unbounded" ref="StandaloneFields"/>
+            <xs:element minOccurs="0" maxOccurs="unbounded" ref="set"/>
+        </xs:sequence>
         <xs:attribute name="title" type="xs:string">
             <xs:annotation><xs:documentation>The name of this field that will be shown to the user; can use the ${}
                 and map.key (dot) syntax to insert values from the context.</xs:documentation></xs:annotation>
@@ -684,7 +675,13 @@ along with this software (see the LICENSE.md file). If not, see
         </xs:attribute>
         <xs:attribute name="container-style" type="xs:string"><xs:annotation><xs:documentation>A style (HTML class) for
             the container around the field (table cell, etc).</xs:documentation></xs:annotation></xs:attribute>
-    </xs:attributeGroup>
+    </xs:complexType>
+    <xs:complexType name="form-list-conditional-field"><xs:complexContent><xs:extension base="form-list-default-field">
+        <xs:attribute name="condition" type="xs:string" use="required">
+            <xs:annotation><xs:documentation>A boolean expression in Groovy.</xs:documentation></xs:annotation>
+        </xs:attribute>
+    </xs:extension></xs:complexContent></xs:complexType>
+
     <!-- TABLED, not to be part of 1.0:
     <xs:element name="visible-when">
         <xs:annotation><xs:documentation>
@@ -706,39 +703,31 @@ along with this software (see the LICENSE.md file). If not, see
     -->
 
   <!-- ================== Field Sub-Elements ==================== -->
-    <xs:element name="auto-widget-service" substitutionGroup="SubFields">
-        <xs:complexType>
-            <xs:attribute name="service-name" type="name-full" use="required"/>
-            <xs:attribute name="parameter-name" type="xs:string"/>
-            <xs:attribute name="field-type" default="edit" type="auto-field-type"/>
-        </xs:complexType>
-    </xs:element>
-    <xs:element name="auto-widget-entity" substitutionGroup="SubFields">
-        <xs:complexType>
-            <xs:attribute name="entity-name" type="name-full" use="required"/>
-            <xs:attribute name="field-name" type="xs:string"/>
-            <xs:attribute name="field-type" default="find-display" type="auto-field-type"/>
-        </xs:complexType>
-    </xs:element>
-    <xs:element name="widget-template-include" substitutionGroup="SubFields">
-        <xs:complexType>
-            <xs:sequence>
-                <xs:element minOccurs="0" maxOccurs="unbounded" ref="set"/>
-            </xs:sequence>
-            <xs:attribute name="location" type="xs:string" use="required"/>
-        </xs:complexType>
-    </xs:element>
-    <xs:element name="check" substitutionGroup="SubFields">
-        <xs:complexType>
-            <xs:choice minOccurs="0" maxOccurs="unbounded">
-                <xs:element ref="entity-options"/>
-                <xs:element ref="list-options"/>
-                <xs:element ref="option"/>
-            </xs:choice>
-            <xs:attribute name="no-current-selected-key" type="xs:string"/>
-            <xs:attribute name="all-checked" type="xs:string"/>
-        </xs:complexType>
-    </xs:element>
+    <xs:element name="auto-widget-service" substitutionGroup="SubFields"><xs:complexType>
+        <xs:attribute name="service-name" type="name-full" use="required"/>
+        <xs:attribute name="parameter-name" type="xs:string"/>
+        <xs:attribute name="field-type" default="edit" type="auto-field-type"/>
+    </xs:complexType></xs:element>
+    <xs:element name="auto-widget-entity" substitutionGroup="SubFields"><xs:complexType>
+        <xs:attribute name="entity-name" type="name-full" use="required"/>
+        <xs:attribute name="field-name" type="xs:string"/>
+        <xs:attribute name="field-type" default="find-display" type="auto-field-type"/>
+    </xs:complexType></xs:element>
+    <xs:element name="widget-template-include" substitutionGroup="SubFields"><xs:complexType>
+        <xs:sequence>
+            <xs:element minOccurs="0" maxOccurs="unbounded" ref="set"/>
+        </xs:sequence>
+        <xs:attribute name="location" type="xs:string" use="required"/>
+    </xs:complexType></xs:element>
+    <xs:element name="check" substitutionGroup="SubFields"><xs:complexType>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+            <xs:element ref="entity-options"/>
+            <xs:element ref="list-options"/>
+            <xs:element ref="option"/>
+        </xs:choice>
+        <xs:attribute name="no-current-selected-key" type="xs:string"/>
+        <xs:attribute name="all-checked" type="xs:string"/>
+    </xs:complexType></xs:element>
     <xs:element name="date-find" substitutionGroup="SubFields">
         <xs:complexType>
             <xs:attribute name="type" default="timestamp">
