@@ -781,9 +781,11 @@ class ScreenForm {
 
     protected void expandFieldNode(MNode baseFormNode, MNode fieldNode) {
         if (fieldNode.hasChild("header-field")) expandFieldSubNode(baseFormNode, fieldNode, fieldNode.first("header-field"))
+        if (fieldNode.hasChild("first-row-field")) expandFieldSubNode(baseFormNode, fieldNode, fieldNode.first("first-row-field"))
         for (MNode conditionalFieldNode in fieldNode.children("conditional-field"))
             expandFieldSubNode(baseFormNode, fieldNode, conditionalFieldNode)
         if (fieldNode.hasChild("default-field")) expandFieldSubNode(baseFormNode, fieldNode, fieldNode.first("default-field"))
+        if (fieldNode.hasChild("last-row-field")) expandFieldSubNode(baseFormNode, fieldNode, fieldNode.first("last-row-field"))
     }
 
     protected void expandFieldSubNode(MNode baseFormNode, MNode fieldNode, MNode fieldSubNode) {
@@ -912,8 +914,10 @@ class ScreenForm {
             baseFieldNode.attributes.putAll(overrideFieldNode.attributes)
 
             baseFieldNode.mergeSingleChild(overrideFieldNode, "header-field")
+            baseFieldNode.mergeSingleChild(overrideFieldNode, "first-row-field")
             baseFieldNode.mergeChildrenByKey(overrideFieldNode, "conditional-field", "condition", null)
             baseFieldNode.mergeSingleChild(overrideFieldNode, "default-field")
+            baseFieldNode.mergeSingleChild(overrideFieldNode, "last-row-field")
 
             // put new node where old was
             baseFormNode.remove(baseFieldIndex)
@@ -1073,7 +1077,7 @@ class ScreenForm {
         private ScreenForm screenForm
         private ExecutionContextFactoryImpl ecfi
         private MNode formNode
-        private boolean isListForm
+        private boolean isListForm = false
         protected Set<String> serverStatic = null
 
         private ArrayList<MNode> allFieldNodes
@@ -1084,6 +1088,8 @@ class ScreenForm {
         private boolean isFormHeaderFormVal = false
         private boolean isFormFirstRowFormVal = false
         private boolean isFormLastRowFormVal = false
+        private boolean hasFirstRow = false
+        private boolean hasLastRow = false
         private ArrayList<MNode> nonReferencedFieldList = (ArrayList<MNode>) null
         private ArrayList<MNode> hiddenFieldList = (ArrayList<MNode>) null
         private ArrayList<String> hiddenFieldNameList = (ArrayList<String>) null
@@ -1206,15 +1212,13 @@ class ScreenForm {
             isUploadForm = formNode.depthFirst({ MNode it -> "file".equals(it.name) }).size() > 0
             for (MNode hfNode in formNode.depthFirst({ MNode it -> "header-field".equals(it.name) })) {
                 if (hfNode.children.size() > 0) { isFormHeaderFormVal = true; break } }
-            // determine isFormFirstRowFormVal, isFormLastRowFormVal
-            if (formNode.attribute("transition-first-row")) {
-                for (MNode rfNode in formNode.depthFirst({ MNode it -> "first-row-field".equals(it.name) })) {
-                    if (rfNode.children.size() > 0) { isFormFirstRowFormVal = true; break } }
-            }
-            if (formNode.attribute("transition-last-row")) {
-                for (MNode rfNode in formNode.depthFirst({ MNode it -> "last-row-field".equals(it.name) })) {
-                    if (rfNode.children.size() > 0) { isFormLastRowFormVal = true; break } }
-            }
+            // determine hasFirstRow, isFormFirstRowFormVal, hasLastRow, isFormLastRowFormVal
+            for (MNode rfNode in formNode.depthFirst({ MNode it -> "first-row-field".equals(it.name) })) {
+                if (rfNode.children.size() > 0) { hasFirstRow = true; break } }
+            if (hasFirstRow && formNode.attribute("transition-first-row")) isFormFirstRowFormVal = true
+            for (MNode rfNode in formNode.depthFirst({ MNode it -> "last-row-field".equals(it.name) })) {
+                if (rfNode.children.size() > 0) { hasLastRow = true; break } }
+            if (hasLastRow && formNode.attribute("transition-last-row")) isFormLastRowFormVal = true
 
             // also populate fieldsInFormListColumns
             if (isListForm) formListColInfoList = makeFormListColumnInfo()
@@ -1585,6 +1589,8 @@ class ScreenForm {
         boolean isHeaderForm() { return formInstance.isFormHeaderFormVal }
         boolean isFirstRowForm() { return formInstance.isFormFirstRowFormVal }
         boolean isLastRowForm() { return formInstance.isFormLastRowFormVal }
+        boolean hasFirstRow() { return formInstance.hasFirstRow }
+        boolean hasLastRow() { return formInstance.hasLastRow }
         String getFormLocation() { return formInstance.screenForm.location }
 
         FormInstance getFormInstance() { return formInstance }
