@@ -276,6 +276,27 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:element ref="fields-not-referenced"/>
             <xs:element ref="field-row"/>
             <xs:element ref="field-row-big"/>
+            <xs:element name="field-col-row"><xs:complexType>
+                <xs:sequence><xs:element maxOccurs="unbounded" name="field-col"><xs:complexType>
+                    <xs:choice minOccurs="0" maxOccurs="unbounded">
+                        <xs:element ref="field-group"/>
+                        <xs:element name="field-accordion"><xs:complexType>
+                            <xs:sequence><xs:element maxOccurs="unbounded" ref="field-group"/></xs:sequence>
+                            <xs:attribute name="active" type="xs:string"/>
+                        </xs:complexType></xs:element>
+                        <xs:element ref="field-ref"/>
+                        <xs:element ref="fields-not-referenced"/>
+                        <xs:element ref="field-row"/>
+                        <xs:element ref="field-row-big"/>
+                    </xs:choice>
+                    <xs:attribute name="lg" type="xs:string"/>
+                    <xs:attribute name="md" type="xs:string"/>
+                    <xs:attribute name="sm" type="xs:string"/>
+                    <xs:attribute name="xs" type="xs:string"/>
+                    <xs:attribute name="style" type="xs:string"/>
+                </xs:complexType></xs:element></xs:sequence>
+                <xs:attribute name="style" type="xs:string"/>
+            </xs:complexType></xs:element>
         </xs:choice>
         <xs:attribute name="id" type="xs:string"/>
     </xs:complexType></xs:element>
