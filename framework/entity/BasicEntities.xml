@@ -186,9 +186,9 @@ along with this software (see the LICENSE.md file). If not, see
         <member-entity entity-alias="GEO" entity-name="moqui.basic.Geo"/>
         <member-entity entity-alias="GTE" entity-name="moqui.basic.Enumeration" join-from-alias="GEO">
             <key-map field-name="geoTypeEnumId" related="enumId"/></member-entity>
-        <member-entity entity-alias="GEOA" entity-name="moqui.basic.GeoAssoc" join-from-alias="GEO">
+        <member-entity entity-alias="GEOA" entity-name="moqui.basic.GeoAssoc" join-from-alias="GEO" join-optional="true">
             <key-map field-name="geoId" related="toGeoId"/></member-entity>
-        <member-entity entity-alias="GEOFR" entity-name="moqui.basic.Geo" join-from-alias="GEOA">
+        <member-entity entity-alias="GEOFR" entity-name="moqui.basic.Geo" join-from-alias="GEOA" join-optional="true">
             <key-map field-name="geoId"/></member-entity>
         <alias-all entity-alias="GEO"/>
         <alias-all entity-alias="GTE"/>
