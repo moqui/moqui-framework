@@ -212,6 +212,7 @@ public class L10nFacadeImpl implements L10nFacade {
         timestampFormats = new ArrayList<>();
         timestampFormats.add("yyyy-MM-dd HH:mm"); timestampFormats.add("yyyy-MM-dd HH:mm:ss.SSS");
         timestampFormats.add("yyyy-MM-dd'T'HH:mm:ss"); timestampFormats.add("yyyy-MM-dd'T'HH:mm:ssZ");
+        timestampFormats.add("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
         timestampFormats.add("yyyy-MM-dd HH:mm:ss"); timestampFormats.add("yyyy-MM-dd");
         timestampFormats.add("yyyy-MM-dd HH:mm:ss.SSS z");
     }
