@@ -15,6 +15,7 @@ package org.moqui.impl.service.runner
 
 import groovy.transform.CompileStatic
 import org.moqui.BaseException
+import org.moqui.entity.EntityException
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
 import org.moqui.entity.EntityValueNotFoundException
@@ -488,7 +489,27 @@ class EntityAutoServiceRunner implements ServiceRunner {
     }
 
     static void deleteEntity(ExecutionContextImpl eci, EntityDefinition ed, Map<String, Object> parameters) {
-        EntityValue ev = eci.getEntityFacade().makeValue(ed.fullEntityName).setFields(parameters, true, null, true)
-        ev.delete()
+        if (!ed.containsPrimaryKey(parameters)) throw new EntityException("Must specify all primary key fields to delete, can use wildcard of '*' in one or more PK fields to delete multiple records")
+
+        Map<String, Object> newParms = new HashMap<>(parameters)
+        boolean hasWildcard = false
+        ArrayList<String> fieldNameList = ed.getPkFieldNames()
+        int size = fieldNameList.size()
+        for (int i = 0; i < size; i++) {
+            String fieldName = (String) fieldNameList.get(i)
+            if ("*".equals(newParms.get(fieldName))) {
+                hasWildcard = true
+                newParms.remove(fieldName)
+                break
+            }
+        }
+        if (hasWildcard) {
+            // long deleted =
+            eci.entityFacade.find(ed.fullEntityName).condition(newParms).deleteAll()
+            // logger.info("Deleted ${deleted} ${ed.fullEntityName} records with PK wildcard: ${parameters}")
+        } else {
+            EntityValue ev = eci.entityFacade.makeValue(ed.fullEntityName).setFields(parameters, true, null, true)
+            ev.delete()
+        }
     }
 }
