@@ -54,7 +54,7 @@ class WebFacadeImpl implements WebFacade {
     protected final static Logger logger = LoggerFactory.getLogger(WebFacadeImpl.class)
 
     protected final static ObjectMapper jacksonMapper = new ObjectMapper()
-            .setSerializationInclusion(JsonInclude.Include.NON_EMPTY) // different from Groovy empty, exclude null, List/Map/String.isEmpty()
+            .setSerializationInclusion(JsonInclude.Include.NON_NULL)
             .enable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS).enable(SerializationFeature.INDENT_OUTPUT)
             .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
             .configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true)
