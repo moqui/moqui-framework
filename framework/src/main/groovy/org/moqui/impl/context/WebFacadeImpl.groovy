@@ -13,8 +13,12 @@
  */
 package org.moqui.impl.context
 
-import groovy.json.JsonBuilder
-import groovy.json.JsonSlurper
+import com.fasterxml.jackson.annotation.JsonInclude
+import com.fasterxml.jackson.core.JsonGenerator
+import com.fasterxml.jackson.databind.DeserializationFeature
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.SerializationFeature
 import groovy.transform.CompileStatic
 
 import org.apache.commons.fileupload.FileItem
@@ -40,7 +44,6 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import javax.servlet.ServletContext
-import javax.servlet.ServletInputStream
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
 import javax.servlet.http.HttpSession
@@ -49,6 +52,12 @@ import javax.servlet.http.HttpSession
 @CompileStatic
 class WebFacadeImpl implements WebFacade {
     protected final static Logger logger = LoggerFactory.getLogger(WebFacadeImpl.class)
+
+    protected final static ObjectMapper jacksonMapper = new ObjectMapper()
+            .setSerializationInclusion(JsonInclude.Include.NON_EMPTY) // different from Groovy empty, exclude null, List/Map/String.isEmpty()
+            .enable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS).enable(SerializationFeature.INDENT_OUTPUT)
+            .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
+            .configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true)
 
     // Not using shared root URL cache because causes issues when requests come to server through different hosts/etc:
     // protected static final Map<String, String> webappRootUrlByParms = new HashMap()
@@ -117,20 +126,18 @@ class WebFacadeImpl implements WebFacade {
                 while ((curLine = reader.readLine()) != null) bodyBuilder.append(curLine)
             }
             if (bodyBuilder.length() > 0) {
-                JsonSlurper slurper = new JsonSlurper()
-                Object jsonObj = null
                 try {
-                    jsonObj = slurper.parseText(bodyBuilder.toString())
+                    JsonNode jsonNode = jacksonMapper.readTree(bodyBuilder.toString())
+                    if (jsonNode.isObject()) {
+                        jsonParameters = jacksonMapper.treeToValue(jsonNode, Map.class)
+                    } else if (jsonNode.isArray()) {
+                        jsonParameters = [_requestBodyJsonList:jacksonMapper.treeToValue(jsonNode, List.class)] as Map<String, Object>
+                    }
                 } catch (Throwable t) {
                     logger.error("Error parsing HTTP request body JSON: ${t.toString()}", t)
                     jsonParameters = [_requestBodyJsonParseError:t.getMessage()] as Map<String, Object>
                 }
-                if (jsonObj instanceof Map) {
-                    jsonParameters = (Map<String, Object>) jsonObj
-                } else if (jsonObj instanceof List) {
-                    jsonParameters = [_requestBodyJsonList:jsonObj]
-                }
-                // logger.warn("=========== Got JSON HTTP request body: ${jsonParameters}")
+                logger.warn("=========== Got JSON HTTP request body: ${jsonParameters}")
             }
         } else if (ServletFileUpload.isMultipartContent(request)) {
             // if this is a multi-part request, get the data for it
@@ -575,7 +582,7 @@ class WebFacadeImpl implements WebFacade {
     }
     static void sendJsonResponseInternal(Object responseObj, ExecutionContextImpl eci, HttpServletRequest request,
                                          HttpServletResponse response, Map<String, Object> requestAttributes) {
-        String jsonStr
+        String jsonStr = null
         if (responseObj instanceof CharSequence) {
             jsonStr = responseObj.toString()
             responseObj = null
@@ -609,13 +616,7 @@ class WebFacadeImpl implements WebFacade {
         }
 
         // logger.warn("========== Sending JSON for object: ${responseObj}")
-        if (responseObj != null) {
-            JsonBuilder jb = new JsonBuilder()
-            if (responseObj instanceof Map) { jb.call((Map) responseObj) }
-            else if (responseObj instanceof List) { jb.call((List) responseObj) }
-            else { jb.call((Object) responseObj) }
-            jsonStr = jb.toPrettyString()
-        }
+        if (responseObj != null) jsonStr = jacksonMapper.writeValueAsString(responseObj)
 
         if (!jsonStr) return
 
@@ -641,10 +642,8 @@ class WebFacadeImpl implements WebFacade {
     }
 
     void sendJsonError(int statusCode, String errorMessages) {
-        JsonBuilder jb = new JsonBuilder()
         // NOTE: uses same field name as sendJsonResponseInternal
-        jb.call([errorCode:statusCode, errors:errorMessages])
-        String jsonStr = jb.toString()
+        String jsonStr = jacksonMapper.writeValueAsString([errorCode:statusCode, errors:errorMessages])
         response.setContentType("application/json")
         // NOTE: String.length not correct for byte length
         String charset = response.getCharacterEncoding() ?: "UTF-8"
