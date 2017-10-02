@@ -352,7 +352,7 @@ along with this software (see the LICENSE.md file). If not, see
                     <xs:enumeration value="MD5"/>
                 </xs:restriction></xs:simpleType>
             </xs:attribute>
-            <xs:attribute name="min-length" type="xs:nonNegativeInteger" default="6">
+            <xs:attribute name="min-length" type="xs:nonNegativeInteger" default="8">
                 <xs:annotation><xs:documentation>Minimum length of password</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="min-digits" type="xs:nonNegativeInteger" default="1">
                 <xs:annotation><xs:documentation>Minimum number of digits (numeric characters) in the password</xs:documentation></xs:annotation></xs:attribute>
