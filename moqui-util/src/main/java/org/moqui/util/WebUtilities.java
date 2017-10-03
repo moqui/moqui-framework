@@ -214,13 +214,43 @@ public class WebUtilities {
         @Override public void setAttribute(String name, Object value) { req.setAttribute(name, value); }
         @Override public void removeAttribute(String name) { req.removeAttribute(name); }
     }
+    public static Enumeration<String> emptyStringEnum = new Enumeration<String>() {
+        @Override public boolean hasMoreElements() { return false; }
+        @Override public String nextElement() { return null; }
+    };
     public static class HttpSessionContainer implements AttributeContainer {
         HttpSession ses;
         public HttpSessionContainer(HttpSession session) { ses = session; }
-        @Override public Enumeration<String> getAttributeNames() { return ses.getAttributeNames(); }
-        @Override public Object getAttribute(String name) { return ses.getAttribute(name); }
-        @Override public void setAttribute(String name, Object value) { ses.setAttribute(name, value); }
-        @Override public void removeAttribute(String name) { ses.removeAttribute(name); }
+        @Override public Enumeration<String> getAttributeNames() {
+            try {
+                return ses.getAttributeNames();
+            } catch (IllegalStateException e) {
+                logger.info("Tried getAttributeNames() on invalidated session " + ses.getId() + ": " + e.toString());
+                return emptyStringEnum;
+            }
+        }
+        @Override public Object getAttribute(String name) {
+            try {
+                return ses.getAttribute(name);
+            } catch (IllegalStateException e) {
+                logger.info("Tried getAttribute(" + name + ") on invalidated session " + ses.getId() + ": " + e.toString());
+                return null;
+            }
+        }
+        @Override public void setAttribute(String name, Object value) {
+            try {
+                ses.setAttribute(name, value);
+            } catch (IllegalStateException e) {
+                logger.info("Tried setAttribute(" + name + ", " + value + ") on invalidated session " + ses.getId() + ": " + e.toString());
+            }
+        }
+        @Override public void removeAttribute(String name) {
+            try {
+                ses.removeAttribute(name);
+            } catch (IllegalStateException e) {
+                logger.info("Tried removeAttribute(" + name + ") on invalidated session " + ses.getId() + ": " + e.toString());
+            }
+        }
     }
     public static class ServletContextContainer implements AttributeContainer {
         ServletContext scxt;
