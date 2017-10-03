@@ -963,7 +963,9 @@ class WebFacadeImpl implements WebFacade {
 
     void saveScreenLastInfo(String screenPath, Map parameters) {
         session.setAttribute("moqui.screen.last.path", screenPath ?: request.getPathInfo())
-        session.setAttribute("moqui.screen.last.parameters", parameters ?: new HashMap(getRequestParameters()))
+        parameters = parameters ?: new HashMap(getRequestParameters())
+        WebUtilities.testSerialization("moqui.screen.last.parameters", parameters)
+        session.setAttribute("moqui.screen.last.parameters", parameters)
     }
 
     String getRemoveScreenLastPath() {
@@ -983,6 +985,7 @@ class WebFacadeImpl implements WebFacade {
         List<String> errors = eci.messageFacade.getErrors()
         if (errors != null && errors.size() > 0) session.setAttribute("moqui.message.errors", errors)
         List<ValidationError> validationErrors = eci.messageFacade.validationErrors
+        WebUtilities.testSerialization("moqui.message.validationErrors", validationErrors)
         if (validationErrors != null && validationErrors.size() > 0) session.setAttribute("moqui.message.validationErrors", validationErrors)
     }
 
@@ -1001,6 +1004,7 @@ class WebFacadeImpl implements WebFacade {
         if (currentSavedParameters) parms.putAll(currentSavedParameters)
         if (requestParameters) parms.putAll(requestParameters)
         if (requestAttributes) parms.putAll(requestAttributes)
+        WebUtilities.testSerialization("moqui.saved.parameters", parms)
         session.setAttribute("moqui.saved.parameters", parms)
     }
 
@@ -1009,6 +1013,7 @@ class WebFacadeImpl implements WebFacade {
         Map parms = new HashMap()
         if (requestParameters) parms.putAll(requestParameters)
         if (requestAttributes) parms.putAll(requestAttributes)
+        WebUtilities.testSerialization("moqui.saved.parameters", parms)
         session.setAttribute("moqui.error.parameters", parms)
     }
 

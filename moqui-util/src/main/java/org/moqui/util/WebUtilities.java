@@ -26,6 +26,9 @@ import javax.annotation.Nonnull;
 import javax.servlet.ServletContext;
 import javax.servlet.ServletRequest;
 import javax.servlet.http.HttpSession;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -194,6 +197,26 @@ public class WebUtilities {
         }
     }
 
+    public static Enumeration<String> emptyStringEnum = new Enumeration<String>() {
+        @Override public boolean hasMoreElements() { return false; }
+        @Override public String nextElement() { return null; }
+    };
+    public static boolean testSerialization(String name, Object value) {
+        return true;
+        /* for testing purposes only, don't enable by default:
+        if (value == null) return true;
+        try {
+            ObjectOutputStream out = new ObjectOutputStream(new ByteArrayOutputStream());
+            out.writeObject(value);
+            out.close();
+            return true;
+        } catch (IOException e) {
+            logger.warn("Tried to set session attribute [" + name + "] with non-serializable value of type " + value.getClass().getName(), e);
+            return false;
+        }
+        */
+    }
+
     public interface AttributeContainer {
         Enumeration<String> getAttributeNames();
         Object getAttribute(String name);
@@ -211,13 +234,13 @@ public class WebUtilities {
         public ServletRequestContainer(ServletRequest request) { req = request; }
         @Override public Enumeration<String> getAttributeNames() { return req.getAttributeNames(); }
         @Override public Object getAttribute(String name) { return req.getAttribute(name); }
-        @Override public void setAttribute(String name, Object value) { req.setAttribute(name, value); }
+        @Override public void setAttribute(String name, Object value) {
+            if (!testSerialization(name, value)) return;
+
+            req.setAttribute(name, value);
+        }
         @Override public void removeAttribute(String name) { req.removeAttribute(name); }
     }
-    public static Enumeration<String> emptyStringEnum = new Enumeration<String>() {
-        @Override public boolean hasMoreElements() { return false; }
-        @Override public String nextElement() { return null; }
-    };
     public static class HttpSessionContainer implements AttributeContainer {
         HttpSession ses;
         public HttpSessionContainer(HttpSession session) { ses = session; }
@@ -238,6 +261,8 @@ public class WebUtilities {
             }
         }
         @Override public void setAttribute(String name, Object value) {
+            if (!testSerialization(name, value)) return;
+
             try {
                 ses.setAttribute(name, value);
             } catch (IllegalStateException e) {
