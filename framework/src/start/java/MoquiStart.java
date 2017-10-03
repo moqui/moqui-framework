@@ -124,7 +124,7 @@ public class MoquiStart {
             }
         }
 
-        // now run the command
+        // run load if is first argument
         if (firstArg.endsWith("load")) {
             StartClassLoader moquiStartLoader = new StartClassLoader(true);
             Thread.currentThread().setContextClassLoader(moquiStartLoader);
@@ -159,6 +159,7 @@ public class MoquiStart {
         // Runtime.getRuntime().addShutdownHook(shutdownHook);
 
         initSystemProperties(moquiStartLoader, true);
+        String runtimePath = System.getProperty("moqui.runtime");
 
         String overrideConf = argMap.get("conf");
         if (overrideConf != null && !overrideConf.isEmpty()) System.setProperty("moqui.conf", overrideConf);
@@ -180,6 +181,14 @@ public class MoquiStart {
             Class<?> httpConfigurationClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.HttpConfiguration");
             Class<?> forwardedRequestCustomizerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.ForwardedRequestCustomizer");
             Class<?> customizerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.HttpConfiguration$Customizer");
+
+            Class<?> sessionIdManagerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.SessionIdManager");
+            Class<?> defaultSessionIdManagerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.session.DefaultSessionIdManager");
+            Class<?> sessionHandlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.session.SessionHandler");
+            Class<?> sessionCacheClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.session.SessionCache");
+            Class<?> defaultSessionCacheClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.session.DefaultSessionCache");
+            Class<?> sessionDataStoreClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.session.SessionDataStore");
+            Class<?> fileSessionDataStoreClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.session.FileSessionDataStore");
 
             Class<?> connectorClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.Connector");
             Class<?> serverConnectorClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.ServerConnector");
@@ -208,12 +217,32 @@ public class MoquiStart {
 
             serverClass.getMethod("addConnector", connectorClass).invoke(server, httpConnector);
 
+            // SessionDataStore
+            File storeDir = new File(runtimePath + "/sessions");
+            if (!storeDir.exists()) storeDir.mkdirs();
+            System.out.println("Creating Jetty FileSessionDataStore with directory " + storeDir.getCanonicalPath());
+
+            Object sessionHandler = sessionHandlerClass.getConstructor().newInstance();
+            sessionHandlerClass.getMethod("setServer", serverClass).invoke(sessionHandler, server);
+            Object sessionCache = defaultSessionCacheClass.getConstructor(sessionHandlerClass).newInstance(sessionHandler);
+            Object sessionDataStore = fileSessionDataStoreClass.getConstructor().newInstance();
+            fileSessionDataStoreClass.getMethod("setStoreDir", File.class).invoke(sessionDataStore, storeDir);
+            fileSessionDataStoreClass.getMethod("setDeleteUnrestorableFiles", boolean.class).invoke(sessionDataStore, true);
+            sessionCacheClass.getMethod("setSessionDataStore", sessionDataStoreClass).invoke(sessionCache, sessionDataStore);
+            sessionHandlerClass.getMethod("setSessionCache", sessionCacheClass).invoke(sessionHandler, sessionCache);
+
+            Object sidMgr = defaultSessionIdManagerClass.getConstructor(serverClass).newInstance(server);
+            defaultSessionIdManagerClass.getMethod("setServer", serverClass).invoke(sidMgr, server);
+            sessionHandlerClass.getMethod("setSessionIdManager", sessionIdManagerClass).invoke(sessionHandler, sidMgr);
+            serverClass.getMethod("setSessionIdManager", sessionIdManagerClass).invoke(server, sidMgr);
+
             // WebApp
             Object webapp = webappClass.getConstructor().newInstance();
 
             webappClass.getMethod("setContextPath", String.class).invoke(webapp, "/");
             webappClass.getMethod("setDescriptor", String.class).invoke(webapp, moquiStartLoader.wrapperUrl.toExternalForm() + "/WEB-INF/web.xml");
             webappClass.getMethod("setServer", serverClass).invoke(webapp, server);
+            webappClass.getMethod("setSessionHandler", sessionHandlerClass).invoke(webapp, sessionHandler);
             webappClass.getMethod("setMaxFormKeys", int.class).invoke(webapp, 5000);
             if (isInWar) {
                 webappClass.getMethod("setWar", String.class).invoke(webapp, moquiStartLoader.wrapperUrl.toExternalForm());
@@ -261,6 +290,24 @@ public class MoquiStart {
             ServerConnector httpConnector = new ServerConnector(server, httpConnectionFactory);
             httpConnector.setPort(port);
             server.addConnector(httpConnector);
+
+            // SessionDataStore
+            SessionIdManager sidMgr = new DefaultSessionIdManager(server);
+            sidMgr.setServer(server);
+            server.setSessionIdManager(sidMgr);
+            SessionHandler sessionHandler = new SessionHandler();
+            sessionHandler.setServer(server);
+            SessionCache sessionCache = new DefaultSessionCache(sessionHandler);
+            sessionHandler.setSessionCache(sessionCache);
+            sessionHandler.setSessionIdManager(sidMgr);
+
+            File storeDir = ...;
+            FileSessionDataStore sessionDataStore = new FileSessionDataStore();
+            sessionDataStore.setStoreDir(storeDir);
+            sessionDataStore.setDeleteUnrestorableFiles(true);
+            sessionCache.setSessionDataStore(sessionDataStore);
+
+            sessionHandler.start();
 
             // WebApp
             WebAppContext webapp = new WebAppContext();
