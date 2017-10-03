@@ -1005,6 +1005,7 @@ class ScreenDefinition {
         protected boolean menuInclude
         protected Class disableWhenGroovy = null
         protected String userGroupId = null
+        protected Map<String, ScreenDefinition.ParameterItem> parameterByName = new HashMap<>()
 
         SubscreensItem(String name, String location, MNode screen, ScreenDefinition parentScreen) {
             this.parentScreen = parentScreen
@@ -1022,6 +1023,13 @@ class ScreenDefinition {
             menuTitle = subscreensItem.attribute("menu-title") ?: getDefaultTitle()
             menuIndex = subscreensItem.attribute("menu-index") ? (subscreensItem.attribute("menu-index") as Integer) : null
             menuInclude = (!subscreensItem.attribute("menu-include") || subscreensItem.attribute("menu-include") == "true")
+
+            for (MNode parameterNode in subscreensItem.children("parameter")) {
+                ScreenDefinition.ParameterItem parmItem = new ScreenDefinition.ParameterItem(parameterNode, location, parentScreen.sfi.ecfi)
+                parameterByName.put(parameterNode.attribute("name"), parmItem)
+                if (parmItem.required) hasRequired = true
+            }
+
 
             if (subscreensItem.attribute("disable-when")) disableWhenGroovy = parentScreen.sfi.ecfi.getGroovyClassLoader()
                     .parseClass(subscreensItem.attribute("disable-when"), "${parentScreen.location}.subscreens_item_${name}.disable_when")
@@ -1048,6 +1056,7 @@ class ScreenDefinition {
         String getLocation() { return location }
         String getMenuTitle() { return menuTitle }
         Integer getMenuIndex() { return menuIndex }
+        Map<String, ParameterItem> getParameterMap() { return parameterByName }
         boolean getMenuInclude() { return menuInclude }
         boolean getDisable(ExecutionContext ec) {
             if (disableWhenGroovy == null) return false
