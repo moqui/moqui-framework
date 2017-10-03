@@ -30,10 +30,10 @@ class EntitySqlException extends EntityException {
             '22018':'text value could not be converted', // DATA_CONVERSION_ERROR, invalid character value for cast
             '23':'record already exists or related record does not exist', // integrity constraint violation, most likely problems
             '23502':'empty value not allowed', // NULL_NOT_ALLOWED
-            '23503':'tried to refer to record that does not exist', // REFERENTIAL_INTEGRITY_VIOLATED_CHILD_EXISTS (in update or delete would orphan FK)
+            '23503':'tried to delete record that other records refer to or record specified does not exist', // REFERENTIAL_INTEGRITY_VIOLATED_CHILD_EXISTS (in update or delete would orphan FK)
             // NOTE: Postgres uses 23503 for parent and child fk violations, other DBs too? use same message for both
             '23505':'record already exists', // DUPLICATE_KEY
-            '23506':'tried to refer to record that does not exist', // REFERENTIAL_INTEGRITY_VIOLATED_PARENT_MISSING (in insert or update invalid FK reference)
+            '23506':'record specified does not exist', // REFERENTIAL_INTEGRITY_VIOLATED_PARENT_MISSING (in insert or update invalid FK reference)
             '40':'record lock conflict found', // transaction rollback
             '40001':'record lock conflict found', // DEADLOCK - serialization failure
             '40002':'record lock conflict found', // integrity constraint violation
