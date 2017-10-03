@@ -433,7 +433,7 @@ class WebFacadeImpl implements WebFacade {
     HttpSession getSession() { return request.getSession(true) }
     @Override
     Map<String, Object> getSessionAttributes() {
-        if (sessionAttributes) return sessionAttributes
+        if (sessionAttributes != null) return sessionAttributes
         sessionAttributes = new WebUtilities.AttributeContainerMap(new WebUtilities.HttpSessionContainer(getSession()))
         return sessionAttributes
     }
@@ -442,7 +442,7 @@ class WebFacadeImpl implements WebFacade {
     ServletContext getServletContext() { return getSession().getServletContext() }
     @Override
     Map<String, Object> getApplicationAttributes() {
-        if (applicationAttributes) return applicationAttributes
+        if (applicationAttributes != null) return applicationAttributes
         applicationAttributes = new WebUtilities.AttributeContainerMap(new WebUtilities.ServletContextContainer(getServletContext()))
         return applicationAttributes
     }
