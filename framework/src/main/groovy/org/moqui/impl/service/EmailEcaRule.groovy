@@ -193,46 +193,53 @@ class EmailEcaRule {
             InputStream is = (InputStream) content
             byte[] result = IOUtils.toByteArray(is)
 
-            //only PDF and JPG
+            //only PDF and JPG and PNG
             def contentTypeSpec = part.getContentType().toLowerCase();
             Boolean doRunExtraction = false;
             String newFileName = null;
+            String newFileExtension = null;
+            String displayName = null;
+
+            FileNameGenerator fng = new FileNameGenerator(16)
 
             try {
-                newFileName = MimeUtility.decodeText(part.getFileName())
+                newFileName = fng.nextString()
 
                 if (contentTypeSpec.startsWith('application/pdf')) {
                     doRunExtraction = true
+                    newFileExtension = 'pdf'
                 } else if (contentTypeSpec.startsWith('image/jpeg')) {
                     doRunExtraction = true
+                    newFileExtension = 'jpg'
                 } else if (contentTypeSpec.startsWith('application/zip')) {
                     doRunExtraction = true
+                    newFileExtension = 'zip'
                 } else if (contentTypeSpec.startsWith('application/octet-stream')) {
                     doRunExtraction = true
+                    newFileExtension = part.getFileName().tokenize(',')[1]
+                } else if (contentTypeSpec.startsWith('image/png')) {
+                    doRunExtraction = true
+                    newFileExtension = 'png'
                 }
 
-                logger.info("fileName: ${newFileName}, type: ${contentTypeSpec}, doExtraction: ${doRunExtraction}")
+                //displayName = MimeUtility.decodeText(part.getFileName()).replace(' ', '_')
+                displayName = MimeUtility.decodeText(part.getFileName().tokenize('.')[0]).replaceAll(' ', '_').replaceAll("[^a-zA-Z0-9_]+","") + "." + newFileExtension
+
+                logger.info("displayName: ${displayName}, fileName: ${newFileName}, extension: ${newFileExtension}, type: ${contentTypeSpec}, doExtraction: ${doRunExtraction}")
             } catch (Exception ex) {
                 logger.warn("Cannot extract file name, proceeding without it")
             }
 
-            //logger.info("part.getContentType() = " + part.getContentType())
-            /*switch (contentTypeSpec.toLowerCase()) {
-                case 'application/pdf':
-                    doRunExtraction = true
-                    break
-                case 'image/jpeg':
-                    doRunExtraction = true
-                    break
-                default:
-                    doRunExtraction = false
-                    break
-            }*/
-
             if (doRunExtraction) {
                 ec.serviceFacade.sync().name("EmailContentServices.create#ContentFromByte")
-                        .parameters([emailMessageId:emailMessageId,contentFileByte:result,filename:newFileName])
-                        .disableAuthz().call()
+                        .parameters(
+                            [
+                                    emailMessageId:emailMessageId,
+                                    contentFileByte:result,
+                                    filename:newFileName + '.' + newFileExtension,
+                                    displayName:displayName
+                            ]
+                ).disableAuthz().call()
             }
         }
     }
