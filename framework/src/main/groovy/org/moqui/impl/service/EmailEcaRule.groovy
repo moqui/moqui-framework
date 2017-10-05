@@ -216,14 +216,14 @@ class EmailEcaRule {
                     newFileExtension = 'zip'
                 } else if (contentTypeSpec.startsWith('application/octet-stream')) {
                     doRunExtraction = true
-                    newFileExtension = part.getFileName().tokenize(',')[1]
+                    newFileExtension = part.getFileName().tokenize('.')[-1]
                 } else if (contentTypeSpec.startsWith('image/png')) {
                     doRunExtraction = true
                     newFileExtension = 'png'
                 }
 
                 //displayName = MimeUtility.decodeText(part.getFileName()).replace(' ', '_')
-                displayName = MimeUtility.decodeText(part.getFileName().tokenize('.')[0]).replaceAll(' ', '_').replaceAll("[^a-zA-Z0-9_]+","") + "." + newFileExtension
+                displayName = MimeUtility.decodeText(part.getFileName().tokenize('.')[0]).replaceAll(' ', '_').replaceAll("[^a-zA-Z0-9_]+","")
 
                 logger.info("displayName: ${displayName}, fileName: ${newFileName}, extension: ${newFileExtension}, type: ${contentTypeSpec}, doExtraction: ${doRunExtraction}")
             } catch (Exception ex) {
@@ -234,10 +234,10 @@ class EmailEcaRule {
                 ec.serviceFacade.sync().name("EmailContentServices.create#ContentFromByte")
                         .parameters(
                             [
-                                    emailMessageId:emailMessageId,
-                                    contentFileByte:result,
-                                    filename:newFileName + '.' + newFileExtension,
-                                    displayName:displayName
+                                    emailMessageId: emailMessageId,
+                                    contentFileByte: result,
+                                    filename: newFileName + '.' + newFileExtension,
+                                    displayName: displayName + "." + newFileExtension
                             ]
                 ).disableAuthz().call()
             }
