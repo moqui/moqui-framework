@@ -74,6 +74,8 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.LocalizedEntityField entityName="moqui.basic.Enumeration" fieldName="description" pkValue="GEOT_COUNTRY" locale="zh" localized="国家"/>
 
     <!-- Message templates for formatting common sets of entity fields (generally for a view-entity) -->
+    <moqui.basic.LocalizedMessage locale="default" original="StatusItemNameTemplate"
+                                  localized="${description}"/>
     <moqui.basic.LocalizedMessage locale="default" original="StatusTransitionNameTemplate"
                                   localized="${transitionName} (${description})"/>
     <moqui.basic.LocalizedMessage locale="default" original="UomNameTemplate"
