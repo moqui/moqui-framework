@@ -134,6 +134,8 @@ class UserFacadeImpl implements UserFacade {
         if (eci.webImpl != null && !this.visitId && !eci.getSkipStats()) {
             MNode serverStatsNode = eci.ecfi.getServerStatsNode()
             ScreenUrlInfo sui = ScreenUrlInfo.getScreenUrlInfo(eci.screenFacade, request)
+            // before doing anything with the visit, etc make sure exists
+            sui.checkExists()
             boolean isJustContent = sui.fileResourceRef != null
 
             // handle visitorId and cookie
