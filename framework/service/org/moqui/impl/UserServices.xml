@@ -142,7 +142,7 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="newPassword != newPasswordVerify">
                 <message error="true">New Password and New Password Verify do not match</message></if>
 
-            <set field="minLength" from="passwordNode.attribute('min-length')" default-value="6" type="Integer"/>
+            <set field="minLength" from="passwordNode.attribute('min-length')" default-value="8" type="Integer"/>
             <if condition="newPassword.length() &lt; minLength">
                 <message error="true">Password shorter than ${minLength} characters</message></if>
 
@@ -245,7 +245,7 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="resetPassword" from="getRandomString(12)"/>
             <set field="passwordNode" from="ec.ecfi.confXmlRoot.first('user-facade').first('password')"/>
             <set field="userAccount.resetPassword" from="ec.ecfi.getSimpleHash(resetPassword, userAccount.passwordSalt, userAccount.passwordHashType, 'Y'.equals(userAccount.passwordBase64))"/>
-            <set field="userAccount.requirePasswordChange" from="(passwordNode.attribute('email-require-change') == 'false') ? 'N' : 'Y'"/>
+            <set field="userAccount.requirePasswordChange" from="(passwordNode.attribute('email-require-change') == 'true') ? 'Y' : 'N'"/>
             <entity-update value-field="userAccount"/>
 
             <!-- send an email with the new password -->

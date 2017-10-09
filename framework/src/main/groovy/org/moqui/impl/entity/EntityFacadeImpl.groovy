@@ -783,6 +783,7 @@ class EntityFacadeImpl implements EntityFacade {
                     String related = reverseRelNode.attribute("related")
                     if (related == null || related.length() == 0) related = reverseRelNode.attribute("related-entity-name")
                     if (!edEntityName.equals(related) && !edFullEntityName.equals(related)) continue
+                    // TODO: instead of checking title check reverse expanded key-map
                     String reverseTitle = reverseRelNode.attribute("title")
                     if (hasTitle) {
                         if (!title.equals(reverseTitle)) continue

@@ -59,6 +59,7 @@ See the moqui-runtime release notes for more details. Some of these changes may 
   in its where clause instead of the where clause for the top-level select; any fields selected are selected in the sub-select as
   are any fields used for the join ON conditions; the first example of this is the InvoicePaymentApplicationSummary view-entity in
   mantle-usl which also uses alias.@function and alias.complex-alias to use concat_ws for combined name aliases
+- Now uses Jackson Databind for JSON serialization and deserialization; date/time values are in millis since epoch
 
 ### Bug Fixes
 

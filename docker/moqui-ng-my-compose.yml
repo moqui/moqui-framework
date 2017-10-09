@@ -45,6 +45,7 @@ services:
      - ./runtime/ecomponent:/opt/moqui/runtime/ecomponent
      - ./runtime/log:/opt/moqui/runtime/log
      - ./runtime/txlog:/opt/moqui/runtime/txlog
+     - ./runtime/sessions:/opt/moqui/runtime/sessions
      # this one isn't needed when not using H2/etc: - ./runtime/db:/opt/moqui/runtime/db
      - ./runtime/elasticsearch:/opt/moqui/runtime/elasticsearch
     environment:
