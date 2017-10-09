@@ -182,6 +182,9 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:annotation><xs:documentation>Always show the pagination control with count of rows, even when there
                 is only one page? Defaults to true.</xs:documentation></xs:annotation>
         </xs:attribute>
+        <xs:attribute name="focus-field" type="xs:string">
+            <xs:annotation><xs:documentation>The name of the field to focus on in the first row when the form is rendered.</xs:documentation></xs:annotation>
+        </xs:attribute>
         <xs:attribute name="skip-start" type="boolean" default="false"/>
         <xs:attribute name="skip-end" type="boolean" default="false"/>
         <xs:attribute name="skip-form" type="boolean" default="false">
