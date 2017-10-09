@@ -451,7 +451,6 @@ along with this software (see the LICENSE.md file). If not, see
             highlighted.
         </xs:documentation>
     </xs:annotation><xs:complexType>
-        <xs:sequence><xs:element minOccurs="0" maxOccurs="unbounded" ref="parameter"/></xs:sequence>
         <xs:attribute name="name" type="name-plain" use="required">
             <xs:annotation><xs:documentation>
                 The name of the subscreens item for use in the screen path. The screen path element following the
