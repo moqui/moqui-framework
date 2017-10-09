@@ -335,35 +335,50 @@ class EntityDefinition {
         int childListSize = childList.size()
         if (childListSize == 0) return
 
-        String operator = parentNode.attribute("operator")
-        if (operator == null || operator.length() == 0) operator = "+"
+        String caFunction = parentNode.attribute("function")
+        if (caFunction != null && !caFunction.isEmpty()) {
+            colNameBuilder.append(caFunction).append('(')
+            for (int i = 0; i < childListSize; i++) {
+                MNode childNode = (MNode) childList.get(i)
+                if (i > 0) colNameBuilder.append(", ")
 
-        if (addParens && childListSize > 1) colNameBuilder.append('(')
-        for (int i = 0; i < childListSize; i++) {
-            MNode childNode = (MNode) childList.get(i)
-            if (i > 0) colNameBuilder.append(' ').append(operator).append(' ')
-
-            if ("complex-alias".equals(childNode.name)) {
-                buildComplexAliasName(childNode, colNameBuilder, true, includeEntityAlias)
-            } else if ("complex-alias-field".equals(childNode.name)) {
-                String entityAlias = childNode.attribute("entity-alias")
-                String basicColName = getBasicFieldColName(entityAlias, childNode.attribute("field"))
-                String colName = includeEntityAlias ? entityAlias + "." + basicColName : basicColName
-                String defaultValue = childNode.attribute("default-value")
-                String function = childNode.attribute("function")
-
-                if (defaultValue) {
-                    colName = "COALESCE(" + colName + "," + defaultValue + ")"
+                if ("complex-alias".equals(childNode.name)) {
+                    buildComplexAliasName(childNode, colNameBuilder, true, includeEntityAlias)
+                } else if ("complex-alias-field".equals(childNode.name)) {
+                    appenComplexAliasField(childNode, colNameBuilder, includeEntityAlias)
                 }
-                if (function) {
-                    String prefix = getFunctionPrefix(function)
-                    colName = prefix + colName + ")"
-                }
-
-                colNameBuilder.append(colName)
             }
+            colNameBuilder.append(')')
+        } else {
+            String operator = parentNode.attribute("operator")
+            if (operator == null || operator.isEmpty()) operator = "+"
+
+            if (addParens && childListSize > 1) colNameBuilder.append('(')
+            for (int i = 0; i < childListSize; i++) {
+                MNode childNode = (MNode) childList.get(i)
+                if (i > 0) colNameBuilder.append(' ').append(operator).append(' ')
+
+                if ("complex-alias".equals(childNode.name)) {
+                    buildComplexAliasName(childNode, colNameBuilder, true, includeEntityAlias)
+                } else if ("complex-alias-field".equals(childNode.name)) {
+                    appenComplexAliasField(childNode, colNameBuilder, includeEntityAlias)
+                }
+            }
+            if (addParens && childListSize > 1) colNameBuilder.append(')')
         }
-        if (addParens && childListSize > 1) colNameBuilder.append(')')
+    }
+    private void appenComplexAliasField(MNode childNode, StringBuilder colNameBuilder, boolean includeEntityAlias) {
+        String entityAlias = childNode.attribute("entity-alias")
+        String basicColName = getBasicFieldColName(entityAlias, childNode.attribute("field"))
+        String colName = includeEntityAlias ? entityAlias + "." + basicColName : basicColName
+        String defaultValue = childNode.attribute("default-value")
+        String function = childNode.attribute("function")
+
+        if (function) colNameBuilder.append(getFunctionPrefix(function))
+        if (defaultValue) colNameBuilder.append("COALESCE(")
+        colNameBuilder.append(colName)
+        if (defaultValue) colNameBuilder.append(',').append(defaultValue).append(')')
+        if (function) colNameBuilder.append(')')
     }
     protected static String getFunctionPrefix(String function) {
         return (function == "count-distinct") ? "COUNT(DISTINCT " : function.toUpperCase() + '('
