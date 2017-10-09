@@ -1585,14 +1585,6 @@ class ScreenRenderImpl implements ScreenRender {
                 // build this subscreen's pathWithParams
                 String pathWithParams = "/" + sui.preTransitionPathNameList.join("/")
                 Map<String, String> parmMap = screenUrlInstance.getParameterMap()
-
-                for (ScreenDefinition.ParameterItem pi in subscreensItem.getParameterMap().values()) {
-                    Object value = pi.getValue(ec)
-                    String valueStr = ObjectUtilities.toPlainString(value)
-                    if (valueStr != null && valueStr.length() > 0) {parmMap.put(pi.name, valueStr); 
-                }
-
-
                 // check for missing required parameters
                 boolean parmMissing = false
                 for (ScreenDefinition.ParameterItem pi in sui.pathParameterItems.values()) {
@@ -1604,8 +1596,6 @@ class ScreenRenderImpl implements ScreenRender {
                 if (parmMissing) continue
                 String parmString = screenUrlInstance.getParameterString()
                 if (!parmString.isEmpty()) pathWithParams += ('?' + parmString)
-
-
 
                 String image = sui.menuImage
                 String imageType = sui.menuImageType
