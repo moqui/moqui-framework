@@ -65,9 +65,9 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
         @SuppressWarnings("MismatchedQueryAndUpdateOfStringBuilder")
         StringBuilder sql = eqb.sqlTopLevel;
         boolean valueDone = false;
-        EntityDefinition mainEd = eqb.getMainEd();
-        FieldInfo fi = field.getFieldInfo(mainEd);
-        if (fi == null) throw new EntityException("Could not find field " + field.fieldName + " in entity " + mainEd.getFullEntityName());
+        EntityDefinition curEd = subMemberEd != null ? subMemberEd : eqb.getMainEd();
+        FieldInfo fi = field.getFieldInfo(curEd);
+        if (fi == null) throw new EntityException("Could not find field " + field.fieldName + " in entity " + curEd.getFullEntityName());
 
         if (value instanceof Collection && ((Collection) value).isEmpty()) {
             if (operator == IN) {
@@ -79,14 +79,7 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
             }
         } else {
             if (ignoreCase && fi.typeValue == 1) sql.append("UPPER(");
-            if (subMemberEd != null) {
-                MNode aliasNode = fi.fieldNode;
-                String aliasField = aliasNode.attribute("field");
-                if (aliasField == null || aliasField.isEmpty()) aliasField = fi.name;
-                sql.append(subMemberEd.getColumnName(aliasField));
-            } else {
-                sql.append(field.getColumnName(mainEd));
-            }
+            sql.append(field.getColumnName(curEd));
             if (ignoreCase && fi.typeValue == 1) sql.append(')');
             sql.append(' ');
 
@@ -178,7 +171,14 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
             if (fieldMe != null && "true".equals(fieldMe.attribute("sub-select"))) return null;
             return this;
         } else {
-            if (fieldMe != null && entityAlias.equals(fieldMe.attribute("entity-alias"))) return this;
+            if (fieldMe != null && entityAlias.equals(fieldMe.attribute("entity-alias"))) {
+                if (fi.aliasFieldName != null && !fi.aliasFieldName.equals(field.fieldName)) {
+                    FieldValueCondition newCond = new FieldValueCondition(new ConditionField(fi.aliasFieldName), operator, value);
+                    if (ignoreCase) newCond.ignoreCase();
+                    return newCond;
+                }
+                return this;
+            }
             return null;
         }
     }

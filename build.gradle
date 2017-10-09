@@ -65,12 +65,13 @@ task cleanDb { doLast {
     delete fileTree(dir: moquiRuntime+'/txlog', include: '*')
 } }
 task cleanLog(type: Delete) { delete fileTree(dir: moquiRuntime+'/log', include: '*') }
+task cleanSessions(type: Delete) { delete fileTree(dir: moquiRuntime+'/sessions', include: '*') }
 task cleanLoadSave(type: Delete) { delete file('SaveH2.zip'); delete file('SaveDEFAULT.zip');
     delete file('SaveTransactional.zip'); delete file('SaveAnalytical.zip'); delete file('SaveOrientDb.zip'); delete file('SaveElasticSearch.zip') }
 task cleanPlusRuntime(type: Delete) { delete file(plusRuntimeName) }
 task cleanOther(type: Delete) { delete fileTree(dir: '.', includes: ['**/.nbattrs', '**/*~', '**/.#*', '**/.DS_Store', '**/*.rej', '**/*.orig']) }
 
-task cleanAll { dependsOn clean, allCleanTasks, cleanDb, cleanLog, cleanLoadSave, cleanPlusRuntime }
+task cleanAll { dependsOn clean, allCleanTasks, cleanDb, cleanLog, cleanSessions, cleanLoadSave, cleanPlusRuntime }
 
 // ========== check/update tasks ==========
 
@@ -231,7 +232,7 @@ task addRuntime {
         // copy runtime directory (with a few exceptions) into a runtime directory in the war
         copy {
             from fileTree(dir: '.', include: moquiRuntime+'/**',
-                    excludes: ['**/*.jar', moquiRuntime+'/classes/**', moquiRuntime+'/lib/**', moquiRuntime+'/log/**'])
+                    excludes: ['**/*.jar', moquiRuntime+'/classes/**', moquiRuntime+'/lib/**', moquiRuntime+'/log/**', moquiRuntime+'/sessions/**'])
             into file('wartemp')
         }
         // copy the jar files from runtime/lib

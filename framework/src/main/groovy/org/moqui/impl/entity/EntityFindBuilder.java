@@ -461,8 +461,8 @@ public class EntityFindBuilder extends EntityQueryBuilder {
                     }
                 } else {
                     if (localFi == null) throw new EntityException("Could not find field " + outerAliasField + " on entity " + entityAlias + ":" + localEntityDefinition.fullEntityName);
-                    additionalFieldsUsed.add(outerAliasField);
-                    joinFields.remove(outerAliasField);
+                    additionalFieldsUsed.add(localFi.name);
+                    joinFields.remove(localFi.name);
 
                     if (hasSelected) { localBuilder.append(", "); } else { hasSelected = true; }
                     localBuilder.append(localFi.getFullColumnName()).append(" AS ").append(EntityJavaUtil.camelCaseToUnderscored(localFi.name));
@@ -525,6 +525,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
         EntityConditionImplBase condition = whereCondition != null ? whereCondition.filter(entityAlias, mainEntityDefinition) : null;
 
         // logger.warn("makeSqlMemberSubSelect SQL so far " + localBuilder.toString());
+        // logger.warn("Calling makeSqlFromClause for " + entityAlias + ":" + localEntityDefinition.getEntityName() + " condition " + condition);
         // logger.warn("Calling makeSqlFromClause for " + entityAlias + ":" + localEntityDefinition.getEntityName() + " addtl fields " + additionalFieldsUsed);
         makeSqlFromClause(localEntityDefinition, localBuilder, condition, null, additionalFieldsUsed);
 
