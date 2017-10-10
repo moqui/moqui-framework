@@ -25,6 +25,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.servlet.ServletContext;
 import javax.servlet.ServletRequest;
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -97,27 +98,41 @@ public class WebUtilities {
         return canVal;
     }
 
-    public static Map<String, Object> simplifyRequestParameters(ServletRequest request) {
+    public static Map<String, Object> simplifyRequestParameters(HttpServletRequest request, boolean bodyOnly) {
+        Set<String> urlParms = null;
+        if (bodyOnly) {
+            urlParms = new HashSet<>();
+            String query = request.getQueryString();
+            if (query != null && !query.isEmpty()) {
+                for (String nameValuePair : query.split("&")) {
+                    int eqIdx = nameValuePair.indexOf("=");
+                    if (eqIdx < 0) urlParms.add(nameValuePair);
+                    else urlParms.add(nameValuePair.substring(0, eqIdx));
+                }
+            }
+        }
         Map<String, String[]> reqParmOrigMap = request.getParameterMap();
         Map<String, Object> reqParmMap = new LinkedHashMap<>();
         for (Map.Entry<String, String[]> entry : reqParmOrigMap.entrySet()) {
+            String key = entry.getKey();
+            if (bodyOnly && urlParms.contains(key)) continue;
             String[] valArray = entry.getValue();
             if (valArray == null) {
-                reqParmMap.put(entry.getKey(), null);
+                reqParmMap.put(key, null);
             } else {
                 int valLength = valArray.length;
                 if (valLength == 0) {
-                    reqParmMap.put(entry.getKey(), null);
+                    reqParmMap.put(key, null);
                 } else if (valLength == 1) {
                     String singleVal = valArray[0];
                     // change &nbsp; (\u00a0) to null, used as a placeholder when empty string doesn't work
                     if ("\u00a0".equals(singleVal)) {
-                        reqParmMap.put(entry.getKey(), null);
+                        reqParmMap.put(key, null);
                     } else {
-                        reqParmMap.put(entry.getKey(), singleVal);
+                        reqParmMap.put(key, singleVal);
                     }
                 } else {
-                    reqParmMap.put(entry.getKey(), Arrays.asList(valArray));
+                    reqParmMap.put(key, Arrays.asList(valArray));
                 }
             }
         }

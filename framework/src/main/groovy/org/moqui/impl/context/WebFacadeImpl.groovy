@@ -390,7 +390,7 @@ class WebFacadeImpl implements WebFacade {
         if (declaredPathParameters != null) cs.push(new WebUtilities.CanonicalizeMap(declaredPathParameters))
 
         // no longer uses CanonicalizeMap, search Map for String[] of size 1 and change to String
-        Map<String, Object> reqParmMap = WebUtilities.simplifyRequestParameters(request)
+        Map<String, Object> reqParmMap = WebUtilities.simplifyRequestParameters(request, false)
         if (reqParmMap.size() > 0) cs.push(reqParmMap)
 
         // NOTE: We decode path parameter ourselves, so use getRequestURI instead of getPathInfo
@@ -409,12 +409,13 @@ class WebFacadeImpl implements WebFacade {
         if (savedParameters) cs.push(savedParameters)
         if (multiPartParameters) cs.push(multiPartParameters)
         if (jsonParameters) cs.push(jsonParameters)
-        if (!request.getQueryString()) {
-            Map<String, Object> reqParmMap = WebUtilities.simplifyRequestParameters(request)
-            if (reqParmMap.size() > 0) cs.push(reqParmMap)
-        }
+
+        Map<String, Object> reqParmMap = WebUtilities.simplifyRequestParameters(request, true)
+        if (reqParmMap.size() > 0) cs.push(reqParmMap)
+
         return cs
     }
+
     @Override
     String getHostName(boolean withPort) {
         URL requestUrl = new URL(getRequest().getRequestURL().toString())
