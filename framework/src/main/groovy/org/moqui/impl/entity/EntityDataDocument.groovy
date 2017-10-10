@@ -250,8 +250,8 @@ class EntityDataDocument {
                     if (!ddi.fieldAliasPathMap.containsKey(pkFieldName)) continue
                     if (pkCombinedSb.length() > 0) pkCombinedSb.append("::")
                     Object pkFieldValue = ev.getNoCheckSimple(pkFieldName)
-                    if (pkFieldValue instanceof Timestamp) pkFieldValue = ((Timestamp) pkFieldValue)?.getTime()
-                    pkCombinedSb.append((String) pkFieldValue)
+                    if (pkFieldValue instanceof Timestamp) pkFieldValue = ((Timestamp) pkFieldValue).getTime()
+                    pkCombinedSb.append(pkFieldValue.toString())
                 }
                 String docId = pkCombinedSb.toString()
 
@@ -287,7 +287,7 @@ class EntityDataDocument {
                             for (int i = 0; i < fieldAliasList.size(); i++) {
                                 String fieldAlias = (String) fieldAliasList.get(i)
                                 Object curVal = ev.get(fieldAlias)
-                                if (curVal instanceof Timestamp) curVal = ((Timestamp) curVal)?.getTime()
+                                // fix for time zone issues if needed: if (curVal instanceof Timestamp) curVal = ((Timestamp) curVal).getTime()
                                 if (curVal != null) primaryEntityMap.put(fieldAlias, curVal)
                             }
                         }
@@ -517,7 +517,7 @@ class EntityDataDocument {
                     for (int i = 0; i < fieldAliasList.size(); i++) {
                         String fieldAlias = (String) fieldAliasList.get(i)
                         Object curVal = ev.get(fieldAlias)
-                        if (curVal instanceof Timestamp) curVal = ((Timestamp) curVal)?.getTime()
+                        // fix for time zone issues if needed: if (curVal instanceof Timestamp) curVal = ((Timestamp) curVal).getTime()
                         if (curVal != null) parentDocMap.put(fieldAlias, curVal)
                     }
                 }
