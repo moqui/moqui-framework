@@ -522,12 +522,12 @@ along with this software (see the LICENSE.md file). If not, see
 
     <service verb="create" noun="WikiBlog">
         <in-parameters>
-            <auto-parameters entity-name="moqui.resource.wiki.WikiBlog">
-                <exclude field-name="wikiBlogId"/><exclude field-name="smallImageLocation"/><exclude field-name="blogLocation"/>
-            </auto-parameters>
+            <auto-parameters entity-name="moqui.resource.wiki.WikiBlog" include="nonpk">
+                <exclude field-name="smallImageLocation"/><exclude field-name="blogLocation"/></auto-parameters>
             <parameter name="wikiSpaceId" required="true"/>
             <parameter name="title" required="true"/>
-            <parameter name="publishDate" default="ec.user.nowTimestamp"/>
+            <parameter name="summary" allow-html="safe"/>
+            <parameter name="publishDate" type="Timestamp" default="ec.user.nowTimestamp"/>
             <parameter name="smallImage" type="org.apache.commons.fileupload.FileItem"/>
             <parameter name="blogText" allow-html="safe"/>
         </in-parameters>
@@ -552,12 +552,11 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="update" noun="WikiBlog">
         <in-parameters>
             <auto-parameters entity-name="moqui.resource.wiki.WikiBlog">
-                <exclude field-name="smallImageLocation"/><exclude field-name="blogLocation"/>
-            </auto-parameters>
+                <exclude field-name="smallImageLocation"/><exclude field-name="blogLocation"/></auto-parameters>
             <parameter name="wikiBlogId" required="true"/>
             <parameter name="wikiSpaceId" required="true"/>
             <parameter name="title" required="true"/>
-            <parameter name="publishDate" default="ec.user.nowTimestamp"/>
+            <parameter name="summary" allow-html="safe"/>
             <parameter name="smallImage" type="org.apache.commons.fileupload.FileItem"/>
             <parameter name="blogText" allow-html="safe"/>
         </in-parameters>
