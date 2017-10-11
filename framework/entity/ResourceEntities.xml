@@ -70,7 +70,7 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="many" related="moqui.resource.wiki.WikiPageHistory" short-alias="histories">
             <key-map field-name="wikiPageId"/></relationship>
         <relationship type="many" related="WikiPageCategoryMember" short-alias="categories">
-            <key-map field-name="wikePageId"/></relationship>
+            <key-map field-name="wikiPageId"/></relationship>
         <index name="WIKIPAGE_SPCPTH" unique="true"><index-field name="wikiSpaceId"/><index-field name="pagePath"/></index>
     </entity>
     <entity entity-name="WikiPageCategory" package="moqui.resource.wiki" use="nontransactional">
@@ -140,4 +140,17 @@ along with this software (see the LICENSE.md file). If not, see
         <alias-all entity-alias="WKSP"/>
         <alias-all entity-alias="WSU"/>
     </view-entity>
+
+    <entity entity-name="WikiBlog" package="moqui.resource.wiki">
+        <field name="wikiBlogId" type="id" is-pk="true"/>
+        <field name="wikiSpaceId" type="id"/>
+        <field name="title" type="text-medium"/>
+        <field name="author" type="text-medium"/>
+        <field name="publishDate" type="date-time"/>
+        <field name="metaKeywords" type="text-long"/>
+        <field name="metaDescription" type="text-long"/>
+        <field name="smallImageLocation" type="text-medium"/>
+        <field name="blogLocation" type="text-medium"/>
+        <relationship type="one" related="moqui.resource.wiki.WikiSpace" short-alias="space"/>
+    </entity>
 </entities>

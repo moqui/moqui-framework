@@ -519,4 +519,61 @@ along with this software (see the LICENSE.md file). If not, see
             </script>
         </actions>
     </service>
+
+    <service verb="create" noun="WikiBlog">
+        <in-parameters>
+            <auto-parameters entity-name="moqui.resource.wiki.WikiBlog">
+                <exclude field-name="wikiBlogId"/><exclude field-name="smallImageLocation"/><exclude field-name="blogLocation"/>
+            </auto-parameters>
+            <parameter name="wikiSpaceId" required="true"/>
+            <parameter name="title" required="true"/>
+            <parameter name="publishDate" default="ec.user.nowTimestamp"/>
+            <parameter name="smallImage" type="org.apache.commons.fileupload.FileItem"/>
+            <parameter name="blogText" allow-html="safe"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="wikiBlogId"/>
+        </out-parameters>
+        <actions>
+            <service-call name="org.moqui.impl.WikiServices.update#WikiPage" out-map="context"
+                    in-map="context + [pagePath:title, pageName:wikiSpaceId, wikiType:'html', pageText:blogText]"/>
+            <service-call name="create#moqui.resource.wiki.WikiBlog" in-map="context + [blogLocation:pagePath]" out-map="context"/>
+            <if condition="smallImage &amp;&amp; smallImage.size > 0">
+                <set field="filename" from="smallImage.getName()"/>
+                <set field="contentRoot" from="ec.user.getPreference('mantle.content.root') ?: 'dbresource://mantle/content'"/>
+                <set field="contentLocation" value="${contentRoot}/WikiBlog/${wikiBlogId}/smallImage/${filename}"/>
+                <set field="ref" from="ec.resource.getLocationReference(contentLocation)"/>
+                <script><![CDATA[fileStream = smallImage.getInputStream()
+                try { ref.putStream(fileStream) } finally { fileStream.close() }]]></script>
+                <service-call name="update#moqui.resource.wiki.WikiBlog" in-map="[wikiBlogId:wikiBlogId, smallImageLocation:contentLocation]"/>
+            </if>
+        </actions>
+    </service>
+    <service verb="update" noun="WikiBlog">
+        <in-parameters>
+            <auto-parameters entity-name="moqui.resource.wiki.WikiBlog">
+                <exclude field-name="smallImageLocation"/><exclude field-name="blogLocation"/>
+            </auto-parameters>
+            <parameter name="wikiBlogId" required="true"/>
+            <parameter name="wikiSpaceId" required="true"/>
+            <parameter name="title" required="true"/>
+            <parameter name="publishDate" default="ec.user.nowTimestamp"/>
+            <parameter name="smallImage" type="org.apache.commons.fileupload.FileItem"/>
+            <parameter name="blogText" allow-html="safe"/>
+        </in-parameters>
+        <actions>
+            <service-call name="org.moqui.impl.WikiServices.update#WikiPage" out-map="context"
+                    in-map="context + [pagePath:title, pageName:wikiSpaceId, wikiType:'html', pageText:blogText]"/>
+            <service-call name="update#moqui.resource.wiki.WikiBlog" in-map="context + [blogLocation:pagePath]"/>
+            <if condition="smallImage &amp;&amp; smallImage.size > 0">
+                <set field="filename" from="smallImage.getName()"/>
+                <set field="contentRoot" from="ec.user.getPreference('mantle.content.root') ?: 'dbresource://mantle/content'"/>
+                <set field="contentLocation" value="${contentRoot}/WikiBlog/${wikiBlogId}/smallImage/${filename}"/>
+                <set field="ref" from="ec.resource.getLocationReference(contentLocation)"/>
+                <script><![CDATA[fileStream = smallImage.getInputStream()
+                try { ref.putStream(fileStream) } finally { fileStream.close() }]]></script>
+                <service-call name="update#moqui.resource.wiki.WikiBlog" in-map="[wikiBlogId:wikiBlogId, smallImageLocation:contentLocation]"/>
+            </if>
+        </actions>
+    </service>
 </services>
