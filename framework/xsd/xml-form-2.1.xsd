@@ -764,6 +764,7 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:attribute name="default-value" type="xs:string"/>
         <xs:attribute name="size" type="xs:positiveInteger"/>
         <xs:attribute name="max-length" type="xs:positiveInteger"/>
+        <xs:attribute name="auto-year" default="true" type="boolean"/>
     </xs:complexType></xs:element>
     <xs:element name="display" substitutionGroup="SubFields"><xs:complexType>
         <xs:sequence>
