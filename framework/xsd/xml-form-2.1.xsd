@@ -120,6 +120,10 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:attribute name="server-static" type="xs:string">
             <xs:annotation><xs:documentation>See details for the screen.@server-static attribute. Defaults to the screen's value.</xs:documentation></xs:annotation>
         </xs:attribute>
+        <xs:attribute name="body-parameters" type="xs:string">
+            <xs:annotation><xs:documentation>Comma separated list of field names (no spaces) to make sure are passed as body
+                parameters, for vuet mode only and forms that have a non-transition target where form-link is used.</xs:documentation></xs:annotation>
+        </xs:attribute>
     </xs:complexType></xs:element>
 
     <xs:element name="form-list" substitutionGroup="AllWidgets"><xs:annotation>
