@@ -643,6 +643,32 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             return true
         } else {
             logger.info("Found ${enumCount} Enumeration records, NOT loading empty-db-load data types (${emptyDbLoad})")
+            // if this instance_purpose is test load type 'test' data
+            if ("test".equals(System.getProperty("instance_purpose"))) {
+                logger.warn("Loading 'test' type data (instance_purpose=test)")
+                ExecutionContext ec = getExecutionContext()
+                try {
+                    ec.getArtifactExecution().disableAuthz()
+                    ec.getArtifactExecution().push("loadData", ArtifactExecutionInfo.AT_OTHER, ArtifactExecutionInfo.AUTHZA_ALL, false)
+                    ec.getArtifactExecution().setAnonymousAuthorizedAll()
+                    ec.getUser().loginAnonymousIfNoUser()
+
+                    EntityDataLoader edl = ec.getEntity().makeDataLoader()
+                    edl.dataTypes(new HashSet(['test']))
+
+                    try {
+                        long startTime = System.currentTimeMillis()
+                        long records = edl.load()
+
+                        logger.info("Loaded [${records}] records (with type test) in ${(System.currentTimeMillis() - startTime)/1000} seconds.")
+                    } catch (Throwable t) {
+                        logger.error("Error loading empty DB data (with type test)", t)
+                    }
+
+                } finally {
+                    ec.destroy()
+                }
+            }
             return false
         }
     }
