@@ -158,9 +158,10 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="dataDocumentId" type="id" is-pk="true"/>
         <field name="conditionSeqId" type="id" is-pk="true"/>
         <field name="fieldNameAlias" type="text-medium"/>
-        <field name="fieldValue" type="text-medium"/>
         <field name="operator" type="text-short"><description>Must be a valid value like those in the
             econdition.@operator attribute. Ignored if postQuery=Y. Defaults (like that attribute) to 'equals'.</description></field>
+        <field name="fieldValue" type="text-medium"/>
+        <field name="toFieldNameAlias" type="text-medium"/>
         <field name="postQuery" type="text-indicator"><description>If Y condition is applied after the query is done
             instead of being added to the query as a condition. Must match at least one nested field with the specified
             fieldNameAlias. The fieldValue String will be compared to the Object from the database field after
