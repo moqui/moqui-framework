@@ -154,6 +154,13 @@ public class FieldInfo {
         return ed.efi.ecfi.resourceFacade.expand(expandColumnName, "", null, false);
     }
 
+    static BigDecimal safeStripZeroes(BigDecimal input) {
+        if (input == null) return null;
+        BigDecimal temp = input.stripTrailingZeros();
+        if (temp.scale() < 0) temp = temp.setScale(0);
+        return temp;
+    }
+
     public Object convertFromString(String value, L10nFacadeImpl l10n) {
         if (value == null) return null;
         if ("null".equals(value)) return null;
@@ -189,7 +196,7 @@ public class FieldInfo {
                     if (bdVal == null) {
                         throw new BaseArtifactException("The value [" + value + "] is not valid for type " + javaType + " for field " + entityName + "." + name);
                     } else {
-                        bdVal = bdVal.stripTrailingZeros();
+                        bdVal = safeStripZeroes(bdVal);
                         switch (typeValue) {
                             case 5: outValue = bdVal.intValue(); break;
                             case 6: outValue = bdVal.longValue(); break;
@@ -240,7 +247,7 @@ public class FieldInfo {
                 case 7:
                 case 8:
                 case 9:
-                    if (value instanceof BigDecimal) value = ((BigDecimal) value).stripTrailingZeros();
+                    if (value instanceof BigDecimal) value = safeStripZeroes((BigDecimal) value);
                     L10nFacadeImpl l10n = ed.efi.ecfi.getEci().l10nFacade;
                     outValue = l10n.format(value, null);
                     break;
@@ -322,10 +329,7 @@ public class FieldInfo {
             case 6: long longValue = rs.getLong(index); if (!rs.wasNull()) value = longValue; break;
             case 7: float floatValue = rs.getFloat(index); if (!rs.wasNull()) value = floatValue; break;
             case 8: double doubleValue = rs.getDouble(index); if (!rs.wasNull()) value = doubleValue; break;
-            case 9:
-                BigDecimal bigDecimalValue = rs.getBigDecimal(index);
-                if (!rs.wasNull()) value = bigDecimalValue != null ? bigDecimalValue.stripTrailingZeros() : null;
-                break;
+            case 9: BigDecimal bdVal = rs.getBigDecimal(index); if (!rs.wasNull()) value = safeStripZeroes(bdVal); break;
             case 10: boolean booleanValue = rs.getBoolean(index); if (!rs.wasNull()) value = booleanValue; break;
             case 11:
                 Object obj = null;

@@ -80,10 +80,8 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="WikiPageCategoryMember" package="moqui.resource.wiki" use="nontransactional">
         <field name="wikiPageCategoryId" type="id" is-pk="true"/>
         <field name="wikiPageId" type="id" is-pk="true"/>
-        <relationship type="one" related="moqui.resource.wiki.WikiPageCategory" short-alias="category">
-            <key-map field-name="wikiPageCategoryId" /></relationship>
-        <relationship type="one" related="moqui.resource.wiki.WikiPage" short-alias="member">
-            <key-map field-name="wikiPageId"/></relationship>
+        <relationship type="one" related="moqui.resource.wiki.WikiPageCategory" short-alias="category"/>
+        <relationship type="one" related="moqui.resource.wiki.WikiPage" short-alias="page"/>
     </entity>
     <entity entity-name="WikiPageHistory" package="moqui.resource.wiki" use="nontransactional" cache="never">
         <field name="wikiPageId" type="id" is-pk="true"/>
@@ -141,9 +139,11 @@ along with this software (see the LICENSE.md file). If not, see
         <alias-all entity-alias="WSU"/>
     </view-entity>
 
-    <entity entity-name="WikiBlog" package="moqui.resource.wiki">
+    <entity entity-name="WikiBlog" package="moqui.resource.wiki" use="nontransactional">
+        <description>Each record represents a single blog article, grouped as needed by categories (WikiBlogCategory)</description>
         <field name="wikiBlogId" type="id" is-pk="true"/>
         <field name="wikiSpaceId" type="id"/>
+        <field name="wikiPageId" type="id"/>
         <field name="title" type="text-medium"/>
         <field name="author" type="text-medium"/>
         <field name="summary" type="text-long"/>
@@ -151,7 +151,13 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="metaKeywords" type="text-long"/>
         <field name="metaDescription" type="text-long"/>
         <field name="smallImageLocation" type="text-medium"/>
-        <field name="blogLocation" type="text-medium"/>
         <relationship type="one" related="moqui.resource.wiki.WikiSpace" short-alias="space"/>
+        <relationship type="one" related="moqui.resource.wiki.WikiPage" short-alias="page"/>
+    </entity>
+    <entity entity-name="WikiBlogCategory" package="moqui.resource.wiki" use="nontransactional">
+        <field name="wikiPageCategoryId" type="id" is-pk="true"/>
+        <field name="wikiBlogId" type="id" is-pk="true"/>
+        <relationship type="one" related="moqui.resource.wiki.WikiPageCategory" short-alias="category"/>
+        <relationship type="one" related="moqui.resource.wiki.WikiBlog" short-alias="blog"/>
     </entity>
 </entities>
