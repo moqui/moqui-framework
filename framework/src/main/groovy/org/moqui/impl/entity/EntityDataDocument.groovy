@@ -293,7 +293,6 @@ class EntityDataDocument {
                             for (int i = 0; i < fieldAliasList.size(); i++) {
                                 String fieldAlias = (String) fieldAliasList.get(i)
                                 Object curVal = ev.get(fieldAlias)
-                                // fix for time zone issues if needed: if (curVal instanceof Timestamp) curVal = ((Timestamp) curVal).getTime()
                                 if (curVal != null) primaryEntityMap.put(fieldAlias, curVal)
                             }
                         }
@@ -523,7 +522,6 @@ class EntityDataDocument {
                     for (int i = 0; i < fieldAliasList.size(); i++) {
                         String fieldAlias = (String) fieldAliasList.get(i)
                         Object curVal = ev.get(fieldAlias)
-                        // fix for time zone issues if needed: if (curVal instanceof Timestamp) curVal = ((Timestamp) curVal).getTime()
                         if (curVal != null) parentDocMap.put(fieldAlias, curVal)
                     }
                 }
