@@ -598,12 +598,21 @@ public abstract class EntityValueBase implements EntityValue {
                 if (isLogUpdate && oldValue == null) continue;
                 if (isUpdate) {
                     // if isUpdate but old value == new value, then it hasn't been updated, so skip it
-                    if (value == null) { if (oldValue == null) continue; }
-                    else { if (value.equals(oldValue)) continue; }
+                    if (value == null) {
+                        if (oldValue == null) continue;
+                    } else {
+                        if (value instanceof BigDecimal && oldValue instanceof BigDecimal) {
+                            // better handling for BigDecimal, perhaps others
+                            if (((BigDecimal) value).compareTo((BigDecimal) oldValue) == 0) continue;
+                        } else {
+                            if (value.equals(oldValue)) continue;
+                        }
+                    }
                 } else {
                     // if it's a create and there is no value don't log a change
                     if (value == null) continue;
                 }
+                // logger.warn("EntityAuditLog field " + fieldName + " old " + oldValue + " (" + (oldValue != null ? oldValue.getClass().getName() : "null") + ") new " + value + " (" + (value != null ? value.getClass().getName() : "null") + ")");
 
                 // don't skip for this, if a field was reset then we want to record that: if (!value) continue
 
@@ -626,7 +635,7 @@ public abstract class EntityValueBase implements EntityValue {
                 parms.put("changedByUserId", ec.getUser().getUserId());
                 parms.put("changedInVisitId", ec.getUser().getVisitId());
                 parms.put("artifactStack", stackNameString);
-                parms.put("oldValueText", oldValue);
+                if (oldValue != null) parms.put("oldValueText", ObjectUtilities.toPlainString(oldValue));
                 parms.putAll(pksValueMap);
 
                 // logger.warn("TOREMOVE: in handleAuditLog for [${ed.entityName}.${fieldName}] value=[${value}], oldValue=[${oldValue}], oldValues=[${oldValues}]", new Exception("AuditLog location"))
