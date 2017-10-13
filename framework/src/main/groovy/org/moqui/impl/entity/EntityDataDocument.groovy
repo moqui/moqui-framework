@@ -183,9 +183,15 @@ class EntityDataDocument {
                 FieldInfo fi = ed.getFieldInfo(fieldAlias)
                 if (fi == null) throw new EntityException("Found DataDocument Condition with alias [${fieldAlias}] that is not aliased in DataDocument ${ddi.dataDocumentId}")
                 if (dataDocumentCondition.getNoCheckSimple("postQuery") != "Y") {
-                    String stringVal = (String) dataDocumentCondition.getNoCheckSimple("fieldValue")
-                    Object objVal = fi.convertFromString(stringVal, eci.l10nFacade)
-                    mainFind.condition(fieldAlias, ((String) dataDocumentCondition.getNoCheckSimple("operator")) ?: 'equals', objVal)
+                    String operator = ((String) dataDocumentCondition.getNoCheckSimple("operator")) ?: 'equals'
+                    String toFieldAlias = (String) dataDocumentCondition.getNoCheckSimple("toFieldNameAlias")
+                    if (toFieldAlias != null && !toFieldAlias.isEmpty()) {
+                        mainFind.conditionToField(fieldAlias, EntityConditionFactoryImpl.stringComparisonOperatorMap.get(operator), toFieldAlias)
+                    } else {
+                        String stringVal = (String) dataDocumentCondition.getNoCheckSimple("fieldValue")
+                        Object objVal = fi.convertFromString(stringVal, eci.l10nFacade)
+                        mainFind.condition(fieldAlias, operator, objVal)
+                    }
                 }
             }
         }
@@ -287,7 +293,6 @@ class EntityDataDocument {
                             for (int i = 0; i < fieldAliasList.size(); i++) {
                                 String fieldAlias = (String) fieldAliasList.get(i)
                                 Object curVal = ev.get(fieldAlias)
-                                // fix for time zone issues if needed: if (curVal instanceof Timestamp) curVal = ((Timestamp) curVal).getTime()
                                 if (curVal != null) primaryEntityMap.put(fieldAlias, curVal)
                             }
                         }
@@ -517,7 +522,6 @@ class EntityDataDocument {
                     for (int i = 0; i < fieldAliasList.size(); i++) {
                         String fieldAlias = (String) fieldAliasList.get(i)
                         Object curVal = ev.get(fieldAlias)
-                        // fix for time zone issues if needed: if (curVal instanceof Timestamp) curVal = ((Timestamp) curVal).getTime()
                         if (curVal != null) parentDocMap.put(fieldAlias, curVal)
                     }
                 }
