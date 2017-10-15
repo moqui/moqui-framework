@@ -69,9 +69,16 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="createdByUserId" related="userId"/></relationship>
         <relationship type="many" related="moqui.resource.wiki.WikiPageHistory" short-alias="histories">
             <key-map field-name="wikiPageId"/></relationship>
-        <relationship type="many" related="WikiPageCategoryMember" short-alias="categories">
+        <relationship type="many" related="moqui.resource.wiki.WikiPageCategoryMember" short-alias="categories">
             <key-map field-name="wikiPageId"/></relationship>
         <index name="WIKIPAGE_SPCPTH" unique="true"><index-field name="wikiSpaceId"/><index-field name="pagePath"/></index>
+    </entity>
+    <entity entity-name="WikiPageAlias" package="moqui.resource.wiki" use="nontransactional">
+        <field name="wikiSpaceId" type="id" is-pk="true"/>
+        <field name="aliasPath" type="text-medium" is-pk="true"/>
+        <field name="wikiPageId" type="id"/>
+        <relationship type="one" related="moqui.resource.wiki.WikiSpace" short-alias="space"/>
+        <relationship type="one" related="moqui.resource.wiki.WikiPage" short-alias="page"/>
     </entity>
     <entity entity-name="WikiPageCategory" package="moqui.resource.wiki" use="nontransactional">
         <field name="wikiPageCategoryId" type="id" is-pk="true"/>
