@@ -59,6 +59,17 @@ along with this software (see the LICENSE.md file). If not, see
             <entity-find entity-name="moqui.resource.wiki.WikiPage" list="wikiPageList" cache="true">
                 <econdition field-name="wikiSpaceId"/><econdition field-name="pagePath" from="pagePath ?: null"/></entity-find>
             <set field="wikiPage" from="wikiPageList ? wikiPageList[0] : null"/>
+
+            <!-- if no wikiPage found check WikiPageAlias -->
+            <if condition="wikiPage == null">
+                <entity-find-one entity-name="moqui.resource.wiki.WikiPageAlias" value-field="wikiPageAlias" cache="true">
+                    <field-map field-name="wikiSpaceId"/><field-map field-name="aliasPath" from="pagePath ?: null"/></entity-find-one>
+                <if condition="wikiPageAlias?.wikiPageId">
+                    <entity-find-one entity-name="moqui.resource.wiki.WikiPage" value-field="wikiPage">
+                        <field-map field-name="wikiPageId" from="wikiPageAlias.wikiPageId"/></entity-find-one>
+                </if>
+            </if>
+
             <if condition="wikiPage == null"><return message="No page found at path ${pagePath} in space ${wikiSpaceId}"/></if>
 
             <set field="publishedVersionName" from="wikiPage.publishedVersionName"/>
@@ -67,7 +78,7 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="!versionName"><return message="No page found at path ${pagePath} in space ${wikiSpaceId}"/></if>
 
             <set field="rootPageRef" from="ec.resource.getLocationReference(wikiSpace.rootPageLocation)"/>
-            <set field="pageReference" from="rootPageRef.findChildFile(pagePath)"/>
+            <set field="pageReference" from="rootPageRef.findChildFile(wikiPage.pagePath)"/>
             <set field="pageLocation" from="pageReference.location"/>
 
             <set field="wikiPageId" from="wikiPage.wikiPageId"/>
@@ -98,8 +109,18 @@ along with this software (see the LICENSE.md file). If not, see
                 <econdition field-name="wikiSpaceId"/><econdition field-name="pagePath" from="pagePath ?: null"/></entity-find>
             <set field="wikiPage" from="wikiPageList ? wikiPageList[0] : null"/>
 
+            <!-- if no wikiPage found check WikiPageAlias -->
+            <if condition="wikiPage == null">
+                <entity-find-one entity-name="moqui.resource.wiki.WikiPageAlias" value-field="wikiPageAlias" cache="true">
+                    <field-map field-name="wikiSpaceId"/><field-map field-name="aliasPath" from="pagePath ?: null"/></entity-find-one>
+                <if condition="wikiPageAlias?.wikiPageId">
+                    <entity-find-one entity-name="moqui.resource.wiki.WikiPage" value-field="wikiPage">
+                        <field-map field-name="wikiPageId" from="wikiPageAlias.wikiPageId"/></entity-find-one>
+                </if>
+            </if>
+
             <!-- <log message="===== get#WikiPageId createIfMissing=${createIfMissing}, wikiSpaceId=${wikiSpaceId}, pagePath=${pagePath}, wikiPage: ${wikiPage}"/> -->
-            <if condition="!wikiPage &amp;&amp; createIfMissing"><then>
+            <if condition="wikiPage == null &amp;&amp; createIfMissing"><then>
                 <!-- no WikiPage record, create one for this page -->
                 <service-call name="create#moqui.resource.wiki.WikiPage" out-map="context"
                         in-map="[wikiSpaceId:wikiSpaceId, pagePath:(pagePath ?: null), createdByUserId:ec.user.userId]"/>
@@ -162,7 +183,7 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="!wikiSpace"><return error="true" message="Could not find wiki space with ID [${wikiSpaceId}]"/></if>
 
             <!-- NOTE: WikiPage record may not exist, but don't create one on get/view only -->
-            <if condition="!wikiPage"><service-call name="org.moqui.impl.WikiServices.get#WikiPageId" in-map="context" out-map="context"/></if>
+            <if condition="wikiPage == null"><service-call name="org.moqui.impl.WikiServices.get#WikiPageId" in-map="context" out-map="context"/></if>
 
             <!-- check restrictView for space and page -->
             <if condition="wikiSpace.restrictView == 'Y'">
@@ -251,16 +272,19 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="update" noun="WikiPage">
         <in-parameters>
             <parameter name="wikiSpaceId" required="true"/>
-            <parameter name="pagePath"><description>Defaults to parentPath/pageName (both may be empty, resulting in empty pagePath)</description></parameter>
+            <parameter name="wikiPageId"><description>Optional, existing pages normally looked up by pagePath, use to refer to a specific existing page</description></parameter>
+            <parameter name="pagePath"><description>Defaults to parentPath/pageName (both may be empty, resulting in empty pagePath).
+                To update a pageName of an existing page this must be specified along with the new pageName.</description></parameter>
             <parameter name="parentPath"/>
             <parameter name="pageName" required="true">
                 <description>This is required for better usability. If pageName == wikiSpaceId is treated as the root page.</description>
-                <matches regexp="[\w\.\-, ]*" message="Invalid page name (letters, digits, [.,-_ ] only)"/>
+                <matches regexp="[\w\.\-,()!\? ]*" message="Invalid page name (letters, digits, [.,-_()!? ] only)"/>
             </parameter>
             <parameter name="wikiType" default-value="md"/>
             <parameter name="pageText" allow-html="any"><description>If WikiSpace.allowAnyHtml = Y will be stored as-is, otherwise filtered like parameter.allow-html=safe.</description></parameter>
         </in-parameters>
         <out-parameters>
+            <parameter name="wikiPageId"/>
             <parameter name="pagePath"/>
             <parameter name="encodedPagePath"/>
         </out-parameters>
@@ -268,10 +292,18 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- <log level="warn" message="update#WikiPage wikiSpaceId=${wikiSpaceId} pageName=${pageName} parentPath=[${parentPath}]"/> -->
             <if condition="pageName == wikiSpaceId"><set field="pageName" from="null"/></if>
             <if condition="parentPath == wikiSpaceId"><set field="parentPath" from="null"/></if>
-            <if condition="!pagePath"><set field="pagePath" from="(parentPath ? parentPath+'/' : '') + (pageName?:'')"/></if>
 
             <entity-find-one entity-name="moqui.resource.wiki.WikiSpace" value-field="wikiSpace" cache="true"/>
-            <service-call name="org.moqui.impl.WikiServices.get#WikiPageId" in-map="context + [createIfMissing:true]" out-map="context"/>
+            <if condition="wikiPageId"><then>
+                <entity-find-one entity-name="moqui.resource.wiki.WikiPage" value-field="wikiPage" cache="true"/>
+                <set field="wikiSpaceId" from="wikiPage.wikiSpaceId"/>
+                <set field="pagePath" from="wikiPage.pagePath"/>
+                <!-- on lookup by wikiPageId if no parentPath is specified keep it the same -->
+                <if condition="!parentPath"><set field="parentPath" from="pagePath.contains('/') ? pagePath.substring(0, pagePath.lastIndexOf('/')) : null"/></if>
+            </then><else>
+                <if condition="!pagePath"><set field="pagePath" from="(parentPath ? parentPath+'/' : '') + (pageName?:'')"/></if>
+                <service-call name="org.moqui.impl.WikiServices.get#WikiPageId" in-map="context + [createIfMissing:true]" out-map="context"/>
+            </else></if>
 
             <if condition="wikiPage == null"><return error="true" message="Wiki Page [${wikiSpaceId}/${pagePath}] does not exist and could not be created"/></if>
 
@@ -322,7 +354,7 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="origPageName" from="pagePath.contains('/') ? pagePath.substring(pagePath.lastIndexOf('/')+1) : pagePath"/>
             <!-- TODO: support change of wikiType too -->
             <if condition="pageName &amp;&amp; (origParentPath != parentPath || origPageName != pageName)">
-                <log level="info" message="update#WikiPage path pageName=${pageName} origPageName=${origPageName} parentPath=${parentPath} origParentPath=${origParentPath}"/>
+                <log message="update#WikiPage path pageName=${pageName} origPageName=${origPageName} parentPath=${parentPath} origParentPath=${origParentPath}"/>
                 <!-- move the page file -->
                 <set field="rootPageDirRef" from="rootPageRef.findMatchingDirectory()"/>
                 <set field="newPageLocation" value="${rootPageDirRef.location}${parentPath ? '/' + parentPath : ''}/${pageName}.${wikiType}"/>
@@ -523,21 +555,26 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="create" noun="WikiBlog">
         <in-parameters>
             <auto-parameters entity-name="moqui.resource.wiki.WikiBlog" include="nonpk">
-                <exclude field-name="smallImageLocation"/><exclude field-name="blogLocation"/></auto-parameters>
+                <exclude field-name="smallImageLocation"/></auto-parameters>
             <parameter name="wikiSpaceId" required="true"/>
-            <parameter name="title" required="true"/>
+            <parameter name="title" required="true">
+                <matches regexp="[\w\.\-,()!\? ]*" message="Invalid title (letters, digits, [.,-_()!? ] only)"/></parameter>
             <parameter name="summary" allow-html="safe"/>
             <parameter name="publishDate" type="Timestamp" default="ec.user.nowTimestamp"/>
             <parameter name="smallImage" type="org.apache.commons.fileupload.FileItem"/>
-            <parameter name="blogText" allow-html="safe"/>
+            <parameter name="blogText" allow-html="any"/><!-- allow any HTML here, is checked if needed in update#WikiPage -->
         </in-parameters>
         <out-parameters>
             <parameter name="wikiBlogId"/>
         </out-parameters>
         <actions>
-            <service-call name="org.moqui.impl.WikiServices.update#WikiPage" out-map="context"
-                    in-map="context + [pagePath:title, pageName:wikiSpaceId, wikiType:'html', pageText:blogText]"/>
-            <service-call name="create#moqui.resource.wiki.WikiBlog" in-map="context + [blogLocation:pagePath]" out-map="context"/>
+            <if condition="!blogText &amp;&amp; !wikiPageId">
+                <return error="true" message="Blog text or Wiki Page required to create a blog article"/></if>
+            <if condition="blogText">
+                <service-call name="org.moqui.impl.WikiServices.update#WikiPage" out-map="context"
+                        in-map="[wikiSpaceId:wikiSpaceId, wikiPageId:wikiPageId, pageName:title, parentPath:wikiSpaceId, wikiType:'html', pageText:blogText]"/>
+            </if>
+            <service-call name="create#moqui.resource.wiki.WikiBlog" in-map="context" out-map="context"/>
             <if condition="smallImage &amp;&amp; smallImage.size > 0">
                 <set field="filename" from="smallImage.getName()"/>
                 <set field="contentRoot" from="ec.user.getPreference('mantle.content.root') ?: 'dbresource://mantle/content'"/>
@@ -551,19 +588,21 @@ along with this software (see the LICENSE.md file). If not, see
     </service>
     <service verb="update" noun="WikiBlog">
         <in-parameters>
-            <auto-parameters entity-name="moqui.resource.wiki.WikiBlog">
-                <exclude field-name="smallImageLocation"/><exclude field-name="blogLocation"/></auto-parameters>
+            <auto-parameters entity-name="moqui.resource.wiki.WikiBlog" include="nonpk">
+                <exclude field-name="smallImageLocation"/></auto-parameters>
             <parameter name="wikiBlogId" required="true"/>
-            <parameter name="wikiSpaceId" required="true"/>
-            <parameter name="title" required="true"/>
+            <parameter name="title">
+                <matches regexp="[\w\.\-,()!\? ]*" message="Invalid title (letters, digits, [.,-_()!? ] only)"/></parameter>
             <parameter name="summary" allow-html="safe"/>
             <parameter name="smallImage" type="org.apache.commons.fileupload.FileItem"/>
-            <parameter name="blogText" allow-html="safe"/>
+            <parameter name="blogText" allow-html="any"/>
         </in-parameters>
         <actions>
-            <service-call name="org.moqui.impl.WikiServices.update#WikiPage" out-map="context"
-                    in-map="context + [pagePath:title, pageName:wikiSpaceId, wikiType:'html', pageText:blogText]"/>
-            <service-call name="update#moqui.resource.wiki.WikiBlog" in-map="context + [blogLocation:pagePath]"/>
+            <if condition="blogText">
+                <service-call name="org.moqui.impl.WikiServices.update#WikiPage" out-map="context"
+                        in-map="[wikiSpaceId:wikiSpaceId, wikiPageId:wikiPageId, pageName:title, parentPath:wikiSpaceId, wikiType:'html', pageText:blogText]"/>
+            </if>
+            <service-call name="update#moqui.resource.wiki.WikiBlog" in-map="context"/>
             <if condition="smallImage &amp;&amp; smallImage.size > 0">
                 <set field="filename" from="smallImage.getName()"/>
                 <set field="contentRoot" from="ec.user.getPreference('mantle.content.root') ?: 'dbresource://mantle/content'"/>
