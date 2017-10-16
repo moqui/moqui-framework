@@ -157,7 +157,6 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="metaKeywords" type="text-long"/>
         <field name="metaDescription" type="text-long"/>
         <field name="smallImageLocation" type="text-medium"/>
-        <relationship type="one" related="moqui.resource.wiki.WikiSpace" short-alias="space"/>
         <relationship type="one" related="moqui.resource.wiki.WikiPage" short-alias="page"/>
         <relationship type="many" related="moqui.resource.wiki.WikiBlogCategory" short-alias="categories">
             <key-map field-name="wikiBlogId"/></relationship>
