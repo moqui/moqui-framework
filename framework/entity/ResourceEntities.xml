@@ -69,9 +69,16 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="createdByUserId" related="userId"/></relationship>
         <relationship type="many" related="moqui.resource.wiki.WikiPageHistory" short-alias="histories">
             <key-map field-name="wikiPageId"/></relationship>
-        <relationship type="many" related="WikiPageCategoryMember" short-alias="categories">
+        <relationship type="many" related="moqui.resource.wiki.WikiPageCategoryMember" short-alias="categories">
             <key-map field-name="wikiPageId"/></relationship>
         <index name="WIKIPAGE_SPCPTH" unique="true"><index-field name="wikiSpaceId"/><index-field name="pagePath"/></index>
+    </entity>
+    <entity entity-name="WikiPageAlias" package="moqui.resource.wiki" use="nontransactional">
+        <field name="wikiSpaceId" type="id" is-pk="true"/>
+        <field name="aliasPath" type="text-medium" is-pk="true"/>
+        <field name="wikiPageId" type="id"/>
+        <relationship type="one" related="moqui.resource.wiki.WikiSpace" short-alias="space"/>
+        <relationship type="one" related="moqui.resource.wiki.WikiPage" short-alias="page"/>
     </entity>
     <entity entity-name="WikiPageCategory" package="moqui.resource.wiki" use="nontransactional">
         <field name="wikiPageCategoryId" type="id" is-pk="true"/>
@@ -142,7 +149,6 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="WikiBlog" package="moqui.resource.wiki" use="nontransactional">
         <description>Each record represents a single blog article, grouped as needed by categories (WikiBlogCategory)</description>
         <field name="wikiBlogId" type="id" is-pk="true"/>
-        <field name="wikiSpaceId" type="id"/>
         <field name="wikiPageId" type="id"/>
         <field name="title" type="text-medium"/>
         <field name="author" type="text-medium"/>
@@ -151,8 +157,9 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="metaKeywords" type="text-long"/>
         <field name="metaDescription" type="text-long"/>
         <field name="smallImageLocation" type="text-medium"/>
-        <relationship type="one" related="moqui.resource.wiki.WikiSpace" short-alias="space"/>
         <relationship type="one" related="moqui.resource.wiki.WikiPage" short-alias="page"/>
+        <relationship type="many" related="moqui.resource.wiki.WikiBlogCategory" short-alias="categories">
+            <key-map field-name="wikiBlogId"/></relationship>
     </entity>
     <entity entity-name="WikiBlogCategory" package="moqui.resource.wiki" use="nontransactional">
         <field name="wikiPageCategoryId" type="id" is-pk="true"/>
@@ -160,4 +167,16 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" related="moqui.resource.wiki.WikiPageCategory" short-alias="category"/>
         <relationship type="one" related="moqui.resource.wiki.WikiBlog" short-alias="blog"/>
     </entity>
+    <view-entity entity-name="WikiBlogAndCategory" package="moqui.resource.wiki">
+        <member-entity entity-alias="WKBG" entity-name="moqui.resource.wiki.WikiBlog"/>
+        <member-relationship entity-alias="WKBC" join-from-alias="WKBG" relationship="categories"/>
+        <alias-all entity-alias="WKBG"/>
+        <alias-all entity-alias="WKBC"/>
+    </view-entity>
+    <view-entity entity-name="WikiBlogCategoryDetail" package="moqui.resource.wiki">
+        <member-entity entity-alias="WKBC" entity-name="moqui.resource.wiki.WikiBlogCategory"/>
+        <member-relationship entity-alias="WPC" join-from-alias="WKBC" relationship="category"/>
+        <alias-all entity-alias="WKBC"/>
+        <alias-all entity-alias="WPC"/>
+    </view-entity>
 </entities>
