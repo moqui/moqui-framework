@@ -164,6 +164,12 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:attribute name="transition-last-row" type="xs:string">
             <xs:annotation><xs:documentation>The transition in the current screen to submit the last row form to.</xs:documentation></xs:annotation>
         </xs:attribute>
+        <xs:attribute name="map-first-row" type="xs:string">
+            <xs:annotation><xs:documentation>The Map to use for field values in the first-row fields, like form-single.@map.</xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="map-last-row" type="xs:string">
+            <xs:annotation><xs:documentation>The Map to use for field values in the first-row fields, like form-single.@map.</xs:documentation></xs:annotation>
+        </xs:attribute>
         <xs:attribute name="multi" default="false" type="boolean">
             <xs:annotation><xs:documentation>Make the form a multi-submit form where all rows on a page are
                 submitted together in a single request with a "_${rowNumber}" suffix on each field. Also passes a
@@ -172,7 +178,7 @@ along with this software (see the LICENSE.md file). If not, see
                 separate form (submitted separately) for each row.</xs:documentation></xs:annotation>
         </xs:attribute>
         <xs:attribute name="list" type="xs:string">
-            <xs:annotation><xs:documentation>An expression that evaluates to a list to iterate over.</xs:documentation></xs:annotation>
+            <xs:annotation><xs:documentation>A Groovy expression that evaluates to a list to iterate over.</xs:documentation></xs:annotation>
         </xs:attribute>
         <xs:attribute name="list-entry" type="xs:string">
             <xs:annotation><xs:documentation>If specified each list entry will be put in the context with this
