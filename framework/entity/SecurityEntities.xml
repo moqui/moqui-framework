@@ -215,7 +215,6 @@ along with this software (see the LICENSE.md file). If not, see
         <alias entity-alias="ATP" name="maxHitsCount"/>
         <alias entity-alias="ATP" name="maxHitsDuration"/>
         <alias entity-alias="ATP" name="tarpitDuration"/>
-        <alias entity-alias="AGM" name="artifactGroupId"/>
         <alias entity-alias="AGM" name="artifactName"/>
         <alias entity-alias="AGM" name="artifactTypeEnumId"/>
         <alias entity-alias="AGM" name="nameIsPattern"/>
