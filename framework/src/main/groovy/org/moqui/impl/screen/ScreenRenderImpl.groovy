@@ -1202,16 +1202,16 @@ class ScreenRenderImpl implements ScreenRender {
     String pushContext() { ec.getContext().push(); return "" }
     String popContext() { ec.getContext().pop(); return "" }
 
-    /** Call this at the beginning of a form-single. Always call popContext() at the end of the form! */
-    String pushSingleFormMapContext(MNode formNode) {
+    /** Call this at the beginning of a form-single or for form-list.@first-row-map and @last-row-map. Always call popContext() at the end of the form! */
+    String pushSingleFormMapContext(String mapExpr) {
         ContextStack cs = ec.getContext()
-        String mapName = formNode.attribute("map") ?: "fieldValues"
-        Map valueMap = (Map) cs.getByString(mapName)
+        Map valueMap = null
+        if (mapExpr != null && !mapExpr.isEmpty()) valueMap = (Map) ec.resourceFacade.expression(mapExpr, null)
+        if (valueMap == null) valueMap = new HashMap()
 
         cs.push()
-        if (valueMap) cs.putAll(valueMap)
+        cs.putAll(valueMap)
         cs.put("_formMap", valueMap)
-        cs.put(mapName, valueMap)
 
         return ""
     }
