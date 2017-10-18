@@ -278,7 +278,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="parentPath"/>
             <parameter name="pageName" required="true">
                 <description>This is required for better usability. If pageName == wikiSpaceId is treated as the root page.</description>
-                <matches regexp="[\w\.\-,()!\? ]*" message="Invalid page name (letters, digits, [.,-_()!? ] only)"/>
+                <matches regexp="[\w\.\-,:()!\? ]*" message="Invalid page name (letters, digits, [.,-_:()!? ] only)"/>
             </parameter>
             <parameter name="wikiType" default-value="md"/>
             <parameter name="pageText" allow-html="any"><description>If WikiSpace.allowAnyHtml = Y will be stored as-is, otherwise filtered like parameter.allow-html=safe.</description></parameter>
@@ -558,7 +558,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <exclude field-name="smallImageLocation"/></auto-parameters>
             <parameter name="wikiSpaceId" required="true"/>
             <parameter name="title" required="true">
-                <matches regexp="[\w\.\-,()!\? ]*" message="Invalid title (letters, digits, [.,-_()!? ] only)"/></parameter>
+                <matches regexp="[\w\.\-,:()!\? ]*" message="Invalid title (letters, digits, [.,-_:()!? ] only)"/></parameter>
             <parameter name="summary" allow-html="safe"/>
             <parameter name="publishDate" type="Timestamp" default="ec.user.nowTimestamp"/>
             <parameter name="smallImage" type="org.apache.commons.fileupload.FileItem"/>
@@ -592,7 +592,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <exclude field-name="smallImageLocation"/></auto-parameters>
             <parameter name="wikiBlogId" required="true"/>
             <parameter name="title">
-                <matches regexp="[\w\.\-,()!\? ]*" message="Invalid title (letters, digits, [.,-_()!? ] only)"/></parameter>
+                <matches regexp="[\w\.\-,:()!\? ]*" message="Invalid title (letters, digits, [.,-_:()!? ] only)"/></parameter>
             <parameter name="summary" allow-html="safe"/>
             <parameter name="smallImage" type="org.apache.commons.fileupload.FileItem"/>
             <parameter name="blogText" allow-html="any"/>
