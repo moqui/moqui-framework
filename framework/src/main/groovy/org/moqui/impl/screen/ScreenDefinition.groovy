@@ -16,6 +16,7 @@ package org.moqui.impl.screen
 import groovy.transform.CompileStatic
 import org.codehaus.groovy.runtime.InvokerHelper
 import org.moqui.BaseArtifactException
+import org.moqui.BaseException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.ExecutionContext
 import org.moqui.impl.context.ContextJavaUtil
@@ -354,11 +355,17 @@ class ScreenDefinition {
             if (remainingPathNameList.size() > 1) {
                 ArrayList<String> subPathNameList = new ArrayList<>(remainingPathNameList)
                 subPathNameList.remove(0)
-                ScreenDefinition subSd = sfi.getScreenDefinition(curSsi.getLocation())
-                ArrayList<String> subPath = subSd.findSubscreenPath(subPathNameList)
-                if (!subPath) return null
-                subPath.add(0, curName)
-                return subPath
+                try {
+                    ScreenDefinition subSd = sfi.getScreenDefinition(curSsi.getLocation())
+                    ArrayList<String> subPath = subSd.findSubscreenPath(subPathNameList)
+                    if (!subPath) return null
+                    subPath.add(0, curName)
+                    return subPath
+                } catch (Exception e) {
+                    BaseException.filterStackTrace(e)
+                    logger.error("Error finding subscreens under screen at ${curSsi.getLocation()}", e)
+                    return null
+                }
             } else {
                 return remainingPathNameList
             }
