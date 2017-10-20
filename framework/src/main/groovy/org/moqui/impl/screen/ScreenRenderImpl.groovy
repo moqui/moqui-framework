@@ -1287,6 +1287,31 @@ class ScreenRenderImpl implements ScreenRender {
             return ec.resourceFacade.expandNoL10n(defaultValue, "")
         return ObjectUtilities.toPlainString(obj)
     }
+    String getNamedValuePlain(String fieldName, MNode formNode) {
+        Object value = null
+        if ("form-single".equals(formNode.name)) {
+            String mapAttr = formNode.attribute("map")
+            String mapName = mapAttr != null && mapAttr.length() > 0 ? mapAttr : "fieldValues"
+            Map valueMap = (Map) ec.resource.expression(mapName, "")
+
+            if (valueMap != null) {
+                try {
+                    if (valueMap instanceof EntityValueBase) {
+                        // if it is an EntityValueImpl, only get if the fieldName is a value
+                        EntityValueBase evb = (EntityValueBase) valueMap
+                        if (evb.getEntityDefinition().isField(fieldName)) value = evb.get(fieldName)
+                    } else {
+                        value = valueMap.get(fieldName)
+                    }
+                } catch (EntityException e) {
+                    // do nothing, not necessarily an entity field
+                    if (isTraceEnabled) logger.trace("Ignoring entity exception for non-field: ${e.toString()}")
+                }
+            }
+        }
+        if (value == null) value = ec.contextStack.getByString(fieldName)
+        return ObjectUtilities.toPlainString(value)
+    }
 
     Object getFieldValue(MNode fieldNode, String defaultValue) {
         String fieldName = fieldNode.attribute("name")
@@ -1314,7 +1339,7 @@ class ScreenRenderImpl implements ScreenRender {
                 try {
                     if (valueMap instanceof EntityValueBase) {
                         // if it is an EntityValueImpl, only get if the fieldName is a value
-                        EntityValueBase evb = (EntityValueImpl) valueMap
+                        EntityValueBase evb = (EntityValueBase) valueMap
                         if (evb.getEntityDefinition().isField(fieldName)) value = evb.get(fieldName)
                     } else {
                         value = valueMap.get(fieldName)
