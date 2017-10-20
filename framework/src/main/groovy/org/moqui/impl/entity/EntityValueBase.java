@@ -1412,7 +1412,7 @@ public abstract class EntityValueBase implements EntityValue {
             if (optimisticLock) {
                 Object valueLus = valueMapInternal.get("lastUpdatedStamp");
                 Object dbLus = dbValueMap.get("lastUpdatedStamp");
-                if (dbLus != null && !dbLus.equals(valueLus))
+                if (valueLus != null && dbLus != null && !dbLus.equals(valueLus))
                     throw new EntityException("This record was updated by someone else at " + valueLus + " which was after the version you loaded at " + dbLus + ". Not updating to avoid overwriting data.");
             }
 
