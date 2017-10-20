@@ -185,6 +185,7 @@ along with this software (see the LICENSE.md file). If not, see
                 name, otherwise the list entry must be a Map and the entries in the Map will be put into the context
                 for each row.</xs:documentation></xs:annotation>
         </xs:attribute>
+        <xs:attribute name="style" type="xs:string"/>
         <xs:attribute name="paginate" type="xs:string" default="true">
             <xs:annotation><xs:documentation>Indicate if this form should paginate or not. Defaults to true.</xs:documentation></xs:annotation>
         </xs:attribute>
