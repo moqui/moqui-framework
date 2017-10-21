@@ -52,6 +52,8 @@ public class ValidationError extends BaseArtifactException {
     public Map<String, String> getMap() {
         Map<String, String> veMap = new HashMap<>();
         veMap.put("form", form); veMap.put("field", field); veMap.put("serviceName", serviceName);
+        veMap.put("message", getMessage());
+        if (getCause() != null) veMap.put("cause", getCause().toString());
         return veMap;
     }
 }

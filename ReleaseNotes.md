@@ -59,6 +59,7 @@ See the moqui-runtime release notes for more details. Some of these changes may 
   in its where clause instead of the where clause for the top-level select; any fields selected are selected in the sub-select as
   are any fields used for the join ON conditions; the first example of this is the InvoicePaymentApplicationSummary view-entity in
   mantle-usl which also uses alias.@function and alias.complex-alias to use concat_ws for combined name aliases
+- Now uses Jackson Databind for JSON serialization and deserialization; date/time values are in millis since epoch
 
 ### Bug Fixes
 
@@ -559,6 +560,8 @@ Gradle tasks.
 
 ## Long Term To Do List - aka Informal Road Map
 
+- Support local printers, scales, etc in web-based apps using https://qz.io/
+
 - PDF, Office, etc document indexing for wiki attachments (using Apache Tika)
 - Wiki page version history with full content history diff, etc; store just differences, lib for that?
   - https://code.google.com/archive/p/java-diff-utils/
@@ -580,12 +583,6 @@ Gradle tasks.
 - form-single.entity-find-one element support, maybe form-single.actions too
 
 - Instance Provisioning and Management
-  - external instance management
-    - https://mist.io
-      - Docker, AWS, vmware, etc
-      - http://blog.mist.io/post/96542374356/one-ui-to-rule-them-all-manage-your-docker
-    - https://shipyard-project.com (Docker only)
-    - https://github.com/kevana/ui-for-docker (Docker only)
   - embedded and gradle docker client (for docker host or docker swarm)
     - direct through Docker API
       - https://docs.docker.com/engine/reference/commandline/dockerd/#bind-docker-to-another-host-port-or-a-unix-socket
@@ -633,30 +630,6 @@ Gradle tasks.
     - where to configure the email and screen to use? use EmailTemplate/emailTemplateId, but where to specify?
       - for notifications from DataFeeds can add DataFeed.emailTemplateId (or not, what about toAddresses, etc?)
       - maybe have a more general way to configure details of topics, including emailTemplateId and screenLocation...
-
-- Angular 2 Apps
-  - support by screen + subscreens, or enable/disable for all apps (with separate webroot or something)?
-  - update bootstrap (maybe get from CDN instead of including in source...)
-  - for screen generate
-    - component.ts file
-    - service.ts/js file with:
-      - service for each transition
-      - service to get data for screen actions
-      - services for section actions
-      - services for form row actions
-    - component.html file (use 'templateUrl' in Component annotation instead of 'template')
-    - or use single JS file with component, embedded template (use template: and not templateUrl:), transition services?
-  - with system.js need to transpile in the browser?
-    - can transpile into JS file using typescript4j; or generate component.js
-    - https://github.com/martypitt/typescript4j
-- Steps toward Angular, more similar client/server artifacts
-  - Add Mustache TemplateRenderer
-    - https://github.com/spullara/mustache.java
-  - Add form-list.actions and form-single.actions elements
-  - Add REST endpoint configuration for CrUD operations to form-list and form-single
-    - call local when rendered server-side
-    - set base URL, use common patterns for get single/multiple record, create, update, and delete
-    - use internal data from RestApi class to determine valid services available
 
 - Hazelcast based improvements
   - configuration for 'microservice' deployments, partitioning services to run on particular servers in a cluster and
@@ -750,6 +723,9 @@ Gradle tasks.
     - allow mapping DataDocument operations as well
     - Add attribute for resource/method like screen for anonymous and no authz access
   - OAuth2 Support
+    - Simple OAuth2 for authentication only
+      - https://tools.ietf.org/html/draft-ietf-oauth-v2-27#section-4.4
+      - use current api key functionality, or expand for limiting tokens to a particular client by registered client ID
     - Use Apache Oltu, see https://cwiki.apache.org/confluence/display/OLTU/OAuth+2.0+Authorization+Server
     - Spec at http://tools.ietf.org/html/rfc6749
     - http://oltu.apache.org/apidocs/oauth2/reference/org/apache/oltu/oauth2/as/request/package-summary.html

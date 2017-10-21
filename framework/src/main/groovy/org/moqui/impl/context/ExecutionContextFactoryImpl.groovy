@@ -353,6 +353,10 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // set default System properties now that all is merged
         for (MNode defPropNode in baseConfigNode.children("default-property")) {
             String propName = defPropNode.attribute("name")
+            if (System.getenv(propName) && !System.getProperty(propName)) {
+                // make env vars available as Java System properties
+                System.setProperty(propName, System.getenv(propName))
+            }
             if (!System.getProperty(propName) && !System.getenv(propName)) {
                 String valueAttr = defPropNode.attribute("value")
                 if (valueAttr != null && !valueAttr.isEmpty()) System.setProperty(propName, SystemBinding.expand(valueAttr))
@@ -373,6 +377,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         String tzStr = SystemBinding.getPropOrEnv("default_time_zone")
         if (tzStr) {
             try {
+                logger.info("Found default_time_zone ${tzStr}: ${TimeZone.getTimeZone(tzStr)}")
                 TimeZone.setDefault(TimeZone.getTimeZone(tzStr))
             } catch (Throwable t) {
                 logger.error("Error setting default time zone to ${tzStr}: ${t.toString()}")
@@ -451,8 +456,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         for (ArtifactType at in ArtifactType.values()) {
             MNode artifactStats = getArtifactStatsNode(at.name(), null)
             if (artifactStats == null) {
-                artifactPersistHitByTypeEnum.put(at, false)
-                artifactPersistBinByTypeEnum.put(at, false)
+                artifactPersistHitByTypeEnum.put(at, Boolean.FALSE)
+                artifactPersistBinByTypeEnum.put(at, Boolean.FALSE)
             } else {
                 artifactPersistHitByTypeEnum.put(at, "true".equals(artifactStats.attribute("persist-hit")))
                 artifactPersistBinByTypeEnum.put(at, "true".equals(artifactStats.attribute("persist-bin")))
@@ -638,6 +643,32 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             return true
         } else {
             logger.info("Found ${enumCount} Enumeration records, NOT loading empty-db-load data types (${emptyDbLoad})")
+            // if this instance_purpose is test load type 'test' data
+            if ("test".equals(System.getProperty("instance_purpose"))) {
+                logger.warn("Loading 'test' type data (instance_purpose=test)")
+                ExecutionContext ec = getExecutionContext()
+                try {
+                    ec.getArtifactExecution().disableAuthz()
+                    ec.getArtifactExecution().push("loadData", ArtifactExecutionInfo.AT_OTHER, ArtifactExecutionInfo.AUTHZA_ALL, false)
+                    ec.getArtifactExecution().setAnonymousAuthorizedAll()
+                    ec.getUser().loginAnonymousIfNoUser()
+
+                    EntityDataLoader edl = ec.getEntity().makeDataLoader()
+                    edl.dataTypes(new HashSet(['test']))
+
+                    try {
+                        long startTime = System.currentTimeMillis()
+                        long records = edl.load()
+
+                        logger.info("Loaded [${records}] records (with type test) in ${(System.currentTimeMillis() - startTime)/1000} seconds.")
+                    } catch (Throwable t) {
+                        logger.error("Error loading empty DB data (with type test)", t)
+                    }
+
+                } finally {
+                    ec.destroy()
+                }
+            }
             return false
         }
     }
@@ -1617,7 +1648,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             httpPort = webappNode.attribute("http-port") ?: null
             httpHost = webappNode.attribute("http-host") ?: null
             httpsPort = webappNode.attribute("https-port") ?: null
-            httpsHost = webappNode.attribute("https-host") ?: httpPort ?: null
+            httpsHost = webappNode.attribute("https-host") ?: httpHost ?: null
             httpsEnabled = "true".equals(webappNode.attribute("https-enabled"))
             requireSessionToken = !"false".equals(webappNode.attribute("require-session-token"))
 

@@ -21,7 +21,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 @CompileStatic
-public class MessageFacadeImpl implements MessageFacade {
+class MessageFacadeImpl implements MessageFacade {
     protected final static Logger logger = LoggerFactory.getLogger(MessageFacadeImpl.class)
 
     private final static List<String> emptyStringList = Collections.unmodifiableList(new ArrayList<String>())
@@ -47,7 +47,12 @@ public class MessageFacadeImpl implements MessageFacade {
         for (String message in messageList) messageBuilder.append(message).append("\n")
         return messageBuilder.toString()
     }
-    void addMessage(String message) { if (message) getMessages().add(message) }
+    void addMessage(String message) {
+        if (message) {
+            getMessages().add(message)
+            logger.info(message)
+        }
+    }
 
     @Override
     List<String> getErrors() {
@@ -58,8 +63,9 @@ public class MessageFacadeImpl implements MessageFacade {
     void addError(String error) {
         if (error) {
             if (errorList == null) errorList = new ArrayList<>()
-            errorList.add(error);
-            hasErrors = true;
+            errorList.add(error)
+            logger.error(error)
+            hasErrors = true
         }
     }
 
@@ -71,7 +77,9 @@ public class MessageFacadeImpl implements MessageFacade {
     @Override
     void addValidationError(String form, String field, String serviceName, String message, Throwable nested) {
         if (validationErrorList == null) validationErrorList = new ArrayList<>()
-        validationErrorList.add(new ValidationError(form, field, serviceName, message, nested))
+        ValidationError ve = new ValidationError(form, field, serviceName, message, nested)
+        validationErrorList.add(ve)
+        logger.error(ve.getMap().toString())
         hasErrors = true
     }
 

@@ -45,6 +45,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="enumCode" type="text-medium"/>
         <field name="sequenceNum" type="number-integer"/>
         <field name="description" type="text-medium" enable-localization="true"/>
+        <field name="optionValue" type="text-medium"><description>Usage depends on enum type such as an ID format or mask.</description></field>
         <field name="relatedEnumId" type="id"/>
         <relationship type="one" related="moqui.basic.EnumerationType" short-alias="type"/>
         <relationship type="one-nofk" title="Parent" related="moqui.basic.Enumeration" short-alias="parent">
@@ -180,6 +181,19 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="geoId"/></member-entity>
         <alias-all entity-alias="GEOA"/>
         <alias-all entity-alias="GEOFR"><exclude field="geoId"/></alias-all>
+    </view-entity>
+    <view-entity entity-name="GeoTypeAndAssocFromDetail" package="moqui.basic">
+        <member-entity entity-alias="GEO" entity-name="moqui.basic.Geo"/>
+        <member-entity entity-alias="GTE" entity-name="moqui.basic.Enumeration" join-from-alias="GEO">
+            <key-map field-name="geoTypeEnumId" related="enumId"/></member-entity>
+        <member-entity entity-alias="GEOA" entity-name="moqui.basic.GeoAssoc" join-from-alias="GEO" join-optional="true">
+            <key-map field-name="geoId" related="toGeoId"/></member-entity>
+        <member-entity entity-alias="GEOFR" entity-name="moqui.basic.Geo" join-from-alias="GEOA" join-optional="true">
+            <key-map field-name="geoId"/></member-entity>
+        <alias-all entity-alias="GEO"/>
+        <alias-all entity-alias="GTE"/>
+        <alias-all entity-alias="GEOA"/>
+        <alias-all entity-alias="GEOFR" prefix="from"><exclude field="geoId"/></alias-all>
     </view-entity>
     <entity entity-name="GeoPoint" package="moqui.basic" use="configuration" short-alias="geoPoints" cache="true">
         <field name="geoPointId" type="id" is-pk="true"/>

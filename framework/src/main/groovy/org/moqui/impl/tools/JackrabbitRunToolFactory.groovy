@@ -37,8 +37,12 @@ class JackrabbitRunToolFactory implements ToolFactory<Process> {
     String getName() { return TOOL_NAME }
     @Override
     void init(ExecutionContextFactory ecf) {
+    }
+    @Override
+    void preFacadeInit(ExecutionContextFactory ecf) {
         this.ecf = ecf
 
+        logger.info("Initializing Jackrabbit")
         Properties jackrabbitProperties = new Properties()
         URL jackrabbitProps = this.class.getClassLoader().getResource("jackrabbit_moqui.properties")
         if (jackrabbitProps != null) {
@@ -71,9 +75,11 @@ class JackrabbitRunToolFactory implements ToolFactory<Process> {
         ProcessBuilder pb = new ProcessBuilder("java", "-jar", jackrabbitJarFullPath, "-p", jackrabbitPort, "-c", jackrabbitConfFileFullPath)
         pb.directory(new File(ecf.runtimePath + "/" + jackrabbitWorkingDir))
         jackrabbitProcess = pb.start();
+
+        while(!hostAvailabilityCheck("localhost", jackrabbitPort.toInteger())) {
+            sleep(500)
+        }
     }
-    @Override
-    void preFacadeInit(ExecutionContextFactory ecf) { }
 
     @Override
     Process getInstance(Object... parameters) {
@@ -91,4 +97,17 @@ class JackrabbitRunToolFactory implements ToolFactory<Process> {
     }
 
     ExecutionContextFactory getEcf() { return ecf }
+
+    private static boolean hostAvailabilityCheck(String hostname, int port) {
+        Socket s = null
+        try {
+            s = new Socket(hostname, port)
+            return true
+        } catch (IOException e ) {
+            /* ignore */
+        } finally {
+            if (s != null) try { s.close() } catch (Exception e) {}
+        }
+        return false
+    }
 }

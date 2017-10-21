@@ -22,7 +22,7 @@ import java.util.Deque;
 
 /** BaseArtifactException - extends BaseException to add artifact stack info. */
 public class BaseArtifactException extends BaseException {
-    private Deque<ArtifactExecutionInfo> artifactStack = null;
+    transient private Deque<ArtifactExecutionInfo> artifactStack = null;
 
     public BaseArtifactException(String message) { super(message); populateArtifactStack(); }
     public BaseArtifactException(String message, Deque<ArtifactExecutionInfo> curStack) { super(message); artifactStack = curStack; }

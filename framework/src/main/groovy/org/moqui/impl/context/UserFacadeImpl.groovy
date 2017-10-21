@@ -101,7 +101,7 @@ class UserFacadeImpl implements UserFacade {
         // check for HTTP Basic Authorization for Authentication purposes
         // NOTE: do this even if there is another user logged in, will go on stack
         Map secureParameters = eci.webImpl != null ? eci.webImpl.getSecureRequestParameters() :
-                (!request.getQueryString() ? WebUtilities.simplifyRequestParameters(request) : [:])
+                WebUtilities.simplifyRequestParameters(request, true)
         String authzHeader = request.getHeader("Authorization")
         if (authzHeader != null && authzHeader.length() > 6 && authzHeader.startsWith("Basic ")) {
             String basicAuthEncoded = authzHeader.substring(6).trim()
@@ -134,6 +134,8 @@ class UserFacadeImpl implements UserFacade {
         if (eci.webImpl != null && !this.visitId && !eci.getSkipStats()) {
             MNode serverStatsNode = eci.ecfi.getServerStatsNode()
             ScreenUrlInfo sui = ScreenUrlInfo.getScreenUrlInfo(eci.screenFacade, request)
+            // before doing anything with the visit, etc make sure exists
+            sui.checkExists()
             boolean isJustContent = sui.fileResourceRef != null
 
             // handle visitorId and cookie
@@ -470,8 +472,7 @@ class UserFacadeImpl implements UserFacade {
             return false
         }
 
-        UsernamePasswordToken token = new UsernamePasswordToken(username, password)
-        token.rememberMe = true
+        UsernamePasswordToken token = new UsernamePasswordToken(username, password, true)
         Subject loginSubject = makeEmptySubject()
         try {
             loginSubject.login(token)
@@ -504,30 +505,24 @@ class UserFacadeImpl implements UserFacade {
             return false
         }
 
-        // since this doesn't go through the Shiro realm and do validations, do them now
+        UsernamePasswordToken token = new MoquiShiroRealm.ForceLoginToken(username, true)
+        Subject loginSubject = makeEmptySubject()
         try {
-            EntityValue newUserAccount = MoquiShiroRealm.loginPrePassword(eci, username)
-            MoquiShiroRealm.loginPostPassword(eci, newUserAccount)
-            // don't save the history, this is used for async/scheduled service calls and often has ms time conflicts
-            // also used in REST and other API calls with login key, high volume and better not to save
-            // MoquiShiroRealm.loginAfterAlways(eci, (String) newUserAccount.userId, null, true)
+            loginSubject.login(token)
+
+            // do this first so that the rest will be done as this user
+            // just in case there is already a user authenticated push onto a stack to remember
+            pushUserSubject(loginSubject)
+
+            // after successful login trigger the after-login actions
+            if (eci.getWebImpl() != null) {
+                eci.getWebImpl().runAfterLoginActions()
+                eci.getWebImpl().getRequest().setAttribute("moqui.request.authenticated", "true")
+            }
         } catch (AuthenticationException ae) {
-            // others to consider handling differently (these all inherit from AuthenticationException):
-            //     UnknownAccountException, IncorrectCredentialsException, ExpiredCredentialsException,
-            //     CredentialsException, LockedAccountException, DisabledAccountException, ExcessiveAttemptsException
             eci.messageFacade.addError(ae.message)
             logger.warn("Login failure: ${eci.message.errorsString}", ae)
             return false
-        }
-
-        // do this first so that the rest will be done as this user
-        // just in case there is already a user authenticated push onto a stack to remember
-        pushUser(username)
-
-        // after successful login trigger the after-login actions
-        if (eci.getWebImpl() != null) {
-            eci.getWebImpl().runAfterLoginActions()
-            eci.getWebImpl().getRequest().setAttribute("moqui.request.authenticated", "true")
         }
 
         return true

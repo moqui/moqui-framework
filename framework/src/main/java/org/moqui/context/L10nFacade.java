@@ -13,6 +13,7 @@
  */
 package org.moqui.context;
 
+import java.sql.Timestamp;
 import java.util.Locale;
 import java.util.TimeZone;
 
@@ -55,7 +56,8 @@ public interface L10nFacade {
 
     java.sql.Time parseTime(String input, String format);
     java.sql.Date parseDate(String input, String format);
-    java.sql.Timestamp parseTimestamp(String input, String format);
+    Timestamp parseTimestamp(String input, String format);
+    Timestamp parseTimestamp(String input, String format, Locale locale, TimeZone timeZone);
     java.util.Calendar parseDateTime(String input, String format);
 
     java.math.BigDecimal parseNumber(String input, String format);

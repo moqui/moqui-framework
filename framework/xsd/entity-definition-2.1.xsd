@@ -488,7 +488,10 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element ref="complex-alias-field"/>
             </xs:choice>
             <xs:attribute name="operator" type="xs:string" default="+"/>
-            <xs:attribute name="expression" type="xs:string"/>
+            <xs:attribute name="function" type="xs:string"><xs:annotation>
+                <xs:documentation>If specified operator is ignored and child elements are treated as function parameters</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="expression" type="xs:string"><xs:annotation><xs:documentation>If specified all else is ignored and
+                only this is included in the SQL test. Expression may use ${} for field expansion</xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="complex-alias-field">
