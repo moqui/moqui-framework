@@ -13,8 +13,16 @@
  */
 package org.moqui.impl.context
 
-import groovy.json.JsonBuilder
-import groovy.json.JsonSlurper
+import com.fasterxml.jackson.annotation.JsonInclude
+import com.fasterxml.jackson.core.JsonGenerator
+import com.fasterxml.jackson.core.JsonProcessingException
+import com.fasterxml.jackson.databind.DeserializationFeature
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.SerializationFeature
+import com.fasterxml.jackson.databind.SerializerProvider
+import com.fasterxml.jackson.databind.module.SimpleModule
+import com.fasterxml.jackson.databind.ser.std.StdSerializer
 import groovy.transform.CompileStatic
 
 import org.apache.commons.fileupload.FileItem
@@ -40,7 +48,6 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import javax.servlet.ServletContext
-import javax.servlet.ServletInputStream
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
 import javax.servlet.http.HttpSession
@@ -49,6 +56,18 @@ import javax.servlet.http.HttpSession
 @CompileStatic
 class WebFacadeImpl implements WebFacade {
     protected final static Logger logger = LoggerFactory.getLogger(WebFacadeImpl.class)
+
+    protected final static ObjectMapper jacksonMapper = new ObjectMapper()
+            .setSerializationInclusion(JsonInclude.Include.ALWAYS)
+            .enable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS).enable(SerializationFeature.INDENT_OUTPUT)
+            .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
+            .configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true)
+    static {
+        // Jackson custom serializers, etc
+        SimpleModule module = new SimpleModule()
+        module.addSerializer(GString, new GStringJsonSerializer())
+        jacksonMapper.registerModule(module)
+    }
 
     // Not using shared root URL cache because causes issues when requests come to server through different hosts/etc:
     // protected static final Map<String, String> webappRootUrlByParms = new HashMap()
@@ -117,20 +136,18 @@ class WebFacadeImpl implements WebFacade {
                 while ((curLine = reader.readLine()) != null) bodyBuilder.append(curLine)
             }
             if (bodyBuilder.length() > 0) {
-                JsonSlurper slurper = new JsonSlurper()
-                Object jsonObj = null
                 try {
-                    jsonObj = slurper.parseText(bodyBuilder.toString())
+                    JsonNode jsonNode = jacksonMapper.readTree(bodyBuilder.toString())
+                    if (jsonNode.isObject()) {
+                        jsonParameters = jacksonMapper.treeToValue(jsonNode, Map.class)
+                    } else if (jsonNode.isArray()) {
+                        jsonParameters = [_requestBodyJsonList:jacksonMapper.treeToValue(jsonNode, List.class)] as Map<String, Object>
+                    }
                 } catch (Throwable t) {
                     logger.error("Error parsing HTTP request body JSON: ${t.toString()}", t)
                     jsonParameters = [_requestBodyJsonParseError:t.getMessage()] as Map<String, Object>
                 }
-                if (jsonObj instanceof Map) {
-                    jsonParameters = (Map<String, Object>) jsonObj
-                } else if (jsonObj instanceof List) {
-                    jsonParameters = [_requestBodyJsonList:jsonObj]
-                }
-                // logger.warn("=========== Got JSON HTTP request body: ${jsonParameters}")
+                logger.warn("=========== Got JSON HTTP request body: ${jsonParameters}")
             }
         } else if (ServletFileUpload.isMultipartContent(request)) {
             // if this is a multi-part request, get the data for it
@@ -373,7 +390,7 @@ class WebFacadeImpl implements WebFacade {
         if (declaredPathParameters != null) cs.push(new WebUtilities.CanonicalizeMap(declaredPathParameters))
 
         // no longer uses CanonicalizeMap, search Map for String[] of size 1 and change to String
-        Map<String, Object> reqParmMap = WebUtilities.simplifyRequestParameters(request)
+        Map<String, Object> reqParmMap = WebUtilities.simplifyRequestParameters(request, false)
         if (reqParmMap.size() > 0) cs.push(reqParmMap)
 
         // NOTE: We decode path parameter ourselves, so use getRequestURI instead of getPathInfo
@@ -392,12 +409,13 @@ class WebFacadeImpl implements WebFacade {
         if (savedParameters) cs.push(savedParameters)
         if (multiPartParameters) cs.push(multiPartParameters)
         if (jsonParameters) cs.push(jsonParameters)
-        if (!request.getQueryString()) {
-            Map<String, Object> reqParmMap = WebUtilities.simplifyRequestParameters(request)
-            if (reqParmMap.size() > 0) cs.push(reqParmMap)
-        }
+
+        Map<String, Object> reqParmMap = WebUtilities.simplifyRequestParameters(request, true)
+        if (reqParmMap.size() > 0) cs.push(reqParmMap)
+
         return cs
     }
+
     @Override
     String getHostName(boolean withPort) {
         URL requestUrl = new URL(getRequest().getRequestURL().toString())
@@ -426,7 +444,7 @@ class WebFacadeImpl implements WebFacade {
     HttpSession getSession() { return request.getSession(true) }
     @Override
     Map<String, Object> getSessionAttributes() {
-        if (sessionAttributes) return sessionAttributes
+        if (sessionAttributes != null) return sessionAttributes
         sessionAttributes = new WebUtilities.AttributeContainerMap(new WebUtilities.HttpSessionContainer(getSession()))
         return sessionAttributes
     }
@@ -435,7 +453,7 @@ class WebFacadeImpl implements WebFacade {
     ServletContext getServletContext() { return getSession().getServletContext() }
     @Override
     Map<String, Object> getApplicationAttributes() {
-        if (applicationAttributes) return applicationAttributes
+        if (applicationAttributes != null) return applicationAttributes
         applicationAttributes = new WebUtilities.AttributeContainerMap(new WebUtilities.ServletContextContainer(getServletContext()))
         return applicationAttributes
     }
@@ -559,23 +577,16 @@ class WebFacadeImpl implements WebFacade {
         return sb.toString()
     }
 
-    @Override
-    Map<String, Object> getErrorParameters() { return errorParameters }
-    @Override
-    List<String> getSavedMessages() { return savedMessages }
-    @Override
-    List<String> getSavedErrors() { return savedErrors }
-    @Override
-    List<ValidationError> getSavedValidationErrors() { return savedValidationErrors }
-
+    @Override Map<String, Object> getErrorParameters() { return errorParameters }
+    @Override List<String> getSavedMessages() { return savedMessages }
+    @Override List<String> getSavedErrors() { return savedErrors }
+    @Override List<ValidationError> getSavedValidationErrors() { return savedValidationErrors }
 
     @Override
-    void sendJsonResponse(Object responseObj) {
-        sendJsonResponseInternal(responseObj, eci, request, response, requestAttributes)
-    }
+    void sendJsonResponse(Object responseObj) { sendJsonResponseInternal(responseObj, eci, request, response, requestAttributes) }
     static void sendJsonResponseInternal(Object responseObj, ExecutionContextImpl eci, HttpServletRequest request,
                                          HttpServletResponse response, Map<String, Object> requestAttributes) {
-        String jsonStr
+        String jsonStr = null
         if (responseObj instanceof CharSequence) {
             jsonStr = responseObj.toString()
             responseObj = null
@@ -609,13 +620,7 @@ class WebFacadeImpl implements WebFacade {
         }
 
         // logger.warn("========== Sending JSON for object: ${responseObj}")
-        if (responseObj != null) {
-            JsonBuilder jb = new JsonBuilder()
-            if (responseObj instanceof Map) { jb.call((Map) responseObj) }
-            else if (responseObj instanceof List) { jb.call((List) responseObj) }
-            else { jb.call((Object) responseObj) }
-            jsonStr = jb.toPrettyString()
-        }
+        if (responseObj != null) jsonStr = jacksonMapper.writeValueAsString(responseObj)
 
         if (!jsonStr) return
 
@@ -641,10 +646,8 @@ class WebFacadeImpl implements WebFacade {
     }
 
     void sendJsonError(int statusCode, String errorMessages) {
-        JsonBuilder jb = new JsonBuilder()
         // NOTE: uses same field name as sendJsonResponseInternal
-        jb.call([errorCode:statusCode, errors:errorMessages])
-        String jsonStr = jb.toString()
+        String jsonStr = jacksonMapper.writeValueAsString([errorCode:statusCode, errors:errorMessages])
         response.setContentType("application/json")
         // NOTE: String.length not correct for byte length
         String charset = response.getCharacterEncoding() ?: "UTF-8"
@@ -703,16 +706,11 @@ class WebFacadeImpl implements WebFacade {
         }
     }
 
-    @Override
-    void sendResourceResponse(String location) {
-        sendResourceResponseInternal(location, false, eci, response)
-    }
-    void sendResourceResponse(String location, boolean inline) {
-        sendResourceResponseInternal(location, inline, eci, response)
-    }
+    @Override void sendResourceResponse(String location) { sendResourceResponseInternal(location, false, eci, response) }
+    void sendResourceResponse(String location, boolean inline) { sendResourceResponseInternal(location, inline, eci, response) }
     static void sendResourceResponseInternal(String location, boolean inline, ExecutionContextImpl eci, HttpServletResponse response) {
         ResourceReference rr = eci.resource.getLocationReference(location)
-        if (rr == null) {
+        if (rr == null || (rr.supportsExists() && !rr.getExists())) {
             logger.warn("Sending not found response, resource not found at: ${location}")
             response.sendError(HttpServletResponse.SC_NOT_FOUND)
             return
@@ -721,11 +719,18 @@ class WebFacadeImpl implements WebFacade {
         if (contentType) response.setContentType(contentType)
         if (inline) {
             response.addHeader("Content-Disposition", "inline")
+            response.addHeader("Cache-Control", "max-age=3600, must-revalidate, public")
         } else {
             response.addHeader("Content-Disposition", "attachment; filename=\"${rr.getFileName()}\"; filename*=utf-8''${StringUtilities.encodeAsciiFilename(rr.getFileName())}")
         }
-        if (!contentType || ResourceReference.isBinaryContentType(contentType)) {
+        if (contentType == null || contentType.isEmpty() || ResourceReference.isBinaryContentType(contentType)) {
             InputStream is = rr.openStream()
+            if (is == null) {
+                logger.warn("Sending not found response, openStream returned null for location: ${location}")
+                response.sendError(HttpServletResponse.SC_NOT_FOUND)
+                return
+            }
+
             try {
                 OutputStream os = response.outputStream
                 try {
@@ -744,11 +749,8 @@ class WebFacadeImpl implements WebFacade {
         }
     }
 
-    @Override
-    void handleXmlRpcServiceCall() { new ServiceXmlRpcDispatcher(eci).dispatch(request, response) }
-
-    @Override
-    void handleJsonRpcServiceCall() { new ServiceJsonRpcDispatcher(eci).dispatch() }
+    @Override void handleXmlRpcServiceCall() { new ServiceXmlRpcDispatcher(eci).dispatch(request, response) }
+    @Override void handleJsonRpcServiceCall() { new ServiceJsonRpcDispatcher(eci).dispatch() }
 
     @Override
     void handleEntityRestCall(List<String> extraPathNameList, boolean masterNameInPath) {
@@ -793,14 +795,14 @@ class WebFacadeImpl implements WebFacade {
                     // logger.warn("========== REST ${method} ${request.getPathInfo()} ${extraPathNameList}; body list object: ${bodyListObj}")
                     parmStack.push()
                     parmStack.putAll((Map) bodyListObj)
-                    Object responseObj = eci.getEntity().rest(method, extraPathNameList, parmStack, masterNameInPath)
+                    Object responseObj = eci.entityFacade.rest(method, extraPathNameList, parmStack, masterNameInPath)
                     responseList.add(responseObj ?: [:])
                     parmStack.pop()
                 }
                 response.addIntHeader('X-Run-Time-ms', (System.currentTimeMillis() - startTime) as int)
                 sendJsonResponse(responseList)
             } else {
-                Object responseObj = eci.getEntity().rest(method, extraPathNameList, parmStack, masterNameInPath)
+                Object responseObj = eci.entityFacade.rest(method, extraPathNameList, parmStack, masterNameInPath)
                 response.addIntHeader('X-Run-Time-ms', (System.currentTimeMillis() - startTime) as int)
 
                 if (parmStack.xTotalCount != null) response.addIntHeader('X-Total-Count', parmStack.xTotalCount as int)
@@ -957,7 +959,9 @@ class WebFacadeImpl implements WebFacade {
 
     void saveScreenLastInfo(String screenPath, Map parameters) {
         session.setAttribute("moqui.screen.last.path", screenPath ?: request.getPathInfo())
-        session.setAttribute("moqui.screen.last.parameters", parameters ?: new HashMap(getRequestParameters()))
+        parameters = parameters ?: new HashMap(getRequestParameters())
+        WebUtilities.testSerialization("moqui.screen.last.parameters", parameters)
+        session.setAttribute("moqui.screen.last.parameters", parameters)
     }
 
     String getRemoveScreenLastPath() {
@@ -977,6 +981,7 @@ class WebFacadeImpl implements WebFacade {
         List<String> errors = eci.messageFacade.getErrors()
         if (errors != null && errors.size() > 0) session.setAttribute("moqui.message.errors", errors)
         List<ValidationError> validationErrors = eci.messageFacade.validationErrors
+        WebUtilities.testSerialization("moqui.message.validationErrors", validationErrors)
         if (validationErrors != null && validationErrors.size() > 0) session.setAttribute("moqui.message.validationErrors", validationErrors)
     }
 
@@ -995,6 +1000,7 @@ class WebFacadeImpl implements WebFacade {
         if (currentSavedParameters) parms.putAll(currentSavedParameters)
         if (requestParameters) parms.putAll(requestParameters)
         if (requestAttributes) parms.putAll(requestAttributes)
+        WebUtilities.testSerialization("moqui.saved.parameters", parms)
         session.setAttribute("moqui.saved.parameters", parms)
     }
 
@@ -1003,13 +1009,14 @@ class WebFacadeImpl implements WebFacade {
         Map parms = new HashMap()
         if (requestParameters) parms.putAll(requestParameters)
         if (requestAttributes) parms.putAll(requestAttributes)
+        WebUtilities.testSerialization("moqui.saved.parameters", parms)
         session.setAttribute("moqui.error.parameters", parms)
     }
 
-    static byte[] trackingPng = [(byte)0x89,0x50,0x4E,0x47,0x0D,0x0A,0x1A,0x0A,0x00,0x00,0x00,0x0D,0x49,0x48,0x44,0x52,0x00,0x00,0x00,
-                                 0x01,0x00,0x00,0x00,0x01,0x08,0x06,0x00,0x00,0x00,0x1F,0x15,(byte)0xC4,(byte)0x89,0x00,0x00,0x00,0x0B,
-                                 0x49,0x44,0x41,0x54,0x78,(byte)0xDA,0x63,0x60,0x00,0x02,0x00,0x00,0x05,0x00,0x01,(byte)0xE9,(byte)0xFA,
-                                 (byte)0xDC,(byte)0xD8,0x00,0x00,0x00,0x00,0x49,0x45,0x4E,0x44,(byte)0xAE,0x42,0x60,(byte)0x82]
+    static final byte[] trackingPng = [(byte)0x89,0x50,0x4E,0x47,0x0D,0x0A,0x1A,0x0A,0x00,0x00,0x00,0x0D,0x49,0x48,0x44,0x52,0x00,
+            0x00,0x00,0x01,0x00,0x00,0x00,0x01,0x08,0x06,0x00,0x00,0x00,0x1F,0x15,(byte)0xC4,(byte)0x89,0x00,0x00,0x00,0x0B,0x49,
+            0x44,0x41,0x54,0x78,(byte)0xDA,0x63,0x60,0x00,0x02,0x00,0x00,0x05,0x00,0x01,(byte)0xE9,(byte)0xFA,(byte)0xDC,(byte)0xD8,
+            0x00,0x00,0x00,0x00,0x49,0x45,0x4E,0x44,(byte)0xAE,0x42,0x60,(byte)0x82]
     void viewEmailMessage() {
         // first send the empty image
         response.setContentType('image/png')
@@ -1047,5 +1054,11 @@ class WebFacadeImpl implements WebFacade {
         //FileCleaningTracker fileCleaningTracker = FileCleanerCleanup.getFileCleaningTracker(request.getServletContext())
         //factory.setFileCleaningTracker(fileCleaningTracker)
         return factory
+    }
+
+    static class GStringJsonSerializer extends StdSerializer<GString> {
+        GStringJsonSerializer() { super(GString) }
+        @Override void serialize(GString value, JsonGenerator gen, SerializerProvider serializers)
+                throws IOException, JsonProcessingException { if (value != (Object) null) gen.writeString(value.toString()) }
     }
 }

@@ -108,7 +108,8 @@ class EntityFacadeImpl implements EntityFacade {
                 theTimeZone = TimeZone.getTimeZone((String) entityFacadeNode.attribute("database-time-zone"))
             } catch (Exception e) { logger.warn("Error parsing database-time-zone: ${e.toString()}") }
         }
-        databaseTimeZone = theTimeZone ?: TimeZone.getDefault()
+        databaseTimeZone = theTimeZone != null ? theTimeZone : TimeZone.getDefault()
+        logger.info("Database time zone is ${databaseTimeZone}")
         Locale theLocale = null
         if (entityFacadeNode.attribute("database-locale")) {
             try {
@@ -782,6 +783,7 @@ class EntityFacadeImpl implements EntityFacade {
                     String related = reverseRelNode.attribute("related")
                     if (related == null || related.length() == 0) related = reverseRelNode.attribute("related-entity-name")
                     if (!edEntityName.equals(related) && !edFullEntityName.equals(related)) continue
+                    // TODO: instead of checking title check reverse expanded key-map
                     String reverseTitle = reverseRelNode.attribute("title")
                     if (hasTitle) {
                         if (!title.equals(reverseTitle)) continue

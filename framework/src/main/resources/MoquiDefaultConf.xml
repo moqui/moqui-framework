@@ -7,8 +7,12 @@
 
     <!-- Default properties are only set if there is no Java property or environment variable of the same name (or with underscores replaced by dots) -->
 
+    <!-- recommended values: production, dev, test; any code may look at these Java System properties to vary behavior (System.getProperty("instance_purpose")) -->
+    <default-property name="instance_purpose" value="production"/>
+
     <default-property name="default_locale" value="en_US"/>
     <default-property name="default_time_zone" value="US/Pacific"/>
+    <default-property name="database_time_zone" value="US/Pacific"/>
 
     <default-property name="webapp_http_host" value=""/>
     <default-property name="webapp_http_port" value=""/>
@@ -159,8 +163,8 @@
         <artifact-execution type="AT_ENTITY" authz-enabled="true" tarpit-enabled="false"/>
     </artifact-execution-facade>
     <user-facade>
-        <password encrypt-hash-type="SHA-256" min-length="6" min-digits="1" min-others="1"
-                  history-limit="5" change-weeks="104" email-require-change="true" email-expire-hours="48"/>
+        <password encrypt-hash-type="SHA-256" min-length="8" min-digits="1" min-others="1"
+                  history-limit="5" change-weeks="104" email-require-change="false" email-expire-hours="48"/>
         <login-key encrypt-hash-type="SHA-256" expire-hours="144"/><!-- default expire 6 days, 144 hours -->
         <login max-failures="3" disable-minutes="5" history-store="true" history-incorrect-password="false"/>
     </user-facade>
@@ -273,6 +277,7 @@
 
     <entity-facade default-group-name="transactional" entity-eca-enabled="true" sequenced-id-prefix=""
             distributed-cache-invalidate="false" dci-topic-factory="" query-stats="false"
+            database-locale="${default_locale}" database-time-zone="${database_time_zone ?: default_time_zone}"
             crypt-salt="SkcorIuqom" crypt-iter="10" crypt-algo="PBEWithMD5AndDES" crypt-pass="${entity_ds_crypt_pass}">
         <!-- The entity-facade.@default-group-name=transactional, so if other entity groups do not have a data source
             the transactional group's datasource will be used. -->

@@ -489,7 +489,7 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                         ArrayList<Long> hitTimeListCopy = new ArrayList<Long>(hitTimeList)
                         for (int htlInd = 0; htlInd < hitTimeListCopy.size(); htlInd++) {
                             Long hitTime = (Long) hitTimeListCopy.get(htlInd)
-                            if ((hitTime - checkTime) < maxHitsDuration) hitsInDuration++
+                            if (hitTime != null && ((hitTime - checkTime) < maxHitsDuration)) hitsInDuration++
                         }
                     }
                     // logger.warn("TOREMOVE artifact [${tarpitKey}], now has ${hitsInDuration} hits in ${maxHitsDuration} seconds")

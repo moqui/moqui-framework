@@ -33,9 +33,10 @@ public class BaseException extends RuntimeException {
         return filteredTrace;
     }
 
-    public static void filterStackTrace(Throwable t) {
+    public static Throwable filterStackTrace(Throwable t) {
         t.setStackTrace(filterStackTrace(t.getStackTrace()));
         if (t.getCause() != null) filterStackTrace(t.getCause());
+        return t;
     }
     public static StackTraceElement[] filterStackTrace(StackTraceElement[] orig) {
         List<StackTraceElement> newList = new ArrayList<>(orig.length);

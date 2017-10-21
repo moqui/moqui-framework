@@ -183,9 +183,15 @@ class EntityDataDocument {
                 FieldInfo fi = ed.getFieldInfo(fieldAlias)
                 if (fi == null) throw new EntityException("Found DataDocument Condition with alias [${fieldAlias}] that is not aliased in DataDocument ${ddi.dataDocumentId}")
                 if (dataDocumentCondition.getNoCheckSimple("postQuery") != "Y") {
-                    String stringVal = (String) dataDocumentCondition.getNoCheckSimple("fieldValue")
-                    Object objVal = fi.convertFromString(stringVal, eci.l10nFacade)
-                    mainFind.condition(fieldAlias, ((String) dataDocumentCondition.getNoCheckSimple("operator")) ?: 'equals', objVal)
+                    String operator = ((String) dataDocumentCondition.getNoCheckSimple("operator")) ?: 'equals'
+                    String toFieldAlias = (String) dataDocumentCondition.getNoCheckSimple("toFieldNameAlias")
+                    if (toFieldAlias != null && !toFieldAlias.isEmpty()) {
+                        mainFind.conditionToField(fieldAlias, EntityConditionFactoryImpl.stringComparisonOperatorMap.get(operator), toFieldAlias)
+                    } else {
+                        String stringVal = (String) dataDocumentCondition.getNoCheckSimple("fieldValue")
+                        Object objVal = fi.convertFromString(stringVal, eci.l10nFacade)
+                        mainFind.condition(fieldAlias, operator, objVal)
+                    }
                 }
             }
         }
@@ -249,7 +255,9 @@ class EntityDataDocument {
                 for (String pkFieldName in ddi.primaryPkFieldNames) {
                     if (!ddi.fieldAliasPathMap.containsKey(pkFieldName)) continue
                     if (pkCombinedSb.length() > 0) pkCombinedSb.append("::")
-                    pkCombinedSb.append((String) ev.getNoCheckSimple(pkFieldName))
+                    Object pkFieldValue = ev.getNoCheckSimple(pkFieldName)
+                    if (pkFieldValue instanceof Timestamp) pkFieldValue = ((Timestamp) pkFieldValue).getTime()
+                    pkCombinedSb.append(pkFieldValue.toString())
                 }
                 String docId = pkCombinedSb.toString()
 

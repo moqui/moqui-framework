@@ -45,6 +45,7 @@ services:
      - ./runtime/ecomponent:/opt/moqui/runtime/ecomponent
      - ./runtime/log:/opt/moqui/runtime/log
      - ./runtime/txlog:/opt/moqui/runtime/txlog
+     - ./runtime/sessions:/opt/moqui/runtime/sessions
      # this one isn't needed when not using H2/etc: - ./runtime/db:/opt/moqui/runtime/db
      - ./runtime/elasticsearch:/opt/moqui/runtime/elasticsearch
     environment:
@@ -64,7 +65,7 @@ services:
      - webapp_https_port=443
      - webapp_https_enabled=true
      - default_locale=en_US
-     - default_time_zone='US/Pacific'
+     - default_time_zone=US/Pacific
 
   moqui-database:
     image: mysql:5.7

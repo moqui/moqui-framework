@@ -40,6 +40,7 @@ public class FieldInfo {
     public final MNode fieldNode;
     public final String entityName;
     public final String name;
+    public final String aliasFieldName;
     public final ConditionField conditionField;
     public final String type;
     public final String columnName;
@@ -68,8 +69,7 @@ public class FieldInfo {
 
         Map<String, String> fnAttrs = fieldNode.getAttributes();
         String nameAttr = fnAttrs.get("name");
-        if (nameAttr == null)
-            throw new EntityException("No name attribute specified for field in entity " + entityName);
+        if (nameAttr == null) throw new EntityException("No name attribute specified for field in entity " + entityName);
         name = nameAttr.intern();
         conditionField = new ConditionField(this);
         String columnNameAttr = fnAttrs.get("column-name");
@@ -117,6 +117,8 @@ public class FieldInfo {
         }
 
         if (ed.isViewEntity) {
+            String fieldAttr = fieldNode.attribute("field");
+            aliasFieldName = fieldAttr != null && !fieldAttr.isEmpty() ? fieldAttr : name;
             MNode tempMembEntNode = null;
             String entityAlias = fieldNode.attribute("entity-alias");
             if (entityAlias != null && entityAlias.length() > 0) {
@@ -140,6 +142,7 @@ public class FieldInfo {
             hasAggregateFunction = isAggregateAttr != null ? "true".equalsIgnoreCase(isAggregateAttr) :
                     aggFunctions.contains(fieldNode.attribute("function"));
         } else {
+            aliasFieldName = null;
             memberEntityNode = null;
             directMemberEntityNode = null;
             hasAggregateFunction = false;
@@ -149,6 +152,13 @@ public class FieldInfo {
     public String getFullColumnName() {
         if (fullColumnNameInternal != null) return fullColumnNameInternal;
         return ed.efi.ecfi.resourceFacade.expand(expandColumnName, "", null, false);
+    }
+
+    static BigDecimal safeStripZeroes(BigDecimal input) {
+        if (input == null) return null;
+        BigDecimal temp = input.stripTrailingZeros();
+        if (temp.scale() < 0) temp = temp.setScale(0);
+        return temp;
     }
 
     public Object convertFromString(String value, L10nFacadeImpl l10n) {
@@ -186,7 +196,7 @@ public class FieldInfo {
                     if (bdVal == null) {
                         throw new BaseArtifactException("The value [" + value + "] is not valid for type " + javaType + " for field " + entityName + "." + name);
                     } else {
-                        bdVal = bdVal.stripTrailingZeros();
+                        bdVal = safeStripZeroes(bdVal);
                         switch (typeValue) {
                             case 5: outValue = bdVal.intValue(); break;
                             case 6: outValue = bdVal.longValue(); break;
@@ -237,7 +247,7 @@ public class FieldInfo {
                 case 7:
                 case 8:
                 case 9:
-                    if (value instanceof BigDecimal) value = ((BigDecimal) value).stripTrailingZeros();
+                    if (value instanceof BigDecimal) value = safeStripZeroes((BigDecimal) value);
                     L10nFacadeImpl l10n = ed.efi.ecfi.getEci().l10nFacade;
                     outValue = l10n.format(value, null);
                     break;
@@ -312,15 +322,14 @@ public class FieldInfo {
                 }
                 break;
             case 3: value = rs.getTime(index, efi.getCalendarForTzLc()); break;
-            case 4: value = rs.getDate(index, efi.getCalendarForTzLc()); break;
+            // for Date don't pass 2nd param efi.getCalendarForTzLc(), causes issues when Java TZ different from DB TZ
+            // when the JDBC driver converts a string to a Date it uses the TZ from the Calendar but we want the Java default TZ
+            case 4: value = rs.getDate(index); break;
             case 5: int intValue = rs.getInt(index); if (!rs.wasNull()) value = intValue; break;
             case 6: long longValue = rs.getLong(index); if (!rs.wasNull()) value = longValue; break;
             case 7: float floatValue = rs.getFloat(index); if (!rs.wasNull()) value = floatValue; break;
             case 8: double doubleValue = rs.getDouble(index); if (!rs.wasNull()) value = doubleValue; break;
-            case 9:
-                BigDecimal bigDecimalValue = rs.getBigDecimal(index);
-                if (!rs.wasNull()) value = bigDecimalValue != null ? bigDecimalValue.stripTrailingZeros() : null;
-                break;
+            case 9: BigDecimal bdVal = rs.getBigDecimal(index); if (!rs.wasNull()) value = safeStripZeroes(bdVal); break;
             case 10: boolean booleanValue = rs.getBoolean(index); if (!rs.wasNull()) value = booleanValue; break;
             case 11:
                 Object obj = null;
@@ -471,7 +480,7 @@ public class FieldInfo {
                         if (valClass == java.sql.Date.class) {
                             java.sql.Date dt = (java.sql.Date) value;
                             // logger.warn("=================== setting date dt=${dt} dt long=${dt.getTime()}, cal=${cal}")
-                            ps.setDate(index, dt, efi.getCalendarForTzLc());
+                            ps.setDate(index, dt); // Date was likely generated in Java TZ and that's what we want, if DB TZ is different we don't want it to use that
                         } else if (valClass == Timestamp.class) {
                             ps.setDate(index, new java.sql.Date(((Timestamp) value).getTime()), efi.getCalendarForTzLc());
                         } else if (valClass == java.util.Date.class) {

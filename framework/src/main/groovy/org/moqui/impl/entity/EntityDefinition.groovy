@@ -241,16 +241,23 @@ class EntityDefinition {
         MNode memberEntity = memberEntityAliasMap.get(entityAlias)
         if (memberEntity == null) throw new EntityException("Could not find member-entity with entity-alias [${entityAlias}] in view-entity [${getFullEntityName()}]")
         EntityDefinition memberEd = this.efi.getEntityDefinition(memberEntity.attribute("entity-name"))
-        return memberEd.getColumnName(fieldName)
+        FieldInfo fieldInfo = memberEd.getFieldInfo(fieldName)
+        if (fieldInfo == null) throw new EntityException("Invalid field name ${fieldName} for entity ${memberEd.getFullEntityName()}")
+        if ("true".equals(memberEntity.attribute("sub-select"))) {
+            // sub-select uses alias field name changed to underscored
+            return EntityJavaUtil.camelCaseToUnderscored(fieldInfo.name)
+        } else {
+            return fieldInfo.getFullColumnName()
+        }
     }
     String makeFullColumnName(MNode fieldNode, boolean includeEntityAlias) {
         if (!isViewEntity) return null
 
+        String memberAliasName = fieldNode.attribute("name")
         String memberFieldName = fieldNode.attribute("field")
-        if (memberFieldName == null || memberFieldName.isEmpty()) memberFieldName = fieldNode.attribute("name")
+        if (memberFieldName == null || memberFieldName.isEmpty()) memberFieldName = memberAliasName
 
         String entityAlias = fieldNode.attribute("entity-alias")
-        // special case for member-entity with sub-select=true, use alias plus col name with function (if applicable) then sanitized
         if (includeEntityAlias) {
             if (entityAlias == null || entityAlias.isEmpty()) {
                 Set<String> entityAliasUsedSet = new HashSet<>()
@@ -263,20 +270,13 @@ class EntityDefinition {
                 }
                 if (entityAliasUsedSet.size() == 1) entityAlias = entityAliasUsedSet.iterator().next()
             }
+            // might have added entityAlias so check again
             if (entityAlias != null && !entityAlias.isEmpty()) {
+                // special case for member-entity with sub-select=true, use alias underscored
                 MNode memberEntity = (MNode) memberEntityAliasMap.get(entityAlias)
                 EntityDefinition memberEd = this.efi.getEntityDefinition(memberEntity.attribute("entity-name"))
-                if ("true".equals(memberEntity.attribute("sub-select"))) {
-                    String function = fieldNode.attribute("function")
-                    MNode complexAliasNode = fieldNode.first("complex-alias")
-                    if (complexAliasNode != null) {
-                        String colName = makeFullColumnName(fieldNode, false)
-                        return entityAlias + '.' + EntityQueryBuilder.sanitizeColumnName(colName)
-                    } else if (function != null && !function.isEmpty()) {
-                        return entityAlias + '.' + EntityQueryBuilder.sanitizeColumnName(getFunctionPrefix(function) + memberEd.getColumnName(memberFieldName) + ")")
-                    } else {
-                        return entityAlias + '.' + memberEd.getColumnName(memberFieldName)
-                    }
+                if (!memberEd.isViewEntity && "true".equals(memberEntity.attribute("sub-select"))) {
+                    return entityAlias + '.' + EntityJavaUtil.camelCaseToUnderscored(memberAliasName)
                 }
             }
         }
@@ -335,35 +335,50 @@ class EntityDefinition {
         int childListSize = childList.size()
         if (childListSize == 0) return
 
-        String operator = parentNode.attribute("operator")
-        if (operator == null || operator.length() == 0) operator = "+"
+        String caFunction = parentNode.attribute("function")
+        if (caFunction != null && !caFunction.isEmpty()) {
+            colNameBuilder.append(caFunction).append('(')
+            for (int i = 0; i < childListSize; i++) {
+                MNode childNode = (MNode) childList.get(i)
+                if (i > 0) colNameBuilder.append(", ")
 
-        if (addParens && childListSize > 1) colNameBuilder.append('(')
-        for (int i = 0; i < childListSize; i++) {
-            MNode childNode = (MNode) childList.get(i)
-            if (i > 0) colNameBuilder.append(' ').append(operator).append(' ')
-
-            if ("complex-alias".equals(childNode.name)) {
-                buildComplexAliasName(childNode, colNameBuilder, true, includeEntityAlias)
-            } else if ("complex-alias-field".equals(childNode.name)) {
-                String entityAlias = childNode.attribute("entity-alias")
-                String basicColName = getBasicFieldColName(entityAlias, childNode.attribute("field"))
-                String colName = includeEntityAlias ? entityAlias + "." + basicColName : basicColName
-                String defaultValue = childNode.attribute("default-value")
-                String function = childNode.attribute("function")
-
-                if (defaultValue) {
-                    colName = "COALESCE(" + colName + "," + defaultValue + ")"
+                if ("complex-alias".equals(childNode.name)) {
+                    buildComplexAliasName(childNode, colNameBuilder, true, includeEntityAlias)
+                } else if ("complex-alias-field".equals(childNode.name)) {
+                    appenComplexAliasField(childNode, colNameBuilder, includeEntityAlias)
                 }
-                if (function) {
-                    String prefix = getFunctionPrefix(function)
-                    colName = prefix + colName + ")"
-                }
-
-                colNameBuilder.append(colName)
             }
+            colNameBuilder.append(')')
+        } else {
+            String operator = parentNode.attribute("operator")
+            if (operator == null || operator.isEmpty()) operator = "+"
+
+            if (addParens && childListSize > 1) colNameBuilder.append('(')
+            for (int i = 0; i < childListSize; i++) {
+                MNode childNode = (MNode) childList.get(i)
+                if (i > 0) colNameBuilder.append(' ').append(operator).append(' ')
+
+                if ("complex-alias".equals(childNode.name)) {
+                    buildComplexAliasName(childNode, colNameBuilder, true, includeEntityAlias)
+                } else if ("complex-alias-field".equals(childNode.name)) {
+                    appenComplexAliasField(childNode, colNameBuilder, includeEntityAlias)
+                }
+            }
+            if (addParens && childListSize > 1) colNameBuilder.append(')')
         }
-        if (addParens && childListSize > 1) colNameBuilder.append(')')
+    }
+    private void appenComplexAliasField(MNode childNode, StringBuilder colNameBuilder, boolean includeEntityAlias) {
+        String entityAlias = childNode.attribute("entity-alias")
+        String basicColName = getBasicFieldColName(entityAlias, childNode.attribute("field"))
+        String colName = includeEntityAlias ? entityAlias + "." + basicColName : basicColName
+        String defaultValue = childNode.attribute("default-value")
+        String function = childNode.attribute("function")
+
+        if (function) colNameBuilder.append(getFunctionPrefix(function))
+        if (defaultValue) colNameBuilder.append("COALESCE(")
+        colNameBuilder.append(colName)
+        if (defaultValue) colNameBuilder.append(',').append(defaultValue).append(')')
+        if (function) colNameBuilder.append(')')
     }
     protected static String getFunctionPrefix(String function) {
         return (function == "count-distinct") ? "COUNT(DISTINCT " : function.toUpperCase() + '('
@@ -487,10 +502,8 @@ class EntityDefinition {
     String getSchemaName() { return entityInfo.schemaName }
 
     String getColumnName(String fieldName) {
-        FieldInfo fieldInfo = this.getFieldInfo(fieldName)
-        if (fieldInfo == null) {
-            throw new EntityException("Invalid field-name [${fieldName}] for the [${this.getFullEntityName()}] entity")
-        }
+        FieldInfo fieldInfo = getFieldInfo(fieldName)
+        if (fieldInfo == null) throw new EntityException("Invalid field name ${fieldName} for entity ${this.getFullEntityName()}")
         return fieldInfo.getFullColumnName()
     }
 

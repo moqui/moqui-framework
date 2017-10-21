@@ -536,6 +536,7 @@ public class EntityJavaUtil {
                 String relatedAttr = reverseRelNode.attribute("related");
                 if (relatedAttr == null || relatedAttr.isEmpty()) relatedAttr = reverseRelNode.attribute("related-entity-name");
                 String typeAttr = reverseRelNode.attribute("type");
+                // TODO: instead of checking title check reverse expanded key-map
                 String titleAttr = reverseRelNode.attribute("title");
                 if ((fromEd.entityInfo.fullEntityName.equals(relatedAttr) || fromEd.entityInfo.internalEntityName.equals(relatedAttr)) &&
                         ("one".equals(typeAttr) || "one-nofk".equals(typeAttr)) &&
@@ -544,6 +545,19 @@ public class EntityJavaUtil {
                 }
             }
             return false;
+        }
+        public RelationshipInfo findReverse() {
+            ArrayList<RelationshipInfo> relInfoList = relatedEd.getRelationshipsInfo(false);
+            int relInfoListSize = relInfoList.size();
+            for (int i = 0; i < relInfoListSize; i++) {
+                EntityJavaUtil.RelationshipInfo relInfo = relInfoList.get(i);
+                // TODO: instead of checking title check reverse expanded key-map
+                if (fromEd.fullEntityName.equals(relInfo.relatedEntityName) &&
+                        ((title == null && relInfo.title == null) || (title != null && title.equals(relInfo.title)))) {
+                    return relInfo;
+                }
+            }
+            return null;
         }
         public Map<String, Object> getTargetParameterMap(Map valueSource) {
             if (valueSource == null || valueSource.isEmpty()) return new LinkedHashMap<>();

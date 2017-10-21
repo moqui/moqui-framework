@@ -436,6 +436,8 @@ class ScreenRenderImpl implements ScreenRender {
                 } else {
                     // default is screen-path
                     UrlInstance fullUrl = buildUrl(rootScreenDef, screenUrlInfo.preTransitionPathNameList, url)
+                    // copy through pageIndex if passed so in form-list with multiple pages we stay on same page
+                    if (web.requestParameters.containsKey("pageIndex")) fullUrl.addParameter("pageIndex", (String) web.parameters.get("pageIndex"))
                     fullUrl.addParameters(ri.expandParameters(screenUrlInfo.getExtraPathNameList(), ec))
                     // if this was a screen-last and the screen has declared parameters include them in the URL
                     Map savedParameters = wfi?.getSavedParameters()
@@ -1200,16 +1202,16 @@ class ScreenRenderImpl implements ScreenRender {
     String pushContext() { ec.getContext().push(); return "" }
     String popContext() { ec.getContext().pop(); return "" }
 
-    /** Call this at the beginning of a form-single. Always call popContext() at the end of the form! */
-    String pushSingleFormMapContext(MNode formNode) {
+    /** Call this at the beginning of a form-single or for form-list.@first-row-map and @last-row-map. Always call popContext() at the end of the form! */
+    String pushSingleFormMapContext(String mapExpr) {
         ContextStack cs = ec.getContext()
-        String mapName = formNode.attribute("map") ?: "fieldValues"
-        Map valueMap = (Map) cs.getByString(mapName)
+        Map valueMap = null
+        if (mapExpr != null && !mapExpr.isEmpty()) valueMap = (Map) ec.resourceFacade.expression(mapExpr, null)
+        if (valueMap == null) valueMap = new HashMap()
 
         cs.push()
-        if (valueMap) cs.putAll(valueMap)
+        cs.putAll(valueMap)
         cs.put("_formMap", valueMap)
-        cs.put(mapName, valueMap)
 
         return ""
     }
@@ -1294,6 +1296,31 @@ class ScreenRenderImpl implements ScreenRender {
             return ec.resourceFacade.expandNoL10n(defaultValue, "")
         return ObjectUtilities.toPlainString(obj)
     }
+    String getNamedValuePlain(String fieldName, MNode formNode) {
+        Object value = null
+        if ("form-single".equals(formNode.name)) {
+            String mapAttr = formNode.attribute("map")
+            String mapName = mapAttr != null && mapAttr.length() > 0 ? mapAttr : "fieldValues"
+            Map valueMap = (Map) ec.resource.expression(mapName, "")
+
+            if (valueMap != null) {
+                try {
+                    if (valueMap instanceof EntityValueBase) {
+                        // if it is an EntityValueImpl, only get if the fieldName is a value
+                        EntityValueBase evb = (EntityValueBase) valueMap
+                        if (evb.getEntityDefinition().isField(fieldName)) value = evb.get(fieldName)
+                    } else {
+                        value = valueMap.get(fieldName)
+                    }
+                } catch (EntityException e) {
+                    // do nothing, not necessarily an entity field
+                    if (isTraceEnabled) logger.trace("Ignoring entity exception for non-field: ${e.toString()}")
+                }
+            }
+        }
+        if (value == null) value = ec.contextStack.getByString(fieldName)
+        return ObjectUtilities.toPlainString(value)
+    }
 
     Object getFieldValue(MNode fieldNode, String defaultValue) {
         String fieldName = fieldNode.attribute("name")
@@ -1321,7 +1348,7 @@ class ScreenRenderImpl implements ScreenRender {
                 try {
                     if (valueMap instanceof EntityValueBase) {
                         // if it is an EntityValueImpl, only get if the fieldName is a value
-                        EntityValueBase evb = (EntityValueImpl) valueMap
+                        EntityValueBase evb = (EntityValueBase) valueMap
                         if (evb.getEntityDefinition().isField(fieldName)) value = evb.get(fieldName)
                     } else {
                         value = valueMap.get(fieldName)
