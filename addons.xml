@@ -61,9 +61,17 @@
 
     <!-- Component Sets -->
     <component-set name="framework" components="example,moqui-camel,moqui-elasticsearch,moqui-fop,moqui-hazelcast,moqui-kie,moqui-orientdb"/>
-    <component-set name="mantle" components="mantle-udm,mantle-usl,mantle-edi,AuthorizeDotNet,SimpleScreens"/>
+    <component-set name="mantle" components="mantle-udm,mantle-usl,mantle-edi,AuthorizeDotNet,mantle-shippo,SimpleScreens"/>
     <component-set name="apps" components="HiveMind,PopCommerce"/>
     <component-set name="ecosystem" sets="framework,mantle,apps"/>
 
     <component-set name="demo" components="example,HiveMind,PopCommerce"/>
+
+    <!-- Release builds:
+        gradle getComponentSet -PcomponentSet=demo -PlocationType=release
+        gradle getComponent -Pcomponent=PopCommerce -PlocationType=release
+        gradle getComponent -Pcomponent=HiveMind -PlocationType=release
+        - these make the source distro for each
+        - to build the demo war: gradle load test addRuntime
+    -->
 </addons>
