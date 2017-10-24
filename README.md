@@ -5,6 +5,8 @@
 [![release](https://img.shields.io/github/release/moqui/moqui-framework.svg)](https://github.com/moqui/moqui-framework/releases)
 [![commits since release](http://img.shields.io/github/commits-since/moqui/moqui-framework/v2.1.0.svg)](https://github.com/moqui/moqui-framework/commits/master)
 [![downloads](https://img.shields.io/github/downloads/moqui/moqui-framework/total.svg)](https://github.com/moqui/moqui-framework/releases)
+[![downloads](https://img.shields.io/github/downloads/moqui/moqui-framework/latest/total.svg)](https://github.com/moqui/moqui-framework/releases)
+[![downloads](https://img.shields.io/github/downloads/moqui/moqui-framework/v2.0.0/total.svg)](https://github.com/moqui/moqui-framework/releases)
 
 [![LinkedIn Group](https://img.shields.io/badge/linked%20in%20group-moqui-blue.svg)](https://www.linkedin.com/groups/4640689)
 [![Google Group](https://img.shields.io/badge/google%20group-moqui-blue.svg)](https://groups.google.com/d/forum/moqui)
