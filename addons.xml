@@ -40,9 +40,10 @@
     <component name="mantle-udm" group="moqui" version="2.0.0" branch="master"/>
     <component name="mantle-usl" group="moqui" version="2.0.0" branch="master"/>
 
-    <component name="mantle-edi" group="moqui" version="1.1.1" branch="master"/>
-    <component name="AuthorizeDotNet" group="moqui" version="1.2.0" branch="master"/>
-    <component name="mantle-shippo" group="moqui" version="1.0.0" branch="master"/>
+    <component name="mantle-edi" group="moqui" version="1.1.0" branch="master"/>
+    <component name="AuthorizeDotNet" group="moqui" version="1.1.0" branch="master"/>
+    <component name="mantle-braintree" group="moqui" version="" branch="master"/><!-- no releases -->
+    <component name="mantle-shippo" group="moqui" version="" branch="master"/><!-- no releases -->
 
     <component name="mantle-ubpl" group="moqui" version="" branch="master"/><!-- no releases -->
     <component name="mantle-oagis" group="moqui" version="" branch="master"/><!-- no releases -->
