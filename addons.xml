@@ -42,6 +42,7 @@
 
     <component name="mantle-edi" group="moqui" version="1.1.0" branch="master"/>
     <component name="AuthorizeDotNet" group="moqui" version="1.1.0" branch="master"/>
+    <component name="mantle-braintree" group="moqui" version="" branch="master"/><!-- no releases -->
     <component name="mantle-shippo" group="moqui" version="" branch="master"/><!-- no releases -->
 
     <component name="mantle-ubpl" group="moqui" version="" branch="master"/><!-- no releases -->
