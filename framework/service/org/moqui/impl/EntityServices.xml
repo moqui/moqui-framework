@@ -14,6 +14,10 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
 
+    <!-- ==================================================== -->
+    <!-- ========== DataDocument and Feed Services ========== -->
+    <!-- ==================================================== -->
+
     <!-- org.moqui.impl.EntityServices.index#DataDocuments moved to org.moqui.search.SearchServices.index#DataDocuments -->
     <!-- org.moqui.impl.EntityServices.put#DataDocumentMappings moved to org.moqui.search.SearchServices.put#DataDocumentMappings -->
     <!-- org.moqui.impl.EntityServices.index#DataFeedDocuments moved to org.moqui.search.SearchServices.index#DataFeedDocuments -->
@@ -44,11 +48,14 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="create" noun="DataDocument">
         <in-parameters>
             <auto-parameters include="nonpk"/>
-            <parameter name="dataDocumentId" required="true"><matches regexp="\w*" message="Must contain only letters and digits"/></parameter>
-            <parameter name="indexName"><matches regexp="[a-z0-9_]*" message="Must contain only lower case letters, digits, and underscore"/></parameter>
+            <parameter name="dataDocumentId" required="true"><matches regexp="[A-Z]\w*" message="Must start with a upper case letter and contain only letters and digits"/></parameter>
+            <parameter name="indexName"><matches regexp="[a-z][a-z0-9_]*" message="Must contain only lower case letters, digits, and underscore"/></parameter>
             <parameter name="userGroupId"/>
         </in-parameters>
         <actions>
+            <entity-find-one entity-name="moqui.entity.document.DataDocument" value-field="existing"/>
+            <if condition="existing != null || ec.entity.isEntityDefined(dataDocumentId)"><return error="true" message="ID '${dataDocumentId}' already in use"/></if>
+
             <service-call name="create#moqui.entity.document.DataDocument" in-map="context" out-map="context"/>
             <if condition="userGroupId"><service-call name="create#moqui.entity.document.DataDocumentUserGroup"
                     in-map="[dataDocumentId:dataDocumentId, userGroupId:userGroupId]"/></if>
@@ -73,8 +80,8 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="clone" noun="DataDocument">
         <in-parameters>
             <parameter name="dataDocumentId" required="true"/>
-            <parameter name="newDataDocumentId" required="true"><matches regexp="\w*" message="Must contain only letters and digits"/></parameter>
-            <parameter name="newIndexName"><matches regexp="[a-z0-9_]*" message="Must contain only lower case letters, digits, and underscore"/></parameter>
+            <parameter name="newDataDocumentId" required="true"><matches regexp="[A-Z]\w*" message="Must start with a upper case letter and contain only letters and digits"/></parameter>
+            <parameter name="newIndexName"><matches regexp="[a-z][a-z0-9_]*" message="Must contain only lower case letters, digits, and underscore"/></parameter>
             <parameter name="copyConditions" default="false" type="Boolean"/>
             <parameter name="copyLinks" default="false" type="Boolean"/>
         </in-parameters>
@@ -218,7 +225,27 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
+    <!-- =========================================== -->
+    <!-- ========== DbViewEntity Services ========== -->
+    <!-- =========================================== -->
+
+    <service verb="create" noun="DbViewEntity">
+        <in-parameters>
+            <auto-parameters include="nonpk"/>
+            <parameter name="dbViewEntityName" required="true"><matches regexp="[A-Z]\w*" message="Must start with a upper case letter and contain only letters and digits"/></parameter>
+            <parameter name="packageName"><matches regexp="[a-z][a-z0-9\.]*" message="Must start with a lower case letter and contain only lower case letters, digits, and dot/period"/></parameter>
+        </in-parameters>
+        <actions>
+            <entity-find-one entity-name="moqui.entity.view.DbViewEntity" value-field="existing"/>
+            <if condition="existing || ec.entity.isEntityDefined(dbViewEntityName)"><return error="true" message="Name '${dbViewEntityName}' already in use"/></if>
+
+            <service-call name="create#moqui.entity.view.DbViewEntity" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+
+    <!-- ==================================================== -->
     <!-- ========== Entity Data Snapshots Services ========== -->
+    <!-- ==================================================== -->
 
     <service verb="export" noun="EntityDataSnapshot" transaction-timeout="3600">
         <in-parameters>

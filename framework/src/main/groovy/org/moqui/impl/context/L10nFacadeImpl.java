@@ -151,7 +151,9 @@ public class L10nFacadeImpl implements L10nFacade {
 
         return null;
     }
-    public static String formatTime(Time input, String format, Locale locale, TimeZone tz) {
+    public String formatTime(Time input, String format, Locale locale, TimeZone tz) {
+        if (locale == null) locale = getLocale();
+        if (tz == null) tz = getTimeZone();
         if (format == null || format.isEmpty()) format = "HH:mm:ss";
         String timeStr = calendarValidator.format(input, format, locale, tz);
         // logger.warn("============= formatTime input=${input} timeStr=${timeStr} long=${input.getTime()}")
@@ -198,7 +200,9 @@ public class L10nFacadeImpl implements L10nFacade {
 
         return null;
     }
-    public static String formatDate(java.util.Date input, String format, Locale locale, TimeZone tz) {
+    public String formatDate(java.util.Date input, String format, Locale locale, TimeZone tz) {
+        if (locale == null) locale = getLocale();
+        // if (tz == null) tz = getTimeZone();
         if (format == null || format.isEmpty()) format = "yyyy-MM-dd";
         // See comment in parseDate for why we are ignoring the time zone
         // String dateStr = calendarValidator.format(input, format, getLocale(), getTimeZone())
@@ -220,8 +224,13 @@ public class L10nFacadeImpl implements L10nFacade {
     @Override
     public Timestamp parseTimestamp(String input, String format) {
         if (input == null || input.isEmpty()) return null;
-        Locale curLocale = getLocale();
-        TimeZone curTz = getTimeZone();
+        return parseTimestamp(input, format, null, null);
+    }
+    @Override
+    public Timestamp parseTimestamp(final String input, final String format, final Locale locale, final TimeZone timeZone) {
+        if (input == null || input.isEmpty()) return null;
+        Locale curLocale = locale != null ? locale : getLocale();
+        TimeZone curTz = timeZone != null ? timeZone : getTimeZone();
         Calendar cal = null;
         if (format != null && !format.isEmpty()) cal = calendarValidator.validate(input, format, curLocale, curTz);
 
@@ -266,19 +275,18 @@ public class L10nFacadeImpl implements L10nFacade {
         return calendarValidator.format(input, format, locale, tz);
     }
 
-    @Override
-    public Calendar parseDateTime(String input, String format) {
-        return calendarValidator.validate(input, format, getLocale(), getTimeZone());
-    }
-    public static String formatDateTime(Calendar input, String format, Locale locale, TimeZone tz) {
+    @Override public Calendar parseDateTime(String input, String format) {
+        return calendarValidator.validate(input, format, getLocale(), getTimeZone()); }
+    public String formatDateTime(Calendar input, String format, Locale locale, TimeZone tz) {
+        if (locale == null) locale = getLocale();
+        if (tz == null) tz = getTimeZone();
         return calendarValidator.format(input, format, locale, tz);
     }
 
-    @Override
-    public BigDecimal parseNumber(String input, String format) {
-        return bigDecimalValidator.validate(input, format, getLocale());
-    }
-    public static String formatNumber(Number input, String format, Locale locale) {
+    @Override public BigDecimal parseNumber(String input, String format) {
+        return bigDecimalValidator.validate(input, format, getLocale()); }
+    public String formatNumber(Number input, String format, Locale locale) {
+        if (locale == null) locale = getLocale();
         return bigDecimalValidator.format(input, format, locale);
     }
 

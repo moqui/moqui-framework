@@ -16,6 +16,7 @@ package org.moqui.impl.screen
 import groovy.transform.CompileStatic
 import org.codehaus.groovy.runtime.InvokerHelper
 import org.moqui.BaseArtifactException
+import org.moqui.BaseException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.ExecutionContext
 import org.moqui.impl.context.ContextJavaUtil
@@ -354,11 +355,16 @@ class ScreenDefinition {
             if (remainingPathNameList.size() > 1) {
                 ArrayList<String> subPathNameList = new ArrayList<>(remainingPathNameList)
                 subPathNameList.remove(0)
-                ScreenDefinition subSd = sfi.getScreenDefinition(curSsi.getLocation())
-                ArrayList<String> subPath = subSd.findSubscreenPath(subPathNameList)
-                if (!subPath) return null
-                subPath.add(0, curName)
-                return subPath
+                try {
+                    ScreenDefinition subSd = sfi.getScreenDefinition(curSsi.getLocation())
+                    ArrayList<String> subPath = subSd.findSubscreenPath(subPathNameList)
+                    if (!subPath) return null
+                    subPath.add(0, curName)
+                    return subPath
+                } catch (Exception e) {
+                    logger.error("Error finding subscreens under screen at ${curSsi.getLocation()}", BaseException.filterStackTrace(e))
+                    return null
+                }
             } else {
                 return remainingPathNameList
             }
@@ -369,9 +375,14 @@ class ScreenDefinition {
 
         // breadth first by looking at subscreens of each subscreen on a first pass
         for (Map.Entry<String, SubscreensItem> entry in subscreensByName.entrySet()) {
-            ScreenDefinition subSd = sfi.getScreenDefinition(entry.getValue().getLocation())
+            ScreenDefinition subSd = null
+            try {
+                subSd = sfi.getScreenDefinition(entry.getValue().getLocation())
+            } catch (Exception e) {
+                logger.error("Error finding subscreens under screen ${entry.key} at ${entry.getValue().getLocation()}", BaseException.filterStackTrace(e))
+            }
             if (subSd == null) {
-                if (logger.isTraceEnabled()) logger.trace("Screen [${entry.getKey()}] at location [${entry.getValue().getLocation()}] not found, subscreen of [${this.getLocation()}]")
+                if (logger.isTraceEnabled()) logger.trace("Screen ${entry.getKey()} at ${entry.getValue().getLocation()} not found, subscreen of [${this.getLocation()}]")
                 continue
             }
             SubscreensItem subSsi = subSd.getSubscreensItem(curName)
@@ -395,9 +406,14 @@ class ScreenDefinition {
         }
         // not immediate child or grandchild subscreen, start recursion
         for (Map.Entry<String, SubscreensItem> entry in subscreensByName.entrySet()) {
-            ScreenDefinition subSd = sfi.getScreenDefinition(entry.getValue().getLocation())
+            ScreenDefinition subSd = null
+            try {
+                subSd = sfi.getScreenDefinition(entry.getValue().getLocation())
+            } catch (Exception e) {
+                logger.error("Error finding subscreens under screen ${entry.key} at ${entry.getValue().getLocation()}", BaseException.filterStackTrace(e))
+            }
             if (subSd == null) {
-                if (logger.isTraceEnabled()) logger.trace("Screen [${entry.getKey()}] at location [${entry.getValue().getLocation()}] not found, subscreen of [${this.getLocation()}]")
+                if (logger.isTraceEnabled()) logger.trace("Screen ${entry.getKey()} at ${entry.getValue().getLocation()} not found, subscreen of [${this.getLocation()}]")
                 continue
             }
             List<String> subPath = subSd.findSubscreenPath(remainingPathNameList)
