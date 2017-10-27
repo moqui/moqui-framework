@@ -518,7 +518,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
             String colName = localEntityDefinition.getColumnName(joinField);
             localBuilder.append(colName).append(" AS ").append(asName);
             if (gbClause.length() > 0) gbClause.append(", ");
-            gbClause.append(asName);
+            gbClause.append(colName);
         }
 
         // where condition to use for FROM clause (field filtering) and for sub-select WHERE clause
