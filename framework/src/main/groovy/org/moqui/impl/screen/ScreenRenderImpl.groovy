@@ -1418,6 +1418,7 @@ class ScreenRenderImpl implements ScreenRender {
      * from the transition written for client access. */
     String getFieldTransitionValue(String transition, String term, String labelField) {
         if (term == null || term.isEmpty()) return null
+        if (!labelField) labelField = "label"
 
         UrlInstance transUrl = buildUrl(transition)
         ScreenTest screenTest = sfi.makeTest().rootScreen(rootScreenLocation)
@@ -1437,12 +1438,24 @@ class ScreenRenderImpl implements ScreenRender {
                     transValue = firstObj.toString()
                 }
             } else if (jsonObj instanceof Map) {
-                transValue = ((Map) jsonObj).get(labelField)
+                Map jsonMap = (Map) jsonObj
+                Object optionsObj = jsonMap.get("options")
+                if (optionsObj instanceof List && ((List) optionsObj).size() > 0) {
+                    Object firstObj = ((List) optionsObj).get(0)
+                    if (firstObj instanceof Map) {
+                        transValue = ((Map) firstObj).get(labelField)
+                    } else {
+                        transValue = firstObj.toString()
+                    }
+                } else {
+                    transValue = jsonMap.get(labelField)
+                }
             }
         } catch (Throwable t) {
             transValue = output
         }
 
+        // logger.warn("term ${term} output ${output} transValue ${transValue}")
         return transValue
     }
 
