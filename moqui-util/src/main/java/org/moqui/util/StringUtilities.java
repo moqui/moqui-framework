@@ -107,7 +107,7 @@ public class StringUtilities {
     public static String camelCaseToPretty(String camelCase) {
         if (camelCase == null || camelCase.length() == 0) return "";
         StringBuilder prettyName = new StringBuilder();
-        for (String part : camelCase.split("(?=[A-Z])")) {
+        for (String part : camelCase.split("(?=[A-Z0-9])")) {
             if (prettyName.length() > 0) prettyName.append(" ");
             if (part.equalsIgnoreCase("id")) part = "ID";
             prettyName.append(part);
