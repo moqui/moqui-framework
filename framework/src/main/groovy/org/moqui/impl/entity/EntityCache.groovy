@@ -359,7 +359,7 @@ class EntityCache {
             // can't use RA cache because we don't know the PK, so use a brute-force cache but keep it separate to perform better
             Set<EntityCondition> bfKeySet = (Set<EntityCondition>) oneBfCache.get(entityName)
             if (bfKeySet == null) {
-                bfKeySet = new HashSet<EntityCondition>()
+                bfKeySet = ConcurrentHashMap.newKeySet()
                 oneBfCache.put(entityName, bfKeySet)
             }
             bfKeySet.add(ec)
