@@ -225,7 +225,7 @@ class EntityDbMeta {
                 if (databaseNode.attribute("collate")) sql.append(" COLLATE ").append(databaseNode.attribute("collate"))
             }
 
-            if (fieldNode.attribute("is-pk") == "true" || fieldNode.attribute("not-null") == "true") {
+            if (fi.isPk || fieldNode.attribute("not-null") == "true") {
                 if (databaseNode.attribute("always-use-constraint-keyword") == "true") sql.append(" CONSTRAINT")
                 sql.append(" NOT NULL")
             }
@@ -393,48 +393,11 @@ class EntityDbMeta {
         if (databaseNode.attribute("use-foreign-key-indexes") == "false") return
         for (RelationshipInfo relInfo in ed.getRelationshipsInfo(false)) {
             if (relInfo.type != "one") continue
-            String relatedEntityName = relInfo.relatedEd.entityInfo.internalEntityName
 
-            StringBuilder indexName = new StringBuilder()
-            if (relInfo.relNode.attribute("fk-name")) indexName.append(relInfo.relNode.attribute("fk-name"))
-            if (!indexName) {
-                String title = relInfo.title ?: ""
-                String edEntityName = ed.entityInfo.internalEntityName
-                int edEntityNameLength = edEntityName.length()
-
-                int commonChars = 0
-                while (title.length() > commonChars && edEntityNameLength > commonChars &&
-                        title.charAt(commonChars) == edEntityName.charAt(commonChars)) commonChars++
-
-                int relLength = relatedEntityName.length()
-                int relEndCommonChars = relatedEntityName.length() - 1
-                while (relEndCommonChars > 0 && edEntityNameLength > relEndCommonChars &&
-                        relatedEntityName.charAt(relEndCommonChars) == edEntityName.charAt(edEntityNameLength - (relLength - relEndCommonChars)))
-                    relEndCommonChars--
-
-                if (commonChars > 0) {
-                    indexName.append(edEntityName)
-                    for (char cc in title.substring(0, commonChars).chars) if (Character.isUpperCase(cc)) indexName.append(cc)
-                    indexName.append(title.substring(commonChars))
-                    indexName.append(relatedEntityName.substring(0, relEndCommonChars + 1))
-                    if (relEndCommonChars < (relLength - 1)) for (char cc in relatedEntityName.substring(relEndCommonChars + 1).chars)
-                        if (Character.isUpperCase(cc)) indexName.append(cc)
-                } else {
-                    indexName.append(edEntityName).append(title)
-                    indexName.append(relatedEntityName.substring(0, relEndCommonChars + 1))
-                    if (relEndCommonChars < (relLength - 1)) for (char cc in relatedEntityName.substring(relEndCommonChars + 1).chars)
-                        if (Character.isUpperCase(cc)) indexName.append(cc)
-                }
-
-                // logger.warn("Index for entity [${ed.getFullEntityName()}], title=${title}, commonChars=${commonChars}, indexName=${indexName}")
-                // logger.warn("Index for entity [${ed.getFullEntityName()}], relatedEntityName=${relatedEntityName}, relEndCommonChars=${relEndCommonChars}, indexName=${indexName}")
-            }
-            shrinkName(indexName, constraintNameClipLength - 3)
-            indexName.insert(0, "IDX")
-
+            String indexName = makeFkIndexName(ed, relInfo, constraintNameClipLength)
             StringBuilder sql = new StringBuilder("CREATE INDEX ")
             if (databaseNode.attribute("use-schema-for-all") == "true") sql.append(ed.getSchemaName() ? ed.getSchemaName() + "." : "")
-            sql.append(indexName.toString()).append(" ON ").append(ed.getFullTableName())
+            sql.append(indexName).append(" ON ").append(ed.getFullTableName())
 
             sql.append(" (")
             Map keyMap = relInfo.keyMap
@@ -448,6 +411,47 @@ class EntityDbMeta {
             // logger.warn("====== create relationship index [${indexName}] for entity [${ed.getFullEntityName()}]")
             runSqlUpdate(sql, groupName)
         }
+    }
+
+    static String makeFkIndexName(EntityDefinition ed, RelationshipInfo relInfo, int constraintNameClipLength) {
+        String relatedEntityName = relInfo.relatedEd.entityInfo.internalEntityName
+        StringBuilder indexName = new StringBuilder()
+        if (relInfo.relNode.attribute("fk-name")) indexName.append(relInfo.relNode.attribute("fk-name"))
+        if (!indexName) {
+            String title = relInfo.title ?: ""
+            String edEntityName = ed.entityInfo.internalEntityName
+            int edEntityNameLength = edEntityName.length()
+
+            int commonChars = 0
+            while (title.length() > commonChars && edEntityNameLength > commonChars &&
+                    title.charAt(commonChars) == edEntityName.charAt(commonChars)) commonChars++
+
+            int relLength = relatedEntityName.length()
+            int relEndCommonChars = relatedEntityName.length() - 1
+            while (relEndCommonChars > 0 && edEntityNameLength > relEndCommonChars &&
+                    relatedEntityName.charAt(relEndCommonChars) == edEntityName.charAt(edEntityNameLength - (relLength - relEndCommonChars)))
+                relEndCommonChars--
+
+            if (commonChars > 0) {
+                indexName.append(edEntityName)
+                for (char cc in title.substring(0, commonChars).chars) if (Character.isUpperCase(cc)) indexName.append(cc)
+                indexName.append(title.substring(commonChars))
+                indexName.append(relatedEntityName.substring(0, relEndCommonChars + 1))
+                if (relEndCommonChars < (relLength - 1)) for (char cc in relatedEntityName.substring(relEndCommonChars + 1).chars)
+                    if (Character.isUpperCase(cc)) indexName.append(cc)
+            } else {
+                indexName.append(edEntityName).append(title)
+                indexName.append(relatedEntityName.substring(0, relEndCommonChars + 1))
+                if (relEndCommonChars < (relLength - 1)) for (char cc in relatedEntityName.substring(relEndCommonChars + 1).chars)
+                    if (Character.isUpperCase(cc)) indexName.append(cc)
+            }
+
+            // logger.warn("Index for entity [${ed.getFullEntityName()}], title=${title}, commonChars=${commonChars}, indexName=${indexName}")
+            // logger.warn("Index for entity [${ed.getFullEntityName()}], relatedEntityName=${relatedEntityName}, relEndCommonChars=${relEndCommonChars}, indexName=${indexName}")
+        }
+        shrinkName(indexName, constraintNameClipLength - 3)
+        indexName.insert(0, "IDX")
+        return indexName.toString()
     }
 
     /** Loop through all known entities and for each that has an existing table check each foreign key to see if it
@@ -801,5 +805,139 @@ class EntityDbMeta {
             sqlLock.unlock()
         }
         return records
+    }
+
+    /* ================= */
+    /* Liquibase Methods */
+    /* ================= */
+
+    /** Generate a Liquibase Changelog for a set of entity definitions */
+    MNode liquibaseInitChangelog(String filterRegexp) {
+        MNode rootNode = new MNode("databaseChangeLog", [xmlns:"http://www.liquibase.org/xml/ns/dbchangelog",
+                "xmlns:xsi":"http://www.w3.org/2001/XMLSchema-instance", "xmlns:ext":"http://www.liquibase.org/xml/ns/dbchangelog-ext",
+                "xsi:schemaLocation":"http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-2.0.xsd http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd"])
+
+        // add property elements for data type dictionary entry for each database
+        // see http://www.liquibase.org/documentation/changelog_parameters.html
+        // see http://www.liquibase.org/databases.html
+        // <property name="clob.type" value="clob" dbms="oracle"/>
+        MNode databaseListNode = efi.ecfi.confXmlRoot.first("database-list")
+        ArrayList<MNode> dictTypeList = databaseListNode.children("dictionary-type")
+        ArrayList<MNode> databaseList = databaseListNode.children("database")
+        for (MNode dictType in dictTypeList) {
+            String type = dictType.attribute("type")
+            String propName = "type." + type.replaceAll("-", "_")
+            Set<String> dbmsDefault = new TreeSet<>()
+            for (MNode database in databaseList) {
+                String lbName = database.attribute("lb-name") ?: database.attribute("name")
+                MNode dbTypeNode = database.first({ MNode it -> it.name == 'database-type' && it.attribute("type") == type })
+                if (dbTypeNode != null) {
+                    rootNode.append("property", [name:propName, value:dbTypeNode.attribute("sql-type"), dbms:lbName])
+                } else {
+                    dbmsDefault.add(lbName)
+                }
+            }
+            if (dbmsDefault.size() > 0)
+                rootNode.append("property", [name:propName, value:dictType.attribute("default-sql-type"),
+                        dbms:dbmsDefault.join(",")])
+        }
+
+        String dateStr = efi.ecfi.l10n.format(new Timestamp(System.currentTimeMillis()), "yyyyMMdd")
+        int changeSetIdx = 1
+        Set<String> entityNames = efi.getAllEntityNames(filterRegexp)
+
+        // add changeSet per entity
+        // see http://www.liquibase.org/documentation/generating_changelogs.html
+        for (String en in entityNames) {
+            EntityDefinition ed = null
+            try { ed = efi.getEntityDefinition(en) } catch (EntityException e) { logger.warn("Problem finding entity definition", e) }
+            if (ed == null) continue
+            if (ed.isViewEntity) continue
+
+            MNode changeSet = rootNode.append("changeSet", [author:"moqui-init", id:"${dateStr}-${changeSetIdx}".toString()])
+            changeSetIdx++
+
+            // createTable
+            MNode createTable = changeSet.append("createTable", [name:ed.getTableName()])
+            if (ed.getSchemaName()) createTable.attributes.put("schemaName", ed.getSchemaName())
+            FieldInfo[] allFieldInfoArray = ed.entityInfo.allFieldInfoArray
+            for (int i = 0; i < allFieldInfoArray.length; i++) {
+                FieldInfo fi = (FieldInfo) allFieldInfoArray[i]
+                MNode fieldNode = fi.fieldNode
+                MNode column = createTable.append("column", [name:fi.columnName, type:('${type.' + fi.type.replaceAll("-", "_") + '}')])
+                if (fi.isPk || fieldNode.attribute("not-null") == "true") {
+                    MNode constraints = column.append("constraints", [nullable:"false"])
+                    if (fi.isPk) constraints.attributes.put("primaryKey", "true")
+                }
+            }
+
+            // createIndex: first do index elements
+            for (MNode indexNode in ed.entityNode.children("index")) {
+                MNode createIndex = changeSet.append("createIndex",
+                        [indexName:indexNode.attribute("name"), tableName:ed.getTableName()])
+                if (ed.getSchemaName()) createIndex.attributes.put("schemaName", ed.getSchemaName())
+                createIndex.attributes.put("unique", indexNode.attribute("unique") ?: "false")
+
+                for (MNode indexFieldNode in indexNode.children("index-field"))
+                    createIndex.append("column", [name:ed.getColumnName(indexFieldNode.attribute("name"))])
+            }
+
+            // do fk auto indexes
+            for (RelationshipInfo relInfo in ed.getRelationshipsInfo(false)) {
+                if (relInfo.type != "one") continue
+
+                String indexName = makeFkIndexName(ed, relInfo, 30)
+
+                MNode createIndex = changeSet.append("createIndex",
+                        [indexName:indexName, tableName:ed.getTableName(), unique:"false"])
+                if (ed.getSchemaName()) createIndex.attributes.put("schemaName", ed.getSchemaName())
+
+                Map keyMap = relInfo.keyMap
+                for (String fieldName in keyMap.keySet())
+                    createIndex.append("column", [name:ed.getColumnName(fieldName)])
+            }
+        }
+
+        // do foreign keys in a separate pass
+        for (String en in entityNames) {
+            EntityDefinition ed = null
+            try { ed = efi.getEntityDefinition(en) } catch (EntityException e) { logger.warn("Problem finding entity definition", e) }
+            if (ed == null) continue
+            if (ed.isViewEntity) continue
+
+            MNode changeSet = rootNode.append("changeSet", [author:"moqui-init", id:"${dateStr}-${changeSetIdx}".toString()])
+            changeSetIdx++
+
+            for (RelationshipInfo relInfo in ed.getRelationshipsInfo(false)) {
+                if (relInfo.type != "one") continue
+
+                EntityDefinition relEd = relInfo.relatedEd
+                String constraintName = makeFkConstraintName(ed, relInfo, 30)
+                Map keyMap = relInfo.keyMap
+                List<String> keyMapKeys = new ArrayList(keyMap.keySet())
+
+                StringBuilder baseNames = new StringBuilder()
+                for (String fieldName in keyMapKeys) {
+                    if (baseNames.length() > 0) baseNames.append(",")
+                    baseNames.append(ed.getColumnName(fieldName))
+                }
+                StringBuilder referencedNames = new StringBuilder()
+                for (String keyName in keyMapKeys) {
+                    if (referencedNames.length() > 0) referencedNames.append(",")
+                    referencedNames.append(relEd.getColumnName((String) keyMap.get(keyName)))
+                }
+
+                MNode addForeignKeyConstraint = changeSet.append("addForeignKeyConstraint", [baseTableName:ed.getTableName(),
+                        baseColumnNames:baseNames.toString(), constraintName:constraintName,
+                        referencedTableName:relEd.getTableName(), referencedColumnNames:referencedNames.toString()])
+                if (ed.getSchemaName()) addForeignKeyConstraint.attributes.put("baseTableSchemaName", ed.getSchemaName())
+                if (relEd.getSchemaName()) addForeignKeyConstraint.attributes.put("referencedTableSchemaName", relEd.getSchemaName())
+            }
+        }
+
+        return rootNode
+    }
+    MNode liquibaseDiffChangelog(String filterRegexp) {
+        return null
     }
 }

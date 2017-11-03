@@ -908,7 +908,8 @@ class EntityFacadeImpl implements EntityFacade {
         for (String entityName in getAllEntityNamesInGroup(groupName)) edf.checkAndAddTable(entityName)
     }
 
-    Set<String> getAllEntityNames() {
+    Set<String> getAllEntityNames() { return getAllEntityNames(null) }
+    Set<String> getAllEntityNames(String filterRegexp) {
         Map<String, List<String>> entityLocationCache = entityLocationSingleCache.get(entityLocSingleEntryName)
         if (entityLocationCache == null) entityLocationCache = loadAllEntityLocations()
 
@@ -918,7 +919,11 @@ class EntityFacadeImpl implements EntityFacade {
         for (Map.Entry<String, List<String>> entry in entityLocationCache.entrySet()) {
             String en = entry.key
             List<String> locList = entry.value
-            if (en.contains(".") && locList != null && locList.size() > 0) allNames.add(en)
+            if (en.contains(".") && locList != null && locList.size() > 0) {
+                // Added (?i) to ignore the case and '*' in the starting and at ending to match if searched string is sub-part of entity name
+                if (filterRegexp != null && !en.matches("(?i).*" + filterRegexp + ".*")) continue
+                allNames.add(en)
+            }
         }
         return allNames
     }
@@ -1013,9 +1018,7 @@ class EntityFacadeImpl implements EntityFacade {
         if (masterEntitiesOnly) createAllAutoReverseManyRelationships()
 
         ArrayList<Map<String, Object>> eil = new ArrayList<>()
-        for (String en in getAllEntityNames()) {
-            // Added (?i) to ignore the case and '*' in the starting and at ending to match if searched string is sub-part of entity name
-            if (filterRegexp && !en.matches("(?i).*" + filterRegexp + ".*")) continue
+        for (String en in getAllEntityNames(filterRegexp)) {
             EntityDefinition ed = null
             try { ed = getEntityDefinition(en) } catch (EntityException e) { logger.warn("Problem finding entity definition", e) }
             if (ed == null) continue
@@ -1995,6 +1998,10 @@ class EntityFacadeImpl implements EntityFacade {
         return newValue
     }
 
+    /* =============== */
+    /* Utility Methods */
+    /* =============== */
+
     protected Map<String, Map<String, String>> javaTypeByGroup = [:]
     String getFieldJavaType(String fieldType, EntityDefinition ed) {
         String groupName = ed.getEntityGroupName()
@@ -2089,7 +2096,7 @@ class EntityFacadeImpl implements EntityFacade {
             "java.sql.Clob":13, "Clob":13,
             "java.util.Date":14,
             "java.util.ArrayList":15, "java.util.HashSet":15, "java.util.LinkedHashSet":15, "java.util.LinkedList":15]
-    public static int getJavaTypeInt(String javaType) {
+    static int getJavaTypeInt(String javaType) {
         Integer typeInt = (Integer) javaIntTypeMap.get(javaType)
         if (typeInt == null) throw new EntityException("Java type " + javaType + " not supported for entity fields")
         return typeInt
