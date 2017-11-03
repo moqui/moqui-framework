@@ -525,7 +525,7 @@ class ScreenForm {
 
         for (MNode parameterNode in parameterNodes) {
             String parameterName = parameterNode.attribute("name")
-            if (excludes != null && excludes.contains(parameterName)) continue
+            if ((excludes != null && excludes.contains(parameterName)) || "lastUpdatedStamp".equals(parameterName)) continue
             MNode newFieldNode = new MNode("field", [name:parameterName, "validate-service":sd.serviceName,
                                                      "validate-parameter":parameterName])
             MNode subFieldNode = newFieldNode.append("default-field", null)
@@ -536,7 +536,8 @@ class ScreenForm {
 
     void addEntityFields(EntityDefinition ed, String include, String fieldType, Set<String> excludes, MNode baseFormNode) {
         for (String fieldName in ed.getFieldNames("all".equals(include) || "pk".equals(include), "all".equals(include) || "nonpk".equals(include))) {
-            if (excludes != null && excludes.contains(fieldName)) continue
+            if ((excludes != null && excludes.contains(fieldName)) || "lastUpdatedStamp".equals(fieldName)) continue
+
             FieldInfo fi = ed.getFieldInfo(fieldName)
             String efType = fi.type ?: "text-long"
             boolean makeDefaultField = true
