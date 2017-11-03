@@ -691,6 +691,8 @@ along with this software (see the LICENSE.md file). If not, see
             </xs:sequence>
 
             <xs:attribute name="name" type="name-plain" use="required"/>
+            <xs:attribute name="lb-name" type="name-plain"><xs:annotation>
+                <xs:documentation>Name of the database for Liquibase, defaults to name attribute, see http://www.liquibase.org/databases.html</xs:documentation></xs:annotation></xs:attribute>
 
             <!-- TODO use in code -->
             <xs:attribute name="use-schemas" default="true" type="boolean"/>

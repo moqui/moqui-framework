@@ -404,7 +404,7 @@
             <inline-jdbc><xa-properties driverType="4" serverName="${entity_ds_host}" portNumber="${entity_ds_port?:'50000'}"
                     databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
         </database>
-        <database name="db2i" join-style="ansi" offset-style="limit"
+        <database name="db2i" lb-name="db2" join-style="ansi" offset-style="limit"
                 default-isolation-level="ReadCommitted"  for-update="FOR UPDATE WITH RS"
                 use-schema-for-all="true" use-indexes-unique-where-not-null="true"
                 default-test-query="SELECT 1 FROM SYSIBM.SYSDUMMY1"
@@ -452,7 +452,7 @@
             <inline-jdbc><xa-properties url="${entity_ds_url}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
         </database>
         <!-- TODO: add configuration examples -->
-        <database name="hsql" use-fk-initially-deferred="false" join-style="ansi-no-parenthesis"
+        <database name="hsql" lb-name="hsqldb" use-fk-initially-deferred="false" join-style="ansi-no-parenthesis"
                 default-isolation-level="ReadUncommitted" default-jdbc-driver="org.hsqldb.jdbcDriver"
                 default-test-query="SELECT 1 FROM SEQUENCE_VALUE_ITEM WHERE 1=0">
             <database-type type="id" sql-type="VARCHAR"/>
@@ -606,10 +606,10 @@
             <inline-jdbc jdbc-uri="jdbc:postgresql://127.0.0.1/moqui" jdbc-username="moqui" jdbc-password="moqui"/>
         </datasource>
         -->
-        <database name="postgres" use-fk-initially-deferred="false" join-style="ansi" result-fetch-size="50" never-try-insert="true"
-                  default-isolation-level="ReadCommitted" use-tm-join="true" default-test-query="SELECT 1"
-                  default-jdbc-driver="org.postgresql.Driver" default-xa-ds-class="org.postgresql.xa.PGXADataSource"
-                  default-startup-add-missing="true" default-runtime-add-missing="false" use-binary-type-for-blob="true">
+        <database name="postgres" lb-name="postgresql" join-style="ansi" result-fetch-size="50" never-try-insert="true"
+                default-isolation-level="ReadCommitted" use-tm-join="true" default-test-query="SELECT 1"
+                default-jdbc-driver="org.postgresql.Driver" default-xa-ds-class="org.postgresql.xa.PGXADataSource"
+                default-startup-add-missing="true" default-runtime-add-missing="false" use-binary-type-for-blob="true">
             <!-- NOTE: when Postgres JDBC driver updated can set use-tm-join="true" -->
             <database-type type="number-float" sql-type="FLOAT8"/>
 

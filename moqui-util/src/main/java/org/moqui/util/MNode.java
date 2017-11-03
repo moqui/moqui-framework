@@ -701,10 +701,11 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
                     sb.append('\n');
                     child.addToSb(sb, level + 1);
                 }
-                sb.append("\n");
-                for (int i = 0; i < level; i++) sb.append("    ");
+                if (childList.size() > 1) {
+                    sb.append("\n");
+                    for (int i = 0; i < level; i++) sb.append("    ");
+                }
             }
-
             sb.append("</").append(nodeName).append('>');
         } else {
             sb.append("/>");
