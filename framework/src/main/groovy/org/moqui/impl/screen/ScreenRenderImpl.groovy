@@ -35,7 +35,6 @@ import org.moqui.impl.context.ResourceFacadeImpl
 import org.moqui.impl.context.WebFacadeImpl
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityValueBase
-import org.moqui.impl.entity.EntityValueImpl
 import org.moqui.impl.screen.ScreenDefinition.ResponseItem
 import org.moqui.impl.screen.ScreenDefinition.SubscreensItem
 import org.moqui.impl.screen.ScreenForm.FormInstance
@@ -1185,9 +1184,9 @@ class ScreenRenderImpl implements ScreenRender {
 
     Object getContextValue(String from, String value) {
         if (value) {
-            return ec.resource.expand(value, getActiveScreenDef().location)
+            return ec.resource.expand(value, getActiveScreenDef().location, (Map) ec.contextStack.get("_formMap"))
         } else if (from) {
-            return ec.resource.expression(from, getActiveScreenDef().location)
+            return ec.resource.expression(from, getActiveScreenDef().location, (Map) ec.contextStack.get("_formMap"))
         } else {
             return ""
         }
@@ -1199,14 +1198,15 @@ class ScreenRenderImpl implements ScreenRender {
                 setNode.attribute("set-if-empty"))
         return ""
     }
-    String pushContext() { ec.getContext().push(); return "" }
-    String popContext() { ec.getContext().pop(); return "" }
+    String pushContext() { ec.contextStack.push(); return "" }
+    String popContext() { ec.contextStack.pop(); return "" }
 
     /** Call this at the beginning of a form-single or for form-list.@first-row-map and @last-row-map. Always call popContext() at the end of the form! */
     String pushSingleFormMapContext(String mapExpr) {
-        ContextStack cs = ec.getContext()
+        ContextStack cs = ec.contextStack
         Map valueMap = null
         if (mapExpr != null && !mapExpr.isEmpty()) valueMap = (Map) ec.resourceFacade.expression(mapExpr, null)
+        if (valueMap instanceof EntityValue) valueMap = ((EntityValue) valueMap).getMap()
         if (valueMap == null) valueMap = new HashMap()
 
         cs.push()
@@ -1216,10 +1216,14 @@ class ScreenRenderImpl implements ScreenRender {
         return ""
     }
     String startFormListRow(ScreenForm.FormListRenderInfo listRenderInfo, Object listEntry, int index, boolean hasNext) {
-        ec.contextStack.push()
+        ContextStack cs = ec.contextStack
+        cs.push()
 
         if (listEntry instanceof Map) {
-            ec.contextStack.putAll((Map) listEntry)
+            Map valueMap = (Map) listEntry
+            if (valueMap instanceof EntityValue) valueMap = ((EntityValue) valueMap).getMap()
+            cs.putAll(valueMap)
+            cs.put("_formMap", valueMap)
         } else {
             throw new BaseArtifactException("Found form-list ${listRenderInfo.getFormNode().attribute('name')} list entry that is not a Map, is a ${listEntry.class.name} which should never happen after running list through list pre-processor")
         }
@@ -1232,17 +1236,21 @@ class ScreenRenderImpl implements ScreenRender {
         return ""
     }
     String startFormListSubRow(ScreenForm.FormListRenderInfo listRenderInfo, Object subListEntry, int index, boolean hasNext) {
-        ec.contextStack.push()
+        ContextStack cs = ec.contextStack
+        cs.push()
         MNode formNode = listRenderInfo.formNode
         if (subListEntry instanceof Map) {
-            ec.contextStack.putAll((Map) subListEntry)
+            Map valueMap = (Map) subListEntry
+            if (valueMap instanceof EntityValue) valueMap = ((EntityValue) valueMap).getMap()
+            cs.putAll(valueMap)
+            cs.put("_formMap", valueMap)
         } else {
             throw new BaseArtifactException("Found form-list ${listRenderInfo.getFormNode().attribute('name')} sub-list entry that is not a Map, is a ${subListEntry.class.name} which should never happen after running list through list pre-processor")
         }
         String listStr = formNode.attribute('list')
-        ec.contextStack.put(listStr + "_sub_index", index)
-        ec.contextStack.put(listStr + "_sub_has_next", hasNext)
-        ec.contextStack.put(listStr + "_sub_entry", subListEntry)
+        cs.put(listStr + "_sub_index", index)
+        cs.put(listStr + "_sub_has_next", hasNext)
+        cs.put(listStr + "_sub_entry", subListEntry)
         // NOTE: this returns an empty String so that it can be used in an FTL interpolation, but nothing is written
         return ""
     }
@@ -1411,18 +1419,67 @@ class ScreenRenderImpl implements ScreenRender {
     }
 
     LinkedHashMap<String, String> getFieldOptions(MNode widgetNode) {
-        return ScreenForm.getFieldOptions(widgetNode, ec)
+        LinkedHashMap<String, String> optsMap = ScreenForm.getFieldOptions(widgetNode, ec)
+        if (optsMap.size() == 0 && widgetNode.hasChild("dynamic-options")) {
+            MNode childNode = widgetNode.first("dynamic-options")
+            if (!"true".equals(childNode.attribute("server-search"))) {
+                // a bit of a hack, use ScreenTest to call the transition server-side as if it were a web request
+                String transition = childNode.attribute("transition")
+                String labelField = childNode.attribute("label-field") ?: "label"
+                String valueField = childNode.attribute("value-field") ?: "value"
+
+                Map<String, Object> parameters = new HashMap<>()
+                boolean hasAllDepends = addNodeParameters(childNode, parameters)
+                // logger.warn("getFieldOptions parameters ${parameters}")
+
+                if (hasAllDepends) {
+                    UrlInstance transUrl = buildUrl(transition)
+                    ScreenTest screenTest = ec.screen.makeTest().rootScreen(rootScreenLocation)
+                    ScreenTest.ScreenTestRender str = screenTest.render(transUrl.getPathWithParams(), parameters, null)
+                    String output = str.getOutput()
+
+                    try {
+                        Object jsonObj = new JsonSlurper().parseText(output)
+                        List optsList = null
+                        if (jsonObj instanceof List) {
+                            optsList = (List) jsonObj
+                        } else if (jsonObj instanceof Map) {
+                            Map jsonMap = (Map) jsonObj
+                            Object optionsObj = jsonMap.get("options")
+                            if (optionsObj instanceof List) optsList = (List) optionsObj
+                        }
+                        if (optsList != null) for (Object entryObj in optsList) {
+                            if (entryObj instanceof Map) {
+                                Map entryMap = (Map) entryObj
+                                String valueObj = entryMap.get(valueField)
+                                String labelObj = entryMap.get(labelField)
+                                if (valueObj && labelObj) optsMap.put(valueObj, labelObj)
+                            }
+                        }
+                    } catch (Throwable t) {
+                        logger.warn("Error getting field options from transition", t)
+                    }
+                }
+            }
+        }
+        return optsMap
     }
 
     /** This is messy, does a server-side/internal 'test' render so we can get the label/description for the current value
      * from the transition written for client access. */
-    String getFieldTransitionValue(String transition, String term, String labelField) {
-        if (term == null || term.isEmpty()) return null
+    String getFieldTransitionValue(String transition, MNode parameterParentNode, String term, String labelField, boolean alwaysGet) {
+        if (!alwaysGet && (term == null || term.isEmpty())) return null
         if (!labelField) labelField = "label"
+
+        Map<String, Object> parameters = new HashMap<>()
+        parameters.put("term", term)
+        boolean hasAllDepends = addNodeParameters(parameterParentNode, parameters)
+        // logger.warn("getFieldTransitionValue parameters ${parameters}")
+        // logger.warn("getFieldTransitionValue context ${ec.context.keySet()}")
+        if (!hasAllDepends) return null
 
         UrlInstance transUrl = buildUrl(transition)
         ScreenTest screenTest = sfi.makeTest().rootScreen(rootScreenLocation)
-        Map<String, Object> parameters = new HashMap<>(1); parameters.put("term", term)
         ScreenTest.ScreenTestRender str = screenTest.render(transUrl.getPathWithParams(), parameters, null)
         String output = str.getOutput()
 
@@ -1450,13 +1507,49 @@ class ScreenRenderImpl implements ScreenRender {
                 } else {
                     transValue = jsonMap.get(labelField)
                 }
+            } else if (jsonObj != null) {
+                transValue = jsonObj.toString()
             }
         } catch (Throwable t) {
+            // this happens all the time for non-JSON text response: logger.warn("Error getting field label from transition", t)
             transValue = output
         }
 
         // logger.warn("term ${term} output ${output} transValue ${transValue}")
         return transValue
+    }
+
+    boolean addNodeParameters(MNode parameterParentNode, Map<String, Object> parameters) {
+        if (parameterParentNode == null) return true
+        // get specified parameters
+        String parameterMapStr = (String) parameterParentNode.attribute("parameter-map")
+        if (parameterMapStr) {
+            Map ctxParameterMap = (Map) ec.resource.expression(parameterMapStr, "")
+            if (ctxParameterMap != null) parameters.putAll(ctxParameterMap)
+        }
+        for (MNode parameterNode in parameterParentNode.children("parameter")) {
+            String name = parameterNode.attribute("name")
+            parameters.put(name, getContextValue(parameterNode.attribute("from") ?: name, parameterNode.attribute("value")))
+        }
+        // get current values for depends-on fields
+        boolean dependsOptional = "true".equals(parameterParentNode.attribute("depends-optional"))
+        boolean hasAllDepends = true
+        ArrayList<MNode> doNodeList = parameterParentNode.children("depends-on")
+        for (int i = 0; i < doNodeList.size(); i++) {
+            MNode doNode = (MNode) doNodeList.get(i)
+            String doField = doNode.attribute("field")
+            String doParameter = doNode.attribute("parameter") ?: doField
+            Object contextVal = ec.context.get(doField)
+            if (ObjectUtilities.isEmpty(contextVal) && ec.contextStack.get("_formMap") != null)
+                contextVal = ((Map) ec.contextStack.get("_formMap")).get(doField)
+            if (ObjectUtilities.isEmpty(contextVal)) {
+                hasAllDepends = false
+            } else {
+                parameters.put(doParameter, contextVal)
+            }
+        }
+
+        return hasAllDepends || dependsOptional
     }
 
     boolean isInCurrentScreenPath(List<String> pathNameList) {
