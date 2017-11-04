@@ -10,6 +10,10 @@ Moqui Framework 2.1.1 is a patch level new feature and bug fix release.
 
 ### Bug Fixes
 
+- Serious bug in MoquiAuthFilter where it did not destroy ExecutionContext leaving it in place for the next request using that 
+  thread; also changed MoquiServlet to better protect against existing ExecutionContext for thread; also changed WebFacade init
+  from HTTP request to remove current user if it doesn't match user authenticated in session with Shiro, or if no user is 
+  authenticated in session
 
 ## Release 2.1.0 - 22 Oct 2017
 
