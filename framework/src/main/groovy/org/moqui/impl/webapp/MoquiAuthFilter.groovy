@@ -62,28 +62,32 @@ class MoquiAuthFilter implements Filter {
             return
         }
         ExecutionContextImpl activeEc = ecfi.activeContext.get()
-        if (activeEc != null && activeEc.forThreadId != Thread.currentThread().id) {
-            logger.warn("In MoquiAuthFilter.doFilter there is already an ExecutionContext (from ${activeEc.forThreadId}:${activeEc.forThreadName}) in this thread (${Thread.currentThread().id}:${Thread.currentThread().name}), destroying")
-            ecfi.destroyActiveExecutionContext()
+        if (activeEc != null) {
+            logger.warn("In MoquiAuthFilter.doFilter there is already an ExecutionContext for user ${activeEc.user.username} (from ${activeEc.forThreadId}:${activeEc.forThreadName}) in this thread (${Thread.currentThread().id}:${Thread.currentThread().name}), destroying")
+            activeEc.destroy()
         }
 
         ExecutionContextImpl ec = ecfi.getEci()
-        UserFacadeImpl ufi = ec.userFacade
-        ufi.initFromHttpRequest(request, response)
+        try {
+            UserFacadeImpl ufi = ec.userFacade
+            ufi.initFromHttpRequest(request, response)
 
-        if (!ufi.username) {
-            String message = ec.messageFacade.getErrorsString()
-            if (!message) message = "Authentication required"
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, message)
-            return
+            if (!ufi.username) {
+                String message = ec.messageFacade.getErrorsString()
+                if (!message) message = "Authentication required"
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, message)
+                return
+            }
+
+            if (permission && !ufi.hasPermission(permission)) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN, "User ${ufi.username} does not have permission ${permission}")
+                return
+            }
+
+            chain.doFilter(req, resp)
+        } finally {
+            ec.destroy()
         }
-
-        if (permission && !ufi.hasPermission(permission)) {
-            response.sendError(HttpServletResponse.SC_FORBIDDEN, "User ${ufi.username} does not have permission ${permission}")
-            return
-        }
-
-        chain.doFilter(req, resp)
     }
 
     @Override
