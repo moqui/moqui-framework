@@ -89,13 +89,25 @@ class UserFacadeImpl implements UserFacade {
         this.response = response
         this.session = request.getSession()
 
+        String preUsername = getUsername()
         Subject webSubject = makeEmptySubject()
         if (webSubject.authenticated) {
+            if (preUsername != null && !preUsername.isEmpty()) {
+                String sesUsername = (String) webSubject.getPrincipal()
+                if (!preUsername.equals(sesUsername)) {
+                    logger.warn("Found user ${sesUsername} in session but UserFacade has user ${preUsername}, popping user")
+                    popUser()
+                }
+            }
             // effectively login the user
             pushUserSubject(webSubject)
             if (logger.traceEnabled) logger.trace("For new request found user [${username}] in the session")
         } else {
             if (logger.traceEnabled) logger.trace("For new request NO user authenticated in the session")
+            if (preUsername != null && !preUsername.isEmpty()) {
+                logger.warn("Found NO user in session but UserFacade has user ${preUsername}, popping user")
+                popUser()
+            }
         }
 
         // check for HTTP Basic Authorization for Authentication purposes
@@ -709,8 +721,7 @@ class UserFacadeImpl implements UserFacade {
         return userInfo
     }
     UserInfo pushUser(String username) {
-        if (currentInfo != null && currentInfo.username == username)
-            return currentInfo
+        if (currentInfo != null && currentInfo.username == username) return currentInfo
 
         if (currentInfo == null || currentInfo.isPopulated()) {
             // logger.info("Pushing UserInfo for ${username} to stack, was ${currentInfo.username}")

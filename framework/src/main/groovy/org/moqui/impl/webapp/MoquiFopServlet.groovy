@@ -15,6 +15,7 @@ package org.moqui.impl.webapp
 
 import groovy.transform.CompileStatic
 import org.moqui.context.ArtifactTarpitException
+import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.util.StringUtilities
 
 import javax.servlet.ServletException
@@ -22,7 +23,6 @@ import javax.servlet.http.HttpServlet
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
 
-import org.moqui.context.ExecutionContext
 import org.moqui.screen.ScreenRender
 import org.moqui.context.ArtifactAuthorizationException
 import org.moqui.impl.context.ExecutionContextFactoryImpl
@@ -56,19 +56,23 @@ class MoquiFopServlet extends HttpServlet {
             return
         }
 
-        String pathInfo = request.getPathInfo()
         long startTime = System.currentTimeMillis()
+        String pathInfo = request.getPathInfo()
 
         if (logger.traceEnabled) logger.trace("Start request to [${pathInfo}] at time [${startTime}] in session [${request.session.id}] thread [${Thread.currentThread().id}:${Thread.currentThread().name}]")
 
-        ExecutionContext ec = ecfi.getExecutionContext()
-        ec.initWebFacade(moquiWebappName, request, response)
-        ec.web.requestAttributes.put("moquiRequestStartTime", startTime)
-
-        String filename = (ec.web.parameters.get("filename") as String) ?: (ec.web.parameters.get("saveFilename") as String)
+        ExecutionContextImpl activeEc = ecfi.activeContext.get()
+        if (activeEc != null) {
+            logger.warn("In MoquiServlet.service there is already an ExecutionContext for user ${activeEc.user.username} (from ${activeEc.forThreadId}:${activeEc.forThreadName}) in this thread (${Thread.currentThread().id}:${Thread.currentThread().name}), destroying")
+            activeEc.destroy()
+        }
+        ExecutionContextImpl ec = ecfi.getEci()
 
         String xslFoText = null
         try {
+            ec.initWebFacade(moquiWebappName, request, response)
+            ec.web.requestAttributes.put("moquiRequestStartTime", startTime)
+
             ScreenRender sr = ec.screen.makeRender().webappName(moquiWebappName).renderMode("xsl-fo")
                     .rootScreenFromHost(request.getServerName()).screenPath(pathInfo.split("/") as List)
             xslFoText = sr.render()
@@ -84,6 +88,7 @@ class MoquiFopServlet extends HttpServlet {
             String contentType = ec.web.requestParameters."contentType" ?: "application/pdf"
             response.setContentType(contentType)
 
+            String filename = (ec.web.parameters.get("filename") as String) ?: (ec.web.parameters.get("saveFilename") as String)
             if (filename) {
                 String utfFilename = StringUtilities.encodeAsciiFilename(filename)
                 response.addHeader("Content-Disposition", "attachment; filename=\"${filename}\"; filename*=utf-8''${utfFilename}")
