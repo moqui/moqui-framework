@@ -851,8 +851,7 @@ class EntityDbMeta {
         for (String en in entityNames) {
             EntityDefinition ed = null
             try { ed = efi.getEntityDefinition(en) } catch (EntityException e) { logger.warn("Problem finding entity definition", e) }
-            if (ed == null) continue
-            if (ed.isViewEntity) continue
+            if (ed == null || ed.isViewEntity) continue
 
             MNode changeSet = rootNode.append("changeSet", [author:"moqui-init", id:"${dateStr}-${changeSetIdx}".toString()])
             changeSetIdx++
@@ -902,8 +901,7 @@ class EntityDbMeta {
         for (String en in entityNames) {
             EntityDefinition ed = null
             try { ed = efi.getEntityDefinition(en) } catch (EntityException e) { logger.warn("Problem finding entity definition", e) }
-            if (ed == null) continue
-            if (ed.isViewEntity) continue
+            if (ed == null || ed.isViewEntity) continue
 
             MNode changeSet = rootNode.append("changeSet", [author:"moqui-init", id:"${dateStr}-${changeSetIdx}".toString()])
             changeSetIdx++
