@@ -2066,6 +2066,26 @@ class EntityFacadeImpl implements EntityFacade {
 
     }
 
+    /** For pretty-print of field values based on field type */
+    String formatFieldString(String entityName, String fieldName, String value) {
+        if (value == null || value.isEmpty()) return ""
+        EntityDefinition ed = getEntityDefinition(entityName)
+        if (ed == null) return value
+        FieldInfo fi = ed.getFieldInfo(fieldName)
+        if (fi == null) return value
+        String outVal = value
+        if (fi.typeValue == 2) {
+            if (value.matches("\\d*")) {
+                // date-time with only digits, ms since epoch value
+                outVal = ecfi.l10n.format(new Timestamp(Long.parseLong(value)), null)
+            }
+        } else if (fi.type.startsWith("currency-")) {
+            outVal = ecfi.l10n.format(new BigDecimal(value), "#,##0.00#")
+        }
+        // logger.warn("formatFieldString ${entityName}:${fieldName} value ${value} outVal ${outVal}")
+        return outVal
+    }
+
     protected static final Map<String, Integer> fieldTypeIntMap = [
             "id":1, "id-long":1, "text-indicator":1, "text-short":1, "text-medium":1, "text-long":1, "text-very-long":1,
             "date-time":2, "time":3, "date":4,
