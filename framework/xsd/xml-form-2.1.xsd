@@ -801,6 +801,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:annotation><xs:documentation>An expression that evaluates to a Map in the context that will be used
                 in addition to the context when expanding the @text value.</xs:documentation></xs:annotation>
         </xs:attribute>
+        <xs:attribute name="style" type="xs:string"/>
         <xs:attribute name="currency-unit-field" type="xs:string">
             <xs:annotation><xs:documentation>Specifies the currency uomId (ISO code) used to format the value.
             Will only format as currency if this is specified.</xs:documentation></xs:annotation>
@@ -838,6 +839,7 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:attribute name="text" type="xs:string" default="${description}"/>
         <xs:attribute name="default-text" type="xs:string"><xs:annotation><xs:documentation>
             Displayed if no record found.</xs:documentation></xs:annotation></xs:attribute>
+        <xs:attribute name="style" type="xs:string"/>
         <xs:attribute name="also-hidden" default="true" type="boolean"/>
         <xs:attribute name="encode" default="true" type="boolean"><xs:annotation><xs:documentation>
             If true text will be encoded so that it does not interfere with markup of the target output.</xs:documentation></xs:annotation></xs:attribute>
