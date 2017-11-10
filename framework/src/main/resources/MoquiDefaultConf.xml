@@ -404,7 +404,7 @@
             <inline-jdbc><xa-properties driverType="4" serverName="${entity_ds_host}" portNumber="${entity_ds_port?:'50000'}"
                     databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
         </database>
-        <database name="db2i" lb-name="db2" join-style="ansi" offset-style="limit"
+        <database name="db2i" lb-name="db2" join-style="ansi" offset-style="limit" never-nulls="true"
                 default-isolation-level="ReadCommitted"  for-update="FOR UPDATE WITH RS"
                 use-schema-for-all="true" use-indexes-unique-where-not-null="true"
                 default-test-query="SELECT 1 FROM SYSIBM.SYSDUMMY1"
