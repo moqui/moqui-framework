@@ -161,14 +161,20 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:attribute name="transition-first-row" type="xs:string">
             <xs:annotation><xs:documentation>The transition in the current screen to submit the first row form to.</xs:documentation></xs:annotation>
         </xs:attribute>
+        <xs:attribute name="transition-second-row" type="xs:string">
+            <xs:annotation><xs:documentation>The transition in the current screen to submit the second row form to.</xs:documentation></xs:annotation>
+        </xs:attribute>
         <xs:attribute name="transition-last-row" type="xs:string">
             <xs:annotation><xs:documentation>The transition in the current screen to submit the last row form to.</xs:documentation></xs:annotation>
         </xs:attribute>
         <xs:attribute name="map-first-row" type="xs:string">
             <xs:annotation><xs:documentation>The Map to use for field values in the first-row fields, like form-single.@map.</xs:documentation></xs:annotation>
         </xs:attribute>
+        <xs:attribute name="map-second-row" type="xs:string">
+            <xs:annotation><xs:documentation>The Map to use for field values in the second-row fields, like form-single.@map.</xs:documentation></xs:annotation>
+        </xs:attribute>
         <xs:attribute name="map-last-row" type="xs:string">
-            <xs:annotation><xs:documentation>The Map to use for field values in the first-row fields, like form-single.@map.</xs:documentation></xs:annotation>
+            <xs:annotation><xs:documentation>The Map to use for field values in the last-row fields, like form-single.@map.</xs:documentation></xs:annotation>
         </xs:attribute>
         <xs:attribute name="multi" default="false" type="boolean">
             <xs:annotation><xs:documentation>Make the form a multi-submit form where all rows on a page are
@@ -555,6 +561,7 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:sequence>
             <xs:element minOccurs="0" ref="header-field"/>
             <xs:element minOccurs="0" ref="first-row-field"/>
+            <xs:element minOccurs="0" ref="second-row-field"/>
             <xs:element minOccurs="0" maxOccurs="unbounded" ref="conditional-field"/>
             <xs:element minOccurs="0" ref="default-field"/>
             <xs:element minOccurs="0" ref="last-row-field"/>
@@ -645,6 +652,7 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:element name="conditional-field" type="form-list-conditional-field"/>
     <xs:element name="default-field" type="form-list-default-field"/>
     <xs:element name="first-row-field" type="form-list-default-field"/>
+    <xs:element name="second-row-field" type="form-list-default-field"/>
     <xs:element name="last-row-field" type="form-list-default-field"/>
     <xs:complexType name="form-list-default-field">
         <xs:sequence>
