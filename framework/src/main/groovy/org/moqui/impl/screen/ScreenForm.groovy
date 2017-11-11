@@ -783,6 +783,7 @@ class ScreenForm {
     protected void expandFieldNode(MNode baseFormNode, MNode fieldNode) {
         if (fieldNode.hasChild("header-field")) expandFieldSubNode(baseFormNode, fieldNode, fieldNode.first("header-field"))
         if (fieldNode.hasChild("first-row-field")) expandFieldSubNode(baseFormNode, fieldNode, fieldNode.first("first-row-field"))
+        if (fieldNode.hasChild("second-row-field")) expandFieldSubNode(baseFormNode, fieldNode, fieldNode.first("second-row-field"))
         for (MNode conditionalFieldNode in fieldNode.children("conditional-field"))
             expandFieldSubNode(baseFormNode, fieldNode, conditionalFieldNode)
         if (fieldNode.hasChild("default-field")) expandFieldSubNode(baseFormNode, fieldNode, fieldNode.first("default-field"))
@@ -916,6 +917,7 @@ class ScreenForm {
 
             baseFieldNode.mergeSingleChild(overrideFieldNode, "header-field")
             baseFieldNode.mergeSingleChild(overrideFieldNode, "first-row-field")
+            baseFieldNode.mergeSingleChild(overrideFieldNode, "second-row-field")
             baseFieldNode.mergeChildrenByKey(overrideFieldNode, "conditional-field", "condition", null)
             baseFieldNode.mergeSingleChild(overrideFieldNode, "default-field")
             baseFieldNode.mergeSingleChild(overrideFieldNode, "last-row-field")
@@ -1088,14 +1090,17 @@ class ScreenForm {
         private boolean isUploadForm = false
         private boolean isFormHeaderFormVal = false
         private boolean isFormFirstRowFormVal = false
+        private boolean isFormSecondRowFormVal = false
         private boolean isFormLastRowFormVal = false
         private boolean hasFirstRow = false
+        private boolean hasSecondRow = false
         private boolean hasLastRow = false
         private ArrayList<MNode> nonReferencedFieldList = (ArrayList<MNode>) null
         private ArrayList<MNode> hiddenFieldList = (ArrayList<MNode>) null
         private ArrayList<String> hiddenFieldNameList = (ArrayList<String>) null
         private ArrayList<MNode> hiddenHeaderFieldList = (ArrayList<MNode>) null
         private ArrayList<MNode> hiddenFirstRowFieldList = (ArrayList<MNode>) null
+        private ArrayList<MNode> hiddenSecondRowFieldList = (ArrayList<MNode>) null
         private ArrayList<MNode> hiddenLastRowFieldList = (ArrayList<MNode>) null
         private ArrayList<ArrayList<MNode>> formListColInfoList = (ArrayList<ArrayList<MNode>>) null
         private boolean hasFieldHideAttrs = false
@@ -1125,6 +1130,7 @@ class ScreenForm {
                 hiddenFieldNameList = new ArrayList<>()
                 hiddenHeaderFieldList = new ArrayList<>()
                 hiddenFirstRowFieldList = new ArrayList<>()
+                hiddenSecondRowFieldList = new ArrayList<>()
                 hiddenLastRowFieldList = new ArrayList<>()
             }
 
@@ -1146,6 +1152,8 @@ class ScreenForm {
                     if (headerField != null && headerField.hasChild("hidden")) hiddenHeaderFieldList.add(fieldNode)
                     MNode firstRowField = fieldNode.first("first-row-field")
                     if (firstRowField != null && firstRowField.hasChild("hidden")) hiddenFirstRowFieldList.add(fieldNode)
+                    MNode secondRowField = fieldNode.first("second-row-field")
+                    if (secondRowField != null && secondRowField.hasChild("hidden")) hiddenSecondRowFieldList.add(fieldNode)
                     MNode lastRowField = fieldNode.first("last-row-field")
                     if (lastRowField != null && lastRowField.hasChild("hidden")) hiddenLastRowFieldList.add(fieldNode)
 
@@ -1217,6 +1225,9 @@ class ScreenForm {
             for (MNode rfNode in formNode.depthFirst({ MNode it -> "first-row-field".equals(it.name) })) {
                 if (rfNode.children.size() > 0) { hasFirstRow = true; break } }
             if (hasFirstRow && formNode.attribute("transition-first-row")) isFormFirstRowFormVal = true
+            for (MNode rfNode in formNode.depthFirst({ MNode it -> "second-row-field".equals(it.name) })) {
+                if (rfNode.children.size() > 0) { hasSecondRow = true; break } }
+            if (hasSecondRow && formNode.attribute("transition-second-row")) isFormSecondRowFormVal = true
             for (MNode rfNode in formNode.depthFirst({ MNode it -> "last-row-field".equals(it.name) })) {
                 if (rfNode.children.size() > 0) { hasLastRow = true; break } }
             if (hasLastRow && formNode.attribute("transition-last-row")) isFormLastRowFormVal = true
@@ -1589,8 +1600,10 @@ class ScreenForm {
 
         boolean isHeaderForm() { return formInstance.isFormHeaderFormVal }
         boolean isFirstRowForm() { return formInstance.isFormFirstRowFormVal }
+        boolean isSecondRowForm() { return formInstance.isFormSecondRowFormVal }
         boolean isLastRowForm() { return formInstance.isFormLastRowFormVal }
         boolean hasFirstRow() { return formInstance.hasFirstRow }
+        boolean hasSecondRow() { return formInstance.hasSecondRow }
         boolean hasLastRow() { return formInstance.hasLastRow }
         String getFormLocation() { return formInstance.screenForm.location }
 
@@ -1601,6 +1614,7 @@ class ScreenForm {
         ArrayList<MNode> getListHiddenFieldList() { return formInstance.getListHiddenFieldList() }
         ArrayList<MNode> getListHeaderHiddenFieldList() { return formInstance.hiddenHeaderFieldList }
         ArrayList<MNode> getListFirstRowHiddenFieldList() { return formInstance.hiddenFirstRowFieldList }
+        ArrayList<MNode> getListSecondRowHiddenFieldList() { return formInstance.hiddenSecondRowFieldList }
         ArrayList<MNode> getListLastRowHiddenFieldList() { return formInstance.hiddenLastRowFieldList }
         LinkedHashSet<String> getDisplayedFields() { return displayedFieldSet }
 
