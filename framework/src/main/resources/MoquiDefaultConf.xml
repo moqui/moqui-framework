@@ -388,7 +388,7 @@
             <inline-jdbc jdbc-uri="jdbc:db2://localhost:50000/moqui" jdbc-username="moqui" jdbc-password="moqui"/>
         </datasource>
         -->
-        <database name="db2" join-style="ansi" offset-style="limit"
+        <database name="db2" join-style="ansi" offset-style="limit" never-nulls="true"
                 default-isolation-level="ReadCommitted" for-update="FOR UPDATE WITH RS"
                 use-schema-for-all="true" use-indexes-unique="false" use-pk-constraint-names="false" fk-style="name_fk"
                 default-test-query="SELECT 1 FROM SYSIBM.SYSDUMMY1"
@@ -409,7 +409,8 @@
                 use-schema-for-all="true" use-indexes-unique-where-not-null="true"
                 default-test-query="SELECT 1 FROM SYSIBM.SYSDUMMY1"
                 default-jdbc-driver="com.ibm.as400.access.AS400JDBCDriver"
-                default-xa-ds-class="com.ibm.as400.access.AS400JDBCXADataSource">
+                default-xa-ds-class="com.ibm.as400.access.AS400JDBCXADataSource"
+                default-startup-add-missing="true" default-runtime-add-missing="false">
             <database-type type="number-integer" sql-type="DECIMAL(20,0)"/>
             <database-type type="number-decimal" sql-type="DECIMAL(26,6)"/>
             <database-type type="number-float" sql-type="DECIMAL(30,12)"/>
