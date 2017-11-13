@@ -158,7 +158,7 @@ public class MoquiStart {
         // shutdownHook.setDaemon(true);
         // Runtime.getRuntime().addShutdownHook(shutdownHook);
 
-        initSystemProperties(moquiStartLoader, true);
+        initSystemProperties(moquiStartLoader, false);
         String runtimePath = System.getProperty("moqui.runtime");
 
         String overrideConf = argMap.get("conf");
@@ -388,15 +388,18 @@ public class MoquiStart {
     }
 
     private static void initSystemProperties(StartClassLoader cl, boolean useProperties) throws IOException {
-        Properties moquiInitProperties = new Properties();
-        URL initProps = cl.getResource("MoquiInit.properties");
-        if (initProps != null) { InputStream is = initProps.openStream(); moquiInitProperties.load(is); is.close(); }
+        Properties moquiInitProperties = null;
+        if (useProperties) {
+            moquiInitProperties = new Properties();
+            URL initProps = cl.getResource("MoquiInit.properties");
+            if (initProps != null) { InputStream is = initProps.openStream(); moquiInitProperties.load(is); is.close(); }
+        }
 
         // before doing anything else make sure the moqui.runtime system property exists (needed for config of various things)
         String runtimePath = System.getProperty("moqui.runtime");
         if (runtimePath != null && runtimePath.length() > 0)
-            System.out.println("Determined runtime from system property: " + runtimePath);
-        if (useProperties && (runtimePath == null || runtimePath.length() == 0)) {
+            System.out.println("Determined runtime from Java system property: " + runtimePath);
+        if (moquiInitProperties != null && (runtimePath == null || runtimePath.length() == 0)) {
             runtimePath = moquiInitProperties.getProperty("moqui.runtime");
             if (runtimePath != null && runtimePath.length() > 0)
                 System.out.println("Determined runtime from MoquiInit.properties file: " + runtimePath);
@@ -406,7 +409,7 @@ public class MoquiStart {
             File testFile = new File("runtime");
             if (testFile.exists()) runtimePath = "runtime";
             if (runtimePath != null && runtimePath.length() > 0)
-                System.out.println("Determined runtime from existing runtime directory: " + runtimePath);
+                System.out.println("Determined runtime from existing runtime subdirectory: " + testFile.getCanonicalPath());
         }
         if (runtimePath == null || runtimePath.length() == 0) {
             runtimePath = ".";
@@ -427,14 +430,19 @@ public class MoquiStart {
         }
         */
 
-        // moqui.conf=conf/development/MoquiDevConf.xml
+        // moqui.conf=conf/MoquiDevConf.xml
         String confPath = System.getProperty("moqui.conf");
-        if (confPath == null || confPath.length() == 0) {
+        if (confPath != null && confPath.length() > 0)
+            System.out.println("Determined conf from Java system property: " + confPath);
+        if (moquiInitProperties != null && (confPath == null || confPath.length() == 0)) {
             confPath = moquiInitProperties.getProperty("moqui.conf");
+            if (confPath != null && confPath.length() > 0)
+                System.out.println("Determined conf from MoquiInit.properties file: " + confPath);
         }
         if (confPath == null || confPath.length() == 0) {
             File testFile = new File(runtimePath + "/" + defaultConf);
             if (testFile.exists()) confPath = defaultConf;
+            System.out.println("Determined conf by default (dev conf file): " + confPath);
         }
         if (confPath != null) System.setProperty("moqui.conf", confPath);
     }
