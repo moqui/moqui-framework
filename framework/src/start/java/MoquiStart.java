@@ -46,12 +46,26 @@ public class MoquiStart {
         // now grab the first arg and see if it is a known command
         String firstArg = args.length > 0 ? args[0] : "";
 
+        // make a list of arguments
+        List<String> argList = Arrays.asList(args);
+        Map<String, String> argMap = new LinkedHashMap<>();
+        for (String arg: argList) {
+            // run twice to allow one or two dashes
+            if (arg.startsWith("-")) arg = arg.substring(1);
+            if (arg.startsWith("-")) arg = arg.substring(1);
+            if (arg.contains("=")) {
+                argMap.put(arg.substring(0, arg.indexOf("=")), arg.substring(arg.indexOf("=")+1));
+            } else {
+                argMap.put(arg, "");
+            }
+        }
+
         if (firstArg.endsWith("help") || "-?".equals(firstArg)) {
             // setup the class loader
             StartClassLoader moquiStartLoader = new StartClassLoader(true);
             Thread.currentThread().setContextClassLoader(moquiStartLoader);
             Runtime.getRuntime().addShutdownHook(new MoquiShutdown(null, null, moquiStartLoader));
-            initSystemProperties(moquiStartLoader, false);
+            initSystemProperties(moquiStartLoader, false, argMap);
 
             /* nice for debugging, messy otherwise:
             System.out.println("Internal Class Path Jars:");
@@ -110,29 +124,12 @@ public class MoquiStart {
             }
         }
 
-        // make a list of arguments
-        List<String> argList = Arrays.asList(args);
-        Map<String, String> argMap = new LinkedHashMap<>();
-        for (String arg: argList) {
-            // run twice to allow one or two dashes
-            if (arg.startsWith("-")) arg = arg.substring(1);
-            if (arg.startsWith("-")) arg = arg.substring(1);
-            if (arg.contains("=")) {
-                argMap.put(arg.substring(0, arg.indexOf("=")), arg.substring(arg.indexOf("=")+1));
-            } else {
-                argMap.put(arg, "");
-            }
-        }
-
         // run load if is first argument
         if (firstArg.endsWith("load")) {
             StartClassLoader moquiStartLoader = new StartClassLoader(true);
             Thread.currentThread().setContextClassLoader(moquiStartLoader);
             // Runtime.getRuntime().addShutdownHook(new MoquiShutdown(null, null, moquiStartLoader));
-            initSystemProperties(moquiStartLoader, false);
-
-            String overrideConf = argMap.get("conf");
-            if (overrideConf != null && !overrideConf.isEmpty()) System.setProperty("moqui.conf", overrideConf);
+            initSystemProperties(moquiStartLoader, false, argMap);
 
             try {
                 System.out.println("Loading data with args " + argMap);
@@ -158,11 +155,8 @@ public class MoquiStart {
         // shutdownHook.setDaemon(true);
         // Runtime.getRuntime().addShutdownHook(shutdownHook);
 
-        initSystemProperties(moquiStartLoader, false);
+        initSystemProperties(moquiStartLoader, false, argMap);
         String runtimePath = System.getProperty("moqui.runtime");
-
-        String overrideConf = argMap.get("conf");
-        if (overrideConf != null && !overrideConf.isEmpty()) System.setProperty("moqui.conf", overrideConf);
 
         try {
             int port = 8080;
@@ -387,7 +381,7 @@ public class MoquiStart {
         // now wait for break...
     }
 
-    private static void initSystemProperties(StartClassLoader cl, boolean useProperties) throws IOException {
+    private static void initSystemProperties(StartClassLoader cl, boolean useProperties, Map<String, String> argMap) throws IOException {
         Properties moquiInitProperties = null;
         if (useProperties) {
             moquiInitProperties = new Properties();
@@ -430,21 +424,22 @@ public class MoquiStart {
         }
         */
 
-        // moqui.conf=conf/MoquiDevConf.xml
-        String confPath = System.getProperty("moqui.conf");
-        if (confPath != null && confPath.length() > 0)
-            System.out.println("Determined conf from Java system property: " + confPath);
-        if (moquiInitProperties != null && (confPath == null || confPath.length() == 0)) {
-            confPath = moquiInitProperties.getProperty("moqui.conf");
-            if (confPath != null && confPath.length() > 0)
-                System.out.println("Determined conf from MoquiInit.properties file: " + confPath);
+        String confPath = argMap.get("conf");
+        if (confPath != null && !confPath.isEmpty()) System.out.println("Determined conf from conf argument: " + confPath);
+        if (confPath == null || confPath.isEmpty()) {
+            confPath = System.getProperty("moqui.conf");
+            if (confPath != null && !confPath.isEmpty()) System.out.println("Determined conf from Java system property: " + confPath);
         }
-        if (confPath == null || confPath.length() == 0) {
+        if (moquiInitProperties != null && (confPath == null || confPath.isEmpty())) {
+            confPath = moquiInitProperties.getProperty("moqui.conf");
+            if (confPath != null && !confPath.isEmpty()) System.out.println("Determined conf from MoquiInit.properties file: " + confPath);
+        }
+        if (confPath == null || confPath.isEmpty()) {
             File testFile = new File(runtimePath + "/" + defaultConf);
             if (testFile.exists()) confPath = defaultConf;
             System.out.println("Determined conf by default (dev conf file): " + confPath);
         }
-        if (confPath != null) System.setProperty("moqui.conf", confPath);
+        if (confPath != null && !confPath.isEmpty()) System.setProperty("moqui.conf", confPath);
     }
 
     private static class MoquiShutdown extends Thread {
