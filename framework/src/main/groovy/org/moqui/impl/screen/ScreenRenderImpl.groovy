@@ -1519,6 +1519,23 @@ class ScreenRenderImpl implements ScreenRender {
         return transValue
     }
 
+    Map<String, String> getFormHiddenParameters(MNode formNode) {
+        Map<String, String> parmMap = new LinkedHashMap<>()
+        if (formNode == null) return parmMap
+        MNode hiddenParametersNode = formNode.first("hidden-parameters")
+        if (hiddenParametersNode == null) return parmMap
+
+        Map<String, Object> objMap = new LinkedHashMap<>()
+        addNodeParameters(hiddenParametersNode, objMap)
+        for (Map.Entry<String, Object> entry in objMap.entrySet()) {
+            Object valObj = entry.getValue()
+            String valStr = ObjectUtilities.toPlainString(valObj)
+            if (valStr != null && !valStr.isEmpty()) parmMap.put(entry.getKey(), valStr)
+        }
+
+        return parmMap
+    }
+
     boolean addNodeParameters(MNode parameterParentNode, Map<String, Object> parameters) {
         if (parameterParentNode == null) return true
         // get specified parameters
