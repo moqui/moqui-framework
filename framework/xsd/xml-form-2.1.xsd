@@ -750,6 +750,7 @@ along with this software (see the LICENSE.md file). If not, see
         </xs:choice>
         <xs:attribute name="no-current-selected-key" type="xs:string"/>
         <xs:attribute name="all-checked" type="xs:string"/>
+        <xs:attribute name="container-style" type="xs:string"/>
     </xs:complexType></xs:element>
     <xs:element name="date-find" substitutionGroup="SubFields"><xs:complexType>
         <xs:attribute name="type" default="timestamp">
