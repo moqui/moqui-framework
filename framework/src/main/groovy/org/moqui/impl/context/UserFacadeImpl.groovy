@@ -89,13 +89,25 @@ class UserFacadeImpl implements UserFacade {
         this.response = response
         this.session = request.getSession()
 
+        String preUsername = getUsername()
         Subject webSubject = makeEmptySubject()
         if (webSubject.authenticated) {
+            if (preUsername != null && !preUsername.isEmpty()) {
+                String sesUsername = (String) webSubject.getPrincipal()
+                if (!preUsername.equals(sesUsername)) {
+                    logger.warn("Found user ${sesUsername} in session but UserFacade has user ${preUsername}, popping user")
+                    popUser()
+                }
+            }
             // effectively login the user
             pushUserSubject(webSubject)
             if (logger.traceEnabled) logger.trace("For new request found user [${username}] in the session")
         } else {
             if (logger.traceEnabled) logger.trace("For new request NO user authenticated in the session")
+            if (preUsername != null && !preUsername.isEmpty()) {
+                logger.warn("Found NO user in session but UserFacade has user ${preUsername}, popping user")
+                popUser()
+            }
         }
 
         // check for HTTP Basic Authorization for Authentication purposes
@@ -402,11 +414,37 @@ class UserFacadeImpl implements UserFacade {
             fromCal.add(Calendar.WEEK_OF_YEAR, offset)
             thruCal = (Calendar) fromCal.clone()
             thruCal.add(Calendar.WEEK_OF_YEAR, 1)
+        } else if (period == "weeks") {
+            if (offset < 0) {
+                // from end of month of basis date go back offset months (add negative offset to from after copying for thru)
+                fromCal.set(Calendar.DAY_OF_WEEK, fromCal.getFirstDayOfWeek())
+                thruCal = (Calendar) fromCal.clone()
+                thruCal.add(Calendar.WEEK_OF_YEAR, 1)
+                fromCal.add(Calendar.WEEK_OF_YEAR, offset + 1)
+            } else {
+                // from beginning of month of basis date go forward offset months (add offset to thru)
+                fromCal.set(Calendar.DAY_OF_WEEK, fromCal.getFirstDayOfWeek())
+                thruCal = (Calendar) fromCal.clone()
+                thruCal.add(Calendar.WEEK_OF_YEAR, offset == 0 ? 1 : offset)
+            }
         } else if (period == "month") {
             fromCal.set(Calendar.DAY_OF_MONTH, fromCal.getActualMinimum(Calendar.DAY_OF_MONTH))
             fromCal.add(Calendar.MONTH, offset)
             thruCal = (Calendar) fromCal.clone()
             thruCal.add(Calendar.MONTH, 1)
+        } else if (period == "months") {
+            if (offset < 0) {
+                // from end of month of basis date go back offset months (add negative offset to from after copying for thru)
+                fromCal.set(Calendar.DAY_OF_MONTH, fromCal.getActualMinimum(Calendar.DAY_OF_MONTH))
+                thruCal = (Calendar) fromCal.clone()
+                thruCal.add(Calendar.MONTH, 1)
+                fromCal.add(Calendar.MONTH, offset + 1)
+            } else {
+                // from beginning of month of basis date go forward offset months (add offset to thru)
+                fromCal.set(Calendar.DAY_OF_MONTH, fromCal.getActualMinimum(Calendar.DAY_OF_MONTH))
+                thruCal = (Calendar) fromCal.clone()
+                thruCal.add(Calendar.MONTH, offset == 0 ? 1 : offset)
+            }
         } else if (period == "quarter") {
             fromCal.set(Calendar.DAY_OF_MONTH, fromCal.getActualMinimum(Calendar.DAY_OF_MONTH))
             int quarterNumber = (fromCal.get(Calendar.MONTH) / 3) as int
@@ -445,7 +483,9 @@ class UserFacadeImpl implements UserFacade {
         else if (period == "7d") desc.append('7 ').append(eci.getL10n().localize("Days"))
         else if (period == "30d") desc.append('30 ').append(eci.getL10n().localize("Days"))
         else if (period == "week") desc.append(eci.getL10n().localize("Week"))
+        else if (period == "weeks") desc.append(eci.getL10n().localize("Weeks"))
         else if (period == "month") desc.append(eci.getL10n().localize("Month"))
+        else if (period == "months") desc.append(eci.getL10n().localize("Months"))
         else if (period == "quarter") desc.append(eci.getL10n().localize("Quarter"))
         else if (period == "year") desc.append(eci.getL10n().localize("Year"))
         else if (period == "7r") desc.append("+/-7d")
@@ -709,8 +749,7 @@ class UserFacadeImpl implements UserFacade {
         return userInfo
     }
     UserInfo pushUser(String username) {
-        if (currentInfo != null && currentInfo.username == username)
-            return currentInfo
+        if (currentInfo != null && currentInfo.username == username) return currentInfo
 
         if (currentInfo == null || currentInfo.isPopulated()) {
             // logger.info("Pushing UserInfo for ${username} to stack, was ${currentInfo.username}")

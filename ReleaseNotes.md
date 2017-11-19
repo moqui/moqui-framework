@@ -1,17 +1,37 @@
 
 # Moqui Framework Release Notes
 
-## Release 2.1.0 - Not Yet Released
+## Release 2.1.1 - Not Yet Released
+
+Moqui Framework 2.1.1 is a patch level new feature and bug fix release.
+
+### New Features
+
+
+### Bug Fixes
+
+- Serious bug in MoquiAuthFilter where it did not destroy ExecutionContext leaving it in place for the next request using that 
+  thread; also changed MoquiServlet to better protect against existing ExecutionContext for thread; also changed WebFacade init
+  from HTTP request to remove current user if it doesn't match user authenticated in session with Shiro, or if no user is 
+  authenticated in session
+
+## Release 2.1.0 - 22 Oct 2017
 
 Moqui Framework 2.1.0 is a minor new feature and bug fix release.
 
-This release has a few bug fixes from the 2.0.0 release and has minor new features like DbResource and WikiPage version management, 
-a simple tool for ETL, and various XML Screen and Form widget options and usability improvements. This release was originally 
-planned to be a patch level release primarily for bug fixes but very soon after the 2.0.0 release work start on the Vue based client
-rendering (SPA) functionality and various other new features that due to business deals progressed quickly.
+Most of the effort in the Moqui Ecosystem since the last release has been on the business artifact and application levels. Most of
+the framework changes have been for improved user interfaces but there have also been various lower level refinements and 
+enhancements. 
 
-There are various changes for better server side handling of the new Vue based hybrid static/dynamic XML Screen rendering.
-See the moqui-runtime release notes for more details. Some of these changes may be useful for other client rendering purposes.
+This release has a few bug fixes from the 2.0.0 release and has new features like DbResource and WikiPage version management, 
+a simple tool for ETL, DataDocument based dynamic view entities, and various XML Screen and Form widget options and usability 
+improvements. This release was originally planned to be a patch level release primarily for bug fixes but very soon after the 2.0.0 
+release work start on the Vue based client rendering (SPA) functionality and various other new features that due to business deals 
+progressed quickly.
+
+The default moqui-runtime now has support for hybrid static/dynamic XML Screen rendering based on Vue JS. There are various changes 
+for better server side handling but most changes are in moqui-runtime. See the moqui-runtime release notes for more details. 
+Some of these changes may be useful for other client rendering purposes, ie for other client side tools and frameworks.
 
 ### Non Backward Compatible Changes
 
@@ -59,6 +79,8 @@ See the moqui-runtime release notes for more details. Some of these changes may 
   in its where clause instead of the where clause for the top-level select; any fields selected are selected in the sub-select as
   are any fields used for the join ON conditions; the first example of this is the InvoicePaymentApplicationSummary view-entity in
   mantle-usl which also uses alias.@function and alias.complex-alias to use concat_ws for combined name aliases
+- Sub-select also now supported for view-entity members of other view entities; this provides much more flexibility for functions
+  and complex-aliases in the sub-select queries; there are also examples of this in mantle-usl
 - Now uses Jackson Databind for JSON serialization and deserialization; date/time values are in millis since epoch
 
 ### Bug Fixes
