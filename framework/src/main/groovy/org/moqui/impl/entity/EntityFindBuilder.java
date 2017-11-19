@@ -518,7 +518,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
             String colName = localEntityDefinition.getColumnName(joinField);
             localBuilder.append(colName).append(" AS ").append(asName);
             if (gbClause.length() > 0) gbClause.append(", ");
-            gbClause.append(asName);
+            gbClause.append(colName);
         }
 
         // where condition to use for FROM clause (field filtering) and for sub-select WHERE clause
@@ -565,7 +565,13 @@ public class EntityFindBuilder extends EntityQueryBuilder {
             for (int j = 0; j < fieldInfoArray.length; j++) {
                 FieldInfo fi = fieldInfoArray[j];
                 if (fi == null) continue;
-                if (!fi.hasAggregateFunction) {
+                boolean doGroupBy = !fi.hasAggregateFunction;
+                if (!doGroupBy && fi.memberEntityNode != null && "true".equals(fi.memberEntityNode.attribute("sub-select"))) {
+                    // TODO we have a sub-select, if it is on a non-view entity we want to group by (on a view-entity would be only if no aggregate in wrapping alias)
+                    EntityDefinition fromEntityDefinition = efi.getEntityDefinition(fi.memberEntityNode.attribute("entity-name"));
+                    if (!fromEntityDefinition.isViewEntity) doGroupBy = true;
+                }
+                if (doGroupBy) {
                     if (gbClause.length() > 0) gbClause.append(", ");
                     gbClause.append(fi.getFullColumnName());
                 }

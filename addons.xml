@@ -21,36 +21,37 @@
     </repository>
 
     <!-- Where to get runtime directory if not present -->
-    <runtime name="moqui-runtime" group="moqui" version="2.0.0" branch="master"/>
+    <runtime name="moqui-runtime" group="moqui" version="2.1.0" branch="master"/>
 
     <!-- Example Component -->
-    <component name="example" group="moqui" version="2.0.0" branch="master"/>
+    <component name="example" group="moqui" version="2.1.0" branch="master"/>
 
     <!-- Moqui Tool Components -->
     <component name="moqui-atomikos" group="moqui" version="1.0.0" branch="master"/>
-    <component name="moqui-camel" group="moqui" version="1.0.0" branch="master"/>
-    <component name="moqui-elasticsearch" group="moqui" version="1.0.0" branch="master"/>
-    <component name="moqui-fop" group="moqui" version="1.0.0" branch="master"/>
-    <component name="moqui-hazelcast" group="moqui" version="1.0.0" branch="master"/>
-    <component name="moqui-kie" group="moqui" version="1.0.0" branch="master"/>
-    <component name="moqui-orientdb" group="moqui" version="1.0.0" branch="master"/>
+    <component name="moqui-camel" group="moqui" version="1.0.1" branch="master"/>
+    <component name="moqui-elasticsearch" group="moqui" version="1.1.0" branch="master"/>
+    <component name="moqui-fop" group="moqui" version="1.1.0" branch="master"/>
+    <component name="moqui-hazelcast" group="moqui" version="1.0.1" branch="master"/>
+    <component name="moqui-kie" group="moqui" version="1.0.1" branch="master"/>
+    <component name="moqui-orientdb" group="moqui" version="1.0.1" branch="master"/>
     <component name="moqui-wikitext" group="moqui" version="1.0.0" branch="master"/>
 
     <!-- Mantle Components -->
-    <component name="mantle-udm" group="moqui" version="1.1.0" branch="master"/>
-    <component name="mantle-usl" group="moqui" version="1.1.0" branch="master"/>
+    <component name="mantle-udm" group="moqui" version="2.0.0" branch="master"/>
+    <component name="mantle-usl" group="moqui" version="2.0.0" branch="master"/>
 
-    <component name="mantle-edi" group="moqui" version="1.1.0" branch="master"/>
-    <component name="AuthorizeDotNet" group="moqui" version="1.1.0" branch="master"/>
-    <component name="mantle-shippo" group="moqui" version="" branch="master"/><!-- no releases -->
+    <component name="mantle-edi" group="moqui" version="1.1.1" branch="master"/>
+    <component name="AuthorizeDotNet" group="moqui" version="1.2.0" branch="master"/>
+    <component name="mantle-shippo" group="moqui" version="1.0.0" branch="master"/>
+    <component name="mantle-braintree" group="moqui" version="" branch="master"/><!-- no releases -->
 
     <component name="mantle-ubpl" group="moqui" version="" branch="master"/><!-- no releases -->
     <component name="mantle-oagis" group="moqui" version="" branch="master"/><!-- no releases -->
 
     <!-- Moqui Applications -->
-    <component name="SimpleScreens" group="moqui" version="1.1.0" branch="master"/>
-    <component name="HiveMind" group="moqui" version="1.2.0" branch="master"/>
-    <component name="PopCommerce" group="moqui" version="1.1.0" branch="master"/>
+    <component name="SimpleScreens" group="moqui" version="2.0.0" branch="master"/>
+    <component name="HiveMind" group="moqui" version="1.3.0" branch="master"/>
+    <component name="PopCommerce" group="moqui" version="2.0.0" branch="master"/>
 
     <!-- Third Party Components -->
     <component name="moqui-zh_CN-addon" group="chunlinyao" version="" branch="master"/><!-- no releases -->
@@ -61,9 +62,17 @@
 
     <!-- Component Sets -->
     <component-set name="framework" components="example,moqui-camel,moqui-elasticsearch,moqui-fop,moqui-hazelcast,moqui-kie,moqui-orientdb"/>
-    <component-set name="mantle" components="mantle-udm,mantle-usl,mantle-edi,AuthorizeDotNet,SimpleScreens"/>
+    <component-set name="mantle" components="mantle-udm,mantle-usl,mantle-edi,AuthorizeDotNet,mantle-shippo,SimpleScreens"/>
     <component-set name="apps" components="HiveMind,PopCommerce"/>
     <component-set name="ecosystem" sets="framework,mantle,apps"/>
 
     <component-set name="demo" components="example,HiveMind,PopCommerce"/>
+
+    <!-- Release builds:
+        gradle getComponentSet -PcomponentSet=demo -PlocationType=release
+        gradle getComponent -Pcomponent=PopCommerce -PlocationType=release
+        gradle getComponent -Pcomponent=HiveMind -PlocationType=release
+        - these make the source distro for each
+        - to build the demo war: gradle load test addRuntime
+    -->
 </addons>

@@ -90,7 +90,7 @@ class MessageFacadeImpl implements MessageFacade {
         StringBuilder errorBuilder = new StringBuilder()
         if (errorList != null) for (String errorMessage in errorList) errorBuilder.append(errorMessage).append("\n")
         if (validationErrorList != null) for (ValidationError validationError in validationErrorList)
-            errorBuilder.append("${validationError.message} (for field ${validationError.field}${validationError.form ? ' on form ' + validationError.form : ''}${validationError.serviceName ? ' of service ' + validationError.serviceName : ''})").append("\n")
+            errorBuilder.append("${validationError.message} (for field ${validationError.fieldPretty}${validationError.form ? ' on form ' + validationError.formPretty : ''}${validationError.serviceName ? ' of service ' + validationError.serviceNamePretty : ''})").append("\n")
         return errorBuilder.toString()
     }
 
