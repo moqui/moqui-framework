@@ -134,14 +134,16 @@ class ScreenRenderImpl implements ScreenRender {
         this.request = request
         this.response = response
         // NOTE: don't get the writer at this point, we don't yet know if we're writing text or binary
-        if (webappName == null || webappName.length() == 0)
-            webappName(request.servletContext.getInitParameter("moqui-name"))
+        if (webappName == null || webappName.length() == 0) webappName(request.servletContext.getInitParameter("moqui-name"))
         if (webappName != null && webappName.length() > 0 && (rootScreenLocation == null || rootScreenLocation.length() == 0))
             rootScreenFromHost(request.getServerName())
         if (originalScreenPathNameList == null || originalScreenPathNameList.size() == 0) {
             String pathInfo = request.getPathInfo()
             if (pathInfo != null) screenPath(Arrays.asList(pathInfo.split("/")))
         }
+        if (servletContextPath == null || servletContextPath.isEmpty())
+            servletContextPath = request.getServletContext()?.getContextPath()
+
         // now render
         internalRender()
     }
@@ -166,6 +168,8 @@ class ScreenRenderImpl implements ScreenRender {
     /** this should be called as part of a always-actions or pre-actions block to stop rendering before it starts */
     void sendRedirectAndStopRender(String redirectUrl) {
         if (response != null) {
+            if (servletContextPath != null && !servletContextPath.isEmpty() && redirectUrl.startsWith("/"))
+                redirectUrl = servletContextPath + redirectUrl
             response.sendRedirect(redirectUrl)
             dontDoRender = true
             if (logger.isInfoEnabled()) logger.info("Redirecting to ${redirectUrl} instead of rendering ${this.getScreenUrlInfo().getFullPathNameList()}")
@@ -1754,6 +1758,7 @@ class ScreenRenderImpl implements ScreenRender {
         String lastPath = currentPath.toString()
         String paramString = fullUrlInstance.getParameterString()
         if (paramString.length() > 0) currentPath.append('?').append(paramString)
+
         String lastImage = fullUrlInfo.menuImage
         String lastImageType = fullUrlInfo.menuImageType
         if (lastImage != null && lastImage.length() > 0 && (lastImageType == null || lastImageType.length() == 0 || "url-screen".equals(lastImageType)))
@@ -1761,6 +1766,7 @@ class ScreenRenderImpl implements ScreenRender {
         String lastTitle = fullUrlInfo.targetScreen.getDefaultMenuName()
         if (lastTitle.contains('${')) lastTitle = ec.resourceFacade.expand(lastTitle, "")
         List<Map<String, Object>> screenDocList = fullUrlInfo.targetScreen.getScreenDocumentInfoList()
+
         Map lastMap = [name:lastPathItem, title:lastTitle, path:lastPath, pathWithParams:currentPath.toString(), image:lastImage,
                 extraPathList:extraPathList, screenDocList:screenDocList]
         if ("icon".equals(lastImageType)) lastMap.imageType = "icon"
