@@ -228,6 +228,9 @@ class EntityFindTests extends Specification {
 
     def "auto cache clear for view one after update of member"() {
         when:
+        // fix locale to en_US
+        Locale startLocale = ec.user.getLocale()
+        ec.user.setLocale(new Locale("en", "US"))
         EntityValue before = ec.entity.find("moqui.basic.GeoAndType").condition("geoId", "USA").useCache(true).one()
         ec.entity.makeValue("moqui.basic.Enumeration").setAll([enumId:"GEOT_COUNTRY", description:"Country2"]).update()
         EntityValue after = ec.entity.find("moqui.basic.GeoAndType").condition("geoId", "USA").useCache(true).one()
@@ -240,6 +243,10 @@ class EntityFindTests extends Specification {
         before.typeDescription == "Country"
         after.typeDescription == "Country2"
         reset.typeDescription == "Country"
+
+        cleanup:
+        // set back locale
+        ec.user.setLocale(startLocale)
     }
 
     def "auto cache clear for count by is not null after update"() {
