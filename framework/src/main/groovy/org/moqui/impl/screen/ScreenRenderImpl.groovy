@@ -1174,14 +1174,18 @@ class ScreenRenderImpl implements ScreenRender {
 
         if (parameterParentNode != null) {
             String parameterMapStr = (String) parameterParentNode.attribute("parameter-map")
-            if (parameterMapStr) {
+            if (parameterMapStr != null && !parameterMapStr.isEmpty()) {
                 Map ctxParameterMap = (Map) ec.resource.expression(parameterMapStr, "")
                 if (ctxParameterMap) urli.addParameters(ctxParameterMap)
             }
-            for (MNode parameterNode in parameterParentNode.children("parameter")) {
+            ArrayList<MNode> parameterNodes = parameterParentNode.children("parameter")
+            int parameterNodesSize = parameterNodes.size()
+            for (int i = 0; i < parameterNodesSize; i++) {
+                MNode parameterNode = (MNode) parameterNodes.get(i)
                 String name = parameterNode.attribute("name")
-                urli.addParameter(name, getContextValue(
-                        parameterNode.attribute("from") ?: name, parameterNode.attribute("value")))
+                String from = parameterNode.attribute("from")
+                if (from == null || from.isEmpty()) from = name
+                urli.addParameter(name, getContextValue(from, parameterNode.attribute("value")))
             }
         }
 
@@ -1546,14 +1550,20 @@ class ScreenRenderImpl implements ScreenRender {
         if (parameterParentNode == null) return true
         // get specified parameters
         String parameterMapStr = (String) parameterParentNode.attribute("parameter-map")
-        if (parameterMapStr) {
+        if (parameterMapStr != null && !parameterMapStr.isEmpty()) {
             Map ctxParameterMap = (Map) ec.resource.expression(parameterMapStr, "")
             if (ctxParameterMap != null) parameters.putAll(ctxParameterMap)
         }
-        for (MNode parameterNode in parameterParentNode.children("parameter")) {
+        ArrayList<MNode> parameterNodes = parameterParentNode.children("parameter")
+        int parameterNodesSize = parameterNodes.size()
+        for (int i = 0; i < parameterNodesSize; i++) {
+            MNode parameterNode = (MNode) parameterNodes.get(i)
             String name = parameterNode.attribute("name")
-            parameters.put(name, getContextValue(parameterNode.attribute("from") ?: name, parameterNode.attribute("value")))
+            String from = parameterNode.attribute("from")
+            if (from == null || from.isEmpty()) from = name
+            parameters.put(name, getContextValue(from, parameterNode.attribute("value")))
         }
+
         // get current values for depends-on fields
         boolean dependsOptional = "true".equals(parameterParentNode.attribute("depends-optional"))
         boolean hasAllDepends = true
