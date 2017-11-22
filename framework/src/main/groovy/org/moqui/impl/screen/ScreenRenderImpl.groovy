@@ -441,6 +441,8 @@ class ScreenRenderImpl implements ScreenRender {
                     UrlInstance fullUrl = buildUrl(rootScreenDef, screenUrlInfo.preTransitionPathNameList, url)
                     // copy through pageIndex if passed so in form-list with multiple pages we stay on same page
                     if (web.requestParameters.containsKey("pageIndex")) fullUrl.addParameter("pageIndex", (String) web.parameters.get("pageIndex"))
+                    // copy through orderByField if passed so in form-list with multiple pages we retain the sort order
+                    if (web.requestParameters.containsKey("orderByField")) fullUrl.addParameter("orderByField", (String) web.parameters.get("orderByField"))
                     fullUrl.addParameters(ri.expandParameters(screenUrlInfo.getExtraPathNameList(), ec))
                     // if this was a screen-last and the screen has declared parameters include them in the URL
                     Map savedParameters = wfi?.getSavedParameters()
@@ -1172,14 +1174,18 @@ class ScreenRenderImpl implements ScreenRender {
 
         if (parameterParentNode != null) {
             String parameterMapStr = (String) parameterParentNode.attribute("parameter-map")
-            if (parameterMapStr) {
+            if (parameterMapStr != null && !parameterMapStr.isEmpty()) {
                 Map ctxParameterMap = (Map) ec.resource.expression(parameterMapStr, "")
                 if (ctxParameterMap) urli.addParameters(ctxParameterMap)
             }
-            for (MNode parameterNode in parameterParentNode.children("parameter")) {
+            ArrayList<MNode> parameterNodes = parameterParentNode.children("parameter")
+            int parameterNodesSize = parameterNodes.size()
+            for (int i = 0; i < parameterNodesSize; i++) {
+                MNode parameterNode = (MNode) parameterNodes.get(i)
                 String name = parameterNode.attribute("name")
-                urli.addParameter(name, getContextValue(
-                        parameterNode.attribute("from") ?: name, parameterNode.attribute("value")))
+                String from = parameterNode.attribute("from")
+                if (from == null || from.isEmpty()) from = name
+                urli.addParameter(name, getContextValue(from, parameterNode.attribute("value")))
             }
         }
 
@@ -1523,18 +1529,41 @@ class ScreenRenderImpl implements ScreenRender {
         return transValue
     }
 
+    Map<String, String> getFormHiddenParameters(MNode formNode) {
+        Map<String, String> parmMap = new LinkedHashMap<>()
+        if (formNode == null) return parmMap
+        MNode hiddenParametersNode = formNode.first("hidden-parameters")
+        if (hiddenParametersNode == null) return parmMap
+
+        Map<String, Object> objMap = new LinkedHashMap<>()
+        addNodeParameters(hiddenParametersNode, objMap)
+        for (Map.Entry<String, Object> entry in objMap.entrySet()) {
+            Object valObj = entry.getValue()
+            String valStr = ObjectUtilities.toPlainString(valObj)
+            if (valStr != null && !valStr.isEmpty()) parmMap.put(entry.getKey(), valStr)
+        }
+
+        return parmMap
+    }
+
     boolean addNodeParameters(MNode parameterParentNode, Map<String, Object> parameters) {
         if (parameterParentNode == null) return true
         // get specified parameters
         String parameterMapStr = (String) parameterParentNode.attribute("parameter-map")
-        if (parameterMapStr) {
+        if (parameterMapStr != null && !parameterMapStr.isEmpty()) {
             Map ctxParameterMap = (Map) ec.resource.expression(parameterMapStr, "")
             if (ctxParameterMap != null) parameters.putAll(ctxParameterMap)
         }
-        for (MNode parameterNode in parameterParentNode.children("parameter")) {
+        ArrayList<MNode> parameterNodes = parameterParentNode.children("parameter")
+        int parameterNodesSize = parameterNodes.size()
+        for (int i = 0; i < parameterNodesSize; i++) {
+            MNode parameterNode = (MNode) parameterNodes.get(i)
             String name = parameterNode.attribute("name")
-            parameters.put(name, getContextValue(parameterNode.attribute("from") ?: name, parameterNode.attribute("value")))
+            String from = parameterNode.attribute("from")
+            if (from == null || from.isEmpty()) from = name
+            parameters.put(name, getContextValue(from, parameterNode.attribute("value")))
         }
+
         // get current values for depends-on fields
         boolean dependsOptional = "true".equals(parameterParentNode.attribute("depends-optional"))
         boolean hasAllDepends = true

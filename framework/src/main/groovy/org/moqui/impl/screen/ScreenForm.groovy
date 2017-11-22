@@ -890,11 +890,15 @@ class ScreenForm {
             MNode baseRowActionsNode = baseFormNode.first("row-actions")
             for (MNode actionNode in overrideFormNode.first("row-actions").children) baseRowActionsNode.append(actionNode)
         }
+        if (overrideFormNode.hasChild("hidden-parameters")) {
+            int hpIndex = baseFormNode.firstIndex("hidden-parameters")
+            if (hpIndex >= 0) baseFormNode.replace(hpIndex, overrideFormNode.first("hidden-parameters"))
+            else baseFormNode.append(overrideFormNode.first("hidden-parameters"))
+        }
 
         if (copyFields) {
-            for (MNode overrideFieldNode in overrideFormNode.children("field")) {
+            for (MNode overrideFieldNode in overrideFormNode.children("field"))
                 mergeFieldNode(baseFormNode, overrideFieldNode, deepCopy)
-            }
         }
 
         if (overrideFormNode.hasChild("field-layout")) {
