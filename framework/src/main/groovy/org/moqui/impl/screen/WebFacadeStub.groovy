@@ -59,6 +59,7 @@ class WebFacadeStub implements WebFacade {
     Map<String, Object> requestParameters = [:]
     Map<String, Object> sessionAttributes = [:]
     String requestMethod = "get"
+    boolean skipJsonSerialize = false
 
     protected HttpSessionStub httpSession
     protected HttpServletRequestStub httpServletRequest
@@ -67,6 +68,7 @@ class WebFacadeStub implements WebFacade {
 
     protected StringWriter responseWriter = new StringWriter()
     protected PrintWriter responsePrintWriter = new PrintWriter(responseWriter)
+    protected Object responseJsonObj = null
 
     WebFacadeStub(ExecutionContextFactoryImpl ecfi, Map<String, Object> requestParameters,
                   Map<String, Object> sessionAttributes, String requestMethod) {
@@ -82,6 +84,7 @@ class WebFacadeStub implements WebFacade {
     }
 
     String getResponseText() { responseWriter.flush(); return responseWriter.toString() }
+    Object getResponseJsonObj() { return responseJsonObj }
     HttpServletResponseStub getHttpServletResponseStub() { return httpServletResponse }
 
     @Override String getRequestUrl() { return "TestRequestUrl" }
@@ -125,7 +128,11 @@ class WebFacadeStub implements WebFacade {
 
     @Override
     void sendJsonResponse(Object responseObj) {
-        WebFacadeImpl.sendJsonResponseInternal(responseObj, ecfi.eci, httpServletRequest, httpServletResponse, requestAttributes)
+        if (skipJsonSerialize) {
+            responseJsonObj = responseObj
+        } else {
+            WebFacadeImpl.sendJsonResponseInternal(responseObj, ecfi.eci, httpServletRequest, httpServletResponse, requestAttributes)
+        }
         /*
         String jsonStr
         if (responseObj instanceof CharSequence) {
@@ -148,8 +155,7 @@ class WebFacadeStub implements WebFacade {
         */
     }
 
-    @Override
-    void sendTextResponse(String text) { sendTextResponse(text, "text/plain", null) }
+    @Override void sendTextResponse(String text) { sendTextResponse(text, "text/plain", null) }
     @Override
     void sendTextResponse(String text, String contentType, String filename) {
         WebFacadeImpl.sendTextResponseInternal(text, contentType, filename, ecfi.eci, httpServletRequest, httpServletResponse, requestAttributes)
@@ -169,12 +175,9 @@ class WebFacadeStub implements WebFacade {
         */
     }
 
-    @Override
-    void handleXmlRpcServiceCall() { throw new IllegalArgumentException("WebFacadeStub handleXmlRpcServiceCall not supported") }
-    @Override
-    void handleJsonRpcServiceCall() { throw new IllegalArgumentException("WebFacadeStub handleJsonRpcServiceCall not supported") }
-    @Override
-    void handleEntityRestCall(List<String> extraPathNameList, boolean masterNameInPath) {
+    @Override void handleXmlRpcServiceCall() { throw new IllegalArgumentException("WebFacadeStub handleXmlRpcServiceCall not supported") }
+    @Override void handleJsonRpcServiceCall() { throw new IllegalArgumentException("WebFacadeStub handleJsonRpcServiceCall not supported") }
+    @Override void handleEntityRestCall(List<String> extraPathNameList, boolean masterNameInPath) {
         throw new IllegalArgumentException("WebFacadeStub handleEntityRestCall not supported") }
     @Override
     void handleServiceRestCall(List<String> extraPathNameList) {
