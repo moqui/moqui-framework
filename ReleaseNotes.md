@@ -7,6 +7,7 @@ Moqui Framework 2.1.1 is a patch level new feature and bug fix release.
 
 ### New Features
 
+- Updated to Gradle 4.3.1 along with changes to gradle files that require Gradle 4.0 or later
 
 ### Bug Fixes
 
