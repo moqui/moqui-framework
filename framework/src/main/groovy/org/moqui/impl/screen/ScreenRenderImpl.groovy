@@ -359,7 +359,7 @@ class ScreenRenderImpl implements ScreenRender {
                     sfi.ecfi.countArtifactHit(ArtifactExecutionInfo.AT_XML_SCREEN_TRANS, riType != null ? riType : "",
                             targetTransition.parentScreen.getLocation() + "#" + targetTransition.name,
                             (web != null ? web.requestParameters : null), renderStartTime,
-                            (System.nanoTime() - startTimeNanos)/1E6, null)
+                            (System.nanoTime() - startTimeNanos)/1000000.0D, null)
                 }
             }
 
@@ -519,7 +519,7 @@ class ScreenRenderImpl implements ScreenRender {
                         if (screenUrlInfo.targetScreen.screenNode.attribute("track-artifact-hit") != "false") {
                             sfi.ecfi.countArtifactHit(ArtifactExecutionInfo.AT_XML_SCREEN_CONTENT, fileContentType,
                                     fileResourceRef.location, (web != null ? web.requestParameters : null),
-                                    resourceStartTime, (System.nanoTime() - startTimeNanos)/1E6, (long) totalLen)
+                                    resourceStartTime, (System.nanoTime() - startTimeNanos)/1000000.0D, (long) totalLen)
                         }
                         if (isTraceEnabled) logger.trace("Sent binary response of length ${totalLen} from file ${fileResourceRef.location} for request to ${screenUrlInstance.url}")
                     } finally {
@@ -560,7 +560,7 @@ class ScreenRenderImpl implements ScreenRender {
                         if (!"false".equals(screenUrlInfo.targetScreen.screenNode.attribute("track-artifact-hit"))) {
                             sfi.ecfi.countArtifactHit(ArtifactExecutionInfo.AT_XML_SCREEN_CONTENT, fileContentType,
                                     fileResourceRef.location, (web != null ? web.requestParameters : null),
-                                    resourceStartTime, (System.nanoTime() - startTimeNanos)/1E6, (long) text.length())
+                                    resourceStartTime, (System.nanoTime() - startTimeNanos)/1000000.0D, (long) text.length())
                         }
                     } else {
                         logger.warn("Not sending text response from file [${fileResourceRef.location}] for request to [${screenUrlInstance.url}] because no text was found in the file.")

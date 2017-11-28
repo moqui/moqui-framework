@@ -12,13 +12,17 @@ You should have received a copy of the CC0 Public Domain Dedication
 along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
-<entity-facade-xml type="seed">
+<entity-facade-xml type="seed-initial">
     <!-- ========== Framework Scheduled ServiceJob Data ========== -->
     <!-- Handy cron strings: [0 0 2 * * ?] every night at 2:00 am, [0 0/15 * * * ?] every 15 minutes, [0 0/2 * * * ?] every 2 minutes -->
 
     <moqui.service.job.ServiceJob jobName="clean_ArtifactData_daily" description="Clean Artifact Data: ArtifactHit, ArtifactHitBin"
             serviceName="org.moqui.impl.ServerServices.clean#ArtifactData" cronExpression="0 0 2 * * ?" paused="N">
         <parameters parameterName="daysToKeep" parameterValue="90"/>
+    </moqui.service.job.ServiceJob>
+    <moqui.service.job.ServiceJob jobName="clean_PrintJobData_daily" description="Clean PrintJob Data"
+            serviceName="org.moqui.impl.ServerServices.clean#PrintJobData" cronExpression="0 0 2 * * ?" paused="N">
+        <parameters parameterName="daysToKeep" parameterValue="7"/>
     </moqui.service.job.ServiceJob>
     <moqui.service.job.ServiceJob jobName="clean_ServiceJobRun_daily" description="Clean ServiceJobRun Data"
             serviceName="org.moqui.impl.ServiceServices.clean#ServiceJobRun" cronExpression="0 0 2 * * ?" paused="N">
