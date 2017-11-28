@@ -65,22 +65,37 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="artifactHitsRemoved" type="Long"/>
             <parameter name="artifactHitBinsRemoved" type="Long"/>
         </out-parameters>
-        <actions>
-            <script>
-                import org.moqui.context.ExecutionContext
-                import org.moqui.entity.EntityCondition
-                ExecutionContext ec = context.ec
-                Calendar basisCal = ec.user.getCalendarSafe()
-                basisCal.add(Calendar.DAY_OF_YEAR, (int) -daysToKeep)
-                basisTimestamp = new Timestamp(basisCal.getTimeInMillis())
-                artifactHitsRemoved = ec.entity.find("moqui.server.ArtifactHit")
-                        .condition("startDateTime", EntityCondition.LESS_THAN, basisTimestamp)
-                        .disableAuthz().deleteAll()
-                artifactHitBinsRemoved = ec.entity.find("moqui.server.ArtifactHitBin")
-                        .condition("binEndDateTime", EntityCondition.LESS_THAN, basisTimestamp)
-                        .disableAuthz().deleteAll()
-            </script>
-            <log level="info" message="Removed ${artifactHitsRemoved} ArtifactHit records and ${artifactHitBinsRemoved} ArtifactHitBin records."/>
-        </actions>
+        <actions><script>
+            import org.moqui.context.ExecutionContext
+            import org.moqui.entity.EntityCondition
+            ExecutionContext ec = context.ec
+            Calendar basisCal = ec.user.getCalendarSafe()
+            basisCal.add(Calendar.DAY_OF_YEAR, (int) -daysToKeep)
+            basisTimestamp = new Timestamp(basisCal.getTimeInMillis())
+            artifactHitsRemoved = ec.entity.find("moqui.server.ArtifactHit")
+                    .condition("startDateTime", EntityCondition.LESS_THAN, basisTimestamp)
+                    .disableAuthz().deleteAll()
+            artifactHitBinsRemoved = ec.entity.find("moqui.server.ArtifactHitBin")
+                    .condition("binEndDateTime", EntityCondition.LESS_THAN, basisTimestamp)
+                    .disableAuthz().deleteAll()
+            ec.logger.info("Removed ${artifactHitsRemoved} ArtifactHit records and ${artifactHitBinsRemoved} ArtifactHitBin records more than ${daysToKeep} days old")
+        </script></actions>
+    </service>
+
+    <service verb="clean" noun="PrintJobData" authenticate="false" transaction-timeout="600">
+        <in-parameters><parameter name="daysToKeep" type="Integer" default="7"/></in-parameters>
+        <out-parameters><parameter name="printJobsRemoved" type="Long"/></out-parameters>
+        <actions><script>
+            import org.moqui.context.ExecutionContext
+            import org.moqui.entity.EntityCondition
+            ExecutionContext ec = context.ec
+            Calendar basisCal = ec.user.getCalendarSafe()
+            basisCal.add(Calendar.DAY_OF_YEAR, (int) -daysToKeep)
+            basisTimestamp = new Timestamp(basisCal.getTimeInMillis())
+            printJobsRemoved = ec.entity.find("moqui.basic.print.PrintJob")
+                    .condition("createdDate", EntityCondition.LESS_THAN, basisTimestamp)
+                    .disableAuthz().deleteAll()
+            ec.logger.info("Removed ${printJobsRemoved} PrintJob records more than ${daysToKeep} days old")
+        </script></actions>
     </service>
 </services>
