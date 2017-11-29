@@ -64,17 +64,17 @@ return;
 </#macro>
 
 <#macro "script"><#if .node["@location"]?has_content>ec.resource.script("${.node["@location"]}", null)</#if>
-    // begin inline script
-    ${.node}
-    // end inline script
+// begin inline script
+${.node}
+// end inline script
 </#macro>
 
 <#macro set>
     <#if .node["@set-if-empty"]?has_content && .node["@set-if-empty"] == "false">
-    _temp_internal = <#if .node["@type"]?has_content>basicConvert</#if>(<#if .node["@from"]?has_content>${.node["@from"]}<#else>"""${.node.@value}"""</#if><#if .node["@default-value"]?has_content> ?: "${.node["@default-value"]}"</#if><#if .node["@type"]?has_content>, "${.node["@type"]}"</#if>)
-    if (_temp_internal) ${.node["@field"]} = _temp_internal
+    _temp_internal = <#if .node["@type"]?has_content>basicConvert</#if>(<#if .node["@from"]?has_content>${.node["@from"]}<#elseif .node["@value"]?has_content>"""${.node["@value"]}"""<#else>null</#if><#if .node["@default-value"]?has_content> ?: """${.node["@default-value"]}"""</#if><#if .node["@type"]?has_content>, "${.node["@type"]}"</#if>)
+    if (!isEmpty(_temp_internal)) ${.node["@field"]} = _temp_internal
     <#else>
-    ${.node["@field"]} = <#if .node["@type"]?has_content>basicConvert</#if>(<#if .node["@from"]?has_content>${.node["@from"]}<#else>"""${.node["@value"]}"""</#if><#if .node["@default-value"]?has_content> ?: "${.node["@default-value"]}"</#if><#if .node["@type"]?has_content>, "${.node["@type"]}"</#if>)
+    ${.node["@field"]} = <#if .node["@type"]?has_content>basicConvert</#if>(<#if .node["@from"]?has_content>${.node["@from"]}<#elseif .node["@value"]?has_content>"""${.node["@value"]}"""<#else>null</#if><#if .node["@default-value"]?has_content> ?: """${.node["@default-value"]}"""</#if><#if .node["@type"]?has_content>, "${.node["@type"]}"</#if>)
     </#if>
 </#macro>
 
