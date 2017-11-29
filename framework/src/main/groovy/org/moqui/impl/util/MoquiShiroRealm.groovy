@@ -24,6 +24,7 @@ import org.apache.shiro.subject.PrincipalCollection
 import org.apache.shiro.util.SimpleByteSource
 import org.moqui.BaseArtifactException
 import org.moqui.Moqui
+import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityException
 import org.moqui.entity.EntityValue
 import org.moqui.impl.context.ArtifactExecutionFacadeImpl
@@ -159,9 +160,11 @@ class MoquiShiroRealm implements Realm, Authorizer {
             MNode loginNode = eci.ecfi.confXmlRoot.first("user-facade").first("login")
             if (userId != null && loginNode.attribute("history-store") != "false") {
                 Timestamp fromDate = eci.getUser().getNowTimestamp()
-                EntityValue curUlh = eci.entity.find("moqui.security.UserLoginHistory")
-                        .condition("userId", userId).condition("fromDate", fromDate).disableAuthz().one()
-                if (curUlh == null) {
+                // look for login history in the last minute, if any found don't create UserLoginHistory
+                Timestamp recentDate = new Timestamp(fromDate.getTime() - 60000)
+                long recentUlh = eci.entity.find("moqui.security.UserLoginHistory").condition("userId", userId)
+                        .condition("fromDate", EntityCondition.GREATER_THAN, recentDate).disableAuthz().count()
+                if (recentUlh == 0) {
                     Map<String, Object> ulhContext = [userId:userId, fromDate:fromDate,
                             visitId:eci.user.visitId, successfulLogin:(successful?"Y":"N")] as Map<String, Object>
                     if (!successful && loginNode.attribute("history-incorrect-password") != "false") ulhContext.passwordUsed = passwordUsed
@@ -176,7 +179,7 @@ class MoquiShiroRealm implements Realm, Authorizer {
                         }
                     })
                 } else {
-                    logger.warn("Not creating UserLoginHistory, found existing record for userId [${userId}] and fromDate [${fromDate}]")
+                    if (logger.isDebugEnabled()) logger.debug("Not creating UserLoginHistory, found existing record for userId ${userId} and more recent than ${recentDate}")
                 }
             }
         }
