@@ -446,12 +446,16 @@ class ScreenDefinition {
         List<SubscreensItem> ssiList = getSubscreensItemsSorted()
         for (SubscreensItem ssi in ssiList) {
             if (screensToSkip.contains(ssi.name)) continue
-            ScreenDefinition subSd = sfi.getScreenDefinition(ssi.location)
-            if (!subSd.hasRequiredParameters()) {
-                String subPath = (currentPath ? currentPath + "/" : '') + ssi.name
-                // don't add current if a has a default subscreen item
-                if (!subSd.getDefaultSubscreensItem()) locList.add(subPath)
-                locList.addAll(subSd.nestedNoReqParmLocations(subPath, screensToSkip))
+            try {
+                ScreenDefinition subSd = sfi.getScreenDefinition(ssi.location)
+                if (!subSd.hasRequiredParameters()) {
+                    String subPath = (currentPath ? currentPath + "/" : '') + ssi.name
+                    // don't add current if it a has a default subscreen item
+                    if (!subSd.getDefaultSubscreensItem()) locList.add(subPath)
+                    locList.addAll(subSd.nestedNoReqParmLocations(subPath, screensToSkip))
+                }
+            } catch (Exception e) {
+                logger.error("Error finding no parameter screens under ${this.location} for subscreen location ${ssi.location}", e)
             }
         }
         return locList
