@@ -586,6 +586,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
             childBaseNode.attributeMap.putAll(childOverrideNode.attributeMap);
             if (childOverrideNode.childList != null && childOverrideNode.childList.size() > 0) {
                 if (childBaseNode.childList != null) {
+                    if (childBaseNode.childrenByName != null) childBaseNode.childrenByName.clear();
                     childBaseNode.childList.clear();
                 } else {
                     childBaseNode.childList = new ArrayList<>();
@@ -598,6 +599,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
                 }
             }
         } else {
+            if (childrenByName != null) childrenByName.remove(childOverrideNode.nodeName);
             if (childList == null) childList = new ArrayList<>();
             childList.add(childOverrideNode.deepCopy(this));
         }
@@ -610,6 +612,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
         if (baseChildNode != null) {
             baseChildNode.mergeNodeWithChildKey(overrideChildNode, grandchildName, keyAttributeName, grandchildMerger);
         } else {
+            if (childrenByName != null) childrenByName.remove(overrideChildNode.nodeName);
             if (childList == null) childList = new ArrayList<>();
             childList.add(overrideChildNode.deepCopy(this));
         }
@@ -662,6 +665,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
                 } else {
                     // do the default child merge: remove current nodes children and replace with a copy of the override node's children
                     if (childBaseNode.childList != null) {
+                        if (childBaseNode.childrenByName != null) childBaseNode.childrenByName.clear();
                         childBaseNode.childList.clear();
                     } else {
                         childBaseNode.childList = new ArrayList<>();
