@@ -707,6 +707,7 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:attribute name="height" type="xs:string" default="600"/>
         <xs:attribute name="condition" type="xs:string"/>
         <xs:attribute name="type" type="color-context" default="primary"/>
+        <xs:attribute name="icon" type="xs:string"/>
     </xs:complexType></xs:element>
     <xs:element name="dynamic-dialog" substitutionGroup="StandaloneFields"><xs:annotation>
         <xs:documentation>When the button is pressed the dialog contents are loaded from the server at
@@ -722,6 +723,7 @@ along with this software (see the LICENSE.md file). If not, see
             names and values from in addition to the parameter sub-elements.</xs:documentation></xs:annotation></xs:attribute>
         <xs:attribute name="condition" type="xs:string"/>
         <xs:attribute name="type" type="color-context" default="primary"/>
+        <xs:attribute name="icon" type="xs:string"/>
     </xs:complexType></xs:element>
     <xs:element name="dynamic-container" substitutionGroup="StandaloneFields"><xs:annotation>
         <xs:documentation>Container contents are immediately loaded from the server at the given
