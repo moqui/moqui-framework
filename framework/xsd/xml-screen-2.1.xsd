@@ -622,7 +622,8 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:element name="box-toolbar"><xs:complexType>
         <xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/></xs:complexType></xs:element>
     <xs:element name="box-body"><xs:complexType>
-        <xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/></xs:complexType></xs:element>
+        <xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:attribute name="height" type="xs:string"/></xs:complexType></xs:element>
     <xs:element name="box-body-nopad"><xs:complexType>
         <xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/></xs:complexType></xs:element>
 
