@@ -1444,8 +1444,28 @@ class ScreenRenderImpl implements ScreenRender {
 
                 if (hasAllDepends) {
                     UrlInstance transUrl = buildUrl(transition)
-                    ScreenTest screenTest = ec.screen.makeTest().rootScreen(rootScreenLocation)
+                    ScreenTest screenTest = ec.screen.makeTest().rootScreen(rootScreenLocation).skipJsonSerialize(true)
                     ScreenTest.ScreenTestRender str = screenTest.render(transUrl.getPathWithParams(), parameters, null)
+
+                    Object jsonObj = str.getJsonObject()
+                    List optsList = null
+                    if (jsonObj instanceof List) {
+                        optsList = (List) jsonObj
+                    } else if (jsonObj instanceof Map) {
+                        Map jsonMap = (Map) jsonObj
+                        Object optionsObj = jsonMap.get("options")
+                        if (optionsObj instanceof List) optsList = (List) optionsObj
+                    }
+                    if (optsList != null) for (Object entryObj in optsList) {
+                        if (entryObj instanceof Map) {
+                            Map entryMap = (Map) entryObj
+                            String valueObj = entryMap.get(valueField)
+                            String labelObj = entryMap.get(labelField)
+                            if (valueObj && labelObj) optsMap.put(valueObj, labelObj)
+                        }
+                    }
+
+                    /* old approach before skipJsonSerialize
                     String output = str.getOutput()
 
                     try {
@@ -1469,6 +1489,7 @@ class ScreenRenderImpl implements ScreenRender {
                     } catch (Throwable t) {
                         logger.warn("Error getting field options from transition", t)
                     }
+                    */
                 }
             }
         }

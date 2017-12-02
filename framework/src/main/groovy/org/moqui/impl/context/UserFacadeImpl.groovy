@@ -531,7 +531,6 @@ class UserFacadeImpl implements UserFacade {
             //     UnknownAccountException, IncorrectCredentialsException, ExpiredCredentialsException,
             //     CredentialsException, LockedAccountException, DisabledAccountException, ExcessiveAttemptsException
             eci.messageFacade.addError(ae.message)
-            logger.warn("Login failure: ${eci.message.errorsString}", ae)
             return false
         }
 
@@ -561,10 +560,15 @@ class UserFacadeImpl implements UserFacade {
             }
         } catch (AuthenticationException ae) {
             eci.messageFacade.addError(ae.message)
-            logger.warn("Login failure: ${eci.message.errorsString}", ae)
             return false
         }
 
+        return true
+    }
+    /** For internal use only, quick login using a Subject already logged in from another thread, etc */
+    boolean internalLoginSubject(Subject loginSubject) {
+        if (loginSubject == null || !loginSubject.getPrincipal() || !loginSubject.isAuthenticated()) return false
+        pushUserSubject(loginSubject)
         return true
     }
 
@@ -762,6 +766,7 @@ class UserFacadeImpl implements UserFacade {
             return currentInfo
         }
     }
+    Subject getCurrentSubject() { return currentInfo.subject != null && currentInfo.subject.isAuthenticated() ? currentInfo.subject : null }
     void popUser() {
         if (currentInfo.subject != null && currentInfo.subject.isAuthenticated()) currentInfo.subject.logout()
         userInfoStack.removeFirst()

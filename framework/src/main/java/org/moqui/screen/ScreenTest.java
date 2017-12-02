@@ -40,6 +40,9 @@ public interface ScreenTest {
     /** @see ScreenRender#webappName(String) */
     ScreenTest webappName(String wan);
 
+    /** Calls to WebFacade.sendJsonResponse will not be serialized, use along with ScreenTestRender.getJsonObject() */
+    ScreenTest skipJsonSerialize(boolean skip);
+
     /** Get screen name paths to all screens with no required parameters under the rootScreen and (if specified) baseScreenPath */
     List<String> getNoRequiredParameterPaths(Set<String> screensToSkip);
 
@@ -59,6 +62,7 @@ public interface ScreenTest {
     interface ScreenTestRender {
         ScreenRender getScreenRender();
         String getOutput();
+        Object getJsonObject();
         long getRenderTime();
         Map getPostRenderContext();
         List<String> getErrorMessages();
