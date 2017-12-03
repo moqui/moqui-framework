@@ -1779,4 +1779,57 @@ class ScreenRenderImpl implements ScreenRender {
         // for (Map info in menuDataList) logger.warn("menu data item: ${info}")
         return menuDataList
     }
+
+    String getVueColumns(MNode setupNode) {
+        Map<String, ArrayList<MNode>> nodesByName = setupNode.getChildrenByName()
+        ArrayList<MNode> columnsNode =  nodesByName.get("columns")
+        Boolean hasColumnsDefinition = false
+
+        /*columns setup*/
+        List<Map<String, String>> customSetup = new ArrayList<>()
+
+
+        if (columnsNode.size() == 1) {
+            hasColumnsDefinition = true
+
+            for (MNode cols in columnsNode) {
+                for (colDef in cols.getChildren()) {
+                    Map<String, String> customCol = new HashMap<>()
+
+                    def colName = colDef.attribute("name")
+                    def colTitle = ec.l10n.localize(colDef.attribute("title"))
+                    def colCallback = colDef.attribute("callback")
+                    def colSortField = colDef.attribute("sortField")
+                    def colDataClass = colDef.attribute("dataClass")
+                    def colTitleClass = colDef.attribute("titleClass")
+
+                    customCol.put("name", colName)
+                    customCol.put("title", colTitle)
+                    if (colCallback != null) customCol.put("callback", colCallback)
+                    if (colSortField != null) customCol.put("sortField", colSortField)
+                    if (colDataClass != null) customCol.put("dataClass", colDataClass)
+                    if (colTitleClass != null) customCol.put("titleClass", colTitleClass)
+
+                    customSetup.add(customCol)
+                    //logger.info("   colDef.text ${colDef.text}")
+                }
+            }
+        }
+
+        if (hasColumnsDefinition) {
+            return groovy.json.JsonOutput.toJson(customSetup).replace("\"", "'")
+        }
+
+        /*default column setup*/
+        List<Map<String, String>> defaultSetup = new ArrayList<>()
+        Map<String, String> defaultCols = new HashMap<>()
+
+        defaultCols.put('name', 'toPartyId')
+        defaultCols.put('title', 'Party ID')
+
+        /*add to output*/
+        defaultSetup.add(defaultCols)
+
+        return groovy.json.JsonOutput.toJson(defaultSetup).replace("\"", "'")
+    }
 }
