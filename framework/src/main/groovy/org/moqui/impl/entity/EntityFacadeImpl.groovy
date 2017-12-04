@@ -1239,7 +1239,7 @@ class EntityFacadeImpl implements EntityFacade {
             if (edf instanceof EntityDatasourceFactoryImpl) {
                 EntityDatasourceFactoryImpl edfi = (EntityDatasourceFactoryImpl) edf
                 DatasourceInfo dsi = edfi.dsi
-                dsiList.add([group:groupName, uniqueName:dsi.uniqueName, database:dsi.database.attribute('name'), detail:dsi.dsDetails])
+                dsiList.add([group:groupName, uniqueName:dsi.uniqueName, database:dsi.database.attribute('name'), detail:dsi.dsDetails] as Map<String, Object>)
             } else {
                 dsiList.add([group:groupName] as Map<String, Object>)
             }
@@ -1309,26 +1309,12 @@ class EntityFacadeImpl implements EntityFacade {
         }
 
         // logger.warn("=== shouldCache ${this.entityName} ${shouldCache()}, limit=${this.limit}, offset=${this.offset}, useCache=${this.useCache}, getEntityDef().getUseCache()=${this.getEntityDef().getUseCache()}")
-        if (!ef.shouldCache()) {
-            for (MNode df in node.children("date-filter"))
-                ef.condition(getConditionFactoryImpl().makeConditionDate(df.attribute("from-field-name") ?: "fromDate",
-                        df.attribute("thru-field-name") ?: "thruDate",
-                        (df.attribute("valid-date") ? ecfi.resourceFacade.expression(df.attribute("valid-date"), null) as Timestamp : null),
-                        'true'.equals(df.attribute("ignore-if-empty")), df.attribute("ignore") ?: 'false'))
-        }
-
-        for (MNode ecn in node.children("econdition")) {
-            EntityCondition econd = getConditionFactoryImpl().makeActionCondition(ecn)
-            if (econd != null) ef.condition(econd)
-        }
-        for (MNode ecs in node.children("econditions"))
-            ef.condition(getConditionFactoryImpl().makeActionConditions(ecs))
-        for (MNode eco in node.children("econdition-object"))
-            ef.condition((EntityCondition) ecfi.resourceFacade.expression(eco.attribute("field"), null))
+        EntityCondition mainCond = getConditionFactoryImpl().makeActionConditions(node, ef.shouldCache())
+        if (mainCond != null) ef.condition(mainCond)
 
         if (node.hasChild("having-econditions")) {
             for (MNode havingCond in node.children("having-econditions"))
-                ef.havingCondition(getConditionFactoryImpl().makeActionConditions(havingCond))
+                ef.havingCondition(getConditionFactoryImpl().makeActionConditions(havingCond, ef.shouldCache()))
         }
 
         return ef
