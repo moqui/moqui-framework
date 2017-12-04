@@ -28,32 +28,4 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.Enumeration description="not-like" enumCode="NOT_LIKE" enumId="ENTCO_NOT_LIKE" enumTypeId="ComparisonOperator"/>
     <moqui.basic.Enumeration description="is-null" enumCode="IS_NULL" enumId="ENTCO_IS_NULL" enumTypeId="ComparisonOperator"/>
     <moqui.basic.Enumeration description="is-not-null" enumCode="IS_NOT_NULL" enumId="ENTCO_IS_NOT_NULL" enumTypeId="ComparisonOperator"/>
-
-    <!-- Service Job: Index DataFeed Documents -->
-    <moqui.security.user.NotificationTopic topic="IndexDataFeedDocuments" description="Index DataFeed Documents Completed"
-            typeString="success" showAlert="Y" persistOnSend="Y" receiveNotifications="Y"
-            titleTemplate="Index Documents Completed for DataFeed ${parameters.dataFeedId}, indexed ${results.documentsIndexed} documents"
-            errorTitleTemplate="Error in Index Documents for DataFeed ${parameters.dataFeedId}"
-            linkTemplate=""/>
-    <moqui.service.job.ServiceJob jobName="IndexDataFeedDocuments" description="Index DataFeed Documents"
-            serviceName="org.moqui.search.SearchServices.index#DataFeedDocuments" topic="IndexDataFeedDocuments"
-            transactionTimeout="3600"/>
-
-    <!-- Service Job: Export and Import Entity Data Snapshot -->
-    <moqui.security.user.NotificationTopic topic="ExportEntityDataSnapshot" description="Export Entity Data Snapshot Completed"
-            typeString="success" showAlert="Y" persistOnSend="Y" receiveNotifications="Y"
-            titleTemplate="Exported ${results.recordsWritten} records to Entity Data Snapshot ${parameters.baseFilename}"
-            errorTitleTemplate="Error in export of entity data snapshot ${parameters.baseFilename}"
-            linkTemplate=""/>
-    <moqui.service.job.ServiceJob jobName="ExportEntityDataSnapshot" description="Export Entity Data Snapshot"
-            serviceName="org.moqui.impl.EntityServices.export#EntityDataSnapshot" topic="ExportEntityDataSnapshot"
-            transactionTimeout="3600"/>
-    <moqui.security.user.NotificationTopic topic="ImportEntityDataSnapshot" description="Import Entity Data Snapshot Completed"
-            typeString="success" showAlert="Y" persistOnSend="Y" receiveNotifications="Y"
-            titleTemplate="Imported ${results.recordsLoaded} records from Entity Data Snapshot ${parameters.zipFilename}"
-            errorTitleTemplate="Error in import of entity data snapshot ${parameters.zipFilename}"
-            linkTemplate=""/>
-    <moqui.service.job.ServiceJob jobName="ImportEntityDataSnapshot" description="Import Entity Data Snapshot"
-            serviceName="org.moqui.impl.EntityServices.import#EntityDataSnapshot" topic="ImportEntityDataSnapshot"
-            transactionTimeout="3600"/>
 </entity-facade-xml>
