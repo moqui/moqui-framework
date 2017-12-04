@@ -12,7 +12,12 @@ You should have received a copy of the CC0 Public Domain Dedication
 along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
-<entity-facade-xml type="seed-initial">
+<entity-facade-xml type="install">
+    <!-- An EmailTemplate for password reset email -->
+    <moqui.basic.email.EmailTemplate emailTemplateId="PASSWORD_RESET" description="Default Password Reset" emailServerId="SYSTEM"
+            bodyScreenLocation="classpath://screen/PasswordReset.xml" webappName="webroot" fromAddress=""
+            ccAddresses="" bccAddresses="" subject="Password Reset" sendPartial="Y"/>
+
     <!-- ========== Framework Scheduled ServiceJob Data ========== -->
     <!-- Handy cron strings: [0 0 2 * * ?] every night at 2:00 am, [0 0/15 * * * ?] every 15 minutes, [0 0/2 * * * ?] every 2 minutes -->
 
@@ -44,4 +49,33 @@ along with this software (see the LICENSE.md file). If not, see
             serviceName="org.moqui.impl.EmailServices.poll#EmailServer" cronExpression="0 0/15 * * * ?" paused="Y">
         <parameters parameterName="emailServerId" parameterValue="SYSTEM"/>
     </moqui.service.job.ServiceJob>
+
+    <!-- Service Job: Index DataFeed Documents -->
+    <moqui.security.user.NotificationTopic topic="IndexDataFeedDocuments" description="Index DataFeed Documents Completed"
+            typeString="success" showAlert="Y" persistOnSend="Y" receiveNotifications="Y"
+            titleTemplate="Index Documents Completed for DataFeed ${parameters.dataFeedId}, indexed ${results.documentsIndexed} documents"
+            errorTitleTemplate="Error in Index Documents for DataFeed ${parameters.dataFeedId}"
+            linkTemplate=""/>
+    <moqui.service.job.ServiceJob jobName="IndexDataFeedDocuments" description="Index DataFeed Documents"
+            serviceName="org.moqui.search.SearchServices.index#DataFeedDocuments" topic="IndexDataFeedDocuments"
+            transactionTimeout="3600"/>
+
+    <!-- Service Job: Export and Import Entity Data Snapshot -->
+    <moqui.security.user.NotificationTopic topic="ExportEntityDataSnapshot" description="Export Entity Data Snapshot Completed"
+            typeString="success" showAlert="Y" persistOnSend="Y" receiveNotifications="Y"
+            titleTemplate="Exported ${results.recordsWritten} records to Entity Data Snapshot ${parameters.baseFilename}"
+            errorTitleTemplate="Error in export of entity data snapshot ${parameters.baseFilename}"
+            linkTemplate=""/>
+    <moqui.service.job.ServiceJob jobName="ExportEntityDataSnapshot" description="Export Entity Data Snapshot"
+            serviceName="org.moqui.impl.EntityServices.export#EntityDataSnapshot" topic="ExportEntityDataSnapshot"
+            transactionTimeout="3600"/>
+    <moqui.security.user.NotificationTopic topic="ImportEntityDataSnapshot" description="Import Entity Data Snapshot Completed"
+            typeString="success" showAlert="Y" persistOnSend="Y" receiveNotifications="Y"
+            titleTemplate="Imported ${results.recordsLoaded} records from Entity Data Snapshot ${parameters.zipFilename}"
+            errorTitleTemplate="Error in import of entity data snapshot ${parameters.zipFilename}"
+            linkTemplate=""/>
+    <moqui.service.job.ServiceJob jobName="ImportEntityDataSnapshot" description="Import Entity Data Snapshot"
+            serviceName="org.moqui.impl.EntityServices.import#EntityDataSnapshot" topic="ImportEntityDataSnapshot"
+            transactionTimeout="3600"/>
+
 </entity-facade-xml>

@@ -13,12 +13,6 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <entity-facade-xml type="seed">
-    <!-- An EmailTemplate for password reset email -->
-    <moqui.basic.email.EmailTemplate emailTemplateId="PASSWORD_RESET" description="Default Password Reset" emailServerId="SYSTEM"
-                   bodyScreenLocation="classpath://screen/PasswordReset.xml" webappName="webroot"
-                   fromAddress="" ccAddresses="" bccAddresses=""
-                   subject="Password Reset" sendPartial="Y"/>
-
     <!-- An group for full-access Administrators -->
     <moqui.basic.Enumeration description="Moqui Administrators" enumId="UgtMoquiAdmin" enumTypeId="UserGroupType"/>
     <moqui.security.UserGroup userGroupId="ADMIN" description="Administrators (full access)" groupTypeEnumId="UgtMoquiAdmin"/>
@@ -45,5 +39,5 @@ along with this software (see the LICENSE.md file). If not, see
 
     <!-- Special Permissions -->
     <moqui.security.UserPermission userPermissionId="ADMIN_PASSWORD" description="Admin Password Update"/>
-    <moqui.security.UserGroupPermission userGroupId="ADMIN" userPermissionId="ADMIN_PASSWORD" fromDate="0" />
+    <moqui.security.UserGroupPermission userGroupId="ADMIN" userPermissionId="ADMIN_PASSWORD" fromDate="0"/>
 </entity-facade-xml>
