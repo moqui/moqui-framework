@@ -115,6 +115,13 @@ along with this software (see the LICENSE.md file). If not, see
         <alias-all entity-alias="ENUMP" prefix="parent">
             <exclude field="enumId"/>
         </alias-all>
+        <alias name="combinedDescription" function="concat_ws" type="text-medium">
+            <complex-alias operator=",">
+                <complex-alias expression="' - '"/>
+                <complex-alias-field entity-alias="ENUMP" field="description"/>
+                <complex-alias-field entity-alias="ENUM" field="description"/>
+            </complex-alias>
+        </alias>
     </view-entity>
 
     <!-- ========== Geo ========== -->
