@@ -111,11 +111,10 @@ along with this software (see the LICENSE.md file). If not, see
         <member-entity entity-alias="ENUMP" entity-name="moqui.basic.Enumeration" join-from-alias="ENUM" join-optional="true">
             <key-map field-name="parentEnumId" related="enumId"/>
         </member-entity>
-        <alias-all entity-alias="ENUM"/>
-        <alias-all entity-alias="ENUMP" prefix="parent">
-            <exclude field="enumId"/>
-        </alias-all>
-        <alias name="combinedDescription" function="concat_ws" type="text-medium">
+        <alias-all entity-alias="ENUM"><exclude field="description"/></alias-all>
+        <alias-all entity-alias="ENUMP" prefix="parent"><exclude field="enumId"/></alias-all>
+        <alias name="enumDescription" entity-alias="ENUM" field="description"/>
+        <alias name="description" function="concat_ws" type="text-medium">
             <complex-alias operator=",">
                 <complex-alias expression="' - '"/>
                 <complex-alias-field entity-alias="ENUMP" field="description"/>
