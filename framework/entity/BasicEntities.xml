@@ -98,6 +98,27 @@ along with this software (see the LICENSE.md file). If not, see
         <alias-all entity-alias="ENUM"><exclude field="sequenceNum"/></alias-all>
         <!-- better not to do this, sequence in group member records: <alias name="enumSequenceNum" entity-alias="ENUM" field="sequenceNum"/> -->
     </view-entity>
+    <view-entity entity-name="ParentEnum" package="moqui.basic" cache="true">
+        <description></description>
+        <member-entity entity-alias="ENUM" entity-name="moqui.basic.Enumeration"/>
+        <member-entity entity-alias="ENUMP" entity-name="moqui.basic.Enumeration" join-from-alias="ENUM">
+            <key-map field-name="parentEnumId" related="enumId"/>
+        </member-entity>
+        <alias-all entity-alias="ENUMP"/>
+        <entity-condition distinct="true">
+            <econdition field-name="parentEnumId" entity-alias="ENUM" operator="is-not-null"/>
+        </entity-condition>
+    </view-entity>
+    <view-entity entity-name="EnumAndParent" package="moqui.basic" cache="true">
+        <member-entity entity-alias="ENUM" entity-name="moqui.basic.Enumeration"/>
+        <member-entity entity-alias="ENUMP" entity-name="moqui.basic.Enumeration" join-from-alias="ENUM">
+            <key-map field-name="parentEnumId" related="enumId"/>
+        </member-entity>
+        <alias-all entity-alias="ENUM"/>
+        <alias-all entity-alias="ENUMP" prefix="parent">
+            <exclude field="enumId"/>
+        </alias-all>
+    </view-entity>
 
     <!-- ========== Geo ========== -->
     <entity entity-name="Geo" package="moqui.basic" use="configuration" short-alias="geos" cache="true">
