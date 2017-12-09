@@ -180,7 +180,11 @@ along with this software (see the LICENSE.md file). If not, see
 
             <if condition="!wikiSpaceId"><return error="true" message="Cannot get wiki page info without wikiSpaceId parameter or URL path element"/></if>
             <entity-find-one entity-name="moqui.resource.wiki.WikiSpace" value-field="wikiSpace" cache="true"/>
-            <if condition="!wikiSpace"><return error="true" message="Could not find wiki space with ID [${wikiSpaceId}]"/></if>
+            <if condition="wikiSpace == null"><return error="true" message="Wiki Space with ID ${wikiSpaceId} not found"/></if>
+            <if condition="!wikiSpace.rootPageLocation"><return error="true" message="Wiki Space with ID ${wikiSpaceId} has no root page location"/></if>
+            <set field="rootPageLocation" from="wikiSpace.rootPageLocation"/>
+            <set field="spaceRootName" from="rootPageLocation.substring(rootPageLocation.lastIndexOf('/')+1)"/>
+            <if condition="spaceRootName.contains('.')"><set field="spaceRootName" from="spaceRootName.substring(0, spaceRootName.lastIndexOf('.'))"/></if>
 
             <!-- NOTE: WikiPage record may not exist, but don't create one on get/view only -->
             <if condition="wikiPage == null"><service-call name="org.moqui.impl.WikiServices.get#WikiPageId" in-map="context" out-map="context"/></if>
@@ -212,7 +216,7 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="parentPath" from="pathForParentPath?.contains('/') ? pathForParentPath.substring(0, pathForParentPath.lastIndexOf('/')) : ''"/>
 
             <!-- now have the real parentPath and pageName, make the full/normalized pagePath -->
-            <if condition="parentPath || pageName != wikiSpaceId">
+            <if condition="parentPath || (pageName != wikiSpaceId &amp;&amp; pageName != spaceRootName)">
                 <set field="pagePath" from="(parentPath ? parentPath+'/' : '') + (pageName?:'')"/></if>
 
             <!-- version information -->
@@ -294,6 +298,13 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="parentPath == wikiSpaceId"><set field="parentPath" from="null"/></if>
 
             <entity-find-one entity-name="moqui.resource.wiki.WikiSpace" value-field="wikiSpace" cache="true"/>
+            <if condition="wikiSpace == null"><return error="true" message="Wiki Space with ID ${wikiSpaceId} not found"/></if>
+            <if condition="!wikiSpace.rootPageLocation"><return error="true" message="Wiki Space with ID ${wikiSpaceId} has no root page location"/></if>
+            <set field="rootPageLocation" from="wikiSpace.rootPageLocation"/>
+            <set field="spaceRootName" from="rootPageLocation.substring(rootPageLocation.lastIndexOf('/')+1)"/>
+            <if condition="spaceRootName.contains('.')"><set field="spaceRootName" from="spaceRootName.substring(0, spaceRootName.lastIndexOf('.'))"/></if>
+            <if condition="parentPath == spaceRootName"><set field="parentPath" from="null"/></if>
+
             <if condition="wikiPageId"><then>
                 <entity-find-one entity-name="moqui.resource.wiki.WikiPage" value-field="wikiPage" cache="true"/>
                 <set field="wikiSpaceId" from="wikiPage.wikiSpaceId"/>
@@ -397,7 +408,7 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters>
             <auto-parameters include="nonpk"/>
             <parameter name="wikiSpaceId"><text-letters/><text-length min="3" max="8"/></parameter>
-            <parameter name="rootPageDirectory" default-value="runtime/WikiSpace"/>
+            <parameter name="rootPageDirectory" default-value="dbresource://WikiSpace"/>
             <parameter name="wikiType" default-value="md"/>
         </in-parameters>
         <out-parameters><parameter name="wikiSpaceId" required="true"/></out-parameters>
@@ -462,9 +473,9 @@ along with this software (see the LICENSE.md file). If not, see
                                 .parameters([wikiSpaceId:wikiSpaceId, pagePath:allChildFileFlat.path, createIfMissing: false])
                                 .call()
                             def wikiPageId = resultMap.wikiPageId
-                            if (wikiPageId && ec.entity.find("WikiPageCategoryMember")
-                                    .condition([wikiPageId:wikiPageId, wikiPageCategoryId:wikiPageCategoryId]).one())
-                            { i++ } else {
+                            if (wikiPageId && ec.entity.find("WikiPageCategoryMember").condition([wikiPageId:wikiPageId, wikiPageCategoryId:wikiPageCategoryId]).one() != null) {
+                                i++
+                            } else {
                                 allChildFileFlatList.remove(i); allChildFileFlatSize--
                             }
                         }
