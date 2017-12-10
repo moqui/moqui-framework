@@ -123,6 +123,9 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="description" type="text-long"/>
         <field name="rootPageLocation" type="text-medium"/>
         <field name="decoratorScreenLocation" type="text-medium"/>
+        <field name="publicPageUrl" type="text-medium"/>
+        <field name="publicAttachmentUrl" type="text-medium"/>
+        <field name="publicBlogUrl" type="text-medium"/>
         <field name="restrictView" type="text-indicator"/>
         <field name="restrictUpdate" type="text-indicator"/>
         <field name="allowAnyHtml" type="text-indicator"/>
@@ -173,6 +176,7 @@ along with this software (see the LICENSE.md file). If not, see
         <alias entity-alias="WKPG" name="wikiSpaceId"/>
         <alias entity-alias="WKPG" name="parentWikiPageId"/>
         <alias entity-alias="WKPG" name="publishedVersionName"/>
+        <alias entity-alias="WKPG" name="pagePath"/>
     </view-entity>
     <entity entity-name="WikiBlogCategory" package="moqui.resource.wiki" use="nontransactional">
         <field name="wikiPageCategoryId" type="id" is-pk="true"/>
