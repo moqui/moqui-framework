@@ -260,12 +260,25 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="get" noun="WikiPageAttachment">
         <in-parameters>
             <parameter name="wikiSpaceId" required="true"/>
-            <parameter name="pagePath"><description>This is not required because it could be empty for the space root page.</description></parameter>
+            <parameter name="pagePath"><description>Not required, is empty for the space root page. Can be a wikiPageId or the page path within the space.</description></parameter>
             <parameter name="filename" required="true"/>
         </in-parameters>
         <out-parameters><parameter name="attachmentReference" type="org.moqui.content.ResourceReference"/></out-parameters>
         <actions>
+            <if condition="pagePath &amp;&amp; !pagePath.contains('/')">
+                <!-- see if pagePath is a wikiPageId, if so use its pagePath -->
+                <entity-find-one entity-name="moqui.resource.wiki.WikiPage" value-field="wikiPage" cache="true">
+                    <field-map field-name="wikiPageId" from="pagePath"/></entity-find-one>
+                <if condition="wikiPage != null">
+                    <set field="wikiSpaceId" from="wikiPage.wikiSpaceId"/>
+                    <set field="pagePath" from="wikiPage.pagePath"/>
+                </if>
+            </if>
+
             <entity-find-one entity-name="WikiSpace" value-field="wikiSpace" cache="true"/>
+            <if condition="wikiSpace == null"><return error="true" message="Wiki Space with ID ${wikiSpaceId} not found"/></if>
+            <if condition="!wikiSpace.rootPageLocation"><return error="true" message="Wiki Space with ID ${wikiSpaceId} has no root page location"/></if>
+
             <set field="rootPageRef" from="ec.resource.getLocationReference(wikiSpace.rootPageLocation)"/>
             <set field="pageReference" from="rootPageRef.findChildFile(pagePath)"/>
             <set field="pageAttachmentsDirectoryRef" from="pageReference?.getChild('_attachments')"/>
