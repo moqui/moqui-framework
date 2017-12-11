@@ -341,6 +341,7 @@ along with this software (see the LICENSE.md file). If not, see
         </xs:choice>
         <xs:attribute name="title" type="xs:string" use="required"/>
         <xs:attribute name="style" type="xs:string"/>
+        <xs:attribute name="box" type="boolean" default="false"/>
     </xs:complexType></xs:element>
     <xs:element name="field-row"><xs:annotation>
         <xs:documentation>Fields in the field-row will be split into two columns. If you want more than
