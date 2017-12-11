@@ -123,9 +123,15 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="description" type="text-long"/>
         <field name="rootPageLocation" type="text-medium"/>
         <field name="decoratorScreenLocation" type="text-medium"/>
+        <field name="publicPageUrl" type="text-medium"/>
+        <field name="publicAttachmentUrl" type="text-medium"/>
+        <field name="publicBlogUrl" type="text-medium"/>
         <field name="restrictView" type="text-indicator"/>
         <field name="restrictUpdate" type="text-indicator"/>
         <field name="allowAnyHtml" type="text-indicator"/>
+        <seed-data>
+            <moqui.resource.DbResource resourceId="WIKI_SPACE_ROOT" parentResourceId="" filename="WikiSpace" isFile="N"/>
+        </seed-data>
     </entity>
     <entity entity-name="WikiSpaceUser" package="moqui.resource.wiki" use="nontransactional">
         <field name="wikiSpaceId" type="id" is-pk="true"/>
@@ -161,18 +167,23 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="many" related="moqui.resource.wiki.WikiBlogCategory" short-alias="categories">
             <key-map field-name="wikiBlogId"/></relationship>
     </entity>
+    <view-entity entity-name="WikiBlogFindView" package="moqui.resource.wiki">
+        <member-entity entity-alias="WKBG" entity-name="moqui.resource.wiki.WikiBlog"/>
+        <member-relationship entity-alias="WKPG" join-from-alias="WKBG" relationship="page"/>
+        <member-relationship entity-alias="WKBC" join-from-alias="WKBG" relationship="categories"/>
+        <alias-all entity-alias="WKBG"/>
+        <alias-all entity-alias="WKBC"/>
+        <alias entity-alias="WKPG" name="wikiSpaceId"/>
+        <alias entity-alias="WKPG" name="parentWikiPageId"/>
+        <alias entity-alias="WKPG" name="publishedVersionName"/>
+        <alias entity-alias="WKPG" name="pagePath"/>
+    </view-entity>
     <entity entity-name="WikiBlogCategory" package="moqui.resource.wiki" use="nontransactional">
         <field name="wikiPageCategoryId" type="id" is-pk="true"/>
         <field name="wikiBlogId" type="id" is-pk="true"/>
         <relationship type="one" related="moqui.resource.wiki.WikiPageCategory" short-alias="category"/>
         <relationship type="one" related="moqui.resource.wiki.WikiBlog" short-alias="blog"/>
     </entity>
-    <view-entity entity-name="WikiBlogAndCategory" package="moqui.resource.wiki">
-        <member-entity entity-alias="WKBG" entity-name="moqui.resource.wiki.WikiBlog"/>
-        <member-relationship entity-alias="WKBC" join-from-alias="WKBG" relationship="categories"/>
-        <alias-all entity-alias="WKBG"/>
-        <alias-all entity-alias="WKBC"/>
-    </view-entity>
     <view-entity entity-name="WikiBlogCategoryDetail" package="moqui.resource.wiki">
         <member-entity entity-alias="WKBC" entity-name="moqui.resource.wiki.WikiBlogCategory"/>
         <member-relationship entity-alias="WPC" join-from-alias="WKBC" relationship="category"/>
