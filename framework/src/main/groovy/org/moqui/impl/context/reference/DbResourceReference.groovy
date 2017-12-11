@@ -97,7 +97,7 @@ class DbResourceReference extends BaseResourceReference {
 
         // allow parentResourceId to be null for the root
         EntityList childList = ecf.entity.find("moqui.resource.DbResource").condition([parentResourceId:dbr?.resourceId])
-                .useCache(true).list()
+                .orderBy("filename").useCache(true).list()
         for (EntityValue child in childList) {
             String childLoc = getPath() ? "${location}/${child.filename}" : "${location}${child.filename}"
             dirEntries.add(new DbResourceReference().init(childLoc, child, ecf))
