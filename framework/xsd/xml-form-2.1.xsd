@@ -303,6 +303,23 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:attribute name="active" type="xs:string"><xs:annotation><xs:documentation>
                     Use this to specify the accordion section index to be open, or false for all to be closed.</xs:documentation></xs:annotation></xs:attribute>
             </xs:complexType></xs:element>
+            <xs:element name="field-container-row"><xs:complexType>
+                <xs:sequence><xs:element maxOccurs="unbounded" name="field-group"><xs:complexType>
+                    <xs:choice minOccurs="0" maxOccurs="unbounded">
+                        <xs:element ref="field-ref"/>
+                        <xs:element ref="fields-not-referenced"/>
+                        <xs:element ref="field-row"/>
+                        <xs:element ref="field-row-big"/>
+                    </xs:choice>
+                    <xs:attribute name="title" type="xs:string" use="required"/>
+                    <xs:attribute name="style" type="xs:string"/>
+                    <xs:attribute name="lg" type="xs:positiveInteger"/>
+                    <xs:attribute name="md" type="xs:positiveInteger"/>
+                    <xs:attribute name="sm" type="xs:positiveInteger"/>
+                    <xs:attribute name="xs" type="xs:positiveInteger"/>
+                </xs:complexType></xs:element>
+                </xs:sequence>
+            </xs:complexType></xs:element>
             <xs:element ref="field-ref"/>
             <xs:element ref="fields-not-referenced"/>
             <xs:element ref="field-row"/>
