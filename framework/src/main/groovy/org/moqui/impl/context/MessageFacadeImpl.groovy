@@ -15,6 +15,8 @@ package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
 import org.moqui.context.MessageFacade
+import org.moqui.context.MessageFacade.MessageInfo
+import org.moqui.context.NotificationMessage.NotificationType
 import org.moqui.context.ValidationError
 
 import org.slf4j.Logger
@@ -26,10 +28,12 @@ class MessageFacadeImpl implements MessageFacade {
 
     private final static List<String> emptyStringList = Collections.unmodifiableList(new ArrayList<String>())
     private final static List<ValidationError> emptyValidationErrorList = Collections.unmodifiableList(new ArrayList<ValidationError>())
+    private final static List<MessageInfo> emptyMessageInfoList = Collections.unmodifiableList(new ArrayList<MessageInfo>())
 
-    private ArrayList<String> messageList = null
+    private ArrayList<MessageInfo> messageList = null
     private ArrayList<String> errorList = null
     private ArrayList<ValidationError> validationErrorList = null
+    private ArrayList<MessageInfo> publicMessageList = null
     private boolean hasErrors = false
 
     private LinkedList<SavedErrors> savedErrorsStack = null
@@ -38,20 +42,57 @@ class MessageFacadeImpl implements MessageFacade {
 
     @Override
     List<String> getMessages() {
-        if (messageList == null) messageList = new ArrayList<>()
-        return messageList
+        if (messageList == null) return emptyStringList
+        ArrayList<String> strList = new ArrayList<>(messageList.size())
+        for (int i = 0; i < messageList.size(); i++) strList.add(((MessageInfo) messageList.get(i)).getMessage())
+        return strList
     }
+    @Override
+    List<MessageInfo> getMessageInfos() {
+        if (messageList == null) return emptyMessageInfoList
+        return Collections.unmodifiableList(messageList)
+    }
+    @Override
     String getMessagesString() {
         if (messageList == null) return ""
         StringBuilder messageBuilder = new StringBuilder()
-        for (String message in messageList) messageBuilder.append(message).append("\n")
+        for (MessageInfo message in messageList) messageBuilder.append(message.getMessage()).append("\n")
         return messageBuilder.toString()
     }
-    void addMessage(String message) {
-        if (message) {
-            getMessages().add(message)
-            logger.info(message)
-        }
+    @Override void addMessage(String message) { addMessage(message, info) }
+    @Override void addMessage(String message, NotificationType type) { addMessage(message, type?.toString()) }
+    @Override
+    void addMessage(String message, String type) {
+        if (message == null || message.isEmpty()) return
+        if (messageList == null) messageList = new ArrayList<>()
+        MessageInfo mi = new MessageInfo(message, type)
+        messageList.add(mi)
+        logger.info(mi.toString())
+    }
+
+    @Override void addPublic(String message, NotificationType type) { addPublic(message, type?.toString()) }
+    @Override
+    void addPublic(String message, String type) {
+        if (message == null || message.isEmpty()) return
+        if (publicMessageList == null) publicMessageList = new ArrayList<>()
+        if (messageList == null) messageList = new ArrayList<>()
+        MessageInfo mi = new MessageInfo(message, type)
+        publicMessageList.add(mi)
+        messageList.add(mi)
+        logger.info(mi.toString())
+    }
+
+    @Override
+    List<String> getPublicMessages() {
+        if (publicMessageList == null) return emptyStringList
+        ArrayList<String> strList = new ArrayList<>(publicMessageList.size())
+        for (int i = 0; i < publicMessageList.size(); i++) strList.add(((MessageInfo) publicMessageList.get(i)).getMessage())
+        return strList
+    }
+    @Override
+    List<MessageInfo> getPublicMessageInfos() {
+        if (publicMessageList == null) return emptyMessageInfoList
+        return Collections.unmodifiableList(publicMessageList)
     }
 
     @Override
@@ -61,12 +102,11 @@ class MessageFacadeImpl implements MessageFacade {
     }
     @Override
     void addError(String error) {
-        if (error) {
-            if (errorList == null) errorList = new ArrayList<>()
-            errorList.add(error)
-            logger.error(error)
-            hasErrors = true
-        }
+        if (error == null || error.isEmpty()) return
+        if (errorList == null) errorList = new ArrayList<>()
+        errorList.add(error)
+        logger.error(error)
+        hasErrors = true
     }
 
     @Override
@@ -76,15 +116,21 @@ class MessageFacadeImpl implements MessageFacade {
     }
     @Override
     void addValidationError(String form, String field, String serviceName, String message, Throwable nested) {
+        if (message == null || message.isEmpty()) return
         if (validationErrorList == null) validationErrorList = new ArrayList<>()
         ValidationError ve = new ValidationError(form, field, serviceName, message, nested)
         validationErrorList.add(ve)
         logger.error(ve.getMap().toString())
         hasErrors = true
     }
+    @Override void addError(ValidationError error) {
+        if (error == null) return
+        if (validationErrorList == null) validationErrorList = new ArrayList<>()
+        validationErrorList.add(error)
+        logger.error(error.getMap().toString())
+    }
 
-    @Override
-    boolean hasError() { return hasErrors }
+    @Override boolean hasError() { return hasErrors }
     @Override
     String getErrorsString() {
         StringBuilder errorBuilder = new StringBuilder()
@@ -95,6 +141,12 @@ class MessageFacadeImpl implements MessageFacade {
     }
 
     @Override
+    void clearAll() {
+        if (messageList != null) messageList.clear()
+        if (publicMessageList != null) publicMessageList.clear()
+        clearErrors()
+    }
+    @Override
     void clearErrors() {
         if (errorList != null) errorList.clear()
         if (validationErrorList != null) validationErrorList.clear()
@@ -103,7 +155,10 @@ class MessageFacadeImpl implements MessageFacade {
 
     @Override
     void copyMessages(MessageFacade mf) {
-        if (mf.getMessages()) getMessages().addAll(mf.getMessages())
+        if (mf.getMessageInfos()) {
+            if (messageList == null) messageList = new ArrayList<>()
+            messageList.addAll(mf.getMessageInfos())
+        }
         if (mf.getErrors()) {
             if (errorList == null) errorList = new ArrayList<>()
             errorList.addAll(mf.getErrors())
@@ -113,6 +168,10 @@ class MessageFacadeImpl implements MessageFacade {
             if (validationErrorList == null) validationErrorList = new ArrayList<>()
             validationErrorList.addAll(mf.getValidationErrors())
             hasErrors = true
+        }
+        if (mf.getPublicMessageInfos()) {
+            if (publicMessageList == null) publicMessageList = new ArrayList<>()
+            publicMessageList.addAll(mf.getPublicMessageInfos())
         }
     }
 
@@ -144,7 +203,8 @@ class MessageFacadeImpl implements MessageFacade {
         List<String> errorList
         List<ValidationError> validationErrorList
         SavedErrors(List<String> errorList, List<ValidationError> validationErrorList) {
-            this.errorList = errorList; this.validationErrorList = validationErrorList
+            this.errorList = errorList
+            this.validationErrorList = validationErrorList
         }
     }
 }
