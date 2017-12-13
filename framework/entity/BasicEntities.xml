@@ -114,11 +114,11 @@ along with this software (see the LICENSE.md file). If not, see
         <alias-all entity-alias="ENUM"><exclude field="description"/></alias-all>
         <alias-all entity-alias="ENUMP" prefix="parent"><exclude field="enumId"/></alias-all>
         <alias name="enumDescription" entity-alias="ENUM" field="description"/>
-        <alias name="description" function="concat" type="text-medium">
-            <complex-alias operator=",">
-                <complex-alias-field entity-alias="ENUMP" field="description" default-value=""/>
+        <alias name="description" type="text-medium">
+            <complex-alias operator="||">
+                <complex-alias-field entity-alias="ENUMP" field="description"/>
                 <complex-alias expression="' - '"/>
-                <complex-alias-field entity-alias="ENUM" field="description" default-value=""/>
+                <complex-alias-field entity-alias="ENUM" field="description"/>
             </complex-alias>
         </alias>
     </view-entity>
