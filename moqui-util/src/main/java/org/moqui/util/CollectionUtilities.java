@@ -523,6 +523,7 @@ public class CollectionUtilities {
         // calculate the pagination values
         int maxIndex = (new BigDecimal(count - 1)).divide(new BigDecimal(pageSize), 0, BigDecimal.ROUND_DOWN).intValue();
         int pageRangeLow = (pageIndex * pageSize) + 1;
+        if (pageRangeLow > count) pageRangeLow = count + 1;
         int pageRangeHigh = (pageIndex * pageSize) + pageSize;
         if (pageRangeHigh > count) pageRangeHigh = count;
 
