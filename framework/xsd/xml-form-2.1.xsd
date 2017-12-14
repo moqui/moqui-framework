@@ -557,10 +557,6 @@ along with this software (see the LICENSE.md file). If not, see
                 Note that for form-list fields this governs the entire column for the field, and not just a single
                 row.</xs:documentation></xs:annotation>
         </xs:attribute>
-        <xs:attribute name="validate-service" type="xs:string"/>
-        <xs:attribute name="validate-parameter" type="xs:string"/>
-        <xs:attribute name="validate-entity" type="xs:string"/>
-        <xs:attribute name="validate-field" type="xs:string"/>
     </xs:complexType>
     <xs:complexType name="form-field-single"><xs:complexContent><xs:extension base="form-field-base">
         <xs:sequence>
@@ -699,6 +695,10 @@ along with this software (see the LICENSE.md file). If not, see
         </xs:attribute>
         <xs:attribute name="container-style" type="xs:string"><xs:annotation><xs:documentation>A style (HTML class) for
             the container around the field (table cell, etc).</xs:documentation></xs:annotation></xs:attribute>
+        <xs:attribute name="validate-service" type="xs:string"/>
+        <xs:attribute name="validate-parameter" type="xs:string"/>
+        <xs:attribute name="validate-entity" type="xs:string"/>
+        <xs:attribute name="validate-field" type="xs:string"/>
     </xs:complexType>
     <xs:complexType name="form-list-conditional-field"><xs:complexContent><xs:extension base="form-list-default-field">
         <xs:attribute name="condition" type="xs:string" use="required">
