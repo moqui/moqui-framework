@@ -107,13 +107,23 @@ public class StringUtilities {
     public static String camelCaseToPretty(String camelCase) {
         if (camelCase == null || camelCase.length() == 0) return "";
         StringBuilder prettyName = new StringBuilder();
-        for (String part : camelCase.split("(?=[A-Z0-9])")) {
-            if (prettyName.length() > 0) prettyName.append(" ");
+        String lastPart = null;
+        for (String part : camelCase.split("(?=[A-Z0-9\\.#])")) {
+            if (part.length() == 0) continue;
+            char firstChar = part.charAt(0);
+            if (firstChar == '.' || firstChar == '#') {
+                if (part.length() == 1) continue;
+                part = part.substring(1);
+                firstChar = part.charAt(0);
+            }
+            if (Character.isLowerCase(firstChar)) part = Character.toUpperCase(firstChar) + part.substring(1);
             if (part.equalsIgnoreCase("id")) part = "ID";
+
+            if (part.equals(lastPart)) continue;
+            lastPart = part;
+            if (prettyName.length() > 0) prettyName.append(" ");
             prettyName.append(part);
         }
-        char firstChar = prettyName.charAt(0);
-        if (Character.isLowerCase(firstChar)) prettyName.setCharAt(0, Character.toUpperCase(firstChar));
         return prettyName.toString();
     }
     public static String prettyToCamelCase(String pretty, boolean firstUpper) {
