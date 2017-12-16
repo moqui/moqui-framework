@@ -41,9 +41,9 @@ import java.sql.Timestamp
 class ScreenForm {
     protected final static Logger logger = LoggerFactory.getLogger(ScreenForm.class)
 
-    protected static final Set<String> fieldAttributeNames = new HashSet<String>(["name", "from", "entry-name", "hide",
+    protected static final Set<String> fieldAttributeNames = new HashSet<String>(["name", "from", "entry-name", "hide"])
+    protected static final Set<String> subFieldAttributeNames = new HashSet<String>(["title", "tooltip", "red-when",
             "validate-service", "validate-parameter", "validate-entity", "validate-field"])
-    protected static final Set<String> subFieldAttributeNames = new HashSet<String>(["title", "tooltip", "red-when"])
 
     protected ExecutionContextFactoryImpl ecfi
     protected ScreenDefinition sd
@@ -187,33 +187,11 @@ class ScreenForm {
         mergeFormNodes(newFormNode, baseFormNode, false, false)
 
         // populate validate-service and validate-entity attributes if the target transition calls a single service
-        if (newFormNode.attribute("transition")) {
-            TransitionItem ti = this.sd.getTransitionItem(newFormNode.attribute("transition"), null)
-            if (ti != null && ti.getSingleServiceName()) {
-                String singleServiceName = ti.getSingleServiceName()
-                ServiceDefinition sd = ecfi.serviceFacade.getServiceDefinition(singleServiceName)
-                if (sd != null) {
-                    ArrayList<String> inParamNames = sd.getInParameterNames()
-                    for (MNode fieldNode in newFormNode.children("field")) {
-                        // if the field matches an in-parameter name and does not already have a validate-service, then set it
-                        // do it even if it has a validate-service since it might be from another form, in general we want the current service:  && !fieldNode."@validate-service"
-                        if (inParamNames.contains(fieldNode.attribute("name"))) {
-                            fieldNode.attributes.put("validate-service", singleServiceName)
-                        }
-                    }
-                } else if (ecfi.serviceFacade.isEntityAutoPattern(singleServiceName)) {
-                    String entityName = ServiceDefinition.getNounFromName(singleServiceName)
-                    EntityDefinition ed = ecfi.entityFacade.getEntityDefinition(entityName)
-                    ArrayList<String> fieldNames = ed.getAllFieldNames()
-                    for (MNode fieldNode in newFormNode.children("field")) {
-                        // if the field matches an in-parameter name and does not already have a validate-entity, then set it
-                        if (fieldNames.contains(fieldNode.attribute("name")) && !fieldNode.attribute("validate-entity")) {
-                            fieldNode.attributes.put("validate-entity", entityName)
-                        }
-                    }
-                }
-            }
-        }
+        setSubFieldValidateAttrs(newFormNode, "transition", "default-field")
+        setSubFieldValidateAttrs(newFormNode, "transition", "conditional-field")
+        setSubFieldValidateAttrs(newFormNode, "transition-first-row", "first-row-field")
+        setSubFieldValidateAttrs(newFormNode, "transition-second-row", "second-row-field")
+        setSubFieldValidateAttrs(newFormNode, "transition-last-row", "last-row-field")
 
         // check form-single.field-layout and add ONLY hidden fields that are missing
         MNode fieldLayoutNode = newFormNode.first("field-layout")
@@ -231,6 +209,38 @@ class ScreenForm {
         entityFindNode = newFormNode.first("entity-find")
         // prep row-actions
         if (newFormNode.hasChild("row-actions")) rowActions = new XmlAction(ecfi, newFormNode.first("row-actions"), location + ".row_actions")
+    }
+
+    void setSubFieldValidateAttrs(MNode newFormNode, String transitionAttribute, String subFieldNodeName) {
+        if (newFormNode.attribute(transitionAttribute)) {
+            TransitionItem ti = this.sd.getTransitionItem(newFormNode.attribute(transitionAttribute), null)
+            if (ti != null && ti.getSingleServiceName()) {
+                String singleServiceName = ti.getSingleServiceName()
+                ServiceDefinition sd = ecfi.serviceFacade.getServiceDefinition(singleServiceName)
+                if (sd != null) {
+                    ArrayList<String> inParamNames = sd.getInParameterNames()
+                    for (MNode fieldNode in newFormNode.children("field")) {
+                        // if the field matches an in-parameter name and does not already have a validate-service, then set it
+                        // do it even if it has a validate-service since it might be from another form, in general we want the current service:  && !fieldNode."@validate-service"
+                        if (inParamNames.contains(fieldNode.attribute("name"))) {
+                            for (MNode subField in fieldNode.children(subFieldNodeName))
+                                if (!subField.attribute("validate-service")) subField.attributes.put("validate-service", singleServiceName)
+                        }
+                    }
+                } else if (ecfi.serviceFacade.isEntityAutoPattern(singleServiceName)) {
+                    String entityName = ServiceDefinition.getNounFromName(singleServiceName)
+                    EntityDefinition ed = ecfi.entityFacade.getEntityDefinition(entityName)
+                    ArrayList<String> fieldNames = ed.getAllFieldNames()
+                    for (MNode fieldNode in newFormNode.children("field")) {
+                        // if the field matches an in-parameter name and does not already have a validate-entity, then set it
+                        if (fieldNames.contains(fieldNode.attribute("name"))) {
+                            for (MNode subField in fieldNode.children(subFieldNodeName))
+                                if (!subField.attribute("validate-entity")) subField.attributes.put("validate-entity", entityName)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     List<MNode> getDbFormNodeList() {
@@ -389,8 +399,10 @@ class ScreenForm {
             if (fn.attribute("name") in ["aen", "den", "lastUpdatedStamp"]) {
                 outNode.children.remove(i)
             } else {
-                fn.attributes.remove("validate-entity")
-                fn.attributes.remove("validate-field")
+                for (MNode subFn in fn.getChildren()) {
+                    subFn.attributes.remove("validate-entity")
+                    subFn.attributes.remove("validate-field")
+                }
                 i++
             }
         }
@@ -526,9 +538,8 @@ class ScreenForm {
         for (MNode parameterNode in parameterNodes) {
             String parameterName = parameterNode.attribute("name")
             if ((excludes != null && excludes.contains(parameterName)) || "lastUpdatedStamp".equals(parameterName)) continue
-            MNode newFieldNode = new MNode("field", [name:parameterName, "validate-service":sd.serviceName,
-                                                     "validate-parameter":parameterName])
-            MNode subFieldNode = newFieldNode.append("default-field", null)
+            MNode newFieldNode = new MNode("field", [name:parameterName])
+            MNode subFieldNode = newFieldNode.append("default-field", ["validate-service":sd.serviceName, "validate-parameter":parameterName])
             addAutoServiceField(nounEd, parameterNode, fieldType, serviceVerb, newFieldNode, subFieldNode, baseFormNode)
             mergeFieldNode(baseFormNode, newFieldNode, false)
         }
@@ -552,8 +563,8 @@ class ScreenForm {
                 makeDefaultField = displayField == null || displayField.booleanValue()
             }
 
-            MNode newFieldNode = new MNode("field", [name:fieldName, "validate-entity":ed.getFullEntityName(), "validate-field":fieldName])
-            MNode subFieldNode = makeDefaultField ? newFieldNode.append("default-field", null) : null
+            MNode newFieldNode = new MNode("field", [name:fieldName])
+            MNode subFieldNode = makeDefaultField ? newFieldNode.append("default-field", ["validate-entity":ed.getFullEntityName(), "validate-field":fieldName]) : null
 
             addAutoEntityField(ed, fieldName, fieldType, newFieldNode, subFieldNode, baseFormNode)
 
@@ -1248,11 +1259,11 @@ class ScreenForm {
         boolean isList() { isListForm }
         boolean isServerStatic(String renderMode) { return serverStatic != null && (serverStatic.contains('all') || serverStatic.contains(renderMode)) }
 
-        MNode getFieldValidateNode(String fieldName) {
-            MNode fieldNode = (MNode) fieldNodeMap.get(fieldName)
-            if (fieldNode == null) throw new BaseArtifactException("Tried to get in-parameter node for field [${fieldName}] that doesn't exist in form [${location}]")
-            String validateService = fieldNode.attribute('validate-service')
-            String validateEntity = fieldNode.attribute('validate-entity')
+        MNode getFieldValidateNode(MNode subFieldNode) {
+            MNode fieldNode = subFieldNode.getParent()
+            String fieldName = fieldNode.attribute("name")
+            String validateService = subFieldNode.attribute('validate-service')
+            String validateEntity = subFieldNode.attribute('validate-entity')
             if (validateService) {
                 ServiceDefinition sd = ecfi.serviceFacade.getServiceDefinition(validateService)
                 if (sd == null) throw new BaseArtifactException("Invalid validate-service name [${validateService}] in field [${fieldName}] of form [${location}]")
@@ -1266,8 +1277,8 @@ class ScreenForm {
             }
             return null
         }
-        String getFieldValidationClasses(String fieldName) {
-            MNode validateNode = getFieldValidateNode(fieldName)
+        String getFieldValidationClasses(MNode subFieldNode) {
+            MNode validateNode = getFieldValidateNode(subFieldNode)
             if (validateNode == null) return ""
 
             Set<String> vcs = new HashSet()
@@ -1296,8 +1307,8 @@ class ScreenForm {
             for (String vc in vcs) { if (sb) sb.append(" "); sb.append(vc); }
             return sb.toString()
         }
-        Map getFieldValidationRegexpInfo(String fieldName) {
-            MNode validateNode = getFieldValidateNode(fieldName)
+        Map getFieldValidationRegexpInfo(MNode subFieldNode) {
+            MNode validateNode = getFieldValidateNode(subFieldNode)
             if (validateNode?.hasChild("matches")) {
                 MNode matchesNode = validateNode.first("matches")
                 return [regexp:matchesNode.attribute('regexp'), message:matchesNode.attribute('message')]

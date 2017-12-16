@@ -421,13 +421,16 @@ abstract class EntityFindBase implements EntityFind {
     protected boolean processInputFields(Map<String, Object> inputFieldsMap, Set<String> skipFieldSet, ExecutionContextImpl ec) {
         EntityDefinition ed = getEntityDef()
         boolean addedConditions = false
-        for (String fn in ed.getAllFieldNames()) {
+        for (FieldInfo fi in ed.allFieldInfoList) {
+            String fn = fi.name
             if (skipFieldSet.contains(fn)) continue
+
             // NOTE: do we need to do type conversion here?
 
             // this will handle text-find
             if (inputFieldsMap.containsKey(fn) || inputFieldsMap.containsKey(fn + "_op")) {
                 Object value = inputFieldsMap.get(fn)
+                boolean valueEmpty = ObjectUtilities.isEmpty(value)
                 String op = inputFieldsMap.get(fn + "_op") ?: "equals"
                 boolean not = (inputFieldsMap.get(fn + "_not") == "Y" || inputFieldsMap.get(fn + "_not") == "true")
                 boolean ic = (inputFieldsMap.get(fn + "_ic") == "Y" || inputFieldsMap.get(fn + "_ic") == "true")
@@ -435,7 +438,7 @@ abstract class EntityFindBase implements EntityFind {
                 EntityCondition cond = null
                 switch (op) {
                     case "equals":
-                        if (value) {
+                        if (!valueEmpty) {
                             Object convertedValue = value instanceof String ? ed.convertFieldString(fn, (String) value, ec) : value
                             cond = efi.entityConditionFactory.makeCondition(fn,
                                     not ? EntityCondition.NOT_EQUAL : EntityCondition.EQUALS, convertedValue)
@@ -443,21 +446,21 @@ abstract class EntityFindBase implements EntityFind {
                         }
                         break
                     case "like":
-                        if (value) {
+                        if (!valueEmpty) {
                             cond = efi.entityConditionFactory.makeCondition(fn,
                                     not ? EntityCondition.NOT_LIKE : EntityCondition.LIKE, value)
                             if (ic) cond.ignoreCase()
                         }
                         break
                     case "contains":
-                        if (value) {
+                        if (!valueEmpty) {
                             cond = efi.entityConditionFactory.makeCondition(fn,
                                     not ? EntityCondition.NOT_LIKE : EntityCondition.LIKE, "%${value}%")
                             if (ic) cond.ignoreCase()
                         }
                         break
                     case "begins":
-                        if (value) {
+                        if (!valueEmpty) {
                             cond = efi.entityConditionFactory.makeCondition(fn,
                                     not ? EntityCondition.NOT_LIKE : EntityCondition.LIKE, "${value}%")
                             if (ic) cond.ignoreCase()
@@ -472,7 +475,7 @@ abstract class EntityFindBase implements EntityFind {
                                         not ? EntityCondition.NOT_EQUAL : EntityCondition.EQUALS, ""))
                         break
                     case "in":
-                        if (value) {
+                        if (!valueEmpty) {
                             Collection valueList = null
                             if (value instanceof CharSequence) {
                                 valueList = Arrays.asList(value.toString().split(","))
@@ -488,14 +491,16 @@ abstract class EntityFindBase implements EntityFind {
                         break
                 }
                 if (cond != null) {
-                    this.condition(cond)
+                    if (fi.hasAggregateFunction) { this.havingCondition(cond) } else { this.condition(cond) }
                     addedConditions = true
                 }
             } else if (inputFieldsMap.get(fn + "_period")) {
                 List<Timestamp> range = ec.user.getPeriodRange((String) inputFieldsMap.get(fn + "_period"),
                         (String) inputFieldsMap.get(fn + "_poffset"), (String) inputFieldsMap.get(fn + "_pdate"))
-                this.condition(efi.entityConditionFactory.makeCondition(fn, EntityCondition.GREATER_THAN_EQUAL_TO, range.get(0)))
-                this.condition(efi.entityConditionFactory.makeCondition(fn, EntityCondition.LESS_THAN, range.get(1)))
+                EntityCondition fromCond = efi.entityConditionFactory.makeCondition(fn, EntityCondition.GREATER_THAN_EQUAL_TO, range.get(0))
+                EntityCondition thruCond = efi.entityConditionFactory.makeCondition(fn, EntityCondition.LESS_THAN, range.get(1))
+                if (fi.hasAggregateFunction) { this.havingCondition(fromCond); this.havingCondition(thruCond) }
+                else { this.condition(fromCond); this.condition(thruCond) }
                 addedConditions = true
             } else {
                 // these will handle range-find and date-find
@@ -505,11 +510,13 @@ abstract class EntityFindBase implements EntityFind {
                 if (thruValue && thruValue instanceof CharSequence) thruValue = ed.convertFieldString(fn, thruValue.toString(), ec)
 
                 if (!ObjectUtilities.isEmpty(fromValue)) {
-                    this.condition(efi.entityConditionFactory.makeCondition(fn, EntityCondition.GREATER_THAN_EQUAL_TO, fromValue))
+                    EntityCondition fromCond = efi.entityConditionFactory.makeCondition(fn, EntityCondition.GREATER_THAN_EQUAL_TO, fromValue)
+                    if (fi.hasAggregateFunction) { this.havingCondition(fromCond) } else { this.condition(fromCond) }
                     addedConditions = true
                 }
                 if (!ObjectUtilities.isEmpty(thruValue)) {
-                    this.condition(efi.entityConditionFactory.makeCondition(fn, EntityCondition.LESS_THAN_EQUAL_TO, thruValue))
+                    EntityCondition thruCond = efi.entityConditionFactory.makeCondition(fn, EntityCondition.LESS_THAN_EQUAL_TO, thruValue)
+                    if (fi.hasAggregateFunction) { this.havingCondition(thruCond) } else { this.condition(thruCond) }
                     addedConditions = true
                 }
             }

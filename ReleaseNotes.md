@@ -8,6 +8,9 @@ Moqui Framework 2.1.1 is a patch level new feature and bug fix release.
 ### New Features
 
 - Updated to Gradle 4.3.1 along with changes to gradle files that require Gradle 4.0 or later
+- Moved validate-* attributes from XML Form field element to sub-field elements so that in form-list different validation can be
+  done for header, first-/second-/last-row, and default-/conditional-field; as part of this the automatic validate settings from
+  transition.service-call are now set on the sub-field instead of the field element
 
 ### Bug Fixes
 
