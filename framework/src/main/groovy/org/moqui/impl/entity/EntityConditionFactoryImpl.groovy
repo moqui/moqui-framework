@@ -353,9 +353,44 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
                 (attrs.get("ignore") ?: "false"))
     }
 
-    EntityCondition makeActionConditions(MNode node) {
-        List<EntityCondition> condList = new ArrayList()
-        for (MNode subCond in node.children) condList.add(makeActionCondition(subCond))
+    EntityCondition makeActionConditions(MNode node, boolean isCached) {
+        ArrayList<EntityCondition> condList = new ArrayList()
+        ArrayList<MNode> subCondList = node.getChildren()
+        int subCondListSize = subCondList.size()
+        for (int i = 0; i < subCondListSize; i++) {
+            MNode subCond = (MNode) subCondList.get(i)
+            if ("econdition".equals(subCond.nodeName)) {
+                EntityCondition econd = makeActionCondition(subCond)
+                if (econd != null) condList.add(econd)
+            } else if ("econditions".equals(subCond.nodeName)) {
+                EntityCondition econd = makeActionConditions(subCond, isCached)
+                if (econd != null) condList.add(econd)
+            } else if ("date-filter".equals(subCond.nodeName)) {
+                if (!isCached) {
+                    Timestamp validDate = subCond.attribute("valid-date") ?
+                            efi.ecfi.resourceFacade.expression(subCond.attribute("valid-date"), null) as Timestamp : null
+                    condList.add(makeConditionDate(subCond.attribute("from-field-name") ?: "fromDate",
+                            subCond.attribute("thru-field-name") ?: "thruDate", validDate,
+                            'true'.equals(subCond.attribute("ignore-if-empty")), subCond.attribute("ignore") ?: 'false'))
+                }
+            } else if ("econdition-object".equals(subCond.nodeName)) {
+                Object curObj = efi.ecfi.resourceFacade.expression(subCond.attribute("field"), null)
+                if (curObj == null) continue
+                if (curObj instanceof Map) {
+                    Map curMap = (Map) curObj
+                    if (curMap.size() == 0) continue
+                    EntityCondition curCond = makeCondition(curMap, ComparisonOperator.EQUALS, JoinOperator.AND)
+                    condList.add((EntityConditionImplBase) curCond)
+                    continue
+                }
+                if (curObj instanceof EntityConditionImplBase) {
+                    EntityConditionImplBase curCond = (EntityConditionImplBase) curObj
+                    condList.add(curCond)
+                    continue
+                }
+                throw new BaseArtifactException("The econdition-object field attribute must contain only Map and EntityCondition objects, found entry of type [${curObj.getClass().getName()}]")
+            }
+        }
         return makeCondition(condList, getJoinOperator(node.attribute("combine")))
     }
 
@@ -426,22 +461,10 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
             "IS NOT NULL":ComparisonOperator.IS_NOT_NULL
     ]
 
-    static String getJoinOperatorString(JoinOperator op) {
-        return op == JoinOperator.OR ? "OR" : "AND"
-    }
-    static JoinOperator getJoinOperator(String opName) {
-        if (!opName) return JoinOperator.AND
-        switch (opName) {
-            case "or":
-            case "OR": return JoinOperator.OR
-            case "and":
-            case "AND":
-            default: return JoinOperator.AND
-        }
-    }
-    static String getComparisonOperatorString(ComparisonOperator op) {
-        return comparisonOperatorStringMap.get(op)
-    }
+    static String getJoinOperatorString(JoinOperator op) { return JoinOperator.OR.is(op) ? "OR" : "AND" }
+    static JoinOperator getJoinOperator(String opName) { return "or".equalsIgnoreCase(opName) ? JoinOperator.OR :JoinOperator.AND }
+
+    static String getComparisonOperatorString(ComparisonOperator op) { return comparisonOperatorStringMap.get(op) }
     static ComparisonOperator getComparisonOperator(String opName) {
         if (opName == null) return ComparisonOperator.EQUALS
         ComparisonOperator co = stringComparisonOperatorMap.get(opName)
