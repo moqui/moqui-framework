@@ -441,7 +441,7 @@ abstract class EntityFindBase implements EntityFind {
                         if (!valueEmpty) {
                             Object convertedValue = value instanceof String ? ed.convertFieldString(fn, (String) value, ec) : value
                             cond = efi.entityConditionFactory.makeCondition(fn,
-                                    not ? EntityCondition.NOT_EQUAL : EntityCondition.EQUALS, convertedValue)
+                                    not ? EntityCondition.NOT_EQUAL : EntityCondition.EQUALS, convertedValue, not)
                             if (ic) cond.ignoreCase()
                         }
                         break
@@ -484,7 +484,7 @@ abstract class EntityFindBase implements EntityFind {
                             }
                             if (valueList) {
                                 cond = efi.entityConditionFactory.makeCondition(fn,
-                                        not ? EntityCondition.NOT_IN : EntityCondition.IN, valueList)
+                                        not ? EntityCondition.NOT_IN : EntityCondition.IN, valueList, not)
 
                             }
                         }
