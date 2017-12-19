@@ -90,7 +90,11 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
     EntityCondition makeCondition(String fieldName, ComparisonOperator operator, Object value) {
         return new FieldValueCondition(new ConditionField(fieldName), operator, value)
     }
-
+    @Override
+    EntityCondition makeCondition(String fieldName, ComparisonOperator operator, Object value, boolean orNull) {
+        EntityConditionImplBase cond = new FieldValueCondition(new ConditionField(fieldName), operator, value)
+        return orNull ? makeCondition(cond, JoinOperator.OR, makeCondition(fieldName, ComparisonOperator.EQUALS, null)) : cond
+    }
     @Override
     EntityCondition makeConditionToField(String fieldName, ComparisonOperator operator, String toFieldName) {
         return new FieldToFieldCondition(new ConditionField(fieldName), operator, new ConditionField(toFieldName))
