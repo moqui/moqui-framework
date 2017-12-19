@@ -875,7 +875,8 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:annotation><xs:documentation>The key to mark as selected when there is no current entry value.</xs:documentation></xs:annotation>
         </xs:attribute>
         <xs:attribute name="current-description" type="xs:string"/>
-        <xs:attribute name="combo-box" type="boolean" default="false"/>
+        <!-- currently not supported (allow text entry or select option): <xs:attribute name="combo-box" type="boolean" default="false"/> -->
+        <xs:attribute name="show-not" type="xs:string" default="false"/>
         <xs:attribute name="style" type="xs:string"/>
     </xs:complexType></xs:element>
     <xs:element name="file" substitutionGroup="SubFields"><xs:complexType>
