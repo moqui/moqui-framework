@@ -593,6 +593,7 @@ along with this software (see the LICENSE.md file). If not, see
                 be based on its extension.
             </description>
         </field>
+        <field name="attachmentCondition" type="text-medium"/>
         <relationship type="one" related="moqui.basic.email.EmailTemplate"/>
     </entity>
 
