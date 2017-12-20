@@ -156,23 +156,26 @@ try {
     //email.setTextMsg("Your email client does not support HTML messages")
 
     for (EntityValue emailTemplateAttachment in emailTemplateAttachmentList) {
+        if (emailTemplateAttachment.attachmentCondition && !ec.resourceFacade.condition((String) emailTemplateAttachment.attachmentCondition, "")) continue
         if (emailTemplateAttachment.screenRenderMode) {
             def attachmentRender = ec.screen.makeRender().rootScreen((String) emailTemplateAttachment.attachmentLocation)
                     .webappName((String) emailTemplate.webappName).renderMode((String) emailTemplateAttachment.screenRenderMode)
             String attachmentText = attachmentRender.render()
+            if (!attachmentText) continue
+            String fileName = ec.resource.expand((String) emailTemplateAttachment.fileName, "")
             if (emailTemplateAttachment.screenRenderMode == "xsl-fo") {
                 // use ResourceFacade.xslFoTransform() to change to PDF, then attach that
                 try {
                     ByteArrayOutputStream baos = new ByteArrayOutputStream()
                     ec.resource.xslFoTransform(new StreamSource(new StringReader(attachmentText)), null, baos, "application/pdf")
-                    email.attach(new ByteArrayDataSource(baos.toByteArray(), "application/pdf"), (String) emailTemplateAttachment.fileName, "")
+                    email.attach(new ByteArrayDataSource(baos.toByteArray(), "application/pdf"), fileName, "")
                 } catch (Exception e) {
                     logger.warn("Error generating PDF from XSL-FO: ${e.toString()}")
                 }
             } else {
-                String mimeType = ec.screen.getMimeTypeByMode(emailTemplateAttachment.screenRenderMode)
+                String mimeType = ec.screenFacade.getMimeTypeByMode((String) emailTemplateAttachment.screenRenderMode)
                 DataSource dataSource = new ByteArrayDataSource(attachmentText, mimeType)
-                email.attach(dataSource, (String) emailTemplateAttachment.fileName, "")
+                email.attach(dataSource, fileName, "")
             }
         } else {
             // not a screen, get straight data with type depending on extension
