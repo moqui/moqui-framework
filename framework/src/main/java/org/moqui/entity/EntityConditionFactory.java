@@ -31,6 +31,7 @@ public interface EntityConditionFactory {
     EntityCondition makeCondition(EntityCondition lhs, EntityCondition.JoinOperator operator, EntityCondition rhs);
 
     EntityCondition makeCondition(String fieldName, EntityCondition.ComparisonOperator operator, Object value);
+    EntityCondition makeCondition(String fieldName, EntityCondition.ComparisonOperator operator, Object value, boolean orNull);
 
     EntityCondition makeConditionToField(String fieldName, EntityCondition.ComparisonOperator operator, String toFieldName);
 
