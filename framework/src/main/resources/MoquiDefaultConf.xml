@@ -1,11 +1,19 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!-- No copyright or license for configuration file, details here are not considered a creative work. -->
-<moqui-conf xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/moqui-conf-2.0.xsd">
+<moqui-conf xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/moqui-conf-2.1.xsd">
 
     <!-- Settings in this file can be overridden in a component (MoquiConf.xml) and/or runtime conf file that has
         any of the desired sub-elements. -->
 
     <!-- Default properties are only set if there is no Java property or environment variable of the same name (or with underscores replaced by dots) -->
+
+    <!-- recommended values: production, dev, test; any code may look at these Java System properties to vary behavior (System.getProperty("instance_purpose")) -->
+    <default-property name="instance_purpose" value="production"/>
+
+    <default-property name="default_locale" value="en_US"/>
+    <default-property name="default_time_zone" value="US/Pacific"/>
+    <default-property name="database_time_zone" value="US/Pacific"/>
+
     <default-property name="webapp_http_host" value=""/>
     <default-property name="webapp_http_port" value=""/>
     <default-property name="webapp_https_port" value=""/>
@@ -19,6 +27,7 @@
     <default-property name="entity_ds_schema" value=""/>
     <default-property name="entity_ds_user" value="sa"/>
     <default-property name="entity_ds_password" value="sa"/>
+    <default-property name="entity_ds_crypt_pass" value="MoquiDefaultPassword:CHANGEME"/>
 
     <tools empty-db-load="seed,seed-initial,install" worker-queue="65535" worker-pool-core="4" worker-pool-max="16" worker-pool-alive="60">
         <tool-factory class="org.moqui.impl.tools.MCacheToolFactory" init-priority="03" disabled="false"/>
@@ -154,8 +163,8 @@
         <artifact-execution type="AT_ENTITY" authz-enabled="true" tarpit-enabled="false"/>
     </artifact-execution-facade>
     <user-facade>
-        <password encrypt-hash-type="SHA-256" min-length="6" min-digits="1" min-others="1"
-                  history-limit="5" change-weeks="104" email-require-change="true" email-expire-hours="48"/>
+        <password encrypt-hash-type="SHA-256" min-length="8" min-digits="1" min-others="1"
+                  history-limit="5" change-weeks="104" email-require-change="false" email-expire-hours="48"/>
         <login-key encrypt-hash-type="SHA-256" expire-hours="144"/><!-- default expire 6 days, 144 hours -->
         <login max-failures="3" disable-minutes="5" history-store="true" history-incorrect-password="false"/>
     </user-facade>
@@ -228,6 +237,9 @@
                             macro-template-location="template/screen-macro/DefaultScreenMacros.xml.ftl"/>
         <screen-text-output type="xsl-fo" mime-type="text/xml" always-standalone="true"
                             macro-template-location="template/screen-macro/DefaultScreenMacros.xsl-fo.ftl"/>
+        <!-- vuet is a custom extension for Vue JS component templates (extended HTML) -->
+        <screen-text-output type="vuet" mime-type="text/html" always-standalone="true"
+                            macro-template-location="template/screen-macro/DefaultScreenMacros.vuet.ftl"/>
     </screen-facade>
 
     <service-facade distributed-factory="" scheduled-job-check-time="60">
@@ -265,8 +277,8 @@
 
     <entity-facade default-group-name="transactional" entity-eca-enabled="true" sequenced-id-prefix=""
             distributed-cache-invalidate="false" dci-topic-factory="" query-stats="false"
-            crypt-salt="SkcorIuqom" crypt-iter="10" crypt-algo="PBEWithMD5AndDES" crypt-pass="">
-        <!-- NOTE: no crypt-pass attribute by default, must specify in your conf file! -->
+            database-locale="${default_locale}" database-time-zone="${database_time_zone ?: default_time_zone}"
+            crypt-salt="SkcorIuqom" crypt-iter="10" crypt-algo="PBEWithMD5AndDES" crypt-pass="${entity_ds_crypt_pass}">
         <!-- The entity-facade.@default-group-name=transactional, so if other entity groups do not have a data source
             the transactional group's datasource will be used. -->
 
@@ -332,8 +344,8 @@
         <load-data location="classpath://data/EntityTypeData.xml"/>
         <load-data location="classpath://data/GeoCountryData.xml"/>
         <load-data location="classpath://data/SecurityTypeData.xml"/>
-        <load-data location="classpath://data/ServiceTypeData.xml"/>
         <load-data location="classpath://data/UnitData.xml"/>
+        <load-data location="classpath://data/MoquiInstallData.xml"/>
     </entity-facade>
     <database-list>
         <dictionary-type type="id" java-type="java.lang.String" default-sql-type="VARCHAR(40)"/>
@@ -376,7 +388,7 @@
             <inline-jdbc jdbc-uri="jdbc:db2://localhost:50000/moqui" jdbc-username="moqui" jdbc-password="moqui"/>
         </datasource>
         -->
-        <database name="db2" join-style="ansi" offset-style="limit"
+        <database name="db2" join-style="ansi" offset-style="limit" never-nulls="true"
                 default-isolation-level="ReadCommitted" for-update="FOR UPDATE WITH RS"
                 use-schema-for-all="true" use-indexes-unique="false" use-pk-constraint-names="false" fk-style="name_fk"
                 default-test-query="SELECT 1 FROM SYSIBM.SYSDUMMY1"
@@ -392,20 +404,21 @@
             <inline-jdbc><xa-properties driverType="4" serverName="${entity_ds_host}" portNumber="${entity_ds_port?:'50000'}"
                     databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
         </database>
-        <database name="db2i" join-style="ansi" offset-style="limit"
+        <database name="db2i" lb-name="db2" join-style="ansi" offset-style="limit" never-nulls="true"
                 default-isolation-level="ReadCommitted"  for-update="FOR UPDATE WITH RS"
                 use-schema-for-all="true" use-indexes-unique-where-not-null="true"
                 default-test-query="SELECT 1 FROM SYSIBM.SYSDUMMY1"
                 default-jdbc-driver="com.ibm.as400.access.AS400JDBCDriver"
-                default-xa-ds-class="com.ibm.as400.access.AS400JDBCXADataSource">
+                default-xa-ds-class="com.ibm.as400.access.AS400JDBCXADataSource"
+                default-startup-add-missing="true" default-runtime-add-missing="false">
             <database-type type="number-integer" sql-type="DECIMAL(20,0)"/>
             <database-type type="number-decimal" sql-type="DECIMAL(26,6)"/>
             <database-type type="number-float" sql-type="DECIMAL(30,12)"/>
             <database-type type="currency-amount" sql-type="DECIMAL(22,2)"/>
             <database-type type="currency-precise" sql-type="DECIMAL(23,3)"/>
 
-            <inline-jdbc><xa-properties driverType="4" serverName="${entity_ds_host}" portNumber="${entity_ds_port?:'50000'}"
-                    databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
+            <inline-jdbc><xa-properties serverName="${entity_ds_host}" databaseName="${entity_ds_database}"
+                    user="${entity_ds_user}" password="${entity_ds_password}" cursorHold="false" threadUsed="false"/></inline-jdbc>
         </database>
         <!--
         * Derby:
@@ -440,7 +453,7 @@
             <inline-jdbc><xa-properties url="${entity_ds_url}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
         </database>
         <!-- TODO: add configuration examples -->
-        <database name="hsql" use-fk-initially-deferred="false" join-style="ansi-no-parenthesis"
+        <database name="hsql" lb-name="hsqldb" use-fk-initially-deferred="false" join-style="ansi-no-parenthesis"
                 default-isolation-level="ReadUncommitted" default-jdbc-driver="org.hsqldb.jdbcDriver"
                 default-test-query="SELECT 1 FROM SEQUENCE_VALUE_ITEM WHERE 1=0">
             <database-type type="id" sql-type="VARCHAR"/>
@@ -465,16 +478,18 @@
         * MS SQL Server:
         <datasource group-name="transactional" database-conf-name="mssql" schema-name="">
             <inline-jdbc><xa-properties user="moqui" password="moqui" serverName="localhost" portNumber="1433"
-                    databaseName="moqui"/></inline-jdbc>
+                    databaseName="moqui" selectMethod="Cursor"/></inline-jdbc>
         </datasource>
         <datasource group-name="transactional" database-conf-name="mssql" schema-name="">
-            <inline-jdbc jdbc-uri="jdbc:sqlserver://localhost:1433;databaseName=moqui" jdbc-username="moqui" jdbc-password="moqui"/>
+            <inline-jdbc jdbc-uri="jdbc:sqlserver://localhost:1433;databaseName=moqui;SelectMethod=Cursor" jdbc-username="moqui" jdbc-password="moqui"/>
         </datasource>
+
+        NOTE: for MS SQL Server 2012 and later can use offset-style=fetch for better performance and consistent behavior
         -->
-        <database name="mssql" join-style="ansi" default-isolation-level="ReadCommitted" offset-style="cursor"
+        <database name="mssql" join-style="ansi" default-isolation-level="ReadCommitted" offset-style="fetch"
                 default-test-query="SELECT 1" default-jdbc-driver="com.microsoft.sqlserver.jdbc.SQLServerDriver"
-                default-xa-ds-class="com.microsoft.sqlserver.jdbc.SQLServerXADataSource">
-            <!-- NOTE: for MS SQL Server 2012 and later can use offset-style=fetch for better performance and consistent behavior -->
+                default-xa-ds-class="com.microsoft.sqlserver.jdbc.SQLServerXADataSource"
+                default-startup-add-missing="true" default-runtime-add-missing="false">
             <database-type type="id" sql-type="NVARCHAR(40)"/>
             <database-type type="id-long" sql-type="NVARCHAR(255)"/>
 
@@ -498,7 +513,8 @@
             <database-type type="binary-very-long" sql-type="IMAGE"/>
 
             <inline-jdbc><xa-properties serverName="${entity_ds_host}" portNumber="${entity_ds_port?:'1433'}"
-                    databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
+                    databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"
+                    selectMethod="Cursor"/></inline-jdbc>
         </database>
         <!--
         * MySQL (similar for Percona Server, MariaDB, AWS Aurora):
@@ -512,8 +528,8 @@
                     jdbc-username="moqui" jdbc-password="moqui"/>
         </datasource>
         -->
-        <database name="mysql" join-style="ansi-no-parenthesis" offset-style="limit"
-                table-engine="InnoDB" character-set="utf8" collate="utf8_general_ci"
+        <database name="mysql" join-style="ansi-no-parenthesis" offset-style="limit" never-nulls="true"
+                table-engine="InnoDB" character-set="utf8" collate="utf8_general_ci" fk-style="name_fk"
                 default-isolation-level="ReadCommitted" use-tm-join="true"
                 default-jdbc-driver="com.mysql.jdbc.Driver"
                 default-xa-ds-class="com.mysql.jdbc.jdbc2.optional.MysqlXADataSource"
@@ -540,9 +556,10 @@
 
             <database-type type="binary-very-long" sql-type="LONGBLOB"/>
 
-            <inline-jdbc><xa-properties pinGlobalTxToPhysicalConnection="true" autoReconnectForPools="true" useUnicode="true" encoding="UTF-8"
-                    serverName="${entity_ds_host}" port="${entity_ds_port?:'3306'}" databaseName="${entity_ds_database}"
-                    user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
+            <!-- default max connections for MySQL is 151 -->
+            <inline-jdbc pool-maxsize="140"><xa-properties pinGlobalTxToPhysicalConnection="true" autoReconnectForPools="true"
+                    useUnicode="true" encoding="UTF-8" serverName="${entity_ds_host}" port="${entity_ds_port?:'3306'}"
+                    databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
         </database>
         <!--
         * Oracle:
@@ -590,10 +607,10 @@
             <inline-jdbc jdbc-uri="jdbc:postgresql://127.0.0.1/moqui" jdbc-username="moqui" jdbc-password="moqui"/>
         </datasource>
         -->
-        <database name="postgres" use-fk-initially-deferred="false" join-style="ansi" result-fetch-size="50"
-                  default-isolation-level="ReadCommitted" use-tm-join="true" default-test-query="SELECT 1"
-                  default-jdbc-driver="org.postgresql.Driver" default-xa-ds-class="org.postgresql.xa.PGXADataSource"
-                  default-startup-add-missing="true" default-runtime-add-missing="false">
+        <database name="postgres" lb-name="postgresql" join-style="ansi" result-fetch-size="50" never-try-insert="true"
+                default-isolation-level="ReadCommitted" use-tm-join="true" default-test-query="SELECT 1"
+                default-jdbc-driver="org.postgresql.Driver" default-xa-ds-class="org.postgresql.xa.PGXADataSource"
+                default-startup-add-missing="true" default-runtime-add-missing="false" use-binary-type-for-blob="true">
             <!-- NOTE: when Postgres JDBC driver updated can set use-tm-join="true" -->
             <database-type type="number-float" sql-type="FLOAT8"/>
 
@@ -603,7 +620,8 @@
 
             <database-type type="binary-very-long" sql-type="BYTEA"/>
 
-            <inline-jdbc><xa-properties serverName="${entity_ds_host}" portNumber="${entity_ds_port?:'5432'}"
+            <!-- default max connections for PostgreSQL is 100 -->
+            <inline-jdbc pool-maxsize="90"><xa-properties serverName="${entity_ds_host}" portNumber="${entity_ds_port?:'5432'}"
                     databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
         </database>
     </database-list>

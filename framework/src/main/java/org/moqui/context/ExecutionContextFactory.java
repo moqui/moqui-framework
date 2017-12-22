@@ -22,6 +22,7 @@ import javax.annotation.Nonnull;
 import javax.servlet.ServletContext;
 import javax.websocket.server.ServerContainer;
 import java.util.LinkedHashMap;
+import java.util.List;
 
 /**
  * Interface for the object that will be used to get an ExecutionContext object and manage framework life cycle.
@@ -89,4 +90,7 @@ public interface ExecutionContextFactory {
     void initServletContext(ServletContext sc);
 
     void registerNotificationMessageListener(@Nonnull NotificationMessageListener nml);
+
+    void registerLogEventSubscriber(@Nonnull LogEventSubscriber subscriber);
+    List<LogEventSubscriber> getLogEventSubscribers();
 }

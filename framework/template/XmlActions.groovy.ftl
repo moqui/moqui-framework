@@ -64,17 +64,17 @@ return;
 </#macro>
 
 <#macro "script"><#if .node["@location"]?has_content>ec.resource.script("${.node["@location"]}", null)</#if>
-    // begin inline script
-    ${.node}
-    // end inline script
+// begin inline script
+${.node}
+// end inline script
 </#macro>
 
 <#macro set>
     <#if .node["@set-if-empty"]?has_content && .node["@set-if-empty"] == "false">
-    _temp_internal = <#if .node["@type"]?has_content>basicConvert</#if>(<#if .node["@from"]?has_content>${.node["@from"]}<#else>"""${.node.@value}"""</#if><#if .node["@default-value"]?has_content> ?: "${.node["@default-value"]}"</#if><#if .node["@type"]?has_content>, "${.node["@type"]}"</#if>)
-    if (_temp_internal) ${.node["@field"]} = _temp_internal
+    _temp_internal = <#if .node["@type"]?has_content>basicConvert</#if>(<#if .node["@from"]?has_content>${.node["@from"]}<#elseif .node["@value"]?has_content>"""${.node["@value"]}"""<#else>null</#if><#if .node["@default-value"]?has_content> ?: """${.node["@default-value"]}"""</#if><#if .node["@type"]?has_content>, "${.node["@type"]}"</#if>)
+    if (!isEmpty(_temp_internal)) ${.node["@field"]} = _temp_internal
     <#else>
-    ${.node["@field"]} = <#if .node["@type"]?has_content>basicConvert</#if>(<#if .node["@from"]?has_content>${.node["@from"]}<#else>"""${.node["@value"]}"""</#if><#if .node["@default-value"]?has_content> ?: "${.node["@default-value"]}"</#if><#if .node["@type"]?has_content>, "${.node["@type"]}"</#if>)
+    ${.node["@field"]} = <#if .node["@type"]?has_content>basicConvert</#if>(<#if .node["@from"]?has_content>${.node["@from"]}<#elseif .node["@value"]?has_content>"""${.node["@value"]}"""<#else>null</#if><#if .node["@default-value"]?has_content> ?: """${.node["@default-value"]}"""</#if><#if .node["@type"]?has_content>, "${.node["@type"]}"</#if>)
     </#if>
 </#macro>
 
@@ -163,9 +163,15 @@ return;
     </#if>
     <#if doPaginate>
         <#if !useCache>
-            ${listName}Count = ${listName}_xafind.count()
-            ${listName}PageIndex = ${listName}_xafind.pageIndex
-            if (${listName}_xafind.limit == null) { ${listName}PageSize = ${listName}Count } else { ${listName}PageSize = ${listName}_xafind.pageSize }
+            if (${listName}_xafind.getLimit() == null) {
+                ${listName}Count = ${listName}.size()
+                ${listName}PageIndex = ${listName}.pageIndex
+                ${listName}PageSize = ${listName}Count > 20 ? ${listName}Count : 20
+            } else {
+                ${listName}Count = ${listName}_xafind.count()
+                ${listName}PageIndex = ${listName}_xafind.pageIndex
+                ${listName}PageSize = ${listName}_xafind.pageSize
+            }
         </#if>
         ${listName}PageMaxIndex = ((BigDecimal) (${listName}Count - 1)).divide(${listName}PageSize ?: (${listName}Count - 1), 0, BigDecimal.ROUND_DOWN) as int
         ${listName}PageRangeLow = ${listName}PageIndex * ${listName}PageSize + 1
@@ -175,10 +181,10 @@ return;
 </#macro>
 <#macro "entity-find-count">
     ${.node["@count-field"]} = ec.entity.find("${.node["@entity-name"]}")<#if .node["@cache"]?has_content>.useCache(${.node["@cache"]})</#if><#if .node["@distinct"]?has_content>.distinct(${.node["@distinct"]})</#if><#list .node["select-field"] as sf>.selectField("${sf["@field-name"]}")</#list>
-            <#list .node["date-filter"] as df>.condition(<#visit df/>)</#list><#list .node["econdition"] as ec>.condition(<#visit ec/>)</#list><#list .node["econditions"] as ecs>.condition(<#visit ecs/>)</#list><#list .node["econdition-object"] as eco>.condition(<#visit eco/>)</#list><#if .node["having-econditions"]?has_content><#list .node["having-econditions"]["*"] as havingCond>.havingCondition(<#visit havingCond/>)</#list></#if>.count()
+            <#list .node["date-filter"] as df>.condition(<#visit df/>)</#list><#list .node["econdition"] as econd>.condition(<#visit econd/>)</#list><#list .node["econditions"] as ecs>.condition(<#visit ecs/>)</#list><#list .node["econdition-object"] as eco>.condition(<#visit eco/>)</#list><#if .node["having-econditions"]?has_content><#list .node["having-econditions"]["*"] as havingCond>.havingCondition(<#visit havingCond/>)</#list></#if>.count()
 </#macro>
 <#-- =================== entity-find sub-elements =================== -->
-<#macro "date-filter">(org.moqui.entity.EntityCondition) ec.entity.conditionFactory.makeConditionDate("${.node["@from-field-name"]!("fromDate")}", "${.node["@thru-field-name"]!("thruDate")}", <#if .node["@valid-date"]?has_content>${.node["@valid-date"]} as java.sql.Timestamp<#else>null</#if>, ${.node["@ignore-if-empty"]!("false")})</#macro>
+<#macro "date-filter">(org.moqui.entity.EntityCondition) ec.entity.conditionFactory.makeConditionDate("${.node["@from-field-name"]!("fromDate")}", "${.node["@thru-field-name"]!("thruDate")}", <#if .node["@valid-date"]?has_content>${.node["@valid-date"]} as java.sql.Timestamp<#else>null</#if>, ${.node["@ignore-if-empty"]!("false")}, "${.node["@ignore"]!"false"}")</#macro>
 <#macro "econdition">(org.moqui.entity.EntityCondition) ec.entity.conditionFactory.makeActionConditionDirect("${.node["@field-name"]}", "${.node["@operator"]!"equals"}", ${.node["@from"]?default(.node["@field-name"])}, <#if .node["@value"]?has_content>"${.node["@value"]}"<#else>null</#if>, <#if .node["@to-field-name"]?has_content>"${.node["@to-field-name"]}"<#else>null</#if>, ${.node["@ignore-case"]!"false"}, ${.node["@ignore-if-empty"]!"false"}, ${.node["@or-null"]!"false"}, "${.node["@ignore"]!"false"}")</#macro>
 <#macro "econditions">(org.moqui.entity.EntityCondition) ec.entity.conditionFactory.makeCondition([<#list .node?children as subCond><#visit subCond/><#if subCond_has_next>, </#if></#list>], org.moqui.impl.entity.EntityConditionFactoryImpl.getJoinOperator("${.node["@combine"]!"and"}"))</#macro>
 <#macro "econdition-object">${.node["@field"]}</#macro>
@@ -202,7 +208,7 @@ return;
 <#macro "entity-delete-related">    ${.node["@value-field"]}.deleteRelated("${.node["@relationship-name"]}")
 </#macro>
 <#macro "entity-delete-by-condition">    ec.entity.find("${.node["@entity-name"]}")
-            <#list .node["date-filter"] as df>.condition(<#visit df/>)</#list><#list .node["econdition"] as ec>.condition(<#visit ec/>)</#list><#list .node["econditions"] as ecs>.condition(<#visit ecs/>)</#list><#list .node["econdition-object"] as eco>.condition(<#visit eco/>)</#list>.deleteAll()
+            <#list .node["date-filter"] as df>.condition(<#visit df/>)</#list><#list .node["econdition"] as econd>.condition(<#visit econd/>)</#list><#list .node["econditions"] as ecs>.condition(<#visit ecs/>)</#list><#list .node["econdition-object"] as eco>.condition(<#visit eco/>)</#list>.deleteAll()
 </#macro>
 <#macro "entity-set">    ${.node["@value-field"]}.setFields(${.node["@map"]!"context"}, ${.node["@set-if-empty"]!"false"}, ${.node["@prefix"]!"null"}, <#if .node["@include"]?has_content && .node["@include"] == "pk">true<#elseif .node["@include"]?has_content && .node["@include"] == "nonpk"/>false<#else>null</#if>)
 </#macro>

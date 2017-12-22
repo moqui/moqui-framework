@@ -20,6 +20,7 @@ import freemarker.ext.beans.BeansWrapperBuilder;
 import freemarker.template.*;
 import groovy.transform.CompileStatic;
 
+import org.moqui.BaseArtifactException;
 import org.moqui.BaseException;
 import org.moqui.context.ExecutionContextFactory;
 import org.moqui.resource.ResourceReference;
@@ -57,7 +58,7 @@ public class FtlTemplateRenderer implements TemplateRenderer {
         Template theTemplate = getFtlTemplateByLocation(location);
         try {
             theTemplate.createProcessingEnvironment(ecfi.getEci().contextStack, writer).process();
-        } catch (Exception e) { throw new BaseException("Error rendering template at " + location, e); }
+        } catch (Exception e) { throw new BaseArtifactException("Error rendering template at " + location, e); }
     }
     public String stripTemplateExtension(String fileName) { return fileName.contains(".ftl") ? fileName.replace(".ftl", "") : fileName; }
 
@@ -65,34 +66,39 @@ public class FtlTemplateRenderer implements TemplateRenderer {
 
     @SuppressWarnings("unchecked")
     private Template getFtlTemplateByLocation(final String location) {
-        Template theTemplate;
-        if (templateFtlLocationCache instanceof MCache) {
-            MCache<String, Template> mCache = (MCache) templateFtlLocationCache;
-            ResourceReference rr = ecfi.resourceFacade.getLocationReference(location);
-            // if we have a rr and last modified is newer than the cache entry then throw it out (expire when cached entry
-            //     updated time is older/less than rr.lastModified)
-            long lastModified = rr != null ? rr.getLastModified() : 0L;
-            theTemplate = mCache.get(location, lastModified);
-        } else {
-            // TODO: doesn't support on the fly reloading without cache expire/clear!
-            theTemplate = templateFtlLocationCache.get(location);
+        boolean hasVersion = location.indexOf("#") > 0;
+        Template theTemplate = null;
+        if (!hasVersion) {
+            if (templateFtlLocationCache instanceof MCache) {
+                MCache<String, Template> mCache = (MCache) templateFtlLocationCache;
+                ResourceReference rr = ecfi.resourceFacade.getLocationReference(location);
+                // if we have a rr and last modified is newer than the cache entry then throw it out (expire when cached entry
+                //     updated time is older/less than rr.lastModified)
+                long lastModified = rr != null ? rr.getLastModified() : 0L;
+                theTemplate = mCache.get(location, lastModified);
+            } else {
+                // TODO: doesn't support on the fly reloading without cache expire/clear!
+                theTemplate = templateFtlLocationCache.get(location);
+            }
         }
-        if (theTemplate == null) theTemplate = makeTemplate(location);
-        if (theTemplate == null) throw new IllegalArgumentException("Could not find template at " + location);
+        if (theTemplate == null) theTemplate = makeTemplate(location, hasVersion);
+        if (theTemplate == null) throw new BaseArtifactException("Could not find template at " + location);
         return theTemplate;
     }
 
-    private Template makeTemplate(final String location) {
-        Template theTemplate = templateFtlLocationCache.get(location);
-        if (theTemplate != null) return theTemplate;
+    private Template makeTemplate(final String location, boolean hasVersion) {
+        if (!hasVersion) {
+            Template theTemplate = templateFtlLocationCache.get(location);
+            if (theTemplate != null) return theTemplate;
+        }
 
-        Template newTemplate = null;
+        Template newTemplate;
         Reader templateReader = null;
         try {
             templateReader = new InputStreamReader(ecfi.resourceFacade.getLocationStream(location), "UTF-8");
             newTemplate = new Template(location, templateReader, getFtlConfiguration());
         } catch (Exception e) {
-            throw new IllegalArgumentException("Error while initializing template at " + location, e);
+            throw new BaseArtifactException("Error while initializing template at " + location, e);
         } finally {
             if (templateReader != null) {
                 try { templateReader.close(); }
@@ -100,8 +106,7 @@ public class FtlTemplateRenderer implements TemplateRenderer {
             }
         }
 
-        //
-        templateFtlLocationCache.put(location, newTemplate);
+        if (!hasVersion) templateFtlLocationCache.put(location, newTemplate);
         return newTemplate;
     }
 
@@ -121,6 +126,7 @@ public class FtlTemplateRenderer implements TemplateRenderer {
         newConfig.setTemplateExceptionHandler(new MoquiTemplateExceptionHandler());
         newConfig.setLogTemplateExceptions(false);
         newConfig.setWhitespaceStripping(true);
+        newConfig.setDefaultEncoding("UTF-8");
         return newConfig;
     }
 
@@ -162,8 +168,11 @@ public class FtlTemplateRenderer implements TemplateRenderer {
                     BaseException.filterStackTrace(te.getCause());
                     logger.error("Error from code called in FTL render", te.getCause());
                     // NOTE: ScreenTestImpl looks for this string, ie "[Template Error"
+                    String causeMsg = te.getCause().getMessage();
+                    if (causeMsg == null || causeMsg.isEmpty()) causeMsg = te.getMessage();
+                    if (causeMsg == null || causeMsg.isEmpty()) causeMsg = "no message available";
                     out.write("[Template Error: ");
-                    out.write(te.getCause().getMessage());
+                    out.write(causeMsg);
                     out.write("]");
                 } else {
                     // NOTE: if there is not cause it is an exception generated by FreeMarker and not some code called in the template
@@ -183,8 +192,6 @@ public class FtlTemplateRenderer implements TemplateRenderer {
             } catch (IOException e) {
                 throw new TemplateException("Failed to print error message. Cause: " + e, env);
             }
-
         }
-
     }
 }

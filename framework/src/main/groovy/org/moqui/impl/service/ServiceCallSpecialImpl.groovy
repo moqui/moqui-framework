@@ -14,6 +14,8 @@
 package org.moqui.impl.service
 
 import groovy.transform.CompileStatic
+import org.moqui.BaseArtifactException
+import org.moqui.service.ServiceException
 
 import javax.transaction.Synchronization
 import javax.transaction.Transaction
@@ -48,7 +50,7 @@ class ServiceCallSpecialImpl extends ServiceCallImpl implements ServiceCallSpeci
 
     @Override
     void registerOnCommit() {
-        if (getServiceDefinition() == null && !isEntityAutoPattern()) throw new IllegalArgumentException("Could not find service with name [${getServiceName()}]")
+        if (getServiceDefinition() == null && !isEntityAutoPattern()) throw new ServiceException("Could not find service with name [${getServiceName()}]")
 
         ServiceSynchronization sxr = new ServiceSynchronization(this, sfi.ecfi, true)
         sxr.enlist()
@@ -56,7 +58,7 @@ class ServiceCallSpecialImpl extends ServiceCallImpl implements ServiceCallSpeci
 
     @Override
     void registerOnRollback() {
-        if (getServiceDefinition() == null && !isEntityAutoPattern()) throw new IllegalArgumentException("Could not find service with name [${getServiceName()}]")
+        if (getServiceDefinition() == null && !isEntityAutoPattern()) throw new ServiceException("Could not find service with name [${getServiceName()}]")
 
         ServiceSynchronization sxr = new ServiceSynchronization(this, sfi.ecfi, false)
         sxr.enlist()

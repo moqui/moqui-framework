@@ -22,7 +22,7 @@ import org.ajoberstar.grgit.*
 
 defaultTasks 'build'
 
-def tomcatHome = '../apache-tomcat-8.5.6'
+def tomcatHome = '../apache-tomcat-8.5.14'
 // no longer include version in war file name: def getWarName() { 'moqui-' + childProjects.framework.version + '.war' }
 def getWarName() { 'moqui.war' }
 def plusRuntimeName = 'moqui-plus-runtime.war'
@@ -35,29 +35,45 @@ def moquiConfProduction = 'conf/MoquiProductionConf.xml'
 def allCleanTasks = getTasksByName('clean', true)
 def allBuildTasks = getTasksByName('build', true)
 def allTestTasks = getTasksByName('test', true)
-def getComponentTestTasks() {
+Set<Task> getComponentTestTasks() {
     Set<Task> testTasks = new LinkedHashSet()
-    for (Project subProject in getSubprojects()) if (subProject.getName().startsWith('runtime/component'))
-        testTasks.addAll(subProject.getTasksByName('test', false))
+    for (Project subProject in getSubprojects()) {
+        if (subProject.getPath().startsWith(':runtime:component:'))
+            testTasks.addAll(subProject.getTasksByName('test', false))
+    }
     return testTasks
 }
-
+def getDefaultPropertyKeys() {
+    def defaultProperties = []
+    Node confXml = new XmlParser().parse(file('framework/src/main/resources/MoquiDefaultConf.xml'))
+    for (Node defaultProperty in confXml.'default-property') {
+        defaultProperties << defaultProperty.'@name'
+    }
+    defaultProperties
+}
+allTestTasks.each {
+    it.systemProperties << System.properties.subMap(getDefaultPropertyKeys())
+}
 // ========== clean tasks ==========
 
 task clean(type: Delete) { delete file(warName); delete file(execTempDir) }
 task cleanTempDir(type: Delete) { delete file(execTempDir) }
-task cleanDb { doLast { if (!file(moquiRuntime).exists()) return; delete files(file(moquiRuntime+'/db/derby').listFiles()) - files(moquiRuntime+'/db/derby/derby.properties'); delete file(moquiRuntime+'/db/h2') } }
-task cleanOrientDb(type: Delete) { delete file(moquiRuntime+'/db/orientdb/databases') }
-task cleanElasticSearch(type: Delete) { delete file(moquiRuntime+'/elasticsearch/data') }
+task cleanDb { doLast {
+    if (!file(moquiRuntime).exists()) return
+    delete files(file(moquiRuntime+'/db/derby').listFiles()) - files(moquiRuntime+'/db/derby/derby.properties')
+    delete file(moquiRuntime+'/db/h2')
+    delete file(moquiRuntime+'/db/orientdb/databases')
+    delete file(moquiRuntime+'/elasticsearch/data')
+    delete fileTree(dir: moquiRuntime+'/txlog', include: '*')
+} }
 task cleanLog(type: Delete) { delete fileTree(dir: moquiRuntime+'/log', include: '*') }
-task cleanTxLog(type: Delete) { delete fileTree(dir: moquiRuntime+'/txlog', include: '*') }
+task cleanSessions(type: Delete) { delete fileTree(dir: moquiRuntime+'/sessions', include: '*') }
 task cleanLoadSave(type: Delete) { delete file('SaveH2.zip'); delete file('SaveDEFAULT.zip');
     delete file('SaveTransactional.zip'); delete file('SaveAnalytical.zip'); delete file('SaveOrientDb.zip'); delete file('SaveElasticSearch.zip') }
 task cleanPlusRuntime(type: Delete) { delete file(plusRuntimeName) }
 task cleanOther(type: Delete) { delete fileTree(dir: '.', includes: ['**/.nbattrs', '**/*~', '**/.#*', '**/.DS_Store', '**/*.rej', '**/*.orig']) }
 
-task cleanAll { dependsOn clean, allCleanTasks, cleanDb, cleanOrientDb, cleanElasticSearch, cleanTxLog, cleanLog,
-        cleanLoadSave, cleanPlusRuntime, cleanOther }
+task cleanAll { dependsOn clean, allCleanTasks, cleanDb, cleanLog, cleanSessions, cleanLoadSave, cleanPlusRuntime }
 
 // ========== check/update tasks ==========
 
@@ -165,27 +181,28 @@ task loadProduction(type: JavaExec) {
     main = '-jar'
     def argList = [warName, 'load']
     if (project.properties.containsKey('types')) argList.add("types=${types}")
+    else argList.add("types=seed,seed-initial,install")
     args = argList
 }
 
+task saveDb { doLast {
+    if (file(moquiRuntime+'/db/derby/moqui').exists())
+        ant.zip(destfile: 'SaveDerby.zip') { fileset(dir: moquiRuntime+'/db/derby/moqui') { include(name: '**/*') } }
+    if (file(moquiRuntime+'/db/h2').exists())
+        ant.zip(destfile: 'SaveH2.zip') { fileset(dir: moquiRuntime+'/db/h2') { include(name: '**/*') } }
+    if (file(moquiRuntime+'/db/orientdb/databases').exists())
+        ant.zip(destfile: 'SaveOrientDb.zip') { fileset(dir: moquiRuntime+'/db/orientdb/databases') { include(name: '**/*') } }
+    if (file(moquiRuntime+'/elasticsearch/data').exists())
+        ant.zip(destfile: 'SaveElasticSearch.zip') { fileset(dir: moquiRuntime+'/elasticsearch/data') { include(name: '**/*') } }
+} }
 task loadSave {
     description "Clean all, build and load, then save database (H2, Derby), OrientDB, and ElasticSearch files; to be used before reloadSave"
-    dependsOn cleanAll, load
-    doLast {
-        if (file(moquiRuntime+'/db/derby/moqui').exists())
-            ant.zip(destfile: 'SaveDerby.zip') { fileset(dir: moquiRuntime+'/db/derby/moqui') { include(name: '**/*') } }
-        if (file(moquiRuntime+'/db/h2').exists())
-            ant.zip(destfile: 'SaveH2.zip') { fileset(dir: moquiRuntime+'/db/h2') { include(name: '**/*') } }
-        if (file(moquiRuntime+'/db/orientdb/databases').exists())
-            ant.zip(destfile: 'SaveOrientDb.zip') { fileset(dir: moquiRuntime+'/db/orientdb/databases') { include(name: '**/*') } }
-        if (file(moquiRuntime+'/elasticsearch/data').exists())
-            ant.zip(destfile: 'SaveElasticSearch.zip') { fileset(dir: moquiRuntime+'/elasticsearch/data') { include(name: '**/*') } }
-    }
+    dependsOn cleanAll, load, saveDb
 }
 
 task reloadSave {
     description "After a loadSave clean database (H2, Derby), OrientDB, and ElasticSearch files and reload from saved copy"
-    dependsOn cleanTempDir, cleanDb, cleanOrientDb, cleanElasticSearch, cleanTxLog, cleanLog
+    dependsOn cleanTempDir, cleanDb, cleanLog
     dependsOn allBuildTasks
     doLast {
         if (file('SaveDerby.zip').exists()) copy { from zipTree('SaveDerby.zip'); into file(moquiRuntime+'/db/derby/moqui') }
@@ -217,7 +234,7 @@ task addRuntime {
         // copy runtime directory (with a few exceptions) into a runtime directory in the war
         copy {
             from fileTree(dir: '.', include: moquiRuntime+'/**',
-                    excludes: ['**/*.jar', moquiRuntime+'/classes/**', moquiRuntime+'/lib/**', moquiRuntime+'/log/**'])
+                    excludes: ['**/*.jar', moquiRuntime+'/classes/**', moquiRuntime+'/lib/**', moquiRuntime+'/log/**', moquiRuntime+'/sessions/**'])
             into file('wartemp')
         }
         // copy the jar files from runtime/lib
@@ -415,7 +432,7 @@ File getComponent(String compName, String type, Node addons, Node myaddons, Set 
 File downloadComponent(String targetDirPath, String type, Node component, Node addons, Node myaddons) {
     String compName = component.'@name'
 
-    String repositoryName = (component.'@repository' ?: 'github')
+    String repositoryName = (component.'@repository' ?: myaddons?.'@default-repository' ?: addons.'@default-repository' ?: 'github')
     Node repository = myaddons != null ? (Node) myaddons.repository.find({ it."@name" == repositoryName }) : null
     if (repository == null) repository = (Node) addons.repository.find({ it."@name" == repositoryName })
     if (repository == null) throw new InvalidUserDataException("Repository ${repositoryName} not found in myaddons.xml or addons.xml")
@@ -475,3 +492,4 @@ def checkAllComponentDependencies(String type) {
 task cleanPullLoad { dependsOn cleanAll, gitPullAll, load }
 task cleanPullTest { dependsOn cleanAll, gitPullAll, load, allTestTasks }
 task cleanPullCompTest { dependsOn cleanAll, gitPullAll, load, getComponentTestTasks() }
+task compTest { dependsOn getComponentTestTasks() }

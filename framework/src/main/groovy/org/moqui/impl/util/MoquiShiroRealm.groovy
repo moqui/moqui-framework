@@ -16,13 +16,15 @@ package org.moqui.impl.util
 import groovy.transform.CompileStatic
 import org.apache.shiro.authc.*
 import org.apache.shiro.authc.credential.CredentialsMatcher
+import org.apache.shiro.authz.Authorizer
 import org.apache.shiro.authz.Permission
 import org.apache.shiro.authz.UnauthorizedException
 import org.apache.shiro.realm.Realm
 import org.apache.shiro.subject.PrincipalCollection
 import org.apache.shiro.util.SimpleByteSource
-
+import org.moqui.BaseArtifactException
 import org.moqui.Moqui
+import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityException
 import org.moqui.entity.EntityValue
 import org.moqui.impl.context.ArtifactExecutionFacadeImpl
@@ -36,7 +38,7 @@ import org.slf4j.LoggerFactory
 import java.sql.Timestamp
 
 @CompileStatic
-class MoquiShiroRealm implements Realm {
+class MoquiShiroRealm implements Realm, Authorizer {
     protected final static Logger logger = LoggerFactory.getLogger(MoquiShiroRealm.class)
 
     protected ExecutionContextFactoryImpl ecfi
@@ -135,7 +137,8 @@ class MoquiShiroRealm implements Realm {
         }
 
         // update visit if no user in visit yet
-        EntityValue visit = eci.user.visit
+        String visitId = eci.userFacade.getVisitId()
+        EntityValue visit = eci.entityFacade.find("moqui.server.Visit").condition("visitId", visitId).disableAuthz().one()
         if (visit != null) {
             if (!visit.getNoCheckSimple("userId")) {
                 eci.service.sync().name("update", "moqui.server.Visit").parameter("visitId", visit.visitId)
@@ -157,23 +160,26 @@ class MoquiShiroRealm implements Realm {
             MNode loginNode = eci.ecfi.confXmlRoot.first("user-facade").first("login")
             if (userId != null && loginNode.attribute("history-store") != "false") {
                 Timestamp fromDate = eci.getUser().getNowTimestamp()
-                EntityValue curUlh = eci.entity.find("moqui.security.UserLoginHistory")
-                        .condition([userId:userId, fromDate:fromDate] as Map<String, Object>).disableAuthz().one()
-                if (curUlh == null) {
+                // look for login history in the last minute, if any found don't create UserLoginHistory
+                Timestamp recentDate = new Timestamp(fromDate.getTime() - 60000)
+                long recentUlh = eci.entity.find("moqui.security.UserLoginHistory").condition("userId", userId)
+                        .condition("fromDate", EntityCondition.GREATER_THAN, recentDate).disableAuthz().count()
+                if (recentUlh == 0) {
                     Map<String, Object> ulhContext = [userId:userId, fromDate:fromDate,
                             visitId:eci.user.visitId, successfulLogin:(successful?"Y":"N")] as Map<String, Object>
                     if (!successful && loginNode.attribute("history-incorrect-password") != "false") ulhContext.passwordUsed = passwordUsed
-                    try {
-                        eci.service.sync().name("create", "moqui.security.UserLoginHistory").parameters(ulhContext)
-                                .requireNewTransaction(true).disableAuthz().call()
-                        // we want to ignore errors from this, may happen in high-volume inserts where we don't care about the records so much anyway
-                        eci.getMessage().clearErrors()
-                    } catch (EntityException ee) {
-                        // this blows up on MySQL, may in other cases, and is only so important so log a warning but don't rethrow
-                        logger.warn("UserLoginHistory create failed: ${ee.toString()}")
-                    }
+                    ExecutionContextFactoryImpl ecfi = eci.ecfi
+                    eci.runInWorkerThread({
+                        try {
+                            ecfi.serviceFacade.sync().name("create", "moqui.security.UserLoginHistory")
+                                    .parameters(ulhContext).disableAuthz().call()
+                        } catch (EntityException ee) {
+                            // this blows up sometimes on MySQL, may in other cases, and is only so important so log a warning but don't rethrow
+                            logger.warn("UserLoginHistory create failed: ${ee.toString()}")
+                        }
+                    })
                 } else {
-                    logger.warn("Not creating UserLoginHistory, found existing record for userId [${userId}] and fromDate [${fromDate}]")
+                    if (logger.isDebugEnabled()) logger.debug("Not creating UserLoginHistory, found existing record for userId ${userId} and more recent than ${recentDate}")
                 }
             }
         }
@@ -195,13 +201,15 @@ class MoquiShiroRealm implements Realm {
             info = new SimpleAuthenticationInfo(username, newUserAccount.currentPassword,
                     newUserAccount.passwordSalt ? new SimpleByteSource((String) newUserAccount.passwordSalt) : null,
                     realmName)
-            // check the password (credentials for this case)
-            CredentialsMatcher cm = ecfi.getCredentialsMatcher((String) newUserAccount.passwordHashType)
-            if (!cm.doCredentialsMatch(token, info)) {
-                // if failed on password, increment in new transaction to make sure it sticks
-                ecfi.serviceFacade.sync().name("org.moqui.impl.UserServices.increment#UserAccountFailedLogins")
-                        .parameters((Map<String, Object>) [userId:newUserAccount.userId]).requireNewTransaction(true).call()
-                throw new IncorrectCredentialsException(ecfi.resource.expand('Username ${username} and/or password incorrect','',[username:username]))
+            if (!(token instanceof ForceLoginToken)) {
+                // check the password (credentials for this case)
+                CredentialsMatcher cm = ecfi.getCredentialsMatcher((String) newUserAccount.passwordHashType, "Y".equals(newUserAccount.passwordBase64))
+                if (!cm.doCredentialsMatch(token, info)) {
+                    // if failed on password, increment in new transaction to make sure it sticks
+                    ecfi.serviceFacade.sync().name("org.moqui.impl.UserServices.increment#UserAccountFailedLogins")
+                            .parameters((Map<String, Object>) [userId:newUserAccount.userId]).requireNewTransaction(true).call()
+                    throw new IncorrectCredentialsException(ecfi.resource.expand('Username ${username} and/or password incorrect','',[username:username]))
+                }
             }
 
             loginPostPassword(eci, newUserAccount)
@@ -212,7 +220,7 @@ class MoquiShiroRealm implements Realm {
             loginAfterAlways(eci, userId, token.credentials as String, successful)
         }
 
-        return info;
+        return info
     }
 
     static boolean checkCredentials(String username, String password, ExecutionContextFactoryImpl ecfi) {
@@ -222,9 +230,15 @@ class MoquiShiroRealm implements Realm {
         SimpleAuthenticationInfo info = new SimpleAuthenticationInfo(username, newUserAccount.currentPassword,
                 newUserAccount.passwordSalt ? new SimpleByteSource((String) newUserAccount.passwordSalt) : null, "moquiRealm")
 
-        CredentialsMatcher cm = ecfi.getCredentialsMatcher((String) newUserAccount.passwordHashType)
+        CredentialsMatcher cm = ecfi.getCredentialsMatcher((String) newUserAccount.passwordHashType, "Y".equals(newUserAccount.passwordBase64))
         UsernamePasswordToken token = new UsernamePasswordToken(username, password)
         return cm.doCredentialsMatch(token, info)
+    }
+
+    static class ForceLoginToken extends UsernamePasswordToken {
+        ForceLoginToken(final String username, final boolean rememberMe) {
+            super (username, 'force', rememberMe)
+        }
     }
 
     // ========== Authorization Methods ==========
@@ -257,15 +271,15 @@ class MoquiShiroRealm implements Realm {
     }
 
     boolean isPermitted(PrincipalCollection principalCollection, Permission permission) {
-        throw new IllegalArgumentException("Authorization of Permission through Shiro not yet supported")
+        throw new BaseArtifactException("Authorization of Permission through Shiro not yet supported")
     }
 
     boolean[] isPermitted(PrincipalCollection principalCollection, List<Permission> permissions) {
-        throw new IllegalArgumentException("Authorization of Permission through Shiro not yet supported")
+        throw new BaseArtifactException("Authorization of Permission through Shiro not yet supported")
     }
 
     boolean isPermittedAll(PrincipalCollection principalCollection, Collection<Permission> permissions) {
-        throw new IllegalArgumentException("Authorization of Permission through Shiro not yet supported")
+        throw new BaseArtifactException("Authorization of Permission through Shiro not yet supported")
     }
 
     void checkPermission(PrincipalCollection principalCollection, Permission permission) {
@@ -273,7 +287,7 @@ class MoquiShiroRealm implements Realm {
         // see: http://www.jarvana.com/jarvana/view/org/apache/shiro/shiro-core/1.1.0/shiro-core-1.1.0-javadoc.jar!/org/apache/shiro/authz/Permission.html
         // also look at DomainPermission, can extend for Moqui artifacts
         // this.checkPermission(principalCollection, permission.?)
-        throw new IllegalArgumentException("Authorization of Permission through Shiro not yet supported")
+        throw new BaseArtifactException("Authorization of Permission through Shiro not yet supported")
     }
 
     void checkPermission(PrincipalCollection principalCollection, String permission) {

@@ -21,6 +21,8 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
+import org.moqui.context.MessageFacade.MessageInfo;
+
 /** Web Facade for access to HTTP Servlet objects and information. */
 @SuppressWarnings("unused")
 public interface WebFacade {
@@ -49,7 +51,8 @@ public interface WebFacade {
     String getWebappRootUrl(boolean requireFullUrl, Boolean useEncryption);
 
     Map<String, Object> getErrorParameters();
-    List<String> getSavedMessages();
+    List<MessageInfo> getSavedMessages();
+    List<MessageInfo> getSavedPublicMessages();
     List<String> getSavedErrors();
     List<ValidationError> getSavedValidationErrors();
 

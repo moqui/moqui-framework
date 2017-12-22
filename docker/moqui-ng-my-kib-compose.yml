@@ -1,0 +1,107 @@
+# A Docker Compose application with moqui, mysql, kibana, and virtual hosting through
+# nginx-proxy supporting multiple moqui instances on different hosts.
+
+# Run with something like this for detached mode:
+# $ docker-compose -f moqui-ng-my-kib-compose.yml -p moqui up -d
+# Or to copy runtime directories for mounted volumes, set default settings, etc use something like this:
+# $ ./compose-run.sh moqui-ng-my-kib-compose.yml
+# This sets the project/app name to 'moqui' and the network will be 'moqui_default', to be used by external moqui containers
+
+# Test locally by adding the virtual host to /etc/hosts or with something like:
+# $ curl -H "Host: moqui.local" localhost/Login
+
+# To run an additional instance of moqui run something like this (but with
+# many more arguments for volume mapping, db setup, etc):
+# $ docker run -e VIRTUAL_HOST=moqui2.local --name moqui2_local --network moqui_default moqui
+
+version: "2"
+services:
+  nginx-proxy:
+    # For documentation on SSL and other settings see:
+    # https://github.com/jwilder/nginx-proxy
+    image: jwilder/nginx-proxy
+    container_name: nginx-proxy
+    restart: unless-stopped
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      # note: .crt, .key, and .dhparam.pem files start with the domain name in VIRTUAL_HOST (ie 'moqui.local.*') or use CERT_NAME env var
+      - ./certs:/etc/nginx/certs
+      - ./nginx/my_proxy.conf:/etc/nginx/conf.d/my_proxy.conf
+
+  moqui-server:
+    image: moqui
+    container_name: moqui-server
+    command: conf=conf/MoquiProductionConf.xml
+    restart: unless-stopped
+    links:
+     - moqui-database
+    volumes:
+     - ./runtime/conf:/opt/moqui/runtime/conf
+     - ./runtime/lib:/opt/moqui/runtime/lib
+     - ./runtime/classes:/opt/moqui/runtime/classes
+     - ./runtime/ecomponent:/opt/moqui/runtime/ecomponent
+     - ./runtime/log:/opt/moqui/runtime/log
+     - ./runtime/txlog:/opt/moqui/runtime/txlog
+     - ./runtime/sessions:/opt/moqui/runtime/sessions
+     # this one isn't needed when not using H2/etc: - ./runtime/db:/opt/moqui/runtime/db
+     - ./runtime/elasticsearch:/opt/moqui/runtime/elasticsearch
+    environment:
+     - entity_ds_db_conf=mysql
+     - entity_ds_host=moqui-database
+     - entity_ds_port=3306
+     - entity_ds_database=moqui
+     - entity_ds_user=moqui
+     - entity_ds_password=moqui
+     - entity_ds_crypt_pass='MoquiDefaultPassword:CHANGEME'
+     # CHANGE ME - note that VIRTUAL_HOST is for nginx-proxy so it picks up this container as one it should reverse proxy
+     # this can be a comma separate list of hosts like 'example.com,www.example.com'
+     - VIRTUAL_HOST=moqui.local
+     # moqui will accept traffic from other hosts but these are the values used for URL writing when specified:
+     - webapp_http_host=moqui.local
+     - webapp_http_port=80
+     - webapp_https_port=443
+     - webapp_https_enabled=true
+     - default_locale=en_US
+     - default_time_zone=US/Pacific
+     # settings for kibana proxy
+     - kibana_host=kibana
+
+  moqui-database:
+    image: mysql:5.7
+    container_name: moqui-database
+    restart: unless-stopped
+    ports:
+     # change this as needed to bind to any address or even comment to not expose port outside containers
+     - 127.0.0.1:3306:3306
+    volumes:
+     # edit these as needed to map configuration and data storage
+     - ./db/mysql/data:/var/lib/mysql
+     # - /my/mysql/conf.d:/etc/mysql/conf.d
+    environment:
+     - MYSQL_ROOT_PASSWORD=moquiroot
+     - MYSQL_DATABASE=moqui
+     - MYSQL_USER=moqui
+     - MYSQL_PASSWORD=moqui
+
+  kibana:
+    # using the docker hub image which does not include X-Pack (causes issues because embedded ES does not including X-Pack)
+    # the kibana image on docker hub is deprecated and slated to be removed, then will need an alternative without X-Pack
+    image: kibana:5.4.1
+    # image: docker.elastic.co/kibana/kibana:5.4.1
+    container_name: kibana
+    restart: unless-stopped
+    # ports:
+    #  - 127.0.0.1:5601:5601
+    links:
+     - moqui-server
+    volumes:
+     - ./kibana:/etc/kibana
+    # environment:
+    #  - ELASTICSEARCH_URL=http://moqui-server:9200
+    #  - SERVER_BASEPATH=/kibana
+    #  - SERVER_HOST=kibana
+    #  - XPACK_SECURITY_ENABLED=false
+    #  - XPACK_MONITORING_ENABLED=false

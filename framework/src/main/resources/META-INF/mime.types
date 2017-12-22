@@ -1227,7 +1227,7 @@ text/csv					csv
 text/html					html htm
 # text/javascript
 # text/parityfec
-text/plain					txt text conf def list log in ini cwiki gstring mediawiki textile tracwiki twiki md markdown
+text/plain					txt text conf def list log in ini cwiki gstring mediawiki textile tracwiki twiki
 # text/prs.fallenstein.rst
 text/prs.lines.tag				dsc
 # text/vnd.radisys.msml-basic-layout
@@ -1272,6 +1272,7 @@ text/x-asm					s asm
 text/x-c					c cc cxx cpp h hh dic
 text/x-fortran					f for f77 f90
 text/x-freemarker               ftl
+text/x-markdown                 md markdown
 text/x-pascal					p pas
 text/x-java-source				java
 text/x-java-properties          properties

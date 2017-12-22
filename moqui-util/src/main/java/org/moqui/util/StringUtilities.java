@@ -19,14 +19,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Element;
 
+import javax.swing.text.MaskFormatter;
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.SecureRandom;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.Map;
+import java.text.ParseException;
+import java.util.*;
 
 /**
  * These are utilities that should exist elsewhere, but I can't find a good simple library for them, and they are
@@ -102,6 +102,60 @@ public class StringUtilities {
             }
         }
         return newValue.toString();
+    }
+
+    public static String camelCaseToPretty(String camelCase) {
+        if (camelCase == null || camelCase.length() == 0) return "";
+        StringBuilder prettyName = new StringBuilder();
+        String lastPart = null;
+        for (String part : camelCase.split("(?=[A-Z0-9\\.#])")) {
+            if (part.length() == 0) continue;
+            char firstChar = part.charAt(0);
+            if (firstChar == '.' || firstChar == '#') {
+                if (part.length() == 1) continue;
+                part = part.substring(1);
+                firstChar = part.charAt(0);
+            }
+            if (Character.isLowerCase(firstChar)) part = Character.toUpperCase(firstChar) + part.substring(1);
+            if (part.equalsIgnoreCase("id")) part = "ID";
+
+            if (part.equals(lastPart)) continue;
+            lastPart = part;
+            if (prettyName.length() > 0) prettyName.append(" ");
+            prettyName.append(part);
+        }
+        return prettyName.toString();
+    }
+    public static String prettyToCamelCase(String pretty, boolean firstUpper) {
+        if (pretty == null || pretty.length() == 0) return "";
+        StringBuilder camelCase = new StringBuilder();
+        char[] prettyChars = pretty.toCharArray();
+        boolean upperNext = firstUpper;
+        for (int i = 0; i < prettyChars.length; i++) {
+            char curChar = prettyChars[i];
+            if (Character.isLetterOrDigit(curChar)) {
+                curChar = upperNext ? Character.toUpperCase(curChar) : Character.toLowerCase(curChar);
+                camelCase.append(curChar);
+                upperNext = false;
+            } else {
+                upperNext = true;
+            }
+        }
+        return camelCase.toString();
+    }
+
+    public static String replaceNonAlphaNumeric(String origString, char chr) {
+        if (origString == null || origString.isEmpty()) return origString;
+        int origLength = origString.length();
+        char[] orig = origString.toCharArray();
+        char[] repl = new char[origLength];
+        int replIdx = 0;
+        for (int i = 0; i < origLength; i++) {
+            char ochr = orig[i];
+            if (Character.isLetterOrDigit(ochr)) { repl[replIdx++] = ochr; }
+            else { if (replIdx == 0 || repl[replIdx-1] != chr) { repl[replIdx++] = chr; } }
+        }
+        return new String(repl, 0, replIdx);
     }
 
     public static String decodeFromXml(String original) {
@@ -223,6 +277,17 @@ public class StringUtilities {
         return paddedString(input, desiredLength, ' ', rightPad);
     }
 
+    public static MaskFormatter masker(String mask, String placeholder) throws ParseException {
+        if (mask == null || mask.isEmpty()) return null;
+        MaskFormatter formatter = new MaskFormatter(mask);
+        formatter.setValueContainsLiteralCharacters(false);
+        if (placeholder != null && !placeholder.isEmpty()) {
+            if (placeholder.length() == 1) formatter.setPlaceholderCharacter(placeholder.charAt(0));
+            else formatter.setPlaceholder(placeholder);
+        }
+        return formatter;
+    }
+
     public static String getRandomString(int length) {
         SecureRandom sr = new SecureRandom();
         byte[] randomBytes = new byte[length];
@@ -230,6 +295,13 @@ public class StringUtilities {
         String randomStr = Base64.getUrlEncoder().encodeToString(randomBytes);
         if (randomStr.length() > length) randomStr = randomStr.substring(0, length);
         return randomStr;
+    }
+
+    public static ArrayList<String> getYearList(int years) {
+        ArrayList<String> yearList = new ArrayList<>(years);
+        int startYear = Calendar.getInstance().get(Calendar.YEAR);
+        for (int i = 0; i < years; i++) yearList.add(Integer.toString(startYear + i));
+        return yearList;
     }
 
     /** Convert any value from 0 to 999 inclusive, to a string. */

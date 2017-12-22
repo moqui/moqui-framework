@@ -68,10 +68,10 @@ class ToolsRestApiTests extends Specification {
         where:
         screenPath | containsText1 | containsText2
         "s1/moqui/artifacts/hitSummary?artifactType=AT_ENTITY&artifactSubType=create&artifactName=moqui.basic&artifactName_op=contains" |
-                "moqui.basic.StatusType" | '"artifactSubType": "create"'
+                "moqui.basic.StatusType" | '"artifactSubType" : "create"'
         "s1/moqui/basic/geos/USA" | "United States" | "Country"
         "s1/moqui/basic/geos/USA/regions" | "" | ""
-        "s1/moqui/email/templates" | "PASSWORD_RESET" | "classpath://screen/PasswordReset.xml"
+        "s1/moqui/email/templates" | "PASSWORD_RESET" | "Default Password Reset"
         // TODO add more... current are enough to make sure Service REST API working generally, but more would be nice
     }
 }

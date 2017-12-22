@@ -24,6 +24,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 public class EntityQueryBuilder {
     protected static final Logger logger = LoggerFactory.getLogger(EntityQueryBuilder.class);
@@ -80,49 +81,46 @@ public class EntityQueryBuilder {
         return ps;
     }
 
-    ResultSet executeQuery() throws EntityException {
+    ResultSet executeQuery() throws SQLException {
         if (ps == null) throw new IllegalStateException("Cannot Execute Query, no PreparedStatement in place");
         boolean isError = false;
         boolean queryStats = efi.getQueryStats();
-        long queryTime = 0;
+        long beforeQuery = queryStats ? System.nanoTime() : 0;
         try {
             final long timeBefore = isDebugEnabled ? System.currentTimeMillis() : 0L;
-            long beforeQuery = queryStats ? System.nanoTime() : 0;
             rs = ps.executeQuery();
-            if (queryStats) queryTime = System.nanoTime() - beforeQuery;
-            if (isDebugEnabled) logger.debug("Executed query with SQL [" + sqlTopLevel +
+            if (isDebugEnabled) logger.debug("Executed query with SQL [" + finalSql +
                     "] and parameters [" + parameters + "] in [" +
                     ((System.currentTimeMillis() - timeBefore) / 1000) + "] seconds");
             return rs;
         } catch (SQLException sqle) {
             isError = true;
-            throw new EntityException("Error in query for:" + sqlTopLevel, sqle);
+            logger.warn("Error in JDBC query for SQL " + finalSql);
+            throw sqle;
         } finally {
-            if (queryStats) efi.saveQueryStats(mainEntityDefinition, finalSql, queryTime, isError);
+            if (queryStats) efi.saveQueryStats(mainEntityDefinition, finalSql, System.nanoTime() - beforeQuery, isError);
         }
     }
 
-    int executeUpdate() throws EntityException {
+    int executeUpdate() throws SQLException {
         if (ps == null) throw new IllegalStateException("Cannot Execute Update, no PreparedStatement in place");
         boolean isError = false;
         boolean queryStats = efi.getQueryStats();
-        long queryTime = 0;
+        long beforeQuery = queryStats ? System.nanoTime() : 0;
         try {
             final long timeBefore = isDebugEnabled ? System.currentTimeMillis() : 0L;
-            long beforeQuery = queryStats ? System.nanoTime() : 0;
             final int rows = ps.executeUpdate();
-            if (queryStats) queryTime = System.nanoTime() - beforeQuery;
-
-            if (isDebugEnabled) logger.debug("Executed update with SQL [" + sqlTopLevel +
+            if (isDebugEnabled) logger.debug("Executed update with SQL [" + finalSql +
                     "] and parameters [" + parameters + "] in [" +
                     ((System.currentTimeMillis() - timeBefore) / 1000) + "] seconds changing [" +
                     rows + "] rows");
             return rows;
         } catch (SQLException sqle) {
             isError = true;
-            throw new EntityException("Error in update for:" + sqlTopLevel, sqle);
+            logger.warn("Error in JDBC update for SQL " + finalSql);
+            throw sqle;
         } finally {
-            if (queryStats) efi.saveQueryStats(mainEntityDefinition, finalSql, queryTime, isError);
+            if (queryStats) efi.saveQueryStats(mainEntityDefinition, finalSql, System.nanoTime() - beforeQuery, isError);
         }
     }
 
@@ -149,16 +147,29 @@ public class EntityQueryBuilder {
         connection = null;
     }
 
-    /* this is no longer used, causes problems, but might be useful at some point
     public static String sanitizeColumnName(String colName) {
-        String interim = colName.replace(".", "_").replace("(", "_").replace(")", "_").replace("+", "_").replace(" ", "");
-        while (interim.charAt(0) == '_') interim = interim.substring(1);
-        while (interim.charAt(interim.length() - 1) == '_')
-            interim = interim.substring(0, interim.length() - 1);
-        while (interim.contains("__")) interim = interim.replace("__", "_");
-        return interim;
+        StringBuilder interim = new StringBuilder(colName);
+        boolean lastUnderscore = false;
+        for (int i = 0; i < interim.length(); ) {
+            char curChar = interim.charAt(i);
+            if (Character.isLetterOrDigit(curChar)) {
+                i++;
+                lastUnderscore = false;
+            } else {
+                if (lastUnderscore) {
+                    interim.deleteCharAt(i);
+                } else {
+                    interim.setCharAt(i, '_');
+                    i++;
+                    lastUnderscore = true;
+                }
+            }
+        }
+        while (interim.charAt(0) == '_') interim.deleteCharAt(0);
+        while (interim.charAt(interim.length() - 1) == '_') interim.deleteCharAt(interim.length() - 1);
+        int duIdx; while ((duIdx = interim.indexOf("__")) >= 0) interim.deleteCharAt(duIdx);
+        return interim.toString();
     }
-    */
 
     void setPreparedStatementValue(int index, Object value, FieldInfo fieldInfo) throws EntityException {
         fieldInfo.setPreparedStatementValue(this.ps, index, value, this.mainEntityDefinition, this.efi);
@@ -174,7 +185,7 @@ public class EntityQueryBuilder {
         }
     }
 
-    public void makeSqlSelectFields(FieldInfo[] fieldInfoArray, FieldOrderOptions[] fieldOptionsArray) {
+    public void makeSqlSelectFields(FieldInfo[] fieldInfoArray, FieldOrderOptions[] fieldOptionsArray, boolean addUniqueAs) {
         int size = fieldInfoArray.length;
         if (size > 0) {
             if (fieldOptionsArray == null && mainEntityDefinition.entityInfo.allFieldInfoArray.length == size) {
@@ -197,8 +208,11 @@ public class EntityQueryBuilder {
                         appendCloseParen = true;
                     }
                 }
-                sqlTopLevel.append(fi.getFullColumnName());
+                String fullColName = fi.getFullColumnName();
+                sqlTopLevel.append(fullColName);
                 if (appendCloseParen) sqlTopLevel.append(")");
+                // H2 (and perhaps other DBs?) require a unique name for each selected column, even if not used elsewhere; seems like a bug...
+                if (addUniqueAs && fullColName.contains(".")) sqlTopLevel.append(" AS ").append(sanitizeColumnName(fullColName));
             }
 
         } else {
@@ -206,7 +220,15 @@ public class EntityQueryBuilder {
         }
     }
 
-    public final EntityDefinition getMainEntityDefinition() {
-        return mainEntityDefinition;
+    public void addWhereClause(FieldInfo[] pkFieldArray, HashMap<String, Object> valueMapInternal) {
+        sqlTopLevel.append(" WHERE ");
+        int sizePk = pkFieldArray.length;
+        for (int i = 0; i < sizePk; i++) {
+            FieldInfo fieldInfo = pkFieldArray[i];
+            if (fieldInfo == null) break;
+            if (i > 0) sqlTopLevel.append(" AND ");
+            sqlTopLevel.append(fieldInfo.getFullColumnName()).append("=?");
+            parameters.add(new EntityJavaUtil.EntityConditionParameter(fieldInfo, valueMapInternal.get(fieldInfo.name), this));
+        }
     }
 }

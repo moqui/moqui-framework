@@ -12,7 +12,7 @@ You should have received a copy of the CC0 Public Domain Dedication
 along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
-<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-2.0.xsd">
+<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-2.1.xsd">
 
     <!-- ========================================================= -->
     <!-- moqui.basic -->
@@ -45,15 +45,31 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="enumCode" type="text-medium"/>
         <field name="sequenceNum" type="number-integer"/>
         <field name="description" type="text-medium" enable-localization="true"/>
+        <field name="optionValue" type="text-medium"><description>Usage depends on enum type such as an ID format or mask.</description></field>
         <field name="relatedEnumId" type="id"/>
         <relationship type="one" related="moqui.basic.EnumerationType" short-alias="type"/>
         <relationship type="one-nofk" title="Parent" related="moqui.basic.Enumeration" short-alias="parent">
             <key-map field-name="parentEnumId"/></relationship>
         <relationship type="one-nofk" title="Related" related="moqui.basic.Enumeration" short-alias="related">
             <key-map field-name="relatedEnumId"/></relationship>
+        <relationship type="many" related="moqui.basic.EnumGroupMember" short-alias="groupMembers">
+            <key-map field-name="enumId" related="enumGroupEnumId"/></relationship>
         <seed-data>
             <moqui.basic.EnumerationType enumTypeId="_NA_" description="Not Applicable"/>
             <moqui.basic.Enumeration enumId="_NA_" enumTypeId="_NA_" description="Not Applicable"/>
+
+            <moqui.basic.EnumerationType description="Boolean (Yes/No)" enumTypeId="BooleanYN"/>
+            <moqui.basic.Enumeration description="Yes" enumId="BlY" enumTypeId="BooleanYN"/>
+            <moqui.basic.Enumeration description="No" enumId="BlN" enumTypeId="BooleanYN"/>
+
+            <moqui.basic.EnumerationType description="Day of Week" enumTypeId="DayOfWeek"/>
+            <moqui.basic.Enumeration description="Monday" enumId="DowMonday" sequenceNum="1" enumCode="MONDAY" enumTypeId="DayOfWeek"/>
+            <moqui.basic.Enumeration description="Tuesday" enumId="DowTuesday" sequenceNum="2" enumCode="TUESDAY" enumTypeId="DayOfWeek"/>
+            <moqui.basic.Enumeration description="Wednesday" enumId="DowWednesday" sequenceNum="3" enumCode="WEDNESDAY" enumTypeId="DayOfWeek"/>
+            <moqui.basic.Enumeration description="Thursday" enumId="DowThursday" sequenceNum="4" enumCode="THURSDAY" enumTypeId="DayOfWeek"/>
+            <moqui.basic.Enumeration description="Friday" enumId="DowFriday" sequenceNum="5" enumCode="FRIDAY" enumTypeId="DayOfWeek"/>
+            <moqui.basic.Enumeration description="Saturday" enumId="DowSaturday" sequenceNum="6" enumCode="SATURDAY" enumTypeId="DayOfWeek"/>
+            <moqui.basic.Enumeration description="Sunday" enumId="DowSunday" sequenceNum="7" enumCode="SUNDAY" enumTypeId="DayOfWeek"/>
         </seed-data>
         <master><detail relationship="type"/><detail relationship="parent"/><detail relationship="related"/></master>
     </entity>
@@ -64,6 +80,8 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="EnumGroupMember" package="moqui.basic" use="configuration" cache="true">
         <field name="enumGroupEnumId" type="id" is-pk="true"/>
         <field name="enumId" type="id" is-pk="true"/>
+        <field name="sequenceNum" type="number-integer"/>
+        <field name="memberInfo" type="text-short"><description>General info about the member, usage is specific to the enum group</description></field>
         <relationship type="one" title="EnumGroup" related="moqui.basic.Enumeration">
             <key-map field-name="enumGroupEnumId"/></relationship>
         <relationship type="one" related="moqui.basic.Enumeration"/>
@@ -72,11 +90,37 @@ along with this software (see the LICENSE.md file). If not, see
         </seed-data>
     </entity>
     <view-entity entity-name="EnumAndGroup" package="moqui.basic" cache="true">
-        <member-entity entity-alias="ENUM" entity-name="moqui.basic.Enumeration"/>
-        <member-entity entity-alias="EGM" entity-name="moqui.basic.EnumGroupMember" join-from-alias="ENUM">
+        <description>For getting EnumGroup members by enumGroupEnumId</description>
+        <member-entity entity-alias="EGM" entity-name="moqui.basic.EnumGroupMember"/>
+        <member-entity entity-alias="ENUM" entity-name="moqui.basic.Enumeration" join-from-alias="EGM">
             <key-map field-name="enumId"/></member-entity>
-        <alias-all entity-alias="ENUM"/>
         <alias-all entity-alias="EGM"/>
+        <alias-all entity-alias="ENUM"><exclude field="sequenceNum"/></alias-all>
+        <!-- better not to do this, sequence in group member records: <alias name="enumSequenceNum" entity-alias="ENUM" field="sequenceNum"/> -->
+    </view-entity>
+    <view-entity entity-name="ParentEnum" package="moqui.basic" cache="true">
+        <description></description>
+        <member-entity entity-alias="ENUM" entity-name="moqui.basic.Enumeration"/>
+        <member-entity entity-alias="ENUMP" entity-name="moqui.basic.Enumeration" join-from-alias="ENUM">
+            <key-map field-name="parentEnumId" related="enumId"/>
+        </member-entity>
+        <alias-all entity-alias="ENUMP"/>
+    </view-entity>
+    <view-entity entity-name="EnumAndParent" package="moqui.basic" cache="true">
+        <member-entity entity-alias="ENUM" entity-name="moqui.basic.Enumeration"/>
+        <member-entity entity-alias="ENUMP" entity-name="moqui.basic.Enumeration" join-from-alias="ENUM" join-optional="true">
+            <key-map field-name="parentEnumId" related="enumId"/>
+        </member-entity>
+        <alias-all entity-alias="ENUM"><exclude field="description"/></alias-all>
+        <alias-all entity-alias="ENUMP" prefix="parent"><exclude field="enumId"/></alias-all>
+        <alias name="enumDescription" entity-alias="ENUM" field="description"/>
+        <alias name="description" type="text-medium">
+            <complex-alias operator="||">
+                <complex-alias-field entity-alias="ENUMP" field="description"/>
+                <complex-alias expression="' - '"/>
+                <complex-alias-field entity-alias="ENUM" field="description"/>
+            </complex-alias>
+        </alias>
     </view-entity>
 
     <!-- ========== Geo ========== -->
@@ -161,6 +205,19 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="geoId"/></member-entity>
         <alias-all entity-alias="GEOA"/>
         <alias-all entity-alias="GEOFR"><exclude field="geoId"/></alias-all>
+    </view-entity>
+    <view-entity entity-name="GeoTypeAndAssocFromDetail" package="moqui.basic">
+        <member-entity entity-alias="GEO" entity-name="moqui.basic.Geo"/>
+        <member-entity entity-alias="GTE" entity-name="moqui.basic.Enumeration" join-from-alias="GEO">
+            <key-map field-name="geoTypeEnumId" related="enumId"/></member-entity>
+        <member-entity entity-alias="GEOA" entity-name="moqui.basic.GeoAssoc" join-from-alias="GEO" join-optional="true">
+            <key-map field-name="geoId" related="toGeoId"/></member-entity>
+        <member-entity entity-alias="GEOFR" entity-name="moqui.basic.Geo" join-from-alias="GEOA" join-optional="true">
+            <key-map field-name="geoId"/></member-entity>
+        <alias-all entity-alias="GEO"/>
+        <alias-all entity-alias="GTE"/>
+        <alias-all entity-alias="GEOA"/>
+        <alias-all entity-alias="GEOFR" prefix="from"><exclude field="geoId"/></alias-all>
     </view-entity>
     <entity entity-name="GeoPoint" package="moqui.basic" use="configuration" short-alias="geoPoints" cache="true">
         <field name="geoPointId" type="id" is-pk="true"/>
@@ -257,6 +314,13 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" title="To" related="moqui.basic.StatusItem" short-alias="toStatus">
             <key-map field-name="toStatusId" related="statusId"/></relationship>
     </entity>
+    <view-entity entity-name="StatusFlowItemDetail" package="moqui.basic">
+        <member-entity entity-alias="SFI" entity-name="moqui.basic.StatusFlowItem"/>
+        <member-entity entity-alias="SI" entity-name="moqui.basic.StatusItem" join-from-alias="SFI">
+            <key-map field-name="statusId"/></member-entity>
+        <alias-all entity-alias="SFI"/>
+        <alias-all entity-alias="SI"><exclude field="statusId"/></alias-all>
+    </view-entity>
     <view-entity entity-name="StatusFlowTransitionToDetail" package="moqui.basic">
         <member-entity entity-alias="SFT" entity-name="moqui.basic.StatusFlowTransition"/>
         <member-entity entity-alias="SI" entity-name="moqui.basic.StatusItem" join-from-alias="SFT">
@@ -320,15 +384,21 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="toUomId" type="id"/>
         <field name="fromDate" type="date-time"/>
         <field name="thruDate" type="date-time"/>
-        <field name="conversionFactor" type="number-decimal"/>
+        <field name="conversionFactor" type="number-float"/>
         <field name="conversionOffset" type="number-decimal">
             <description>The factor is multiplied first, then the offset is added. When converting in the reverse
                 direction the offset is subtracted first, then divided by the factor.
             </description>
         </field>
+        <field name="purposeEnumId" type="id"/>
         <relationship type="one" related="moqui.basic.Uom" short-alias="uom"/>
         <relationship type="one" title="To" related="moqui.basic.Uom" short-alias="toUom">
             <key-map field-name="toUomId" related="uomId"/></relationship>
+        <relationship type="one" related="moqui.basic.Enumeration" title="UomConversionPurpose">
+            <key-map field-name="purposeEnumId" related="enumId"/></relationship>
+        <seed-data>
+            <moqui.basic.EnumerationType description="Uom Conversion Purpose" enumTypeId="UomConversionPurpose"/>
+        </seed-data>
     </entity>
     <view-entity entity-name="UomConversionAndToDetail" package="moqui.basic">
         <member-entity entity-alias="UOMC" entity-name="moqui.basic.UomConversion"/>
@@ -379,9 +449,11 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="receivedDate" type="date-time"/>
         <field name="subject" type="text-medium"/>
         <field name="body" type="text-very-long"/>
+        <field name="bodyText" type="text-very-long"><description>The plain text variation of the body</description></field>
         <!-- Removed because unused and causes row size to be too long (in MySQL, others?): <field name="note" type="text-long"/> -->
         <field name="headersString" type="text-very-long"/>
         <field name="fromAddress" type="text-medium"/>
+        <field name="fromName" type="text-medium"/>
         <field name="toAddresses" type="text-long"/>
         <field name="ccAddresses" type="text-long"/>
         <field name="bccAddresses" type="text-long"/>
@@ -389,8 +461,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="messageId" type="text-medium"/>
         <field name="fromUserId" type="id"/>
         <field name="toUserId" type="id"/>
-        <field name="emailTemplateId" type="id">
-            <description>For outgoing messages that came from an EmailTemplate.</description></field>
+        <field name="emailTemplateId" type="id"><description>For outgoing messages that came from an EmailTemplate.</description></field>
         <field name="emailServerId" type="id"/>
 
         <relationship type="one" title="EmailMessage" related="moqui.basic.StatusItem" short-alias="status"/>
@@ -423,11 +494,13 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.StatusItem description="Cancelled" sequenceNum="9" statusId="ES_CANCELLED" statusTypeId="EmailMessage"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ES_DRAFT" toStatusId="ES_READY" transitionName="Ready"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ES_READY" toStatusId="ES_SENT" transitionName="Send"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ES_READY" toStatusId="ES_VIEWED" transitionName="View"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ES_READY" toStatusId="ES_CANCELLED" transitionName="Cancel"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ES_SENT" toStatusId="ES_RECEIVED" transitionName="Received"/>
-            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ES_SENT" toStatusId="ES_VIEWED" transitionName="Viewed"/>
-            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ES_SENT" toStatusId="ES_BOUNCED" transitionName="Bounced"/>
-            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ES_RECEIVED" toStatusId="ES_VIEWED" transitionName="Viewed"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ES_SENT" toStatusId="ES_VIEWED" transitionName="View"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ES_SENT" toStatusId="ES_BOUNCED" transitionName="Bounce"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ES_RECEIVED" toStatusId="ES_VIEWED" transitionName="View"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ES_BOUNCED" toStatusId="ES_SENT" transitionName="Send"/>
 
             <!-- Email Type -->
             <moqui.basic.EnumerationType description="Email Type" enumTypeId="EmailType"/>
@@ -475,11 +548,13 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- NOTE: these are skeleton settings and some fields need to be filled in (probably best with another data file)
                 for your specific installation in order to be functional -->
-            <moqui.basic.email.EmailServer emailServerId="SYSTEM"
-                    smtpHost="" smtpPort="465" smtpStartTls="N" smtpSsl="Y"
-                    storeHost="" storePort="993" storeProtocol="imaps" storeFolder=""
-                    storeDelete="N" storeMarkSeen="Y" storeSkipSeen="Y"
-                    mailUsername="" mailPassword=""/>
+            <moqui.basic.email.EmailServer emailServerId="SYSTEM"/>
+            <!-- Example values, not actually loaded because would overwrite updated values on seed reload:
+                smtpHost="smtp.gmail.com" smtpPort="587" smtpStartTls="Y" smtpSsl="N"
+                storeHost="imap.gmail.com" storePort="993" storeProtocol="imaps" storeFolder=""
+                storeDelete="N" storeMarkSeen="Y" storeSkipSeen="Y"
+                mailUsername="CHANGEME@gmail.com" mailPassword="CHANGEME"
+            -->
             <!-- Other common values:
                 smtpPort="25" (std) smtpPort="465" (ssmtp) smtpPort="587" (ssmtp?)
                 storeProtocol="imap" storePort="143" (std) storePort="585" (imap4-ssl) storePort="993" (imaps)
@@ -502,8 +577,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="webappName" type="text-medium"/>
         <field name="sendPartial" type="text-indicator"/>
         <relationship type="one" related="moqui.basic.email.EmailServer" short-alias="server"/>
-        <relationship type="many" related="moqui.basic.email.EmailTemplateAttachment"
-                short-alias="attachments" mutable="true">
+        <relationship type="many" related="moqui.basic.email.EmailTemplateAttachment" short-alias="attachments">
             <key-map field-name="emailTemplateId"/></relationship>
         <master><detail relationship="server"/><detail relationship="attachments"/></master>
     </entity>
@@ -519,6 +593,7 @@ along with this software (see the LICENSE.md file). If not, see
                 be based on its extension.
             </description>
         </field>
+        <field name="attachmentCondition" type="text-medium"/>
         <relationship type="one" related="moqui.basic.email.EmailTemplate"/>
     </entity>
 

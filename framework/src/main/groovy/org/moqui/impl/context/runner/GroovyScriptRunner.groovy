@@ -43,7 +43,7 @@ class GroovyScriptRunner implements ScriptRunner {
         Script script = InvokerHelper.createScript(getGroovyByLocation(location), ec.contextBinding)
         Object result
         if (method != null && !method.isEmpty()) {
-            result = script.invokeMethod(method, {})
+            result = script.invokeMethod(method, null)
         } else {
             result = script.run()
         }

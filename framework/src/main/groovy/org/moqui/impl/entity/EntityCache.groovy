@@ -334,12 +334,20 @@ class EntityCache {
             String countKey = countKeyBase.concat(fullEntityName)
             if (localCacheMap.containsKey(countKey)) {
                 Cache<EntityCondition, Long> entityCountCache = ed.getCacheCount(this)
+                // with so little information about count cache results we can't do RA and checking conditions fails to clear in
+                //     cases where a value no longer matches, would handle newly matched clearing where count increases but not no
+                //     longer matches cases where count decreases
+                // no choice but to clear the whole cache
+                entityCountCache.clear()
+                /*
                 Iterator<Cache.Entry<EntityCondition, Long>> eccIterator = entityCountCache.iterator()
                 while (eccIterator.hasNext()) {
                     Cache.Entry<EntityCondition, Long> entry = (Cache.Entry<EntityCondition, Long>) eccIterator.next()
                     EntityCondition ec = (EntityCondition) entry.getKey()
-                    if (ec.mapMatches(evbMap)) eccIterator.remove()
+                    logger.warn("checking count condition: ${ec.toString()} matches? ${ec.mapMatchesAny(evbMap) || ec.mapKeysNotContained(evbMap)}")
+                    if (ec.mapMatchesAny(evbMap) || ec.mapKeysNotContained(evbMap)) eccIterator.remove()
                 }
+                */
             }
         } catch (Throwable t) {
             logger.error("Suppressed error in entity cache clearing [${evb.getEntityName()}; ${isCreate ? 'create' : 'non-create'}]", t)
@@ -351,7 +359,7 @@ class EntityCache {
             // can't use RA cache because we don't know the PK, so use a brute-force cache but keep it separate to perform better
             Set<EntityCondition> bfKeySet = (Set<EntityCondition>) oneBfCache.get(entityName)
             if (bfKeySet == null) {
-                bfKeySet = new HashSet<EntityCondition>()
+                bfKeySet = ConcurrentHashMap.newKeySet()
                 oneBfCache.put(entityName, bfKeySet)
             }
             bfKeySet.add(ec)
@@ -378,6 +386,10 @@ class EntityCache {
                     MNode memberEntityNode = (MNode) memberEntityList.get(i)
                     Map<String, String> mePkFieldToAliasNameMap = ed.getMePkFieldToAliasNameMap(memberEntityNode.attribute('entity-alias'))
 
+                    if (mePkFieldToAliasNameMap.isEmpty()) {
+                        logger.warn("for view-entity ${entityName}, member-entity ${memberEntityNode.attribute('@entity-name')}, got empty PK field to alias map")
+                        continue
+                    }
                     // create EntityCondition with pk fields
                     // store with main ec with view-entity name in a RA cache for view entities for the member-entity name
                     // with cache key of member-entity PK EntityCondition obj
@@ -420,6 +432,10 @@ class EntityCache {
                 MNode memberEntityNode = (MNode) memberEntityList.get(j)
                 Map<String, String> mePkFieldToAliasNameMap = ed.getMePkFieldToAliasNameMap(memberEntityNode.attribute('entity-alias'))
 
+                if (mePkFieldToAliasNameMap.isEmpty()) {
+                    logger.warn("for view-entity ${entityName}, member-entity ${memberEntityNode.attribute('@entity-name')}, got empty PK field to alias map")
+                    continue
+                }
                 // logger.warn("TOREMOVE for view-entity ${entityName}, member-entity ${memberEntityNode.'@entity-name'}, got PK field to alias map: ${mePkFieldToAliasNameMap}")
 
                 // create EntityCondition with pk fields

@@ -21,17 +21,16 @@ The actual build is done with Gradle.
 
 <project name="Moqui WAR Tools" default="run" basedir=".">
     <property environment="env"/>
-    <property name="version" value="2.0.0"/>
-    <property name="tomcat.home" value="../apache-tomcat-8.0.21"/>
+    <property name="tomcat.home" value="../apache-tomcat-8.5.14"/>
 
     <property name="moqui.runtime" value="runtime"/>
     <property name="moqui.conf.dev" value="conf/MoquiDevConf.xml"/>
     <property name="moqui.conf.production" value="conf/MoquiProductionConf.xml"/>
 
     <target name="add-runtime">
-        <!-- unzip the "moqui-${version}.war" file to the wartemp directory -->
+        <!-- unzip the "moqui.war" file to the wartemp directory -->
         <mkdir dir="wartemp"/>
-        <unzip src="moqui-${version}.war" dest="wartemp"/>
+        <unzip src="moqui.war" dest="wartemp"/>
 
         <copy todir="wartemp">
             <fileset dir="." includes="${moqui.runtime}/**" excludes="**/*.jar,${moqui.runtime}/lib/**,${moqui.runtime}/classes/**,${moqui.runtime}/log/**"/>
@@ -57,12 +56,12 @@ The actual build is done with Gradle.
         <delete verbose="on" failonerror="false">
             <fileset dir="${tomcat.home}/logs" includes="*"/>
         </delete>
-        <copy file="moqui-${version}.war" tofile="${tomcat.home}/webapps/ROOT.war"/>
+        <copy file="moqui.war" tofile="${tomcat.home}/webapps/ROOT.war"/>
     </target>
 
     <target name="run" description="Run Moqui Web server in dev/default mode with Embedded Winstone (run the executable war file)">
         <delete verbose="off" failonerror="false" dir="execwartmp"/>
-        <java jar="moqui-${version}.war" fork="true">
+        <java jar="moqui.war" fork="true">
             <jvmarg value="-server"/>
             <jvmarg value="-Xmx256M"/>
             <jvmarg value="-Dmoqui.conf=${moqui.conf.dev}"/>
@@ -71,7 +70,7 @@ The actual build is done with Gradle.
     </target>
     <target name="run-production" description="Run Moqui Web server in production mode">
         <delete verbose="off" failonerror="false" dir="execwartmp"/>
-        <java jar="moqui-${version}.war" fork="true">
+        <java jar="moqui.war" fork="true">
             <jvmarg value="-server"/>
             <jvmarg value="-Xms512M"/>
             <jvmarg value="-Xmx512M"/>
@@ -80,7 +79,7 @@ The actual build is done with Gradle.
         </java>
     </target>
     <target name="load" description="Run Moqui data loader (run the executable war file with -load)">
-        <java jar="moqui-${version}.war" fork="true">
+        <java jar="moqui.war" fork="true">
             <jvmarg value="-server"/>
             <jvmarg value="-Xmx256M"/>
             <jvmarg value="-Dmoqui.conf=${moqui.conf.dev}"/>
@@ -89,7 +88,7 @@ The actual build is done with Gradle.
         </java>
     </target>
     <target name="load-production" description="Run Moqui data loader in production mode">
-        <java jar="moqui-${version}.war" fork="true">
+        <java jar="moqui.war" fork="true">
             <jvmarg value="-server"/>
             <jvmarg value="-Xmx256M"/>
             <jvmarg value="-Dmoqui.conf=${moqui.conf.production}"/>

@@ -24,6 +24,7 @@ import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.sql.Timestamp;
 import java.util.*;
 
 public abstract class ResourceReference implements Serializable {
@@ -80,8 +81,15 @@ public abstract class ResourceReference implements Serializable {
                 // NOTE: this doesn't seem to work on Windows for local files: when protocol is plain "file" and path starts
                 //     with a drive letter like "C:\moqui\..." it produces a parse error showing the URI as "file://C:/..."
                 if (logger.isTraceEnabled()) logger.trace("Getting URI for URL " + locUrl.toExternalForm());
+                String path = locUrl.getPath();
+
+                // Support Windows local files.
+                if ("file".equals(locUrl.getProtocol())) {
+                    if (!path.startsWith("/"))
+                        path = "/" + path;
+                }
                 return new URI(locUrl.getProtocol(), locUrl.getUserInfo(), locUrl.getHost(),
-                        locUrl.getPort(), locUrl.getPath(), locUrl.getQuery(), locUrl.getRef());
+                        locUrl.getPort(), path, locUrl.getQuery(), locUrl.getRef());
             } else {
                 String loc = getLocation();
                 if (loc == null || loc.isEmpty()) return null;
@@ -106,6 +114,7 @@ public abstract class ResourceReference implements Serializable {
         String fn = getFileName();
         return fn != null && fn.length() > 0 ? getContentType(fn) : null;
     }
+    public boolean isBinary() { return isBinaryContentType(getContentType()); }
 
     /** Get the parent directory, null if it is the root (no parent). */
     public ResourceReference getParent() {
@@ -188,36 +197,20 @@ public abstract class ResourceReference implements Serializable {
             ResourceReference theFile = createNew(fileLoc.toString());
             if (theFile.getExists() && theFile.isFile()) childRef = theFile;
 
-            // logger.warn("============= finding child resource path [${relativePath}] childRef 1 [${childRef}]")
-            /* this approach is no longer needed; the more flexible approach below will handle this and more:
-            if (childRef == null) {
-                // try adding known extensions
-                for (String extToTry in ecf.resource.templateRenderers.keySet()) {
-                    if (childRef != null) break
-                    theFile = createNew(fileLoc.toString() + extToTry)
-                    if (theFile.exists && theFile.isFile()) childRef = theFile
-                    // logger.warn("============= finding child resource path [${relativePath}] fileLoc [${fileLoc}] extToTry [${extToTry}] childRef [${theFile}]")
-                }
-            }
-            */
-
-            // logger.warn("============= finding child resource path [${relativePath}] childRef 2 [${childRef}]")
+            // logger.warn("============= finding child resource path [${relativePath}] childRef [${childRef}]")
             if (childRef == null) {
                 // didn't find it at a literal path, try searching for it in all subdirectories
                 int lastSlashIdx = relativePath.lastIndexOf("/");
                 String directoryPath = lastSlashIdx > 0 ? relativePath.substring(0, lastSlashIdx) : "";
                 String childFilename = lastSlashIdx >= 0 ? relativePath.substring(lastSlashIdx + 1) : relativePath;
-
                 // first find the most matching directory
                 ResourceReference childDirectoryRef = directoryRef.findChildDirectory(directoryPath);
-
                 // recursively walk the directory tree and find the childFilename
                 childRef = internalFindChildFile(childDirectoryRef, childFilename);
                 // logger.warn("============= finding child resource path [${relativePath}] directoryRef [${directoryRef}] childFilename [${childFilename}] childRef [${childRef}]")
             }
 
             // logger.warn("============= finding child resource path [${relativePath}] childRef 3 [${childRef}]")
-
             if (childRef != null) childRef.childOfResource = directoryRef;
         }
 
@@ -227,7 +220,6 @@ public abstract class ResourceReference implements Serializable {
             if (directoryRef.getExists()) {
                 childRef = createNew(directoryRef.getLocation() + "/" + relativePath);
                 childRef.childOfResource = directoryRef;
-
             } else {
                 String newDirectoryLoc = getLocation();
                 // pop off the extension, everything past the first dot after the last slash
@@ -236,7 +228,6 @@ public abstract class ResourceReference implements Serializable {
                     newDirectoryLoc = newDirectoryLoc.substring(0, newDirectoryLoc.indexOf(".", lastSlashLoc));
                 childRef = createNew(newDirectoryLoc + "/" + relativePath);
             }
-
         } else {
             // put it in the cache before returning, but don't cache the literal reference
             getSubContentRefByPath().put(relativePath, childRef);
@@ -254,7 +245,6 @@ public abstract class ResourceReference implements Serializable {
             throw new BaseException("Not looking for child file at " + relativePath + " under space root page " +
                     getLocation() + " because exists, isFile, etc are not supported");
         }
-
 
         // check the cache first
         ResourceReference childRef = getSubContentRefByPath().get(relativePath);
@@ -314,9 +304,7 @@ public abstract class ResourceReference implements Serializable {
                 ResourceReference subRef = internalFindChildDir(childRef, childDirName);
                 if (subRef != null) return subRef;
             }
-
         }
-
         return null;
     }
 
@@ -333,7 +321,6 @@ public abstract class ResourceReference implements Serializable {
             if (childRef.isFile() && (childRef.getFileName().equals(childFilename) || childRef.getFileName().startsWith(childFilename + "."))) {
                 return childRef;
             }
-
         }
 
         for (ResourceReference childRef : childEntries) {
@@ -341,9 +328,7 @@ public abstract class ResourceReference implements Serializable {
                 ResourceReference subRef = internalFindChildFile(childRef, childFilename);
                 if (subRef != null) return subRef;
             }
-
         }
-
         return null;
     }
 
@@ -436,7 +421,6 @@ public abstract class ResourceReference implements Serializable {
     }
     public static String stripLocationPrefix(String location) {
         if (location == null || location.isEmpty()) return "";
-
         // first remove colon (:) and everything before it
         StringBuilder strippedLocation = new StringBuilder(location);
         int colonIndex = strippedLocation.indexOf(":");
@@ -445,20 +429,52 @@ public abstract class ResourceReference implements Serializable {
         } else if (colonIndex > 0) {
             strippedLocation.delete(0, colonIndex+1);
         }
-
         // delete all leading forward slashes
         while (strippedLocation.length() > 0 && strippedLocation.charAt(0) == '/') strippedLocation.deleteCharAt(0);
         return strippedLocation.toString();
     }
     public static String getLocationPrefix(String location) {
         if (location == null || location.isEmpty()) return "";
-
         if (location.contains("://")) {
             return location.substring(0, location.indexOf(":")) + "://";
         } else if (location.contains(":")) {
             return location.substring(0, location.indexOf(":")) + ":";
         } else {
             return "";
+        }
+    }
+
+    public boolean supportsVersion() { return false; }
+    public Version getVersion(String versionName) { return null; }
+    public Version getCurrentVersion() { return null; }
+    public Version getRootVersion() { return null; }
+    public ArrayList<Version> getVersionHistory() { return new ArrayList<>(); }
+    public ArrayList<Version> getNextVersions(String versionName) { return new ArrayList<>(); }
+    public InputStream openStream(String versionName) { return openStream(); }
+    public String getText(String versionName) { return getText(); }
+
+    public static class Version {
+        private final ResourceReference ref;
+        private final String versionName, previousVersionName, userId;
+        private final Timestamp versionDate;
+        public Version(ResourceReference ref, String versionName, String previousVersionName, String userId, Timestamp versionDate) {
+            this.ref = ref; this.versionName = versionName; this.previousVersionName = previousVersionName;
+            this.userId = userId; this.versionDate = versionDate;
+        }
+        public ResourceReference getRef() { return ref; }
+        public String getVersionName() { return versionName; }
+        public String getPreviousVersionName() { return previousVersionName; }
+        public Version getPreviousVersion() { return ref.getVersion(previousVersionName); }
+        public ArrayList<Version> getNextVersions() { return ref.getNextVersions(versionName); }
+        public String getUserId() { return userId; }
+        public Timestamp getVersionDate() { return versionDate; }
+        public InputStream openStream() { return ref.openStream(versionName); }
+        public String getText() { return ref.getText(versionName); }
+        public Map<String, Object> getMap() {
+            Map<String, Object> map = new LinkedHashMap<>();
+            map.put("versionName", versionName); map.put("previousVersionName", previousVersionName);
+            map.put("userId", userId); map.put("versionDate", versionDate);
+            return map;
         }
     }
 }

@@ -96,8 +96,8 @@ public interface ExecutionContext {
      * for the current thread. */
     void initWebFacade(@Nonnull String webappMoquiName, @Nonnull HttpServletRequest request, @Nonnull HttpServletResponse response);
 
-    /** A lightweight asynchronous executor. An alternative to Quartz, still ExecutionContext aware and preserves
-     * user from current EC. Runs closure in a worker thread with a new ExecutionContext. */
+    /** A lightweight asynchronous executor. An alternative to Quartz, still ExecutionContext aware and uses
+     * the current ExecutionContext in the separate thread (retaining user, authz context, etc). */
     void runAsync(@Nonnull Closure closure);
 
     /** This should be called when the ExecutionContext won't be used any more. Implementations should make sure

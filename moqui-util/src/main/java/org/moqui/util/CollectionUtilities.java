@@ -20,6 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.Timestamp;
 import java.util.*;
 
@@ -38,7 +39,13 @@ public class CollectionUtilities {
     }
 
     public static void filterMapList(List<Map> theList, Map<String, Object> fieldValues) {
-        if (theList == null || theList.size() == 0 || fieldValues == null) return;
+        filterMapList(theList, fieldValues, false);
+    }
+    /** Filter theList (of Map) using fieldValues; if exclude=true remove matching items, else keep only matching items */
+    public static void filterMapList(List<Map> theList, Map<String, Object> fieldValues, boolean exclude) {
+        if (theList == null || fieldValues == null) return;
+        int listSize = theList.size();
+        if (listSize == 0) return;
         int numFields = fieldValues.size();
         if (numFields == 0) return;
 
@@ -51,31 +58,36 @@ public class CollectionUtilities {
             index++;
         }
 
-        Iterator<Map> theIterator = theList.iterator();
-        while (theIterator.hasNext()) {
-            Map curMap = theIterator.next();
-            for (int i = 0; i < numFields; i++) {
-                String fieldName = fieldNameArray[i];
-                Object curObj = curMap.get(fieldName);
-                Object compareObj = fieldValueArray[i];
-
-                if (compareObj == null) {
-                    if (curObj != null) {
-                        theIterator.remove();
-                        break;
-                    }
-                } else {
-                    if (!compareObj.equals(curObj)) {
-                        theIterator.remove();
-                        break;
-                    }
-                }
+        if (theList instanceof RandomAccess) {
+            for (int li = 0; li < listSize; ) {
+                Map curMap = theList.get(li);
+                if (checkRemove(curMap, fieldNameArray, fieldValueArray, numFields, exclude)) {
+                    theList.remove(li);
+                    listSize--;
+                } else { li++; }
+            }
+        } else {
+            Iterator<Map> theIterator = theList.iterator();
+            while (theIterator.hasNext()) {
+                Map curMap = theIterator.next();
+                if (checkRemove(curMap, fieldNameArray, fieldValueArray, numFields, exclude)) theIterator.remove();
             }
         }
     }
+    private static boolean checkRemove(Map curMap, String[] fieldNameArray, Object[] fieldValueArray, int numFields, boolean exclude) {
+        boolean remove = exclude;
+        for (int i = 0; i < numFields; i++) {
+            String fieldName = fieldNameArray[i];
+            Object compareObj = fieldValueArray[i];
+            Object curObj = curMap.get(fieldName);
+            if (compareObj == null) { if (curObj != null) { remove = !exclude; break; } }
+            else { if (!compareObj.equals(curObj)) { remove = !exclude; break; } }
+        }
+        return remove;
+    }
 
-    public static void filterMapListByDate(List<Map> theList, String fromDateName, String thruDateName, Timestamp compareStamp) {
-        if (theList == null || theList.size() == 0) return;
+    public static List<Map> filterMapListByDate(List<Map> theList, String fromDateName, String thruDateName, Timestamp compareStamp) {
+        if (theList == null || theList.size() == 0) return theList;
 
         if (fromDateName == null || fromDateName.isEmpty()) fromDateName = "fromDate";
         if (thruDateName == null || thruDateName.isEmpty()) thruDateName = "thruDate";
@@ -93,6 +105,7 @@ public class CollectionUtilities {
             Timestamp thruDate = DefaultGroovyMethods.asType(curMap.get(thruDateName), Timestamp.class);
             if (thruDate != null && compareStamp.compareTo(thruDate) >= 0) theIterator.remove();
         }
+        return theList;
     }
 
     public static void filterMapListByDate(List<Map> theList, String fromDateName, String thruDateName, Timestamp compareStamp, boolean ignoreIfEmpty) {
@@ -262,6 +275,56 @@ public class CollectionUtilities {
             else curVal = new BigDecimal(curObj.toString());
             theMap.put(key, curVal.add(value));
         }
+    }
+
+    public static void addBigDecimalsInMap(Map<String, Object> baseMap, Map<String, Object> addMap) {
+        if (baseMap == null || addMap == null) return;
+        for (Map.Entry<String, Object> entry : addMap.entrySet()) {
+            if (!(entry.getValue() instanceof BigDecimal)) continue;
+            BigDecimal addVal = (BigDecimal) entry.getValue();
+            Object baseObj = baseMap.get(entry.getKey());
+            if (baseObj == null || !(baseObj instanceof BigDecimal)) baseObj = BigDecimal.ZERO;
+            BigDecimal baseVal = (BigDecimal) baseObj;
+            baseMap.put(entry.getKey(), baseVal.add(addVal));
+        }
+    }
+    public static void divideBigDecimalsInMap(Map<String, Object> baseMap, BigDecimal divisor) {
+        if (baseMap == null || divisor == null || divisor.doubleValue() == 0.0) return;
+        for (Map.Entry<String, Object> entry : baseMap.entrySet()) {
+            if (!(entry.getValue() instanceof BigDecimal)) continue;
+            BigDecimal baseVal = (BigDecimal) entry.getValue();
+            entry.setValue(baseVal.divide(divisor, BigDecimal.ROUND_HALF_UP));
+        }
+    }
+
+    /** Returns Map with total, squaredTotal, count, average, stdDev, maximum; fieldName field in Maps must have type BigDecimal;
+     * if count of non-null fields is less than 2 returns null as cannot calculate a standard deviation */
+    public static Map<String, BigDecimal> stdDevMaxFromMapField(List<Map<String, Object>> dataList, String fieldName, BigDecimal stdDevMultiplier) {
+        BigDecimal total = BigDecimal.ZERO;
+        BigDecimal squaredTotal = BigDecimal.ZERO;
+        int count = 0;
+        for (Map<String, Object> dataMap : dataList) {
+            if (dataMap == null) continue;
+            BigDecimal value = (BigDecimal) dataMap.get(fieldName);
+            if (value == null) continue;
+            total = total.add(value);
+            squaredTotal = squaredTotal.add(value.multiply(value));
+            count++;
+        }
+        if (count < 2) return null;
+
+        BigDecimal countBd = new BigDecimal(count);
+        BigDecimal average = total.divide(countBd, BigDecimal.ROUND_HALF_UP);
+        double totalDouble = total.doubleValue();
+        BigDecimal stdDev = new BigDecimal(Math.sqrt(Math.abs(squaredTotal.doubleValue() - ((totalDouble*totalDouble) / count)) / (count - 1)));
+
+        Map<String, BigDecimal> retMap = new HashMap<>(6);
+        retMap.put("total", total); retMap.put("squaredTotal", squaredTotal); retMap.put("count", countBd);
+        retMap.put("average", average); retMap.put("stdDev", stdDev);
+
+        if (stdDevMultiplier != null) retMap.put("maximum", average.add(stdDev.multiply(stdDevMultiplier)));
+
+        return retMap;
     }
 
     /** Find a field value in a nested Map containing fields, Maps, and Collections of Maps (Lists, etc) */
@@ -460,6 +523,7 @@ public class CollectionUtilities {
         // calculate the pagination values
         int maxIndex = (new BigDecimal(count - 1)).divide(new BigDecimal(pageSize), 0, BigDecimal.ROUND_DOWN).intValue();
         int pageRangeLow = (pageIndex * pageSize) + 1;
+        if (pageRangeLow > count) pageRangeLow = count + 1;
         int pageRangeHigh = (pageIndex * pageSize) + pageSize;
         if (pageRangeHigh > count) pageRangeHigh = count;
 

@@ -33,33 +33,21 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
 
     public ServiceCallSyncImpl(ServiceFacadeImpl sfi) { super(sfi); }
 
-    @Override
-    public ServiceCallSync name(String serviceName) { serviceNameInternal(serviceName); return this; }
-    @Override
-    public ServiceCallSync name(String v, String n) { serviceNameInternal(null, v, n); return this; }
-    @Override
-    public ServiceCallSync name(String p, String v, String n) { serviceNameInternal(p, v, n); return this; }
+    @Override public ServiceCallSync name(String serviceName) { serviceNameInternal(serviceName); return this; }
+    @Override public ServiceCallSync name(String v, String n) { serviceNameInternal(null, v, n); return this; }
+    @Override public ServiceCallSync name(String p, String v, String n) { serviceNameInternal(p, v, n); return this; }
 
-    @Override
-    public ServiceCallSync parameters(Map<String, ?> map) { if (map != null) parameters.putAll(map); return this; }
-    @Override
-    public ServiceCallSync parameter(String name, Object value) { parameters.put(name, value); return this; }
+    @Override public ServiceCallSync parameters(Map<String, ?> map) { if (map != null) parameters.putAll(map); return this; }
+    @Override public ServiceCallSync parameter(String name, Object value) { parameters.put(name, value); return this; }
 
-    @Override
-    public ServiceCallSync ignoreTransaction(boolean it) { this.ignoreTransaction = it; return this; }
-    @Override
-    public ServiceCallSync requireNewTransaction(boolean rnt) { this.requireNewTransaction = rnt; return this; }
-    @Override
-    public ServiceCallSync useTransactionCache(boolean utc) { this.useTransactionCache = utc; return this; }
-    @Override
-    public ServiceCallSync transactionTimeout(int timeout) { this.transactionTimeout = timeout; return this; }
+    @Override public ServiceCallSync ignoreTransaction(boolean it) { this.ignoreTransaction = it; return this; }
+    @Override public ServiceCallSync requireNewTransaction(boolean rnt) { this.requireNewTransaction = rnt; return this; }
+    @Override public ServiceCallSync useTransactionCache(boolean utc) { this.useTransactionCache = utc; return this; }
+    @Override public ServiceCallSync transactionTimeout(int timeout) { this.transactionTimeout = timeout; return this; }
 
-    @Override
-    public ServiceCallSync ignorePreviousError(boolean ipe) { this.ignorePreviousError = ipe; return this; }
-    @Override
-    public ServiceCallSync multi(boolean mlt) { this.multi = mlt; return this; }
-    @Override
-    public ServiceCallSync disableAuthz() { disableAuthz = true; return this; }
+    @Override public ServiceCallSync ignorePreviousError(boolean ipe) { this.ignorePreviousError = ipe; return this; }
+    @Override public ServiceCallSync multi(boolean mlt) { this.multi = mlt; return this; }
+    @Override public ServiceCallSync disableAuthz() { disableAuthz = true; return this; }
 
     @Override
     public Map<String, Object> call() {
@@ -81,6 +69,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
                 // run all service calls in a single transaction for multi form submits, ie all succeed or fail together
                 boolean beganTransaction = eci.transactionFacade.begin(null);
                 try {
+                    Map<String, Object> result = new HashMap<>();
                     for (int i = 0; ; i++) {
                         if (("true".equals(parameters.get("_useRowSubmit")) || "true".equals(parameters.get("_useRowSubmit_" + i)))
                                 && !"true".equals(parameters.get("_rowSubmit_" + i))) continue;
@@ -96,17 +85,22 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
                         // now that we have checked the per-row parameters, add in others available
                         for (int paramIndex = 0; paramIndex < inParameterNamesSize; paramIndex++) {
                             String ipn = inParameterNames.get(paramIndex);
-                            if (ObjectUtilities.isEmpty(currentParms.get(ipn)) && !ObjectUtilities.isEmpty(parameters.get(ipn)))
+                            if (!ObjectUtilities.isEmpty(currentParms.get(ipn))) continue;
+                            if (!ObjectUtilities.isEmpty(parameters.get(ipn))) {
                                 currentParms.put(ipn, parameters.get(ipn));
+                            } else if (!ObjectUtilities.isEmpty(result.get(ipn))) {
+                                currentParms.put(ipn, result.get(ipn));
+                            }
                         }
 
-                        // call the service, ignore the result...
-                        callSingle(currentParms, sd, eci);
+                        // call the service
+                        Map<String, Object> singleResult = callSingle(currentParms, sd, eci);
+                        if (singleResult != null) result.putAll(singleResult);
                         // ... and break if there are any errors
                         if (eci.messageFacade.hasError()) break;
                     }
 
-                    return new HashMap<>();
+                    return result;
                 } catch (Throwable t) {
                     eci.transactionFacade.rollback(beganTransaction, "Uncaught error running service " + serviceName + " in multi mode", t);
                     throw t;
@@ -199,11 +193,11 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         // NOTE: don't require authz if the service def doesn't authenticate
         // NOTE: if no sd then requiresAuthz is false, ie let the authz get handled at the entity level (but still put
         //     the service on the stack)
-        ArtifactExecutionInfo.AuthzAction authzAction = ServiceDefinition.verbAuthzActionEnumMap.get(verb);
+        ArtifactExecutionInfo.AuthzAction authzAction = sd != null ? sd.authzAction : ServiceDefinition.verbAuthzActionEnumMap.get(verb);
         if (authzAction == null) authzAction = ArtifactExecutionInfo.AUTHZA_ALL;
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(serviceName, ArtifactExecutionInfo.AT_SERVICE,
                 authzAction, serviceType).setParameters(currentParameters);
-        eci.artifactExecutionFacade.pushInternal(aei, (sd != null && "true".equals(sd.authenticate)));
+        eci.artifactExecutionFacade.pushInternal(aei, (sd != null && "true".equals(sd.authenticate)), true);
 
         // must be done after the artifact execution push so that AEII object to set anonymous authorized is in place
         boolean loggedInAnonymous = false;

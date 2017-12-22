@@ -13,7 +13,8 @@
  */
 package org.moqui.context;
 
-import org.moqui.BaseException;
+import org.moqui.BaseArtifactException;
+import org.moqui.util.StringUtilities;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -27,7 +28,7 @@ import java.util.Map;
  * things are running, and then all of them can be shown in context of the fields with the errors.
  */
 @SuppressWarnings("unused")
-public class ValidationError extends BaseException {
+public class ValidationError extends BaseArtifactException {
     protected final String form;
     protected final String field;
     protected final String serviceName;
@@ -47,12 +48,19 @@ public class ValidationError extends BaseException {
     }
 
     public String getForm() { return form; }
+    public String getFormPretty() { return StringUtilities.camelCaseToPretty(form); }
     public String getField() { return field; }
+    public String getFieldPretty() { return StringUtilities.camelCaseToPretty(field); }
     public String getServiceName() { return serviceName; }
+    public String getServiceNamePretty() { return StringUtilities.camelCaseToPretty(serviceName); }
 
     public Map<String, String> getMap() {
         Map<String, String> veMap = new HashMap<>();
         veMap.put("form", form); veMap.put("field", field); veMap.put("serviceName", serviceName);
+        veMap.put("formPretty", getFormPretty()); veMap.put("fieldPretty", getFieldPretty());
+        veMap.put("serviceNamePretty", getServiceNamePretty());
+        veMap.put("message", getMessage());
+        if (getCause() != null) veMap.put("cause", getCause().toString());
         return veMap;
     }
 }

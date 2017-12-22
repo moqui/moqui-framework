@@ -14,9 +14,12 @@
 package org.moqui.impl.webapp
 
 import groovy.transform.CompileStatic
+import org.moqui.Moqui
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import javax.servlet.http.HttpSessionAttributeListener
+import javax.servlet.http.HttpSessionBindingEvent
 import java.sql.Timestamp
 import javax.servlet.http.HttpSessionListener
 import javax.servlet.http.HttpSession
@@ -25,45 +28,65 @@ import javax.servlet.http.HttpSessionEvent
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 
 @CompileStatic
-class MoquiSessionListener implements HttpSessionListener {
+class MoquiSessionListener implements HttpSessionListener, HttpSessionAttributeListener {
     protected final static Logger logger = LoggerFactory.getLogger(MoquiSessionListener.class)
+    private HashMap<String, String> visitIdBySession = new HashMap<>()
 
-    void sessionCreated(HttpSessionEvent event) {
-        // NOTE: this method now does not create Visit because we only want to create the Visit on the first request,
-        //     and in order to not create the Visit under certain conditions we need the HttpServletRequest object
+    @Override void sessionCreated(HttpSessionEvent event) {
         HttpSession session = event.session
 
-        ExecutionContextFactoryImpl ecfi = (ExecutionContextFactoryImpl) session.servletContext.getAttribute("executionContextFactory")
-        if (ecfi == null) {
-            logger.warn("Not handling timeout, etc for session ${session.id}, no executionContextFactory in ServletContext")
-            return
-        }
+        ExecutionContextFactoryImpl ecfi = (ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory()
         String moquiWebappName = session.servletContext.getInitParameter("moqui-name")
-        ExecutionContextFactoryImpl.WebappInfo wi = ecfi.getWebappInfo(moquiWebappName)
-        if (wi.sessionTimeoutSeconds != null) session.setMaxInactiveInterval(wi.sessionTimeoutSeconds)
+        ExecutionContextFactoryImpl.WebappInfo wi = ecfi?.getWebappInfo(moquiWebappName)
+        if (wi?.sessionTimeoutSeconds != null) session.setMaxInactiveInterval(wi.sessionTimeoutSeconds)
     }
 
-    void sessionDestroyed(HttpSessionEvent event) {
-        HttpSession session = event.getSession()
-        ExecutionContextFactoryImpl ecfi = (ExecutionContextFactoryImpl) session.getServletContext().getAttribute("executionContextFactory")
-        if (ecfi == null) {
-            logger.warn("Not closing visit for session ${session.id}, no executionContextFactory in ServletContext")
-            return
-        }
-
-        if (ecfi.confXmlRoot.first("server-stats").attribute("visit-enabled") == "false") return
-
-        String visitId = session.getAttribute("moqui.visitId")
+    @Override void sessionDestroyed(HttpSessionEvent event) {
+        String sessionId = event.session.id
+        String visitId = visitIdBySession.remove(sessionId)
         if (!visitId) {
-            logger.info("Not closing visit for session ${session.id}, no moqui.visitId session attribute found")
+            try { visitId = event.session.getAttribute("moqui.visitId") }
+            catch (Throwable t) { logger.warn("No saved visitId for session ${sessionId} and error getting moqui.visitId session attribute: " + t.toString()) }
+        }
+        if (!visitId) {
+            logger.info("Not closing visit for session ${sessionId}, no value for visitId session attribute")
             return
         }
+        closeVisit(visitId, sessionId)
+    }
+    @Override void attributeAdded(HttpSessionBindingEvent event) {
+        if ("moqui.visitId".equals(event.name)) visitIdBySession.put(event.session.id, event.value.toString())
+    }
+    @Override void attributeReplaced(HttpSessionBindingEvent event) {
+        if ("moqui.visitId".equals(event.name)) {
+            String sessionId = event.session.id
+            String oldValue = event.value.toString()
+            if (!oldValue) oldValue = visitIdBySession.get(sessionId)
+            String newValue = event.session.getAttribute("moqui.visitId")
+            if (newValue) visitIdBySession.put(sessionId, newValue)
+            if (oldValue) closeVisit(oldValue, sessionId)
+        }
+    }
+
+    @Override void attributeRemoved(HttpSessionBindingEvent event) {
+        if ("moqui.visitId".equals(event.name)) {
+            String sessionId = event.session.id
+            String visitId = event.value
+            if (!visitId) {
+                logger.info("Not closing visit for session ${sessionId}, no value for removed moqui.visitId session attribute")
+                return
+            }
+            closeVisit(visitId, sessionId)
+        }
+    }
+    static void closeVisit(String visitId, String sessionId) {
+        ExecutionContextFactoryImpl ecfi = (ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory()
+        if (ecfi.confXmlRoot.first("server-stats").attribute("visit-enabled") == "false") return
 
         // set thruDate on Visit
         Timestamp thruDate = new Timestamp(System.currentTimeMillis())
-        ecfi.serviceFacade.sync().name("update", "moqui.server.Visit")
-                .parameters([visitId:visitId, thruDate:thruDate] as Map<String, Object>)
+        ecfi.serviceFacade.sync().name("update", "moqui.server.Visit").parameter("visitId", visitId).parameter("thruDate", thruDate)
                 .disableAuthz().call()
-        logger.info("Session ${session.id} destroyed, closed visit ${visitId} at ${thruDate}")
+        logger.info("Closed visit ${visitId} at ${thruDate} for session ${sessionId}")
     }
 }

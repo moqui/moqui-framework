@@ -12,7 +12,7 @@ You should have received a copy of the CC0 Public Domain Dedication
 along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
-<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.0.xsd">
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
 
     <service verb="set" noun="Preference" allow-remote="true">
         <in-parameters>
@@ -40,8 +40,11 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="org.moqui.impl.UserServices.update#PasswordInternal"
                 in-map="[userId:userId, newPassword:newPassword, newPasswordVerify:newPasswordVerify,
                     requirePasswordChange:requirePasswordChange]"/>
-            <if condition="ec.message.hasError()">
-                <message error="true">Because of password errors not creating account with username ${username}</message></if>
+            <if condition="ec.message.hasError()"><then>
+                <message error="true">Because of password errors not creating account with username ${username}</message>
+            </then><else>
+                <message>Account created with username ${username}</message>
+            </else></if>
         </actions>
     </service>
 
@@ -100,7 +103,7 @@ along with this software (see the LICENSE.md file). If not, see
                             userAccount.passwordSalt ? new org.apache.shiro.util.SimpleByteSource((String) userAccount.passwordSalt) : null,
                             "moquiRealm")
                 </script>
-                <if condition="!ec.ecfi.getCredentialsMatcher(userAccount.passwordHashType).doCredentialsMatch(token, info)">
+                <if condition="!ec.ecfi.getCredentialsMatcher(userAccount.passwordHashType, 'Y'.equals(userAccount.passwordBase64)).doCredentialsMatch(token, info)">
                     <if condition="userAccount.resetPassword"><then>
                         <!-- try the resetPassword -->
                         <script>
@@ -108,7 +111,7 @@ along with this software (see the LICENSE.md file). If not, see
                                     userAccount.passwordSalt ? new org.apache.shiro.util.SimpleByteSource((String) userAccount.passwordSalt) : null,
                                     "moquiRealm")
                         </script>
-                        <if condition="!ec.ecfi.getCredentialsMatcher(userAccount.passwordHashType).doCredentialsMatch(token, info)">
+                        <if condition="!ec.ecfi.getCredentialsMatcher(userAccount.passwordHashType, 'Y'.equals(userAccount.passwordBase64)).doCredentialsMatch(token, info)">
                             <return message="Current password did not match password or reset password for user ${username}" error="true"/></if>
                     </then><else>
                         <return message="Current password incorrect for user ${username}" error="true"/>
@@ -118,6 +121,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <service-call name="org.moqui.impl.UserServices.update#PasswordInternal"
                 in-map="[userId:userId, newPassword:newPassword, newPasswordVerify:newPasswordVerify]"/>
+            <message>Password updated for user ${userAccount.username}</message>
         </actions>
     </service>
     <service verb="update" noun="PasswordInternal" authenticate="false" allow-remote="false">
@@ -138,7 +142,7 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="newPassword != newPasswordVerify">
                 <message error="true">New Password and New Password Verify do not match</message></if>
 
-            <set field="minLength" from="passwordNode.attribute('min-length')" default-value="6" type="Integer"/>
+            <set field="minLength" from="passwordNode.attribute('min-length')" default-value="8" type="Integer"/>
             <if condition="newPassword.length() &lt; minLength">
                 <message error="true">Password shorter than ${minLength} characters</message></if>
 
@@ -155,7 +159,8 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- don't log this by default, security hole: <log level="info" message="newPassword=${newPassword}, length=${newPassword.length()}, digits=${digits}, others=${others}"/> -->
 
             <!-- if password is same as current don't allow it -->
-            <set field="hashedNewPassword" from="ec.ecfi.getSimpleHash(newPassword, userAccount.passwordSalt, userAccount.passwordHashType)"/>
+            <set field="hashedNewPassword" from="ec.ecfi.getSimpleHash(newPassword, userAccount.passwordSalt, userAccount.passwordHashType, 'Y'.equals(userAccount.passwordBase64))"/>
+            <!-- <log level="warn" message="cur ${userAccount.currentPassword} : new ${hashedNewPassword}"/> -->
             <if condition="userAccount.currentPassword == hashedNewPassword">
                 <message error="true">New password is same as current password</message></if>
 
@@ -166,7 +171,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <!-- can't query by this field since it is encrypted: <econdition field-name="password" from="newPassword"/> -->
             </entity-find>
             <iterate list="duplicateUserPasswordHistoryList" entry="duplicateUserPasswordHistory">
-                <set field="hashedNewPassword" from="ec.ecfi.getSimpleHash(newPassword, duplicateUserPasswordHistory.passwordSalt, duplicateUserPasswordHistory.passwordHashType)"/>
+                <set field="hashedNewPassword" from="ec.ecfi.getSimpleHash(newPassword, duplicateUserPasswordHistory.passwordSalt, duplicateUserPasswordHistory.passwordHashType, 'Y'.equals(userAccount.passwordBase64))"/>
                 <if condition="duplicateUserPasswordHistory.password == hashedNewPassword">
                     <message error="true">Password was used in last ${historyLimit} passwords</message></if>
             </iterate>
@@ -186,20 +191,19 @@ along with this software (see the LICENSE.md file). If not, see
                 <entity-delete value-field="existingUserPasswordHistoryList.remove(0)"/>
             </while>
 
-            <!-- encrypt password (using password.@encrypt-hash-type default SHA) and save -->
+            <!-- encrypt password (using password.@encrypt-hash-type default SHA-256) and save -->
             <set field="salt" from="ec.ecfi.randomSalt"/>
             <service-call name="update#moqui.security.UserAccount">
                 <field-map field-name="userId"/>
                 <field-map field-name="currentPassword" from="ec.ecfi.getSimpleHash(newPassword, salt)"/>
                 <field-map field-name="passwordSalt" from="salt"/>
                 <field-map field-name="passwordHashType" from="ec.ecfi.passwordHashType"/>
+                <field-map field-name="passwordBase64" value="N"/>
                 <field-map field-name="passwordSetDate" from="ec.user.nowTimestamp"/>
                 <field-map field-name="requirePasswordChange"/>
                 <field-map field-name="resetPassword" from="null"/>
                 <field-map field-name="disabled" value="N"/>
             </service-call>
-
-            <message>Password updated for user ${userAccount.username}</message>
         </actions>
     </service>
 
@@ -209,6 +213,14 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <service-call name="update#moqui.security.UserAccount"
                     in-map="[userId:userId, disabled:'N', disabledDateTime:null, successiveFailedLogins:0]"/>
+        </actions>
+    </service>
+    <service verb="disable" noun="UserAccount">
+        <description>Disable an account (set disabled=Y, disabledDateTime=now)</description>
+        <in-parameters><parameter name="userId" required="true"/></in-parameters>
+        <actions>
+            <!-- set disabledDateTime to null so that account is permanently disabled (won't auto enable after wait period) -->
+            <service-call name="update#moqui.security.UserAccount" in-map="[userId:userId, disabled:'Y', disabledDateTime:null]"/>
         </actions>
     </service>
     <service verb="reset" noun="Password" authenticate="anonymous-all" allow-remote="true">
@@ -232,8 +244,8 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- reset the password to a random value -->
             <set field="resetPassword" from="getRandomString(12)"/>
             <set field="passwordNode" from="ec.ecfi.confXmlRoot.first('user-facade').first('password')"/>
-            <set field="userAccount.resetPassword" from="ec.ecfi.getSimpleHash(resetPassword, userAccount.passwordSalt, userAccount.passwordHashType)"/>
-            <set field="userAccount.requirePasswordChange" from="(passwordNode.attribute('email-require-change') == 'false') ? 'N' : 'Y'"/>
+            <set field="userAccount.resetPassword" from="ec.ecfi.getSimpleHash(resetPassword, userAccount.passwordSalt, userAccount.passwordHashType, 'Y'.equals(userAccount.passwordBase64))"/>
+            <set field="userAccount.requirePasswordChange" from="(passwordNode.attribute('email-require-change') == 'true') ? 'Y' : 'N'"/>
             <entity-update value-field="userAccount"/>
 
             <!-- send an email with the new password -->

@@ -22,42 +22,29 @@ import java.util.List;
 public class BaseException extends RuntimeException {
     public BaseException(String message) { super(message); }
     public BaseException(String message, Throwable nested) { super(message, nested); }
+    public BaseException(Throwable nested) { super(nested); }
 
-    @Override
-    public void printStackTrace() {
-        filterStackTrace(this);
-        super.printStackTrace();
-    }
-    @Override
-    public void printStackTrace(PrintStream printStream) {
-        filterStackTrace(this);
-        super.printStackTrace(printStream);
-    }
-    @Override
-    public void printStackTrace(PrintWriter printWriter) {
-        filterStackTrace(this);
-        super.printStackTrace(printWriter);
-    }
-    @Override
-    public StackTraceElement[] getStackTrace() {
+    @Override public void printStackTrace() { filterStackTrace(this); super.printStackTrace(); }
+    @Override public void printStackTrace(PrintStream printStream) { filterStackTrace(this); super.printStackTrace(printStream); }
+    @Override public void printStackTrace(PrintWriter printWriter) { filterStackTrace(this); super.printStackTrace(printWriter); }
+    @Override public StackTraceElement[] getStackTrace() {
         StackTraceElement[] filteredTrace = filterStackTrace(super.getStackTrace());
         setStackTrace(filteredTrace);
         return filteredTrace;
     }
 
-    public static void filterStackTrace(Throwable t) {
+    public static Throwable filterStackTrace(Throwable t) {
         t.setStackTrace(filterStackTrace(t.getStackTrace()));
         if (t.getCause() != null) filterStackTrace(t.getCause());
+        return t;
     }
     public static StackTraceElement[] filterStackTrace(StackTraceElement[] orig) {
         List<StackTraceElement> newList = new ArrayList<>(orig.length);
         for (StackTraceElement ste: orig) {
             String cn = ste.getClassName();
-            if (cn.startsWith("freemarker.core.") || cn.startsWith("freemarker.ext.beans.") ||
-                    cn.startsWith("org.eclipse.jetty.") ||
+            if (cn.startsWith("freemarker.core.") || cn.startsWith("freemarker.ext.beans.") || cn.startsWith("org.eclipse.jetty.") ||
                     cn.startsWith("java.lang.reflect.") || cn.startsWith("sun.reflect.") ||
-                    cn.startsWith("org.codehaus.groovy.runtime.") || cn.startsWith("org.codehaus.groovy.reflection.") ||
-                    cn.startsWith("groovy.lang.")) {
+                    cn.startsWith("org.codehaus.groovy.") ||  cn.startsWith("groovy.lang.")) {
                 continue;
             }
             // if ("renderSingle".equals(ste.getMethodName()) && cn.startsWith("org.moqui.impl.screen.ScreenSection")) continue;

@@ -17,13 +17,19 @@ import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.api.ContentResponse;
 import org.eclipse.jetty.client.api.Request;
 import org.eclipse.jetty.client.util.StringContentProvider;
+import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.moqui.BaseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
 import javax.servlet.ServletContext;
 import javax.servlet.ServletRequest;
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -92,21 +98,41 @@ public class WebUtilities {
         return canVal;
     }
 
-    public static Map<String, Object> simplifyRequestParameters(ServletRequest request) {
+    public static Map<String, Object> simplifyRequestParameters(HttpServletRequest request, boolean bodyOnly) {
+        Set<String> urlParms = null;
+        if (bodyOnly) {
+            urlParms = new HashSet<>();
+            String query = request.getQueryString();
+            if (query != null && !query.isEmpty()) {
+                for (String nameValuePair : query.split("&")) {
+                    int eqIdx = nameValuePair.indexOf("=");
+                    if (eqIdx < 0) urlParms.add(nameValuePair);
+                    else urlParms.add(nameValuePair.substring(0, eqIdx));
+                }
+            }
+        }
         Map<String, String[]> reqParmOrigMap = request.getParameterMap();
         Map<String, Object> reqParmMap = new LinkedHashMap<>();
         for (Map.Entry<String, String[]> entry : reqParmOrigMap.entrySet()) {
+            String key = entry.getKey();
+            if (bodyOnly && urlParms.contains(key)) continue;
             String[] valArray = entry.getValue();
             if (valArray == null) {
-                reqParmMap.put(entry.getKey(), null);
+                reqParmMap.put(key, null);
             } else {
                 int valLength = valArray.length;
                 if (valLength == 0) {
-                    reqParmMap.put(entry.getKey(), null);
+                    reqParmMap.put(key, null);
                 } else if (valLength == 1) {
-                    reqParmMap.put(entry.getKey(), valArray[0]);
+                    String singleVal = valArray[0];
+                    // change &nbsp; (\u00a0) to null, used as a placeholder when empty string doesn't work
+                    if ("\u00a0".equals(singleVal)) {
+                        reqParmMap.put(key, null);
+                    } else {
+                        reqParmMap.put(key, singleVal);
+                    }
                 } else {
-                    reqParmMap.put(entry.getKey(), Arrays.asList(valArray));
+                    reqParmMap.put(key, Arrays.asList(valArray));
                 }
             }
         }
@@ -117,7 +143,9 @@ public class WebUtilities {
         if (contentType == null || contentType.isEmpty()) contentType = "text/plain";
         String resultString = "";
 
-        HttpClient httpClient = new HttpClient();
+        SslContextFactory sslContextFactory = new SslContextFactory();
+        HttpClient httpClient = new HttpClient(sslContextFactory);
+
         try {
             httpClient.start();
             Request request = httpClient.POST(location);
@@ -141,7 +169,9 @@ public class WebUtilities {
     public static String simpleHttpMapRequest(String location, Map requestMap) {
         String resultString = "";
 
-        HttpClient httpClient = new HttpClient();
+        SslContextFactory sslContextFactory = new SslContextFactory();
+        HttpClient httpClient = new HttpClient(sslContextFactory);
+
         try {
             httpClient.start();
             Request request = httpClient.POST(location);
@@ -182,6 +212,25 @@ public class WebUtilities {
         }
     }
 
+    public static Enumeration<String> emptyStringEnum = new Enumeration<String>() {
+        @Override public boolean hasMoreElements() { return false; }
+        @Override public String nextElement() { return null; }
+    };
+    public static boolean testSerialization(String name, Object value) {
+        // return true;
+        /* for testing purposes only, don't enable by default: */
+        if (value == null) return true;
+        try {
+            ObjectOutputStream out = new ObjectOutputStream(new ByteArrayOutputStream());
+            out.writeObject(value);
+            out.close();
+            return true;
+        } catch (IOException e) {
+            logger.warn("Tried to set session attribute [" + name + "] with non-serializable value of type " + value.getClass().getName(), e);
+            return false;
+        }
+    }
+
     public interface AttributeContainer {
         Enumeration<String> getAttributeNames();
         Object getAttribute(String name);
@@ -199,16 +248,48 @@ public class WebUtilities {
         public ServletRequestContainer(ServletRequest request) { req = request; }
         @Override public Enumeration<String> getAttributeNames() { return req.getAttributeNames(); }
         @Override public Object getAttribute(String name) { return req.getAttribute(name); }
-        @Override public void setAttribute(String name, Object value) { req.setAttribute(name, value); }
+        @Override public void setAttribute(String name, Object value) {
+            if (!testSerialization(name, value)) return;
+
+            req.setAttribute(name, value);
+        }
         @Override public void removeAttribute(String name) { req.removeAttribute(name); }
     }
     public static class HttpSessionContainer implements AttributeContainer {
         HttpSession ses;
         public HttpSessionContainer(HttpSession session) { ses = session; }
-        @Override public Enumeration<String> getAttributeNames() { return ses.getAttributeNames(); }
-        @Override public Object getAttribute(String name) { return ses.getAttribute(name); }
-        @Override public void setAttribute(String name, Object value) { ses.setAttribute(name, value); }
-        @Override public void removeAttribute(String name) { ses.removeAttribute(name); }
+        @Override public Enumeration<String> getAttributeNames() {
+            try {
+                return ses.getAttributeNames();
+            } catch (IllegalStateException e) {
+                logger.info("Tried getAttributeNames() on invalidated session " + ses.getId() + ": " + e.toString());
+                return emptyStringEnum;
+            }
+        }
+        @Override public Object getAttribute(String name) {
+            try {
+                return ses.getAttribute(name);
+            } catch (IllegalStateException e) {
+                logger.info("Tried getAttribute(" + name + ") on invalidated session " + ses.getId() + ": " + e.toString());
+                return null;
+            }
+        }
+        @Override public void setAttribute(String name, Object value) {
+            if (!testSerialization(name, value)) return;
+
+            try {
+                ses.setAttribute(name, value);
+            } catch (IllegalStateException e) {
+                logger.info("Tried setAttribute(" + name + ", " + value + ") on invalidated session " + ses.getId() + ": " + e.toString());
+            }
+        }
+        @Override public void removeAttribute(String name) {
+            try {
+                ses.removeAttribute(name);
+            } catch (IllegalStateException e) {
+                logger.info("Tried removeAttribute(" + name + ") on invalidated session " + ses.getId() + ": " + e.toString());
+            }
+        }
     }
     public static class ServletContextContainer implements AttributeContainer {
         ServletContext scxt;
@@ -219,7 +300,7 @@ public class WebUtilities {
         @Override public void removeAttribute(String name) { scxt.removeAttribute(name); }
     }
 
-    protected static final Set<String> keysToIgnore = new HashSet<>(Arrays.asList("javax.servlet.context.tempdir",
+    static final Set<String> keysToIgnore = new HashSet<>(Arrays.asList("javax.servlet.context.tempdir",
             "org.apache.catalina.jsp_classpath", "org.apache.commons.fileupload.servlet.FileCleanerCleanup.FileCleaningTracker"));
     public static class AttributeContainerMap implements Map<String, Object> {
         private AttributeContainer cont;
@@ -250,10 +331,7 @@ public class WebUtilities {
             return false;
         }
 
-        public Object get(Object o) {
-            return cont.getAttribute((String) o);
-        }
-
+        public Object get(Object o) { return cont.getAttribute((String) o); }
         public Object put(String s, Object o) {
             Object orig = cont.getAttribute(s);
             cont.setAttribute(s, o);
@@ -281,7 +359,7 @@ public class WebUtilities {
             }
         }
 
-        public Set<String> keySet() {
+        public @Nonnull Set<String> keySet() {
             Set<String> ks = new HashSet<>();
             Enumeration<String> attrNames = cont.getAttributeNames();
             while (attrNames.hasMoreElements()) {
@@ -290,8 +368,7 @@ public class WebUtilities {
             }
             return ks;
         }
-
-        public Collection<Object> values() {
+        public @Nonnull Collection<Object> values() {
             List<Object> values = new LinkedList<>();
             Enumeration<String> attrNames = cont.getAttributeNames();
             while (attrNames.hasMoreElements()) {
@@ -300,8 +377,7 @@ public class WebUtilities {
             }
             return values;
         }
-
-        public Set<Entry<String, Object>> entrySet() {
+        public @Nonnull Set<Entry<String, Object>> entrySet() {
             Set<Entry<String, Object>> es = new HashSet<>();
             Enumeration<String> attrNames = cont.getAttributeNames();
             while (attrNames.hasMoreElements()) {
@@ -343,18 +419,16 @@ public class WebUtilities {
         public Object get(Object o) { return (o == null && !supportsNull) ? null : canonicalizeValue(mp.get(o)); }
         public Object put(String k, Object v) { return canonicalizeValue(mp.put(k, v)); }
         public Object remove(Object o) { return (o == null && !supportsNull) ? null : canonicalizeValue(mp.remove(o)); }
-        public void putAll(Map<? extends String, ? extends Object> map) {
-            mp.putAll(map);
-        }
+        public void putAll(Map<? extends String, ? extends Object> map) { mp.putAll(map); }
         public void clear() { mp.clear(); }
 
-        public Set<String> keySet() { return mp.keySet(); }
-        public Collection<Object> values() {
+        public @Nonnull Set<String> keySet() { return mp.keySet(); }
+        public @Nonnull Collection<Object> values() {
             List<Object> values = new ArrayList<>(mp.size());
             for (Object orig : mp.values()) values.add(canonicalizeValue(orig));
             return values;
         }
-        public Set<Entry<String, Object>> entrySet() {
+        public @Nonnull Set<Entry<String, Object>> entrySet() {
             Set<Entry<String, Object>> es = new HashSet<>();
             for (Object entryObj : mp.entrySet()) {
                 Entry entry = (Entry) entryObj;
