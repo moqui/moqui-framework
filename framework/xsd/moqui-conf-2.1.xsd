@@ -13,8 +13,8 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
-    <xs:include schemaLocation="common-types-2.0.xsd"/>
-    <xs:include schemaLocation="xml-actions-2.0.xsd"/>
+    <xs:include schemaLocation="common-types-2.1.xsd"/>
+    <xs:include schemaLocation="xml-actions-2.1.xsd"/>
 
     <xs:element name="moqui-conf">
         <xs:complexType>
@@ -253,10 +253,11 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:sequence>
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="init-param"/>
                 <xs:element minOccurs="1" maxOccurs="unbounded" name="url-pattern" type="xs:string"/>
-                <xs:element minOccurs="1" maxOccurs="unbounded" name="dispatcher" type="xs:string"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" name="dispatcher" type="xs:string"/>
             </xs:sequence>
             <xs:attribute name="name" type="xs:string" use="required"/>
             <xs:attribute name="class" type="xs:string" use="required"/>
+            <xs:attribute name="async-supported" type="boolean" default="false"/>
             <xs:attribute name="enabled" type="boolean" default="true"/>
         </xs:complexType>
     </xs:element>
@@ -281,6 +282,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="name" type="xs:string" use="required"/>
             <xs:attribute name="class" type="xs:string" use="required"/>
             <xs:attribute name="load-on-startup" type="xs:nonNegativeInteger" default="1"/>
+            <xs:attribute name="async-supported" type="boolean" default="false"/>
             <xs:attribute name="enabled" type="boolean" default="true"/>
         </xs:complexType>
     </xs:element>
@@ -350,7 +352,7 @@ along with this software (see the LICENSE.md file). If not, see
                     <xs:enumeration value="MD5"/>
                 </xs:restriction></xs:simpleType>
             </xs:attribute>
-            <xs:attribute name="min-length" type="xs:nonNegativeInteger" default="6">
+            <xs:attribute name="min-length" type="xs:nonNegativeInteger" default="8">
                 <xs:annotation><xs:documentation>Minimum length of password</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="min-digits" type="xs:nonNegativeInteger" default="1">
                 <xs:annotation><xs:documentation>Minimum number of digits (numeric characters) in the password</xs:documentation></xs:annotation></xs:attribute>
@@ -360,7 +362,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:annotation><xs:documentation>Number of old passwords to save that cannot be reused (0 means don't save any history)</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="change-weeks" type="xs:decimal" default="12">
                 <xs:annotation><xs:documentation>Require password change after this many months (0 means don't ever require change)</xs:documentation></xs:annotation></xs:attribute>
-            <xs:attribute name="email-require-change" type="boolean" default="true">
+            <xs:attribute name="email-require-change" type="boolean" default="false">
                 <xs:annotation><xs:documentation>Require password change after a password reset email?</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="email-expire-hours" type="xs:nonNegativeInteger" default="48">
                 <!-- TODO use in impl -->
@@ -689,6 +691,8 @@ along with this software (see the LICENSE.md file). If not, see
             </xs:sequence>
 
             <xs:attribute name="name" type="name-plain" use="required"/>
+            <xs:attribute name="lb-name" type="name-plain"><xs:annotation>
+                <xs:documentation>Name of the database for Liquibase, defaults to name attribute, see http://www.liquibase.org/databases.html</xs:documentation></xs:annotation></xs:attribute>
 
             <!-- TODO use in code -->
             <xs:attribute name="use-schemas" default="true" type="boolean"/>
@@ -742,6 +746,11 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="use-schema-for-all" default="false" type="boolean">
                 <xs:annotation><xs:documentation>Set to true to include the schema name for primary keys, foreign keys, and indexes.</xs:documentation></xs:annotation>
             </xs:attribute>
+            <xs:attribute name="never-nulls" default="false" type="boolean">
+                <xs:annotation><xs:documentation>Never use NULLS FIRST/LAST in ORDER BY clause</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="never-try-insert" default="false" type="boolean">
+                <xs:annotation><xs:documentation>Never use try insert feature when storing a record</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="use-binary-type-for-blob" default="false" type="boolean"/>
             <xs:attribute name="table-engine" type="xs:string"/>
             <xs:attribute name="character-set" type="xs:string"/>
             <xs:attribute name="collate" type="xs:string"/>

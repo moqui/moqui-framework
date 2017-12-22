@@ -247,7 +247,7 @@ public class ParameterInfo {
         }
     }
 
-    private static Document.OutputSettings outputSettings = new Document.OutputSettings().charset("UTF-8").prettyPrint(true).indentAmount(4);
+    public static Document.OutputSettings outputSettings = new Document.OutputSettings().charset("UTF-8").prettyPrint(true).indentAmount(4);
     private String canonicalizeAndCheckHtml(ServiceDefinition sd, String namePrefix, String parameterValue, ExecutionContextImpl eci) {
         // NOTE DEJ20161114 Jsoup.clean() does not have a way to tell us if anything was filtered, so to avoid reformatting other
         //     text this method now only calls Jsoup if a '<' is found

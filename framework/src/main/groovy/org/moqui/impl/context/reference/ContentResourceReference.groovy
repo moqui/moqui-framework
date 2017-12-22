@@ -57,7 +57,7 @@ class ContentResourceReference extends BaseResourceReference {
 
         this.repositoryName = repositoryName
         this.nodePath = node.path
-        this.location = "${locationPrefix}${repositoryName}/${nodePath}"
+        this.location = "${locationPrefix}${repositoryName}${nodePath}"
         this.theNode = node
         return this
     }
@@ -142,10 +142,9 @@ class ContentResourceReference extends BaseResourceReference {
         }
         Session session = ((ResourceFacadeImpl) ecf.resource).getContentRepositorySession(repositoryName)
         javax.jcr.Node fileNode = getNode()
+        javax.jcr.Node fileContent
         if (fileNode != null) {
-            javax.jcr.Node fileContent = fileNode.getNode("jcr:content")
-            fileContent.setProperty("jcr:data", session.valueFactory.createValue(text))
-            session.save()
+            fileContent = fileNode.getNode("jcr:content")
         } else {
             // first make sure the directory exists that this is in
             List<String> nodePathList = new ArrayList<>(Arrays.asList(nodePath.split('/')))
@@ -155,25 +154,25 @@ class ContentResourceReference extends BaseResourceReference {
             if (nodePathList) nodePathList.remove(nodePathList.size()-1)
             javax.jcr.Node folderNode = findDirectoryNode(session, nodePathList, true)
 
-            // now write the text to the node and save it
+            // now create the node
             fileNode = folderNode.addNode(fileName, "nt:file")
-            javax.jcr.Node fileContent = fileNode.addNode("jcr:content", "nt:resource")
-            fileContent.setProperty("jcr:mimeType", contentType)
-            // fileContent.setProperty("jcr:encoding", ?)
-            Calendar lastModified = Calendar.getInstance(); lastModified.setTimeInMillis(System.currentTimeMillis())
-            fileContent.setProperty("jcr:lastModified", lastModified)
-            if (obj instanceof CharSequence) {
-                fileContent.setProperty("jcr:data", session.valueFactory.createValue(obj.toString()))
-            } else if (obj instanceof InputStream) {
-                fileContent.setProperty("jcr:data", session.valueFactory.createBinary((InputStream) obj))
-            } else if (obj == null) {
-                fileContent.setProperty("jcr:data", session.valueFactory.createValue(""))
-            } else {
-                throw new IllegalArgumentException("Cannot save content for obj with type ${obj.class.name}")
-            }
-
-            session.save()
+            fileContent = fileNode.addNode("jcr:content", "nt:resource")
         }
+        fileContent.setProperty("jcr:mimeType", contentType)
+        // fileContent.setProperty("jcr:encoding", ?)
+        Calendar lastModified = Calendar.getInstance(); lastModified.setTimeInMillis(System.currentTimeMillis())
+        fileContent.setProperty("jcr:lastModified", lastModified)
+        if (obj instanceof CharSequence) {
+            fileContent.setProperty("jcr:data", session.valueFactory.createValue(obj.toString()))
+        } else if (obj instanceof InputStream) {
+            fileContent.setProperty("jcr:data", session.valueFactory.createBinary((InputStream) obj))
+        } else if (obj == null) {
+            fileContent.setProperty("jcr:data", session.valueFactory.createValue(""))
+        } else {
+            throw new IllegalArgumentException("Cannot save content for obj with type ${obj.class.name}")
+        }
+
+        session.save()
     }
 
     static javax.jcr.Node findDirectoryNode(Session session, List<String> pathList, boolean create) {
@@ -209,10 +208,12 @@ class ContentResourceReference extends BaseResourceReference {
 
         // make sure the target folder exists
         List<String> nodePathList = new ArrayList<>(Arrays.asList(newCrr.getNodePath().split('/')))
+        if (nodePathList && nodePathList[0] == "") nodePathList.remove(0)
         if (nodePathList) nodePathList.remove(nodePathList.size()-1)
         findDirectoryNode(session, nodePathList, true)
 
         session.move(this.getNodePath(), newCrr.getNodePath())
+        session.save()
 
         this.theNode = null
     }
@@ -230,7 +231,12 @@ class ContentResourceReference extends BaseResourceReference {
     @Override boolean delete() {
         javax.jcr.Node curNode = getNode()
         if (curNode == null) return false
-        curNode.remove()
+
+        Session session = ((ResourceFacadeImpl) ecf.resource).getContentRepositorySession(repositoryName)
+        session.removeItem(nodePath)
+        session.save()
+
+        this.theNode = null
         return true
     }
 

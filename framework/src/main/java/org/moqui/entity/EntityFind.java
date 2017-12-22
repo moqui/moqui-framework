@@ -13,6 +13,9 @@
  */
 package org.moqui.entity;
 
+import org.moqui.etl.SimpleEtl;
+
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -27,7 +30,7 @@ import java.util.Map;
  * Even after a query a find object can be modified and then used to perform another query.
  */
 @SuppressWarnings("unused")
-public interface EntityFind extends java.io.Serializable {
+public interface EntityFind extends java.io.Serializable, SimpleEtl.Extractor {
 
     /** The Name of the Entity to use, as defined in an entity XML file.
      *
@@ -286,4 +289,8 @@ public interface EntityFind extends java.io.Serializable {
      * @throws EntityException
      */
     long deleteAll() throws EntityException;
+
+    /** If supported by underlying data source get the text (SQL, etc) used for the find query.
+     * Will have multiple values if multiple queries done with this find. */
+    ArrayList<String> getQueryTextList();
 }

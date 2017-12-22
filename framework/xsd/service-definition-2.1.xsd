@@ -13,8 +13,8 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
-    <xs:include schemaLocation="common-types-2.0.xsd"/>
-    <xs:include schemaLocation="xml-actions-2.0.xsd"/>
+    <xs:include schemaLocation="common-types-2.1.xsd"/>
+    <xs:include schemaLocation="xml-actions-2.1.xsd"/>
 
     <!-- root element -->
     <xs:element name="services">
@@ -98,6 +98,21 @@ along with this software (see the LICENSE.md file). If not, see
                         <xs:enumeration value="false"/>
                         <xs:enumeration value="anonymous-all"/>
                         <xs:enumeration value="anonymous-view"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="authz-action">
+                <xs:annotation><xs:documentation>
+                    The authz action to use when checking authorization for this service (using ArtifactAuthz records).
+                    If not specified defaults to all unless the verb corresponds to an authz action.
+                </xs:documentation></xs:annotation>
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <xs:enumeration value="view"/>
+                        <xs:enumeration value="create"/>
+                        <xs:enumeration value="update"/>
+                        <xs:enumeration value="delete"/>
+                        <xs:enumeration value="all"/>
                     </xs:restriction>
                 </xs:simpleType>
             </xs:attribute>

@@ -12,7 +12,11 @@ You should have received a copy of the CC0 Public Domain Dedication
 along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
-<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.0.xsd">
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
+
+    <!-- ==================================================== -->
+    <!-- ========== DataDocument and Feed Services ========== -->
+    <!-- ==================================================== -->
 
     <!-- org.moqui.impl.EntityServices.index#DataDocuments moved to org.moqui.search.SearchServices.index#DataDocuments -->
     <!-- org.moqui.impl.EntityServices.put#DataDocumentMappings moved to org.moqui.search.SearchServices.put#DataDocumentMappings -->
@@ -41,11 +45,43 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
+    <service verb="create" noun="DataDocument">
+        <in-parameters>
+            <auto-parameters include="nonpk"/>
+            <parameter name="dataDocumentId" required="true"><matches regexp="[A-Z]\w*" message="Must start with a upper case letter and contain only letters and digits"/></parameter>
+            <parameter name="indexName"><matches regexp="[a-z][a-z0-9_]*" message="Must contain only lower case letters, digits, and underscore"/></parameter>
+            <parameter name="userGroupId"/>
+        </in-parameters>
+        <actions>
+            <entity-find-one entity-name="moqui.entity.document.DataDocument" value-field="existing"/>
+            <if condition="existing != null || ec.entity.isEntityDefined(dataDocumentId)"><return error="true" message="ID '${dataDocumentId}' already in use"/></if>
+
+            <service-call name="create#moqui.entity.document.DataDocument" in-map="context" out-map="context"/>
+            <if condition="userGroupId"><service-call name="create#moqui.entity.document.DataDocumentUserGroup"
+                    in-map="[dataDocumentId:dataDocumentId, userGroupId:userGroupId]"/></if>
+        </actions>
+    </service>
+    <service verb="update" noun="DataDocument">
+        <implements service="org.moqui.impl.EntityServices.create#DataDocument"/>
+        <actions>
+            <service-call name="update#moqui.entity.document.DataDocument" in-map="context" out-map="context"/>
+            <if condition="userGroupId">
+                <entity-find entity-name="moqui.entity.document.DataDocumentUserGroup" list="ddugList">
+                    <econdition field-name="dataDocumentId"/></entity-find>
+                <if condition="ddugList.size() == 1 &amp;&amp; ddugList[0].userGroupId != userGroupId">
+                    <service-call name="delete#moqui.entity.document.DataDocumentUserGroup"
+                            in-map="[dataDocumentId:dataDocumentId, userGroupId:ddugList[0].userGroupId]"/>
+                    <service-call name="create#moqui.entity.document.DataDocumentUserGroup"
+                            in-map="[dataDocumentId:dataDocumentId, userGroupId:userGroupId]"/>
+                </if>
+            </if>
+        </actions>
+    </service>
     <service verb="clone" noun="DataDocument">
         <in-parameters>
             <parameter name="dataDocumentId" required="true"/>
-            <parameter name="newDataDocumentId" required="true"/>
-            <parameter name="newIndexName" required="true"/>
+            <parameter name="newDataDocumentId" required="true"><matches regexp="[A-Z]\w*" message="Must start with a upper case letter and contain only letters and digits"/></parameter>
+            <parameter name="newIndexName"><matches regexp="[a-z][a-z0-9_]*" message="Must contain only lower case letters, digits, and underscore"/></parameter>
             <parameter name="copyConditions" default="false" type="Boolean"/>
             <parameter name="copyLinks" default="false" type="Boolean"/>
         </in-parameters>
@@ -59,7 +95,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <entity-find-one entity-name="moqui.entity.document.DataDocument" value-field="dataDocument" cache="false"/>
             <set field="dataDocument.dataDocumentId" from="newDataDocumentId"/>
-            <set field="dataDocument.indexName" from="newIndexName"/>
+            <if condition="newIndexName"><set field="dataDocument.indexName" from="newIndexName"/></if>
             <entity-create value-field="dataDocument"/>
 
             <entity-find entity-name="moqui.entity.document.DataDocumentField" list="ddfList">
@@ -95,6 +131,34 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
         </actions>
     </service>
+    <service verb="create" noun="DataDocumentField">
+        <in-parameters>
+            <parameter name="dataDocumentId" required="true"/>
+            <parameter name="fieldPath" required="true"/>
+            <auto-parameters entity-name="moqui.entity.document.DataDocumentField" include="nonpk"/>
+        </in-parameters>
+        <actions>
+            <if condition="fieldNameAlias"><set field="fieldNameAlias" from="prettyToCamelCase(fieldNameAlias, false)"/></if>
+            <service-call name="create#moqui.entity.document.DataDocumentField" in-map="context"/>
+        </actions>
+    </service>
+    <service verb="update" noun="DataDocumentField">
+        <in-parameters>
+            <parameter name="dataDocumentId" required="true"/>
+            <parameter name="fieldSeqId"/>
+            <parameter name="fieldPath" required="true"/>
+            <auto-parameters entity-name="moqui.entity.document.DataDocumentField" include="nonpk"/>
+        </in-parameters>
+        <actions>
+            <if condition="fieldNameAlias"><set field="fieldNameAlias" from="prettyToCamelCase(fieldNameAlias, false)"/></if>
+            <if condition="!fieldSeqId">
+                <entity-find entity-name="moqui.entity.document.DataDocumentField" list="ddfList">
+                    <econdition field-name="dataDocumentId"/><econdition field-name="fieldPath"/></entity-find>
+                <set field="fieldSeqId" from="ddfList ? ddfList[0].fieldSeqId : null"/>
+            </if>
+            <service-call name="update#moqui.entity.document.DataDocumentField" in-map="context"/>
+        </actions>
+    </service>
 
     <service verb="send" noun="DataDocumentNotifications" authenticate="false">
         <description>
@@ -112,7 +176,10 @@ along with this software (see the LICENSE.md file). If not, see
                 <script>findAllFieldsNestedMap("userId", document, userIdSet)</script>
                 <script>findAllFieldsNestedMap("fromUserId", document, userIdSet)</script>
                 <script>findAllFieldsNestedMap("toUserId", document, userIdSet)</script>
-                <if condition="!userIdSet"><continue/></if>
+                <if condition="!userIdSet">
+                    <log level="info" message="Not sending ${document._type} DataDocument notification, no userIds found"/>
+                    <continue/>
+                </if>
 
                 <script><![CDATA[
                     def nm = ec.makeNotificationMessage()
@@ -129,6 +196,56 @@ along with this software (see the LICENSE.md file). If not, see
             </iterate>
         </actions>
     </service>
+
+    <!-- 2017-06: clean out DataDocument and DataFeed tables for update/recreate:
+        - DROP TABLE DATA_FEED_DOCUMENT
+        - DROP TABLE DATA_FEED
+
+        - DROP TABLE DATA_DOCUMENT_LINK
+        - DROP TABLE DATA_DOCUMENT_CONDITION
+        - DROP TABLE DATA_DOCUMENT_REL_ALIAS
+        - DROP TABLE DATA_DOCUMENT_FIELD
+        - DROP TABLE DATA_DOCUMENT_USER_GROUP
+        - DROP TABLE DATA_DOCUMENT
+        - restart, load seed, index feeds
+    -->
+    <service verb="delete" noun="AllDataDocumentsAndFeeds">
+        <description>To fully update data documents and feeds from seed data: run this, import 'seed' data, run feed indexes.
+            If any custom data documents (not in seed data) are in place they will be lost.</description>
+        <actions>
+            <entity-delete-by-condition entity-name="moqui.entity.feed.DataFeedDocument"/>
+            <entity-delete-by-condition entity-name="moqui.entity.feed.DataFeed"/>
+
+            <entity-delete-by-condition entity-name="moqui.entity.document.DataDocumentUserGroup"/>
+            <entity-delete-by-condition entity-name="moqui.entity.document.DataDocumentLink"/>
+            <entity-delete-by-condition entity-name="moqui.entity.document.DataDocumentCondition"/>
+            <entity-delete-by-condition entity-name="moqui.entity.document.DataDocumentRelAlias"/>
+            <entity-delete-by-condition entity-name="moqui.entity.document.DataDocumentField"/>
+            <entity-delete-by-condition entity-name="moqui.entity.document.DataDocument"/>
+        </actions>
+    </service>
+
+    <!-- =========================================== -->
+    <!-- ========== DbViewEntity Services ========== -->
+    <!-- =========================================== -->
+
+    <service verb="create" noun="DbViewEntity">
+        <in-parameters>
+            <auto-parameters include="nonpk"/>
+            <parameter name="dbViewEntityName" required="true"><matches regexp="[A-Z]\w*" message="Must start with a upper case letter and contain only letters and digits"/></parameter>
+            <parameter name="packageName"><matches regexp="[a-z][a-z0-9\.]*" message="Must start with a lower case letter and contain only lower case letters, digits, and dot/period"/></parameter>
+        </in-parameters>
+        <actions>
+            <entity-find-one entity-name="moqui.entity.view.DbViewEntity" value-field="existing"/>
+            <if condition="existing || ec.entity.isEntityDefined(dbViewEntityName)"><return error="true" message="Name '${dbViewEntityName}' already in use"/></if>
+
+            <service-call name="create#moqui.entity.view.DbViewEntity" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+
+    <!-- ==================================================== -->
+    <!-- ========== Entity Data Snapshots Services ========== -->
+    <!-- ==================================================== -->
 
     <service verb="export" noun="EntityDataSnapshot" transaction-timeout="3600">
         <in-parameters>
@@ -164,6 +281,13 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="import" noun="EntityDataSnapshot" transaction-timeout="3600">
         <in-parameters>
             <parameter name="zipFilename" required="true"/>
+            <parameter name="dummyFks" type="Boolean" default="false"/>
+            <parameter name="useTryInsert" type="Boolean" default="false"/>
+            <parameter name="disableEntityEca" type="Boolean" default="true"/>
+            <parameter name="disableAuditLog" type="Boolean" default="true"/>
+            <parameter name="disableFkCreate" type="Boolean" default="true"/>
+            <parameter name="disableDataFeed" type="Boolean" default="true"/>
+            <parameter name="transactionTimeout" type="Integer" default="3600"/>
         </in-parameters>
         <out-parameters><parameter name="recordsLoaded" type="Long"/></out-parameters>
         <actions>
@@ -171,10 +295,13 @@ along with this software (see the LICENSE.md file). If not, see
                 import org.moqui.entity.EntityDataLoader
                 import org.moqui.context.ExecutionContext
                 ExecutionContext ec = context.ec
-                EntityDataLoader edl = ec.entity.makeDataLoader().dummyFks(true).useTryInsert(true).disableEntityEca(true)
-                        .disableAuditLog(true).transactionTimeout(3600)
+                EntityDataLoader edl = ec.entity.makeDataLoader().dummyFks(dummyFks).useTryInsert(useTryInsert)
+                        .disableEntityEca(disableEntityEca).disableAuditLog(disableAuditLog)
+                        .disableFkCreate(disableFkCreate).disableDataFeed(disableDataFeed)
+                        .transactionTimeout(transactionTimeout)
                 edl.location(ec.factory.getRuntimePath() + "/db/snapshot/" + (String) zipFilename)
                 recordsLoaded = edl.load()
+                ec.cache.getCache("entity.sequence.bank")?.clear()
             ]]></script>
         </actions>
     </service>

@@ -13,8 +13,16 @@
  */
 package org.moqui.impl.context
 
-import groovy.json.JsonBuilder
-import groovy.json.JsonSlurper
+import com.fasterxml.jackson.annotation.JsonInclude
+import com.fasterxml.jackson.core.JsonGenerator
+import com.fasterxml.jackson.core.JsonProcessingException
+import com.fasterxml.jackson.databind.DeserializationFeature
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.SerializationFeature
+import com.fasterxml.jackson.databind.SerializerProvider
+import com.fasterxml.jackson.databind.module.SimpleModule
+import com.fasterxml.jackson.databind.ser.std.StdSerializer
 import groovy.transform.CompileStatic
 
 import org.apache.commons.fileupload.FileItem
@@ -22,7 +30,9 @@ import org.apache.commons.fileupload.FileItemFactory
 import org.apache.commons.fileupload.disk.DiskFileItemFactory
 import org.apache.commons.fileupload.servlet.ServletFileUpload
 import org.moqui.context.*
+import org.moqui.context.MessageFacade.MessageInfo
 import org.moqui.entity.EntityNotFoundException
+import org.moqui.entity.EntityValue
 import org.moqui.entity.EntityValueNotFoundException
 import org.moqui.util.WebUtilities
 import org.moqui.impl.context.ExecutionContextFactoryImpl.WebappInfo
@@ -48,6 +58,18 @@ import javax.servlet.http.HttpSession
 class WebFacadeImpl implements WebFacade {
     protected final static Logger logger = LoggerFactory.getLogger(WebFacadeImpl.class)
 
+    protected final static ObjectMapper jacksonMapper = new ObjectMapper()
+            .setSerializationInclusion(JsonInclude.Include.ALWAYS)
+            .enable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS).enable(SerializationFeature.INDENT_OUTPUT)
+            .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
+            .configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true)
+    static {
+        // Jackson custom serializers, etc
+        SimpleModule module = new SimpleModule()
+        module.addSerializer(GString, new GStringJsonSerializer())
+        jacksonMapper.registerModule(module)
+    }
+
     // Not using shared root URL cache because causes issues when requests come to server through different hosts/etc:
     // protected static final Map<String, String> webappRootUrlByParms = new HashMap()
 
@@ -69,7 +91,8 @@ class WebFacadeImpl implements WebFacade {
 
     protected Map<String, Object> errorParameters = (Map<String, Object>) null
 
-    protected List<String> savedMessages = (List<String>) null
+    protected List<MessageInfo> savedMessages = (List<MessageInfo>) null
+    protected List<MessageInfo> savedPublicMessages = (List<MessageInfo>) null
     protected List<String> savedErrors = (List<String>) null
     protected List<ValidationError> savedValidationErrors = (List<ValidationError>) null
 
@@ -91,9 +114,13 @@ class WebFacadeImpl implements WebFacade {
         if (errorParameters != null) request.session.removeAttribute("moqui.error.parameters")
 
         // get any messages saved to the session, and clear them from the session
-        if (session.getAttribute("moqui.message.messages") != null) {
-            savedMessages = (List<String>) session.getAttribute("moqui.message.messages")
-            session.removeAttribute("moqui.message.messages")
+        if (session.getAttribute("moqui.message.messageInfos") != null) {
+            savedMessages = (List<MessageInfo>) session.getAttribute("moqui.message.messageInfos")
+            session.removeAttribute("moqui.message.messageInfos")
+        }
+        if (session.getAttribute("moqui.message.publicMessageInfos") != null) {
+            savedPublicMessages = (List<MessageInfo>) session.getAttribute("moqui.message.publicMessageInfos")
+            session.removeAttribute("moqui.message.publicMessageInfos")
         }
         if (session.getAttribute("moqui.message.errors") != null) {
             savedErrors = (List<String>) session.getAttribute("moqui.message.errors")
@@ -107,25 +134,29 @@ class WebFacadeImpl implements WebFacade {
         // if there is a JSON document submitted consider those as parameters too
         String contentType = request.getHeader("Content-Type")
         if (contentType != null && contentType.length() > 0 && (contentType.contains("application/json") || contentType.contains("text/json"))) {
-            JsonSlurper slurper = new JsonSlurper()
-            Object jsonObj = null
-            try {
-                jsonObj = slurper.parse(new BufferedReader(new InputStreamReader(request.getInputStream(),
-                        request.getCharacterEncoding() ?: "UTF-8")))
-            } catch (Throwable t) {
-                logger.error("Error parsing HTTP request body JSON: ${t.toString()}", t)
-                jsonParameters = [_requestBodyJsonParseError:t.getMessage()] as Map<String, Object>
+            // read the body first to make sure it isn't empty, better support clients that pass a Content-Type but no content (even though they shouldn't)
+            StringBuilder bodyBuilder = new StringBuilder()
+            BufferedReader reader = request.getReader()
+            if (reader != null) {
+                String curLine
+                while ((curLine = reader.readLine()) != null) bodyBuilder.append(curLine)
             }
-            if (jsonObj instanceof Map) {
-                jsonParameters = (Map<String, Object>) jsonObj
-            } else if (jsonObj instanceof List) {
-                jsonParameters = [_requestBodyJsonList:jsonObj]
+            if (bodyBuilder.length() > 0) {
+                try {
+                    JsonNode jsonNode = jacksonMapper.readTree(bodyBuilder.toString())
+                    if (jsonNode.isObject()) {
+                        jsonParameters = jacksonMapper.treeToValue(jsonNode, Map.class)
+                    } else if (jsonNode.isArray()) {
+                        jsonParameters = [_requestBodyJsonList:jacksonMapper.treeToValue(jsonNode, List.class)] as Map<String, Object>
+                    }
+                } catch (Throwable t) {
+                    logger.error("Error parsing HTTP request body JSON: ${t.toString()}", t)
+                    jsonParameters = [_requestBodyJsonParseError:t.getMessage()] as Map<String, Object>
+                }
+                logger.warn("=========== Got JSON HTTP request body: ${jsonParameters}")
             }
-            // logger.warn("=========== Got JSON HTTP request body: ${jsonParameters}")
-        }
-
-        // if this is a multi-part request, get the data for it
-        if (ServletFileUpload.isMultipartContent(request)) {
+        } else if (ServletFileUpload.isMultipartContent(request)) {
+            // if this is a multi-part request, get the data for it
             multiPartParameters = new HashMap()
             FileItemFactory factory = makeDiskFileItemFactory()
             ServletFileUpload upload = new ServletFileUpload(factory)
@@ -178,6 +209,8 @@ class WebFacadeImpl implements WebFacade {
     /** Apache Commons FileUpload does not support string array so when using multiple select and there's a duplicate
      * fieldName convert value to an array list when fieldName is already in multipart parameters. */
     private void addValueToMultipartParameterMap(String key, Object value) {
+        // change &nbsp; (\u00a0) to null, used as a placeholder when empty string doesn't work
+        if ("\u00a0".equals(value)) value = null
         Object previousValue = multiPartParameters.put(key, value)
         if (previousValue != null) {
             List<Object> valueList = new ArrayList<>()
@@ -223,10 +256,12 @@ class WebFacadeImpl implements WebFacade {
         if (sui.lastStandalone || targetScreen.isStandalone()) return
         // don't save transition requests, just screens
         if (urlInstanceOrig.getTargetTransition() != null) return
+        // if history=false on the screen don't save
+        if ("false".equals(targetScreen.screenNode.attribute("history"))) return
 
-        LinkedList<Map> screenHistoryList = (LinkedList<Map>) session.getAttribute("moqui.screen.history")
+        List<Map> screenHistoryList = (List<Map>) session.getAttribute("moqui.screen.history")
         if (screenHistoryList == null) {
-            screenHistoryList = new LinkedList<Map>()
+            screenHistoryList = Collections.<Map>synchronizedList(new LinkedList<Map>())
             session.setAttribute("moqui.screen.history", screenHistoryList)
         }
 
@@ -243,8 +278,6 @@ class WebFacadeImpl implements WebFacade {
         if (firstItem != null && firstItem.url == urlWithParams) return
 
         String targetMenuName = targetScreen.getDefaultMenuName()
-        // may need a better way to identify login screens, for now just look for "Login"
-        if (targetMenuName == "Login") return
 
 
         StringBuilder nameBuilder = new StringBuilder()
@@ -285,25 +318,25 @@ class WebFacadeImpl implements WebFacade {
             if (paramBuilder.length() > 0) nameBuilder.append(' (').append(paramBuilder.toString()).append(')')
         }
 
-        // remove existing item(s) from list with same URL
-        Iterator<Map> screenHistoryIter = screenHistoryList.iterator()
-        while (screenHistoryIter.hasNext()) {
-            Map screenHistory = screenHistoryIter.next()
-            if (screenHistory.url == urlWithParams) screenHistoryIter.remove()
+        synchronized (screenHistoryList) {
+            // remove existing item(s) from list with same URL
+            Iterator<Map> screenHistoryIter = screenHistoryList.iterator()
+            while (screenHistoryIter.hasNext()) {
+                Map screenHistory = screenHistoryIter.next()
+                if (screenHistory.url == urlWithParams) screenHistoryIter.remove()
+            }
+            // add to history list
+            screenHistoryList.add(0, [name:nameBuilder.toString(), url:urlWithParams, urlNoParams:urlNoParams,
+                    image:sui.menuImage, imageType:sui.menuImageType, screenLocation:targetScreen.getLocation()])
+            // trim the list if needed; keep 40, whatever uses it may display less
+            while (screenHistoryList.size() > 40) screenHistoryList.remove(40)
         }
-
-        // add to history list
-        screenHistoryList.addFirst([name:nameBuilder.toString(), url:urlWithParams, urlNoParams:urlNoParams,
-                image:sui.menuImage, imageType:sui.menuImageType, screenLocation:targetScreen.getLocation()])
-
-        // trim the list if needed; keep 40, whatever uses it may display less
-        while (screenHistoryList.size() > 40) screenHistoryList.removeLast()
     }
 
     @Override
     List<Map> getScreenHistory() {
-        LinkedList<Map> histList = (LinkedList<Map>) session.getAttribute("moqui.screen.history")
-        if (histList == null) histList = new LinkedList<Map>()
+        List<Map> histList = (List<Map>) session.getAttribute("moqui.screen.history")
+        if (histList == null) histList = Collections.<Map>synchronizedList(new LinkedList<Map>())
         return histList
     }
 
@@ -363,7 +396,7 @@ class WebFacadeImpl implements WebFacade {
         if (declaredPathParameters != null) cs.push(new WebUtilities.CanonicalizeMap(declaredPathParameters))
 
         // no longer uses CanonicalizeMap, search Map for String[] of size 1 and change to String
-        Map<String, Object> reqParmMap = WebUtilities.simplifyRequestParameters(request)
+        Map<String, Object> reqParmMap = WebUtilities.simplifyRequestParameters(request, false)
         if (reqParmMap.size() > 0) cs.push(reqParmMap)
 
         // NOTE: We decode path parameter ourselves, so use getRequestURI instead of getPathInfo
@@ -382,12 +415,13 @@ class WebFacadeImpl implements WebFacade {
         if (savedParameters) cs.push(savedParameters)
         if (multiPartParameters) cs.push(multiPartParameters)
         if (jsonParameters) cs.push(jsonParameters)
-        if (!request.getQueryString()) {
-            Map<String, Object> reqParmMap = WebUtilities.simplifyRequestParameters(request)
-            if (reqParmMap.size() > 0) cs.push(reqParmMap)
-        }
+
+        Map<String, Object> reqParmMap = WebUtilities.simplifyRequestParameters(request, true)
+        if (reqParmMap.size() > 0) cs.push(reqParmMap)
+
         return cs
     }
+
     @Override
     String getHostName(boolean withPort) {
         URL requestUrl = new URL(getRequest().getRequestURL().toString())
@@ -416,7 +450,7 @@ class WebFacadeImpl implements WebFacade {
     HttpSession getSession() { return request.getSession(true) }
     @Override
     Map<String, Object> getSessionAttributes() {
-        if (sessionAttributes) return sessionAttributes
+        if (sessionAttributes != null) return sessionAttributes
         sessionAttributes = new WebUtilities.AttributeContainerMap(new WebUtilities.HttpSessionContainer(getSession()))
         return sessionAttributes
     }
@@ -425,7 +459,7 @@ class WebFacadeImpl implements WebFacade {
     ServletContext getServletContext() { return getSession().getServletContext() }
     @Override
     Map<String, Object> getApplicationAttributes() {
-        if (applicationAttributes) return applicationAttributes
+        if (applicationAttributes != null) return applicationAttributes
         applicationAttributes = new WebUtilities.AttributeContainerMap(new WebUtilities.ServletContextContainer(getServletContext()))
         return applicationAttributes
     }
@@ -549,73 +583,51 @@ class WebFacadeImpl implements WebFacade {
         return sb.toString()
     }
 
-    @Override
-    Map<String, Object> getErrorParameters() { return errorParameters }
-    @Override
-    List<String> getSavedMessages() { return savedMessages }
-    @Override
-    List<String> getSavedErrors() { return savedErrors }
-    @Override
-    List<ValidationError> getSavedValidationErrors() { return savedValidationErrors }
-
+    @Override Map<String, Object> getErrorParameters() { return errorParameters }
+    @Override List<MessageInfo> getSavedMessages() { return savedMessages }
+    @Override List<MessageInfo> getSavedPublicMessages() { return savedPublicMessages }
+    @Override List<String> getSavedErrors() { return savedErrors }
+    @Override List<ValidationError> getSavedValidationErrors() { return savedValidationErrors }
 
     @Override
-    void sendJsonResponse(Object responseObj) {
-        sendJsonResponseInternal(responseObj, eci, request, response, requestAttributes)
-    }
+    void sendJsonResponse(Object responseObj) { sendJsonResponseInternal(responseObj, eci, request, response, requestAttributes) }
     static void sendJsonResponseInternal(Object responseObj, ExecutionContextImpl eci, HttpServletRequest request,
                                          HttpServletResponse response, Map<String, Object> requestAttributes) {
-        String jsonStr
+        String jsonStr = null
         if (responseObj instanceof CharSequence) {
             jsonStr = responseObj.toString()
+            responseObj = null
         } else {
+            Map responseMap = responseObj instanceof Map ? (Map) responseObj : null
+
             if (eci.message.messages) {
                 if (responseObj == null) {
                     responseObj = [messages:eci.message.getMessagesString()] as Map<String, Object>
-                } else if (responseObj instanceof Map && !responseObj.containsKey("messages")) {
-                    Map responseMap = new HashMap()
-                    responseMap.putAll(responseObj as Map)
+                } else if (responseMap != null && !responseMap.containsKey("messages")) {
+                    responseMap = new HashMap(responseMap)
                     responseMap.put("messages", eci.message.getMessagesString())
                     responseObj = responseMap
                 }
             }
 
             if (eci.getMessage().hasError()) {
-                JsonBuilder jb = new JsonBuilder()
                 // if the responseObj is a Map add all of it's data
-                if (responseObj instanceof Map) {
-                    // only add an errors if it is not a jsonrpc response (JSON RPC has it's own error handling)
-                    if (!responseObj.containsKey("jsonrpc")) {
-                        Map responseMap = new HashMap()
-                        responseMap.putAll(responseObj)
-                        responseMap.put("errors", eci.message.errorsString)
-                        responseObj = responseMap
-                    }
-                    jb.call(responseObj)
-                } else if (responseObj != null) {
-                    logger.error("Error found when sending JSON string but JSON object is not a Map so not sending: ${eci.message.errorsString}")
-                    jb.call(responseObj)
+                // only add an errors if it is not a jsonrpc response (JSON RPC has it's own error handling)
+                if (responseMap != null && !responseMap.containsKey("errors") && !responseMap.containsKey("jsonrpc")) {
+                    responseMap = new HashMap(responseMap)
+                    responseMap.put("errors", eci.message.errorsString)
+                    responseObj = responseMap
+                } else if (responseObj != null && !(responseObj instanceof Map)) {
+                    logger.error("Error found when sending JSON string, JSON object is not a Map so not adding errors to return: ${eci.message.errorsString}")
                 }
-
-                jsonStr = jb.toString()
                 response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR)
-            } else if (responseObj != null) {
-                // logger.warn("========== Sending JSON for object: ${responseObj}")
-                JsonBuilder jb = new JsonBuilder()
-                if (responseObj instanceof Map) {
-                    jb.call((Map) responseObj)
-                } else if (responseObj instanceof List) {
-                    jb.call((List) responseObj)
-                } else {
-                    jb.call((Object) responseObj)
-                }
-                jsonStr = jb.toPrettyString()
-                response.setStatus(HttpServletResponse.SC_OK)
             } else {
-                jsonStr = ""
                 response.setStatus(HttpServletResponse.SC_OK)
             }
         }
+
+        // logger.warn("========== Sending JSON for object: ${responseObj}")
+        if (responseObj != null) jsonStr = jacksonMapper.writeValueAsString(responseObj)
 
         if (!jsonStr) return
 
@@ -641,10 +653,8 @@ class WebFacadeImpl implements WebFacade {
     }
 
     void sendJsonError(int statusCode, String errorMessages) {
-        JsonBuilder jb = new JsonBuilder()
         // NOTE: uses same field name as sendJsonResponseInternal
-        jb.call([errorCode:statusCode, errors:errorMessages])
-        String jsonStr = jb.toString()
+        String jsonStr = jacksonMapper.writeValueAsString([errorCode:statusCode, errors:errorMessages])
         response.setContentType("application/json")
         // NOTE: String.length not correct for byte length
         String charset = response.getCharacterEncoding() ?: "UTF-8"
@@ -703,25 +713,31 @@ class WebFacadeImpl implements WebFacade {
         }
     }
 
-    @Override
-    void sendResourceResponse(String location) {
-        sendResourceResponseInternal(location, false, eci, response)
-    }
-    void sendResourceResponse(String location, boolean inline) {
-        sendResourceResponseInternal(location, inline, eci, response)
-    }
+    @Override void sendResourceResponse(String location) { sendResourceResponseInternal(location, false, eci, response) }
+    void sendResourceResponse(String location, boolean inline) { sendResourceResponseInternal(location, inline, eci, response) }
     static void sendResourceResponseInternal(String location, boolean inline, ExecutionContextImpl eci, HttpServletResponse response) {
         ResourceReference rr = eci.resource.getLocationReference(location)
-        if (rr == null) throw new IllegalArgumentException("Resource not found at: ${location}")
-        response.setContentType(rr.contentType)
+        if (rr == null || (rr.supportsExists() && !rr.getExists())) {
+            logger.warn("Sending not found response, resource not found at: ${location}")
+            response.sendError(HttpServletResponse.SC_NOT_FOUND)
+            return
+        }
+        String contentType = rr.getContentType()
+        if (contentType) response.setContentType(contentType)
         if (inline) {
             response.addHeader("Content-Disposition", "inline")
+            response.addHeader("Cache-Control", "max-age=3600, must-revalidate, public")
         } else {
             response.addHeader("Content-Disposition", "attachment; filename=\"${rr.getFileName()}\"; filename*=utf-8''${StringUtilities.encodeAsciiFilename(rr.getFileName())}")
         }
-        String contentType = rr.getContentType()
-        if (!contentType || ResourceReference.isBinaryContentType(contentType)) {
+        if (contentType == null || contentType.isEmpty() || ResourceReference.isBinaryContentType(contentType)) {
             InputStream is = rr.openStream()
+            if (is == null) {
+                logger.warn("Sending not found response, openStream returned null for location: ${location}")
+                response.sendError(HttpServletResponse.SC_NOT_FOUND)
+                return
+            }
+
             try {
                 OutputStream os = response.outputStream
                 try {
@@ -740,11 +756,8 @@ class WebFacadeImpl implements WebFacade {
         }
     }
 
-    @Override
-    void handleXmlRpcServiceCall() { new ServiceXmlRpcDispatcher(eci).dispatch(request, response) }
-
-    @Override
-    void handleJsonRpcServiceCall() { new ServiceJsonRpcDispatcher(eci).dispatch() }
+    @Override void handleXmlRpcServiceCall() { new ServiceXmlRpcDispatcher(eci).dispatch(request, response) }
+    @Override void handleJsonRpcServiceCall() { new ServiceJsonRpcDispatcher(eci).dispatch() }
 
     @Override
     void handleEntityRestCall(List<String> extraPathNameList, boolean masterNameInPath) {
@@ -765,6 +778,12 @@ class WebFacadeImpl implements WebFacade {
             return
         }
 
+        String method = request.getMethod()
+        if ("post".equalsIgnoreCase(method)) {
+            String ovdMethod = request.getHeader("X-HTTP-Method-Override")
+            if (ovdMethod != null && !ovdMethod.isEmpty()) method = ovdMethod.toLowerCase()
+        }
+
         try {
             // logger.warn("====== parameters: ${parmStack.toString()}")
             long startTime = System.currentTimeMillis()
@@ -780,17 +799,17 @@ class WebFacadeImpl implements WebFacade {
                         sendJsonError(HttpServletResponse.SC_BAD_REQUEST, errMsg)
                         return
                     }
-                    // logger.warn("========== REST ${request.getMethod()} ${request.getPathInfo()} ${extraPathNameList}; body list object: ${bodyListObj}")
+                    // logger.warn("========== REST ${method} ${request.getPathInfo()} ${extraPathNameList}; body list object: ${bodyListObj}")
                     parmStack.push()
                     parmStack.putAll((Map) bodyListObj)
-                    Object responseObj = eci.getEntity().rest(request.getMethod(), extraPathNameList, parmStack, masterNameInPath)
+                    Object responseObj = eci.entityFacade.rest(method, extraPathNameList, parmStack, masterNameInPath)
                     responseList.add(responseObj ?: [:])
                     parmStack.pop()
                 }
                 response.addIntHeader('X-Run-Time-ms', (System.currentTimeMillis() - startTime) as int)
                 sendJsonResponse(responseList)
             } else {
-                Object responseObj = eci.getEntity().rest(request.getMethod(), extraPathNameList, parmStack, masterNameInPath)
+                Object responseObj = eci.entityFacade.rest(method, extraPathNameList, parmStack, masterNameInPath)
                 response.addIntHeader('X-Run-Time-ms', (System.currentTimeMillis() - startTime) as int)
 
                 if (parmStack.xTotalCount != null) response.addIntHeader('X-Total-Count', parmStack.xTotalCount as int)
@@ -806,19 +825,19 @@ class WebFacadeImpl implements WebFacade {
             }
         } catch (ArtifactAuthorizationException e) {
             // SC_UNAUTHORIZED 401 used when authc/login fails, use SC_FORBIDDEN 403 for authz failures
-            logger.warn("REST Access Forbidden (no authz): " + e.message)
+            logger.warn("REST Access Forbidden (403 no authz): " + e.message)
             sendJsonError(HttpServletResponse.SC_FORBIDDEN, e.message)
         } catch (ArtifactTarpitException e) {
-            logger.warn("REST Too Many Requests (tarpit): " + e.message)
+            logger.warn("REST Too Many Requests (429 tarpit): " + e.message)
             if (e.getRetryAfterSeconds()) response.addIntHeader("Retry-After", e.getRetryAfterSeconds())
             // NOTE: there is no constant on HttpServletResponse for 429; see RFC 6585 for details
             sendJsonError(429, e.message)
         } catch (EntityNotFoundException e) {
-            logger.warn((String) "REST Entity Not Found: " + e.getMessage(), e)
-            // send bad request (400), reserve 404 Not Found for records that don't exist
-            sendJsonError(HttpServletResponse.SC_BAD_REQUEST, e.message)
+            logger.warn((String) "REST Entity Not Found (404): " + e.getMessage(), e)
+            // send 404 Not Found for entities that don't exist (along with records that don't exist)
+            sendJsonError(HttpServletResponse.SC_NOT_FOUND, e.message)
         } catch (EntityValueNotFoundException e) {
-            logger.warn("REST Entity Value Not Found: " + e.getMessage())
+            logger.warn("REST Entity Value Not Found (404): " + e.getMessage())
             // record doesn't exist, send 404 Not Found
             sendJsonError(HttpServletResponse.SC_NOT_FOUND, e.message)
         } catch (Throwable t) {
@@ -902,8 +921,8 @@ class WebFacadeImpl implements WebFacade {
                 if (eci.message.hasError()) {
                     // if error return that
                     String errorsString = eci.message.errorsString
-                    logger.warn((String) "General error in Service REST API: " + errorsString)
-                    sendJsonError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, errorsString)
+                    logger.warn((String) "Error message from Service REST API (400): " + errorsString)
+                    sendJsonError(HttpServletResponse.SC_BAD_REQUEST, errorsString)
                 } else {
                     // NOTE: This will always respond with 200 OK, consider using 201 Created (for successful POST, create PUT)
                     //     and 204 No Content (for DELETE and other when no content is returned)
@@ -911,26 +930,26 @@ class WebFacadeImpl implements WebFacade {
                 }
             }
         } catch (AuthenticationRequiredException e) {
-            logger.warn("REST Unauthorized (no authc): " + e.message)
+            logger.warn("REST Unauthorized (401 no authc): " + e.message)
             sendJsonError(HttpServletResponse.SC_UNAUTHORIZED, e.message)
         } catch (ArtifactAuthorizationException e) {
             // SC_UNAUTHORIZED 401 used when authc/login fails, use SC_FORBIDDEN 403 for authz failures
-            logger.warn("REST Access Forbidden (no authz): " + e.message)
+            logger.warn("REST Access Forbidden (403 no authz): " + e.message)
             sendJsonError(HttpServletResponse.SC_FORBIDDEN, e.message)
         } catch (ArtifactTarpitException e) {
-            logger.warn("REST Too Many Requests (tarpit): " + e.message)
+            logger.warn("REST Too Many Requests (429 tarpit): " + e.message)
             if (e.getRetryAfterSeconds()) response.addIntHeader("Retry-After", e.getRetryAfterSeconds())
             // NOTE: there is no constant on HttpServletResponse for 429; see RFC 6585 for details
             sendJsonError(429, e.message)
         } catch (RestApi.ResourceNotFoundException e) {
-            logger.warn((String) "REST Resource Not Found: " + e.getMessage())
-            // send bad request (400), reserve 404 Not Found for records that don't exist
-            sendJsonError(HttpServletResponse.SC_BAD_REQUEST, e.message)
+            logger.warn((String) "REST Resource Not Found (404): " + e.getMessage())
+            // send 404 Not Found for resources/paths that don't exist (along with records that don't exist)
+            sendJsonError(HttpServletResponse.SC_NOT_FOUND, e.message)
         } catch (RestApi.MethodNotSupportedException e) {
-            logger.warn((String) "REST Method Not Supported: " + e.getMessage())
+            logger.warn((String) "REST Method Not Supported (405): " + e.getMessage())
             sendJsonError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, e.message)
         } catch (EntityValueNotFoundException e) {
-            logger.warn("REST Entity Value Not Found: " + e.getMessage())
+            logger.warn("REST Entity Value Not Found (404): " + e.getMessage())
             // record doesn't exist, send 404 Not Found
             sendJsonError(HttpServletResponse.SC_NOT_FOUND, e.message)
         } catch (Throwable t) {
@@ -940,14 +959,16 @@ class WebFacadeImpl implements WebFacade {
                 logger.error(errorsString, t)
                 errorMessage = errorMessage + ' ' + errorsString
             }
-            logger.warn((String) "General error in Service REST API: " + t.toString(), t)
+            logger.warn((String) "Error thrown in Service REST API (500): " + t.toString(), t)
             sendJsonError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, errorMessage)
         }
     }
 
     void saveScreenLastInfo(String screenPath, Map parameters) {
         session.setAttribute("moqui.screen.last.path", screenPath ?: request.getPathInfo())
-        session.setAttribute("moqui.screen.last.parameters", parameters ?: new HashMap(getRequestParameters()))
+        parameters = parameters ?: new HashMap(getRequestParameters())
+        WebUtilities.testSerialization("moqui.screen.last.parameters", parameters)
+        session.setAttribute("moqui.screen.last.parameters", parameters)
     }
 
     String getRemoveScreenLastPath() {
@@ -962,12 +983,20 @@ class WebFacadeImpl implements WebFacade {
     }
 
     void saveMessagesToSession() {
-        List<String> messages = eci.messageFacade.getMessages()
-        if (messages != null && messages.size() > 0) session.setAttribute("moqui.message.messages", messages)
+        List<MessageInfo> messageInfos = eci.messageFacade.getMessageInfos()
+        WebUtilities.testSerialization("moqui.message.messageInfos", messageInfos)
+        if (messageInfos != null && messageInfos.size() > 0) session.setAttribute("moqui.message.messageInfos", messageInfos)
+        List<MessageInfo> publicMessageInfos = eci.messageFacade.getPublicMessageInfos()
+        WebUtilities.testSerialization("moqui.message.publicMessageInfos", publicMessageInfos)
+        if (publicMessageInfos != null && publicMessageInfos.size() > 0)
+            session.setAttribute("moqui.message.publicMessageInfos", publicMessageInfos)
+
         List<String> errors = eci.messageFacade.getErrors()
         if (errors != null && errors.size() > 0) session.setAttribute("moqui.message.errors", errors)
         List<ValidationError> validationErrors = eci.messageFacade.validationErrors
-        if (validationErrors != null && validationErrors.size() > 0) session.setAttribute("moqui.message.validationErrors", validationErrors)
+        WebUtilities.testSerialization("moqui.message.validationErrors", validationErrors)
+        if (validationErrors != null && validationErrors.size() > 0)
+            session.setAttribute("moqui.message.validationErrors", validationErrors)
     }
 
     /** Save passed parameters Map to a Map in the moqui.saved.parameters session attribute */
@@ -985,6 +1014,7 @@ class WebFacadeImpl implements WebFacade {
         if (currentSavedParameters) parms.putAll(currentSavedParameters)
         if (requestParameters) parms.putAll(requestParameters)
         if (requestAttributes) parms.putAll(requestAttributes)
+        WebUtilities.testSerialization("moqui.saved.parameters", parms)
         session.setAttribute("moqui.saved.parameters", parms)
     }
 
@@ -993,7 +1023,38 @@ class WebFacadeImpl implements WebFacade {
         Map parms = new HashMap()
         if (requestParameters) parms.putAll(requestParameters)
         if (requestAttributes) parms.putAll(requestAttributes)
+        WebUtilities.testSerialization("moqui.saved.parameters", parms)
         session.setAttribute("moqui.error.parameters", parms)
+    }
+
+    static final byte[] trackingPng = [(byte)0x89,0x50,0x4E,0x47,0x0D,0x0A,0x1A,0x0A,0x00,0x00,0x00,0x0D,0x49,0x48,0x44,0x52,0x00,
+            0x00,0x00,0x01,0x00,0x00,0x00,0x01,0x08,0x06,0x00,0x00,0x00,0x1F,0x15,(byte)0xC4,(byte)0x89,0x00,0x00,0x00,0x0B,0x49,
+            0x44,0x41,0x54,0x78,(byte)0xDA,0x63,0x60,0x00,0x02,0x00,0x00,0x05,0x00,0x01,(byte)0xE9,(byte)0xFA,(byte)0xDC,(byte)0xD8,
+            0x00,0x00,0x00,0x00,0x49,0x45,0x4E,0x44,(byte)0xAE,0x42,0x60,(byte)0x82]
+    void viewEmailMessage() {
+        // first send the empty image
+        response.setContentType('image/png')
+        response.addHeader("Content-Disposition", "inline")
+        OutputStream os = response.outputStream
+        try { os.write(trackingPng) } finally { os.close() }
+        // mark the message viewed
+        try {
+            String emailMessageId = (String) eci.contextStack.get("emailMessageId")
+            if (emailMessageId != null && !emailMessageId.isEmpty()) {
+                int dotIndex = emailMessageId.indexOf(".")
+                if (dotIndex > 0) emailMessageId = emailMessageId.substring(0, dotIndex)
+                EntityValue emailMessage = eci.entity.find("moqui.basic.email.EmailMessage").condition("emailMessageId", emailMessageId)
+                        .disableAuthz().one()
+                if (emailMessage == null) {
+                    logger.warn("Tried to mark EmailMessage ${emailMessageId} viewed but not found")
+                } else if (!"ES_VIEWED".equals(emailMessage.statusId)) {
+                    eci.service.sync().name("update#moqui.basic.email.EmailMessage").parameter("emailMessageId", emailMessageId)
+                            .parameter("statusId", "ES_VIEWED").parameter("receivedDate", eci.user.nowTimestamp).disableAuthz().call()
+                }
+            }
+        } catch (Throwable t) {
+            logger.error("Error marking EmailMessage viewed", t)
+        }
     }
 
     protected DiskFileItemFactory makeDiskFileItemFactory() {
@@ -1007,5 +1068,11 @@ class WebFacadeImpl implements WebFacade {
         //FileCleaningTracker fileCleaningTracker = FileCleanerCleanup.getFileCleaningTracker(request.getServletContext())
         //factory.setFileCleaningTracker(fileCleaningTracker)
         return factory
+    }
+
+    static class GStringJsonSerializer extends StdSerializer<GString> {
+        GStringJsonSerializer() { super(GString) }
+        @Override void serialize(GString value, JsonGenerator gen, SerializerProvider serializers)
+                throws IOException, JsonProcessingException { if (value != (Object) null) gen.writeString(value.toString()) }
     }
 }

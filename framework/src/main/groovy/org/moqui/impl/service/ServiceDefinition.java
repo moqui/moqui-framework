@@ -19,9 +19,13 @@ import org.apache.commons.validator.routines.UrlValidator;
 import org.codehaus.groovy.runtime.DefaultGroovyMethods;
 
 import org.moqui.context.ArtifactExecutionInfo;
+import org.moqui.entity.EntityList;
+import org.moqui.entity.EntityValue;
 import org.moqui.impl.actions.XmlAction;
 import org.moqui.impl.context.ExecutionContextImpl;
 import org.moqui.impl.entity.EntityDefinition;
+import org.moqui.service.ServiceException;
+import org.moqui.util.CollectionUtilities;
 import org.moqui.util.MNode;
 import org.moqui.util.ObjectUtilities;
 import org.slf4j.Logger;
@@ -58,6 +62,7 @@ public class ServiceDefinition {
     public final XmlAction xmlAction;
 
     public final String authenticate;
+    public final ArtifactExecutionInfo.AuthzAction authzAction;
     public final String serviceType;
     public final ServiceRunner serviceRunner;
     public final boolean txIgnore;
@@ -84,6 +89,13 @@ public class ServiceDefinition {
         location = serviceNode.attribute("location");
         method = serviceNode.attribute("method");
 
+        ArtifactExecutionInfo.AuthzAction tempAction = null;
+        String authzActionAttr = serviceNode.attribute("authz-action");
+        if (authzActionAttr != null && !authzActionAttr.isEmpty()) tempAction = ArtifactExecutionInfo.authzActionByName.get(authzActionAttr);
+        if (tempAction == null) tempAction = verbAuthzActionEnumMap.get(verb);
+        if (tempAction == null) tempAction = ArtifactExecutionInfo.AUTHZA_ALL;
+        authzAction = tempAction;
+
         MNode inParameters = new MNode("in-parameters", null);
         MNode outParameters = new MNode("out-parameters", null);
 
@@ -93,7 +105,7 @@ public class ServiceDefinition {
             String implRequired = implementsNode.attribute("required");// no default here, only used if has a value
             if (implRequired != null && implRequired.isEmpty()) implRequired = null;
             ServiceDefinition sd = sfi.getServiceDefinition(implServiceName);
-            if (sd == null) throw new IllegalArgumentException("Service " + implServiceName +
+            if (sd == null) throw new ServiceException("Service " + implServiceName +
                     " not found, specified in service.implements in service " + serviceName);
 
             // these are the first params to be set, so just deep copy them over
@@ -222,10 +234,10 @@ public class ServiceDefinition {
     private void mergeAutoParameters(MNode parametersNode, MNode autoParameters) {
         String entityName = autoParameters.attribute("entity-name");
         if (entityName == null || entityName.isEmpty()) entityName = noun;
-        if (entityName == null || entityName.isEmpty()) throw new IllegalArgumentException("Error in auto-parameters in service " +
+        if (entityName == null || entityName.isEmpty()) throw new ServiceException("Error in auto-parameters in service " +
                 serviceName + ", no auto-parameters.@entity-name and no service.@noun for a default");
         EntityDefinition ed = sfi.ecfi.entityFacade.getEntityDefinition(entityName);
-        if (ed == null) throw new IllegalArgumentException("Error in auto-parameters in service " + serviceName + ", the entity-name or noun [" + entityName + "] is not a valid entity name");
+        if (ed == null) throw new ServiceException("Error in auto-parameters in service " + serviceName + ", the entity-name or noun [" + entityName + "] is not a valid entity name");
 
         Set<String> fieldsToExclude = new HashSet<>();
         for (MNode excludeNode : autoParameters.children("exclude")) {
@@ -664,7 +676,7 @@ public class ServiceDefinition {
         } else if ("text-email".equals(validateName)) {
             String str = pv.toString();
             if (!emailValidator.isValid(str)) {
-                Map<String, String> map = new HashMap<>(1); map.put("str", str);
+                Map<String, Object> map = new HashMap<>(1); map.put("str", str);
                 eci.getMessage().addValidationError(null, parameterName, serviceName, eci.getResource().expand("Value entered (${str}) is not a valid email address.", "", map), null);
                 return false;
             }
@@ -673,7 +685,7 @@ public class ServiceDefinition {
         } else if ("text-url".equals(validateName)) {
             String str = pv.toString();
             if (!urlValidator.isValid(str)) {
-                Map<String, String> map = new HashMap<>(1); map.put("str", str);
+                Map<String, Object> map = new HashMap<>(1); map.put("str", str);
                 eci.getMessage().addValidationError(null, parameterName, serviceName, eci.getResource().expand("Value entered (${str}) is not a valid URL.", "", map), null);
                 return false;
             }
@@ -683,7 +695,7 @@ public class ServiceDefinition {
             String str = pv.toString();
             for (char c : str.toCharArray()) {
                 if (!Character.isLetter(c)) {
-                    Map<String, String> map = new HashMap<>(1); map.put("str", str);
+                    Map<String, Object> map = new HashMap<>(1); map.put("str", str);
                     eci.getMessage().addValidationError(null, parameterName, serviceName, eci.getResource().expand("Value entered (${str}) must have only letters.", "", map), null);
                     return false;
                 }
@@ -694,7 +706,7 @@ public class ServiceDefinition {
             String str = pv.toString();
             for (char c : str.toCharArray()) {
                 if (!Character.isDigit(c)) {
-                    Map<String, String> map = new HashMap<>(1); map.put("str", str);
+                    Map<String, Object> map = new HashMap<>(1); map.put("str", str);
                     eci.getMessage().addValidationError(null, parameterName, serviceName, eci.getResource().expand("Value [${str}] must have only digits.", "", map), null);
                     return false;
                 }
@@ -718,12 +730,11 @@ public class ServiceDefinition {
                 // handle after date/time/date-time depending on type of parameter, support "now" too
                 Calendar compareCal;
                 if ("now".equals(after)) {
-                    compareCal = Calendar.getInstance();
-                    compareCal.setTimeInMillis(eci.getUser().getNowTimestamp().getTime());
+                    compareCal = eci.getL10n().parseDateTime(eci.getL10n().format(eci.getUser().getNowTimestamp(), format), format);
                 } else {
                     compareCal = eci.getL10n().parseDateTime(after, format);
                 }
-                if (cal != null && !cal.after(compareCal)) {
+                if (cal != null && cal.compareTo(compareCal) < 0) {
                     Map<String, Object> map = new HashMap<>(2); map.put("pv", pv); map.put("after", after);
                     eci.getMessage().addValidationError(null, parameterName, serviceName, eci.getResource().expand("Value entered (${pv}) is before ${after}.", "", map), null);
                     return false;
@@ -735,12 +746,11 @@ public class ServiceDefinition {
                 // handle after date/time/date-time depending on type of parameter, support "now" too
                 Calendar compareCal;
                 if ("now".equals(before)) {
-                    compareCal = Calendar.getInstance();
-                    compareCal.setTimeInMillis(eci.getUser().getNowTimestamp().getTime());
+                    compareCal = eci.getL10n().parseDateTime(eci.getL10n().format(eci.getUser().getNowTimestamp(), format), format);
                 } else {
                     compareCal = eci.getL10n().parseDateTime(before, format);
                 }
-                if (cal != null && !cal.before(compareCal)) {
+                if (cal != null && cal.compareTo(compareCal) > 0) {
                     Map<String, Object> map = new HashMap<>(1); map.put("pv", pv);
                     eci.getMessage().addValidationError(null, parameterName, serviceName, eci.getResource().expand("Value entered (${pv}) is after ${before}.", "", map), null);
                     return false;
@@ -760,7 +770,7 @@ public class ServiceDefinition {
             CreditCardValidator ccv = new CreditCardValidator(creditCardTypes);
             String str = pv.toString();
             if (!ccv.isValid(str)) {
-                Map<String, String> map = new HashMap<>(1); map.put("str", str);
+                Map<String, Object> map = new HashMap<>(1); map.put("str", str);
                 eci.getMessage().addValidationError(null, parameterName, serviceName, eci.getResource().expand("Value entered (${str}) is not a valid credit card number.", "", map), null);
                 return false;
             }
@@ -793,6 +803,47 @@ public class ServiceDefinition {
         map.put("delete", ArtifactExecutionInfo.AUTHZA_DELETE);
         map.put("view", ArtifactExecutionInfo.AUTHZA_VIEW);
         map.put("find", ArtifactExecutionInfo.AUTHZA_VIEW);
+        map.put("get", ArtifactExecutionInfo.AUTHZA_VIEW);
+        map.put("search", ArtifactExecutionInfo.AUTHZA_VIEW);
         verbAuthzActionEnumMap = map;
+    }
+
+    @SuppressWarnings("unchecked")
+    public static void nestedRemoveNullsFromResultMap(Map<String, Object> result) {
+        if (result == null) return;
+        Iterator<Map.Entry<String, Object>> iter = result.entrySet().iterator();
+        while (iter.hasNext()) {
+            Map.Entry<String, Object> entry = iter.next();
+            Object value = entry.getValue();
+            if (value == null) { iter.remove(); continue; }
+            if (value instanceof EntityValue) {
+                entry.setValue(CollectionUtilities.removeNullsFromMap(((EntityValue) value).getMap()));
+            } else if (value instanceof EntityList) {
+                entry.setValue(((EntityList) value).getValueMapList());
+            } else if (value instanceof Collection) {
+                boolean foundEv = false;
+                Collection valCol = (Collection) value;
+                for (Object colEntry : valCol) {
+                    if (colEntry instanceof EntityValue) {
+                        foundEv = true;
+                    } else if (colEntry instanceof Map) {
+                        CollectionUtilities.removeNullsFromMap((Map) colEntry);
+                    } else {
+                        break;
+                    }
+                }
+                if (foundEv) {
+                    ArrayList newCol = new ArrayList(valCol.size());
+                    for (Object colEntry : valCol) {
+                        if (colEntry instanceof EntityValue) {
+                            newCol.add(CollectionUtilities.removeNullsFromMap(((EntityValue) colEntry).getMap()));
+                        } else {
+                            newCol.add(colEntry);
+                        }
+                    }
+                    entry.setValue(newCol);
+                }
+            }
+        }
     }
 }

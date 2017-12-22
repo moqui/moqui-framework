@@ -13,10 +13,10 @@
  */
 package org.moqui.entity;
 
+import org.moqui.etl.SimpleEtl;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
-import javax.annotation.Nonnull;
 import javax.sql.rowset.serial.SerialBlob;
 import java.io.Externalizable;
 import java.io.Writer;
@@ -28,9 +28,10 @@ import java.util.Set;
 
 /** Entity Value Interface - Represents a single database record. */
 @SuppressWarnings("unused")
-public interface EntityValue extends Map<String, Object>, Externalizable, Comparable<EntityValue>, Cloneable {
+public interface EntityValue extends Map<String, Object>, Externalizable, Comparable<EntityValue>, Cloneable, SimpleEtl.Entry {
 
     String getEntityName();
+    String getEntityNamePretty();
 
     /** Returns true if any field has been modified */
     boolean isModified();
@@ -210,6 +211,17 @@ public interface EntityValue extends Map<String, Object>, Externalizable, Compar
 
     long findRelatedCount(final String relationshipName, Boolean useCache);
 
+    /** Find all records with a foreign key reference to this record. Operates on relationship definitions for any related entity
+     * that has a type one relationship to this entity.
+     *
+     * Does not recurse, finds directly related (dependant) records only.
+     *
+     * Will skip any related records whose entity name is in skipEntities.
+     *
+     * Useful as a validation before calling deleteWithCascade().
+     */
+    EntityList findRelatedFk(Set<String> skipEntities);
+
     /** Remove the named Related Entity for the EntityValue from the persistent store
      * @param relationshipName String containing the relationship name which is the combination of relationship.title
      *   and relationship.related-entity-name as specified in the entity XML definition file
@@ -217,18 +229,37 @@ public interface EntityValue extends Map<String, Object>, Externalizable, Compar
     void deleteRelated(String relationshipName) throws EntityException;
 
     /** Delete this record plus records for all relationships specified. If any records exist for other relationships not specified
-     * that depend on this record returns false and does not delete anything. Otherwise returns true. */
+     * that depend on this record returns false and does not delete anything.
+     *
+     * Returns true if this and related records were deleted.
+     */
     boolean deleteWithRelated(Set<String> relationshipsToDelete);
 
+    /** Deletes this record and all records that depend on it, doing the same for each (cascading delete).
+     * Deletes related records that depend on this record (records with a foreign key reference to this record).
+     *
+     * To clear the reference (set fields to null) instead of deleting records specify the entity names, related to this or any
+     * related entity, in the clearRefEntities parameter.
+     *
+     * To check for records that should prevent a delete you can optionally pass a Set of entities names in the
+     * validateAllowDeleteEntities parameter. If this is not null an exception will be thrown instead of deleting
+     * any record for an entity NOT in that Set.
+     *
+     * WARNING: this may delete records you don't want to. Look at the nested relationships in the Entity Reference in the
+     * Tools app to see what might might get deleted (anything with a type one relationship to this entity, or recursing
+     * anything with a type one relationship to those).
+     */
+    void deleteWithCascade(Set<String> clearRefEntities, Set<String> validateAllowDeleteEntities);
+
     /**
-     * Checks to see if all foreign key records exist in the database. Will create a dummy value for
-     * those missing when specified.
+     * Checks to see if all foreign key records exist in the database (records this record refers to).
+     * Will attempt to create a dummy value (PK only) for those missing when specified insertDummy is true.
      *
      * @param insertDummy Create a dummy record using the provided fields
      * @return true if all FKs exist (or when all missing are created)
      */
     boolean checkFks(boolean insertDummy) throws EntityException;
-
+    /** Compare this value to the database, adding messages about fields that differ or if the record doesn't exist to messages. */
     long checkAgainstDatabase(List<String> messages);
 
     /** Makes an XML Element object with an attribute for each field of the entity

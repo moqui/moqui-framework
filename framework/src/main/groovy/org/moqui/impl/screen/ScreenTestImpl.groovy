@@ -14,7 +14,8 @@
 package org.moqui.impl.screen
 
 import groovy.transform.CompileStatic
-import org.moqui.BaseException
+import org.apache.shiro.subject.Subject
+import org.moqui.BaseArtifactException
 import org.moqui.util.ContextStack
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
@@ -46,6 +47,7 @@ class ScreenTestImpl implements ScreenTest {
     protected String baseLinkUrl = null
     protected String servletContextPath = null
     protected String webappName = null
+    protected boolean skipJsonSerialize = false
     protected static final String hostname = "localhost"
 
     long renderCount = 0, errorCount = 0, totalChars = 0, startTime = System.currentTimeMillis()
@@ -70,31 +72,27 @@ class ScreenTestImpl implements ScreenTest {
     }
     @Override
     ScreenTest baseScreenPath(String screenPath) {
-        if (!rootScreenLocation) throw new IllegalStateException("No rootScreen specified")
+        if (!rootScreenLocation) throw new BaseArtifactException("No rootScreen specified")
         baseScreenPath = screenPath
         if (baseScreenPath.endsWith("/")) baseScreenPath = baseScreenPath.substring(0, baseScreenPath.length() - 1)
         if (baseScreenPath) {
             baseScreenPathList = ScreenUrlInfo.parseSubScreenPath(rootScreenDef, rootScreenDef, [], baseScreenPath, null, sfi)
-            if (baseScreenPathList == null) throw new BaseException("Error in baseScreenPath, could find not base screen path ${baseScreenPath} under ${rootScreenDef.location}")
+            if (baseScreenPathList == null) throw new BaseArtifactException("Error in baseScreenPath, could find not base screen path ${baseScreenPath} under ${rootScreenDef.location}")
             for (String screenName in baseScreenPathList) {
                 ScreenDefinition.SubscreensItem ssi = baseScreenDef.getSubscreensItem(screenName)
-                if (ssi == null) throw new BaseException("Error in baseScreenPath, could not find ${screenName} under ${baseScreenDef.location}")
+                if (ssi == null) throw new BaseArtifactException("Error in baseScreenPath, could not find ${screenName} under ${baseScreenDef.location}")
                 baseScreenDef = sfi.getScreenDefinition(ssi.location)
-                if (baseScreenDef == null) throw new BaseException("Error in baseScreenPath, could not find screen ${screenName} at ${ssi.location}")
+                if (baseScreenDef == null) throw new BaseArtifactException("Error in baseScreenPath, could not find screen ${screenName} at ${ssi.location}")
             }
         }
         return this
     }
-    @Override
-    ScreenTest renderMode(String outputType) { this.outputType = outputType; return this }
-    @Override
-    ScreenTest encoding(String characterEncoding) { this.characterEncoding = characterEncoding; return this }
-    @Override
-    ScreenTest macroTemplate(String macroTemplateLocation) { this.macroTemplateLocation = macroTemplateLocation; return this }
-    @Override
-    ScreenTest baseLinkUrl(String baseLinkUrl) { this.baseLinkUrl = baseLinkUrl; return this }
-    @Override
-    ScreenTest servletContextPath(String scp) { this.servletContextPath = scp; return this }
+    @Override ScreenTest renderMode(String outputType) { this.outputType = outputType; return this }
+    @Override ScreenTest encoding(String characterEncoding) { this.characterEncoding = characterEncoding; return this }
+    @Override ScreenTest macroTemplate(String macroTemplateLocation) { this.macroTemplateLocation = macroTemplateLocation; return this }
+    @Override ScreenTest baseLinkUrl(String baseLinkUrl) { this.baseLinkUrl = baseLinkUrl; return this }
+    @Override ScreenTest servletContextPath(String scp) { this.servletContextPath = scp; return this }
+    @Override ScreenTest skipJsonSerialize(boolean skip) { this.skipJsonSerialize = skip; return this }
 
     @Override
     ScreenTest webappName(String wan) {
@@ -142,6 +140,7 @@ class ScreenTestImpl implements ScreenTest {
 
         ScreenRender screenRender = (ScreenRender) null
         String outputString = (String) null
+        Object jsonObj = null
         long renderTime = 0
         Map postRenderContext = (Map) null
         protected List<String> errorMessages = []
@@ -159,13 +158,17 @@ class ScreenTestImpl implements ScreenTest {
             ExecutionContextFactoryImpl ecfi = sti.ecfi
             ExecutionContextImpl localEci = ecfi.getEci()
             String username = localEci.userFacade.getUsername()
+            Subject loginSubject = localEci.userFacade.getCurrentSubject()
             boolean authzDisabled = localEci.artifactExecutionFacade.getAuthzDisabled()
             Throwable threadThrown = null
             Thread txThread = Thread.start('ScreenTestRender', {
                 try {
                     ExecutionContextImpl eci = ecfi.getEci()
-                    eci.userFacade.internalLoginUser(username)
+                    if (loginSubject != null) eci.userFacade.internalLoginSubject(loginSubject)
+                    else if (username != null && !username.isEmpty()) eci.userFacade.internalLoginUser(username)
                     if (authzDisabled) eci.artifactExecutionFacade.disableAuthz()
+                    // as this is used for server-side transition calls don't do tarpit checks
+                    eci.artifactExecutionFacade.disableTarpit()
                     renderInternal(eci, this)
                     eci.destroy()
                 } catch (Throwable t) {
@@ -183,7 +186,7 @@ class ScreenTestImpl implements ScreenTest {
             // parse the screenPath
             ArrayList<String> screenPathList = ScreenUrlInfo.parseSubScreenPath(sti.rootScreenDef, sti.baseScreenDef,
                     sti.baseScreenPathList, stri.screenPath, stri.parameters, sti.sfi)
-            if (screenPathList == null) throw new BaseException("Could not find screen path ${stri.screenPath} under base screen ${sti.baseScreenDef.location}")
+            if (screenPathList == null) throw new BaseArtifactException("Could not find screen path ${stri.screenPath} under base screen ${sti.baseScreenDef.location}")
 
             // push the context
             ContextStack cs = eci.getContext()
@@ -203,6 +206,7 @@ class ScreenTestImpl implements ScreenTest {
             if (sti.baseLinkUrl != null && sti.baseLinkUrl.length() > 0) screenRender.baseLinkUrl(sti.baseLinkUrl)
             if (sti.servletContextPath != null && sti.servletContextPath.length() > 0) screenRender.servletContextPath(sti.servletContextPath)
             screenRender.webappName(sti.webappName)
+            if (sti.skipJsonSerialize) wfs.skipJsonSerialize = true
 
             // set the screenPath
             screenRender.screenPath(screenPathList)
@@ -212,6 +216,7 @@ class ScreenTestImpl implements ScreenTest {
                 screenRender.render(wfs.httpServletRequest, wfs.httpServletResponse)
                 // get the response text from the WebFacadeStub
                 stri.outputString = wfs.getResponseText()
+                stri.jsonObj = wfs.getResponseJsonObj()
             } catch (Throwable t) {
                 String errMsg = "Exception in render of ${stri.screenPath}: ${t.toString()}"
                 logger.warn(errMsg, t)
@@ -247,16 +252,12 @@ class ScreenTestImpl implements ScreenTest {
             if (stri.outputString != null) sti.totalChars += stri.outputString.length()
         }
 
-        @Override
-        ScreenRender getScreenRender() { return screenRender }
-        @Override
-        String getOutput() { return outputString }
-        @Override
-        long getRenderTime() { return renderTime }
-        @Override
-        Map getPostRenderContext() { return postRenderContext }
-        @Override
-        List<String> getErrorMessages() { return errorMessages }
+        @Override ScreenRender getScreenRender() { return screenRender }
+        @Override String getOutput() { return outputString }
+        @Override Object getJsonObject() { return jsonObj }
+        @Override long getRenderTime() { return renderTime }
+        @Override Map getPostRenderContext() { return postRenderContext }
+        @Override List<String> getErrorMessages() { return errorMessages }
 
         @Override
         boolean assertContains(String text) {

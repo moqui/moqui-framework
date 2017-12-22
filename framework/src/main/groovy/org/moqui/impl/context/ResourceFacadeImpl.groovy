@@ -15,7 +15,7 @@ package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
 import org.codehaus.groovy.runtime.InvokerHelper
-import org.moqui.BaseException
+import org.moqui.BaseArtifactException
 import org.moqui.context.*
 import org.moqui.impl.context.reference.BaseResourceReference
 import org.moqui.impl.context.renderer.FtlTemplateRenderer
@@ -50,7 +50,7 @@ import javax.xml.transform.sax.SAXResult
 import javax.xml.transform.stream.StreamSource
 
 @CompileStatic
-public class ResourceFacadeImpl implements ResourceFacade {
+class ResourceFacadeImpl implements ResourceFacade {
     protected final static Logger logger = LoggerFactory.getLogger(ResourceFacadeImpl.class)
 
     protected final ExecutionContextFactoryImpl ecfi
@@ -71,7 +71,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
     protected final ArrayList<Integer> templateRendererExtensionsDots = new ArrayList<>()
     protected final Map<String, ScriptRunner> scriptRunners = new HashMap<>()
     protected final ScriptEngineManager scriptEngineManager = new ScriptEngineManager()
-    protected final ToolFactory<org.xml.sax.ContentHandler> xslFoHandlerFactory = null
+    protected final ToolFactory<org.xml.sax.ContentHandler> xslFoHandlerFactory
 
     protected final Map<String, Repository> contentRepositories = new HashMap<>()
     protected final ThreadLocal<Map<String, Session>> contentSessions = new ThreadLocal<Map<String, Session>>()
@@ -134,6 +134,8 @@ public class ResourceFacadeImpl implements ResourceFacade {
             } else {
                 logger.warn("Could not find xsl-fo-handler-factory with name ${resourceFacadeNode.attribute("xsl-fo-handler-factory")}")
             }
+        } else {
+            xslFoHandlerFactory = null
         }
 
         // Setup content repositories
@@ -210,12 +212,16 @@ public class ResourceFacadeImpl implements ResourceFacade {
     @Override ResourceReference getLocationReference(String location) {
         if (location == null) return null
 
+        // version ignored for this call, just strip it
+        int hashIdx = location.indexOf("#")
+        if (hashIdx > 0) location = location.substring(0, hashIdx)
+
         ResourceReference cachedRr = resourceReferenceByLocation.get(location)
         if (cachedRr != null) return cachedRr
 
         String scheme = getLocationScheme(location)
         Class rrClass = resourceReferenceClasses.get(scheme)
-        if (rrClass == null) throw new IllegalArgumentException("Prefix (${scheme}) not supported for location [${location}]")
+        if (rrClass == null) throw new BaseArtifactException("Prefix (${scheme}) not supported for location [${location}]")
 
         ResourceReference rr = (ResourceReference) rrClass.newInstance()
         if (rr instanceof BaseResourceReference) {
@@ -239,21 +245,33 @@ public class ResourceFacadeImpl implements ResourceFacade {
     }
 
     @Override InputStream getLocationStream(String location) {
+        int hashIdx = location.indexOf("#")
+        String versionName = null
+        if (hashIdx > 0) {
+            if ((hashIdx+1) < location.length()) versionName = location.substring(hashIdx+1)
+            location = location.substring(0, hashIdx)
+        }
+
         ResourceReference rr = getLocationReference(location)
         if (rr == null) return null
-        return rr.openStream()
+        return rr.openStream(versionName)
     }
 
     @Override String getLocationText(String location, boolean cache) {
+        int hashIdx = location.indexOf("#")
+        String versionName = (hashIdx > 0 && (hashIdx+1) < location.length()) ? location.substring(hashIdx+1) : null
+
         ResourceReference textRr = getLocationReference(location)
         if (textRr == null) {
             logger.info("Cound not get resource reference for location [${location}], returning empty location text String")
             return ""
         }
+        // don't cache when getting by version
+        if (versionName != null) cache = false
         if (cache) {
             String cachedText
             if (textLocationCache instanceof MCache) {
-                MCache<String, String> mCache = (MCache) textLocationCache;
+                MCache<String, String> mCache = (MCache) textLocationCache
                 // if we have a rr and last modified is newer than the cache entry then throw it out (expire when cached entry
                 //     updated time is older/less than rr.lastModified)
                 cachedText = (String) mCache.get(location, textRr.getLastModified())
@@ -263,16 +281,23 @@ public class ResourceFacadeImpl implements ResourceFacade {
             }
             if (cachedText != null) return cachedText
         }
-        InputStream locStream = textRr.openStream()
+        InputStream locStream = textRr.openStream(versionName)
         if (locStream == null) logger.info("Cannot get text, no resource found at location [${location}]")
         String text = ObjectUtilities.getStreamText(locStream)
         if (cache) textLocationCache.put(location, text)
+        // logger.warn("==== getLocationText at ${location} version ${versionName} text ${text.length() > 100 ? text.substring(0, 100) : text}")
         return text
     }
 
     @Override DataSource getLocationDataSource(String location) {
-        ResourceReference fileResourceRef = getLocationReference(location)
+        int hashIdx = location.indexOf("#")
+        String versionName = null
+        if (hashIdx > 0) {
+            if ((hashIdx+1) < location.length()) versionName = location.substring(hashIdx+1)
+            location = location.substring(0, hashIdx)
+        }
 
+        ResourceReference fileResourceRef = getLocationReference(location)
         TemplateRenderer tr = getTemplateRendererByLocation(fileResourceRef.location)
 
         String fileName = fileResourceRef.fileName
@@ -282,22 +307,26 @@ public class ResourceFacadeImpl implements ResourceFacade {
         boolean isBinary = ResourceReference.isBinaryContentType(fileContentType)
 
         if (isBinary) {
-            return new ByteArrayDataSource(fileResourceRef.openStream(), fileContentType)
+            return new ByteArrayDataSource(fileResourceRef.openStream(versionName), fileContentType)
         } else {
             // not a binary object (hopefully), get the text and pass it over
             if (tr != null) {
+                // NOTE: version ignored here
                 StringWriter sw = new StringWriter()
                 tr.render(fileResourceRef.location, sw)
                 return new ByteArrayDataSource(sw.toString(), fileContentType)
             } else {
                 // no renderer found, just grab the text (cached) and throw it to the writer
-                String text = getLocationText(fileResourceRef.location, true)
+                String textLoc = fileResourceRef.location
+                if (versionName != null && !versionName.isEmpty()) textLoc = textLoc.concat("#").concat(versionName)
+                String text = getLocationText(textLoc, true)
                 return new ByteArrayDataSource(text, fileContentType)
             }
         }
     }
 
     @Override void template(String location, Writer writer) {
+        // NOTE: let version fall through to tr.render() and getLocationText()
         TemplateRenderer tr = getTemplateRendererByLocation(location)
         if (tr != null) {
             tr.render(location, writer)
@@ -310,6 +339,9 @@ public class ResourceFacadeImpl implements ResourceFacade {
 
     static final Set<String> binaryExtensions = new HashSet<>(["png", "jpg", "jpeg", "gif", "pdf", "doc", "docx", "xsl", "xslx"])
     TemplateRenderer getTemplateRendererByLocation(String location) {
+        int hashIdx = location.indexOf("#")
+        if (hashIdx > 0) location = location.substring(0, hashIdx)
+
         // match against extension for template renderer, with as many dots that match as possible (most specific match)
         int lastSlashIndex = location.lastIndexOf("/")
         int dotIndex = location.indexOf(".", lastSlashIndex)
@@ -345,6 +377,10 @@ public class ResourceFacadeImpl implements ResourceFacade {
     }
 
     @Override Object script(String location, String method) {
+        int hashIdx = location.indexOf("#")
+        if (hashIdx > 0) location = location.substring(0, hashIdx)
+        // NOTE: version ignored here
+
         ExecutionContextImpl ec = ecfi.getEci()
         String extension = location.substring(location.lastIndexOf("."))
         ScriptRunner sr = scriptRunners.get(extension)
@@ -354,7 +390,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
         } else {
             // see if the extension is known
             ScriptEngine engine = scriptEngineManager.getEngineByExtension(extension)
-            if (engine == null) throw new IllegalArgumentException("Cannot run script [${location}], unknown extension (not in Moqui Conf file, and unkown to Java ScriptEngineManager).")
+            if (engine == null) throw new BaseArtifactException("Cannot run script [${location}], unknown extension (not in Moqui Conf file, and unkown to Java ScriptEngineManager).")
             return JavaxScriptRunner.bindAndRun(location, ec, engine, ecfi.cacheFacade.getCache("resource.script${extension}.location"))
         }
     }
@@ -371,7 +407,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
             }
             return script(location, method)
         } finally {
-            if (doPushPop) { cs.pop(); cs.pop(); }
+            if (doPushPop) { cs.pop(); cs.pop() }
         }
     }
 
@@ -400,7 +436,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
             script.setBinding(null)
             return result as boolean
         } catch (Exception e) {
-            throw new IllegalArgumentException("Error in condition [${expression}] from [${debugLocation}]", e)
+            throw new BaseArtifactException("Error in condition [${expression}] from [${debugLocation}]", e)
         }
     }
     @Override boolean condition(String expression, String debugLocation, Map additionalContext) {
@@ -416,7 +452,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
             }
             return conditionInternal(expression, debugLocation, ec)
         } finally {
-            if (doPushPop) { cs.pop(); cs.pop(); }
+            if (doPushPop) { cs.pop(); cs.pop() }
         }
     }
 
@@ -430,7 +466,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
             script.setBinding(null)
             return result
         } catch (Exception e) {
-            throw new IllegalArgumentException("Error in field expression [${expression}] from [${debugLocation}]", e)
+            throw new BaseArtifactException("Error in field expression [${expression}] from [${debugLocation}]", e)
         }
     }
     @Override Object expression(String expr, String debugLocation, Map additionalContext) {
@@ -446,7 +482,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
             }
             return expressionInternal(expr, debugLocation, ec)
         } finally {
-            if (doPushPop) { cs.pop(); cs.pop(); }
+            if (doPushPop) { cs.pop(); cs.pop() }
         }
     }
 
@@ -489,10 +525,10 @@ public class ResourceFacadeImpl implements ResourceFacade {
                 script.setBinding(null)
                 return result as String
             } catch (Exception e) {
-                throw new IllegalArgumentException("Error in string expression [${expression}] from ${debugLocation}", e)
+                throw new BaseArtifactException("Error in string expression [${expression}] from ${debugLocation}", e)
             }
         } finally {
-            if (doPushPop) { cs.pop(); cs.pop(); }
+            if (doPushPop) { cs.pop(); cs.pop() }
         }
     }
 
@@ -530,7 +566,7 @@ public class ResourceFacadeImpl implements ResourceFacade {
 
     @Override
     void xslFoTransform(StreamSource xslFoSrc, StreamSource xsltSrc, OutputStream out, String contentType) {
-        if (xslFoHandlerFactory == null) throw new BaseException("No XSL-FO Handler ToolFactory found (from resource-facade.@xsl-fo-handler-factory)")
+        if (xslFoHandlerFactory == null) throw new BaseArtifactException("No XSL-FO Handler ToolFactory found (from resource-facade.@xsl-fo-handler-factory)")
 
         TransformerFactory factory = TransformerFactory.newInstance()
         factory.setURIResolver(new LocalResolver(ecfi, factory.getURIResolver()))
@@ -543,16 +579,12 @@ public class ResourceFacadeImpl implements ResourceFacade {
         // There's a ThreadLocal memory leak in XALANJ, reported in 2005 but still not fixed in 2016
         // The memory it prevent GC depend on the fo file size and the thread pool size. So use a separate thread to workaround.
         // https://issues.apache.org/jira/browse/XALANJ-2195
-        BaseException transformException = null
-        Thread transThread = new Thread("XSL-FO Transform") {
-            @Override public void run() {
-                try {
-                    transformer.transform(xslFoSrc, new SAXResult(contentHandler))
-                } catch (Throwable t) {
-                    transformException = new BaseException("Error transforming XSL-FO to ${contentType}", t)
-                }
-            }
-        }
+        BaseArtifactException transformException = null
+        ExecutionContextImpl.ThreadPoolRunnable runnable = new ExecutionContextImpl.ThreadPoolRunnable(ecfi.getEci(), {
+            try { transformer.transform(xslFoSrc, new SAXResult(contentHandler)) }
+            catch (Throwable t) { transformException = new BaseArtifactException("Error transforming XSL-FO to ${contentType}", t) }
+        })
+        Thread transThread = new Thread(runnable)
         transThread.start()
         transThread.join()
         if (transformException != null) throw transformException
@@ -563,12 +595,12 @@ public class ResourceFacadeImpl implements ResourceFacade {
         protected ExecutionContextFactoryImpl ecfi
         protected URIResolver defaultResolver
 
-        public LocalResolver(ExecutionContextFactoryImpl ecfi, URIResolver defaultResolver) {
+        LocalResolver(ExecutionContextFactoryImpl ecfi, URIResolver defaultResolver) {
             this.ecfi = ecfi
             this.defaultResolver = defaultResolver
         }
 
-        public Source resolve(String href, String base) {
+        Source resolve(String href, String base) {
             // try plain href
             ResourceReference rr = ecfi.resourceFacade.getLocationReference(href)
 

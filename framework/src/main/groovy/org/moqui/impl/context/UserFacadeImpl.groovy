@@ -1,12 +1,12 @@
 /*
- * This software is in the public domain under CC0 1.0 Universal plus a 
+ * This software is in the public domain under CC0 1.0 Universal plus a
  * Grant of Patent License.
- * 
+ *
  * To the extent possible under law, the author(s) have dedicated all
  * copyright and related and neighboring rights to this software to the
  * public domain worldwide. This software is distributed without any
  * warranty.
- * 
+ *
  * You should have received a copy of the CC0 Public Domain Dedication
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
@@ -22,6 +22,7 @@ import org.moqui.impl.screen.ScreenUrlInfo
 import org.moqui.impl.util.MoquiShiroRealm
 import org.moqui.util.MNode
 import org.moqui.util.StringUtilities
+import org.moqui.util.WebUtilities
 
 import javax.websocket.server.HandshakeRequest
 import java.sql.Timestamp
@@ -58,6 +59,8 @@ class UserFacadeImpl implements UserFacade {
 
     // there may be non-web visits, so keep a copy of the visitId here
     protected String visitId = (String) null
+    protected EntityValue visitInternal = (EntityValue) null
+    protected String visitorIdInternal = (String) null
 
     // we mostly want this for the Locale default, and may be useful for other things
     protected HttpServletRequest request = (HttpServletRequest) null
@@ -86,18 +89,31 @@ class UserFacadeImpl implements UserFacade {
         this.response = response
         this.session = request.getSession()
 
+        String preUsername = getUsername()
         Subject webSubject = makeEmptySubject()
         if (webSubject.authenticated) {
+            if (preUsername != null && !preUsername.isEmpty()) {
+                String sesUsername = (String) webSubject.getPrincipal()
+                if (!preUsername.equals(sesUsername)) {
+                    logger.warn("Found user ${sesUsername} in session but UserFacade has user ${preUsername}, popping user")
+                    popUser()
+                }
+            }
             // effectively login the user
             pushUserSubject(webSubject)
             if (logger.traceEnabled) logger.trace("For new request found user [${username}] in the session")
         } else {
             if (logger.traceEnabled) logger.trace("For new request NO user authenticated in the session")
+            if (preUsername != null && !preUsername.isEmpty()) {
+                logger.warn("Found NO user in session but UserFacade has user ${preUsername}, popping user")
+                popUser()
+            }
         }
 
         // check for HTTP Basic Authorization for Authentication purposes
         // NOTE: do this even if there is another user logged in, will go on stack
-        Map secureParameters = eci.webImpl.getSecureRequestParameters()
+        Map secureParameters = eci.webImpl != null ? eci.webImpl.getSecureRequestParameters() :
+                WebUtilities.simplifyRequestParameters(request, true)
         String authzHeader = request.getHeader("Authorization")
         if (authzHeader != null && authzHeader.length() > 6 && authzHeader.startsWith("Basic ")) {
             String basicAuthEncoded = authzHeader.substring(6).trim()
@@ -126,9 +142,12 @@ class UserFacadeImpl implements UserFacade {
         if (eci.messageFacade.hasError()) request.setAttribute("moqui.login.error", "true")
 
         this.visitId = session.getAttribute("moqui.visitId")
-        if (!this.visitId && !eci.getSkipStats()) {
+        // NOTE: only tracking Visitor and Visit if there is a WebFacadeImpl in place
+        if (eci.webImpl != null && !this.visitId && !eci.getSkipStats()) {
             MNode serverStatsNode = eci.ecfi.getServerStatsNode()
             ScreenUrlInfo sui = ScreenUrlInfo.getScreenUrlInfo(eci.screenFacade, request)
+            // before doing anything with the visit, etc make sure exists
+            sui.checkExists()
             boolean isJustContent = sui.fileResourceRef != null
 
             // handle visitorId and cookie
@@ -166,12 +185,13 @@ class UserFacadeImpl implements UserFacade {
                     response.addCookie(visitorCookie)
                 }
             }
+            visitorIdInternal = cookieVisitorId
 
             if (!isJustContent && !"false".equals(serverStatsNode.attribute('visit-enabled'))) {
                 // create and persist Visit
                 String contextPath = session.getServletContext().getContextPath()
                 String webappId = contextPath.length() > 1 ? contextPath.substring(1) : "ROOT"
-                String fullUrl = eci.web.requestUrl
+                String fullUrl = eci.webImpl.requestUrl
                 fullUrl = (fullUrl.length() > 255) ? fullUrl.substring(0, 255) : fullUrl.toString()
                 Map<String, Object> parameters = new HashMap<String, Object>([sessionId:session.id, webappName:webappId,
                         fromDate:new Timestamp(session.getCreationTime()),
@@ -185,8 +205,9 @@ class UserFacadeImpl implements UserFacade {
                 parameters.serverHostName = address?.getHostName() ?: "localhost"
 
                 // handle proxy original address, if exists
-                if (request.getHeader("X-Forwarded-For")) {
-                    parameters.clientIpAddress = request.getHeader("X-Forwarded-For")
+                String forwardedFor = request.getHeader("X-Forwarded-For")
+                if (forwardedFor != null && !forwardedFor.isEmpty()) {
+                    parameters.clientIpAddress = forwardedFor.split(",")[0].trim()
                 } else {
                     parameters.clientIpAddress = request.getRemoteAddr()
                 }
@@ -258,11 +279,8 @@ class UserFacadeImpl implements UserFacade {
     }
 
 
-    @Override
-    Locale getLocale() { return currentInfo.localeCache }
-
-    @Override
-    void setLocale(Locale locale) {
+    @Override Locale getLocale() { return currentInfo.localeCache }
+    @Override void setLocale(Locale locale) {
         if (currentInfo.userAccount != null) {
             eci.transaction.runUseOrBegin(null, "Error saving locale", {
                 boolean alreadyDisabled = eci.getArtifactExecution().disableAuthz()
@@ -276,17 +294,13 @@ class UserFacadeImpl implements UserFacade {
         currentInfo.localeCache = locale
     }
 
-    @Override
-    TimeZone getTimeZone() { return currentInfo.tzCache }
-
+    @Override TimeZone getTimeZone() { return currentInfo.tzCache }
     Calendar getCalendarSafe() {
         return Calendar.getInstance(currentInfo.tzCache != null ? currentInfo.tzCache : TimeZone.getDefault(),
                 currentInfo.localeCache != null ? currentInfo.localeCache :
                         (request != null ? request.getLocale() : Locale.getDefault()))
     }
-
-    @Override
-    void setTimeZone(TimeZone tz) {
+    @Override void setTimeZone(TimeZone tz) {
         if (currentInfo.userAccount != null) {
             eci.transaction.runUseOrBegin(null, "Error saving timeZone", {
                 boolean alreadyDisabled = eci.getArtifactExecution().disableAuthz()
@@ -300,11 +314,8 @@ class UserFacadeImpl implements UserFacade {
         currentInfo.tzCache = tz
     }
 
-    @Override
-    String getCurrencyUomId() { return currentInfo.currencyUomId }
-
-    @Override
-    void setCurrencyUomId(String uomId) {
+    @Override String getCurrencyUomId() { return currentInfo.currencyUomId }
+    @Override void setCurrencyUomId(String uomId) {
         if (currentInfo.userAccount != null) {
             eci.transaction.runUseOrBegin(null, "Error saving currencyUomId", {
                 boolean alreadyDisabled = eci.getArtifactExecution().disableAuthz()
@@ -318,27 +329,23 @@ class UserFacadeImpl implements UserFacade {
         currentInfo.currencyUomId = uomId
     }
 
-    @Override
-    String getPreference(String preferenceKey) {
+    @Override String getPreference(String preferenceKey) {
         String userId = getUserId()
-        if (!userId) return null
         return getPreference(preferenceKey, userId)
     }
-
     String getPreference(String preferenceKey, String userId) {
-        EntityValue up = eci.entityFacade.fastFindOne("moqui.security.UserPreference", true, true, userId, preferenceKey)
+        EntityValue up = userId != null ? eci.entityFacade.fastFindOne("moqui.security.UserPreference", true, true, userId, preferenceKey) : null
         if (up == null) {
             // try UserGroupPreference
             EntityList ugpList = eci.getEntity().find("moqui.security.UserGroupPreference")
                     .condition("userGroupId", EntityCondition.IN, getUserGroupIdSet(userId))
                     .condition("preferenceKey", preferenceKey).useCache(true).disableAuthz().list()
-            if (ugpList) up = ugpList.first
+            if (ugpList != null && ugpList.size() > 0) up = ugpList.get(0)
         }
         return up?.preferenceValue
     }
 
-    @Override
-    void setPreference(String preferenceKey, String preferenceValue) {
+    @Override void setPreference(String preferenceKey, String preferenceValue) {
         String userId = getUserId()
         if (!userId) throw new IllegalStateException("Cannot set preference with key [${preferenceKey}], no user logged in.")
         boolean alreadyDisabled = eci.getArtifactExecution().disableAuthz()
@@ -354,55 +361,97 @@ class UserFacadeImpl implements UserFacade {
         }
     }
 
-    @Override
-    Map<String, Object> getContext() { return currentInfo.getUserContext() }
+    @Override Map<String, Object> getContext() { return currentInfo.getUserContext() }
 
-    @Override
-    Timestamp getNowTimestamp() {
+    @Override Timestamp getNowTimestamp() {
         // NOTE: review Timestamp and nowTimestamp use, have things use this by default (except audit/etc where actual date/time is needed
         return ((Object) this.effectiveTime != null) ? this.effectiveTime : new Timestamp(System.currentTimeMillis())
     }
 
-    @Override
-    Calendar getNowCalendar() {
+    @Override Calendar getNowCalendar() {
         Calendar nowCal = getCalendarSafe()
         nowCal.setTimeInMillis(getNowTimestamp().getTime())
         return nowCal
     }
 
-    @Override
-    List<Timestamp> getPeriodRange(String period, String poffset) {
-        period = (period ?: "day").toLowerCase()
+    @Override ArrayList<Timestamp> getPeriodRange(String period, String poffset) { return getPeriodRange(period, poffset, null) }
+    @Override ArrayList<Timestamp> getPeriodRange(String period, String poffset, String pdate) {
         int offset = (poffset ?: "0") as int
+        java.sql.Date sqlDate = (pdate != null && !pdate.isEmpty()) ? eci.l10nFacade.parseDate(pdate, null) : null
+        return getPeriodRange(period, offset, sqlDate)
+    }
+    @Override ArrayList<Timestamp> getPeriodRange(String period, int offset, java.sql.Date sqlDate) {
+        period = (period ?: "day").toLowerCase()
+        boolean perIsNumber = Character.isDigit(period.charAt(0))
 
         Calendar basisCal = getCalendarSafe()
-        basisCal.set(Calendar.HOUR_OF_DAY, 0); basisCal.set(Calendar.MINUTE, 0);
-        basisCal.set(Calendar.SECOND, 0); basisCal.set(Calendar.MILLISECOND, 0);
+        if (sqlDate != null) basisCal.setTimeInMillis(sqlDate.getTime())
+        basisCal.set(Calendar.HOUR_OF_DAY, 0); basisCal.set(Calendar.MINUTE, 0)
+        basisCal.set(Calendar.SECOND, 0); basisCal.set(Calendar.MILLISECOND, 0)
         // this doesn't seem to work to set the time to midnight: basisCal.setTime(new java.sql.Date(nowTimestamp.time))
-        Calendar fromCal = basisCal
+        Calendar fromCal = (Calendar) basisCal.clone()
         Calendar thruCal
-        if (period == "week") {
+        if (perIsNumber && period.endsWith("d")) {
+            int days = Integer.parseInt(period.substring(0, period.length() - 1))
+            if (offset < 0) {
+                fromCal.add(Calendar.DAY_OF_YEAR, offset * days)
+                thruCal = (Calendar) basisCal.clone()
+                // also include today (or anchor date in pdate)
+                thruCal.add(Calendar.DAY_OF_YEAR, 1)
+            } else {
+                // fromCal already set to basisCal, just set thruCal
+                thruCal = (Calendar) basisCal.clone()
+                thruCal.add(Calendar.DAY_OF_YEAR, (offset + 1) * days)
+            }
+        } else if (perIsNumber && period.endsWith("r")) {
+            int days = Integer.parseInt(period.substring(0, period.length() - 1))
+            if (offset < 0) offset = -offset
+            fromCal.add(Calendar.DAY_OF_YEAR, -offset * days)
+            thruCal = (Calendar) basisCal.clone()
+            thruCal.add(Calendar.DAY_OF_YEAR, offset * days)
+        } else if (period == "week") {
             fromCal.set(Calendar.DAY_OF_WEEK, fromCal.getFirstDayOfWeek())
             fromCal.add(Calendar.WEEK_OF_YEAR, offset)
             thruCal = (Calendar) fromCal.clone()
             thruCal.add(Calendar.WEEK_OF_YEAR, 1)
-        } else if (period == "7d") {
-            fromCal.add(Calendar.DAY_OF_YEAR, offset * 7)
-            thruCal = (Calendar) fromCal.clone()
-            thruCal.add(Calendar.DAY_OF_YEAR, 7)
-            // have last 7d also include today (like 30d)
-            if (offset == -1) thruCal.add(Calendar.DAY_OF_YEAR, 1)
+        } else if (period == "weeks") {
+            if (offset < 0) {
+                // from end of month of basis date go back offset months (add negative offset to from after copying for thru)
+                fromCal.set(Calendar.DAY_OF_WEEK, fromCal.getFirstDayOfWeek())
+                thruCal = (Calendar) fromCal.clone()
+                thruCal.add(Calendar.WEEK_OF_YEAR, 1)
+                fromCal.add(Calendar.WEEK_OF_YEAR, offset + 1)
+            } else {
+                // from beginning of month of basis date go forward offset months (add offset to thru)
+                fromCal.set(Calendar.DAY_OF_WEEK, fromCal.getFirstDayOfWeek())
+                thruCal = (Calendar) fromCal.clone()
+                thruCal.add(Calendar.WEEK_OF_YEAR, offset == 0 ? 1 : offset)
+            }
         } else if (period == "month") {
             fromCal.set(Calendar.DAY_OF_MONTH, fromCal.getActualMinimum(Calendar.DAY_OF_MONTH))
             fromCal.add(Calendar.MONTH, offset)
             thruCal = (Calendar) fromCal.clone()
             thruCal.add(Calendar.MONTH, 1)
-        } else if (period == "30d") {
-            fromCal.add(Calendar.DAY_OF_YEAR, offset * 30)
+        } else if (period == "months") {
+            if (offset < 0) {
+                // from end of month of basis date go back offset months (add negative offset to from after copying for thru)
+                fromCal.set(Calendar.DAY_OF_MONTH, fromCal.getActualMinimum(Calendar.DAY_OF_MONTH))
+                thruCal = (Calendar) fromCal.clone()
+                thruCal.add(Calendar.MONTH, 1)
+                fromCal.add(Calendar.MONTH, offset + 1)
+            } else {
+                // from beginning of month of basis date go forward offset months (add offset to thru)
+                fromCal.set(Calendar.DAY_OF_MONTH, fromCal.getActualMinimum(Calendar.DAY_OF_MONTH))
+                thruCal = (Calendar) fromCal.clone()
+                thruCal.add(Calendar.MONTH, offset == 0 ? 1 : offset)
+            }
+        } else if (period == "quarter") {
+            fromCal.set(Calendar.DAY_OF_MONTH, fromCal.getActualMinimum(Calendar.DAY_OF_MONTH))
+            int quarterNumber = (fromCal.get(Calendar.MONTH) / 3) as int
+            fromCal.set(Calendar.MONTH, (quarterNumber * 3))
+            fromCal.add(Calendar.MONTH, (offset * 3))
             thruCal = (Calendar) fromCal.clone()
-            thruCal.add(Calendar.DAY_OF_YEAR, 30)
-            // have last 30d also include today to make it a more useful default
-            if (offset == -1) thruCal.add(Calendar.DAY_OF_YEAR, 1)
+            thruCal.add(Calendar.MONTH, 3)
         } else if (period == "year") {
             fromCal.set(Calendar.DAY_OF_YEAR, fromCal.getActualMinimum(Calendar.DAY_OF_YEAR))
             fromCal.add(Calendar.YEAR, offset)
@@ -415,25 +464,55 @@ class UserFacadeImpl implements UserFacade {
             thruCal.add(Calendar.DAY_OF_YEAR, 1)
         }
 
-        return [new Timestamp(fromCal.getTimeInMillis()), new Timestamp(thruCal.getTimeInMillis())]
+        ArrayList<Timestamp> rangeList = new ArrayList<>(2)
+        rangeList.add(new Timestamp(fromCal.getTimeInMillis()))
+        rangeList.add(new Timestamp(thruCal.getTimeInMillis()))
+        return rangeList
     }
 
-    @Override
-    void setEffectiveTime(Timestamp effectiveTime) { this.effectiveTime = effectiveTime }
+    @Override String getPeriodDescription(String period, String poffset, String pdate) {
+        ArrayList<Timestamp> rangeList = getPeriodRange(period, poffset, pdate)
+        StringBuilder desc = new StringBuilder()
+        if (poffset == "0") desc.append(eci.getL10n().localize("This"))
+        else if (poffset == "-1") desc.append(eci.getL10n().localize("Last"))
+        else if (poffset == "1") desc.append(eci.getL10n().localize("Next"))
+        else desc.append(poffset)
+        desc.append(' ')
 
-    @Override
-    boolean loginUser(String username, String password) {
+        if (period == "day") desc.append(eci.getL10n().localize("Day"))
+        else if (period == "7d") desc.append('7 ').append(eci.getL10n().localize("Days"))
+        else if (period == "30d") desc.append('30 ').append(eci.getL10n().localize("Days"))
+        else if (period == "week") desc.append(eci.getL10n().localize("Week"))
+        else if (period == "weeks") desc.append(eci.getL10n().localize("Weeks"))
+        else if (period == "month") desc.append(eci.getL10n().localize("Month"))
+        else if (period == "months") desc.append(eci.getL10n().localize("Months"))
+        else if (period == "quarter") desc.append(eci.getL10n().localize("Quarter"))
+        else if (period == "year") desc.append(eci.getL10n().localize("Year"))
+        else if (period == "7r") desc.append("+/-7d")
+        else if (period == "30r") desc.append("+/-30d")
+
+        if (pdate) desc.append(" ").append(eci.getL10n().localize("from##period")).append(" ").append(pdate)
+
+        desc.append(" (").append(eci.l10n.format(rangeList[0], 'yyyy-MM-dd')).append(' ')
+                .append(eci.getL10n().localize("to##period")).append(' ')
+                .append(eci.l10n.format(rangeList[1] - 1, 'yyyy-MM-dd')).append(')')
+
+        return desc.toString()
+    }
+
+    @Override void setEffectiveTime(Timestamp effectiveTime) { this.effectiveTime = effectiveTime }
+
+    @Override boolean loginUser(String username, String password) {
         if (username == null || username.isEmpty()) {
-            eci.message.addError(eci.l10n.localize("No username specified"))
+            eci.messageFacade.addError(eci.l10n.localize("No username specified"))
             return false
         }
         if (password == null || password.isEmpty()) {
-            eci.message.addError(eci.l10n.localize("No password specified"))
+            eci.messageFacade.addError(eci.l10n.localize("No password specified"))
             return false
         }
 
-        UsernamePasswordToken token = new UsernamePasswordToken(username, password)
-        token.rememberMe = true
+        UsernamePasswordToken token = new UsernamePasswordToken(username, password, true)
         Subject loginSubject = makeEmptySubject()
         try {
             loginSubject.login(token)
@@ -451,8 +530,7 @@ class UserFacadeImpl implements UserFacade {
             // others to consider handling differently (these all inherit from AuthenticationException):
             //     UnknownAccountException, IncorrectCredentialsException, ExpiredCredentialsException,
             //     CredentialsException, LockedAccountException, DisabledAccountException, ExcessiveAttemptsException
-            eci.message.addError(ae.message)
-            logger.warn("Login failure: ${eci.message.errorsString}", ae)
+            eci.messageFacade.addError(ae.message)
             return false
         }
 
@@ -466,52 +544,49 @@ class UserFacadeImpl implements UserFacade {
             return false
         }
 
-        // since this doesn't go through the Shiro realm and do validations, do them now
+        UsernamePasswordToken token = new MoquiShiroRealm.ForceLoginToken(username, true)
+        Subject loginSubject = makeEmptySubject()
         try {
-            EntityValue newUserAccount = MoquiShiroRealm.loginPrePassword(eci, username)
-            MoquiShiroRealm.loginPostPassword(eci, newUserAccount)
-            // don't save the history, this is used for async/scheduled service calls and often has ms time conflicts
-            // also used in REST and other API calls with login key, high volume and better not to save
-            // MoquiShiroRealm.loginAfterAlways(eci, (String) newUserAccount.userId, null, true)
+            loginSubject.login(token)
+
+            // do this first so that the rest will be done as this user
+            // just in case there is already a user authenticated push onto a stack to remember
+            pushUserSubject(loginSubject)
+
+            // after successful login trigger the after-login actions
+            if (eci.getWebImpl() != null) {
+                eci.getWebImpl().runAfterLoginActions()
+                eci.getWebImpl().getRequest().setAttribute("moqui.request.authenticated", "true")
+            }
         } catch (AuthenticationException ae) {
-            // others to consider handling differently (these all inherit from AuthenticationException):
-            //     UnknownAccountException, IncorrectCredentialsException, ExpiredCredentialsException,
-            //     CredentialsException, LockedAccountException, DisabledAccountException, ExcessiveAttemptsException
             eci.messageFacade.addError(ae.message)
-            logger.warn("Login failure: ${eci.message.errorsString}", ae)
             return false
-        }
-
-        // do this first so that the rest will be done as this user
-        // just in case there is already a user authenticated push onto a stack to remember
-        pushUser(username)
-
-        // after successful login trigger the after-login actions
-        if (eci.getWebImpl() != null) {
-            eci.getWebImpl().runAfterLoginActions()
-            eci.getWebImpl().getRequest().setAttribute("moqui.request.authenticated", "true")
         }
 
         return true
     }
+    /** For internal use only, quick login using a Subject already logged in from another thread, etc */
+    boolean internalLoginSubject(Subject loginSubject) {
+        if (loginSubject == null || !loginSubject.getPrincipal() || !loginSubject.isAuthenticated()) return false
+        pushUserSubject(loginSubject)
+        return true
+    }
 
-    @Override
-    void logoutUser() {
+    @Override void logoutUser() {
         // before logout trigger the before-logout actions
         if (eci.getWebImpl() != null) eci.getWebImpl().runBeforeLogoutActions()
 
         popUser()
     }
 
-    @Override
-    boolean loginUserKey(String loginKey) {
+    @Override boolean loginUserKey(String loginKey) {
         if (!loginKey) {
             eci.message.addError(eci.l10n.localize("No login key specified"))
             return false
         }
 
         // lookup login key, by hashed key
-        String hashedKey = eci.ecfi.getSimpleHash(loginKey, "", eci.ecfi.getLoginKeyHashType())
+        String hashedKey = eci.ecfi.getSimpleHash(loginKey, "", eci.ecfi.getLoginKeyHashType(), false)
         EntityValue userLoginKey = eci.getEntity().find("moqui.security.UserLoginKey")
                 .condition("loginKey", hashedKey).disableAuthz().one()
 
@@ -533,8 +608,7 @@ class UserFacadeImpl implements UserFacade {
                 .condition("userId", userLoginKey.userId).disableAuthz().one()
         return internalLoginUser(userAccount.getString("username"))
     }
-    @Override
-    String getLoginKey() {
+    @Override String getLoginKey() {
         String userId = getUserId()
         if (!userId) throw new IllegalStateException("No active user, cannot get login key")
 
@@ -542,7 +616,7 @@ class UserFacadeImpl implements UserFacade {
         String loginKey = StringUtilities.getRandomString(40)
 
         // save hashed in UserLoginKey, calc expire and set from/thru dates
-        String hashedKey = eci.ecfi.getSimpleHash(loginKey, "", eci.ecfi.getLoginKeyHashType())
+        String hashedKey = eci.ecfi.getSimpleHash(loginKey, "", eci.ecfi.getLoginKeyHashType(), false)
         int expireHours = eci.ecfi.getLoginKeyExpireHours()
         Timestamp fromDate = getNowTimestamp()
         long thruTime = fromDate.getTime() + (expireHours * 60*60*1000)
@@ -557,8 +631,7 @@ class UserFacadeImpl implements UserFacade {
         return loginKey
     }
 
-    @Override
-    boolean loginAnonymousIfNoUser() {
+    @Override boolean loginAnonymousIfNoUser() {
         if (currentInfo.username == null && !currentInfo.loggedInAnonymous) {
             currentInfo.loggedInAnonymous = true
             return true
@@ -569,8 +642,8 @@ class UserFacadeImpl implements UserFacade {
     void logoutAnonymousOnly() { currentInfo.loggedInAnonymous = false }
     boolean getLoggedInAnonymous() { return currentInfo.loggedInAnonymous }
 
-    @Override
-    boolean hasPermission(String userPermissionId) { return hasPermissionById(getUserId(), userPermissionId, getNowTimestamp(), eci) }
+    @Override boolean hasPermission(String userPermissionId) {
+        return hasPermissionById(getUserId(), userPermissionId, getNowTimestamp(), eci) }
 
     static boolean hasPermission(String username, String userPermissionId, Timestamp whenTimestamp, ExecutionContextImpl eci) {
         EntityValue ua = eci.entityFacade.fastFindOne("moqui.security.UserAccount", true, true, username)
@@ -587,8 +660,7 @@ class UserFacadeImpl implements UserFacade {
                 .filterByDate("permissionFromDate", "permissionThruDate", whenTimestamp)) as boolean
     }
 
-    @Override
-    boolean isInGroup(String userGroupId) { return isInGroup(getUserId(), userGroupId, getNowTimestamp(), eci) }
+    @Override boolean isInGroup(String userGroupId) { return isInGroup(getUserId(), userGroupId, getNowTimestamp(), eci) }
 
     static boolean isInGroup(String username, String userGroupId, Timestamp whenTimestamp, ExecutionContextImpl eci) {
         EntityValue ua = eci.entityFacade.fastFindOne("moqui.security.UserAccount", true, true, username)
@@ -603,8 +675,7 @@ class UserFacadeImpl implements UserFacade {
                 .useCache(true).disableAuthz().list().filterByDate("fromDate", "thruDate", whenTimestamp)) as boolean
     }
 
-    @Override
-    Set<String> getUserGroupIdSet() {
+    @Override Set<String> getUserGroupIdSet() {
         // first get the groups the user is in (cached), always add the "ALL_USERS" group to it
         if (!currentInfo.userId) return allUserGroupIdOnly
         if (currentInfo.internalUserGroupIdSet == null) currentInfo.internalUserGroupIdSet = getUserGroupIdSet(currentInfo.userId)
@@ -655,25 +726,23 @@ class UserFacadeImpl implements UserFacade {
         return currentInfo.internalArtifactAuthzCheckList
     }
 
-    @Override
-    String getUserId() { return currentInfo.userId }
+    @Override String getUserId() { return currentInfo.userId }
+    @Override String getUsername() { return currentInfo.username }
+    @Override EntityValue getUserAccount() { return currentInfo.getUserAccount() }
 
-    @Override
-    String getUsername() { return currentInfo.username }
-
-    @Override
-    EntityValue getUserAccount() { return currentInfo.getUserAccount() }
-
-    @Override
-    String getVisitUserId() { return visitId ? getVisit().userId : null }
-
-    @Override
-    String getVisitId() { return visitId }
-
-    @Override
-    EntityValue getVisit() {
+    @Override String getVisitUserId() { return visitId ? getVisit().userId : null }
+    @Override String getVisitId() { return visitId }
+    @Override EntityValue getVisit() {
+        if (visitInternal != null) return visitInternal
         if (visitId == null || visitId.isEmpty()) return null
-        return eci.entityFacade.fastFindOne("moqui.server.Visit", true, true, visitId)
+        visitInternal = eci.entityFacade.fastFindOne("moqui.server.Visit", false, true, visitId)
+        return visitInternal
+    }
+    @Override String getVisitorId() {
+        if (visitorIdInternal != null) return visitorIdInternal
+        EntityValue visitLocal = getVisit()
+        visitorIdInternal = visitLocal != null ? visitLocal.getNoCheckSimple("visitorId") : null
+        return visitorIdInternal
     }
 
     // ========== UserInfo ==========
@@ -684,8 +753,7 @@ class UserFacadeImpl implements UserFacade {
         return userInfo
     }
     UserInfo pushUser(String username) {
-        if (currentInfo != null && currentInfo.username == username)
-            return currentInfo
+        if (currentInfo != null && currentInfo.username == username) return currentInfo
 
         if (currentInfo == null || currentInfo.isPopulated()) {
             // logger.info("Pushing UserInfo for ${username} to stack, was ${currentInfo.username}")
@@ -698,6 +766,7 @@ class UserFacadeImpl implements UserFacade {
             return currentInfo
         }
     }
+    Subject getCurrentSubject() { return currentInfo.subject != null && currentInfo.subject.isAuthenticated() ? currentInfo.subject : null }
     void popUser() {
         if (currentInfo.subject != null && currentInfo.subject.isAuthenticated()) currentInfo.subject.logout()
         userInfoStack.removeFirst()
@@ -760,9 +829,9 @@ class UserFacadeImpl implements UserFacade {
 
                 String localeStr = ua.locale
                 if (localeStr != null && localeStr.length() > 0) {
-                    localeCache = localeStr.contains("_") ?
-                        new Locale(localeStr.substring(0, localeStr.indexOf("_")), localeStr.substring(localeStr.indexOf("_")+1).toUpperCase()) :
-                        new Locale(localeStr)
+                    int usIdx = localeStr.indexOf("_")
+                    localeCache = usIdx < 0 ? new Locale(localeStr) :
+                            new Locale(localeStr.substring(0, usIdx), localeStr.substring(usIdx+1).toUpperCase())
                 } else {
                     localeCache = ufi.request != null ? ufi.request.getLocale() : Locale.getDefault()
                 }

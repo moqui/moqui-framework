@@ -101,4 +101,31 @@ class EntityCrud extends Specification {
         then:
         testEntityCheck == null
     }
+
+    def "delete EnumerationType cascade"() {
+        when:
+        ec.entity.makeValue("moqui.basic.EnumerationType").setAll([enumTypeId:"TEST_DEL_ET", description:"Test delete enum type"]).create()
+        ec.entity.makeValue("moqui.basic.Enumeration").setAll([enumId:"TDELEN1", enumTypeId:"TEST_DEL_ET", description:"Test delete enum 1"]).create()
+        ec.entity.makeValue("moqui.basic.Enumeration").setAll([enumId:"TDELEN2", enumTypeId:"TEST_DEL_ET", description:"Test delete enum 2"]).create()
+
+        EntityValue enumType = ec.entity.find("moqui.basic.EnumerationType").condition("enumTypeId", "TEST_DEL_ET").one()
+        EntityList enumsBefore = enumType.findRelatedFk(null)
+        boolean gotExpectedError = false
+        try {
+            enumType.deleteWithCascade(null, new HashSet<String>())
+        } catch (EntityException e) {
+            gotExpectedError = true
+        }
+        EntityList enumsBetween = enumType.findRelatedFk(null)
+        enumType.deleteWithCascade(null, null)
+        EntityValue enumTypeAfter = ec.entity.find("moqui.basic.EnumerationType").condition("enumTypeId", "TEST_DEL_ET").one()
+        EntityList enumsAfter = enumType.findRelatedFk(null)
+
+        then:
+        enumsBefore.size() == 2
+        gotExpectedError
+        enumsBetween.size() == 2
+        enumTypeAfter == null
+        enumsAfter.size() == 0
+    }
 }

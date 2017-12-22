@@ -19,6 +19,7 @@ import org.apache.commons.csv.CSVFormat
 import org.apache.commons.csv.CSVParser
 import org.apache.commons.csv.CSVRecord
 import org.moqui.BaseException
+import org.moqui.impl.context.TransactionFacadeImpl
 import org.moqui.resource.ResourceReference
 import org.moqui.context.TransactionFacade
 import org.moqui.entity.EntityDataLoader
@@ -40,6 +41,7 @@ import org.xml.sax.helpers.DefaultHandler
 import javax.sql.rowset.serial.SerialBlob
 import javax.xml.parsers.SAXParser
 import javax.xml.parsers.SAXParserFactory
+import java.nio.charset.StandardCharsets
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 
@@ -64,6 +66,8 @@ class EntityDataLoaderImpl implements EntityDataLoader {
     boolean dummyFks = false
     boolean disableEeca = false
     boolean disableAuditLog = false
+    boolean disableFkCreate = false
+    boolean disableDataFeed = false
 
     char csvDelimiter = ','
     char csvCommentStart = '#'
@@ -99,6 +103,8 @@ class EntityDataLoaderImpl implements EntityDataLoader {
     @Override EntityDataLoader dummyFks(boolean dummyFks) { this.dummyFks = dummyFks; return this }
     @Override EntityDataLoader disableEntityEca(boolean disable) { disableEeca = disable; return this }
     @Override EntityDataLoader disableAuditLog(boolean disable) { disableAuditLog = disable; return this }
+    @Override EntityDataLoader disableFkCreate(boolean disable) { disableFkCreate = disable; return this }
+    @Override EntityDataLoader disableDataFeed(boolean disable) { disableDataFeed = disable; return this }
 
     @Override EntityDataLoader csvDelimiter(char delimiter) { this.csvDelimiter = delimiter; return this }
     @Override EntityDataLoader csvCommentStart(char commentStart) { this.csvCommentStart = commentStart; return this }
@@ -171,6 +177,10 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         if (this.disableEeca) reenableEeca = !eci.artifactExecutionFacade.disableEntityEca()
         boolean reenableAuditLog = false
         if (this.disableAuditLog) reenableAuditLog = !eci.artifactExecutionFacade.disableEntityAuditLog()
+        boolean reenableFkCreate = false
+        if (this.disableFkCreate) reenableFkCreate = !eci.artifactExecutionFacade.disableEntityFkCreate()
+        boolean reenableDataFeed = false
+        if (this.disableDataFeed) reenableDataFeed = !eci.artifactExecutionFacade.disableEntityDataFeed()
 
         // if no xmlText or locations, so find all of the component and entity-facade files
         if (!this.xmlText && !this.csvText && !this.jsonText && !this.locationList) {
@@ -237,7 +247,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         // logger.warn("========== Waiting 45s to attach profiler")
         // Thread.sleep(45000)
 
-        TransactionFacade tf = efi.ecfi.transactionFacade
+        TransactionFacadeImpl tf = efi.ecfi.transactionFacade
         tf.runRequireNew(transactionTimeout, "Error loading entity data", false, true, {
             // load the XML text in its own transaction
             if (this.xmlText) {
@@ -275,6 +285,8 @@ class EntityDataLoaderImpl implements EntityDataLoader {
 
         if (reenableEeca) eci.artifactExecutionFacade.enableEntityEca()
         if (reenableAuditLog) eci.artifactExecutionFacade.enableEntityAuditLog()
+        if (reenableFkCreate) eci.artifactExecutionFacade.enableEntityFkCreate()
+        if (reenableDataFeed) eci.artifactExecutionFacade.enableEntityDataFeed()
 
         // logger.warn("========== Done loading, waiting for a long time so process is still running for profiler")
         // Thread.sleep(60*1000*100)
@@ -388,7 +400,14 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             ec = edli.getEfi().ecfi.getEci()
         }
         void handleValue(EntityValue value) {
-            if (edli.useTryInsert) {
+            boolean tryInsert = edli.useTryInsert
+            if (tryInsert && value instanceof EntityValueBase) {
+                EntityValueBase evb = (EntityValueBase) value
+                MNode databaseNode = ec.entityFacade.getDatabaseNode(evb.getEntityDefinition().getEntityGroupName())
+                if ("true".equals(databaseNode.attribute("never-try-insert"))) tryInsert = false
+            }
+
+            if (tryInsert) {
                 try {
                     value.create()
                 } catch (EntityException e) {
@@ -441,7 +460,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         }
         void handlePlainMap(String entityName, Map value) {
             EntityDefinition ed = edli.getEfi().getEntityDefinition(entityName)
-            edli.getEfi().addValuesFromPlainMapRecursive(ed, value, el)
+            edli.getEfi().addValuesFromPlainMapRecursive(ed, value, el, null)
         }
         void handleService(ServiceCallSync scs) { logger.warn("For load to EntityList not calling service [${scs.getServiceName()}] with parameters ${scs.getCurrentParameters()}") }
     }
@@ -519,7 +538,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                         if (prevValueMap.containsKey(relationshipName)) {
                             Object prevRelValue = prevValueMap.get(relationshipName)
                             if (prevRelValue instanceof List) {
-                                prevRelValue.add(curRelMap)
+                                ((List) prevRelValue).add(curRelMap)
                             } else {
                                 prevValueMap.put(relationshipName, [prevRelValue, curRelMap])
                             }
@@ -532,7 +551,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                         if (rootValueMap.containsKey(relationshipName)) {
                             Object prevRelValue = rootValueMap.get(relationshipName)
                             if (prevRelValue instanceof List) {
-                                prevRelValue.add(curRelMap)
+                                ((List) prevRelValue).add(curRelMap)
                             } else {
                                 rootValueMap.put(relationshipName, [prevRelValue, curRelMap])
                             }
@@ -551,7 +570,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                         if (prevValueMap.containsKey(relationshipName)) {
                             Object prevRelValue = prevValueMap.get(relationshipName)
                             if (prevRelValue instanceof List) {
-                                prevRelValue.add(curRelMap)
+                                ((List) prevRelValue).add(curRelMap)
                             } else {
                                 prevValueMap.put(relationshipName, [prevRelValue, curRelMap])
                             }
@@ -564,7 +583,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                         if (rootValueMap.containsKey(relationshipName)) {
                             Object prevRelValue = rootValueMap.get(relationshipName)
                             if (prevRelValue instanceof List) {
-                                prevRelValue.add(curRelMap)
+                                ((List) prevRelValue).add(curRelMap)
                             } else {
                                 rootValueMap.put(relationshipName, [prevRelValue, curRelMap])
                             }
@@ -635,17 +654,29 @@ class EntityDataLoaderImpl implements EntityDataLoader {
 
             if (currentFieldName != null) {
                 if (currentFieldValue) {
-                    if (currentEntityDef != null) {
-                        if (currentEntityDef.isField(currentFieldName)) {
-                            FieldInfo fieldInfo = currentEntityDef.getFieldInfo(currentFieldName)
+                    EntityDefinition checkEd = currentEntityDef
+                    Map addToMap = rootValueMap
+                    if (relatedEdStack) {
+                        checkEd = relatedEdStack.get(0)
+                        addToMap = valueMapStack.get(0)
+                    }
+                    if (checkEd != null) {
+                        if (checkEd.isField(currentFieldName)) {
+                            FieldInfo fieldInfo = checkEd.getFieldInfo(currentFieldName)
                             if ("binary-very-long".equals(fieldInfo.type)) {
-                                byte[] binData = Base64.getDecoder().decode(currentFieldValue.toString())
-                                rootValueMap.put(currentFieldName, new SerialBlob(binData))
+                                String curStringValue = currentFieldValue.toString()
+                                try {
+                                    byte[] binData = Base64.getDecoder().decode(curStringValue)
+                                    addToMap.put(currentFieldName, new SerialBlob(binData))
+                                } catch (IllegalArgumentException e) {
+                                    if (logger.isTraceEnabled()) logger.trace("Value for binary-very-long field ${currentFieldName} entity ${checkEd.getFullEntityName()} is not Base64, using UTF-8 bytes")
+                                    addToMap.put(currentFieldName, new SerialBlob(curStringValue.getBytes(StandardCharsets.UTF_8)))
+                                }
                             } else {
-                                rootValueMap.put(currentFieldName, currentFieldValue.toString())
+                                addToMap.put(currentFieldName, currentFieldValue.toString())
                             }
                         } else {
-                            logger.warn("Ignoring invalid field name [${currentFieldName}] found for the entity ${currentEntityDef.getFullEntityName()} with value ${currentFieldValue} (line ${locator?.lineNumber})")
+                            logger.warn("Ignoring invalid field name ${currentFieldName} found for entity ${checkEd.getFullEntityName()} (line ${locator?.lineNumber}) with value: ${currentFieldValue}")
                         }
                     } else if (currentServiceDef != null) {
                         rootValueMap.put(currentFieldName, currentFieldValue)
@@ -704,7 +735,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             }
         }
 
-        public void setDocumentLocator(Locator locator) {
+        void setDocumentLocator(Locator locator) {
             this.locator = locator;
         }
     }

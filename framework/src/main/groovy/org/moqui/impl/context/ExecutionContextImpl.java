@@ -28,6 +28,7 @@ import org.moqui.util.ContextBinding;
 import org.moqui.util.ContextStack;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -65,11 +66,18 @@ public class ExecutionContextImpl implements ExecutionContext {
     private Cache<String, String> l10nMessageCache;
     private Cache<String, ArrayList> tarpitHitCache;
 
-    public ExecutionContextImpl(ExecutionContextFactoryImpl ecfi) {
+    public final String forThreadName;
+    public final long forThreadId;
+    // public final Exception createLoc;
+
+    public ExecutionContextImpl(ExecutionContextFactoryImpl ecfi, Thread forThread) {
         this.ecfi = ecfi;
         // NOTE: no WebFacade init here, wait for call in to do that
         // put reference to this in the context root
         contextStack.put("ec", this);
+        forThreadName = forThread.getName();
+        forThreadId = forThread.getId();
+        // createLoc = new BaseException("ec create");
 
         activeEntityFacade = ecfi.entityFacade;
         userFacade = new UserFacadeImpl(this);
@@ -104,56 +112,36 @@ public class ExecutionContextImpl implements ExecutionContext {
     Cache<String, String> getL10nMessageCache() { return l10nMessageCache; }
     public Cache<String, ArrayList> getTarpitHitCache() { return tarpitHitCache; }
 
-    @Override
-    public @Nonnull ExecutionContextFactory getFactory() { return ecfi; }
+    @Override public @Nonnull ExecutionContextFactory getFactory() { return ecfi; }
 
-    @Override
-    public @Nonnull ContextStack getContext() { return contextStack; }
-    @Override
-    public @Nonnull Map<String, Object> getContextRoot() { return contextStack.getRootMap(); }
-    @Override
-    public @Nonnull ContextBinding getContextBinding() { return contextBindingInternal; }
+    @Override public @Nonnull ContextStack getContext() { return contextStack; }
+    @Override public @Nonnull Map<String, Object> getContextRoot() { return contextStack.getRootMap(); }
+    @Override public @Nonnull ContextBinding getContextBinding() { return contextBindingInternal; }
 
     @Override
     public <V> V getTool(@Nonnull String toolName, Class<V> instanceClass, Object... parameters) {
         return ecfi.getTool(toolName, instanceClass, parameters);
     }
 
-    @Override
-    public @Nullable WebFacade getWeb() { return webFacade; }
+    @Override public @Nullable WebFacade getWeb() { return webFacade; }
     public @Nullable WebFacadeImpl getWebImpl() { return webFacadeImpl; }
 
-    @Override
-    public @Nonnull UserFacade getUser() { return userFacade; }
-    @Override
-    public @Nonnull MessageFacade getMessage() { return messageFacade; }
-    @Override
-    public @Nonnull ArtifactExecutionFacade getArtifactExecution() { return artifactExecutionFacade; }
-    @Override
-    public @Nonnull L10nFacade getL10n() { return l10nFacade; }
-    @Override
-    public @Nonnull ResourceFacade getResource() { return resourceFacade; }
-    @Override
-    public @Nonnull LoggerFacade getLogger() { return loggerFacade; }
-    @Override
-    public @Nonnull CacheFacade getCache() { return cacheFacade; }
-    @Override
-    public @Nonnull TransactionFacade getTransaction() { return transactionFacade; }
+    @Override public @Nonnull UserFacade getUser() { return userFacade; }
+    @Override public @Nonnull MessageFacade getMessage() { return messageFacade; }
+    @Override public @Nonnull ArtifactExecutionFacade getArtifactExecution() { return artifactExecutionFacade; }
+    @Override public @Nonnull L10nFacade getL10n() { return l10nFacade; }
+    @Override public @Nonnull ResourceFacade getResource() { return resourceFacade; }
+    @Override public @Nonnull LoggerFacade getLogger() { return loggerFacade; }
+    @Override public @Nonnull CacheFacade getCache() { return cacheFacade; }
+    @Override public @Nonnull TransactionFacade getTransaction() { return transactionFacade; }
 
-    @Override
-    public @Nonnull EntityFacade getEntity() { return activeEntityFacade; }
+    @Override public @Nonnull EntityFacade getEntity() { return activeEntityFacade; }
     public @Nonnull EntityFacadeImpl getEntityFacade() { return activeEntityFacade; }
 
-    @Override
-    public @Nonnull ServiceFacade getService() { return serviceFacade; }
+    @Override public @Nonnull ServiceFacade getService() { return serviceFacade; }
+    @Override public @Nonnull ScreenFacade getScreen() { return screenFacade; }
 
-    @Override
-    public @Nonnull ScreenFacade getScreen() { return screenFacade; }
-
-    @Override
-    public @Nonnull NotificationMessage makeNotificationMessage() {
-        return new NotificationMessageImpl(ecfi);
-    }
+    @Override public @Nonnull NotificationMessage makeNotificationMessage() { return new NotificationMessageImpl(ecfi); }
 
     @Override
     public @Nonnull List<NotificationMessage> getNotificationMessages(@Nullable String topic) {
@@ -191,12 +179,15 @@ public class ExecutionContextImpl implements ExecutionContext {
         // this is the beginning of a request, so trigger before-request actions
         wfi.runBeforeRequestActions();
 
+        String userId = userFacade.getUserId();
+        if (userId != null && !userId.isEmpty()) MDC.put("moqui_userId", userId);
+        String visitorId = userFacade.getVisitorId();
+        if (visitorId != null && !visitorId.isEmpty()) MDC.put("moqui_visitorId", visitorId);
+
         if (loggerDirect.isTraceEnabled()) loggerDirect.trace("ExecutionContextImpl WebFacade initialized");
     }
 
-    /**
-     * Meant to be used to set a test stub that implements the WebFacade interface
-     */
+    /** Meant to be used to set a test stub that implements the WebFacade interface */
     public void setWebFacade(WebFacade wf) {
         webFacade = wf;
         if (wf instanceof WebFacadeImpl) webFacadeImpl = (WebFacadeImpl) wf;
@@ -214,10 +205,14 @@ public class ExecutionContextImpl implements ExecutionContext {
     }
 
     @Override
-    public void runAsync(@Nonnull Closure closure) { runInWorkerThread(closure); }
-    public void runInWorkerThread(@Nonnull Closure closure) {
+    public void runAsync(@Nonnull Closure closure) {
         ThreadPoolRunnable runnable = new ThreadPoolRunnable(this, closure);
-        ecfi.workerPool.execute(runnable);
+        ecfi.workerPool.submit(runnable);
+    }
+    /** Uses the ECFI constructor for ThreadPoolRunnable so does NOT use the current ECI in the separate thread */
+    public void runInWorkerThread(@Nonnull Closure closure) {
+        ThreadPoolRunnable runnable = new ThreadPoolRunnable(ecfi, closure);
+        ecfi.workerPool.submit(runnable);
     }
 
     @Override
@@ -231,51 +226,48 @@ public class ExecutionContextImpl implements ExecutionContext {
         ecfi.resourceFacade.destroyAllInThread();
         // clear out the ECFI's reference to this as well
         ecfi.activeContext.remove();
+        ecfi.activeContextMap.remove(Thread.currentThread().getId());
+
+        MDC.remove("moqui_userId");
+        MDC.remove("moqui_visitorId");
 
         if (loggerDirect.isTraceEnabled()) loggerDirect.trace("ExecutionContextImpl destroyed");
     }
 
-    @Override
-    public String toString() { return "ExecutionContext"; }
+    @Override public String toString() { return "ExecutionContext"; }
 
     public static class ThreadPoolRunnable implements Runnable {
+        private ExecutionContextImpl threadEci;
         private ExecutionContextFactoryImpl ecfi;
-        private String threadUsername;
         private Closure closure;
-
+        /** With this constructor (passing ECI) the ECI is used in the separate thread */
         public ThreadPoolRunnable(ExecutionContextImpl eci, Closure closure) {
+            threadEci = eci;
             ecfi = eci.ecfi;
-            threadUsername = eci.userFacade.getUsername();
             this.closure = closure;
         }
 
-        public ThreadPoolRunnable(ExecutionContextFactoryImpl ecfi, String username, Closure closure) {
+        /** With this constructor (passing ECFI) a new ECI is created for the separate thread */
+        public ThreadPoolRunnable(ExecutionContextFactoryImpl ecfi, Closure closure) {
             this.ecfi = ecfi;
-            threadUsername = username;
+            threadEci = null;
             this.closure = closure;
         }
 
         @Override
         public void run() {
-            ExecutionContextImpl threadEci = null;
+            if (threadEci != null) ecfi.useExecutionContextInThread(threadEci);
             try {
-                threadEci = ecfi.getEci();
-                if (threadUsername != null && threadUsername.length() > 0)
-                    threadEci.userFacade.internalLoginUser(threadUsername);
                 closure.call();
             } catch (Throwable t) {
-                loggerDirect.error("Error in EC thread pool runner", t);
+                loggerDirect.error("Error in EC worker Runnable", t);
             } finally {
-                if (threadEci != null) threadEci.destroy();
+                if (threadEci == null) ecfi.destroyActiveExecutionContext();
             }
         }
 
         public ExecutionContextFactoryImpl getEcfi() { return ecfi; }
         public void setEcfi(ExecutionContextFactoryImpl ecfi) { this.ecfi = ecfi; }
-
-        public String getThreadUsername() { return threadUsername; }
-        public void setThreadUsername(String threadUsername) { this.threadUsername = threadUsername; }
-
         public Closure getClosure() { return closure; }
         public void setClosure(Closure closure) { this.closure = closure; }
     }

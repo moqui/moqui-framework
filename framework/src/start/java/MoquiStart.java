@@ -46,12 +46,26 @@ public class MoquiStart {
         // now grab the first arg and see if it is a known command
         String firstArg = args.length > 0 ? args[0] : "";
 
+        // make a list of arguments
+        List<String> argList = Arrays.asList(args);
+        Map<String, String> argMap = new LinkedHashMap<>();
+        for (String arg: argList) {
+            // run twice to allow one or two dashes
+            if (arg.startsWith("-")) arg = arg.substring(1);
+            if (arg.startsWith("-")) arg = arg.substring(1);
+            if (arg.contains("=")) {
+                argMap.put(arg.substring(0, arg.indexOf("=")), arg.substring(arg.indexOf("=")+1));
+            } else {
+                argMap.put(arg, "");
+            }
+        }
+
         if (firstArg.endsWith("help") || "-?".equals(firstArg)) {
             // setup the class loader
             StartClassLoader moquiStartLoader = new StartClassLoader(true);
             Thread.currentThread().setContextClassLoader(moquiStartLoader);
             Runtime.getRuntime().addShutdownHook(new MoquiShutdown(null, null, moquiStartLoader));
-            initSystemProperties(moquiStartLoader, false);
+            initSystemProperties(moquiStartLoader, false, argMap);
 
             /* nice for debugging, messy otherwise:
             System.out.println("Internal Class Path Jars:");
@@ -110,29 +124,12 @@ public class MoquiStart {
             }
         }
 
-        // make a list of arguments
-        List<String> argList = Arrays.asList(args);
-        Map<String, String> argMap = new LinkedHashMap<>();
-        for (String arg: argList) {
-            // run twice to allow one or two dashes
-            if (arg.startsWith("-")) arg = arg.substring(1);
-            if (arg.startsWith("-")) arg = arg.substring(1);
-            if (arg.contains("=")) {
-                argMap.put(arg.substring(0, arg.indexOf("=")), arg.substring(arg.indexOf("=")+1));
-            } else {
-                argMap.put(arg, "");
-            }
-        }
-
-        // now run the command
+        // run load if is first argument
         if (firstArg.endsWith("load")) {
             StartClassLoader moquiStartLoader = new StartClassLoader(true);
             Thread.currentThread().setContextClassLoader(moquiStartLoader);
             // Runtime.getRuntime().addShutdownHook(new MoquiShutdown(null, null, moquiStartLoader));
-            initSystemProperties(moquiStartLoader, false);
-
-            String overrideConf = argMap.get("conf");
-            if (overrideConf != null && !overrideConf.isEmpty()) System.setProperty("moqui.conf", overrideConf);
+            initSystemProperties(moquiStartLoader, false, argMap);
 
             try {
                 System.out.println("Loading data with args " + argMap);
@@ -158,10 +155,8 @@ public class MoquiStart {
         // shutdownHook.setDaemon(true);
         // Runtime.getRuntime().addShutdownHook(shutdownHook);
 
-        initSystemProperties(moquiStartLoader, true);
-
-        String overrideConf = argMap.get("conf");
-        if (overrideConf != null && !overrideConf.isEmpty()) System.setProperty("moqui.conf", overrideConf);
+        initSystemProperties(moquiStartLoader, false, argMap);
+        String runtimePath = System.getProperty("moqui.runtime");
 
         try {
             int port = 8080;
@@ -180,6 +175,14 @@ public class MoquiStart {
             Class<?> httpConfigurationClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.HttpConfiguration");
             Class<?> forwardedRequestCustomizerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.ForwardedRequestCustomizer");
             Class<?> customizerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.HttpConfiguration$Customizer");
+
+            Class<?> sessionIdManagerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.SessionIdManager");
+            Class<?> defaultSessionIdManagerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.session.DefaultSessionIdManager");
+            Class<?> sessionHandlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.session.SessionHandler");
+            Class<?> sessionCacheClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.session.SessionCache");
+            Class<?> defaultSessionCacheClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.session.DefaultSessionCache");
+            Class<?> sessionDataStoreClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.session.SessionDataStore");
+            Class<?> fileSessionDataStoreClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.session.FileSessionDataStore");
 
             Class<?> connectorClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.Connector");
             Class<?> serverConnectorClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.ServerConnector");
@@ -208,12 +211,32 @@ public class MoquiStart {
 
             serverClass.getMethod("addConnector", connectorClass).invoke(server, httpConnector);
 
+            // SessionDataStore
+            File storeDir = new File(runtimePath + "/sessions");
+            if (!storeDir.exists()) storeDir.mkdirs();
+            System.out.println("Creating Jetty FileSessionDataStore with directory " + storeDir.getCanonicalPath());
+
+            Object sessionHandler = sessionHandlerClass.getConstructor().newInstance();
+            sessionHandlerClass.getMethod("setServer", serverClass).invoke(sessionHandler, server);
+            Object sessionCache = defaultSessionCacheClass.getConstructor(sessionHandlerClass).newInstance(sessionHandler);
+            Object sessionDataStore = fileSessionDataStoreClass.getConstructor().newInstance();
+            fileSessionDataStoreClass.getMethod("setStoreDir", File.class).invoke(sessionDataStore, storeDir);
+            fileSessionDataStoreClass.getMethod("setDeleteUnrestorableFiles", boolean.class).invoke(sessionDataStore, true);
+            sessionCacheClass.getMethod("setSessionDataStore", sessionDataStoreClass).invoke(sessionCache, sessionDataStore);
+            sessionHandlerClass.getMethod("setSessionCache", sessionCacheClass).invoke(sessionHandler, sessionCache);
+
+            Object sidMgr = defaultSessionIdManagerClass.getConstructor(serverClass).newInstance(server);
+            defaultSessionIdManagerClass.getMethod("setServer", serverClass).invoke(sidMgr, server);
+            sessionHandlerClass.getMethod("setSessionIdManager", sessionIdManagerClass).invoke(sessionHandler, sidMgr);
+            serverClass.getMethod("setSessionIdManager", sessionIdManagerClass).invoke(server, sidMgr);
+
             // WebApp
             Object webapp = webappClass.getConstructor().newInstance();
 
             webappClass.getMethod("setContextPath", String.class).invoke(webapp, "/");
             webappClass.getMethod("setDescriptor", String.class).invoke(webapp, moquiStartLoader.wrapperUrl.toExternalForm() + "/WEB-INF/web.xml");
             webappClass.getMethod("setServer", serverClass).invoke(webapp, server);
+            webappClass.getMethod("setSessionHandler", sessionHandlerClass).invoke(webapp, sessionHandler);
             webappClass.getMethod("setMaxFormKeys", int.class).invoke(webapp, 5000);
             if (isInWar) {
                 webappClass.getMethod("setWar", String.class).invoke(webapp, moquiStartLoader.wrapperUrl.toExternalForm());
@@ -261,6 +284,24 @@ public class MoquiStart {
             ServerConnector httpConnector = new ServerConnector(server, httpConnectionFactory);
             httpConnector.setPort(port);
             server.addConnector(httpConnector);
+
+            // SessionDataStore
+            SessionIdManager sidMgr = new DefaultSessionIdManager(server);
+            sidMgr.setServer(server);
+            server.setSessionIdManager(sidMgr);
+            SessionHandler sessionHandler = new SessionHandler();
+            sessionHandler.setServer(server);
+            SessionCache sessionCache = new DefaultSessionCache(sessionHandler);
+            sessionHandler.setSessionCache(sessionCache);
+            sessionHandler.setSessionIdManager(sidMgr);
+
+            File storeDir = ...;
+            FileSessionDataStore sessionDataStore = new FileSessionDataStore();
+            sessionDataStore.setStoreDir(storeDir);
+            sessionDataStore.setDeleteUnrestorableFiles(true);
+            sessionCache.setSessionDataStore(sessionDataStore);
+
+            sessionHandler.start();
 
             // WebApp
             WebAppContext webapp = new WebAppContext();
@@ -340,16 +381,19 @@ public class MoquiStart {
         // now wait for break...
     }
 
-    private static void initSystemProperties(StartClassLoader cl, boolean useProperties) throws IOException {
-        Properties moquiInitProperties = new Properties();
-        URL initProps = cl.getResource("MoquiInit.properties");
-        if (initProps != null) { InputStream is = initProps.openStream(); moquiInitProperties.load(is); is.close(); }
+    private static void initSystemProperties(StartClassLoader cl, boolean useProperties, Map<String, String> argMap) throws IOException {
+        Properties moquiInitProperties = null;
+        if (useProperties) {
+            moquiInitProperties = new Properties();
+            URL initProps = cl.getResource("MoquiInit.properties");
+            if (initProps != null) { InputStream is = initProps.openStream(); moquiInitProperties.load(is); is.close(); }
+        }
 
         // before doing anything else make sure the moqui.runtime system property exists (needed for config of various things)
         String runtimePath = System.getProperty("moqui.runtime");
         if (runtimePath != null && runtimePath.length() > 0)
-            System.out.println("Determined runtime from system property: " + runtimePath);
-        if (useProperties && (runtimePath == null || runtimePath.length() == 0)) {
+            System.out.println("Determined runtime from Java system property: " + runtimePath);
+        if (moquiInitProperties != null && (runtimePath == null || runtimePath.length() == 0)) {
             runtimePath = moquiInitProperties.getProperty("moqui.runtime");
             if (runtimePath != null && runtimePath.length() > 0)
                 System.out.println("Determined runtime from MoquiInit.properties file: " + runtimePath);
@@ -359,7 +403,7 @@ public class MoquiStart {
             File testFile = new File("runtime");
             if (testFile.exists()) runtimePath = "runtime";
             if (runtimePath != null && runtimePath.length() > 0)
-                System.out.println("Determined runtime from existing runtime directory: " + runtimePath);
+                System.out.println("Determined runtime from existing runtime subdirectory: " + testFile.getCanonicalPath());
         }
         if (runtimePath == null || runtimePath.length() == 0) {
             runtimePath = ".";
@@ -380,16 +424,22 @@ public class MoquiStart {
         }
         */
 
-        // moqui.conf=conf/development/MoquiDevConf.xml
-        String confPath = System.getProperty("moqui.conf");
-        if (confPath == null || confPath.length() == 0) {
-            confPath = moquiInitProperties.getProperty("moqui.conf");
+        String confPath = argMap.get("conf");
+        if (confPath != null && !confPath.isEmpty()) System.out.println("Determined conf from conf argument: " + confPath);
+        if (confPath == null || confPath.isEmpty()) {
+            confPath = System.getProperty("moqui.conf");
+            if (confPath != null && !confPath.isEmpty()) System.out.println("Determined conf from Java system property: " + confPath);
         }
-        if (confPath == null || confPath.length() == 0) {
+        if (moquiInitProperties != null && (confPath == null || confPath.isEmpty())) {
+            confPath = moquiInitProperties.getProperty("moqui.conf");
+            if (confPath != null && !confPath.isEmpty()) System.out.println("Determined conf from MoquiInit.properties file: " + confPath);
+        }
+        if (confPath == null || confPath.isEmpty()) {
             File testFile = new File(runtimePath + "/" + defaultConf);
             if (testFile.exists()) confPath = defaultConf;
+            System.out.println("Determined conf by default (dev conf file): " + confPath);
         }
-        if (confPath != null) System.setProperty("moqui.conf", confPath);
+        if (confPath != null && !confPath.isEmpty()) System.setProperty("moqui.conf", confPath);
     }
 
     private static class MoquiShutdown extends Thread {

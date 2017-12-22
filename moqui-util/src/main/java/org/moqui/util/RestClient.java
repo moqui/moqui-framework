@@ -64,8 +64,8 @@ public class RestClient {
 
     /** URL object including protocol, host, path, parameters, etc */
     public RestClient uri(URI uri) { this.uri = uri; return this; }
-
     public UriBuilder uri() { return new UriBuilder(this); }
+    public URI getUri() { return uri; }
 
     /** Sets the HTTP request method, defaults to 'GET'; must be in the METHODS array */
     public RestClient method(String method) {
@@ -164,6 +164,7 @@ public class RestClient {
         ContentResponse response = null;
 
         SslContextFactory sslContextFactory = new SslContextFactory();
+        sslContextFactory.setTrustAll(true);
         HttpClient httpClient = new HttpClient(sslContextFactory);
 
         try {
@@ -210,13 +211,16 @@ public class RestClient {
         protected byte[] bytes = null;
         private Map<String, ArrayList<String>> headers = new LinkedHashMap<>();
         private int statusCode;
-        private String reasonPhrase;
+        private String reasonPhrase, contentType, encoding;
 
         RestResponse(RestClient rci, ContentResponse response) {
             this.rci = rci;
-
+            this.response = response;
             statusCode = response.getStatus();
             reasonPhrase = response.getReason();
+            contentType = response.getMediaType();
+            encoding = response.getEncoding();
+            if (encoding == null || encoding.isEmpty()) encoding = "UTF-8";
 
             // get headers
             for (HttpField hdr : response.getHeaders()) {
@@ -226,10 +230,8 @@ public class RestClient {
                     curList = new ArrayList<>();
                     headers.put(name, curList);
                 }
-
                 curList.addAll(Arrays.asList(hdr.getValues()));
             }
-
 
             // get the response body
             bytes = response.getContent();
@@ -248,11 +250,17 @@ public class RestClient {
 
         public int getStatusCode() { return statusCode; }
         public String getReasonPhrase() { return reasonPhrase; }
+        public String getContentType() { return contentType; }
+        public String getEncoding() { return encoding; }
 
         /** Get the plain text of the response */
         public String text() {
             try {
-                return toStringCleanBom(bytes);
+                if ("UTF-8".equals(encoding)) {
+                    return toStringCleanBom(bytes);
+                } else {
+                    return new String(bytes, encoding);
+                }
             } catch (UnsupportedEncodingException e) {
                 throw new BaseException("Error decoding REST response", e);
             }

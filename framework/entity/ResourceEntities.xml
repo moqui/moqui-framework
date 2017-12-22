@@ -12,25 +12,43 @@ You should have received a copy of the CC0 Public Domain Dedication
 along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
-<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-2.0.xsd">
+<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-2.1.xsd">
 
     <!-- ========================================================= -->
     <!-- moqui.resource -->
     <!-- ========================================================= -->
 
-    <entity entity-name="DbResource" package="moqui.resource" use="nontransactional">
+    <entity entity-name="DbResource" package="moqui.resource" use="nontransactional" short-alias="dbResources">
         <field name="resourceId" type="id" is-pk="true"/>
         <field name="parentResourceId" type="id"/>
         <field name="filename" type="text-medium"/>
         <field name="isFile" type="text-indicator"/>
+        <relationship type="one-nofk" related="moqui.resource.DbResourceFile" short-alias="file" mutable="true"/>
+        <relationship type="many" related="moqui.resource.DbResourceFileHistory" short-alias="histories">
+            <key-map field-name="resourceId"/></relationship>
         <index name="DB_RES_PARENT"><index-field name="parentResourceId"/></index>
         <index name="DB_RES_PAR_FN" unique="true"><index-field name="parentResourceId"/><index-field name="filename"/></index>
     </entity>
     <entity entity-name="DbResourceFile" package="moqui.resource" use="nontransactional">
         <field name="resourceId" type="id" is-pk="true"/>
         <field name="mimeType" type="text-medium"/>
+        <field name="versionName" type="text-short"/>
+        <field name="rootVersionName" type="text-short"/>
         <field name="fileData" type="binary-very-long"/>
-        <relationship type="one" related="moqui.resource.DbResource"/>
+        <relationship type="one" related="moqui.resource.DbResource" short-alias="dbResource"/>
+        <relationship type="many" related="moqui.resource.DbResourceFileHistory" short-alias="histories">
+            <key-map field-name="resourceId"/></relationship>
+    </entity>
+    <entity entity-name="DbResourceFileHistory" package="moqui.resource" use="nontransactional">
+        <field name="resourceId" type="id" is-pk="true"/>
+        <field name="versionName" type="text-short" is-pk="true"/>
+        <field name="previousVersionName" type="text-short"/>
+        <field name="versionDate" type="date-time"/>
+        <field name="userId" type="id"/>
+        <field name="isDiff" type="text-indicator"/>
+        <field name="fileData" type="binary-very-long"/>
+        <relationship type="one" related="moqui.resource.DbResourceFile"/>
+        <relationship type="one-nofk" related="moqui.security.UserAccount" short-alias="user"/>
     </entity>
 
     <!-- ========================================================= -->
@@ -43,6 +61,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="pagePath" type="text-medium"/>
         <field name="parentWikiPageId" type="id"/>
         <field name="createdByUserId" type="id"/>
+        <field name="publishedVersionName" type="text-short"/>
         <field name="restrictView" type="text-indicator"/>
         <field name="restrictUpdate" type="text-indicator"/>
         <relationship type="one" related="moqui.resource.wiki.WikiSpace" short-alias="space"/>
@@ -50,7 +69,26 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="createdByUserId" related="userId"/></relationship>
         <relationship type="many" related="moqui.resource.wiki.WikiPageHistory" short-alias="histories">
             <key-map field-name="wikiPageId"/></relationship>
+        <relationship type="many" related="moqui.resource.wiki.WikiPageCategoryMember" short-alias="categories">
+            <key-map field-name="wikiPageId"/></relationship>
         <index name="WIKIPAGE_SPCPTH" unique="true"><index-field name="wikiSpaceId"/><index-field name="pagePath"/></index>
+    </entity>
+    <entity entity-name="WikiPageAlias" package="moqui.resource.wiki" use="nontransactional">
+        <field name="wikiSpaceId" type="id" is-pk="true"/>
+        <field name="aliasPath" type="text-medium" is-pk="true"/>
+        <field name="wikiPageId" type="id"/>
+        <relationship type="one" related="moqui.resource.wiki.WikiSpace" short-alias="space"/>
+        <relationship type="one" related="moqui.resource.wiki.WikiPage" short-alias="page"/>
+    </entity>
+    <entity entity-name="WikiPageCategory" package="moqui.resource.wiki" use="nontransactional">
+        <field name="wikiPageCategoryId" type="id" is-pk="true"/>
+        <field name="categoryName" type="text-medium"/>
+    </entity>
+    <entity entity-name="WikiPageCategoryMember" package="moqui.resource.wiki" use="nontransactional">
+        <field name="wikiPageCategoryId" type="id" is-pk="true"/>
+        <field name="wikiPageId" type="id" is-pk="true"/>
+        <relationship type="one" related="moqui.resource.wiki.WikiPageCategory" short-alias="category"/>
+        <relationship type="one" related="moqui.resource.wiki.WikiPage" short-alias="page"/>
     </entity>
     <entity entity-name="WikiPageHistory" package="moqui.resource.wiki" use="nontransactional" cache="never">
         <field name="wikiPageId" type="id" is-pk="true"/>
@@ -58,7 +96,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="oldPagePath" type="text-medium"/>
         <field name="userId" type="id"/>
         <field name="changeDateTime" type="date-time"/>
-        <!-- TODO: add rev data for pages in JCR -->
+        <field name="versionName" type="text-short"/>
         <relationship type="one" related="moqui.resource.wiki.WikiPage" short-alias="page"/>
         <relationship type="one-nofk" related="moqui.security.UserAccount" short-alias="user"/>
     </entity>
@@ -85,8 +123,15 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="description" type="text-long"/>
         <field name="rootPageLocation" type="text-medium"/>
         <field name="decoratorScreenLocation" type="text-medium"/>
+        <field name="publicPageUrl" type="text-medium"/>
+        <field name="publicAttachmentUrl" type="text-medium"/>
+        <field name="publicBlogUrl" type="text-medium"/>
         <field name="restrictView" type="text-indicator"/>
         <field name="restrictUpdate" type="text-indicator"/>
+        <field name="allowAnyHtml" type="text-indicator"/>
+        <seed-data>
+            <moqui.resource.DbResource resourceId="WIKI_SPACE_ROOT" parentResourceId="" filename="WikiSpace" isFile="N"/>
+        </seed-data>
     </entity>
     <entity entity-name="WikiSpaceUser" package="moqui.resource.wiki" use="nontransactional">
         <field name="wikiSpaceId" type="id" is-pk="true"/>
@@ -105,5 +150,44 @@ along with this software (see the LICENSE.md file). If not, see
         </member-entity>
         <alias-all entity-alias="WKSP"/>
         <alias-all entity-alias="WSU"/>
+    </view-entity>
+
+    <entity entity-name="WikiBlog" package="moqui.resource.wiki" use="nontransactional">
+        <description>Each record represents a single blog article, grouped as needed by categories (WikiBlogCategory)</description>
+        <field name="wikiBlogId" type="id" is-pk="true"/>
+        <field name="wikiPageId" type="id"/>
+        <field name="title" type="text-medium"/>
+        <field name="author" type="text-medium"/>
+        <field name="summary" type="text-long"/>
+        <field name="publishDate" type="date-time"/>
+        <field name="metaKeywords" type="text-long"/>
+        <field name="metaDescription" type="text-long"/>
+        <field name="smallImageLocation" type="text-medium"/>
+        <relationship type="one" related="moqui.resource.wiki.WikiPage" short-alias="page"/>
+        <relationship type="many" related="moqui.resource.wiki.WikiBlogCategory" short-alias="categories">
+            <key-map field-name="wikiBlogId"/></relationship>
+    </entity>
+    <view-entity entity-name="WikiBlogFindView" package="moqui.resource.wiki">
+        <member-entity entity-alias="WKBG" entity-name="moqui.resource.wiki.WikiBlog"/>
+        <member-relationship entity-alias="WKPG" join-from-alias="WKBG" relationship="page"/>
+        <member-relationship entity-alias="WKBC" join-from-alias="WKBG" relationship="categories"/>
+        <alias-all entity-alias="WKBG"/>
+        <alias-all entity-alias="WKBC"/>
+        <alias entity-alias="WKPG" name="wikiSpaceId"/>
+        <alias entity-alias="WKPG" name="parentWikiPageId"/>
+        <alias entity-alias="WKPG" name="publishedVersionName"/>
+        <alias entity-alias="WKPG" name="pagePath"/>
+    </view-entity>
+    <entity entity-name="WikiBlogCategory" package="moqui.resource.wiki" use="nontransactional">
+        <field name="wikiPageCategoryId" type="id" is-pk="true"/>
+        <field name="wikiBlogId" type="id" is-pk="true"/>
+        <relationship type="one" related="moqui.resource.wiki.WikiPageCategory" short-alias="category"/>
+        <relationship type="one" related="moqui.resource.wiki.WikiBlog" short-alias="blog"/>
+    </entity>
+    <view-entity entity-name="WikiBlogCategoryDetail" package="moqui.resource.wiki">
+        <member-entity entity-alias="WKBC" entity-name="moqui.resource.wiki.WikiBlogCategory"/>
+        <member-relationship entity-alias="WPC" join-from-alias="WKBC" relationship="category"/>
+        <alias-all entity-alias="WKBC"/>
+        <alias-all entity-alias="WPC"/>
     </view-entity>
 </entities>

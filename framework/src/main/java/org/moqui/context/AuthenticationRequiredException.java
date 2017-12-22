@@ -13,16 +13,10 @@
  */
 package org.moqui.context;
 
-import org.moqui.BaseException;
+import org.moqui.BaseArtifactException;
 
 /** Thrown when an artifact or operation requires authentication and no user is logged in. */
-public class AuthenticationRequiredException extends BaseException {
-
-    public AuthenticationRequiredException(String str) {
-        super(str);
-    }
-
-    public AuthenticationRequiredException(String str, Throwable nested) {
-        super(str, nested);
-    }
+public class AuthenticationRequiredException extends BaseArtifactException {
+    public AuthenticationRequiredException(String str) { super(str); }
+    public AuthenticationRequiredException(String str, Throwable nested) { super(str, nested); }
 }

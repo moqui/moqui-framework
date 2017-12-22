@@ -15,6 +15,7 @@ package org.moqui.impl.entity;
 
 import org.moqui.BaseException;
 import org.moqui.context.ArtifactExecutionInfo;
+import org.moqui.entity.EntityCondition;
 import org.moqui.entity.EntityDatasourceFactory;
 import org.moqui.entity.EntityException;
 import org.moqui.entity.EntityNotFoundException;
@@ -33,21 +34,19 @@ import javax.crypto.spec.PBEParameterSpec;
 import javax.xml.bind.DatatypeConverter;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.*;
 
 public class EntityJavaUtil {
     protected final static Logger logger = LoggerFactory.getLogger(EntityJavaUtil.class);
     protected final static boolean isTraceEnabled = logger.isTraceEnabled();
+    private static final String PLACEHOLDER = "PLHLDR";
 
     private static final int saltBytes = 8;
     static String enDeCrypt(String value, boolean encrypt, EntityFacadeImpl efi) {
         MNode entityFacadeNode = efi.ecfi.getConfXmlRoot().first("entity-facade");
         String pwStr = entityFacadeNode.attribute("crypt-pass");
         if (pwStr == null || pwStr.length() == 0)
-            throw new IllegalArgumentException("No entity-facade.@crypt-pass setting found, NOT doing encryption");
+            throw new EntityException("No entity-facade.@crypt-pass setting found, NOT doing encryption");
 
         String saltStr = entityFacadeNode.attribute("crypt-salt");
         byte[] salt = (saltStr != null && saltStr.length() > 0 ? saltStr : "default1").getBytes();
@@ -313,8 +312,11 @@ public class EntityJavaUtil {
                 if (fi.createOnly) createOnlyFieldsTemp = true;
                 if ("true".equals(fi.enableAuditLog) || "update".equals(fi.enableAuditLog)) needsAuditLogTemp = true;
                 if ("true".equals(fi.fieldNode.attribute("encrypt"))) needsEncryptTemp = true;
-                String functionAttr = fi.fieldNode.attribute("function");
-                if (isView && functionAttr != null && !functionAttr.isEmpty()) hasFunctionAliasTemp = true;
+                if (isView && fi.hasAggregateFunction) {
+                    MNode memberEntity = fi.memberEntityNode;
+                    if (memberEntity == null || !"true".equals(memberEntity.attribute("sub-select")))
+                        hasFunctionAliasTemp = true;
+                }
                 String defaultStr = fi.fieldNode.attribute("default");
                 if (defaultStr != null && !defaultStr.isEmpty()) {
                     if (fi.isPk) pkFieldDefaultsTemp.put(fi.name, defaultStr);
@@ -367,15 +369,17 @@ public class EntityJavaUtil {
             for (int i = 0; i < size; i++) {
                 FieldInfo fi = fieldInfoArray[i];
                 String fieldName = fi.name;
-                String sourceFieldName;
+                String srcName;
                 if (hasNamePrefix) {
-                    sourceFieldName = namePrefix + Character.toUpperCase(fieldName.charAt(0)) + fieldName.substring(1);
+                    srcName = namePrefix + Character.toUpperCase(fieldName.charAt(0)) + fieldName.substring(1);
                 } else {
-                    sourceFieldName = fieldName;
+                    srcName = fieldName;
                 }
 
-                Object value = srcIsEntityValueBase? evb.getValueMap().get(sourceFieldName) : src.get(sourceFieldName);
-                if (value != null || (srcIsEntityValueBase ? evb.isFieldSet(sourceFieldName) : src.containsKey(sourceFieldName))) {
+                Object value = srcIsEntityValueBase? evb.getValueMap().getOrDefault(srcName, PLACEHOLDER) : src.getOrDefault(srcName, PLACEHOLDER);
+                boolean srcNotContains = false;
+                if (value == PLACEHOLDER) { srcNotContains = true; value = null; }
+                if (value != null || !srcNotContains) {
                     boolean isCharSequence = false;
                     boolean isEmpty = false;
                     if (value == null) {
@@ -398,7 +402,7 @@ public class EntityJavaUtil {
                             if (destIsEntityValueBase) destEvb.putNoCheck(fieldName, value);
                             else dest.put(fieldName, value);
                         }
-                    } else if (setIfEmpty && src.containsKey(sourceFieldName)) {
+                    } else if (setIfEmpty && !srcNotContains) {
                         // treat empty String as null, otherwise set as whatever null or empty type it is
                         if (value != null && isCharSequence) {
                             if (destIsEntityValueBase) destEvb.putNoCheck(fieldName, null);
@@ -427,8 +431,10 @@ public class EntityJavaUtil {
                 FieldInfo fi = fieldInfoArray[i];
                 String fieldName = fi.name;
 
-                Object value = srcIsEntityValueBase? evb.getValueMap().get(fieldName) : src.get(fieldName);
-                if (value != null || (srcIsEntityValueBase ? evb.isFieldSet(fieldName) : src.containsKey(fieldName))) {
+                Object value = srcIsEntityValueBase ? evb.getValueMap().getOrDefault(fieldName, PLACEHOLDER) : src.getOrDefault(fieldName, PLACEHOLDER);
+                boolean srcNotContains = false;
+                if (value == PLACEHOLDER) { srcNotContains = true; value = null; }
+                if (value != null || !srcNotContains) {
                     boolean isCharSequence = false;
                     boolean isEmpty = false;
                     if (value == null) {
@@ -449,7 +455,7 @@ public class EntityJavaUtil {
                         } else {
                             dest.putNoCheck(fieldName, value);
                         }
-                    } else if (src.containsKey(fieldName)) {
+                    } else if (!srcNotContains) {
                         // treat empty String as null, otherwise set as whatever null or empty type it is
                         dest.putNoCheck(fieldName, null);
                     }
@@ -486,12 +492,15 @@ public class EntityJavaUtil {
         public final Map<String, String> keyMap;
         public final boolean dependent;
         public final boolean mutable;
+        public final boolean isAutoReverse;
 
         RelationshipInfo(MNode relNode, EntityDefinition fromEd, EntityFacadeImpl efi) {
             this.relNode = relNode;
             this.fromEd = fromEd;
             type = relNode.attribute("type");
             isTypeOne = type.startsWith("one");
+            isAutoReverse = "true".equals(relNode.attribute("is-auto-reverse"));
+
             String titleAttr = relNode.attribute("title");
             title = titleAttr != null && !titleAttr.isEmpty() ? titleAttr : null;
             String relatedAttr = relNode.attribute("related");
@@ -527,6 +536,7 @@ public class EntityJavaUtil {
                 String relatedAttr = reverseRelNode.attribute("related");
                 if (relatedAttr == null || relatedAttr.isEmpty()) relatedAttr = reverseRelNode.attribute("related-entity-name");
                 String typeAttr = reverseRelNode.attribute("type");
+                // TODO: instead of checking title check reverse expanded key-map
                 String titleAttr = reverseRelNode.attribute("title");
                 if ((fromEd.entityInfo.fullEntityName.equals(relatedAttr) || fromEd.entityInfo.internalEntityName.equals(relatedAttr)) &&
                         ("one".equals(typeAttr) || "one-nofk".equals(typeAttr)) &&
@@ -535,6 +545,19 @@ public class EntityJavaUtil {
                 }
             }
             return false;
+        }
+        public RelationshipInfo findReverse() {
+            ArrayList<RelationshipInfo> relInfoList = relatedEd.getRelationshipsInfo(false);
+            int relInfoListSize = relInfoList.size();
+            for (int i = 0; i < relInfoListSize; i++) {
+                EntityJavaUtil.RelationshipInfo relInfo = relInfoList.get(i);
+                // TODO: instead of checking title check reverse expanded key-map
+                if (fromEd.fullEntityName.equals(relInfo.relatedEntityName) &&
+                        ((title == null && relInfo.title == null) || (title != null && title.equals(relInfo.title)))) {
+                    return relInfo;
+                }
+            }
+            return null;
         }
         public Map<String, Object> getTargetParameterMap(Map valueSource) {
             if (valueSource == null || valueSource.isEmpty()) return new LinkedHashMap<>();
@@ -550,7 +573,7 @@ public class EntityJavaUtil {
     }
 
     private static Map<String, String> camelToUnderscoreMap = new HashMap<>();
-    static String camelCaseToUnderscored(String camelCase) {
+    public static String camelCaseToUnderscored(String camelCase) {
         if (camelCase == null || camelCase.length() == 0) return "";
         String usv = camelToUnderscoreMap.get(camelCase);
         if (usv != null) return usv;
@@ -655,6 +678,15 @@ public class EntityJavaUtil {
             this.evb = (EntityValueBase) evb.cloneValue();
             this.writeMode = writeMode;
             this.pkMap = evb.getPrimaryKeys();
+        }
+    }
+    public static class FindAugmentInfo {
+        public final ArrayList<EntityValueBase> valueList;
+        public final int valueListSize;
+        public final Set<Map<String, Object>> foundUpdated;
+        public final EntityCondition econd;
+        public FindAugmentInfo(ArrayList<EntityValueBase> valueList, Set<Map<String, Object>> foundUpdated, EntityCondition econd) {
+            this.valueList = valueList; valueListSize = valueList.size(); this.foundUpdated = foundUpdated; this.econd = econd;
         }
     }
 }

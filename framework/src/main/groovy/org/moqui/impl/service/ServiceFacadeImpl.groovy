@@ -365,12 +365,18 @@ class ServiceFacadeImpl implements ServiceFacade {
             String serviceName = ser.serviceName
             // remove the hash if there is one to more consistently match the service name
             serviceName = StringUtilities.removeChar(serviceName, (char) '#')
-            List<ServiceEcaRule> lst = secaRulesByServiceName.get(serviceName)
+            ArrayList<ServiceEcaRule> lst = secaRulesByServiceName.get(serviceName)
             if (lst == null) {
                 lst = new ArrayList<>()
                 secaRulesByServiceName.put(serviceName, lst)
             }
-            lst.add(ser)
+            // insert by priority
+            int insertIdx = 0
+            for (int i = 0; i < lst.size(); i++) {
+                ServiceEcaRule lstSer = (ServiceEcaRule) lst.get(i)
+                if (lstSer.priority <= ser.priority) { insertIdx++ } else { break }
+            }
+            lst.add(insertIdx, ser)
             numLoaded++
         }
         if (logger.isTraceEnabled()) logger.trace("Loaded [${numLoaded}] Service ECA rules from [${rr.location}]")

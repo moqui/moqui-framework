@@ -12,7 +12,7 @@ You should have received a copy of the CC0 Public Domain Dedication
 along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
-<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.0.xsd">
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
     <service verb="get" noun="VisitClientIpData" authenticate="anonymous-all">
         <description>Gets data from freegeoip.net for client IP address and populates in Visit record</description>
         <in-parameters><parameter name="visitId" required="true"/></in-parameters>
@@ -23,8 +23,9 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="clientIpTimeZone"/>
         </out-parameters>
         <actions>
-            <entity-find-one entity-name="moqui.server.Visit" value-field="visit" for-update="true"/>
-            <if condition="!visit"><return message="No visit found with ID ${visitId}"/></if>
+            <entity-find-one entity-name="moqui.server.Visit" value-field="visit"/>
+            <!-- don't lock the Visit, ie no for-update="true" just in case this takes a long time to run -->
+            <if condition="visit == null"><return message="No visit found with ID ${visitId}"/></if>
             <if condition="!visit.clientIpAddress"><return message="Visit with ID ${visitId} has no clientIpAddress"/></if>
 
             <if condition="!visit.clientIpAddress.contains('.')"><return message="IP address not a IPv4 address"/></if>
@@ -64,22 +65,37 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="artifactHitsRemoved" type="Long"/>
             <parameter name="artifactHitBinsRemoved" type="Long"/>
         </out-parameters>
-        <actions>
-            <script>
-                import org.moqui.context.ExecutionContext
-                import org.moqui.entity.EntityCondition
-                ExecutionContext ec = context.ec
-                Calendar basisCal = ec.user.getCalendarSafe()
-                basisCal.add(Calendar.DAY_OF_YEAR, (int) -daysToKeep)
-                basisTimestamp = new Timestamp(basisCal.getTimeInMillis())
-                artifactHitsRemoved = ec.entity.find("moqui.server.ArtifactHit")
-                        .condition("startDateTime", EntityCondition.LESS_THAN, basisTimestamp)
-                        .disableAuthz().deleteAll()
-                artifactHitBinsRemoved = ec.entity.find("moqui.server.ArtifactHitBin")
-                        .condition("binEndDateTime", EntityCondition.LESS_THAN, basisTimestamp)
-                        .disableAuthz().deleteAll()
-            </script>
-            <log level="info" message="Removed ${artifactHitsRemoved} ArtifactHit records and ${artifactHitBinsRemoved} ArtifactHitBin records."/>
-        </actions>
+        <actions><script>
+            import org.moqui.context.ExecutionContext
+            import org.moqui.entity.EntityCondition
+            ExecutionContext ec = context.ec
+            Calendar basisCal = ec.user.getCalendarSafe()
+            basisCal.add(Calendar.DAY_OF_YEAR, (int) -daysToKeep)
+            basisTimestamp = new Timestamp(basisCal.getTimeInMillis())
+            artifactHitsRemoved = ec.entity.find("moqui.server.ArtifactHit")
+                    .condition("startDateTime", EntityCondition.LESS_THAN, basisTimestamp)
+                    .disableAuthz().deleteAll()
+            artifactHitBinsRemoved = ec.entity.find("moqui.server.ArtifactHitBin")
+                    .condition("binEndDateTime", EntityCondition.LESS_THAN, basisTimestamp)
+                    .disableAuthz().deleteAll()
+            ec.logger.info("Removed ${artifactHitsRemoved} ArtifactHit records and ${artifactHitBinsRemoved} ArtifactHitBin records more than ${daysToKeep} days old")
+        </script></actions>
+    </service>
+
+    <service verb="clean" noun="PrintJobData" authenticate="false" transaction-timeout="600">
+        <in-parameters><parameter name="daysToKeep" type="Integer" default="7"/></in-parameters>
+        <out-parameters><parameter name="printJobsRemoved" type="Long"/></out-parameters>
+        <actions><script>
+            import org.moqui.context.ExecutionContext
+            import org.moqui.entity.EntityCondition
+            ExecutionContext ec = context.ec
+            Calendar basisCal = ec.user.getCalendarSafe()
+            basisCal.add(Calendar.DAY_OF_YEAR, (int) -daysToKeep)
+            basisTimestamp = new Timestamp(basisCal.getTimeInMillis())
+            printJobsRemoved = ec.entity.find("moqui.basic.print.PrintJob")
+                    .condition("createdDate", EntityCondition.LESS_THAN, basisTimestamp)
+                    .disableAuthz().deleteAll()
+            ec.logger.info("Removed ${printJobsRemoved} PrintJob records more than ${daysToKeep} days old")
+        </script></actions>
     </service>
 </services>

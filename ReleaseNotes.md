@@ -1,20 +1,103 @@
 
 # Moqui Framework Release Notes
 
-## Release 2.0.1 - Not Yet Released
+## Release 2.1.1 - Not Yet Released
 
-Moqui Framework 2.0.1 is a patch level new feature and bug fix release.
+Moqui Framework 2.1.1 is a patch level new feature and bug fix release.
 
 ### New Features
 
+- Updated to Gradle 4.3.1 along with changes to gradle files that require Gradle 4.0 or later
+- Moved validate-* attributes from XML Form field element to sub-field elements so that in form-list different validation can be
+  done for header, first-/second-/last-row, and default-/conditional-field; as part of this the automatic validate settings from
+  transition.service-call are now set on the sub-field instead of the field element
+
+### Bug Fixes
+
+- Serious bug in MoquiAuthFilter where it did not destroy ExecutionContext leaving it in place for the next request using that 
+  thread; also changed MoquiServlet to better protect against existing ExecutionContext for thread; also changed WebFacade init
+  from HTTP request to remove current user if it doesn't match user authenticated in session with Shiro, or if no user is 
+  authenticated in session
+- MNode merge methods did not properly clear node by name internal cache when adding child nodes causing new children to show up
+  in full child node list but not when getting first or all children by node name if they had been accessed by name before the merge
+
+## Release 2.1.0 - 22 Oct 2017
+
+Moqui Framework 2.1.0 is a minor new feature and bug fix release.
+
+Most of the effort in the Moqui Ecosystem since the last release has been on the business artifact and application levels. Most of
+the framework changes have been for improved user interfaces but there have also been various lower level refinements and 
+enhancements. 
+
+This release has a few bug fixes from the 2.0.0 release and has new features like DbResource and WikiPage version management, 
+a simple tool for ETL, DataDocument based dynamic view entities, and various XML Screen and Form widget options and usability 
+improvements. This release was originally planned to be a patch level release primarily for bug fixes but very soon after the 2.0.0 
+release work start on the Vue based client rendering (SPA) functionality and various other new features that due to business deals 
+progressed quickly.
+
+The default moqui-runtime now has support for hybrid static/dynamic XML Screen rendering based on Vue JS. There are various changes 
+for better server side handling but most changes are in moqui-runtime. See the moqui-runtime release notes for more details. 
+Some of these changes may be useful for other client rendering purposes, ie for other client side tools and frameworks.
+
+### Non Backward Compatible Changes
+
+- New compile dependency on Log4J2 and not just SLF4J
+- DataDocument JSON generation no longer automatically adds all primary key fields of the primary entity to allow for aggregation
+  by function in DataDocument based queries (where DataDocument is used to create a dynamic view entity); for ElasticSearch indexing
+  a unique ID is required so all primary key fields of the primary entity should be defined
+- The DataDocumentField, DataDocumentCondition, and DataDocumentLink entities now have an artificial/sequenced secondary key instead 
+  of using another field (fieldPath, fieldNameAlias, label); existing tables may work with some things but reloading seed data will
+  fail if you have any DataDocument records in place; these are typically seed data records so the easiest way to update/migrate
+  is to drop the tables for DataDocumentField/Link/Condition entities and then reload seed data as normal for a code update
+- If using moqui-elasticsearch the index approach has changed to one index per DataDocument to prep for ES6 and improve the
+  performance and index types by field name; to update an existing instance it is best to start with an empty ES instance or at
+  least delete old indexes and re-index based on data feeds
+- The default Dockerfile now runs the web server on port 80 instead of 8080 within the container
+
+### New Features
+
+- Various library updates
+- SLF4J MDC now used to track moqui_userId and moqui_visitorId for logging
+- New ExecutionContextFactory.registerLogEventSubscriber() method to register for Log4J2 LogEvent processing, initially used in the
+  moqui-elasticsearch component to send log messages to ElasticSearch for use in the new LogViewer screen in the System app
+- Improved Docker Compose samples with HTTPS and PostgreSQL, new file for Kibana behind transparent proxy servlet in Moqui
+- Added MoquiAuthFilter that can be used to require authorization and specified permission for arbitrary paths such as servlets;
+  this is used along with the Jetty ProxyServlet$Transparent to provide secure access to things server only accessible tools like
+  ElasticSearch (on /elastic) and Kibana (on /kibana) in the moqui-elasticsearch component
+- Multi service calls now pass results from previous calls to subsequent calls if parameter names match, and return results
 - Service jobs may now have a lastRunTime parameter passed by the job scheduler; lastRunTime on lock and passed to service is now
   the last run time without an error
 - view-entity now supports member-entity with entity-condition and no key-map for more flexible join expressions
+- TransactionCache now handles more situations like using EntityListIterator.next() calls and not just getCompleteList(), and 
+  deletes through the tx cache are more cleanly handled for records created through the tx cache
+- ResourceReference support for versions in supported implementations (initially DbResourceReference)
+- ResourceFacade locations now support a version suffix following a hash
+- Improved wiki services to track version along with underlying ResourceReference
+- New SimpleEtl class plus support for extract and load through EntityFacade
+- Various improvements in send#EmailTemplate, email view tracking with transparent pixel image
+- Improvements for form-list aggregations and show-total now supports avg, count, min, max, first, and last in addition to sum
+- Improved SQLException handling with more useful messages and error codes from database
+- Added view-entity.member-relationship element as a simpler alternative to member-entity using existing relationships
+- DataDocumentField now has a functionName attribute for functions on fields in a DataDocument based query 
+- Any DataDocument can now be treated as an entity using the name pattern DataDocument.${dataDocumentId}
+- Sub-select (sub-query) is now supported for view-entity by a simple flag on member-entity (or member-relationship); this changes
+  the query structure so the member entity is joined in a select clause with any conditions for fields on that member entity put
+  in its where clause instead of the where clause for the top-level select; any fields selected are selected in the sub-select as
+  are any fields used for the join ON conditions; the first example of this is the InvoicePaymentApplicationSummary view-entity in
+  mantle-usl which also uses alias.@function and alias.complex-alias to use concat_ws for combined name aliases
+- Sub-select also now supported for view-entity members of other view entities; this provides much more flexibility for functions
+  and complex-aliases in the sub-select queries; there are also examples of this in mantle-usl
+- Now uses Jackson Databind for JSON serialization and deserialization; date/time values are in millis since epoch
 
 ### Bug Fixes
 
 - Improved exception (throwable) handling for service jobs, now handled like other errors and don't break the scheduler
 - Fixed field.@hide attribute not working with runtime conditions, now evaluated each time a form-list is rendered
+- Fixed long standing issue with distinct counts and limited selected fields, now uses a distinct sub-select under a count select
+- Fixed long standing issue where view-entity aliased fields were not decrypted
+- Fixed issue with XML entity data loading using sub-elements for related entities and under those sub-elements for field data
+- Fixed regression in EntityFind where cache was used even if forUpdate was set
+- Fixed concurrency issue with screen history (symptom was NPE on iterator.next() call)
 
 ## Release 2.0.0 - 24 Nov 2016
 
@@ -505,6 +588,15 @@ Gradle tasks.
 
 ## Long Term To Do List - aka Informal Road Map
 
+- Support local printers, scales, etc in web-based apps using https://qz.io/
+
+- PDF, Office, etc document indexing for wiki attachments (using Apache Tika)
+- Wiki page version history with full content history diff, etc; store just differences, lib for that?
+  - https://code.google.com/archive/p/java-diff-utils/
+    - compile group: 'com.googlecode.java-diff-utils', name: 'diffutils', version: '1.3.0'
+  - https://bitbucket.org/cowwoc/google-diff-match-patch/
+    - compile group: 'org.bitbucket.cowwoc', name: 'diff-match-patch', version: '1.1'
+
 - Option for transition to only mount if all response URLs for screen paths exist
 
 - Saved form-list Finds
@@ -519,12 +611,6 @@ Gradle tasks.
 - form-single.entity-find-one element support, maybe form-single.actions too
 
 - Instance Provisioning and Management
-  - external instance management
-    - https://mist.io
-      - Docker, AWS, vmware, etc
-      - http://blog.mist.io/post/96542374356/one-ui-to-rule-them-all-manage-your-docker
-    - https://shipyard-project.com (Docker only)
-    - https://github.com/kevana/ui-for-docker (Docker only)
   - embedded and gradle docker client (for docker host or docker swarm)
     - direct through Docker API
       - https://docs.docker.com/engine/reference/commandline/dockerd/#bind-docker-to-another-host-port-or-a-unix-socket
@@ -572,30 +658,6 @@ Gradle tasks.
     - where to configure the email and screen to use? use EmailTemplate/emailTemplateId, but where to specify?
       - for notifications from DataFeeds can add DataFeed.emailTemplateId (or not, what about toAddresses, etc?)
       - maybe have a more general way to configure details of topics, including emailTemplateId and screenLocation...
-
-- Angular 2 Apps
-  - support by screen + subscreens, or enable/disable for all apps (with separate webroot or something)?
-  - update bootstrap (maybe get from CDN instead of including in source...)
-  - for screen generate
-    - component.ts file
-    - service.ts/js file with:
-      - service for each transition
-      - service to get data for screen actions
-      - services for section actions
-      - services for form row actions
-    - component.html file (use 'templateUrl' in Component annotation instead of 'template')
-    - or use single JS file with component, embedded template (use template: and not templateUrl:), transition services?
-  - with system.js need to transpile in the browser?
-    - can transpile into JS file using typescript4j; or generate component.js
-    - https://github.com/martypitt/typescript4j
-- Steps toward Angular, more similar client/server artifacts
-  - Add Mustache TemplateRenderer
-    - https://github.com/spullara/mustache.java
-  - Add form-list.actions and form-single.actions elements
-  - Add REST endpoint configuration for CrUD operations to form-list and form-single
-    - call local when rendered server-side
-    - set base URL, use common patterns for get single/multiple record, create, update, and delete
-    - use internal data from RestApi class to determine valid services available
 
 - Hazelcast based improvements
   - configuration for 'microservice' deployments, partitioning services to run on particular servers in a cluster and
@@ -689,6 +751,9 @@ Gradle tasks.
     - allow mapping DataDocument operations as well
     - Add attribute for resource/method like screen for anonymous and no authz access
   - OAuth2 Support
+    - Simple OAuth2 for authentication only
+      - https://tools.ietf.org/html/draft-ietf-oauth-v2-27#section-4.4
+      - use current api key functionality, or expand for limiting tokens to a particular client by registered client ID
     - Use Apache Oltu, see https://cwiki.apache.org/confluence/display/OLTU/OAuth+2.0+Authorization+Server
     - Spec at http://tools.ietf.org/html/rfc6749
     - http://oltu.apache.org/apidocs/oauth2/reference/org/apache/oltu/oauth2/as/request/package-summary.html
