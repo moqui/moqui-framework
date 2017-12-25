@@ -16,6 +16,7 @@ package org.moqui.impl.entity.condition;
 import org.moqui.BaseArtifactException;
 import org.moqui.impl.entity.EntityDefinition;
 import org.moqui.impl.entity.FieldInfo;
+import org.moqui.util.MNode;
 
 import java.io.Externalizable;
 import java.io.IOException;
@@ -49,9 +50,8 @@ public class ConditionAlias extends ConditionField implements Externalizable {
     public String getFieldName() { return fieldName; }
     public String getAliasEntityName() { return aliasEntityName; }
     private EntityDefinition getAliasEntityDef(EntityDefinition otherEd) {
-        if (aliasEntityDefTransient == null && aliasEntityName != null) {
+        if (aliasEntityDefTransient == null && aliasEntityName != null)
             aliasEntityDefTransient = otherEd.getEfi().getEntityDefinition(aliasEntityName);
-        }
         return aliasEntityDefTransient;
     }
 
@@ -60,7 +60,14 @@ public class ConditionAlias extends ConditionField implements Externalizable {
         // NOTE: this could have issues with view-entities as member entities where they have functions/etc; we may
         // have to pass the prefix in to have it added inside functions/etc
         colName.append(entityAlias).append('.');
-        colName.append(getAliasEntityDef(ed).getColumnName(fieldName));
+        EntityDefinition memberEd = getAliasEntityDef(ed);
+        if (memberEd.isViewEntity) {
+            MNode memberEntity = ed.getMemberEntityNode(entityAlias);
+            if ("true".equals(memberEntity.attribute("sub-select"))) colName.append(memberEd.getFieldInfo(fieldName).columnName);
+            else colName.append(memberEd.getColumnName(fieldName));
+        } else {
+            colName.append(memberEd.getColumnName(fieldName));
+        }
         return colName.toString();
     }
 

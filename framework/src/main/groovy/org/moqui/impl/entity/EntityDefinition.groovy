@@ -566,6 +566,7 @@ class EntityDefinition {
         return ""
     }
 
+    MNode getMemberEntityNode(String entityAlias) { return memberEntityAliasMap.get(entityAlias) }
     String getMemberEntityName(String entityAlias) {
         MNode memberEntityNode = memberEntityAliasMap.get(entityAlias)
         return memberEntityNode?.attribute("entity-name")
