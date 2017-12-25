@@ -637,10 +637,10 @@ along with this software (see the LICENSE.md file). If not, see
     </xs:complexType></xs:element>
     <xs:element name="row-col"><xs:complexType>
         <xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/>
-        <xs:attribute name="lg" type="xs:positiveInteger"/>
-        <xs:attribute name="md" type="xs:positiveInteger"/>
-        <xs:attribute name="sm" type="xs:positiveInteger"/>
-        <xs:attribute name="xs" type="xs:positiveInteger"/>
+        <xs:attribute name="lg" type="xs:nonNegativeInteger"/>
+        <xs:attribute name="md" type="xs:nonNegativeInteger"/>
+        <xs:attribute name="sm" type="xs:nonNegativeInteger"/>
+        <xs:attribute name="xs" type="xs:nonNegativeInteger"/>
         <xs:attribute name="style" type="xs:string"/>
     </xs:complexType></xs:element>
 
