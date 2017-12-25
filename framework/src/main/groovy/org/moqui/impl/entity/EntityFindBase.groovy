@@ -505,9 +505,17 @@ abstract class EntityFindBase implements EntityFind {
             } else {
                 // these will handle range-find and date-find
                 Object fromValue = inputFieldsMap.get(fn + "_from")
-                if (fromValue && fromValue instanceof CharSequence) fromValue = ed.convertFieldString(fn, fromValue.toString(), ec)
+                if (fromValue && fromValue instanceof CharSequence) {
+                    if (fi.typeValue == 2 && fromValue.length() < 12)
+                        fromValue = ec.l10nFacade.parseTimestamp(fromValue.toString() + " 00:00:00.000", "yyyy-MM-dd HH:mm:ss.SSS")
+                    else fromValue = ed.convertFieldString(fn, fromValue.toString(), ec)
+                }
                 Object thruValue = inputFieldsMap.get(fn + "_thru")
-                if (thruValue && thruValue instanceof CharSequence) thruValue = ed.convertFieldString(fn, thruValue.toString(), ec)
+                if (thruValue && thruValue instanceof CharSequence) {
+                    if (fi.typeValue == 2 && thruValue.length() < 12)
+                        thruValue = ec.l10nFacade.parseTimestamp(thruValue.toString() + " 23:59:59.999", "yyyy-MM-dd HH:mm:ss.SSS")
+                    else thruValue = ed.convertFieldString(fn, thruValue.toString(), ec)
+                }
 
                 if (!ObjectUtilities.isEmpty(fromValue)) {
                     EntityCondition fromCond = efi.entityConditionFactory.makeCondition(fn, EntityCondition.GREATER_THAN_EQUAL_TO, fromValue)
