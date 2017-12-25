@@ -397,7 +397,9 @@ class TransactionFacadeImpl implements TransactionFacade {
             throw new TransactionException("Could not commit transaction", e)
         } finally {
             // there shouldn't be a TX around now, but if there is the commit may have failed so rollback to clean things up
-            if (isTransactionInPlace()) rollback("Commit failed, rolling back to clean up", null)
+            int status = ut.getStatus()
+            if (status == Status.STATUS_ACTIVE || status == Status.STATUS_MARKED_ROLLBACK)
+                rollback("Commit failed, rolling back to clean up", null)
 
             txStackInfo.clearCurrent()
         }
