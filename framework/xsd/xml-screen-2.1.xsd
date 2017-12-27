@@ -421,14 +421,12 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:element ref="conditional-default" minOccurs="0" maxOccurs="unbounded"/>
             <xs:element ref="subscreens-item" minOccurs="0" maxOccurs="unbounded"/>
         </xs:sequence>
-        <xs:attribute name="default-item" type="xs:string">
-            <xs:annotation><xs:documentation>
-                The name of the default subscreen-item. Used when then screen-path ends on this screen so we
-                know which subscreen-item to activate.
+        <xs:attribute name="default-item" type="xs:string"><xs:annotation><xs:documentation>
+            The name of the default subscreen-item. Used when then screen-path ends on this screen so we
+            know which subscreen-item to activate.
 
-                If empty the first subscreen-item will be the default.
-            </xs:documentation></xs:annotation>
-        </xs:attribute>
+            If empty the first subscreen-item will be the default.
+        </xs:documentation></xs:annotation></xs:attribute>
         <xs:attribute name="always-use-full-path" type="boolean" default="false"/>
     </xs:complexType></xs:element>
     <xs:element name="conditional-default"><xs:complexType>
@@ -441,43 +439,39 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:annotation><xs:documentation>The subscreens item to make the default.</xs:documentation></xs:annotation>
         </xs:attribute>
     </xs:complexType></xs:element>
-    <xs:element name="subscreens-item"><xs:annotation>
-        <xs:documentation>
-            One way to add a subscreen. This is most commonly used to refer to a subscreen that is located in another
-            application, another part of this application, that is not in any application and is meant to be shared,
-            or is in a different type of location than the parent screen.
+    <xs:element name="subscreens-item"><xs:annotation><xs:documentation>
+        One way to add a subscreen. This is most commonly used to refer to a subscreen that is located in another
+        application, another part of this application, that is not in any application and is meant to be shared,
+        or is in a different type of location than the parent screen.
 
-            One subscreens-item is active at a time, meaning that screen is shown and the tab/etc for that screen is
-            highlighted.
-        </xs:documentation>
-    </xs:annotation><xs:complexType>
-        <xs:attribute name="name" type="name-plain" use="required">
-            <xs:annotation><xs:documentation>
-                The name of the subscreens item for use in the screen path. The screen path element following the
-                one for the parent screen of the item will match on this name.
+        One subscreens-item is active at a time, meaning that screen is shown and the tab/etc for that screen is
+        highlighted.
+    </xs:documentation></xs:annotation><xs:complexType>
+        <xs:attribute name="name" type="name-plain" use="required"><xs:annotation><xs:documentation>
+            The name of the subscreens item for use in the screen path. The screen path element following the
+            one for the parent screen of the item will match on this name.
 
-                Subscreen Item names should be camel-cased and start with a upper-case letter (just like screen
-                filenames start with a upper-case letter).
-            </xs:documentation></xs:annotation>
-        </xs:attribute>
-        <xs:attribute name="location" type="xs:string">
-            <xs:annotation><xs:documentation>
-                Subscreen location can include various prefixes to support including from a file, http, component,
-                or a content repository.
+            Subscreen Item names should be camel-cased and start with a upper-case letter (just like screen
+            filenames start with a upper-case letter).
+        </xs:documentation></xs:annotation></xs:attribute>
+        <xs:attribute name="location" type="xs:string"><xs:annotation><xs:documentation>
+            Subscreen location can include various prefixes to support including from a file, http, component,
+            or a content repository.
 
-                If empty defaults to the value of the name attribute under the current screen (in the directory
-                with the same name as the current screen), and can be a screen or sub-content.
-            </xs:documentation></xs:annotation>
-        </xs:attribute>
+            If empty defaults to the value of the name attribute under the current screen (in the directory
+            with the same name as the current screen), and can be a screen or sub-content.
+        </xs:documentation></xs:annotation></xs:attribute>
         <xs:attribute name="menu-title" type="xs:string"/>
-        <xs:attribute name="menu-index" type="xs:positiveInteger">
-            <xs:annotation><xs:documentation>
-                If specified this item will be inserted in existing list of subscreens at this index (1-based).
-                If empty this item will be added to the end of the list (after the directory load, before the
-                entity load).
-            </xs:documentation></xs:annotation>
-        </xs:attribute>
+        <xs:attribute name="menu-index" type="xs:positiveInteger"><xs:annotation><xs:documentation>
+            If specified this item will be inserted in existing list of subscreens at this index (1-based).
+            If empty this item will be added to the end of the list (after the directory load, before the
+            entity load).
+        </xs:documentation></xs:annotation></xs:attribute>
         <xs:attribute name="menu-include" type="boolean" default="true"/>
+        <xs:attribute name="no-sub-path" type="boolean" default="false"><xs:annotation><xs:documentation>
+            If true the sub-screens of the sub-screen may be referenced directly under this screen, skipping the screen path element
+            for the sub-screen.
+        </xs:documentation></xs:annotation></xs:attribute>
         <!-- no longer supported, may support again in the future (see ScreenDefinition.SubscreensItem.getDisable(), not used anywhere)
         <xs:attribute name="disable-when" type="xs:string">
             <xs:annotation><xs:documentation>This condition is run the subscreens menu is rendered to see if the

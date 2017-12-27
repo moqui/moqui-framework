@@ -37,6 +37,9 @@ along with this software (see the LICENSE.md file). If not, see
         </field>
         <field name="makeDefault" type="text-indicator">
             <description>If Y will be set at the default subscreen (replacing screen.subscreens.@default-item)</description></field>
+        <field name="noSubPath" type="text-indicator">
+            <description>If Y the sub-screens of the sub-screen may be referenced directly under this screen, skipping the
+                screen path element for the sub-screen</description></field>
         <relationship type="one" related="moqui.security.UserGroup"/>
     </entity>
     <entity entity-name="SubscreensDefault" package="moqui.screen" use="configuration" cache="true">
