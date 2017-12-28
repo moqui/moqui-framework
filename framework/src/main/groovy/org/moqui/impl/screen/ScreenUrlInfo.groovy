@@ -439,7 +439,7 @@ class ScreenUrlInfo {
 
             // This section is for no-sub-path support, allowing screen override or extend on same path with wrapping by no-sub-path screen
             // check getSubscreensNoSubPath() for subscreens item, transition, resource ref
-            // add subscreen to screenRenderDefList and screenPathDefList, also add to fullPathNameList, extraPathNameList
+            // add subscreen to screenRenderDefList and screenPathDefList, also add to fullPathNameList
             ArrayList<SubscreensItem> subscreensNoSubPath = lastSd.getSubscreensNoSubPath()
             if (subscreensNoSubPath != null) {
                 int subscreensNoSubPathSize = subscreensNoSubPath.size()
@@ -459,22 +459,34 @@ class ScreenUrlInfo {
                     SubscreensItem subSi = noSubPathSd.getSubscreensItem(pathName)
                     if ((subSi != null && sfi.isScreen(subSi.getLocation())) || noSubPathSd.hasTransition(pathName)) foundChild = true
                     // is this a file under the screen?
-                    ResourceReference existingFileRef = noSubPathSd.getSubContentRef(extraPathNameList)
-                    if (existingFileRef != null && existingFileRef.getExists() && !existingFileRef.isDirectory() &&
-                            !sfi.isScreen(existingFileRef.getLocation())) foundChild = true
+                    if (!foundChild) {
+                        ResourceReference existingFileRef = noSubPathSd.getSubContentRef(extraPathNameList)
+                        if (existingFileRef != null && existingFileRef.getExists() && !existingFileRef.isDirectory() &&
+                                !sfi.isScreen(existingFileRef.getLocation())) foundChild = true
+                    }
                     // if pathNamePreDot not null see if matches subscreen or transition
-                    if (pathNamePreDot != null) {
+                    if (!foundChild && pathNamePreDot != null) {
                         // is there an extension with a render-mode added to the screen name?
                         subSi = noSubPathSd.getSubscreensItem(pathNamePreDot)
-                        if ((subSi != null && sfi.isScreen(subSi.getLocation())) || noSubPathSd.hasTransition(pathName)) foundChild = true
+                        if ((subSi != null && sfi.isScreen(subSi.getLocation())) || noSubPathSd.hasTransition(pathNamePreDot)) foundChild = true
                     }
 
                     if (foundChild) {
+                        // if standalone, clear out screenRenderDefList before adding this to it
+                        if (noSubPathSd.isStandalone()) {
+                            renderPathDifference += screenRenderDefList.size()
+                            screenRenderDefList.clear()
+                        } else {
+                            while (this.lastStandalone < 0 && -lastStandalone > renderPathDifference && screenRenderDefList.size() > 0) {
+                                renderPathDifference++
+                                screenRenderDefList.remove(0)
+                            }
+                        }
+
                         screenRenderDefList.add(noSubPathSd)
                         screenPathDefList.add(noSubPathSd)
                         fullPathNameList.add(i, noSubPathSi.name)
                         i++
-                        extraPathNameList.add(0, noSubPathSi.name)
                         lastSd = noSubPathSd
                         break
                     }
