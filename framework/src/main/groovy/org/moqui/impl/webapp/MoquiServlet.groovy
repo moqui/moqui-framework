@@ -56,8 +56,9 @@ class MoquiServlet extends HttpServlet {
             return
         }
 
-        if ("Upgrade".equals(request.getHeader("Connection")) || "websocket".equals(request.getHeader("Upgrade"))) {
-            logger.warn("Got request for Connection:Upgrade or Upgrade:websocket which should have been handled by servlet container, returning error")
+        // "Connection:Upgrade or " "Upgrade".equals(request.getHeader("Connection")) ||
+        if ("websocket".equals(request.getHeader("Upgrade"))) {
+            logger.warn("Got request for Upgrade:websocket which should have been handled by servlet container, returning error")
             response.sendError(HttpServletResponse.SC_NOT_IMPLEMENTED)
             return
         }
