@@ -13,6 +13,7 @@
  */
 package org.moqui.context;
 
+import java.io.Serializable;
 import java.util.List;
 import org.moqui.context.NotificationMessage.NotificationType;
 
@@ -86,7 +87,7 @@ public interface MessageFacade {
     /** Remove last pushed errors from the stack and add them to current errors */
     void popErrors();
 
-    class MessageInfo {
+    class MessageInfo implements Serializable {
         String message;
         NotificationType type;
         public MessageInfo(String message, NotificationType type) {

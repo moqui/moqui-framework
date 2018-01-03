@@ -217,8 +217,8 @@ public class WebUtilities {
         @Override public String nextElement() { return null; }
     };
     public static boolean testSerialization(String name, Object value) {
-        return true;
-        /* for testing purposes only, don't enable by default:
+        // return true;
+        /* for testing purposes only, don't enable by default: */
         if (value == null) return true;
         try {
             ObjectOutputStream out = new ObjectOutputStream(new ByteArrayOutputStream());
@@ -229,7 +229,6 @@ public class WebUtilities {
             logger.warn("Tried to set session attribute [" + name + "] with non-serializable value of type " + value.getClass().getName(), e);
             return false;
         }
-        */
     }
 
     public interface AttributeContainer {

@@ -62,6 +62,7 @@ class ScreenDefinition {
     protected Map<String, TransitionItem> transitionByName = new HashMap<>()
     protected Map<String, SubscreensItem> subscreensByName = new HashMap<>()
     protected ArrayList<SubscreensItem> subscreensItemsSorted = null
+    protected ArrayList<SubscreensItem> subscreensNoSubPath = null
     protected String defaultSubscreensItem = null
 
     protected XmlAction alwaysActions = null
@@ -130,6 +131,10 @@ class ScreenDefinition {
         // subscreens
         defaultSubscreensItem = subscreensNode?.attribute("default-item")
         populateSubscreens()
+        for (SubscreensItem si in getSubscreensItemsSorted()) if (si.noSubPath) {
+            if (subscreensNoSubPath == null) subscreensNoSubPath = new ArrayList<>()
+            subscreensNoSubPath.add(si)
+        }
 
         // macro-template - go through entire list and set all found, basically we want the last one if there are more than one
         List<MNode> macroTemplateList = screenNode.children("macro-template")
@@ -287,9 +292,11 @@ class ScreenDefinition {
 
     MNode getScreenNode() { return screenNode }
     MNode getSubscreensNode() { return subscreensNode }
-    String getDefaultSubscreensItem() { return defaultSubscreensItem }
     MNode getWebSettingsNode() { return webSettingsNode }
     String getLocation() { return location }
+
+    String getDefaultSubscreensItem() { return defaultSubscreensItem }
+    ArrayList<SubscreensItem> getSubscreensNoSubPath() { return subscreensNoSubPath }
 
     String getScreenName() { return screenName }
     boolean isStandalone() { return standalone }
@@ -463,7 +470,7 @@ class ScreenDefinition {
 
     ArrayList<SubscreensItem> getSubscreensItemsSorted() {
         if (subscreensItemsSorted != null) return subscreensItemsSorted
-        List<SubscreensItem> newList = new ArrayList(subscreensByName.size())
+        ArrayList<SubscreensItem> newList = new ArrayList(subscreensByName.size())
         if (subscreensByName.size() == 0) return newList
         newList.addAll(subscreensByName.values())
         Collections.sort(newList, new SubscreensItemComparator())
@@ -580,7 +587,7 @@ class ScreenDefinition {
                 if (fnEnd == -1) fnEnd = loc.length()
                 title = loc.substring(fnStart, fnEnd)
             }
-            outList.add([title:title, index:(Long) screenDoc.getNoCheckSimple("docIndex")])
+            outList.add([title:title, index:(Long) screenDoc.getNoCheckSimple("docIndex")] as Map<String, Object>)
         }
         return outList
     }
@@ -1023,6 +1030,7 @@ class ScreenDefinition {
         protected String menuTitle
         protected Integer menuIndex
         protected boolean menuInclude
+        protected boolean noSubPath = false
         protected Class disableWhenGroovy = null
         protected String userGroupId = null
 
@@ -1041,7 +1049,8 @@ class ScreenDefinition {
             location = subscreensItem.attribute("location")
             menuTitle = subscreensItem.attribute("menu-title") ?: getDefaultTitle()
             menuIndex = subscreensItem.attribute("menu-index") ? (subscreensItem.attribute("menu-index") as Integer) : null
-            menuInclude = (!subscreensItem.attribute("menu-include") || subscreensItem.attribute("menu-include") == "true")
+            menuInclude = !subscreensItem.attribute("menu-include") || subscreensItem.attribute("menu-include") == "true"
+            noSubPath = subscreensItem.attribute("no-sub-path") == "true"
 
             if (subscreensItem.attribute("disable-when")) disableWhenGroovy = parentScreen.sfi.ecfi.getGroovyClassLoader()
                     .parseClass(subscreensItem.attribute("disable-when"), "${parentScreen.location}.subscreens_item_${name}.disable_when")
@@ -1053,7 +1062,8 @@ class ScreenDefinition {
             location = subscreensItem.subscreenLocation
             menuTitle = subscreensItem.menuTitle ?: getDefaultTitle()
             menuIndex = subscreensItem.menuIndex ? subscreensItem.menuIndex as Integer : null
-            menuInclude = (subscreensItem.menuInclude == "Y")
+            menuInclude = subscreensItem.menuInclude == "Y"
+            noSubPath = subscreensItem.noSubPath == "Y"
             userGroupId = subscreensItem.userGroupId
         }
 

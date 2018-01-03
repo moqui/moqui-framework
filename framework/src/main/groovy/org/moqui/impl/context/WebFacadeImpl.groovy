@@ -30,6 +30,7 @@ import org.apache.commons.fileupload.FileItemFactory
 import org.apache.commons.fileupload.disk.DiskFileItemFactory
 import org.apache.commons.fileupload.servlet.ServletFileUpload
 import org.moqui.context.*
+import org.moqui.context.MessageFacade.MessageInfo
 import org.moqui.entity.EntityNotFoundException
 import org.moqui.entity.EntityValue
 import org.moqui.entity.EntityValueNotFoundException
@@ -90,7 +91,8 @@ class WebFacadeImpl implements WebFacade {
 
     protected Map<String, Object> errorParameters = (Map<String, Object>) null
 
-    protected List<String> savedMessages = (List<String>) null
+    protected List<MessageInfo> savedMessages = (List<MessageInfo>) null
+    protected List<MessageInfo> savedPublicMessages = (List<MessageInfo>) null
     protected List<String> savedErrors = (List<String>) null
     protected List<ValidationError> savedValidationErrors = (List<ValidationError>) null
 
@@ -112,9 +114,13 @@ class WebFacadeImpl implements WebFacade {
         if (errorParameters != null) request.session.removeAttribute("moqui.error.parameters")
 
         // get any messages saved to the session, and clear them from the session
-        if (session.getAttribute("moqui.message.messages") != null) {
-            savedMessages = (List<String>) session.getAttribute("moqui.message.messages")
-            session.removeAttribute("moqui.message.messages")
+        if (session.getAttribute("moqui.message.messageInfos") != null) {
+            savedMessages = (List<MessageInfo>) session.getAttribute("moqui.message.messageInfos")
+            session.removeAttribute("moqui.message.messageInfos")
+        }
+        if (session.getAttribute("moqui.message.publicMessageInfos") != null) {
+            savedPublicMessages = (List<MessageInfo>) session.getAttribute("moqui.message.publicMessageInfos")
+            session.removeAttribute("moqui.message.publicMessageInfos")
         }
         if (session.getAttribute("moqui.message.errors") != null) {
             savedErrors = (List<String>) session.getAttribute("moqui.message.errors")
@@ -578,7 +584,8 @@ class WebFacadeImpl implements WebFacade {
     }
 
     @Override Map<String, Object> getErrorParameters() { return errorParameters }
-    @Override List<String> getSavedMessages() { return savedMessages }
+    @Override List<MessageInfo> getSavedMessages() { return savedMessages }
+    @Override List<MessageInfo> getSavedPublicMessages() { return savedPublicMessages }
     @Override List<String> getSavedErrors() { return savedErrors }
     @Override List<ValidationError> getSavedValidationErrors() { return savedValidationErrors }
 
@@ -976,13 +983,20 @@ class WebFacadeImpl implements WebFacade {
     }
 
     void saveMessagesToSession() {
-        List<String> messages = eci.messageFacade.getMessages()
-        if (messages != null && messages.size() > 0) session.setAttribute("moqui.message.messages", messages)
+        List<MessageInfo> messageInfos = eci.messageFacade.getMessageInfos()
+        WebUtilities.testSerialization("moqui.message.messageInfos", messageInfos)
+        if (messageInfos != null && messageInfos.size() > 0) session.setAttribute("moqui.message.messageInfos", messageInfos)
+        List<MessageInfo> publicMessageInfos = eci.messageFacade.getPublicMessageInfos()
+        WebUtilities.testSerialization("moqui.message.publicMessageInfos", publicMessageInfos)
+        if (publicMessageInfos != null && publicMessageInfos.size() > 0)
+            session.setAttribute("moqui.message.publicMessageInfos", publicMessageInfos)
+
         List<String> errors = eci.messageFacade.getErrors()
         if (errors != null && errors.size() > 0) session.setAttribute("moqui.message.errors", errors)
         List<ValidationError> validationErrors = eci.messageFacade.validationErrors
         WebUtilities.testSerialization("moqui.message.validationErrors", validationErrors)
-        if (validationErrors != null && validationErrors.size() > 0) session.setAttribute("moqui.message.validationErrors", validationErrors)
+        if (validationErrors != null && validationErrors.size() > 0)
+            session.setAttribute("moqui.message.validationErrors", validationErrors)
     }
 
     /** Save passed parameters Map to a Map in the moqui.saved.parameters session attribute */
@@ -1025,7 +1039,7 @@ class WebFacadeImpl implements WebFacade {
         try { os.write(trackingPng) } finally { os.close() }
         // mark the message viewed
         try {
-            String emailMessageId = eci.contextStack.get("emailMessageId")
+            String emailMessageId = (String) eci.contextStack.get("emailMessageId")
             if (emailMessageId != null && !emailMessageId.isEmpty()) {
                 int dotIndex = emailMessageId.indexOf(".")
                 if (dotIndex > 0) emailMessageId = emailMessageId.substring(0, dotIndex)
