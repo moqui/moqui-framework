@@ -28,6 +28,7 @@ import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.WebFacadeImpl
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.screen.ScreenDefinition.ParameterItem
+import org.moqui.impl.screen.ScreenDefinition.SubscreensItem
 import org.moqui.impl.screen.ScreenDefinition.TransitionItem
 import org.moqui.impl.service.ServiceDefinition
 import org.moqui.impl.webapp.ScreenResourceNotFoundException
@@ -424,7 +425,75 @@ class ScreenUrlInfo {
         extraPathNameList = new ArrayList<String>(fullPathNameList)
         for (int i = 0; i < fullPathNameList.size(); i++) {
             String pathName = (String) fullPathNameList.get(i)
-            ScreenDefinition.SubscreensItem curSi = lastSd.getSubscreensItem(pathName)
+            String rmExtension = (String) null
+            String pathNamePreDot = (String) null
+            int dotIndex = pathName.indexOf('.')
+            if (dotIndex > 0) {
+                // is there an extension with a render-mode added to the screen name?
+                String curExtension = pathName.substring(dotIndex + 1)
+                if (sfi.isRenderModeValid(curExtension)) {
+                    rmExtension = curExtension
+                    pathNamePreDot = pathName.substring(0, dotIndex)
+                }
+            }
+
+            // This section is for no-sub-path support, allowing screen override or extend on same path with wrapping by no-sub-path screen
+            // check getSubscreensNoSubPath() for subscreens item, transition, resource ref
+            // add subscreen to screenRenderDefList and screenPathDefList, also add to fullPathNameList
+            ArrayList<SubscreensItem> subscreensNoSubPath = lastSd.getSubscreensNoSubPath()
+            if (subscreensNoSubPath != null) {
+                int subscreensNoSubPathSize = subscreensNoSubPath.size()
+                for (int sni = 0; sni < subscreensNoSubPathSize; sni++) {
+                    SubscreensItem noSubPathSi = (SubscreensItem) subscreensNoSubPath.get(sni)
+                    String noSubPathLoc = noSubPathSi.getLocation()
+                    ScreenDefinition noSubPathSd = (ScreenDefinition) null
+                    try {
+                        noSubPathSd = sfi.getScreenDefinition(noSubPathLoc)
+                    } catch (Exception e) {
+                        logger.error("Error loading no sub-path screen under path ${pathName} at ${noSubPathLoc}", BaseException.filterStackTrace(e))
+                    }
+                    if (noSubPathSd == null) continue
+
+                    boolean foundChild = false
+                    // look for subscreen, transition
+                    SubscreensItem subSi = noSubPathSd.getSubscreensItem(pathName)
+                    if ((subSi != null && sfi.isScreen(subSi.getLocation())) || noSubPathSd.hasTransition(pathName)) foundChild = true
+                    // is this a file under the screen?
+                    if (!foundChild) {
+                        ResourceReference existingFileRef = noSubPathSd.getSubContentRef(extraPathNameList)
+                        if (existingFileRef != null && existingFileRef.getExists() && !existingFileRef.isDirectory() &&
+                                !sfi.isScreen(existingFileRef.getLocation())) foundChild = true
+                    }
+                    // if pathNamePreDot not null see if matches subscreen or transition
+                    if (!foundChild && pathNamePreDot != null) {
+                        // is there an extension with a render-mode added to the screen name?
+                        subSi = noSubPathSd.getSubscreensItem(pathNamePreDot)
+                        if ((subSi != null && sfi.isScreen(subSi.getLocation())) || noSubPathSd.hasTransition(pathNamePreDot)) foundChild = true
+                    }
+
+                    if (foundChild) {
+                        // if standalone, clear out screenRenderDefList before adding this to it
+                        if (noSubPathSd.isStandalone()) {
+                            renderPathDifference += screenRenderDefList.size()
+                            screenRenderDefList.clear()
+                        } else {
+                            while (this.lastStandalone < 0 && -lastStandalone > renderPathDifference && screenRenderDefList.size() > 0) {
+                                renderPathDifference++
+                                screenRenderDefList.remove(0)
+                            }
+                        }
+
+                        screenRenderDefList.add(noSubPathSd)
+                        screenPathDefList.add(noSubPathSd)
+                        fullPathNameList.add(i, noSubPathSi.name)
+                        i++
+                        lastSd = noSubPathSd
+                        break
+                    }
+                }
+            }
+
+            SubscreensItem curSi = lastSd.getSubscreensItem(pathName)
 
             if (curSi == null || !sfi.isScreen(curSi.getLocation())) {
                 // handle case where last one may be a transition name, and not a subscreen name
@@ -445,19 +514,14 @@ class ScreenUrlInfo {
                     break
                 }
 
-                int dotIndex = pathName.indexOf('.')
-                if (dotIndex > 0) {
+                if (pathNamePreDot != null) {
                     // is there an extension with a render-mode added to the screen name?
-                    String extension = pathName.substring(dotIndex + 1)
-                    String pathNamePreDot = pathName.substring(0, dotIndex)
-                    if (sfi.isRenderModeValid(extension)) {
-                        curSi = lastSd.getSubscreensItem(pathNamePreDot)
-                        if (curSi != null) {
-                            targetScreenRenderMode = extension
-                            if (sfi.isRenderModeAlwaysStandalone(extension)) lastStandalone = 1
-                            fullPathNameList.set(i, pathNamePreDot)
-                            pathName = pathNamePreDot
-                        }
+                    curSi = lastSd.getSubscreensItem(pathNamePreDot)
+                    if (curSi != null && sfi.isScreen(curSi.getLocation())) {
+                        targetScreenRenderMode = rmExtension
+                        if (sfi.isRenderModeAlwaysStandalone(rmExtension)) lastStandalone = 1
+                        fullPathNameList.set(i, pathNamePreDot)
+                        pathName = pathNamePreDot
                     }
 
                     // is there an extension beyond a transition name?
@@ -465,8 +529,7 @@ class ScreenUrlInfo {
                         // extra path elements always allowed after transitions for parameters, but we don't want the transition name on it
                         extraPathNameList.remove(0)
                         targetTransitionActualName = pathNamePreDot
-                        targetTransitionExtension = extension
-
+                        targetTransitionExtension = rmExtension
                         // break out; a transition means we're at the end
                         break
                     }
@@ -474,19 +537,19 @@ class ScreenUrlInfo {
 
                 // next SubscreenItem still not found?
                 if (curSi == null) {
-                    // call it good
+                    // call it good if extra path is allowed
                     if (lastSd.allowExtraPath) break
 
                     targetExists = false
                     notExistsLastSd = lastSd
-                    notExistsLastName = extraPathNameList?.last()
+                    notExistsLastName = extraPathNameList ? extraPathNameList.last() : (fullPathNameList ? fullPathNameList.last() : null)
                     return
                     // throw new ScreenResourceNotFoundException(fromSd, fullPathNameList, lastSd, extraPathNameList?.last(), null, new Exception("Screen sub-content not found here"))
                 }
             }
 
             String nextLoc = curSi.getLocation()
-            ScreenDefinition curSd = null
+            ScreenDefinition curSd = (ScreenDefinition) null
             try {
                 curSd = sfi.getScreenDefinition(nextLoc)
             } catch (Exception e) {

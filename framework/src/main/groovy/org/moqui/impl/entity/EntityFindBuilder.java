@@ -89,6 +89,9 @@ public class EntityFindBuilder extends EntityQueryBuilder {
         } else {
             // recurse to find member-entity with joinFromAlias, add in its joinFromAlias until one is found that is already in the set
             expandJoinFromAlias(entityNode, joinFromAlias, entityAliasUsedSet, entityAliasesJoinedInSet);
+            // if no exception from an alias not found or not joined in then we found a join path back so add in the current search alias
+            entityAliasesJoinedInSet.add(searchEntityAlias);
+            entityAliasUsedSet.add(searchEntityAlias);
         }
     }
 

@@ -19,6 +19,7 @@ import groovy.transform.CompileStatic
 import org.moqui.BaseArtifactException
 import org.moqui.BaseException
 import org.moqui.context.*
+import org.moqui.context.MessageFacade.MessageInfo
 import org.moqui.entity.EntityCondition.ComparisonOperator
 import org.moqui.entity.EntityException
 import org.moqui.entity.EntityList
@@ -207,7 +208,16 @@ class ScreenRenderImpl implements ScreenRender {
         Map<String, Object> responseMap = new HashMap<>()
         // add saveMessagesToSession, saveRequestParametersToSession/saveErrorParametersToSession data
         // add all plain object data from session?
-        if (ec.message.getMessages().size() > 0) responseMap.put("messages", ec.message.messages)
+        List<MessageInfo> messageInfos = ec.message.getMessageInfos()
+        int messageInfosSize = messageInfos.size()
+        if (messageInfosSize > 0) {
+            List<Map> miMapList = new ArrayList<>(messageInfosSize)
+            for (int i = 0; i < messageInfosSize; i++) {
+                MessageInfo messageInfo = (MessageInfo) messageInfos.get(i)
+                miMapList.add([message:messageInfo.message, type:messageInfo.typeString])
+            }
+            responseMap.put("messageInfos", miMapList)
+        }
         if (ec.message.getErrors().size() > 0) responseMap.put("errors", ec.message.errors)
         if (ec.message.getValidationErrors().size() > 0) {
             List<ValidationError> valErrorList = ec.message.getValidationErrors()
