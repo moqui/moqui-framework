@@ -13,9 +13,14 @@
 [![Gitter Chat at https://gitter.im/moqui/moqui-framework](https://badges.gitter.im/moqui/moqui-framework.svg)](https://gitter.im/moqui/moqui-framework?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![Stack Overflow](https://img.shields.io/badge/stack%20overflow-moqui-blue.svg)](http://stackoverflow.com/questions/tagged/moqui)
 
+
+For information about community infrastructure for code, discussions, support, etc see the Community Guide:
+
+<https://www.moqui.org/docs/moqui/Community+Guide>
+
 For details about running and deploying Moqui see:
 
-<http://www.moqui.org/framework/docs/RunDeploy.html>
+<https://www.moqui.org/docs/framework/Run+and+Deploy>
 
 Note that a runtime directory is required for Moqui Framework to run, but is not included in the source repository. The
 Gradle get component, load, and run tasks will automatically add the default runtime (from the moqui-runtime repository).
@@ -25,13 +30,13 @@ see the [ReleaseNotes.md](https://github.com/moqui/moqui-framework/blob/master/R
 
 For an overview of features see:
 
-<http://www.moqui.org/framework/docs/features.html>
+<https://www.moqui.org/docs/framework/Framework+Features>
 
 Get started with Moqui development quickly using the Tutorial at:
 
-<http://www.moqui.org/framework/docs/Tutorial.html>
+<https://www.moqui.org/docs/framework/Quick+Tutorial>
 
 For comprehensive documentation of Moqui Framework and an overview of 
 Mantle Business Artifacts download the PDF of the **Making Apps with Moqui** book:
  
-<http://www.moqui.org/MakingAppsWithMoqui-1.0.pdf>
+<https://www.moqui.org/MakingAppsWithMoqui-1.0.pdf>
