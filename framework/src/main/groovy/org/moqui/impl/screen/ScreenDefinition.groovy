@@ -273,7 +273,16 @@ class ScreenDefinition {
         if (screenNode.hasChild("subscreens")) for (MNode subscreensItem in screenNode.first("subscreens").children("subscreens-item")) {
             SubscreensItem si = new SubscreensItem(subscreensItem, this)
             subscreensByName.put(si.name, si)
-            if (logger.traceEnabled) logger.trace("Added XML defined subscreen [${si.name}] at [${si.location}] to screen [${locationRef}]")
+            if (logger.traceEnabled) logger.trace("Added Screen XML defined subscreen [${si.name}] at [${si.location}] to screen [${locationRef}]")
+        }
+
+        // override dir structure and screen.subscreens.subscreens-item elements with Moqui Conf XML screen-facade.screen.subscreens-item elements
+        MNode screenFacadeNode = sfi.ecfi.confXmlRoot.first("screen-facade")
+        MNode confScreenNode = screenFacadeNode.first("screen", "location", location)
+        if (confScreenNode != null) for (MNode subscreensItem in confScreenNode.children("subscreens-item")) {
+            SubscreensItem si = new SubscreensItem(subscreensItem, this)
+            subscreensByName.put(si.name, si)
+            if (logger.traceEnabled) logger.trace("Added Moqui Conf XML defined subscreen [${si.name}] at [${si.location}] to screen [${locationRef}]")
         }
 
         // override dir structure and subscreens-item elements with moqui.screen.SubscreensItem entity

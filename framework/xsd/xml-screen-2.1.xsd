@@ -400,17 +400,20 @@ along with this software (see the LICENSE.md file). If not, see
             If there is no additional element in the screen path or the next element is not a valid subscreen-item.name
             then the default-item will be the active subscreen. 
 
-            There are three ways to add subscreens to a screen:
+            There are four ways to add subscreens to a screen (in order of override):
 
-            1. for screens within a single application:
-               by directory structure: create a directory in the directory where the parent screen is named the same as
-               the parent screen's filename and put XML Screen files in that directory (name=filename up to .xml,
-               title=screen.default-title, location=parent screen minus filename plus directory and filename for
-               subscreen)
+            1. for screens within a single application by directory structure:
+                create a directory in the directory where the parent screen is named the same as
+                the parent screen's filename and put XML Screen files in that directory (name=filename up to .xml,
+                title=screen.default-title, location=parent screen minus filename plus directory and filename for
+                subscreen)
             2. for including screens that are part of another application, or shared and not in any application:
-               subscreens-item elements below the screen -> subscreens element (this element)
-            3. for adding screens, removing screens, or changing order and title of screens to an existing application:
-               a record in the moqui.screen.SubscreensItem entity
+                subscreens-item elements below the screen.subscreens element (this element)
+            3. for adding screens or changing order and title of screens to an existing application:
+                screen-facade.screen and subscreens-item elements in the Moqui Conf XML file including MoquiConf.xml in
+                a component; this subscreens-item element is much like the subscreens.subscreens-item element
+            4. for adding screens, removing screens, or changing order and title of screens to an existing application:
+                a record in the moqui.screen.SubscreensItem entity
 
             There are two visual elements (widgets) that come from the subscreens, a menu and the active subscreen.
             Those are included with the widgets using the "subscreens-menu" and "subscreens-active" elements, or the
