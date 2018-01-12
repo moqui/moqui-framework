@@ -153,7 +153,7 @@ class WebFacadeImpl implements WebFacade {
                     logger.error("Error parsing HTTP request body JSON: ${t.toString()}", t)
                     jsonParameters = [_requestBodyJsonParseError:t.getMessage()] as Map<String, Object>
                 }
-                logger.warn("=========== Got JSON HTTP request body: ${jsonParameters}")
+                // logger.warn("=========== Got JSON HTTP request body: ${jsonParameters}")
             }
         } else if (ServletFileUpload.isMultipartContent(request)) {
             // if this is a multi-part request, get the data for it
