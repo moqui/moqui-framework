@@ -49,6 +49,11 @@ class SubSelectTests extends Specification {
     def setup() {
         ec.artifactExecution.disableAuthz()
         ec.transaction.begin(null)
+        // create some entity to trigger the table creation.
+        ec.entity.makeValue("moqui.test.Foo").setAll([fooId:"EXTST1"]).createOrUpdate()
+        ec.entity.makeValue("moqui.test.Bar").setAll([barId:"EXTST1"]).createOrUpdate()
+        ec.entity.makeValue("moqui.test.Foo").setAll([fooId:"EXTST1"]).delete()
+        ec.entity.makeValue("moqui.test.Bar").setAll([barId:"EXTST1"]).delete()
     }
 
     def cleanup() {
@@ -60,8 +65,9 @@ class SubSelectTests extends Specification {
         when:
         EntityFind find =  ec.entity.find("moqui.test.FooBar").searchFormMap(["rank":100], null,null,null,true)
         EntityList list = find.list()
-        then:
 
+        then:
+        list.isEmpty()
         find.getQueryTextList()[0].contains(" RANK = ? ")
     }
 
@@ -69,7 +75,9 @@ class SubSelectTests extends Specification {
         when:
         EntityFind find = ec.entity.find("moqui.test.FooBar").searchFormMap(["rank_from":100], null,null,null,true)
         EntityList list = find.list()
+
         then:
+        list.isEmpty()
         find.getQueryTextList()[0].contains(" RANK >= ? ")
     }
 }
