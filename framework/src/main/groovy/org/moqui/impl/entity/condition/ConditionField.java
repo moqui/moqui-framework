@@ -41,11 +41,11 @@ public class ConditionField implements Externalizable {
 
     public String getFieldName() { return fieldName; }
     public String getColumnName(EntityDefinition ed) {
-        if (fieldInfo != null && fieldInfo.ed.equals(ed)) return fieldInfo.getFullColumnName();
+        if (fieldInfo != null && fieldInfo.ed.fullEntityName.equals(ed.fullEntityName)) return fieldInfo.getFullColumnName();
         return ed.getColumnName(fieldName);
     }
     public FieldInfo getFieldInfo(EntityDefinition ed) {
-        if (fieldInfo != null && fieldInfo.ed.equals(ed)) return fieldInfo;
+        if (fieldInfo != null && fieldInfo.ed.fullEntityName.equals(ed.fullEntityName)) return fieldInfo;
         return ed.getFieldInfo(fieldName);
     }
 
