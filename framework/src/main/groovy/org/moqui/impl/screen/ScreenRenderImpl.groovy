@@ -1786,6 +1786,10 @@ class ScreenRenderImpl implements ScreenRender {
         return menuDataList
     }
 
+    String listToJson(List<Map<String, String>> anyList) {
+        return groovy.json.JsonOutput.toJson(anyList).replace("\"", "'")
+    }
+
     String getVueColumns(MNode setupNode) {
         Map<String, ArrayList<MNode>> nodesByName = setupNode.getChildrenByName()
         ArrayList<MNode> columnsNode =  nodesByName.get("columns")
