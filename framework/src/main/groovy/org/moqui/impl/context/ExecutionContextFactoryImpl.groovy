@@ -1638,6 +1638,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         XmlAction afterStartupActions = null
         XmlAction beforeShutdownActions = null
         Integer sessionTimeoutSeconds = null
+        String sessionCookieName = null
 
         String httpPort, httpHost, httpsPort, httpsHost
         boolean httpsEnabled
@@ -1685,8 +1686,11 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                         "webapp_${webappName}.before_shutdown.actions")
 
             MNode sessionConfigNode = webappNode.first("session-config")
-            if (sessionConfigNode != null && sessionConfigNode.attribute("timeout")) {
-                sessionTimeoutSeconds = (sessionConfigNode.attribute("timeout") as int) * 60
+            if (sessionConfigNode != null) {
+                if (sessionConfigNode.attribute("timeout"))
+                    sessionTimeoutSeconds = (sessionConfigNode.attribute("timeout") as int) * 60
+                if (sessionConfigNode.attribute("cookie-name"))
+                    sessionCookieName = sessionConfigNode.attribute("cookie-name")
             }
         }
 

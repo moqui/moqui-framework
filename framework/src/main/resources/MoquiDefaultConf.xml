@@ -19,6 +19,8 @@
     <default-property name="webapp_https_port" value=""/>
     <default-property name="webapp_https_enabled" value="false"/>
 
+    <default-property name="moqui_visitor_cookie_name" value="moqui.visitor"/>
+
     <default-property name="entity_ds_db_conf" value="h2"/>
     <default-property name="entity_ds_host" value="localhost"/>
     <default-property name="entity_ds_port" value=""/>
@@ -148,7 +150,7 @@
             </servlet>
 
             <!-- timeout session in 60 minutes without a request -->
-            <session-config timeout="60"/>
+            <session-config timeout="60" cookie-name="JSESSIONID"/>
 
             <!-- Notification Message Endpoint -->
             <endpoint path="/notws" class="org.moqui.impl.webapp.NotificationEndpoint" timeout="3600000" enabled="true"/>

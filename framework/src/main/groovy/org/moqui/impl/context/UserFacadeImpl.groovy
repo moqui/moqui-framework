@@ -67,8 +67,11 @@ class UserFacadeImpl implements UserFacade {
     protected HttpServletResponse response = (HttpServletResponse) null
     protected HttpSession session = (HttpSession) null
 
+    private String visitorCookieName
+
     UserFacadeImpl(ExecutionContextImpl eci) {
         this.eci = eci
+        visitorCookieName = System.getProperty("moqui_visitor_cookie_name")
         pushUser(null)
     }
 
@@ -156,7 +159,7 @@ class UserFacadeImpl implements UserFacade {
                 Cookie[] cookies = request.getCookies()
                 if (cookies != null) {
                     for (int i = 0; i < cookies.length; i++) {
-                        if (cookies[i].getName().equals("moqui.visitor")) {
+                        if (cookies[i].getName().equals(visitorCookieName)) {
                             cookieVisitorId = cookies[i].getValue()
                             break
                         }
@@ -179,7 +182,7 @@ class UserFacadeImpl implements UserFacade {
                 }
                 if (cookieVisitorId) {
                     // whether it existed or not, add it again to keep it fresh; stale cookies get thrown away
-                    Cookie visitorCookie = new Cookie("moqui.visitor", cookieVisitorId)
+                    Cookie visitorCookie = new Cookie(visitorCookieName, cookieVisitorId)
                     visitorCookie.setMaxAge(60 * 60 * 24 * 365)
                     visitorCookie.setPath("/")
                     response.addCookie(visitorCookie)
