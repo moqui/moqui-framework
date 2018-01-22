@@ -45,7 +45,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="enumCode" type="text-medium"/>
         <field name="sequenceNum" type="number-integer"/>
         <field name="description" type="text-medium" enable-localization="true"/>
-        <field name="optionValue" type="text-medium"><description>Usage depends on enum type such as an ID format or mask.</description></field>
+        <field name="optionValue" type="text-medium"><description>Usage depends on enum type such as an ID format/mask</description></field>
+        <field name="optionIndicator" type="text-indicator"><description>Indicator flag with meaning depending on enum type</description></field>
         <field name="relatedEnumId" type="id"/>
         <relationship type="one" related="moqui.basic.EnumerationType" short-alias="type"/>
         <relationship type="one-nofk" title="Parent" related="moqui.basic.Enumeration" short-alias="parent">
@@ -99,7 +100,6 @@ along with this software (see the LICENSE.md file). If not, see
         <!-- better not to do this, sequence in group member records: <alias name="enumSequenceNum" entity-alias="ENUM" field="sequenceNum"/> -->
     </view-entity>
     <view-entity entity-name="ParentEnum" package="moqui.basic" cache="true">
-        <description></description>
         <member-entity entity-alias="ENUM" entity-name="moqui.basic.Enumeration"/>
         <member-entity entity-alias="ENUMP" entity-name="moqui.basic.Enumeration" join-from-alias="ENUM">
             <key-map field-name="parentEnumId" related="enumId"/>
