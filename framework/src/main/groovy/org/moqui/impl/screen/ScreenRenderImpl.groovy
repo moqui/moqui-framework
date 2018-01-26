@@ -1677,7 +1677,7 @@ class ScreenRenderImpl implements ScreenRender {
         if (themeId == null || themeId.length() == 0) {
             EntityValue stv = entityFacade.find("moqui.screen.ScreenTheme")
                     .condition("screenThemeTypeEnumId", stteId)
-                    .condition("screenThemeId", ComparisonOperator.LIKE, "%DEFAULT%").useCache(true).disableAuthz().one()
+                    .condition("screenThemeId", ComparisonOperator.LIKE, "%DEFAULT%").disableAuthz().one()
             if (stv) themeId = stv.screenThemeId
         }
 
