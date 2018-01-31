@@ -69,6 +69,7 @@ public class StringUtilities {
     public static String encodeForXmlAttribute(String original) { return encodeForXmlAttribute(original, false); }
 
     public static String encodeForXmlAttribute(String original, boolean addZeroWidthSpaces) {
+        if (original == null) return "";
         StringBuilder newValue = new StringBuilder(original);
         for (int i = 0; i < newValue.length(); i++) {
             char curChar = newValue.charAt(i);
