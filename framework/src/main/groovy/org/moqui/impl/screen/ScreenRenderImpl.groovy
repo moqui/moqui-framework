@@ -1675,9 +1675,9 @@ class ScreenRenderImpl implements ScreenRender {
         }
         // theme with "DEFAULT" in the ID
         if (themeId == null || themeId.length() == 0) {
-            EntityValue stv = sfi.ecfi.entityFacade.find("moqui.screen.ScreenTheme")
+            EntityValue stv = entityFacade.find("moqui.screen.ScreenTheme")
                     .condition("screenThemeTypeEnumId", stteId)
-                    .condition("screenThemeId", ComparisonOperator.LIKE, "%DEFAULT%").one()
+                    .condition("screenThemeId", ComparisonOperator.LIKE, "%DEFAULT%").disableAuthz().one()
             if (stv) themeId = stv.screenThemeId
         }
 

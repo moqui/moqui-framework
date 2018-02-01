@@ -82,7 +82,7 @@ dependencies {
     // CUPS4J - print through CUPS server
     compile name: 'cups4j', version: '0.6.4' // LGPL <== NOTE!
     // CUPS4J sepends on Apache HTTP Client (unfortunate, adds about 1.1MB)
-    compile 'org.apache.httpcomponents:httpclient:4.5.4'
+    compile 'org.apache.httpcomponents:httpclient:4.5.5'
 
     // ========== Libraries from jcenter ==========
 
@@ -118,7 +118,7 @@ dependencies {
     compile 'com.h2database:h2:1.4.196' // MPL 2.0, EPL 1.0
 
     // Jackson Databind (JSON, etc)
-    compile 'com.fasterxml.jackson.core:jackson-databind:2.9.3'
+    compile 'com.fasterxml.jackson.core:jackson-databind:2.9.4'
 
     // Jetty HTTP Client and Proxy Servlet
     compile 'org.eclipse.jetty:jetty-client:9.4.8.v20171121' // Apache 2.0
