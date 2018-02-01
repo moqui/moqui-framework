@@ -101,6 +101,11 @@ dependencies {
     // cron-utils (NOTE: not updating to 6.0.0 as adds dependency on Guava and threetenbp, evidently for pre Java 8 support but huge libs not worth it)
     compile module('com.cronutils:cron-utils:5.0.5') // Apache 2.0
 
+    // Flexmark (markdown)
+    compile 'com.vladsch.flexmark:flexmark:0.28.38'
+    compile 'com.vladsch.flexmark:flexmark-ext-tables:0.28.38'
+    compile 'com.vladsch.flexmark:flexmark-ext-toc:0.28.38'
+
     // Freemarker
     compile 'org.freemarker:freemarker:2.3.27-incubating' // Apache 2.0
 
@@ -129,9 +134,6 @@ dependencies {
 
     // JSoup (HTML parser, cleaner)
     compile 'org.jsoup:jsoup:1.11.2' // MIT
-
-    // Pegdown (Markdown renderer; depends on parboiled, asm)
-    compile 'org.pegdown:pegdown:1.6.0' // Apache 2.0
 
     // Apache Shiro
     compile module('org.apache.shiro:shiro-core:1.4.0') // Apache 2.0
