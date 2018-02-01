@@ -63,6 +63,8 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Yes" enumId="BlY" enumTypeId="BooleanYN"/>
             <moqui.basic.Enumeration description="No" enumId="BlN" enumTypeId="BooleanYN"/>
 
+            <!-- NOTE: It is very important that these remain in the sequence order (1-Monday through 7-Sunday)
+                 so that ZDT calculations (which return ISO8601 values for the day of the week) work properly. -->
             <moqui.basic.EnumerationType description="Day of Week" enumTypeId="DayOfWeek"/>
             <moqui.basic.Enumeration description="Monday" enumId="DowMonday" sequenceNum="1" enumCode="MONDAY" enumTypeId="DayOfWeek"/>
             <moqui.basic.Enumeration description="Tuesday" enumId="DowTuesday" sequenceNum="2" enumCode="TUESDAY" enumTypeId="DayOfWeek"/>
