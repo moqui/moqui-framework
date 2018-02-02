@@ -259,23 +259,47 @@ along with this software (see the LICENSE.md file). If not, see
     </service>
     <service verb="get" noun="WikiPageAttachment">
         <in-parameters>
-            <parameter name="wikiSpaceId" required="true"/>
+            <parameter name="wikiSpaceId"><description>Optional if pagePath is a wikiPageId or the first segment is a wikiSpaceId</description></parameter>
             <parameter name="pagePath"><description>Not required, is empty for the space root page. Can be a wikiPageId or the page path within the space.</description></parameter>
-            <parameter name="filename" required="true"/>
+            <parameter name="filename"><description>If not specified last segment of pagePath will be used</description></parameter>
         </in-parameters>
         <out-parameters><parameter name="attachmentReference" type="org.moqui.content.ResourceReference"/></out-parameters>
         <actions>
-            <if condition="pagePath &amp;&amp; !pagePath.contains('/')">
-                <!-- see if pagePath is a wikiPageId, if so use its pagePath -->
+            <set field="pathList" from="pagePath ? pagePath.split('/') as List : []"/>
+            <!-- <log level="warn" message="begin wikiSpaceId ${wikiSpaceId} pagePath ${pagePath} filename ${filename} pathList ${pathList}"/> -->
+            <if condition="!filename">
+                <if condition="pathList"><then>
+                    <set field="filename" from="pathList.remove(pathList.size()-1)"/>
+                    <set field="pagePath" from="pathList.join('/')"/>
+                </then><else>
+                    <return error="true" message="No filename specified and no path with filename"/>
+                </else></if>
+            </if>
+
+            <set field="pathFirst" from="pathList ? pathList[0] : null"/>
+            <!-- <log level="warn" message="middle wikiSpaceId ${wikiSpaceId} pagePath ${pagePath} filename ${filename} pathFirst ${pathFirst} pathList ${pathList}"/> -->
+            <if condition="pathFirst">
+                <!-- see if first part of pagePath is a wikiSpaceId, if so set it and remove from pathList -->
+                <entity-find-one entity-name="moqui.resource.wiki.WikiSpace" value-field="wikiSpace" cache="true">
+                    <field-map field-name="wikiSpaceId" from="pathFirst"/></entity-find-one>
+                <if condition="wikiSpace != null">
+                    <set field="wikiSpaceId" from="pathList.remove(0)"/>
+                    <set field="pagePath" from="pathList.join('/')"/>
+                    <set field="pathFirst" from="pathList ? pathList[0] : null"/>
+                </if>
+            </if>
+            <if condition="pathFirst">
+                <!-- see if first part of pagePath is a wikiPageId, if so use its pagePath -->
                 <entity-find-one entity-name="moqui.resource.wiki.WikiPage" value-field="wikiPage" cache="true">
-                    <field-map field-name="wikiPageId" from="pagePath"/></entity-find-one>
+                    <field-map field-name="wikiPageId" from="pathFirst"/></entity-find-one>
                 <if condition="wikiPage != null">
                     <set field="wikiSpaceId" from="wikiPage.wikiSpaceId"/>
                     <set field="pagePath" from="wikiPage.pagePath"/>
                 </if>
             </if>
+            <!-- <log level="warn" message="after wikiSpaceId ${wikiSpaceId} pagePath ${pagePath} filename ${filename}"/> -->
 
-            <entity-find-one entity-name="WikiSpace" value-field="wikiSpace" cache="true"/>
+            <entity-find-one entity-name="moqui.resource.wiki.WikiSpace" value-field="wikiSpace" cache="true"/>
             <if condition="wikiSpace == null"><return error="true" message="Wiki Space with ID ${wikiSpaceId} not found"/></if>
             <if condition="!wikiSpace.rootPageLocation"><return error="true" message="Wiki Space with ID ${wikiSpaceId} has no root page location"/></if>
 
