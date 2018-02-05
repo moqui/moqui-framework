@@ -17,7 +17,9 @@ Moqui Framework 2.1.1 is a patch level new feature and bug fix release.
 - Add support for 'no sub-path' subscreens to extend or override screens, transitions, and resources under the parent screen by 
   looking first in each no sub-path subscreen for a given screen path and if not found then look under the parent screen; for 
   example this is used in the moqui-org component for the moqui.org web-site so that /index.html is found in the moqui-org 
-  component and so that /Login resolves to the Login.xml screen in the moqui-org component instead of the default one under webroot 
+  component and so that /Login resolves to the Login.xml screen in the moqui-org component instead of the default one under webroot
+- Changed Markdown rendering from Pegdown to flexmark-java to support CommonMark 0.28, some aspects of GitHub Flavored Markdown,
+  and automatic table of contents 
 
 ### Bug Fixes
 
