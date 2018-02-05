@@ -13,14 +13,19 @@
  */
 package org.moqui.impl.context.renderer
 
+import com.vladsch.flexmark.ext.tables.TablesExtension
+import com.vladsch.flexmark.ext.toc.TocExtension
+import com.vladsch.flexmark.html.HtmlRenderer
+import com.vladsch.flexmark.parser.Parser
+import com.vladsch.flexmark.util.KeepType
+import com.vladsch.flexmark.util.options.MutableDataHolder
+import com.vladsch.flexmark.util.options.MutableDataSet
 import groovy.transform.CompileStatic
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.resource.ResourceReference
 import org.moqui.context.TemplateRenderer
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.jcache.MCache
-import org.pegdown.Extensions
-import org.pegdown.PegDownProcessor
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -31,7 +36,20 @@ class MarkdownTemplateRenderer implements TemplateRenderer {
     protected final static Logger logger = LoggerFactory.getLogger(MarkdownTemplateRenderer.class)
 
     // ALL_WITH_OPTIONALS includes SMARTS and QUOTES so XOR them to remove them
-    final static int pegDownOptions = Extensions.ALL_WITH_OPTIONALS ^ Extensions.SMARTS ^ Extensions.QUOTES
+    // final static int pegDownOptions = Extensions.ALL_WITH_OPTIONALS ^ Extensions.SMARTS ^ Extensions.QUOTES
+
+    static final MutableDataHolder OPTIONS = new MutableDataSet()
+            .set(Parser.REFERENCES_KEEP, KeepType.LAST)
+            .set(HtmlRenderer.INDENT_SIZE, 2)
+            .set(HtmlRenderer.PERCENT_ENCODE_URLS, true)
+            // for full GitHub Flavored Markdown table compatibility add the following table extension options:
+            .set(TablesExtension.COLUMN_SPANS, false)
+            .set(TablesExtension.APPEND_MISSING_COLUMNS, true)
+            .set(TablesExtension.DISCARD_EXTRA_COLUMNS, true)
+            .set(TablesExtension.HEADER_SEPARATOR_COLUMN_MATCH, true)
+            .set(Parser.EXTENSIONS, Arrays.asList(TablesExtension.create(), TocExtension.create()))
+    static final Parser PARSER = Parser.builder(OPTIONS).build()
+    static final HtmlRenderer RENDERER = HtmlRenderer.builder(OPTIONS).build()
 
     protected ExecutionContextFactoryImpl ecfi
     protected Cache<String, String> templateMarkdownLocationCache
@@ -74,10 +92,13 @@ class MarkdownTemplateRenderer implements TemplateRenderer {
         /*
         Markdown4jProcessor markdown4jProcessor = new Markdown4jProcessor()
         mdText = markdown4jProcessor.process(sourceText)
-        */
 
         PegDownProcessor pdp = new PegDownProcessor(pegDownOptions)
         mdText = pdp.markdownToHtml(sourceText)
+        */
+
+        com.vladsch.flexmark.ast.Node document = PARSER.parse(sourceText)
+        mdText = RENDERER.render(document)
 
         // logger.warn("==== render md at ${location} version ${hasVersion} sourceText ${sourceText.length() > 100 ? sourceText.substring(0, 100) : sourceText}\nmdText ${mdText.length() > 100 ? mdText.substring(0, 100) : mdText}")
         if (mdText != null && !mdText.isEmpty()) {
