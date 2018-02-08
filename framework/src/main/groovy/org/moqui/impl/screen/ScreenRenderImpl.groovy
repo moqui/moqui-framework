@@ -1286,6 +1286,10 @@ class ScreenRenderImpl implements ScreenRender {
     }
 
     String getFieldValueString(MNode widgetNode) {
+        return getFieldValueString(widgetNode, ec.user.locale)
+    }
+
+    String getFieldValueString(MNode widgetNode, Locale locale) {
         MNode fieldNodeWrapper = widgetNode.parent.parent
         String defaultValue = widgetNode.attribute("default-value")
         if (defaultValue == null) defaultValue = ""
@@ -1298,9 +1302,14 @@ class ScreenRenderImpl implements ScreenRender {
         Object obj = getFieldValue(fieldNodeWrapper, defaultValue)
         if (obj == null) return ""
         if (obj instanceof String) return (String) obj
-        String strValue = ec.l10nFacade.format(obj, format)
+        String strValue = ec.l10nFacade.format(obj, format, locale)
         return strValue
     }
+
+    String getFieldValueStringUS(MNode widgetNode) {
+        return getFieldValueString(widgetNode, new Locale("en", "US"))
+    }
+
     String getFieldValueString(MNode fieldNodeWrapper, String defaultValue, String format) {
         Object obj = getFieldValue(fieldNodeWrapper, defaultValue)
         if (obj == null) return ""
@@ -1835,5 +1844,62 @@ class ScreenRenderImpl implements ScreenRender {
 
         // for (Map info in menuDataList) logger.warn("menu data item: ${info}")
         return menuDataList
+    }
+
+    String listToJson(List<Map<String, String>> anyList) {
+        return groovy.json.JsonOutput.toJson(anyList).replace("\"", "'")
+    }
+
+    String getVueColumns(MNode setupNode) {
+        Map<String, ArrayList<MNode>> nodesByName = setupNode.getChildrenByName()
+        ArrayList<MNode> columnsNode =  nodesByName.get("columns")
+        Boolean hasColumnsDefinition = false
+
+        /*columns setup*/
+        List<Map<String, String>> customSetup = new ArrayList<>()
+
+
+        if (columnsNode.size() == 1) {
+            hasColumnsDefinition = true
+
+            for (MNode cols in columnsNode) {
+                for (colDef in cols.getChildren()) {
+                    Map<String, String> customCol = new HashMap<>()
+
+                    def colName = colDef.attribute("name")
+                    def colTitle = ec.l10n.localize(colDef.attribute("title"))
+                    def colCallback = colDef.attribute("callback")
+                    def colSortField = colDef.attribute("sortField")
+                    def colDataClass = colDef.attribute("dataClass")
+                    def colTitleClass = colDef.attribute("titleClass")
+
+                    customCol.put("name", colName)
+                    customCol.put("title", colTitle)
+                    if (colCallback != null) customCol.put("callback", colCallback)
+                    if (colSortField != null) customCol.put("sortField", colSortField)
+                    if (colDataClass != null) customCol.put("dataClass", colDataClass)
+                    if (colTitleClass != null) customCol.put("titleClass", colTitleClass)
+
+                    customSetup.add(customCol)
+                    //logger.info("   colDef.text ${colDef.text}")
+                }
+            }
+        }
+
+        if (hasColumnsDefinition) {
+            return groovy.json.JsonOutput.toJson(customSetup).replace("\"", "'")
+        }
+
+        /*default column setup*/
+        List<Map<String, String>> defaultSetup = new ArrayList<>()
+        Map<String, String> defaultCols = new HashMap<>()
+
+        defaultCols.put('name', 'toPartyId')
+        defaultCols.put('title', 'Party ID')
+
+        /*add to output*/
+        defaultSetup.add(defaultCols)
+
+        return groovy.json.JsonOutput.toJson(defaultSetup).replace("\"", "'")
     }
 }

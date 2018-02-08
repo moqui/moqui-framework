@@ -134,7 +134,7 @@ along with this software (see the LICENSE.md file). If not, see
             A variation on the list form is the multi form (set the attribute multi=true). In the multi mode all
             list elements will be put into a single large form with suffixes on each field for each row, with a
             single submit button at the bottom instead of a submit button on each row.
-        </xs:documentation>
+		 </xs:documentation>
     </xs:annotation><xs:complexType>
         <xs:sequence>
             <xs:element minOccurs="0" ref="entity-find"/>
@@ -867,29 +867,186 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element ref="list-options"/>
                 <xs:element ref="option"/>
             </xs:choice>
-            <xs:element minOccurs="0" ref="dynamic-options"/>
-        </xs:sequence>
-        <xs:attribute name="allow-empty" type="xs:string" default="false"/>
-        <xs:attribute name="allow-multiple" type="xs:string" default="false"/>
-        <xs:attribute name="size" type="xs:integer" default="1"/>
-        <xs:attribute name="current" default="selected"><xs:simpleType><xs:restriction base="xs:token">
-            <xs:enumeration value="first-in-list"/><xs:enumeration value="selected"/></xs:restriction></xs:simpleType></xs:attribute>
-        <xs:attribute name="no-current-selected-key" type="xs:string">
-            <xs:annotation><xs:documentation>The key to mark as selected when there is no current entry value.</xs:documentation></xs:annotation>
-        </xs:attribute>
-        <xs:attribute name="current-description" type="xs:string"/>
-        <!-- currently not supported (allow text entry or select option): <xs:attribute name="combo-box" type="boolean" default="false"/> -->
-        <xs:attribute name="show-not" type="xs:string" default="false"/>
-        <xs:attribute name="style" type="xs:string"/>
-    </xs:complexType></xs:element>
-    <xs:element name="file" substitutionGroup="SubFields"><xs:complexType>
-        <xs:attribute name="size" type="xs:positiveInteger" default="30"/>
-        <xs:attribute name="maxlength" type="xs:positiveInteger"/>
-        <xs:attribute name="default-value" type="xs:string"/>
-    </xs:complexType></xs:element>
-    <xs:element name="hidden" substitutionGroup="SubFields"><xs:complexType>
-        <xs:attribute name="default-value" type="xs:string"/>
-    </xs:complexType></xs:element>
+            <xs:attribute name="no-current-selected-key" type="xs:string"/>
+            <xs:attribute name="all-checked" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="date-find" substitutionGroup="SubFields">
+        <xs:complexType>
+            <xs:attribute name="type" default="timestamp">
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <xs:enumeration value="timestamp"/>
+                        <xs:enumeration value="date-time"/>
+                        <xs:enumeration value="date"/>
+                        <xs:enumeration value="time"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="format" type="xs:string">
+                <xs:annotation><xs:documentation>Used to format the output of Time/Date/Timestamp objects. With
+                    auto-fields-service will inherit from service parameter.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="default-value-from" type="xs:string"/>
+            <xs:attribute name="default-value-thru" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="date-period" substitutionGroup="SubFields">
+        <xs:complexType>
+            <xs:attribute name="allow-empty" default="true" type="boolean"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="date-time" substitutionGroup="SubFields">
+        <xs:complexType>
+            <xs:attribute name="type" default="timestamp">
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <xs:enumeration value="timestamp"/>
+                        <xs:enumeration value="date-time"/>
+                        <xs:enumeration value="date"/>
+                        <xs:enumeration value="time"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="format" type="xs:string">
+                <xs:annotation><xs:documentation>Used to format the output of Time/Date/Timestamp objects. With
+                    auto-fields-service will inherit from service parameter.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="default-value" type="xs:string"/>
+            <xs:attribute name="size" type="xs:positiveInteger"/>
+            <xs:attribute name="max-length" type="xs:positiveInteger"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="display" substitutionGroup="SubFields">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="depends-on">
+                    <xs:annotation><xs:documentation>For dynamic values only (see dynamic-transition). When getting
+                        data from the server the value of this field will be passed in the request. When this field
+                        changes the value in the dynamic display will be updated.</xs:documentation></xs:annotation>
+                </xs:element>
+            </xs:sequence>
+            <xs:attribute name="also-hidden" default="true" type="boolean">
+                <xs:annotation><xs:documentation>If set to true, a hidden form field is also rendered, with the name of
+                    the field and its value.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="text" type="xs:string">
+                <xs:annotation><xs:documentation>Specifies the string to display, can use the ${} syntax to insert
+                    context values; if empty the value of the field will be printed for a default.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="text-map" type="xs:string">
+                <xs:annotation><xs:documentation>An expression that evaluates to a Map in the context that will be used
+                    in addition to the context when expanding the @text value.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="currency-unit-field" type="xs:string">
+                <xs:annotation><xs:documentation>Specifies the currency uomId (ISO code) used to format the value.
+                Will only format as currency if this is specified.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="format" type="xs:string">
+                <xs:annotation><xs:documentation>Used to format the output of Number/Time/Date/Timestamp/etc objects.
+                    With auto-fields-service will inherit from service parameter.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="text-format" type="xs:string"><xs:annotation><xs:documentation>
+                Used to format the output of Number/Time/Date/Timestamp/etc objects for text output.</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="encode" default="true" type="boolean">
+                <xs:annotation><xs:documentation>
+                    If true the text will be encoded so that it does not interfere with markup of the target output.
+                </xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="dynamic-transition" type="xs:string">
+                <xs:annotation><xs:documentation>If specified the text-line will get a default dynamically using depends-on fields
+                    and parameters in the parameter-map attribute.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="parameter-map" type="xs:string">
+                <xs:annotation><xs:documentation>A Map to get parameter names and values from for dynamic value requests.
+                    This is named to follow the pattern for parameters used elsewhere.</xs:documentation></xs:annotation>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="display-entity" substitutionGroup="SubFields">
+        <xs:annotation><xs:documentation>This is just like display but looks up a description using the Entity Facade;
+            note that if also-hidden is true then it uses the key as the value, not the shown description.</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:attribute name="entity-name" type="xs:string" use="required"/>
+            <xs:attribute name="key-field-name" type="xs:string"/>
+            <xs:attribute name="use-cache" default="true" type="boolean"/>
+            <xs:attribute name="text" type="xs:string" default="${description}"/>
+            <xs:attribute name="default-text" type="xs:string"><xs:annotation><xs:documentation>
+                Displayed if no record found.</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="also-hidden" default="true" type="boolean"/>
+            <xs:attribute name="encode" default="true" type="boolean"><xs:annotation><xs:documentation>
+                If true text will be encoded so that it does not interfere with markup of the target output.</xs:documentation></xs:annotation></xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="drop-down" substitutionGroup="SubFields">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:choice minOccurs="0" maxOccurs="unbounded">
+                    <xs:element ref="entity-options"/>
+                    <xs:element ref="list-options"/>
+                    <xs:element ref="option"/>
+                </xs:choice>
+                <xs:element minOccurs="0" ref="dynamic-options"/>
+            </xs:sequence>
+            <xs:attribute name="allow-empty" type="xs:string" default="false"/>
+            <xs:attribute name="allow-multiple" type="xs:string" default="false"/>
+            <xs:attribute name="size" type="xs:integer" default="1"/>
+            <xs:attribute name="current" default="selected"><xs:simpleType><xs:restriction base="xs:token">
+                <xs:enumeration value="first-in-list"/><xs:enumeration value="selected"/></xs:restriction></xs:simpleType></xs:attribute>
+            <xs:attribute name="no-current-selected-key" type="xs:string">
+                <xs:annotation><xs:documentation>The key to mark as selected when there is no current entry value.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="current-description" type="xs:string"/>
+            <xs:attribute name="combo-box" type="boolean" default="false"/>
+            <xs:attribute name="style" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="drop-down-onchange" substitutionGroup="SubFields">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:choice>
+                    <xs:element ref="dynamic-options"/>
+                    <xs:choice minOccurs="0" maxOccurs="unbounded">
+                        <xs:element ref="entity-options"/>
+                        <xs:element ref="list-options"/>
+                        <xs:element ref="option"/>
+                    </xs:choice>
+                </xs:choice>
+            </xs:sequence>
+            <xs:attribute name="allow-empty" type="xs:string" default="false"/>
+            <xs:attribute name="allow-multiple" type="xs:string" default="false"/>
+            <xs:attribute name="size" type="xs:integer" default="1"/>
+            <xs:attribute name="current" default="selected">
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <xs:enumeration value="first-in-list"/>
+                        <xs:enumeration value="selected"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="no-current-selected-key" type="xs:string">
+                <xs:annotation><xs:documentation>The key to mark as selected when there is no current entry value.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="current-description" type="xs:string"/>
+            <xs:attribute name="combo-box" type="boolean" default="false"/>
+            <xs:attribute name="search" type="boolean" default="true"/>
+            <xs:attribute name="style" type="xs:string">
+                <xs:annotation><xs:documentation>This should only be used in an emergency, such as the issue with Chosen in a popup.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="on-change-function" type="xs:string" use="required"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="file" substitutionGroup="SubFields">
+        <xs:complexType>
+            <xs:attribute name="size" type="xs:positiveInteger" default="30"/>
+            <xs:attribute name="maxlength" type="xs:positiveInteger"/>
+            <xs:attribute name="default-value" type="xs:string"/>
+            <xs:attribute name="allowMultiple" type="xs:boolean"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="hidden" substitutionGroup="SubFields">
+        <xs:complexType><xs:attribute name="default-value" type="xs:string"/></xs:complexType>
+    </xs:element>
     <xs:element name="ignored" substitutionGroup="SubFields"><xs:complexType/></xs:element>
     <!-- TABLED, not to be part of 1.0:
     <xs:element name="lookup" substitutionGroup="SubFields">
@@ -922,98 +1079,180 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:attribute name="default-value-thru" type="xs:string"/>
     </xs:complexType></xs:element>
     <xs:element name="reset" substitutionGroup="SubFields"><xs:complexType/></xs:element>
-    <xs:element name="submit" substitutionGroup="SubFields"><xs:complexType>
-        <xs:sequence>
-            <xs:element minOccurs="0" ref="image"/>
-        </xs:sequence>
-        <xs:attribute name="text" type="xs:string"><xs:annotation><xs:documentation>
-            Optional text for submit button. If not specified the field title is used.
-        </xs:documentation></xs:annotation></xs:attribute>
-        <xs:attribute name="confirmation" type="xs:string"><xs:annotation><xs:documentation>
-            If there is a message here it will show in a confirmation box when the button is clicked on.
-        </xs:documentation></xs:annotation></xs:attribute>
-        <xs:attribute name="icon" type="xs:string"/>
-    </xs:complexType></xs:element>
-    <xs:element name="text-line" substitutionGroup="SubFields"><xs:complexType>
-        <xs:sequence>
-            <xs:element minOccurs="0" maxOccurs="unbounded" ref="depends-on">
-                <xs:annotation><xs:documentation>For auto-complete only (at least ac-transition set). When getting
-                    data from the server the value of this field will be passed in the request. When this field
-                    changes the value in the autocomplete text-line will be cleared.</xs:documentation></xs:annotation>
-            </xs:element>
-        </xs:sequence>
-        <xs:attribute name="size" type="xs:positiveInteger" default="30"/>
-        <xs:attribute name="maxlength" type="xs:positiveInteger"/>
-        <xs:attribute name="default-value" type="xs:string"/>
-        <xs:attribute name="disabled" default="false" type="boolean"/>
-        <xs:attribute name="format" type="xs:string">
-            <xs:annotation><xs:documentation>Used to parse and format the output of Number/Time/Date/Timestamp/etc objects.
-                With auto-fields-service will inherit from service parameter.</xs:documentation></xs:annotation>
-        </xs:attribute>
-        <xs:attribute name="mask" type="xs:string">
+    <xs:element name="submit" substitutionGroup="SubFields">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="image"/>
+            </xs:sequence>
+            <xs:attribute name="text" type="xs:string"><xs:annotation><xs:documentation>
+                Optional text for submit button. If not specified the field title is used.
+            </xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="confirmation" type="xs:string"><xs:annotation><xs:documentation>
+                If there is a message here it will show in a confirmation box when the button is clicked on.
+            </xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="icon" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="text-line" substitutionGroup="SubFields">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="depends-on">
+                    <xs:annotation><xs:documentation>For auto-complete only (at least ac-transition set). When getting
+                        data from the server the value of this field will be passed in the request. When this field
+                        changes the value in the autocomplete text-line will be cleared.</xs:documentation></xs:annotation>
+                </xs:element>
+            </xs:sequence>
+            <xs:attribute name="size" type="xs:positiveInteger" default="30"/>
+            <xs:attribute name="maxlength" type="xs:positiveInteger"/>
+            <xs:attribute name="default-value" type="xs:string"/>
+            <xs:attribute name="disabled" default="false" type="boolean"/>
+            <xs:attribute name="format" type="xs:string">
+                <xs:annotation><xs:documentation>Used to format the output of Number/Time/Date/Timestamp/etc objects.
+                    With auto-fields-service will inherit from service parameter.</xs:documentation></xs:annotation>
+            </xs:attribute>
+			<xs:attribute name="mask" type="xs:string">
             <xs:annotation><xs:documentation>A mask for guiding and filtering input, uses RobinHerbots/Inputmask.
                 For a simple mask use '9' for digits, 'a' for letters, and '*' for digits or letters.
                 This may also be an alias for a predefined mask.</xs:documentation></xs:annotation>
-        </xs:attribute>
-
-        <xs:attribute name="ac-transition" type="xs:string">
-            <xs:annotation><xs:documentation>If specified the text-line will have auto-complete added to it with
-                this transition as the source of the auto-complete options.</xs:documentation></xs:annotation>
-        </xs:attribute>
-        <xs:attribute name="ac-delay" type="xs:positiveInteger" default="300"/>
-        <xs:attribute name="ac-min-length" type="xs:nonNegativeInteger" default="1"/>
-        <xs:attribute name="ac-show-value" type="boolean" default="false">
-            <xs:annotation><xs:documentation>If true the value of the currently selected option will show next to
-                the autocomplete input box.</xs:documentation></xs:annotation>
-        </xs:attribute>
-        <xs:attribute name="ac-initial-text" type="xs:string"/>
-        <xs:attribute name="ac-use-actual" type="boolean" default="false">
-            <xs:annotation><xs:documentation>If true the value enterred in the input box will be used even if no
-                autocomplete option is selected.</xs:documentation></xs:annotation>
-        </xs:attribute>
-        <xs:attribute name="default-transition" type="xs:string">
-            <xs:annotation><xs:documentation>If specified the text-line will get a default dynamically using depends-on fields
-                and parameters in the parameter-map attribute.</xs:documentation></xs:annotation>
-        </xs:attribute>
-        <xs:attribute name="parameter-map" type="xs:string">
-            <xs:annotation><xs:documentation>A Map to get parameter names and values from for autocomplete and dynamic default requests.
-                This is named to follow the pattern for parameters used elsewhere.</xs:documentation></xs:annotation>
-        </xs:attribute>
-    </xs:complexType></xs:element>
-    <xs:element name="text-area" substitutionGroup="SubFields"><xs:complexType>
-        <xs:attribute name="cols" type="xs:positiveInteger" default="60"/>
-        <xs:attribute name="rows" type="xs:positiveInteger" default="3"/>
-        <xs:attribute name="maxlength" type="xs:positiveInteger"/>
-        <xs:attribute name="default-value" type="xs:string"/>
-        <xs:attribute name="read-only" default="false" type="boolean"/>
-    </xs:complexType></xs:element>
-    <xs:element name="text-find" substitutionGroup="SubFields"><xs:complexType>
-        <xs:attribute name="size" type="xs:positiveInteger" default="30"/>
-        <xs:attribute name="maxlength" type="xs:positiveInteger"/>
-        <xs:attribute name="default-value" type="xs:string"/>
-        <xs:attribute name="ignore-case" default="true" type="boolean"/>
-        <xs:attribute name="default-operator" default="contains">
-            <xs:simpleType>
-                <xs:restriction base="xs:string">
-                    <xs:enumeration value="equals"/>
-                    <xs:enumeration value="like"/>
-                    <xs:enumeration value="contains"/>
-                    <xs:enumeration value="begins"/>
-                    <xs:enumeration value="empty"/>
-                </xs:restriction>
-            </xs:simpleType>
-        </xs:attribute>
-        <xs:attribute name="hide-options" default="false">
-            <xs:simpleType>
-                <xs:restriction base="xs:token">
-                    <xs:enumeration value="true"/>
-                    <xs:enumeration value="false"/>
-                    <xs:enumeration value="ignore-case"/>
-                    <xs:enumeration value="operator"/>
-                </xs:restriction>
-            </xs:simpleType>
-        </xs:attribute>
-    </xs:complexType></xs:element>
+			</xs:attribute>
+            <xs:attribute name="ac-transition" type="xs:string" use="optional">
+                <xs:annotation><xs:documentation>If specified the text-line will have auto-complete added to it with
+                    this transition as the source of the auto-complete options.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="ac-delay" type="xs:positiveInteger" default="300"/>
+            <xs:attribute name="ac-min-length" type="xs:nonNegativeInteger" default="1"/>
+            <xs:attribute name="ac-show-value" type="boolean" default="false">
+                <xs:annotation><xs:documentation>If true the value of the currently selected option will show next to
+                    the autocomplete input box.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="ac-initial-text" type="xs:string" use="optional"/>
+            <xs:attribute name="ac-use-actual" type="boolean" default="false">
+                <xs:annotation><xs:documentation>If true the value enterred in the input box will be used even if no
+                    autocomplete option is selected.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="default-transition" type="xs:string">
+                <xs:annotation><xs:documentation>If specified the text-line will get a default dynamically using depends-on fields
+                    and parameters in the parameter-map attribute.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="parameter-map" type="xs:string">
+                <xs:annotation><xs:documentation>A Map to get parameter names and values from for autocomplete and dynamic default requests.
+                    This is named to follow the pattern for parameters used elsewhere.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="placeholder" type="xs:string" use="optional"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="text-area" substitutionGroup="SubFields">
+        <xs:complexType>
+            <xs:attribute name="cols" type="xs:positiveInteger" default="60"/>
+            <xs:attribute name="rows" type="xs:positiveInteger" default="3"/>
+            <xs:attribute name="maxlength" type="xs:positiveInteger"/>
+            <xs:attribute name="default-value" type="xs:string"/>
+            <xs:attribute name="read-only" default="false" type="boolean"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="text-find" substitutionGroup="SubFields">
+        <xs:complexType>
+            <xs:attribute name="size" type="xs:positiveInteger" default="30"/>
+            <xs:attribute name="maxlength" type="xs:positiveInteger"/>
+            <xs:attribute name="default-value" type="xs:string"/>
+            <xs:attribute name="ignore-case" default="true" type="boolean"/>
+            <xs:attribute name="default-operator" default="contains">
+                <xs:simpleType>
+                    <xs:restriction base="xs:string">
+                        <xs:enumeration value="equals"/>
+                        <xs:enumeration value="like"/>
+                        <xs:enumeration value="contains"/>
+                        <xs:enumeration value="begins"/>
+                        <xs:enumeration value="empty"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="hide-options" default="false">
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <xs:enumeration value="true"/>
+                        <xs:enumeration value="false"/>
+                        <xs:enumeration value="ignore-case"/>
+                        <xs:enumeration value="operator"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+	<xs:element name="bootstrap-tagsinput" substitutionGroup="SubFields">
+         <xs:annotation><xs:documentation>This is just like display but looks up a description using the Entity Facade;
+             note that if also-hidden is true then it uses the key as the value, not the shown description.</xs:documentation></xs:annotation>
+         <xs:complexType>
+             <xs:attribute name="value" type="xs:string"/>
+             <xs:attribute name="size" type="xs:integer"/>
+         </xs:complexType>
+    </xs:element>
+    <xs:element name="bootstrap-tagsinput-typeahead" substitutionGroup="SubFields">
+        <xs:annotation><xs:documentation>This is just like display but looks up a description using the Entity Facade;
+            note that if also-hidden is true then it uses the key as the value, not the shown description.</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:attribute name="value" type="xs:string"/>
+            <xs:attribute name="size" type="xs:integer"/>
+            <xs:attribute name="fetch-transition-name" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="tags-display" substitutionGroup="SubFields">
+        <xs:annotation><xs:documentation>This is just like display but looks up a description using the Entity Facade;
+            note that if also-hidden is true then it uses the key as the value, not the shown description.</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:attribute name="limit-length" type="xs:positiveInteger"/>
+            <xs:attribute name="max-tags" type="xs:positiveInteger"/>
+            <xs:attribute name="default-more-sign" type="xs:string"/>
+            <xs:attribute name="default-longer-sign" type="xs:string"/>
+            <xs:attribute name="label-type" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="tags-display-for-arrays" substitutionGroup="SubFields">
+        <xs:annotation><xs:documentation>This is just like display but looks up a description using the Entity Facade;
+            note that if also-hidden is true then it uses the key as the value, not the shown description.</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:attribute name="limit-length" type="xs:positiveInteger"/>
+            <xs:attribute name="max-tags" type="xs:positiveInteger"/>
+            <xs:attribute name="default-more-sign" type="xs:string"/>
+            <xs:attribute name="default-longer-sign" type="xs:string"/>
+            <xs:attribute name="label-type" type="xs:string"/>
+            <xs:attribute name="list-name" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="file-tags-display" substitutionGroup="SubFields">
+        <xs:annotation><xs:documentation>This is just like display but looks up a description using the Entity Facade;
+            note that if also-hidden is true then it uses the key as the value, not the shown description.</xs:documentation></xs:annotation>
+    </xs:element>
+    <xs:element name="position-assignment-tags-display" substitutionGroup="SubFields">
+        <xs:annotation><xs:documentation>Nothing much to say.</xs:documentation></xs:annotation>
+    </xs:element>
+    <xs:element name="econ-docs-tags-display" substitutionGroup="SubFields">
+        <xs:annotation><xs:documentation>Economy docs display, customized.</xs:documentation></xs:annotation>
+    </xs:element>
+    <xs:element name="econ-general-docs-tags-display" substitutionGroup="SubFields">
+        <xs:annotation><xs:documentation>Economy general docs display, customized.</xs:documentation></xs:annotation>
+    </xs:element>
+    <xs:element name="company-id-tags-display" substitutionGroup="SubFields">
+        <xs:annotation><xs:documentation>This is just like display but looks up a description using the Entity Facade;
+            note that if also-hidden is true then it uses the key as the value, not the shown description.</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:attribute name="limit-length" type="xs:positiveInteger"/>
+            <xs:attribute name="max-tags" type="xs:positiveInteger"/>
+            <xs:attribute name="default-more-sign" type="xs:string"/>
+            <xs:attribute name="default-longer-sign" type="xs:string"/>
+            <xs:attribute name="label-type" type="xs:string"/>
+            <xs:attribute name="map-name" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="contact-info-display" substitutionGroup="SubFields">
+        <xs:annotation><xs:documentation>This is just like display but looks up a description using the Entity Facade;
+            note that if also-hidden is true then it uses the key as the value, not the shown description.</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:attribute name="max-tags" type="xs:positiveInteger"/>
+            <xs:attribute name="default-more-sign" type="xs:string"/>
+            <xs:attribute name="map-name" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
 
     <!-- ================== Field Sub-Sub-Elements ==================== -->
     <xs:element name="entity-options"><xs:annotation>
