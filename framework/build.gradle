@@ -68,7 +68,7 @@ dependencies {
     compile 'org.codehaus.groovy:groovy-templates:2.4.13' // Apache 2.0
     compile 'org.codehaus.groovy:groovy-xml:2.4.13' // Apache 2.0
     // jansi is needed for groovydoc only, so in providedCompile (not included in war)
-    compileOnly 'org.fusesource.jansi:jansi:1.16'
+    compileOnly 'org.fusesource.jansi:jansi:1.17'
     // Findbugs need only during compile (used by freemarker and various moqui classes)
     compileOnly 'com.google.code.findbugs:annotations:3.0.1'
 
@@ -102,9 +102,9 @@ dependencies {
     compile module('com.cronutils:cron-utils:5.0.5') // Apache 2.0
 
     // Flexmark (markdown)
-    compile 'com.vladsch.flexmark:flexmark:0.28.38'
-    compile 'com.vladsch.flexmark:flexmark-ext-tables:0.28.38'
-    compile 'com.vladsch.flexmark:flexmark-ext-toc:0.28.38'
+    compile 'com.vladsch.flexmark:flexmark:0.30.0'
+    compile 'com.vladsch.flexmark:flexmark-ext-tables:0.30.0'
+    compile 'com.vladsch.flexmark:flexmark-ext-toc:0.30.0'
 
     // Freemarker
     compile 'org.freemarker:freemarker:2.3.27-incubating' // Apache 2.0
