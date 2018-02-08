@@ -43,7 +43,24 @@ class MessageFacadeTests extends Specification {
         !ec.message.hasError()
 
         cleanup:
-        ec.message.messages.clear()
+        ec.message.clearAll()
+    }
+
+    def "add public message"() {
+        when:
+        String testMessage = "This is a test public message"
+        ec.message.addPublic(testMessage, 'warning')
+
+        then:
+        ec.message.messages.contains(testMessage)
+        ec.message.messageInfos[0].typeString == 'warning'
+        ec.message.messagesString.contains(testMessage)
+        ec.message.publicMessages.contains(testMessage)
+        ec.message.publicMessageInfos[0].typeString == 'warning'
+        !ec.message.hasError()
+
+        cleanup:
+        ec.message.clearAll()
     }
 
     def "add error message"() {

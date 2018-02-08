@@ -19,6 +19,7 @@ import groovy.transform.CompileStatic
 import org.moqui.BaseArtifactException
 import org.moqui.BaseException
 import org.moqui.context.*
+import org.moqui.context.MessageFacade.MessageInfo
 import org.moqui.entity.EntityCondition.ComparisonOperator
 import org.moqui.entity.EntityException
 import org.moqui.entity.EntityList
@@ -207,7 +208,16 @@ class ScreenRenderImpl implements ScreenRender {
         Map<String, Object> responseMap = new HashMap<>()
         // add saveMessagesToSession, saveRequestParametersToSession/saveErrorParametersToSession data
         // add all plain object data from session?
-        if (ec.message.getMessages().size() > 0) responseMap.put("messages", ec.message.messages)
+        List<MessageInfo> messageInfos = ec.message.getMessageInfos()
+        int messageInfosSize = messageInfos.size()
+        if (messageInfosSize > 0) {
+            List<Map> miMapList = new ArrayList<>(messageInfosSize)
+            for (int i = 0; i < messageInfosSize; i++) {
+                MessageInfo messageInfo = (MessageInfo) messageInfos.get(i)
+                miMapList.add([message:messageInfo.message, type:messageInfo.typeString])
+            }
+            responseMap.put("messageInfos", miMapList)
+        }
         if (ec.message.getErrors().size() > 0) responseMap.put("errors", ec.message.errors)
         if (ec.message.getValidationErrors().size() > 0) {
             List<ValidationError> valErrorList = ec.message.getValidationErrors()
@@ -359,7 +369,7 @@ class ScreenRenderImpl implements ScreenRender {
                     sfi.ecfi.countArtifactHit(ArtifactExecutionInfo.AT_XML_SCREEN_TRANS, riType != null ? riType : "",
                             targetTransition.parentScreen.getLocation() + "#" + targetTransition.name,
                             (web != null ? web.requestParameters : null), renderStartTime,
-                            (System.nanoTime() - startTimeNanos)/1E6, null)
+                            (System.nanoTime() - startTimeNanos)/1000000.0D, null)
                 }
             }
 
@@ -441,6 +451,8 @@ class ScreenRenderImpl implements ScreenRender {
                     UrlInstance fullUrl = buildUrl(rootScreenDef, screenUrlInfo.preTransitionPathNameList, url)
                     // copy through pageIndex if passed so in form-list with multiple pages we stay on same page
                     if (web.requestParameters.containsKey("pageIndex")) fullUrl.addParameter("pageIndex", (String) web.parameters.get("pageIndex"))
+                    // copy through orderByField if passed so in form-list with multiple pages we retain the sort order
+                    if (web.requestParameters.containsKey("orderByField")) fullUrl.addParameter("orderByField", (String) web.parameters.get("orderByField"))
                     fullUrl.addParameters(ri.expandParameters(screenUrlInfo.getExtraPathNameList(), ec))
                     // if this was a screen-last and the screen has declared parameters include them in the URL
                     Map savedParameters = wfi?.getSavedParameters()
@@ -517,7 +529,7 @@ class ScreenRenderImpl implements ScreenRender {
                         if (screenUrlInfo.targetScreen.screenNode.attribute("track-artifact-hit") != "false") {
                             sfi.ecfi.countArtifactHit(ArtifactExecutionInfo.AT_XML_SCREEN_CONTENT, fileContentType,
                                     fileResourceRef.location, (web != null ? web.requestParameters : null),
-                                    resourceStartTime, (System.nanoTime() - startTimeNanos)/1E6, (long) totalLen)
+                                    resourceStartTime, (System.nanoTime() - startTimeNanos)/1000000.0D, (long) totalLen)
                         }
                         if (isTraceEnabled) logger.trace("Sent binary response of length ${totalLen} from file ${fileResourceRef.location} for request to ${screenUrlInstance.url}")
                     } finally {
@@ -558,7 +570,7 @@ class ScreenRenderImpl implements ScreenRender {
                         if (!"false".equals(screenUrlInfo.targetScreen.screenNode.attribute("track-artifact-hit"))) {
                             sfi.ecfi.countArtifactHit(ArtifactExecutionInfo.AT_XML_SCREEN_CONTENT, fileContentType,
                                     fileResourceRef.location, (web != null ? web.requestParameters : null),
-                                    resourceStartTime, (System.nanoTime() - startTimeNanos)/1E6, (long) text.length())
+                                    resourceStartTime, (System.nanoTime() - startTimeNanos)/1000000.0D, (long) text.length())
                         }
                     } else {
                         logger.warn("Not sending text response from file [${fileResourceRef.location}] for request to [${screenUrlInstance.url}] because no text was found in the file.")
@@ -1172,14 +1184,18 @@ class ScreenRenderImpl implements ScreenRender {
 
         if (parameterParentNode != null) {
             String parameterMapStr = (String) parameterParentNode.attribute("parameter-map")
-            if (parameterMapStr) {
+            if (parameterMapStr != null && !parameterMapStr.isEmpty()) {
                 Map ctxParameterMap = (Map) ec.resource.expression(parameterMapStr, "")
                 if (ctxParameterMap) urli.addParameters(ctxParameterMap)
             }
-            for (MNode parameterNode in parameterParentNode.children("parameter")) {
+            ArrayList<MNode> parameterNodes = parameterParentNode.children("parameter")
+            int parameterNodesSize = parameterNodes.size()
+            for (int i = 0; i < parameterNodesSize; i++) {
+                MNode parameterNode = (MNode) parameterNodes.get(i)
                 String name = parameterNode.attribute("name")
-                urli.addParameter(name, getContextValue(
-                        parameterNode.attribute("from") ?: name, parameterNode.attribute("value")))
+                String from = parameterNode.attribute("from")
+                if (from == null || from.isEmpty()) from = name
+                urli.addParameter(name, getContextValue(from, parameterNode.attribute("value")))
             }
         }
 
@@ -1438,8 +1454,28 @@ class ScreenRenderImpl implements ScreenRender {
 
                 if (hasAllDepends) {
                     UrlInstance transUrl = buildUrl(transition)
-                    ScreenTest screenTest = ec.screen.makeTest().rootScreen(rootScreenLocation)
+                    ScreenTest screenTest = ec.screen.makeTest().rootScreen(rootScreenLocation).skipJsonSerialize(true)
                     ScreenTest.ScreenTestRender str = screenTest.render(transUrl.getPathWithParams(), parameters, null)
+
+                    Object jsonObj = str.getJsonObject()
+                    List optsList = null
+                    if (jsonObj instanceof List) {
+                        optsList = (List) jsonObj
+                    } else if (jsonObj instanceof Map) {
+                        Map jsonMap = (Map) jsonObj
+                        Object optionsObj = jsonMap.get("options")
+                        if (optionsObj instanceof List) optsList = (List) optionsObj
+                    }
+                    if (optsList != null) for (Object entryObj in optsList) {
+                        if (entryObj instanceof Map) {
+                            Map entryMap = (Map) entryObj
+                            String valueObj = entryMap.get(valueField)
+                            String labelObj = entryMap.get(labelField)
+                            if (valueObj && labelObj) optsMap.put(valueObj, labelObj)
+                        }
+                    }
+
+                    /* old approach before skipJsonSerialize
                     String output = str.getOutput()
 
                     try {
@@ -1463,6 +1499,7 @@ class ScreenRenderImpl implements ScreenRender {
                     } catch (Throwable t) {
                         logger.warn("Error getting field options from transition", t)
                     }
+                    */
                 }
             }
         }
@@ -1523,18 +1560,41 @@ class ScreenRenderImpl implements ScreenRender {
         return transValue
     }
 
+    Map<String, String> getFormHiddenParameters(MNode formNode) {
+        Map<String, String> parmMap = new LinkedHashMap<>()
+        if (formNode == null) return parmMap
+        MNode hiddenParametersNode = formNode.first("hidden-parameters")
+        if (hiddenParametersNode == null) return parmMap
+
+        Map<String, Object> objMap = new LinkedHashMap<>()
+        addNodeParameters(hiddenParametersNode, objMap)
+        for (Map.Entry<String, Object> entry in objMap.entrySet()) {
+            Object valObj = entry.getValue()
+            String valStr = ObjectUtilities.toPlainString(valObj)
+            if (valStr != null && !valStr.isEmpty()) parmMap.put(entry.getKey(), valStr)
+        }
+
+        return parmMap
+    }
+
     boolean addNodeParameters(MNode parameterParentNode, Map<String, Object> parameters) {
         if (parameterParentNode == null) return true
         // get specified parameters
         String parameterMapStr = (String) parameterParentNode.attribute("parameter-map")
-        if (parameterMapStr) {
+        if (parameterMapStr != null && !parameterMapStr.isEmpty()) {
             Map ctxParameterMap = (Map) ec.resource.expression(parameterMapStr, "")
             if (ctxParameterMap != null) parameters.putAll(ctxParameterMap)
         }
-        for (MNode parameterNode in parameterParentNode.children("parameter")) {
+        ArrayList<MNode> parameterNodes = parameterParentNode.children("parameter")
+        int parameterNodesSize = parameterNodes.size()
+        for (int i = 0; i < parameterNodesSize; i++) {
+            MNode parameterNode = (MNode) parameterNodes.get(i)
             String name = parameterNode.attribute("name")
-            parameters.put(name, getContextValue(parameterNode.attribute("from") ?: name, parameterNode.attribute("value")))
+            String from = parameterNode.attribute("from")
+            if (from == null || from.isEmpty()) from = name
+            parameters.put(name, getContextValue(from, parameterNode.attribute("value")))
         }
+
         // get current values for depends-on fields
         boolean dependsOptional = "true".equals(parameterParentNode.attribute("depends-optional"))
         boolean hasAllDepends = true
@@ -1615,9 +1675,9 @@ class ScreenRenderImpl implements ScreenRender {
         }
         // theme with "DEFAULT" in the ID
         if (themeId == null || themeId.length() == 0) {
-            EntityValue stv = sfi.ecfi.entityFacade.find("moqui.screen.ScreenTheme")
+            EntityValue stv = entityFacade.find("moqui.screen.ScreenTheme")
                     .condition("screenThemeTypeEnumId", stteId)
-                    .condition("screenThemeId", ComparisonOperator.LIKE, "%DEFAULT%").one()
+                    .condition("screenThemeId", ComparisonOperator.LIKE, "%DEFAULT%").disableAuthz().one()
             if (stv) themeId = stv.screenThemeId
         }
 

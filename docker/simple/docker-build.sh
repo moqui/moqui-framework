@@ -29,3 +29,4 @@ docker build -t $NAME_TAG .
 rm -Rf META-INF WEB-INF execlib
 rm *.class
 rm -Rf runtime
+rm Procfile

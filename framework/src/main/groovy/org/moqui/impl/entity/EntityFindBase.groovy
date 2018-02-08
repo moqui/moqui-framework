@@ -421,13 +421,16 @@ abstract class EntityFindBase implements EntityFind {
     protected boolean processInputFields(Map<String, Object> inputFieldsMap, Set<String> skipFieldSet, ExecutionContextImpl ec) {
         EntityDefinition ed = getEntityDef()
         boolean addedConditions = false
-        for (String fn in ed.getAllFieldNames()) {
+        for (FieldInfo fi in ed.allFieldInfoList) {
+            String fn = fi.name
             if (skipFieldSet.contains(fn)) continue
+
             // NOTE: do we need to do type conversion here?
 
             // this will handle text-find
             if (inputFieldsMap.containsKey(fn) || inputFieldsMap.containsKey(fn + "_op")) {
                 Object value = inputFieldsMap.get(fn)
+                boolean valueEmpty = ObjectUtilities.isEmpty(value)
                 String op = inputFieldsMap.get(fn + "_op") ?: "equals"
                 boolean not = (inputFieldsMap.get(fn + "_not") == "Y" || inputFieldsMap.get(fn + "_not") == "true")
                 boolean ic = (inputFieldsMap.get(fn + "_ic") == "Y" || inputFieldsMap.get(fn + "_ic") == "true")
@@ -435,29 +438,29 @@ abstract class EntityFindBase implements EntityFind {
                 EntityCondition cond = null
                 switch (op) {
                     case "equals":
-                        if (value) {
+                        if (!valueEmpty) {
                             Object convertedValue = value instanceof String ? ed.convertFieldString(fn, (String) value, ec) : value
                             cond = efi.entityConditionFactory.makeCondition(fn,
-                                    not ? EntityCondition.NOT_EQUAL : EntityCondition.EQUALS, convertedValue)
+                                    not ? EntityCondition.NOT_EQUAL : EntityCondition.EQUALS, convertedValue, not)
                             if (ic) cond.ignoreCase()
                         }
                         break
                     case "like":
-                        if (value) {
+                        if (!valueEmpty) {
                             cond = efi.entityConditionFactory.makeCondition(fn,
                                     not ? EntityCondition.NOT_LIKE : EntityCondition.LIKE, value)
                             if (ic) cond.ignoreCase()
                         }
                         break
                     case "contains":
-                        if (value) {
+                        if (!valueEmpty) {
                             cond = efi.entityConditionFactory.makeCondition(fn,
                                     not ? EntityCondition.NOT_LIKE : EntityCondition.LIKE, "%${value}%")
                             if (ic) cond.ignoreCase()
                         }
                         break
                     case "begins":
-                        if (value) {
+                        if (!valueEmpty) {
                             cond = efi.entityConditionFactory.makeCondition(fn,
                                     not ? EntityCondition.NOT_LIKE : EntityCondition.LIKE, "${value}%")
                             if (ic) cond.ignoreCase()
@@ -472,7 +475,7 @@ abstract class EntityFindBase implements EntityFind {
                                         not ? EntityCondition.NOT_EQUAL : EntityCondition.EQUALS, ""))
                         break
                     case "in":
-                        if (value) {
+                        if (!valueEmpty) {
                             Collection valueList = null
                             if (value instanceof CharSequence) {
                                 valueList = Arrays.asList(value.toString().split(","))
@@ -481,35 +484,47 @@ abstract class EntityFindBase implements EntityFind {
                             }
                             if (valueList) {
                                 cond = efi.entityConditionFactory.makeCondition(fn,
-                                        not ? EntityCondition.NOT_IN : EntityCondition.IN, valueList)
+                                        not ? EntityCondition.NOT_IN : EntityCondition.IN, valueList, not)
 
                             }
                         }
                         break
                 }
                 if (cond != null) {
-                    this.condition(cond)
+                    if (fi.hasAggregateFunction) { this.havingCondition(cond) } else { this.condition(cond) }
                     addedConditions = true
                 }
             } else if (inputFieldsMap.get(fn + "_period")) {
                 List<Timestamp> range = ec.user.getPeriodRange((String) inputFieldsMap.get(fn + "_period"),
                         (String) inputFieldsMap.get(fn + "_poffset"), (String) inputFieldsMap.get(fn + "_pdate"))
-                this.condition(efi.entityConditionFactory.makeCondition(fn, EntityCondition.GREATER_THAN_EQUAL_TO, range.get(0)))
-                this.condition(efi.entityConditionFactory.makeCondition(fn, EntityCondition.LESS_THAN, range.get(1)))
+                EntityCondition fromCond = efi.entityConditionFactory.makeCondition(fn, EntityCondition.GREATER_THAN_EQUAL_TO, range.get(0))
+                EntityCondition thruCond = efi.entityConditionFactory.makeCondition(fn, EntityCondition.LESS_THAN, range.get(1))
+                if (fi.hasAggregateFunction) { this.havingCondition(fromCond); this.havingCondition(thruCond) }
+                else { this.condition(fromCond); this.condition(thruCond) }
                 addedConditions = true
             } else {
                 // these will handle range-find and date-find
                 Object fromValue = inputFieldsMap.get(fn + "_from")
-                if (fromValue && fromValue instanceof CharSequence) fromValue = ed.convertFieldString(fn, fromValue.toString(), ec)
+                if (fromValue && fromValue instanceof CharSequence) {
+                    if (fi.typeValue == 2 && fromValue.length() < 12)
+                        fromValue = ec.l10nFacade.parseTimestamp(fromValue.toString() + " 00:00:00.000", "yyyy-MM-dd HH:mm:ss.SSS")
+                    else fromValue = ed.convertFieldString(fn, fromValue.toString(), ec)
+                }
                 Object thruValue = inputFieldsMap.get(fn + "_thru")
-                if (thruValue && thruValue instanceof CharSequence) thruValue = ed.convertFieldString(fn, thruValue.toString(), ec)
+                if (thruValue && thruValue instanceof CharSequence) {
+                    if (fi.typeValue == 2 && thruValue.length() < 12)
+                        thruValue = ec.l10nFacade.parseTimestamp(thruValue.toString() + " 23:59:59.999", "yyyy-MM-dd HH:mm:ss.SSS")
+                    else thruValue = ed.convertFieldString(fn, thruValue.toString(), ec)
+                }
 
                 if (!ObjectUtilities.isEmpty(fromValue)) {
-                    this.condition(efi.entityConditionFactory.makeCondition(fn, EntityCondition.GREATER_THAN_EQUAL_TO, fromValue))
+                    EntityCondition fromCond = efi.entityConditionFactory.makeCondition(fn, EntityCondition.GREATER_THAN_EQUAL_TO, fromValue)
+                    if (fi.hasAggregateFunction) { this.havingCondition(fromCond) } else { this.condition(fromCond) }
                     addedConditions = true
                 }
                 if (!ObjectUtilities.isEmpty(thruValue)) {
-                    this.condition(efi.entityConditionFactory.makeCondition(fn, EntityCondition.LESS_THAN_EQUAL_TO, thruValue))
+                    EntityCondition thruCond = efi.entityConditionFactory.makeCondition(fn, EntityCondition.LESS_THAN_EQUAL_TO, thruValue)
+                    if (fi.hasAggregateFunction) { this.havingCondition(thruCond) } else { this.condition(thruCond) }
                     addedConditions = true
                 }
             }
@@ -1366,24 +1381,29 @@ abstract class EntityFindBase implements EntityFind {
 
         // if there are no EECAs for the entity OR there is a TransactionCache in place just call ev.delete() on each
         boolean useEvDelete = txCache != null || efi.hasEecaRules(ed.getFullEntityName())
-        if (!useEvDelete) this.resultSetConcurrency(ResultSet.CONCUR_UPDATABLE)
         this.useCache(false)
-        EntityListIterator eli = (EntityListIterator) null
         long totalDeleted = 0
-        try {
-            eli = iterator()
-            EntityValue ev
-            while ((ev = eli.next()) != null) {
-                if (useEvDelete) {
-                    ev.delete()
-                } else {
-                    // not longer need to clear cache, eli.remote() does that
-                    eli.remove()
-                }
+        if (useEvDelete) {
+            EntityList el = list()
+            int elSize = el.size()
+            for (int i = 0; i < elSize; i++) {
+                EntityValue ev = (EntityValue) el.get(i)
+                ev.delete()
                 totalDeleted++
             }
-        } finally {
-            if (eli != null) eli.close()
+        } else {
+            this.resultSetConcurrency(ResultSet.CONCUR_UPDATABLE)
+            EntityListIterator eli = (EntityListIterator) null
+            try {
+                eli = iterator()
+                while (eli.next() != null) {
+                    // no longer need to clear cache, eli.remove() does that
+                    eli.remove()
+                    totalDeleted++
+                }
+            } finally {
+                if (eli != null) eli.close()
+            }
         }
         return totalDeleted
     }

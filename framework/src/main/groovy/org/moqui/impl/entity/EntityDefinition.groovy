@@ -566,6 +566,7 @@ class EntityDefinition {
         return ""
     }
 
+    MNode getMemberEntityNode(String entityAlias) { return memberEntityAliasMap.get(entityAlias) }
     String getMemberEntityName(String entityAlias) {
         MNode memberEntityNode = memberEntityAliasMap.get(entityAlias)
         return memberEntityNode?.attribute("entity-name")
@@ -836,7 +837,7 @@ class EntityDefinition {
 
     // used in EntityCache for view entities
     Map<String, String> getMePkFieldToAliasNameMap(String entityAlias) {
-        if (mePkFieldToAliasNameMapMap == null) mePkFieldToAliasNameMapMap = new HashMap<String, Map>()
+        if (mePkFieldToAliasNameMapMap == null) mePkFieldToAliasNameMapMap = new HashMap<String, Map<String, String>>()
         Map<String, String> mePkFieldToAliasNameMap = (Map<String, String>) mePkFieldToAliasNameMapMap.get(entityAlias)
 
         if (mePkFieldToAliasNameMap != null) return mePkFieldToAliasNameMap

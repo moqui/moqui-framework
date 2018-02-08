@@ -344,8 +344,8 @@
         <load-data location="classpath://data/EntityTypeData.xml"/>
         <load-data location="classpath://data/GeoCountryData.xml"/>
         <load-data location="classpath://data/SecurityTypeData.xml"/>
-        <load-data location="classpath://data/ServiceTypeData.xml"/>
         <load-data location="classpath://data/UnitData.xml"/>
+        <load-data location="classpath://data/MoquiInstallData.xml"/>
     </entity-facade>
     <database-list>
         <dictionary-type type="id" java-type="java.lang.String" default-sql-type="VARCHAR(40)"/>

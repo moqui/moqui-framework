@@ -45,7 +45,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="enumCode" type="text-medium"/>
         <field name="sequenceNum" type="number-integer"/>
         <field name="description" type="text-medium" enable-localization="true"/>
-        <field name="optionValue" type="text-medium"><description>Usage depends on enum type such as an ID format or mask.</description></field>
+        <field name="optionValue" type="text-medium"><description>Usage depends on enum type such as an ID format/mask</description></field>
+        <field name="optionIndicator" type="text-indicator"><description>Indicator flag with meaning depending on enum type</description></field>
         <field name="relatedEnumId" type="id"/>
         <relationship type="one" related="moqui.basic.EnumerationType" short-alias="type"/>
         <relationship type="one-nofk" title="Parent" related="moqui.basic.Enumeration" short-alias="parent">
@@ -97,6 +98,29 @@ along with this software (see the LICENSE.md file). If not, see
         <alias-all entity-alias="EGM"/>
         <alias-all entity-alias="ENUM"><exclude field="sequenceNum"/></alias-all>
         <!-- better not to do this, sequence in group member records: <alias name="enumSequenceNum" entity-alias="ENUM" field="sequenceNum"/> -->
+    </view-entity>
+    <view-entity entity-name="ParentEnum" package="moqui.basic" cache="true">
+        <member-entity entity-alias="ENUM" entity-name="moqui.basic.Enumeration"/>
+        <member-entity entity-alias="ENUMP" entity-name="moqui.basic.Enumeration" join-from-alias="ENUM">
+            <key-map field-name="parentEnumId" related="enumId"/>
+        </member-entity>
+        <alias-all entity-alias="ENUMP"/>
+    </view-entity>
+    <view-entity entity-name="EnumAndParent" package="moqui.basic" cache="true">
+        <member-entity entity-alias="ENUM" entity-name="moqui.basic.Enumeration"/>
+        <member-entity entity-alias="ENUMP" entity-name="moqui.basic.Enumeration" join-from-alias="ENUM" join-optional="true">
+            <key-map field-name="parentEnumId" related="enumId"/>
+        </member-entity>
+        <alias-all entity-alias="ENUM"><exclude field="description"/></alias-all>
+        <alias-all entity-alias="ENUMP" prefix="parent"><exclude field="enumId"/></alias-all>
+        <alias name="enumDescription" entity-alias="ENUM" field="description"/>
+        <alias name="description" type="text-medium">
+            <complex-alias operator="||">
+                <complex-alias-field entity-alias="ENUMP" field="description"/>
+                <complex-alias expression="' - '"/>
+                <complex-alias-field entity-alias="ENUM" field="description"/>
+            </complex-alias>
+        </alias>
     </view-entity>
 
     <!-- ========== Geo ========== -->
@@ -193,7 +217,7 @@ along with this software (see the LICENSE.md file). If not, see
         <alias-all entity-alias="GEO"/>
         <alias-all entity-alias="GTE"/>
         <alias-all entity-alias="GEOA"/>
-        <alias-all entity-alias="GEOFR" prefix="from"><exclude field="geoId"/></alias-all>
+        <alias-all entity-alias="GEOFR" prefix="from"/>
     </view-entity>
     <entity entity-name="GeoPoint" package="moqui.basic" use="configuration" short-alias="geoPoints" cache="true">
         <field name="geoPointId" type="id" is-pk="true"/>
@@ -569,6 +593,7 @@ along with this software (see the LICENSE.md file). If not, see
                 be based on its extension.
             </description>
         </field>
+        <field name="attachmentCondition" type="text-medium"/>
         <relationship type="one" related="moqui.basic.email.EmailTemplate"/>
     </entity>
 

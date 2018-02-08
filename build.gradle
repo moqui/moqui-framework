@@ -35,10 +35,12 @@ def moquiConfProduction = 'conf/MoquiProductionConf.xml'
 def allCleanTasks = getTasksByName('clean', true)
 def allBuildTasks = getTasksByName('build', true)
 def allTestTasks = getTasksByName('test', true)
-def getComponentTestTasks() {
+Set<Task> getComponentTestTasks() {
     Set<Task> testTasks = new LinkedHashSet()
-    for (Project subProject in getSubprojects()) if (subProject.getName().startsWith('runtime/component'))
-        testTasks.addAll(subProject.getTasksByName('test', false))
+    for (Project subProject in getSubprojects()) {
+        if (subProject.getPath().startsWith(':runtime:component:'))
+            testTasks.addAll(subProject.getTasksByName('test', false))
+    }
     return testTasks
 }
 def getDefaultPropertyKeys() {
@@ -245,6 +247,8 @@ task addRuntime {
         copy { from fileTree(dir: moquiRuntime+'/ecomponent', include: '**/*.jar').files into 'wartemp/WEB-INF/lib' }
         // add MoquiInit.properties fresh copy, just in case it was changed
         copy { from file('MoquiInit.properties') into 'wartemp/WEB-INF/classes' }
+        // add Procfile to root
+        copy { from file('Procfile') into 'wartemp' }
         // special case: copy elasticsearch plugin/module jars
         copy { from fileTree(dir: '.', include: moquiRuntime+'/elasticsearch/**/*.jar') into file('wartemp') }
         // special case: copy jackrabbit standalone jar (if exists)
@@ -490,3 +494,4 @@ def checkAllComponentDependencies(String type) {
 task cleanPullLoad { dependsOn cleanAll, gitPullAll, load }
 task cleanPullTest { dependsOn cleanAll, gitPullAll, load, allTestTasks }
 task cleanPullCompTest { dependsOn cleanAll, gitPullAll, load, getComponentTestTasks() }
+task compTest { dependsOn getComponentTestTasks() }

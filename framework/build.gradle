@@ -63,12 +63,12 @@ dependencies {
     compile project(':moqui-util')
 
     // Groovy
-    compile 'org.codehaus.groovy:groovy:2.4.12' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-json:2.4.12' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-templates:2.4.12' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-xml:2.4.12' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy:2.4.13' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-json:2.4.13' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-templates:2.4.13' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-xml:2.4.13' // Apache 2.0
     // jansi is needed for groovydoc only, so in providedCompile (not included in war)
-    compileOnly 'org.fusesource.jansi:jansi:1.16'
+    compileOnly 'org.fusesource.jansi:jansi:1.17'
     // Findbugs need only during compile (used by freemarker and various moqui classes)
     compileOnly 'com.google.code.findbugs:annotations:3.0.1'
 
@@ -82,14 +82,14 @@ dependencies {
     // CUPS4J - print through CUPS server
     compile name: 'cups4j', version: '0.6.4' // LGPL <== NOTE!
     // CUPS4J sepends on Apache HTTP Client (unfortunate, adds about 1.1MB)
-    compile 'org.apache.httpcomponents:httpclient:4.5.3'
+    compile 'org.apache.httpcomponents:httpclient:4.5.5'
 
     // ========== Libraries from jcenter ==========
 
     // Apache Commons
     compile 'org.apache.commons:commons-csv:1.5' // Apache 2.0
     compile 'org.apache.commons:commons-email:1.5' // Apache 2.0
-    compile 'org.apache.commons:commons-lang3:3.6' // Apache 2.0; used by cron-utils
+    compile 'org.apache.commons:commons-lang3:3.7' // Apache 2.0; used by cron-utils
     compile 'commons-beanutils:commons-beanutils:1.9.3' // Apache 2.0
     compile 'commons-collections:commons-collections:3.2.2' // Apache 2.0
     compile 'commons-digester:commons-digester:2.1' // Apache 2.0
@@ -100,6 +100,11 @@ dependencies {
 
     // cron-utils (NOTE: not updating to 6.0.0 as adds dependency on Guava and threetenbp, evidently for pre Java 8 support but huge libs not worth it)
     compile module('com.cronutils:cron-utils:5.0.5') // Apache 2.0
+
+    // Flexmark (markdown)
+    compile 'com.vladsch.flexmark:flexmark:0.30.0'
+    compile 'com.vladsch.flexmark:flexmark-ext-tables:0.30.0'
+    compile 'com.vladsch.flexmark:flexmark-ext-toc:0.30.0'
 
     // Freemarker
     compile 'org.freemarker:freemarker:2.3.27-incubating' // Apache 2.0
@@ -118,20 +123,17 @@ dependencies {
     compile 'com.h2database:h2:1.4.196' // MPL 2.0, EPL 1.0
 
     // Jackson Databind (JSON, etc)
-    compile 'com.fasterxml.jackson.core:jackson-databind:2.9.2'
+    compile 'com.fasterxml.jackson.core:jackson-databind:2.9.4'
 
     // Jetty HTTP Client and Proxy Servlet
-    compile 'org.eclipse.jetty:jetty-client:9.4.7.v20170914' // Apache 2.0
-    compile 'org.eclipse.jetty:jetty-proxy:9.4.7.v20170914' // Apache 2.0
+    compile 'org.eclipse.jetty:jetty-client:9.4.8.v20171121' // Apache 2.0
+    compile 'org.eclipse.jetty:jetty-proxy:9.4.8.v20171121' // Apache 2.0
 
     // javax.mail
     compile 'com.sun.mail:javax.mail:1.6.0' // CDDL
 
     // JSoup (HTML parser, cleaner)
-    compile 'org.jsoup:jsoup:1.11.1' // MIT
-
-    // Pegdown (Markdown renderer; depends on parboiled, asm)
-    compile 'org.pegdown:pegdown:1.6.0' // Apache 2.0
+    compile 'org.jsoup:jsoup:1.11.2' // MIT
 
     // Apache Shiro
     compile module('org.apache.shiro:shiro-core:1.4.0') // Apache 2.0
@@ -174,22 +176,22 @@ dependencies {
 
     // ========== executable war dependencies ==========
     // Jetty
-    execWarRuntime 'org.eclipse.jetty:jetty-server:9.4.7.v20170914' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.4.7.v20170914' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.4.7.v20170914' // Apache 2.0
-    execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.4.7.v20170914') // Apache 2.0
-    execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.4.7.v20170914') { // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-server:9.4.8.v20171121' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.4.8.v20171121' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.4.8.v20171121' // Apache 2.0
+    execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.4.8.v20171121') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.4.8.v20171121') { // Apache 2.0
         exclude group: 'javax.websocket' } // we have the full websocket API, including the client one causes problems
     execWarRuntime 'javax.websocket:javax.websocket-api:1.0' // using 1.0, don't update to 1.1 until used in Jetty, Tomcat, etc
-    execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.4.7.v20170914') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.4.8.v20171121') // Apache 2.0
     // only include this if using Endpoint and MessageHandler annotations:
-    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:9.4.7.v20170914') // Apache 2.0
+    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:9.4.8.v20171121') // Apache 2.0
 }
 
 // setup task dependencies to make sure the start sourceSets always get run
 compileJava.dependsOn startClasses
 compileTestGroovy.dependsOn classes
-sourceSets.test.compileClasspath += files(sourceSets.main.output.classesDir)
+sourceSets.test.compileClasspath += files(sourceSets.main.output.classesDirs)
 
 // by default the Java plugin runs test on build, change to not do that (only run test if explicit task)
 check.dependsOn.remove(test)
@@ -204,7 +206,7 @@ test {
 
     testLogging.showStandardStreams = true; testLogging.showExceptions = true
 
-    classpath += files(sourceSets.main.output.classesDir); classpath += files(projectDir.absolutePath)
+    classpath += files(sourceSets.main.output.classesDirs); classpath += files(projectDir.absolutePath)
     // filter out classpath entries that don't exist (gradle adds a bunch of these), or ElasticSearch JarHell will blow up
     classpath = classpath.filter { it.exists() }
 

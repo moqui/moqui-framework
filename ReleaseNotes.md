@@ -7,6 +7,19 @@ Moqui Framework 2.1.1 is a patch level new feature and bug fix release.
 
 ### New Features
 
+- Updated to Gradle 4.3.1 along with changes to gradle files that require Gradle 4.0 or later
+- Moved validate-* attributes from XML Form field element to sub-field elements so that in form-list different validation can be
+  done for header, first-/second-/last-row, and default-/conditional-field; as part of this the automatic validate settings from
+  transition.service-call are now set on the sub-field instead of the field element
+- Add moqui-conf.screen-facade.screen and screen.subscreens-item elements that override screen.subscreens.subscreens-item elements 
+  within a screen definition so that application root screens can be added under webroot and apps in a MoquiConf.xml file in a 
+  component or in the active Moqui Conf XML file instead of using database records
+- Add support for 'no sub-path' subscreens to extend or override screens, transitions, and resources under the parent screen by 
+  looking first in each no sub-path subscreen for a given screen path and if not found then look under the parent screen; for 
+  example this is used in the moqui-org component for the moqui.org web-site so that /index.html is found in the moqui-org 
+  component and so that /Login resolves to the Login.xml screen in the moqui-org component instead of the default one under webroot
+- Changed Markdown rendering from Pegdown to flexmark-java to support CommonMark 0.28, some aspects of GitHub Flavored Markdown,
+  and automatic table of contents 
 
 ### Bug Fixes
 
@@ -14,6 +27,8 @@ Moqui Framework 2.1.1 is a patch level new feature and bug fix release.
   thread; also changed MoquiServlet to better protect against existing ExecutionContext for thread; also changed WebFacade init
   from HTTP request to remove current user if it doesn't match user authenticated in session with Shiro, or if no user is 
   authenticated in session
+- MNode merge methods did not properly clear node by name internal cache when adding child nodes causing new children to show up
+  in full child node list but not when getting first or all children by node name if they had been accessed by name before the merge
 
 ## Release 2.1.0 - 22 Oct 2017
 
