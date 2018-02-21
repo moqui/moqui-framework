@@ -510,7 +510,9 @@ along with this software (see the LICENSE.md file). If not, see
                                 .parameters([wikiSpaceId:wikiSpaceId, pagePath:allChildFileFlat.path, createIfMissing: false])
                                 .call()
                             def wikiPageId = resultMap.wikiPageId
-                            if (wikiPageId && ec.entity.find("WikiPageCategoryMember").condition([wikiPageId:wikiPageId, wikiPageCategoryId:wikiPageCategoryId]).one() != null) {
+                            if (wikiPageId && ec.entity.find("WikiPageCategoryMember")
+                                    .conditionDate(null, null, null)
+                                    .condition([wikiPageId:wikiPageId, wikiPageCategoryId:wikiPageCategoryId]).one() != null) {
                                 i++
                             } else {
                                 allChildFileFlatList.remove(i); allChildFileFlatSize--
