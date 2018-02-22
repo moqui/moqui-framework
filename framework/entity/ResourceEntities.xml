@@ -87,6 +87,8 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="WikiPageCategoryMember" package="moqui.resource.wiki" use="nontransactional">
         <field name="wikiPageCategoryId" type="id" is-pk="true"/>
         <field name="wikiPageId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time"/>
+        <field name="thruDate" type="date-time"/>
         <relationship type="one" related="moqui.resource.wiki.WikiPageCategory" short-alias="category"/>
         <relationship type="one" related="moqui.resource.wiki.WikiPage" short-alias="page"/>
     </entity>
