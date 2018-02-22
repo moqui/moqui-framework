@@ -465,10 +465,10 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="get" noun="WikiSpacePages">
         <in-parameters>
             <parameter name="wikiSpaceId" required="true"/>
-            <parameter name="currentPagePath"><description>If specified all pages starting with this path will be excluded</description></parameter>
-            <parameter name="wikiPageCategoryId" required="false">
-                <description>If specified then flat list contains only items with this category assigned.</description>
-            </parameter>
+            <parameter name="currentPagePath">
+                <description>If specified all pages starting with this path will be excluded</description></parameter>
+            <parameter name="wikiPageCategoryId">
+                <description>If specified then flat list contains only items with this category assigned.</description></parameter>
         </in-parameters>
         <out-parameters>
             <parameter name="allChildFileFlatList" type="List"><parameter name="childInfo" type="Map">
@@ -507,11 +507,9 @@ along with this software (see the LICENSE.md file). If not, see
                         Map allChildFileFlat = (Map) allChildFileFlatList.get(i)
                         if (allChildFileFlat) {
                             resultMap = ec.service.sync().name('org.moqui.impl.WikiServices.get#WikiPageId')
-                                .parameters([wikiSpaceId:wikiSpaceId, pagePath:allChildFileFlat.path, createIfMissing: false])
-                                .call()
+                                .parameters([wikiSpaceId:wikiSpaceId, pagePath:allChildFileFlat.path, createIfMissing: false]).call()
                             def wikiPageId = resultMap.wikiPageId
-                            if (wikiPageId && ec.entity.find("WikiPageCategoryMember")
-                                    .conditionDate(null, null, null)
+                            if (wikiPageId && ec.entity.find("moqui.resource.wiki.WikiPageCategoryMember").conditionDate(null, null, null)
                                     .condition([wikiPageId:wikiPageId, wikiPageCategoryId:wikiPageCategoryId]).one() != null) {
                                 i++
                             } else {
