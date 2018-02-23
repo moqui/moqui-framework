@@ -14,9 +14,9 @@
 
 buildscript {
   repositories { jcenter() }
-  dependencies { classpath 'org.ajoberstar:gradle-git:1.7.2' }
+  dependencies { classpath 'org.ajoberstar:grgit:2.1.0' }
 }
-// Not needed for explicit use, causes problems when not from git repo: plugins { id 'org.ajoberstar.grgit' version '1.3.2' }
+// Not needed for explicit use, causes problems when not from git repo: plugins { id 'org.ajoberstar.grgit' version 'x.y.z' }
 
 import org.ajoberstar.grgit.*
 
