@@ -85,7 +85,7 @@ class MoquiFopServlet extends HttpServlet {
             // logger.warn("======== XSL-FO content:\n${xslFoText}")
             if (logger.traceEnabled) logger.trace("XSL-FO content:\n${xslFoText}")
 
-            String contentType = ec.web.requestParameters."contentType" ?: "application/pdf"
+            String contentType = (String) ec.web.requestParameters."contentType" ?: "application/pdf"
             response.setContentType(contentType)
 
             String filename = (ec.web.parameters.get("filename") as String) ?: (ec.web.parameters.get("saveFilename") as String)
@@ -99,6 +99,11 @@ class MoquiFopServlet extends HttpServlet {
             // special case disable authz for resource access
             boolean enableAuthz = !ecfi.getExecutionContext().getArtifactExecution().disableAuthz()
             try {
+                /* FUTURE: pre-render to get page count, then pass in final rendered streamed to client
+                Integer pageCount = ec.resource.xslFoTransform(new StreamSource(new StringReader(xslFoText)), null,
+                        org.apache.commons.io.output.NullOutputStream.NULL_OUTPUT_STREAM, contentType)
+                logger.info("Rendered ${pathInfo} as ${contentType} has ${pageCount} pages")
+                */
                 ec.resource.xslFoTransform(new StreamSource(new StringReader(xslFoText)), null,
                         response.getOutputStream(), contentType)
             } finally {
