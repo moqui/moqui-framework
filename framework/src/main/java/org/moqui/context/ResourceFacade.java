@@ -81,7 +81,7 @@ public interface ResourceFacade {
     String expand(String inputString, String debugLocation, Map additionalContext, boolean localize);
     String expandNoL10n(String inputString, String debugLocation);
 
-    void xslFoTransform(StreamSource xslFoSrc, StreamSource xsltSrc, OutputStream out, String contentType);
+    Integer xslFoTransform(StreamSource xslFoSrc, StreamSource xsltSrc, OutputStream out, String contentType);
 
     String getContentType(String filename);
 }

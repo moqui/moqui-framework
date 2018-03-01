@@ -48,6 +48,7 @@ import javax.xml.transform.TransformerFactory
 import javax.xml.transform.URIResolver
 import javax.xml.transform.sax.SAXResult
 import javax.xml.transform.stream.StreamSource
+import java.lang.reflect.Method
 
 @CompileStatic
 class ResourceFacadeImpl implements ResourceFacade {
@@ -565,7 +566,7 @@ class ResourceFacadeImpl implements ResourceFacade {
     @Override String getContentType(String filename) { return ResourceReference.getContentType(filename) }
 
     @Override
-    void xslFoTransform(StreamSource xslFoSrc, StreamSource xsltSrc, OutputStream out, String contentType) {
+    Integer xslFoTransform(StreamSource xslFoSrc, StreamSource xsltSrc, OutputStream out, String contentType) {
         if (xslFoHandlerFactory == null) throw new BaseArtifactException("No XSL-FO Handler ToolFactory found (from resource-facade.@xsl-fo-handler-factory)")
 
         TransformerFactory factory = TransformerFactory.newInstance()
@@ -588,6 +589,14 @@ class ResourceFacadeImpl implements ResourceFacade {
         transThread.start()
         transThread.join()
         if (transformException != null) throw transformException
+
+        try {
+            Method pcMethod = xslFoHandlerFactory.class.getMethod("getPageCount", org.xml.sax.ContentHandler.class)
+            return pcMethod.invoke(xslFoHandlerFactory, contentHandler) as Integer
+        } catch (NoSuchMethodException e) {
+            if (logger.isDebugEnabled()) logger.debug("xsl-fo transform factory has no getPageCount method, returning null for page count", e)
+            return null
+        }
     }
 
     @CompileStatic
