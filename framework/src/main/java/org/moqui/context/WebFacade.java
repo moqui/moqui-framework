@@ -65,6 +65,7 @@ public interface WebFacade {
     void sendTextResponse(String text);
     void sendTextResponse(String text, String contentType, String filename);
     void sendResourceResponse(String location);
+    void sendError(int errorCode, String message, Throwable origThrowable);
 
     void handleXmlRpcServiceCall();
     void handleJsonRpcServiceCall();

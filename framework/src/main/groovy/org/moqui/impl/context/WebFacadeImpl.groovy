@@ -719,7 +719,7 @@ class WebFacadeImpl implements WebFacade {
         ResourceReference rr = eci.resource.getLocationReference(location)
         if (rr == null || (rr.supportsExists() && !rr.getExists())) {
             logger.warn("Sending not found response, resource not found at: ${location}")
-            response.sendError(HttpServletResponse.SC_NOT_FOUND)
+            response.sendError(HttpServletResponse.SC_NOT_FOUND, "Resource not found at ${location}")
             return
         }
         String contentType = rr.getContentType()
@@ -734,7 +734,7 @@ class WebFacadeImpl implements WebFacade {
             InputStream is = rr.openStream()
             if (is == null) {
                 logger.warn("Sending not found response, openStream returned null for location: ${location}")
-                response.sendError(HttpServletResponse.SC_NOT_FOUND)
+                response.sendError(HttpServletResponse.SC_NOT_FOUND, "Resource not found at ${location}")
                 return
             }
 
@@ -753,6 +753,45 @@ class WebFacadeImpl implements WebFacade {
             String rrText = rr.getText()
             if (rrText) response.writer.append(rrText)
             response.writer.flush()
+        }
+    }
+
+    static Map<Integer, String> errorCodeNames = [401:"Authentication Required", 403:"Access Forbidden", 404:"Not Found",
+            429:"Too Many Requests", 500:"Internal Server Error"]
+    @Override
+    void sendError(int errorCode, String message, Throwable origThrowable) {
+        if ((message == null || message.isEmpty()) && origThrowable != null) message = origThrowable.message
+
+        String acceptHeader = request.getHeader("Accept")
+        if (acceptHeader == null || acceptHeader.isEmpty() || acceptHeader.contains("text/html") ||
+                acceptHeader.contains("text/*") || acceptHeader.contains("*/*")) {
+            response.setStatus(errorCode)
+            response.setContentType("text/html")
+            response.setCharacterEncoding("UTF-8")
+            String errorCodeName = errorCodeNames.get(errorCode) ?: ""
+
+            Writer writer = response.getWriter()
+            writer.write('<html><head><meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>')
+            writer.write("<title>Error ${errorCode} ${errorCodeName}</title>\n")
+            writer.write("</head><body>\n")
+            writer.write("<h2>Error ${errorCode} ${errorCodeName}</h2>")
+            writer.write("<p>Problem accessing ${request.getPathInfo()}</p>\n")
+            if (message != null && !message.isEmpty()) writer.write("<p>Reason: ${message}</p>\n")
+            writer.write("</body></html>\n")
+
+            // NOTE: maybe include throwable info, do we ever want that?
+
+            /* nothing special for JSON for now
+            } else if (acceptHeader.contains("application/json") || acceptHeader.contains("text/json")) {
+                response.setContentType("application/json")
+                response.setCharacterEncoding("UTF-8")
+            */
+        } else {
+            if (message != null && !message.isEmpty()) {
+                response.sendError(errorCode, message)
+            } else {
+                response.sendError(errorCode)
+            }
         }
     }
 
