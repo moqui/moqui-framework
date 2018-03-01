@@ -846,7 +846,8 @@ class ScreenRenderImpl implements ScreenRender {
 
             if (screenUrlInfo.lastStandalone != 0 || screenUrlInstance.getTargetTransition() != null) {
                 // just send a 401 response, should always be for data submit, content rendering, JS AJAX requests, etc
-                if (response != null) response.sendError(401, "Authentication required")
+                if (wfi != null) wfi.sendError(401, null, null)
+                else if (response != null) response.sendError(401, "Authentication required")
                 return false
 
                 /* TODO: remove all of this, we don't need it
@@ -1726,11 +1727,11 @@ class ScreenRenderImpl implements ScreenRender {
     }
 
     List<Map> getMenuData(ArrayList<String> pathNameList) {
-        if (!ec.user.userId) { ec.web.response.sendError(401, "Authentication required"); return null }
+        if (!ec.user.userId) { ec.web.sendError(401, "Authentication required", null); return null }
         ScreenUrlInfo fullUrlInfo = ScreenUrlInfo.getScreenUrlInfo(this, rootScreenDef, pathNameList, null, 0)
-        if (!fullUrlInfo.targetExists) { ec.web.response.sendError(404, "Screen not found for path ${pathNameList}"); return null }
+        if (!fullUrlInfo.targetExists) { ec.web.sendError(404, "Screen not found for path ${pathNameList}", null); return null }
         UrlInstance fullUrlInstance = fullUrlInfo.getInstance(this, null)
-        if (!fullUrlInstance.isPermitted()) { ec.web.response.sendError(403, "View not permitted for path ${pathNameList}"); return null }
+        if (!fullUrlInstance.isPermitted()) { ec.web.sendError(403, "View not permitted for path ${pathNameList}", null); return null }
 
         ArrayList<String> fullPathList = fullUrlInfo.fullPathNameList
         int fullPathSize = fullPathList.size()

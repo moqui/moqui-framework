@@ -161,7 +161,8 @@ class MoquiServlet extends HttpServlet {
                 ec.context.put("errorMessage", message)
                 ec.context.put("errorThrowable", origThrowable)
                 String screenPathAttr = errorScreenNode.attribute("screen-path")
-                // don't do this, causes servlet container to return no content for error status codes: response.setStatus(errorCode)
+                // NOTE 20180228: this seems to be working fine now and Jetty (at least) is returning the 404/etc responses with the custom HTML body unlike before
+                response.setStatus(errorCode)
                 ec.screen.makeRender().webappName(moquiWebappName).renderMode("html")
                         .rootScreenFromHost(request.getServerName()).screenPath(Arrays.asList(screenPathAttr.split("/")))
                         .render(request, response)
@@ -170,7 +171,11 @@ class MoquiServlet extends HttpServlet {
                 response.sendError(errorCode, message)
             }
         } else {
-            response.sendError(errorCode, message)
+            if (ec.web != null) {
+
+            } else {
+                response.sendError(errorCode, message)
+            }
         }
     }
 }
