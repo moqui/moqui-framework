@@ -956,7 +956,7 @@ class ScreenDefinition {
             ExecutionContextImpl eci = sri.ec
             String docIndexString = eci.contextStack.getByString("docIndex")
             if (docIndexString == null || docIndexString.isEmpty()) {
-                sri.response.sendError(HttpServletResponse.SC_NOT_FOUND, "No docIndex specified")
+                eci.web.sendError(HttpServletResponse.SC_NOT_FOUND, "No docIndex specified", null)
                 return defaultResponse
             }
             Long docIndex = docIndexString as Long
@@ -964,7 +964,7 @@ class ScreenDefinition {
                     .condition("screenLocation", parentScreen.location).condition("docIndex", docIndex)
                     .useCache(true).disableAuthz().one()
             if (screenDocument == null) {
-                sri.response.sendError(HttpServletResponse.SC_NOT_FOUND, "No document found for index ${docIndex}")
+                eci.web.sendError(HttpServletResponse.SC_NOT_FOUND, "No document found for index ${docIndex}", null)
                 return defaultResponse
             }
 
