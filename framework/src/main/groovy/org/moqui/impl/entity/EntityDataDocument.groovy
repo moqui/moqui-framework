@@ -353,10 +353,10 @@ class EntityDataDocument {
             if (allPassed) { i++ } else { documentMapList.remove(i) }
         }
 
-        return documentMapList
+        return documentMapList as ArrayList<Map>
     }
 
-    public static ArrayList<String> fieldPathToList(String fieldPath) {
+    static ArrayList<String> fieldPathToList(String fieldPath) {
         int openParenIdx = fieldPath.indexOf("(")
         ArrayList<String> fieldPathElementList = new ArrayList<>()
         if (openParenIdx == -1) {
@@ -547,7 +547,7 @@ class EntityDataDocument {
     private static void addDataDocRelatedEntity(EntityDynamicViewImpl dynamicView, String parentEntityAlias,
             Map<String, Object> fieldTreeCurrent, AtomicInteger incrementer, Map<String, EntityValue> ddfByAlias) {
         for (Map.Entry fieldTreeEntry in fieldTreeCurrent.entrySet()) {
-            String fieldEntryKey = fieldTreeEntry.getKey()
+            String fieldEntryKey = (String) fieldTreeEntry.getKey()
             if ("_ALIAS".equals(fieldEntryKey)) continue
             // skip fields where DataDocumentField.fieldPath has an expression
             if (fieldEntryKey.startsWith("(")) continue
