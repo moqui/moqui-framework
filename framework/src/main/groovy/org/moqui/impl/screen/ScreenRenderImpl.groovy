@@ -1867,7 +1867,7 @@ class ScreenRenderImpl implements ScreenRender {
                     Map<String, String> customCol = new HashMap<>()
 
                     def colName = colDef.attribute("name")
-                    def colTitle = ec.l10n.localize(colDef.attribute("title"))
+                    def colTitle = colDef.attribute("title")
                     def colCallback = colDef.attribute("callback")
                     def colSortField = colDef.attribute("sortField")
                     def colDataClass = colDef.attribute("dataClass")
