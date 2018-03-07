@@ -229,6 +229,11 @@ class RestApi {
             serviceName = serviceNode.attribute("name")
         }
         RestResult run(List<String> pathList, ExecutionContext ec) {
+            if ((requireAuthentication == null || requireAuthentication.length() == 0 || "true".equals(requireAuthentication)) &&
+                    !ec.getUser().getUsername()) {
+                throw new AuthenticationRequiredException("User must be logged in to call service ${serviceName}")
+            }
+
             boolean loggedInAnonymous = false
             if ("anonymous-all".equals(requireAuthentication)) {
                 ec.artifactExecution.setAnonymousAuthorizedAll()
@@ -342,7 +347,7 @@ class RestApi {
             operation = entityNode.attribute("operation")
         }
         RestResult run(List<String> pathList, ExecutionContext ec) {
-            // service calls handle their own auth, for entity ops authc always required
+            // for entity ops authc always required
             if ((requireAuthentication == null || requireAuthentication.length() == 0 || "true".equals(requireAuthentication)) &&
                     !ec.getUser().getUsername()) {
                 throw new AuthenticationRequiredException("User must be logged in for operaton ${operation} on entity ${entityName}")
