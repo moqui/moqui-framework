@@ -266,7 +266,7 @@ class ScreenDefinition {
                 }
             }
         } else {
-            logger.warn("Not getting subscreens by file/directory structure for screen [${location}] because it is not a location that supports directories")
+            logger.info("Not getting subscreens by file/directory structure for screen [${location}] because it is not a location that supports directories")
         }
 
         // override dir structure with subscreens.subscreens-item elements
@@ -567,7 +567,7 @@ class ScreenDefinition {
             // NOTE: this caches internally so consider getting rid of subContentRefByPath
             contentRef = lastScreenRef.findChildFile(pathName)
         } else {
-            logger.warn("Not looking for sub-content [${pathName}] under screen [${location}] because screen location does not support exists, isFile, etc")
+            logger.info("Not looking for sub-content [${pathName}] under screen [${location}] because screen location does not support exists, isFile, etc")
         }
 
         if (contentRef != null) subContentRefByPath.put(pathName, contentRef)
