@@ -50,6 +50,7 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
 
     private NotificationType type = (NotificationType) null
     private Boolean showAlert = (Boolean) null
+    private String emailTemplateId = (String) null
     private Boolean persistOnSend = (Boolean) null
 
     private transient ExecutionContextFactoryImpl ecfiTransient = (ExecutionContextFactoryImpl) null
@@ -202,6 +203,24 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
         }
     }
 
+    @Override NotificationMessage emailTemplateId(String id) {
+        emailTemplateId = id
+        if (emailTemplateId != null && emailTemplateId.isEmpty()) emailTemplateId = null
+        return this
+    }
+    @Override String getEmailTemplateId() {
+        if (emailTemplateId != null) {
+            return emailTemplateId
+        } else {
+            EntityValue localNotTopic = getNotificationTopic()
+            if (localNotTopic != null && localNotTopic.emailTemplateId) {
+                return localNotTopic.emailTemplateId
+            } else {
+                return null
+            }
+        }
+    }
+
     @Override NotificationMessage persistOnSend(boolean persist) { persistOnSend = persist; return this }
     @Override boolean isPersistOnSend() {
         if (persistOnSend != null) {
@@ -221,6 +240,7 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
         return send()
     }
     @Override NotificationMessage send() {
+        // persist if is persistOnSend
         if (isPersistOnSend()) {
             sentDate = new Timestamp(System.currentTimeMillis())
             // a little trick so that this is available in the closure
@@ -233,7 +253,7 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
                                      messageJson:nmi.getMessageJson(), titleText:nmi.getTitle(), linkText:nmi.getLink(),
                                      typeString:nmi.getType(), showAlert:(nmi.showAlert ? 'Y' : 'N')])
                         .disableAuthz().call()
-                // if it's null we got an error
+                // if it's null we got an error so return from closure
                 if (createResult == null) return
 
                 nmi.setNotificationMessageId((String) createResult.notificationMessageId)
@@ -246,6 +266,35 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
 
         // now send it to the topic
         ecfi.sendNotificationMessageToTopic(this)
+
+        // send emails if emailTemplateId
+        String localEmailTemplateId = getEmailTemplateId()
+        if (localEmailTemplateId != null && !localEmailTemplateId.isEmpty()) {
+            Set<String> curNotifyUserIds = getNotifyUserIds()
+
+            EntityList emailNotificationUsers = ecfi.entityFacade.find("moqui.security.user.NotificationTopicUser")
+                    .condition("topic", topic).condition("emailNotifications", "Y").disableAuthz().list()
+            int emailNotificationUsersSize = emailNotificationUsers.size()
+            if (emailNotificationUsersSize > 0) {
+                Map<String, Object> wrappedMessageMap = getWrappedMessageMap()
+                
+                for (int i = 0; i < emailNotificationUsersSize; i++) {
+                    EntityValue notificationUser = (EntityValue) emailNotificationUsers.get(i)
+                    String userId = (String) notificationUser.userId
+                    if (!curNotifyUserIds.contains(userId)) continue
+
+                    EntityValue userAccount = ecfi.entityFacade.find("moqui.security.UserAccount")
+                            .condition("userId", userId).disableAuthz().one()
+                    String emailAddress = userAccount?.emailAddress
+                    if (emailAddress) {
+                        // FUTURE: if there is an option to create EmailMessage record also configure emailTypeEnumId (maybe if emailTypeEnumId is set create EmailMessage)
+                        ecfi.serviceFacade.async().name("org.moqui.impl.EmailServices.send#EmailTemplate")
+                                .parameters([emailTemplateId:localEmailTemplateId, toAddresses:emailAddress,
+                                    bodyParameters:wrappedMessageMap, toUserId:userId, createEmailMessage:false]).call()
+                    }
+                }
+            }
+        }
 
         return this
     }
@@ -296,8 +345,11 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
         }
     }
 
-    @Override Map<String, Object> getWrappedMessageMap() { [topic:topic, sentDate:sentDate, notificationMessageId:notificationMessageId,
-            message:getMessageMap(), title:getTitle(), link:getLink(), type:getType(), showAlert:isShowAlert()] }
+    @Override Map<String, Object> getWrappedMessageMap() {
+        EntityValue localNotTopic = getNotificationTopic()
+        return [topic:topic, sentDate:sentDate, notificationMessageId:notificationMessageId, topicDescription:localNotTopic?.description,
+            message:getMessageMap(), title:getTitle(), link:getLink(), type:getType(), showAlert:isShowAlert()]
+    }
     @Override String getWrappedMessageJson() { JsonOutput.toJson(getWrappedMessageMap()) }
 
     void populateFromValue(EntityValue nmbu) {

@@ -13,10 +13,14 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <entity-facade-xml type="install">
-    <!-- An EmailTemplate for password reset email -->
+    <!-- EmailTemplate for password reset email -->
     <moqui.basic.email.EmailTemplate emailTemplateId="PASSWORD_RESET" description="Default Password Reset" emailServerId="SYSTEM"
-            bodyScreenLocation="classpath://screen/PasswordReset.xml" webappName="webroot" fromAddress=""
-            ccAddresses="" bccAddresses="" subject="Password Reset" sendPartial="Y"/>
+            bodyScreenLocation="classpath://screen/PasswordReset.xml" webappName="webroot"
+            fromAddress="" ccAddresses="" bccAddresses="" subject="Password Reset" sendPartial="Y"/>
+    <!-- EmailTemplate for general notifications -->
+    <moqui.basic.email.EmailTemplate emailTemplateId="NOTIFICATION" description="Default Notification" emailServerId="SYSTEM"
+            bodyScreenLocation="classpath://screen/NotificationEmail.xml" webappName="webroot"
+            fromAddress="" fromName="" ccAddresses="" bccAddresses="" subject="${title}" sendPartial="Y"/>
 
     <!-- ========== Framework Scheduled ServiceJob Data ========== -->
     <!-- Handy cron strings: [0 0 2 * * ?] every night at 2:00 am, [0 0/15 * * * ?] every 15 minutes, [0 0/2 * * * ?] every 2 minutes -->
