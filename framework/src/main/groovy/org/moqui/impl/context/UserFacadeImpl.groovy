@@ -15,6 +15,7 @@ package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
 import org.moqui.context.ArtifactExecutionInfo
+import org.moqui.context.AuthenticationRequiredException
 import org.moqui.entity.EntityCondition
 import org.moqui.impl.context.ArtifactExecutionInfoImpl.ArtifactAuthzCheck
 import org.moqui.impl.entity.EntityValueBase
@@ -610,7 +611,7 @@ class UserFacadeImpl implements UserFacade {
     }
     @Override String getLoginKey() {
         String userId = getUserId()
-        if (!userId) throw new IllegalStateException("No active user, cannot get login key")
+        if (!userId) throw new AuthenticationRequiredException("No active user, cannot get login key")
 
         // generate login key
         String loginKey = StringUtilities.getRandomString(40)
