@@ -120,13 +120,20 @@ along with this software (see the LICENSE.md file). If not, see
                 Default is false and an exception will be thrown if there is extra path that does not match a
                 subscreen, a transition, or content below the screen.</xs:documentation></xs:annotation>
         </xs:attribute>
+        <xs:attribute name="render-modes" type="xs:string" default="all">
+            <xs:annotation><xs:documentation>
+                The render mode(s) this screen supports. Can be any valid render mode. The default value of "all" will allow all
+                render modes, so specify one or more specific render modes to limit how the screen may be rendered. Default supported
+                modes include: text, html, js, vuet, xsl-fo, xml, and csv. Values can be comma separated to apply to multiple render modes.
+            </xs:documentation></xs:annotation>
+        </xs:attribute>
         <xs:attribute name="server-static" type="xs:string">
             <xs:annotation><xs:documentation>
                 The render modes where the results of this screen are always the same and the screen render results may be cached (on server and/or client).
                 This applies to all screens that are designed for client rendering when the screen is written to fully support it (filling in data with additional requests).
                 Placeholder screens are automatically server static, ie with just subscreens-panel, subscreens-active, and subscreens-menu elements.
-                Can be any valid render mode. Default supported modes include: text, html, vuet, xsl-fo, xml, and csv.
-                Values can be comma separated to apply to multiple render modes. A value of "any" will apply to all render modes.
+                Can be any valid render mode. Default supported modes include: text, html, js, vuet, xsl-fo, xml, and csv.
+                Values can be comma separated to apply to multiple render modes. A value of "all" will apply to all render modes.
             </xs:documentation></xs:annotation>
         </xs:attribute>
     </xs:complexType></xs:element>

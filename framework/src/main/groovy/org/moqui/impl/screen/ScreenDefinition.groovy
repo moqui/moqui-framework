@@ -54,6 +54,7 @@ class ScreenDefinition {
     @SuppressWarnings("GrFinalVariableAccess") final long screenLoadedTime
     protected boolean standalone = false
     protected boolean allowExtraPath = false
+    protected Set<String> renderModes = null
     protected Set<String> serverStatic = null
     Long sourceLastModified = null
 
@@ -95,8 +96,10 @@ class ScreenDefinition {
 
         standalone = "true".equals(screenNode.attribute("standalone"))
         allowExtraPath = "true".equals(screenNode.attribute("allow-extra-path"))
+        String renderModesStr = screenNode.attribute("render-modes") ?: "all"
+        renderModes = new HashSet(Arrays.asList(renderModesStr.split(",")).collect({ it.trim() }))
         String serverStaticStr = screenNode.attribute("server-static")
-        if (serverStaticStr) serverStatic = new HashSet(Arrays.asList(serverStaticStr.split(",")))
+        if (serverStaticStr) serverStatic = new HashSet(Arrays.asList(serverStaticStr.split(",")).collect({ it.trim() }))
 
         // parameter
         for (MNode parameterNode in screenNode.children("parameter")) {

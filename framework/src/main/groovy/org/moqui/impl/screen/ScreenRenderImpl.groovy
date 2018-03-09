@@ -1809,7 +1809,7 @@ class ScreenRenderImpl implements ScreenRender {
             }
 
             menuDataList.add([name:pathItem, title:curScreen.getDefaultMenuName(), subscreens:subscreensList,
-                              path:currentPath.toString(), hasTabMenu:curScreen.hasTabMenu()])
+                              path:currentPath.toString(), hasTabMenu:curScreen.hasTabMenu(), renderModes:curScreen.renderModes])
             // not needed: screenStatic:curScreen.isServerStatic(renderMode)
         }
 
@@ -1829,7 +1829,7 @@ class ScreenRenderImpl implements ScreenRender {
         List<Map<String, Object>> screenDocList = fullUrlInfo.targetScreen.getScreenDocumentInfoList()
 
         Map lastMap = [name:lastPathItem, title:lastTitle, path:lastPath, pathWithParams:currentPath.toString(), image:lastImage,
-                extraPathList:extraPathList, screenDocList:screenDocList]
+                extraPathList:extraPathList, screenDocList:screenDocList, renderModes:fullUrlInfo.targetScreen.renderModes]
         if ("icon".equals(lastImageType)) lastMap.imageType = "icon"
         menuDataList.add(lastMap)
         // not needed: screenStatic:fullUrlInfo.targetScreen.isServerStatic(renderMode)
