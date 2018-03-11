@@ -77,10 +77,11 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.LocalizedMessage locale="default" original="EnumerationNameTemplate" localized="${description}"/>
     <moqui.basic.LocalizedMessage locale="default" original="StatusItemNameTemplate" localized="${description}"/>
     <moqui.basic.LocalizedMessage locale="default" original="StatusTransitionNameTemplate" localized="${transitionName} (${description})"/>
+    <moqui.basic.LocalizedMessage locale="default" original="StatusFlowTransitionNotFoundTemplate"
+            localized="Status change not allowed from ${lookedUpStatusName?:lookedUpStatusId} to ${parameterStatusName?:parameterStatusId}"/>
+
     <moqui.basic.LocalizedMessage locale="default" original="UomNameTemplate" localized="${description?:''} (${abbreviation?:uomId})"/>
     <moqui.basic.LocalizedMessage locale="default" original="UserGroupNameTemplate" localized="${description} [${userGroupId}]"/>
     <moqui.basic.LocalizedMessage locale="default" original="UsernameTemplate"
             localized="${userFullName ?: (lastName ? (firstName ? firstName + ' ' : '') + lastName : '')} [${username?:userId?:''}]"/>
-    <moqui.basic.LocalizedMessage locale="default" original="StatusFlowTransitionNotFoundTemplate"
-                                  localized="In entity-auto update service for entity [${fullEntityName}] no status change was found going from status ${lookedUpStatusName}[${lookedUpStatusId}] to status ${parameterStatusName}[${parameterStatusId}]" />
 </entity-facade-xml>
