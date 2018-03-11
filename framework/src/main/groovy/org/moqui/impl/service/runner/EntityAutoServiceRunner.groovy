@@ -340,7 +340,7 @@ class EntityAutoServiceRunner implements ServiceRunner {
             lookedUpValue = efi.find(ed.fullEntityName)
                     .condition(newEntityValue).useCache(false).one()
             if (lookedUpValue != null) {
-                checkStatus(ed, parameters, result, outParamNames, lookedUpValue, ecfi, efi)
+                checkStatus(ed, parameters, result, outParamNames, lookedUpValue, efi)
             } else {
                 // no lookedUpValue at this point? doesn't exist so create
                 newEntityValue.setFields(parameters, true, null, false)
@@ -434,7 +434,7 @@ class EntityAutoServiceRunner implements ServiceRunner {
 
     /* This should only be called if statusId is a field of the entity and lookedUpValue != null */
     protected static void checkStatus(EntityDefinition ed, Map<String, Object> parameters, Map<String, Object> result,
-                                      ArrayList<String> outParamNames, EntityValue lookedUpValue, ExecutionContextFactory ecfi, EntityFacadeImpl efi) {
+                                      ArrayList<String> outParamNames, EntityValue lookedUpValue, EntityFacadeImpl efi) {
         if (!parameters.containsKey("statusId")) return
 
         // populate the oldStatusId out if there is a service parameter for it, and before we do the set non-pk fields
@@ -454,17 +454,19 @@ class EntityAutoServiceRunner implements ServiceRunner {
                 // there was an old status, and in this call we are trying to change it, so do the StatusFlowTransition check
                 // NOTE that we are using a cached list from a common pattern so it should generally be there instead of a count that wouldn't
                 EntityList statusFlowTransitionList = efi.find("moqui.basic.StatusFlowTransition")
-                        .condition(["statusId": lookedUpStatusId, "toStatusId": parameterStatusId] as Map<String, Object>).useCache(true).list()
-                if (!statusFlowTransitionList) {
+                        .condition("statusId", lookedUpStatusId).condition("toStatusId", parameterStatusId).useCache(true).list()
+                if (statusFlowTransitionList.size() == 0) {
                     // uh-oh, no valid change...
-                    ExecutionContext eci = ecfi.getExecutionContext();
+                    ExecutionContext eci = efi.ecfi.getEci()
                     EntityValue lookedUpStatus = efi.find("moqui.basic.StatusItem")
                             .condition("statusId", lookedUpStatusId).useCache(true).one()
                     EntityValue parameterStatus = efi.find("moqui.basic.StatusItem")
                             .condition("statusId", parameterStatusId).useCache(true).one()
-                    throw new ServiceException(eci.resource.expand('StatusFlowTransitionNotFoundTemplate',
-                            "", [fullEntityName    : eci.l10n.localize(ed.fullEntityName + '##EntityName'), lookedUpStatusId: lookedUpStatusId, parameterStatusId: parameterStatusId,
-                                 lookedUpStatusName: lookedUpStatus.get("description"), parameterStatusName: parameterStatus?.get("description")]))
+                    throw new ServiceException(eci.resource.expand('StatusFlowTransitionNotFoundTemplate', "",
+                            [fullEntityName:eci.l10n.localize(ed.fullEntityName + '##EntityName'),
+                                lookedUpStatusId:lookedUpStatusId, parameterStatusId:parameterStatusId,
+                                lookedUpStatusName:lookedUpStatus?.getNoCheckSimple("description"),
+                                parameterStatusName:parameterStatus?.getNoCheckSimple("description")]))
                 }
             }
         }
@@ -487,7 +489,7 @@ class EntityAutoServiceRunner implements ServiceRunner {
             lookedUpValue = preLookedUpValue ?: efi.find(ed.getFullEntityName()).condition(pkParms).useCache(false).one()
             if (lookedUpValue == null) throw new EntityValueNotFoundException("In entity-auto update service for entity [${ed.fullEntityName}] value not found, cannot update; using parameters [${parameters}]")
 
-            checkStatus(ed, parameters, result, outParamNames, lookedUpValue, ecfi, efi)
+            checkStatus(ed, parameters, result, outParamNames, lookedUpValue, efi)
         }
 
         lookedUpValue.setFields(parameters, true, null, false)
