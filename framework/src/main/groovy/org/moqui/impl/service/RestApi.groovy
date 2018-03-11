@@ -747,7 +747,7 @@ class RestApi {
         RestResult visit(List<String> pathList, int pathIndex, ExecutionContextImpl ec) {
             // logger.info("Visit resource ${name}")
             // visit child or run here
-            visitChildOrRun(pathList, pathIndex, ec)
+            return visitChildOrRun(pathList, pathIndex, ec)
         }
         String toString() {
             StringBuilder sb = new StringBuilder()
@@ -771,7 +771,7 @@ class RestApi {
             // set ID value in context
             ec.context.put(name, pathList[pathIndex])
             // visit child or run here
-            visitChildOrRun(pathList, pathIndex, ec)
+            return visitChildOrRun(pathList, pathIndex, ec)
         }
         void toString(int level, StringBuilder sb) {
             for (int i=0; i < (level * 4); i++) sb.append(" ")
