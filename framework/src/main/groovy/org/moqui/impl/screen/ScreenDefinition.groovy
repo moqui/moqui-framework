@@ -19,6 +19,7 @@ import org.moqui.BaseArtifactException
 import org.moqui.BaseException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.ExecutionContext
+import org.moqui.context.ResourceFacade
 import org.moqui.impl.context.ContextJavaUtil
 import org.moqui.resource.ResourceReference
 import org.moqui.context.WebFacade
@@ -1121,8 +1122,10 @@ class ScreenDefinition {
                 int indexComp = ssi1.menuIndex.compareTo(ssi2.menuIndex)
                 if (indexComp != 0) return indexComp
             }
-            // if index is the same or both null, order by title
-            return ssi1.menuTitle.toUpperCase().compareTo(ssi2.menuTitle.toUpperCase())
+            // if index is the same or both null, order by localized title
+            ResourceFacade rf = ssi1.parentScreen.sfi.ecfi.resourceFacade;
+            return rf.expand(ssi1.menuTitle,'',null,true).toUpperCase().compareTo(
+                   rf.expand(ssi2.menuTitle,'',null,true).toUpperCase())
         }
     }
 }
