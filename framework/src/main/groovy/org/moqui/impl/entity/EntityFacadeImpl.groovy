@@ -539,8 +539,23 @@ class EntityFacadeImpl implements EntityFacade {
             return null
         }
 
-        EntityDefinition ed = (EntityDefinition) entityDefinitionCache.get(entityName)
-        if (ed != null) return ed
+        /*variables required for handling special entities - e.g. reporting tables distinguished by date*/
+        String entitySuffix = null
+        String entityNameToSearch = entityName
+
+        if (entityName.contains("@")) {
+            String[] tokenizedEntityName = entityName.tokenize("@")
+            entitySuffix = tokenizedEntityName[-1]
+            entityName = tokenizedEntityName[0]
+            entityNameToSearch = entityName + "_" + entitySuffix
+
+            logger.info("Special entity being loaded ${entityName} with suffix ${entitySuffix}.")
+        }
+
+        EntityDefinition ed = (EntityDefinition) entityDefinitionCache.get(entityNameToSearch)
+        if (ed != null) {
+            return ed
+        }
 
         Map<String, List<String>> entityLocationCache = entityLocationSingleCache.get(entityLocSingleEntryName)
         if (entityLocationCache == null) entityLocationCache = loadAllEntityLocations()
@@ -716,8 +731,18 @@ class EntityFacadeImpl implements EntityFacade {
             for (MNode copyNode in extendEntity.children("master")) entityNode.append(copyNode)
         }
 
+        if (entitySuffix != null) {
+            String specialEntityName = entityName + "_" + entitySuffix
+
+            //modify entity name
+            entityNode.attributes.put("entity-name", specialEntityName)
+
+            logger.info("Loading special entity ${specialEntityName}.")
+        }
+
         // create the new EntityDefinition
         ed = new EntityDefinition(this, entityNode)
+
         // cache it under entityName, fullEntityName, and short-alias
         String fullEntityName = ed.fullEntityName
         if (fullEntityName.startsWith("moqui.")) {
