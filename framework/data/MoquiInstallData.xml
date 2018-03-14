@@ -22,6 +22,11 @@ along with this software (see the LICENSE.md file). If not, see
             bodyScreenLocation="classpath://screen/NotificationEmail.xml" webappName="webroot"
             fromAddress="" fromName="" ccAddresses="" bccAddresses="" subject="${title}" sendPartial="Y"/>
 
+    <!-- Web Servlet Errors NotificationTopic -->
+    <moqui.security.user.NotificationTopic topic="WebServletError" description="Web Servlet Error"
+            typeString="danger" showAlert="Y" persistOnSend="Y" receiveNotifications="N" isPrivate="Y" emailTemplateId="NOTIFICATION"
+            titleTemplate="Web Error ${errorCode?:''} (${username?:'no user'}) ${path?:''} ${message?:'N/A'}"/>
+
     <!-- ========== Framework Scheduled ServiceJob Data ========== -->
     <!-- Handy cron strings: [0 0 2 * * ?] every night at 2:00 am, [0 0/15 * * * ?] every 15 minutes, [0 0/2 * * * ?] every 2 minutes -->
 
@@ -66,7 +71,7 @@ along with this software (see the LICENSE.md file). If not, see
 
     <!-- Service Job: Export and Import Entity Data Snapshot -->
     <moqui.security.user.NotificationTopic topic="ExportEntityDataSnapshot" description="Export Entity Data Snapshot Completed"
-            typeString="success" showAlert="Y" persistOnSend="Y" receiveNotifications="Y"
+            typeString="success" showAlert="Y" persistOnSend="Y" receiveNotifications="Y" isPrivate="Y" emailTemplateId="NOTIFICATION"
             titleTemplate="Exported ${results.recordsWritten} records to Entity Data Snapshot ${parameters.baseFilename}"
             errorTitleTemplate="Error in export of entity data snapshot ${parameters.baseFilename}"
             linkTemplate=""/>
@@ -74,7 +79,7 @@ along with this software (see the LICENSE.md file). If not, see
             serviceName="org.moqui.impl.EntityServices.export#EntityDataSnapshot" topic="ExportEntityDataSnapshot"
             transactionTimeout="3600"/>
     <moqui.security.user.NotificationTopic topic="ImportEntityDataSnapshot" description="Import Entity Data Snapshot Completed"
-            typeString="success" showAlert="Y" persistOnSend="Y" receiveNotifications="Y"
+            typeString="success" showAlert="Y" persistOnSend="Y" receiveNotifications="Y" isPrivate="Y" emailTemplateId="NOTIFICATION"
             titleTemplate="Imported ${results.recordsLoaded} records from Entity Data Snapshot ${parameters.zipFilename}"
             errorTitleTemplate="Error in import of entity data snapshot ${parameters.zipFilename}"
             linkTemplate=""/>
