@@ -15,6 +15,8 @@ package org.moqui.impl.service.runner
 
 import groovy.transform.CompileStatic
 import org.moqui.BaseException
+import org.moqui.context.ExecutionContext
+import org.moqui.context.ExecutionContextFactory
 import org.moqui.entity.EntityException
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
@@ -452,10 +454,19 @@ class EntityAutoServiceRunner implements ServiceRunner {
                 // there was an old status, and in this call we are trying to change it, so do the StatusFlowTransition check
                 // NOTE that we are using a cached list from a common pattern so it should generally be there instead of a count that wouldn't
                 EntityList statusFlowTransitionList = efi.find("moqui.basic.StatusFlowTransition")
-                        .condition(["statusId":lookedUpStatusId, "toStatusId":parameterStatusId] as Map<String, Object>).useCache(true).list()
-                if (!statusFlowTransitionList) {
+                        .condition("statusId", lookedUpStatusId).condition("toStatusId", parameterStatusId).useCache(true).list()
+                if (statusFlowTransitionList.size() == 0) {
                     // uh-oh, no valid change...
-                    throw new ServiceException("In entity-auto update service for entity [${ed.fullEntityName}] no status change was found going from status [${lookedUpStatusId}] to status [${parameterStatusId}]")
+                    ExecutionContext eci = efi.ecfi.getEci()
+                    EntityValue lookedUpStatus = efi.find("moqui.basic.StatusItem")
+                            .condition("statusId", lookedUpStatusId).useCache(true).one()
+                    EntityValue parameterStatus = efi.find("moqui.basic.StatusItem")
+                            .condition("statusId", parameterStatusId).useCache(true).one()
+                    throw new ServiceException(eci.resource.expand('StatusFlowTransitionNotFoundTemplate', "",
+                            [fullEntityName:eci.l10n.localize(ed.fullEntityName + '##EntityName'),
+                                lookedUpStatusId:lookedUpStatusId, parameterStatusId:parameterStatusId,
+                                lookedUpStatusName:lookedUpStatus?.getNoCheckSimple("description"),
+                                parameterStatusName:parameterStatus?.getNoCheckSimple("description")]))
                 }
             }
         }
