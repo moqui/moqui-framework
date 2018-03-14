@@ -134,16 +134,16 @@ class MoquiServlet extends HttpServlet {
                         null, t, ecfi, webappName, sri)
             }
         } finally {
+            /* this is here just for kicks, uncomment to log a list of all artifacts hit/used in the screen render
+            StringBuilder hits = new StringBuilder()
+            hits.append("Artifacts hit in this request: ")
+            for (def aei in ec.artifactExecution.history) hits.append("\n").append(aei)
+            logger.info(hits.toString())
+            */
+
             // make sure everything is cleaned up
             ec.destroy()
         }
-
-        /* this is here just for kicks, uncomment to log a list of all artifacts hit/used in the screen render
-        StringBuilder hits = new StringBuilder()
-        hits.append("Artifacts hit in this request: ")
-        for (def aei in ec.artifactExecution.history) hits.append("\n").append(aei)
-        logger.info(hits.toString())
-         */
     }
 
     static void sendErrorResponse(HttpServletRequest request, HttpServletResponse response, int errorCode, String errorType,
@@ -170,13 +170,14 @@ class MoquiServlet extends HttpServlet {
                     .send()
         }
 
-        String acceptHeader = request.getHeader("Accept")
-        if (ecfi == null || (acceptHeader && !acceptHeader.contains("text/html")) || ("rest".equals(sri?.screenUrlInfo?.targetScreen?.screenName))) {
+        if (ecfi == null) {
             response.sendError(errorCode, message)
             return
         }
         ExecutionContextImpl ec = ecfi.getEci()
-        MNode errorScreenNode = ecfi.getWebappInfo(moquiWebappName)?.getErrorScreenNode(errorType)
+        String acceptHeader = request.getHeader("Accept")
+        boolean acceptHtml = acceptHeader != null && acceptHeader.contains("text/html")
+        MNode errorScreenNode = acceptHtml ? ecfi.getWebappInfo(moquiWebappName)?.getErrorScreenNode(errorType) : null
         if (errorScreenNode != null) {
             try {
                 ec.context.put("errorCode", errorCode)
