@@ -1,12 +1,12 @@
 /*
- * This software is in the public domain under CC0 1.0 Universal plus a 
+ * This software is in the public domain under CC0 1.0 Universal plus a
  * Grant of Patent License.
- * 
+ *
  * To the extent possible under law, the author(s) have dedicated all
  * copyright and related and neighboring rights to this software to the
  * public domain worldwide. This software is distributed without any
  * warranty.
- * 
+ *
  * You should have received a copy of the CC0 Public Domain Dedication
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
@@ -19,6 +19,7 @@ import org.moqui.BaseArtifactException
 import org.moqui.BaseException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.ExecutionContext
+import org.moqui.context.ResourceFacade
 import org.moqui.impl.context.ContextJavaUtil
 import org.moqui.resource.ResourceReference
 import org.moqui.context.WebFacade
@@ -54,6 +55,7 @@ class ScreenDefinition {
     @SuppressWarnings("GrFinalVariableAccess") final long screenLoadedTime
     protected boolean standalone = false
     protected boolean allowExtraPath = false
+    protected Set<String> renderModes = null
     protected Set<String> serverStatic = null
     Long sourceLastModified = null
 
@@ -95,8 +97,10 @@ class ScreenDefinition {
 
         standalone = "true".equals(screenNode.attribute("standalone"))
         allowExtraPath = "true".equals(screenNode.attribute("allow-extra-path"))
+        String renderModesStr = screenNode.attribute("render-modes") ?: "all"
+        renderModes = new HashSet(Arrays.asList(renderModesStr.split(",")).collect({ it.trim() }))
         String serverStaticStr = screenNode.attribute("server-static")
-        if (serverStaticStr) serverStatic = new HashSet(Arrays.asList(serverStaticStr.split(",")))
+        if (serverStaticStr) serverStatic = new HashSet(Arrays.asList(serverStaticStr.split(",")).collect({ it.trim() }))
 
         // parameter
         for (MNode parameterNode in screenNode.children("parameter")) {
@@ -1118,8 +1122,10 @@ class ScreenDefinition {
                 int indexComp = ssi1.menuIndex.compareTo(ssi2.menuIndex)
                 if (indexComp != 0) return indexComp
             }
-            // if index is the same or both null, order by title
-            return ssi1.menuTitle.compareTo(ssi2.menuTitle)
+            // if index is the same or both null, order by localized title
+            ResourceFacade rf = ssi1.parentScreen.sfi.ecfi.resourceFacade;
+            return rf.expand(ssi1.menuTitle,'',null,true).toUpperCase().compareTo(
+                   rf.expand(ssi2.menuTitle,'',null,true).toUpperCase())
         }
     }
 }

@@ -19,6 +19,7 @@ import org.moqui.entity.EntityFind
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.condition.ConditionAlias
 import org.moqui.util.ObjectUtilities
+import org.moqui.util.StringUtilities
 
 import javax.cache.Cache
 import java.sql.Timestamp
@@ -832,6 +833,8 @@ class EntityDefinition {
             prettyName.deleteCharAt(prettyName.length()-1)
             if (addParens) prettyName.append(")")
         }
+        // make sure pretty name isn't empty, happens when baseName is a superset of entity name
+        if (prettyName.length() == 0) return StringUtilities.camelCaseToPretty(entityInfo.internalEntityName)
         return prettyName.toString()
     }
 
