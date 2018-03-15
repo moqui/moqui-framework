@@ -618,6 +618,17 @@ class EntityDefinition {
         }
         return eKeyMap
     }
+    static Map<String, String> getRelationshipKeyValueMapInternal(MNode relationship) {
+        ArrayList<MNode> keyValueList = relationship.children("key-value")
+        int keyValueListSize = keyValueList.size()
+        if (keyValueListSize == 0) return null
+        Map<String, String> eKeyMap = [:]
+        for (int i = 0; i < keyValueListSize; i++) {
+            MNode keyValue = (MNode) keyValueList.get(i)
+            eKeyMap.put(keyValue.attribute("related"), keyValue.attribute("value"))
+        }
+        return eKeyMap
+    }
 
     RelationshipInfo getRelationshipInfo(String relationshipName) {
         if (relationshipName == null || relationshipName.isEmpty()) return null
