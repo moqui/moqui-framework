@@ -685,6 +685,10 @@ public abstract class EntityValueBase implements EntityValue {
         Map<String, Object> condMap = new HashMap<>();
         for (Entry<String, String> entry : keyMap.entrySet())
             condMap.put(entry.getValue(), valueMapInternal.get(entry.getKey()));
+        if (relInfo.keyValueMap != null) {
+            for (Map.Entry<String, String> keyValueEntry: relInfo.keyValueMap.entrySet())
+                condMap.put(keyValueEntry.getKey(), keyValueEntry.getValue());
+        }
         if (byAndFields != null && byAndFields.size() > 0) condMap.putAll(byAndFields);
 
         EntityFind find = getEntityFacadeImpl().find(relatedEntityName);
@@ -706,6 +710,10 @@ public abstract class EntityValueBase implements EntityValue {
         // make a Map where the key is the related entity's field name, and the value is the value from this entity
         Map<String, Object> condMap = new HashMap<>();
         for (Entry<String, String> entry : keyMap.entrySet()) condMap.put(entry.getValue(), valueMapInternal.get(entry.getKey()));
+        if (relInfo.keyValueMap != null) {
+            for (Map.Entry<String, String> keyValueEntry: relInfo.keyValueMap.entrySet())
+                condMap.put(keyValueEntry.getKey(), keyValueEntry.getValue());
+        }
 
         // logger.warn("========== findRelatedOne ${relInfo.relationshipName} keyMap=${keyMap}, condMap=${condMap}")
 
@@ -725,6 +733,10 @@ public abstract class EntityValueBase implements EntityValue {
         // make a Map where the key is the related entity's field name, and the value is the value from this entity
         Map<String, Object> condMap = new HashMap<>();
         for (Entry<String, String> entry : keyMap.entrySet()) condMap.put(entry.getValue(), valueMapInternal.get(entry.getKey()));
+        if (relInfo.keyValueMap != null) {
+            for (Map.Entry<String, String> keyValueEntry: relInfo.keyValueMap.entrySet())
+                condMap.put(keyValueEntry.getKey(), keyValueEntry.getValue());
+        }
 
         EntityFind find = getEntityFacadeImpl().find(relatedEntityName);
         return find.condition(condMap).useCache(useCache).count();
