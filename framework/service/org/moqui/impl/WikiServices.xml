@@ -31,6 +31,7 @@ along with this software (see the LICENSE.md file). If not, see
         </out-parameters>
         <actions>
             <entity-find-one entity-name="moqui.resource.wiki.WikiPage" value-field="wikiPage"/>
+            <if condition="wikiPage == null"><return message="Page not found with ID ${wikiPageId}"/></if>
             <set field="wikiSpaceId" from="wikiPage.wikiSpaceId"/>
             <set field="pagePath" from="wikiPage.pagePath"/>
             <service-call name="org.moqui.impl.WikiServices.get#WikiPageInfo" in-map="context" out-map="context"/>
