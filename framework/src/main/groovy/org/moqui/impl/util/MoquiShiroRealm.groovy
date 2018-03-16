@@ -208,7 +208,7 @@ class MoquiShiroRealm implements Realm, Authorizer {
                     // if failed on password, increment in new transaction to make sure it sticks
                     ecfi.serviceFacade.sync().name("org.moqui.impl.UserServices.increment#UserAccountFailedLogins")
                             .parameters((Map<String, Object>) [userId:newUserAccount.userId]).requireNewTransaction(true).call()
-                    throw new IncorrectCredentialsException(ecfi.resource.expand('Username ${username} and/or password incorrect','',[username:username]))
+                    throw new IncorrectCredentialsException(ecfi.resource.expand('Password incorrect for username ${username}','',[username:username]))
                 }
             }
 
