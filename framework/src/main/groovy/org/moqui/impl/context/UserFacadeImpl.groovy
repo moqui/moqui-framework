@@ -176,7 +176,7 @@ class UserFacadeImpl implements UserFacade {
                     Map cvResult = eci.service.sync().name("create", "moqui.server.Visitor")
                             .parameter("createdDate", getNowTimestamp()).disableAuthz().call()
                     cookieVisitorId = (String) cvResult?.visitorId
-                    logger.info("Created new Visitor with ID [${cookieVisitorId}] in session [${session.id}]")
+                    if (logger.traceEnabled) logger.trace("Created new Visitor with ID [${cookieVisitorId}] in session [${session.id}]")
                 }
                 if (cookieVisitorId) {
                     // whether it existed or not, add it again to keep it fresh; stale cookies get thrown away
@@ -221,7 +221,7 @@ class UserFacadeImpl implements UserFacade {
                 if (visitResult) {
                     session.setAttribute("moqui.visitId", visitResult.visitId)
                     this.visitId = visitResult.visitId
-                    logger.info("Created new Visit with ID [${this.visitId}] in session [${session.id}]")
+                    if (logger.traceEnabled) logger.trace("Created new Visit with ID [${this.visitId}] in session [${session.id}]")
                 }
             }
         }

@@ -49,7 +49,7 @@ class MoquiSessionListener implements HttpSessionListener, HttpSessionAttributeL
             catch (Throwable t) { logger.warn("No saved visitId for session ${sessionId} and error getting moqui.visitId session attribute: " + t.toString()) }
         }
         if (!visitId) {
-            logger.info("Not closing visit for session ${sessionId}, no value for visitId session attribute")
+            if (logger.traceEnabled) logger.trace("Not closing visit for session ${sessionId}, no value for visitId session attribute")
             return
         }
         closeVisit(visitId, sessionId)
@@ -73,7 +73,7 @@ class MoquiSessionListener implements HttpSessionListener, HttpSessionAttributeL
             String sessionId = event.session.id
             String visitId = event.value
             if (!visitId) {
-                logger.info("Not closing visit for session ${sessionId}, no value for removed moqui.visitId session attribute")
+                if (logger.traceEnabled) logger.trace("Not closing visit for session ${sessionId}, no value for removed moqui.visitId session attribute")
                 return
             }
             closeVisit(visitId, sessionId)
@@ -87,6 +87,6 @@ class MoquiSessionListener implements HttpSessionListener, HttpSessionAttributeL
         Timestamp thruDate = new Timestamp(System.currentTimeMillis())
         ecfi.serviceFacade.sync().name("update", "moqui.server.Visit").parameter("visitId", visitId).parameter("thruDate", thruDate)
                 .disableAuthz().call()
-        logger.info("Closed visit ${visitId} at ${thruDate} for session ${sessionId}")
+        if (logger.traceEnabled) logger.trace("Closed visit ${visitId} at ${thruDate} for session ${sessionId}")
     }
 }
