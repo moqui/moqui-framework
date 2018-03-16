@@ -1123,7 +1123,7 @@ class ScreenDefinition {
                 if (indexComp != 0) return indexComp
             }
             // if index is the same or both null, order by localized title
-            ResourceFacade rf = ssi1.parentScreen.sfi.ecfi.resourceFacade;
+            ResourceFacade rf = ssi1.parentScreen.sfi.ecfi.resourceFacade
             return rf.expand(ssi1.menuTitle,'',null,true).toUpperCase().compareTo(
                    rf.expand(ssi2.menuTitle,'',null,true).toUpperCase())
         }
