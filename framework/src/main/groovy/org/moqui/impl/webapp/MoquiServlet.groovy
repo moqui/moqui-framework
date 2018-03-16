@@ -125,7 +125,7 @@ class MoquiServlet extends HttpServlet {
                 }
             } else {
                 String tString = t.toString()
-                if (tString.contains("EofException")) {
+                if (isBrokenPipe(t)) {
                     logger.error("Internal error processing request: " + tString)
                 } else {
                     logger.error("Internal error processing request: " + tString, t)
@@ -161,7 +161,7 @@ class MoquiServlet extends HttpServlet {
             message = msgList.join(" ")
         }
 
-        if (ecfi != null && errorCode == HttpServletResponse.SC_INTERNAL_SERVER_ERROR) {
+        if (ecfi != null && errorCode == HttpServletResponse.SC_INTERNAL_SERVER_ERROR && !isBrokenPipe(origThrowable)) {
             ExecutionContextImpl ec = ecfi.getEci()
             ec.makeNotificationMessage().topic("WebServletError").type(NotificationMessage.NotificationType.danger)
                     .title('''Web Error ${errorCode?:''} (${username?:'no user'}) ${path?:''} ${message?:'N/A'}''')
@@ -201,5 +201,16 @@ class MoquiServlet extends HttpServlet {
                 response.sendError(errorCode, message)
             }
         }
+    }
+
+    static boolean isBrokenPipe(Throwable throwable) {
+        Throwable curt = throwable
+        while (curt != null) {
+            // could constrain more looking for "Broken pipe" message
+            // works for Jetty, may have different exception patterns on other servlet containers
+            if (curt instanceof IOException) return true
+            curt = curt.getCause()
+        }
+        return false
     }
 }
