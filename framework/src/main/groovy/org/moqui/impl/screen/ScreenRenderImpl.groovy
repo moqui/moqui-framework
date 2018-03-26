@@ -1678,16 +1678,20 @@ class ScreenRenderImpl implements ScreenRender {
         // see if there is a user setting for the theme
         String themeId = entityFacade.fastFindOne("moqui.security.UserScreenTheme", true, true, ec.userFacade.userId, stteId)?.screenThemeId
         // use the Enumeration.enumCode from the type to find the theme type's default screenThemeId
-        if (themeId == null || themeId.length() == 0) {
+        /*if (themeId == null || themeId.length() == 0) {
             EntityValue themeTypeEnum = entityFacade.fastFindOne("moqui.basic.Enumeration", true, true, stteId)
             if (themeTypeEnum?.enumCode) themeId = themeTypeEnum.enumCode
-        }
+        }*/
+
         // theme with "DEFAULT" in the ID
         if (themeId == null || themeId.length() == 0) {
-            EntityValue stv = entityFacade.find("moqui.screen.ScreenTheme")
+            EntityList stv = entityFacade.find("moqui.screen.ScreenTheme")
                     .condition("screenThemeTypeEnumId", stteId)
-                    .condition("screenThemeId", ComparisonOperator.LIKE, "%DEFAULT%").disableAuthz().one()
-            if (stv) themeId = stv.screenThemeId
+                    .condition("screenThemeId", ComparisonOperator.LIKE, "%DEFAULT%")
+                    .orderBy("-screenThemeId")
+                    .disableAuthz().limit(2).list()
+
+            if (stv) themeId = stv[0].screenThemeId
         }
 
         curThemeId = themeId ?: ""
