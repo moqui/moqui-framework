@@ -63,10 +63,10 @@ dependencies {
     compile project(':moqui-util')
 
     // Groovy
-    compile 'org.codehaus.groovy:groovy:2.4.13' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-json:2.4.13' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-templates:2.4.13' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-xml:2.4.13' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy:2.4.14' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-json:2.4.14' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-templates:2.4.14' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-xml:2.4.14' // Apache 2.0
     // jansi is needed for groovydoc only, so in providedCompile (not included in war)
     compileOnly 'org.fusesource.jansi:jansi:1.17'
     // Findbugs need only during compile (used by freemarker and various moqui classes)
@@ -102,9 +102,9 @@ dependencies {
     compile module('com.cronutils:cron-utils:5.0.5') // Apache 2.0
 
     // Flexmark (markdown)
-    compile 'com.vladsch.flexmark:flexmark:0.30.0'
-    compile 'com.vladsch.flexmark:flexmark-ext-tables:0.30.0'
-    compile 'com.vladsch.flexmark:flexmark-ext-toc:0.30.0'
+    compile 'com.vladsch.flexmark:flexmark:0.32.18'
+    compile 'com.vladsch.flexmark:flexmark-ext-tables:0.32.18'
+    compile 'com.vladsch.flexmark:flexmark-ext-toc:0.32.18'
 
     // Freemarker
     compile 'org.freemarker:freemarker:2.3.27-incubating' // Apache 2.0
@@ -120,17 +120,17 @@ dependencies {
     // compile 'javax.jms:jms:1.1'
 
     // H2 Database
-    compile 'com.h2database:h2:1.4.196' // MPL 2.0, EPL 1.0
+    compile 'com.h2database:h2:1.4.197' // MPL 2.0, EPL 1.0
 
     // Jackson Databind (JSON, etc)
     compile 'com.fasterxml.jackson.core:jackson-databind:2.9.4'
 
     // Jetty HTTP Client and Proxy Servlet
-    compile 'org.eclipse.jetty:jetty-client:9.4.8.v20171121' // Apache 2.0
-    compile 'org.eclipse.jetty:jetty-proxy:9.4.8.v20171121' // Apache 2.0
+    compile 'org.eclipse.jetty:jetty-client:9.4.9.v20180320' // Apache 2.0
+    compile 'org.eclipse.jetty:jetty-proxy:9.4.9.v20180320' // Apache 2.0
 
     // javax.mail
-    compile 'com.sun.mail:javax.mail:1.6.0' // CDDL
+    compile 'com.sun.mail:javax.mail:1.6.1' // CDDL
 
     // JSoup (HTML parser, cleaner)
     compile 'org.jsoup:jsoup:1.11.2' // MIT
@@ -156,7 +156,7 @@ dependencies {
     // compile module('org.apache.xmlrpc:xmlrpc-client:3.1.3') // Apache 2.0
 
     // Snake YAML
-    compile 'org.yaml:snakeyaml:1.19' // Apache 2.0
+    compile 'org.yaml:snakeyaml:1.20' // Apache 2.0
 
     // Apache Jackrabbit - uncomment here or include elsewhere when Jackrabbit repository configurations are used
     // compile 'org.apache.jackrabbit:jackrabbit-jcr-rmi:2.12.1' // Apache 2.0
@@ -176,16 +176,16 @@ dependencies {
 
     // ========== executable war dependencies ==========
     // Jetty
-    execWarRuntime 'org.eclipse.jetty:jetty-server:9.4.8.v20171121' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.4.8.v20171121' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.4.8.v20171121' // Apache 2.0
-    execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.4.8.v20171121') // Apache 2.0
-    execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.4.8.v20171121') { // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-server:9.4.9.v20180320' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.4.9.v20180320' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.4.9.v20180320' // Apache 2.0
+    execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.4.9.v20180320') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.4.9.v20180320') { // Apache 2.0
         exclude group: 'javax.websocket' } // we have the full websocket API, including the client one causes problems
     execWarRuntime 'javax.websocket:javax.websocket-api:1.0' // using 1.0, don't update to 1.1 until used in Jetty, Tomcat, etc
-    execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.4.8.v20171121') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.4.9.v20180320') // Apache 2.0
     // only include this if using Endpoint and MessageHandler annotations:
-    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:9.4.8.v20171121') // Apache 2.0
+    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:9.4.9.v20180320') // Apache 2.0
 }
 
 // setup task dependencies to make sure the start sourceSets always get run
