@@ -252,8 +252,9 @@ class WebFacadeImpl implements WebFacade {
         ScreenUrlInfo sui = urlInstanceOrig.sui
         ScreenDefinition targetScreen = urlInstanceOrig.sui.targetScreen
 
-        // don't save standalone screens
-        if (sui.lastStandalone || targetScreen.isStandalone()) return
+        // logger.warn("save hist standalone ${sui.lastStandalone} ${targetScreen.isStandalone()} transition ${urlInstanceOrig.getTargetTransition()}")
+        // don't save standalone screens (for sui.lastStandalone int only exclude negative so vapps, etc are saved)
+        if (sui.lastStandalone < 0 || targetScreen.isStandalone()) return
         // don't save transition requests, just screens
         if (urlInstanceOrig.getTargetTransition() != null) return
         // if history=false on the screen don't save
@@ -278,7 +279,6 @@ class WebFacadeImpl implements WebFacade {
         if (firstItem != null && firstItem.url == urlWithParams) return
 
         String targetMenuName = targetScreen.getDefaultMenuName()
-
 
         StringBuilder nameBuilder = new StringBuilder()
         // append parent screen name
