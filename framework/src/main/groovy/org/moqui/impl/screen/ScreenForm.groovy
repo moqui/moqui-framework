@@ -1024,7 +1024,7 @@ class ScreenForm {
                                 addFieldOption(options, fieldNode, childNode, [entry:listOption], ec)
                             } else {
                                 String loString = ObjectUtilities.toPlainString(listOption)
-                                if (loString != null) options.put(loString, loString)
+                                if (loString != null) options.put(loString, ec.l10n.localize(loString))
                             }
                         }
                     }
@@ -1032,7 +1032,7 @@ class ScreenForm {
             } else if ("option".equals(childNode.name)) {
                 String key = ec.resource.expandNoL10n(childNode.attribute('key'), null)
                 String text = ec.resource.expand(childNode.attribute('text'), null)
-                options.put(key, text ?: key)
+                options.put(key, text ?: ec.l10n.localize(key))
             }
         }
         return options
@@ -1064,13 +1064,13 @@ class ScreenForm {
             if (text == null || text.length() == 0) {
                 if (listOptionEvb == null || listOptionEvb.getEntityDefinition().isField("description")) {
                     Object desc = listOption.get("description")
-                    options.put(key, desc != null ? (String) desc : key)
+                    options.put(key, desc != null ? (String) desc : ec.l10n.localize(key))
                 } else {
-                    options.put(key, key)
+                    options.put(key, ec.l10n.localize(key))
                 }
             } else {
                 String value = ec.resource.expand(text, null)
-                if ("null".equals(value)) value = key
+                if ("null".equals(value)) value = ec.l10n.localize(key)
                 options.put(key, value)
             }
         } finally {
