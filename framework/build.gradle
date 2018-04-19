@@ -68,7 +68,7 @@ dependencies {
     compile 'org.codehaus.groovy:groovy-templates:2.4.15' // Apache 2.0
     compile 'org.codehaus.groovy:groovy-xml:2.4.15' // Apache 2.0
     // jansi is needed for groovydoc only, so in providedCompile (not included in war)
-    compileOnly 'org.fusesource.jansi:jansi:1.17'
+    compileOnly 'org.fusesource.jansi:jansi:1.17.1'
     // Findbugs need only during compile (used by freemarker and various moqui classes)
     compileOnly 'com.google.code.findbugs:annotations:3.0.1'
 
@@ -133,7 +133,7 @@ dependencies {
     compile 'com.sun.mail:javax.mail:1.6.1' // CDDL
 
     // JSoup (HTML parser, cleaner)
-    compile 'org.jsoup:jsoup:1.11.2' // MIT
+    compile 'org.jsoup:jsoup:1.11.3' // MIT
 
     // Apache Shiro
     compile module('org.apache.shiro:shiro-core:1.4.0') // Apache 2.0
