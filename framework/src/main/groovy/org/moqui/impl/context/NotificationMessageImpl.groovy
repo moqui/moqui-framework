@@ -129,10 +129,19 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
     @Override String getTopic() { topic }
 
     @Override NotificationMessage message(String messageJson) { this.messageJson = messageJson; messageMap = null; return this }
-    @Override NotificationMessage message(Map message) { this.messageMap = Collections.unmodifiableMap(message); messageJson = null; return this }
+    @Override NotificationMessage message(Map message) {
+        this.messageMap = Collections.unmodifiableMap(message) as Map<String, Object>
+        messageJson = null
+        return this
+    }
     @Override String getMessageJson() {
-        if (messageJson == null && messageMap != null)
-            messageJson = JsonOutput.toJson(messageMap)
+        if (messageJson == null && messageMap != null) {
+            try {
+                messageJson = JsonOutput.toJson(messageMap)
+            } catch (Exception e) {
+                logger.warn("Error writing JSON for Notification ${topic} message: ${e.toString()}\n${messageMap}")
+            }
+        }
         return messageJson
     }
     @Override Map<String, Object> getMessageMap() {
@@ -348,7 +357,15 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
         return [topic:topic, sentDate:sentDate, notificationMessageId:notificationMessageId, topicDescription:localNotTopic?.description,
             message:getMessageMap(), title:getTitle(), link:getLink(), type:getType(), showAlert:isShowAlert()]
     }
-    @Override String getWrappedMessageJson() { JsonOutput.toJson(getWrappedMessageMap()) }
+    @Override String getWrappedMessageJson() {
+        Map<String, Object> wrappedMap = getWrappedMessageMap()
+        try {
+            return JsonOutput.toJson(wrappedMap)
+        } catch (Exception e) {
+            logger.warn("Error writing JSON for Notification ${topic} message: ${e.toString()}\n${wrappedMap}")
+            return null
+        }
+    }
 
     void populateFromValue(EntityValue nmbu) {
         this.notificationMessageId = nmbu.notificationMessageId
