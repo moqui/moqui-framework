@@ -127,13 +127,20 @@ class UserFacadeImpl implements UserFacade {
             } else {
                 logger.warn("For HTTP Basic Authorization got bad credentials string. Base64 encoded is [${basicAuthEncoded}] and after decoding is [${basicAuthAsString}].")
             }
-        } else if (request.getHeader("api_key") || request.getHeader("login_key")) {
+        }
+        if (currentInfo.username == null && (request.getHeader("api_key") || request.getHeader("login_key"))) {
             String loginKey = request.getHeader("api_key") ?: request.getHeader("login_key")
-            this.loginUserKey(loginKey.trim())
-        } else if (secureParameters.api_key || secureParameters.login_key) {
+            loginKey = loginKey.trim()
+            if (loginKey != null && !loginKey.isEmpty() && !"null".equals(loginKey) && !"undefined".equals(loginKey))
+                this.loginUserKey(loginKey)
+        }
+        if (currentInfo.username == null && (secureParameters.api_key || secureParameters.login_key)) {
             String loginKey = secureParameters.api_key ?: secureParameters.login_key
-            this.loginUserKey(loginKey.trim())
-        } else if (secureParameters.authUsername) {
+            loginKey = loginKey.trim()
+            if (loginKey != null && !loginKey.isEmpty() && !"null".equals(loginKey) && !"undefined".equals(loginKey))
+                this.loginUserKey(loginKey)
+        }
+        if (currentInfo.username == null && secureParameters.authUsername) {
             // try the Moqui-specific parameters for instant login
             // if we have credentials coming in anywhere other than URL parameters, try logging in
             String authUsername = secureParameters.authUsername
@@ -253,13 +260,21 @@ class UserFacadeImpl implements UserFacade {
             } else {
                 logger.warn("For HTTP Basic Authorization got bad credentials string. Base64 encoded is [${basicAuthEncoded}] and after decoding is [${basicAuthAsString}].")
             }
-        } else if (headers.api_key || headers.login_key) {
+        }
+        if (currentInfo.username == null && (headers.api_key || headers.login_key)) {
             String loginKey = headers.api_key ? headers.api_key.get(0) : (headers.login_key ? headers.login_key.get(0) : null)
-            if (loginKey) this.loginUserKey(loginKey.trim())
-        } else if (parameters.api_key || parameters.login_key) {
+            loginKey = loginKey.trim()
+            if (loginKey != null && !loginKey.isEmpty() && !"null".equals(loginKey) && !"undefined".equals(loginKey))
+                this.loginUserKey(loginKey)
+        }
+        if (currentInfo.username == null && (parameters.api_key || parameters.login_key)) {
             String loginKey = parameters.api_key ? parameters.api_key.get(0) : (parameters.login_key ? parameters.login_key.get(0) : null)
-            if (loginKey) this.loginUserKey(loginKey.trim())
-        } else if (parameters.authUsername) {
+            loginKey = loginKey.trim()
+            logger.warn("loginKey2 ${loginKey}")
+            if (loginKey != null && !loginKey.isEmpty() && !"null".equals(loginKey) && !"undefined".equals(loginKey))
+                this.loginUserKey(loginKey)
+        }
+        if (currentInfo.username == null && parameters.authUsername) {
             // try the Moqui-specific parameters for instant login
             // if we have credentials coming in anywhere other than URL parameters, try logging in
             String authUsername = parameters.authUsername.get(0)

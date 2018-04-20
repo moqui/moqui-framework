@@ -15,11 +15,11 @@ along with this software (see the LICENSE.md file). If not, see
 <entity-facade-xml type="install">
     <!-- EmailTemplate for password reset email -->
     <moqui.basic.email.EmailTemplate emailTemplateId="PASSWORD_RESET" description="Default Password Reset" emailServerId="SYSTEM"
-            bodyScreenLocation="classpath://screen/PasswordReset.xml" webappName="webroot"
+            emailTypeEnumId="EMT_PWD_RESET" bodyScreenLocation="classpath://screen/PasswordReset.xml" webappName="webroot"
             fromAddress="" ccAddresses="" bccAddresses="" subject="Password Reset" sendPartial="Y"/>
     <!-- EmailTemplate for general notifications -->
     <moqui.basic.email.EmailTemplate emailTemplateId="NOTIFICATION" description="Default Notification" emailServerId="SYSTEM"
-            bodyScreenLocation="classpath://screen/NotificationEmail.xml" webappName="webroot"
+            emailTypeEnumId="EMT_NOTIFICATION" bodyScreenLocation="classpath://screen/NotificationEmail.xml" webappName="webroot"
             fromAddress="" fromName="" ccAddresses="" bccAddresses="" subject="${title}" sendPartial="Y"/>
 
     <!-- Web Servlet Errors NotificationTopic -->
