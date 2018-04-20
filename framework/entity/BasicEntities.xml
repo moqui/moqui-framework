@@ -530,13 +530,14 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.EnumerationType description="Email Type" enumTypeId="EmailType"/>
             <moqui.basic.Enumeration description="System" enumId="EMT_SYSTEM" enumTypeId="EmailType"/>
             <moqui.basic.Enumeration description="Password Reset" enumId="EMT_PWD_RESET" parentEnumId="EMT_SYSTEM" enumTypeId="EmailType"/>
-            <moqui.basic.Enumeration description="Error Notice" enumId="EMT_ERROR_NOTICE" parentEnumId="EMT_SYSTEM" enumTypeId="EmailType"/>
+            <moqui.basic.Enumeration description="Notification" enumId="EMT_NOTIFICATION" parentEnumId="EMT_SYSTEM" enumTypeId="EmailType"/>
+            <!-- <moqui.basic.Enumeration description="Error Notice" enumId="EMT_ERROR_NOTICE" parentEnumId="EMT_SYSTEM" enumTypeId="EmailType"/> -->
 
             <moqui.basic.Enumeration description="Registration Confirmation" enumId="EMT_REG_CONFIRM" enumTypeId="EmailType"/>
             <moqui.basic.Enumeration description="Update Personal Info Confirmation" enumId="EMT_UPD_INFO_CONFIRM" enumTypeId="EmailType"/>
             <moqui.basic.Enumeration description="Email Address Verification" enumId="EMT_EMAIL_VERIFY" enumTypeId="EmailType"/>
             <moqui.basic.Enumeration description="Account Invitation" enumId="EMT_ACCOUNT_INVITE" enumTypeId="EmailType"/>
-            <moqui.basic.Enumeration description="Contact Us Notification" enumId="EMT_CONACT_US_NOT" enumTypeId="EmailType"/>
+            <!-- <moqui.basic.Enumeration description="Contact Us Notification" enumId="EMT_CONACT_US_NOT" enumTypeId="EmailType"/> -->
         </seed-data>
         <master>
             <detail relationship="status"/><detail relationship="type"/>
@@ -590,6 +591,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="emailTemplateId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
         <field name="emailServerId" type="id"/>
+        <field name="emailTypeEnumId" type="id"/>
         <field name="fromAddress" type="text-medium"/>
         <field name="fromName" type="text-medium"/>
         <field name="replyToAddresses" type="text-medium"><description>Comma separated list of reply to email addresses</description></field>
@@ -601,6 +603,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="webappName" type="text-medium"/>
         <field name="sendPartial" type="text-indicator"/>
         <relationship type="one" related="moqui.basic.email.EmailServer" short-alias="server"/>
+        <relationship type="one" title="EmailType" related="moqui.basic.Enumeration" short-alias="type">
+            <key-map field-name="emailTypeEnumId"/></relationship>
         <relationship type="many" related="moqui.basic.email.EmailTemplateAttachment" short-alias="attachments">
             <key-map field-name="emailTemplateId"/></relationship>
         <master><detail relationship="server"/><detail relationship="attachments"/></master>
