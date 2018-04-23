@@ -150,9 +150,7 @@ class ScreenUrlInfo {
         ScreenDefinition rootScreenDef = sfi.getScreenDefinition(rootScreenLocation)
         if (rootScreenDef == null) throw new BaseArtifactException("Could not find root screen at location ${rootScreenLocation}")
 
-        String pathInfo = request.getPathInfo()
-        ArrayList<String> screenPath = new ArrayList<>()
-        if (pathInfo != null) screenPath.addAll(Arrays.asList(pathInfo.split("/")))
+        ArrayList<String> screenPath = WebFacadeImpl.getPathInfoList(request)
         return getScreenUrlInfo(sfi, rootScreenDef, rootScreenDef, screenPath, null, 0)
 
     }
