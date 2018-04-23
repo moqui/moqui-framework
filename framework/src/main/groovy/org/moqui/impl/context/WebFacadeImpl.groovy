@@ -377,8 +377,8 @@ class WebFacadeImpl implements WebFacade {
         return parameters
     }
 
-    @Override
-    HttpServletRequest getRequest() { return request }
+    @Override HttpServletRequest getRequest() { return request }
+
     @Override
     Map<String, Object> getRequestAttributes() {
         if (requestAttributes != null) return requestAttributes
@@ -442,6 +442,44 @@ class WebFacadeImpl implements WebFacade {
         return withPort ? hostName + ":" + port : hostName
     }
 
+    @Override
+    String getPathInfo() {
+        ArrayList<String> pathList = getPathInfoList(request)
+        // as per spec if no extra path info return null
+        if (pathList == null) return null
+        int pathListSize = pathList.size()
+        if (pathListSize == 0) return null
+        StringBuilder pathSb = new StringBuilder(255)
+        for (int i = 0; i < pathListSize; i++) {
+            String pathSegment = (String) pathList.get(i)
+            pathSb.append("/").append(pathSegment)
+        }
+        return pathSb.toString()
+    }
+    @Override ArrayList<String> getPathInfoList() { return getPathInfoList(request) }
+    static ArrayList<String> getPathInfoList(HttpServletRequest request) {
+        // generated URL path segments are encoded with URLEncoder, to match use URLDecoder instead of servlet container's decoding
+        // this uses the application/x-www-form-urlencoded MIME format for screen path segments
+        // was: String pathInfo = request.getPathInfo()
+        String reqURI = request.getRequestURI()
+        // reqURI should always start with a '/' but make sure then remove to avoid empty leading path segment
+        if (reqURI.charAt(0) == (char) '/') reqURI = reqURI.substring(1)
+        String[] pathArray = reqURI.split("/")
+        // exclude servlet path segments
+        String servletPath = request.getServletPath()
+        // subtract 1 to exclude empty string before leading '/' that will always be there
+        int servletPathSize = servletPath.isEmpty() ? 0 : (servletPath.split("/").length - 1)
+        ArrayList<String> pathList = new ArrayList<>()
+        for (int i = servletPathSize; i < pathArray.length; i++) {
+            String pathSegment = (String) pathArray[i]
+            if (pathSegment == null || pathSegment.isEmpty()) continue
+            try { pathSegment = URLDecoder.decode(pathSegment, "UTF-8") }
+            catch (Exception e) { if (logger.isTraceEnabled()) logger.trace("Error decoding screen path segment ${pathSegment}", e) }
+            pathList.add(pathSegment)
+        }
+        // logger.warn("pathInfo ${request.getPathInfo()} servletPath ${servletPath} reqURI ${request.getRequestURI()} pathList ${pathList}")
+        return pathList
+    }
 
     @Override
     HttpServletResponse getResponse() { return response }
@@ -775,7 +813,7 @@ class WebFacadeImpl implements WebFacade {
             writer.write("<title>Error ${errorCode} ${errorCodeName}</title>\n")
             writer.write("</head><body>\n")
             writer.write("<h2>Error ${errorCode} ${errorCodeName}</h2>")
-            writer.write("<p>Problem accessing ${request.getPathInfo()}</p>\n")
+            writer.write("<p>Problem accessing ${getPathInfo()}</p>\n")
             if (message != null && !message.isEmpty()) writer.write("<p>Reason: ${message}</p>\n")
             writer.write("</body></html>\n")
 
@@ -1008,7 +1046,7 @@ class WebFacadeImpl implements WebFacade {
     }
 
     void saveScreenLastInfo(String screenPath, Map parameters) {
-        session.setAttribute("moqui.screen.last.path", screenPath ?: request.getPathInfo())
+        session.setAttribute("moqui.screen.last.path", screenPath ?: getPathInfo())
         parameters = parameters ?: new HashMap(getRequestParameters())
         WebUtilities.testSerialization("moqui.screen.last.parameters", parameters)
         session.setAttribute("moqui.screen.last.parameters", parameters)

@@ -13,6 +13,7 @@
  */
 package org.moqui.context;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -38,6 +39,12 @@ public interface WebFacade {
      * multi-part body, json body, and form body parameters (standard Servlet request parameters IFF there is no query string). */
     Map<String, Object> getSecureRequestParameters();
     String getHostName(boolean withPort);
+    /** Alternative to HttpServletRequest.getPathInfo() that uses URLDecoder to decode path segments to match the use of URLEncoder
+     * for URL generation using the 'application/x-www-form-urlencoded' MIME format */
+    String getPathInfo();
+    /** Like getPathInfo() but returns a list of decoded path segment Strings.
+     * If there is no extra path after the servlet path returns an empty list. */
+    ArrayList<String> getPathInfoList();
 
     HttpServletResponse getResponse();
 

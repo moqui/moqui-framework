@@ -109,6 +109,9 @@ class WebFacadeStub implements WebFacade {
 
     @Override String getHostName(boolean withPort) { return withPort ? "localhost:443" : "localhost" }
 
+    @Override String getPathInfo() { return httpServletRequest.getPathInfo() }
+    @Override ArrayList<String> getPathInfoList() { return WebFacadeImpl.getPathInfoList(request) }
+
     @Override HttpServletResponse getResponse() { return httpServletResponse }
     @Override HttpSession getSession() { return httpSession }
     @Override Map<String, Object> getSessionAttributes() { return sessionAttributes }

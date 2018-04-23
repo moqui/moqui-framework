@@ -139,25 +139,7 @@ class ScreenRenderImpl implements ScreenRender {
         if (webappName != null && webappName.length() > 0 && (rootScreenLocation == null || rootScreenLocation.length() == 0))
             rootScreenFromHost(request.getServerName())
         if (originalScreenPathNameList == null || originalScreenPathNameList.size() == 0) {
-            // generated URL path segments are encoded with URLEncoder, to match use URLDecoder instead of servlet container's decoding
-            // this uses the application/x-www-form-urlencoded MIME format for screen path segments
-            // was: String pathInfo = request.getPathInfo()
-            String reqURI = request.getRequestURI()
-            // reqURI should always start with a '/' but make sure then remove to avoid empty leading path segment
-            if (reqURI.charAt(0) == (char) '/') reqURI = reqURI.substring(1)
-            String[] pathArray = reqURI.split("/")
-            // exclude servlet path segments
-            String servletPath = request.getServletPath()
-            // subtract 1 to exclude empty string before leading '/' that will always be there
-            int servletPathSize = servletPath.isEmpty() ? 0 : (servletPath.split("/").length - 1)
-            ArrayList<String> pathList = new ArrayList<>()
-            for (int i = servletPathSize; i < pathArray.length; i++) {
-                String pathSegment = (String) pathArray[i]
-                try { pathSegment = URLDecoder.decode(pathSegment, "UTF-8") }
-                catch (Exception e) { if (isTraceEnabled) logger.trace("Error decoding screen path segment ${pathSegment}", e) }
-                pathList.add(pathSegment)
-            }
-            // logger.warn("pathInfo ${request.getPathInfo()} servletPath ${servletPath} reqURI ${request.getRequestURI()} pathList ${pathList}")
+            ArrayList<String> pathList = ec.web.getPathInfoList()
             screenPath(pathList)
         }
         if (servletContextPath == null || servletContextPath.isEmpty())
