@@ -141,6 +141,7 @@ dependencies {
 
     // SLF4J, Log4j 2 (note Log4j 2 is used by various libraries, best not to replace it even if mostly possible with SLF4J)
     compile 'org.slf4j:slf4j-api:1.7.25'
+    // Log4J version note: limited by embedded ElasticSearch through 6.2.4 still uses Log4J 2.9.1
     compile 'org.apache.logging.log4j:log4j-core:2.9.1'
     compile 'org.apache.logging.log4j:log4j-api:2.9.1'
     runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.9.1'
