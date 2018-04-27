@@ -222,12 +222,16 @@ class ServiceFacadeImpl implements ServiceFacade {
             // logger.warn("Finding service node for location=[${location}], servicePathLocation=[${servicePathLocation}]")
             ResourceReference serviceComponentRr = this.ecfi.resourceFacade.getLocationReference(location + "/" + servicePathLocation)
             if (serviceComponentRr.supportsExists()) {
-                if (serviceComponentRr.exists) serviceNode = findServiceNode(serviceComponentRr, verb, noun)
+                if (serviceComponentRr.exists) {
+                    MNode tempNode = findServiceNode(serviceComponentRr, verb, noun)
+                    if (tempNode != null) serviceNode = tempNode
+                }
             } else {
                 // only way to see if it is a valid location is to try opening the stream, so no extra conditions here
-                serviceNode = findServiceNode(serviceComponentRr, verb, noun)
+                MNode tempNode = findServiceNode(serviceComponentRr, verb, noun)
+                if (tempNode != null) serviceNode = tempNode
             }
-            if (serviceNode != null) break
+            // NOTE: don't quit on finding first, allow later components to override earlier: if (serviceNode != null) break
         }
 
         // search for the service def XML file in the classpath LAST (allow components to override, same as in entity defs)
