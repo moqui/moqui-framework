@@ -179,7 +179,7 @@ public class RestClient {
             for (KeyValueString nvp : bodyParameterList) request.param(nvp.key, nvp.value);
             // authc
             if (username != null && !username.isEmpty())
-                httpClient.getAuthenticationStore().addAuthentication(new BasicAuthentication(uri, null, username, password));
+                httpClient.getAuthenticationStore().addAuthentication(new BasicAuthentication(uri, BasicAuthentication.ANY_REALM, username, password));
 
             if (bodyText != null && !bodyText.isEmpty()) {
                 request.content(new StringContentProvider(contentType, bodyText, charset), contentType);
