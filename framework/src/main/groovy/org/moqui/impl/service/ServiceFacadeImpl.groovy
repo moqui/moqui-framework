@@ -215,33 +215,42 @@ class ServiceFacadeImpl implements ServiceFacade {
         String partialLocation = path.replace('.', '/') + '.xml'
         String servicePathLocation = 'service/' + partialLocation
 
-        MNode serviceNode = null
+        MNode serviceNode = (MNode) null
+        ResourceReference foundRr = (ResourceReference) null
+
+        // search for the service def XML file in the classpath LAST (allow components to override, same as in entity defs)
+        ResourceReference serviceComponentRr = new ClasspathResourceReference().init(servicePathLocation)
+        if (serviceComponentRr.supportsExists() && serviceComponentRr.exists) {
+            serviceNode = findServiceNode(serviceComponentRr, verb, noun)
+            if (serviceNode != null) foundRr == serviceComponentRr
+        }
 
         // search for the service def XML file in the components
         for (String location in this.ecfi.getComponentBaseLocations().values()) {
             // logger.warn("Finding service node for location=[${location}], servicePathLocation=[${servicePathLocation}]")
-            ResourceReference serviceComponentRr = this.ecfi.resourceFacade.getLocationReference(location + "/" + servicePathLocation)
+            serviceComponentRr = this.ecfi.resourceFacade.getLocationReference(location + "/" + servicePathLocation)
             if (serviceComponentRr.supportsExists()) {
                 if (serviceComponentRr.exists) {
                     MNode tempNode = findServiceNode(serviceComponentRr, verb, noun)
-                    if (tempNode != null) serviceNode = tempNode
+                    if (tempNode != null) {
+                        if (foundRr != null) logger.info("Found service ${verb}#${noun} at ${serviceComponentRr.location} which overrides service at ${foundRr.location}")
+                        serviceNode = tempNode
+                        foundRr = serviceComponentRr
+                    }
                 }
             } else {
                 // only way to see if it is a valid location is to try opening the stream, so no extra conditions here
                 MNode tempNode = findServiceNode(serviceComponentRr, verb, noun)
-                if (tempNode != null) serviceNode = tempNode
+                if (tempNode != null) {
+                    if (foundRr != null) logger.info("Found service ${verb}#${noun} at ${serviceComponentRr.location} which overrides service at ${foundRr.location}")
+                    serviceNode = tempNode
+                    foundRr = serviceComponentRr
+                }
             }
             // NOTE: don't quit on finding first, allow later components to override earlier: if (serviceNode != null) break
         }
 
-        // search for the service def XML file in the classpath LAST (allow components to override, same as in entity defs)
-        if (serviceNode == null) {
-            ResourceReference serviceComponentRr = new ClasspathResourceReference().init(servicePathLocation)
-            if (serviceComponentRr.supportsExists() && serviceComponentRr.exists)
-                serviceNode = findServiceNode(serviceComponentRr, verb, noun)
-        }
-
-        if (serviceNode == null) logger.info("Service ${path}.${verb}#${noun} not found; used relative location [${servicePathLocation}]")
+        if (serviceNode == null) logger.warn("Service ${path}.${verb}#${noun} not found; used relative location [${servicePathLocation}]")
 
         return serviceNode
     }

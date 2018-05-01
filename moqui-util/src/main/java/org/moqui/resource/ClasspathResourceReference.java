@@ -34,8 +34,8 @@ public class ClasspathResourceReference extends UrlResourceReference {
         if (locationUrl != null) {
             exists = true;
             isFileProtocol = "file".equals(locationUrl.getProtocol());
-        } else {
-            logger.warn("Could not find location [" + strippedLocation + "] on the classpath");
+        // } else {
+        //    logger.warn("Could not find location [" + strippedLocation + "] on the classpath");
         }
 
         return this;
