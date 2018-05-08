@@ -125,11 +125,21 @@ class ContentResourceReference extends BaseResourceReference {
 
     @Override boolean supportsLastModified() { true }
     @Override long getLastModified() {
-        return getNode()?.getProperty("jcr:lastModified")?.getDate()?.getTimeInMillis() ?: System.currentTimeMillis()
+        try {
+            return getNode()?.getProperty("jcr:lastModified")?.getDate()?.getTimeInMillis()
+        } catch (PathNotFoundException e) {
+            return System.currentTimeMillis()
+        }
     }
 
     @Override boolean supportsSize() { true }
-    @Override long getSize() { getNode()?.getProperty("jcr:content/jcr:data")?.getLength() ?: 0 }
+    @Override long getSize() {
+        try {
+            return getNode()?.getProperty("jcr:content/jcr:data")?.getLength()
+        } catch (PathNotFoundException e) {
+            return 0
+        }
+    }
 
     @Override boolean supportsWrite() { true }
 
