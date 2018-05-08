@@ -201,6 +201,8 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="DataFeed" package="moqui.entity.feed" use="configuration">
         <field name="dataFeedId" type="id" is-pk="true"/>
         <field name="dataFeedTypeEnumId" type="id"/>
+        <field name="indexOnStartEmpty" type="text-indicator"><description>If Y index the feed on start if the index does not yet
+            exist (for servers where ES data not persisted between restarts)</description></field>
         <field name="feedName" type="text-medium"/>
         <field name="feedReceiveServiceName" type="text-medium"><description>The service named here should implement the
             org.moqui.EntityServices.receive#DataFeed interface.</description></field>
@@ -228,6 +230,13 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="dataFeedId"/></member-entity>
         <alias-all entity-alias="DTFD"/>
         <alias entity-alias="DFD" name="dataDocumentId"/>
+    </view-entity>
+    <view-entity entity-name="DataFeedDocumentDetail" package="moqui.entity.feed">
+        <member-entity entity-alias="DFD" entity-name="moqui.entity.feed.DataFeedDocument"/>
+        <member-entity entity-alias="DDOC" entity-name="moqui.entity.document.DataDocument" join-from-alias="DFD">
+            <key-map field-name="dataDocumentId"/></member-entity>
+        <alias-all entity-alias="DDOC"/>
+        <alias entity-alias="DFD" name="dataFeedId"/>
     </view-entity>
 
     <!-- ========================================================= -->

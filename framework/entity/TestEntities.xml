@@ -32,6 +32,26 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="testCurrencyAmount" type="currency-amount"/>
         <field name="testCurrencyPrecise" type="currency-precise"/>
     </entity>
+    <entity entity-name="Foo" package="moqui.test" sequence-bank-size="100">
+        <field name="fooId" type="id" is-pk="true"/>
+        <field name="fooText" type="text-medium"/>
+    </entity>
+    <entity entity-name="Bar" package="moqui.test" sequence-bank-size="100">
+        <field name="barId" type="id" is-pk="true" />
+        <field name="fooId" type="id"></field>
+        <field name="rank" type="number-integer"></field>
+        <field name="score" type="number-decimal"></field>
+    </entity>
+    <view-entity entity-name="FooBar" package="moqui.test">
+        <member-entity entity-alias="T1" entity-name="moqui.test.Foo" />
+        <member-entity entity-alias="T2" entity-name="moqui.test.Bar" sub-select="true"
+                       join-optional="true" join-from-alias="T1">
+            <key-map field-name="fooId" />
+        </member-entity>
+        <alias-all entity-alias="T1" />
+        <alias name="score" function="sum" entity-alias="T2" />
+        <alias name="rank" entity-alias="T2" />
+    </view-entity>
     <entity entity-name="TestNoSqlEntity" package="moqui.test" sequence-bank-size="100" use="nontransactional" cache="never">
         <field name="testId" type="id" is-pk="true"/>
         <field name="testMedium" type="text-medium"/>

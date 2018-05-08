@@ -44,6 +44,7 @@
     <component name="AuthorizeDotNet" group="moqui" version="1.2.0" branch="master"/>
     <component name="mantle-shippo" group="moqui" version="1.0.0" branch="master"/>
     <component name="mantle-braintree" group="moqui" version="" branch="master"/><!-- no releases -->
+    <component name="mantle-paytrace" group="moqui" version="" branch="master"/><!-- no releases -->
 
     <component name="mantle-ubpl" group="moqui" version="" branch="master"/><!-- no releases -->
     <component name="mantle-oagis" group="moqui" version="" branch="master"/><!-- no releases -->
@@ -52,6 +53,7 @@
     <component name="SimpleScreens" group="moqui" version="2.0.0" branch="master"/>
     <component name="HiveMind" group="moqui" version="1.3.0" branch="master"/>
     <component name="PopCommerce" group="moqui" version="2.0.0" branch="master"/>
+    <component name="moqui-org" group="moqui" version="" branch="master"/>
 
     <!-- Third Party Components -->
     <component name="moqui-zh_CN-addon" group="chunlinyao" version="" branch="master"/><!-- no releases -->

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
+
+    <service verb="verify" noun="ReCaptcha">
+        <!-- for documentation see: https://developers.google.com/recaptcha/docs/verify -->
+        <in-parameters>
+            <parameter name="reCaptchaToken"/>
+            <parameter name="reCaptchaSecret" default="ec.user.getPreference('reCAPTCHA.secret.key')"/>
+        </in-parameters>
+        <actions>
+            <if condition="!reCaptchaSecret">
+                <log level="warn" message="In verify#ReCaptcha no secret key found, not verifying"/>
+                <return/>
+            </if>
+            <if condition="!reCaptchaToken">
+                <message public="true" type="warning">reCAPTCHA token required, confirm you are not a robot</message>
+                <return error="true" message="No reCAPTCHA token"/>
+            </if>
+            <script><![CDATA[
+                org.moqui.util.RestClient restClient = ec.service.rest().method(org.moqui.util.RestClient.POST)
+                        .uri("https://www.google.com/recaptcha/api/siteverify").addHeader("Content-Type", "application/json")
+                        .addBodyParameter("secret", reCaptchaSecret).addBodyParameter("response", reCaptchaToken)
+                org.moqui.util.RestClient.RestResponse restResponse = restClient.call()
+                Map respMap = (Map) restResponse.jsonObject()
+                if (restResponse.statusCode < 200 || restResponse.statusCode >= 300 || !respMap?.success) {
+                    ec.logger.warn("Unsuccessful reCAPTCHA verify: ${respMap}")
+                    ec.message.addPublic("Could not validate reCAPTCHA response, confirm you are not a robot", "warning")
+                    ec.message.addError("Could not verify reCAPTCHA token")
+                    return
+                }
+                ec.logger.info("Successful reCAPTCHA verify: ${respMap}")
+            ]]></script>
+        </actions>
+    </service>
+</services>

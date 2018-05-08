@@ -234,14 +234,14 @@ class EntityFacadeImpl implements EntityFacade {
                 MNode dbNode = efi.getDatabaseNode(groupName)
                 inlineJdbc = dbNode.first("inline-jdbc")
             }
-            MNode xaProperties = inlineJdbc.first("xa-properties")
+            MNode xaProperties = inlineJdbc?.first("xa-properties")
             database = efi.getDatabaseNode(groupName)
 
             if (jndiJdbcNode != null) {
                 serverJndi = efi.getEntityFacadeNode().first("server-jndi")
                 if (serverJndi != null) serverJndi.setSystemExpandAttributes(true)
                 jndiName = jndiJdbcNode.attribute("jndi-name")
-            } else if (xaProperties) {
+            } else if (xaProperties != null) {
                 xaDsClass = inlineJdbc.attribute("xa-ds-class") ? inlineJdbc.attribute("xa-ds-class") : database.attribute("default-xa-ds-class")
 
                 xaProps = new Properties()
@@ -257,7 +257,7 @@ class EntityFacadeImpl implements EntityFacade {
                     if (propName.toLowerCase().contains("password")) continue
                     dsDetails.put(propName, xaProps.getProperty(propName))
                 }
-            } else {
+            } else if (inlineJdbc != null) {
                 inlineJdbc.setSystemExpandAttributes(true)
                 jdbcDriver = inlineJdbc.attribute("jdbc-driver") ? inlineJdbc.attribute("jdbc-driver") : database.attribute("default-jdbc-driver")
                 jdbcUri = inlineJdbc.attribute("jdbc-uri")
@@ -267,6 +267,8 @@ class EntityFacadeImpl implements EntityFacade {
 
                 dsDetails.put("uri", jdbcUri)
                 dsDetails.put("user", jdbcUsername)
+            } else {
+                throw new EntityException("Data source for group ${groupName} has no inline-jdbc or jndi-jdbc configuration")
             }
         }
     }

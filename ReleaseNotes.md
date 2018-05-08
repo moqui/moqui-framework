@@ -11,6 +11,15 @@ Moqui Framework 2.1.1 is a patch level new feature and bug fix release.
 - Moved validate-* attributes from XML Form field element to sub-field elements so that in form-list different validation can be
   done for header, first-/second-/last-row, and default-/conditional-field; as part of this the automatic validate settings from
   transition.service-call are now set on the sub-field instead of the field element
+- Add moqui-conf.screen-facade.screen and screen.subscreens-item elements that override screen.subscreens.subscreens-item elements 
+  within a screen definition so that application root screens can be added under webroot and apps in a MoquiConf.xml file in a 
+  component or in the active Moqui Conf XML file instead of using database records
+- Add support for 'no sub-path' subscreens to extend or override screens, transitions, and resources under the parent screen by 
+  looking first in each no sub-path subscreen for a given screen path and if not found then look under the parent screen; for 
+  example this is used in the moqui-org component for the moqui.org web-site so that /index.html is found in the moqui-org 
+  component and so that /Login resolves to the Login.xml screen in the moqui-org component instead of the default one under webroot
+- Changed Markdown rendering from Pegdown to flexmark-java to support CommonMark 0.28, some aspects of GitHub Flavored Markdown,
+  and automatic table of contents 
 
 ### Bug Fixes
 

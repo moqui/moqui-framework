@@ -53,12 +53,12 @@ dependencies {
     // SLF4J
     compile 'org.slf4j:slf4j-api:1.7.25'
     // Freemarker
-    compile 'org.freemarker:freemarker:2.3.27-incubating' // Apache 2.0
+    compile 'org.freemarker:freemarker:2.3.28' // Apache 2.0
     // Groovy
-    compile 'org.codehaus.groovy:groovy:2.4.13' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-json:2.4.13' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy:2.4.15' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-json:2.4.15' // Apache 2.0
     // Jetty HTTP Client
-    compile 'org.eclipse.jetty:jetty-client:9.4.7.v20170914' // Apache 2.0
+    compile 'org.eclipse.jetty:jetty-client:9.4.9.v20180320' // Apache 2.0
 }
 
 jar {

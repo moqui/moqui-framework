@@ -412,13 +412,16 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="isPrivate" type="text-indicator"><description>If Y user must be associated to see it or receive notifications.</description></field>
         <field name="receiveNotifications" type="text-indicator"><description>If Y all applicable users will be sent
             notification messages. If N users must subscribe (NotificationTopicUser) to receive messages.</description></field>
+        <field name="emailTemplateId" type="id"><description>If is specified use this template to send a notification email to each user with emailNotifications=Y</description></field>
+        <relationship type="one" related="moqui.basic.email.EmailTemplate"/>
     </entity>
     <entity entity-name="NotificationTopicUser" package="moqui.security.user" use="configuration" cache="true">
         <field name="topic" type="text-medium" is-pk="true"/>
         <field name="userId" type="id" is-pk="true"/>
-        <field name="receiveNotifications" type="text-indicator"><description>If notification sent to user only actually notify if this is Y.</description></field>
-        <field name="allNotifications" type="text-indicator"><description>If Y user receives all notifications on topic even if not sent directly.</description></field>
-        <relationship type="one-nofk" related="moqui.security.user.NotificationTopic"/>
+        <field name="receiveNotifications" type="text-indicator"><description>If notification sent to user only actually notify if this is Y</description></field>
+        <field name="allNotifications" type="text-indicator"><description>If Y user receives all notifications on topic even if not sent directly</description></field>
+        <field name="emailNotifications" type="text-indicator"><description>If Y sends an email to user using UserAccount.emailAddress</description></field>
+        <relationship type="one-nofk" related="moqui.security.user.NotificationTopic" short-alias="notificationTopic"/>
         <relationship type="one-nofk" related="moqui.security.UserAccount" short-alias="user"/>
     </entity>
 
@@ -432,8 +435,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="linkText" type="text-long"/>
         <field name="typeString" type="text-short"/>
         <field name="showAlert" type="text-indicator"/>
-        <relationship type="one-nofk" related="moqui.security.user.NotificationTopic"/>
-        <relationship type="one" related="moqui.security.UserGroup"/>
+        <relationship type="one-nofk" related="moqui.security.user.NotificationTopic" short-alias="notificationTopic"/>
+        <relationship type="one" related="moqui.security.UserGroup" short-alias="userGroup"/>
         <relationship type="many" related="moqui.security.user.NotificationMessageUser" short-alias="users">
             <key-map field-name="notificationMessageId"/></relationship>
     </entity>
@@ -442,8 +445,10 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="userId" type="id" is-pk="true"/>
         <field name="sentDate" type="date-time"/>
         <field name="viewedDate" type="date-time"/>
+        <!-- not saving EmailMessage for now: <field name="emailMessageId" type="id"/> -->
         <relationship type="one" related="moqui.security.user.NotificationMessage" short-alias="notification"/>
         <relationship type="one-nofk" related="moqui.security.UserAccount" short-alias="user"/>
+        <!-- not saving EmailMessage for now: <relationship type="one" related="moqui.basic.email.EmailMessage" short-alias="emailMessage"/> -->
         <index name="NOTMSGUSR_UID_VD" unique="false"><index-field name="userId"/><index-field name="viewedDate"/></index>
     </entity>
     <view-entity entity-name="NotificationMessageByUser" package="moqui.security.user" cache="never">

@@ -120,13 +120,20 @@ along with this software (see the LICENSE.md file). If not, see
                 Default is false and an exception will be thrown if there is extra path that does not match a
                 subscreen, a transition, or content below the screen.</xs:documentation></xs:annotation>
         </xs:attribute>
+        <xs:attribute name="render-modes" type="xs:string" default="all">
+            <xs:annotation><xs:documentation>
+                The render mode(s) this screen supports. Can be any valid render mode. The default value of "all" will allow all
+                render modes, so specify one or more specific render modes to limit how the screen may be rendered. Default supported
+                modes include: text, html, js, vuet, xsl-fo, xml, and csv. Values can be comma separated to apply to multiple render modes.
+            </xs:documentation></xs:annotation>
+        </xs:attribute>
         <xs:attribute name="server-static" type="xs:string">
             <xs:annotation><xs:documentation>
                 The render modes where the results of this screen are always the same and the screen render results may be cached (on server and/or client).
                 This applies to all screens that are designed for client rendering when the screen is written to fully support it (filling in data with additional requests).
                 Placeholder screens are automatically server static, ie with just subscreens-panel, subscreens-active, and subscreens-menu elements.
-                Can be any valid render mode. Default supported modes include: text, html, vuet, xsl-fo, xml, and csv.
-                Values can be comma separated to apply to multiple render modes. A value of "any" will apply to all render modes.
+                Can be any valid render mode. Default supported modes include: text, html, js, vuet, xsl-fo, xml, and csv.
+                Values can be comma separated to apply to multiple render modes. A value of "all" will apply to all render modes.
             </xs:documentation></xs:annotation>
         </xs:attribute>
     </xs:complexType></xs:element>
@@ -400,17 +407,20 @@ along with this software (see the LICENSE.md file). If not, see
             If there is no additional element in the screen path or the next element is not a valid subscreen-item.name
             then the default-item will be the active subscreen. 
 
-            There are three ways to add subscreens to a screen:
+            There are four ways to add subscreens to a screen (in order of override):
 
-            1. for screens within a single application:
-               by directory structure: create a directory in the directory where the parent screen is named the same as
-               the parent screen's filename and put XML Screen files in that directory (name=filename up to .xml,
-               title=screen.default-title, location=parent screen minus filename plus directory and filename for
-               subscreen)
+            1. for screens within a single application by directory structure:
+                create a directory in the directory where the parent screen is named the same as
+                the parent screen's filename and put XML Screen files in that directory (name=filename up to .xml,
+                title=screen.default-title, location=parent screen minus filename plus directory and filename for
+                subscreen)
             2. for including screens that are part of another application, or shared and not in any application:
-               subscreens-item elements below the screen -> subscreens element (this element)
-            3. for adding screens, removing screens, or changing order and title of screens to an existing application:
-               a record in the moqui.screen.SubscreensItem entity
+                subscreens-item elements below the screen.subscreens element (this element)
+            3. for adding screens or changing order and title of screens to an existing application:
+                screen-facade.screen and subscreens-item elements in the Moqui Conf XML file including MoquiConf.xml in
+                a component; this subscreens-item element is much like the subscreens.subscreens-item element
+            4. for adding screens, removing screens, or changing order and title of screens to an existing application:
+                a record in the moqui.screen.SubscreensItem entity
 
             There are two visual elements (widgets) that come from the subscreens, a menu and the active subscreen.
             Those are included with the widgets using the "subscreens-menu" and "subscreens-active" elements, or the
@@ -421,14 +431,12 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:element ref="conditional-default" minOccurs="0" maxOccurs="unbounded"/>
             <xs:element ref="subscreens-item" minOccurs="0" maxOccurs="unbounded"/>
         </xs:sequence>
-        <xs:attribute name="default-item" type="xs:string">
-            <xs:annotation><xs:documentation>
-                The name of the default subscreen-item. Used when then screen-path ends on this screen so we
-                know which subscreen-item to activate.
+        <xs:attribute name="default-item" type="xs:string"><xs:annotation><xs:documentation>
+            The name of the default subscreen-item. Used when then screen-path ends on this screen so we
+            know which subscreen-item to activate.
 
-                If empty the first subscreen-item will be the default.
-            </xs:documentation></xs:annotation>
-        </xs:attribute>
+            If empty the first subscreen-item will be the default.
+        </xs:documentation></xs:annotation></xs:attribute>
         <xs:attribute name="always-use-full-path" type="boolean" default="false"/>
     </xs:complexType></xs:element>
     <xs:element name="conditional-default"><xs:complexType>
@@ -441,43 +449,39 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:annotation><xs:documentation>The subscreens item to make the default.</xs:documentation></xs:annotation>
         </xs:attribute>
     </xs:complexType></xs:element>
-    <xs:element name="subscreens-item"><xs:annotation>
-        <xs:documentation>
-            One way to add a subscreen. This is most commonly used to refer to a subscreen that is located in another
-            application, another part of this application, that is not in any application and is meant to be shared,
-            or is in a different type of location than the parent screen.
+    <xs:element name="subscreens-item"><xs:annotation><xs:documentation>
+        One way to add a subscreen. This is most commonly used to refer to a subscreen that is located in another
+        application, another part of this application, that is not in any application and is meant to be shared,
+        or is in a different type of location than the parent screen.
 
-            One subscreens-item is active at a time, meaning that screen is shown and the tab/etc for that screen is
-            highlighted.
-        </xs:documentation>
-    </xs:annotation><xs:complexType>
-        <xs:attribute name="name" type="name-plain" use="required">
-            <xs:annotation><xs:documentation>
-                The name of the subscreens item for use in the screen path. The screen path element following the
-                one for the parent screen of the item will match on this name.
+        One subscreens-item is active at a time, meaning that screen is shown and the tab/etc for that screen is
+        highlighted.
+    </xs:documentation></xs:annotation><xs:complexType>
+        <xs:attribute name="name" type="name-plain" use="required"><xs:annotation><xs:documentation>
+            The name of the subscreens item for use in the screen path. The screen path element following the
+            one for the parent screen of the item will match on this name.
 
-                Subscreen Item names should be camel-cased and start with a upper-case letter (just like screen
-                filenames start with a upper-case letter).
-            </xs:documentation></xs:annotation>
-        </xs:attribute>
-        <xs:attribute name="location" type="xs:string">
-            <xs:annotation><xs:documentation>
-                Subscreen location can include various prefixes to support including from a file, http, component,
-                or a content repository.
+            Subscreen Item names should be camel-cased and start with a upper-case letter (just like screen
+            filenames start with a upper-case letter).
+        </xs:documentation></xs:annotation></xs:attribute>
+        <xs:attribute name="location" type="xs:string"><xs:annotation><xs:documentation>
+            Subscreen location can include various prefixes to support including from a file, http, component,
+            or a content repository.
 
-                If empty defaults to the value of the name attribute under the current screen (in the directory
-                with the same name as the current screen), and can be a screen or sub-content.
-            </xs:documentation></xs:annotation>
-        </xs:attribute>
+            If empty defaults to the value of the name attribute under the current screen (in the directory
+            with the same name as the current screen), and can be a screen or sub-content.
+        </xs:documentation></xs:annotation></xs:attribute>
         <xs:attribute name="menu-title" type="xs:string"/>
-        <xs:attribute name="menu-index" type="xs:positiveInteger">
-            <xs:annotation><xs:documentation>
-                If specified this item will be inserted in existing list of subscreens at this index (1-based).
-                If empty this item will be added to the end of the list (after the directory load, before the
-                entity load).
-            </xs:documentation></xs:annotation>
-        </xs:attribute>
+        <xs:attribute name="menu-index" type="xs:positiveInteger"><xs:annotation><xs:documentation>
+            If specified this item will be inserted in existing list of subscreens at this index (1-based).
+            If empty this item will be added to the end of the list (after the directory load, before the
+            entity load).
+        </xs:documentation></xs:annotation></xs:attribute>
         <xs:attribute name="menu-include" type="boolean" default="true"/>
+        <xs:attribute name="no-sub-path" type="boolean" default="false"><xs:annotation><xs:documentation>
+            If true the sub-screens of the sub-screen may be referenced directly under this screen, skipping the screen path element
+            for the sub-screen.
+        </xs:documentation></xs:annotation></xs:attribute>
         <!-- no longer supported, may support again in the future (see ScreenDefinition.SubscreensItem.getDisable(), not used anywhere)
         <xs:attribute name="disable-when" type="xs:string">
             <xs:annotation><xs:documentation>This condition is run the subscreens menu is rendered to see if the
@@ -637,10 +641,10 @@ along with this software (see the LICENSE.md file). If not, see
     </xs:complexType></xs:element>
     <xs:element name="row-col"><xs:complexType>
         <xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/>
-        <xs:attribute name="lg" type="xs:positiveInteger"/>
-        <xs:attribute name="md" type="xs:positiveInteger"/>
-        <xs:attribute name="sm" type="xs:positiveInteger"/>
-        <xs:attribute name="xs" type="xs:positiveInteger"/>
+        <xs:attribute name="lg" type="xs:nonNegativeInteger"/>
+        <xs:attribute name="md" type="xs:nonNegativeInteger"/>
+        <xs:attribute name="sm" type="xs:nonNegativeInteger"/>
+        <xs:attribute name="xs" type="xs:nonNegativeInteger"/>
         <xs:attribute name="style" type="xs:string"/>
     </xs:complexType></xs:element>
 

@@ -70,18 +70,20 @@ public interface NotificationMessage extends java.io.Serializable {
     /** Show an alert for this notification? If not set and topic has a NotificationTopic record will default to value there */
     boolean isShowAlert();
 
+    NotificationMessage emailTemplateId(String id);
+    String getEmailTemplateId();
+
+    NotificationMessage persistOnSend(boolean persist);
+    boolean isPersistOnSend();
+
     /** Send this Notification Message.
      * @param persist If true this is persisted and message received is tracked. If false this is sent to active topic
      *                listeners only.
      * @return Self-reference for convenience
      */
     NotificationMessage send(boolean persist);
-
-    NotificationMessage persistOnSend(boolean persist);
-    boolean isPersistOnSend();
     /** Send this Notification Message using persistOnSend setting (defaults to false). */
     NotificationMessage send();
-
 
     String getNotificationMessageId();
     NotificationMessage markSent(String userId);

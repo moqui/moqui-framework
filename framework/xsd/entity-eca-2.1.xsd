@@ -62,6 +62,10 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:annotation><xs:documentation>Adds an 'originalValue' field to the context with the value from the
                     database if called before the entity operation and is a update or delete.</xs:documentation></xs:annotation>
             </xs:attribute>
+            <xs:attribute name="set-results" default="false" type="boolean">
+                <xs:annotation><xs:documentation>If true loop through field names and set on the entity values any values added
+                    to the context in the actions or in a Map returned from actions.</xs:documentation></xs:annotation>
+            </xs:attribute>
         </xs:complexType>
     </xs:element>
 </xs:schema>

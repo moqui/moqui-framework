@@ -524,7 +524,7 @@ public class ServiceDefinition {
                                 logger.error("Error in validation", t);
                                 Map<String, Object> map = new HashMap<>(3);
                                 map.put("parameterValue", parameterValue); map.put("valNode", valNode); map.put("t", t);
-                                eci.getMessage().addValidationError(null, parameterName, serviceName, eci.getResource().expand("Value entered (${parameterValue}) failed ${valNode.name} validation: ${t.message}", "", map), null);
+                                eci.getMessage().addValidationError(null, parameterName, serviceName, eci.getResource().expand("Value entered failed ${valNode.name} validation: ${t.message}", "", map), null);
                             }
                         }
                     }
@@ -771,7 +771,7 @@ public class ServiceDefinition {
             String str = pv.toString();
             if (!ccv.isValid(str)) {
                 Map<String, Object> map = new HashMap<>(1); map.put("str", str);
-                eci.getMessage().addValidationError(null, parameterName, serviceName, eci.getResource().expand("Value entered (${str}) is not a valid credit card number.", "", map), null);
+                eci.getMessage().addValidationError(null, parameterName, serviceName, eci.getResource().expand("Value entered is not a valid credit card number.", "", map), null);
                 return false;
             }
 

@@ -153,7 +153,7 @@ class WebFacadeImpl implements WebFacade {
                     logger.error("Error parsing HTTP request body JSON: ${t.toString()}", t)
                     jsonParameters = [_requestBodyJsonParseError:t.getMessage()] as Map<String, Object>
                 }
-                logger.warn("=========== Got JSON HTTP request body: ${jsonParameters}")
+                // logger.warn("=========== Got JSON HTTP request body: ${jsonParameters}")
             }
         } else if (ServletFileUpload.isMultipartContent(request)) {
             // if this is a multi-part request, get the data for it
@@ -252,8 +252,9 @@ class WebFacadeImpl implements WebFacade {
         ScreenUrlInfo sui = urlInstanceOrig.sui
         ScreenDefinition targetScreen = urlInstanceOrig.sui.targetScreen
 
-        // don't save standalone screens
-        if (sui.lastStandalone || targetScreen.isStandalone()) return
+        // logger.warn("save hist standalone ${sui.lastStandalone} ${targetScreen.isStandalone()} transition ${urlInstanceOrig.getTargetTransition()}")
+        // don't save standalone screens (for sui.lastStandalone int only exclude negative so vapps, etc are saved)
+        if (sui.lastStandalone < 0 || targetScreen.isStandalone()) return
         // don't save transition requests, just screens
         if (urlInstanceOrig.getTargetTransition() != null) return
         // if history=false on the screen don't save
@@ -278,7 +279,6 @@ class WebFacadeImpl implements WebFacade {
         if (firstItem != null && firstItem.url == urlWithParams) return
 
         String targetMenuName = targetScreen.getDefaultMenuName()
-
 
         StringBuilder nameBuilder = new StringBuilder()
         // append parent screen name
@@ -377,8 +377,8 @@ class WebFacadeImpl implements WebFacade {
         return parameters
     }
 
-    @Override
-    HttpServletRequest getRequest() { return request }
+    @Override HttpServletRequest getRequest() { return request }
+
     @Override
     Map<String, Object> getRequestAttributes() {
         if (requestAttributes != null) return requestAttributes
@@ -442,6 +442,44 @@ class WebFacadeImpl implements WebFacade {
         return withPort ? hostName + ":" + port : hostName
     }
 
+    @Override
+    String getPathInfo() {
+        ArrayList<String> pathList = getPathInfoList(request)
+        // as per spec if no extra path info return null
+        if (pathList == null) return null
+        int pathListSize = pathList.size()
+        if (pathListSize == 0) return null
+        StringBuilder pathSb = new StringBuilder(255)
+        for (int i = 0; i < pathListSize; i++) {
+            String pathSegment = (String) pathList.get(i)
+            pathSb.append("/").append(pathSegment)
+        }
+        return pathSb.toString()
+    }
+    @Override ArrayList<String> getPathInfoList() { return getPathInfoList(request) }
+    static ArrayList<String> getPathInfoList(HttpServletRequest request) {
+        // generated URL path segments are encoded with URLEncoder, to match use URLDecoder instead of servlet container's decoding
+        // this uses the application/x-www-form-urlencoded MIME format for screen path segments
+        // was: String pathInfo = request.getPathInfo()
+        String reqURI = request.getRequestURI()
+        // reqURI should always start with a '/' but make sure then remove to avoid empty leading path segment
+        if (reqURI.charAt(0) == (char) '/') reqURI = reqURI.substring(1)
+        String[] pathArray = reqURI.split("/")
+        // exclude servlet path segments
+        String servletPath = request.getServletPath()
+        // subtract 1 to exclude empty string before leading '/' that will always be there
+        int servletPathSize = servletPath.isEmpty() ? 0 : (servletPath.split("/").length - 1)
+        ArrayList<String> pathList = new ArrayList<>()
+        for (int i = servletPathSize; i < pathArray.length; i++) {
+            String pathSegment = (String) pathArray[i]
+            if (pathSegment == null || pathSegment.isEmpty()) continue
+            try { pathSegment = URLDecoder.decode(pathSegment, "UTF-8") }
+            catch (Exception e) { if (logger.isTraceEnabled()) logger.trace("Error decoding screen path segment ${pathSegment}", e) }
+            pathList.add(pathSegment)
+        }
+        // logger.warn("pathInfo ${request.getPathInfo()} servletPath ${servletPath} reqURI ${request.getRequestURI()} pathList ${pathList}")
+        return pathList
+    }
 
     @Override
     HttpServletResponse getResponse() { return response }
@@ -719,7 +757,7 @@ class WebFacadeImpl implements WebFacade {
         ResourceReference rr = eci.resource.getLocationReference(location)
         if (rr == null || (rr.supportsExists() && !rr.getExists())) {
             logger.warn("Sending not found response, resource not found at: ${location}")
-            response.sendError(HttpServletResponse.SC_NOT_FOUND)
+            response.sendError(HttpServletResponse.SC_NOT_FOUND, "Resource not found at ${location}")
             return
         }
         String contentType = rr.getContentType()
@@ -734,7 +772,7 @@ class WebFacadeImpl implements WebFacade {
             InputStream is = rr.openStream()
             if (is == null) {
                 logger.warn("Sending not found response, openStream returned null for location: ${location}")
-                response.sendError(HttpServletResponse.SC_NOT_FOUND)
+                response.sendError(HttpServletResponse.SC_NOT_FOUND, "Resource not found at ${location}")
                 return
             }
 
@@ -753,6 +791,45 @@ class WebFacadeImpl implements WebFacade {
             String rrText = rr.getText()
             if (rrText) response.writer.append(rrText)
             response.writer.flush()
+        }
+    }
+
+    static Map<Integer, String> errorCodeNames = [401:"Authentication Required", 403:"Access Forbidden", 404:"Not Found",
+            429:"Too Many Requests", 500:"Internal Server Error"]
+    @Override
+    void sendError(int errorCode, String message, Throwable origThrowable) {
+        if ((message == null || message.isEmpty()) && origThrowable != null) message = origThrowable.message
+
+        String acceptHeader = request.getHeader("Accept")
+        if (acceptHeader == null || acceptHeader.isEmpty() || acceptHeader.contains("text/html") ||
+                acceptHeader.contains("text/*") || acceptHeader.contains("*/*")) {
+            response.setStatus(errorCode)
+            response.setContentType("text/html")
+            response.setCharacterEncoding("UTF-8")
+            String errorCodeName = errorCodeNames.get(errorCode) ?: ""
+
+            Writer writer = response.getWriter()
+            writer.write('<html><head><meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>')
+            writer.write("<title>Error ${errorCode} ${errorCodeName}</title>\n")
+            writer.write("</head><body>\n")
+            writer.write("<h2>Error ${errorCode} ${errorCodeName}</h2>")
+            writer.write("<p>Problem accessing ${getPathInfo()}</p>\n")
+            if (message != null && !message.isEmpty()) writer.write("<p>Reason: ${message}</p>\n")
+            writer.write("</body></html>\n")
+
+            // NOTE: maybe include throwable info, do we ever want that?
+
+            /* nothing special for JSON for now
+            } else if (acceptHeader.contains("application/json") || acceptHeader.contains("text/json")) {
+                response.setContentType("application/json")
+                response.setCharacterEncoding("UTF-8")
+            */
+        } else {
+            if (message != null && !message.isEmpty()) {
+                response.sendError(errorCode, message)
+            } else {
+                response.sendError(errorCode)
+            }
         }
     }
 
@@ -807,10 +884,12 @@ class WebFacadeImpl implements WebFacade {
                     parmStack.pop()
                 }
                 response.addIntHeader('X-Run-Time-ms', (System.currentTimeMillis() - startTime) as int)
+                response.addHeader("moquiSessionToken", getSessionToken())
                 sendJsonResponse(responseList)
             } else {
                 Object responseObj = eci.entityFacade.rest(method, extraPathNameList, parmStack, masterNameInPath)
                 response.addIntHeader('X-Run-Time-ms', (System.currentTimeMillis() - startTime) as int)
+                response.addHeader("moquiSessionToken", getSessionToken())
 
                 if (parmStack.xTotalCount != null) response.addIntHeader('X-Total-Count', parmStack.xTotalCount as int)
                 if (parmStack.xPageIndex != null) response.addIntHeader('X-Page-Index', parmStack.xPageIndex as int)
@@ -901,6 +980,7 @@ class WebFacadeImpl implements WebFacade {
                     parmStack.pop()
                 }
                 response.addIntHeader('X-Run-Time-ms', (System.currentTimeMillis() - startTime) as int)
+                response.addHeader("moquiSessionToken", getSessionToken())
 
                 if (eci.message.hasError()) {
                     // if error return that
@@ -916,6 +996,7 @@ class WebFacadeImpl implements WebFacade {
                 RestApi.RestResult restResult = eci.serviceFacade.restApi.run(extraPathNameList, eci)
                 eci.contextStack.pop()
                 response.addIntHeader('X-Run-Time-ms', (System.currentTimeMillis() - startTime) as int)
+                response.addHeader("moquiSessionToken", getSessionToken())
                 restResult.setHeaders(response)
 
                 if (eci.message.hasError()) {
@@ -965,7 +1046,7 @@ class WebFacadeImpl implements WebFacade {
     }
 
     void saveScreenLastInfo(String screenPath, Map parameters) {
-        session.setAttribute("moqui.screen.last.path", screenPath ?: request.getPathInfo())
+        session.setAttribute("moqui.screen.last.path", screenPath ?: getPathInfo())
         parameters = parameters ?: new HashMap(getRequestParameters())
         WebUtilities.testSerialization("moqui.screen.last.parameters", parameters)
         session.setAttribute("moqui.screen.last.parameters", parameters)

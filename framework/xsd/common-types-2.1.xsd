@@ -128,6 +128,9 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:enumeration value="default"/><xs:enumeration value="primary"/><xs:enumeration value="success"/>
         <xs:enumeration value="info"/><xs:enumeration value="warning"/><xs:enumeration value="danger"/>
     </xs:restriction></xs:simpleType>
+    <xs:simpleType name="message-type"><xs:restriction base="xs:token">
+        <xs:enumeration value="success"/><xs:enumeration value="info"/><xs:enumeration value="warning"/><xs:enumeration value="danger"/>
+    </xs:restriction></xs:simpleType>
 
     <xs:simpleType name="aggregate-function"><xs:restriction base="xs:token">
         <!-- aggregate functions -->

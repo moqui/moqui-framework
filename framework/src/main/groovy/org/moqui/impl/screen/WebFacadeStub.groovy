@@ -109,6 +109,9 @@ class WebFacadeStub implements WebFacade {
 
     @Override String getHostName(boolean withPort) { return withPort ? "localhost:443" : "localhost" }
 
+    @Override String getPathInfo() { return httpServletRequest.getPathInfo() }
+    @Override ArrayList<String> getPathInfoList() { return WebFacadeImpl.getPathInfoList(request) }
+
     @Override HttpServletResponse getResponse() { return httpServletResponse }
     @Override HttpSession getSession() { return httpSession }
     @Override Map<String, Object> getSessionAttributes() { return sessionAttributes }
@@ -176,6 +179,7 @@ class WebFacadeStub implements WebFacade {
         logger.info("WebFacadeStub sendResourceResponse ${rrText.length()} chars, location: ${location}")
         */
     }
+    @Override void sendError(int errorCode, String message, Throwable origThrowable) { response.sendError(errorCode, message) }
 
     @Override void handleXmlRpcServiceCall() { throw new IllegalArgumentException("WebFacadeStub handleXmlRpcServiceCall not supported") }
     @Override void handleJsonRpcServiceCall() { throw new IllegalArgumentException("WebFacadeStub handleJsonRpcServiceCall not supported") }
@@ -456,7 +460,10 @@ class WebFacadeStub implements WebFacade {
         @Override String encodeUrl(String s) { return null }
         @Override String encodeRedirectUrl(String s) { return null }
 
-        @Override void sendError(int i, String s) throws IOException { status = i; wfs.responseWriter.append(s) }
+        @Override void sendError(int i, String s) throws IOException {
+            status = i
+            if (s != null) wfs.responseWriter.append(s)
+        }
         @Override void sendError(int i) throws IOException { status = i }
         @Override void sendRedirect(String s) throws IOException { logger.info("HttpServletResponseStub sendRedirect to: ${s}") }
 

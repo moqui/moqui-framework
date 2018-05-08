@@ -28,6 +28,7 @@ import javax.transaction.Synchronization;
 import javax.transaction.Transaction;
 import javax.transaction.xa.XAResource;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.Executor;
@@ -182,10 +183,11 @@ public class ContextJavaUtil {
             ahb.putNoCheck("binStartDateTime", new Timestamp(startTime));
             ahb.putNoCheck("binEndDateTime", binEndDateTime);
             ahb.putNoCheck("hitCount", hitCount);
-            ahb.putNoCheck("totalTimeMillis", new BigDecimal(totalTimeMillis));
-            ahb.putNoCheck("totalSquaredTime", new BigDecimal(totalSquaredTime));
-            ahb.putNoCheck("minTimeMillis", new BigDecimal(minTimeMillis));
-            ahb.putNoCheck("maxTimeMillis", new BigDecimal(maxTimeMillis));
+            // NOTE: use 6 digit precision for nanos in millisecond unit
+            ahb.putNoCheck("totalTimeMillis", new BigDecimal(totalTimeMillis).setScale(6, RoundingMode.HALF_UP));
+            ahb.putNoCheck("totalSquaredTime", new BigDecimal(totalSquaredTime).setScale(6, RoundingMode.HALF_UP));
+            ahb.putNoCheck("minTimeMillis", new BigDecimal(minTimeMillis).setScale(6, RoundingMode.HALF_UP));
+            ahb.putNoCheck("maxTimeMillis", new BigDecimal(maxTimeMillis).setScale(6, RoundingMode.HALF_UP));
             ahb.putNoCheck("slowHitCount", slowHitCount);
             ahb.putNoCheck("serverIpAddress", ecfi.localhostAddress != null ? ecfi.localhostAddress.getHostAddress() : "127.0.0.1");
             ahb.putNoCheck("serverHostName", ecfi.localhostAddress != null ? ecfi.localhostAddress.getHostName() : "localhost");
@@ -241,7 +243,7 @@ public class ContextJavaUtil {
             ahp.putNoCheck("artifactSubType", artifactSubType);
             ahp.putNoCheck("artifactName", artifactName);
             ahp.putNoCheck("startDateTime", new Timestamp(startTime));
-            ahp.putNoCheck("runningTimeMillis", new BigDecimal(runningTimeMillis));
+            ahp.putNoCheck("runningTimeMillis", new BigDecimal(runningTimeMillis).setScale(6, RoundingMode.HALF_UP));
 
             if (parameters != null && parameters.size() > 0) {
                 StringBuilder ps = new StringBuilder();

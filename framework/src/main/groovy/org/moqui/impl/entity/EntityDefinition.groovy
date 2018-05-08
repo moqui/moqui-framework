@@ -19,6 +19,7 @@ import org.moqui.entity.EntityFind
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.condition.ConditionAlias
 import org.moqui.util.ObjectUtilities
+import org.moqui.util.StringUtilities
 
 import javax.cache.Cache
 import java.sql.Timestamp
@@ -566,6 +567,7 @@ class EntityDefinition {
         return ""
     }
 
+    MNode getMemberEntityNode(String entityAlias) { return memberEntityAliasMap.get(entityAlias) }
     String getMemberEntityName(String entityAlias) {
         MNode memberEntityNode = memberEntityAliasMap.get(entityAlias)
         return memberEntityNode?.attribute("entity-name")
@@ -613,6 +615,17 @@ class EntityDefinition {
                     eKeyMap.put(fieldName, relFn)
                 }
             }
+        }
+        return eKeyMap
+    }
+    static Map<String, String> getRelationshipKeyValueMapInternal(MNode relationship) {
+        ArrayList<MNode> keyValueList = relationship.children("key-value")
+        int keyValueListSize = keyValueList.size()
+        if (keyValueListSize == 0) return null
+        Map<String, String> eKeyMap = [:]
+        for (int i = 0; i < keyValueListSize; i++) {
+            MNode keyValue = (MNode) keyValueList.get(i)
+            eKeyMap.put(keyValue.attribute("related"), keyValue.attribute("value"))
         }
         return eKeyMap
     }
@@ -831,6 +844,8 @@ class EntityDefinition {
             prettyName.deleteCharAt(prettyName.length()-1)
             if (addParens) prettyName.append(")")
         }
+        // make sure pretty name isn't empty, happens when baseName is a superset of entity name
+        if (prettyName.length() == 0) return StringUtilities.camelCaseToPretty(entityInfo.internalEntityName)
         return prettyName.toString()
     }
 
