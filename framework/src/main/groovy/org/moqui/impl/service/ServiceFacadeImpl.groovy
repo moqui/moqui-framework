@@ -43,7 +43,7 @@ class ServiceFacadeImpl implements ServiceFacade {
     protected final Cache<String, ServiceDefinition> serviceLocationCache
     protected final ReentrantLock locationLoadLock = new ReentrantLock()
 
-    protected final Map<String, ArrayList<ServiceEcaRule>> secaRulesByServiceName = new HashMap<>()
+    protected Map<String, ArrayList<ServiceEcaRule>> secaRulesByServiceName = new HashMap<>()
     protected final List<EmailEcaRule> emecaRuleList = new ArrayList()
     public final RestApi restApi
 
@@ -348,9 +348,8 @@ class ServiceFacadeImpl implements ServiceFacade {
         }
     }
 
-    protected void loadSecaRulesAll() {
-        if (secaRulesByServiceName.size() > 0) secaRulesByServiceName.clear()
-
+    void loadSecaRulesAll() {
+        Map<String, ArrayList<ServiceEcaRule>> localRulesByServiceName = new HashMap<>()
         int numLoaded = 0
         int numFiles = 0
         // search for the service def XML file in the components
@@ -361,7 +360,7 @@ class ServiceFacadeImpl implements ServiceFacade {
                 if (!serviceDirRr.isDirectory()) continue
                 for (ResourceReference rr in serviceDirRr.directoryEntries) {
                     if (!rr.fileName.endsWith(".secas.xml")) continue
-                    numLoaded += loadSecaRulesFile(rr)
+                    numLoaded += loadSecaRulesFile(rr, localRulesByServiceName)
                     numFiles++
                 }
             } else {
@@ -369,8 +368,11 @@ class ServiceFacadeImpl implements ServiceFacade {
             }
         }
         if (logger.infoEnabled) logger.info("Loaded ${numLoaded} Service ECA rules from ${numFiles} .secas.xml files")
+
+        // replace entire SECA rules Map in one operation
+        secaRulesByServiceName = localRulesByServiceName
     }
-    protected int loadSecaRulesFile(ResourceReference rr) {
+    protected int loadSecaRulesFile(ResourceReference rr, Map<String, ArrayList<ServiceEcaRule>> localRulesByServiceName) {
         MNode serviceRoot = MNode.parse(rr)
         int numLoaded = 0
         for (MNode secaNode in serviceRoot.children("seca")) {
@@ -378,10 +380,10 @@ class ServiceFacadeImpl implements ServiceFacade {
             String serviceName = ser.serviceName
             // remove the hash if there is one to more consistently match the service name
             serviceName = StringUtilities.removeChar(serviceName, (char) '#')
-            ArrayList<ServiceEcaRule> lst = secaRulesByServiceName.get(serviceName)
+            ArrayList<ServiceEcaRule> lst = localRulesByServiceName.get(serviceName)
             if (lst == null) {
                 lst = new ArrayList<>()
-                secaRulesByServiceName.put(serviceName, lst)
+                localRulesByServiceName.put(serviceName, lst)
             }
             // insert by priority
             int insertIdx = 0
@@ -392,7 +394,7 @@ class ServiceFacadeImpl implements ServiceFacade {
             lst.add(insertIdx, ser)
             numLoaded++
         }
-        if (logger.isTraceEnabled()) logger.trace("Loaded [${numLoaded}] Service ECA rules from [${rr.location}]")
+        if (logger.isTraceEnabled()) logger.trace("Loaded ${numLoaded} Service ECA rules from [${rr.location}]")
         return numLoaded
     }
 
