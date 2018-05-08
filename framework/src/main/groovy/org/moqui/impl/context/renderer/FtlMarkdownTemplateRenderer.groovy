@@ -21,7 +21,6 @@ import org.moqui.resource.ResourceReference
 import org.moqui.context.TemplateRenderer
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.jcache.MCache
-import org.pegdown.PegDownProcessor
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -74,10 +73,12 @@ class FtlMarkdownTemplateRenderer implements TemplateRenderer {
             /*
             Markdown4jProcessor markdown4jProcessor = new Markdown4jProcessor()
             String mdText = markdown4jProcessor.process(ecfi.resourceFacade.getLocationText(location, false))
-            */
-
             PegDownProcessor pdp = new PegDownProcessor(MarkdownTemplateRenderer.pegDownOptions)
             String mdText = pdp.markdownToHtml(ecfi.resourceFacade.getLocationText(location, false))
+            */
+
+            com.vladsch.flexmark.ast.Node document = MarkdownTemplateRenderer.PARSER.parse(ecfi.resourceFacade.getLocationText(location, false))
+            String mdText = MarkdownTemplateRenderer.RENDERER.render(document)
 
             // logger.warn("======== .md.ftl post-markdown text: ${mdText}")
 

@@ -346,7 +346,9 @@ public class EntityListImpl implements EntityList {
         @Override public void remove() {
             if (fromCache) throw new UnsupportedOperationException("Cannot modify EntityList from cache");
             if (curIndex == -1) throw new IllegalStateException("Cannot remove, next() has not been called");
+            if (valueRemoved) throw new IllegalStateException("Cannot remove, next() has not been called since last remove");
             valueList.remove(curIndex);
+            curIndex--;
             valueRemoved = true;
         }
     }

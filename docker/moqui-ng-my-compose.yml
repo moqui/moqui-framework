@@ -49,6 +49,7 @@ services:
      # this one isn't needed when not using H2/etc: - ./runtime/db:/opt/moqui/runtime/db
      - ./runtime/elasticsearch:/opt/moqui/runtime/elasticsearch
     environment:
+     - instance_purpose=production
      - entity_ds_db_conf=mysql
      - entity_ds_host=moqui-database
      - entity_ds_port=3306

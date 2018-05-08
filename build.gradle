@@ -13,10 +13,10 @@
  */
 
 buildscript {
-  repositories { jcenter() }
-  dependencies { classpath 'org.ajoberstar:gradle-git:1.3.2' }
+    repositories { jcenter() }
+    dependencies { classpath 'org.ajoberstar:grgit:2.1.0' }
 }
-// Not needed for explicit use, causes problems when not from git repo: plugins { id 'org.ajoberstar.grgit' version '1.3.2' }
+// Not needed for explicit use, causes problems when not from git repo: plugins { id 'org.ajoberstar.grgit' version 'x.y.z' }
 
 import org.ajoberstar.grgit.*
 
@@ -85,13 +85,29 @@ task gitPullAll {
     description "Do a git pull to update moqui, runtime, and each installed component (for each where a .git directory is found)"
     doLast {
         // framework and runtime
-        if (file(".git").exists()) { logger.lifecycle("\nPulling moqui"); Grgit.open(dir: '.').pull() }
-        if (file("runtime/.git").exists()) { logger.lifecycle("\nPulling runtime"); Grgit.open(dir: 'runtime').pull() }
+        if (file(".git").exists()) { logger.lifecycle("\nPulling moqui"); doGitPullWithStatus('.') }
+        if (file("runtime/.git").exists()) { logger.lifecycle("\nPulling runtime"); doGitPullWithStatus('runtime') }
         // all directories under runtime/component
         for (File compDir in file('runtime/component').listFiles().findAll { it.isDirectory() && it.listFiles().find { it.name == '.git' } }) {
             logger.lifecycle("\nPulling ${compDir.path}")
-            Grgit.open(dir: compDir.path).pull()
+            doGitPullWithStatus(compDir.path)
         }
+    }
+}
+def doGitPullWithStatus(def gitDir) {
+    try {
+        def curGrgit = Grgit.open(dir: gitDir)
+        def beforeHead = curGrgit.head()
+        curGrgit.pull()
+        def afterHead = curGrgit.head()
+        if (beforeHead == afterHead) {
+            logger.lifecycle("Already up-to-date.")
+        } else {
+            List<Commit> commits = curGrgit.log { range(beforeHead, afterHead) }
+            for (Commit commit in commits) logger.lifecycle("- ${commit.getAbbreviatedId(7)} by ${commit.committer?.name}: ${commit.shortMessage}")
+        }
+    } catch (Throwable t) {
+        logger.error(t.message)
     }
 }
 task gitStatusAll {
@@ -247,6 +263,8 @@ task addRuntime {
         copy { from fileTree(dir: moquiRuntime+'/ecomponent', include: '**/*.jar').files into 'wartemp/WEB-INF/lib' }
         // add MoquiInit.properties fresh copy, just in case it was changed
         copy { from file('MoquiInit.properties') into 'wartemp/WEB-INF/classes' }
+        // add Procfile to root
+        copy { from file('Procfile') into 'wartemp' }
         // special case: copy elasticsearch plugin/module jars
         copy { from fileTree(dir: '.', include: moquiRuntime+'/elasticsearch/**/*.jar') into file('wartemp') }
         // special case: copy jackrabbit standalone jar (if exists)

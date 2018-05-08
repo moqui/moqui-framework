@@ -69,6 +69,7 @@ public class StringUtilities {
     public static String encodeForXmlAttribute(String original) { return encodeForXmlAttribute(original, false); }
 
     public static String encodeForXmlAttribute(String original, boolean addZeroWidthSpaces) {
+        if (original == null) return "";
         StringBuilder newValue = new StringBuilder(original);
         for (int i = 0; i < newValue.length(); i++) {
             char curChar = newValue.charAt(i);
@@ -156,6 +157,15 @@ public class StringUtilities {
             else { if (replIdx == 0 || repl[replIdx-1] != chr) { repl[replIdx++] = chr; } }
         }
         return new String(repl, 0, replIdx);
+    }
+    public static boolean isAlphaNumeric(String str, String allowedChars) {
+        if (str == null) return true;
+        char[] strChars = str.toCharArray();
+        for (int i = 0; i < strChars.length; i++) {
+            char c = strChars[i];
+            if (!Character.isLetterOrDigit(c) && (allowedChars == null || allowedChars.indexOf(c) == -1)) return false;
+        }
+        return true;
     }
 
     public static String decodeFromXml(String original) {
@@ -374,12 +384,14 @@ public class StringUtilities {
     }
 
     public static String removeChar(String orig, char ch) {
+        if (orig == null) return null;
+        char[] origChars = orig.toCharArray();
+        int origLength = origChars.length;
         // NOTE: this seems to run pretty slow, plain replace might be faster, but avoiding its use anyway (in ServiceFacadeImpl for SECA rules)
-        char[] newChars = new char[orig.length()];
-        int origLength = orig.length();
+        char[] newChars = new char[origLength];
         int lastPos = 0;
         for (int i = 0; i < origLength; i++) {
-            char curChar = orig.charAt(i);
+            char curChar = origChars[i];
             if (curChar != ch) {
                 newChars[lastPos] = curChar;
                 lastPos++;

@@ -20,6 +20,7 @@ import javax.xml.transform.stream.StreamSource;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Writer;
+import java.net.URI;
 import java.util.Map;
 
 /** For accessing resources by location string (http://, jar://, component://, content://, classpath://, etc). */
@@ -32,6 +33,7 @@ public interface ResourceFacade {
      * resource from the Java classpath.
      */
     ResourceReference getLocationReference(String location);
+    ResourceReference getUriReference(URI uri);
 
     /** Open an InputStream to read the contents of a file/document at a location.
      *
@@ -81,7 +83,7 @@ public interface ResourceFacade {
     String expand(String inputString, String debugLocation, Map additionalContext, boolean localize);
     String expandNoL10n(String inputString, String debugLocation);
 
-    void xslFoTransform(StreamSource xslFoSrc, StreamSource xsltSrc, OutputStream out, String contentType);
+    Integer xslFoTransform(StreamSource xslFoSrc, StreamSource xsltSrc, OutputStream out, String contentType);
 
     String getContentType(String filename);
 }

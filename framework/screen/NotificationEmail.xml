@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd">
+    <!-- for fields available see NotificationMessageImpl.getWrappedMessageMap(), this is generic so nothing from the 'message' Map within it -->
+    <actions>
+        <if condition="link">
+            <set field="rootUrl" from="org.moqui.impl.context.WebFacadeImpl.getWebappRootUrl(sri?.webappName ?: 'webroot', null, true, false, ec)"/>
+            <set field="linkUrl" from="rootUrl &amp;&amp; !rootUrl.contains('localhost') ? rootUrl + '/' + link : link"/>
+            <!-- <log level="warn" message="rootUrl ${rootUrl} link ${link} linkUrl ${linkUrl}"/> -->
+        </if>
+    </actions>
+    <widgets><render-mode>
+        <text type="html"><![CDATA[
+<html><body>
+    <h2>${topicDescription!""} Notification (${type!"info"})</h2>
+    <h4>${title}</h4>
+    <#if linkUrl?has_content><p><#if linkUrl?starts_with("http")><a href="${linkUrl}">${linkUrl}</a><#else>${linkUrl}</#if></p></#if>
+    <p><#if notificationMessageId?has_content>Notification Message ID ${notificationMessageId} </#if>Sent ${ec.l10n.format(sentDate, "")} to topic '${topic}'</p>
+</body></html>
+        ]]></text>
+        <text type="text"><![CDATA[
+${topicDescription!""} Notification (${type!"info"})
+
+${title}
+
+${linkUrl!""}
+
+<#if notificationMessageId?has_content>Notification Message ID ${notificationMessageId} </#if>Sent ${ec.l10n.format(sentDate, '')} to topic '${topic}'
+        ]]></text>
+    </render-mode></widgets>
+</screen>
