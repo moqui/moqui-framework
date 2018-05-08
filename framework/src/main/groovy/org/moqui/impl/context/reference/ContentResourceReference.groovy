@@ -18,6 +18,7 @@ import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.util.ObjectUtilities
 
 import javax.jcr.NodeIterator
+import javax.jcr.PathNotFoundException
 import javax.jcr.Session
 import javax.jcr.Property
 
