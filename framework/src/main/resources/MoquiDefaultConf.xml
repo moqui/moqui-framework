@@ -574,8 +574,9 @@
         </datasource>
         -->
         <database name="oracle" join-style="ansi" default-isolation-level="ReadCommitted"
-                  default-test-query="SELECT 1 FROM DUAL" default-jdbc-driver="oracle.jdbc.driver.OracleDriver"
-                  default-xa-ds-class="oracle.jdbc.xa.client.OracleXADataSource">
+                default-test-query="SELECT 1 FROM DUAL" default-jdbc-driver="oracle.jdbc.driver.OracleDriver"
+                default-xa-ds-class="oracle.jdbc.xa.client.OracleXADataSource"
+                default-startup-add-missing="true" default-runtime-add-missing="false">
             <database-type type="id" sql-type="VARCHAR2(40)"/>
             <database-type type="id-long" sql-type="VARCHAR2(255)"/>
 
