@@ -166,6 +166,40 @@ public class WebUtilities {
         return resultString;
     }
 
+
+    public static String simpleHttpStringRequest(String location, String requestBody, String contentType, String token) {
+        if (contentType == null || contentType.isEmpty()) contentType = "text/plain";
+        String resultString = "";
+
+        SslContextFactory sslContextFactory = new SslContextFactory();
+        HttpClient httpClient = new HttpClient(sslContextFactory);
+        
+        token = token.replace("\\", "");
+        String[] split = token.split(",");
+        String access_token = split[0].split("\":")[1].replace("\"", "");
+        String token_type = split[1].split("\":")[1].replace("\"", "");
+
+        try {
+            httpClient.start();
+            Request request = httpClient.POST(location);
+            if (requestBody != null && !requestBody.isEmpty())
+                request.content(new StringContentProvider(contentType, requestBody, StandardCharsets.UTF_8), contentType);
+            request.header("AUTHORIZATION", token_type + " " +access_token);
+            ContentResponse response = request.send();
+            resultString = StringUtilities.toStringCleanBom(response.getContent());
+        } catch (Exception e) {
+            throw new BaseException("Error in http client request", e);
+        } finally {
+            try {
+                httpClient.stop();
+            } catch (Exception e) {
+                logger.error("Error stopping http client", e);
+            }
+        }
+
+        return resultString;
+    }
+    
     public static String simpleHttpMapRequest(String location, Map requestMap) {
         String resultString = "";
 
