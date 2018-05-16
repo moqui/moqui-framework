@@ -90,8 +90,7 @@ class WebFacadeStub implements WebFacade {
 
     @Override String getRequestUrl() { return "TestRequestUrl" }
 
-    @Override
-    Map<String, Object> getParameters() {
+    @Override Map<String, Object> getParameters() {
         // only create when requested, then keep for additional requests
         if (parameters != null) return parameters
 
@@ -111,6 +110,7 @@ class WebFacadeStub implements WebFacade {
 
     @Override String getPathInfo() { return httpServletRequest.getPathInfo() }
     @Override ArrayList<String> getPathInfoList() { return WebFacadeImpl.getPathInfoList(request) }
+    @Override String getRequestBodyText() { return null }
 
     @Override HttpServletResponse getResponse() { return httpServletResponse }
     @Override HttpSession getSession() { return httpSession }
@@ -131,8 +131,7 @@ class WebFacadeStub implements WebFacade {
 
     @Override List<Map> getScreenHistory() { return (List<Map>) sessionAttributes.get("moqui.screen.history") ?: new ArrayList<Map>() }
 
-    @Override
-    void sendJsonResponse(Object responseObj) {
+    @Override void sendJsonResponse(Object responseObj) {
         if (skipJsonSerialize) {
             responseJsonObj = responseObj
         } else {
@@ -161,15 +160,13 @@ class WebFacadeStub implements WebFacade {
     }
 
     @Override void sendTextResponse(String text) { sendTextResponse(text, "text/plain", null) }
-    @Override
-    void sendTextResponse(String text, String contentType, String filename) {
+    @Override void sendTextResponse(String text, String contentType, String filename) {
         WebFacadeImpl.sendTextResponseInternal(text, contentType, filename, ecfi.eci, httpServletRequest, httpServletResponse, requestAttributes)
         // responseWriter.append(text)
         // logger.info("WebFacadeStub sendTextResponse (${text.length()} chars, content type ${contentType}, filename: ${filename})")
     }
 
-    @Override
-    void sendResourceResponse(String location) {
+    @Override void sendResourceResponse(String location) {
         WebFacadeImpl.sendResourceResponseInternal(location, false, ecfi.eci, httpServletResponse)
         /*
         ResourceReference rr = ecfi.getResource().getLocationReference(location)
@@ -185,6 +182,7 @@ class WebFacadeStub implements WebFacade {
     @Override void handleJsonRpcServiceCall() { throw new IllegalArgumentException("WebFacadeStub handleJsonRpcServiceCall not supported") }
     @Override void handleEntityRestCall(List<String> extraPathNameList, boolean masterNameInPath) {
         throw new IllegalArgumentException("WebFacadeStub handleEntityRestCall not supported") }
+
     @Override
     void handleServiceRestCall(List<String> extraPathNameList) {
         long startTime = System.currentTimeMillis()
@@ -199,6 +197,9 @@ class WebFacadeStub implements WebFacade {
 
         sendJsonResponse(restResult.responseObj)
     }
+
+    @Override void handleSystemMessage(List<String> extraPathNameList) {
+        throw new IllegalArgumentException("WebFacadeStub handleSystemMessage not supported") }
 
     static class HttpServletRequestStub implements HttpServletRequest {
         WebFacadeStub wfs

@@ -281,7 +281,7 @@ along with this software (see the LICENSE.md file). If not, see
             whatever on the remote system receives the message. For the the Moqui receive#IncomingSystemMessage service
             the user should be in a group that has authz for the SystemMessageServices ArtifactGroup
             (see SecurityTypeData.xml).</description></field>
-        <field name="password" type="text-short" encrypt="true"/>
+        <field name="password" type="text-medium" encrypt="true"/>
 
         <field name="systemMessageTypeId" type="id"><description>Optional. May be used when this remote is for one
             type of message.</description></field>
@@ -316,4 +316,25 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="errorText" type="text-very-long"/>
         <relationship type="one" related="moqui.service.message.SystemMessage"/>
     </entity>
+    <!--
+        one possible approach for web/etc hooks: trigger send to potentially multiple SystemMessageRemote based on change to status for a certain message type
+        need more flexible configuration for web hooks for general system events, not just on generate SystemMessage meant to be sent to a different SystemMessageRemote?
+    <entity entity-name="SystemMessageHook" package="moqui.service.message">
+        <field name="systemMessageHookId" type="id" is-pk="true"/>
+        <field name="systemMessageTypeId" type="id"/>
+        <field name="statusId" type="id"/>
+        <field name="isOutgoing" type="text-indicator"/>
+        <field name="systemMessageRemoteId" type="id"/>
+        <relationship type="one" related="moqui.service.message.SystemMessageType" short-alias="type"/>
+        <relationship type="one" title="SystemMessage" related="moqui.basic.StatusItem" short-alias="status"/>
+        <relationship type="one" related="moqui.service.message.SystemMessageRemote" short-alias="remote"/>
+    </entity>
+    <entity entity-name="SystemMessageHookStatus" package="moqui.service.message">
+        <field name="systemMessageHookId" type="id" is-pk="true"/>
+        <field name="systemMessageId" type="id" is-pk="true"/>
+        <field name="sentDate" type="text-indicator"><description>null until successfully sent</description></field>
+        <relationship type="one" related="moqui.service.message.SystemMessageHook" short-alias="hook"/>
+        <relationship type="one" related="moqui.service.message.SystemMessage" short-alias="message"/>
+    </entity>
+    -->
 </entities>
