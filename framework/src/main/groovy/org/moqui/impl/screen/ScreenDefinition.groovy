@@ -352,14 +352,14 @@ class ScreenDefinition {
     }
 
     TransitionItem getTransitionItem(String name, String method) {
-        method = method ? method.toLowerCase() : ""
-        TransitionItem ti = (TransitionItem) transitionByName.get(name + "#" + method)
+        method = method != null ? method.toLowerCase() : ""
+        TransitionItem ti = (TransitionItem) transitionByName.get(name.concat("#").concat(method))
         // if no ti, try by name only which will catch transitions with "any" or empty method
         if (ti == null) ti = (TransitionItem) transitionByName.get(name)
         // still none? try each one to see if it matches as a regular expression (first one to match wins)
         if (ti == null) for (TransitionItem curTi in transitionByName.values()) {
-            if (method && curTi.method && (curTi.method == "any" || curTi.method == method)) {
-                if (name == curTi.name) { ti = curTi; break }
+            if (method != null && !method.isEmpty() && ("any".equals(curTi.method) || method.equals(curTi.method))) {
+                if (name.equals(curTi.name)) { ti = curTi; break }
                 if (name.matches(curTi.name)) { ti = curTi; break }
             }
             // logger.info("In getTransitionItem() transition with name [${curTi.name}] method [${curTi.method}] did not match name [${name}] method [${method}]")

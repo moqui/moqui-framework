@@ -20,6 +20,7 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters>
             <parameter name="systemMessageTypeId" required="true"/>
             <parameter name="messageText" required="true"/>
+            <parameter name="systemMessageRemoteId"/>
             <parameter name="remoteMessageId"/>
         </in-parameters>
         <out-parameters>
@@ -212,7 +213,8 @@ along with this software (see the LICENSE.md file). If not, see
 
     <!-- =========== Receive Services =========== -->
 
-    <service verb="receive" noun="IncomingSystemMessage" allow-remote="true">
+    <!-- NOTE: for web hook type receiving authenticate="anonymous-all" but should explore authentication options (clients would need to use a header or something in the webhook setup) -->
+    <service verb="receive" noun="IncomingSystemMessage" allow-remote="true" authenticate="anonymous-all">
         <description>Call to receive a message (often through a remote interface). If there is a
             SystemMessageType.receiveServiceName calls that service to save the message, otherwise creates a
             SystemMessage record for the incoming message (in the Received status). Either way after saving
@@ -220,20 +222,21 @@ along with this software (see the LICENSE.md file). If not, see
         <implements service="org.moqui.impl.SystemMessageServices.receive#SystemMessage"/>
         <actions>
             <entity-find-one entity-name="moqui.service.message.SystemMessageType" value-field="systemMessageType"/>
+            <if condition="systemMessageType == null">
+                <return error="true" message="Message type ${systemMessageTypeId} not valid"/></if>
+
             <if condition="systemMessageType.receiveServiceName &amp;&amp;
-                    systemMessageType.receiveServiceName != 'org.moqui.impl.SystemMessageServices.receive#IncomingSystemMessage'">
-                <then>
-                    <service-call name="${systemMessageType.receiveServiceName}" out-map="context" transaction="force-new"
-                        in-map="context"/>
-                </then>
-                <else>
-                    <!-- while it shouldn't happen that the consume service is called before the tx for this service is
-                        committed, run it in a separate tx to make sure -->
-                    <service-call name="create#moqui.service.message.SystemMessage" out-map="context" transaction="force-new"
-                        in-map="context + [statusId:'SmsgReceived', isOutgoing:'N', initDate:ec.user.nowTimestamp]"/>
-                    <set field="systemMessageIdList" from="[systemMessageId]"/>
-                </else>
-            </if>
+                    systemMessageType.receiveServiceName != 'org.moqui.impl.SystemMessageServices.receive#IncomingSystemMessage'"><then>
+                <service-call name="${systemMessageType.receiveServiceName}" out-map="context" transaction="force-new"
+                    in-map="context"/>
+            </then><else>
+                <!-- while it shouldn't happen that the consume service is called before the tx for this service is
+                    committed, run it in a separate tx to make sure -->
+                <service-call name="create#moqui.service.message.SystemMessage" out-map="context" transaction="force-new"
+                    in-map="context + [statusId:'SmsgReceived', isOutgoing:'N', initDate:ec.user.nowTimestamp]"/>
+                <set field="systemMessageIdList" from="[systemMessageId]"/>
+            </else></if>
+
             <!-- run consume async for each message -->
             <iterate list="systemMessageIdList" entry="systemMessageId">
                 <service-call name="org.moqui.impl.SystemMessageServices.consume#ReceivedSystemMessage"
