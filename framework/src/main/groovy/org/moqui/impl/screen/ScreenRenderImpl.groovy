@@ -1809,8 +1809,13 @@ class ScreenRenderImpl implements ScreenRender {
                 // not needed: screenStatic:sui.targetScreen.isServerStatic(renderMode)
             }
 
-            menuDataList.add([name:pathItem, title:curScreen.getDefaultMenuName(), subscreens:subscreensList,
-                              path:currentPath.toString(), hasTabMenu:curScreen.hasTabMenu(), renderModes:curScreen.renderModes])
+            String curScreenPath = currentPath.toString()
+            UrlInstance curUrlInstance = buildUrl(curScreenPath)
+            String curPathWithParams = curScreenPath
+            String curParmString = curUrlInstance.getParameterString()
+            if (!curParmString.isEmpty()) curPathWithParams = curPathWithParams + '?' + curParmString
+            menuDataList.add([name:pathItem, title:curScreen.getDefaultMenuName(), subscreens:subscreensList, path:curScreenPath,
+                    pathWithParams:curPathWithParams, hasTabMenu:curScreen.hasTabMenu(), renderModes:curScreen.renderModes])
             // not needed: screenStatic:curScreen.isServerStatic(renderMode)
         }
 
