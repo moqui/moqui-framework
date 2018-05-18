@@ -181,7 +181,7 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="systemMessageType" from="systemMessage.'moqui.service.message.SystemMessageType'"/>
 
             <if condition="!systemMessage.systemMessageRemoteId">
-                <return error="true" message="System message [${systemMessageId}] has no systemMessageRemoteId, not sending."/></if>
+                <return error="true" message="System message ${systemMessageId} has no systemMessageRemoteId, not sending."/></if>
             <set field="systemMessageRemote" from="systemMessage.'moqui.service.message.SystemMessageRemote'"/>
 
             <set field="serviceName" from="systemMessageType.receiveServiceName ?: 'org.moqui.impl.SystemMessageServices.receive#IncomingSystemMessage'"/>
@@ -192,6 +192,43 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="remoteMessageId" from="receiveOutMap?.systemMessageIdList?.first()"/>
         </actions>
     </service>
+    <service verb="send" noun="SystemMessageRest">
+        <implements service="org.moqui.impl.SystemMessageServices.send#SystemMessage"/>
+        <actions>
+            <entity-find-one entity-name="moqui.service.message.SystemMessage" value-field="systemMessage"/>
+            <set field="systemMessageType" from="systemMessage.'moqui.service.message.SystemMessageType'"/>
+
+            <if condition="!systemMessage.systemMessageRemoteId">
+                <return error="true" message="System message ${systemMessageId} has no systemMessageRemoteId, not sending."/></if>
+            <set field="systemMessageRemote" from="systemMessage.'moqui.service.message.SystemMessageRemote'"/>
+
+            <script><![CDATA[
+                String urlExpand = ec.resource.expand(systemMessageRemote.sendUrl, "systemMessage", [remoteMessageId:systemMessage.systemMessageId,
+                        systemMessageTypeId:systemMessage.systemMessageTypeId, systemMessageRemoteId:systemMessage.systemMessageRemoteId], false)
+
+                org.moqui.util.RestClient restClient = ec.service.rest().method(org.moqui.util.RestClient.POST).uri(urlExpand)
+                        .addHeader("Content-Type", systemMessageType.contentType ?: "text/plain").text(systemMessage.messageText)
+                if (!systemMessageRemote.messageAuthEnumId || "SmatLogin".equals(messageAuthEnumId)) {
+                    restClient.username((String) systemMessageRemote.username).password((String) systemMessageRemote.password)
+                } else {
+                    // TODO: support SmatHmacSha256
+                    ec.message.error("Message Auth type ${systemMessageRemote.messageAuthEnumId} not supported")
+                    return
+                }
+
+                org.moqui.util.RestClient.RestResponse restResponse = restClient.call()
+                if (restResponse.statusCode < 200 || restResponse.statusCode >= 300) {
+                    String errMsg = restResponse.text()
+                    ec.logger.error("System message ${systemMessageId} send error response (${restResponse.statusCode}): ${errMsg}")
+                    // TODO: save error details in SystemMessageError
+                    return
+                }
+                // responseText = restResponse.text()
+            ]]></script>
+
+            <!-- TODO: WebFacadeImpl.handleSystemMessage() will need to return a message ID before we can do this: <set field="remoteMessageId" from=""/> -->
+        </actions>
+    </service>
     <service verb="send" noun="SystemMessageDirectLocal">
         <implements service="org.moqui.impl.SystemMessageServices.send#SystemMessage"/>
         <actions>
@@ -199,7 +236,7 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="systemMessageType" from="systemMessage.'moqui.service.message.SystemMessageType'"/>
 
             <if condition="!systemMessage.systemMessageRemoteId">
-                <return error="true" message="System message [${systemMessageId}] has no systemMessageRemoteId, not sending."/></if>
+                <return error="true" message="System message ${systemMessageId} has no systemMessageRemoteId, not sending."/></if>
             <set field="systemMessageRemote" from="systemMessage.'moqui.service.message.SystemMessageRemote'"/>
 
             <set field="serviceName" from="systemMessageType.receiveServiceName ?: 'org.moqui.impl.SystemMessageServices.receive#IncomingSystemMessage'"/>
@@ -213,8 +250,7 @@ along with this software (see the LICENSE.md file). If not, see
 
     <!-- =========== Receive Services =========== -->
 
-    <!-- NOTE: for web hook type receiving authenticate="anonymous-all" but should explore authentication options (clients would need to use a header or something in the webhook setup) -->
-    <service verb="receive" noun="IncomingSystemMessage" allow-remote="true" authenticate="anonymous-all">
+    <service verb="receive" noun="IncomingSystemMessage" allow-remote="true">
         <description>Call to receive a message (often through a remote interface). If there is a
             SystemMessageType.receiveServiceName calls that service to save the message, otherwise creates a
             SystemMessage record for the incoming message (in the Received status). Either way after saving

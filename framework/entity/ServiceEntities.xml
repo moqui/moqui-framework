@@ -144,9 +144,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="remoteMessageId" type="text-medium"><description>For messages to/from another Moqui system, the
             systemMessageId on the remote system; may also be used for other system level message IDs (as opposed to
             messageId which is for the ID in the envelope of the message)</description></field>
-        <field name="systemMessageRemoteId" type="id"><description>Reference to the SystemMessageRemote record to
-            use for sending, etc</description></field>
-
+        <field name="systemMessageRemoteId" type="id"><description>Reference to the SystemMessageRemote record for the remote system
+            this message came from for incoming messages or should be sent to for outgoing messages.</description></field>
         <field name="messageText" type="text-very-long"/>
 
         <!-- these fields are from the message envelope, populated by receive or consume service (after initial parse) -->
@@ -270,6 +269,7 @@ along with this software (see the LICENSE.md file). If not, see
             Should implement the org.moqui.impl.SystemMessageServices.receive#SystemMessage interface.
             If not specified receive#IncomingSystemMessage just saves the message directly.
             When applicable, used by the send service as the service on the remote server to call to receive the message.</description></field>
+        <field name="contentType" type="text-short"/>
     </entity>
     <entity entity-name="SystemMessageRemote" package="moqui.service.message">
         <field name="systemMessageRemoteId" type="id" is-pk="true"/>
@@ -277,11 +277,20 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="sendUrl" type="text-medium"/>
         <!-- potential future use, restrict receive message: <field name="authorizedIpAddresses" type="text-long"/> -->
         <field name="sendServiceName" type="text-medium"><description>Override for SystemMessageType.sendServiceName</description></field>
-        <field name="username" type="text-medium"><description>This user needs permission to run the remote service or
-            whatever on the remote system receives the message. For the the Moqui receive#IncomingSystemMessage service
-            the user should be in a group that has authz for the SystemMessageServices ArtifactGroup
-            (see SecurityTypeData.xml).</description></field>
-        <field name="password" type="text-medium" encrypt="true"/>
+        <field name="username" type="text-medium"><description>
+            Username for basic auth when sending to the remote system.
+            This user needs permission to run the remote service or whatever on the remote system receives the message.
+
+            Note: For a Moqui remote server the user needs authz for the org.moqui.impl.SystemMessageServices.receive#IncomingSystemMessage
+            service, ie the user should be in a group that has authz for the SystemMessageServices ArtifactGroup such as the
+            SYSMSG_RECEIVE user group (see SecurityTypeData.xml).
+        </description></field>
+        <field name="password" type="text-medium" encrypt="true">
+            <description>Username for basic auth when sending to the remote system.</description></field>
+        <field name="sharedSecret" type="text-medium" encrypt="true"><description>Shared secret for auth on receive and/or sign on send.</description></field>
+        <field name="authHeaderName" type="text-medium"/>
+        <field name="messageAuthEnumId" type="id"/>
+        <field name="sendAuthEnumId" type="id"><description>If send and receive auth mechanisms are different specify send auth method here</description></field>
 
         <field name="systemMessageTypeId" type="id"><description>Optional. May be used when this remote is for one
             type of message.</description></field>
@@ -307,6 +316,18 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="elementSeparator" type="text-indicator"/>
         <field name="componentDelimiter" type="text-indicator"/>
         <field name="escapeCharacter" type="text-indicator"/>
+
+        <relationship type="one" title="SystemMessageAuthType" related="moqui.basic.Enumeration" short-alias="messageAuthEnum">
+            <key-map field-name="messageAuthEnumId"/></relationship>
+        <relationship type="one" title="SendMessageAuthType" related="moqui.basic.Enumeration" short-alias="sendAuthEnum">
+            <key-map field-name="sendAuthEnumId"/></relationship>
+
+        <seed-data>
+            <moqui.basic.EnumerationType description="System Message Auth Type" enumTypeId="SystemMessageAuthType"/>
+            <moqui.basic.Enumeration enumId="SmatNone" description="No Auth" enumTypeId="SystemMessageAuthType"/>
+            <moqui.basic.Enumeration enumId="SmatLogin" description="User Login (basic, api_key, etc)" enumTypeId="SystemMessageAuthType"/>
+            <moqui.basic.Enumeration enumId="SmatHmacSha256" description="HMAC SHA-256" enumTypeId="SystemMessageAuthType"/>
+        </seed-data>
     </entity>
     <entity entity-name="SystemMessageError" package="moqui.service.message" cache="never">
         <field name="systemMessageId" type="id" is-pk="true"/>
