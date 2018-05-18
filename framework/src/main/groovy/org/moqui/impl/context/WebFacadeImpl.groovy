@@ -48,6 +48,8 @@ import org.moqui.util.StringUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import javax.crypto.Mac
+import javax.crypto.spec.SecretKeySpec
 import javax.servlet.ServletContext
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
@@ -1044,12 +1046,12 @@ class WebFacadeImpl implements WebFacade {
 
     void handleSystemMessage(List<String> extraPathNameList) {
         int pathSize = extraPathNameList.size()
-        if (pathSize == 0) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Path segment for message type not specified")
+        if (pathSize < 2) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "No message type or remote system specified")
             return
         }
         String systemMessageTypeId = (String) extraPathNameList.get(0)
-        String systemMessageRemoteId = pathSize > 1 ? (String) extraPathNameList.get(1) : (String) null
+        String systemMessageRemoteId = (String) extraPathNameList.get(1)
         String remoteMessageId = pathSize > 2 ? (String) extraPathNameList.get(2) : (String) null
         String messageText = getRequestBodyText()
         if (messageText == null || messageText.isEmpty()) {
@@ -1057,11 +1059,73 @@ class WebFacadeImpl implements WebFacade {
             return
         }
 
-        // TODO: consider some sort of authc mechanism, what can clients send? custom header or body or anything? may need various options
-
         try {
-            // TODO: consider making sure systemMessageTypeId and systemMessageRemoteId are valid before the service call
+            // make sure systemMessageTypeId and systemMessageRemoteId are valid before the service call
+            EntityValue systemMessageType = eci.entityFacade.find("moqui.service.message.SystemMessageType")
+                    .condition("systemMessageTypeId", systemMessageTypeId).one()
+            if (systemMessageType == null) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Message type ${systemMessageTypeId} not valid")
+                return
+            }
+            EntityValue systemMessageRemote = eci.entityFacade.find("moqui.service.message.SystemMessageRemote")
+                    .condition("systemMessageRemoteId", systemMessageRemoteId).one()
+            if (systemMessageRemote == null) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Remote system ${systemMessageRemoteId} not valid")
+                return
+            }
 
+            // authc mechanism, what can clients send? custom header or body or anything? may need various options
+            String userId = eci.userFacade.getUserId()
+            String messageAuthEnumId = systemMessageRemote.getNoCheckSimple("messageAuthEnumId")
+            // TODO: consider moving this elsewhere
+            if (!messageAuthEnumId || "SmatLogin".equals(messageAuthEnumId)) {
+                // require that user is logged in by this point (handled by UserFacadeImpl init)
+                if (!userId) {
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Receive message for remote system ${systemMessageRemoteId} requires login")
+                    return
+                }
+                // see if isPermitted for service org.moqui.impl.SystemMessageServices.receive#IncomingSystemMessage
+                ArtifactExecutionInfoImpl aeii = new ArtifactExecutionInfoImpl("org.moqui.impl.SystemMessageServices.receive#IncomingSystemMessage",
+                        ArtifactExecutionInfo.AT_SERVICE, ArtifactExecutionInfo.AUTHZA_ALL, null)
+                try {
+                    eci.artifactExecutionFacade.isPermitted(aeii, null, true, false, true, null)
+                } catch (ArtifactAuthorizationException e) {
+                    logger.warn("Authz failutre for system message receive from remote ${systemMessageRemoteId}", e.toString())
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "Receive message for remote system ${systemMessageRemoteId} not authorized for user with ID ${userId}")
+                    return
+                }
+            } else if ("SmatHmacSha256".equals(messageAuthEnumId)) {
+                // validate HMAC value from authHeaderName HTTP header using sharedSecret and messageText
+                String authHeaderName = (String) systemMessageRemote.authHeaderName
+                String sharedSecret = (String) systemMessageRemote.sharedSecret
+
+                String headerValue = request.getHeader(authHeaderName)
+                if (!headerValue) {
+                    logger.warn("System message receive HMAC verify no header ${authHeaderName} value found, for remote ${systemMessageRemoteId}")
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "No HMAC header ${authHeaderName} found for remote system ${systemMessageRemoteId}")
+                    return
+                }
+
+                Mac hmac = Mac.getInstance("HmacSHA256")
+                hmac.init(new SecretKeySpec(sharedSecret.getBytes("UTF-8"), "HmacSHA256"))
+                // NOTE: if this fails try with "ISO-8859-1"
+                String signature = Base64.encoder.encodeToString(hmac.doFinal(messageText.getBytes("UTF-8")))
+
+                if (headerValue != signature) {
+                    logger.warn("System message receive HMAC verify header value ${headerValue} calculated ${signature} did not match for remote ${systemMessageRemoteId}")
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "HMAC verify failed for remote system ${systemMessageRemoteId}")
+                    return
+                }
+
+                // login anonymous if not logged in
+                eci.userFacade.loginAnonymousIfNoUser()
+            } else if (!"SmatNone".equals(messageAuthEnumId)) {
+                logger.error("Got system message for remote ${systemMessageRemoteId} with unsupported messageAuthEnumId ${messageAuthEnumId}, returning error")
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Remote system ${systemMessageRemoteId} auth configuration not valid")
+                return
+            }
+
+            // NOTE: called with disableAuthz() since we do an authz check before when needed
             Map<String, Object> result = eci.serviceFacade.sync().name("org.moqui.impl.SystemMessageServices.receive#IncomingSystemMessage")
                     .parameter("systemMessageTypeId", systemMessageTypeId).parameter("systemMessageRemoteId", systemMessageRemoteId)
                     .parameter("remoteMessageId", remoteMessageId).parameter("messageText", messageText).disableAuthz().call()
