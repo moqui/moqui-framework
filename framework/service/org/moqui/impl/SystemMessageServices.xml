@@ -125,10 +125,10 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="initialStatusId" from="systemMessage.statusId"/>
 
             <if condition="systemMessage.statusId != 'SmsgProduced' &amp;&amp; systemMessage.statusId != 'SmsgError'">
-                <return error="true" message="System message [${systemMessageId}] has status [${systemMessage.statusId}] and must be either SmsgProduced or SmsgError, not sending."/></if>
+                <return error="true" message="System message ${systemMessageId} has status ${systemMessage.statusId} and must be either SmsgProduced or SmsgError, not sending."/></if>
 
             <if condition="!systemMessage.systemMessageTypeId">
-                <return error="true" message="System message [${systemMessageId}] has no systemMessageTypeId, not sending."/></if>
+                <return error="true" message="System message ${systemMessageId} has no type, not sending"/></if>
             <set field="systemMessageType" from="systemMessage.'moqui.service.message.SystemMessageType'"/>
             <set field="sendServiceName" from="systemMessageType.sendServiceName"/>
 
@@ -139,7 +139,7 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
 
             <if condition="!sendServiceName">
-                <return error="true" message="While sending system message [${systemMessageId}] system message type [${systemMessageType.systemMessageTypeId}] has no sendServiceName, not sending."/></if>
+                <return error="true" message="While sending system message ${systemMessageId} type ${systemMessageType.systemMessageTypeId} has no sendServiceName, not sending."/></if>
 
             <!-- update the status to SmsgSending, in a separate TX -->
             <service-call name="update#moqui.service.message.SystemMessage" transaction="force-new"
@@ -147,30 +147,26 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- put this in a try block with the follow up below in a finally and a Throwable catch to add message facade errors -->
             <script>try {</script>
-            <service-call name="${sendServiceName}" in-map="[systemMessageId:systemMessageId]"
-                    out-map="sendOut" transaction="force-new" ignore-error="true"/>
+            <service-call name="${sendServiceName}" in-map="[systemMessageId:systemMessageId]" out-map="sendOut" transaction="force-new"/>
             <script>} catch (Throwable t) { ec.message.addError(t.toString()) } finally {</script>
 
             <!-- if successful set status to SmsgSent, otherwise set back to previous status -->
             <set field="nowDate" from="ec.user.nowTimestamp"/>
-            <if condition="ec.message.hasError()">
-                <then>
-                    <set field="errorText" from="ec.message.getErrorsString()"/>
-                    <!-- clear errors before calling services so they'll go through, and so this service won't blow up -->
-                    <script>ec.message.clearErrors()</script>
-                    <service-call name="update#moqui.service.message.SystemMessage" transaction="force-new"
-                            in-map="[systemMessageId:systemMessageId, statusId:initialStatusId, lastAttemptDate:nowDate,
-                                failCount:((systemMessage.failCount ?: 0) + 1)]"/>
-                    <service-call name="create#moqui.service.message.SystemMessageError" transaction="force-new"
-                            in-map="[systemMessageId:systemMessageId, errorDate:nowDate, attemptedStatusId:'SmsgSent',
-                                errorText:errorText]"/>
-                </then>
-                <else>
-                    <service-call name="update#moqui.service.message.SystemMessage" transaction="force-new"
-                            in-map="[systemMessageId:systemMessageId, statusId:'SmsgSent',
-                                remoteMessageId:sendOut.remoteMessageId, processedDate:nowDate, lastAttemptDate:nowDate]"/>
-                </else>
-            </if>
+            <if condition="ec.message.hasError()"><then>
+                <set field="errorText" from="ec.message.getErrorsString()"/>
+                <!-- clear errors before calling services so they'll go through, and so this service won't blow up -->
+                <script>ec.message.clearErrors()</script>
+                <service-call name="update#moqui.service.message.SystemMessage" transaction="force-new"
+                        in-map="[systemMessageId:systemMessageId, statusId:initialStatusId, lastAttemptDate:nowDate,
+                            failCount:((systemMessage.failCount ?: 0) + 1)]"/>
+                <service-call name="create#moqui.service.message.SystemMessageError" transaction="force-new"
+                        in-map="[systemMessageId:systemMessageId, errorDate:nowDate, attemptedStatusId:'SmsgSent',
+                            errorText:errorText]"/>
+            </then><else>
+                <service-call name="update#moqui.service.message.SystemMessage" transaction="force-new"
+                        in-map="[systemMessageId:systemMessageId, statusId:'SmsgSent',
+                            remoteMessageId:sendOut?.remoteMessageId, processedDate:nowDate, lastAttemptDate:nowDate]"/>
+            </else></if>
             <script>}</script>
         </actions>
     </service>
@@ -208,19 +204,18 @@ along with this software (see the LICENSE.md file). If not, see
 
                 org.moqui.util.RestClient restClient = ec.service.rest().method(org.moqui.util.RestClient.POST).uri(urlExpand)
                         .addHeader("Content-Type", systemMessageType.contentType ?: "text/plain").text(systemMessage.messageText)
-                if (!systemMessageRemote.messageAuthEnumId || "SmatLogin".equals(messageAuthEnumId)) {
-                    restClient.username((String) systemMessageRemote.username).password((String) systemMessageRemote.password)
+                if (!systemMessageRemote.messageAuthEnumId || "SmatLogin".equals(systemMessageRemote.messageAuthEnumId)) {
+                    restClient.basicAuth((String) systemMessageRemote.username, (String) systemMessageRemote.password)
                 } else {
                     // TODO: support SmatHmacSha256
-                    ec.message.error("Message Auth type ${systemMessageRemote.messageAuthEnumId} not supported")
+                    ec.message.addError("Send REST message auth type ${systemMessageRemote.messageAuthEnumId} not supported for remote ${systemMessageRemote.systemMessageRemoteId}")
                     return
                 }
 
                 org.moqui.util.RestClient.RestResponse restResponse = restClient.call()
                 if (restResponse.statusCode < 200 || restResponse.statusCode >= 300) {
                     String errMsg = restResponse.text()
-                    ec.logger.error("System message ${systemMessageId} send error response (${restResponse.statusCode}): ${errMsg}")
-                    // TODO: save error details in SystemMessageError
+                    ec.message.addError("System message ${systemMessageId} send error response (${restResponse.statusCode}): ${errMsg}")
                     return
                 }
                 // responseText = restResponse.text()
