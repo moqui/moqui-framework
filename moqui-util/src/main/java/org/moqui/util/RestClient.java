@@ -178,8 +178,12 @@ public class RestClient {
             for (KeyValueString nvp : headerList) request.header(nvp.key, nvp.value);
             for (KeyValueString nvp : bodyParameterList) request.param(nvp.key, nvp.value);
             // authc
-            if (username != null && !username.isEmpty())
-                httpClient.getAuthenticationStore().addAuthentication(new BasicAuthentication(uri, BasicAuthentication.ANY_REALM, username, password));
+            if (username != null && !username.isEmpty()) {
+                String unPwString = username + ':' + password;
+                String basicAuthStr  = "Basic " + Base64.getEncoder().encodeToString(unPwString.getBytes());
+                request.header(HttpHeader.AUTHORIZATION, basicAuthStr);
+                // using basic Authorization header instead, too many issues with this: httpClient.getAuthenticationStore().addAuthentication(new BasicAuthentication(uri, BasicAuthentication.ANY_REALM, username, password));
+            }
 
             if (bodyText != null && !bodyText.isEmpty()) {
                 request.content(new StringContentProvider(contentType, bodyText, charset), contentType);
