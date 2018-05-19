@@ -1062,13 +1062,13 @@ class WebFacadeImpl implements WebFacade {
         try {
             // make sure systemMessageTypeId and systemMessageRemoteId are valid before the service call
             EntityValue systemMessageType = eci.entityFacade.find("moqui.service.message.SystemMessageType")
-                    .condition("systemMessageTypeId", systemMessageTypeId).one()
+                    .condition("systemMessageTypeId", systemMessageTypeId).disableAuthz().one()
             if (systemMessageType == null) {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Message type ${systemMessageTypeId} not valid")
                 return
             }
             EntityValue systemMessageRemote = eci.entityFacade.find("moqui.service.message.SystemMessageRemote")
-                    .condition("systemMessageRemoteId", systemMessageRemoteId).one()
+                    .condition("systemMessageRemoteId", systemMessageRemoteId).disableAuthz().one()
             if (systemMessageRemote == null) {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Remote system ${systemMessageRemoteId} not valid")
                 return
