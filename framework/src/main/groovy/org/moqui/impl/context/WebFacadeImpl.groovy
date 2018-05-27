@@ -224,13 +224,13 @@ class WebFacadeImpl implements WebFacade {
         Object previousValue = multiPartParameters.put(key, value)
         if (previousValue != null) {
             List<Object> valueList = new ArrayList<>()
-            valueList.add(value)
             multiPartParameters.put(key, valueList)
             if(previousValue instanceof Collection) {
                 valueList.addAll((Collection) previousValue)
             } else {
                 valueList.add(previousValue)
             }
+            valueList.add(value)
         }
     }
 
