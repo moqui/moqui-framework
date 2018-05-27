@@ -210,7 +210,7 @@ public class ParameterInfo {
                     if (valueStr.contains(",")) {
                         converted = new HashSet<>(Arrays.asList(valueStr.split(",")));
                     } else {
-                        Set<String> newSet = new HashSet<>();
+                        Set<String> newSet = new LinkedHashSet<>();
                         newSet.add(valueStr);
                         converted = newSet;
                     }
