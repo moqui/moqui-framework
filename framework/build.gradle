@@ -12,8 +12,8 @@
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
 
-// tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:unchecked" }
-// tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:unchecked" }
+tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:unchecked" }
+tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:unchecked" }
 // tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:deprecation" }
 
 version = '2.1.1-rc2'
@@ -67,10 +67,11 @@ dependencies {
     compile project(':moqui-util')
 
     // Groovy
-    compile 'org.codehaus.groovy:groovy:2.4.15' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-json:2.4.15' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-templates:2.4.15' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-xml:2.4.15' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy:2.5.0' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-dateutil:2.5.0' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-json:2.5.0' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-templates:2.5.0' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-xml:2.5.0' // Apache 2.0
     // jansi is needed for groovydoc only, so in providedCompile (not included in war)
     compileOnly 'org.fusesource.jansi:jansi:1.17.1'
     // Findbugs need only during compile (used by freemarker and various moqui classes)

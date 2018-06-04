@@ -13,6 +13,16 @@
  */
 package org.moqui.impl.context;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.SerializerProvider;
+import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.databind.ser.std.StdSerializer;
+import groovy.lang.GString;
 import org.moqui.context.ArtifactExecutionInfo;
 import org.moqui.entity.EntityFind;
 import org.moqui.entity.EntityList;
@@ -27,6 +37,7 @@ import org.slf4j.LoggerFactory;
 import javax.transaction.Synchronization;
 import javax.transaction.Transaction;
 import javax.transaction.xa.XAResource;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.*;
@@ -444,5 +455,23 @@ public class ContextJavaUtil {
             return new ConnectionWrapper((Connection) con.clone(), tfi, groupName) }
         protected void finalize() throws Throwable { con.finalize() }
         */
+    }
+
+
+    public final static ObjectMapper jacksonMapper = new ObjectMapper()
+            .setSerializationInclusion(JsonInclude.Include.ALWAYS)
+            .enable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS).enable(SerializationFeature.INDENT_OUTPUT)
+            .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
+            .configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true);
+    static {
+        // Jackson custom serializers, etc
+        SimpleModule module = new SimpleModule();
+        module.addSerializer(GString.class, new ContextJavaUtil.GStringJsonSerializer());
+        jacksonMapper.registerModule(module);
+    }
+    static class GStringJsonSerializer extends StdSerializer<GString> {
+        GStringJsonSerializer() { super(GString.class); }
+        @Override public void serialize(GString value, JsonGenerator gen, SerializerProvider serializers)
+                throws IOException, JsonProcessingException { if (value != null) gen.writeString(value.toString()); }
     }
 }
