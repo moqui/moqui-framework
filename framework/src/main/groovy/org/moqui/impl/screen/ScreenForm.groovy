@@ -1480,12 +1480,23 @@ class ScreenForm {
 
         ArrayList<EntityValue> makeFormListFindFields(String formListFindId, ExecutionContext ec) {
             ContextStack cs = ec.context
+
+            Set<String> skipSet = null
+            MNode entityFindNode = screenForm.entityFindNode
+            if (entityFindNode != null) {
+                MNode sfiNode = entityFindNode.first("search-form-inputs")
+                String skipFields = sfiNode?.attribute("skip-fields")
+                if (skipFields != null && !skipFields.isEmpty())
+                    skipSet = new HashSet<>(Arrays.asList(skipFields.split(",")).collect({ it.trim() }))
+            }
+
             List<EntityValue> valueList = new ArrayList<>()
             for (MNode fieldNode in allFieldNodes) {
                 // skip submit
                 if (isHeaderSubmitField(fieldNode)) continue
 
                 String fn = fieldNode.attribute("name")
+                if (skipSet != null && skipSet.contains(fn)) continue
 
                 if (cs.containsKey(fn) || cs.containsKey(fn + "_op")) {
                     // this will handle text-line, text-find, etc
