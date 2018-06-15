@@ -118,9 +118,10 @@ public abstract class EntityValueBase implements EntityValue {
 
     protected void setDbValueMap(Map<String, Object> map) {
         dbValueMap = new HashMap<>();
-        FieldInfo[] nonPkFields = getEntityDefinition().entityInfo.nonPkFieldInfoArray;
-        for (int i = 0; i < nonPkFields.length; i++) {
-            FieldInfo fi = nonPkFields[i];
+        // copy all fields, including pk to fix false positives in the old approach of only non-pk fields
+        FieldInfo[] allFields = getEntityDefinition().entityInfo.allFieldInfoArray;
+        for (int i = 0; i < allFields.length; i++) {
+            FieldInfo fi = allFields[i];
             if (!map.containsKey(fi.name)) continue;
             Object curValue = map.get(fi.name);
             dbValueMap.put(fi.name, curValue);
