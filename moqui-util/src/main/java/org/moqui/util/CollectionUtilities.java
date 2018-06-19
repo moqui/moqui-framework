@@ -165,6 +165,13 @@ public class CollectionUtilities {
                             int comp = ((String) value1).compareToIgnoreCase((String) value2);
                             if (comp != 0) return ascending ? comp : -comp;
                         } else {
+                            if (value1.getClass() != value2.getClass()) {
+                                if (value1 instanceof Number && value2 instanceof Number) {
+                                    value1 = new BigDecimal(value1.toString());
+                                    value2 = new BigDecimal(value2.toString());
+                                }
+                                // NOTE: any other type normalization to avoid compareTo() casting exceptions?
+                            }
                             int comp = value1.compareTo(value2);
                             if (comp != 0) return ascending ? comp : -comp;
                         }
