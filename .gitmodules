@@ -1,0 +1,6 @@
+[submodule "moqui-runtime"]
+	path = moqui-runtime
+	url = https://github.com/lcjbest/moqui-runtime.git
+[submodule "runtime"]
+	path = runtime
+	url = https://github.com/lcjbest/moqui-runtime.git
