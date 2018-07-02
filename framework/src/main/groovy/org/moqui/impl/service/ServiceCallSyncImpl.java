@@ -28,6 +28,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
     private Boolean useTransactionCache = null;
     private Integer transactionTimeout = null;
     private boolean ignorePreviousError = false;
+    private boolean softValidate = false;
     private boolean multi = false;
     protected boolean disableAuthz = false;
 
@@ -46,6 +47,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
     @Override public ServiceCallSync transactionTimeout(int timeout) { this.transactionTimeout = timeout; return this; }
 
     @Override public ServiceCallSync ignorePreviousError(boolean ipe) { this.ignorePreviousError = ipe; return this; }
+    @Override public ServiceCallSync softValidate(boolean sv) { this.softValidate = sv; return this; }
     @Override public ServiceCallSync multi(boolean mlt) { this.multi = mlt; return this; }
     @Override public ServiceCallSync disableAuthz() { disableAuthz = true; return this; }
 
@@ -159,7 +161,18 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
 
         // in-parameter validation
         if (hasSecaRules) ServiceFacadeImpl.runSecaRules(serviceNameNoHash, currentParameters, null, "pre-validate", secaRules, eci);
-        if (sd != null) currentParameters = sd.convertValidateCleanParameters(currentParameters, eci);
+        if (sd != null) {
+            if (softValidate) eci.messageFacade.pushErrors();
+            currentParameters = sd.convertValidateCleanParameters(currentParameters, eci);
+            if (softValidate) {
+                if (eci.messageFacade.hasError()) {
+                    eci.messageFacade.moveErrorsToDangerMessages();
+                    eci.messageFacade.popErrors();
+                    return null;
+                }
+                eci.messageFacade.popErrors();
+            }
+        }
         // if error(s) in parameters, return now with no results
         if (eci.messageFacade.hasError()) {
             StringBuilder errMsg = new StringBuilder("Found error(s) when validating input parameters for service " + serviceName + ", so not running service. Errors: " + eci.messageFacade.getErrorsString() + "; the artifact stack is:\n");
