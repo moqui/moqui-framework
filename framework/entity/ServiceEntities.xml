@@ -249,7 +249,7 @@ along with this software (see the LICENSE.md file). If not, see
             <detail relationship="remote"/><detail relationship="errors"/>
         </master>
     </entity>
-    <entity entity-name="SystemMessageType" package="moqui.service.message">
+    <entity entity-name="SystemMessageType" package="moqui.service.message" cache="true">
         <field name="systemMessageTypeId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
         <field name="produceServiceName" type="text-medium"><description>Not used in automated processing, but useful
@@ -271,7 +271,7 @@ along with this software (see the LICENSE.md file). If not, see
             When applicable, used by the send service as the service on the remote server to call to receive the message.</description></field>
         <field name="contentType" type="text-short"/>
     </entity>
-    <entity entity-name="SystemMessageRemote" package="moqui.service.message">
+    <entity entity-name="SystemMessageRemote" package="moqui.service.message" cache="true">
         <field name="systemMessageRemoteId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
         <field name="sendUrl" type="text-medium"/>
@@ -288,6 +288,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="password" type="text-medium" encrypt="true">
             <description>Username for basic auth when sending to the remote system.</description></field>
         <field name="sharedSecret" type="text-medium" encrypt="true"><description>Shared secret for auth on receive and/or sign on send.</description></field>
+        <field name="sendSharedSecret" type="text-medium" encrypt="true"><description>Shared secret for auth on send if different from secret used to authorize on receive.</description></field>
         <field name="authHeaderName" type="text-medium"/>
         <field name="messageAuthEnumId" type="id"/>
         <field name="sendAuthEnumId" type="id"><description>If send and receive auth mechanisms are different specify send auth method here</description></field>

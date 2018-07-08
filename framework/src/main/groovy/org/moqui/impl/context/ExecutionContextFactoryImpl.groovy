@@ -763,7 +763,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
     @Override boolean isDestroyed() { return destroyed }
 
-    @Override protected void finalize() throws Throwable {
+    @Override void finalize() throws Throwable {
         try {
             if (!this.destroyed) {
                 this.destroy()

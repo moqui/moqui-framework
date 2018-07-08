@@ -9,6 +9,7 @@ env:
   - TERM=dumb
 
 script:
+  - ./gradlew getRuntime
   - ./gradlew load
   - ./gradlew test --info
 
