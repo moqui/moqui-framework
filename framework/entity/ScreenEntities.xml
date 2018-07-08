@@ -348,6 +348,15 @@ along with this software (see the LICENSE.md file). If not, see
         <alias name="userGroupId" entity-alias="DBFUG"/>
     </view-entity>
 
+    <view-entity entity-name="DbFormAndUserGroup" package="moqui.screen.form">
+        <member-entity entity-alias="DBFUG" entity-name="DbFormUserGroup">
+            <key-map field-name="formId"/></member-entity>
+        <member-entity entity-alias="UG" entity-name="UserGroup" join-from-alias="DBFUG">
+            <key-map field-name="userGroupId"/></member-entity>
+        <alias name="formId" entity-alias="DBFUG"/>
+        <alias-all entity-alias="UG"/>
+    </view-entity>
+
     <entity entity-name="FormResponse" package="moqui.screen.form" use="nontransactional" cache="never">
         <field name="formResponseId" type="id" is-pk="true"/>
         <field name="formLocation" type="text-medium"/>
