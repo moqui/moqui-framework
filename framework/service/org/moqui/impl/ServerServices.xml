@@ -23,6 +23,23 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="clientIpTimeZone"/>
         </out-parameters>
         <actions>
+            <!-- freegeoip.net now always returns a 403 error, disable until another solution found:
+{
+  "0": "#################################################################################################################################",
+  "1": "#                                                                                                                               #",
+  "2": "# IMPORTANT - PLEASE UPDATE YOUR API ENDPOINT                                                                                   #",
+  "3": "#                                                                                                                               #",
+  "4": "# This API endpoint is deprecated and has now been shut down. To keep using the freegeoip API, please update your integration   #",
+  "5": "# to use the new ipstack API endpoint, designed as a simple drop-in replacement.                                                #",
+  "6": "# You will be required to create an account at https://ipstack.com and obtain an API access key.                                #",
+  "7": "#                                                                                                                               #",
+  "8": "# For more information on how to upgrade please visit our Github Tutorial at: https://github.com/apilayer/freegeoip#readme      #",
+  "9": "#                                                                                                                               #",
+  "a": "#################################################################################################################################"
+}
+            -->
+            <return message="Geo IP lookup disabled"/>
+
             <entity-find-one entity-name="moqui.server.Visit" value-field="visit"/>
             <!-- don't lock the Visit, ie no for-update="true" just in case this takes a long time to run -->
             <if condition="visit == null"><return message="No visit found with ID ${visitId}"/></if>
