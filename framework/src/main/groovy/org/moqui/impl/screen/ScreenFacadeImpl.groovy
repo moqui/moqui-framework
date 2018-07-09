@@ -185,7 +185,7 @@ class ScreenFacadeImpl implements ScreenFacade {
         }
 
         MNode screenNode = MNode.parse(screenRr)
-        if (screenNode == null) throw new BaseArtifactException("Cound not find definition for screen location ${location}")
+        if (screenNode == null) throw new BaseArtifactException("Could not find definition for screen location ${location}")
 
         sd = new ScreenDefinition(this, screenNode, location)
         // logger.warn("========= loaded screen [${location}] supports LM ${screenRr.supportsLastModified()}, LM: ${screenRr.getLastModified()}")
