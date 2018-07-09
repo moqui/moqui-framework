@@ -349,12 +349,12 @@ along with this software (see the LICENSE.md file). If not, see
     </view-entity>
 
     <view-entity entity-name="DbFormAndUserGroup" package="moqui.screen.form">
-        <member-entity entity-alias="DBFUG" entity-name="DbFormUserGroup">
+        <member-entity entity-alias="DBFUG" entity-name="moqui.screen.form.DbFormUserGroup">
             <key-map field-name="formId"/></member-entity>
-        <member-entity entity-alias="UG" entity-name="UserGroup" join-from-alias="DBFUG">
+        <member-entity entity-alias="USRGRP" entity-name="moqui.security.UserGroup" join-from-alias="DBFUG">
             <key-map field-name="userGroupId"/></member-entity>
+        <alias-all entity-alias="USRGRP"/>
         <alias name="formId" entity-alias="DBFUG"/>
-        <alias-all entity-alias="UG"/>
     </view-entity>
 
     <entity entity-name="FormResponse" package="moqui.screen.form" use="nontransactional" cache="never">
