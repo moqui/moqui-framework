@@ -112,4 +112,47 @@ along with this software (see the LICENSE.md file). If not, see
             <entity-delete value-field="formResponse"/>
         </actions>
     </service>
+    <service verb="update" noun="DbFormField">
+        <in-parameters>
+            <auto-parameters entity-name="moqui.screen.form.DbFormField" include="nonpk"/>
+            <auto-parameters entity-name="moqui.screen.form.DbFormField" include="pk" required="true"/>
+        </in-parameters>
+        <actions>
+            <entity-find entity-name="moqui.screen.form.DbFormFieldOption" list="dbFormFieldOptionList">
+                <econdition field-name="formId" from="formId"/>
+                <econdition field-name="fieldName" from="fieldName"/>
+            </entity-find>
+            <entity-delete-by-condition entity-name="moqui.screen.form.DbFormFieldOption">
+                <econdition field-name="formId" from="formId"/>
+                <econdition field-name="fieldName" from="fieldName"/>
+                <econdition field-name="sequenceNum" from="dbFormFieldOptionList.sequenceNum" operator="in"/>
+            </entity-delete-by-condition>
+            <service-call name="delete#moqui.screen.form.DbFormField" in-map="context"/>
+            <set field="fieldName" from="org.moqui.util.StringUtilities.prettyToCamelCase(title, false)"/>
+            <service-call name="create#moqui.screen.form.DbFormField" in-map="context"/>
+            <iterate list="dbFormFieldOptionList" entry="dbFormFieldOption">
+                <set field="dbFormFieldOption.formId" from="formId"/>
+                <set field="dbFormFieldOption.fieldName" from="fieldName"/>
+                <service-call name="create#moqui.screen.form.DbFormFieldOption" in-map="dbFormFieldOption"/>
+            </iterate>
+        </actions>
+    </service>
+    <service verb="delete" noun="DbFormField">
+        <in-parameters>
+            <auto-parameters entity-name="moqui.screen.form.DbFormField" include="nonpk"/>
+            <auto-parameters entity-name="moqui.screen.form.DbFormField" include="pk" required="true"/>
+        </in-parameters>
+        <actions>
+            <entity-find entity-name="moqui.screen.form.DbFormFieldOption" list="dbFormFieldOptionList">
+                <econdition field-name="formId" from="formId"/>
+                <econdition field-name="fieldName" from="fieldName"/>
+            </entity-find>
+            <entity-delete-by-condition entity-name="moqui.screen.form.DbFormFieldOption">
+                <econdition field-name="formId" from="formId"/>
+                <econdition field-name="fieldName" from="fieldName"/>
+                <econdition field-name="sequenceNum" from="dbFormFieldOptionList.sequenceNum" operator="in"/>
+            </entity-delete-by-condition>
+            <service-call name="delete#moqui.screen.form.DbFormField" in-map="context"/>
+        </actions>
+    </service>
 </services>
