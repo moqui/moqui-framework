@@ -113,9 +113,22 @@ class ScreenUrlInfo {
         screenUrlCache.put(url, newSui)
         return newSui
     }
+    static ScreenUrlInfo getScreenUrlInfo(ScreenFacadeImpl sfi, String url) {
+        Cache<String, ScreenUrlInfo> screenUrlCache = sfi.screenUrlCache
+        ScreenUrlInfo cached = (ScreenUrlInfo) screenUrlCache.get(url)
+        if (cached != null) return cached
+
+        ScreenUrlInfo newSui = new ScreenUrlInfo(sfi, url)
+        screenUrlCache.put(url, newSui)
+        return newSui
+    }
 
     static ScreenUrlInfo getScreenUrlInfo(ScreenFacadeImpl sfi, ScreenDefinition rootSd, ScreenDefinition fromScreenDef,
                                           ArrayList<String> fpnl, String subscreenPath, int lastStandalone) {
+        // see if a plain URL was treated as a subscreen path
+        if (subscreenPath != null && (subscreenPath.startsWith("https:") || subscreenPath.startsWith("http:")))
+            return getScreenUrlInfo(sfi, subscreenPath)
+
         Cache<String, ScreenUrlInfo> screenUrlCache = sfi.screenUrlCache
         String cacheKey = makeCacheKey(rootSd, fromScreenDef, fpnl, subscreenPath, lastStandalone)
         ScreenUrlInfo cached = (ScreenUrlInfo) screenUrlCache.get(cacheKey)
@@ -128,6 +141,10 @@ class ScreenUrlInfo {
 
     static ScreenUrlInfo getScreenUrlInfo(ScreenRenderImpl sri, ScreenDefinition fromScreenDef, ArrayList<String> fpnl,
                                           String subscreenPath, int lastStandalone) {
+        // see if a plain URL was treated as a subscreen path
+        if (subscreenPath != null && (subscreenPath.startsWith("https:") || subscreenPath.startsWith("http:")))
+            return getScreenUrlInfo(sri, subscreenPath)
+
         ScreenDefinition rootSd = sri.getRootScreenDef()
         ScreenDefinition fromSd = fromScreenDef
         ArrayList<String> fromPathList = fpnl
@@ -185,6 +202,11 @@ class ScreenUrlInfo {
         this.sfi = sri.sfi
         this.ecfi = sfi.ecfi
         this.rootSd = sri.getRootScreenDef()
+        this.plainUrl = url
+    }
+    ScreenUrlInfo(ScreenFacadeImpl sfi, String url) {
+        this.sfi = sfi
+        this.ecfi = sfi.ecfi
         this.plainUrl = url
     }
 
