@@ -25,6 +25,7 @@ import org.moqui.context.MessageFacade.MessageInfo
 import org.moqui.entity.EntityNotFoundException
 import org.moqui.entity.EntityValue
 import org.moqui.entity.EntityValueNotFoundException
+import org.moqui.impl.util.SimpleSigner
 import org.moqui.util.WebUtilities
 import org.moqui.impl.context.ExecutionContextFactoryImpl.WebappInfo
 import org.moqui.impl.screen.ScreenDefinition
@@ -51,6 +52,7 @@ import javax.servlet.http.HttpSession
 class WebFacadeImpl implements WebFacade {
     protected final static Logger logger = LoggerFactory.getLogger(WebFacadeImpl.class)
 
+    static SimpleSigner qzSigner = new SimpleSigner("qz-private-key.pem")
     // Not using shared root URL cache because causes issues when requests come to server through different hosts/etc:
     // protected static final Map<String, String> webappRootUrlByParms = new HashMap()
 
@@ -769,6 +771,17 @@ class WebFacadeImpl implements WebFacade {
             String rrText = rr.getText()
             if (rrText) response.writer.append(rrText)
             response.writer.flush()
+        }
+    }
+
+    void sendQzSignedResponse(String message) {
+        try {
+            String signature = qzSigner.sign(message)
+            response.setContentType("text/plain")
+            response.getWriter().write(signature)
+        } catch (Exception e) {
+            logger.error("Error signing QZ message, sending error response: " + e.toString())
+            response.sendError(500, e.message)
         }
     }
 
