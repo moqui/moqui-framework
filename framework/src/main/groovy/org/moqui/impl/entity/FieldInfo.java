@@ -466,6 +466,10 @@ public class FieldInfo {
                         } else {
                             throw new EntityException("Class " + valClass.getName() + " not allowed for date-time (Timestamp) fields, for field " + entityName + "." + name);
                         }
+                        // NOTE for Calendar use with different MySQL vs Oracle JDBC drivers: https://bugs.openjdk.java.net/browse/JDK-4986236
+                        //     the TimeZone is treated differently; should stay consistent but may result in unexpected times when looking at
+                        //     timestamp values directly in the database; not a huge issue, something to keep in mind when configuring the DB TimeZone
+                        // NOTE that some JDBC drivers clone the Calendar, others don't; see the efi.getCalendarForTzLc() which now uses a ThreadLocal<Calendar>
                     } else { ps.setNull(index, Types.TIMESTAMP); }
                     break;
                 case 3:
@@ -480,7 +484,8 @@ public class FieldInfo {
                         if (valClass == java.sql.Date.class) {
                             java.sql.Date dt = (java.sql.Date) value;
                             // logger.warn("=================== setting date dt=${dt} dt long=${dt.getTime()}, cal=${cal}")
-                            ps.setDate(index, dt); // Date was likely generated in Java TZ and that's what we want, if DB TZ is different we don't want it to use that
+                            ps.setDate(index, dt);
+                            // NOTE: don't pass Calendar, Date was likely generated in Java TZ and that's what we want, if DB TZ is different we don't want it to use that
                         } else if (valClass == Timestamp.class) {
                             ps.setDate(index, new java.sql.Date(((Timestamp) value).getTime()), efi.getCalendarForTzLc());
                         } else if (valClass == java.util.Date.class) {
