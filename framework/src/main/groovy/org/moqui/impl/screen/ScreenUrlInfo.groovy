@@ -892,7 +892,7 @@ class ScreenUrlInfo {
                 curTargetTransition = sui.targetScreen.getTransitionItem(sui.targetTransitionActualName, getRequestMethod())
             return curTargetTransition
         }
-        boolean getHasActions() { getTargetTransition() != null && getTargetTransition().actions }
+        boolean getHasActions() { getTargetTransition() != null && (getTargetTransition().actions != null || getTargetTransition().serviceActions != null) }
         boolean isReadOnly() { getTargetTransition() == null || getTargetTransition().isReadOnly() }
         boolean getDisableLink() { return !sui.targetExists || (getTargetTransition() != null && !getTargetTransition().checkCondition(ec)) || !isPermitted() }
         boolean isPermitted() { return sui.isPermitted(ec, getTargetTransition()) }

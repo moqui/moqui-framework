@@ -658,6 +658,7 @@ class ScreenDefinition {
         protected String location
         protected XmlAction condition = null
         protected XmlAction actions = null
+        protected XmlAction serviceActions = null
         protected String singleServiceName = null
 
         protected Map<String, ParameterItem> parameterByName = new HashMap()
@@ -698,19 +699,20 @@ class ScreenDefinition {
                 // the script is effectively the first child of the condition element
                 condition = new XmlAction(parentScreen.sfi.ecfi, transitionNode.first("condition").first(), location + ".condition")
             }
-            // service OR actions
+            // allow both call-service and actions
+            if (transitionNode.hasChild("actions")) {
+                actions = new XmlAction(parentScreen.sfi.ecfi, transitionNode.first("actions"), location + ".actions")
+            }
             if (transitionNode.hasChild("service-call")) {
                 MNode callServiceNode = transitionNode.first("service-call")
                 if (!callServiceNode.attribute("in-map")) callServiceNode.attributes.put("in-map", "true")
                 if (!callServiceNode.attribute("out-map")) callServiceNode.attributes.put("out-map", "context")
                 if (!callServiceNode.attribute("multi")) callServiceNode.attributes.put("multi", "parameter")
-                actions = new XmlAction(parentScreen.sfi.ecfi, callServiceNode, location + ".service_call")
+                serviceActions = new XmlAction(parentScreen.sfi.ecfi, callServiceNode, location + ".service_call")
                 singleServiceName = callServiceNode.attribute("name")
-            } else if (transitionNode.hasChild("actions")) {
-                actions = new XmlAction(parentScreen.sfi.ecfi, transitionNode.first("actions"), location + ".actions")
             }
 
-            readOnly = actions == null || transitionNode.attribute("read-only") == "true"
+            readOnly = (actions == null && serviceActions == null) || transitionNode.attribute("read-only") == "true"
 
             // conditional-response*
             for (MNode condResponseNode in transitionNode.children("conditional-response"))
@@ -727,7 +729,7 @@ class ScreenDefinition {
         String getSingleServiceName() { return singleServiceName }
         List<String> getPathParameterList() { return pathParameterList }
         Map<String, ParameterItem> getParameterMap() { return parameterByName }
-        boolean hasActionsOrSingleService() { return actions != null }
+        boolean hasActionsOrSingleService() { return actions != null || serviceActions != null}
         boolean getBeginTransaction() { return beginTransaction }
         boolean isReadOnly() { return readOnly }
         boolean getRequireSessionToken() { return requireSessionToken }
@@ -803,6 +805,7 @@ class ScreenDefinition {
                 // don't push a map on the context, let the transition actions set things that will remain: sri.ec.context.push()
                 ec.contextStack.put("sri", sri)
                 // logger.warn("Running transition ${name} context: ${ec.contextStack.toString()}")
+                if (serviceActions != null) serviceActions.run(ec)
                 if (actions != null) actions.run(ec)
 
                 ResponseItem ri = null
