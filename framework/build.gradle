@@ -30,7 +30,7 @@ buildscript {
         // uncomment to add the Error Prone compiler: maven { url "https://plugins.gradle.org/m2/" }
     }
     dependencies {
-        classpath 'com.github.ben-manes:gradle-versions-plugin:0.17.0'
+        classpath 'com.github.ben-manes:gradle-versions-plugin:0.20.0'
         // uncomment to add the Error Prone compiler: classpath 'net.ltgt.gradle:gradle-errorprone-plugin:0.0.8'
     }
 }
@@ -67,11 +67,11 @@ dependencies {
     compile project(':moqui-util')
 
     // Groovy
-    compile 'org.codehaus.groovy:groovy:2.5.0' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-dateutil:2.5.0' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-json:2.5.0' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-templates:2.5.0' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-xml:2.5.0' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy:2.5.1' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-dateutil:2.5.1' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-json:2.5.1' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-templates:2.5.1' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-xml:2.5.1' // Apache 2.0
     // jansi is needed for groovydoc only, so in providedCompile (not included in war)
     compileOnly 'org.fusesource.jansi:jansi:1.17.1'
     // Findbugs need only during compile (used by freemarker and various moqui classes)
@@ -82,12 +82,12 @@ dependencies {
     // Bitronix Transaction Manager (the default internal tx mgr; custom build from source as 3.0.0 not yet released)
     compile 'org.codehaus.btm:btm:3.0.0-SNAPSHOT' // Apache 2.0
     // Bitronix depends on javassist (as does OrientDB, etc; note included here for easier reference, not in framework/lib)
-    compile 'org.javassist:javassist:3.22.0-GA' // Apache 2.0
+    compile 'org.javassist:javassist:3.23.1-GA' // Apache 2.0
 
     // CUPS4J - print through CUPS server
     compile name: 'cups4j', version: '0.6.4' // LGPL <== NOTE!
     // CUPS4J sepends on Apache HTTP Client (unfortunate, adds about 1.1MB)
-    compile 'org.apache.httpcomponents:httpclient:4.5.5'
+    compile 'org.apache.httpcomponents:httpclient:4.5.6'
 
     // ========== Libraries from jcenter ==========
 
@@ -107,9 +107,9 @@ dependencies {
     compile module('com.cronutils:cron-utils:5.0.5') // Apache 2.0
 
     // Flexmark (markdown)
-    compile 'com.vladsch.flexmark:flexmark:0.32.24'
-    compile 'com.vladsch.flexmark:flexmark-ext-tables:0.32.24'
-    compile 'com.vladsch.flexmark:flexmark-ext-toc:0.32.24'
+    compile 'com.vladsch.flexmark:flexmark:0.34.8'
+    compile 'com.vladsch.flexmark:flexmark-ext-tables:0.34.8'
+    compile 'com.vladsch.flexmark:flexmark-ext-toc:0.34.8'
 
     // Freemarker
     compile 'org.freemarker:freemarker:2.3.28' // Apache 2.0
@@ -128,11 +128,11 @@ dependencies {
     compile 'com.h2database:h2:1.4.197' // MPL 2.0, EPL 1.0
 
     // Jackson Databind (JSON, etc)
-    compile 'com.fasterxml.jackson.core:jackson-databind:2.9.5'
+    compile 'com.fasterxml.jackson.core:jackson-databind:2.9.6'
 
     // Jetty HTTP Client and Proxy Servlet
-    compile 'org.eclipse.jetty:jetty-client:9.4.10.v20180503' // Apache 2.0
-    compile 'org.eclipse.jetty:jetty-proxy:9.4.10.v20180503' // Apache 2.0
+    compile 'org.eclipse.jetty:jetty-client:9.4.11.v20180605' // Apache 2.0
+    compile 'org.eclipse.jetty:jetty-proxy:9.4.11.v20180605' // Apache 2.0
 
     // javax.mail
     compile 'com.sun.mail:javax.mail:1.6.1' // CDDL
@@ -182,16 +182,16 @@ dependencies {
 
     // ========== executable war dependencies ==========
     // Jetty
-    execWarRuntime 'org.eclipse.jetty:jetty-server:9.4.10.v20180503' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.4.10.v20180503' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.4.10.v20180503' // Apache 2.0
-    execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.4.10.v20180503') // Apache 2.0
-    execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.4.10.v20180503') { // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-server:9.4.11.v20180605' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.4.11.v20180605' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.4.11.v20180605' // Apache 2.0
+    execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.4.11.v20180605') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.4.11.v20180605') { // Apache 2.0
         exclude group: 'javax.websocket' } // we have the full websocket API, including the client one causes problems
     execWarRuntime 'javax.websocket:javax.websocket-api:1.0' // using 1.0, don't update to 1.1 until used in Jetty, Tomcat, etc
-    execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.4.10.v20180503') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.4.11.v20180605') // Apache 2.0
     // only include this if using Endpoint and MessageHandler annotations:
-    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:9.4.10.v20180503') // Apache 2.0
+    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:9.4.11.v20180605') // Apache 2.0
 }
 
 // setup task dependencies to make sure the start sourceSets always get run

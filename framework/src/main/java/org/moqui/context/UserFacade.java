@@ -50,11 +50,14 @@ public interface UserFacade {
      * @return The value of the preference from the UserPreference.preferenceValue field
      */
     String getPreference(String preferenceKey);
+
     /** Set the value of a user preference.
      * @param preferenceKey The key for the preference, used to create or update a record with UserPreference.preferenceKey
      * @param preferenceValue The value to set on the preference, set in UserPreference.preferenceValue
      */
     void setPreference(String preferenceKey, String preferenceValue);
+    /** Get a Map with multiple preferences, optionally filtered by a regular expression matched against each key */
+    Map<String, String> getPreferences(String keyRegexp);
 
     /** A per-user context like the execution context for but data specific to a user and maintained through service
      * calls, etc unlike ExecutionContext.getContext(). Used for security data, etc such as entity filter values. */
