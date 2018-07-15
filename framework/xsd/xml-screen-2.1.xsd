@@ -199,25 +199,26 @@ along with this software (see the LICENSE.md file). If not, see
                     transition is available (otherwise the button/link/etc is disabled).
                 </xs:documentation></xs:annotation>
             </xs:element>
-            <xs:choice minOccurs="0">
-                <xs:element ref="service-call">
-                    <xs:annotation><xs:documentation>
-                        In most cases the best way to handle input for a transition is with a single service. To do
-                        that use this element instead of an actions element.
+            <xs:element ref="service-call" minOccurs="0">
+                <xs:annotation><xs:documentation>
+                    In most cases the best way to handle input for a transition is with a single service. To do
+                    that use this element instead of an actions element.
 
-                        This will automatically have an in-map=true. To get the same effect inside the actions
-                        element just use in-map=true.
-                    </xs:documentation></xs:annotation>
-                </xs:element>
-                <xs:element ref="actions">
-                    <xs:annotation><xs:documentation>
-                        When this transition is followed these actions are run.
+                    If an actions element is also specified the actions will be run after the service-call.
 
-                        After the actions are run it goes to the url that this transition goes to (through
-                        client-side redirect, dynamic update of a screen area, etc).
-                    </xs:documentation></xs:annotation>
-                </xs:element>
-            </xs:choice>
+                    This will automatically have an in-map=true. To get the same effect inside the actions
+                    element just use in-map=true.
+                </xs:documentation></xs:annotation>
+            </xs:element>
+            <xs:element ref="actions" minOccurs="0">
+                <xs:annotation><xs:documentation>
+                    When this transition is followed these actions are run.
+                    If a service-call element is also used that will be run before these actions.
+
+                    After the actions are run it goes to the url that this transition goes to (through
+                    client-side redirect, dynamic update of a screen area, etc).
+                </xs:documentation></xs:annotation>
+            </xs:element>
             <xs:element ref="conditional-response" minOccurs="0" maxOccurs="unbounded">
                 <xs:annotation><xs:documentation>
                     If there are multiple transition-response sub-elements the first one whose condition evaluates
