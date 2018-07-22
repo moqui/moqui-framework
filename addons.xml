@@ -28,6 +28,7 @@
 
     <!-- Moqui Tool Components -->
     <component name="moqui-atomikos" group="moqui" version="1.0.0" branch="master"/>
+    <component name="moqui-aws" group="moqui" version="" branch="master"/><!-- no releases -->
     <component name="moqui-camel" group="moqui" version="1.0.1" branch="master"/>
     <component name="moqui-elasticsearch" group="moqui" version="1.1.0" branch="master"/>
     <component name="moqui-fop" group="moqui" version="1.1.0" branch="master"/>
