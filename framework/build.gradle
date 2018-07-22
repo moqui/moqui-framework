@@ -107,9 +107,9 @@ dependencies {
     compile module('com.cronutils:cron-utils:5.0.5') // Apache 2.0
 
     // Flexmark (markdown)
-    compile 'com.vladsch.flexmark:flexmark:0.34.8'
-    compile 'com.vladsch.flexmark:flexmark-ext-tables:0.34.8'
-    compile 'com.vladsch.flexmark:flexmark-ext-toc:0.34.8'
+    compile 'com.vladsch.flexmark:flexmark:0.34.10'
+    compile 'com.vladsch.flexmark:flexmark-ext-tables:0.34.10'
+    compile 'com.vladsch.flexmark:flexmark-ext-toc:0.34.10'
 
     // Freemarker
     compile 'org.freemarker:freemarker:2.3.28' // Apache 2.0
@@ -129,6 +129,7 @@ dependencies {
 
     // Jackson Databind (JSON, etc)
     compile 'com.fasterxml.jackson.core:jackson-databind:2.9.6'
+    compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:2.9.6'
 
     // Jetty HTTP Client and Proxy Servlet
     compile 'org.eclipse.jetty:jetty-client:9.4.11.v20180605' // Apache 2.0
@@ -136,6 +137,9 @@ dependencies {
 
     // javax.mail
     compile 'com.sun.mail:javax.mail:1.6.1' // CDDL
+
+    // Joda Time (used by elasticsearch, aws)
+    compile 'joda-time:joda-time:2.10' // Apache 2.0
 
     // JSoup (HTML parser, cleaner)
     compile 'org.jsoup:jsoup:1.11.3' // MIT

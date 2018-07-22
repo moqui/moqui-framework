@@ -1763,7 +1763,7 @@ class ScreenRenderImpl implements ScreenRender {
         for (int i = 0; i < (fullPathSize - 1); i++) {
             String pathItem = (String) fullPathList.get(i)
             String nextItem = (String) fullPathList.get(i+1)
-            currentPath.append('/').append(pathItem)
+            currentPath.append('/').append(StringUtilities.urlEncodeIfNeeded(pathItem))
 
             SubscreensItem curSsi = curScreen.getSubscreensItem(pathItem)
             // already checked for exists above, path may have extra path elements beyond the screen so allow it
@@ -1775,7 +1775,7 @@ class ScreenRenderImpl implements ScreenRender {
             int menuItemsSize = menuItems.size()
             for (int j = 0; j < menuItemsSize; j++) {
                 SubscreensItem subscreensItem = (SubscreensItem) menuItems.get(j)
-                String screenPath = new StringBuilder(currentPath).append('/').append(subscreensItem.name).toString()
+                String screenPath = new StringBuilder(currentPath).append('/').append(StringUtilities.urlEncodeIfNeeded(subscreensItem.name)).toString()
                 UrlInstance screenUrlInstance = buildUrl(screenPath)
                 ScreenUrlInfo sui = screenUrlInstance.sui
                 if (!screenUrlInstance.isPermitted()) continue
@@ -1821,7 +1821,7 @@ class ScreenRenderImpl implements ScreenRender {
 
         String lastPathItem = (String) fullPathList.get(fullPathSize - 1)
         fullUrlInstance.addParameters(ec.web.getRequestParameters())
-        currentPath.append('/').append(lastPathItem)
+        currentPath.append('/').append(StringUtilities.urlEncodeIfNeeded(lastPathItem))
         String lastPath = currentPath.toString()
         String paramString = fullUrlInstance.getParameterString()
         if (paramString.length() > 0) currentPath.append('?').append(paramString)
@@ -1834,6 +1834,10 @@ class ScreenRenderImpl implements ScreenRender {
         if (lastTitle.contains('${')) lastTitle = ec.resourceFacade.expand(lastTitle, "")
         List<Map<String, Object>> screenDocList = fullUrlInfo.targetScreen.getScreenDocumentInfoList()
 
+        if (extraPathList != null) {
+            int extraPathListSize = extraPathList.size()
+            for (int i = 0; i < extraPathListSize; i++) extraPathList.set(i, StringUtilities.urlEncodeIfNeeded(extraPathList.get(i)))
+        }
         Map lastMap = [name:lastPathItem, title:lastTitle, path:lastPath, pathWithParams:currentPath.toString(), image:lastImage,
                 extraPathList:extraPathList, screenDocList:screenDocList, renderModes:fullUrlInfo.targetScreen.renderModes]
         if ("icon".equals(lastImageType)) lastMap.imageType = "icon"
