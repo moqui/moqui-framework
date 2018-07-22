@@ -776,12 +776,11 @@ class ScreenUrlInfo {
 
         // if there are any ?... parameters parse them off and remove them from the string
         int indexOfQuestionMark = screenPath.lastIndexOf("?")
+
+        // BAD idea: common to have at least '.' characters in URL parameters and such
         // for wiki pages and other odd filenames try to handle a '?' in the filename, ie don't consider parameter separator if
         //     there is a '/' or '.' after it or if it is the end of the string; doesn't handle all cases, may not be possible to
-        if (indexOfQuestionMark > 0 && (indexOfQuestionMark == screenPath.length() - 1 ||
-                screenPath.indexOf("/", indexOfQuestionMark) > 0 || screenPath.indexOf(".", indexOfQuestionMark) > 0)) {
-            indexOfQuestionMark = -1
-        }
+        // if (indexOfQuestionMark > 0 && (indexOfQuestionMark == screenPath.length() - 1 || screenPath.indexOf("/", indexOfQuestionMark) > 0 || screenPath.indexOf(".", indexOfQuestionMark) > 0)) { indexOfQuestionMark = -1 }
         // logger.warn("indexOfQuestionMark ${indexOfQuestionMark} screenPath ${screenPath}")
 
         if (indexOfQuestionMark > 0) {
