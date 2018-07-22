@@ -379,6 +379,15 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one-nofk" related="moqui.screen.form.DbFormField"/>
     </entity>
 
+    <view-entity entity-name="FormResponseAnsAndDbFormField" package="moqui.screen.form">
+        <member-entity entity-alias="FRA" entity-name="moqui.screen.form.FormResponseAnswer"/>
+        <member-entity entity-alias="DBFF" entity-name="moqui.screen.form.DbFormField" join-from-alias="FRA">
+            <key-map field-name="formId"/>
+            <key-map field-name="fieldName"/></member-entity>
+        <alias-all entity-alias="FRA"><exclude field="sequenceNum"/></alias-all>
+        <alias-all entity-alias="DBFF"/>
+    </view-entity>
+
     <!-- ========================================================= -->
     <!-- moqui.screen.dynscreen -->
     <!-- ========================================================= -->

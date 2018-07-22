@@ -155,4 +155,68 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="delete#moqui.screen.form.DbFormField" in-map="context"/>
         </actions>
     </service>
+    <service verb="get" noun="FormResponseStats">
+        <in-parameters>
+            <parameter name="formId" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="textDbFormFieldResponseCountList" type="List"/>
+            <parameter name="enumDbFormFieldResponseCountList" type="List"/>
+            <parameter name="formResponseCount" type="List"/>
+        </out-parameters>
+        <actions>
+            <script>enumFieldTypeEnumIdList = ['DBFFT_check', 'DBFFT_drop-down', 'DBFFT_radio'];</script>
+            <entity-find entity-name="moqui.screen.form.DbFormField" list="textDbFormFieldList">
+                <econdition field-name="formId" from="formId"/>
+                <econdition field-name="fieldTypeEnumId" from="enumFieldTypeEnumIdList" operator="not-in" />
+                <order-by field-name="layoutSequenceNum"/>
+            </entity-find>
+            <entity-find entity-name="moqui.screen.form.DbFormField" list="enumDbFormFieldList">
+                <econdition field-name="formId" from="formId"/>
+                <econdition field-name="fieldTypeEnumId" from="enumFieldTypeEnumIdList" operator="in"/>
+                <order-by field-name="layoutSequenceNum"/>
+            </entity-find>
+            <set field="textDbFormFieldResponseCountList" from="[]"/>
+            <iterate list="textDbFormFieldList" entry="textDbFormField">
+                <set field="textDbFormFieldResponseObj" from="[:]"/>
+                <entity-find-count entity-name="moqui.screen.form.FormResponseAnsAndDbFormField" count-field="textDbFormFieldResponseCount">
+                    <econdition field-name="formId" from="formId"/>
+                    <econdition field-name="fieldName" from="textDbFormField.fieldName"/>
+                    <econditions combine="and">
+                        <econdition field-name="valueText" value="" operator="not-equals"/>
+                        <econdition field-name="valueText" operator="is-not-null"/>
+                    </econditions>
+                </entity-find-count>
+                <script>textDbFormFieldResponseObj.put("title", textDbFormField.title)
+                    textDbFormFieldResponseObj.put("count", textDbFormFieldResponseCount)
+                    textDbFormFieldResponseCountList.add(textDbFormFieldResponseObj)</script>
+            </iterate>
+            <set field="enumDbFormFieldResponseCountList" from="[]"/>
+            <iterate list="enumDbFormFieldList" entry="enumDbFormField">
+                <set field="enumDbFormFieldOptionResponseObj" from="[:]"/>
+                <set field="enumDbFormFieldOptionResponseList" from="[]"/>
+                <entity-find entity-name="moqui.screen.form.DbFormFieldOption" list="dbFormFieldOptionList">
+                    <econdition field-name="formId" from="formId"/>
+                    <econdition field-name="fieldName" from="enumDbFormField.fieldName"/>
+                </entity-find>
+                <iterate list="dbFormFieldOptionList" entry="dbFormFieldOption">
+                    <set field="dbFormFieldOptionResponseObj" from="[:]"/>
+                    <entity-find-count entity-name="moqui.screen.form.FormResponseAnsAndDbFormField" count-field="enumDbFormFieldOptionResponseCount">
+                        <econdition field-name="formId" from="formId"/>
+                        <econdition field-name="fieldName" from="enumDbFormField.fieldName"/>
+                        <econdition field-name="valueText" from="dbFormFieldOption.keyValue" operator="equals"/>
+                    </entity-find-count>
+                    <script>dbFormFieldOptionResponseObj.put("text", dbFormFieldOption.text)
+                        dbFormFieldOptionResponseObj.put("count", enumDbFormFieldOptionResponseCount)
+                        enumDbFormFieldOptionResponseList.add(dbFormFieldOptionResponseObj)</script>
+                </iterate>
+                <script>enumDbFormFieldOptionResponseObj.put("title", enumDbFormField.title)
+                    enumDbFormFieldOptionResponseObj.put("fieldOptionList", enumDbFormFieldOptionResponseList)
+                    enumDbFormFieldResponseCountList.add(enumDbFormFieldOptionResponseObj)</script>
+            </iterate>
+            <entity-find-count entity-name="moqui.screen.form.FormResponse" count-field="formResponseCount">
+                <econdition field-name="formId" from="formId"/>
+            </entity-find-count>
+        </actions>
+    </service>
 </services>
