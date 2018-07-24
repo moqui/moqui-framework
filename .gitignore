@@ -57,3 +57,6 @@ Desktop.ini
 
 # Linux auto files
 *~
+
+# Log files
+*.log
