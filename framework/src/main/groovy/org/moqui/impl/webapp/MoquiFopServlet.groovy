@@ -57,9 +57,8 @@ class MoquiFopServlet extends HttpServlet {
         }
 
         long startTime = System.currentTimeMillis()
-        String pathInfo = request.getPathInfo()
 
-        if (logger.traceEnabled) logger.trace("Start request to [${pathInfo}] at time [${startTime}] in session [${request.session.id}] thread [${Thread.currentThread().id}:${Thread.currentThread().name}]")
+        if (logger.traceEnabled) logger.trace("Start request to [${request.getPathInfo()}] at time [${startTime}] in session [${request.session.id}] thread [${Thread.currentThread().id}:${Thread.currentThread().name}]")
 
         ExecutionContextImpl activeEc = ecfi.activeContext.get()
         if (activeEc != null) {
@@ -73,8 +72,9 @@ class MoquiFopServlet extends HttpServlet {
             ec.initWebFacade(moquiWebappName, request, response)
             ec.web.requestAttributes.put("moquiRequestStartTime", startTime)
 
+            ArrayList<String> pathInfoList = ec.web.getPathInfoList()
             ScreenRender sr = ec.screen.makeRender().webappName(moquiWebappName).renderMode("xsl-fo")
-                    .rootScreenFromHost(request.getServerName()).screenPath(pathInfo.split("/") as List)
+                    .rootScreenFromHost(request.getServerName()).screenPath(pathInfoList)
             xslFoText = sr.render()
 
             if (ec.message.hasError()) {
@@ -85,7 +85,7 @@ class MoquiFopServlet extends HttpServlet {
             // logger.warn("======== XSL-FO content:\n${xslFoText}")
             if (logger.traceEnabled) logger.trace("XSL-FO content:\n${xslFoText}")
 
-            String contentType = ec.web.requestParameters."contentType" ?: "application/pdf"
+            String contentType = (String) ec.web.requestParameters."contentType" ?: "application/pdf"
             response.setContentType(contentType)
 
             String filename = (ec.web.parameters.get("filename") as String) ?: (ec.web.parameters.get("saveFilename") as String)
@@ -99,11 +99,18 @@ class MoquiFopServlet extends HttpServlet {
             // special case disable authz for resource access
             boolean enableAuthz = !ecfi.getExecutionContext().getArtifactExecution().disableAuthz()
             try {
+                /* FUTURE: pre-render to get page count, then pass in final rendered streamed to client
+                Integer pageCount = ec.resource.xslFoTransform(new StreamSource(new StringReader(xslFoText)), null,
+                        org.apache.commons.io.output.NullOutputStream.NULL_OUTPUT_STREAM, contentType)
+                logger.info("Rendered ${pathInfo} as ${contentType} has ${pageCount} pages")
+                */
                 ec.resource.xslFoTransform(new StreamSource(new StringReader(xslFoText)), null,
                         response.getOutputStream(), contentType)
             } finally {
                 if (enableAuthz) ecfi.getExecutionContext().getArtifactExecution().enableAuthz()
             }
+
+            if (logger.infoEnabled) logger.info("Finished XSL-FO request to ${pathInfoList}, content type ${response.getContentType()} in ${System.currentTimeMillis()-startTime}ms; session ${request.session.id} thread ${Thread.currentThread().id}:${Thread.currentThread().name}")
         } catch (ArtifactAuthorizationException e) {
             // SC_UNAUTHORIZED 401 used when authc/login fails, use SC_FORBIDDEN 403 for authz failures
             // See ScreenRenderImpl.checkWebappSettings for authc and SC_UNAUTHORIZED handling
@@ -130,7 +137,5 @@ class MoquiFopServlet extends HttpServlet {
             // make sure everything is cleaned up
             ec.destroy()
         }
-
-        if (logger.infoEnabled) logger.info("Finished XSL-FO request to ${pathInfo}, content type ${response.getContentType()} in ${System.currentTimeMillis()-startTime}ms; session ${request.session.id} thread ${Thread.currentThread().id}:${Thread.currentThread().name}")
     }
 }

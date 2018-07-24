@@ -13,16 +13,7 @@
  */
 package org.moqui.impl.context
 
-import com.fasterxml.jackson.annotation.JsonInclude
-import com.fasterxml.jackson.core.JsonGenerator
-import com.fasterxml.jackson.core.JsonProcessingException
-import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.SerializationFeature
-import com.fasterxml.jackson.databind.SerializerProvider
-import com.fasterxml.jackson.databind.module.SimpleModule
-import com.fasterxml.jackson.databind.ser.std.StdSerializer
 import groovy.transform.CompileStatic
 
 import org.apache.commons.fileupload.FileItem
@@ -34,6 +25,7 @@ import org.moqui.context.MessageFacade.MessageInfo
 import org.moqui.entity.EntityNotFoundException
 import org.moqui.entity.EntityValue
 import org.moqui.entity.EntityValueNotFoundException
+import org.moqui.impl.util.SimpleSigner
 import org.moqui.util.WebUtilities
 import org.moqui.impl.context.ExecutionContextFactoryImpl.WebappInfo
 import org.moqui.impl.screen.ScreenDefinition
@@ -48,6 +40,8 @@ import org.moqui.util.StringUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import javax.crypto.Mac
+import javax.crypto.spec.SecretKeySpec
 import javax.servlet.ServletContext
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
@@ -58,18 +52,7 @@ import javax.servlet.http.HttpSession
 class WebFacadeImpl implements WebFacade {
     protected final static Logger logger = LoggerFactory.getLogger(WebFacadeImpl.class)
 
-    protected final static ObjectMapper jacksonMapper = new ObjectMapper()
-            .setSerializationInclusion(JsonInclude.Include.ALWAYS)
-            .enable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS).enable(SerializationFeature.INDENT_OUTPUT)
-            .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
-            .configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true)
-    static {
-        // Jackson custom serializers, etc
-        SimpleModule module = new SimpleModule()
-        module.addSerializer(GString, new GStringJsonSerializer())
-        jacksonMapper.registerModule(module)
-    }
-
+    static SimpleSigner qzSigner = new SimpleSigner("qz-private-key.pem")
     // Not using shared root URL cache because causes issues when requests come to server through different hosts/etc:
     // protected static final Map<String, String> webappRootUrlByParms = new HashMap()
 
@@ -77,6 +60,7 @@ class WebFacadeImpl implements WebFacade {
     protected String webappMoquiName
     protected HttpServletRequest request
     protected HttpServletResponse response
+    protected String requestBodyText = (String) null
 
     protected Map<String, Object> savedParameters = (Map<String, Object>) null
     protected Map<String, Object> multiPartParameters = (Map<String, Object>) null
@@ -133,7 +117,7 @@ class WebFacadeImpl implements WebFacade {
 
         // if there is a JSON document submitted consider those as parameters too
         String contentType = request.getHeader("Content-Type")
-        if (contentType != null && contentType.length() > 0 && (contentType.contains("application/json") || contentType.contains("text/json"))) {
+        if (ResourceReference.isTextContentType(contentType)) {
             // read the body first to make sure it isn't empty, better support clients that pass a Content-Type but no content (even though they shouldn't)
             StringBuilder bodyBuilder = new StringBuilder()
             BufferedReader reader = request.getReader()
@@ -142,18 +126,25 @@ class WebFacadeImpl implements WebFacade {
                 while ((curLine = reader.readLine()) != null) bodyBuilder.append(curLine)
             }
             if (bodyBuilder.length() > 0) {
-                try {
-                    JsonNode jsonNode = jacksonMapper.readTree(bodyBuilder.toString())
-                    if (jsonNode.isObject()) {
-                        jsonParameters = jacksonMapper.treeToValue(jsonNode, Map.class)
-                    } else if (jsonNode.isArray()) {
-                        jsonParameters = [_requestBodyJsonList:jacksonMapper.treeToValue(jsonNode, List.class)] as Map<String, Object>
+                String bodyString = bodyBuilder.toString()
+                requestBodyText = bodyString
+                multiPartParameters = new HashMap()
+                multiPartParameters.put("_requestBodyText", bodyString)
+
+                if ((contentType.contains("application/json") || contentType.contains("text/json"))) {
+                    try {
+                        JsonNode jsonNode = ContextJavaUtil.jacksonMapper.readTree(bodyString)
+                        if (jsonNode.isObject()) {
+                            jsonParameters = ContextJavaUtil.jacksonMapper.treeToValue(jsonNode, Map.class)
+                        } else if (jsonNode.isArray()) {
+                            jsonParameters = [_requestBodyJsonList:ContextJavaUtil.jacksonMapper.treeToValue(jsonNode, List.class)] as Map<String, Object>
+                        }
+                    } catch (Throwable t) {
+                        logger.error("Error parsing HTTP request body JSON: ${t.toString()}", t)
+                        jsonParameters = [_requestBodyJsonParseError:t.getMessage()] as Map<String, Object>
                     }
-                } catch (Throwable t) {
-                    logger.error("Error parsing HTTP request body JSON: ${t.toString()}", t)
-                    jsonParameters = [_requestBodyJsonParseError:t.getMessage()] as Map<String, Object>
+                    // logger.warn("=========== Got JSON HTTP request body: ${jsonParameters}")
                 }
-                // logger.warn("=========== Got JSON HTTP request body: ${jsonParameters}")
             }
         } else if (ServletFileUpload.isMultipartContent(request)) {
             // if this is a multi-part request, get the data for it
@@ -214,18 +205,17 @@ class WebFacadeImpl implements WebFacade {
         Object previousValue = multiPartParameters.put(key, value)
         if (previousValue != null) {
             List<Object> valueList = new ArrayList<>()
-            valueList.add(value)
             multiPartParameters.put(key, valueList)
             if(previousValue instanceof Collection) {
                 valueList.addAll((Collection) previousValue)
             } else {
                 valueList.add(previousValue)
             }
+            valueList.add(value)
         }
     }
 
-    @Override
-    String getSessionToken() { return session.getAttribute("moqui.session.token") }
+    @Override String getSessionToken() { return session.getAttribute("moqui.session.token") }
 
     void runFirstHitInVisitActions() {
         WebappInfo wi = eci.ecfi.getWebappInfo(webappMoquiName)
@@ -252,8 +242,9 @@ class WebFacadeImpl implements WebFacade {
         ScreenUrlInfo sui = urlInstanceOrig.sui
         ScreenDefinition targetScreen = urlInstanceOrig.sui.targetScreen
 
-        // don't save standalone screens
-        if (sui.lastStandalone || targetScreen.isStandalone()) return
+        // logger.warn("save hist standalone ${sui.lastStandalone} ${targetScreen.isStandalone()} transition ${urlInstanceOrig.getTargetTransition()}")
+        // don't save standalone screens (for sui.lastStandalone int only exclude negative so vapps, etc are saved)
+        if (sui.lastStandalone < 0 || targetScreen.isStandalone()) return
         // don't save transition requests, just screens
         if (urlInstanceOrig.getTargetTransition() != null) return
         // if history=false on the screen don't save
@@ -278,7 +269,6 @@ class WebFacadeImpl implements WebFacade {
         if (firstItem != null && firstItem.url == urlWithParams) return
 
         String targetMenuName = targetScreen.getDefaultMenuName()
-
 
         StringBuilder nameBuilder = new StringBuilder()
         // append parent screen name
@@ -377,16 +367,14 @@ class WebFacadeImpl implements WebFacade {
         return parameters
     }
 
-    @Override
-    HttpServletRequest getRequest() { return request }
-    @Override
-    Map<String, Object> getRequestAttributes() {
+    @Override HttpServletRequest getRequest() { return request }
+
+    @Override Map<String, Object> getRequestAttributes() {
         if (requestAttributes != null) return requestAttributes
         requestAttributes = new WebUtilities.AttributeContainerMap(new WebUtilities.ServletRequestContainer(request))
         return requestAttributes
     }
-    @Override
-    Map<String, Object> getRequestParameters() {
+    @Override Map<String, Object> getRequestParameters() {
         if (requestParameters != null) return requestParameters
 
         ContextStack cs = new ContextStack(false)
@@ -409,8 +397,7 @@ class WebFacadeImpl implements WebFacade {
         requestParameters = cs
         return requestParameters
     }
-    @Override
-    Map<String, Object> getSecureRequestParameters() {
+    @Override Map<String, Object> getSecureRequestParameters() {
         ContextStack cs = new ContextStack(false)
         if (savedParameters) cs.push(savedParameters)
         if (multiPartParameters) cs.push(multiPartParameters)
@@ -422,8 +409,7 @@ class WebFacadeImpl implements WebFacade {
         return cs
     }
 
-    @Override
-    String getHostName(boolean withPort) {
+    @Override String getHostName(boolean withPort) {
         URL requestUrl = new URL(getRequest().getRequestURL().toString())
         String hostName = null
         Integer port = null
@@ -442,31 +428,63 @@ class WebFacadeImpl implements WebFacade {
         return withPort ? hostName + ":" + port : hostName
     }
 
+    @Override String getPathInfo() {
+        ArrayList<String> pathList = getPathInfoList(request)
+        // as per spec if no extra path info return null
+        if (pathList == null) return null
+        int pathListSize = pathList.size()
+        if (pathListSize == 0) return null
+        StringBuilder pathSb = new StringBuilder(255)
+        for (int i = 0; i < pathListSize; i++) {
+            String pathSegment = (String) pathList.get(i)
+            pathSb.append("/").append(pathSegment)
+        }
+        return pathSb.toString()
+    }
+    @Override ArrayList<String> getPathInfoList() { return getPathInfoList(request) }
+    static ArrayList<String> getPathInfoList(HttpServletRequest request) {
+        // generated URL path segments are encoded with URLEncoder, to match use URLDecoder instead of servlet container's decoding
+        // this uses the application/x-www-form-urlencoded MIME format for screen path segments
+        // was: String pathInfo = request.getPathInfo()
+        String reqURI = request.getRequestURI()
+        // reqURI should always start with a '/' but make sure then remove to avoid empty leading path segment
+        if (reqURI.charAt(0) == (char) '/') reqURI = reqURI.substring(1)
+        String[] pathArray = reqURI.split("/")
+        // exclude servlet path segments
+        String servletPath = request.getServletPath()
+        // subtract 1 to exclude empty string before leading '/' that will always be there
+        int servletPathSize = servletPath.isEmpty() ? 0 : (servletPath.split("/").length - 1)
+        ArrayList<String> pathList = new ArrayList<>()
+        for (int i = servletPathSize; i < pathArray.length; i++) {
+            String pathSegment = (String) pathArray[i]
+            if (pathSegment == null || pathSegment.isEmpty()) continue
+            try { pathSegment = URLDecoder.decode(pathSegment, "UTF-8") }
+            catch (Exception e) { if (logger.isTraceEnabled()) logger.trace("Error decoding screen path segment ${pathSegment}", e) }
+            pathList.add(pathSegment)
+        }
+        // logger.warn("pathInfo ${request.getPathInfo()} servletPath ${servletPath} reqURI ${request.getRequestURI()} pathList ${pathList}")
+        return pathList
+    }
 
-    @Override
-    HttpServletResponse getResponse() { return response }
+    @Override String getRequestBodyText() { return requestBodyText }
+    @Override HttpServletResponse getResponse() { return response }
 
-    @Override
-    HttpSession getSession() { return request.getSession(true) }
-    @Override
-    Map<String, Object> getSessionAttributes() {
+    @Override HttpSession getSession() { return request.getSession(true) }
+    @Override Map<String, Object> getSessionAttributes() {
         if (sessionAttributes != null) return sessionAttributes
         sessionAttributes = new WebUtilities.AttributeContainerMap(new WebUtilities.HttpSessionContainer(getSession()))
         return sessionAttributes
     }
 
-    @Override
-    ServletContext getServletContext() { return getSession().getServletContext() }
-    @Override
-    Map<String, Object> getApplicationAttributes() {
+    @Override ServletContext getServletContext() { return getSession().getServletContext() }
+    @Override Map<String, Object> getApplicationAttributes() {
         if (applicationAttributes != null) return applicationAttributes
         applicationAttributes = new WebUtilities.AttributeContainerMap(new WebUtilities.ServletContextContainer(getServletContext()))
         return applicationAttributes
     }
 
     String getWebappMoquiName() { return webappMoquiName }
-    @Override
-    String getWebappRootUrl(boolean requireFullUrl, Boolean useEncryption) {
+    @Override String getWebappRootUrl(boolean requireFullUrl, Boolean useEncryption) {
         return getWebappRootUrl(this.webappMoquiName, null, requireFullUrl, useEncryption, eci)
     }
 
@@ -627,7 +645,7 @@ class WebFacadeImpl implements WebFacade {
         }
 
         // logger.warn("========== Sending JSON for object: ${responseObj}")
-        if (responseObj != null) jsonStr = jacksonMapper.writeValueAsString(responseObj)
+        if (responseObj != null) jsonStr = ContextJavaUtil.jacksonMapper.writeValueAsString(responseObj)
 
         if (!jsonStr) return
 
@@ -654,7 +672,7 @@ class WebFacadeImpl implements WebFacade {
 
     void sendJsonError(int statusCode, String errorMessages) {
         // NOTE: uses same field name as sendJsonResponseInternal
-        String jsonStr = jacksonMapper.writeValueAsString([errorCode:statusCode, errors:errorMessages])
+        String jsonStr = ContextJavaUtil.jacksonMapper.writeValueAsString([errorCode:statusCode, errors:errorMessages])
         response.setContentType("application/json")
         // NOTE: String.length not correct for byte length
         String charset = response.getCharacterEncoding() ?: "UTF-8"
@@ -719,7 +737,7 @@ class WebFacadeImpl implements WebFacade {
         ResourceReference rr = eci.resource.getLocationReference(location)
         if (rr == null || (rr.supportsExists() && !rr.getExists())) {
             logger.warn("Sending not found response, resource not found at: ${location}")
-            response.sendError(HttpServletResponse.SC_NOT_FOUND)
+            response.sendError(HttpServletResponse.SC_NOT_FOUND, "Resource not found at ${location}")
             return
         }
         String contentType = rr.getContentType()
@@ -734,7 +752,7 @@ class WebFacadeImpl implements WebFacade {
             InputStream is = rr.openStream()
             if (is == null) {
                 logger.warn("Sending not found response, openStream returned null for location: ${location}")
-                response.sendError(HttpServletResponse.SC_NOT_FOUND)
+                response.sendError(HttpServletResponse.SC_NOT_FOUND, "Resource not found at ${location}")
                 return
             }
 
@@ -753,6 +771,56 @@ class WebFacadeImpl implements WebFacade {
             String rrText = rr.getText()
             if (rrText) response.writer.append(rrText)
             response.writer.flush()
+        }
+    }
+
+    void sendQzSignedResponse(String message) {
+        try {
+            String signature = qzSigner.sign(message)
+            response.setContentType("text/plain")
+            response.getWriter().write(signature)
+        } catch (Exception e) {
+            logger.error("Error signing QZ message, sending error response: " + e.toString())
+            response.sendError(500, e.message)
+        }
+    }
+
+    static Map<Integer, String> errorCodeNames = [401:"Authentication Required", 403:"Access Forbidden", 404:"Not Found",
+            429:"Too Many Requests", 500:"Internal Server Error"]
+    @Override
+    void sendError(int errorCode, String message, Throwable origThrowable) {
+        if ((message == null || message.isEmpty()) && origThrowable != null) message = origThrowable.message
+
+        String acceptHeader = request.getHeader("Accept")
+        if (acceptHeader == null || acceptHeader.isEmpty() || acceptHeader.contains("text/html") ||
+                acceptHeader.contains("text/*") || acceptHeader.contains("*/*")) {
+            response.setStatus(errorCode)
+            response.setContentType("text/html")
+            response.setCharacterEncoding("UTF-8")
+            String errorCodeName = errorCodeNames.get(errorCode) ?: ""
+
+            Writer writer = response.getWriter()
+            writer.write('<html><head><meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>')
+            writer.write("<title>Error ${errorCode} ${errorCodeName}</title>\n")
+            writer.write("</head><body>\n")
+            writer.write("<h2>Error ${errorCode} ${errorCodeName}</h2>")
+            writer.write("<p>Problem accessing ${getPathInfo()}</p>\n")
+            if (message != null && !message.isEmpty()) writer.write("<p>Reason: ${message}</p>\n")
+            writer.write("</body></html>\n")
+
+            // NOTE: maybe include throwable info, do we ever want that?
+
+            /* nothing special for JSON for now
+            } else if (acceptHeader.contains("application/json") || acceptHeader.contains("text/json")) {
+                response.setContentType("application/json")
+                response.setCharacterEncoding("UTF-8")
+            */
+        } else {
+            if (message != null && !message.isEmpty()) {
+                response.sendError(errorCode, message)
+            } else {
+                response.sendError(errorCode)
+            }
         }
     }
 
@@ -807,10 +875,12 @@ class WebFacadeImpl implements WebFacade {
                     parmStack.pop()
                 }
                 response.addIntHeader('X-Run-Time-ms', (System.currentTimeMillis() - startTime) as int)
+                response.addHeader("moquiSessionToken", getSessionToken())
                 sendJsonResponse(responseList)
             } else {
                 Object responseObj = eci.entityFacade.rest(method, extraPathNameList, parmStack, masterNameInPath)
                 response.addIntHeader('X-Run-Time-ms', (System.currentTimeMillis() - startTime) as int)
+                response.addHeader("moquiSessionToken", getSessionToken())
 
                 if (parmStack.xTotalCount != null) response.addIntHeader('X-Total-Count', parmStack.xTotalCount as int)
                 if (parmStack.xPageIndex != null) response.addIntHeader('X-Page-Index', parmStack.xPageIndex as int)
@@ -901,6 +971,7 @@ class WebFacadeImpl implements WebFacade {
                     parmStack.pop()
                 }
                 response.addIntHeader('X-Run-Time-ms', (System.currentTimeMillis() - startTime) as int)
+                response.addHeader("moquiSessionToken", getSessionToken())
 
                 if (eci.message.hasError()) {
                     // if error return that
@@ -916,6 +987,7 @@ class WebFacadeImpl implements WebFacade {
                 RestApi.RestResult restResult = eci.serviceFacade.restApi.run(extraPathNameList, eci)
                 eci.contextStack.pop()
                 response.addIntHeader('X-Run-Time-ms', (System.currentTimeMillis() - startTime) as int)
+                response.addHeader("moquiSessionToken", getSessionToken())
                 restResult.setHeaders(response)
 
                 if (eci.message.hasError()) {
@@ -964,8 +1036,111 @@ class WebFacadeImpl implements WebFacade {
         }
     }
 
+    void handleSystemMessage(List<String> extraPathNameList) {
+        int pathSize = extraPathNameList.size()
+        if (pathSize < 2) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "No message type or remote system specified")
+            return
+        }
+        String systemMessageTypeId = (String) extraPathNameList.get(0)
+        String systemMessageRemoteId = (String) extraPathNameList.get(1)
+        String remoteMessageId = pathSize > 2 ? (String) extraPathNameList.get(2) : (String) null
+        String messageText = getRequestBodyText()
+        if (messageText == null || messageText.isEmpty()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Request body empty")
+            return
+        }
+
+        try {
+            // make sure systemMessageTypeId and systemMessageRemoteId are valid before the service call
+            EntityValue systemMessageType = eci.entityFacade.find("moqui.service.message.SystemMessageType")
+                    .condition("systemMessageTypeId", systemMessageTypeId).disableAuthz().one()
+            if (systemMessageType == null) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Message type ${systemMessageTypeId} not valid")
+                return
+            }
+            EntityValue systemMessageRemote = eci.entityFacade.find("moqui.service.message.SystemMessageRemote")
+                    .condition("systemMessageRemoteId", systemMessageRemoteId).disableAuthz().one()
+            if (systemMessageRemote == null) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Remote system ${systemMessageRemoteId} not valid")
+                return
+            }
+
+            // authc mechanism, what can clients send? custom header or body or anything? may need various options
+            String userId = eci.userFacade.getUserId()
+            String messageAuthEnumId = systemMessageRemote.getNoCheckSimple("messageAuthEnumId")
+            // TODO: consider moving this elsewhere
+            if (!messageAuthEnumId || "SmatLogin".equals(messageAuthEnumId)) {
+                // require that user is logged in by this point (handled by UserFacadeImpl init)
+                if (!userId) {
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Receive message for remote system ${systemMessageRemoteId} requires login")
+                    return
+                }
+                // see if isPermitted for service org.moqui.impl.SystemMessageServices.receive#IncomingSystemMessage
+                ArtifactExecutionInfoImpl aeii = new ArtifactExecutionInfoImpl("org.moqui.impl.SystemMessageServices.receive#IncomingSystemMessage",
+                        ArtifactExecutionInfo.AT_SERVICE, ArtifactExecutionInfo.AUTHZA_ALL, null)
+                try {
+                    eci.artifactExecutionFacade.isPermitted(aeii, null, true, false, true, null)
+                } catch (ArtifactAuthorizationException e) {
+                    logger.warn("Authz failutre for system message receive from remote ${systemMessageRemoteId}", e.toString())
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "Receive message for remote system ${systemMessageRemoteId} not authorized for user with ID ${userId}")
+                    return
+                }
+            } else if ("SmatHmacSha256".equals(messageAuthEnumId)) {
+                // validate HMAC value from authHeaderName HTTP header using sharedSecret and messageText
+                String authHeaderName = (String) systemMessageRemote.authHeaderName
+                String sharedSecret = (String) systemMessageRemote.sharedSecret
+
+                String headerValue = request.getHeader(authHeaderName)
+                if (!headerValue) {
+                    logger.warn("System message receive HMAC verify no header ${authHeaderName} value found, for remote ${systemMessageRemoteId}")
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "No HMAC header ${authHeaderName} found for remote system ${systemMessageRemoteId}")
+                    return
+                }
+
+                Mac hmac = Mac.getInstance("HmacSHA256")
+                hmac.init(new SecretKeySpec(sharedSecret.getBytes("UTF-8"), "HmacSHA256"))
+                // NOTE: if this fails try with "ISO-8859-1"
+                String signature = Base64.encoder.encodeToString(hmac.doFinal(messageText.getBytes("UTF-8")))
+
+                if (headerValue != signature) {
+                    logger.warn("System message receive HMAC verify header value ${headerValue} calculated ${signature} did not match for remote ${systemMessageRemoteId}")
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "HMAC verify failed for remote system ${systemMessageRemoteId}")
+                    return
+                }
+
+                // login anonymous if not logged in
+                eci.userFacade.loginAnonymousIfNoUser()
+            } else if (!"SmatNone".equals(messageAuthEnumId)) {
+                logger.error("Got system message for remote ${systemMessageRemoteId} with unsupported messageAuthEnumId ${messageAuthEnumId}, returning error")
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Remote system ${systemMessageRemoteId} auth configuration not valid")
+                return
+            }
+
+            // NOTE: called with disableAuthz() since we do an authz check before when needed
+            Map<String, Object> result = eci.serviceFacade.sync().name("org.moqui.impl.SystemMessageServices.receive#IncomingSystemMessage")
+                    .parameter("systemMessageTypeId", systemMessageTypeId).parameter("systemMessageRemoteId", systemMessageRemoteId)
+                    .parameter("remoteMessageId", remoteMessageId).parameter("messageText", messageText).disableAuthz().call()
+
+            if (eci.messageFacade.hasError()) {
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, eci.messageFacade.getErrorsString())
+                return
+             }
+
+            // technically SC_ACCEPTED (202) is more accurate, OK (200) more common
+            response.setStatus(HttpServletResponse.SC_OK)
+
+            // TODO: consider returning response with systemMessageIdList in JSON or XML based on Accept header
+        } catch (Throwable t) {
+            logger.error("Error handling system message type ${systemMessageTypeId} remote ${systemMessageRemoteId} remote msg ${remoteMessageId}", t)
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Error receiving message: ${t.toString()}")
+        }
+    }
+
+    /* Session based pass through handling, etc */
+
     void saveScreenLastInfo(String screenPath, Map parameters) {
-        session.setAttribute("moqui.screen.last.path", screenPath ?: request.getPathInfo())
+        session.setAttribute("moqui.screen.last.path", screenPath ?: getPathInfo())
         parameters = parameters ?: new HashMap(getRequestParameters())
         WebUtilities.testSerialization("moqui.screen.last.parameters", parameters)
         session.setAttribute("moqui.screen.last.parameters", parameters)
@@ -1068,11 +1243,5 @@ class WebFacadeImpl implements WebFacade {
         //FileCleaningTracker fileCleaningTracker = FileCleanerCleanup.getFileCleaningTracker(request.getServletContext())
         //factory.setFileCleaningTracker(fileCleaningTracker)
         return factory
-    }
-
-    static class GStringJsonSerializer extends StdSerializer<GString> {
-        GStringJsonSerializer() { super(GString) }
-        @Override void serialize(GString value, JsonGenerator gen, SerializerProvider serializers)
-                throws IOException, JsonProcessingException { if (value != (Object) null) gen.writeString(value.toString()) }
     }
 }

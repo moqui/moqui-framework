@@ -43,7 +43,7 @@ class ServiceFacadeImpl implements ServiceFacade {
     protected final Cache<String, ServiceDefinition> serviceLocationCache
     protected final ReentrantLock locationLoadLock = new ReentrantLock()
 
-    protected final Map<String, ArrayList<ServiceEcaRule>> secaRulesByServiceName = new HashMap<>()
+    protected Map<String, ArrayList<ServiceEcaRule>> secaRulesByServiceName = new HashMap<>()
     protected final List<EmailEcaRule> emecaRuleList = new ArrayList()
     public final RestApi restApi
 
@@ -215,29 +215,42 @@ class ServiceFacadeImpl implements ServiceFacade {
         String partialLocation = path.replace('.', '/') + '.xml'
         String servicePathLocation = 'service/' + partialLocation
 
-        MNode serviceNode = null
+        MNode serviceNode = (MNode) null
+        ResourceReference foundRr = (ResourceReference) null
+
+        // search for the service def XML file in the classpath LAST (allow components to override, same as in entity defs)
+        ResourceReference serviceComponentRr = new ClasspathResourceReference().init(servicePathLocation)
+        if (serviceComponentRr.supportsExists() && serviceComponentRr.exists) {
+            serviceNode = findServiceNode(serviceComponentRr, verb, noun)
+            if (serviceNode != null) foundRr == serviceComponentRr
+        }
 
         // search for the service def XML file in the components
         for (String location in this.ecfi.getComponentBaseLocations().values()) {
             // logger.warn("Finding service node for location=[${location}], servicePathLocation=[${servicePathLocation}]")
-            ResourceReference serviceComponentRr = this.ecfi.resourceFacade.getLocationReference(location + "/" + servicePathLocation)
+            serviceComponentRr = this.ecfi.resourceFacade.getLocationReference(location + "/" + servicePathLocation)
             if (serviceComponentRr.supportsExists()) {
-                if (serviceComponentRr.exists) serviceNode = findServiceNode(serviceComponentRr, verb, noun)
+                if (serviceComponentRr.exists) {
+                    MNode tempNode = findServiceNode(serviceComponentRr, verb, noun)
+                    if (tempNode != null) {
+                        if (foundRr != null) logger.info("Found service ${verb}#${noun} at ${serviceComponentRr.location} which overrides service at ${foundRr.location}")
+                        serviceNode = tempNode
+                        foundRr = serviceComponentRr
+                    }
+                }
             } else {
                 // only way to see if it is a valid location is to try opening the stream, so no extra conditions here
-                serviceNode = findServiceNode(serviceComponentRr, verb, noun)
+                MNode tempNode = findServiceNode(serviceComponentRr, verb, noun)
+                if (tempNode != null) {
+                    if (foundRr != null) logger.info("Found service ${verb}#${noun} at ${serviceComponentRr.location} which overrides service at ${foundRr.location}")
+                    serviceNode = tempNode
+                    foundRr = serviceComponentRr
+                }
             }
-            if (serviceNode != null) break
+            // NOTE: don't quit on finding first, allow later components to override earlier: if (serviceNode != null) break
         }
 
-        // search for the service def XML file in the classpath LAST (allow components to override, same as in entity defs)
-        if (serviceNode == null) {
-            ResourceReference serviceComponentRr = new ClasspathResourceReference().init(servicePathLocation)
-            if (serviceComponentRr.supportsExists() && serviceComponentRr.exists)
-                serviceNode = findServiceNode(serviceComponentRr, verb, noun)
-        }
-
-        if (serviceNode == null) logger.info("Service ${path}.${verb}#${noun} not found; used relative location [${servicePathLocation}]")
+        if (serviceNode == null) logger.warn("Service ${path}.${verb}#${noun} not found; used relative location [${servicePathLocation}]")
 
         return serviceNode
     }
@@ -335,9 +348,8 @@ class ServiceFacadeImpl implements ServiceFacade {
         }
     }
 
-    protected void loadSecaRulesAll() {
-        if (secaRulesByServiceName.size() > 0) secaRulesByServiceName.clear()
-
+    void loadSecaRulesAll() {
+        Map<String, ArrayList<ServiceEcaRule>> localRulesByServiceName = new HashMap<>()
         int numLoaded = 0
         int numFiles = 0
         // search for the service def XML file in the components
@@ -348,7 +360,7 @@ class ServiceFacadeImpl implements ServiceFacade {
                 if (!serviceDirRr.isDirectory()) continue
                 for (ResourceReference rr in serviceDirRr.directoryEntries) {
                     if (!rr.fileName.endsWith(".secas.xml")) continue
-                    numLoaded += loadSecaRulesFile(rr)
+                    numLoaded += loadSecaRulesFile(rr, localRulesByServiceName)
                     numFiles++
                 }
             } else {
@@ -356,8 +368,11 @@ class ServiceFacadeImpl implements ServiceFacade {
             }
         }
         if (logger.infoEnabled) logger.info("Loaded ${numLoaded} Service ECA rules from ${numFiles} .secas.xml files")
+
+        // replace entire SECA rules Map in one operation
+        secaRulesByServiceName = localRulesByServiceName
     }
-    protected int loadSecaRulesFile(ResourceReference rr) {
+    protected int loadSecaRulesFile(ResourceReference rr, Map<String, ArrayList<ServiceEcaRule>> localRulesByServiceName) {
         MNode serviceRoot = MNode.parse(rr)
         int numLoaded = 0
         for (MNode secaNode in serviceRoot.children("seca")) {
@@ -365,10 +380,10 @@ class ServiceFacadeImpl implements ServiceFacade {
             String serviceName = ser.serviceName
             // remove the hash if there is one to more consistently match the service name
             serviceName = StringUtilities.removeChar(serviceName, (char) '#')
-            ArrayList<ServiceEcaRule> lst = secaRulesByServiceName.get(serviceName)
+            ArrayList<ServiceEcaRule> lst = localRulesByServiceName.get(serviceName)
             if (lst == null) {
                 lst = new ArrayList<>()
-                secaRulesByServiceName.put(serviceName, lst)
+                localRulesByServiceName.put(serviceName, lst)
             }
             // insert by priority
             int insertIdx = 0
@@ -379,7 +394,7 @@ class ServiceFacadeImpl implements ServiceFacade {
             lst.add(insertIdx, ser)
             numLoaded++
         }
-        if (logger.isTraceEnabled()) logger.trace("Loaded [${numLoaded}] Service ECA rules from [${rr.location}]")
+        if (logger.isTraceEnabled()) logger.trace("Loaded ${numLoaded} Service ECA rules from [${rr.location}]")
         return numLoaded
     }
 

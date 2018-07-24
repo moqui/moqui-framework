@@ -68,6 +68,14 @@ class EntityDynamicViewImpl implements EntityDynamicView {
         for (Map.Entry<String, String> keyMapEntry in relationshipKeyMap.entrySet()) {
             memberEntity.append("key-map", ["field-name":keyMapEntry.getKey(), "related":keyMapEntry.getValue()])
         }
+        if (relInfo.keyValueMap != null && relInfo.keyValueMap.size() > 0) {
+            Map<String, String> keyValueMap = relInfo.keyValueMap
+            MNode entityCondition = memberEntity.append("entity-condition", null)
+            for (Map.Entry<String, String> keyValueEntry: keyValueMap.entrySet()) {
+                entityCondition.append("econdition",
+                        ['entity-alias': entityAlias, 'field-name': keyValueEntry.getKey(), 'value': keyValueEntry.getValue()])
+            }
+        }
         return this
     }
 

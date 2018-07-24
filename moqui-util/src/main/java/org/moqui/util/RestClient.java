@@ -19,7 +19,6 @@ import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.HttpResponseException;
 import org.eclipse.jetty.client.api.ContentResponse;
 import org.eclipse.jetty.client.api.Request;
-import org.eclipse.jetty.client.util.BasicAuthentication;
 import org.eclipse.jetty.client.util.StringContentProvider;
 import org.eclipse.jetty.http.HttpField;
 import org.eclipse.jetty.http.HttpHeader;
@@ -35,6 +34,10 @@ import java.net.URLEncoder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 @SuppressWarnings("unused")
 public class RestClient {
@@ -43,6 +46,8 @@ public class RestClient {
             DELETE = Method.DELETE, OPTIONS = Method.OPTIONS, HEAD = Method.HEAD;
     private static final EnumSet<Method> BODY_METHODS = EnumSet.of(Method.PATCH, Method.POST, Method.PUT);
     private static final Logger logger = LoggerFactory.getLogger(RestClient.class);
+
+    static final ExecutorService threadPool = Executors.newCachedThreadPool();
 
     private URI uri = null;
     private Method method = Method.GET;
@@ -178,8 +183,12 @@ public class RestClient {
             for (KeyValueString nvp : headerList) request.header(nvp.key, nvp.value);
             for (KeyValueString nvp : bodyParameterList) request.param(nvp.key, nvp.value);
             // authc
-            if (username != null && !username.isEmpty())
-                httpClient.getAuthenticationStore().addAuthentication(new BasicAuthentication(uri, null, username, password));
+            if (username != null && !username.isEmpty()) {
+                String unPwString = username + ':' + password;
+                String basicAuthStr  = "Basic " + Base64.getEncoder().encodeToString(unPwString.getBytes());
+                request.header(HttpHeader.AUTHORIZATION, basicAuthStr);
+                // using basic Authorization header instead, too many issues with this: httpClient.getAuthenticationStore().addAuthentication(new BasicAuthentication(uri, BasicAuthentication.ANY_REALM, username, password));
+            }
 
             if (bodyText != null && !bodyText.isEmpty()) {
                 request.content(new StringContentProvider(contentType, bodyText, charset), contentType);
@@ -203,6 +212,11 @@ public class RestClient {
         }
 
         return new RestResponse(this, response);
+    }
+
+    Future<RestResponse> callFuture() {
+        RestClientCallable callable = new RestClientCallable(this);
+        return threadPool.submit(callable);
     }
 
     public static class RestResponse {
@@ -378,5 +392,11 @@ public class RestClient {
 
         public String key;
         public String value;
+    }
+
+    public static class RestClientCallable implements Callable<RestResponse> {
+        RestClient restClient;
+        RestClientCallable(RestClient restClient) { this.restClient = restClient; }
+        @Override public RestResponse call() { return restClient.call(); }
     }
 }

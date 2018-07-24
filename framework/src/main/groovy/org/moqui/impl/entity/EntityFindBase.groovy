@@ -830,6 +830,8 @@ abstract class EntityFindBase implements EntityFind {
                 }
             }
             if (!hasFieldOptions) fieldOptionsArray = (FieldOrderOptions[]) null
+            if (fieldOptionsArray == null && ftsSize == entityInfo.allFieldInfoArray.length)
+                fieldInfoArray = entityInfo.allFieldInfoArray
         }
 
         // if (ed.getEntityName() == "Asset") logger.warn("=========== find one of Asset ${this.simpleAndMap.get('assetId')}", new Exception("Location"))
@@ -1060,6 +1062,8 @@ abstract class EntityFindBase implements EntityFind {
                     }
                 }
                 if (!hasFieldOptions) fieldOptionsArray = (FieldOrderOptions[]) null
+                if (fieldOptionsArray == null && ftsSize == entityInfo.allFieldInfoArray.length)
+                    fieldInfoArray = entityInfo.allFieldInfoArray
             }
 
             EntityConditionImplBase queryWhereCondition = whereCondition
@@ -1183,6 +1187,8 @@ abstract class EntityFindBase implements EntityFind {
                 }
             }
             if (!hasFieldOptions) fieldOptionsArray = (FieldOrderOptions[]) null
+            if (fieldOptionsArray == null && ftsSize == entityInfo.allFieldInfoArray.length)
+                fieldInfoArray = entityInfo.allFieldInfoArray
         }
 
         // before combining conditions let ArtifactFacade add entity filters associated with authz
@@ -1293,6 +1299,8 @@ abstract class EntityFindBase implements EntityFind {
                     }
                 }
                 if (!hasFieldOptions) fieldOptionsArray = (FieldOrderOptions[]) null
+                if (fieldOptionsArray == null && ftsSize == entityInfo.allFieldInfoArray.length)
+                    fieldInfoArray = entityInfo.allFieldInfoArray
             }
             // logger.warn("fieldsToSelect: ${fieldsToSelect} fieldInfoArray: ${fieldInfoArray}")
 

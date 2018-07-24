@@ -224,6 +224,13 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:sequence>
                 <xs:element minOccurs="0" ref="description"/>
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="key-map"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" name="key-value">
+                    <xs:annotation><xs:documentation>Constant values for looking up related records, should only be used with type 'many'</xs:documentation></xs:annotation>
+                    <xs:complexType>
+                        <xs:attribute name="related" type="name-field" use="required"/>
+                        <xs:attribute name="value" type="xs:string" use="required"/>
+                    </xs:complexType>
+                </xs:element>
             </xs:sequence>
             <xs:attribute name="type" use="required">
                 <xs:simpleType><xs:restriction base="xs:token">

@@ -229,6 +229,11 @@ class RestApi {
             serviceName = serviceNode.attribute("name")
         }
         RestResult run(List<String> pathList, ExecutionContext ec) {
+            if ((requireAuthentication == null || requireAuthentication.length() == 0 || "true".equals(requireAuthentication)) &&
+                    !ec.getUser().getUsername()) {
+                throw new AuthenticationRequiredException("User must be logged in to call service ${serviceName}")
+            }
+
             boolean loggedInAnonymous = false
             if ("anonymous-all".equals(requireAuthentication)) {
                 ec.artifactExecution.setAnonymousAuthorizedAll()
@@ -342,7 +347,7 @@ class RestApi {
             operation = entityNode.attribute("operation")
         }
         RestResult run(List<String> pathList, ExecutionContext ec) {
-            // service calls handle their own auth, for entity ops authc always required
+            // for entity ops authc always required
             if ((requireAuthentication == null || requireAuthentication.length() == 0 || "true".equals(requireAuthentication)) &&
                     !ec.getUser().getUsername()) {
                 throw new AuthenticationRequiredException("User must be logged in for operaton ${operation} on entity ${entityName}")
@@ -742,7 +747,7 @@ class RestApi {
         RestResult visit(List<String> pathList, int pathIndex, ExecutionContextImpl ec) {
             // logger.info("Visit resource ${name}")
             // visit child or run here
-            visitChildOrRun(pathList, pathIndex, ec)
+            return visitChildOrRun(pathList, pathIndex, ec)
         }
         String toString() {
             StringBuilder sb = new StringBuilder()
@@ -766,7 +771,7 @@ class RestApi {
             // set ID value in context
             ec.context.put(name, pathList[pathIndex])
             // visit child or run here
-            visitChildOrRun(pathList, pathIndex, ec)
+            return visitChildOrRun(pathList, pathIndex, ec)
         }
         void toString(int level, StringBuilder sb) {
             for (int i=0; i < (level * 4); i++) sb.append(" ")

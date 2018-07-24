@@ -490,6 +490,7 @@ public class EntityJavaUtil {
         public final String shortAlias;
         public final String prettyName;
         public final Map<String, String> keyMap;
+        public final Map<String, String> keyValueMap;
         public final boolean dependent;
         public final boolean mutable;
         public final boolean isAutoReverse;
@@ -514,6 +515,7 @@ public class EntityJavaUtil {
             shortAlias =  shortAliasAttr != null && !shortAliasAttr.isEmpty() ? shortAliasAttr : null;
             prettyName = relatedEd.getPrettyName(title, fromEd.entityInfo.internalEntityName);
             keyMap = EntityDefinition.getRelationshipExpandedKeyMapInternal(relNode, relatedEd);
+            keyValueMap = EntityDefinition.getRelationshipKeyValueMapInternal(relNode);
             dependent = hasReverse();
             String mutableAttr = relNode.attribute("mutable");
             if (mutableAttr != null && !mutableAttr.isEmpty()) {
@@ -565,6 +567,10 @@ public class EntityJavaUtil {
             for (Map.Entry<String, String> keyEntry: keyMap.entrySet()) {
                 Object value = valueSource.get(keyEntry.getKey());
                 if (!ObjectUtilities.isEmpty(value)) targetParameterMap.put(keyEntry.getValue(), value);
+            }
+            if (keyValueMap != null) {
+                for (Map.Entry<String, String> keyValueEntry: keyValueMap.entrySet())
+                    targetParameterMap.put(keyValueEntry.getKey(), keyValueEntry.getValue());
             }
             return targetParameterMap;
         }

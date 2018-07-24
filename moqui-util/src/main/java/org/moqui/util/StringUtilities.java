@@ -24,6 +24,7 @@ import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLEncoder;
 import java.security.SecureRandom;
 import java.text.ParseException;
 import java.util.*;
@@ -105,6 +106,46 @@ public class StringUtilities {
         return newValue.toString();
     }
 
+    /** See if contains only characters allowed by URLDecoder, if so doesn't need to be encoded or is already encoded */
+    public static boolean isUrlDecoderSafe(String text) {
+        // see https://docs.oracle.com/javase/8/docs/api/index.html?java/net/URLEncoder.html
+        // letters, digits, and: "-", "_", ".", and "*"
+        // allow '%' for strings already encoded
+        // '+' is treated as space, so allow but means we can't detect if already encoded vs doesn't need to be encoded
+        if (text == null) return true;
+        // NOTE: expect mostly shorter strings to charAt() faster than text.toCharArray() and chars[i]; more memory efficient too
+        int textLen = text.length();
+        for (int i = 0; i < textLen; i++) {
+            char ch = text.charAt(i);
+            if (Character.isLetterOrDigit(ch)) continue;
+            if (ch == '.' || ch == '_' || ch == '-' || ch == '*' || ch == '%' || ch == '+') continue;
+            return false;
+        }
+        return true;
+    }
+    public static String urlEncodeIfNeeded(String text) {
+        if (isUrlDecoderSafe(text)) return text;
+        try {
+            return URLEncoder.encode(text, "UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            // should never happen with hard coded encoding
+            return text;
+        }
+    }
+    public static boolean isUrlSafeRfc3986(String text) {
+        if (text == null) return true;
+        // RFC 3986 URL path chars: a-z A-Z 0-9 . _ - + ~ ! $ & ' ( ) * , ; = : @
+        char[] chars = text.toCharArray();
+        for (int i = 0; i < chars.length; i++) {
+            char ch = chars[i];
+            if (Character.isLetterOrDigit(ch)) continue;
+            if (ch == '.' || ch == '_' || ch == '-' || ch == '+' || ch == '~' || ch == '!' || ch == '$' || ch == '&' || ch == '\'' ||
+                    ch == '(' || ch == ')' || ch == '*' || ch == ',' || ch == ';' || ch == '=' || ch == ':' || ch == '@') continue;
+            return false;
+        }
+        return true;
+    }
+
     public static String camelCaseToPretty(String camelCase) {
         if (camelCase == null || camelCase.length() == 0) return "";
         StringBuilder prettyName = new StringBuilder();
@@ -157,6 +198,15 @@ public class StringUtilities {
             else { if (replIdx == 0 || repl[replIdx-1] != chr) { repl[replIdx++] = chr; } }
         }
         return new String(repl, 0, replIdx);
+    }
+    public static boolean isAlphaNumeric(String str, String allowedChars) {
+        if (str == null) return true;
+        char[] strChars = str.toCharArray();
+        for (int i = 0; i < strChars.length; i++) {
+            char c = strChars[i];
+            if (!Character.isLetterOrDigit(c) && (allowedChars == null || allowedChars.indexOf(c) == -1)) return false;
+        }
+        return true;
     }
 
     public static String decodeFromXml(String original) {
@@ -375,12 +425,14 @@ public class StringUtilities {
     }
 
     public static String removeChar(String orig, char ch) {
+        if (orig == null) return null;
+        char[] origChars = orig.toCharArray();
+        int origLength = origChars.length;
         // NOTE: this seems to run pretty slow, plain replace might be faster, but avoiding its use anyway (in ServiceFacadeImpl for SECA rules)
-        char[] newChars = new char[orig.length()];
-        int origLength = orig.length();
+        char[] newChars = new char[origLength];
         int lastPos = 0;
         for (int i = 0; i < origLength; i++) {
-            char curChar = orig.charAt(i);
+            char curChar = origChars[i];
             if (curChar != ch) {
                 newChars[lastPos] = curChar;
                 lastPos++;

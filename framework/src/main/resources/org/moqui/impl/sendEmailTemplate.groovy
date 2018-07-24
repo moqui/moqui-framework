@@ -45,6 +45,8 @@ try {
     if (emailTemplate == null) ec.message.addError(ec.resource.expand('No EmailTemplate record found for ID [${emailTemplateId}]',''))
     if (ec.message.hasError()) return
 
+    emailTypeEnumId = emailTypeEnumId ?: emailTemplate.emailTypeEnumId
+
     // combine ccAddresses and bccAddresses
     if (ccAddresses) {
         if (emailTemplate.ccAddresses) ccAddresses = ccAddresses + "," + emailTemplate.ccAddresses

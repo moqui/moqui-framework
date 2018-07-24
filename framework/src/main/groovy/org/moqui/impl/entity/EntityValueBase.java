@@ -118,9 +118,10 @@ public abstract class EntityValueBase implements EntityValue {
 
     protected void setDbValueMap(Map<String, Object> map) {
         dbValueMap = new HashMap<>();
-        FieldInfo[] nonPkFields = getEntityDefinition().entityInfo.nonPkFieldInfoArray;
-        for (int i = 0; i < nonPkFields.length; i++) {
-            FieldInfo fi = nonPkFields[i];
+        // copy all fields, including pk to fix false positives in the old approach of only non-pk fields
+        FieldInfo[] allFields = getEntityDefinition().entityInfo.allFieldInfoArray;
+        for (int i = 0; i < allFields.length; i++) {
+            FieldInfo fi = allFields[i];
             if (!map.containsKey(fi.name)) continue;
             Object curValue = map.get(fi.name);
             dbValueMap.put(fi.name, curValue);
@@ -685,6 +686,10 @@ public abstract class EntityValueBase implements EntityValue {
         Map<String, Object> condMap = new HashMap<>();
         for (Entry<String, String> entry : keyMap.entrySet())
             condMap.put(entry.getValue(), valueMapInternal.get(entry.getKey()));
+        if (relInfo.keyValueMap != null) {
+            for (Map.Entry<String, String> keyValueEntry: relInfo.keyValueMap.entrySet())
+                condMap.put(keyValueEntry.getKey(), keyValueEntry.getValue());
+        }
         if (byAndFields != null && byAndFields.size() > 0) condMap.putAll(byAndFields);
 
         EntityFind find = getEntityFacadeImpl().find(relatedEntityName);
@@ -706,6 +711,10 @@ public abstract class EntityValueBase implements EntityValue {
         // make a Map where the key is the related entity's field name, and the value is the value from this entity
         Map<String, Object> condMap = new HashMap<>();
         for (Entry<String, String> entry : keyMap.entrySet()) condMap.put(entry.getValue(), valueMapInternal.get(entry.getKey()));
+        if (relInfo.keyValueMap != null) {
+            for (Map.Entry<String, String> keyValueEntry: relInfo.keyValueMap.entrySet())
+                condMap.put(keyValueEntry.getKey(), keyValueEntry.getValue());
+        }
 
         // logger.warn("========== findRelatedOne ${relInfo.relationshipName} keyMap=${keyMap}, condMap=${condMap}")
 
@@ -725,6 +734,10 @@ public abstract class EntityValueBase implements EntityValue {
         // make a Map where the key is the related entity's field name, and the value is the value from this entity
         Map<String, Object> condMap = new HashMap<>();
         for (Entry<String, String> entry : keyMap.entrySet()) condMap.put(entry.getValue(), valueMapInternal.get(entry.getKey()));
+        if (relInfo.keyValueMap != null) {
+            for (Map.Entry<String, String> keyValueEntry: relInfo.keyValueMap.entrySet())
+                condMap.put(keyValueEntry.getKey(), keyValueEntry.getValue());
+        }
 
         EntityFind find = getEntityFacadeImpl().find(relatedEntityName);
         return find.condition(condMap).useCache(useCache).count();
@@ -1413,7 +1426,7 @@ public abstract class EntityValueBase implements EntityValue {
                 Object valueLus = valueMapInternal.get("lastUpdatedStamp");
                 Object dbLus = dbValueMap.get("lastUpdatedStamp");
                 if (valueLus != null && dbLus != null && !dbLus.equals(valueLus))
-                    throw new EntityException("This record was updated by someone else at " + valueLus + " which was after the version you loaded at " + dbLus + ". Not updating to avoid overwriting data.");
+                    throw new EntityException("This record was updated by someone else at " + dbLus + " which was after the version you loaded at " + valueLus + ". Not updating to avoid overwriting data.");
             }
 
             // set lastUpdatedStamp

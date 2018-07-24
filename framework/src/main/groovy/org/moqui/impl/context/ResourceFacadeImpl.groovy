@@ -48,6 +48,7 @@ import javax.xml.transform.TransformerFactory
 import javax.xml.transform.URIResolver
 import javax.xml.transform.sax.SAXResult
 import javax.xml.transform.stream.StreamSource
+import java.lang.reflect.Method
 
 @CompileStatic
 class ResourceFacadeImpl implements ResourceFacade {
@@ -211,26 +212,7 @@ class ResourceFacadeImpl implements ResourceFacade {
 
     @Override ResourceReference getLocationReference(String location) {
         if (location == null) return null
-
-        // version ignored for this call, just strip it
-        int hashIdx = location.indexOf("#")
-        if (hashIdx > 0) location = location.substring(0, hashIdx)
-
-        ResourceReference cachedRr = resourceReferenceByLocation.get(location)
-        if (cachedRr != null) return cachedRr
-
-        String scheme = getLocationScheme(location)
-        Class rrClass = resourceReferenceClasses.get(scheme)
-        if (rrClass == null) throw new BaseArtifactException("Prefix (${scheme}) not supported for location [${location}]")
-
-        ResourceReference rr = (ResourceReference) rrClass.newInstance()
-        if (rr instanceof BaseResourceReference) {
-            ((BaseResourceReference) rr).init(location, ecfi)
-        } else {
-            rr.init(location)
-        }
-        resourceReferenceByLocation.put(location, rr)
-        return rr
+        return internalGetReference(getLocationScheme(location), location)
     }
     static String getLocationScheme(String location) {
         String scheme = "file"
@@ -242,6 +224,33 @@ class ResourceFacadeImpl implements ResourceFacade {
             if (!prefix.contains("/") && prefix.length() > 2) scheme = prefix
         }
         return scheme
+    }
+    @Override ResourceReference getUriReference(URI uri) {
+        if (uri == null) return null
+        // we care about 2 parts: scheme, path (use full scheme-specific part)
+        String scheme = uri.getScheme() ?: "file"
+        String ssPart = uri.getSchemeSpecificPart()
+        return internalGetReference(scheme, scheme + ":" + ssPart)
+    }
+    private ResourceReference internalGetReference(String scheme, String location) {
+        // version ignored for this call, just strip it
+        int hashIdx = location.indexOf("#")
+        if (hashIdx > 0) location = location.substring(0, hashIdx)
+
+        ResourceReference cachedRr = resourceReferenceByLocation.get(location)
+        if (cachedRr != null) return cachedRr
+
+        Class rrClass = resourceReferenceClasses.get(scheme)
+        if (rrClass == null) throw new BaseArtifactException("Prefix (${scheme}) not supported for location ${location}")
+
+        ResourceReference rr = (ResourceReference) rrClass.newInstance()
+        if (rr instanceof BaseResourceReference) {
+            ((BaseResourceReference) rr).init(location, ecfi)
+        } else {
+            rr.init(location)
+        }
+        resourceReferenceByLocation.put(location, rr)
+        return rr
     }
 
     @Override InputStream getLocationStream(String location) {
@@ -565,7 +574,7 @@ class ResourceFacadeImpl implements ResourceFacade {
     @Override String getContentType(String filename) { return ResourceReference.getContentType(filename) }
 
     @Override
-    void xslFoTransform(StreamSource xslFoSrc, StreamSource xsltSrc, OutputStream out, String contentType) {
+    Integer xslFoTransform(StreamSource xslFoSrc, StreamSource xsltSrc, OutputStream out, String contentType) {
         if (xslFoHandlerFactory == null) throw new BaseArtifactException("No XSL-FO Handler ToolFactory found (from resource-facade.@xsl-fo-handler-factory)")
 
         TransformerFactory factory = TransformerFactory.newInstance()
@@ -588,6 +597,14 @@ class ResourceFacadeImpl implements ResourceFacade {
         transThread.start()
         transThread.join()
         if (transformException != null) throw transformException
+
+        try {
+            Method pcMethod = xslFoHandlerFactory.class.getMethod("getPageCount", org.xml.sax.ContentHandler.class)
+            return pcMethod.invoke(xslFoHandlerFactory, contentHandler) as Integer
+        } catch (NoSuchMethodException e) {
+            if (logger.isDebugEnabled()) logger.debug("xsl-fo transform factory has no getPageCount method, returning null for page count", e)
+            return null
+        }
     }
 
     @CompileStatic

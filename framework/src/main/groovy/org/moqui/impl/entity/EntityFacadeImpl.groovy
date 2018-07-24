@@ -81,7 +81,7 @@ class EntityFacadeImpl implements EntityFacade {
     protected final String defaultGroupName
     protected final TimeZone databaseTimeZone
     protected final Locale databaseLocale
-    protected final Calendar databaseTzLcCalendar
+    protected final ThreadLocal<Calendar> databaseTzLcCalendar = new ThreadLocal<>()
     protected final String sequencedIdPrefix
     boolean queryStats = false
 
@@ -120,7 +120,6 @@ class EntityFacadeImpl implements EntityFacade {
             } catch (Exception e) { logger.warn("Error parsing database-locale: ${e.toString()}") }
         }
         databaseLocale = theLocale ?: Locale.getDefault()
-        databaseTzLcCalendar = Calendar.getInstance(databaseTimeZone, databaseLocale)
 
         // init entity meta-data
         entityDefinitionCache = ecfi.cacheFacade.getCache("entity.definition")
@@ -158,10 +157,21 @@ class EntityFacadeImpl implements EntityFacade {
         // the OLD approach using user's TimeZone/Locale, bad idea because user may change for same record, getting different value, etc
         // return efi.getEcfi().getExecutionContext().getUser().getCalendarForTzLcOnly()
 
+        // the safest approach but from profiling tests this is VERY slow
         // return Calendar.getInstance(databaseTimeZone, databaseLocale)
         // NOTE: this approach is faster but seems to cause errors with Derby (ERROR 22007: The string representation of a date/time value is out of range)
-        // Still causing problems?
-        return databaseTzLcCalendar
+        // return databaseTzLcCalendar // NOTE this field was a Calendar object, is now a ThreadLocal<Calendar>
+
+        // latest approach to avoid creating a Calendar object for each use, use a ThreadLocal field
+        Calendar dbCal = databaseTzLcCalendar.get()
+        if (dbCal == null) {
+            dbCal = Calendar.getInstance(databaseTimeZone, databaseLocale)
+            dbCal.clear()
+            databaseTzLcCalendar.set(dbCal)
+        } else {
+            dbCal.clear()
+        }
+        return dbCal
     }
 
     MNode getEntityFacadeNode() { return ecfi.getConfXmlRoot().first("entity-facade") }
@@ -234,14 +244,14 @@ class EntityFacadeImpl implements EntityFacade {
                 MNode dbNode = efi.getDatabaseNode(groupName)
                 inlineJdbc = dbNode.first("inline-jdbc")
             }
-            MNode xaProperties = inlineJdbc.first("xa-properties")
+            MNode xaProperties = inlineJdbc?.first("xa-properties")
             database = efi.getDatabaseNode(groupName)
 
             if (jndiJdbcNode != null) {
                 serverJndi = efi.getEntityFacadeNode().first("server-jndi")
                 if (serverJndi != null) serverJndi.setSystemExpandAttributes(true)
                 jndiName = jndiJdbcNode.attribute("jndi-name")
-            } else if (xaProperties) {
+            } else if (xaProperties != null) {
                 xaDsClass = inlineJdbc.attribute("xa-ds-class") ? inlineJdbc.attribute("xa-ds-class") : database.attribute("default-xa-ds-class")
 
                 xaProps = new Properties()
@@ -257,7 +267,7 @@ class EntityFacadeImpl implements EntityFacade {
                     if (propName.toLowerCase().contains("password")) continue
                     dsDetails.put(propName, xaProps.getProperty(propName))
                 }
-            } else {
+            } else if (inlineJdbc != null) {
                 inlineJdbc.setSystemExpandAttributes(true)
                 jdbcDriver = inlineJdbc.attribute("jdbc-driver") ? inlineJdbc.attribute("jdbc-driver") : database.attribute("default-jdbc-driver")
                 jdbcUri = inlineJdbc.attribute("jdbc-uri")
@@ -267,6 +277,8 @@ class EntityFacadeImpl implements EntityFacade {
 
                 dsDetails.put("uri", jdbcUri)
                 dsDetails.put("user", jdbcUsername)
+            } else {
+                throw new EntityException("Data source for group ${groupName} has no inline-jdbc or jndi-jdbc configuration")
             }
         }
     }

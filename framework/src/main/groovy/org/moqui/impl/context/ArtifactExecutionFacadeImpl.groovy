@@ -165,14 +165,14 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
         StringWriter sw = new StringWriter()
         sw.append("========= Hot Spots by Own Time =========\n")
         sw.append("[{time}:{timeMin}:{timeAvg}:{timeMax}][{count}] {type} {action} {actionDetail} {name}\n")
-        List<Map> ownHotSpotList = ArtifactExecutionInfoImpl.hotSpotByTime(artifactExecutionInfoHistory, true, "-time")
+        List<Map<String, Object>> ownHotSpotList = ArtifactExecutionInfoImpl.hotSpotByTime(artifactExecutionInfoHistory, true, "-time")
         ArtifactExecutionInfoImpl.printHotSpotList(sw, ownHotSpotList)
         logger.info(sw.toString())
 
         sw = new StringWriter()
         sw.append("========= Hot Spots by Total Time =========\n")
         sw.append("[{time}:{timeMin}:{timeAvg}:{timeMax}][{count}] {type} {action} {actionDetail} {name}\n")
-        List<Map> totalHotSpotList = ArtifactExecutionInfoImpl.hotSpotByTime(artifactExecutionInfoHistory, false, "-time")
+        List<Map<String, Object>> totalHotSpotList = ArtifactExecutionInfoImpl.hotSpotByTime(artifactExecutionInfoHistory, false, "-time")
         ArtifactExecutionInfoImpl.printHotSpotList(sw, totalHotSpotList)
         logger.info(sw.toString())
 

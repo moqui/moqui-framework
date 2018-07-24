@@ -127,12 +127,15 @@ class EntityDataFeed {
                 // only add value if a field in the document was changed
                 boolean fieldModified = false
                 for (String fieldName in entityInfo.fields) {
+                    // logger.warn("DataFeed ${entityInfo.dataDocumentId} check field ${fieldName} isUpdate ${isUpdate} isFieldModified ${ev.isFieldModified(fieldName)} value ${valueMap.get(fieldName)} oldValue ${oldValues?.get(fieldName)}")
                     if (ev.isFieldModified(fieldName)) { fieldModified = true; break }
 
                     if (!valueMap.containsKey(fieldName)) continue
 
                     Object value = valueMap.get(fieldName)
                     Object oldValue = oldValues?.get(fieldName)
+
+                    // logger.warn("DataFeed ${entityInfo.dataDocumentId} check field ${fieldName} isUpdate ${isUpdate} value ${value} oldValue ${oldValue} continue ${(isUpdate && value == oldValue) || (!isUpdate && value == null)}")
 
                     // if isUpdate but old value == new value, then it hasn't been updated, so skip it
                     if (isUpdate && value == oldValue) continue

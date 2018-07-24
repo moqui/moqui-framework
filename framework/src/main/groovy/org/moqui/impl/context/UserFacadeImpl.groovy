@@ -15,6 +15,7 @@ package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
 import org.moqui.context.ArtifactExecutionInfo
+import org.moqui.context.AuthenticationRequiredException
 import org.moqui.entity.EntityCondition
 import org.moqui.impl.context.ArtifactExecutionInfoImpl.ArtifactAuthzCheck
 import org.moqui.impl.entity.EntityValueBase
@@ -126,13 +127,20 @@ class UserFacadeImpl implements UserFacade {
             } else {
                 logger.warn("For HTTP Basic Authorization got bad credentials string. Base64 encoded is [${basicAuthEncoded}] and after decoding is [${basicAuthAsString}].")
             }
-        } else if (request.getHeader("api_key") || request.getHeader("login_key")) {
+        }
+        if (currentInfo.username == null && (request.getHeader("api_key") || request.getHeader("login_key"))) {
             String loginKey = request.getHeader("api_key") ?: request.getHeader("login_key")
-            this.loginUserKey(loginKey.trim())
-        } else if (secureParameters.api_key || secureParameters.login_key) {
+            loginKey = loginKey.trim()
+            if (loginKey != null && !loginKey.isEmpty() && !"null".equals(loginKey) && !"undefined".equals(loginKey))
+                this.loginUserKey(loginKey)
+        }
+        if (currentInfo.username == null && (secureParameters.api_key || secureParameters.login_key)) {
             String loginKey = secureParameters.api_key ?: secureParameters.login_key
-            this.loginUserKey(loginKey.trim())
-        } else if (secureParameters.authUsername) {
+            loginKey = loginKey.trim()
+            if (loginKey != null && !loginKey.isEmpty() && !"null".equals(loginKey) && !"undefined".equals(loginKey))
+                this.loginUserKey(loginKey)
+        }
+        if (currentInfo.username == null && secureParameters.authUsername) {
             // try the Moqui-specific parameters for instant login
             // if we have credentials coming in anywhere other than URL parameters, try logging in
             String authUsername = secureParameters.authUsername
@@ -175,7 +183,7 @@ class UserFacadeImpl implements UserFacade {
                     Map cvResult = eci.service.sync().name("create", "moqui.server.Visitor")
                             .parameter("createdDate", getNowTimestamp()).disableAuthz().call()
                     cookieVisitorId = (String) cvResult?.visitorId
-                    logger.info("Created new Visitor with ID [${cookieVisitorId}] in session [${session.id}]")
+                    if (logger.traceEnabled) logger.trace("Created new Visitor with ID [${cookieVisitorId}] in session [${session.id}]")
                 }
                 if (cookieVisitorId) {
                     // whether it existed or not, add it again to keep it fresh; stale cookies get thrown away
@@ -220,7 +228,7 @@ class UserFacadeImpl implements UserFacade {
                 if (visitResult) {
                     session.setAttribute("moqui.visitId", visitResult.visitId)
                     this.visitId = visitResult.visitId
-                    logger.info("Created new Visit with ID [${this.visitId}] in session [${session.id}]")
+                    if (logger.traceEnabled) logger.trace("Created new Visit with ID [${this.visitId}] in session [${session.id}]")
                 }
             }
         }
@@ -252,13 +260,21 @@ class UserFacadeImpl implements UserFacade {
             } else {
                 logger.warn("For HTTP Basic Authorization got bad credentials string. Base64 encoded is [${basicAuthEncoded}] and after decoding is [${basicAuthAsString}].")
             }
-        } else if (headers.api_key || headers.login_key) {
+        }
+        if (currentInfo.username == null && (headers.api_key || headers.login_key)) {
             String loginKey = headers.api_key ? headers.api_key.get(0) : (headers.login_key ? headers.login_key.get(0) : null)
-            if (loginKey) this.loginUserKey(loginKey.trim())
-        } else if (parameters.api_key || parameters.login_key) {
+            loginKey = loginKey.trim()
+            if (loginKey != null && !loginKey.isEmpty() && !"null".equals(loginKey) && !"undefined".equals(loginKey))
+                this.loginUserKey(loginKey)
+        }
+        if (currentInfo.username == null && (parameters.api_key || parameters.login_key)) {
             String loginKey = parameters.api_key ? parameters.api_key.get(0) : (parameters.login_key ? parameters.login_key.get(0) : null)
-            if (loginKey) this.loginUserKey(loginKey.trim())
-        } else if (parameters.authUsername) {
+            loginKey = loginKey.trim()
+            logger.warn("loginKey2 ${loginKey}")
+            if (loginKey != null && !loginKey.isEmpty() && !"null".equals(loginKey) && !"undefined".equals(loginKey))
+                this.loginUserKey(loginKey)
+        }
+        if (currentInfo.username == null && parameters.authUsername) {
             // try the Moqui-specific parameters for instant login
             // if we have credentials coming in anywhere other than URL parameters, try logging in
             String authUsername = parameters.authUsername.get(0)
@@ -343,6 +359,37 @@ class UserFacadeImpl implements UserFacade {
             if (ugpList != null && ugpList.size() > 0) up = ugpList.get(0)
         }
         return up?.preferenceValue
+    }
+
+    @Override Map<String, String> getPreferences(String keyRegexp) {
+        String userId = getUserId()
+        boolean hasKeyFilter = keyRegexp != null && !keyRegexp.isEmpty()
+
+        Map<String, String> prefMap = new HashMap<>()
+        // start with UserGroupPreference, put UserPreference values over top to override
+        EntityList ugpList = eci.getEntity().find("moqui.security.UserGroupPreference")
+                .condition("userGroupId", EntityCondition.IN, getUserGroupIdSet(userId)).disableAuthz().list()
+        int ugpListSize = ugpList.size()
+        for (int i = 0; i < ugpListSize; i++) {
+            EntityValue ugp = (EntityValue) ugpList.get(i)
+            String prefKey = (String) ugp.getNoCheckSimple("preferenceKey")
+            if (hasKeyFilter && !prefKey.matches(keyRegexp)) continue
+            prefMap.put(prefKey, (String) ugp.getNoCheckSimple("preferenceValue"))
+        }
+
+        if (userId != null) {
+            EntityList uprefList = eci.getEntity().find("moqui.security.UserPreference")
+                    .condition("userId", userId).disableAuthz().list()
+            int uprefListSize = uprefList.size()
+            for (int i = 0; i < uprefListSize; i++) {
+                EntityValue upref = (EntityValue) uprefList.get(i)
+                String prefKey = (String) upref.getNoCheckSimple("preferenceKey")
+                if (hasKeyFilter && !prefKey.matches(keyRegexp)) continue
+                prefMap.put(prefKey, (String) upref.getNoCheckSimple("preferenceValue"))
+            }
+        }
+
+        return prefMap
     }
 
     @Override void setPreference(String preferenceKey, String preferenceValue) {
@@ -610,7 +657,7 @@ class UserFacadeImpl implements UserFacade {
     }
     @Override String getLoginKey() {
         String userId = getUserId()
-        if (!userId) throw new IllegalStateException("No active user, cannot get login key")
+        if (!userId) throw new AuthenticationRequiredException("No active user, cannot get login key")
 
         // generate login key
         String loginKey = StringUtilities.getRandomString(40)
