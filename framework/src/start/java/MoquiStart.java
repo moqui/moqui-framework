@@ -157,6 +157,7 @@ public class MoquiStart {
 
         initSystemProperties(moquiStartLoader, false, argMap);
         String runtimePath = System.getProperty("moqui.runtime");
+        String logDir = System.getProperty("moqui.log.directory");
 
         try {
             int port = 8080;
@@ -166,7 +167,14 @@ public class MoquiStart {
             String threadsStr = argMap.get("threads");
             if (threadsStr != null && threadsStr.length() > 0) threads = Integer.parseInt(threadsStr);
 
+            /*handle missing value of logging directory*/
+            if (logDir == null) {
+                logDir = "log";
+                System.setProperty("moqui.log.directory", logDir);
+            }
+
             System.out.println("Running Jetty server on port " + port + " max threads " + threads + " with args [" + argMap + "]");
+            System.out.println("Moqui Logging Directory: " + logDir);
 
             Class<?> serverClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.Server");
             Class<?> handlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.Handler");
