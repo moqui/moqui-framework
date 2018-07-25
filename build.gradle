@@ -31,6 +31,7 @@ def moquiRuntime = 'runtime'
 
 def moquiConfDev = 'conf/MoquiDevConf.xml'
 def moquiConfProduction = 'conf/MoquiProductionConf.xml'
+def moquiDefaulLogDirectory = 'def_log'
 
 def allCleanTasks = getTasksByName('clean', true)
 def allBuildTasks = getTasksByName('build', true)
@@ -54,6 +55,18 @@ def getDefaultPropertyKeys() {
 allTestTasks.each {
     it.systemProperties << System.properties.subMap(getDefaultPropertyKeys())
 }
+
+// =================================
+def custMoquiConfDev = System.properties['moqui.conf.dev']
+def custMoquiConfProduction = System.properties['moqui.conf.production']
+
+logger.lifecycle("Custom command line arguments:")
+logger.lifecycle("  moqui.conf.production: ${custMoquiConfProduction}")
+logger.lifecycle("  moqui.conf.dev: ${custMoquiConfDev}")
+
+if (custMoquiConfProduction) { moquiConfProduction = custMoquiConfProduction }
+if (custMoquiConfDev) { moquiConfDev = custMoquiConfDev }
+
 // ========== clean tasks ==========
 
 task clean(type: Delete) { delete file(warName); delete file(execTempDir) }
@@ -162,14 +175,14 @@ task runNewPort(type: JavaExec) {
 task run(type: JavaExec) {
     dependsOn getRuntime, allBuildTasks, cleanTempDir
     workingDir = '.'; jvmArgs = ['-server', '-XX:-OmitStackTraceInFastThrow']
-    systemProperties = ['moqui.conf':moquiConfDev, 'moqui.runtime':moquiRuntime, 'moqui.log.directory':'ekon_log']
+    systemProperties = ['moqui.conf':moquiConfDev, 'moqui.runtime':moquiRuntime, 'moqui.log.directory':moquiDefaulLogDirectory]
     // NOTE: this is a hack, using -jar instead of a class name, and then the first argument is the name of the jar file
     main = '-jar'; args = [warName]
 }
 task runProduction(type: JavaExec) {
     dependsOn getRuntime, allBuildTasks, cleanTempDir
     workingDir = '.'; jvmArgs = ['-server', '-Xms1024M']
-    systemProperties = ['moqui.conf':moquiConfProduction, 'moqui.runtime':moquiRuntime]
+    systemProperties = ['moqui.conf':moquiConfProduction, 'moqui.runtime':moquiRuntime, 'moqui.log.directory':moquiDefaulLogDirectory]
     main = '-jar'; args = [warName]
 }
 
@@ -177,7 +190,7 @@ task load(type: JavaExec) {
     description "Run Moqui to load data; to specify data types use something like: gradle load -Ptypes=seed,seed-initial,install"
     dependsOn getRuntime, allBuildTasks
     workingDir = '.'; jvmArgs = ['-server']
-    systemProperties = ['moqui.conf':moquiConfDev, 'moqui.runtime':moquiRuntime]
+    systemProperties = ['moqui.conf':moquiConfDev, 'moqui.runtime':moquiRuntime, 'moqui.log.directory':moquiDefaulLogDirectory]
     main = '-jar'
     def argList = [warName, 'load']
     if (project.properties.containsKey('types')) argList.add("types=${types}")
@@ -186,7 +199,7 @@ task load(type: JavaExec) {
 task loadProduction(type: JavaExec) {
     dependsOn getRuntime, allBuildTasks
     workingDir = '.'; jvmArgs = ['-server']
-    systemProperties = ['moqui.conf':moquiConfProduction, 'moqui.runtime':moquiRuntime]
+    systemProperties = ['moqui.conf':moquiConfProduction, 'moqui.runtime':moquiRuntime, 'moqui.log.directory':moquiDefaulLogDirectory]
     main = '-jar'
     def argList = [warName, 'load']
     if (project.properties.containsKey('types')) argList.add("types=${types}")
