@@ -49,9 +49,10 @@ public class JavaServiceRunner implements ServiceRunner {
         ExecutionContextImpl ec = ecfi.getEci()
         ContextStack cs = ec.contextStack
         Map<String, Object> result = (Map<String, Object>) null
+
+        // push the entire context to isolate the context for the service call
+        cs.pushContext()
         try {
-            // push the entire context to isolate the context for the service call
-            cs.pushContext()
             // we have an empty context so add the ec
             cs.put("ec", ec)
             // now add the parameters to this service call; copy instead of pushing, faster with newer ContextStack
