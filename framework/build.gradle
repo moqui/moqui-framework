@@ -104,12 +104,12 @@ dependencies {
     compile 'commons-validator:commons-validator:1.6' // Apache 2.0
 
     // cron-utils (NOTE: not updating to 6.0.0 as adds dependency on Guava and threetenbp, evidently for pre Java 8 support but huge libs not worth it)
-    compile module('com.cronutils:cron-utils:5.0.5') // Apache 2.0
+    compile module('com.cronutils:cron-utils:7.0.2') // Apache 2.0
 
     // Flexmark (markdown)
-    compile 'com.vladsch.flexmark:flexmark:0.34.10'
-    compile 'com.vladsch.flexmark:flexmark-ext-tables:0.34.10'
-    compile 'com.vladsch.flexmark:flexmark-ext-toc:0.34.10'
+    compile 'com.vladsch.flexmark:flexmark:0.34.12'
+    compile 'com.vladsch.flexmark:flexmark-ext-tables:0.34.12'
+    compile 'com.vladsch.flexmark:flexmark-ext-toc:0.34.12'
 
     // Freemarker
     compile 'org.freemarker:freemarker:2.3.28' // Apache 2.0
