@@ -131,8 +131,8 @@ class ScheduledJobRunner implements Runnable {
                     // calculate time it should have run last
                     String cronExpression = (String) serviceJob.getNoCheckSimple("cronExpression")
                     ExecutionTime executionTime = getExecutionTime(cronExpression)
-                    ZonedDateTime lastSchedule = executionTime.lastExecution(now)
-                    if (lastRunDt != null) {
+                    ZonedDateTime lastSchedule = executionTime.lastExecution(now).get()
+                    if (lastSchedule != null && lastRunDt != null) {
                         // if the time it should have run last is before the time it ran last don't run it
                         if (lastSchedule.isBefore(lastRunDt)) continue
                     }
