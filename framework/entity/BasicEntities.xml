@@ -613,15 +613,19 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="emailTemplateId" type="id" is-pk="true"/>
         <field name="fileName" type="text-medium" is-pk="true"/>
         <field name="attachmentLocation" type="text-medium"/>
-        <field name="screenRenderMode" type="text-short">
-            <description>Used to determine the MIME/content type, and which screen render template to use.
-                Can be used to generate XSL:FO that is transformed to a PDF and attached to the email with
-                screenRenderMode=xsl-fo.
-                If empty the content at attachmentLocation will be sent over without rendering and its MIME type will
-                be based on its extension.
-            </description>
-        </field>
-        <field name="attachmentCondition" type="text-medium"/>
+        <field name="screenRenderMode" type="text-short"><description>
+            Used to determine the MIME/content type, and which screen render template to use. Can be used to generate
+            XSL:FO that is transformed to a PDF and attached to the email with screenRenderMode=xsl-fo.
+
+            If empty the content at attachmentLocation will be sent over without rendering and its MIME type will be based on its extension.
+        </description></field>
+        <field name="forEachIn" type="text-medium"><description>
+            A Groovy expression that evaluates to a Collection in the context to iterate over and add an attachment for each.
+            If entries are Map objects puts all entries in context for each (pushed/isolated context), otherwise puts Collection entry in 'forEachEntry' field.
+            Only applicable if screenRenderMode is specified so that there is a render of the attachment.
+        </description></field>
+        <field name="attachmentCondition" type="text-medium"><description>Optional Groovy expression evaluated as a boolean,
+            if specified and evaluates to false attachment will be skipped.</description></field>
         <relationship type="one" related="moqui.basic.email.EmailTemplate"/>
     </entity>
 
