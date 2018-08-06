@@ -104,6 +104,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
     EntityCondition makeCondition(List<EntityCondition> conditionList) {
         return this.makeCondition(conditionList, JoinOperator.AND)
     }
+
     @Override
     EntityCondition makeCondition(List<EntityCondition> conditionList, JoinOperator operator) {
         if (conditionList == null || conditionList.size() == 0) return null
@@ -135,6 +136,16 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
         } else {
             return new ListCondition(newList, operator)
         }
+    }
+
+    @Override
+    EntityCondition makeCondition(EntityCondition ... conditions) {
+        return makeCondition(Arrays.asList(conditions))
+    }
+
+    @Override
+    EntityCondition makeCondition(JoinOperator operator, EntityCondition ... conditions) {
+        return makeCondition(Arrays.asList(conditions), operator)
     }
 
     @Override
@@ -176,6 +187,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
     EntityCondition makeCondition(Map<String, Object> fieldMap, ComparisonOperator comparisonOperator, JoinOperator joinOperator) {
         return makeCondition(fieldMap, comparisonOperator, joinOperator, null, null, false)
     }
+
     EntityConditionImplBase makeCondition(Map<String, Object> fieldMap, ComparisonOperator comparisonOperator,
             JoinOperator joinOperator, EntityDefinition findEd, Map<String, ArrayList<MNode>> memberFieldAliases, boolean excludeNulls) {
         if (fieldMap == null || fieldMap.size() == 0) return (EntityConditionImplBase) null
