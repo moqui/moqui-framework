@@ -94,7 +94,7 @@ dependencies {
     // Apache Commons
     compile 'org.apache.commons:commons-csv:1.5' // Apache 2.0
     compile 'org.apache.commons:commons-email:1.5' // Apache 2.0
-    compile 'org.apache.commons:commons-lang3:3.7' // Apache 2.0; used by cron-utils
+    compile 'org.apache.commons:commons-lang3:3.8' // Apache 2.0; used by cron-utils
     compile 'commons-beanutils:commons-beanutils:1.9.3' // Apache 2.0
     compile 'commons-collections:commons-collections:3.2.2' // Apache 2.0
     compile 'commons-digester:commons-digester:2.1' // Apache 2.0
