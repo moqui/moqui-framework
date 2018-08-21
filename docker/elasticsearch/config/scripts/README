@@ -1,2 +1,0 @@
-Placeholder so directory exists, otherwise elasticsearch throws IllegalStateException: Unable to access 'path.scripts' (/usr/share/elasticsearch/config/scripts)
-

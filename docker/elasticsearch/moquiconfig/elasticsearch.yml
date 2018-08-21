@@ -75,7 +75,6 @@ transport.tcp.port: 9300
 # CORS settings for local testing only
 # http.cors.enabled: true
 # http.cors.allow-origin: '*'
-http.enabled: true
 
 # Set a port for HTTP (9200 is the default, or with no port specified looks at subsequent ports to find one open):
 http.port: 9200
@@ -119,13 +118,3 @@ http.port: 9200
 # ---------------------------------- Script ------------------------------------
 
 # see: https://www.elastic.co/guide/en/elasticsearch/reference/current/modules-scripting-security.html
-# allow all, don't specify:
-script.allowed_types: inline
-script.allowed_contexts: search, aggs
-
-script.engine.groovy.inline.search: true
-script.engine.groovy.inline.aggs: true
-
-# moqui-elasticsearch now uses bulk indexing for everything, so use a bigger queue
-# default is 50 for bulk queue, default is 200 for index queue
-thread_pool.bulk.queue_size: 200
