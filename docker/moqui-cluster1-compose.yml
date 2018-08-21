@@ -1,11 +1,14 @@
+# NOTE: ElasticSearch uses odd user and directory setup for externally mapped data, etc directories, see:
+# https://www.elastic.co/guide/en/elasticsearch/reference/current/docker.html
+
+# Make sure vm.max_map_count=262144 is set in /etc/sysctl.conf on host (on live system run 'sudo sysctl -w vm.max_map_count=262144')
+
 # A Docker Compose application with 2 moqui instances, mysql, elasticsearch, kibana, and virtual hosting through
 # nginx-proxy supporting multiple moqui instances on different hosts.
 
 # The 'moqui' image should be prepared with the MySQL JDBC jar and the moqui-hazelcast and moqui-elasticsearch components.
 
 # This does virtual hosting instead of load balancing so that each moqui instance can be accessed consistently (moqui1.local, moqui2.local).
-
-# Make sure vm.max_map_count=262144 is set in /etc/sysctl.conf on host (on live system run 'sudo sysctl -w vm.max_map_count=262144')
 
 # Run with something like this for detached mode:
 # $ docker-compose -f moqui-cluster1-compose.yml -p moqui up -d
@@ -16,7 +19,7 @@
 # Test locally by adding the virtual host to /etc/hosts or with something like:
 # $ curl -H "Host: moqui1.local" localhost/Login
 
-version: "2"
+version: "3"
 services:
   nginx-proxy:
     # For documentation on SSL and other settings see:
@@ -139,7 +142,8 @@ services:
      - MYSQL_PASSWORD=moqui
 
   elasticsearch:
-    image: elasticsearch:5.6.10
+    # very important: use the '-oss' version otherwise x-pack is included and because of licensing, etc moqui instances can't join the cluster
+    image: docker.elastic.co/elasticsearch/elasticsearch-oss:6.3.2
     container_name: elasticsearch
     # command: elasticsearch
     restart: unless-stopped
@@ -149,16 +153,16 @@ services:
      - 127.0.0.1:9300:9300
     volumes:
      # edit these as needed to map configuration and data storage
-     - ./elasticsearch/config:/usr/share/elasticsearch/config
+     - ./elasticsearch/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
      - ./elasticsearch/data:/usr/share/elasticsearch/data
-     - ./elasticsearch/logs:/usr/share/elasticsearch/logs
-     # default env vars: node.name:${HOSTNAME} network.host:${ES_NETWORK_HOST}
+     # - ./elasticsearch/logs:/usr/share/elasticsearch/logs
+    environment:
+     - "ES_JAVA_OPTS=-Xms1024m -Xmx1024m"
 
   kibana:
     # using the docker hub image which does not include X-Pack (causes issues because embedded ES does not including X-Pack)
     # the kibana image on docker hub is deprecated and slated to be removed, then will need an alternative without X-Pack
-    image: kibana:5.6.10
-    # image: docker.elastic.co/kibana/kibana:5.6.10
+    image: docker.elastic.co/kibana/kibana:6.3.2
     container_name: kibana
     restart: unless-stopped
     ports:
