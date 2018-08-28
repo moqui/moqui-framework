@@ -301,7 +301,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="internalIdType" type="text-short"/>
         <field name="internalAppCode" type="text-medium"><description>Application code (EDI: in GS02/03; OAGIS: in
             ApplicationArea.Sender/Receiver elements, split among sub-elements)</description></field>
-        <field name="remoteId" type="text-short"><description>Sender (outgoing) or receiver (incoming) ID (EDI: in
+        <field name="remoteId" type="text-short"><description>Sender (incoming) or receiver (outgoing) ID (EDI: in
             ISA06/08; OAGIS in ApplicationArea.Sender/Receiver.ID)</description></field>
         <field name="remoteIdType" type="text-short"/>
         <field name="remoteAppCode" type="text-medium"><description>Application code (EDI: in GS02/03; OAGIS: in
