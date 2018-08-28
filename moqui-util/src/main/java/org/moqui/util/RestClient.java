@@ -49,7 +49,7 @@ public class RestClient {
 
     static final ExecutorService threadPool = Executors.newCachedThreadPool();
 
-    private URI uri = null;
+    private String uriString = null;
     private Method method = Method.GET;
     private String contentType = "application/json";
     private Charset charset = StandardCharsets.UTF_8;
@@ -62,15 +62,12 @@ public class RestClient {
     public RestClient() { }
 
     /** Full URL String including protocol, host, path, parameters, etc */
-    public RestClient uri(String location) throws URISyntaxException {
-        uri = new URI(location);
-        return this;
-    }
-
+    public RestClient uri(String location) { uriString = location; return this; }
     /** URL object including protocol, host, path, parameters, etc */
-    public RestClient uri(URI uri) { this.uri = uri; return this; }
+    public RestClient uri(URI uri) { this.uriString = uri.toASCIIString(); return this; }
     public UriBuilder uri() { return new UriBuilder(this); }
-    public URI getUri() { return uri; }
+    public URI getUri() { return URI.create(uriString); }
+    public String getUriString() { return uriString; }
 
     /** Sets the HTTP request method, defaults to 'GET'; must be in the METHODS array */
     public RestClient method(String method) {
@@ -164,7 +161,7 @@ public class RestClient {
 
     /** Do the HTTP request and get the response */
     public RestResponse call() {
-        if (uri == null) throw new IllegalStateException("No URI set in RestClient");
+        if (uriString == null || uriString.isEmpty()) throw new IllegalStateException("No URI set in RestClient");
 
         ContentResponse response = null;
 
@@ -175,7 +172,7 @@ public class RestClient {
         try {
             httpClient.start();
 
-            final Request request = httpClient.newRequest(uri);
+            final Request request = httpClient.newRequest(uriString);
             request.method(method.name());
             // set charset on request?
 
@@ -255,8 +252,8 @@ public class RestClient {
          * handling or skip it to handle manually or allow errors */
         public RestResponse checkError() {
             if (statusCode < 200 || statusCode >= 300) {
-                logger.info("Error " + String.valueOf(statusCode) + " (" + reasonPhrase + ") in response to " + rci.method + " to " + rci.uri.toASCIIString() + ", response text:\n" + text());
-                throw new HttpResponseException("Error " + String.valueOf(statusCode) + " (" + reasonPhrase + ") in response to " + rci.method + " to " + rci.uri.toASCIIString(), response);
+                logger.info("Error " + String.valueOf(statusCode) + " (" + reasonPhrase + ") in response to " + rci.method + " to " + rci.uriString + ", response text:\n" + text());
+                throw new HttpResponseException("Error " + String.valueOf(statusCode) + " (" + reasonPhrase + ") in response to " + rci.method + " to " + rci.uriString, response);
             }
 
             return this;
@@ -285,11 +282,11 @@ public class RestClient {
             try {
                 return new JsonSlurper().parseText(text());
             } catch (Throwable t) {
-                throw new BaseException("Error parsing JSON response from request to " + rci.uri.toASCIIString(), t);
+                throw new BaseException("Error parsing JSON response from request to " + rci.uriString, t);
             }
         }
         /** Parse the response as XML and return a MNode */
-        public MNode xmlNode() { return MNode.parseText(rci.uri.toASCIIString(), text()); }
+        public MNode xmlNode() { return MNode.parseText(rci.uriString, text()); }
 
         /** Get bytes from a binary response */
         public byte[] bytes() { return bytes; }
@@ -368,6 +365,13 @@ public class RestClient {
         public RestClient build() throws URISyntaxException, UnsupportedEncodingException {
             if (host == null || host.isEmpty())
                 throw new IllegalArgumentException("No host specified, call the host() method before build()");
+
+            StringBuilder uriSb = new StringBuilder();
+            uriSb.append(protocol).append("://").append(host).append(':').append(port);
+
+            if (path.length() == 0) path.append("/");
+            uriSb.append(path);
+
             StringBuilder query = null;
             if (parameters != null && parameters.size() > 0) {
                 query = new StringBuilder();
@@ -375,12 +379,10 @@ public class RestClient {
                     if (query.length() > 0) query.append("&");
                     query.append(URLEncoder.encode(parm.getKey(), "UTF-8")).append("=").append(URLEncoder.encode(parm.getValue(), "UTF-8"));
                 }
-
             }
+            if (query != null && query.length() > 0) uriSb.append('?').append(query);
 
-            if (path.length() == 0) path.append("/");
-            URI newUri = new URI(protocol, null, host, port, path.toString(), query != null ? query.toString() : null, null);
-            return rci.uri(newUri);
+            return rci.uri(uriSb.toString());
         }
     }
 
