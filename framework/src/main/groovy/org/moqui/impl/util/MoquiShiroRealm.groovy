@@ -162,25 +162,27 @@ class MoquiShiroRealm implements Realm, Authorizer {
                 Timestamp fromDate = eci.getUser().getNowTimestamp()
                 // look for login history in the last minute, if any found don't create UserLoginHistory
                 Timestamp recentDate = new Timestamp(fromDate.getTime() - 60000)
-                long recentUlh = eci.entity.find("moqui.security.UserLoginHistory").condition("userId", userId)
-                        .condition("fromDate", EntityCondition.GREATER_THAN, recentDate).disableAuthz().count()
-                if (recentUlh == 0) {
-                    Map<String, Object> ulhContext = [userId:userId, fromDate:fromDate,
-                            visitId:eci.user.visitId, successfulLogin:(successful?"Y":"N")] as Map<String, Object>
-                    if (!successful && loginNode.attribute("history-incorrect-password") != "false") ulhContext.passwordUsed = passwordUsed
-                    ExecutionContextFactoryImpl ecfi = eci.ecfi
-                    eci.runInWorkerThread({
-                        try {
+
+                Map<String, Object> ulhContext = [userId:userId, fromDate:fromDate,
+                        visitId:eci.user.visitId, successfulLogin:(successful?"Y":"N")] as Map<String, Object>
+                if (!successful && loginNode.attribute("history-incorrect-password") != "false") ulhContext.passwordUsed = passwordUsed
+
+                ExecutionContextFactoryImpl ecfi = eci.ecfi
+                eci.runInWorkerThread({
+                    try {
+                        long recentUlh = eci.entity.find("moqui.security.UserLoginHistory").condition("userId", userId)
+                                .condition("fromDate", EntityCondition.GREATER_THAN, recentDate).disableAuthz().count()
+                        if (recentUlh == 0) {
                             ecfi.serviceFacade.sync().name("create", "moqui.security.UserLoginHistory")
                                     .parameters(ulhContext).disableAuthz().call()
-                        } catch (EntityException ee) {
-                            // this blows up sometimes on MySQL, may in other cases, and is only so important so log a warning but don't rethrow
-                            logger.warn("UserLoginHistory create failed: ${ee.toString()}")
+                        } else {
+                            if (logger.isDebugEnabled()) logger.debug("Not creating UserLoginHistory, found existing record for userId ${userId} and more recent than ${recentDate}")
                         }
-                    })
-                } else {
-                    if (logger.isDebugEnabled()) logger.debug("Not creating UserLoginHistory, found existing record for userId ${userId} and more recent than ${recentDate}")
-                }
+                    } catch (Exception ee) {
+                        // this blows up sometimes on MySQL, may in other cases, and is only so important so log a warning but don't rethrow
+                        logger.warn("UserLoginHistory create failed: ${ee.toString()}")
+                    }
+                })
             }
         }
     }
@@ -191,6 +193,7 @@ class MoquiShiroRealm implements Realm, Authorizer {
         String username = token.principal as String
         String userId = null
         boolean successful = false
+        boolean isForceLogin = token instanceof ForceLoginToken
 
         SaltedAuthenticationInfo info = null
         try {
@@ -201,7 +204,7 @@ class MoquiShiroRealm implements Realm, Authorizer {
             info = new SimpleAuthenticationInfo(username, newUserAccount.currentPassword,
                     newUserAccount.passwordSalt ? new SimpleByteSource((String) newUserAccount.passwordSalt) : null,
                     realmName)
-            if (!(token instanceof ForceLoginToken)) {
+            if (!isForceLogin) {
                 // check the password (credentials for this case)
                 CredentialsMatcher cm = ecfi.getCredentialsMatcher((String) newUserAccount.passwordHashType, "Y".equals(newUserAccount.passwordBase64))
                 if (!cm.doCredentialsMatch(token, info)) {
@@ -217,7 +220,12 @@ class MoquiShiroRealm implements Realm, Authorizer {
             // at this point the user is successfully authenticated
             successful = true
         } finally {
-            loginAfterAlways(eci, userId, token.credentials as String, successful)
+            boolean saveHistory = true
+            if (isForceLogin) {
+                ForceLoginToken flt = (ForceLoginToken) token
+                saveHistory = flt.saveHistory
+            }
+            if (saveHistory) loginAfterAlways(eci, userId, token.credentials as String, successful)
         }
 
         return info
@@ -236,8 +244,13 @@ class MoquiShiroRealm implements Realm, Authorizer {
     }
 
     static class ForceLoginToken extends UsernamePasswordToken {
+        boolean saveHistory = true
         ForceLoginToken(final String username, final boolean rememberMe) {
             super (username, 'force', rememberMe)
+        }
+        ForceLoginToken(final String username, final boolean rememberMe, final boolean saveHistory) {
+            super (username, 'force', rememberMe)
+            this.saveHistory = saveHistory
         }
     }
 

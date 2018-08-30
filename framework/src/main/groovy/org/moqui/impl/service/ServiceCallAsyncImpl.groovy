@@ -126,7 +126,7 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
             try {
                 threadEci = getEcfi().getEci()
                 if (threadUsername != null && threadUsername.length() > 0)
-                    threadEci.userFacade.internalLoginUser(threadUsername)
+                    threadEci.userFacade.internalLoginUser(threadUsername, false)
 
                 // NOTE: authz is disabled because authz is checked before queueing
                 Map<String, Object> result = threadEci.serviceFacade.sync().name(serviceName).parameters(parameters).disableAuthz().call()
