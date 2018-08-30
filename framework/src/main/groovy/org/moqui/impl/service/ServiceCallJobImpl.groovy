@@ -198,7 +198,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
                 ExecutionContextFactoryImpl ecfi = getEcfi()
                 threadEci = ecfi.getEci()
                 if (threadUsername != null && threadUsername.length() > 0)
-                    threadEci.userFacade.internalLoginUser(threadUsername)
+                    threadEci.userFacade.internalLoginUser(threadUsername, false)
 
                 // set hostAddress, hostName, runThread, startTime on ServiceJobRun
                 InetAddress localHost = ecfi.getLocalhostAddress()
