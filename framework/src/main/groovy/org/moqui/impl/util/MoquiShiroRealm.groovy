@@ -123,17 +123,13 @@ class MoquiShiroRealm implements Realm, Authorizer {
         // no more auth failures? record the various account state updates, hasLoggedOut=N
         if (newUserAccount.getNoCheckSimple("successiveFailedLogins") || "Y".equals(newUserAccount.getNoCheckSimple("disabled")) ||
                 newUserAccount.getNoCheckSimple("disabledDateTime") != null || "Y".equals(newUserAccount.getNoCheckSimple("hasLoggedOut"))) {
-            boolean enableAuthz = !eci.artifactExecutionFacade.disableAuthz()
             try {
-                EntityValue nuaClone = newUserAccount.cloneValue()
-                nuaClone.set("successiveFailedLogins", 0)
-                nuaClone.set("disabled", "N")
-                nuaClone.set("disabledDateTime", null)
-                nuaClone.set("hasLoggedOut", "N")
-                nuaClone.update()
+                eci.service.sync().name("update", "moqui.security.UserAccount")
+                        .parameters([userId:newUserAccount.userId, successiveFailedLogins:0, disabled:"N", disabledDateTime:null, hasLoggedOut:"N"])
+                        .disableAuthz().call()
             } catch (Exception e) {
                 logger.warn("Error resetting UserAccount login status", e)
-            } finally { if (enableAuthz) eci.artifactExecutionFacade.enableAuthz() }
+            }
         }
 
         // update visit if no user in visit yet
