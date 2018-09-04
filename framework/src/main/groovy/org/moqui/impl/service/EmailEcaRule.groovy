@@ -220,10 +220,25 @@ class EmailEcaRule {
                 } else if (contentTypeSpec.startsWith('image/png')) {
                     doRunExtraction = true
                     newFileExtension = 'png'
+                } else if (contentTypeSpec.startsWith('application/vnd.ms-excel')) {
+                    doRunExtraction = true
+                    newFileExtension = 'xls'
+                } else if (contentTypeSpec.startsWith('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
+                    doRunExtraction = true
+                    newFileExtension = 'xlsx'
+                } else if (contentTypeSpec.startsWith('application/msword')) {
+                    doRunExtraction = true
+                    newFileExtension = 'doc'
+                } else if (contentTypeSpec.startsWith('application/vnd.openxmlformats-officedocument.wordprocessingml.document')) {
+                    doRunExtraction = true
+                    newFileExtension = 'docx'
                 }
 
-                //displayName = MimeUtility.decodeText(part.getFileName()).replace(' ', '_')
-                displayName = MimeUtility.decodeText(part.getFileName().tokenize('.')[0]).replaceAll(' ', '_').replaceAll("[^a-zA-Z0-9_]+","")
+                /*decode from possible utf-8*/
+                String decodedFileName = MimeUtility.decodeText(part.getFileName())
+
+                /*calculate display name correctly*/
+                displayName = MimeUtility.decodeText(decodedFileName.tokenize('.')[0]).replaceAll(' ', '_').replaceAll("[^a-zA-Z0-9_]+","")
 
                 logger.info("displayName: ${displayName}, fileName: ${newFileName}, extension: ${newFileExtension}, type: ${contentTypeSpec}, doExtraction: ${doRunExtraction}")
             } catch (Exception ex) {
