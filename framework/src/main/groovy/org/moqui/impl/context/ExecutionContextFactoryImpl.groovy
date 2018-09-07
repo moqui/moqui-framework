@@ -543,8 +543,13 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         // Notification Message Topic
         String notificationTopicFactory = confXmlRoot.first("tools").attribute("notification-topic-factory")
-        if (notificationTopicFactory)
-            notificationMessageTopic = (SimpleTopic<NotificationMessageImpl>) getTool(notificationTopicFactory, SimpleTopic.class)
+        if (notificationTopicFactory) {
+            try {
+                notificationMessageTopic = (SimpleTopic<NotificationMessageImpl>) getTool(notificationTopicFactory, SimpleTopic.class)
+            } catch (Throwable t) {
+                logger.error("Error initializing notification-topic-factory ${notificationTopicFactory}", t)
+            }
+        }
 
         // schedule DeferredHitInfoFlush (every 5 seconds, after 10 second init delay)
         DeferredHitInfoFlush dhif = new DeferredHitInfoFlush(this)
