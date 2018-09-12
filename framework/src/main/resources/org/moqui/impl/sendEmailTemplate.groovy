@@ -56,7 +56,14 @@ try {
     // prepare the fromAddress, fromName, subject; no type or def so that they go into the context for templates
     fromAddress = ec.resource.expand((String) emailTemplate.fromAddress, "")
     fromName = ec.resource.expand((String) emailTemplate.fromName, "")
-    subject = ec.resource.expand((String) emailTemplate.subject, "")
+
+    logger.info("subjectTopics: ${subjectTopics}")
+
+    if (subjectTopics) {
+        subject = ec.resource.expand((String) emailTemplate.subject, "", subjectTopics)
+    } else {
+        subject = ec.resource.expand((String) emailTemplate.subject, "")
+    }
 
     // create an moqui.basic.email.EmailMessage record with info about this sent message
     // NOTE: can do anything with? purposeEnumId
