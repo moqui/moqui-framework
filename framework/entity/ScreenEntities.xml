@@ -17,6 +17,13 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- moqui.screen -->
     <!-- ========================================================= -->
 
+    <entity entity-name="ScreenPathAlias" package="moqui.screen" use="configuration" cache="true">
+        <field name="aliasPath" type="text-medium" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="screenPath" type="text-medium"/>
+    </entity>
+
     <!-- ========== Subscreen ========== -->
     <entity entity-name="SubscreensItem" package="moqui.screen" use="configuration" cache="true">
         <field name="screenLocation" type="text-medium" is-pk="true"/>

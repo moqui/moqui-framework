@@ -772,6 +772,34 @@ class ScreenUrlInfo {
 
     static ArrayList<String> parseSubScreenPath(ScreenDefinition rootSd, ScreenDefinition fromSd, List<String> fromPathList,
                                                 String screenPath, Map inlineParameters, ScreenFacadeImpl sfi) {
+        if (screenPath == null) screenPath = ""
+        // at very beginning look up ScreenPathAlias to see if this should be replaced; allows various flexible uses of this including global placeholders
+        boolean startsWithSlash = screenPath.startsWith("/")
+        String aliasPath = screenPath
+        if (!startsWithSlash && fromPathList != null && fromPathList.size() > 0) {
+            StringBuilder newPath = new StringBuilder()
+            int fplSize = fromPathList.size()
+            for (int i = 0; i < fplSize; i++) newPath.append('/').append(fromPathList.get(i))
+            if (!screenPath.isEmpty()) newPath.append('/').append(screenPath)
+            aliasPath = newPath.toString()
+        }
+        // logger.warn("Looking for path alias with screenPath ${screenPath} fromPathList ${fromPathList} aliasPath ${aliasPath}")
+        EntityList screenPathAliasList = sfi.ecfi.entityFacade.find("moqui.screen.ScreenPathAlias")
+                .condition("aliasPath", aliasPath).disableAuthz().useCache(true).list()
+        // logger.warn("Looking for path alias with aliasPath ${aliasPath} screenPathAliasList ${screenPathAliasList}")
+        // keep this as light weight as possible, only filter and sort if needed
+        if (screenPathAliasList.size() > 0) {
+            screenPathAliasList = screenPathAliasList.cloneList().filterByDate("fromDate", "thruDate", null)
+            int spaListSize = screenPathAliasList.size()
+            if (spaListSize > 0) {
+                if (spaListSize > 1) screenPathAliasList.orderByFields(["-fromDate"])
+                String newScreenPath = screenPathAliasList.get(0).getNoCheckSimple("screenPath")
+                if (newScreenPath != null && !newScreenPath.isEmpty()) {
+                    screenPath = newScreenPath
+                }
+            }
+        }
+
         // NOTE: this is somewhat tricky because screenPath may be encoded or not, may come from internal string or from browser URL string
 
         // if there are any ?... parameters parse them off and remove them from the string
@@ -796,7 +824,8 @@ class ScreenUrlInfo {
             screenPath = screenPath.substring(0, indexOfQuestionMark)
         }
 
-        if (screenPath.startsWith("//")) {
+        startsWithSlash = screenPath.startsWith("/")
+        if (startsWithSlash && screenPath.startsWith("//")) {
             // find the screen by name
             String trimmedFromPath = screenPath.substring(2)
             ArrayList<String> originalPathNameList = new ArrayList<String>(trimmedFromPath.split("/") as List)
@@ -804,7 +833,7 @@ class ScreenUrlInfo {
 
             if (sfi.screenFindPathCache.containsKey(screenPath)) {
                 ArrayList<String> cachedPathList = (ArrayList<String>) sfi.screenFindPathCache.get(screenPath)
-                if (cachedPathList) {
+                if (cachedPathList != null && cachedPathList.size() > 0) {
                     return cachedPathList
                 } else {
                     return null
@@ -821,7 +850,7 @@ class ScreenUrlInfo {
                 }
             }
         } else {
-            if (screenPath.startsWith("/")) fromPathList = (List<String>) null
+            if (startsWithSlash) fromPathList = (List<String>) null
 
             ArrayList<String> tempPathNameList = new ArrayList<String>()
             if (fromPathList != null) tempPathNameList.addAll(fromPathList)
