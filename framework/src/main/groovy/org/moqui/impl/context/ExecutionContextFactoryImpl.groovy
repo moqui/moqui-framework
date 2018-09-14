@@ -354,7 +354,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         for (MNode defPropNode in baseConfigNode.children("default-property")) {
             String propName = defPropNode.attribute("name")
             if (System.getProperty(propName)) {
-                if (propName.contains("password") || propName.contains("pw") || propName.contains("key")) {
+                if (propName.contains("pass") || propName.contains("pw") || propName.contains("key")) {
                     logger.info("Found pw/key property ${propName}, not setting from env var or default")
                 } else {
                     logger.info("Found property ${propName} with value [${System.getProperty(propName)}], not setting from env var or default")
@@ -364,7 +364,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             if (System.getenv(propName) && !System.getProperty(propName)) {
                 // make env vars available as Java System properties
                 System.setProperty(propName, System.getenv(propName))
-                if (propName.contains("password") || propName.contains("pw") || propName.contains("key")) {
+                if (propName.contains("pass") || propName.contains("pw") || propName.contains("key")) {
                     logger.info("Setting pw/key property ${propName} from env var")
                 } else {
                     logger.info("Setting property ${propName} from env var with value [${System.getProperty(propName)}]")
@@ -374,7 +374,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                 String valueAttr = defPropNode.attribute("value")
                 if (valueAttr != null && !valueAttr.isEmpty()) {
                     System.setProperty(propName, SystemBinding.expand(valueAttr))
-                    if (propName.contains("password") || propName.contains("pw") || propName.contains("key")) {
+                    if (propName.contains("pass") || propName.contains("pw") || propName.contains("key")) {
                         logger.info("Setting pw/key property ${propName} from default")
                     } else {
                         logger.info("Setting property ${propName} from default with value [${System.getProperty(propName)}]")
