@@ -275,7 +275,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="systemMessageRemoteId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
         <field name="sendUrl" type="text-medium"/>
-        <!-- potential future use, restrict receive message: <field name="authorizedIpAddresses" type="text-long"/> -->
+        <field name="receiveUrl" type="text-medium"/>
         <field name="sendServiceName" type="text-medium"><description>Override for SystemMessageType.sendServiceName</description></field>
         <field name="username" type="text-medium"><description>
             Username for basic auth when sending to the remote system.
@@ -287,6 +287,7 @@ along with this software (see the LICENSE.md file). If not, see
         </description></field>
         <field name="password" type="text-medium" encrypt="true">
             <description>Username for basic auth when sending to the remote system.</description></field>
+        <!-- potential future use, restrict receive message: <field name="authorizedIpAddresses" type="text-medium"/> -->
         <field name="sharedSecret" type="text-medium" encrypt="true"><description>Shared secret for auth on receive and/or sign on send.</description></field>
         <field name="sendSharedSecret" type="text-medium" encrypt="true"><description>Shared secret for auth on send if different from secret used to authorize on receive.</description></field>
         <field name="authHeaderName" type="text-medium"/>
