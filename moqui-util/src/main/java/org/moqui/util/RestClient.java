@@ -17,16 +17,21 @@ import groovy.json.JsonBuilder;
 import groovy.json.JsonSlurper;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.HttpResponseException;
+import org.eclipse.jetty.client.api.ContentProvider;
 import org.eclipse.jetty.client.api.ContentResponse;
 import org.eclipse.jetty.client.api.Request;
+import org.eclipse.jetty.client.util.InputStreamContentProvider;
+import org.eclipse.jetty.client.util.MultiPartContentProvider;
 import org.eclipse.jetty.client.util.StringContentProvider;
 import org.eclipse.jetty.http.HttpField;
+import org.eclipse.jetty.http.HttpFields;
 import org.eclipse.jetty.http.HttpHeader;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.moqui.BaseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -54,6 +59,7 @@ public class RestClient {
     private String contentType = "application/json";
     private Charset charset = StandardCharsets.UTF_8;
     private String bodyText = null;
+    private MultiPartContentProvider multiPart = null;
     private List<KeyValueString> headerList = new LinkedList<>();
     private List<KeyValueString> bodyParameterList = new LinkedList<>();
     private String username = null;
@@ -158,6 +164,30 @@ public class RestClient {
         bodyParameterList.add(new KeyValueString(name, value));
         return this;
     }
+    /** Add a field part to a multi part request **/
+    public RestClient addFieldPart(String field, String value) {
+        if (method != Method.POST) throw new IllegalStateException("Can only use multipart body with POST method, not supported for method " + method + "; if you need a different effective request method try using the X-HTTP-Method-Override header");
+        if (multiPart == null) multiPart = new MultiPartContentProvider();
+        multiPart.addFieldPart(field, new StringContentProvider(value), null);
+        return this;
+    }
+    /** Add a String file part to a multi part request **/
+    public RestClient addFilePart(String name, String fileName, String stringContent) {
+        return addFilePart(name, fileName, new StringContentProvider(stringContent), null);
+    }
+    /** Add a InputStream file part to a multi part request **/
+    public RestClient addFilePart(String name, String fileName, InputStream streamContent) {
+        return addFilePart(name, fileName, new InputStreamContentProvider(streamContent), null);
+    }
+    /** Add file part using Jetty ContentProvider.
+     * WARNING: This uses Jetty HTTP Client API objects and may change over time, do not use if alternative will work.
+     */
+    public RestClient addFilePart(String name, String fileName, ContentProvider content, HttpFields fields) {
+        if (method != Method.POST) throw new IllegalStateException("Can only use multipart body with POST method, not supported for method " + method + "; if you need a different effective request method try using the X-HTTP-Method-Override header");
+        if (multiPart == null) multiPart = new MultiPartContentProvider();
+        multiPart.addFilePart(name, fileName, content, fields);
+        return this;
+    }
 
     /** Do the HTTP request and get the response */
     public RestResponse call() {
@@ -187,7 +217,14 @@ public class RestClient {
                 // using basic Authorization header instead, too many issues with this: httpClient.getAuthenticationStore().addAuthentication(new BasicAuthentication(uri, BasicAuthentication.ANY_REALM, username, password));
             }
 
-            if (bodyText != null && !bodyText.isEmpty()) {
+            if (multiPart != null) {
+                if (method == Method.POST) {
+                    // HttpClient will send the correct headers when it's a multi-part content type (ie set content type to multipart/form-data, etc)
+                    request.content(multiPart);
+                } else {
+                    throw new IllegalStateException("Can only use multipart body with POST method, not supported for method " + method + "; if you need a different effective request method try using the X-HTTP-Method-Override header");
+                }
+            } else if (bodyText != null && !bodyText.isEmpty()) {
                 request.content(new StringContentProvider(contentType, bodyText, charset), contentType);
                 request.header(HttpHeader.CONTENT_TYPE, contentType);
             }
