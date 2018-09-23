@@ -139,6 +139,43 @@ public class WebUtilities {
         return reqParmMap;
     }
 
+    /** Pattern may have a plain number, '*' for wildcard, or a '-' separated number range for each dot separated segment;
+     * may also have multiple comma-separated patterns */
+    public static boolean ip4Matches(String patternString, String address) {
+        if (patternString == null || patternString.isEmpty()) return true;
+        if (address == null || address.isEmpty()) return false;
+
+        String[] patterns = patternString.split(",");
+        boolean anyMatches = false;
+        for (int pi = 0; pi < patterns.length; pi++) {
+            String pattern = patterns[pi].trim();
+            if (pattern.isEmpty()) continue;
+            if (pattern.equals("*.*.*.*") || pattern.equals("*")) {
+                anyMatches = true;
+                break;
+            }
+            String[] patternArray = pattern.split("\\.");
+            String[] addressArray = address.split("\\.");
+            boolean allMatch = true;
+            for (int i = 0; i < patternArray.length; i++) {
+                String curPattern = patternArray[i];
+                String curAddress = addressArray[i];
+                if (curPattern.equals("*") || curPattern.equals(curAddress)) continue;
+                if (curPattern.contains("-")) {
+                    byte min = Byte.parseByte(curPattern.split("-")[0]);
+                    byte max = Byte.parseByte(curPattern.split("-")[1]);
+                    byte ip = Byte.parseByte(curAddress);
+                    if (ip < min || ip > max) { allMatch = false; break; }
+                } else {
+                    allMatch = false;
+                    break;
+                }
+            }
+            if (allMatch) { anyMatches = true; break; }
+        }
+        return anyMatches;
+    }
+
     public static String simpleHttpStringRequest(String location, String requestBody, String contentType) {
         if (contentType == null || contentType.isEmpty()) contentType = "text/plain";
         String resultString = "";

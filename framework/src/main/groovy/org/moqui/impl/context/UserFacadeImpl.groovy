@@ -62,6 +62,7 @@ class UserFacadeImpl implements UserFacade {
     protected String visitId = (String) null
     protected EntityValue visitInternal = (EntityValue) null
     protected String visitorIdInternal = (String) null
+    protected String clientIpInternal = (String) null
 
     // we mostly want this for the Locale default, and may be useful for other things
     protected HttpServletRequest request = (HttpServletRequest) null
@@ -89,6 +90,11 @@ class UserFacadeImpl implements UserFacade {
         this.request = request
         this.response = response
         this.session = request.getSession()
+
+        // get client IP address, handle proxy original address if exists
+        String forwardedFor = request.getHeader("X-Forwarded-For")
+        if (forwardedFor != null && !forwardedFor.isEmpty()) { clientIpInternal = forwardedFor.split(",")[0].trim() }
+        else { clientIpInternal = request.getRemoteAddr() }
 
         String preUsername = getUsername()
         Subject webSubject = makeEmptySubject()
@@ -211,14 +217,7 @@ class UserFacadeImpl implements UserFacade {
                 InetAddress address = eci.ecfi.getLocalhostAddress()
                 parameters.serverIpAddress = address?.getHostAddress() ?: "127.0.0.1"
                 parameters.serverHostName = address?.getHostName() ?: "localhost"
-
-                // handle proxy original address, if exists
-                String forwardedFor = request.getHeader("X-Forwarded-For")
-                if (forwardedFor != null && !forwardedFor.isEmpty()) {
-                    parameters.clientIpAddress = forwardedFor.split(",")[0].trim()
-                } else {
-                    parameters.clientIpAddress = request.getRemoteAddr()
-                }
+                parameters.clientIpAddress = clientIpInternal
                 if (cookieVisitorId) parameters.visitorId = cookieVisitorId
 
                 // NOTE: disable authz for this call, don't normally want to allow create of Visit, but this is special case
@@ -235,6 +234,11 @@ class UserFacadeImpl implements UserFacade {
     }
     void initFromHandshakeRequest(HandshakeRequest request) {
         this.session = (HttpSession) request.getHttpSession()
+
+        // get client IP address, handle proxy original address if exists
+        String forwardedFor = request.getHeaders().get("X-Forwarded-For")?.first()
+        if (forwardedFor != null && !forwardedFor.isEmpty()) { clientIpInternal = forwardedFor.split(",")[0].trim() }
+        // any other way to get websocket client IP? else { clientIpInternal = request.getRemoteAddr() }
 
         // WebSocket handshake request is the HTTP upgrade request so this will be the original session
         // login user from value in session
@@ -792,6 +796,7 @@ class UserFacadeImpl implements UserFacade {
         visitorIdInternal = visitLocal != null ? visitLocal.getNoCheckSimple("visitorId") : null
         return visitorIdInternal
     }
+    @Override String getClientIp() { return clientIpInternal }
 
     // ========== UserInfo ==========
 
