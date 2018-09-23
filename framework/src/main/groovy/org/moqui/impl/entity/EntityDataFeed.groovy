@@ -32,6 +32,8 @@ import java.sql.Timestamp
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import java.util.concurrent.RejectedExecutionException
+
 @CompileStatic
 class EntityDataFeed {
     protected final static Logger logger = LoggerFactory.getLogger(EntityDataFeed.class)
@@ -425,7 +427,11 @@ class EntityDataFeed {
             if (status == Status.STATUS_COMMITTED) {
                 // send feed in new thread and tx
                 FeedRunnable runnable = new FeedRunnable(ecfi, edf, feedValues, allDataDocumentIds)
-                ecfi.workerPool.execute(runnable)
+                try {
+                    ecfi.workerPool.execute(runnable)
+                } catch (RejectedExecutionException e) {
+                    logger.error("Worker pool rejected DataFeed run: " + e.toString())
+                }
                 // logger.warn("================================================================\n================ feeding DataFeed with documents ${allDataDocumentIds}")
             }
         }
