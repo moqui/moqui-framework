@@ -522,6 +522,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
             localBuilder.append(colName).append(" AS ").append(asName);
             if (gbClause.length() > 0) gbClause.append(", ");
             gbClause.append(colName);
+            if (localEntityDefinition.isViewEntity) additionalFieldsUsed.add(joinField);
         }
 
         // where condition to use for FROM clause (field filtering) and for sub-select WHERE clause
