@@ -245,7 +245,8 @@ along with this software (see the LICENSE.md file). If not, see
             <description>Set to random password for password reset, can be used only to update password</description></field>
         <field name="passwordSalt" type="text-medium"/>
         <field name="passwordHashType" type="text-short"/>
-        <field name="passwordBase64" type="text-indicator"><description>Set to Y is currentPassword Base64 encoded, defaults to Hex encoded</description></field>
+        <field name="passwordBase64" type="text-indicator">
+            <description>Set to Y is currentPassword Base64 encoded, defaults to Hex encoded</description></field>
         <field name="passwordSetDate" type="date-time"/>
         <field name="passwordHint" type="text-medium"/>
         <field name="hasLoggedOut" type="text-indicator"/>
@@ -259,6 +260,10 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="externalUserId" type="text-medium"/>
         <field name="emailAddress" type="text-medium">
             <description>The email address to use for forgot password emails and other system messages.</description></field>
+        <field name="ipAllowed" type="text-medium">
+            <description>If specified only allow login from matching IP4 address. Comma separated patterns where each pattern has 4
+                dot separated segments each segment may be number, '*' for wildcard, or '-' separate number range (like '0-31').</description>
+        </field>
         <relationship type="one" title="Currency" related="moqui.basic.Uom" short-alias="currencyUom">
             <key-map field-name="currencyUomId"/></relationship>
         <relationship type="many" related="moqui.security.UserGroupMember" short-alias="groups">
@@ -277,6 +282,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="userGroupId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
         <field name="groupTypeEnumId" type="id"/>
+        <field name="ipAllowed" type="text-medium"><description>See UserAccout.ipAllowed</description></field>
         <relationship type="one" title="UserGroupType" related="moqui.basic.Enumeration" short-alias="groupTypeEnum">
             <key-map field-name="groupTypeEnumId"/></relationship>
         <relationship type="many" related="moqui.security.UserGroupPermission" short-alias="permissions">

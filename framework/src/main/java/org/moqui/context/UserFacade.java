@@ -143,4 +143,6 @@ public interface UserFacade {
     /** @return The current visit (aka session; from the Visit entity). Depending on the artifact being executed this may be null. */
     EntityValue getVisit();
     String getVisitorId();
+    /** @return Client IP address from HTTP request or X-Forwarded-For header */
+    String getClientIp();
 }

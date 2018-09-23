@@ -26,12 +26,14 @@ import org.moqui.BaseArtifactException
 import org.moqui.Moqui
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityException
+import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
 import org.moqui.impl.context.ArtifactExecutionFacadeImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.UserFacadeImpl
 import org.moqui.util.MNode
+import org.moqui.util.WebUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -116,6 +118,46 @@ class MoquiShiroRealm implements Realm, Authorizer {
                     // NOTE: don't call incrementUserAccountFailedLogins here (don't need compounding reasons to stop access)
                     throw new ExpiredCredentialsException(eci.resource.expand('Authenticate failed for user ${newUserAccount.username} because password was changed ${wksSinceChange} weeks ago and must be changed every ${changeWeeks} weeks [PWDTIM].',
                             '', [newUserAccount:newUserAccount, wksSinceChange:wksSinceChange, changeWeeks:changeWeeks]))
+                }
+            }
+        }
+        // check ipAllowed if on UserAccount or any UserGroup a member of
+        String clientIp = eci.userFacade.getClientIp()
+        if (clientIp == null && clientIp.isEmpty()) {
+            logger.warn("Login with no client IP for userId ${newUserAccount.userId}, not checking ipAllowed")
+        } else {
+            if (clientIp.contains(":")) {
+                logger.warn("Login with IPv6 client IP ${clientIp} for userId ${newUserAccount.userId}, not checking ipAllowed")
+            } else {
+                ArrayList<String> ipAllowedList = new ArrayList<>()
+                String uaIpAllowed = newUserAccount.getNoCheckSimple("ipAllowed")
+                if (uaIpAllowed != null && !uaIpAllowed.isEmpty()) ipAllowedList.add(uaIpAllowed)
+
+                EntityList ugmList = eci.entityFacade.find("moqui.security.UserGroupMember")
+                        .condition("userId", newUserAccount.getNoCheckSimple("userId"))
+                        .disableAuthz().useCache(true).list()
+                        .filterByDate(null, null, eci.userFacade.nowTimestamp)
+                ArrayList<String> userGroupIdList = new ArrayList<>()
+                for (EntityValue ugm in ugmList) userGroupIdList.add((String) ugm.get("userGroupId"))
+                userGroupIdList.add("ALL_USERS")
+                EntityList ugList = eci.entityFacade.find("moqui.security.UserGroup")
+                        .condition("ipAllowed", EntityCondition.IS_NOT_NULL, null)
+                        .condition("userGroupId", EntityCondition.IN, userGroupIdList).disableAuthz().useCache(false).list()
+                for (EntityValue ug in ugList) ipAllowedList.add((String) ug.getNoCheckSimple("ipAllowed"))
+
+                int ipAllowedListSize = ipAllowedList.size()
+                if (ipAllowedListSize > 0) {
+                    boolean anyMatches = false
+                    for (int i = 0; i < ipAllowedListSize; i++) {
+                        String pattern = (String) ipAllowedList.get(i)
+                        if (WebUtilities.ip4Matches(pattern, clientIp)) {
+                            anyMatches = true
+                            break
+                        }
+                    }
+                    if (!anyMatches) throw new AccountException(
+                            eci.resource.expand('Authenticate failed for user ${newUserAccount.username} because client IP ${clientIp} is not in allowed list for user or group.',
+                            '', [newUserAccount:newUserAccount, clientIp:clientIp]))
                 }
             }
         }
