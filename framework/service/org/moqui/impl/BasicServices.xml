@@ -163,7 +163,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="amount" type="BigDecimal" required="true"/>
         </in-parameters>
         <out-parameters>
-            <parameter name="convertedAmount"/>
+            <parameter name="convertedAmount" type="BigDecimal"/>
         </out-parameters>
         <actions>
             <if condition="uomId == toUomId">
@@ -179,10 +179,10 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="uomConversionList">
                 <set field="uomConversion" from="uomConversionList.first"/>
                 <set field="convertedAmount" from="amount"/>
-                <if condition="uomConversion.conversionFactor"><set field="convertedAmount"
-                        from="convertedAmount * uomConversion.conversionFactor"/></if>
-                <if condition="uomConversion.conversionOffset"><set field="convertedAmount"
-                        from="convertedAmount + uomConversion.conversionOffset"/></if>
+                <if condition="uomConversion.conversionFactor">
+                    <set field="convertedAmount" from="(convertedAmount * uomConversion.conversionFactor) as BigDecimal"/></if>
+                <if condition="uomConversion.conversionOffset">
+                    <set field="convertedAmount" from="(convertedAmount + uomConversion.conversionOffset) as BigDecimal"/></if>
                 <return/>
             </if>
             <if condition="!uomConversionList">
@@ -195,10 +195,10 @@ along with this software (see the LICENSE.md file). If not, see
                 <if condition="uomConversionList">
                     <set field="uomConversion" from="uomConversionList.first"/>
                     <set field="convertedAmount" from="amount"/>
-                    <if condition="uomConversion.conversionOffset"><set field="convertedAmount"
-                            from="convertedAmount - uomConversion.conversionOffset"/></if>
-                    <if condition="uomConversion.conversionFactor"><set field="convertedAmount"
-                            from="convertedAmount / uomConversion.conversionFactor"/></if>
+                    <if condition="uomConversion.conversionOffset">
+                        <set field="convertedAmount" from="(convertedAmount - uomConversion.conversionOffset) as BigDecimal"/></if>
+                    <if condition="uomConversion.conversionFactor">
+                        <set field="convertedAmount" from="(convertedAmount / uomConversion.conversionFactor) as BigDecimal"/></if>
                     <return/>
                 </if>
             </if>
