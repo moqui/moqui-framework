@@ -247,7 +247,15 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
                             condList.add(makeConditionImpl(new FieldValueCondition(cf, compOp, value), JoinOperator.OR,
                                     new FieldValueCondition(cf, ComparisonOperator.EQUALS, null)))
                         } else {
-                            condList.add(new FieldValueCondition(cf, compOp, value))
+                            // in view-entities do or null for member entities that are join-optional
+                            String memberAlias = aliasNode.attribute("entity-alias")
+                            MNode memberEntity = findEd.getMemberEntityNode(memberAlias)
+                            if ("true".equals(memberEntity.attribute("join-optional"))) {
+                                condList.add(new BasicJoinCondition(new FieldValueCondition(cf, compOp, value), JoinOperator.OR,
+                                        new FieldValueCondition(cf, ComparisonOperator.EQUALS, null)))
+                            } else {
+                                condList.add(new FieldValueCondition(cf, compOp, value))
+                            }
                         }
                     }
                 } else {
