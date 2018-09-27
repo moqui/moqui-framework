@@ -33,6 +33,17 @@ import java.sql.Timestamp
 import java.time.Instant
 import java.time.ZonedDateTime
 
+/**
+ * Runs scheduled jobs as defined in ServiceJob records with a cronExpression. Cron expression uses Quartz flavored syntax.
+ *
+ * Uses cron-utils for cron processing, see:
+ *     https://github.com/jmrozanec/cron-utils
+ * For a Quartz cron reference see:
+ *     http://www.quartz-scheduler.org/documentation/quartz-2.x/tutorials/crontrigger.html
+ *     https://www.quartz-scheduler.org/api/2.2.1/org/quartz/CronExpression.html
+ *
+ * Handy cron strings: [0 0 2 * * ?] every night at 2:00 am, [0 0/15 * * * ?] every 15 minutes, [0 0/2 * * * ?] every 2 minutes
+ */
 @CompileStatic
 class ScheduledJobRunner implements Runnable {
     private final static Logger logger = LoggerFactory.getLogger(ScheduledJobRunner.class)
@@ -124,6 +135,7 @@ class ScheduledJobRunner implements Runnable {
                             serviceJobRunLock.set("jobRunId", null).update()
                         } else {
                             // normal lock, skip this job
+                            logger.info("Lock found for job ${jobName} from ${lastRunDt} run ID ${serviceJobRunLock.jobRunId}, not running")
                             continue
                         }
                     }
