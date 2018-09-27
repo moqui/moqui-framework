@@ -67,6 +67,7 @@ class UserFacadeImpl implements UserFacade {
     // we mostly want this for the Locale default, and may be useful for other things
     protected HttpServletRequest request = (HttpServletRequest) null
     protected HttpServletResponse response = (HttpServletResponse) null
+    // NOTE: a better practice is to always get from the request, but for WebSocket handshakes we don't have a request
     protected HttpSession session = (HttpSession) null
 
     UserFacadeImpl(ExecutionContextImpl eci) {
@@ -106,7 +107,7 @@ class UserFacadeImpl implements UserFacade {
                     popUser()
                 }
             }
-            // effectively login the user
+            // effectively login the user (already logged in for session through Shiro)
             pushUserSubject(webSubject)
             if (logger.traceEnabled) logger.trace("For new request found user [${username}] in the session")
         } else {
@@ -196,6 +197,7 @@ class UserFacadeImpl implements UserFacade {
                     Cookie visitorCookie = new Cookie("moqui.visitor", cookieVisitorId)
                     visitorCookie.setMaxAge(60 * 60 * 24 * 365)
                     visitorCookie.setPath("/")
+                    visitorCookie.setHttpOnly(true)
                     response.addCookie(visitorCookie)
                 }
             }
@@ -564,8 +566,12 @@ class UserFacadeImpl implements UserFacade {
         }
 
         UsernamePasswordToken token = new UsernamePasswordToken(username, password, true)
+        // if there is a web session invalidate it so there is a new session for the login (prevent Session Fixation attacks)
+        if (eci.getWebImpl() != null) session = eci.getWebImpl().makeNewSession()
+
         Subject loginSubject = makeEmptySubject()
         try {
+            // do the actual login through Shiro
             loginSubject.login(token)
 
             // do this first so that the rest will be done as this user
