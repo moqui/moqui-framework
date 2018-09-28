@@ -447,10 +447,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
                             foundOtherEntityAlias = true;
                         }
                     }
-                    if (foundOtherEntityAlias) {
-                        // if we found another entity alias not all on this sub-select entity (or view-entity)
-                        // TODO only select part that is - IFF not already selected to make sure is selected for outer select
-                    } else {
+                    if (!foundOtherEntityAlias) {
                         if (localFi == null) throw new EntityException("Could not find field " + outerAliasField + " on entity " + entityAlias + ":" + localEntityDefinition.fullEntityName);
                         String colName = localFi.getFullColumnName();
                         if (hasSelected) { localBuilder.append(", "); } else { hasSelected = true; }
@@ -461,6 +458,9 @@ public class EntityFindBuilder extends EntityQueryBuilder {
                             if (gbClause.length() > 0) gbClause.append(", ");
                             gbClause.append(EntityJavaUtil.camelCaseToUnderscored(localFi.name));
                         }
+                        // } else {
+                        // if we found another entity alias not all on this sub-select entity (or view-entity)
+                        // TODO only select part that is - IFF not already selected to make sure is selected for outer select
                     }
                 } else {
                     if (localFi == null) throw new EntityException("Could not find field " + outerAliasField + " on entity " + entityAlias + ":" + localEntityDefinition.fullEntityName);
