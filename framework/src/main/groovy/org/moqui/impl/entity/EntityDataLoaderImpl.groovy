@@ -63,6 +63,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
 
     int transactionTimeout = 600
     boolean useTryInsert = false
+    boolean onlyCreate = false
     boolean dummyFks = false
     boolean disableEeca = false
     boolean disableAuditLog = false
@@ -100,6 +101,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
 
     @Override EntityDataLoader transactionTimeout(int tt) { this.transactionTimeout = tt; return this }
     @Override EntityDataLoader useTryInsert(boolean useTryInsert) { this.useTryInsert = useTryInsert; return this }
+    @Override EntityDataLoader onlyCreate(boolean onlyCreate) { this.onlyCreate = onlyCreate; return this }
     @Override EntityDataLoader dummyFks(boolean dummyFks) { this.dummyFks = dummyFks; return this }
     @Override EntityDataLoader disableEntityEca(boolean disable) { disableEeca = disable; return this }
     @Override EntityDataLoader disableAuditLog(boolean disable) { disableAuditLog = disable; return this }
@@ -131,24 +133,23 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         EntityJsonHandler ejh = new EntityJsonHandler(this, cvh)
 
         internalRun(exh, ech, ejh)
-        return cvh.getMessageList()
+        return cvh.messageList
     }
 
     @Override
     long check(List<String> messageList) {
-        CheckValueHandler cvh = new CheckValueHandler(this)
+        CheckValueHandler cvh = new CheckValueHandler(this, messageList)
         EntityXmlHandler exh = new EntityXmlHandler(this, cvh)
         EntityCsvHandler ech = new EntityCsvHandler(this, cvh)
         EntityJsonHandler ejh = new EntityJsonHandler(this, cvh)
 
         internalRun(exh, ech, ejh)
-        messageList.addAll(cvh.getMessageList())
         return cvh.getFieldsChecked()
     }
 
-    @Override
-    long load() {
-        LoadValueHandler lvh = new LoadValueHandler(this)
+    @Override long load() { load(null) }
+    @Override long load(List<String> messageList) {
+        LoadValueHandler lvh = new LoadValueHandler(this, messageList)
         EntityXmlHandler exh = new EntityXmlHandler(this, lvh)
         EntityCsvHandler ech = new EntityCsvHandler(this, lvh)
         EntityJsonHandler ejh = new EntityJsonHandler(this, lvh)
@@ -346,8 +347,9 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                     }
                 }
                 if (exh.valueHandler instanceof CheckValueHandler) {
-                    CheckValueHandler cvh = (CheckValueHandler) exh.valueHandler
-                    cvh.messageList.add("-- Checked data in " + location)
+                    exh.valueHandler.messageList.add("-- Checked data in " + location)
+                } else if (exh.valueHandler?.messageList != null) {
+                    exh.valueHandler.messageList.add("-- Loaded data from " + location)
                 }
             } catch (TypeToSkipException e) {
                 // nothing to do, this just stops the parsing when we know the file is not in the types we want
@@ -375,17 +377,28 @@ class EntityDataLoaderImpl implements EntityDataLoader {
     }
 
     static abstract class ValueHandler {
+        protected List<String> messageList = (List<String>) null
         protected EntityDataLoaderImpl edli
+
         ValueHandler(EntityDataLoaderImpl edli) { this.edli = edli }
+
         abstract void handleValue(EntityValue value)
         abstract void handlePlainMap(String entityName, Map value)
         abstract void handleService(ServiceCallSync scs)
     }
     static class CheckValueHandler extends ValueHandler {
-        protected List<String> messageList = new LinkedList()
         protected long fieldsChecked = 0
-        CheckValueHandler(EntityDataLoaderImpl edli) { super(edli) }
-        List<String> getMessageList() { return messageList }
+
+        CheckValueHandler(EntityDataLoaderImpl edli) {
+            super(edli)
+            messageList = new LinkedList<>()
+        }
+        CheckValueHandler(EntityDataLoaderImpl edli, List<String> messages) {
+            super(edli)
+            messageList = messages
+            if (messageList == null) messageList = new LinkedList<>()
+        }
+
         long getFieldsChecked() { return fieldsChecked }
         void handleValue(EntityValue value) { value.checkAgainstDatabase(messageList) }
         void handlePlainMap(String entityName, Map value) {
@@ -398,11 +411,19 @@ class EntityDataLoaderImpl implements EntityDataLoader {
     static class LoadValueHandler extends ValueHandler {
         protected ServiceFacadeImpl sfi
         protected ExecutionContextImpl ec
+
         LoadValueHandler(EntityDataLoaderImpl edli) {
             super(edli)
             sfi = edli.getEfi().ecfi.serviceFacade
             ec = edli.getEfi().ecfi.getEci()
         }
+        LoadValueHandler(EntityDataLoaderImpl edli, List<String> messages) {
+            super(edli)
+            sfi = edli.getEfi().ecfi.serviceFacade
+            ec = edli.getEfi().ecfi.getEci()
+            messageList = messages
+        }
+
         void handleValue(EntityValue value) {
             boolean tryInsert = edli.useTryInsert
             if (tryInsert && value instanceof EntityValueBase) {
@@ -411,7 +432,16 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                 if ("true".equals(databaseNode.attribute("never-try-insert"))) tryInsert = false
             }
 
-            if (tryInsert) {
+            if (edli.onlyCreate) {
+                if (value.containsPrimaryKey()) {
+                    if (ec.entityFacade.find(value.getEntityName()).condition(value.getPrimaryKeys()).one() == null)
+                        value.create()
+                } else {
+                    String msg = "Doing only insert, not loading entity ${value.getEntityName()} value with partial primary key ${value.getPrimaryKeys()}"
+                    logger.info(msg)
+                    if (messageList != null) messageList.add(msg)
+                }
+            } else if (tryInsert) {
                 try {
                     value.create()
                 } catch (EntityException e) {
@@ -434,20 +464,44 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         void handlePlainMap(String entityName, Map value) {
             EntityDefinition ed = ec.entityFacade.getEntityDefinition(entityName)
             if (ed == null) throw new BaseException("Could not find entity ${entityName}")
-            Map<String, Object> results = new HashMap()
-            EntityAutoServiceRunner.storeEntity(ec, ed, value, results, null)
-            // no need to call the store auto service, use storeEntity directly:
-            // Map results = sfi.sync().name('store', entityName).parameters(value).call()
-            if (logger.isTraceEnabled()) logger.trace("Called store service for entity [${entityName}] in data load, results: ${results}")
-            if (ec.getMessage().hasError()) {
-                String errStr = ec.getMessage().getErrorsString()
-                ec.getMessage().clearErrors()
-                throw new BaseException("Error handling data load plain Map: ${errStr}")
+            if (edli.onlyCreate) {
+                EntityList el = ec.entityFacade.getValueListFromPlainMap(value, entityName)
+                int elSize = el.size()
+                for (int i = 0; i < elSize; i++) {
+                    EntityValue curValue = (EntityValue) el.get(i)
+                    if (curValue.containsPrimaryKey()) {
+                        if (ec.entityFacade.find(curValue.getEntityName()).condition(curValue.getPrimaryKeys()).one() == null)
+                            curValue.create()
+                    } else {
+                        String msg = "Doing only insert, not loading entity ${curValue.getEntityName()} value with partial primary key ${curValue.getPrimaryKeys()}"
+                        logger.info(msg)
+                        if (messageList != null) messageList.add(msg)
+                    }
+                }
+            } else {
+                Map<String, Object> results = new HashMap()
+                EntityAutoServiceRunner.storeEntity(ec, ed, value, results, null)
+                // no need to call the store auto service, use storeEntity directly:
+                // Map results = sfi.sync().name('store', entityName).parameters(value).call()
+                if (logger.isTraceEnabled()) logger.trace("Called store service for entity [${entityName}] in data load, results: ${results}")
+                if (ec.getMessage().hasError()) {
+                    String errStr = ec.getMessage().getErrorsString()
+                    ec.getMessage().clearErrors()
+                    throw new BaseException("Error handling data load plain Map: ${errStr}")
+                }
             }
         }
         void handleService(ServiceCallSync scs) {
+            if (edli.onlyCreate) {
+                String msg = "Not calling service ${scs.getServiceName()}, running with only insert"
+                logger.info(msg)
+                if (messageList != null) messageList.add(msg)
+                return
+            }
             Map results = scs.call()
-            if (logger.isInfoEnabled()) logger.info("Called service [${scs.getServiceName()}] in data load, results: ${results}")
+            String msg = "Called service ${scs.getServiceName()} in data load, results: ${results}"
+            logger.info(msg)
+            if (messageList != null) messageList.add(msg)
             if (ec.getMessage().hasError()) {
                 String errStr = ec.getMessage().getErrorsString()
                 ec.getMessage().clearErrors()
@@ -562,7 +616,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                         } else {
                             rootValueMap.put(relationshipName, curRelMap)
                         }
-                        valueMapStack = [curRelMap]
+                        valueMapStack = [curRelMap] as List<Map>
                         relatedEdStack = [relInfo.relatedEd]
                     }
                 } else if (edli.efi.isEntityDefined(elementName)) {
@@ -594,7 +648,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                         } else {
                             rootValueMap.put(relationshipName, curRelMap)
                         }
-                        valueMapStack = [curRelMap]
+                        valueMapStack = [curRelMap] as List<Map>
                         relatedEdStack = [subEd]
                     }
                 } else {
@@ -739,9 +793,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             }
         }
 
-        void setDocumentLocator(Locator locator) {
-            this.locator = locator;
-        }
+        void setDocumentLocator(Locator locator) { this.locator = locator }
     }
 
     static class EntityCsvHandler {
