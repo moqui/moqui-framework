@@ -345,6 +345,10 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                         }
                     }
                 }
+                if (exh.valueHandler instanceof CheckValueHandler) {
+                    CheckValueHandler cvh = (CheckValueHandler) exh.valueHandler
+                    cvh.messageList.add("-- Checked data in " + location)
+                }
             } catch (TypeToSkipException e) {
                 // nothing to do, this just stops the parsing when we know the file is not in the types we want
             } finally {
