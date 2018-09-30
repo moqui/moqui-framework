@@ -530,7 +530,21 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
         }
     }
 
-    ArrayList<EntityConditionImplBase> filterFindForUser(EntityDefinition findEd, Set<String> entityAliasUsedSet) {
+    static class AuthzFilterInfo {
+        String entityFilterSetId
+        EntityValue entityFilter
+        Map<String, ArrayList<MNode>> memberFieldAliases
+        AuthzFilterInfo(String entityFilterSetId, EntityValue entityFilter, Map<String, ArrayList<MNode>> memberFieldAliases) {
+            this.entityFilterSetId = entityFilterSetId
+            this.entityFilter = entityFilter
+            this.memberFieldAliases = memberFieldAliases
+        }
+    }
+    ArrayList<AuthzFilterInfo> getFindFiltersForUser(String findEntityName) {
+        EntityDefinition findEd = eci.entityFacade.getEntityDefinition(findEntityName)
+        return getFindFiltersForUser(findEd, null)
+    }
+    ArrayList<AuthzFilterInfo> getFindFiltersForUser(EntityDefinition findEd, Set<String> entityAliasUsedSet) {
         // do nothing if authz disabled
         if (authzDisabled) return null
 
@@ -551,104 +565,129 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
         int authzFilterSize = artifactAuthzFilterList.size()
         if (authzFilterSize == 0) return null
 
+        ArrayList<AuthzFilterInfo> authzFilterInfoList = (ArrayList<AuthzFilterInfo>) null
+        for (int i = 0; i < authzFilterSize; i++) {
+            EntityValue artifactAuthzFilter = (EntityValue) artifactAuthzFilterList.get(i)
+            String entityFilterSetId = (String) artifactAuthzFilter.getNoCheckSimple("entityFilterSetId")
+
+            // NOTE: at this level the results could be cached, but worth it? EntityFilter entity list cached already,
+            //     some processing for view-entity but mostly only if entityAliasUsedSet, and could only cache if !entityAliasUsedSet
+            EntityList entityFilterList = eci.entity.find("moqui.security.EntityFilter")
+                    .condition("entityFilterSetId", entityFilterSetId)
+                    .disableAuthz().useCache(true).list()
+
+            if (entityFilterList == null) continue
+            int entFilterSize = entityFilterList.size()
+            if (entFilterSize == 0) continue
+
+            for (int j = 0; j < entFilterSize; j++) {
+                EntityValue entityFilter = entityFilterList.get(j)
+                String filterEntityName = (String) entityFilter.getNoCheckSimple("entityName")
+                if (filterEntityName == null) continue
+
+                // see if there if any filter entities match the current entity or if it is a view then a member entity
+                Map<String, ArrayList<MNode>> memberFieldAliases = (Map<String, ArrayList<MNode>>) null
+                if (!filterEntityName.equals(findEd.getFullEntityName())) {
+                    if (findEd.isViewEntity) {
+                        memberFieldAliases = findEd.getMemberFieldAliases(filterEntityName)
+                        if (memberFieldAliases == null) continue
+                    } else {
+                        continue
+                    }
+                }
+
+                if (memberFieldAliases != null && entityAliasUsedSet != null) {
+                    // trim memberFieldAliases by entity aliases actually used
+                    Map<String, ArrayList<MNode>> newFieldAliases = (Map<String, ArrayList<MNode>>) null
+
+                    for (Map.Entry<String, ArrayList<MNode>> aliasesEntry in memberFieldAliases.entrySet()) {
+                        ArrayList<MNode> aliasList = aliasesEntry.getValue()
+                        if (aliasList == null) continue // should never happen, buy yeah
+                        ArrayList<MNode> newAliasList = (ArrayList<MNode>) null
+
+                        int aliasListSize = aliasList.size()
+                        for (int ali = 0; ali < aliasListSize; ali++) {
+                            MNode aliasNode = (MNode) aliasList.get(ali)
+                            String entityAlias = aliasNode.attribute("entity-alias")
+                            if (entityAliasUsedSet.contains(entityAlias)) {
+                                // is used, copy over
+                                if (newAliasList == null) {
+                                    newAliasList = new ArrayList<>()
+                                    if (newFieldAliases == null) newFieldAliases = new LinkedHashMap<>()
+                                    newFieldAliases.put(aliasesEntry.getKey(), newAliasList)
+                                }
+                                newAliasList.add(aliasNode)
+                            }
+                        }
+                    }
+
+                    // if nothing added then nothing to filter on for this entity
+                    if (newFieldAliases == (Map<String, ArrayList<MNode>>) null) continue
+                    memberFieldAliases = newFieldAliases
+                }
+
+                // if we got to this point we found a matching filter
+                if (authzFilterInfoList == (ArrayList<AuthzFilterInfo>) null) authzFilterInfoList = new ArrayList<>()
+                authzFilterInfoList.add(new AuthzFilterInfo(entityFilterSetId, entityFilter, memberFieldAliases))
+            }
+        }
+
+        return authzFilterInfoList
+    }
+
+    ArrayList<EntityConditionImplBase> filterFindForUser(EntityDefinition findEd, Set<String> entityAliasUsedSet) {
+        ArrayList<AuthzFilterInfo> authzFilterInfoList = getFindFiltersForUser(findEd, entityAliasUsedSet)
+        if (authzFilterInfoList == null) return null
+        int authzFilterInfoListSize = authzFilterInfoList.size()
+        if (authzFilterInfoListSize == 0) return null
+
         // for evaluating filter Maps add user context to ec.context
         eci.contextStack.push(eci.userFacade.context)
 
         ArrayList<EntityConditionImplBase> condList = (ArrayList<EntityConditionImplBase>) null
         try {
-            for (int i = 0; i < authzFilterSize; i++) {
-                EntityValue artifactAuthzFilter = artifactAuthzFilterList.get(i)
-                EntityList entityFilterList = eci.entity.find("moqui.security.EntityFilter")
-                        .condition("entityFilterSetId", artifactAuthzFilter.entityFilterSetId)
-                        .disableAuthz().useCache(true).list()
+            for (int i = 0; i < authzFilterInfoListSize; i++) {
+                AuthzFilterInfo authzFilterInfo = (AuthzFilterInfo) authzFilterInfoList.get(i)
+                EntityValue entityFilter = authzFilterInfo.entityFilter
+                Map<String, ArrayList<MNode>> memberFieldAliases = authzFilterInfo.memberFieldAliases
 
-                if (entityFilterList == null) continue
-                int entFilterSize = entityFilterList.size()
-                if (entFilterSize == 0) continue
+                // NOTE: this expression eval must be done for the current context, with eci.userFacade.context added
+                Object filterMapObjEval = eci.resourceFacade.expression((String) entityFilter.getNoCheckSimple('filterMap'), null)
+                Map<String, Object> filterMapObj
+                if (filterMapObjEval instanceof Map) {
+                    filterMapObj = filterMapObjEval as Map<String, Object>
+                } else {
+                    logger.error("EntityFiler filterMap did not evaluate to a Map<String, Object>: ${entityFilter.getString('filterMap')}")
+                    continue
+                }
+                // logger.warn("===== ${findEd.getFullEntityName()} filterMapObj: ${filterMapObj}")
 
-                for (int j = 0; j < entFilterSize; j++) {
-                    EntityValue entityFilter = entityFilterList.get(j)
-                    String filterEntityName = (String) entityFilter.getNoCheckSimple("entityName")
-                    if (filterEntityName == null) continue
+                EntityConditionFactoryImpl conditionFactory = eci.entityFacade.conditionFactoryImpl
+                String efComparisonEnumId = (String) entityFilter.getNoCheckSimple('comparisonEnumId')
+                ComparisonOperator compOp = efComparisonEnumId != null && efComparisonEnumId.length() > 0 ?
+                        conditionFactory.comparisonOperatorFromEnumId(efComparisonEnumId) : null
+                JoinOperator joinOp = "Y".equals(entityFilter.getNoCheckSimple('joinOr')) ? EntityCondition.OR : EntityCondition.AND
 
-                    // see if there if any filter entities match the current entity or if it is a view then a member entity
-                    Map<String, ArrayList<MNode>> memberFieldAliases = (Map<String, ArrayList<MNode>>) null
-                    if (!filterEntityName.equals(findEd.getFullEntityName())) {
-                        if (findEd.isViewEntity) {
-                            memberFieldAliases = findEd.getMemberFieldAliases(filterEntityName)
-                            if (memberFieldAliases == null) continue
-                        } else {
-                            continue
-                        }
-                    }
+                // use makeCondition(Map) instead of breaking down here
+                try {
+                    EntityConditionImplBase entCond = conditionFactory.makeCondition(filterMapObj, compOp, joinOp, findEd, memberFieldAliases, true)
+                    if (entCond == (EntityConditionImplBase) null) continue
 
-                    if (memberFieldAliases != null && entityAliasUsedSet != null) {
-                        // trim memberFieldAliases by entity aliases actually used
-                        Map<String, ArrayList<MNode>> newFieldAliases = (Map<String, ArrayList<MNode>>) null
+                    // add the condition to the list to return
+                    if (condList == (ArrayList<EntityConditionImplBase>) null) condList = new ArrayList<>()
+                    condList.add(entCond)
 
-                        for (Map.Entry<String, ArrayList<MNode>> aliasesEntry in memberFieldAliases.entrySet()) {
-                            ArrayList<MNode> aliasList = aliasesEntry.getValue()
-                            if (aliasList == null) continue // should never happen, buy yeah
-                            ArrayList<MNode> newAliasList = (ArrayList<MNode>) null
-
-                            int aliasListSize = aliasList.size()
-                            for (int ali = 0; ali < aliasListSize; ali++) {
-                                MNode aliasNode = (MNode) aliasList.get(ali)
-                                String entityAlias = aliasNode.attribute("entity-alias")
-                                if (entityAliasUsedSet.contains(entityAlias)) {
-                                    // is used, copy over
-                                    if (newAliasList == null) {
-                                        newAliasList = new ArrayList<>()
-                                        if (newFieldAliases == null) newFieldAliases = new LinkedHashMap<>()
-                                        newFieldAliases.put(aliasesEntry.getKey(), newAliasList)
-                                    }
-                                    newAliasList.add(aliasNode)
-                                }
-                            }
-                        }
-
-                        // if nothing added then nothing to filter on for this entity
-                        if (newFieldAliases == (Map<String, ArrayList<MNode>>) null) continue
-                        memberFieldAliases = newFieldAliases
-                    }
-
-                    Object filterMapObjEval = eci.resourceFacade.expression((String) entityFilter.getNoCheckSimple('filterMap'), null)
-                    Map<String, Object> filterMapObj
-                    if (filterMapObjEval instanceof Map) {
-                        filterMapObj = filterMapObjEval as Map<String, Object>
-                    } else {
-                        logger.error("EntityFiler filterMap did not evaluate to a Map<String, Object>: ${entityFilter.getString('filterMap')}")
-                        continue
-                    }
-                    // logger.info("===== ${findEntityName} filterMapObj: ${filterMapObj}")
-
-                    EntityConditionFactoryImpl conditionFactory = eci.entityFacade.conditionFactoryImpl
-                    String efComparisonEnumId = (String) entityFilter.getNoCheckSimple('comparisonEnumId')
-                    ComparisonOperator compOp = efComparisonEnumId != null && efComparisonEnumId.length() > 0 ?
-                            conditionFactory.comparisonOperatorFromEnumId(efComparisonEnumId) : null
-                    JoinOperator joinOp = "Y".equals(entityFilter.getNoCheckSimple('joinOr')) ? EntityCondition.OR : EntityCondition.AND
-
-                    // use makeCondition(Map) instead of breaking down here
-                    try {
-                        EntityConditionImplBase entCond = conditionFactory.makeCondition(filterMapObj, compOp, joinOp, findEd, memberFieldAliases, true)
-                        if (entCond == (EntityConditionImplBase) null) continue
-
-                        // add the condition to the list to return
-                        if (condList == (ArrayList<EntityConditionImplBase>) null) condList = new ArrayList<>()
-                        condList.add(entCond)
-
-                        // logger.info("Query on ${findEntityName} added authz filter conditions: ${entCond}")
-                        // logger.info("Query on ${findEntityName} find: ${efb.toString()}")
-                    } catch (Exception e) {
-                        logger.warn("Error adding authz entity filter ${entityFilter.getNoCheckSimple("entityFilterId")} condition: ${e.toString()}")
-                    }
+                    // logger.info("Query on ${findEntityName} added authz filter conditions: ${entCond}")
+                    // logger.info("Query on ${findEntityName} find: ${efb.toString()}")
+                } catch (Exception e) {
+                    logger.warn("Error adding authz entity filter ${entityFilter.getNoCheckSimple("entityFilterId")} condition: ${e.toString()}")
                 }
             }
         } finally {
             eci.contextStack.pop()
         }
 
-        // if (condList) logger.warn("Filters for ${findEntityName}: ${condList}")
+        // if (condList) logger.warn("Filters for ${findEd.getFullEntityName()}: ${condList}")
         return condList
     }
 }
