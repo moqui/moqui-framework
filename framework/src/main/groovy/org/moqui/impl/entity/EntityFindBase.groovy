@@ -777,8 +777,8 @@ abstract class EntityFindBase implements EntityFind {
         // NOTE: artifactExecutionFacade.filterFindForUser() no longer called here, called in EntityFindBuilder after trimming if needed for view-entity
         if (doCache) {
             // don't cache if there are any applicable filter conditions
-            ArrayList<EntityConditionImplBase> filterCondList = ec.artifactExecutionFacade.filterFindForUser(ed, null)
-            if (filterCondList != null && filterCondList.size() > 0) doCache = false
+            ArrayList findFilterList = ec.artifactExecutionFacade.getFindFiltersForUser(ed, null)
+            if (findFilterList != null && findFilterList.size() > 0) doCache = false
         }
 
         EntityConditionImplBase whereCondition = getWhereEntityConditionInternal(ed)
@@ -1008,8 +1008,8 @@ abstract class EntityFindBase implements EntityFind {
         // NOTE: artifactExecutionFacade.filterFindForUser() no longer called here, called in EntityFindBuilder after trimming if needed for view-entity
         if (doEntityCache) {
             // don't cache if there are any applicable filter conditions
-            ArrayList<EntityConditionImplBase> filterCondList = ec.artifactExecutionFacade.filterFindForUser(ed, null)
-            if (filterCondList != null && filterCondList.size() > 0) doEntityCache = false
+            ArrayList findFilterList = ec.artifactExecutionFacade.getFindFiltersForUser(ed, null)
+            if (findFilterList != null && findFilterList.size() > 0) doEntityCache = false
         }
 
         EntityConditionImplBase whereCondition = getWhereEntityConditionInternal(ed)
@@ -1269,8 +1269,8 @@ abstract class EntityFindBase implements EntityFind {
         // NOTE: artifactExecutionFacade.filterFindForUser() no longer called here, called in EntityFindBuilder after trimming if needed for view-entity
         if (doCache) {
             // don't cache if there are any applicable filter conditions
-            ArrayList<EntityConditionImplBase> filterCondList = ec.artifactExecutionFacade.filterFindForUser(ed, null)
-            if (filterCondList != null && filterCondList.size() > 0) doCache = false
+            ArrayList findFilterList = ec.artifactExecutionFacade.getFindFiltersForUser(ed, null)
+            if (findFilterList != null && findFilterList.size() > 0) doCache = false
         }
 
         EntityConditionImplBase whereCondition = getWhereEntityConditionInternal(ed)
