@@ -28,6 +28,8 @@
     <default-property name="entity_ds_user" value="sa"/>
     <default-property name="entity_ds_password" value="sa"/>
     <default-property name="entity_ds_crypt_pass" value="MoquiDefaultPassword:CHANGEME"/>
+    <default-property name="entity_add_missing_runtime" value=""/>
+    <default-property name="entity_add_missing_startup" value=""/>
 
     <tools empty-db-load="seed,seed-initial,install" worker-queue="65535" worker-pool-core="4" worker-pool-max="16" worker-pool-alive="60">
         <tool-factory class="org.moqui.impl.tools.MCacheToolFactory" init-priority="03" disabled="false"/>
@@ -245,8 +247,6 @@
     </screen-facade>
 
     <service-facade distributed-factory="" scheduled-job-check-time="60">
-        <!-- NOTE: scheduled service jobs are managed using Quartz Scheduler, see quartz configuration for more details -->
-
         <service-location name="main-xml" location="http://localhost:8080/rpc/xml"/>
         <service-location name="main-json" location="http://localhost:8080/rpc/json"/>
 
@@ -312,7 +312,8 @@
             Good numbers for a decent sized server are 100 servlet container (Jetty) threads, 16 worker threads, plus a
             few extra so 120 connections in the main pool.
         -->
-        <datasource group-name="transactional" database-conf-name="${entity_ds_db_conf}" schema-name="${entity_ds_schema}">
+        <datasource group-name="transactional" database-conf-name="${entity_ds_db_conf}" schema-name="${entity_ds_schema}"
+                runtime-add-missing="${entity_add_missing_runtime}" startup-add-missing="${entity_add_missing_startup}">
             <!-- by default no inline-jdbc or jndi-jdbc elements, use default from database conf -->
         </datasource>
 

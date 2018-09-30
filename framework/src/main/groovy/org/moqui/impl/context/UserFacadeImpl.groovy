@@ -62,10 +62,12 @@ class UserFacadeImpl implements UserFacade {
     protected String visitId = (String) null
     protected EntityValue visitInternal = (EntityValue) null
     protected String visitorIdInternal = (String) null
+    protected String clientIpInternal = (String) null
 
     // we mostly want this for the Locale default, and may be useful for other things
     protected HttpServletRequest request = (HttpServletRequest) null
     protected HttpServletResponse response = (HttpServletResponse) null
+    // NOTE: a better practice is to always get from the request, but for WebSocket handshakes we don't have a request
     protected HttpSession session = (HttpSession) null
 
     UserFacadeImpl(ExecutionContextImpl eci) {
@@ -90,6 +92,11 @@ class UserFacadeImpl implements UserFacade {
         this.response = response
         this.session = request.getSession()
 
+        // get client IP address, handle proxy original address if exists
+        String forwardedFor = request.getHeader("X-Forwarded-For")
+        if (forwardedFor != null && !forwardedFor.isEmpty()) { clientIpInternal = forwardedFor.split(",")[0].trim() }
+        else { clientIpInternal = request.getRemoteAddr() }
+
         String preUsername = getUsername()
         Subject webSubject = makeEmptySubject()
         if (webSubject.authenticated) {
@@ -100,7 +107,7 @@ class UserFacadeImpl implements UserFacade {
                     popUser()
                 }
             }
-            // effectively login the user
+            // effectively login the user (already logged in for session through Shiro)
             pushUserSubject(webSubject)
             if (logger.traceEnabled) logger.trace("For new request found user [${username}] in the session")
         } else {
@@ -190,6 +197,7 @@ class UserFacadeImpl implements UserFacade {
                     Cookie visitorCookie = new Cookie("moqui.visitor", cookieVisitorId)
                     visitorCookie.setMaxAge(60 * 60 * 24 * 365)
                     visitorCookie.setPath("/")
+                    visitorCookie.setHttpOnly(true)
                     response.addCookie(visitorCookie)
                 }
             }
@@ -211,14 +219,7 @@ class UserFacadeImpl implements UserFacade {
                 InetAddress address = eci.ecfi.getLocalhostAddress()
                 parameters.serverIpAddress = address?.getHostAddress() ?: "127.0.0.1"
                 parameters.serverHostName = address?.getHostName() ?: "localhost"
-
-                // handle proxy original address, if exists
-                String forwardedFor = request.getHeader("X-Forwarded-For")
-                if (forwardedFor != null && !forwardedFor.isEmpty()) {
-                    parameters.clientIpAddress = forwardedFor.split(",")[0].trim()
-                } else {
-                    parameters.clientIpAddress = request.getRemoteAddr()
-                }
+                parameters.clientIpAddress = clientIpInternal
                 if (cookieVisitorId) parameters.visitorId = cookieVisitorId
 
                 // NOTE: disable authz for this call, don't normally want to allow create of Visit, but this is special case
@@ -235,6 +236,11 @@ class UserFacadeImpl implements UserFacade {
     }
     void initFromHandshakeRequest(HandshakeRequest request) {
         this.session = (HttpSession) request.getHttpSession()
+
+        // get client IP address, handle proxy original address if exists
+        String forwardedFor = request.getHeaders().get("X-Forwarded-For")?.first()
+        if (forwardedFor != null && !forwardedFor.isEmpty()) { clientIpInternal = forwardedFor.split(",")[0].trim() }
+        // any other way to get websocket client IP? else { clientIpInternal = request.getRemoteAddr() }
 
         // WebSocket handshake request is the HTTP upgrade request so this will be the original session
         // login user from value in session
@@ -560,8 +566,12 @@ class UserFacadeImpl implements UserFacade {
         }
 
         UsernamePasswordToken token = new UsernamePasswordToken(username, password, true)
+        // if there is a web session invalidate it so there is a new session for the login (prevent Session Fixation attacks)
+        if (eci.getWebImpl() != null) session = eci.getWebImpl().makeNewSession()
+
         Subject loginSubject = makeEmptySubject()
         try {
+            // do the actual login through Shiro
             loginSubject.login(token)
 
             // do this first so that the rest will be done as this user
@@ -585,13 +595,14 @@ class UserFacadeImpl implements UserFacade {
     }
 
     /** For internal framework use only, does a login without authc. */
-    boolean internalLoginUser(String username) {
+    boolean internalLoginUser(String username) { return internalLoginUser(username, true) }
+    boolean internalLoginUser(String username, boolean saveHistory) {
         if (username == null || username.isEmpty()) {
             eci.message.addError(eci.l10n.localize("No username specified"))
             return false
         }
 
-        UsernamePasswordToken token = new MoquiShiroRealm.ForceLoginToken(username, true)
+        UsernamePasswordToken token = new MoquiShiroRealm.ForceLoginToken(username, true, saveHistory)
         Subject loginSubject = makeEmptySubject()
         try {
             loginSubject.login(token)
@@ -791,6 +802,7 @@ class UserFacadeImpl implements UserFacade {
         visitorIdInternal = visitLocal != null ? visitLocal.getNoCheckSimple("visitorId") : null
         return visitorIdInternal
     }
+    @Override String getClientIp() { return clientIpInternal }
 
     // ========== UserInfo ==========
 

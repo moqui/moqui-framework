@@ -103,7 +103,7 @@ along with this software (see the LICENSE.md file). If not, see
                     def info = new org.apache.shiro.authc.SimpleAuthenticationInfo(userAccount.username, userAccount.currentPassword,
                             userAccount.passwordSalt ? new org.apache.shiro.util.SimpleByteSource((String) userAccount.passwordSalt) : null, "moquiRealm")
                 </script>
-                <if condition="!ec.ecfi.getCredentialsMatcher(userAccount.passwordHashType, 'Y'.equals(userAccount.passwordBase64)).doCredentialsMatch(token, info)">
+                <if condition="!userAccount.currentPassword || !ec.ecfi.getCredentialsMatcher(userAccount.passwordHashType, 'Y'.equals(userAccount.passwordBase64)).doCredentialsMatch(token, info)">
                     <if condition="userAccount.resetPassword"><then>
                         <!-- try the resetPassword -->
                         <script>

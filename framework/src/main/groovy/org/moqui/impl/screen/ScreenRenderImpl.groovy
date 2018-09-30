@@ -670,7 +670,8 @@ class ScreenRenderImpl implements ScreenRender {
         ArrayList<ScreenDefinition> screenPathDefList = screenUrlInfo.screenPathDefList
         int screenPathDefListSize = screenPathDefList.size()
 
-        if (screenUrlInfo.targetScreen.isServerStatic(renderMode)) {
+        boolean isServerStatic = screenUrlInfo.targetScreen.isServerStatic(renderMode)
+        if (isServerStatic) {
             if (response != null) response.addHeader("Cache-Control", "max-age=3600, must-revalidate, private")
             // TODO: consider server caching of rendered screen, this is the place to do it
         }
@@ -693,7 +694,16 @@ class ScreenRenderImpl implements ScreenRender {
                 response.setContentType(this.outputContentType)
                 response.setCharacterEncoding(this.characterEncoding)
                 // if requires a render, don't cache and make it private
-                response.addHeader("Cache-Control", "no-cache, no-store, must-revalidate, private")
+                if (!isServerStatic) response.addHeader("Cache-Control", "no-cache, no-store, must-revalidate, private")
+                // if the request is secure add HSTS Strict-Transport-Security header with one leap year age (in seconds)
+                if (request.isSecure()) response.addHeader("Strict-Transport-Security", "max-age=31536000")
+
+                // add Content-Security-Policy by default to not allow use in iframe or allow form actions on different host
+                // see https://content-security-policy.com/
+                // TODO make this configurable for different screen paths? maybe a screen.web-settings attribute to exclude or add to?
+                // TODO consider "child-src 'self';", leaving out as default because 3rd party hosts needed for payment processing hosted forms, etc; would need to be configurable per instance or something
+                response.addHeader("Content-Security-Policy", "frame-ancestors 'none'; form-action 'self';")
+                response.addHeader("X-Frame-Options", "deny")
 
                 String filename = ec.context.saveFilename as String
                 if (filename) {

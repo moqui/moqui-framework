@@ -50,7 +50,7 @@ public class MClassLoader extends ClassLoader {
         m.put("java.sql.Timestamp", java.sql.Timestamp.class); m.put("Timestamp", java.sql.Timestamp.class);
         m.put("java.sql.Time", java.sql.Time.class); m.put("Time", java.sql.Time.class);
         m.put("java.sql.Date", java.sql.Date.class); m.put("Date", java.sql.Date.class);
-        m.put("java.util.Locale", java.util.Locale.class); m.put("java.util.TimeZone", java.util.TimeZone.class);
+        m.put("java.util.Locale", Locale.class); m.put("java.util.TimeZone", TimeZone.class);
         m.put("java.lang.Byte", java.lang.Byte.class); m.put("java.lang.Character", java.lang.Character.class);
         m.put("java.lang.Integer", java.lang.Integer.class); m.put("Integer", java.lang.Integer.class);
         m.put("java.lang.Long", java.lang.Long.class); m.put("Long", java.lang.Long.class);
@@ -64,12 +64,12 @@ public class MClassLoader extends ClassLoader {
         m.put("java.sql.Blob", java.sql.Blob.class); m.put("Blob", java.sql.Blob.class);
         m.put("java.nio.ByteBuffer", java.nio.ByteBuffer.class);
         m.put("java.sql.Clob", java.sql.Clob.class); m.put("Clob", java.sql.Clob.class);
-        m.put("java.util.Date", java.util.Date.class);
-        m.put("java.util.Collection", java.util.Collection.class); m.put("Collection", java.util.Collection.class);
-        m.put("java.util.List", java.util.List.class); m.put("List", java.util.List.class);
-        m.put("java.util.ArrayList", java.util.ArrayList.class); m.put("ArrayList", java.util.ArrayList.class);
-        m.put("java.util.Map", java.util.Map.class); m.put("Map", java.util.Map.class); m.put("java.util.HashMap", java.util.HashMap.class);
-        m.put("java.util.Set", java.util.Set.class); m.put("Set", java.util.Set.class); m.put("java.util.HashSet", java.util.HashSet.class);
+        m.put("java.util.Date", Date.class);
+        m.put("java.util.Collection", Collection.class); m.put("Collection", Collection.class);
+        m.put("java.util.List", List.class); m.put("List", List.class);
+        m.put("java.util.ArrayList", ArrayList.class); m.put("ArrayList", ArrayList.class);
+        m.put("java.util.Map", Map.class); m.put("Map", Map.class); m.put("java.util.HashMap", HashMap.class);
+        m.put("java.util.Set", Set.class); m.put("Set", Set.class); m.put("java.util.HashSet", HashSet.class);
         m.put("groovy.util.Node", groovy.util.Node.class); m.put("Node", groovy.util.Node.class);
         m.put("org.moqui.util.MNode", org.moqui.util.MNode.class); m.put("MNode", org.moqui.util.MNode.class);
         m.put(Boolean.TYPE.getName(), Boolean.TYPE); m.put(Short.TYPE.getName(), Short.TYPE);
@@ -530,13 +530,15 @@ public class MClassLoader extends ClassLoader {
     }
 
     private void definePackage(String className, JarFile jarFile) throws IllegalArgumentException {
-        Manifest mf;
+        Manifest mf = null;
         try {
             mf = jarFile.getManifest();
         } catch (IOException e) {
-            // use default manifest
-            mf = new Manifest();
+            System.out.println("Error getting manifest from " + jarFile.getName() + ": " + e.toString());
         }
+        // if no manifest use default
+        if (mf == null) mf = new Manifest();
+
         int dotIndex = className.lastIndexOf('.');
         String packageName = dotIndex > 0 ? className.substring(0, dotIndex) : "";
         if (getPackage(packageName) == null) {

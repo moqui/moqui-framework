@@ -740,7 +740,7 @@ abstract class EntityFindBase implements EntityFind {
         boolean hasEmptyPk = false
         boolean hasFullPk = true
         if (singleCondField != null && ed.isPkField(singleCondField) && ObjectUtilities.isEmpty(singleCondValue)) {
-            hasEmptyPk = true; hasFullPk = false; }
+            hasEmptyPk = true; hasFullPk = false }
         ArrayList<String> pkNameList = ed.getPkFieldNames()
         int pkSize = pkNameList.size()
         int samSize = simpleAndMap != null ? simpleAndMap.size() : 0
@@ -761,7 +761,7 @@ abstract class EntityFindBase implements EntityFind {
             if (singleCondField != null) {
                 // this shouldn't generally happen, added to simpleAndMap internally on the fly when needed, but just in case
                 pks.put(singleCondField, singleCondValue)
-                singleCondField = (String) null; singleCondValue = null;
+                singleCondField = (String) null; singleCondValue = null
             }
             for (int i = 0; i < pkSize; i++) {
                 String fieldName = (String) pkNameList.get(i)
@@ -773,8 +773,13 @@ abstract class EntityFindBase implements EntityFind {
         // if any PK fields are null, for whatever reason in calling code, the result is null so no need to send to DB or cache or anything
         if (hasEmptyPk) return (EntityValue) null
 
-        // before combining conditions let ArtifactFacade add entity filters associated with authz
-        ec.artifactExecutionFacade.filterFindForUser(this)
+        boolean doCache = shouldCache()
+        // NOTE: artifactExecutionFacade.filterFindForUser() no longer called here, called in EntityFindBuilder after trimming if needed for view-entity
+        if (doCache) {
+            // don't cache if there are any applicable filter conditions
+            ArrayList<EntityConditionImplBase> filterCondList = ec.artifactExecutionFacade.filterFindForUser(ed, null)
+            if (filterCondList != null && filterCondList.size() > 0) doCache = false
+        }
 
         EntityConditionImplBase whereCondition = getWhereEntityConditionInternal(ed)
 
@@ -795,7 +800,6 @@ abstract class EntityFindBase implements EntityFind {
 
         // if (txcValue != null && ed.getEntityName() == "foo") logger.warn("========= TX cache one value: ${txcValue}")
 
-        boolean doCache = shouldCache() && whereCondition != null
         Cache<EntityCondition, EntityValueBase> entityOneCache = doCache ?
                 ed.getCacheOne(efi.getEntityCache()) : (Cache<EntityCondition, EntityValueBase>) null
         EntityValueBase cacheHit = (EntityValueBase) null
@@ -999,17 +1003,24 @@ abstract class EntityFindBase implements EntityFind {
             }
         }
 
-        // before combining conditions let ArtifactFacade add entity filters associated with authz
-        ec.artifactExecutionFacade.filterFindForUser(this)
+        boolean doEntityCache = shouldCache()
+
+        // NOTE: artifactExecutionFacade.filterFindForUser() no longer called here, called in EntityFindBuilder after trimming if needed for view-entity
+        if (doEntityCache) {
+            // don't cache if there are any applicable filter conditions
+            ArrayList<EntityConditionImplBase> filterCondList = ec.artifactExecutionFacade.filterFindForUser(ed, null)
+            if (filterCondList != null && filterCondList.size() > 0) doEntityCache = false
+        }
 
         EntityConditionImplBase whereCondition = getWhereEntityConditionInternal(ed)
+        // don't cache if no whereCondition
+        if (whereCondition == null) doEntityCache = false
 
         // try the txCache first, more recent than general cache (and for update general cache entries will be cleared anyway)
         EntityListImpl txcEli = txCache != null ? txCache.listGet(ed, whereCondition, orderByExpanded) : (EntityListImpl) null
 
         // NOTE: don't cache if there is a having condition, for now just support where
         // NOTE: could avoid caching lists if it is a filtered find, but mostly by org so reusable: && !filteredFind
-        boolean doEntityCache = shouldCache() && whereCondition != null
         Cache<EntityCondition, EntityListImpl> entityListCache = doEntityCache ?
                 ed.getCacheList(efi.getEntityCache()) : (Cache<EntityCondition, EntityListImpl>) null
         EntityListImpl cacheList = (EntityListImpl) null
@@ -1127,7 +1138,6 @@ abstract class EntityFindBase implements EntityFind {
     protected EntityListIterator iteratorInternal(ExecutionContextImpl ec, EntityDefinition ed) throws EntityException, SQLException {
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
         boolean isViewEntity = entityInfo.isView
-        ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
 
         if (entityInfo.isInvalidViewEntity) throw new EntityException("Cannot do find for view-entity with name ${entityName} because it has no member entities or no aliased fields.")
 
@@ -1191,8 +1201,7 @@ abstract class EntityFindBase implements EntityFind {
                 fieldInfoArray = entityInfo.allFieldInfoArray
         }
 
-        // before combining conditions let ArtifactFacade add entity filters associated with authz
-        aefi.filterFindForUser(this)
+        // NOTE: artifactExecutionFacade.filterFindForUser() no longer called here, called in EntityFindBuilder after trimming if needed for view-entity
 
         EntityConditionImplBase whereCondition = getWhereEntityConditionInternal(ed)
         EntityConditionImplBase havingCondition = havingEntityCondition
@@ -1251,17 +1260,24 @@ abstract class EntityFindBase implements EntityFind {
     protected long countInternal(ExecutionContextImpl ec, EntityDefinition ed) throws EntityException, SQLException {
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
         boolean isViewEntity = entityInfo.isView
-        ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
 
         // there may not be a simpleAndMap, but that's all we have that can be treated directly by the EECA
         // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(ed.getFullEntityName(), simpleAndMap, "find-count", true)
 
-        // before combining conditions let ArtifactFacade add entity filters associated with authz
-        aefi.filterFindForUser(this)
+        boolean doCache = shouldCache()
+
+        // NOTE: artifactExecutionFacade.filterFindForUser() no longer called here, called in EntityFindBuilder after trimming if needed for view-entity
+        if (doCache) {
+            // don't cache if there are any applicable filter conditions
+            ArrayList<EntityConditionImplBase> filterCondList = ec.artifactExecutionFacade.filterFindForUser(ed, null)
+            if (filterCondList != null && filterCondList.size() > 0) doCache = false
+        }
 
         EntityConditionImplBase whereCondition = getWhereEntityConditionInternal(ed)
+        // don't cache if no whereCondition
+        if (whereCondition == null) doCache = false
         // NOTE: don't cache if there is a having condition, for now just support where
-        boolean doCache = whereCondition != null && shouldCache()
+
         Cache<EntityCondition, Long> entityCountCache = doCache ? ed.getCacheCount(efi.getEntityCache()) : (Cache) null
         Long cacheCount = (Long) null
         if (doCache) cacheCount = (Long) entityCountCache.get(whereCondition)
