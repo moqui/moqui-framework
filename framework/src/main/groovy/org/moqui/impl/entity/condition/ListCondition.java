@@ -61,13 +61,14 @@ public class ListCondition implements EntityConditionImplBase {
         curHashCode = createHashCode();
         conditionListSize = conditionList.size();
     }
-    public void addConditions(ListCondition listCond) {
-        ArrayList<EntityConditionImplBase> condList = listCond.getConditionList();
-        int condListSize = condList.size();
+    public void addConditions(ArrayList<EntityConditionImplBase> condList) {
+        int condListSize = condList != null ? condList.size() : 0;
+        if (condListSize == 0) return;
         for (int i = 0; i < condListSize; i++) addCondition(condList.get(i));
         curHashCode = createHashCode();
         conditionListSize = conditionList.size();
     }
+    public void addConditions(ListCondition listCond) { addConditions(listCond.getConditionList()); }
 
     public JoinOperator getOperator() { return operator; }
     public ArrayList<EntityConditionImplBase> getConditionList() { return conditionList; }

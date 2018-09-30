@@ -131,7 +131,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
         }
         if (newList == null || newList.size() == 0) return null
         if (newList.size() == 1) {
-            return newList.get(0)
+            return (EntityCondition) newList.get(0)
         } else {
             return new ListCondition(newList, operator)
         }
@@ -320,6 +320,33 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
             case "ENTCO_IS_NOT_NULL": return EntityCondition.IS_NOT_NULL
             default: return null
         }
+    }
+
+    static EntityConditionImplBase addAndListToCondition(EntityConditionImplBase baseCond, ArrayList<EntityConditionImplBase> condList) {
+        EntityConditionImplBase outCondition = baseCond
+        int condListSize = condList != null ? condList.size() : 0
+        if (condListSize > 0) {
+            if (baseCond == null) {
+                if (condListSize == 1) {
+                    outCondition = (EntityConditionImplBase) condList.get(0)
+                } else {
+                    outCondition = new ListCondition(condList, EntityCondition.AND)
+                }
+            } else {
+                ListCondition newListCond = (ListCondition) null
+                if (baseCond instanceof ListCondition) {
+                    ListCondition baseListCond = (ListCondition) baseCond
+                    if (EntityCondition.AND.is(baseListCond.operator)) {
+                        // modify in place
+                        newListCond = baseListCond
+                    }
+                }
+                if (newListCond == null) newListCond = new ListCondition([baseCond], EntityCondition.AND)
+                newListCond.addConditions(condList)
+                outCondition = newListCond
+            }
+        }
+        return outCondition
     }
 
     EntityCondition makeActionCondition(String fieldName, String operator, String fromExpr, String value, String toFieldName,
