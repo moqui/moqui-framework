@@ -15,6 +15,7 @@ package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
 import org.moqui.impl.entity.EntityConditionFactoryImpl
+import org.moqui.impl.entity.condition.EntityConditionImplBase
 
 import java.sql.Timestamp
 
@@ -529,32 +530,31 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
         }
     }
 
-    boolean filterFindForUser(EntityFindBase efb) {
+    ArrayList<EntityConditionImplBase> filterFindForUser(EntityDefinition findEd, Set<String> entityAliasUsedSet) {
         // do nothing if authz disabled
-        if (authzDisabled) return false
+        if (authzDisabled) return null
 
         // NOTE: look for filters in all unique aacv in stack? shouldn't be needed, most recent auth is the valid one
         ArtifactExecutionInfoImpl lastAeii = (ArtifactExecutionInfoImpl) artifactExecutionInfoStack.peekFirst()
         ArtifactAuthzCheck aacv = lastAeii.internalAacv
-        if (aacv == null) return false
+        if (aacv == null) return null
 
-        String findEntityName = efb.getEntity()
+        String findEntityName = findEd.getFullEntityName()
         // skip all Moqui Framework entities;  note that this skips moqui.example too...
-        if (findEntityName.startsWith("moqui.")) return false
+        if (findEntityName.startsWith("moqui.")) return null
 
         // find applicable EntityFilter records
         EntityList artifactAuthzFilterList = eci.entity.find("moqui.security.ArtifactAuthzFilter")
                 .condition("artifactAuthzId", aacv.artifactAuthzId).disableAuthz().useCache(true).list()
 
-        if (artifactAuthzFilterList == null) return false
+        if (artifactAuthzFilterList == null) return null
         int authzFilterSize = artifactAuthzFilterList.size()
-        if (authzFilterSize == 0) return false
+        if (authzFilterSize == 0) return null
 
-        EntityDefinition findEd = efb.getEntityDef()
         // for evaluating filter Maps add user context to ec.context
         eci.contextStack.push(eci.userFacade.context)
 
-        boolean addedFilter = false
+        ArrayList<EntityConditionImplBase> condList = (ArrayList<EntityConditionImplBase>) null
         try {
             for (int i = 0; i < authzFilterSize; i++) {
                 EntityValue artifactAuthzFilter = artifactAuthzFilterList.get(i)
@@ -569,16 +569,47 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                 for (int j = 0; j < entFilterSize; j++) {
                     EntityValue entityFilter = entityFilterList.get(j)
                     String filterEntityName = (String) entityFilter.getNoCheckSimple("entityName")
+                    if (filterEntityName == null) continue
 
                     // see if there if any filter entities match the current entity or if it is a view then a member entity
                     Map<String, ArrayList<MNode>> memberFieldAliases = (Map<String, ArrayList<MNode>>) null
-                    if (filterEntityName != findEd.fullEntityName) {
+                    if (!filterEntityName.equals(findEd.getFullEntityName())) {
                         if (findEd.isViewEntity) {
                             memberFieldAliases = findEd.getMemberFieldAliases(filterEntityName)
                             if (memberFieldAliases == null) continue
                         } else {
                             continue
                         }
+                    }
+
+                    if (memberFieldAliases != null && entityAliasUsedSet != null) {
+                        // trim memberFieldAliases by entity aliases actually used
+                        Map<String, ArrayList<MNode>> newFieldAliases = (Map<String, ArrayList<MNode>>) null
+
+                        for (Map.Entry<String, ArrayList<MNode>> aliasesEntry in memberFieldAliases.entrySet()) {
+                            ArrayList<MNode> aliasList = aliasesEntry.getValue()
+                            if (aliasList == null) continue // should never happen, buy yeah
+                            ArrayList<MNode> newAliasList = (ArrayList<MNode>) null
+
+                            int aliasListSize = aliasList.size()
+                            for (int ali = 0; ali < aliasListSize; ali++) {
+                                MNode aliasNode = (MNode) aliasList.get(ali)
+                                String entityAlias = aliasNode.attribute("entity-alias")
+                                if (entityAliasUsedSet.contains(entityAlias)) {
+                                    // is used, copy over
+                                    if (newAliasList == null) {
+                                        newAliasList = new ArrayList<>()
+                                        if (newFieldAliases == null) newFieldAliases = new LinkedHashMap<>()
+                                        newFieldAliases.put(aliasesEntry.getKey(), newAliasList)
+                                    }
+                                    newAliasList.add(aliasNode)
+                                }
+                            }
+                        }
+
+                        // if nothing added then nothing to filter on for this entity
+                        if (newFieldAliases == (Map<String, ArrayList<MNode>>) null) continue
+                        memberFieldAliases = newFieldAliases
                     }
 
                     Object filterMapObjEval = eci.resourceFacade.expression((String) entityFilter.getNoCheckSimple('filterMap'), null)
@@ -599,13 +630,12 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
 
                     // use makeCondition(Map) instead of breaking down here
                     try {
-                        EntityCondition entCond = conditionFactory.makeCondition(filterMapObj, compOp, joinOp, findEd, memberFieldAliases, true)
-                        if (entCond == null) continue
+                        EntityConditionImplBase entCond = conditionFactory.makeCondition(filterMapObj, compOp, joinOp, findEd, memberFieldAliases, true)
+                        if (entCond == (EntityConditionImplBase) null) continue
 
-                        // add the condition to the find
-                        // NOTE: just create a list cond and add it, EntityFindBase will put it in simpleAndMap or otherwise optimize it
-                        addedFilter = true
-                        efb.condition(entCond)
+                        // add the condition to the list to return
+                        if (condList == (ArrayList<EntityConditionImplBase>) null) condList = new ArrayList<>()
+                        condList.add(entCond)
 
                         // logger.info("Query on ${findEntityName} added authz filter conditions: ${entCond}")
                         // logger.info("Query on ${findEntityName} find: ${efb.toString()}")
@@ -618,6 +648,7 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
             eci.contextStack.pop()
         }
 
-        return addedFilter
+        // if (condList) logger.warn("Filters for ${findEntityName}: ${condList}")
+        return condList
     }
 }

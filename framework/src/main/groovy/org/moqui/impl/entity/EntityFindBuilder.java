@@ -96,14 +96,15 @@ public class EntityFindBuilder extends EntityQueryBuilder {
     }
 
     public void makeSqlFromClause() {
-        makeSqlFromClause(mainEntityDefinition, sqlTopLevel, whereCondition,
+        whereCondition = makeSqlFromClause(mainEntityDefinition, sqlTopLevel, whereCondition,
                 (EntityConditionImplBase) entityFindBase.getHavingEntityCondition(), null);
     }
 
-    public void makeSqlFromClause(final EntityDefinition localEntityDefinition, StringBuilder localBuilder,
+    public EntityConditionImplBase makeSqlFromClause(final EntityDefinition localEntityDefinition, StringBuilder localBuilder,
                 EntityConditionImplBase localWhereCondition, EntityConditionImplBase localHavingCondition, Set<String> additionalFieldsUsed) {
         localBuilder.append(" FROM ");
 
+        EntityConditionImplBase outWhereCondition = localWhereCondition;
         if (localEntityDefinition.isViewEntity) {
             final MNode entityNode = localEntityDefinition.getEntityNode();
             final MNode databaseNode = efi.getDatabaseNode(localEntityDefinition.getEntityGroupName());
@@ -125,6 +126,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
             Set<String> entityAliasUsedSet = new HashSet<>();
             Set<String> fieldUsedSet = new HashSet<>();
 
+            // add aliases used to fields used
             EntityConditionImplBase viewWhere = localEntityDefinition.makeViewWhereCondition();
             if (viewWhere != null) viewWhere.getAllAliases(entityAliasUsedSet, fieldUsedSet);
             if (localWhereCondition != null) localWhereCondition.getAllAliases(entityAliasUsedSet, fieldUsedSet);
@@ -133,12 +135,13 @@ public class EntityFindBuilder extends EntityQueryBuilder {
             // logger.warn("SQL from viewWhere " + viewWhere + " localWhereCondition " + localWhereCondition + " localHavingCondition " + localHavingCondition);
             // logger.warn("SQL from fieldUsedSet " + fieldUsedSet + " additionalFieldsUsed " + additionalFieldsUsed);
             if (additionalFieldsUsed == null) {
+                // add selected fields
                 for (int i = 0; i < fieldInfoArray.length; i++) {
                     FieldInfo fi = fieldInfoArray[i];
                     if (fi == null) break;
                     fieldUsedSet.add(fi.name);
                 }
-
+                // add order by fields
                 ArrayList<String> orderByFields = entityFindBase.orderByFields;
                 if (orderByFields != null) {
                     int orderByFieldsSize = orderByFields.size();
@@ -184,6 +187,10 @@ public class EntityFindBuilder extends EntityQueryBuilder {
 
             // logger.warn("============== entityAliasUsedSet=${entityAliasUsedSet} for entity ${localEntityDefinition.entityName}\nfieldUsedSet=${fieldUsedSet}\n fieldInfoList=${fieldInfoList}\n orderByFields=${entityFindBase.orderByFields}")
 
+            // at this point entityAliasUsedSet is finalized so do authz filter if needed
+            ArrayList<EntityConditionImplBase> filterCondList = efi.ecfi.getEci().artifactExecutionFacade.filterFindForUser(localEntityDefinition, entityAliasUsedSet);
+            outWhereCondition = EntityConditionFactoryImpl.addAndListToCondition(outWhereCondition, filterCondList);
+
             // keep a set of all aliases in the join so far and if the left entity alias isn't there yet, and this
             // isn't the first one, throw an exception
             final Set<String> joinedAliasSet = new TreeSet<>();
@@ -226,7 +233,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
 
                 if (isFirst) {
                     // first link, add link entity for this one only, for others add related link entity
-                    makeSqlViewTableName(linkEntityDefinition, localBuilder, localWhereCondition, localHavingCondition);
+                    outWhereCondition = makeSqlViewTableName(linkEntityDefinition, localBuilder, outWhereCondition, localHavingCondition);
                     localBuilder.append(" ").append(joinFromAlias);
 
                     joinedAliasSet.add(joinFromAlias);
@@ -254,7 +261,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
                 if (subSelect) {
                     makeSqlMemberSubSelect(entityAlias, relatedMemberEntityNode, relatedLinkEntityDefinition, localBuilder);
                 } else {
-                    makeSqlViewTableName(relatedLinkEntityDefinition, localBuilder, localWhereCondition, localHavingCondition);
+                    outWhereCondition = makeSqlViewTableName(relatedLinkEntityDefinition, localBuilder, outWhereCondition, localHavingCondition);
                 }
                 localBuilder.append(" ").append(entityAlias).append(" ON ");
 
@@ -327,18 +334,25 @@ public class EntityFindBuilder extends EntityQueryBuilder {
                 if ("true".equals(memberEntity.attribute("sub-select"))) {
                     makeSqlMemberSubSelect(memberEntityAlias, memberEntity, fromEntityDefinition, localBuilder);
                 } else {
-                    makeSqlViewTableName(fromEntityDefinition, localBuilder, localWhereCondition, localHavingCondition);
+                    outWhereCondition = makeSqlViewTableName(fromEntityDefinition, localBuilder, outWhereCondition, localHavingCondition);
                 }
                 localBuilder.append(" ").append(memberEntityAlias);
             }
         } else {
+            // not a view-entity so do authz filter now if needed
+            ArrayList<EntityConditionImplBase> filterCondList = efi.ecfi.getEci().artifactExecutionFacade.filterFindForUser(localEntityDefinition, null);
+            outWhereCondition = EntityConditionFactoryImpl.addAndListToCondition(outWhereCondition, filterCondList);
+
             localBuilder.append(localEntityDefinition.getFullTableName());
         }
+
+        return outWhereCondition;
     }
 
-    public void makeSqlViewTableName(EntityDefinition localEntityDefinition, StringBuilder localBuilder,
+    public EntityConditionImplBase makeSqlViewTableName(EntityDefinition localEntityDefinition, StringBuilder localBuilder,
                 EntityConditionImplBase localWhereCondition, EntityConditionImplBase localHavingCondition) {
         EntityJavaUtil.EntityInfo entityInfo = localEntityDefinition.entityInfo;
+        EntityConditionImplBase outWhereCondition = localWhereCondition;
         if (entityInfo.isView) {
             localBuilder.append("(SELECT ");
 
@@ -362,7 +376,8 @@ public class EntityFindBuilder extends EntityQueryBuilder {
                 //localBuilder.append(sanitizeColumnName(localEntityDefinition.getColumnName(aliasName), false)))
             }
 
-            makeSqlFromClause(localEntityDefinition, localBuilder, localWhereCondition, localHavingCondition, additionalFieldsUsed);
+            // pass through localWhereCondition in case changed
+            outWhereCondition = makeSqlFromClause(localEntityDefinition, localBuilder, localWhereCondition, localHavingCondition, additionalFieldsUsed);
 
             // TODO: refactor this like below to do in the main loop; this is currently unused though (view-entity as member-entity for sub-select)
             StringBuilder gbClause = new StringBuilder();
@@ -391,6 +406,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
         } else {
             localBuilder.append(localEntityDefinition.getFullTableName());
         }
+        return outWhereCondition;
     }
 
     public void makeSqlMemberSubSelect(String entityAlias, MNode memberEntity, EntityDefinition localEntityDefinition,
@@ -531,11 +547,10 @@ public class EntityFindBuilder extends EntityQueryBuilder {
         // logger.warn("makeSqlMemberSubSelect SQL so far " + localBuilder.toString());
         // logger.warn("Calling makeSqlFromClause for " + entityAlias + ":" + localEntityDefinition.getEntityName() + " condition " + condition);
         // logger.warn("Calling makeSqlFromClause for " + entityAlias + ":" + localEntityDefinition.getEntityName() + " addtl fields " + additionalFieldsUsed);
-        makeSqlFromClause(localEntityDefinition, localBuilder, condition, null, additionalFieldsUsed);
+        condition = makeSqlFromClause(localEntityDefinition, localBuilder, condition, null, additionalFieldsUsed);
 
         // add where clause, just for conditions on aliased fields on this entity-alias
         if (condition != null) {
-            // TODO NOTE was sqlTopLevel
             localBuilder.append(" WHERE ");
             condition.makeSqlWhere(this, localEntityDefinition);
         }
@@ -601,7 +616,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
             return;
         }
 
-        MNode databaseNode = this.efi.getDatabaseNode(mainEntityDefinition.getEntityGroupName());
+        MNode databaseNode = efi.getDatabaseNode(mainEntityDefinition.getEntityGroupName());
         sqlTopLevel.append(" ORDER BY ");
         for (int i = 0; i < obflSize; i++) {
             String fieldName = orderByFieldList.get(i);
@@ -631,7 +646,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
     public void addLimitOffset(Integer limit, Integer offset) {
         if (limit == null && offset == null) return;
 
-        MNode databaseNode = this.efi.getDatabaseNode(mainEntityDefinition.getEntityGroupName());
+        MNode databaseNode = efi.getDatabaseNode(mainEntityDefinition.getEntityGroupName());
         // if no databaseNode do nothing, means it is not a standard SQL/JDBC database
         if (databaseNode != null) {
             String offsetStyle = databaseNode.attribute("offset-style");

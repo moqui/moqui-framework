@@ -28,14 +28,14 @@ import java.util.HashMap;
 
 public class EntityQueryBuilder {
     protected static final Logger logger = LoggerFactory.getLogger(EntityQueryBuilder.class);
-    protected static final boolean isDebugEnabled = logger.isDebugEnabled();
+    static final boolean isDebugEnabled = logger.isDebugEnabled();
 
     public final EntityFacadeImpl efi;
     public final EntityDefinition mainEntityDefinition;
 
     private static final int sqlInitSize = 500;
     public final StringBuilder sqlTopLevel = new StringBuilder(sqlInitSize);
-    protected String finalSql = (String) null;
+    String finalSql = null;
 
     private static final int parametersInitSize = 20;
     public final ArrayList<EntityConditionParameter> parameters = new ArrayList<>(parametersInitSize);
