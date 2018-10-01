@@ -117,7 +117,10 @@ dependencies {
     compile 'javax.transaction:jta:1.1'
     compile 'javax.cache:cache-api:1.1.0'
     compile 'javax.jcr:jcr:2.0'
-    compile 'javax.websocket:javax.websocket-api:1.0' // using 1.0, don't update to 1.1 until used in Jetty, Tomcat, etc
+    // jaxb-api no longer included in Java 9 and later, also tested with openjdk-8
+    compile 'javax.xml.bind:jaxb-api:2.3.0' // CDDL 1.1
+    // using websocket-api 1.0, don't update to 1.1 until used in Jetty, Tomcat, etc
+    compile 'javax.websocket:javax.websocket-api:1.0'
     providedCompile 'javax.servlet:javax.servlet-api:3.1.0'
     // Specs not needed by default:
     // compile 'javax.resource:connector-api:1.5'
