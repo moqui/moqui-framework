@@ -139,6 +139,29 @@ public class WebUtilities {
         return reqParmMap;
     }
 
+    public static String encodeHtmlJsSafe(String original) {
+        if (original == null) return "";
+        StringBuilder newValue = new StringBuilder(original);
+        for (int i = 0; i < newValue.length(); i++) {
+            char curChar = newValue.charAt(i);
+            switch (curChar) {
+                case '\'': newValue.replace(i, i + 1, "\\'"); i += 1; break;
+                case '"': newValue.replace(i, i + 1, "&quot;"); i += 5; break;
+                case '&': newValue.replace(i, i + 1, "&amp;"); i += 4; break;
+                case '<': newValue.replace(i, i + 1, "&lt;"); i += 3; break;
+                case '>': newValue.replace(i, i + 1, "&gt;"); i += 3; break;
+                case 0x5: newValue.replace(i, i + 1, "..."); i += 2; break;
+                case 0x12: newValue.replace(i, i + 1, "&apos;"); i += 5; break;
+                case 0x13: newValue.replace(i, i + 1, "&quot;"); i += 5; break;
+                case 0x14: newValue.replace(i, i + 1, "&quot;"); i += 5; break;
+                case 0x16: newValue.replace(i, i + 1, "-"); break;
+                case 0x17: newValue.replace(i, i + 1, "-"); break;
+                case 0x19: newValue.replace(i, i + 1, "tm"); i++; break;
+            }
+        }
+        return newValue.toString();
+    }
+
     /** Pattern may have a plain number, '*' for wildcard, or a '-' separated number range for each dot separated segment;
      * may also have multiple comma-separated patterns */
     public static boolean ip4Matches(String patternString, String address) {
