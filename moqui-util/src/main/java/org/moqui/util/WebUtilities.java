@@ -167,7 +167,7 @@ public class WebUtilities {
         for (int i = 0; i < newValue.length(); i++) {
             char curChar = newValue.charAt(i);
             switch (curChar) {
-                case '\'': newValue.replace(i, i + 1, "&#39;"); i += 1; break;
+                case '\'': newValue.replace(i, i + 1, "&#39;"); i += 4; break;
                 case '"': newValue.replace(i, i + 1, "&quot;"); i += 5; break;
                 case '&': newValue.replace(i, i + 1, "&amp;"); i += 4; break;
                 case '<': newValue.replace(i, i + 1, "&lt;"); i += 3; break;
