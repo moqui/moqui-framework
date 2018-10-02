@@ -374,6 +374,16 @@ class UserFacadeImpl implements UserFacade {
         return getPreference(preferenceKey, userId)
     }
     String getPreference(String preferenceKey, String userId) {
+        if (preferenceKey == null || preferenceKey.isEmpty()) return null
+
+        // look in system properties for preferenceKey or key with '.' replaced by '_'; overrides DB values
+        String sysPropVal = System.getProperty(preferenceKey)
+        if (sysPropVal == null || sysPropVal.isEmpty()) {
+            String underscoreKey = preferenceKey.replace('.' as char, '_' as char)
+            sysPropVal = System.getProperty(underscoreKey)
+        }
+        if (sysPropVal != null && !sysPropVal.isEmpty()) return sysPropVal
+
         EntityValue up = userId != null ? eci.entityFacade.fastFindOne("moqui.security.UserPreference", true, true, userId, preferenceKey) : null
         if (up == null) {
             // try UserGroupPreference
@@ -418,7 +428,7 @@ class UserFacadeImpl implements UserFacade {
 
     @Override void setPreference(String preferenceKey, String preferenceValue) {
         String userId = getUserId()
-        if (!userId) throw new IllegalStateException("Cannot set preference with key [${preferenceKey}], no user logged in.")
+        if (!userId) throw new IllegalStateException("Cannot set preference with key ${preferenceKey}, no user logged in.")
         boolean alreadyDisabled = eci.getArtifactExecution().disableAuthz()
         boolean beganTransaction = eci.transaction.begin(null)
         try {
