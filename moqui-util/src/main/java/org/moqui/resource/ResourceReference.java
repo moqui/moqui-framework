@@ -115,6 +115,7 @@ public abstract class ResourceReference implements Serializable {
         return fn != null && fn.length() > 0 ? getContentType(fn) : null;
     }
     public boolean isBinary() { return isBinaryContentType(getContentType()); }
+    public boolean isText() { return isTextContentType(getContentType()); }
 
     /** Get the parent directory, null if it is the root (no parent). */
     public ResourceReference getParent() {
@@ -396,6 +397,16 @@ public abstract class ResourceReference implements Serializable {
         return subContentRefByPath;
     }
 
+    public static boolean isTextFilename(String filename) {
+        String contentType = getContentType(filename);
+        if (contentType == null || contentType.isEmpty()) return false;
+        return isTextContentType(contentType);
+    }
+    public static boolean isBinaryFilename(String filename) {
+        String contentType = getContentType(filename);
+        if (contentType == null || contentType.isEmpty()) return false;
+        return !isTextContentType(contentType);
+    }
     public static String getContentType(String filename) {
         // need to check this, or type mapper handles it fine? || !filename.contains(".")
         if (filename == null || filename.length() == 0) return null;
