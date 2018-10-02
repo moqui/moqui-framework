@@ -21,6 +21,8 @@ import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.ExecutionContext
 import org.moqui.context.ResourceFacade
 import org.moqui.impl.context.ContextJavaUtil
+import org.moqui.impl.entity.EntityDefinition
+import org.moqui.impl.service.ServiceDefinition
 import org.moqui.resource.ResourceReference
 import org.moqui.context.WebFacade
 import org.moqui.entity.EntityFind
@@ -805,12 +807,40 @@ class ScreenDefinition {
                 // don't push a map on the context, let the transition actions set things that will remain: sri.ec.context.push()
                 ec.contextStack.put("sri", sri)
                 // logger.warn("Running transition ${name} context: ${ec.contextStack.toString()}")
-                if (serviceActions != null) serviceActions.run(ec)
-                if (actions != null) actions.run(ec)
+                if (serviceActions != null) {
+                    // if this is an implicit entity auto service filter input for HTML like done in defined service calls by default;
+                    //     to get around define a service with a parameter that allows safe or any HTML instead of using implicit entity auto directly
+                    if (ec.serviceFacade.isEntityAutoPattern(singleServiceName)) {
+                        String entityName = ServiceDefinition.getNounFromName(singleServiceName)
+                        EntityDefinition ed = ec.entityFacade.getEntityDefinition(entityName)
+                        if (ed != null) {
+                            ArrayList<String> fieldNameList = ed.getAllFieldNames()
+                            int fieldNameListSize = fieldNameList.size()
+                            for (int i = 0; i < fieldNameListSize; i++) {
+                                String fieldName = (String) fieldNameList.get(i)
+                                Object fieldValue = ec.contextStack.getByString(fieldName)
+                                if (fieldValue instanceof CharSequence) {
+                                    String fieldString = fieldValue.toString()
+                                    if (fieldString.contains("<")) {
+                                        ec.messageFacade.addValidationError(null, fieldName, singleServiceName,
+                                                ec.getL10n().localize("HTML not allowed including less-than (<), greater-than (>), etc symbols"), null)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (!ec.messageFacade.hasError()) {
+                        serviceActions.run(ec)
+                    }
+                }
+                // run actions if any defined, even if service-call also used
+                if (actions != null && !ec.messageFacade.hasError()) {
+                    actions.run(ec)
+                }
 
                 ResponseItem ri = null
                 // if there is an error-response and there are errors, we have a winner
-                if (ec.getMessage().hasError() && errorResponse) ri = errorResponse
+                if (ec.messageFacade.hasError() && errorResponse) ri = errorResponse
 
                 // check all conditional-response, if condition then return that response
                 if (ri == null) for (ResponseItem condResp in conditionalResponseList) {
