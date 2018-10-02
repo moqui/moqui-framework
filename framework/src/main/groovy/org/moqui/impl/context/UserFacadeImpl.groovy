@@ -100,16 +100,34 @@ class UserFacadeImpl implements UserFacade {
         String preUsername = getUsername()
         Subject webSubject = makeEmptySubject()
         if (webSubject.authenticated) {
+            String sesUsername = (String) webSubject.getPrincipal()
             if (preUsername != null && !preUsername.isEmpty()) {
-                String sesUsername = (String) webSubject.getPrincipal()
                 if (!preUsername.equals(sesUsername)) {
                     logger.warn("Found user ${sesUsername} in session but UserFacade has user ${preUsername}, popping user")
                     popUser()
                 }
             }
-            // effectively login the user (already logged in for session through Shiro)
-            pushUserSubject(webSubject)
-            if (logger.traceEnabled) logger.trace("For new request found user [${username}] in the session")
+
+            // user found in session so no login needed, but make sure hasLoggedOut != "Y"
+            EntityValue userAccount = (EntityValue) null
+            if (sesUsername != null && !sesUsername.isEmpty()) {
+                userAccount = eci.getEntity().find("moqui.security.UserAccount")
+                        .condition("username", sesUsername).useCache(false).disableAuthz().one()
+            }
+
+            if (userAccount != null && "Y".equals(userAccount.getNoCheckSimple("hasLoggedOut"))) {
+                // logout user through Shiro, invalidate session, continue
+                logger.info("User ${sesUsername} is authenticated in session but hasLoggedOut elsewhere, logging out")
+                webSubject.logout()
+                // Shiro invalidates session, but make sure just in case
+                HttpSession oldSession = request.getSession(false)
+                if (oldSession != null) oldSession.invalidate()
+                this.session = request.getSession()
+            } else {
+                // effectively login the user for framework (already logged in for session through Shiro)
+                pushUserSubject(webSubject)
+                if (logger.traceEnabled) logger.trace("For new request found user [${getUsername()}] in the session")
+            }
         } else {
             if (logger.traceEnabled) logger.trace("For new request NO user authenticated in the session")
             if (preUsername != null && !preUsername.isEmpty()) {
@@ -634,7 +652,23 @@ class UserFacadeImpl implements UserFacade {
         // before logout trigger the before-logout actions
         if (eci.getWebImpl() != null) eci.getWebImpl().runBeforeLogoutActions()
 
+        String userId = getUserId()
+
+        // pop from user stack, also calls Shiro logout()
         popUser()
+
+        // if there is a request and session invalidate and get new
+        if (request != null) {
+            HttpSession oldSession = request.getSession(false)
+            if (oldSession != null) oldSession.invalidate()
+            session = request.getSession()
+        }
+
+        // if userId set hasLoggedOut
+        if (userId != null && !userId.isEmpty()) {
+            eci.serviceFacade.sync().name("update", "moqui.security.UserAccount")
+                    .parameters([userId:userId, hasLoggedOut:"Y"]).disableAuthz().call()
+        }
     }
 
     @Override boolean loginUserKey(String loginKey) {

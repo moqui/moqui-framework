@@ -249,7 +249,8 @@ along with this software (see the LICENSE.md file). If not, see
             <description>Set to Y is currentPassword Base64 encoded, defaults to Hex encoded</description></field>
         <field name="passwordSetDate" type="date-time"/>
         <field name="passwordHint" type="text-medium"/>
-        <field name="hasLoggedOut" type="text-indicator"/>
+        <field name="hasLoggedOut" type="text-indicator"><description>Set to Y when user logs out and to N when user logs in.
+            If user is session authenticated on request and this is Y then treat as if user not authenticated.</description></field>
         <field name="disabled" type="text-indicator"/>
         <field name="disabledDateTime" type="date-time"/>
         <field name="successiveFailedLogins" type="number-integer"/>
