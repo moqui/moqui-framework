@@ -253,16 +253,16 @@ public class ParameterInfo {
         //     text this method now only calls Jsoup if a '<' is found
         // int indexOfEscape = -1;
         int indexOfLessThan = -1;
-        char[] valueCharArray = parameterValue.toCharArray();
-        int valueLength = valueCharArray.length;
+        int valueLength = parameterValue.length();
         for (int i = 0; i < valueLength; i++) {
-            char curChar = valueCharArray[i];
+            char curChar = parameterValue.charAt(i);
             /* if (curChar == '%' || curChar == '&') {
                 indexOfEscape = i;
                 if (indexOfLessThan >= 0) break;
             } else */
             if (curChar == '<') {
                 indexOfLessThan = i;
+                break;
                 // if (indexOfEscape >= 0) break;
             }
         }
@@ -273,7 +273,7 @@ public class ParameterInfo {
                 return Jsoup.clean(parameterValue, "", Whitelist.relaxed(), outputSettings);
             } else {
                 // check for "<"; this will protect against HTML/JavaScript injection
-                eci.getMessage().addValidationError(null, namePrefix + name, sd.serviceName, eci.getL10n().localize("HTML not allowed (less-than (<), greater-than (>), etc symbols)"), null);
+                eci.getMessage().addValidationError(null, namePrefix + name, sd.serviceName, eci.getL10n().localize("HTML not allowed including less-than (<), greater-than (>), etc symbols"), null);
             }
         }
 
