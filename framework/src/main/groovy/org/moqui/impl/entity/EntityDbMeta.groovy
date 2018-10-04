@@ -88,10 +88,12 @@ class EntityDbMeta {
     }
 
     void forceCheckTableRuntime(EntityDefinition ed) {
+        entityTablesExist.remove(ed.getFullEntityName())
         entityTablesChecked.remove(ed.getFullEntityName())
         checkTableRuntime(ed)
     }
     void forceCheckExistingTables() {
+        entityTablesExist.clear()
         entityTablesChecked.clear()
         for (String entityName in efi.getAllEntityNames()) {
             EntityDefinition ed = efi.getEntityDefinition(entityName)
