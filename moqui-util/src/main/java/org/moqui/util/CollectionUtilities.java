@@ -125,12 +125,22 @@ public class CollectionUtilities {
         String[] fieldNameArray;
 
         public MapOrderByComparator(List<? extends CharSequence> fieldNameList) {
-            fieldNameArray = new String[fieldNameList.size()];
-            int i = 0;
+            ArrayList<String> fieldArrayList = new ArrayList<>();
             for (CharSequence fieldName : fieldNameList) {
-                fieldNameArray[i] = fieldName.toString();
-                i++;
+                String fieldStr = fieldName.toString();
+                if (fieldStr.contains(",")) {
+                    String[] curFieldArray = fieldStr.split(",");
+                    for (int i = 0; i < curFieldArray.length; i++) {
+                        String curField = curFieldArray[i];
+                        if (curField == null) continue;
+                        fieldArrayList.add(curField.trim());
+                    }
+                } else {
+                    fieldArrayList.add(fieldStr);
+                }
             }
+            fieldNameArray = fieldArrayList.toArray(new String[0]);
+            // logger.warn("Order list by " + Arrays.asList(fieldNameArray));
         }
 
         @SuppressWarnings("unchecked")
