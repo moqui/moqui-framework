@@ -24,15 +24,17 @@ along with this software (see the LICENSE.md file). If not, see
     
     <service verb="create" noun="UserAccount" authenticate="anonymous-all" allow-remote="false">
         <in-parameters>
+            <auto-parameters entity-name="moqui.security.UserAccount" include="nonpk"><exclude field-name="currentPassword"/>
+                <exclude field-name="resetPassword"/><exclude field-name="passwordSalt"/><exclude field-name="passwordHashType"/>
+                <exclude field-name="passwordBase64"/><exclude field-name="passwordSetDate"/><exclude field-name="hasLoggedOut"/>
+                <exclude field-name="disabledDateTime"/><exclude field-name="successiveFailedLogins"/>
+            </auto-parameters>
             <parameter name="username" required="true"/>
             <parameter name="newPassword" required="true"/>
             <parameter name="newPasswordVerify" required="true"/>
             <parameter name="requirePasswordChange" default-value="N"/>
-            <parameter name="userFullName"/>
+            <parameter name="disabled" default-value="N"/>
             <parameter name="emailAddress"><text-email/></parameter>
-            <parameter name="currencyUomId"/>
-            <parameter name="locale"/>
-            <parameter name="timeZone"/>
         </in-parameters>
         <out-parameters><parameter name="userId" required="true"/></out-parameters>
         <actions>
