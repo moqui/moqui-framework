@@ -516,9 +516,6 @@ task createComponent(description: 'create a new component based on the moqui exa
         if (!project.hasProperty('component')) {
             throw new InvalidUserDataException("No component property specified")
         }
-        if (!project.hasProperty('baseComponent')) {
-            baseComponent = "example"
-        }
         String componentName = component
         String curLocationType = file('.git').exists() ? 'git' : 'current'
         if (project.hasProperty('locationType')) curLocationType = locationType
