@@ -18,6 +18,7 @@ buildscript {
 }
 // Not needed for explicit use, causes problems when not from git repo: plugins { id 'org.ajoberstar.grgit' version 'x.y.z' }
 
+import groovy.xml.XmlUtil
 import org.ajoberstar.grgit.*
 
 defaultTasks 'build'
@@ -508,6 +509,48 @@ def checkAllComponentDependencies(String type) {
     logger.lifecycle("Dependent components checked: ${compsChecked}")
 }
 
+task createComponent(description: 'create a new component based on the moqui example') {
+    doLast {
+        String baseComponent = project.hasProperty('baseComponent') ? project['baseComponent'] : "moqui-component-template"
+
+        if (!project.hasProperty('component')) {
+            throw new InvalidUserDataException("No component property specified")
+        }
+        if (!project.hasProperty('baseComponent')) {
+            baseComponent = "example"
+        }
+        String componentName = component
+        String curLocationType = file('.git').exists() ? 'git' : 'current'
+        if (project.hasProperty('locationType')) curLocationType = locationType
+
+        Set compsChecked = new TreeSet()
+        Node addons = parseAddons()
+        Node myaddons = parseMyaddons()
+
+        Node component = myaddons != null ? (Node) myaddons.component.find({ it."@name" == baseComponent }) : null
+        if (component == null) component = (Node) addons.component.find({ it."@name" == baseComponent })
+        if (component == null) throw new InvalidUserDataException("Could not find the ${baseComponent} component in myaddons.xml or addons.xml")
+
+        File componentDir = downloadComponent("runtime/component/${componentName}", curLocationType, component, addons, myaddons)
+        checkComponentDependencies(componentName, curLocationType, addons, myaddons, compsChecked)
+
+        // set component name in component.xml
+        File compXmlFile = file("${componentDir.path}/component.xml")
+        Node compXml = new XmlParser().parse(compXmlFile)
+        compXml["@name"] = componentName
+        compXmlFile.withWriter { w->
+            w.write( XmlUtil.serialize(compXml))
+        }
+
+        // cleanup the example
+        file("${componentDir.path}/LICENSE.md").delete()
+        file("${componentDir.path}/AUTHORS").delete()
+        if(file("${componentDir.path}/.git").exists())
+            file("${componentDir.path}/.git").deleteDir()
+
+        logger.lifecycle("Created new component ${componentName}, dependent components checked: ${compsChecked}")
+    }
+}
 // ========== combined tasks ==========
 
 task cleanPullLoad { dependsOn cleanAll, gitPullAll, load }

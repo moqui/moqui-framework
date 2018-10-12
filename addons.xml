@@ -25,6 +25,7 @@
 
     <!-- Example Component -->
     <component name="example" group="moqui" version="2.1.0" branch="master"/>
+    <component name="moqui-component-template" group="telenieko" branch="master" />
 
     <!-- Moqui Tool Components -->
     <component name="moqui-atomikos" group="moqui" version="1.0.0" branch="master"/>
