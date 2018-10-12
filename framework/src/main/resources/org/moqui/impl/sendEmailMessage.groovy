@@ -114,8 +114,8 @@ try {
 
     // send the email
     try {
-		// Trust this host (needed for unsigned certificates, gmail and others ...)
-		email.getMailSession().getProperties().put("mail.smtp.ssl.trust", host)
+        // Trust this host (needed for unsigned certificates, gmail and others ...)
+        email.getMailSession().getProperties().put("mail.smtp.ssl.trust", host)
         messageId = email.send()
         if (statusId in ['ES_READY', 'ES_BOUNCED']) {
             ec.service.sync().name("update", "moqui.basic.email.EmailMessage").requireNewTransaction(true)
