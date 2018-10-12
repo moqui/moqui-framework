@@ -55,7 +55,7 @@ String storeFolder = emailServer.storeFolder ?: "INBOX"
 Properties props = System.getProperties()
 // Trust this host (needed for unsigned certificates, gmail and others ...)
 props.put("mail.imaps.ssl.trust", host)
-Session session = Session.getInstance(System.getProperties())
+Session session = Session.getInstance(props)
 logger.info("Polling Email from ${user}@${host}:${port}/${storeFolder}, properties ${session.getProperties()}")
 
 Store store = session.getStore(protocol)
