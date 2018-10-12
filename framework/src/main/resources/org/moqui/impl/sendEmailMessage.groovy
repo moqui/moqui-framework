@@ -65,6 +65,8 @@ try {
     HtmlEmail email = new HtmlEmail()
     email.setCharset("utf-8")
     email.setHostName(host)
+	// Trust this host (needed for unsigned certificates, gmail and others ...)
+	email.getMailSession().getProperties().put("mail.smtp.ssl.trust", host)
     email.setSmtpPort(port)
     if (emailServer.mailUsername) {
         email.setAuthenticator(new DefaultAuthenticator((String) emailServer.mailUsername, (String) emailServer.mailPassword))
@@ -72,7 +74,7 @@ try {
     }
     if (emailServer.smtpStartTls == "Y") {
         email.setStartTLSEnabled(true)
-        // email.setStartTLSRequired(true)
+        email.setStartTLSRequired(true)
     }
     if (emailServer.smtpSsl == "Y") {
         email.setSSLOnConnect(true)

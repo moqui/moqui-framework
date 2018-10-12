@@ -52,6 +52,9 @@ int port = (emailServer.storePort ?: "993") as int
 String storeFolder = emailServer.storeFolder ?: "INBOX"
 
 // def urlName = new URLName(protocol, host, port as int, "", user, password)
+Properties props = System.getProperties()
+// Trust this host (needed for unsigned certificates, gmail and others ...)
+props.put("mail.imaps.ssl.trust", host)
 Session session = Session.getInstance(System.getProperties())
 logger.info("Polling Email from ${user}@${host}:${port}/${storeFolder}, properties ${session.getProperties()}")
 
