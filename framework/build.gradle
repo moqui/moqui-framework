@@ -126,9 +126,6 @@ dependencies {
     // compile 'javax.resource:connector-api:1.5'
     // compile 'javax.jms:jms:1.1'
 
-	// For JAVA 9/10 compatibility
-	compile 'javax.xml.bind:jaxb-api:2.4.0-b180830.0359'
-
     // H2 Database
     compile 'com.h2database:h2:1.4.197' // MPL 2.0, EPL 1.0
 
