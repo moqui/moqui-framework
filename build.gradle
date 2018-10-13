@@ -538,13 +538,22 @@ task createComponent(description: 'create a new component based on the moqui exa
         compXmlFile.withWriter { w->
             w.write( XmlUtil.serialize(compXml))
         }
-
         // cleanup the example
-        file("${componentDir.path}/LICENSE.md").delete()
-        file("${componentDir.path}/AUTHORS").delete()
-        if(file("${componentDir.path}/.git").exists())
-            file("${componentDir.path}/.git").deleteDir()
-
+        File removeFilesFile = file("${componentDir.path}/remove-files.txt")
+        if(removeFilesFile.exists()) {
+            removeFilesFile.withReader { r ->
+                String fpath = ""
+                while ((fpath = r.readLine())!=null) {
+                    File f = file("${componentDir.path}/${fpath}")
+                    if(!f.exists())
+                        continue
+                    if(f.isFile())
+                        f.delete()
+                    if(f.isDirectory())
+                        f.deleteDir()
+                }
+            }
+        }
         logger.lifecycle("Created new component ${componentName}, dependent components checked: ${compsChecked}")
     }
 }
