@@ -279,11 +279,17 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- TODO: this service called async by an anonymous-all scheduled job so needs anonymous-all here too, but should
         find a way to restrict it when not called through the scheduled service so no anonymous-all service exists to do
         this, tighten security on it a bit -->
-    <service verb="consume" noun="ReceivedSystemMessage" authenticate="anonymous-all" allow-remote="false">
-        <description>Calls the consume service (SystemMessageType.consumeServiceName). Sets the SystemMessage status to
+    <service verb="consume" noun="ReceivedSystemMessage" authenticate="anonymous-all" allow-remote="false" transaction-timeout="900">
+        <description>
+            Calls the consume service (SystemMessageType.consumeServiceName). Sets the SystemMessage status to
             SmsgConsuming while consuming, then to SmsgConsumed if successful or back to original status if not. If the initial
             status is not SmsgReceived or SmsgError returns an error (generally means message already consumed). If you
-            want to resend a message that is in a later status, first change the status to SmsgReceived.</description>
+            want to resend a message that is in a later status, first change the status to SmsgReceived.
+
+            This uses a transaction timeout of 900 seconds (15 minutes) as the default for the service and as the default for the
+            consume service configured on the SystemMessageType. For incoming messages that require even more processing
+            time it is best to break up the processing in a separate ServiceJob or other async service calls.
+        </description>
         <in-parameters>
             <parameter name="systemMessageId" required="true"/>
             <parameter name="allowError" type="Boolean" default="false"/>
@@ -310,7 +316,7 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- put this in a try block with the follow up below in a finally and a Throwable catch to add message facade errors -->
             <script>try {</script>
             <service-call name="${systemMessageType.consumeServiceName}" in-map="[systemMessageId:systemMessageId]"
-                    out-map="consumeOut" transaction="force-new"/>
+                    out-map="consumeOut" transaction="force-new" transaction-timeout="900"/>
             <script>} catch (Throwable t) { ec.message.addError(t.toString()) } finally {</script>
 
             <!-- if successful set status to SmsgConsumed, otherwise set back to previous status -->
