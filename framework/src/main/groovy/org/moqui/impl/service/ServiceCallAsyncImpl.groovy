@@ -141,13 +141,10 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
     }
 
     static class AsyncServiceRunnable extends AsyncServiceInfo implements Runnable, Externalizable {
-
         AsyncServiceRunnable(ExecutionContextImpl eci, String serviceName, Map<String, Object> parameters) {
             super(eci, serviceName, parameters)
         }
-
-        @Override
-        void run() { runInternal() }
+        @Override void run() { runInternal() }
     }
 
 
@@ -155,7 +152,6 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
         AsyncServiceCallable(ExecutionContextImpl eci, String serviceName, Map<String, Object> parameters) {
             super(eci, serviceName, parameters)
         }
-        @Override
-        Map<String, Object> call() throws Exception { return runInternal() }
+        @Override Map<String, Object> call() throws Exception { return runInternal() }
     }
 }

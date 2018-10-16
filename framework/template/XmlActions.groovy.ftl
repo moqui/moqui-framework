@@ -43,8 +43,14 @@ return;
 <#macro "service-call">
     <#assign handleResult = (.node["@out-map"]?has_content && (!.node["@async"]?has_content || .node["@async"] == "false"))>
     <#assign outAapAddToExisting = !.node["@out-map-add-to-existing"]?has_content || .node["@out-map-add-to-existing"] == "true">
+    <#assign isAsync = .node.@async?has_content && .node.@async != "false">
     if (true) {
-        <#if handleResult>def call_service_result = </#if>ec.service.<#if .node.@async?has_content && .node.@async != "false">async()<#else>sync()</#if>.name("${.node.@name}")<#if .node["@async"]?if_exists == "distribute">.distribute(true)</#if><#if .node["@multi"]?if_exists == "true">.multi(true)</#if><#if .node["@multi"]?if_exists == "parameter">.multi(ec.web?.requestParameters?._isMulti == "true")</#if><#if .node["@transaction"]?has_content><#if .node["@transaction"] == "ignore">.ignoreTransaction(true)<#elseif .node["@transaction"] == "force-new" || .node["@transaction"] == "force-cache">.requireNewTransaction(true)</#if><#if .node["@transaction"] == "cache" || .node["@transaction"] == "force-cache">.useTransactionCache(true)<#else>.useTransactionCache(false)</#if></#if>
+        <#if handleResult>def call_service_result = </#if>ec.service.<#if isAsync>async()<#else>sync()</#if><#rt>
+            <#t>.name("${.node.@name}")<#if .node["@async"]?if_exists == "distribute">.distribute(true)</#if>
+            <#t><#if !isAsync && .node["@multi"]?if_exists == "true">.multi(true)</#if><#if !isAsync && .node["@multi"]?if_exists == "parameter">.multi(ec.web?.requestParameters?._isMulti == "true")</#if>
+            <#t><#if !isAsync && .node["@transaction"]?has_content><#if .node["@transaction"] == "ignore">.ignoreTransaction(true)<#elseif .node["@transaction"] == "force-new" || .node["@transaction"] == "force-cache">.requireNewTransaction(true)</#if>
+            <#t><#if !isAsync && .node["@transaction-timeout"]?has_content>.transactionTimeout(${.node["@transaction-timeout"]})</#if>
+            <#t><#if !isAsync && (.node["@transaction"] == "cache" || .node["@transaction"] == "force-cache")>.useTransactionCache(true)<#else>.useTransactionCache(false)</#if></#if>
             <#if .node["@in-map"]?if_exists == "true">.parameters(context)<#elseif .node["@in-map"]?has_content && .node["@in-map"] != "false">.parameters(${.node["@in-map"]})</#if><#list .node["field-map"] as fieldMap>.parameter("${fieldMap["@field-name"]}",<#if fieldMap["@from"]?has_content>${fieldMap["@from"]}<#elseif fieldMap["@value"]?has_content>"""${fieldMap["@value"]}"""<#else>${fieldMap["@field-name"]}</#if>)</#list>.call()
         <#if handleResult><#if outAapAddToExisting>if (${.node["@out-map"]} != null) { if (call_service_result) ${.node["@out-map"]}.putAll(call_service_result) } else {</#if> ${.node["@out-map"]} = call_service_result <#if outAapAddToExisting>}</#if></#if>
         <#if (.node["@web-send-json-response"]?if_exists == "true")>
