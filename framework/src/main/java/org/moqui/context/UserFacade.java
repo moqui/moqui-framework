@@ -81,6 +81,7 @@ public interface UserFacade {
     ArrayList<Timestamp> getPeriodRange(String period, int poffset, java.sql.Date pdate);
     ArrayList<Timestamp> getPeriodRange(String period, String poffset);
     String getPeriodDescription(String period, String poffset, String pdate);
+    ArrayList<Timestamp> getPeriodRange(String baseName, Map<String, Object> inputFieldsMap);
 
     /** Set an EffectiveTime for the current context which will then be returned from the getNowTimestamp() method.
      * This is used to test past and future behavior of applications.

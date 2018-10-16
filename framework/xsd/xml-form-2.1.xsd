@@ -776,6 +776,8 @@ along with this software (see the LICENSE.md file). If not, see
     </xs:complexType></xs:element>
     <xs:element name="date-period" substitutionGroup="SubFields"><xs:complexType>
         <xs:attribute name="allow-empty" default="true" type="boolean"/>
+        <xs:attribute name="time" default="false" type="boolean">
+            <xs:annotation><xs:documentation>In explicit from/thru date mode allow time entry?</xs:documentation></xs:annotation></xs:attribute>
     </xs:complexType></xs:element>
     <xs:element name="date-time" substitutionGroup="SubFields"><xs:complexType>
         <xs:attribute name="type" default="timestamp">
