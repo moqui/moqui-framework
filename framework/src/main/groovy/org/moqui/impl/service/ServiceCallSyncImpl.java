@@ -134,8 +134,12 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         TransactionFacadeImpl tf = eci.transactionFacade;
         int transactionStatus = tf.getStatus();
         if (!requireNewTransaction && transactionStatus == Status.STATUS_MARKED_ROLLBACK) {
-            logger.warn("Transaction marked for rollback, not running service " + serviceName + ". Errors: " + eci.messageFacade.getErrorsString());
-            if (ignorePreviousError) eci.messageFacade.popErrors();
+            logger.warn("Transaction marked for rollback, not running service " + serviceName + ". Errors: [" + eci.messageFacade.getErrorsString() + "] Artifact stack: " + eci.artifactExecutionFacade.getStackNameString());
+            if (ignorePreviousError) {
+                eci.messageFacade.popErrors();
+            } else if (!eci.messageFacade.hasError()) {
+                eci.messageFacade.addError("Transaction marked for rollback, not running service " + serviceName);
+            }
             return null;
         }
 
@@ -274,6 +278,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
             }
             boolean beganTransaction = false;
             if (beginTransactionIfNeeded && transactionStatus != Status.STATUS_ACTIVE) {
+                // logger.warn("Service " + serviceName + " begin TX timeout " + transactionTimeout + " SD txTimeout " + sd.txTimeout);
                 beganTransaction = tf.begin(transactionTimeout != null ? transactionTimeout : sd.txTimeout);
                 transactionStatus = tf.getStatus();
             }
@@ -318,7 +323,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
                 // rollback the transaction
                 tf.rollback(beganTransaction, "Error running service " + serviceName + " (Throwable)", t);
                 transactionStatus = tf.getStatus();
-                logger.warn("Error running service " + serviceName + " (Throwable)", t);
+                logger.warn("Error running service " + serviceName + " (Throwable) Artifact stack: " + eci.artifactExecutionFacade.getStackNameString(), t);
                 // add all exception messages to the error messages list
                 eci.messageFacade.addError(t.getMessage());
                 Throwable parent = t.getCause();
