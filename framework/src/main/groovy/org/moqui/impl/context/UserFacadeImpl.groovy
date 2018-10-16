@@ -22,6 +22,7 @@ import org.moqui.impl.entity.EntityValueBase
 import org.moqui.impl.screen.ScreenUrlInfo
 import org.moqui.impl.util.MoquiShiroRealm
 import org.moqui.util.MNode
+import org.moqui.util.ObjectUtilities
 import org.moqui.util.StringUtilities
 import org.moqui.util.WebUtilities
 
@@ -579,6 +580,37 @@ class UserFacadeImpl implements UserFacade {
                 .append(eci.l10n.format(rangeList[1] - 1, 'yyyy-MM-dd')).append(')')
 
         return desc.toString()
+    }
+
+    @Override ArrayList<Timestamp> getPeriodRange(String baseName, Map<String, Object> inputFieldsMap) {
+        if (inputFieldsMap.get(baseName + "_period")) {
+            return getPeriodRange((String) inputFieldsMap.get(baseName + "_period"),
+                    (String) inputFieldsMap.get(baseName + "_poffset"), (String) inputFieldsMap.get(baseName + "_pdate"))
+        } else {
+            ArrayList<Timestamp> rangeList = new ArrayList<>(2)
+            rangeList.add(null); rangeList.add(null)
+
+            Object fromValue = inputFieldsMap.get(baseName + "_from")
+            if (fromValue && fromValue instanceof CharSequence) {
+                if (fromValue.length() < 12)
+                    rangeList.set(0, eci.l10nFacade.parseTimestamp(fromValue.toString() + " 00:00:00.000", "yyyy-MM-dd HH:mm:ss.SSS"))
+                else
+                    rangeList.set(0, eci.l10nFacade.parseTimestamp(fromValue.toString(), null))
+            } else if (fromValue instanceof Timestamp) {
+                rangeList.set(0, (Timestamp) fromValue)
+            }
+            Object thruValue = inputFieldsMap.get(baseName + "_thru")
+            if (thruValue && thruValue instanceof CharSequence) {
+                if (thruValue.length() < 12)
+                    rangeList.set(1, eci.l10nFacade.parseTimestamp(thruValue.toString() + " 23:59:59.999", "yyyy-MM-dd HH:mm:ss.SSS"))
+                else
+                    rangeList.set(1, eci.l10nFacade.parseTimestamp(thruValue.toString(), null))
+            } else if (thruValue instanceof Timestamp) {
+                rangeList.set(1, (Timestamp) thruValue)
+            }
+
+            return rangeList
+        }
     }
 
     @Override void setEffectiveTime(Timestamp effectiveTime) { this.effectiveTime = effectiveTime }
