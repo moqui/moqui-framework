@@ -1087,13 +1087,23 @@ public abstract class EntityValueBase implements EntityValue {
         EntityDefinition.MasterDefinition masterDefinition = getEntityDefinition().getMasterDefinition(name);
         if (masterDefinition == null)
             throw new EntityException("No master definition found for name [" + name + "] in entity [" + entityName + "]");
-        return internalMasterValueMap(masterDefinition.getDetailList(), null);
+        return internalMasterValueMap(masterDefinition.getDetailList(), null, null);
     }
 
-    private Map<String, Object> internalMasterValueMap(ArrayList<EntityDefinition.MasterDetail> detailList, Set<String> parentPkFields) {
+    private Map<String, Object> internalMasterValueMap(ArrayList<EntityDefinition.MasterDetail> detailList, Set<String> parentPkFields, EntityJavaUtil.RelationshipInfo parentRelInfo) {
         Map<String, Object> vMap = new HashMap<>(valueMapInternal);
         CollectionUtilities.removeNullsFromMap(vMap);
-        if (parentPkFields != null) for (String pkField : parentPkFields) vMap.remove(pkField);
+        if (parentPkFields != null) {
+            if (parentRelInfo != null) {
+                // handle cases like the Product toAssocs relationship where ProductAssoc.productId != Product.productId, needs to look at relationship field map
+                for (String pkField : parentPkFields) {
+                    String relatedName = parentRelInfo.keyMap.get(pkField);
+                    if (pkField.equals(relatedName)) vMap.remove(pkField);
+                }
+            } else {
+                for (String pkField : parentPkFields) vMap.remove(pkField);
+            }
+        }
         EntityDefinition ed = getEntityDefinition();
         vMap.put("_entity", ed.getShortOrFullEntityName());
 
@@ -1112,7 +1122,7 @@ public abstract class EntityValueBase implements EntityValue {
                 String entryName = relAlias != null && !relAlias.isEmpty() ? relAlias : relationshipName;
                 if (relInfo.isTypeOne) {
                     EntityValue relEv = findRelatedOne(relationshipName, null, false);
-                    if (relEv != null) vMap.put(entryName, ((EntityValueBase) relEv).internalMasterValueMap(detail.getDetailList(), curPkFields));
+                    if (relEv != null) vMap.put(entryName, ((EntityValueBase) relEv).internalMasterValueMap(detail.getDetailList(), curPkFields, relInfo));
                 } else {
                     EntityList relList = findRelated(relationshipName, null, null, null, false);
                     if (relList != null && !relList.isEmpty()) {
@@ -1120,7 +1130,7 @@ public abstract class EntityValueBase implements EntityValue {
                         int relListSize = relList.size();
                         for (int rlIndex = 0; rlIndex < relListSize; rlIndex++) {
                             EntityValue relEv = relList.get(rlIndex);
-                            plainRelList.add(((EntityValueBase) relEv).internalMasterValueMap(detail.getDetailList(), curPkFields));
+                            plainRelList.add(((EntityValueBase) relEv).internalMasterValueMap(detail.getDetailList(), curPkFields, relInfo));
                         }
                         vMap.put(entryName, plainRelList);
                     }
