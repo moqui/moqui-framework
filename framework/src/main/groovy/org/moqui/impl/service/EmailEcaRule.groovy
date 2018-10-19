@@ -122,11 +122,21 @@ class EmailEcaRule {
             if (conditionPassed) {
                 //ec.logger.info("[TASK] create#EmailMessage")
                 Map outMap = ec.serviceFacade.sync().name("create#moqui.basic.email.EmailMessage")
-                        .parameters([sentDate:fields.sentDate, receivedDate:fields.receivedDate, statusId:'ES_RECEIVED',
-                                     subject:fields.subject, body:bodyPartList[0].contentText,
-                                     fromAddress:MimeUtility.decodeText(fields.from.toString()), toAddresses:MimeUtility.decodeText(fields.toList?.toString()),
-                                     ccAddresses:fields.ccList?.toString(), bccAddresses:fields.bccList?.toString(),
-                                     messageId:message.getMessageID(), emailServerId:emailServerId])
+                        .parameters(
+                            [
+                                sentDate:fields.sentDate,
+                                receivedDate:fields.receivedDate,
+                                statusId:'ES_RECEIVED',
+                                subject:fields.subject,
+                                body:bodyPartList[0].contentText,
+                                fromAddress:MimeUtility.decodeText(fields.from.toString()),
+                                toAddresses:MimeUtility.decodeText(fields.toList?.toString()),
+                                ccAddresses:fields.ccList?.toString(),
+                                bccAddresses:fields.bccList?.toString(),
+                                messageId:message.getMessageID(),
+                                emailServerId:emailServerId
+                            ]
+                        )
                         .disableAuthz().call()
 
                 //push email message id to context
@@ -212,7 +222,7 @@ class EmailEcaRule {
                 /*assign filename a value*/
                 List<String> fileNameArr = decodedFileName.tokenize('.')
 
-                if (fileNameArr.size() == 2) {
+                if (fileNameArr.size() > 2) {
                     if (contentTypeSpec.startsWith('application/pdf')) {
                         doRunExtraction = true
                         newFileExtension = 'pdf'
@@ -240,15 +250,12 @@ class EmailEcaRule {
                     } else if (contentTypeSpec.startsWith('application/vnd.openxmlformats-officedocument.wordprocessingml.document')) {
                         doRunExtraction = true
                         newFileExtension = 'docx'
-                    } else if (contentTypeSpec.startsWith('application/zip')) {
-                        doRunExtraction = true
-                        newFileExtension = 'zip'
                     }
 
                     /*calculate display name correctly*/
                     displayName = MimeUtility.decodeText(fileNameArr[0]).replaceAll(' ', '_').replaceAll("[^a-zA-Z0-9_]+","")
 
-                    logger.info("displayName: ${displayName}, fileName: ${newFileName}, extension: ${newFileExtension}, type: ${contentTypeSpec}, doExtraction: ${doRunExtraction}")
+                    //logger.info("displayName: ${displayName}, fileName: ${newFileName}, extension: ${newFileExtension}, type: ${contentTypeSpec}, doExtraction: ${doRunExtraction}")
                 } else {
                     logger.warn("Unexpected result of processing file name, proceeding without it.")
                 }
