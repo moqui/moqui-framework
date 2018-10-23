@@ -74,7 +74,7 @@ class EntityFacadeImpl implements EntityFacade {
     protected final ConcurrentHashMap<String, Lock> dbSequenceLocks = new ConcurrentHashMap<String, Lock>()
     protected final ReentrantLock locationLoadLock = new ReentrantLock()
 
-    protected final HashMap<String, ArrayList<EntityEcaRule>> eecaRulesByEntityName = new HashMap<>()
+    protected HashMap<String, ArrayList<EntityEcaRule>> eecaRulesByEntityName = new HashMap<>()
     protected final HashMap<String, String> entityGroupNameMap = new HashMap<>()
     protected final HashMap<String, MNode> databaseNodeByGroupName = new HashMap<>()
     protected final HashMap<String, MNode> datasourceNodeByGroupName = new HashMap<>()
@@ -130,15 +130,28 @@ class EntityFacadeImpl implements EntityFacade {
         // init connection pool (DataSource) for each group
         initAllDatasources()
 
-        // EECA rule tables
-        loadEecaRulesAll()
-
         entityCache = new EntityCache(this)
         entityDataFeed = new EntityDataFeed(this)
         entityDataDocument = new EntityDataDocument(this)
 
         emptyList = new EntityListImpl(this)
         emptyList.setFromCache()
+    }
+    void postFacadeInit() {
+        // ========== load a few things in advance so first page hit is faster in production (in dev mode will reload anyway as caches timeout)
+        // load entity definitions
+        logger.info("Loading entity definitions")
+        long entityStartTime = System.currentTimeMillis()
+        loadAllEntityLocations()
+        int entityCount = loadAllEntityDefinitions()
+        // don't always load/warm framework entities, in production warms anyway and in dev not needed: entityFacade.loadFrameworkEntities()
+        logger.info("Loaded ${entityCount} entity definitions in ${System.currentTimeMillis() - entityStartTime}ms")
+
+        // now that everything is started up, if configured check all entity tables
+        checkInitDatasourceTables()
+
+        // EECA rule tables
+        loadEecaRulesAll()
     }
 
     EntityCache getEntityCache() { return entityCache }
@@ -848,10 +861,10 @@ class EntityFacadeImpl implements EntityFacade {
     }
 
     void loadEecaRulesAll() {
-        if (eecaRulesByEntityName.size() > 0) eecaRulesByEntityName.clear()
-
         int numLoaded = 0
         int numFiles = 0
+        HashMap<String, EntityEcaRule> ruleByIdMap = new HashMap<>()
+        LinkedList<EntityEcaRule> ruleNoIdList = new LinkedList<>()
         // search for the service def XML file in the components
         for (String location in this.ecfi.getComponentBaseLocations().values()) {
             ResourceReference entityDirRr = this.ecfi.resourceFacade.getLocationReference(location + "/entity")
@@ -860,36 +873,53 @@ class EntityFacadeImpl implements EntityFacade {
                 if (!entityDirRr.isDirectory()) continue
                 for (ResourceReference rr in entityDirRr.directoryEntries) {
                     if (!rr.fileName.endsWith(".eecas.xml")) continue
-                    numLoaded += loadEecaRulesFile(rr)
+                    numLoaded += loadEecaRulesFile(rr, ruleByIdMap, ruleNoIdList)
                     numFiles++
+
                 }
             } else {
                 logger.warn("Can't load EECA rules from component at [${entityDirRr.location}] because it doesn't support exists/directory/etc")
             }
         }
-        if (logger.infoEnabled) logger.info("Loaded ${numLoaded} Entity ECA rules from ${numFiles} .eecas.xml files")
-    }
-    int loadEecaRulesFile(ResourceReference rr) {
-        MNode eecasRoot = MNode.parse(rr)
-        int numLoaded = 0
-        for (MNode secaNode in eecasRoot.children("eeca")) {
-            EntityEcaRule ser = new EntityEcaRule(ecfi, secaNode, rr.location)
-            String entityName = ser.entityName
-            // remove the hash if there is one to more consistently match the service name
-            if (entityName.contains("#")) entityName = entityName.replace("#", "")
-            ArrayList<EntityEcaRule> lst = eecaRulesByEntityName.get(entityName)
+        if (logger.infoEnabled) logger.info("Loaded ${numLoaded} Entity ECA rules from ${numFiles} .eecas.xml files, ${ruleNoIdList.size()} rules have no id, ${ruleNoIdList.size() + ruleByIdMap.size()} EECA rules active")
+
+        HashMap<String, ArrayList<EntityEcaRule>> ruleMap = new HashMap<>()
+        ruleNoIdList.addAll(ruleByIdMap.values())
+        for (EntityEcaRule ecaRule in ruleNoIdList) {
+            EntityDefinition ed = getEntityDefinition(ecaRule.entityName)
+            String entityName = ed.getFullEntityName()
+
+            ArrayList<EntityEcaRule> lst = ruleMap.get(entityName)
             if (lst == null) {
                 lst = new ArrayList<EntityEcaRule>()
-                eecaRulesByEntityName.put(entityName, lst)
+                ruleMap.put(entityName, lst)
             }
-            lst.add(ser)
+            lst.add(ecaRule)
+        }
+
+        // replace entire EECA rules Map in one operation
+        eecaRulesByEntityName = ruleMap
+    }
+    int loadEecaRulesFile(ResourceReference rr, HashMap<String, EntityEcaRule> ruleByIdMap, LinkedList<EntityEcaRule> ruleNoIdList) {
+        MNode eecasRoot = MNode.parse(rr)
+        int numLoaded = 0
+        for (MNode eecaNode in eecasRoot.children("eeca")) {
+            String entityName = eecaNode.attribute("entity")
+            if (!isEntityDefined(entityName)) {
+                logger.warn("Invalid entity name ${entityName} found in EECA file ${rr.location}, skipping")
+                continue
+            }
+            EntityEcaRule ecaRule = new EntityEcaRule(ecfi, eecaNode, rr.location)
+            String ruleId = eecaNode.attribute("id")
+            if (ruleId != null && !ruleId.isEmpty()) ruleByIdMap.put(ruleId, ecaRule)
+            else ruleNoIdList.add(ecaRule)
             numLoaded++
         }
         if (logger.isTraceEnabled()) logger.trace("Loaded [${numLoaded}] Entity ECA rules from [${rr.location}]")
         return numLoaded
     }
 
-    boolean hasEecaRules(String entityName) { return eecaRulesByEntityName.get(entityName) as boolean }
+    boolean hasEecaRules(String entityName) { return eecaRulesByEntityName.get(entityName) != null }
     void runEecaRules(String entityName, Map fieldValues, String operation, boolean before) {
         ArrayList<EntityEcaRule> lst = (ArrayList<EntityEcaRule>) eecaRulesByEntityName.get(entityName)
         if (lst != null && lst.size() > 0) {
