@@ -113,6 +113,27 @@ def doGitPullWithStatus(def gitDir) {
         logger.error(t.message)
     }
 }
+task gitCheckoutAll {
+    description "Do a git checkout on moqui, runtime, and each installed component (for each where a .git directory is found); use -Pbranch= (required) to specify a branch, use -Pcreate=true to create branches with the given name"
+    doLast {
+        if (!project.hasProperty('branch')) throw new InvalidUserDataException("No branch property specified (use -Pbranch=...)")
+        String curBranch = branch
+        boolean createBranch = false
+        if (project.hasProperty('create') && create == 'true') createBranch = true
+
+        List<String> gitDirectories = []
+        if (file(".git").exists()) gitDirectories.add(file('.').path)
+        if (file("runtime/.git").exists()) gitDirectories.add(file('runtime').path)
+        for (File compDir in file('runtime/component').listFiles().findAll { it.isDirectory() && it.listFiles().find { it.name == '.git' } })
+            gitDirectories.add(compDir.path)
+
+        for (String gitDir in gitDirectories) {
+            logger.lifecycle("\nGit checkout ${gitDir} branch ${curBranch} create ${createBranch}")
+            def curGrgit = Grgit.open(dir: gitDir)
+            curGrgit.checkout(branch: curBranch, createBranch: createBranch)
+        }
+    }
+}
 task gitStatusAll {
     description "Do a git status to check moqui, runtime, and each installed component (for each where a .git directory is found)"
     doLast {
@@ -335,7 +356,7 @@ task getDepends {
 }
 
 task getComponentSet {
-    description "Gets all components in the specied componentSet using specified location type, also check/get all components it depends on; requires component property; locationType property optional (defaults to git if there is a .git directory, otherwise to current)"
+    description "Gets all components in the specied componentSet using specified location type, also check/get all components it depends on; requires -Pcomponent property; -PlocationType property optional (defaults to git if there is a .git directory, otherwise to current)"
     doLast {
         String curLocationType = file('.git').exists() ? 'git' : 'current'
         if (project.hasProperty('locationType')) curLocationType = locationType
