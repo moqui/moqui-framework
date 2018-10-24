@@ -143,8 +143,9 @@ task gitStatusAll {
         for (File compDir in file('runtime/component').listFiles().findAll { it.isDirectory() && it.listFiles().find { it.name == '.git' } })
             gitDirectories.add(compDir.path)
         for (String gitDir in gitDirectories) {
-            logger.lifecycle("\nGit status for ${gitDir}")
             def curGrgit = Grgit.open(dir: gitDir)
+            logger.lifecycle("\nGit status for ${gitDir}\nbranch ${curGrgit.branch.current()?.name} tracking ${curGrgit.branch.current()?.trackingBranch?.name}")
+
             if (curGrgit.remote.list().find({ it.name == 'upstream'})) {
                 def upstreamAhead = curGrgit.log { range curGrgit.resolve.toCommit('refs/remotes/upstream/master'), curGrgit.resolve.toCommit('refs/remotes/origin/master') }
                 if (upstreamAhead) logger.lifecycle("- origin/master ${upstreamAhead.size()} commits ahead of upstream/master")
