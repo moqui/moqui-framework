@@ -88,11 +88,10 @@ task gitPullAll {
     description "Do a git pull to update moqui, runtime, and each installed component (for each where a .git directory is found)"
     doLast {
         // framework and runtime
-        if (file(".git").exists()) { logger.lifecycle("\nPulling moqui"); doGitPullWithStatus('.') }
-        if (file("runtime/.git").exists()) { logger.lifecycle("\nPulling runtime"); doGitPullWithStatus('runtime') }
+        if (file(".git").exists()) { doGitPullWithStatus(file('.').path) }
+        if (file("runtime/.git").exists()) { doGitPullWithStatus(file('runtime').path) }
         // all directories under runtime/component
         for (File compDir in file('runtime/component').listFiles().findAll { it.isDirectory() && it.listFiles().find { it.name == '.git' } }) {
-            logger.lifecycle("\nPulling ${compDir.path}")
             doGitPullWithStatus(compDir.path)
         }
     }
@@ -100,6 +99,8 @@ task gitPullAll {
 def doGitPullWithStatus(def gitDir) {
     try {
         def curGrgit = Grgit.open(dir: gitDir)
+        logger.lifecycle("\nPulling ${gitDir}\nbranch ${curGrgit.branch.current()?.name} tracking ${curGrgit.branch.current()?.trackingBranch?.name}")
+
         def beforeHead = curGrgit.head()
         curGrgit.pull()
         def afterHead = curGrgit.head()
