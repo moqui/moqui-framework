@@ -342,7 +342,9 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="userId" type="id"/>
         <field name="fromDate" type="date-time"/>
         <field name="thruDate" type="date-time"/>
-        <relationship type="one" related="moqui.security.UserAccount" short-alias="user"/>
+        <relationship type="one" related="moqui.security.UserAccount" short-alias="user">
+            <key-map field-name="userId"/>
+        </relationship>
     </entity>
     <entity entity-name="UserLoginHistory" package="moqui.security" use="nontransactional" cache="never">
         <field name="userId" type="id" is-pk="true"/>
