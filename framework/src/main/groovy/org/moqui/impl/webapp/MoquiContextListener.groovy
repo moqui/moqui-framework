@@ -146,6 +146,7 @@ class MoquiContextListener implements ServletContextListener {
             }
 
             // NOTE: webapp.session-config.@timeout handled in MoquiSessionListener
+            if (wi.sessionCookieName) sc.getSessionCookieConfig().setName(wi.sessionCookieName)
 
             // WebSocket Endpoint Setup
             ServerContainer wsServer = ecfi.getServerContainer()
