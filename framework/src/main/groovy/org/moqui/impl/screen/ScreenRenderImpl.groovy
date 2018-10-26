@@ -408,12 +408,11 @@ class ScreenRenderImpl implements ScreenRender {
                         List<Map> historyList = wfi.getScreenHistory()
                         Map historyMap = historyList != null && historyList.size() > 0 ? historyList.first() : (Map) null
                         if (historyMap != null) {
-                            url = isScreenLast ? historyMap.url : historyMap.urlNoParams
-                            urlType = "plain"
+                            url = isScreenLast ? historyMap.pathWithParams : historyMap.path
                             // logger.warn("going to screen-last from screen history ${url}")
                         } else {
                             // if no saved URL, just go to root/default; avoid getting stuck on Login screen, etc
-                            url = savedUrl ?: "/"
+                            url = "/"
                             // logger.warn("going to screen-last no last path or history to going to root")
                         }
                     }
