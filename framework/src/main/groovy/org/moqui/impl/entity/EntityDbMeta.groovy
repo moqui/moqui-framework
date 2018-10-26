@@ -48,11 +48,11 @@ class EntityDbMeta {
 
     EntityDbMeta(EntityFacadeImpl efi) { this.efi = efi }
 
-    void checkTableRuntime(EntityDefinition ed) {
+    boolean checkTableRuntime(EntityDefinition ed) {
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
         // most common case: not view entity and already checked
         boolean alreadyChecked = entityTablesChecked.containsKey(entityInfo.fullEntityName)
-        if (alreadyChecked) return
+        if (alreadyChecked) return false
 
         String groupName = entityInfo.groupName
         Boolean runtimeAddMissing = (Boolean) runtimeAddMissingMap.get(groupName)
@@ -63,27 +63,31 @@ class EntityDbMeta {
             runtimeAddMissing = ramAttr ? !"false".equals(ramAttr) : !"false".equals(dbNode.attribute("default-runtime-add-missing"))
             runtimeAddMissingMap.put(groupName, runtimeAddMissing)
         }
-        if (!runtimeAddMissing.booleanValue()) return
+        if (!runtimeAddMissing.booleanValue()) return false
 
         if (entityInfo.isView) {
+            boolean tableCreated = false
             for (MNode memberEntityNode in ed.entityNode.children("member-entity")) {
                 EntityDefinition med = efi.getEntityDefinition(memberEntityNode.attribute("entity-name"))
-                checkTableRuntime(med)
+                if (checkTableRuntime(med)) tableCreated = true
             }
+            return tableCreated
         } else {
             // already looked above to see if this entity has been checked
             // do the real check, in a synchronized method
-            internalCheckTable(ed, false)
+            return internalCheckTable(ed, false)
         }
     }
-    void checkTableStartup(EntityDefinition ed) {
+    boolean checkTableStartup(EntityDefinition ed) {
         if (ed.isViewEntity) {
+            boolean tableCreated = false
             for (MNode memberEntityNode in ed.entityNode.children("member-entity")) {
                 EntityDefinition med = efi.getEntityDefinition(memberEntityNode.attribute("entity-name"))
-                checkTableStartup(med)
+                if (checkTableStartup(med)) tableCreated = true
             }
+            return tableCreated
         } else {
-            internalCheckTable(ed, true)
+            return internalCheckTable(ed, true)
         }
     }
 
@@ -102,16 +106,17 @@ class EntityDbMeta {
         }
     }
 
-    synchronized void internalCheckTable(EntityDefinition ed, boolean startup) {
+    synchronized boolean internalCheckTable(EntityDefinition ed, boolean startup) {
         // if it's in this table we've already checked it
-        if (entityTablesChecked.containsKey(ed.getFullEntityName())) return
+        if (entityTablesChecked.containsKey(ed.getFullEntityName())) return false
 
         MNode datasourceNode = efi.getDatasourceNode(ed.getEntityGroupName())
         // if there is no @database-conf-name skip this, it's probably not a SQL/JDBC datasource
-        if (!datasourceNode.attribute('database-conf-name')) return
+        if (!datasourceNode.attribute('database-conf-name')) return false
 
         long startTime = System.currentTimeMillis()
-        if (!tableExists(ed)) {
+        boolean doCreate = !tableExists(ed)
+        if (doCreate) {
             createTable(ed)
             // create explicit and foreign key auto indexes
             createIndexes(ed)
@@ -127,7 +132,7 @@ class EntityDbMeta {
                 createForeignKeys(ed, true)
             } else {
                 MNode dbNode = efi.getDatabaseNode(ed.getEntityGroupName())
-                String runtimeAddFks = datasourceNode.attribute("runtime-add-fks")
+                String runtimeAddFks = datasourceNode.attribute("runtime-add-fks") ?: "true"
                 if ((!runtimeAddFks && "true".equals(dbNode.attribute("default-runtime-add-fks"))) || "true".equals(runtimeAddFks))
                     createForeignKeys(ed, true)
             }
@@ -136,6 +141,7 @@ class EntityDbMeta {
         entityTablesExist.put(ed.getFullEntityName(), true)
 
         if (logger.isTraceEnabled()) logger.trace("Checked table for entity [${ed.getFullEntityName()}] in ${(System.currentTimeMillis()-startTime)/1000} seconds")
+        return doCreate
     }
 
     boolean tableExists(EntityDefinition ed) {
@@ -465,7 +471,6 @@ class EntityDbMeta {
             if (ed.isViewEntity) continue
             if (tableExists(ed)) {
                 int result = createForeignKeys(ed, true)
-                logger.info("Created ${result} FKs for entity ${ed.fullEntityName}")
                 created += result
             }
         }
@@ -693,6 +698,7 @@ class EntityDbMeta {
             runSqlUpdate(sql, groupName)
             created++
         }
+        if (created > 0 && checkFkExists) logger.info("Created ${created} FKs for entity ${ed.fullEntityName}")
         return created
     }
 
