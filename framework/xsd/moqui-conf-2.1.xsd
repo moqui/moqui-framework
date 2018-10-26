@@ -615,7 +615,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="schema-name" type="xs:string"/>
             <xs:attribute name="startup-add-missing" default="false" type="boolean"/>
             <xs:attribute name="runtime-add-missing" default="true" type="boolean"/>
-            <xs:attribute name="runtime-add-fks" default="false" type="boolean"/>
+            <xs:attribute name="runtime-add-fks" default="true" type="boolean"/>
             <xs:attribute name="object-factory" type="xs:string" default="org.moqui.impl.entity.EntityDatasourceFactoryImpl">
                 <xs:annotation><xs:documentation>The references class must implement the
                     org.moqui.entity.EntityDatasourceFactory interface.</xs:documentation></xs:annotation>
