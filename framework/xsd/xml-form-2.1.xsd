@@ -124,6 +124,10 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:annotation><xs:documentation>Comma separated list of field names (no spaces) to make sure are passed as body
                 parameters, for vuet mode only and forms that have a non-transition target where form-link is used.</xs:documentation></xs:annotation>
         </xs:attribute>
+
+        <xs:attribute name="pass-through-parameters" type="boolean" default="false">
+            <xs:annotation><xs:documentation>Add hidden input elements for all parameters (for companion form-list find options, etc)</xs:documentation></xs:annotation>
+        </xs:attribute>
     </xs:complexType></xs:element>
 
     <xs:element name="form-list" substitutionGroup="AllWidgets"><xs:annotation>
