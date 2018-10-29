@@ -344,12 +344,15 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
                         } else if (transactionStatus == Status.STATUS_MARKED_ROLLBACK) {
                             if (!eci.messageFacade.hasError())
                                 eci.messageFacade.addError("Cannot commit transaction for service " + serviceName + ", marked rollback-only");
-                            // will rollback based on marker rollback only
-                            tf.commit();
-                        } else {
-                            logger.warn("In call to service " + serviceName + " transaction not Active or Marked Rollback-Only, doing commit to make sure TX closed");
+                            // will rollback based on marked rollback only
                             tf.commit();
                         }
+                        /* most likely in this case is no transaction in place, already rolled back above, do nothing:
+                        else {
+                            logger.warn("In call to service " + serviceName + " transaction not Active or Marked Rollback-Only (" + tf.getStatusString() + "), doing commit to make sure TX closed");
+                            tf.commit();
+                        }
+                        */
                     }
                 } catch (Throwable t) {
                     logger.warn("Error committing transaction for service " + serviceName, t);

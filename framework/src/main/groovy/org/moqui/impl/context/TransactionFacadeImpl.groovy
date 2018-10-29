@@ -426,6 +426,8 @@ class TransactionFacadeImpl implements TransactionFacade {
     void rollback(String causeMessage, Throwable causeThrowable) {
         TxStackInfo txStackInfo = getTxStackInfo()
         try {
+            txStackInfo.closeTxConnections()
+
             // logger.warn("================ rollback TX, currentStatus=${getStatus()}")
             if (getStatus() == Status.STATUS_NO_TRANSACTION) {
                 logger.warn("Transaction not rolled back, status is STATUS_NO_TRANSACTION")
@@ -444,7 +446,6 @@ class TransactionFacadeImpl implements TransactionFacade {
                 logger.warn("Transaction rollback for [${causeMessage}]. Here is the current location: ", new BaseException("Rollback location"))
             }
 
-            txStackInfo.closeTxConnections()
             ut.rollback()
         } catch (IllegalStateException e) {
             throw new TransactionException("Could not rollback transaction", e)
