@@ -263,7 +263,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         if (requireNewTransaction || sd.txForceNew) pauseResumeIfNeeded = true;
 
         boolean suspendedTransaction = false;
-        Map<String, Object> result = null;
+        Map<String, Object> result = new HashMap<>();
         try {
             // if error in auth or for other reasons, return now with no results
             if (eci.messageFacade.hasError()) {
