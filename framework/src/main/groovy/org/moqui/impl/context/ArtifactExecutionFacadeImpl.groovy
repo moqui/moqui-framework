@@ -32,7 +32,6 @@ import org.moqui.entity.EntityValue
 import org.moqui.impl.context.ArtifactExecutionInfoImpl.ArtifactAuthzCheck
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityFacadeImpl
-import org.moqui.impl.entity.EntityFindBase
 import org.moqui.util.MNode
 
 import org.slf4j.Logger
@@ -143,7 +142,7 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
         while (i.hasNext()) {
             ArtifactExecutionInfo aei = (ArtifactExecutionInfo) i.next()
             sb.append(aei.name)
-            if (i.hasNext()) sb.append(',')
+            if (i.hasNext()) sb.append(', ')
         }
         return sb.toString()
     }

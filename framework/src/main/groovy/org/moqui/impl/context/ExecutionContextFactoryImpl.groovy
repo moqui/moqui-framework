@@ -519,17 +519,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     private void postFacadeInit() {
-        // ========== load a few things in advance so first page hit is faster in production (in dev mode will reload anyway as caches timeout)
-        // load entity definitions
-        logger.info("Loading entity definitions")
-        long entityStartTime = System.currentTimeMillis()
-        entityFacade.loadAllEntityLocations()
-        int entityCount = entityFacade.loadAllEntityDefinitions()
-        // don't always load/warm framework entities, in production warms anyway and in dev not needed: entityFacade.loadFrameworkEntities()
-        logger.info("Loaded ${entityCount} entity definitions in ${System.currentTimeMillis() - entityStartTime}ms")
-
-        // now that everything is started up, if configured check all entity tables
-        entityFacade.checkInitDatasourceTables()
+        entityFacade.postFacadeInit()
+        serviceFacade.postFacadeInit()
 
         // Run init() in ToolFactory implementations from tools.tool-factory elements
         for (ToolFactory tf in toolFactoryMap.values()) {

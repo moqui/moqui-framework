@@ -709,7 +709,8 @@ class ScreenDefinition {
                 MNode callServiceNode = transitionNode.first("service-call")
                 if (!callServiceNode.attribute("in-map")) callServiceNode.attributes.put("in-map", "true")
                 if (!callServiceNode.attribute("out-map")) callServiceNode.attributes.put("out-map", "context")
-                if (!callServiceNode.attribute("multi")) callServiceNode.attributes.put("multi", "parameter")
+                if (!callServiceNode.attribute("multi") && !"true".equals(callServiceNode.attribute("async")))
+                    callServiceNode.attributes.put("multi", "parameter")
                 serviceActions = new XmlAction(parentScreen.sfi.ecfi, callServiceNode, location + ".service_call")
                 singleServiceName = callServiceNode.attribute("name")
             }
