@@ -564,11 +564,11 @@ abstract class EntityFindBase implements EntityFind {
             for (String obsPart in orderByFieldName.split(",")) {
                 String orderByName = obsPart.trim()
                 FieldOrderOptions foo = new FieldOrderOptions(orderByName)
-                if (getEntityDef().isField(foo.fieldName)) this.orderByFields.add(orderByName)
+                if (getEntityDef().isField(foo.fieldName) && !this.orderByFields.contains(orderByName)) this.orderByFields.add(orderByName)
             }
         } else {
             FieldOrderOptions foo = new FieldOrderOptions(orderByFieldName)
-            if (getEntityDef().isField(foo.fieldName)) this.orderByFields.add(orderByFieldName)
+            if (getEntityDef().isField(foo.fieldName) && !this.orderByFields.contains(orderByFieldName)) this.orderByFields.add(orderByFieldName)
         }
         return this
     }
@@ -997,7 +997,8 @@ abstract class EntityFindBase implements EntityFind {
                 ArrayList<MNode> ecObList = entityConditionNode.children("order-by")
                 if (ecObList != null) for (int i = 0; i < ecObList.size(); i++) {
                     MNode orderBy = (MNode) ecObList.get(i)
-                    orderByExpanded.add(orderBy.attribute("field-name"))
+                    String fieldName = orderBy.attribute("field-name")
+                    if(!orderByExpanded.contains(fieldName)) orderByExpanded.add(fieldName)
                 }
                 if ("true".equals(entityConditionNode.attribute("distinct"))) this.distinct(true)
             }
@@ -1154,7 +1155,8 @@ abstract class EntityFindBase implements EntityFind {
                 ArrayList<MNode> ecObList = entityConditionNode.children("order-by")
                 if (ecObList != null) for (int i = 0; i < ecObList.size(); i++) {
                     MNode orderBy = ecObList.get(i)
-                    orderByExpanded.add(orderBy.attribute("field-name"))
+                    String fieldName = orderBy.attribute("field-name")
+                    if(!orderByExpanded.contains(fieldName)) orderByExpanded.add(fieldName)
                 }
                 if ("true".equals(entityConditionNode.attribute("distinct"))) this.distinct(true)
             }
@@ -1235,7 +1237,7 @@ abstract class EntityFindBase implements EntityFind {
     }
 
     abstract EntityListIterator iteratorExtended(EntityConditionImplBase whereCondition, EntityConditionImplBase havingCondition,
-            ArrayList<String> orderByExpanded, FieldInfo[] fieldInfoArray, FieldOrderOptions[] fieldOptionsArray) throws SQLException
+                                                 ArrayList<String> orderByExpanded, FieldInfo[] fieldInfoArray, FieldOrderOptions[] fieldOptionsArray) throws SQLException
 
     @Override
     long count() throws EntityException {
