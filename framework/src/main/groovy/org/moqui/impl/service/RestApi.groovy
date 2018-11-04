@@ -374,9 +374,7 @@ class RestApi {
                 } else if (operation == 'list') {
                     EntityFind ef = ec.entity.find(entityName).searchFormMap(ec.context, null, null, null, false)
                     // we don't want to go overboard with these requests, never do an unlimited find, if no limit use 100
-                    if (!ef.getLimit() && (!ec.context?.containsKey("pageNoLimit") || "false" == ec.context?.get("pageNoLimit") || !ec.context?.get("pageNoLimit"))) {
-                        ef.limit(100)
-                    }
+                    if (!ef.getLimit() && !"true".equals(ec.context.get("pageNoLimit"))) ef.limit(100)
 
                     int count = ef.count() as int
                     int pageIndex = ef.getPageIndex()

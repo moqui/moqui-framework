@@ -1237,7 +1237,7 @@ abstract class EntityFindBase implements EntityFind {
     }
 
     abstract EntityListIterator iteratorExtended(EntityConditionImplBase whereCondition, EntityConditionImplBase havingCondition,
-                                                 ArrayList<String> orderByExpanded, FieldInfo[] fieldInfoArray, FieldOrderOptions[] fieldOptionsArray) throws SQLException
+            ArrayList<String> orderByExpanded, FieldInfo[] fieldInfoArray, FieldOrderOptions[] fieldOptionsArray) throws SQLException
 
     @Override
     long count() throws EntityException {
