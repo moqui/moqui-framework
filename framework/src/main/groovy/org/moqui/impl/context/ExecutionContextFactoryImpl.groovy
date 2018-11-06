@@ -57,6 +57,7 @@ import org.slf4j.LoggerFactory
 import javax.annotation.Nonnull
 import javax.servlet.ServletContext
 import javax.servlet.http.HttpServletRequest
+import javax.servlet.http.HttpServletResponse
 import javax.websocket.server.ServerContainer
 import java.lang.management.ManagementFactory
 import java.sql.Timestamp
@@ -1616,6 +1617,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         baseNode.mergeSingleChild(overrideNode, "session-config")
 
         baseNode.mergeChildrenByKey(overrideNode, "endpoint", "path", null)
+
+        baseNode.mergeChildrenByKeys(overrideNode, "response-header", null, "type", "name")
     }
 
     protected static void mergeWebappActions(MNode baseWebappNode, MNode overrideWebappNode, String childNodeName) {
@@ -1634,10 +1637,12 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             .first({ MNode it -> it.name == "webapp" && it.attribute("name") == webappName }) }
 
     WebappInfo getWebappInfo(String webappName) {
-        if (webappInfoMap.containsKey(webappName)) return webappInfoMap.get(webappName)
+        WebappInfo wi = webappInfoMap.get(webappName)
+        if (wi != null) return wi
         return makeWebappInfo(webappName)
     }
     protected synchronized WebappInfo makeWebappInfo(String webappName) {
+        if (webappName == null || webappName.isEmpty()) return null
         WebappInfo wi = new WebappInfo(webappName, this)
         webappInfoMap.put(webappName, wi)
         return wi
@@ -1653,8 +1658,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         XmlAction beforeLogoutActions = null
         XmlAction afterStartupActions = null
         XmlAction beforeShutdownActions = null
-        Integer sessionTimeoutSeconds = null
+        ArrayList<MNode> responseHeaderList
 
+        Integer sessionTimeoutSeconds = null
         String httpPort, httpHost, httpsPort, httpsHost
         boolean httpsEnabled
         boolean requireSessionToken
@@ -1700,6 +1706,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                 beforeShutdownActions = new XmlAction(ecfi, webappNode.first("before-shutdown").first("actions"),
                         "webapp_${webappName}.before_shutdown.actions")
 
+            responseHeaderList = webappNode.children("response-header")
+
             MNode sessionConfigNode = webappNode.first("session-config")
             if (sessionConfigNode != null && sessionConfigNode.attribute("timeout")) {
                 sessionTimeoutSeconds = (sessionConfigNode.attribute("timeout") as int) * 60
@@ -1708,6 +1716,19 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         MNode getErrorScreenNode(String error) {
             return webappNode.first({ MNode it -> it.name == "error-screen" && it.attribute("error") == error })
+        }
+
+        void addHeaders(String type, HttpServletResponse response) {
+            if (type == null || response == null) return
+            int responseHeaderListSize = responseHeaderList.size()
+            for (int i = 0; i < responseHeaderListSize; i++) {
+                MNode responseHeader = (MNode) responseHeaderList.get(i)
+                if (!type.equals(responseHeader.attribute("type"))) continue
+                String headerValue = responseHeader.attribute("value")
+                if (headerValue == null || headerValue.isEmpty()) continue
+                response.addHeader(responseHeader.attribute("name"), headerValue)
+                // logger.warn("Added header ${responseHeader.attribute("name")} value ${headerValue} type ${type}")
+            }
         }
     }
 
