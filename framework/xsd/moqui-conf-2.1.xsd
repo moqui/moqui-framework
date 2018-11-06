@@ -163,29 +163,101 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:element name="webapp">
         <xs:complexType>
             <xs:sequence>
-                <xs:element minOccurs="0" maxOccurs="unbounded" ref="root-screen"/>
-                <xs:element minOccurs="0" maxOccurs="unbounded" ref="error-screen"/>
-                <xs:element minOccurs="0" ref="first-hit-in-visit"/>
-                <xs:element minOccurs="0" ref="before-request"/>
-                <xs:element minOccurs="0" ref="after-request"/>
-                <xs:element minOccurs="0" ref="after-login"/>
-                <xs:element minOccurs="0" ref="before-logout"/>
-                <xs:element minOccurs="0" ref="after-startup"/>
-                <xs:element minOccurs="0" ref="before-shutdown"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" name="root-screen"><xs:complexType>
+                    <xs:attribute name="host" type="xs:string" use="required">
+                        <xs:annotation><xs:documentation>A pattern to match the host name against (from ServletRequest.getServerName())</xs:documentation></xs:annotation></xs:attribute>
+                    <xs:attribute name="location" type="xs:string" use="required">
+                        <xs:annotation><xs:documentation>The location of the root screen XML file</xs:documentation></xs:annotation></xs:attribute>
+                </xs:complexType></xs:element>
+                <xs:element minOccurs="0" maxOccurs="unbounded" name="error-screen"><xs:complexType>
+                    <xs:attribute name="error" use="required"><xs:simpleType><xs:restriction base="xs:token">
+                        <xs:enumeration value="unauthorized"><xs:annotation><xs:documentation>401 - authentication required</xs:documentation></xs:annotation></xs:enumeration>
+                        <xs:enumeration value="forbidden"><xs:annotation><xs:documentation>403 - authorization failed</xs:documentation></xs:annotation></xs:enumeration>
+                        <xs:enumeration value="not-found"><xs:annotation><xs:documentation>404 - screen/resource not found</xs:documentation></xs:annotation></xs:enumeration>
+                        <xs:enumeration value="too-many"><xs:annotation><xs:documentation>429 - tarpit limit reached</xs:documentation></xs:annotation></xs:enumeration>
+                        <xs:enumeration value="internal-error"><xs:annotation><xs:documentation>500 - general error</xs:documentation></xs:annotation></xs:enumeration>
+                    </xs:restriction></xs:simpleType></xs:attribute>
+                    <xs:attribute name="screen-path" type="xs:string" use="required">
+                        <xs:annotation><xs:documentation>The path to the screen to render on error</xs:documentation></xs:annotation></xs:attribute>
+                </xs:complexType></xs:element>
+                <xs:element minOccurs="0" name="first-hit-in-visit"><xs:complexType><xs:sequence><xs:element ref="actions"/></xs:sequence></xs:complexType></xs:element>
+                <xs:element minOccurs="0" name="before-request"><xs:complexType><xs:sequence><xs:element ref="actions"/></xs:sequence></xs:complexType></xs:element>
+                <xs:element minOccurs="0" name="after-request"><xs:complexType><xs:sequence><xs:element ref="actions"/></xs:sequence></xs:complexType></xs:element>
+                <xs:element minOccurs="0" name="after-login"><xs:complexType><xs:sequence><xs:element ref="actions"/></xs:sequence></xs:complexType></xs:element>
+                <xs:element minOccurs="0" name="before-logout"><xs:complexType><xs:sequence><xs:element ref="actions"/></xs:sequence></xs:complexType></xs:element>
+                <xs:element minOccurs="0" name="after-startup"><xs:complexType><xs:sequence><xs:element ref="actions"/></xs:sequence></xs:complexType></xs:element>
+                <xs:element minOccurs="0" name="before-shutdown"><xs:complexType><xs:sequence><xs:element ref="actions"/></xs:sequence></xs:complexType></xs:element>
 
-                <xs:element minOccurs="0" maxOccurs="unbounded" ref="context-param"/>
-                <xs:element minOccurs="0" maxOccurs="unbounded" ref="filter"/>
-                <xs:element minOccurs="0" maxOccurs="unbounded" ref="listener"/>
-                <xs:element minOccurs="0" maxOccurs="unbounded" ref="servlet"/>
-                <xs:element minOccurs="0" maxOccurs="1" ref="session-config"/>
-                <xs:element minOccurs="0" maxOccurs="unbounded" ref="endpoint"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" name="context-param"><xs:complexType>
+                    <xs:attribute name="name" type="xs:string" use="required"/>
+                    <xs:attribute name="value" type="xs:string" use="required"/>
+                </xs:complexType></xs:element>
+                <xs:element minOccurs="0" maxOccurs="unbounded" name="filter"><xs:complexType>
+                    <xs:sequence>
+                        <xs:element minOccurs="0" maxOccurs="unbounded" ref="init-param"/>
+                        <xs:element minOccurs="1" maxOccurs="unbounded" name="url-pattern" type="xs:string"/>
+                        <xs:element minOccurs="0" maxOccurs="unbounded" name="dispatcher" type="xs:string"/>
+                    </xs:sequence>
+                    <xs:attribute name="name" type="xs:string" use="required"/>
+                    <xs:attribute name="class" type="xs:string" use="required"/>
+                    <xs:attribute name="async-supported" type="boolean" default="false"/>
+                    <xs:attribute name="enabled" type="boolean" default="true"/>
+                </xs:complexType></xs:element>
+                <xs:element minOccurs="0" maxOccurs="unbounded" name="listener">
+                    <xs:annotation><xs:documentation>
+                        Note that for Jetty, and other servlet containers, these can only be implementations of
+                        HttpSessionListener, HttpSessionIdListener, and HttpSessionAttributeListener; other listeners such
+                        as ServletContextListener implementations must be in the web.xml file (cannot be loaded when
+                        MoquiContextListener initializes).
+                    </xs:documentation></xs:annotation>
+                    <xs:complexType>
+                        <xs:attribute name="class" type="xs:string" use="required"/>
+                        <xs:attribute name="enabled" type="boolean" default="true"/>
+                    </xs:complexType>
+                </xs:element>
+                <xs:element minOccurs="0" maxOccurs="unbounded" name="servlet"><xs:complexType>
+                    <xs:sequence>
+                        <xs:element minOccurs="0" maxOccurs="unbounded" ref="init-param"/>
+                        <xs:element minOccurs="1" maxOccurs="unbounded" name="url-pattern" type="xs:string"/>
+                    </xs:sequence>
+                    <xs:attribute name="name" type="xs:string" use="required"/>
+                    <xs:attribute name="class" type="xs:string" use="required"/>
+                    <xs:attribute name="load-on-startup" type="xs:nonNegativeInteger" default="1"/>
+                    <xs:attribute name="async-supported" type="boolean" default="false"/>
+                    <xs:attribute name="enabled" type="boolean" default="true"/>
+                </xs:complexType></xs:element>
+                <xs:element minOccurs="0" name="session-config"><xs:complexType>
+                    <xs:attribute name="timeout" type="xs:nonNegativeInteger" use="required"/>
+                </xs:complexType></xs:element>
+                <xs:element minOccurs="0" maxOccurs="unbounded" name="endpoint">
+                    <xs:annotation><xs:documentation>Add a WebSocket Endpoint</xs:documentation></xs:annotation>
+                    <xs:complexType>
+                        <xs:attribute name="path" type="xs:string" use="required"><xs:annotation><xs:documentation>
+                            The path for the endpoint, relative to webapp, must start with forward slash ('/')</xs:documentation></xs:annotation></xs:attribute>
+                        <xs:attribute name="class" type="xs:string" use="required"><xs:annotation><xs:documentation>
+                            Must extend javax.websocket.Endpoint. For Moqui-specific features including setting up an ExecutionContext
+                            extend org.moqui.impl.webapp.MoquiAbstractEndpoint. Even if not using MoquiAbstractEndpoint it will try
+                            to add the following ServerEndpointConfig user properties: handshakeRequest, httpSession,
+                            executionContextFactory, and maxIdleTimeout (set to value of @timeout).</xs:documentation></xs:annotation></xs:attribute>
+                        <xs:attribute name="timeout" type="xs:integer"/>
+                        <xs:attribute name="enabled" type="boolean" default="true"/>
+                    </xs:complexType>
+                </xs:element>
+                <xs:element minOccurs="0" maxOccurs="unbounded" name="response-header"><xs:complexType>
+                    <xs:attribute name="type" use="required"><xs:simpleType><xs:restriction base="xs:token">
+                        <xs:enumeration value="screen-resource-binary"/>
+                        <xs:enumeration value="screen-resource-text"/>
+                        <xs:enumeration value="screen-resource-template"/>
+                        <xs:enumeration value="screen-render"/>
+                        <xs:enumeration value="screen-secure"/>
+                        <xs:enumeration value="screen-server-static"/>
+                    </xs:restriction></xs:simpleType></xs:attribute>
+                    <xs:attribute name="name" type="xs:string" use="required"/>
+                    <xs:attribute name="value" type="xs:string" use="required"/>
+                </xs:complexType></xs:element>
             </xs:sequence>
-            <xs:attribute name="name" type="name-plain" use="required">
-                <xs:annotation><xs:documentation>
-                    Matched against value of a context-param.param-value element in the web.xml file where the
-                    param-name is "moqui-name".
-                </xs:documentation></xs:annotation>
-            </xs:attribute>
+            <xs:attribute name="name" type="name-plain" use="required"><xs:annotation><xs:documentation>
+                Matched against value of a context-param.param-value element in the web.xml file where the param-name is "moqui-name".</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="https-enabled" default="false" type="xs:string"/>
             <xs:attribute name="https-port" type="xs:string"/>
             <xs:attribute name="https-host" type="xs:string"/>
@@ -197,112 +269,6 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- Needed? Not yet implemented: <xs:attribute name="cookie-domain" type="xs:string"/> -->
             <xs:attribute name="websocket-timeout" type="xs:integer"><xs:annotation><xs:documentation>
                 The default WebSocket session max idle timeout for the whole server.</xs:documentation></xs:annotation></xs:attribute>
-        </xs:complexType>
-    </xs:element>
-    <xs:element name="root-screen">
-        <xs:complexType>
-            <xs:attribute name="host" type="xs:string" use="required">
-                <xs:annotation><xs:documentation>A pattern to match the host name against (from ServletRequest.getServerName())</xs:documentation></xs:annotation></xs:attribute>
-            <xs:attribute name="location" type="xs:string" use="required">
-                <xs:annotation><xs:documentation>The location of the root screen XML file</xs:documentation></xs:annotation></xs:attribute>
-        </xs:complexType>
-    </xs:element>
-    <xs:element name="error-screen">
-        <xs:complexType>
-            <xs:attribute name="error" use="required"><xs:simpleType><xs:restriction base="xs:token">
-                <xs:enumeration value="unauthorized"><xs:annotation><xs:documentation>401 - authentication required</xs:documentation></xs:annotation></xs:enumeration>
-                <xs:enumeration value="forbidden"><xs:annotation><xs:documentation>403 - authorization failed</xs:documentation></xs:annotation></xs:enumeration>
-                <xs:enumeration value="not-found"><xs:annotation><xs:documentation>404 - screen/resource not found</xs:documentation></xs:annotation></xs:enumeration>
-                <xs:enumeration value="too-many"><xs:annotation><xs:documentation>429 - tarpit limit reached</xs:documentation></xs:annotation></xs:enumeration>
-                <xs:enumeration value="internal-error"><xs:annotation><xs:documentation>500 - general error</xs:documentation></xs:annotation></xs:enumeration>
-            </xs:restriction></xs:simpleType></xs:attribute>
-            <xs:attribute name="screen-path" type="xs:string" use="required">
-                <xs:annotation><xs:documentation>The path to the screen to render on error</xs:documentation></xs:annotation></xs:attribute>
-        </xs:complexType>
-    </xs:element>
-    <xs:element name="first-hit-in-visit">
-        <xs:complexType><xs:sequence><xs:element ref="actions"/></xs:sequence></xs:complexType>
-    </xs:element>
-    <xs:element name="after-request">
-        <xs:complexType><xs:sequence><xs:element ref="actions"/></xs:sequence></xs:complexType>
-    </xs:element>
-    <xs:element name="before-request">
-        <xs:complexType><xs:sequence><xs:element ref="actions"/></xs:sequence></xs:complexType>
-    </xs:element>
-    <xs:element name="after-login">
-        <xs:complexType><xs:sequence><xs:element ref="actions"/></xs:sequence></xs:complexType>
-    </xs:element>
-    <xs:element name="before-logout">
-        <xs:complexType><xs:sequence><xs:element ref="actions"/></xs:sequence></xs:complexType>
-    </xs:element>
-    <xs:element name="after-startup">
-        <xs:complexType><xs:sequence><xs:element ref="actions"/></xs:sequence></xs:complexType>
-    </xs:element>
-    <xs:element name="before-shutdown">
-        <xs:complexType><xs:sequence><xs:element ref="actions"/></xs:sequence></xs:complexType>
-    </xs:element>
-
-    <xs:element name="context-param">
-        <xs:complexType>
-            <xs:attribute name="name" type="xs:string" use="required"/>
-            <xs:attribute name="value" type="xs:string" use="required"/>
-        </xs:complexType>
-    </xs:element>
-    <xs:element name="filter">
-        <xs:complexType>
-            <xs:sequence>
-                <xs:element minOccurs="0" maxOccurs="unbounded" ref="init-param"/>
-                <xs:element minOccurs="1" maxOccurs="unbounded" name="url-pattern" type="xs:string"/>
-                <xs:element minOccurs="0" maxOccurs="unbounded" name="dispatcher" type="xs:string"/>
-            </xs:sequence>
-            <xs:attribute name="name" type="xs:string" use="required"/>
-            <xs:attribute name="class" type="xs:string" use="required"/>
-            <xs:attribute name="async-supported" type="boolean" default="false"/>
-            <xs:attribute name="enabled" type="boolean" default="true"/>
-        </xs:complexType>
-    </xs:element>
-    <xs:element name="listener">
-        <xs:annotation><xs:documentation>
-            Note that for Jetty, and other servlet containers, these can only be implementations of
-            HttpSessionListener, HttpSessionIdListener, and HttpSessionAttributeListener; other listeners such
-            as ServletContextListener implementations must be in the web.xml file (cannot be loaded when
-            MoquiContextListener initializes).
-        </xs:documentation></xs:annotation>
-        <xs:complexType>
-            <xs:attribute name="class" type="xs:string" use="required"/>
-            <xs:attribute name="enabled" type="boolean" default="true"/>
-        </xs:complexType>
-    </xs:element>
-    <xs:element name="servlet">
-        <xs:complexType>
-            <xs:sequence>
-                <xs:element minOccurs="0" maxOccurs="unbounded" ref="init-param"/>
-                <xs:element minOccurs="1" maxOccurs="unbounded" name="url-pattern" type="xs:string"/>
-            </xs:sequence>
-            <xs:attribute name="name" type="xs:string" use="required"/>
-            <xs:attribute name="class" type="xs:string" use="required"/>
-            <xs:attribute name="load-on-startup" type="xs:nonNegativeInteger" default="1"/>
-            <xs:attribute name="async-supported" type="boolean" default="false"/>
-            <xs:attribute name="enabled" type="boolean" default="true"/>
-        </xs:complexType>
-    </xs:element>
-    <xs:element name="session-config">
-        <xs:complexType>
-            <xs:attribute name="timeout" type="xs:nonNegativeInteger" use="required"/>
-        </xs:complexType>
-    </xs:element>
-    <xs:element name="endpoint">
-        <xs:annotation><xs:documentation>Add a WebSocket Endpoint</xs:documentation></xs:annotation>
-        <xs:complexType>
-            <xs:attribute name="path" type="xs:string" use="required"><xs:annotation><xs:documentation>
-                The path for the endpoint, relative to webapp, must start with forward slash ('/')</xs:documentation></xs:annotation></xs:attribute>
-            <xs:attribute name="class" type="xs:string" use="required"><xs:annotation><xs:documentation>
-                Must extend javax.websocket.Endpoint. For Moqui-specific features including setting up an ExecutionContext
-                extend org.moqui.impl.webapp.MoquiAbstractEndpoint. Even if not using MoquiAbstractEndpoint it will try
-                to add the following ServerEndpointConfig user properties: handshakeRequest, httpSession,
-                executionContextFactory, and maxIdleTimeout (set to value of @timeout).</xs:documentation></xs:annotation></xs:attribute>
-            <xs:attribute name="timeout" type="xs:integer"/>
-            <xs:attribute name="enabled" type="boolean" default="true"/>
         </xs:complexType>
     </xs:element>
 

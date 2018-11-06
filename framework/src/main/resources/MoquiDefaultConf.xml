@@ -154,6 +154,21 @@
 
             <!-- Notification Message Endpoint -->
             <endpoint path="/notws" class="org.moqui.impl.webapp.NotificationEndpoint" timeout="3600000" enabled="true"/>
+
+            <!-- Default response headers, for override keyed on type+name -->
+            <response-header type="screen-resource-binary" name="Cache-Control" value="max-age=3600, must-revalidate, public"/>
+            <response-header type="screen-resource-text" name="Cache-Control" value="max-age=3600, must-revalidate, public"/>
+            <response-header type="screen-resource-template" name="Cache-Control" value="no-cache, no-store, must-revalidate, private"/>
+            <response-header type="screen-server-static" name="Cache-Control" value="max-age=3600, must-revalidate, public"/>
+            <response-header type="screen-secure" name="Strict-Transport-Security" value="max-age=31536000"/>
+            <response-header type="screen-render" name="Cache-Control" value="no-cache, no-store, must-revalidate, private"/>
+            <!--
+            Content-Security-Policy by default to not allow use in iframe or allow form actions on different host
+            see https://content-security-policy.com/
+            consider "child-src 'self';", leaving out as default because 3rd party hosts needed for payment processing hosted forms, etc
+            -->
+            <response-header type="screen-render" name="Content-Security-Policy" value="frame-ancestors 'none'; form-action 'self';"/>
+            <response-header type="screen-render" name="X-Frame-Options" value="deny"/>
         </webapp>
     </webapp-list>
 
@@ -244,6 +259,7 @@
         <!-- vuet is a custom extension for Vue JS component templates (extended HTML) -->
         <screen-text-output type="vuet" mime-type="text/html" always-standalone="true"
                             macro-template-location="template/screen-macro/DefaultScreenMacros.vuet.ftl"/>
+
     </screen-facade>
 
     <service-facade distributed-factory="" scheduled-job-check-time="60">
