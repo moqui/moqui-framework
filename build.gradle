@@ -99,7 +99,7 @@ task gitPullAll {
 def doGitPullWithStatus(def gitDir) {
     try {
         def curGrgit = Grgit.open(dir: gitDir)
-        logger.lifecycle("\nPulling ${gitDir}\nbranch ${curGrgit.branch.current()?.name} tracking ${curGrgit.branch.current()?.trackingBranch?.name}")
+        logger.lifecycle("\nPulling ${gitDir} (branch:${curGrgit.branch.current()?.name}, tracking:${curGrgit.branch.current()?.trackingBranch?.name})")
 
         def beforeHead = curGrgit.head()
         curGrgit.pull()
@@ -145,7 +145,7 @@ task gitStatusAll {
             gitDirectories.add(compDir.path)
         for (String gitDir in gitDirectories) {
             def curGrgit = Grgit.open(dir: gitDir)
-            logger.lifecycle("\nGit status for ${gitDir}\nbranch ${curGrgit.branch.current()?.name} tracking ${curGrgit.branch.current()?.trackingBranch?.name}")
+            logger.lifecycle("\nGit status for ${gitDir} (branch:${curGrgit.branch.current()?.name}, tracking:${curGrgit.branch.current()?.trackingBranch?.name})")
 
             if (curGrgit.remote.list().find({ it.name == 'upstream'})) {
                 def upstreamAhead = curGrgit.log { range curGrgit.resolve.toCommit('refs/remotes/upstream/master'), curGrgit.resolve.toCommit('refs/remotes/origin/master') }
@@ -270,13 +270,15 @@ task addRuntime {
     description "Create a moqui-plus-runtime.war file with the Moqui WAR and the runtime directory embedded in it"
     dependsOn checkRuntime, allBuildTasks
     doLast {
+        // make version detail files
+        makeVersionDetailFiles()
         // unzip the "moqui-${version}.war" file to the wartemp directory
         //directory { dir = file('wartemp') }
         copy { from zipTree(warName); into file('wartemp') }
         // copy runtime directory (with a few exceptions) into a runtime directory in the war
         copy {
             from fileTree(dir: '.', include: moquiRuntime+'/**',
-                    excludes: ['**/*.jar', moquiRuntime+'/classes/**', moquiRuntime+'/lib/**', moquiRuntime+'/log/**', moquiRuntime+'/sessions/**'])
+                    excludes: ['**/*.jar', '**/build', moquiRuntime+'/classes/**', moquiRuntime+'/lib/**', moquiRuntime+'/log/**', moquiRuntime+'/sessions/**'])
             into file('wartemp')
         }
         // copy the jar files from runtime/lib
@@ -301,6 +303,8 @@ task addRuntime {
         // alternative once supported: zip { archiveName plusRuntimeName; from fileTree(dir: 'wartemp', include: '**/*') }
         // clean up the temporary directory
         delete file('wartemp')
+        // clean up version detail files
+        cleanVersionDetailFiles()
     }
 }
 
@@ -529,6 +533,37 @@ def checkAllComponentDependencies(String type) {
         checkComponentDependencies(compDir.name, type, addons, myaddons, compsChecked)
     }
     logger.lifecycle("Dependent components checked: ${compsChecked}")
+}
+
+def makeVersionDetailFiles() {
+    if (file(".git").exists()) {
+        def topVersionMap = [framework:getVersionDetailMap(file('.'))]
+        if (file("runtime/.git").exists()) topVersionMap.runtime = getVersionDetailMap(file('runtime'))
+        file('runtime/version.json').write(groovy.json.JsonOutput.toJson(topVersionMap), "UTF-8")
+    }
+    for (File compDir in file('runtime/component').listFiles().findAll { it.isDirectory() && it.listFiles().find { it.name == '.git' } }) {
+        file(compDir.path + '/version.json').write(groovy.json.JsonOutput.toJson(getVersionDetailMap(compDir)), "UTF-8")
+    }
+}
+Map getVersionDetailMap(File gitDir) {
+    def curGrgit = Grgit.open(dir: gitDir)
+    String trackingName = curGrgit.branch.current()?.trackingBranch?.name
+    String trackingUrl = ""
+    int trackingNameSlash = trackingName ? trackingName.indexOf('/') : -1
+    if (trackingNameSlash > 0) {
+        String remoteName = trackingName.substring(0, trackingNameSlash)
+        def trackingRemote = curGrgit.remote.list().find({ it.name == remoteName })
+        if (trackingRemote != null) trackingUrl = trackingRemote.url
+    }
+    return [branch:curGrgit.branch.current()?.name, tracking:trackingName, url:trackingUrl, head:curGrgit.head()?.id?.take(10)]
+}
+def cleanVersionDetailFiles() {
+    def runtimeVersionFile = file("runtime/version.json")
+    if (runtimeVersionFile.exists()) runtimeVersionFile.delete()
+    for (File compDir in file('runtime/component').listFiles().findAll { it.isDirectory() }) {
+        File versionDetailFile = file(compDir.path + '/version.json')
+        if (versionDetailFile.exists()) versionDetailFile.delete()
+    }
 }
 
 // ========== combined tasks ==========
