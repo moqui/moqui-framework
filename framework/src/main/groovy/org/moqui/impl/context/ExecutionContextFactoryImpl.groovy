@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.context
 
+import groovy.json.JsonSlurper
 import groovy.transform.CompileStatic
 import org.apache.logging.log4j.LogManager
 import org.apache.logging.log4j.core.LoggerContext
@@ -88,6 +89,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     @SuppressWarnings("GrFinalVariableAccess") protected final MNode confXmlRoot
     protected MNode serverStatsNode
     protected String moquiVersion = ""
+    protected Map versionMap = null
     protected InetAddress localhostAddress = null
 
     protected MClassLoader moquiClassLoader
@@ -326,6 +328,15 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         return newConfigXmlRoot
     }
     protected void initComponents(MNode baseConfigNode) {
+        File versionJsonFile = new File(runtimePath + "/version.json")
+        if (versionJsonFile.exists()) {
+            try {
+                versionMap = (Map) new JsonSlurper().parse(versionJsonFile)
+            } catch (Exception e) {
+                logger.warn("Error parsion runtime/version.json", e)
+            }
+        }
+
         // init components referred to in component-list.component and component-dir elements in the conf file
         for (MNode childNode in baseConfigNode.first("component-list").children) {
             if ("component".equals(childNode.name)) {
@@ -802,6 +813,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     @Override @Nonnull String getRuntimePath() { return runtimePath }
     @Override @Nonnull String getMoquiVersion() { return moquiVersion }
+    Map getVersionMap() { return versionMap }
     MNode getConfXmlRoot() { return confXmlRoot }
     MNode getServerStatsNode() { return serverStatsNode }
     MNode getArtifactExecutionNode(String artifactTypeEnumId) {
@@ -1070,7 +1082,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     List<Map<String, Object>> getComponentInfoList() {
         List<Map<String, Object>> infoList = new ArrayList<>(componentInfoMap.size())
         for (ComponentInfo ci in componentInfoMap.values())
-            infoList.add([name:ci.name, location:ci.location, version:ci.version, dependsOnNames:ci.dependsOnNames] as Map<String, Object>)
+            infoList.add([name:ci.name, location:ci.location, version:ci.version, versionMap:ci.versionMap, dependsOnNames:ci.dependsOnNames] as Map<String, Object>)
         return infoList
     }
 
@@ -1183,6 +1195,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     static class ComponentInfo {
         ExecutionContextFactoryImpl ecfi
         String name, location, version
+        Map versionMap = null
         ResourceReference componentRr
         Set<String> dependsOnNames = new LinkedHashSet<String>()
         ComponentInfo(String baseLocation, MNode componentNode, ExecutionContextFactoryImpl ecfi) {
@@ -1259,7 +1272,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
             // see if there is a component.xml file, if so use that as the componentNode instead of origNode
             ResourceReference compXmlRr = componentRr.getChild("component.xml")
-            MNode componentNode = compXmlRr.getExists() ? MNode.parse(compXmlRr) : origNode
+            MNode componentNode = compXmlRr.exists ? MNode.parse(compXmlRr) : origNode
             if (componentNode != null) {
                 String nameAttr = componentNode.attribute("name")
                 if (nameAttr) name = nameAttr
@@ -1267,6 +1280,15 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                 if (versionAttr) version = SystemBinding.expand(versionAttr)
                 if (componentNode.hasChild("depends-on")) for (MNode dependsOnNode in componentNode.children("depends-on"))
                     dependsOnNames.add(dependsOnNode.attribute("name"))
+            }
+
+            ResourceReference versionJsonRr = componentRr.getChild("version.json")
+            if (versionJsonRr.exists) {
+                try {
+                    versionMap = (Map) new JsonSlurper().parseText(versionJsonRr.getText())
+                } catch (Exception e) {
+                    logger.warn("Error parsing ${versionJsonRr.location}", e)
+                }
             }
         }
 
