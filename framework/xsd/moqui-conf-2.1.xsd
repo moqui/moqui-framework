@@ -245,6 +245,7 @@ along with this software (see the LICENSE.md file). If not, see
                 </xs:element>
                 <xs:element minOccurs="0" maxOccurs="unbounded" name="response-header"><xs:complexType>
                     <xs:attribute name="type" use="required"><xs:simpleType><xs:restriction base="xs:token">
+                        <xs:enumeration value="web-resource-inline"/>
                         <xs:enumeration value="screen-resource-binary"/>
                         <xs:enumeration value="screen-resource-text"/>
                         <xs:enumeration value="screen-resource-template"/>

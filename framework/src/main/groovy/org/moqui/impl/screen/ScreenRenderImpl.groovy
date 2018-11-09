@@ -521,7 +521,7 @@ class ScreenRenderImpl implements ScreenRender {
                     if (webappInfo != null) {
                         webappInfo.addHeaders("screen-resource-binary", response)
                     } else {
-                        response.addHeader("Cache-Control", "max-age=3600, must-revalidate, public")
+                        response.addHeader("Cache-Control", "max-age=86400, must-revalidate, public")
                     }
 
                     InputStream is
@@ -566,7 +566,7 @@ class ScreenRenderImpl implements ScreenRender {
                         if (webappInfo != null) {
                             webappInfo.addHeaders("screen-resource-text", response)
                         } else {
-                            response.addHeader("Cache-Control", "max-age=3600, must-revalidate, public")
+                            response.addHeader("Cache-Control", "max-age=86400, must-revalidate, public")
                         }
                     }
                     // no renderer found, just grab the text (cached) and throw it to the writer
@@ -709,7 +709,7 @@ class ScreenRenderImpl implements ScreenRender {
                     if (webappInfo != null) {
                         webappInfo.addHeaders("screen-server-static", response)
                     } else {
-                        response.addHeader("Cache-Control", "max-age=3600, must-revalidate, public")
+                        response.addHeader("Cache-Control", "max-age=86400, must-revalidate, public")
                     }
                 } else {
                     if (webappInfo != null) {
