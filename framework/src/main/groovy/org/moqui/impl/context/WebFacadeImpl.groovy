@@ -766,7 +766,13 @@ class WebFacadeImpl implements WebFacade {
         if (contentType) response.setContentType(contentType)
         if (inline) {
             response.addHeader("Content-Disposition", "inline")
-            response.addHeader("Cache-Control", "max-age=3600, must-revalidate, public")
+
+            WebappInfo webappInfo = eci.ecfi.getWebappInfo(eci.webImpl?.webappMoquiName)
+            if (webappInfo != null) {
+                webappInfo.addHeaders("web-resource-inline", response)
+            } else {
+                response.addHeader("Cache-Control", "max-age=86400, must-revalidate, public")
+            }
         } else {
             response.addHeader("Content-Disposition", "attachment; filename=\"${rr.getFileName()}\"; filename*=utf-8''${StringUtilities.encodeAsciiFilename(rr.getFileName())}")
         }

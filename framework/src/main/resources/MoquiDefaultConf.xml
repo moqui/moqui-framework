@@ -156,10 +156,11 @@
             <endpoint path="/notws" class="org.moqui.impl.webapp.NotificationEndpoint" timeout="3600000" enabled="true"/>
 
             <!-- Default response headers, for override keyed on type+name -->
-            <response-header type="screen-resource-binary" name="Cache-Control" value="max-age=3600, must-revalidate, public"/>
-            <response-header type="screen-resource-text" name="Cache-Control" value="max-age=3600, must-revalidate, public"/>
+            <response-header type="web-resource-inline" name="Cache-Control" value="max-age=86400, must-revalidate, public"/>
+            <response-header type="screen-resource-binary" name="Cache-Control" value="max-age=86400, must-revalidate, public"/>
+            <response-header type="screen-resource-text" name="Cache-Control" value="max-age=86400, must-revalidate, public"/>
             <response-header type="screen-resource-template" name="Cache-Control" value="no-cache, no-store, must-revalidate, private"/>
-            <response-header type="screen-server-static" name="Cache-Control" value="max-age=3600, must-revalidate, public"/>
+            <response-header type="screen-server-static" name="Cache-Control" value="max-age=86400, must-revalidate, public"/>
             <response-header type="screen-secure" name="Strict-Transport-Security" value="max-age=31536000"/>
             <response-header type="screen-render" name="Cache-Control" value="no-cache, no-store, must-revalidate, private"/>
             <!--
