@@ -134,8 +134,8 @@ dependencies {
     compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:2.9.7'
 
     // Jetty HTTP Client and Proxy Servlet
-    compile 'org.eclipse.jetty:jetty-client:9.4.13.v20181111' // Apache 2.0
-    compile 'org.eclipse.jetty:jetty-proxy:9.4.13.v20181111' // Apache 2.0
+    compile 'org.eclipse.jetty:jetty-client:9.4.12.v20180830' // Apache 2.0
+    compile 'org.eclipse.jetty:jetty-proxy:9.4.12.v20180830' // Apache 2.0
 
     // javax.mail
     compile 'com.sun.mail:javax.mail:1.6.2' // CDDL
@@ -188,16 +188,16 @@ dependencies {
 
     // ========== executable war dependencies ==========
     // Jetty
-    execWarRuntime 'org.eclipse.jetty:jetty-server:9.4.13.v20181111' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.4.13.v20181111' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.4.13.v20181111' // Apache 2.0
-    execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.4.13.v20181111') // Apache 2.0
-    execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.4.13.v20181111') { // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-server:9.4.12.v20180830' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.4.12.v20180830' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.4.12.v20180830' // Apache 2.0
+    execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.4.12.v20180830') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.4.12.v20180830') { // Apache 2.0
         exclude group: 'javax.websocket' } // we have the full websocket API, including the client one causes problems
     execWarRuntime 'javax.websocket:javax.websocket-api:1.0' // using 1.0, don't update to 1.1 until used in Jetty, Tomcat, etc
-    execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.4.13.v20181111') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.4.12.v20180830') // Apache 2.0
     // only include this if using Endpoint and MessageHandler annotations:
-    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:9.4.13.v20181111') // Apache 2.0
+    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:9.4.12.v20180830') // Apache 2.0
 }
 
 // setup task dependencies to make sure the start sourceSets always get run

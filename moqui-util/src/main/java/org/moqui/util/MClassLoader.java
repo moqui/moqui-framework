@@ -109,6 +109,7 @@ public class MClassLoader extends ClassLoader {
         super(parent);
 
         if (parent == null) throw new IllegalArgumentException("Parent ClassLoader cannot be null");
+        System.out.println("Starting MClassLoader with parent " + parent.getClass().getName());
 
         pd = getClass().getProtectionDomain();
 
