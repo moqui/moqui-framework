@@ -120,7 +120,8 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- ========================================================= -->
 
     <entity entity-name="ServiceParameterSemaphore" package="moqui.service.semaphore" use="transactional" cache="never">
-        <field name="serviceName" type="text-medium" is-pk="true"/>
+        <field name="serviceName" type="text-medium" is-pk="true">
+            <description>May be semaphore-name if that attribute is used, otherwise is service name</description></field>
         <field name="parameterValue" type="text-medium" is-pk="true"/>
         <field name="lockThread" type="text-medium"/>
         <field name="lockTime" type="date-time"/>

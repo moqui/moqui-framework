@@ -159,19 +159,24 @@ along with this software (see the LICENSE.md file). If not, see
                     </xs:restriction>
                 </xs:simpleType>
             </xs:attribute>
+            <xs:attribute name="semaphore-name" type="xs:string">
+                <xs:annotation><xs:documentation>Defaults to the service name, use the same name on multiple services to share a semaphore</xs:documentation></xs:annotation>
+            </xs:attribute>
             <xs:attribute name="semaphore-timeout" type="xs:int" default="120">
                 <xs:annotation><xs:documentation>When waiting how long before timing out, in seconds. Defaults to 120s.</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="semaphore-sleep" type="xs:int" default="5">
-                <xs:annotation><xs:documentation>When waiting how long to sleep between checking the semaphore, in
-                    seconds. Defaults to 5s.</xs:documentation></xs:annotation>
+                <xs:annotation><xs:documentation>When waiting how long to sleep between checking the semaphore, in seconds. Defaults to 5s.</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="semaphore-ignore" type="xs:int" default="3600">
                 <xs:annotation><xs:documentation>Ignore existing semaphores after this time, in seconds. Defaults to 3600s (1 hour).</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="semaphore-parameter" type="xs:string">
-                <xs:annotation><xs:documentation>The name of a parameter to use for distinct semaphores for the same
-                    services. The parameter should be required, though a single null semaphore is supported.</xs:documentation></xs:annotation>
+                <xs:annotation><xs:documentation>
+                    The name of a parameter to use for distinct semaphores for the same services.
+                    The parameter should be required in the service, though a single null semaphore is supported.
+                    This should not be used for IDs of transactional records, better to lock directly on those records (find with for update).
+                </xs:documentation></xs:annotation>
             </xs:attribute>
         </xs:complexType>
     </xs:element>

@@ -6,6 +6,7 @@ import org.moqui.context.*;
 import org.moqui.entity.EntityValue;
 import org.moqui.impl.context.*;
 import org.moqui.impl.entity.EntityDefinition;
+import org.moqui.impl.entity.EntitySqlException;
 import org.moqui.impl.service.runner.EntityAutoServiceRunner;
 import org.moqui.service.ServiceCallSync;
 import org.moqui.service.ServiceException;
@@ -18,6 +19,7 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
     private static final Logger logger = LoggerFactory.getLogger(ServiceCallSyncImpl.class);
@@ -399,6 +401,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
 
     @SuppressWarnings("unused")
     private void clearSemaphore(final ExecutionContextImpl eci, Map<String, Object> currentParameters) {
+        final String semaphoreName = sd.semaphoreName != null && !sd.semaphoreName.isEmpty() ? sd.semaphoreName : serviceName;
         String semParameter = sd.semaphoreParameter;
         String parameterValue;
         if (semParameter == null || semParameter.isEmpty()) {
@@ -413,7 +416,8 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
                 boolean authzDisabled = eci.artifactExecutionFacade.disableAuthz();
                 try {
                     return eci.getEntity().makeValue("moqui.service.semaphore.ServiceParameterSemaphore")
-                            .set("serviceName", serviceName).set("parameterValue", parameterValue).delete();
+                            .set("serviceName", semaphoreName).set("parameterValue", parameterValue)
+                            .set("lockThread", null).set("lockTime", null).update();
                 } finally {
                     if (!authzDisabled) eci.artifactExecutionFacade.enableAuthz();
                 }
@@ -425,6 +429,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
     @SuppressWarnings("unused")
     private void checkAddSemaphore(final ExecutionContextImpl eci, Map<String, Object> currentParameters) {
         final String semaphore = sd.semaphore;
+        final String semaphoreName = sd.semaphoreName != null && !sd.semaphoreName.isEmpty() ? sd.semaphoreName : serviceName;
         String semaphoreParameter = sd.semaphoreParameter;
         final String parameterValue;
         if (semaphoreParameter == null || semaphoreParameter.isEmpty()) {
@@ -437,42 +442,50 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         final long semaphoreIgnoreMillis = sd.semaphoreIgnoreMillis;
         final long semaphoreSleepTime = sd.semaphoreSleepTime;
         final long semaphoreTimeoutTime = sd.semaphoreTimeoutTime;
+        final int txTimeout = Math.toIntExact(sd.semaphoreTimeoutTime / 1000) * 2;
 
-        final long currentTime = System.currentTimeMillis();
+        // NOTE: get Thread name outside runRequireNew otherwise will always be RequireNewTx
         final String lockThreadName = Thread.currentThread().getName();
+        // support a single wait/retry on error creating semaphore record
+        AtomicBoolean retrySemaphore = new AtomicBoolean(false);
 
-        eci.transactionFacade.runRequireNew(null, "Error in check/add service semaphore", new Closure<EntityValue>(this, this) {
+        eci.transactionFacade.runRequireNew(txTimeout, "Error in check/add service semaphore", new Closure<EntityValue>(this, this) {
             EntityValue doCall(Object it) {
                 boolean authzDisabled = eci.artifactExecutionFacade.disableAuthz();
                 try {
-                    EntityValue serviceSemaphore = eci.getEntity().find("moqui.service.semaphore.ServiceParameterSemaphore").condition("serviceName", serviceName).condition("parameterValue", parameterValue).useCache(false).one();
-                    if (serviceSemaphore != null) {
+                    final long startTime = System.currentTimeMillis();
+
+                    // look up semaphore, note that is no forUpdate, we want to loop wait below instead of doing a database lock wait
+                    EntityValue serviceSemaphore = eci.getEntity().find("moqui.service.semaphore.ServiceParameterSemaphore")
+                            .condition("serviceName", semaphoreName).condition("parameterValue", parameterValue).useCache(false).one();
+                    // if there is an active semaphore but lockTime is too old reset and ignore it
+                    if (serviceSemaphore != null && (serviceSemaphore.getNoCheckSimple("lockThread") != null || serviceSemaphore.getNoCheckSimple("lockTime") != null)) {
                         Timestamp lockTime = serviceSemaphore.getTimestamp("lockTime");
-                        if (currentTime > (lockTime.getTime() + semaphoreIgnoreMillis)) {
-                            eci.getEntity().makeValue("moqui.service.semaphore.ServiceParameterSemaphore")
-                                    .set("serviceName", serviceName).set("parameterValue", parameterValue).delete();
-                            serviceSemaphore = null;
+                        if (startTime > (lockTime.getTime() + semaphoreIgnoreMillis)) {
+                            serviceSemaphore.set("lockThread", null).set("lockTime", null).update();
                         }
                     }
 
-                    if (serviceSemaphore != null) {
+                    if (serviceSemaphore != null && (serviceSemaphore.getNoCheckSimple("lockThread") != null || serviceSemaphore.getNoCheckSimple("lockTime") != null)) {
                         if ("fail".equals(semaphore)) {
-                            throw new ServiceException("An instance of service " + serviceName + " with parameter value " +
+                            throw new ServiceException("An instance of service semaphore " + semaphoreName + " with parameter value " +
                                     "[" + parameterValue + "] is already running (thread [" + serviceSemaphore.get("lockThread") +
                                     "], locked at " + serviceSemaphore.get("lockTime") + ") and it is setup to fail on semaphore conflict.");
                         } else {
                             boolean semaphoreCleared = false;
-                            while (System.currentTimeMillis() < (currentTime + semaphoreTimeoutTime)) {
-                                try { Thread.sleep(semaphoreSleepTime); } catch (InterruptedException e) { /* do nothing */ }
-                                if (eci.getEntity().find("moqui.service.semaphore.ServiceParameterSemaphore")
-                                        .condition("serviceName", serviceName).condition("parameterValue", parameterValue)
-                                        .useCache(false).one() == null) {
+                            while (System.currentTimeMillis() < (startTime + semaphoreTimeoutTime)) {
+                                // sleep, watch for interrupt
+                                try { Thread.sleep(semaphoreSleepTime); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+                                // get updated semaphore and see if it has been cleared
+                                serviceSemaphore = eci.getEntity().find("moqui.service.semaphore.ServiceParameterSemaphore")
+                                        .condition("serviceName", semaphoreName).condition("parameterValue", parameterValue).useCache(false).one();
+                                if (serviceSemaphore == null || (serviceSemaphore.getNoCheckSimple("lockThread") == null && serviceSemaphore.getNoCheckSimple("lockTime") == null)) {
                                     semaphoreCleared = true;
                                     break;
                                 }
                             }
                             if (!semaphoreCleared) {
-                                throw new ServiceException("An instance of service " + serviceName + " with parameter value [" +
+                                throw new ServiceException("An instance of service semaphore " + semaphoreName + " with parameter value [" +
                                         parameterValue + "] is already running (thread [" + serviceSemaphore.get("lockThread") +
                                         "], locked at " + serviceSemaphore.get("lockTime") + ") and it is setup to wait on semaphore conflict, but the semaphore did not clear in " +
                                         (semaphoreTimeoutTime / 1000) + " seconds.");
@@ -480,16 +493,40 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
                         }
                     }
 
-                    // if we got to here the semaphore didn't exist or has cleared, so create one
-                    return eci.getEntity().makeValue("moqui.service.semaphore.ServiceParameterSemaphore")
-                            .set("serviceName", serviceName).set("parameterValue", parameterValue)
-                            .set("lockThread", lockThreadName).set("lockTime", new Timestamp(currentTime)).create();
+                    // if we got to here the semaphore didn't exist or has cleared, so update existing or create new
+                    // do a for-update find now to make sure we own the record if one exists
+                    serviceSemaphore = eci.getEntity().find("moqui.service.semaphore.ServiceParameterSemaphore")
+                            .condition("serviceName", semaphoreName).condition("parameterValue", parameterValue)
+                            .useCache(false).forUpdate(true).one();
+
+                    final Timestamp lockTime = new Timestamp(System.currentTimeMillis());
+                    if (serviceSemaphore != null) {
+                        return serviceSemaphore.set("lockThread", lockThreadName).set("lockTime", lockTime).update();
+                    } else {
+                        try {
+                            return eci.getEntity().makeValue("moqui.service.semaphore.ServiceParameterSemaphore")
+                                    .set("serviceName", semaphoreName).set("parameterValue", parameterValue)
+                                    .set("lockThread", lockThreadName).set("lockTime", lockTime).create();
+                        } catch (EntitySqlException e) {
+                            if ("23505".equals(e.getSQLState())) {
+                                logger.warn("Record exists error creating semaphore " + semaphoreName + " parameter " + parameterValue + ", retrying: " + e.toString());
+                                retrySemaphore.set(true);
+                                return null;
+                            } else {
+                                throw new ServiceException("Error creating semaphore " + semaphoreName + " with parameter value [" + parameterValue + "]", e);
+                            }
+                        }
+                    }
                 } finally {
                     if (!authzDisabled) eci.artifactExecutionFacade.enableAuthz();
                 }
             }
             public EntityValue doCall() { return doCall(null); }
         });
+
+        if (retrySemaphore.get()) {
+            checkAddSemaphore(eci, currentParameters);
+        }
     }
 
     private Map<String, Object> runImplicitEntityAuto(Map<String, Object> currentParameters, ArrayList<ServiceEcaRule> secaRules, ExecutionContextImpl eci) {
