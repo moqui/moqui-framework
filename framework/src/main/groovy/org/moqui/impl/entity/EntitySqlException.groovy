@@ -84,6 +84,7 @@ class EntitySqlException extends EntityException {
     }
     @Override String toString() { return getMessage() }
 
+    String getSQLState() { return sqlState }
     String getSQLState(SQLException ex) {
         if (sqlState != null) return sqlState
         sqlState = ex.getSQLState()

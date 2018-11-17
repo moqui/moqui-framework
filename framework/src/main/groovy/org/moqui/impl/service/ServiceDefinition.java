@@ -74,7 +74,7 @@ public class ServiceDefinition {
     public final boolean allowRemote;
 
     public final boolean hasSemaphore;
-    public final String semaphore, semaphoreParameter;
+    public final String semaphore, semaphoreName, semaphoreParameter;
     public final long semaphoreIgnoreMillis, semaphoreSleepTime, semaphoreTimeoutTime;
 
     public ServiceDefinition(ServiceFacadeImpl sfi, String path, MNode sn) {
@@ -187,6 +187,7 @@ public class ServiceDefinition {
         }
 
         semaphore = serviceNode.attribute("semaphore");
+        semaphoreName = serviceNode.attribute("semaphore-name");
         hasSemaphore = semaphore != null && semaphore.length() > 0 && !"none".equals(semaphore);
         semaphoreParameter = serviceNode.attribute("semaphore-parameter");
         String ignoreAttr = serviceNode.attribute("semaphore-ignore");
