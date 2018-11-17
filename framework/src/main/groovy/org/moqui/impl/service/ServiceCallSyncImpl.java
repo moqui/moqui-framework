@@ -205,6 +205,32 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
             throw new AuthenticationRequiredException("User must be logged in to call service " + serviceName);
         }
 
+        if (sd == null) {
+            if (sfi.isEntityAutoPattern(path, verb, noun)) {
+                try {
+                    return runImplicitEntityAuto(currentParameters, secaRules, eci);
+                } finally {
+                    if (ignorePreviousError) eci.messageFacade.popErrors();
+                }
+            } else {
+                logger.info("No service with name " + serviceName + ", isEntityAutoPattern=" + isEntityAutoPattern() +
+                        ", path=" + path + ", verb=" + verb + ", noun=" + noun + ", noun is entity? " + eci.getEntityFacade().isEntityDefined(noun));
+                if (ignorePreviousError) eci.messageFacade.popErrors();
+                throw new ServiceException("Could not find service with name " + serviceName);
+            }
+        }
+
+        if ("interface".equals(serviceType)) {
+            if (ignorePreviousError) eci.messageFacade.popErrors();
+            throw new ServiceException("Service " + serviceName + " is an interface and cannot be run");
+        }
+
+        ServiceRunner serviceRunner = sd.serviceRunner;
+        if (serviceRunner == null) {
+            if (ignorePreviousError) eci.messageFacade.popErrors();
+            throw new ServiceException("Could not find service runner for type " + serviceType + " for service " + serviceName);
+        }
+
         // pre authentication and authorization SECA rules
         if (hasSecaRules) ServiceFacadeImpl.runSecaRules(serviceNameNoHash, currentParameters, null, "pre-auth", secaRules, eci);
 
@@ -218,6 +244,15 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
                 authzAction, serviceType).setParameters(currentParameters);
         eci.artifactExecutionFacade.pushInternal(aei, (sd != null && "true".equals(sd.authenticate)), true);
 
+        // if error in auth or for other reasons, return now with no results
+        if (eci.messageFacade.hasError()) {
+            eci.artifactExecutionFacade.pop(aei);
+            if (ignorePreviousError) eci.messageFacade.popErrors();
+            logger.warn("Found error(s) when checking authc for service " + serviceName + ", so not running service. Errors: " +
+                    eci.messageFacade.getErrorsString() + "; the artifact stack is:\n " + eci.getArtifactExecution().getStack());
+            return null;
+        }
+
         // must be done after the artifact execution push so that AEII object to set anonymous authorized is in place
         boolean loggedInAnonymous = false;
         if (sd != null && "anonymous-all".equals(sd.authenticate)) {
@@ -228,45 +263,8 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
             loggedInAnonymous = eci.userFacade.loginAnonymousIfNoUser();
         }
 
-        if (sd == null) {
-            if (sfi.isEntityAutoPattern(path, verb, noun)) {
-                try {
-                    return runImplicitEntityAuto(currentParameters, secaRules, eci);
-                } finally {
-                    eci.artifactExecutionFacade.pop(aei);
-                    if (ignorePreviousError) eci.messageFacade.popErrors();
-                }
-            } else {
-                logger.info("No service with name " + serviceName + ", isEntityAutoPattern=" + isEntityAutoPattern() +
-                        ", path=" + path + ", verb=" + verb + ", noun=" + noun + ", noun is entity? " + eci.getEntityFacade().isEntityDefined(noun));
-                eci.artifactExecutionFacade.pop(aei);
-                if (ignorePreviousError) eci.messageFacade.popErrors();
-                throw new ServiceException("Could not find service with name " + serviceName);
-            }
-        }
-
-        if ("interface".equals(serviceType)) {
-            eci.artifactExecutionFacade.pop(aei);
-            if (ignorePreviousError) eci.messageFacade.popErrors();
-            throw new ServiceException("Service " + serviceName + " is an interface and cannot be run");
-        }
-
-        ServiceRunner serviceRunner = sd.serviceRunner;
-        if (serviceRunner == null) {
-            eci.artifactExecutionFacade.pop(aei);
-            if (ignorePreviousError) eci.messageFacade.popErrors();
-            throw new ServiceException("Could not find service runner for type " + serviceType + " for service " + serviceName);
-        }
-
-        // if error in auth or for other reasons, return now with no results
-        if (eci.messageFacade.hasError()) {
-            logger.warn("Found error(s) when checking authc for service " + serviceName + ", so not running service. Errors: " +
-                    eci.messageFacade.getErrorsString() + "; the artifact stack is:\n " + eci.getArtifactExecution().getStack());
-            return null;
-        }
-
         // handle sd.serviceNode."@semaphore"; do this BEFORE local transaction created, etc so waiting for this doesn't cause TX timeout
-        if (sd.hasSemaphore) checkAddSemaphore(eci, currentParameters);
+        if (sd.hasSemaphore) checkAddSemaphore(eci, currentParameters, true);
 
         // start with the settings for the default: use-or-begin
         boolean pauseResumeIfNeeded = false;
@@ -426,8 +424,14 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         });
     }
 
+    /* A good test case is the place#Order service which is used in the AssetReservationMultipleThreads.groovy tests:
+        conflicting lock:
+            <service verb="place" noun="Order" semaphore="wait" semaphore-name="TestOrder">
+        segemented lock (bad in practice, good test with transacitonal ID):
+            <service verb="place" noun="Order" semaphore="wait" semaphore-name="TestOrder" semaphore-parameter="orderId">
+     */
     @SuppressWarnings("unused")
-    private void checkAddSemaphore(final ExecutionContextImpl eci, Map<String, Object> currentParameters) {
+    private void checkAddSemaphore(final ExecutionContextImpl eci, Map<String, Object> currentParameters, boolean allowRetry) {
         final String semaphore = sd.semaphore;
         final String semaphoreName = sd.semaphoreName != null && !sd.semaphoreName.isEmpty() ? sd.semaphoreName : serviceName;
         String semaphoreParameter = sd.semaphoreParameter;
@@ -524,10 +528,8 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
             public EntityValue doCall() { return doCall(null); }
         });
 
-        if (retrySemaphore.get()) {
-            // NOTE: consider changing to pass parameter to tell it not to retry again after retrying once; only done for create
-            //     record exists error which should get resolved, but this could recurse until a stack overflow
-            checkAddSemaphore(eci, currentParameters);
+        if (allowRetry && retrySemaphore.get()) {
+            checkAddSemaphore(eci, currentParameters, false);
         }
     }
 
