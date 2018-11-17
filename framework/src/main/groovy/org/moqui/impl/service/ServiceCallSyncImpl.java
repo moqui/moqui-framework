@@ -258,6 +258,16 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
             throw new ServiceException("Could not find service runner for type " + serviceType + " for service " + serviceName);
         }
 
+        // if error in auth or for other reasons, return now with no results
+        if (eci.messageFacade.hasError()) {
+            logger.warn("Found error(s) when checking authc for service " + serviceName + ", so not running service. Errors: " +
+                    eci.messageFacade.getErrorsString() + "; the artifact stack is:\n " + eci.getArtifactExecution().getStack());
+            return null;
+        }
+
+        // handle sd.serviceNode."@semaphore"; do this BEFORE local transaction created, etc so waiting for this doesn't cause TX timeout
+        if (sd.hasSemaphore) checkAddSemaphore(eci, currentParameters);
+
         // start with the settings for the default: use-or-begin
         boolean pauseResumeIfNeeded = false;
         boolean beginTransactionIfNeeded = true;
@@ -267,13 +277,6 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         boolean suspendedTransaction = false;
         Map<String, Object> result = new HashMap<>();
         try {
-            // if error in auth or for other reasons, return now with no results
-            if (eci.messageFacade.hasError()) {
-                logger.warn("Found error(s) when checking authc for service " + serviceName + ", so not running service. Errors: " +
-                        eci.messageFacade.getErrorsString() + "; the artifact stack is:\n " + eci.getArtifactExecution().getStack());
-                return null;
-            }
-
             if (pauseResumeIfNeeded && transactionStatus != Status.STATUS_NO_TRANSACTION) {
                 suspendedTransaction = tf.suspend();
                 transactionStatus = tf.getStatus();
@@ -291,9 +294,6 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
             }
 
             try {
-                // handle sd.serviceNode."@semaphore"; do this after local transaction created, etc.
-                if (sd.hasSemaphore) checkAddSemaphore(eci, currentParameters);
-
                 if (hasSecaRules) ServiceFacadeImpl.runSecaRules(serviceNameNoHash, currentParameters, null, "pre-service", secaRules, eci);
                 if (traceEnabled) logger.trace("Calling service " + serviceName + " pre-call input: " + currentParameters);
 
@@ -335,9 +335,6 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
                     parent = parent.getCause();
                 }
             } finally {
-                // clear the semaphore
-                if (sd.hasSemaphore) clearSemaphore(eci, currentParameters);
-
                 try {
                     if (beganTransaction) {
                         transactionStatus = tf.getStatus();
@@ -373,6 +370,9 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
 
             return result;
         } finally {
+            // clear the semaphore
+            if (sd.hasSemaphore) clearSemaphore(eci, currentParameters);
+
             try {
                 if (suspendedTransaction) tf.resume();
             } catch (Throwable t) {
@@ -525,6 +525,8 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         });
 
         if (retrySemaphore.get()) {
+            // NOTE: consider changing to pass parameter to tell it not to retry again after retrying once; only done for create
+            //     record exists error which should get resolved, but this could recurse until a stack overflow
             checkAddSemaphore(eci, currentParameters);
         }
     }
