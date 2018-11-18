@@ -253,6 +253,34 @@ public class RestClient {
         return threadPool.submit(callable);
     }
 
+    /** Like call() but if a velocity limit (429) response is received then retry up to maxRetries with
+     * exponential back off (initialWaitSeconds^i) sleep time in between requests. */
+    public RestResponse callVelocityLimited(int initialWaitSeconds, int maxRetries) {
+        long curWaitSeconds = initialWaitSeconds;
+        RestResponse curResponse = null;
+        for (int i = 0; i <= maxRetries; i++) {
+            // do the request
+            curResponse = call();
+            // NOTE: there is no constant on HttpServletResponse for 429; see RFC 6585 for details
+            if (curResponse.statusCode == 429) {
+                try {
+                    Thread.sleep(curWaitSeconds * 1000);
+                } catch (InterruptedException e) {
+                    logger.warn("RestClient callVelocityLimited sleep interrupted, returning most recent response", e);
+                    return curResponse;
+                }
+                curWaitSeconds = curWaitSeconds * initialWaitSeconds;
+            } else {
+                break;
+            }
+        }
+
+        return curResponse;
+    }
+    /** Same as callVelocityLimited(int, int) with defaults of 2 for initialWaitSeconds and 5 for maxRetries
+     * (2, 4, 8, 16, 32 seconds; total 62 seconds wait time and up to 6 HTTP requests) */
+    public RestResponse callVelocityLimited() { return callVelocityLimited(2, 5); }
+
     public static class RestResponse {
         private RestClient rci;
         protected ContentResponse response;
