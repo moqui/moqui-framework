@@ -244,7 +244,7 @@ task loadSave {
 
 task reloadSave {
     description "After a loadSave clean database (H2, Derby), OrientDB, and ElasticSearch files and reload from saved copy"
-    dependsOn cleanTempDir, cleanDb, cleanLog
+    dependsOn cleanTempDir, cleanDb, cleanLog, cleanSessions
     dependsOn allBuildTasks
     doLast {
         if (file('SaveDerby.zip').exists()) copy { from zipTree('SaveDerby.zip'); into file(moquiRuntime+'/db/derby/moqui') }
