@@ -20,6 +20,20 @@
         <location type="git" url="git@github.com:${component.'@group'}/${component.'@name'}.git"/>
     </repository>
 
+    <repository name="bitbucket">
+        <location type="current" url="https://bitbucket.org/${component.'@group'}/${component.'@name'}/get/${component.'@branch'}.zip"/>
+        <location type="release" url="https://bitbucket.org/${component.'@group'}/${component.'@name'}/get/v${component.'@version'}.zip"/>
+        <location type="git" url="https://bitbucket.org/${component.'@group'}/${component.'@name'}.git"/>
+    </repository>
+    <repository name="bitbucket-ssh">
+        <location type="current" url="https://bitbucket.org/${component.'@group'}/${component.'@name'}/get/${component.'@branch'}.zip"/>
+        <location type="release" url="https://bitbucket.org/${component.'@group'}/${component.'@name'}/get/v${component.'@version'}.zip"/>
+        <location type="git" url="git@bitbucket.org:${component.'@group'}/${component.'@name'}.git"/>
+    </repository>
+    <repository name="bitbucket-token">
+        <location type="git" url="https://x-token-auth:${component.'@token'}@bitbucket.org/${component.'@group'}/${component.'@name'}.git"/>
+    </repository>
+
     <!-- Where to get runtime directory if not present -->
     <runtime name="moqui-runtime" group="moqui" version="2.1.0" branch="master"/>
 
