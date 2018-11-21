@@ -20,6 +20,7 @@ import org.eclipse.jetty.client.HttpResponseException;
 import org.eclipse.jetty.client.api.ContentProvider;
 import org.eclipse.jetty.client.api.ContentResponse;
 import org.eclipse.jetty.client.api.Request;
+import org.eclipse.jetty.client.util.FutureResponseListener;
 import org.eclipse.jetty.client.util.InputStreamContentProvider;
 import org.eclipse.jetty.client.util.MultiPartContentProvider;
 import org.eclipse.jetty.client.util.StringContentProvider;
@@ -39,10 +40,7 @@ import java.net.URLEncoder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.concurrent.*;
 
 @SuppressWarnings("unused")
 public class RestClient {
@@ -51,8 +49,6 @@ public class RestClient {
             DELETE = Method.DELETE, OPTIONS = Method.OPTIONS, HEAD = Method.HEAD;
     private static final EnumSet<Method> BODY_METHODS = EnumSet.of(Method.PATCH, Method.POST, Method.PUT);
     private static final Logger logger = LoggerFactory.getLogger(RestClient.class);
-
-    static final ExecutorService threadPool = Executors.newCachedThreadPool();
 
     private String uriString = null;
     private Method method = Method.GET;
@@ -66,6 +62,8 @@ public class RestClient {
     private String password = null;
     private float initialWaitSeconds = 2.0F;
     private int maxRetries = 0;
+    private int maxResponseSize = 4 * 1024 * 1024;
+    private int timeoutSeconds = 30;
 
     public RestClient() { }
 
@@ -202,6 +200,11 @@ public class RestClient {
      * (2, 4, 8, 16, 32 seconds; up to total 62 seconds wait time and 6 HTTP requests) */
     public RestClient retry() { return retry(2.0F, 5); }
 
+    /** Set a maximum response size, defaults to 4MB (4 * 1024 * 1024) */
+    public RestClient maxResponseSize(int maxSize) { this.maxResponseSize = maxSize; return this; }
+    /** Set a full response timeout in seconds, defaults to 30 */
+    public RestClient timeout(int seconds) { this.timeoutSeconds = seconds; return this; }
+
     /** Do the HTTP request and get the response */
     public RestResponse call() {
         float curWaitSeconds = initialWaitSeconds;
@@ -228,67 +231,75 @@ public class RestClient {
         return curResponse;
     }
 
-    protected RestResponse callInternal() {
-        if (uriString == null || uriString.isEmpty()) throw new IllegalStateException("No URI set in RestClient");
-
-        ContentResponse response = null;
-
+    protected HttpClient makeStartHttpClient() {
         SslContextFactory sslContextFactory = new SslContextFactory();
         sslContextFactory.setTrustAll(true);
         HttpClient httpClient = new HttpClient(sslContextFactory);
+        try { httpClient.start(); } catch (Exception e) { throw new BaseException("Error starting HTTP client", e); }
+        return httpClient;
+    }
+    protected FutureResponseListener sendListener(HttpClient httpClient) {
+        final Request request = httpClient.newRequest(uriString);
+        request.method(method.name());
+        // set charset on request?
 
+        // add headers and parameters
+        for (KeyValueString nvp : headerList) request.header(nvp.key, nvp.value);
+        for (KeyValueString nvp : bodyParameterList) request.param(nvp.key, nvp.value);
+        // authc
+        if (username != null && !username.isEmpty()) {
+            String unPwString = username + ':' + password;
+            String basicAuthStr  = "Basic " + Base64.getEncoder().encodeToString(unPwString.getBytes());
+            request.header(HttpHeader.AUTHORIZATION, basicAuthStr);
+            // using basic Authorization header instead, too many issues with this: httpClient.getAuthenticationStore().addAuthentication(new BasicAuthentication(uri, BasicAuthentication.ANY_REALM, username, password));
+        }
+
+        if (multiPart != null) {
+            if (method == Method.POST) {
+                // HttpClient will send the correct headers when it's a multi-part content type (ie set content type to multipart/form-data, etc)
+                request.content(multiPart);
+            } else {
+                throw new IllegalStateException("Can only use multipart body with POST method, not supported for method " + method + "; if you need a different effective request method try using the X-HTTP-Method-Override header");
+            }
+        } else if (bodyText != null && !bodyText.isEmpty()) {
+            request.content(new StringContentProvider(contentType, bodyText, charset), contentType);
+            request.header(HttpHeader.CONTENT_TYPE, contentType);
+        }
+
+        request.accept(contentType);
+
+        if (logger.isTraceEnabled())
+            logger.trace("RestClient request " + request.getMethod() + " " + String.valueOf(request.getURI()) + " Headers: " + String.valueOf(request.getHeaders()));
+
+        // use a FutureResponseListener so we can set the timeout and max response size (old: response = request.send(); )
+        FutureResponseListener listener = new FutureResponseListener(request, maxResponseSize);
+        request.send(listener);
+        return listener;
+    }
+    protected RestResponse callInternal() {
+        if (uriString == null || uriString.isEmpty()) throw new IllegalStateException("No URI set in RestClient");
+        HttpClient httpClient = makeStartHttpClient();
         try {
-            httpClient.start();
-
-            final Request request = httpClient.newRequest(uriString);
-            request.method(method.name());
-            // set charset on request?
-
-            // add headers and parameters
-            for (KeyValueString nvp : headerList) request.header(nvp.key, nvp.value);
-            for (KeyValueString nvp : bodyParameterList) request.param(nvp.key, nvp.value);
-            // authc
-            if (username != null && !username.isEmpty()) {
-                String unPwString = username + ':' + password;
-                String basicAuthStr  = "Basic " + Base64.getEncoder().encodeToString(unPwString.getBytes());
-                request.header(HttpHeader.AUTHORIZATION, basicAuthStr);
-                // using basic Authorization header instead, too many issues with this: httpClient.getAuthenticationStore().addAuthentication(new BasicAuthentication(uri, BasicAuthentication.ANY_REALM, username, password));
-            }
-
-            if (multiPart != null) {
-                if (method == Method.POST) {
-                    // HttpClient will send the correct headers when it's a multi-part content type (ie set content type to multipart/form-data, etc)
-                    request.content(multiPart);
-                } else {
-                    throw new IllegalStateException("Can only use multipart body with POST method, not supported for method " + method + "; if you need a different effective request method try using the X-HTTP-Method-Override header");
-                }
-            } else if (bodyText != null && !bodyText.isEmpty()) {
-                request.content(new StringContentProvider(contentType, bodyText, charset), contentType);
-                request.header(HttpHeader.CONTENT_TYPE, contentType);
-            }
-
-            request.accept(contentType);
-
-            if (logger.isTraceEnabled())
-                logger.trace("RestClient request " + request.getMethod() + " " + String.valueOf(request.getURI()) + " Headers: " + String.valueOf(request.getHeaders()));
-
-            response = request.send();
+            FutureResponseListener listener = sendListener(httpClient);
+            ContentResponse response = listener.get(timeoutSeconds, TimeUnit.SECONDS);
+            return new RestResponse(this, response);
         } catch (Exception e) {
             throw new BaseException("Error calling REST request", e);
         } finally {
-            try {
-                httpClient.stop();
-            } catch (Exception e) {
-                logger.error("Error stopping REST HttpClient", e);
-            }
+            try { httpClient.stop(); } catch (Exception e) { logger.error("Error stopping REST HttpClient", e); }
         }
-
-        return new RestResponse(this, response);
     }
 
-    Future<RestResponse> callFuture() {
-        RestClientCallable callable = new RestClientCallable(this);
-        return threadPool.submit(callable);
+    public Future<RestResponse> callFuture() {
+        if (uriString == null || uriString.isEmpty()) throw new IllegalStateException("No URI set in RestClient");
+        // NOTE: RestClientFuture methods call httpClient.stop() so not handled here
+        HttpClient httpClient = makeStartHttpClient();
+        try {
+            FutureResponseListener listener = sendListener(httpClient);
+            return new RestClientFuture(this, httpClient, listener);
+        } catch (Exception e) {
+            throw new BaseException("Error calling REST request", e);
+        }
     }
 
     public static class RestResponse {
@@ -378,9 +389,9 @@ public class RestClient {
             if (bytes == null || bytes.length == 0) return "";
             // UTF-8 BOM = 239, 187, 191
             if (bytes[0] == (byte) 239) {
-                return new String(bytes, 3, bytes.length - 3, "UTF-8");
+                return new String(bytes, 3, bytes.length - 3, StandardCharsets.UTF_8);
             } else {
-                return new String(bytes, "UTF-8");
+                return new String(bytes, StandardCharsets.UTF_8);
             }
         }
     }
@@ -388,11 +399,11 @@ public class RestClient {
     public static class UriBuilder {
         private RestClient rci;
         private String protocol = "http";
-        private String host = (String) null;
+        private String host = null;
         private int port = 80;
         private StringBuilder path = new StringBuilder();
-        private Map<String, String> parameters = (Map<String, String>) null;
-        private String fragment = (String) null;
+        private Map<String, String> parameters = null;
+        private String fragment = null;
 
         UriBuilder(RestClient rci) { this.rci = rci; }
 
@@ -471,9 +482,42 @@ public class RestClient {
         public String value;
     }
 
-    public static class RestClientCallable implements Callable<RestResponse> {
-        RestClient restClient;
-        RestClientCallable(RestClient restClient) { this.restClient = restClient; }
-        @Override public RestResponse call() { return restClient.call(); }
+    public static class RestClientFuture implements Future<RestResponse> {
+        RestClient rci;
+        HttpClient httpClient;
+        FutureResponseListener listener;
+        RestClientFuture(RestClient rci, HttpClient httpClient, FutureResponseListener listener) {
+            this.rci = rci; this.httpClient = httpClient; this.listener = listener; }
+
+        @Override public boolean isCancelled() { return listener.isCancelled(); }
+        @Override public boolean isDone() { return listener.isDone(); }
+
+        @Override public boolean cancel(boolean mayInterruptIfRunning) {
+            try {
+                return listener.cancel(mayInterruptIfRunning);
+            } finally {
+                try { httpClient.stop(); } catch (Exception e) { logger.error("Error stopping REST HttpClient", e); }
+            }
+        }
+
+        @Override
+        public RestResponse get() throws InterruptedException, ExecutionException {
+            try {
+                ContentResponse response = listener.get();
+                return new RestResponse(rci, response);
+            } finally {
+                try { httpClient.stop(); } catch (Exception e) { logger.error("Error stopping REST HttpClient", e); }
+            }
+        }
+
+        @Override
+        public RestResponse get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+            try {
+                ContentResponse response = listener.get(timeout, unit);
+                return new RestResponse(rci, response);
+            } finally {
+                try { httpClient.stop(); } catch (Exception e) { logger.error("Error stopping REST HttpClient", e); }
+            }
+        }
     }
 }
