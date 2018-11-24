@@ -129,9 +129,13 @@ task gitCheckoutAll {
             gitDirectories.add(compDir.path)
 
         for (String gitDir in gitDirectories) {
-            logger.lifecycle("\nGit checkout ${gitDir} branch ${curBranch} create ${createBranch}")
             def curGrgit = Grgit.open(dir: gitDir)
-            curGrgit.checkout(branch: curBranch, createBranch: createBranch)
+            if (createBranch || curGrgit.branch.list().find({ it.name == curBranch })) {
+                logger.lifecycle("\nGit checkout ${gitDir} branch ${curBranch} create ${createBranch}")
+                curGrgit.checkout(branch: curBranch, createBranch: createBranch)
+            } else {
+                logger.lifecycle("\nGit directory ${gitDir} does not have branch ${curBranch}")
+            }
         }
     }
 }
