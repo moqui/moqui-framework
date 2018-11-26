@@ -5,12 +5,18 @@
 
 Moqui Framework 2.1.1 is a patch level new feature and bug fix release.
 
+While this release has new features maybe significant enough to warrant a 2.2.0 version bump it is mostly refinements and 
+improvements to existing functionality or to address design limitations and generally make things easier and cleaner. 
+
+There are various bug fixes and security improvements in this release. There are no known backward compatibility issues since the 
+last release but there are minor cases where default behavior has changed (see detailed notes). 
+
 ### New Features
 
 - Various library updates (see framework/build.gradle for details)
 - Updated to Gradle 4 along with changes to gradle files that require Gradle 4.0 or later
 - In gradle addRuntime task create version.json files for framework/runtime and for each component, shown on System app dashboard
-- New gradle gitCheckoutAll to bulk checkout branches with create option
+- New gradle gitCheckoutAll task to bulk checkout branches with option to create
 - New default/example Procfile, include in moqui-plus-runtime.war
 
 ##### Web Facade and HTTP
