@@ -835,7 +835,8 @@ class ScreenDefinition {
                     }
                 }
                 // run actions if any defined, even if service-call also used
-                if (actions != null && !ec.messageFacade.hasError()) {
+                // NOTE: prior code also required !ec.messageFacade.hasError() which doesn't allow actions to handle errors
+                if (actions != null) {
                     actions.run(ec)
                 }
 
