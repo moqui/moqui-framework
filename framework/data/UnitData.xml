@@ -27,17 +27,40 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.Uom abbreviation="TB" description="Terabyte" uomId="DATA_TB" uomTypeEnumId="UT_DATA_MEASURE"/>
     <moqui.basic.Uom abbreviation="PB" description="Petabyte" uomId="DATA_PB" uomTypeEnumId="UT_DATA_MEASURE"/>
 
-    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_Kb_b" uomId="DATA_Kb" toUomId="DATA_b" conversionFactor="1024"/>
-    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_Mb_Kb" uomId="DATA_Mb" toUomId="DATA_Kb" conversionFactor="1024"/>
-    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_Gb_Mb" uomId="DATA_Gb" toUomId="DATA_Mb" conversionFactor="1024"/>
-    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_Tb_Gb" uomId="DATA_Tb" toUomId="DATA_Gb" conversionFactor="1024"/>
+    <moqui.basic.Uom abbreviation="Kib" description="Kibit" uomId="DATA_Kib" uomTypeEnumId="UT_DATA_MEASURE"/>
+    <moqui.basic.Uom abbreviation="Mib" description="Mibit" uomId="DATA_Mib" uomTypeEnumId="UT_DATA_MEASURE"/>
+    <moqui.basic.Uom abbreviation="Gib" description="Gibit" uomId="DATA_Gib" uomTypeEnumId="UT_DATA_MEASURE"/>
+    <moqui.basic.Uom abbreviation="Tib" description="Tibit" uomId="DATA_Tib" uomTypeEnumId="UT_DATA_MEASURE"/>
+    <moqui.basic.Uom abbreviation="Pib" description="Pibit" uomId="DATA_Pib" uomTypeEnumId="UT_DATA_MEASURE"/>
+
+    <moqui.basic.Uom abbreviation="KiB" description="Kibibyte" uomId="DATA_KiB" uomTypeEnumId="UT_DATA_MEASURE"/>
+    <moqui.basic.Uom abbreviation="MiB" description="Mebibyte" uomId="DATA_MiB" uomTypeEnumId="UT_DATA_MEASURE"/>
+    <moqui.basic.Uom abbreviation="GiB" description="Gibibyte" uomId="DATA_GiB" uomTypeEnumId="UT_DATA_MEASURE"/>
+    <moqui.basic.Uom abbreviation="TiB" description="Tebibyte" uomId="DATA_TiB" uomTypeEnumId="UT_DATA_MEASURE"/>
+    <moqui.basic.Uom abbreviation="PiB" description="Pebibyte" uomId="DATA_PiB" uomTypeEnumId="UT_DATA_MEASURE"/>
+
+    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_Kb_b" uomId="DATA_Kb" toUomId="DATA_b" conversionFactor="1000"/>
+    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_Mb_Kb" uomId="DATA_Mb" toUomId="DATA_Kb" conversionFactor="1000"/>
+    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_Gb_Mb" uomId="DATA_Gb" toUomId="DATA_Mb" conversionFactor="1000"/>
+    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_Tb_Gb" uomId="DATA_Tb" toUomId="DATA_Gb" conversionFactor="1000"/>
 
     <moqui.basic.UomConversion uomConversionId="DATA_SIZE_B_b" uomId="DATA_B" toUomId="DATA_b" conversionFactor="8"/>
-    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_KB_B" uomId="DATA_KB" toUomId="DATA_B" conversionFactor="1024"/>
-    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_MB_KB" uomId="DATA_MB" toUomId="DATA_KB" conversionFactor="1024"/>
-    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_GM_MB" uomId="DATA_GB" toUomId="DATA_MB" conversionFactor="1024"/>
-    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_TB_GB" uomId="DATA_TB" toUomId="DATA_GB" conversionFactor="1024"/>
-    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_PB_TB" uomId="DATA_PB" toUomId="DATA_TB" conversionFactor="1024"/>
+    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_KB_B" uomId="DATA_KB" toUomId="DATA_B" conversionFactor="1000"/>
+    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_MB_KB" uomId="DATA_MB" toUomId="DATA_KB" conversionFactor="1000"/>
+    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_GM_MB" uomId="DATA_GB" toUomId="DATA_MB" conversionFactor="1000"/>
+    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_TB_GB" uomId="DATA_TB" toUomId="DATA_GB" conversionFactor="1000"/>
+    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_PB_TB" uomId="DATA_PB" toUomId="DATA_TB" conversionFactor="1000"/>
+
+    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_Kib_b" uomId="DATA_Kib" toUomId="DATA_b" conversionFactor="1024"/>
+    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_Mib_Kib" uomId="DATA_Mib" toUomId="DATA_Kib" conversionFactor="1024"/>
+    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_Gib_Mib" uomId="DATA_Gib" toUomId="DATA_Mib" conversionFactor="1024"/>
+    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_Tib_Gib" uomId="DATA_Tib" toUomId="DATA_Gib" conversionFactor="1024"/>
+
+    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_KiB_B" uomId="DATA_KiB" toUomId="DATA_B" conversionFactor="1024"/>
+    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_MiB_KiB" uomId="DATA_MiB" toUomId="DATA_KiB" conversionFactor="1024"/>
+    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_GiM_MiB" uomId="DATA_GiB" toUomId="DATA_MiB" conversionFactor="1024"/>
+    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_TiB_GiB" uomId="DATA_TiB" toUomId="DATA_GiB" conversionFactor="1024"/>
+    <moqui.basic.UomConversion uomConversionId="DATA_SIZE_PiB_TiB" uomId="DATA_PiB" toUomId="DATA_TiB" conversionFactor="1024"/>
 
     <!-- =============== Data Speed =============== -->
     <moqui.basic.Uom abbreviation="bps" description="Bit-per-second" uomId="DATASPD_bps" uomTypeEnumId="UT_DATASPD_MEASURE"/>
