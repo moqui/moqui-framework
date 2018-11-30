@@ -35,7 +35,6 @@ Get started with Moqui development quickly using the Tutorial at:
 
 <https://www.moqui.org/docs/framework/Quick+Tutorial>
 
-For comprehensive documentation of Moqui Framework and an overview of 
-Mantle Business Artifacts download the PDF of the **Making Apps with Moqui** book:
+For comprehensive documentation of Moqui Framework see the wiki based documentation on moqui.org (*running on Moqui HiveMind*):
  
-<https://www.moqui.org/MakingAppsWithMoqui-1.0.pdf>
+<https://www.moqui.org/m/docs/framework>
