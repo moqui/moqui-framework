@@ -1,7 +1,7 @@
 
 # Moqui Framework Release Notes
 
-## Release 2.1.1 - Not Yet Released
+## Release 2.1.1 - 29 Nov 2018
 
 Moqui Framework 2.1.1 is a patch level new feature and bug fix release.
 
