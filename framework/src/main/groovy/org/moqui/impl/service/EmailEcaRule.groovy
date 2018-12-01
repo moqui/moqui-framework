@@ -222,7 +222,7 @@ class EmailEcaRule {
                 /*assign filename a value*/
                 List<String> fileNameArr = decodedFileName.tokenize('.')
 
-                if (fileNameArr.size() > 2) {
+                if (fileNameArr.size() >= 2) {
                     if (contentTypeSpec.startsWith('application/pdf')) {
                         doRunExtraction = true
                         newFileExtension = 'pdf'
