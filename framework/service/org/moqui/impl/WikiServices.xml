@@ -44,11 +44,13 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="pagePath"/><!-- not required because for root page will be empty -->
             <parameter name="versionName"><description>Meant for testing, get this version instead of published.
                 To eliminate exposure of non-published versions explicitly set this to null.</description></parameter>
+            <parameter name="getPageText" type="Boolean" default="true"/>
         </in-parameters>
         <out-parameters>
             <parameter name="wikiPageId"/>
             <parameter name="publishedVersionName"/>
             <parameter name="versionName"/>
+            <parameter name="pageReference" type="org.moqui.resource.ResourceReference"/>
             <parameter name="pageLocation"/>
             <parameter name="pageText"/>
         </out-parameters>
@@ -76,14 +78,14 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="publishedVersionName" from="wikiPage.publishedVersionName"/>
             <set field="versionName" from="versionName ?: publishedVersionName"/>
             <!-- if no version specified and no publishedVersionName the act like the page doesn't exist -->
-            <if condition="!versionName"><return message="No page found at path ${pagePath} in space ${wikiSpaceId}"/></if>
+            <if condition="!versionName"><return message="No page version found at path ${pagePath} in space ${wikiSpaceId}"/></if>
 
             <set field="rootPageRef" from="ec.resource.getLocationReference(wikiSpace.rootPageLocation)"/>
             <set field="pageReference" from="rootPageRef.findChildFile(wikiPage.pagePath)"/>
             <set field="pageLocation" from="pageReference.location"/>
 
             <set field="wikiPageId" from="wikiPage.wikiPageId"/>
-            <set field="pageText" from="pageReference.getText(versionName)"/>
+            <if condition="getPageText"><set field="pageText" from="pageReference.getText(versionName)"/></if>
         </actions>
     </service>
     <service verb="set" noun="PublishedVersion">
