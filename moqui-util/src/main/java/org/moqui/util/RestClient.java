@@ -17,9 +17,7 @@ import groovy.json.JsonBuilder;
 import groovy.json.JsonSlurper;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.HttpResponseException;
-import org.eclipse.jetty.client.api.ContentProvider;
-import org.eclipse.jetty.client.api.ContentResponse;
-import org.eclipse.jetty.client.api.Request;
+import org.eclipse.jetty.client.api.*;
 import org.eclipse.jetty.client.util.FutureResponseListener;
 import org.eclipse.jetty.client.util.InputStreamContentProvider;
 import org.eclipse.jetty.client.util.MultiPartContentProvider;
@@ -41,12 +39,17 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.locks.ReentrantLock;
 
 @SuppressWarnings("unused")
 public class RestClient {
     public enum Method { GET, PATCH, PUT, POST, DELETE, OPTIONS, HEAD }
     public static final Method GET = Method.GET, PATCH = Method.PATCH, PUT = Method.PUT, POST = Method.POST,
             DELETE = Method.DELETE, OPTIONS = Method.OPTIONS, HEAD = Method.HEAD;
+
+    // NOTE: there is no constant on HttpServletResponse for 429; see RFC 6585 for details
+    public static final int TOO_MANY = 429;
+
     private static final EnumSet<Method> BODY_METHODS = EnumSet.of(Method.PATCH, Method.POST, Method.PUT);
     private static final Logger logger = LoggerFactory.getLogger(RestClient.class);
 
@@ -64,6 +67,7 @@ public class RestClient {
     private int maxRetries = 0;
     private int maxResponseSize = 4 * 1024 * 1024;
     private int timeoutSeconds = 30;
+    private boolean timeoutRetry = false;
 
     public RestClient() { }
 
@@ -204,6 +208,8 @@ public class RestClient {
     public RestClient maxResponseSize(int maxSize) { this.maxResponseSize = maxSize; return this; }
     /** Set a full response timeout in seconds, defaults to 30 */
     public RestClient timeout(int seconds) { this.timeoutSeconds = seconds; return this; }
+    /** Set to true if retry should also be done on timeout; must call retry() to set retry parameters otherwise defaults to 1 retry with 2.0 initial wait time. */
+    public RestClient timeoutRetry(boolean tr) { this.timeoutRetry = tr; if (maxRetries == 0) maxRetries = 1; return this; }
 
     /** Do the HTTP request and get the response */
     public RestResponse call() {
@@ -212,14 +218,29 @@ public class RestClient {
 
         RestResponse curResponse = null;
         for (int i = 0; i <= maxRetries; i++) {
-            // do the request
-            curResponse = callInternal();
-            // NOTE: there is no constant on HttpServletResponse for 429; see RFC 6585 for details
-            if (curResponse.statusCode == 429) {
+            try {
+                // do the request
+                curResponse = callInternal();
+            } catch (TimeoutException e) {
+                // if set to do so retry on timeout
+                if (timeoutRetry && i < maxRetries) {
+                    try {
+                        Thread.sleep(Math.round(curWaitSeconds * 1000));
+                    } catch (InterruptedException ie) {
+                        logger.warn("RestClient timeout retry sleep interrupted, returning most recent response", ie);
+                        return curResponse;
+                    }
+                    curWaitSeconds = curWaitSeconds * initialWaitSeconds;
+                    continue;
+                } else {
+                    throw new BaseException("Timeout error calling REST request", e);
+                }
+            }
+            if (curResponse.statusCode == TOO_MANY && i < maxRetries) {
                 try {
                     Thread.sleep(Math.round(curWaitSeconds * 1000));
                 } catch (InterruptedException e) {
-                    logger.warn("RestClient callVelocityLimited sleep interrupted, returning most recent response", e);
+                    logger.warn("RestClient velocity retry sleep interrupted, returning most recent response", e);
                     return curResponse;
                 }
                 curWaitSeconds = curWaitSeconds * initialWaitSeconds;
@@ -230,6 +251,25 @@ public class RestClient {
 
         return curResponse;
     }
+    protected RestResponse callInternal() throws TimeoutException {
+        if (uriString == null || uriString.isEmpty()) throw new IllegalStateException("No URI set in RestClient");
+        HttpClient httpClient = makeStartHttpClient();
+        try {
+            Request request = makeRequest(httpClient);
+            // use a FutureResponseListener so we can set the timeout and max response size (old: response = request.send(); )
+            FutureResponseListener listener = new FutureResponseListener(request, maxResponseSize);
+            request.send(listener);
+
+            ContentResponse response = listener.get(timeoutSeconds, TimeUnit.SECONDS);
+            return new RestResponse(this, response);
+        } catch (TimeoutException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new BaseException("Error calling REST request", e);
+        } finally {
+            try { httpClient.stop(); } catch (Exception e) { logger.error("Error stopping REST HttpClient", e); }
+        }
+    }
 
     protected HttpClient makeStartHttpClient() {
         SslContextFactory sslContextFactory = new SslContextFactory();
@@ -238,7 +278,7 @@ public class RestClient {
         try { httpClient.start(); } catch (Exception e) { throw new BaseException("Error starting HTTP client", e); }
         return httpClient;
     }
-    protected FutureResponseListener sendListener(HttpClient httpClient) {
+    protected Request makeRequest(HttpClient httpClient) {
         final Request request = httpClient.newRequest(uriString);
         request.method(method.name());
         // set charset on request?
@@ -271,35 +311,13 @@ public class RestClient {
         if (logger.isTraceEnabled())
             logger.trace("RestClient request " + request.getMethod() + " " + String.valueOf(request.getURI()) + " Headers: " + String.valueOf(request.getHeaders()));
 
-        // use a FutureResponseListener so we can set the timeout and max response size (old: response = request.send(); )
-        FutureResponseListener listener = new FutureResponseListener(request, maxResponseSize);
-        request.send(listener);
-        return listener;
-    }
-    protected RestResponse callInternal() {
-        if (uriString == null || uriString.isEmpty()) throw new IllegalStateException("No URI set in RestClient");
-        HttpClient httpClient = makeStartHttpClient();
-        try {
-            FutureResponseListener listener = sendListener(httpClient);
-            ContentResponse response = listener.get(timeoutSeconds, TimeUnit.SECONDS);
-            return new RestResponse(this, response);
-        } catch (Exception e) {
-            throw new BaseException("Error calling REST request", e);
-        } finally {
-            try { httpClient.stop(); } catch (Exception e) { logger.error("Error stopping REST HttpClient", e); }
-        }
+        return request;
     }
 
+    /** Call in background  */
     public Future<RestResponse> callFuture() {
         if (uriString == null || uriString.isEmpty()) throw new IllegalStateException("No URI set in RestClient");
-        // NOTE: RestClientFuture methods call httpClient.stop() so not handled here
-        HttpClient httpClient = makeStartHttpClient();
-        try {
-            FutureResponseListener listener = sendListener(httpClient);
-            return new RestClientFuture(this, httpClient, listener);
-        } catch (Exception e) {
-            throw new BaseException("Error calling REST request", e);
-        }
+        return new RestClientFuture(this);
     }
 
     public static class RestResponse {
@@ -482,42 +500,115 @@ public class RestClient {
         public String value;
     }
 
+    public static class RetryListener implements Response.CompleteListener {
+        RestClientFuture rcf;
+        RetryListener(RestClientFuture rcf) { this.rcf = rcf; }
+        @Override public void onComplete(Result result) {
+            if (result.getResponse().getStatus() == TOO_MANY && rcf.retryCount < rcf.rci.maxRetries && !rcf.cancelled) {
+                // lock before new request to make sure not in the middle of get()
+                rcf.retryLock.lock();
+                try {
+                    try {
+                        Thread.sleep(Math.round(rcf.curWaitSeconds * 1000));
+                    } catch (InterruptedException e) {
+                        logger.warn("RestClientFuture retry sleep interrupted, returning most recent response", e);
+                        return;
+                    }
+                    // update wait time and count
+                    rcf.curWaitSeconds = rcf.curWaitSeconds * rcf.rci.initialWaitSeconds;
+                    rcf.retryCount++;
+
+                    // do a new request, still in the background
+                    rcf.newRequest();
+                } finally { rcf.retryLock.unlock(); }
+            }
+        }
+    }
     public static class RestClientFuture implements Future<RestResponse> {
         RestClient rci;
         HttpClient httpClient;
         FutureResponseListener listener;
-        RestClientFuture(RestClient rci, HttpClient httpClient, FutureResponseListener listener) {
-            this.rci = rci; this.httpClient = httpClient; this.listener = listener; }
+        volatile float curWaitSeconds;
+        volatile int retryCount = 0;
+        volatile boolean cancelled = false;
+        ReentrantLock retryLock = new ReentrantLock();
+        ContentResponse lastResponse = null;
 
-        @Override public boolean isCancelled() { return listener.isCancelled(); }
-        @Override public boolean isDone() { return listener.isDone(); }
+        RestClientFuture(RestClient rci) {
+            this.rci = rci;
+            curWaitSeconds = rci.initialWaitSeconds;
+            if (curWaitSeconds == 0) curWaitSeconds = 1;
+            // start the initial request
+            newRequest();
+        }
 
-        @Override public boolean cancel(boolean mayInterruptIfRunning) {
-            try {
-                return listener.cancel(mayInterruptIfRunning);
-            } finally {
+        void newRequest() {
+            if (httpClient != null && httpClient.isRunning()) {
                 try { httpClient.stop(); } catch (Exception e) { logger.error("Error stopping REST HttpClient", e); }
             }
+            // NOTE: RestClientFuture methods call httpClient.stop() so not handled here
+            httpClient = rci.makeStartHttpClient();
+            try {
+                Request request = rci.makeRequest(httpClient);
+                // use a CompleteListener to retry in background
+                request.onComplete(new RetryListener(this));
+                // use a FutureResponseListener so we can set the timeout and max response size (old: response = request.send(); )
+                listener = new FutureResponseListener(request, rci.maxResponseSize);
+                request.send(listener);
+            } catch (Exception e) {
+                throw new BaseException("Error calling REST request", e);
+            }
+        }
+
+        @Override public boolean isCancelled() { return cancelled || listener.isCancelled(); }
+        @Override public boolean isDone() { return retryCount >= rci.maxRetries && listener.isDone(); }
+
+        @Override public boolean cancel(boolean mayInterruptIfRunning) {
+            retryLock.lock();
+            try {
+                try {
+                    cancelled = true;
+                    return listener.cancel(mayInterruptIfRunning);
+                } finally {
+                    try { httpClient.stop(); } catch (Exception e) { logger.error("Error stopping REST HttpClient", e); }
+                }
+            } finally { retryLock.unlock(); }
         }
 
         @Override
         public RestResponse get() throws InterruptedException, ExecutionException {
             try {
-                ContentResponse response = listener.get();
-                return new RestResponse(rci, response);
-            } finally {
-                try { httpClient.stop(); } catch (Exception e) { logger.error("Error stopping REST HttpClient", e); }
+                return get(rci.timeoutSeconds, TimeUnit.SECONDS);
+            } catch (TimeoutException e) {
+                throw new BaseException("Timeout error calling REST request", e);
             }
         }
 
         @Override
         public RestResponse get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
-            try {
-                ContentResponse response = listener.get(timeout, unit);
-                return new RestResponse(rci, response);
-            } finally {
+            do {
+                // lock before new request to make sure not in the middle of retry
+                retryLock.lock();
+                try {
+                    try {
+                        lastResponse = listener.get(timeout, unit);
+                        if (lastResponse.getStatus() != TOO_MANY) break;
+                    } finally {
+                        try { httpClient.stop(); } catch (Exception e) { logger.error("Error stopping REST HttpClient", e); }
+                    }
+                } finally { retryLock.unlock(); }
+            } while (!cancelled && retryCount < rci.maxRetries);
+
+            return new RestResponse(rci, lastResponse);
+        }
+
+        @Override
+        protected void finalize() throws Throwable {
+            if (httpClient != null && httpClient.isRunning()) {
+                logger.warn("RestClientFuture finalize and httpClient still running for " + rci.uriString + ", stopping");
                 try { httpClient.stop(); } catch (Exception e) { logger.error("Error stopping REST HttpClient", e); }
             }
+            super.finalize();
         }
     }
 }
