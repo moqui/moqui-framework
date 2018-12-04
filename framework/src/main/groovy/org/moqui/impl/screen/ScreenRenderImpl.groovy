@@ -1876,6 +1876,7 @@ class ScreenRenderImpl implements ScreenRender {
                     def colSortField = colDef.attribute("sortField")
                     def colDataClass = colDef.attribute("dataClass")
                     def colTitleClass = colDef.attribute("titleClass")
+                    def colWidth = colDef.attribute("width")
 
                     customCol.put("name", colName)
                     customCol.put("title", colTitle)
@@ -1883,9 +1884,9 @@ class ScreenRenderImpl implements ScreenRender {
                     if (colSortField != null) customCol.put("sortField", colSortField)
                     if (colDataClass != null) customCol.put("dataClass", colDataClass)
                     if (colTitleClass != null) customCol.put("titleClass", colTitleClass)
+                    if (colWidth != null) customCol.put("width", colWidth)
 
                     customSetup.add(customCol)
-                    //logger.info("   colDef.text ${colDef.text}")
                 }
             }
         }
