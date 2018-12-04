@@ -122,11 +122,21 @@ class EmailEcaRule {
             if (conditionPassed) {
                 //ec.logger.info("[TASK] create#EmailMessage")
                 Map outMap = ec.serviceFacade.sync().name("create#moqui.basic.email.EmailMessage")
-                        .parameters([sentDate:fields.sentDate, receivedDate:fields.receivedDate, statusId:'ES_RECEIVED',
-                                     subject:fields.subject, body:bodyPartList[0].contentText,
-                                     fromAddress:MimeUtility.decodeText(fields.from.toString()), toAddresses:MimeUtility.decodeText(fields.toList?.toString()),
-                                     ccAddresses:fields.ccList?.toString(), bccAddresses:fields.bccList?.toString(),
-                                     messageId:message.getMessageID(), emailServerId:emailServerId])
+                        .parameters(
+                            [
+                                sentDate:fields.sentDate,
+                                receivedDate:fields.receivedDate,
+                                statusId:'ES_RECEIVED',
+                                subject:fields.subject,
+                                body:bodyPartList[0].contentText,
+                                fromAddress:MimeUtility.decodeText(fields.from.toString()),
+                                toAddresses:MimeUtility.decodeText(fields.toList?.toString()),
+                                ccAddresses:fields.ccList?.toString(),
+                                bccAddresses:fields.bccList?.toString(),
+                                messageId:message.getMessageID(),
+                                emailServerId:emailServerId
+                            ]
+                        )
                         .disableAuthz().call()
 
                 //push email message id to context
@@ -203,46 +213,55 @@ class EmailEcaRule {
             FileNameGenerator fng = new FileNameGenerator(16)
 
             try {
+                /*calculate filename*/
                 newFileName = fng.nextString()
-
-                if (contentTypeSpec.startsWith('application/pdf')) {
-                    doRunExtraction = true
-                    newFileExtension = 'pdf'
-                } else if (contentTypeSpec.startsWith('image/jpeg')) {
-                    doRunExtraction = true
-                    newFileExtension = 'jpg'
-                } else if (contentTypeSpec.startsWith('application/zip')) {
-                    doRunExtraction = true
-                    newFileExtension = 'zip'
-                } else if (contentTypeSpec.startsWith('application/octet-stream')) {
-                    doRunExtraction = true
-                    newFileExtension = part.getFileName().tokenize('.')[-1]
-                } else if (contentTypeSpec.startsWith('image/png')) {
-                    doRunExtraction = true
-                    newFileExtension = 'png'
-                } else if (contentTypeSpec.startsWith('application/vnd.ms-excel')) {
-                    doRunExtraction = true
-                    newFileExtension = 'xls'
-                } else if (contentTypeSpec.startsWith('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
-                    doRunExtraction = true
-                    newFileExtension = 'xlsx'
-                } else if (contentTypeSpec.startsWith('application/msword')) {
-                    doRunExtraction = true
-                    newFileExtension = 'doc'
-                } else if (contentTypeSpec.startsWith('application/vnd.openxmlformats-officedocument.wordprocessingml.document')) {
-                    doRunExtraction = true
-                    newFileExtension = 'docx'
-                }
 
                 /*decode from possible utf-8*/
                 String decodedFileName = MimeUtility.decodeText(part.getFileName())
 
-                /*calculate display name correctly*/
-                displayName = MimeUtility.decodeText(decodedFileName.tokenize('.')[0]).replaceAll(' ', '_').replaceAll("[^a-zA-Z0-9_]+","")
+                /*assign filename a value*/
+                List<String> fileNameArr = decodedFileName.tokenize('.')
 
-                logger.info("displayName: ${displayName}, fileName: ${newFileName}, extension: ${newFileExtension}, type: ${contentTypeSpec}, doExtraction: ${doRunExtraction}")
+                if (fileNameArr.size() >= 2) {
+                    if (contentTypeSpec.startsWith('application/pdf')) {
+                        doRunExtraction = true
+                        newFileExtension = 'pdf'
+                    } else if (contentTypeSpec.startsWith('image/jpeg')) {
+                        doRunExtraction = true
+                        newFileExtension = 'jpg'
+                    } else if (contentTypeSpec.startsWith('application/zip')) {
+                        doRunExtraction = true
+                        newFileExtension = 'zip'
+                    } else if (contentTypeSpec.startsWith('application/octet-stream')) {
+                        doRunExtraction = true
+                        newFileExtension = fileNameArr[1]
+                    } else if (contentTypeSpec.startsWith('image/png')) {
+                        doRunExtraction = true
+                        newFileExtension = 'png'
+                    } else if (contentTypeSpec.startsWith('application/vnd.ms-excel')) {
+                        doRunExtraction = true
+                        newFileExtension = 'xls'
+                    } else if (contentTypeSpec.startsWith('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
+                        doRunExtraction = true
+                        newFileExtension = 'xlsx'
+                    } else if (contentTypeSpec.startsWith('application/msword')) {
+                        doRunExtraction = true
+                        newFileExtension = 'doc'
+                    } else if (contentTypeSpec.startsWith('application/vnd.openxmlformats-officedocument.wordprocessingml.document')) {
+                        doRunExtraction = true
+                        newFileExtension = 'docx'
+                    }
+
+                    /*calculate display name correctly*/
+                    displayName = MimeUtility.decodeText(fileNameArr[0]).replaceAll(' ', '_').replaceAll("[^a-zA-Z0-9_]+","")
+
+                    //logger.info("displayName: ${displayName}, fileName: ${newFileName}, extension: ${newFileExtension}, type: ${contentTypeSpec}, doExtraction: ${doRunExtraction}")
+                } else {
+                    logger.warn("Unexpected result of processing file name, proceeding without it.")
+                }
+
             } catch (Exception ex) {
-                logger.warn("Cannot extract file name, proceeding without it")
+                logger.warn("Cannot extract file name, proceeding without it. ${ex.message}")
             }
 
             if (doRunExtraction) {

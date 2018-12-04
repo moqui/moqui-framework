@@ -25,7 +25,9 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="bodyParameters" type="Map"/>
             <parameter name="createEmailMessage" type="Boolean" default="true"/>
             <parameter name="emailTypeEnumId"/>
-            <parameter name="fromUserId"/><parameter name="toUserId"/>
+            <parameter name="fromUserId"/>
+            <parameter name="toUserId"/>
+            <parameter name="subjectTopics" type="Map"/>
         </in-parameters>
         <out-parameters>
             <parameter name="messageId"><description>From the Message-ID email header field.</description></parameter>
