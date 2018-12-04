@@ -19,12 +19,20 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- root element -->
     <xs:element name="services">
         <xs:complexType>
-            <xs:sequence>
-                <xs:element minOccurs="0" maxOccurs="unbounded" ref="service"/>
-            </xs:sequence>
+            <xs:choice minOccurs="0" maxOccurs="unbounded">
+                <xs:element ref="service-include"/>
+                <xs:element ref="service"/>
+            </xs:choice>
         </xs:complexType>
     </xs:element>
 
+    <xs:element name="service-include">
+        <xs:complexType>
+            <xs:attribute name="verb" type="name-field" use="required"/>
+            <xs:attribute name="noun" type="name-upper"/>
+            <xs:attribute name="location" type="xs:string" use="required"/>
+        </xs:complexType>
+    </xs:element>
     <xs:element name="service">
         <xs:complexType>
             <xs:sequence>

@@ -260,17 +260,31 @@ class ServiceFacadeImpl implements ServiceFacade {
         return serviceNode
     }
 
-    protected static MNode findServiceNode(ResourceReference serviceComponentRr, String verb, String noun) {
+    protected MNode findServiceNode(ResourceReference serviceComponentRr, String verb, String noun) {
         if (serviceComponentRr == null || !serviceComponentRr.exists) return null
 
         MNode serviceRoot = MNode.parse(serviceComponentRr)
         MNode serviceNode
         if (noun) {
             // only accept the separated names
-            serviceNode = serviceRoot.first({ MNode it -> it.name == "service" && it.attribute("verb") == verb && it.attribute("noun") == noun })
+            serviceNode = serviceRoot.first({ MNode it -> ("service".equals(it.name) || "service-include".equals(it.name)) &&
+                    it.attribute("verb") == verb && it.attribute("noun") == noun })
         } else {
             // we just have a verb, this should work if the noun field is empty, or if noun + verb makes up the verb passed in
-            serviceNode = serviceRoot.first({ MNode it -> it.name == "service" && (it.attribute("verb") + (it.attribute("noun") ?: "")) == verb })
+            serviceNode = serviceRoot.first({ MNode it -> ("service".equals(it.name) || "service-include".equals(it.name)) &&
+                    (it.attribute("verb") + (it.attribute("noun") ?: "")) == verb })
+        }
+
+        // if we found a service-include look up the referenced service node
+        if (serviceNode != null && "service-include".equals(serviceNode.name)) {
+            String includeLocation = serviceNode.attribute("location")
+            if (includeLocation == null || includeLocation.isEmpty()) {
+                logger.error("Ignoring service-include with no location for verb ${verb} noun ${noun} in ${serviceComponentRr.location}")
+                return null
+            }
+
+            ResourceReference includeRr = ecfi.resourceFacade.getLocationReference(includeLocation)
+            return findServiceNode(includeRr, verb, noun)
         }
 
         return serviceNode
@@ -347,7 +361,9 @@ class ServiceFacadeImpl implements ServiceFacade {
         if (location.charAt(0) == '/' as char) location = location.substring(1)
         location = location.replace('/', '.')
 
-        for (MNode serviceNode in serviceRoot.children("service")) {
+        for (MNode serviceNode in serviceRoot.children) {
+            String nodeName = serviceNode.name
+            if (!"service".equals(nodeName) && !"service-include".equals(nodeName)) continue
             sns.add(location + "." + serviceNode.attribute("verb") +
                     (serviceNode.attribute("noun") ? "#" + serviceNode.attribute("noun") : ""))
         }

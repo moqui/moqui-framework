@@ -1,6 +1,16 @@
 
 # Moqui Framework Release Notes
 
+## Release 2.1.2 - Not Yet Released
+
+Moqui Framework 2.1.2 is a patch level new feature and bug fix release.
+
+### New Features
+
+- Service include for refactoring, etc with new services.service-include element
+- RestClient now supports retry on timeout for call() and 429 (velocity) return for callFuture()
+
+
 ## Release 2.1.1 - 29 Nov 2018
 
 Moqui Framework 2.1.1 is a patch level new feature and bug fix release.
