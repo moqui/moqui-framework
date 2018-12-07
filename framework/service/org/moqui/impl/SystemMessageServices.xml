@@ -295,7 +295,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="allowError" type="Boolean" default="false"/>
         </in-parameters>
         <actions>
-            <!-- NOTE: done use for-update, status updates are done in separate transactions so they are always done regardless of errors -->
+            <!-- NOTE: don't use for-update, status updates are done in separate transactions so they are always done regardless of errors -->
             <entity-find-one entity-name="moqui.service.message.SystemMessage" value-field="systemMessage"/>
             <set field="initialStatusId" from="systemMessage.statusId"/>
 
@@ -321,30 +321,27 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- if successful set status to SmsgConsumed, otherwise set back to previous status -->
             <set field="nowDate" from="ec.user.nowTimestamp"/>
-            <if condition="ec.message.hasError()">
-                <then>
-                    <set field="errorText" from="ec.message.getErrorsString()"/>
-                    <!-- clear errors before calling services so they'll go through, and so this service won't blow up -->
-                    <script>ec.message.clearErrors()</script>
+            <if condition="ec.message.hasError()"><then>
+                <set field="errorText" from="ec.message.getErrorsString()"/>
+                <!-- clear errors before calling services so they'll go through, and so this service won't blow up -->
+                <script>ec.message.clearErrors()</script>
+                <service-call name="update#moqui.service.message.SystemMessage" transaction="force-new"
+                        in-map="[systemMessageId:systemMessageId, statusId:initialStatusId, lastAttemptDate:nowDate,
+                            failCount:((systemMessage.failCount ?: 0) + 1)]"/>
+                <service-call name="create#moqui.service.message.SystemMessageError" transaction="force-new"
+                        in-map="[systemMessageId:systemMessageId, errorDate:nowDate, attemptedStatusId:'SmsgConsumed',
+                            errorText:errorText]"/>
+            </then><else>
+                <if condition="!consumeOut.noStatusUpdate">
                     <service-call name="update#moqui.service.message.SystemMessage" transaction="force-new"
-                            in-map="[systemMessageId:systemMessageId, statusId:initialStatusId, lastAttemptDate:nowDate,
-                                failCount:((systemMessage.failCount ?: 0) + 1)]"/>
-                    <service-call name="create#moqui.service.message.SystemMessageError" transaction="force-new"
-                            in-map="[systemMessageId:systemMessageId, errorDate:nowDate, attemptedStatusId:'SmsgConsumed',
-                                errorText:errorText]"/>
-                </then>
-                <else>
-                    <if condition="!consumeOut.noStatusUpdate">
-                        <service-call name="update#moqui.service.message.SystemMessage" transaction="force-new"
-                                in-map="[systemMessageId:systemMessageId, statusId:'SmsgConsumed',
-                                    processedDate:nowDate, lastAttemptDate:nowDate]"/>
-                        <if condition="systemMessageType.produceAckServiceName &amp;&amp; systemMessageType.produceAckOnConsumed == 'Y'">
-                            <service-call name="${systemMessageType.produceAckServiceName}"
-                                    in-map="[systemMessageId:systemMessageId]" transaction="force-new"/>
-                        </if>
+                            in-map="[systemMessageId:systemMessageId, statusId:'SmsgConsumed',
+                                processedDate:nowDate, lastAttemptDate:nowDate]"/>
+                    <if condition="systemMessageType.produceAckServiceName &amp;&amp; systemMessageType.produceAckOnConsumed == 'Y'">
+                        <service-call name="${systemMessageType.produceAckServiceName}"
+                                in-map="[systemMessageId:systemMessageId]" transaction="force-new"/>
                     </if>
-                </else>
-            </if>
+                </if>
+            </else></if>
             <script>}</script>
         </actions>
     </service>
