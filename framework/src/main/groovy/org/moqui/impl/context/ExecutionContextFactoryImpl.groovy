@@ -432,8 +432,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         int workerQueueSize = (toolsNode.attribute("worker-queue") ?: "65536") as int
         BlockingQueue<Runnable> workQueue = new LinkedBlockingQueue<>(workerQueueSize)
 
-        int coreSize = (toolsNode.attribute("worker-pool-core") ?: "4") as int
-        int maxSize = (toolsNode.attribute("worker-pool-max") ?: "16") as int
+        int coreSize = (toolsNode.attribute("worker-pool-core") ?: "16") as int
+        int maxSize = (toolsNode.attribute("worker-pool-max") ?: "24") as int
         int availableProcessorsSize = Runtime.getRuntime().availableProcessors() * 2
         if (availableProcessorsSize > maxSize) {
             logger.info("Setting worker pool size to ${availableProcessorsSize} based on available processors * 2")
