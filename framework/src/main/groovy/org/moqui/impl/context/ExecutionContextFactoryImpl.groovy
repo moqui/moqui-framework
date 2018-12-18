@@ -420,12 +420,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         return baseConfigNode
     }
 
-    // NOTE: using unbound LinkedBlockingQueue, so max pool size in ThreadPoolExecutor has no effect
-    private static class WorkerThreadFactory implements ThreadFactory {
-        private final ThreadGroup workerGroup = new ThreadGroup("MoquiWorkers")
-        private final AtomicInteger threadNumber = new AtomicInteger(1)
-        Thread newThread(Runnable r) { return new Thread(workerGroup, r, "MoquiWorker-" + threadNumber.getAndIncrement()) }
-    }
     private ThreadPoolExecutor makeWorkerPool() {
         MNode toolsNode = confXmlRoot.first('tools')
 
@@ -442,7 +436,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         long aliveTime = (toolsNode.attribute("worker-pool-alive") ?: "60") as long
 
         logger.info("Initializing worker ThreadPoolExecutor: queue limit ${workerQueueSize}, pool-core ${coreSize}, pool-max ${maxSize}, pool-alive ${aliveTime}s")
-        return new ThreadPoolExecutor(coreSize, maxSize, aliveTime, TimeUnit.SECONDS, workQueue, new WorkerThreadFactory())
+        return new ContextJavaUtil.WorkerThreadPoolExecutor(this, coreSize, maxSize, aliveTime, TimeUnit.SECONDS, workQueue)
     }
     boolean waitWorkerPoolEmpty(int retryLimit) {
         int count = 0
