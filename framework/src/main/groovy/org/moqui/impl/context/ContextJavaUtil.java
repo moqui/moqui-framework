@@ -42,7 +42,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.*;
 import java.util.*;
-import java.util.concurrent.Executor;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class ContextJavaUtil {
     protected final static Logger logger = LoggerFactory.getLogger(ContextJavaUtil.class);
@@ -473,5 +474,34 @@ public class ContextJavaUtil {
         GStringJsonSerializer() { super(GString.class); }
         @Override public void serialize(GString value, JsonGenerator gen, SerializerProvider serializers)
                 throws IOException, JsonProcessingException { if (value != null) gen.writeString(value.toString()); }
+    }
+
+    // NOTE: using unbound LinkedBlockingQueue, so max pool size in ThreadPoolExecutor has no effect
+    static class WorkerThreadFactory implements ThreadFactory {
+        private final ThreadGroup workerGroup = new ThreadGroup("MoquiWorkers");
+        private final AtomicInteger threadNumber = new AtomicInteger(1);
+        public Thread newThread(Runnable r) { return new Thread(workerGroup, r, "MoquiWorker-" + threadNumber.getAndIncrement()); }
+    }
+    static class WorkerThreadPoolExecutor extends ThreadPoolExecutor {
+        private ExecutionContextFactoryImpl ecfi;
+        public WorkerThreadPoolExecutor(ExecutionContextFactoryImpl ecfi, int coreSize, int maxSize, long aliveTime,
+                                 TimeUnit timeUnit, BlockingQueue<Runnable> blockingQueue) {
+            super(coreSize, maxSize, aliveTime, timeUnit, blockingQueue, new WorkerThreadFactory());
+            this.ecfi = ecfi;
+        }
+
+        @Override protected void afterExecute(Runnable runnable, Throwable throwable) {
+            ExecutionContextImpl activeEc = ecfi.activeContext.get();
+            if (activeEc != null) {
+                logger.warn("In WorkerThreadPoolExecutor.afterExecute() there is still an ExecutionContext for runnable " + runnable.getClass().getName() + " in thread (" + Thread.currentThread().getId() + ":" + Thread.currentThread().getName() + "), destroying");
+                try {
+                    activeEc.destroy();
+                } catch (Throwable t) {
+                    logger.error("Error destroying ExecutionContext in WorkerThreadPoolExecutor.afterExecute()", t);
+                }
+            }
+
+            super.afterExecute(runnable, throwable);
+        }
     }
 }

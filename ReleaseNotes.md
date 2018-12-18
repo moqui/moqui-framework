@@ -9,7 +9,11 @@ Moqui Framework 2.1.2 is a patch level new feature and bug fix release.
 
 - Service include for refactoring, etc with new services.service-include element
 - RestClient now supports retry on timeout for call() and 429 (velocity) return for callFuture()
+- The general worker thread pool now checks for an active ExecutionContext after each run to make sure destroyed
 
+### Bug Fixes
+
+- Issue with DataFeed Runnable not destroying the ExecutionContext causing errors to bleed over
 
 ## Release 2.1.1 - 29 Nov 2018
 
