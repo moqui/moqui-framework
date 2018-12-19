@@ -145,6 +145,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="startedAt" type="Timestamp"/>
             <parameter name="finishedAt" type="Timestamp"/>
             <parameter name="moquiStatusMap" type="Map"/>
+            <parameter name="instanceLog"/>
         </out-parameters>
         <actions><script><![CDATA[
             import org.moqui.context.ExecutionContext
@@ -489,6 +490,13 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
     <service verb="check" noun="InstanceDocker">
+        <implements service="org.moqui.impl.InstanceServices.check#Instance"/>
+        <actions>
+            <service-call name="org.moqui.impl.InstanceServices.get#DockerStatus" in-map="context" out-map="context"/>
+            <service-call name="org.moqui.impl.InstanceServices.get#DockerLog" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+    <service verb="get" noun="DockerStatus">
         <!-- see https://docs.docker.com/engine/reference/api/docker_remote_api_v1.24/#/inspect-a-container -->
         <implements service="org.moqui.impl.InstanceServices.check#Instance"/>
         <actions><script><![CDATA[
@@ -536,6 +544,53 @@ along with this software (see the LICENSE.md file). If not, see
                     }
 
                     ec.message.addMessage("Docker container ${appInstance.instanceName} (${appInstance.instanceUuid}) ${instanceRunning ? 'running' : 'NOT running'}, status ${statusString}, ${errorString ? 'error: ' + errorString + ', ' : ''}started at ${ec.l10n.format(startedAt, '')}${finishedAt ? ', finished at ' + ec.l10n.format(finishedAt, '') : ''}")
+                } else if (restResponse.statusCode == 404) {
+                    instanceExists = false
+                    ec.message.addMessage("Docker container ${appInstance.instanceName} (${appInstance.instanceUuid}) does not exist")
+                } else {
+                    errorString = restResponse.getReasonPhrase()
+                    ec.message.addMessage("Server error on Docker host: ${errorString}")
+                }
+            } catch (Exception e) {
+                connectSuccess = false
+                ec.logger.log(ec.logger.ERROR_INT, "Error connecting to Docker host", e)
+                ec.message.addError("Error connecting to Docker host: ${e.toString()}")
+            }
+        ]]></script></actions>
+    </service>
+    <service verb="get" noun="DockerLog">
+        <!-- see https://docs.docker.com/engine/reference/api/docker_remote_api_v1.24/#/inspect-a-container -->
+        <in-parameters><parameter name="appInstanceId"/></in-parameters>
+        <out-parameters><parameter name="instanceLog"/></out-parameters>
+        <actions>
+            <log message="changed"/>
+            <script><![CDATA[
+            import org.moqui.context.ExecutionContext
+            import org.moqui.entity.EntityValue
+            import org.moqui.util.RestClient
+
+            instanceLog = null
+
+            ExecutionContext ec = context.ec
+            EntityValue appInstance = ec.entity.find("moqui.server.instance.AppInstance").condition("appInstanceId", appInstanceId).one()
+            EntityValue instanceHost = appInstance.findRelatedOne("instanceHost", null, null)
+            if (instanceHost == null) { ec.message.addMessage("No InstanceHost found for AppInstance ${appInstanceId}"); return; }
+
+            RestClient restClient = ec.service.rest().method("GET")
+            restClient.uri().protocol(instanceHost.hostProtocol ? (String) instanceHost.hostProtocol : "http")
+                    .host(instanceHost.hostAddress as String).port(instanceHost.adminPort ? (instanceHost.adminPort as int) : 2375)
+                    .path("containers").path(appInstance.instanceUuid ? (String) appInstance.instanceUuid : (String) appInstance.instanceName)
+                    .path("logs").parameter("stdout", "true").parameter("tail", "50").build()
+
+            try {
+                RestClient.RestResponse restResponse = restClient.call()
+                connectSuccess = true
+
+                if (restResponse.statusCode == 200) {
+                    instanceExists = true
+
+                    instanceLog = restResponde.text().replaceAll("\u0001\u0000{5}[\u0000\u0001][\u003c\ufffd]", "").replaceAll("\u001b\\[[0-9]{0,2}m", "")
+
                 } else if (restResponse.statusCode == 404) {
                     instanceExists = false
                     ec.message.addMessage("Docker container ${appInstance.instanceName} (${appInstance.instanceUuid}) does not exist")
