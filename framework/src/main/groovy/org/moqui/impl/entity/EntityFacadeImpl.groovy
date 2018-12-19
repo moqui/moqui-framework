@@ -1356,7 +1356,12 @@ class EntityFacadeImpl implements EntityFacade {
         if (offset != null && !offset.isEmpty()) ef.offset(Integer.valueOf(offset))
         String limit = node.attribute("limit")
         if (limit != null && !limit.isEmpty()) ef.limit(Integer.valueOf(limit))
-        for (MNode sf in node.children("select-field")) ef.selectField(sf.attribute("field-name"))
+        for (MNode sf in node.children("select-field")) {
+            String fieldToSelect = sf.attribute("field-name")
+            if (fieldToSelect == null || fieldToSelect.isEmpty()) continue
+            if (fieldToSelect.contains('${')) fieldToSelect = ecfi.resourceFacade.expandNoL10n(fieldToSelect, null)
+            ef.selectField(fieldToSelect)
+        }
         for (MNode ob in node.children("order-by")) ef.orderBy(ob.attribute("field-name"))
 
         if (node.hasChild("search-form-inputs")) {
