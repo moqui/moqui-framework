@@ -174,9 +174,10 @@ ${.node}
                 ${listName}PageIndex = ${listName}.pageIndex
                 ${listName}PageSize = ${listName}Count > 20 ? ${listName}Count : 20
             } else {
-                ${listName}Count = ${listName}_xafind.count()
                 ${listName}PageIndex = ${listName}_xafind.pageIndex
                 ${listName}PageSize = ${listName}_xafind.pageSize
+                if (${listName}.size() < ${listName}PageSize) { ${listName}Count = ${listName}.size() }
+                else { ${listName}Count = ${listName}_xafind.count() }
             }
         </#if>
         ${listName}PageMaxIndex = ((BigDecimal) (${listName}Count - 1)).divide(${listName}PageSize ?: (${listName}Count - 1), 0, BigDecimal.ROUND_DOWN) as int
