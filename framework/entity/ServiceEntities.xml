@@ -182,9 +182,15 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" title="SystemMessage" related="moqui.basic.StatusItem" short-alias="status"/>
         <relationship type="one" title="Parent" related="moqui.service.message.SystemMessage" short-alias="parent">
             <key-map field-name="parentMessageId" related="systemMessageId"/></relationship>
+        <relationship type="one" title="Ack" related="moqui.service.message.SystemMessage" short-alias="ackMessage">
+            <key-map field-name="ackMessageId" related="systemMessageId"/></relationship>
         <relationship type="one" related="moqui.service.message.SystemMessageRemote" short-alias="remote"/>
+
         <relationship type="many" related="moqui.service.message.SystemMessageError" short-alias="errors">
             <key-map field-name="systemMessageId"/></relationship>
+
+        <index name="SYS_MSG_MSGID"><index-field name="messageId"/></index>
+
         <seed-data>
             <moqui.basic.StatusType description="System Message" statusTypeId="SystemMessage"/>
             <!-- Is this needed? <moqui.basic.StatusItem description="Triggered" sequenceNum="1" statusId="SmsgTriggered" statusTypeId="SystemMessage"/> -->
