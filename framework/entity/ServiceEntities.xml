@@ -131,7 +131,8 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- moqui.service.message -->
     <!-- ========================================================= -->
 
-    <entity entity-name="SystemMessage" package="moqui.service.message" short-alias="systemMessages" cache="never">
+    <entity entity-name="SystemMessage" package="moqui.service.message" short-alias="systemMessages"
+            use="transactional" cache="never">
         <field name="systemMessageId" type="id" is-pk="true"/>
         <field name="systemMessageTypeId" type="id"/>
         <field name="statusId" type="id" enable-audit-log="true"/>
@@ -256,7 +257,7 @@ along with this software (see the LICENSE.md file). If not, see
             <detail relationship="remote"/><detail relationship="errors"/>
         </master>
     </entity>
-    <entity entity-name="SystemMessageType" package="moqui.service.message" cache="true">
+    <entity entity-name="SystemMessageType" package="moqui.service.message" use="configuration" cache="true">
         <field name="systemMessageTypeId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
         <field name="produceServiceName" type="text-medium"><description>Not used in automated processing, but useful
@@ -278,7 +279,7 @@ along with this software (see the LICENSE.md file). If not, see
             When applicable, used by the send service as the service on the remote server to call to receive the message.</description></field>
         <field name="contentType" type="text-short"/>
     </entity>
-    <entity entity-name="SystemMessageRemote" package="moqui.service.message" cache="true">
+    <entity entity-name="SystemMessageRemote" package="moqui.service.message" use="configuration" cache="true">
         <field name="systemMessageRemoteId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
         <field name="sendUrl" type="text-medium"/>
@@ -338,7 +339,17 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration enumId="SmatHmacSha256" description="HMAC SHA-256" enumTypeId="SystemMessageAuthType"/>
         </seed-data>
     </entity>
-    <entity entity-name="SystemMessageError" package="moqui.service.message" cache="never">
+    <entity entity-name="SystemMessageEnumMap" package="moqui.service.message" use="configuration">
+        <description>For runtime configurable enum mappings for a particular remote system. For bi-directional
+            integrations enumerated value mappings should be one to one or round trip results will be inconsistent.
+            The PK structure forces one mapped value for each enumId.</description>
+        <field name="systemMessageRemoteId" type="id" is-pk="true"/>
+        <field name="enumId" type="id" is-pk="true"/>
+        <field name="mappedValue" type="text-short"/>
+        <relationship type="one" related="moqui.service.message.SystemMessageRemote" short-alias="remote"/>
+        <relationship type="one" related="moqui.basic.Enumeration" short-alias="remote"/>
+    </entity>
+    <entity entity-name="SystemMessageError" package="moqui.service.message" use="transactional" cache="never">
         <field name="systemMessageId" type="id" is-pk="true"/>
         <field name="errorDate" type="date-time" is-pk="true"/>
         <field name="attemptedStatusId" type="id"/>
