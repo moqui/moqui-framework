@@ -58,6 +58,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="startedAt" type="Timestamp"/>
             <parameter name="finishedAt" type="Timestamp"/>
             <parameter name="inspectMap" type="Map"/>
+            <parameter name="instanceLog"/>
         </out-parameters>
     </service>
 
@@ -573,7 +574,6 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters><parameter name="appInstanceId"/></in-parameters>
         <out-parameters><parameter name="instanceLog"/></out-parameters>
         <actions>
-            <log message="changed"/>
             <script><![CDATA[
             import org.moqui.context.ExecutionContext
             import org.moqui.entity.EntityValue
@@ -599,7 +599,7 @@ along with this software (see the LICENSE.md file). If not, see
                 if (restResponse.statusCode == 200) {
                     instanceExists = true
 
-                    instanceLog = restResponde.text().replaceAll("\u0001\u0000{5}[\u0000\u0001][\u003c\ufffd]", "").replaceAll("\u001b\\[[0-9]{0,2}m", "")
+                    instanceLog = restResponse.text().replaceAll("\u0001\u0000{5}[\u0000\u0001][\u003c\ufffd]", "").replaceAll("\u001b\\[[0-9]{0,2}m", "")
 
                 } else if (restResponse.statusCode == 404) {
                     instanceExists = false
