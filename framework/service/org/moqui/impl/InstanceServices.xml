@@ -113,6 +113,12 @@ along with this software (see the LICENSE.md file). If not, see
                 <service-call name="create#moqui.server.instance.AppInstanceLink"
                         in-map="[appInstanceId:appInstanceId, instanceName:imageTypeLink.instanceName, aliasName:imageTypeLink.aliasName]"/>
             </iterate>
+            <set field="imageTypeVolumeList" from="imageType.vols"/>
+            <iterate list="imageTypeVolumeList" entry="imageTypeVolume">
+                <set field="volumeName" from="ec.resource.expand(imageTypeVolume.volumeName, '')"/>
+                <service-call name="create#moqui.server.instance.AppInstanceVolume"
+                        in-map="[appInstanceId:appInstanceId, mountPoint:imageTypeVolume.mountPoint, volumeName:volumeName]"/>
+            </iterate>
         </actions>
     </service>
 
@@ -309,6 +315,10 @@ along with this software (see the LICENSE.md file). If not, see
 
             List<String> envList = []
             for (Map env in appInstance.envs) if(env.envValue) envList.add("${env.envName}=${env.envValue}")
+
+            List<String> bindList = []
+            for (Map vol in appInstance.vols) if (vol.mountPoint && vol.volumeName) bindList.add("${vol.volumeName}:${vol.mountPoint}")
+            if (bindList) hostConfigMap.Binds = bindList
 
             Map jsonBody = [Image: instanceImage.imageName, Env: envList, HostConfig: hostConfigMap]
             String initCommand = appInstance.initCommand ?: instanceImageType.defaultInitCommand

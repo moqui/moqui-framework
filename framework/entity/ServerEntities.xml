@@ -195,6 +195,8 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="imageTypeId"/></relationship>
         <relationship type="many" related="moqui.server.instance.InstanceImageTypeLink" short-alias="links">
             <key-map field-name="imageTypeId"/></relationship>
+        <relationship type="many" related="moqui.server.instance.InstanceImageTypeVolume" short-alias="vols">
+            <key-map field-name="imageTypeId"/></relationship>
 
         <seed-data>
             <!-- matches configuration in nginx-mysql-compose.yml -->
@@ -218,6 +220,12 @@ along with this software (see the LICENSE.md file). If not, see
                 <envs envName="entity_ds_password" envValue="${org.moqui.util.StringUtilities.getRandomString(15)}"/>
 
                 <links instanceName="moqui-database"/>
+
+                <vols mountPoint="/opt/moqui/runtime/log" volumeName="${appInstance.hostName.replace('.', '_')}-runtime_log"/>
+                <vols mountPoint="/opt/moqui/runtime/txlog" volumeName="${appInstance.hostName.replace('.', '_')}-runtime_txlog"/>
+                <vols mountPoint="/opt/moqui/runtime/sessions" volumeName="${appInstance.hostName.replace('.', '_')}-runtime_sessions"/>
+                <vols mountPoint="/opt/moqui/runtime/db" volumeName="${appInstance.hostName.replace('.', '_')}-runtime_db"/>
+                <vols mountPoint="/opt/moqui/runtime/elasticsearch" volumeName="${appInstance.hostName.replace('.', '_')}-runtime_elasticsearch"/>
             </moqui.server.instance.InstanceImageType>
 
             <!-- these have no registryLocation, username, etc as they are intended to be pulled from Docker Hub -->
@@ -244,6 +252,12 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="imageTypeId" type="id" is-pk="true"/>
         <field name="instanceName" type="text-medium" is-pk="true"/>
         <field name="aliasName" type="text-medium"/>
+        <relationship type="one" related="moqui.server.instance.InstanceImageType"/>
+    </entity>
+    <entity entity-name="InstanceImageTypeVolume" package="moqui.server.instance" use="configuration">
+        <field name="imageTypeId" type="id" is-pk="true"/>
+        <field name="mountPoint" type="text-medium" is-pk="true"/>
+        <field name="volumeName" type="text-medium"/>
         <relationship type="one" related="moqui.server.instance.InstanceImageType"/>
     </entity>
     <view-entity entity-name="InstanceImageDetail" package="moqui.server.instance">
@@ -313,6 +327,8 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="appInstanceId"/></relationship>
         <relationship type="many" related="moqui.server.instance.AppInstanceLink" short-alias="links">
             <key-map field-name="appInstanceId"/></relationship>
+        <relationship type="many" related="moqui.server.instance.AppInstanceVolume" short-alias="vols">
+            <key-map field-name="appInstanceId"/></relationship>
     </entity>
     <entity entity-name="AppInstanceEnv" package="moqui.server.instance" use="configuration">
         <field name="appInstanceId" type="id" is-pk="true"/>
@@ -324,6 +340,12 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="appInstanceId" type="id" is-pk="true"/>
         <field name="instanceName" type="text-medium" is-pk="true"/>
         <field name="aliasName" type="text-medium"/>
+        <relationship type="one" related="moqui.server.instance.AppInstance"/>
+    </entity>
+    <entity entity-name="AppInstanceVolume" package="moqui.server.instance" use="configuration">
+        <field name="appInstanceId" type="id" is-pk="true"/>
+        <field name="mountPoint" type="text-medium" is-pk="true"/>
+        <field name="volumeName" type="text-medium"/>
         <relationship type="one" related="moqui.server.instance.AppInstance"/>
     </entity>
 </entities>
