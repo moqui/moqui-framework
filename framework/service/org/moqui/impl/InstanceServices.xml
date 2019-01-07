@@ -720,4 +720,82 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
+    <service verb="check" noun="DatabasePostgres">
+        <implements service="org.moqui.impl.InstanceServices.check#Database"/>
+        <actions>
+            <service-call name="org.moqui.impl.InstanceServices.get#AppInstanceEnv" in-map="context" out-map="context"/>
+            <if condition="!envMap"><return/></if>
+
+            <set field="adminMap.entity_ds_database" value="moitadmin"/>
+
+            <script><![CDATA[
+                org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger("checkDatabasePostgres")
+
+                dbConnectSuccess = false
+                databaseExists = false
+                dbUserExists = false
+
+                javax.sql.XAConnection testXaCon = null
+                java.sql.Connection testCon = null
+                try {
+                    testXaCon = ec.entity.getConfConnection(adminMap)
+                    testCon = testXaCon.getConnection()
+                    dbConnectSuccess = true
+                } catch (Exception e) {
+                    logger.warn("Test connection to Postgres failed", e)
+                } finally {
+                    if (testCon != null) testCon.close()
+                    if (testXaCon != null) testXaCon.close()
+                }
+
+                if (dbConnectSuccess) {
+                    long dbCount = ec.entity.runSqlCountConf("pg_database", "pg_database.datname='${envMap.entity_ds_database}'", adminMap)
+                    if (dbCount > 0L) databaseExists = true
+
+                    long userCount = ec.entity.runSqlCountConf("pg_catalog.pg_user", "usename='${envMap.entity_ds_user}'", adminMap)
+                    if (userCount > 0L) dbUserExists = true
+                }
+            ]]></script>
+        </actions>
+    </service>
+
+    <service verb="create" noun="DatabasePostgres">
+        <implements service="org.moqui.impl.InstanceServices.create#Database"/>
+        <actions>
+            <log message="Creating database in Postgres!"/>
+            <service-call name="org.moqui.impl.InstanceServices.get#AppInstanceEnv" in-map="context" out-map="context"/>
+            <if condition="!envMap"><return/></if>
+            <set field="adminMap.entity_ds_database" value="moitadmin"/>
+
+            <script><![CDATA[
+                databaseCreated = false
+                userCreated = false
+
+                long dbCount = ec.entity.runSqlCountConf("pg_database", "pg_database.datname='${envMap.entity_ds_database}'", adminMap)
+                if (dbCount > 0L) {
+                    ec.message.addMessage("Database ${envMap.entity_ds_database} already exists on host ${adminMap.entity_ds_host}")
+                } else {
+                    int dbRows = ec.entity.runSqlUpdateConf("CREATE DATABASE ${envMap.entity_ds_database}", adminMap)
+                    if (dbRows > 0) {
+                        databaseCreated = true
+                        ec.message.addMessage("Created database ${envMap.entity_ds_database} on host ${adminMap.entity_ds_host}")
+                    }
+                }
+
+                long userCount = ec.entity.runSqlCountConf("pg_catalog.pg_user", "usename='${envMap.entity_ds_user}'", adminMap)
+                if (userCount > 0L) {
+                    ec.message.addMessage("User ${envMap.entity_ds_user} already exists on host ${envMap.entity_ds_host}")
+                } else {
+                    // NOTE: calling CREATE USER with IF NOT EXISTS returns an error instead of warning in MySQL 5.7.* (at least 5.7.10)
+                    // NOTE: always seems to return 0 rows updated so ignore
+                    ec.entity.runSqlUpdateConf("CREATE USER ${envMap.entity_ds_user} WITH PASSWORD '${envMap.entity_ds_password}'", adminMap)
+                    userCreated = true
+                    ec.message.addMessage("Created user ${envMap.entity_ds_user} on host ${adminMap.entity_ds_host}")
+                }
+                // NOTE: because of issue above user must already exist, often the case (using same user to access all tenant DBs; may create separate users to access only a single tenant DB)
+                ec.entity.runSqlUpdateConf("GRANT ALL PRIVILEGES ON DATABASE ${envMap.entity_ds_database} TO ${envMap.entity_ds_user}", adminMap)
+            ]]></script>
+        </actions>
+    </service>
+
 </services>

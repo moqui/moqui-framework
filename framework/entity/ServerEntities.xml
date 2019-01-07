@@ -293,7 +293,7 @@ along with this software (see the LICENSE.md file). If not, see
                     createService="org.moqui.impl.InstanceServices.create#DatabaseMySQL"
                     checkService="org.moqui.impl.InstanceServices.check#DatabaseMySQL"/>
             <moqui.server.instance.DatabaseType databaseTypeId="postgres" description="Postgres" confName="postgres"
-                    createService="" checkService=""/>
+                    createService="org.moqui.impl.InstanceServices.create#DatabasePostgres" checkService="org.moqui.impl.InstanceServices.check#DatabasePostgres"/>
             <!-- matches configuration in nginx-mysql-compose.yml -->
             <moqui.server.instance.DatabaseHost databaseHostId="LocalMySQL" databaseTypeId="mysql"
                     hostAddress="127.0.0.1" hostPort="3306" instanceAddress="moqui-database"
