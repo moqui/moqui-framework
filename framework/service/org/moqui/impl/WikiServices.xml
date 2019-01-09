@@ -322,7 +322,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="parentPath"/>
             <parameter name="pageName" required="true">
                 <description>This is required for better usability. If pageName == wikiSpaceId is treated as the root page.</description>
-                <matches regexp="[\w\.\-,:()!\? ]*" message="Invalid page name (letters, digits, [.,-_:()!? ] only)"/>
+                <matches regexp="[\w\.\-,':()!\? ]*" message="Invalid page name (letters, digits, [.,'-_:()!? ] only)"/>
             </parameter>
             <parameter name="wikiType" default-value="md"/>
             <parameter name="pageText" allow-html="any"><description>If WikiSpace.allowAnyHtml = Y will be stored as-is, otherwise filtered like parameter.allow-html=safe.</description></parameter>
@@ -447,7 +447,10 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="create" noun="WikiSpace">
         <in-parameters>
             <auto-parameters include="nonpk"/>
-            <parameter name="wikiSpaceId"><text-letters/><text-length min="3" max="8"/></parameter>
+            <parameter name="wikiSpaceId" required="true">
+                <matches regexp="[A-Za-z]\w*" message="ID must start with a letter and contain only letters, digits, or underscore"/>
+                <text-length min="3" max="8"/>
+            </parameter>
             <parameter name="rootPageDirectory" default-value="dbresource://WikiSpace"/>
             <parameter name="wikiType" default-value="md"/>
         </in-parameters>
@@ -457,7 +460,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="rootPageLocation" value="${rootPageDirectory}/${wikiSpaceId}.${wikiType}"/></if>
 
             <!-- create the record -->
-            <service-call name="create#WikiSpace" in-map="context" out-map="context"/>
+            <service-call name="create#moqui.resource.wiki.WikiSpace" in-map="context" out-map="context"/>
 
             <!-- create a root page if no file exists at the given location -->
             <set field="rootPageReference" from="ec.resource.getLocationReference(rootPageLocation)"/>
@@ -465,6 +468,165 @@ along with this software (see the LICENSE.md file). If not, see
                 <script>rootPageReference.putText("\nAutomatic root page for space ${description?:wikiSpaceId}\n\n")</script></if>
         </actions>
     </service>
+    <service verb="clone" noun="WikiSpace" transaction-timeout="1800">
+        <in-parameters>
+            <parameter name="baseWikiSpaceId" required="true"/>
+            <parameter name="wikiSpaceId" required="true">
+                <matches regexp="[A-Za-z]\w*" message="ID must start with a letter and contain only letters, digits, or underscore"/>
+                <text-length min="3" max="8"/>
+            </parameter>
+            <parameter name="rootPageDirectory" default-value="dbresource://WikiSpace"/>
+            <parameter name="rootPageLocation"/>
+            <parameter name="description"/>
+
+            <parameter name="copyAttachments" type="Boolean" default="true"/>
+            <parameter name="publishNew" type="Boolean" default="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="wikiSpaceId"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="moqui.resource.wiki.WikiSpace" value-field="checkWikiSpace" cache="false">
+                <field-map field-name="wikiSpaceId" from="wikiSpaceId"/></entity-find-one>
+            <if condition="checkWikiSpace != null"><return error="true" message="Wiki Space with ID ${wikiSpaceId} already exists"/></if>
+
+            <entity-find-one entity-name="moqui.resource.wiki.WikiSpace" value-field="baseWikiSpace" cache="false">
+                <field-map field-name="wikiSpaceId" from="baseWikiSpaceId"/></entity-find-one>
+            <if condition="baseWikiSpace == null"><return error="true" message="Base Wiki Space with ID ${wikiSpaceId} not found"/></if>
+
+            <!-- get info for base space root page -->
+            <service-call name="org.moqui.impl.WikiServices.get#WikiPageInfo" out-map="baseRootPageInfo"
+                    in-map="[wikiSpaceId:baseWikiSpaceId, pagePath:null]"/>
+            <if condition="!rootPageLocation">
+                <set field="rootPageLocation" value="${rootPageDirectory}/${wikiSpaceId}.${baseRootPageInfo.wikiType}"/></if>
+            <!-- create root page if doesn't exist, otherwise later ops will fail -->
+            <set field="rootPageReference" from="ec.resource.getLocationReference(rootPageLocation)"/>
+            <if condition="!rootPageReference.exists">
+                <script>rootPageReference.putText(baseRootPageInfo.pageReference.getText())</script></if>
+
+            <!-- create new WikiSpace record -->
+            <set field="wikiSpace" from="baseWikiSpace.cloneValue()"/>
+            <set field="wikiSpace.wikiSpaceId" from="wikiSpaceId"/>
+            <set field="wikiSpace.rootPageLocation" from="rootPageLocation"/>
+            <if condition="description"><set field="wikiSpace.description" from="description"/></if>
+            <entity-create value-field="wikiSpace"/>
+
+            <!-- copy WikiSpaceUser records -->
+            <entity-find entity-name="moqui.resource.wiki.WikiSpaceUser" list="baseWikiSpaceUserList">
+                <econdition field-name="wikiSpaceId" from="baseWikiSpaceId"/></entity-find>
+            <iterate list="baseWikiSpaceUserList" entry="baseWikiSpaceUser">
+                <set field="wikiSpaceUser" from="baseWikiSpaceUser.cloneValue()"/>
+                <set field="wikiSpaceUser.wikiSpaceId" from="wikiSpaceId"/>
+                <entity-create value-field="wikiSpaceUser"/>
+            </iterate>
+
+            <!-- copy the root page -->
+            <service-call name="org.moqui.impl.WikiServices.clone#WikiPage" out-map="cloneRootOut"
+                    in-map="[baseWikiSpaceId:baseWikiSpaceId, wikiSpaceId:wikiSpaceId, pagePath:null,
+                            copyAttachments:copyAttachments, publishNew:publishNew]"/>
+
+            <!-- iterate through all pages in space, copy to new location and add WikiPage/etc records -->
+            <set field="baseRootPageRef" from="ec.resource.getLocationReference(baseWikiSpace.rootPageLocation)"/>
+            <set field="baseRootPageDirRef" from="baseRootPageRef.findMatchingDirectory()"/>
+            <!-- walk the entire tree of pages under the space root and add them to the flat list and the tree of pages -->
+            <set field="allChildFileFlatList" from="new ArrayList()"/>
+            <script>baseRootPageDirRef.walkChildTree(allChildFileFlatList, null)</script>
+            <iterate list="allChildFileFlatList" entry="pageInfo">
+                <service-call name="org.moqui.impl.WikiServices.clone#WikiPage"
+                        in-map="[baseWikiSpaceId:baseWikiSpaceId, wikiSpaceId:wikiSpaceId, pagePath:pageInfo.path,
+                            copyAttachments:copyAttachments, publishNew:publishNew]"/>
+            </iterate>
+        </actions>
+    </service>
+    <service verb="clone" noun="WikiPage">
+        <in-parameters>
+            <parameter name="baseWikiSpaceId" required="true"/>
+            <parameter name="wikiSpaceId" required="true"/>
+            <parameter name="pagePath"/>
+
+            <parameter name="copyAttachments" type="Boolean" default="true"/>
+            <parameter name="publishNew" type="Boolean" default="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="basePageInfo" type="Map"/>
+            <parameter name="wikiPageId"/>
+        </out-parameters>
+        <actions>
+            <log message="Cloning WikiPage ${pagePath} from space ${baseWikiSpaceId} to space ${wikiSpaceId}"/>
+
+            <service-call name="org.moqui.impl.WikiServices.get#WikiPageInfo" out-map="basePageInfo"
+                    in-map="[wikiSpaceId:baseWikiSpaceId, pagePath:pagePath]"/>
+            <!-- <log level="warn" message="basePageInfo: ${basePageInfo}"/> -->
+
+            <!-- copy page resource text, create new WikiPage record -->
+            <!-- NOTE don't do this for root page, content of page handled in clone#WikiSpace -->
+            <if condition="pagePath"><then>
+                <!-- TODO FUTURE this gets the latest text for the page; consider getting published version based on parameter, if there is a published version for this page -->
+                <service-call name="org.moqui.impl.WikiServices.update#WikiPage" out-map="newPageOut"
+                        in-map="[wikiSpaceId:wikiSpaceId, pagePath:basePageInfo.pagePath, pageName:basePageInfo.pageName,
+                            parentPath:basePageInfo.parentPath, wikiType:basePageInfo.wikiType,
+                            pageText:basePageInfo.pageReference.getText()]"/>
+
+                <service-call name="org.moqui.impl.WikiServices.get#WikiPageInfo" out-map="newPageInfo"
+                        in-map="[wikiSpaceId:wikiSpaceId, pagePath:pagePath]"/>
+
+                <!-- <log level="warn" message="newPageOut: ${newPageOut}"/> -->
+            </then><else>
+                <!-- for root page just get ID from page info, also creates WikiPage record if missing -->
+                <service-call name="org.moqui.impl.WikiServices.get#WikiPageInfo" out-map="newPageInfo"
+                        in-map="[wikiSpaceId:baseWikiSpaceId, pagePath:pagePath]"/>
+            </else></if>
+            <!-- <log level="warn" message="newPageInfo: ${newPageInfo}"/> -->
+            <set field="wikiPageId" from="newPageInfo.wikiPageId"/>
+
+            <if condition="publishNew &amp;&amp; wikiPageId &amp;&amp; newPageInfo?.currentVersionName">
+                <service-call name="update#moqui.resource.wiki.WikiPage"
+                        in-map="[wikiPageId:wikiPageId, publishedVersionName:newPageInfo.currentVersionName]"/>
+            </if>
+
+            <!-- copy attachments -->
+            <if condition="copyAttachments">
+                <iterate list="basePageInfo.attachmentList" entry="attachmentInfo">
+                    <service-call name="org.moqui.impl.WikiServices.get#WikiPageAttachment" out-map="baseAttachOut"
+                            in-map="[wikiSpaceId:baseWikiSpaceId, pagePath:basePageInfo.pagePath, filename:attachmentInfo.filename]"/>
+                    <service-call name="org.moqui.impl.WikiServices.get#WikiPageAttachment" out-map="attachOut"
+                            in-map="[wikiSpaceId:wikiSpaceId, pagePath:basePageInfo.pagePath, filename:attachmentInfo.filename]"/>
+                    <log message="Copying attachment from ${baseAttachOut?.attachmentReference?.location} to ${attachOut?.attachmentReference?.location}"/>
+                    <script><![CDATA[
+                        if (baseAttachOut.attachmentReference != null && attachOut.attachmentReference != null) {
+                            InputStream fileStream = baseAttachOut.attachmentReference.openStream()
+                            attachOut.attachmentReference.putStream(fileStream)
+                            fileStream.close()
+                        }
+                    ]]></script>
+                </iterate>
+            </if>
+
+            <if condition="basePageInfo.wikiPageId &amp;&amp; wikiPageId">
+                <!-- copy WikiPageUser records -->
+                <entity-find entity-name="moqui.resource.wiki.WikiPageUser" list="baseWikiPageUserList">
+                    <econdition field-name="wikiPageId" from="basePageInfo.wikiPageId"/></entity-find>
+                <iterate list="baseWikiPageUserList" entry="baseWikiPageUser">
+                    <set field="wikiPageUser" from="baseWikiPageUser.cloneValue()"/>
+                    <set field="wikiPageUser.wikiPageId" from="wikiPageId"/>
+                    <entity-create value-field="wikiPageUser"/>
+                </iterate>
+
+                <!-- copy WikiPageAlias records -->
+                <entity-find entity-name="moqui.resource.wiki.WikiPageAlias" list="baseWikiPageAliasList">
+                    <econdition field-name="wikiSpaceId" from="baseWikiSpaceId"/>
+                    <econdition field-name="wikiPageId" from="basePageInfo.wikiPageId"/>
+                </entity-find>
+                <iterate list="baseWikiPageAliasList" entry="baseWikiPageAlias">
+                    <set field="wikiPageAlias" from="baseWikiPageAlias.cloneValue()"/>
+                    <set field="wikiPageAlias.wikiSpaceId" from="wikiSpaceId"/>
+                    <set field="wikiPageAlias.wikiPageId" from="wikiPageId"/>
+                    <entity-create value-field="wikiPageAlias"/>
+                </iterate>
+            </if>
+
+            <!-- TODO FUTURE copy history, optional based on parameter; complex because underlying ResourceReference impl needs to support on its side -->
+        </actions>
+    </service>
+
     <service verb="get" noun="WikiSpacePages">
         <in-parameters>
             <parameter name="wikiSpaceId" required="true"/>
@@ -609,7 +771,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <exclude field-name="smallImageLocation"/></auto-parameters>
             <parameter name="wikiSpaceId" required="true"/>
             <parameter name="title" required="true">
-                <matches regexp="[\w\.\-,:()!\? ]*" message="Invalid title (letters, digits, [.,-_:()!? ] only)"/></parameter>
+                <matches regexp="[\w\.\-,':()!\? ]*" message="Invalid title (letters, digits, [.,'-_:()!? ] only)"/></parameter>
             <parameter name="summary" allow-html="safe"/>
             <parameter name="publishDate" type="Timestamp" default="ec.user.nowTimestamp"/>
             <parameter name="smallImage" type="org.apache.commons.fileupload.FileItem"/>
@@ -643,7 +805,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <exclude field-name="smallImageLocation"/></auto-parameters>
             <parameter name="wikiBlogId" required="true"/>
             <parameter name="title">
-                <matches regexp="[\w\.\-,:()!\? ]*" message="Invalid title (letters, digits, [.,-_:()!? ] only)"/></parameter>
+                <matches regexp="[\w\.\-,':()!\? ]*" message="Invalid title (letters, digits, [.,'-_:()!? ] only)"/></parameter>
             <parameter name="summary" allow-html="safe"/>
             <parameter name="smallImage" type="org.apache.commons.fileupload.FileItem"/>
             <parameter name="blogText" allow-html="any"/>
