@@ -344,7 +344,7 @@ public class WebUtilities {
             try {
                 return ses.getAttributeNames();
             } catch (IllegalStateException e) {
-                logger.info("Tried getAttributeNames() on invalidated session " + ses.getId() + ": " + e.toString());
+                logger.warn("Tried getAttributeNames() on invalidated session " + ses.getId() + ": " + e.toString());
                 return emptyStringEnum;
             }
         }
@@ -352,7 +352,7 @@ public class WebUtilities {
             try {
                 return ses.getAttribute(name);
             } catch (IllegalStateException e) {
-                logger.info("Tried getAttribute(" + name + ") on invalidated session " + ses.getId() + ": " + e.toString());
+                logger.warn("Tried getAttribute(" + name + ") on invalidated session " + ses.getId(), BaseException.filterStackTrace(e));
                 return null;
             }
         }
@@ -362,14 +362,14 @@ public class WebUtilities {
             try {
                 ses.setAttribute(name, value);
             } catch (IllegalStateException e) {
-                logger.info("Tried setAttribute(" + name + ", " + value + ") on invalidated session " + ses.getId() + ": " + e.toString());
+                logger.warn("Tried setAttribute(" + name + ", " + value + ") on invalidated session " + ses.getId(), BaseException.filterStackTrace(e));
             }
         }
         @Override public void removeAttribute(String name) {
             try {
                 ses.removeAttribute(name);
             } catch (IllegalStateException e) {
-                logger.info("Tried removeAttribute(" + name + ") on invalidated session " + ses.getId() + ": " + e.toString());
+                logger.warn("Tried removeAttribute(" + name + ") on invalidated session " + ses.getId() + ": " + e.toString());
             }
         }
     }

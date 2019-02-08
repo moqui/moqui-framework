@@ -489,6 +489,9 @@ class WebFacadeImpl implements WebFacade {
         // force a new moqui.session.token
         session.setAttribute("moqui.session.token", StringUtilities.getRandomString(20))
         request.setAttribute("moqui.session.token.created", "true")
+        // remake sessionAttributes to use newSession
+        sessionAttributes = new WebUtilities.AttributeContainerMap(new WebUtilities.HttpSessionContainer(newSession))
+        // done
         return newSession
     }
 
