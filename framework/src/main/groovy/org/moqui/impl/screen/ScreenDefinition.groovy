@@ -21,6 +21,8 @@ import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.ExecutionContext
 import org.moqui.context.ResourceFacade
 import org.moqui.impl.context.ContextJavaUtil
+import org.moqui.impl.entity.EntityDefinition
+import org.moqui.impl.service.ServiceDefinition
 import org.moqui.resource.ResourceReference
 import org.moqui.context.WebFacade
 import org.moqui.entity.EntityFind
@@ -352,14 +354,14 @@ class ScreenDefinition {
     }
 
     TransitionItem getTransitionItem(String name, String method) {
-        method = method ? method.toLowerCase() : ""
-        TransitionItem ti = (TransitionItem) transitionByName.get(name + "#" + method)
+        method = method != null ? method.toLowerCase() : ""
+        TransitionItem ti = (TransitionItem) transitionByName.get(name.concat("#").concat(method))
         // if no ti, try by name only which will catch transitions with "any" or empty method
         if (ti == null) ti = (TransitionItem) transitionByName.get(name)
         // still none? try each one to see if it matches as a regular expression (first one to match wins)
         if (ti == null) for (TransitionItem curTi in transitionByName.values()) {
-            if (method && curTi.method && (curTi.method == "any" || curTi.method == method)) {
-                if (name == curTi.name) { ti = curTi; break }
+            if (method != null && !method.isEmpty() && ("any".equals(curTi.method) || method.equals(curTi.method))) {
+                if (name.equals(curTi.name)) { ti = curTi; break }
                 if (name.matches(curTi.name)) { ti = curTi; break }
             }
             // logger.info("In getTransitionItem() transition with name [${curTi.name}] method [${curTi.method}] did not match name [${name}] method [${method}]")
@@ -658,6 +660,7 @@ class ScreenDefinition {
         protected String location
         protected XmlAction condition = null
         protected XmlAction actions = null
+        protected XmlAction serviceActions = null
         protected String singleServiceName = null
 
         protected Map<String, ParameterItem> parameterByName = new HashMap()
@@ -698,19 +701,21 @@ class ScreenDefinition {
                 // the script is effectively the first child of the condition element
                 condition = new XmlAction(parentScreen.sfi.ecfi, transitionNode.first("condition").first(), location + ".condition")
             }
-            // service OR actions
+            // allow both call-service and actions
+            if (transitionNode.hasChild("actions")) {
+                actions = new XmlAction(parentScreen.sfi.ecfi, transitionNode.first("actions"), location + ".actions")
+            }
             if (transitionNode.hasChild("service-call")) {
                 MNode callServiceNode = transitionNode.first("service-call")
                 if (!callServiceNode.attribute("in-map")) callServiceNode.attributes.put("in-map", "true")
                 if (!callServiceNode.attribute("out-map")) callServiceNode.attributes.put("out-map", "context")
-                if (!callServiceNode.attribute("multi")) callServiceNode.attributes.put("multi", "parameter")
-                actions = new XmlAction(parentScreen.sfi.ecfi, callServiceNode, location + ".service_call")
+                if (!callServiceNode.attribute("multi") && !"true".equals(callServiceNode.attribute("async")))
+                    callServiceNode.attributes.put("multi", "parameter")
+                serviceActions = new XmlAction(parentScreen.sfi.ecfi, callServiceNode, location + ".service_call")
                 singleServiceName = callServiceNode.attribute("name")
-            } else if (transitionNode.hasChild("actions")) {
-                actions = new XmlAction(parentScreen.sfi.ecfi, transitionNode.first("actions"), location + ".actions")
             }
 
-            readOnly = actions == null || transitionNode.attribute("read-only") == "true"
+            readOnly = (actions == null && serviceActions == null) || transitionNode.attribute("read-only") == "true"
 
             // conditional-response*
             for (MNode condResponseNode in transitionNode.children("conditional-response"))
@@ -727,7 +732,7 @@ class ScreenDefinition {
         String getSingleServiceName() { return singleServiceName }
         List<String> getPathParameterList() { return pathParameterList }
         Map<String, ParameterItem> getParameterMap() { return parameterByName }
-        boolean hasActionsOrSingleService() { return actions != null }
+        boolean hasActionsOrSingleService() { return actions != null || serviceActions != null}
         boolean getBeginTransaction() { return beginTransaction }
         boolean isReadOnly() { return readOnly }
         boolean getRequireSessionToken() { return requireSessionToken }
@@ -803,11 +808,41 @@ class ScreenDefinition {
                 // don't push a map on the context, let the transition actions set things that will remain: sri.ec.context.push()
                 ec.contextStack.put("sri", sri)
                 // logger.warn("Running transition ${name} context: ${ec.contextStack.toString()}")
-                if (actions != null) actions.run(ec)
+                if (serviceActions != null) {
+                    // if this is an implicit entity auto service filter input for HTML like done in defined service calls by default;
+                    //     to get around define a service with a parameter that allows safe or any HTML instead of using implicit entity auto directly
+                    if (ec.serviceFacade.isEntityAutoPattern(singleServiceName)) {
+                        String entityName = ServiceDefinition.getNounFromName(singleServiceName)
+                        EntityDefinition ed = ec.entityFacade.getEntityDefinition(entityName)
+                        if (ed != null) {
+                            ArrayList<String> fieldNameList = ed.getAllFieldNames()
+                            int fieldNameListSize = fieldNameList.size()
+                            for (int i = 0; i < fieldNameListSize; i++) {
+                                String fieldName = (String) fieldNameList.get(i)
+                                Object fieldValue = ec.contextStack.getByString(fieldName)
+                                if (fieldValue instanceof CharSequence) {
+                                    String fieldString = fieldValue.toString()
+                                    if (fieldString.contains("<")) {
+                                        ec.messageFacade.addValidationError(null, fieldName, singleServiceName,
+                                                ec.getL10n().localize("HTML not allowed including less-than (<), greater-than (>), etc symbols"), null)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (!ec.messageFacade.hasError()) {
+                        serviceActions.run(ec)
+                    }
+                }
+                // run actions if any defined, even if service-call also used
+                // NOTE: prior code also required !ec.messageFacade.hasError() which doesn't allow actions to handle errors
+                if (actions != null) {
+                    actions.run(ec)
+                }
 
                 ResponseItem ri = null
                 // if there is an error-response and there are errors, we have a winner
-                if (ec.getMessage().hasError() && errorResponse) ri = errorResponse
+                if (ec.messageFacade.hasError() && errorResponse) ri = errorResponse
 
                 // check all conditional-response, if condition then return that response
                 if (ri == null) for (ResponseItem condResp in conditionalResponseList) {

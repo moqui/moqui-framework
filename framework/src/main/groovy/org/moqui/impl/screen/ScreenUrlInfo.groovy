@@ -34,6 +34,7 @@ import org.moqui.impl.service.ServiceDefinition
 import org.moqui.impl.webapp.ScreenResourceNotFoundException
 import org.moqui.util.MNode
 import org.moqui.util.ObjectUtilities
+import org.moqui.util.StringUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -113,9 +114,22 @@ class ScreenUrlInfo {
         screenUrlCache.put(url, newSui)
         return newSui
     }
+    static ScreenUrlInfo getScreenUrlInfo(ScreenFacadeImpl sfi, String url) {
+        Cache<String, ScreenUrlInfo> screenUrlCache = sfi.screenUrlCache
+        ScreenUrlInfo cached = (ScreenUrlInfo) screenUrlCache.get(url)
+        if (cached != null) return cached
+
+        ScreenUrlInfo newSui = new ScreenUrlInfo(sfi, url)
+        screenUrlCache.put(url, newSui)
+        return newSui
+    }
 
     static ScreenUrlInfo getScreenUrlInfo(ScreenFacadeImpl sfi, ScreenDefinition rootSd, ScreenDefinition fromScreenDef,
                                           ArrayList<String> fpnl, String subscreenPath, int lastStandalone) {
+        // see if a plain URL was treated as a subscreen path
+        if (subscreenPath != null && (subscreenPath.startsWith("https:") || subscreenPath.startsWith("http:")))
+            return getScreenUrlInfo(sfi, subscreenPath)
+
         Cache<String, ScreenUrlInfo> screenUrlCache = sfi.screenUrlCache
         String cacheKey = makeCacheKey(rootSd, fromScreenDef, fpnl, subscreenPath, lastStandalone)
         ScreenUrlInfo cached = (ScreenUrlInfo) screenUrlCache.get(cacheKey)
@@ -128,6 +142,10 @@ class ScreenUrlInfo {
 
     static ScreenUrlInfo getScreenUrlInfo(ScreenRenderImpl sri, ScreenDefinition fromScreenDef, ArrayList<String> fpnl,
                                           String subscreenPath, int lastStandalone) {
+        // see if a plain URL was treated as a subscreen path
+        if (subscreenPath != null && (subscreenPath.startsWith("https:") || subscreenPath.startsWith("http:")))
+            return getScreenUrlInfo(sri, subscreenPath)
+
         ScreenDefinition rootSd = sri.getRootScreenDef()
         ScreenDefinition fromSd = fromScreenDef
         ArrayList<String> fromPathList = fpnl
@@ -185,6 +203,11 @@ class ScreenUrlInfo {
         this.sfi = sri.sfi
         this.ecfi = sfi.ecfi
         this.rootSd = sri.getRootScreenDef()
+        this.plainUrl = url
+    }
+    ScreenUrlInfo(ScreenFacadeImpl sfi, String url) {
+        this.sfi = sfi
+        this.ecfi = sfi.ecfi
         this.plainUrl = url
     }
 
@@ -320,7 +343,7 @@ class ScreenUrlInfo {
             int listSize = fullPathNameList.size()
             for (int i = 0; i < listSize; i++) {
                 String pathName = fullPathNameList.get(i)
-                urlBuilder.append('/').append(URLEncoder.encode(pathName, "UTF-8"))
+                urlBuilder.append('/').append(StringUtilities.urlEncodeIfNeeded(pathName))
             }
         }
         return urlBuilder.toString()
@@ -338,7 +361,7 @@ class ScreenUrlInfo {
                 int listSize = fullPathNameList.size()
                 for (int i = 0; i < listSize; i++) {
                     String pathName = fullPathNameList.get(i)
-                    urlBuilder.append('/').append(pathName)
+                    urlBuilder.append('/').append(StringUtilities.urlEncodeIfNeeded(pathName))
                 }
             }
         } else {
@@ -346,7 +369,7 @@ class ScreenUrlInfo {
                 int listSize = minimalPathNameList.size()
                 for (int i = 0; i < listSize; i++) {
                     String pathName = minimalPathNameList.get(i)
-                    urlBuilder.append('/').append(pathName)
+                    urlBuilder.append('/').append(StringUtilities.urlEncodeIfNeeded(pathName))
                 }
             }
         }
@@ -749,8 +772,45 @@ class ScreenUrlInfo {
 
     static ArrayList<String> parseSubScreenPath(ScreenDefinition rootSd, ScreenDefinition fromSd, List<String> fromPathList,
                                                 String screenPath, Map inlineParameters, ScreenFacadeImpl sfi) {
+        if (screenPath == null) screenPath = ""
+        // at very beginning look up ScreenPathAlias to see if this should be replaced; allows various flexible uses of this including global placeholders
+        boolean startsWithSlash = screenPath.startsWith("/")
+        String aliasPath = screenPath
+        if (!startsWithSlash && fromPathList != null && fromPathList.size() > 0) {
+            StringBuilder newPath = new StringBuilder()
+            int fplSize = fromPathList.size()
+            for (int i = 0; i < fplSize; i++) newPath.append('/').append(fromPathList.get(i))
+            if (!screenPath.isEmpty()) newPath.append('/').append(screenPath)
+            aliasPath = newPath.toString()
+        }
+        // logger.warn("Looking for path alias with screenPath ${screenPath} fromPathList ${fromPathList} aliasPath ${aliasPath}")
+        EntityList screenPathAliasList = sfi.ecfi.entityFacade.find("moqui.screen.ScreenPathAlias")
+                .condition("aliasPath", aliasPath).disableAuthz().useCache(true).list()
+        // logger.warn("Looking for path alias with aliasPath ${aliasPath} screenPathAliasList ${screenPathAliasList}")
+        // keep this as light weight as possible, only filter and sort if needed
+        if (screenPathAliasList.size() > 0) {
+            screenPathAliasList = screenPathAliasList.cloneList().filterByDate("fromDate", "thruDate", null)
+            int spaListSize = screenPathAliasList.size()
+            if (spaListSize > 0) {
+                if (spaListSize > 1) screenPathAliasList.orderByFields(["-fromDate"])
+                String newScreenPath = screenPathAliasList.get(0).getNoCheckSimple("screenPath")
+                if (newScreenPath != null && !newScreenPath.isEmpty()) {
+                    screenPath = newScreenPath
+                }
+            }
+        }
+
+        // NOTE: this is somewhat tricky because screenPath may be encoded or not, may come from internal string or from browser URL string
+
         // if there are any ?... parameters parse them off and remove them from the string
-        int indexOfQuestionMark = screenPath.indexOf("?")
+        int indexOfQuestionMark = screenPath.lastIndexOf("?")
+
+        // BAD idea: common to have at least '.' characters in URL parameters and such
+        // for wiki pages and other odd filenames try to handle a '?' in the filename, ie don't consider parameter separator if
+        //     there is a '/' or '.' after it or if it is the end of the string; doesn't handle all cases, may not be possible to
+        // if (indexOfQuestionMark > 0 && (indexOfQuestionMark == screenPath.length() - 1 || screenPath.indexOf("/", indexOfQuestionMark) > 0 || screenPath.indexOf(".", indexOfQuestionMark) > 0)) { indexOfQuestionMark = -1 }
+        // logger.warn("indexOfQuestionMark ${indexOfQuestionMark} screenPath ${screenPath}")
+
         if (indexOfQuestionMark > 0) {
             String pathParmString = screenPath.substring(indexOfQuestionMark + 1)
             if (inlineParameters != null && pathParmString.length() > 0) {
@@ -760,10 +820,12 @@ class ScreenUrlInfo {
                     if (nameValue.length == 2) inlineParameters.put(nameValue[0], URLDecoder.decode(nameValue[1], "UTF-8"))
                 }
             }
+
             screenPath = screenPath.substring(0, indexOfQuestionMark)
         }
 
-        if (screenPath.startsWith("//")) {
+        startsWithSlash = screenPath.startsWith("/")
+        if (startsWithSlash && screenPath.startsWith("//")) {
             // find the screen by name
             String trimmedFromPath = screenPath.substring(2)
             ArrayList<String> originalPathNameList = new ArrayList<String>(trimmedFromPath.split("/") as List)
@@ -771,7 +833,7 @@ class ScreenUrlInfo {
 
             if (sfi.screenFindPathCache.containsKey(screenPath)) {
                 ArrayList<String> cachedPathList = (ArrayList<String>) sfi.screenFindPathCache.get(screenPath)
-                if (cachedPathList) {
+                if (cachedPathList != null && cachedPathList.size() > 0) {
                     return cachedPathList
                 } else {
                     return null
@@ -788,7 +850,7 @@ class ScreenUrlInfo {
                 }
             }
         } else {
-            if (screenPath.startsWith("/")) fromPathList = (List<String>) null
+            if (startsWithSlash) fromPathList = (List<String>) null
 
             ArrayList<String> tempPathNameList = new ArrayList<String>()
             if (fromPathList != null) tempPathNameList.addAll(fromPathList)
@@ -870,7 +932,7 @@ class ScreenUrlInfo {
                 curTargetTransition = sui.targetScreen.getTransitionItem(sui.targetTransitionActualName, getRequestMethod())
             return curTargetTransition
         }
-        boolean getHasActions() { getTargetTransition() != null && getTargetTransition().actions }
+        boolean getHasActions() { getTargetTransition() != null && (getTargetTransition().actions != null || getTargetTransition().serviceActions != null) }
         boolean isReadOnly() { getTargetTransition() == null || getTargetTransition().isReadOnly() }
         boolean getDisableLink() { return !sui.targetExists || (getTargetTransition() != null && !getTargetTransition().checkCondition(ec)) || !isPermitted() }
         boolean isPermitted() { return sui.isPermitted(ec, getTargetTransition()) }
@@ -1021,7 +1083,7 @@ class ScreenUrlInfo {
                 if (!pme.value) continue
                 if (pme.key == "moquiSessionToken") continue
                 if (ps.length() > 0) ps.append("&")
-                ps.append(URLEncoder.encode(pme.key, "UTF-8")).append("=").append(URLEncoder.encode(pme.value, "UTF-8"))
+                ps.append(StringUtilities.urlEncodeIfNeeded(pme.key)).append("=").append(StringUtilities.urlEncodeIfNeeded(pme.value))
             }
             return ps.toString()
         }
@@ -1031,7 +1093,7 @@ class ScreenUrlInfo {
             for (Map.Entry<String, String> pme in pm.entrySet()) {
                 if (!pme.getValue()) continue
                 ps.append("/~")
-                ps.append(URLEncoder.encode(pme.getKey(), "UTF-8")).append("=").append(URLEncoder.encode(pme.getValue(), "UTF-8"))
+                ps.append(StringUtilities.urlEncodeIfNeeded(pme.getKey())).append("=").append(StringUtilities.urlEncodeIfNeeded(pme.getValue()))
             }
             return ps.toString()
         }

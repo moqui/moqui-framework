@@ -36,8 +36,9 @@ public interface WebFacade {
      * path parameters, and standard Servlet request parameters (query string parameters, form body parameters). */
     Map<String, Object> getRequestParameters();
     /** Returns a Map with only secure (encrypted if over HTTPS) request parameters including session saved,
-     * multi-part body, json body, and form body parameters (standard Servlet request parameters IFF there is no query string). */
+     * multi-part body, json body, and form body parameters (standard Servlet request parameters not in query string). */
     Map<String, Object> getSecureRequestParameters();
+
     String getHostName(boolean withPort);
     /** Alternative to HttpServletRequest.getPathInfo() that uses URLDecoder to decode path segments to match the use of URLEncoder
      * for URL generation using the 'application/x-www-form-urlencoded' MIME format */
@@ -45,6 +46,8 @@ public interface WebFacade {
     /** Like getPathInfo() but returns a list of decoded path segment Strings.
      * If there is no extra path after the servlet path returns an empty list. */
     ArrayList<String> getPathInfoList();
+    /** If Content-Type request header is a text type and body length is greater than zero you can get the full body text here */
+    String getRequestBodyText();
 
     HttpServletResponse getResponse();
 
@@ -78,4 +81,5 @@ public interface WebFacade {
     void handleJsonRpcServiceCall();
     void handleEntityRestCall(List<String> extraPathNameList, boolean masterNameInPath);
     void handleServiceRestCall(List<String> extraPathNameList);
+    void handleSystemMessage(List<String> extraPathNameList);
 }

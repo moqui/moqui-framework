@@ -184,7 +184,7 @@ class ResourceFacadeImpl implements ResourceFacade {
             sessionMap = new HashMap()
             contentSessions.set(sessionMap)
         }
-        Session newSession = sessionMap[name]
+        Session newSession = sessionMap.get(name)
         if (newSession != null) {
             if (newSession.isLive()) {
                 return newSession

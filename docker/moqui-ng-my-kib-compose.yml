@@ -90,8 +90,7 @@ services:
   kibana:
     # using the docker hub image which does not include X-Pack (causes issues because embedded ES does not including X-Pack)
     # the kibana image on docker hub is deprecated and slated to be removed, then will need an alternative without X-Pack
-    image: kibana:5.4.1
-    # image: docker.elastic.co/kibana/kibana:5.4.1
+    image: docker.elastic.co/kibana/kibana:6.3.2
     container_name: kibana
     restart: unless-stopped
     # ports:

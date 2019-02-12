@@ -24,6 +24,7 @@ import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLEncoder;
 import java.security.SecureRandom;
 import java.text.ParseException;
 import java.util.*;
@@ -103,6 +104,46 @@ public class StringUtilities {
             }
         }
         return newValue.toString();
+    }
+
+    /** See if contains only characters allowed by URLDecoder, if so doesn't need to be encoded or is already encoded */
+    public static boolean isUrlDecoderSafe(String text) {
+        // see https://docs.oracle.com/javase/8/docs/api/index.html?java/net/URLEncoder.html
+        // letters, digits, and: "-", "_", ".", and "*"
+        // allow '%' for strings already encoded
+        // '+' is treated as space, so allow but means we can't detect if already encoded vs doesn't need to be encoded
+        if (text == null) return true;
+        // NOTE: expect mostly shorter strings to charAt() faster than text.toCharArray() and chars[i]; more memory efficient too
+        int textLen = text.length();
+        for (int i = 0; i < textLen; i++) {
+            char ch = text.charAt(i);
+            if (Character.isLetterOrDigit(ch)) continue;
+            if (ch == '.' || ch == '_' || ch == '-' || ch == '*' || ch == '%' || ch == '+') continue;
+            return false;
+        }
+        return true;
+    }
+    public static String urlEncodeIfNeeded(String text) {
+        if (isUrlDecoderSafe(text)) return text;
+        try {
+            return URLEncoder.encode(text, "UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            // should never happen with hard coded encoding
+            return text;
+        }
+    }
+    public static boolean isUrlSafeRfc3986(String text) {
+        if (text == null) return true;
+        // RFC 3986 URL path chars: a-z A-Z 0-9 . _ - + ~ ! $ & ' ( ) * , ; = : @
+        char[] chars = text.toCharArray();
+        for (int i = 0; i < chars.length; i++) {
+            char ch = chars[i];
+            if (Character.isLetterOrDigit(ch)) continue;
+            if (ch == '.' || ch == '_' || ch == '-' || ch == '+' || ch == '~' || ch == '!' || ch == '$' || ch == '&' || ch == '\'' ||
+                    ch == '(' || ch == ')' || ch == '*' || ch == ',' || ch == ';' || ch == '=' || ch == ':' || ch == '@') continue;
+            return false;
+        }
+        return true;
     }
 
     public static String camelCaseToPretty(String camelCase) {

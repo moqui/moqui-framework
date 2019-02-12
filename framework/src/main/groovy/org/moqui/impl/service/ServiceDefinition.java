@@ -45,7 +45,7 @@ public class ServiceDefinition {
 
     private final LinkedHashMap<String, ParameterInfo> inParameterInfoMap = new LinkedHashMap<>();
     private final ParameterInfo[] inParameterInfoArray;
-    private final boolean inParameterHasDefault;
+    // private final boolean inParameterHasDefault;
     private final LinkedHashMap<String, ParameterInfo> outParameterInfoMap = new LinkedHashMap<>();
     public final ArrayList<String> inParameterNameList = new ArrayList<>();
     public final ArrayList<String> outParameterNameList = new ArrayList<>();
@@ -74,7 +74,7 @@ public class ServiceDefinition {
     public final boolean allowRemote;
 
     public final boolean hasSemaphore;
-    public final String semaphore, semaphoreParameter;
+    public final String semaphore, semaphoreName, semaphoreParameter;
     public final long semaphoreIgnoreMillis, semaphoreSleepTime, semaphoreTimeoutTime;
 
     public ServiceDefinition(ServiceFacadeImpl sfi, String path, MNode sn) {
@@ -187,6 +187,7 @@ public class ServiceDefinition {
         }
 
         semaphore = serviceNode.attribute("semaphore");
+        semaphoreName = serviceNode.attribute("semaphore-name");
         hasSemaphore = semaphore != null && semaphore.length() > 0 && !"none".equals(semaphore);
         semaphoreParameter = serviceNode.attribute("semaphore-parameter");
         String ignoreAttr = serviceNode.attribute("semaphore-ignore");
@@ -213,14 +214,14 @@ public class ServiceDefinition {
         }
         int inParameterNameListSize = inParameterNameList.size();
         inParameterInfoArray = new ParameterInfo[inParameterNameListSize];
-        boolean tempHasDefault = false;
+        // boolean tempHasDefault = false;
         for (int i = 0; i < inParameterNameListSize; i++) {
             String parmName = inParameterNameList.get(i);
             ParameterInfo pi = inParameterInfoMap.get(parmName);
             inParameterInfoArray[i] = pi;
-            if (pi.thisOrChildHasDefault) tempHasDefault = true;
+            // if (pi.thisOrChildHasDefault) tempHasDefault = true;
         }
-        inParameterHasDefault = tempHasDefault;
+        // inParameterHasDefault = tempHasDefault;
 
         if (outParametersNode != null) for (MNode parameter : outParametersNode.children("parameter")) {
             String parameterName = parameter.attribute("name");
