@@ -50,11 +50,14 @@ public interface UserFacade {
      * @return The value of the preference from the UserPreference.preferenceValue field
      */
     String getPreference(String preferenceKey);
+
     /** Set the value of a user preference.
      * @param preferenceKey The key for the preference, used to create or update a record with UserPreference.preferenceKey
      * @param preferenceValue The value to set on the preference, set in UserPreference.preferenceValue
      */
     void setPreference(String preferenceKey, String preferenceValue);
+    /** Get a Map with multiple preferences, optionally filtered by a regular expression matched against each key */
+    Map<String, String> getPreferences(String keyRegexp);
 
     /** A per-user context like the execution context for but data specific to a user and maintained through service
      * calls, etc unlike ExecutionContext.getContext(). Used for security data, etc such as entity filter values. */
@@ -78,6 +81,7 @@ public interface UserFacade {
     ArrayList<Timestamp> getPeriodRange(String period, int poffset, java.sql.Date pdate);
     ArrayList<Timestamp> getPeriodRange(String period, String poffset);
     String getPeriodDescription(String period, String poffset, String pdate);
+    ArrayList<Timestamp> getPeriodRange(String baseName, Map<String, Object> inputFieldsMap);
 
     /** Set an EffectiveTime for the current context which will then be returned from the getNowTimestamp() method.
      * This is used to test past and future behavior of applications.
@@ -140,4 +144,6 @@ public interface UserFacade {
     /** @return The current visit (aka session; from the Visit entity). Depending on the artifact being executed this may be null. */
     EntityValue getVisit();
     String getVisitorId();
+    /** @return Client IP address from HTTP request or X-Forwarded-For header */
+    String getClientIp();
 }

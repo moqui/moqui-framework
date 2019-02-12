@@ -120,7 +120,8 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- ========================================================= -->
 
     <entity entity-name="ServiceParameterSemaphore" package="moqui.service.semaphore" use="transactional" cache="never">
-        <field name="serviceName" type="text-medium" is-pk="true"/>
+        <field name="serviceName" type="text-medium" is-pk="true">
+            <description>May be semaphore-name if that attribute is used, otherwise is service name</description></field>
         <field name="parameterValue" type="text-medium" is-pk="true"/>
         <field name="lockThread" type="text-medium"/>
         <field name="lockTime" type="date-time"/>
@@ -130,7 +131,8 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- moqui.service.message -->
     <!-- ========================================================= -->
 
-    <entity entity-name="SystemMessage" package="moqui.service.message" short-alias="systemMessages" cache="never">
+    <entity entity-name="SystemMessage" package="moqui.service.message" short-alias="systemMessages"
+            use="transactional" cache="never">
         <field name="systemMessageId" type="id" is-pk="true"/>
         <field name="systemMessageTypeId" type="id"/>
         <field name="statusId" type="id" enable-audit-log="true"/>
@@ -144,9 +146,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="remoteMessageId" type="text-medium"><description>For messages to/from another Moqui system, the
             systemMessageId on the remote system; may also be used for other system level message IDs (as opposed to
             messageId which is for the ID in the envelope of the message)</description></field>
-        <field name="systemMessageRemoteId" type="id"><description>Reference to the SystemMessageRemote record to
-            use for sending, etc</description></field>
-
+        <field name="systemMessageRemoteId" type="id"><description>Reference to the SystemMessageRemote record for the remote system
+            this message came from for incoming messages or should be sent to for outgoing messages.</description></field>
         <field name="messageText" type="text-very-long"/>
 
         <!-- these fields are from the message envelope, populated by receive or consume service (after initial parse) -->
@@ -182,9 +183,15 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" title="SystemMessage" related="moqui.basic.StatusItem" short-alias="status"/>
         <relationship type="one" title="Parent" related="moqui.service.message.SystemMessage" short-alias="parent">
             <key-map field-name="parentMessageId" related="systemMessageId"/></relationship>
+        <relationship type="one" title="Ack" related="moqui.service.message.SystemMessage" short-alias="ackMessage">
+            <key-map field-name="ackMessageId" related="systemMessageId"/></relationship>
         <relationship type="one" related="moqui.service.message.SystemMessageRemote" short-alias="remote"/>
+
         <relationship type="many" related="moqui.service.message.SystemMessageError" short-alias="errors">
             <key-map field-name="systemMessageId"/></relationship>
+
+        <index name="SYS_MSG_MSGID"><index-field name="messageId"/></index>
+
         <seed-data>
             <moqui.basic.StatusType description="System Message" statusTypeId="SystemMessage"/>
             <!-- Is this needed? <moqui.basic.StatusItem description="Triggered" sequenceNum="1" statusId="SmsgTriggered" statusTypeId="SystemMessage"/> -->
@@ -250,7 +257,7 @@ along with this software (see the LICENSE.md file). If not, see
             <detail relationship="remote"/><detail relationship="errors"/>
         </master>
     </entity>
-    <entity entity-name="SystemMessageType" package="moqui.service.message">
+    <entity entity-name="SystemMessageType" package="moqui.service.message" use="configuration" cache="true">
         <field name="systemMessageTypeId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
         <field name="produceServiceName" type="text-medium"><description>Not used in automated processing, but useful
@@ -270,18 +277,30 @@ along with this software (see the LICENSE.md file). If not, see
             Should implement the org.moqui.impl.SystemMessageServices.receive#SystemMessage interface.
             If not specified receive#IncomingSystemMessage just saves the message directly.
             When applicable, used by the send service as the service on the remote server to call to receive the message.</description></field>
+        <field name="contentType" type="text-short"/>
     </entity>
-    <entity entity-name="SystemMessageRemote" package="moqui.service.message">
+    <entity entity-name="SystemMessageRemote" package="moqui.service.message" use="configuration" cache="true">
         <field name="systemMessageRemoteId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
         <field name="sendUrl" type="text-medium"/>
-        <!-- potential future use, restrict receive message: <field name="authorizedIpAddresses" type="text-long"/> -->
+        <field name="receiveUrl" type="text-medium"/>
         <field name="sendServiceName" type="text-medium"><description>Override for SystemMessageType.sendServiceName</description></field>
-        <field name="username" type="text-medium"><description>This user needs permission to run the remote service or
-            whatever on the remote system receives the message. For the the Moqui receive#IncomingSystemMessage service
-            the user should be in a group that has authz for the SystemMessageServices ArtifactGroup
-            (see SecurityTypeData.xml).</description></field>
-        <field name="password" type="text-short" encrypt="true"/>
+        <field name="username" type="text-medium"><description>
+            Username for basic auth when sending to the remote system.
+            This user needs permission to run the remote service or whatever on the remote system receives the message.
+
+            Note: For a Moqui remote server the user needs authz for the org.moqui.impl.SystemMessageServices.receive#IncomingSystemMessage
+            service, ie the user should be in a group that has authz for the SystemMessageServices ArtifactGroup such as the
+            SYSMSG_RECEIVE user group (see SecurityTypeData.xml).
+        </description></field>
+        <field name="password" type="text-medium" encrypt="true">
+            <description>Username for basic auth when sending to the remote system.</description></field>
+        <!-- potential future use, restrict receive message: <field name="authorizedIpAddresses" type="text-medium"/> -->
+        <field name="sharedSecret" type="text-medium" encrypt="true"><description>Shared secret for auth on receive and/or sign on send.</description></field>
+        <field name="sendSharedSecret" type="text-medium" encrypt="true"><description>Shared secret for auth on send if different from secret used to authorize on receive.</description></field>
+        <field name="authHeaderName" type="text-medium"/>
+        <field name="messageAuthEnumId" type="id"/>
+        <field name="sendAuthEnumId" type="id"><description>If send and receive auth mechanisms are different specify send auth method here</description></field>
 
         <field name="systemMessageTypeId" type="id"><description>Optional. May be used when this remote is for one
             type of message.</description></field>
@@ -291,7 +310,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="internalIdType" type="text-short"/>
         <field name="internalAppCode" type="text-medium"><description>Application code (EDI: in GS02/03; OAGIS: in
             ApplicationArea.Sender/Receiver elements, split among sub-elements)</description></field>
-        <field name="remoteId" type="text-short"><description>Sender (outgoing) or receiver (incoming) ID (EDI: in
+        <field name="remoteId" type="text-short"><description>Sender (incoming) or receiver (outgoing) ID (EDI: in
             ISA06/08; OAGIS in ApplicationArea.Sender/Receiver.ID)</description></field>
         <field name="remoteIdType" type="text-short"/>
         <field name="remoteAppCode" type="text-medium"><description>Application code (EDI: in GS02/03; OAGIS: in
@@ -307,8 +326,30 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="elementSeparator" type="text-indicator"/>
         <field name="componentDelimiter" type="text-indicator"/>
         <field name="escapeCharacter" type="text-indicator"/>
+
+        <relationship type="one" title="SystemMessageAuthType" related="moqui.basic.Enumeration" short-alias="messageAuthEnum">
+            <key-map field-name="messageAuthEnumId"/></relationship>
+        <relationship type="one" title="SendMessageAuthType" related="moqui.basic.Enumeration" short-alias="sendAuthEnum">
+            <key-map field-name="sendAuthEnumId"/></relationship>
+
+        <seed-data>
+            <moqui.basic.EnumerationType description="System Message Auth Type" enumTypeId="SystemMessageAuthType"/>
+            <moqui.basic.Enumeration enumId="SmatNone" description="No Auth" enumTypeId="SystemMessageAuthType"/>
+            <moqui.basic.Enumeration enumId="SmatLogin" description="User Login (basic, api_key, etc)" enumTypeId="SystemMessageAuthType"/>
+            <moqui.basic.Enumeration enumId="SmatHmacSha256" description="HMAC SHA-256" enumTypeId="SystemMessageAuthType"/>
+        </seed-data>
     </entity>
-    <entity entity-name="SystemMessageError" package="moqui.service.message" cache="never">
+    <entity entity-name="SystemMessageEnumMap" package="moqui.service.message" use="configuration">
+        <description>For runtime configurable enum mappings for a particular remote system. For bi-directional
+            integrations enumerated value mappings should be one to one or round trip results will be inconsistent.
+            The PK structure forces one mapped value for each enumId.</description>
+        <field name="systemMessageRemoteId" type="id" is-pk="true"/>
+        <field name="enumId" type="id" is-pk="true"/>
+        <field name="mappedValue" type="text-short"/>
+        <relationship type="one" related="moqui.service.message.SystemMessageRemote" short-alias="remote"/>
+        <relationship type="one" related="moqui.basic.Enumeration" short-alias="remote"/>
+    </entity>
+    <entity entity-name="SystemMessageError" package="moqui.service.message" use="transactional" cache="never">
         <field name="systemMessageId" type="id" is-pk="true"/>
         <field name="errorDate" type="date-time" is-pk="true"/>
         <field name="attemptedStatusId" type="id"/>
@@ -316,4 +357,25 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="errorText" type="text-very-long"/>
         <relationship type="one" related="moqui.service.message.SystemMessage"/>
     </entity>
+    <!--
+        one possible approach for web/etc hooks: trigger send to potentially multiple SystemMessageRemote based on change to status for a certain message type
+        need more flexible configuration for web hooks for general system events, not just on generate SystemMessage meant to be sent to a different SystemMessageRemote?
+    <entity entity-name="SystemMessageHook" package="moqui.service.message">
+        <field name="systemMessageHookId" type="id" is-pk="true"/>
+        <field name="systemMessageTypeId" type="id"/>
+        <field name="statusId" type="id"/>
+        <field name="isOutgoing" type="text-indicator"/>
+        <field name="systemMessageRemoteId" type="id"/>
+        <relationship type="one" related="moqui.service.message.SystemMessageType" short-alias="type"/>
+        <relationship type="one" title="SystemMessage" related="moqui.basic.StatusItem" short-alias="status"/>
+        <relationship type="one" related="moqui.service.message.SystemMessageRemote" short-alias="remote"/>
+    </entity>
+    <entity entity-name="SystemMessageHookStatus" package="moqui.service.message">
+        <field name="systemMessageHookId" type="id" is-pk="true"/>
+        <field name="systemMessageId" type="id" is-pk="true"/>
+        <field name="sentDate" type="text-indicator"><description>null until successfully sent</description></field>
+        <relationship type="one" related="moqui.service.message.SystemMessageHook" short-alias="hook"/>
+        <relationship type="one" related="moqui.service.message.SystemMessage" short-alias="message"/>
+    </entity>
+    -->
 </entities>

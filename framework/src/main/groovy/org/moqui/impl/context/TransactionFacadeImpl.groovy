@@ -92,9 +92,9 @@ class TransactionFacadeImpl implements TransactionFacade {
      * It commits any active transactions, clears out internal data for the thread, etc.
      */
     void destroyAllInThread() {
-        if (this.isTransactionInPlace()) {
+        if (isTransactionInPlace()) {
             logger.warn("Thread ending with a transaction in place. Trying to commit.")
-            this.commit()
+            commit()
         }
 
         LinkedList<TxStackInfo> txStackInfoList = txStackInfoListThread.get()
@@ -103,8 +103,8 @@ class TransactionFacadeImpl implements TransactionFacade {
             for (TxStackInfo txStackInfo in txStackInfoList) {
                 Transaction tx = txStackInfo.suspendedTx
                 if (tx != null) {
-                    this.resume()
-                    this.commit()
+                    resume()
+                    commit()
                     numSuspended++
                 }
             }
@@ -371,6 +371,11 @@ class TransactionFacadeImpl implements TransactionFacade {
 
             txStackInfo.closeTxConnections()
             if (status == Status.STATUS_MARKED_ROLLBACK) {
+                if (txStackInfo.rollbackOnlyInfo != null) {
+                    logger.warn("Tried to commit transaction but marked rollback only, doing rollback instead; rollback-only was set here:", txStackInfo.rollbackOnlyInfo.rollbackLocation)
+                } else {
+                    logger.warn("Tried to commit transaction but marked rollback only, doing rollback instead; no rollback-only info, current location:", new BaseException("Rollback instead of commit location"))
+                }
                 ut.rollback()
             } else if (status != Status.STATUS_NO_TRANSACTION && status != Status.STATUS_COMMITTING &&
                     status != Status.STATUS_COMMITTED && status != Status.STATUS_ROLLING_BACK &&
@@ -398,8 +403,11 @@ class TransactionFacadeImpl implements TransactionFacade {
         } finally {
             // there shouldn't be a TX around now, but if there is the commit may have failed so rollback to clean things up
             int status = ut.getStatus()
-            if (status == Status.STATUS_ACTIVE || status == Status.STATUS_MARKED_ROLLBACK)
+            if (status != Status.STATUS_NO_TRANSACTION && status != Status.STATUS_COMMITTING &&
+                    status != Status.STATUS_COMMITTED && status != Status.STATUS_ROLLING_BACK &&
+                    status != Status.STATUS_ROLLEDBACK) {
                 rollback("Commit failed, rolling back to clean up", null)
+            }
 
             txStackInfo.clearCurrent()
         }
@@ -418,6 +426,8 @@ class TransactionFacadeImpl implements TransactionFacade {
     void rollback(String causeMessage, Throwable causeThrowable) {
         TxStackInfo txStackInfo = getTxStackInfo()
         try {
+            txStackInfo.closeTxConnections()
+
             // logger.warn("================ rollback TX, currentStatus=${getStatus()}")
             if (getStatus() == Status.STATUS_NO_TRANSACTION) {
                 logger.warn("Transaction not rolled back, status is STATUS_NO_TRANSACTION")
@@ -436,7 +446,6 @@ class TransactionFacadeImpl implements TransactionFacade {
                 logger.warn("Transaction rollback for [${causeMessage}]. Here is the current location: ", new BaseException("Rollback location"))
             }
 
-            txStackInfo.closeTxConnections()
             ut.rollback()
         } catch (IllegalStateException e) {
             throw new TransactionException("Could not rollback transaction", e)
@@ -488,7 +497,7 @@ class TransactionFacadeImpl implements TransactionFacade {
     boolean suspend() {
         try {
             if (getStatus() == Status.STATUS_NO_TRANSACTION) {
-                logger.warn("No transaction in place, so not suspending.")
+                logger.warn("No transaction in place so not suspending")
                 return false
             }
 
@@ -508,6 +517,11 @@ class TransactionFacadeImpl implements TransactionFacade {
 
     @Override
     void resume() {
+        if (isTransactionInPlace()) {
+            logger.warn("Resume with transaction in place, trying commit to close")
+            commit()
+        }
+
         try {
             TxStackInfo txStackInfo = getTxStackInfo()
             if (txStackInfo.suspendedTx != null) {
@@ -515,7 +529,7 @@ class TransactionFacadeImpl implements TransactionFacade {
                 // only do this after successful resume
                 popTxStackInfo()
             } else {
-                logger.warn("No transaction suspended, so not resuming.")
+                logger.warn("No transaction suspended, so not resuming")
             }
         } catch (InvalidTransactionException e) {
             throw new TransactionException("Could not resume transaction", e)

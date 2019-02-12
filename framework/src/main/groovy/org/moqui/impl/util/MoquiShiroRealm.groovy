@@ -25,13 +25,14 @@ import org.apache.shiro.util.SimpleByteSource
 import org.moqui.BaseArtifactException
 import org.moqui.Moqui
 import org.moqui.entity.EntityCondition
-import org.moqui.entity.EntityException
+import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
 import org.moqui.impl.context.ArtifactExecutionFacadeImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.UserFacadeImpl
 import org.moqui.util.MNode
+import org.moqui.util.WebUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -119,21 +120,57 @@ class MoquiShiroRealm implements Realm, Authorizer {
                 }
             }
         }
+        // check ipAllowed if on UserAccount or any UserGroup a member of
+        String clientIp = eci.userFacade.getClientIp()
+        if (clientIp == null || clientIp.isEmpty()) {
+            if (eci.web != null) logger.warn("Web login with no client IP for userId ${newUserAccount.userId}, not checking ipAllowed")
+        } else {
+            if (clientIp.contains(":")) {
+                logger.warn("Web login with IPv6 client IP ${clientIp} for userId ${newUserAccount.userId}, not checking ipAllowed")
+            } else {
+                ArrayList<String> ipAllowedList = new ArrayList<>()
+                String uaIpAllowed = newUserAccount.getNoCheckSimple("ipAllowed")
+                if (uaIpAllowed != null && !uaIpAllowed.isEmpty()) ipAllowedList.add(uaIpAllowed)
+
+                EntityList ugmList = eci.entityFacade.find("moqui.security.UserGroupMember")
+                        .condition("userId", newUserAccount.getNoCheckSimple("userId"))
+                        .disableAuthz().useCache(true).list()
+                        .filterByDate(null, null, eci.userFacade.nowTimestamp)
+                ArrayList<String> userGroupIdList = new ArrayList<>()
+                for (EntityValue ugm in ugmList) userGroupIdList.add((String) ugm.get("userGroupId"))
+                userGroupIdList.add("ALL_USERS")
+                EntityList ugList = eci.entityFacade.find("moqui.security.UserGroup")
+                        .condition("ipAllowed", EntityCondition.IS_NOT_NULL, null)
+                        .condition("userGroupId", EntityCondition.IN, userGroupIdList).disableAuthz().useCache(false).list()
+                for (EntityValue ug in ugList) ipAllowedList.add((String) ug.getNoCheckSimple("ipAllowed"))
+
+                int ipAllowedListSize = ipAllowedList.size()
+                if (ipAllowedListSize > 0) {
+                    boolean anyMatches = false
+                    for (int i = 0; i < ipAllowedListSize; i++) {
+                        String pattern = (String) ipAllowedList.get(i)
+                        if (WebUtilities.ip4Matches(pattern, clientIp)) {
+                            anyMatches = true
+                            break
+                        }
+                    }
+                    if (!anyMatches) throw new AccountException(
+                            eci.resource.expand('Authenticate failed for user ${newUserAccount.username} because client IP ${clientIp} is not in allowed list for user or group.',
+                            '', [newUserAccount:newUserAccount, clientIp:clientIp]))
+                }
+            }
+        }
 
         // no more auth failures? record the various account state updates, hasLoggedOut=N
         if (newUserAccount.getNoCheckSimple("successiveFailedLogins") || "Y".equals(newUserAccount.getNoCheckSimple("disabled")) ||
                 newUserAccount.getNoCheckSimple("disabledDateTime") != null || "Y".equals(newUserAccount.getNoCheckSimple("hasLoggedOut"))) {
-            boolean enableAuthz = !eci.artifactExecutionFacade.disableAuthz()
             try {
-                EntityValue nuaClone = newUserAccount.cloneValue()
-                nuaClone.set("successiveFailedLogins", 0)
-                nuaClone.set("disabled", "N")
-                nuaClone.set("disabledDateTime", null)
-                nuaClone.set("hasLoggedOut", "N")
-                nuaClone.update()
+                eci.service.sync().name("update", "moqui.security.UserAccount")
+                        .parameters([userId:newUserAccount.userId, successiveFailedLogins:0, disabled:"N", disabledDateTime:null, hasLoggedOut:"N"])
+                        .disableAuthz().call()
             } catch (Exception e) {
                 logger.warn("Error resetting UserAccount login status", e)
-            } finally { if (enableAuthz) eci.artifactExecutionFacade.enableAuthz() }
+            }
         }
 
         // update visit if no user in visit yet
@@ -162,25 +199,27 @@ class MoquiShiroRealm implements Realm, Authorizer {
                 Timestamp fromDate = eci.getUser().getNowTimestamp()
                 // look for login history in the last minute, if any found don't create UserLoginHistory
                 Timestamp recentDate = new Timestamp(fromDate.getTime() - 60000)
-                long recentUlh = eci.entity.find("moqui.security.UserLoginHistory").condition("userId", userId)
-                        .condition("fromDate", EntityCondition.GREATER_THAN, recentDate).disableAuthz().count()
-                if (recentUlh == 0) {
-                    Map<String, Object> ulhContext = [userId:userId, fromDate:fromDate,
-                            visitId:eci.user.visitId, successfulLogin:(successful?"Y":"N")] as Map<String, Object>
-                    if (!successful && loginNode.attribute("history-incorrect-password") != "false") ulhContext.passwordUsed = passwordUsed
-                    ExecutionContextFactoryImpl ecfi = eci.ecfi
-                    eci.runInWorkerThread({
-                        try {
+
+                Map<String, Object> ulhContext = [userId:userId, fromDate:fromDate,
+                        visitId:eci.user.visitId, successfulLogin:(successful?"Y":"N")] as Map<String, Object>
+                if (!successful && loginNode.attribute("history-incorrect-password") != "false") ulhContext.passwordUsed = passwordUsed
+
+                ExecutionContextFactoryImpl ecfi = eci.ecfi
+                eci.runInWorkerThread({
+                    try {
+                        long recentUlh = eci.entity.find("moqui.security.UserLoginHistory").condition("userId", userId)
+                                .condition("fromDate", EntityCondition.GREATER_THAN, recentDate).disableAuthz().count()
+                        if (recentUlh == 0) {
                             ecfi.serviceFacade.sync().name("create", "moqui.security.UserLoginHistory")
                                     .parameters(ulhContext).disableAuthz().call()
-                        } catch (EntityException ee) {
-                            // this blows up sometimes on MySQL, may in other cases, and is only so important so log a warning but don't rethrow
-                            logger.warn("UserLoginHistory create failed: ${ee.toString()}")
+                        } else {
+                            if (logger.isDebugEnabled()) logger.debug("Not creating UserLoginHistory, found existing record for userId ${userId} and more recent than ${recentDate}")
                         }
-                    })
-                } else {
-                    if (logger.isDebugEnabled()) logger.debug("Not creating UserLoginHistory, found existing record for userId ${userId} and more recent than ${recentDate}")
-                }
+                    } catch (Exception ee) {
+                        // this blows up sometimes on MySQL, may in other cases, and is only so important so log a warning but don't rethrow
+                        logger.warn("UserLoginHistory create failed: ${ee.toString()}")
+                    }
+                })
             }
         }
     }
@@ -191,6 +230,7 @@ class MoquiShiroRealm implements Realm, Authorizer {
         String username = token.principal as String
         String userId = null
         boolean successful = false
+        boolean isForceLogin = token instanceof ForceLoginToken
 
         SaltedAuthenticationInfo info = null
         try {
@@ -201,7 +241,7 @@ class MoquiShiroRealm implements Realm, Authorizer {
             info = new SimpleAuthenticationInfo(username, newUserAccount.currentPassword,
                     newUserAccount.passwordSalt ? new SimpleByteSource((String) newUserAccount.passwordSalt) : null,
                     realmName)
-            if (!(token instanceof ForceLoginToken)) {
+            if (!isForceLogin) {
                 // check the password (credentials for this case)
                 CredentialsMatcher cm = ecfi.getCredentialsMatcher((String) newUserAccount.passwordHashType, "Y".equals(newUserAccount.passwordBase64))
                 if (!cm.doCredentialsMatch(token, info)) {
@@ -217,7 +257,12 @@ class MoquiShiroRealm implements Realm, Authorizer {
             // at this point the user is successfully authenticated
             successful = true
         } finally {
-            loginAfterAlways(eci, userId, token.credentials as String, successful)
+            boolean saveHistory = true
+            if (isForceLogin) {
+                ForceLoginToken flt = (ForceLoginToken) token
+                saveHistory = flt.saveHistory
+            }
+            if (saveHistory) loginAfterAlways(eci, userId, token.credentials as String, successful)
         }
 
         return info
@@ -236,8 +281,13 @@ class MoquiShiroRealm implements Realm, Authorizer {
     }
 
     static class ForceLoginToken extends UsernamePasswordToken {
+        boolean saveHistory = true
         ForceLoginToken(final String username, final boolean rememberMe) {
             super (username, 'force', rememberMe)
+        }
+        ForceLoginToken(final String username, final boolean rememberMe, final boolean saveHistory) {
+            super (username, 'force', rememberMe)
+            this.saveHistory = saveHistory
         }
     }
 

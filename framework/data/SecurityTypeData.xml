@@ -13,8 +13,10 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <entity-facade-xml type="seed">
-    <!-- An group for full-access Administrators -->
     <moqui.basic.Enumeration description="Moqui Administrators" enumId="UgtMoquiAdmin" enumTypeId="UserGroupType"/>
+    <moqui.basic.Enumeration description="Remote Systems" enumId="UgtRemoteSystems" enumTypeId="UserGroupType"/>
+
+    <!-- An group for full-access Administrators -->
     <moqui.security.UserGroup userGroupId="ADMIN" description="Administrators (full access)" groupTypeEnumId="UgtMoquiAdmin"/>
 
     <!-- A default/automatic group for all users -->
@@ -35,6 +37,10 @@ along with this software (see the LICENSE.md file). If not, see
             artifactName="org.moqui.impl.SystemMessageServices.receive#IncomingSystemMessage"
             nameIsPattern="N" artifactTypeEnumId="AT_SERVICE" inheritAuthz="Y"/>
     <moqui.security.ArtifactAuthz artifactAuthzId="SystemMessageServicesADMIN" userGroupId="ADMIN" artifactGroupId="SystemMessageServices"
+            authzTypeEnumId="AUTHZT_ALWAYS" authzActionEnumId="AUTHZA_ALL"/>
+
+    <moqui.security.UserGroup userGroupId="SYSMSG_RECEIVE" description="System Message Receivers" groupTypeEnumId="UgtRemoteSystems"/>
+    <moqui.security.ArtifactAuthz artifactAuthzId="SystemMessageServicesSYSMSG" userGroupId="SYSMSG_RECEIVE" artifactGroupId="SystemMessageServices"
             authzTypeEnumId="AUTHZT_ALWAYS" authzActionEnumId="AUTHZA_ALL"/>
 
     <!-- Special Permissions -->

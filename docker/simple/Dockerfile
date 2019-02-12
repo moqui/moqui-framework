@@ -22,8 +22,14 @@ VOLUME ["/opt/moqui/runtime/conf", "/opt/moqui/runtime/lib", "/opt/moqui/runtime
 # exposed as volumes to persist data outside the container, recommended
 VOLUME ["/opt/moqui/runtime/log", "/opt/moqui/runtime/txlog", "/opt/moqui/runtime/sessions", "/opt/moqui/runtime/db", "/opt/moqui/runtime/elasticsearch"]
 
+# Main Servlet Container Port
 EXPOSE 80
+# ElasticSearch HTTP Port
 EXPOSE 9200
+# ElasticSearch Cluster (TCP Transport) Port
+EXPOSE 9300
+# Hazelcast Cluster Port
+EXPOSE 5701
 
 # this is to run from the war file directly, preferred approach unzips war file in advance
 # ENTRYPOINT ["java", "-jar", "moqui.war"]

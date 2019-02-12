@@ -3,7 +3,7 @@
 https://logging.apache.org/log4j/2.x/manual/configuration.html
 https://logging.apache.org/log4j/2.x/manual/layouts.html#PatternLayout
 -->
-<Configuration status="ERROR" name="Moqui" shutdownHook="disable">
+<Configuration status="ERROR" name="Moqui" shutdownHook="disable" packages="org.moqui.context">
     <Properties>
         <!-- the ${sys:moqui.runtime} expansion fails under Tomcat/etc as moqui.runtime isn't set before Log4J2
             initializes (like with MoquiStart.java), so specify a default property here -->

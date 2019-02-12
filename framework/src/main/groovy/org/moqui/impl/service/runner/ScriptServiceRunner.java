@@ -44,9 +44,10 @@ public class ScriptServiceRunner implements ServiceRunner {
     public Map<String, Object> runService(ServiceDefinition sd, Map<String, Object> parameters) {
         ExecutionContextImpl ec = ecfi.getEci();
         ContextStack cs = ec.contextStack;
+
+        // push the entire context to isolate the context for the service call
+        cs.pushContext();
         try {
-            // push the entire context to isolate the context for the service call
-            cs.pushContext();
             // now add the parameters to this service call; copy instead of pushing, faster with newer ContextStack
             cs.putAll(parameters);
             // we have an empty context so add the ec

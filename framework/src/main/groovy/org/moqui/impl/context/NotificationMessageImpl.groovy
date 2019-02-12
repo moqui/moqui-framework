@@ -355,7 +355,7 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
     @Override Map<String, Object> getWrappedMessageMap() {
         EntityValue localNotTopic = getNotificationTopic()
         return [topic:topic, sentDate:sentDate, notificationMessageId:notificationMessageId, topicDescription:localNotTopic?.description,
-            message:getMessageMap(), title:getTitle(), link:getLink(), type:getType(), showAlert:isShowAlert()]
+            message:getMessageMap(), title:getTitle(), link:getLink(), type:getType(), showAlert:isShowAlert(), persistOnSend:isPersistOnSend()]
     }
     @Override String getWrappedMessageJson() {
         Map<String, Object> wrappedMap = getWrappedMessageMap()

@@ -115,6 +115,7 @@ public abstract class ResourceReference implements Serializable {
         return fn != null && fn.length() > 0 ? getContentType(fn) : null;
     }
     public boolean isBinary() { return isBinaryContentType(getContentType()); }
+    public boolean isText() { return isTextContentType(getContentType()); }
 
     /** Get the parent directory, null if it is the root (no parent). */
     public ResourceReference getParent() {
@@ -396,6 +397,16 @@ public abstract class ResourceReference implements Serializable {
         return subContentRefByPath;
     }
 
+    public static boolean isTextFilename(String filename) {
+        String contentType = getContentType(filename);
+        if (contentType == null || contentType.isEmpty()) return false;
+        return isTextContentType(contentType);
+    }
+    public static boolean isBinaryFilename(String filename) {
+        String contentType = getContentType(filename);
+        if (contentType == null || contentType.isEmpty()) return false;
+        return !isTextContentType(contentType);
+    }
     public static String getContentType(String filename) {
         // need to check this, or type mapper handles it fine? || !filename.contains(".")
         if (filename == null || filename.length() == 0) return null;
@@ -405,19 +416,30 @@ public abstract class ResourceReference implements Serializable {
         if (semicolonIndex >= 0) type = type.substring(0, semicolonIndex);
         return type;
     }
+    public static boolean isTextContentType(String contentType) {
+        if (contentType == null) return false;
+        contentType = contentType.trim();
+
+        int scIdx = contentType.indexOf(";");
+        contentType = scIdx >= 0 ? contentType.substring(0, scIdx).trim() : contentType;
+        if (contentType.length() == 0) return false;
+
+        if (contentType.startsWith("text/")) return true;
+        // aside from text/*, a few notable exceptions:
+        if ("application/javascript".equals(contentType)) return true;
+        if ("application/json".equals(contentType)) return true;
+        if (contentType.endsWith("+json")) return true;
+        if ("application/rtf".equals(contentType)) return true;
+        if (contentType.startsWith("application/xml")) return true;
+        if (contentType.endsWith("+xml")) return true;
+        if (contentType.startsWith("application/yaml")) return true;
+        if (contentType.endsWith("+yaml")) return true;
+
+        return false;
+    }
     public static boolean isBinaryContentType(String contentType) {
         if (contentType == null || contentType.length() == 0) return false;
-        if (contentType.startsWith("text/")) return false;
-        // aside from text/*, a few notable exceptions:
-        if ("application/javascript".equals(contentType)) return false;
-        if ("application/json".equals(contentType)) return false;
-        if (contentType.endsWith("+json")) return false;
-        if ("application/rtf".equals(contentType)) return false;
-        if (contentType.startsWith("application/xml")) return false;
-        if (contentType.endsWith("+xml")) return false;
-        if (contentType.startsWith("application/yaml")) return false;
-        if (contentType.endsWith("+yaml")) return false;
-        return true;
+        return !isTextContentType(contentType);
     }
     public static String stripLocationPrefix(String location) {
         if (location == null || location.isEmpty()) return "";

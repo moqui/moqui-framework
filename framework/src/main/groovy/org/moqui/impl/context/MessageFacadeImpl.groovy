@@ -128,6 +128,7 @@ class MessageFacadeImpl implements MessageFacade {
         if (validationErrorList == null) validationErrorList = new ArrayList<>()
         validationErrorList.add(error)
         logger.error(error.getMap().toString())
+        hasErrors = true
     }
 
     @Override boolean hasError() { return hasErrors }
@@ -135,8 +136,9 @@ class MessageFacadeImpl implements MessageFacade {
     String getErrorsString() {
         StringBuilder errorBuilder = new StringBuilder()
         if (errorList != null) for (String errorMessage in errorList) errorBuilder.append(errorMessage).append("\n")
-        if (validationErrorList != null) for (ValidationError validationError in validationErrorList)
-            errorBuilder.append("${validationError.message} (for field ${validationError.fieldPretty}${validationError.form ? ' on form ' + validationError.formPretty : ''}${validationError.serviceName ? ' of service ' + validationError.serviceNamePretty : ''})").append("\n")
+        if (validationErrorList != null) for (ValidationError validationError in validationErrorList) {
+            errorBuilder.append(validationError.toStringPretty()).append("\n")
+        }
         return errorBuilder.toString()
     }
 
@@ -150,6 +152,18 @@ class MessageFacadeImpl implements MessageFacade {
     void clearErrors() {
         if (errorList != null) errorList.clear()
         if (validationErrorList != null) validationErrorList.clear()
+        hasErrors = false
+    }
+
+    void moveErrorsToDangerMessages() {
+        if (errorList != null) {
+            for (String errMsg : errorList) addMessage(errMsg, danger)
+            errorList.clear()
+        }
+        if (validationErrorList != null) {
+            for (ValidationError ve : validationErrorList) addMessage(ve.toStringPretty(), danger)
+            validationErrorList.clear()
+        }
         hasErrors = false
     }
 
@@ -187,12 +201,12 @@ class MessageFacadeImpl implements MessageFacade {
     void popErrors() {
         if (savedErrorsStack == null || savedErrorsStack.size() == 0) return
         SavedErrors se = savedErrorsStack.removeFirst()
-        if (se.errorList) {
+        if (se.errorList != null && se.errorList.size() > 0) {
             if (errorList == null) errorList = new ArrayList<>()
             errorList.addAll(se.errorList)
             hasErrors = true
         }
-        if (se.validationErrorList) {
+        if (se.validationErrorList != null && se.validationErrorList.size() > 0) {
             if (validationErrorList == null) validationErrorList = new ArrayList<>()
             validationErrorList.addAll(se.validationErrorList)
             hasErrors = true
