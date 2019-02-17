@@ -254,20 +254,14 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="elevationUomId" type="id"/>
         <field name="information" type="text-medium"/>
         <relationship type="one" title="GeoPointType" related="moqui.basic.Enumeration" short-alias="type">
-            <key-map field-name="geoPointTypeEnumId"/>
-        </relationship>
+            <key-map field-name="geoPointTypeEnumId"/></relationship>
         <relationship type="one" related="moqui.basic.DataSource" short-alias="dataSource"/>
         <relationship type="one" title="Elevation" related="moqui.basic.Uom" short-alias="elevationUom">
-            <key-map field-name="elevationUomId"/>
-        </relationship>
+            <key-map field-name="elevationUomId"/></relationship>
         <seed-data>
             <moqui.basic.EnumerationType description="Geo Point Type" enumTypeId="GeoPointType"/>
         </seed-data>
-        <master>
-            <detail relationship="type"/>
-            <detail relationship="dataSource"/>
-            <detail relationship="elevationUom"/>
-        </master>
+        <master><detail relationship="type"/><detail relationship="dataSource"/><detail relationship="elevationUom"/></master>
     </entity>
 
     <!-- ========== Localized ========== -->
