@@ -593,6 +593,7 @@ class ScreenForm {
                 oneRelKeyMap = km
                 relatedEntityName = relEntityName
                 relatedEd = relEd
+                break
             }
         }
         String keyField = (String) oneRelKeyMap?.keySet()?.iterator()?.next()
