@@ -33,6 +33,17 @@ import java.sql.Timestamp
 import java.time.Instant
 import java.time.ZonedDateTime
 
+/**
+ * Runs scheduled jobs as defined in ServiceJob records with a cronExpression. Cron expression uses Quartz flavored syntax.
+ *
+ * Uses cron-utils for cron processing, see:
+ *     https://github.com/jmrozanec/cron-utils
+ * For a Quartz cron reference see:
+ *     http://www.quartz-scheduler.org/documentation/quartz-2.x/tutorials/crontrigger.html
+ *     https://www.quartz-scheduler.org/api/2.2.1/org/quartz/CronExpression.html
+ *
+ * Handy cron strings: [0 0 2 * * ?] every night at 2:00 am, [0 0/15 * * * ?] every 15 minutes, [0 0/2 * * * ?] every 2 minutes
+ */
 @CompileStatic
 class ScheduledJobRunner implements Runnable {
     private final static Logger logger = LoggerFactory.getLogger(ScheduledJobRunner.class)
@@ -124,6 +135,7 @@ class ScheduledJobRunner implements Runnable {
                             serviceJobRunLock.set("jobRunId", null).update()
                         } else {
                             // normal lock, skip this job
+                            logger.info("Lock found for job ${jobName} from ${lastRunDt} run ID ${serviceJobRunLock.jobRunId}, not running")
                             continue
                         }
                     }
@@ -131,8 +143,8 @@ class ScheduledJobRunner implements Runnable {
                     // calculate time it should have run last
                     String cronExpression = (String) serviceJob.getNoCheckSimple("cronExpression")
                     ExecutionTime executionTime = getExecutionTime(cronExpression)
-                    ZonedDateTime lastSchedule = executionTime.lastExecution(now)
-                    if (lastRunDt != null) {
+                    ZonedDateTime lastSchedule = executionTime.lastExecution(now).get()
+                    if (lastSchedule != null && lastRunDt != null) {
                         // if the time it should have run last is before the time it ran last don't run it
                         if (lastSchedule.isBefore(lastRunDt)) continue
                     }

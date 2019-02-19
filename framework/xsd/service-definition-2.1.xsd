@@ -19,12 +19,20 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- root element -->
     <xs:element name="services">
         <xs:complexType>
-            <xs:sequence>
-                <xs:element minOccurs="0" maxOccurs="unbounded" ref="service"/>
-            </xs:sequence>
+            <xs:choice minOccurs="0" maxOccurs="unbounded">
+                <xs:element ref="service-include"/>
+                <xs:element ref="service"/>
+            </xs:choice>
         </xs:complexType>
     </xs:element>
 
+    <xs:element name="service-include">
+        <xs:complexType>
+            <xs:attribute name="verb" type="name-field" use="required"/>
+            <xs:attribute name="noun" type="name-upper"/>
+            <xs:attribute name="location" type="xs:string" use="required"/>
+        </xs:complexType>
+    </xs:element>
     <xs:element name="service">
         <xs:complexType>
             <xs:sequence>
@@ -159,19 +167,24 @@ along with this software (see the LICENSE.md file). If not, see
                     </xs:restriction>
                 </xs:simpleType>
             </xs:attribute>
+            <xs:attribute name="semaphore-name" type="xs:string">
+                <xs:annotation><xs:documentation>Defaults to the service name, use the same name on multiple services to share a semaphore</xs:documentation></xs:annotation>
+            </xs:attribute>
             <xs:attribute name="semaphore-timeout" type="xs:int" default="120">
                 <xs:annotation><xs:documentation>When waiting how long before timing out, in seconds. Defaults to 120s.</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="semaphore-sleep" type="xs:int" default="5">
-                <xs:annotation><xs:documentation>When waiting how long to sleep between checking the semaphore, in
-                    seconds. Defaults to 5s.</xs:documentation></xs:annotation>
+                <xs:annotation><xs:documentation>When waiting how long to sleep between checking the semaphore, in seconds. Defaults to 5s.</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="semaphore-ignore" type="xs:int" default="3600">
                 <xs:annotation><xs:documentation>Ignore existing semaphores after this time, in seconds. Defaults to 3600s (1 hour).</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="semaphore-parameter" type="xs:string">
-                <xs:annotation><xs:documentation>The name of a parameter to use for distinct semaphores for the same
-                    services. The parameter should be required, though a single null semaphore is supported.</xs:documentation></xs:annotation>
+                <xs:annotation><xs:documentation>
+                    The name of a parameter to use for distinct semaphores for the same services.
+                    The parameter should be required in the service, though a single null semaphore is supported.
+                    This should not be used for IDs of transactional records, better to lock directly on those records (find with for update).
+                </xs:documentation></xs:annotation>
             </xs:attribute>
         </xs:complexType>
     </xs:element>

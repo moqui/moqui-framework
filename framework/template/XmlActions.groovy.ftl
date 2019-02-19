@@ -43,8 +43,14 @@ return;
 <#macro "service-call">
     <#assign handleResult = (.node["@out-map"]?has_content && (!.node["@async"]?has_content || .node["@async"] == "false"))>
     <#assign outAapAddToExisting = !.node["@out-map-add-to-existing"]?has_content || .node["@out-map-add-to-existing"] == "true">
+    <#assign isAsync = .node.@async?has_content && .node.@async != "false">
     if (true) {
-        <#if handleResult>def call_service_result = </#if>ec.service.<#if .node.@async?has_content && .node.@async != "false">async()<#else>sync()</#if>.name("${.node.@name}")<#if .node["@async"]?if_exists == "distribute">.distribute(true)</#if><#if .node["@multi"]?if_exists == "true">.multi(true)</#if><#if .node["@multi"]?if_exists == "parameter">.multi(ec.web?.requestParameters?._isMulti == "true")</#if><#if .node["@transaction"]?has_content><#if .node["@transaction"] == "ignore">.ignoreTransaction(true)<#elseif .node["@transaction"] == "force-new" || .node["@transaction"] == "force-cache">.requireNewTransaction(true)</#if><#if .node["@transaction"] == "cache" || .node["@transaction"] == "force-cache">.useTransactionCache(true)<#else>.useTransactionCache(false)</#if></#if>
+        <#if handleResult>def call_service_result = </#if>ec.service.<#if isAsync>async()<#else>sync()</#if><#rt>
+            <#t>.name("${.node.@name}")<#if .node["@async"]?if_exists == "distribute">.distribute(true)</#if>
+            <#t><#if !isAsync && .node["@multi"]?if_exists == "true">.multi(true)</#if><#if !isAsync && .node["@multi"]?if_exists == "parameter">.multi(ec.web?.requestParameters?._isMulti == "true")</#if>
+            <#t><#if !isAsync && .node["@transaction"]?has_content><#if .node["@transaction"] == "ignore">.ignoreTransaction(true)<#elseif .node["@transaction"] == "force-new" || .node["@transaction"] == "force-cache">.requireNewTransaction(true)</#if>
+            <#t><#if !isAsync && .node["@transaction-timeout"]?has_content>.transactionTimeout(${.node["@transaction-timeout"]})</#if>
+            <#t><#if !isAsync && (.node["@transaction"] == "cache" || .node["@transaction"] == "force-cache")>.useTransactionCache(true)<#else>.useTransactionCache(false)</#if></#if>
             <#if .node["@in-map"]?if_exists == "true">.parameters(context)<#elseif .node["@in-map"]?has_content && .node["@in-map"] != "false">.parameters(${.node["@in-map"]})</#if><#list .node["field-map"] as fieldMap>.parameter("${fieldMap["@field-name"]}",<#if fieldMap["@from"]?has_content>${fieldMap["@from"]}<#elseif fieldMap["@value"]?has_content>"""${fieldMap["@value"]}"""<#else>${fieldMap["@field-name"]}</#if>)</#list>.call()
         <#if handleResult><#if outAapAddToExisting>if (${.node["@out-map"]} != null) { if (call_service_result) ${.node["@out-map"]}.putAll(call_service_result) } else {</#if> ${.node["@out-map"]} = call_service_result <#if outAapAddToExisting>}</#if></#if>
         <#if (.node["@web-send-json-response"]?if_exists == "true")>
@@ -168,9 +174,10 @@ ${.node}
                 ${listName}PageIndex = ${listName}.pageIndex
                 ${listName}PageSize = ${listName}Count > 20 ? ${listName}Count : 20
             } else {
-                ${listName}Count = ${listName}_xafind.count()
                 ${listName}PageIndex = ${listName}_xafind.pageIndex
                 ${listName}PageSize = ${listName}_xafind.pageSize
+                if (${listName}.size() < ${listName}PageSize) { ${listName}Count = ${listName}.size() }
+                else { ${listName}Count = ${listName}_xafind.count() }
             }
         </#if>
         ${listName}PageMaxIndex = ((BigDecimal) (${listName}Count - 1)).divide(${listName}PageSize ?: (${listName}Count - 1), 0, BigDecimal.ROUND_DOWN) as int
@@ -248,13 +255,28 @@ ${.node}
         if (${.node["@list"]} instanceof org.moqui.entity.EntityListIterator) ${.node["@list"]}.close()
     <#if .node["@key"]?has_content>}</#if>
 </#macro>
-<#macro message><#if .node["@error"]?has_content && .node["@error"] == "true">    ec.message.addError(ec.resource.expand('''${.node?trim}''',''))<#else>    ec.message.addMessage(ec.resource.expand('''${.node?trim}''',''))</#if>
+<#macro message>
+    <#if .node["@error"]?has_content && .node["@error"] == "true">
+        ec.message.addError(ec.resource.expand('''${.node?trim}''',''))
+    <#elseif .node["@public"]?has_content && .node["@public"] == "true">
+        ec.message.addPublic(ec.resource.expand('''${.node?trim}''',''), "${.node["@type"]!"info"}")
+    <#else>
+        ec.message.addMessage(ec.resource.expand('''${.node?trim}''',''), "${.node["@type"]!"info"}")
+    </#if>
 </#macro>
 <#macro "check-errors">    if (ec.message.errors) return
 </#macro>
 
 <#-- NOTE: if there is an error message (in ec.messages.errors) then the actions result is an error, otherwise it is not, so we need a default error message here -->
-<#macro return><#assign returnMessage = .node["@message"]!""/><#if returnMessage?has_content><#if .node["@error"]?has_content && .node["@error"] == "true">    ec.message.addError(ec.resource.expand('''${returnMessage?trim}''' ?: "Error in actions",''))<#else>    ec.message.addMessage(ec.resource.expand('''${returnMessage?trim}''',''))</#if></#if>
+<#macro return>
+    <#assign returnMessage = .node["@message"]!""/>
+    <#if returnMessage?has_content><#if .node["@error"]?has_content && .node["@error"] == "true">
+        ec.message.addError(ec.resource.expand('''${returnMessage?trim}''' ?: "Error in actions",''))
+    <#elseif .node["@public"]?has_content && .node["@public"] == "true">
+        ec.message.addPublic(ec.resource.expand('''${returnMessage?trim}''',''), "${.node["@type"]!"info"}")
+    <#else>
+        ec.message.addMessage(ec.resource.expand('''${returnMessage?trim}''',''), "${.node["@type"]!"info"}")
+    </#if></#if>
     return;
 </#macro>
 <#macro assert><#list .node["*"] as childCond>

@@ -74,14 +74,14 @@ class EntityFacadeImpl implements EntityFacade {
     protected final ConcurrentHashMap<String, Lock> dbSequenceLocks = new ConcurrentHashMap<String, Lock>()
     protected final ReentrantLock locationLoadLock = new ReentrantLock()
 
-    protected final HashMap<String, ArrayList<EntityEcaRule>> eecaRulesByEntityName = new HashMap<>()
+    protected HashMap<String, ArrayList<EntityEcaRule>> eecaRulesByEntityName = new HashMap<>()
     protected final HashMap<String, String> entityGroupNameMap = new HashMap<>()
     protected final HashMap<String, MNode> databaseNodeByGroupName = new HashMap<>()
     protected final HashMap<String, MNode> datasourceNodeByGroupName = new HashMap<>()
     protected final String defaultGroupName
     protected final TimeZone databaseTimeZone
     protected final Locale databaseLocale
-    protected final Calendar databaseTzLcCalendar
+    protected final ThreadLocal<Calendar> databaseTzLcCalendar = new ThreadLocal<>()
     protected final String sequencedIdPrefix
     boolean queryStats = false
 
@@ -120,7 +120,6 @@ class EntityFacadeImpl implements EntityFacade {
             } catch (Exception e) { logger.warn("Error parsing database-locale: ${e.toString()}") }
         }
         databaseLocale = theLocale ?: Locale.getDefault()
-        databaseTzLcCalendar = Calendar.getInstance(databaseTimeZone, databaseLocale)
 
         // init entity meta-data
         entityDefinitionCache = ecfi.cacheFacade.getCache("entity.definition")
@@ -131,15 +130,28 @@ class EntityFacadeImpl implements EntityFacade {
         // init connection pool (DataSource) for each group
         initAllDatasources()
 
-        // EECA rule tables
-        loadEecaRulesAll()
-
         entityCache = new EntityCache(this)
         entityDataFeed = new EntityDataFeed(this)
         entityDataDocument = new EntityDataDocument(this)
 
         emptyList = new EntityListImpl(this)
         emptyList.setFromCache()
+    }
+    void postFacadeInit() {
+        // ========== load a few things in advance so first page hit is faster in production (in dev mode will reload anyway as caches timeout)
+        // load entity definitions
+        logger.info("Loading entity definitions")
+        long entityStartTime = System.currentTimeMillis()
+        loadAllEntityLocations()
+        int entityCount = loadAllEntityDefinitions()
+        // don't always load/warm framework entities, in production warms anyway and in dev not needed: entityFacade.loadFrameworkEntities()
+        logger.info("Loaded ${entityCount} entity definitions in ${System.currentTimeMillis() - entityStartTime}ms")
+
+        // now that everything is started up, if configured check all entity tables
+        checkInitDatasourceTables()
+
+        // EECA rule tables
+        loadEecaRulesAll()
     }
 
     EntityCache getEntityCache() { return entityCache }
@@ -158,10 +170,21 @@ class EntityFacadeImpl implements EntityFacade {
         // the OLD approach using user's TimeZone/Locale, bad idea because user may change for same record, getting different value, etc
         // return efi.getEcfi().getExecutionContext().getUser().getCalendarForTzLcOnly()
 
+        // the safest approach but from profiling tests this is VERY slow
         // return Calendar.getInstance(databaseTimeZone, databaseLocale)
         // NOTE: this approach is faster but seems to cause errors with Derby (ERROR 22007: The string representation of a date/time value is out of range)
-        // Still causing problems?
-        return databaseTzLcCalendar
+        // return databaseTzLcCalendar // NOTE this field was a Calendar object, is now a ThreadLocal<Calendar>
+
+        // latest approach to avoid creating a Calendar object for each use, use a ThreadLocal field
+        Calendar dbCal = databaseTzLcCalendar.get()
+        if (dbCal == null) {
+            dbCal = Calendar.getInstance(databaseTimeZone, databaseLocale)
+            dbCal.clear()
+            databaseTzLcCalendar.set(dbCal)
+        } else {
+            dbCal.clear()
+        }
+        return dbCal
     }
 
     MNode getEntityFacadeNode() { return ecfi.getConfXmlRoot().first("entity-facade") }
@@ -184,12 +207,30 @@ class EntityFacadeImpl implements EntityFacade {
         boolean defaultStartAddMissing = startupAddMissingGroups.contains(getEntityFacadeNode().attribute("default-group-name"))
         if (startupAddMissingGroups.size() > 0) {
             logger.info("Checking tables for entities in groups ${startupAddMissingGroups}")
+            boolean createdTables = false
             for (String entityName in getAllEntityNames()) {
                 String groupName = getEntityGroupName(entityName) ?: defaultGroupName
                 if (startupAddMissingGroups.contains(groupName) ||
                         (!allConfiguredGroups.contains(groupName) && defaultStartAddMissing)) {
                     EntityDatasourceFactory edf = getDatasourceFactory(groupName)
-                    edf.checkAndAddTable(entityName)
+                    if (edf.checkAndAddTable(entityName)) createdTables = true
+                }
+            }
+            // do second pass to make sure all FKs created
+            if (createdTables) {
+                logger.info("Tables were created, checking FKs for all entities in groups ${startupAddMissingGroups}")
+                for (String entityName in getAllEntityNames()) {
+                    String groupName = getEntityGroupName(entityName) ?: defaultGroupName
+                    if (startupAddMissingGroups.contains(groupName) ||
+                            (!allConfiguredGroups.contains(groupName) && defaultStartAddMissing)) {
+                        EntityDatasourceFactory edf = getDatasourceFactory(groupName)
+                        if (edf instanceof EntityDatasourceFactoryImpl) {
+                            EntityDefinition ed = getEntityDefinition(entityName)
+                            if (ed.isViewEntity) continue
+                            getEntityDbMeta().createForeignKeys(ed, true)
+
+                        }
+                    }
                 }
             }
             logger.info("Checked tables for all entities in ${(System.currentTimeMillis() - currentTime)/1000} seconds")
@@ -234,14 +275,14 @@ class EntityFacadeImpl implements EntityFacade {
                 MNode dbNode = efi.getDatabaseNode(groupName)
                 inlineJdbc = dbNode.first("inline-jdbc")
             }
-            MNode xaProperties = inlineJdbc.first("xa-properties")
+            MNode xaProperties = inlineJdbc?.first("xa-properties")
             database = efi.getDatabaseNode(groupName)
 
             if (jndiJdbcNode != null) {
                 serverJndi = efi.getEntityFacadeNode().first("server-jndi")
                 if (serverJndi != null) serverJndi.setSystemExpandAttributes(true)
                 jndiName = jndiJdbcNode.attribute("jndi-name")
-            } else if (xaProperties) {
+            } else if (xaProperties != null) {
                 xaDsClass = inlineJdbc.attribute("xa-ds-class") ? inlineJdbc.attribute("xa-ds-class") : database.attribute("default-xa-ds-class")
 
                 xaProps = new Properties()
@@ -257,7 +298,7 @@ class EntityFacadeImpl implements EntityFacade {
                     if (propName.toLowerCase().contains("password")) continue
                     dsDetails.put(propName, xaProps.getProperty(propName))
                 }
-            } else {
+            } else if (inlineJdbc != null) {
                 inlineJdbc.setSystemExpandAttributes(true)
                 jdbcDriver = inlineJdbc.attribute("jdbc-driver") ? inlineJdbc.attribute("jdbc-driver") : database.attribute("default-jdbc-driver")
                 jdbcUri = inlineJdbc.attribute("jdbc-uri")
@@ -267,6 +308,8 @@ class EntityFacadeImpl implements EntityFacade {
 
                 dsDetails.put("uri", jdbcUri)
                 dsDetails.put("user", jdbcUsername)
+            } else {
+                throw new EntityException("Data source for group ${groupName} has no inline-jdbc or jndi-jdbc configuration")
             }
         }
     }
@@ -861,10 +904,10 @@ class EntityFacadeImpl implements EntityFacade {
     }
 
     void loadEecaRulesAll() {
-        if (eecaRulesByEntityName.size() > 0) eecaRulesByEntityName.clear()
-
         int numLoaded = 0
         int numFiles = 0
+        HashMap<String, EntityEcaRule> ruleByIdMap = new HashMap<>()
+        LinkedList<EntityEcaRule> ruleNoIdList = new LinkedList<>()
         // search for the service def XML file in the components
         for (String location in this.ecfi.getComponentBaseLocations().values()) {
             ResourceReference entityDirRr = this.ecfi.resourceFacade.getLocationReference(location + "/entity")
@@ -873,36 +916,53 @@ class EntityFacadeImpl implements EntityFacade {
                 if (!entityDirRr.isDirectory()) continue
                 for (ResourceReference rr in entityDirRr.directoryEntries) {
                     if (!rr.fileName.endsWith(".eecas.xml")) continue
-                    numLoaded += loadEecaRulesFile(rr)
+                    numLoaded += loadEecaRulesFile(rr, ruleByIdMap, ruleNoIdList)
                     numFiles++
+
                 }
             } else {
                 logger.warn("Can't load EECA rules from component at [${entityDirRr.location}] because it doesn't support exists/directory/etc")
             }
         }
-        if (logger.infoEnabled) logger.info("Loaded ${numLoaded} Entity ECA rules from ${numFiles} .eecas.xml files")
-    }
-    int loadEecaRulesFile(ResourceReference rr) {
-        MNode eecasRoot = MNode.parse(rr)
-        int numLoaded = 0
-        for (MNode secaNode in eecasRoot.children("eeca")) {
-            EntityEcaRule ser = new EntityEcaRule(ecfi, secaNode, rr.location)
-            String entityName = ser.entityName
-            // remove the hash if there is one to more consistently match the service name
-            if (entityName.contains("#")) entityName = entityName.replace("#", "")
-            ArrayList<EntityEcaRule> lst = eecaRulesByEntityName.get(entityName)
+        if (logger.infoEnabled) logger.info("Loaded ${numLoaded} Entity ECA rules from ${numFiles} .eecas.xml files, ${ruleNoIdList.size()} rules have no id, ${ruleNoIdList.size() + ruleByIdMap.size()} EECA rules active")
+
+        HashMap<String, ArrayList<EntityEcaRule>> ruleMap = new HashMap<>()
+        ruleNoIdList.addAll(ruleByIdMap.values())
+        for (EntityEcaRule ecaRule in ruleNoIdList) {
+            EntityDefinition ed = getEntityDefinition(ecaRule.entityName)
+            String entityName = ed.getFullEntityName()
+
+            ArrayList<EntityEcaRule> lst = ruleMap.get(entityName)
             if (lst == null) {
                 lst = new ArrayList<EntityEcaRule>()
-                eecaRulesByEntityName.put(entityName, lst)
+                ruleMap.put(entityName, lst)
             }
-            lst.add(ser)
+            lst.add(ecaRule)
+        }
+
+        // replace entire EECA rules Map in one operation
+        eecaRulesByEntityName = ruleMap
+    }
+    int loadEecaRulesFile(ResourceReference rr, HashMap<String, EntityEcaRule> ruleByIdMap, LinkedList<EntityEcaRule> ruleNoIdList) {
+        MNode eecasRoot = MNode.parse(rr)
+        int numLoaded = 0
+        for (MNode eecaNode in eecasRoot.children("eeca")) {
+            String entityName = eecaNode.attribute("entity")
+            if (!isEntityDefined(entityName)) {
+                logger.warn("Invalid entity name ${entityName} found in EECA file ${rr.location}, skipping")
+                continue
+            }
+            EntityEcaRule ecaRule = new EntityEcaRule(ecfi, eecaNode, rr.location)
+            String ruleId = eecaNode.attribute("id")
+            if (ruleId != null && !ruleId.isEmpty()) ruleByIdMap.put(ruleId, ecaRule)
+            else ruleNoIdList.add(ecaRule)
             numLoaded++
         }
         if (logger.isTraceEnabled()) logger.trace("Loaded [${numLoaded}] Entity ECA rules from [${rr.location}]")
         return numLoaded
     }
 
-    boolean hasEecaRules(String entityName) { return eecaRulesByEntityName.get(entityName) as boolean }
+    boolean hasEecaRules(String entityName) { return eecaRulesByEntityName.get(entityName) != null }
     void runEecaRules(String entityName, Map fieldValues, String operation, boolean before) {
         ArrayList<EntityEcaRule> lst = (ArrayList<EntityEcaRule>) eecaRulesByEntityName.get(entityName)
         if (lst != null && lst.size() > 0) {
@@ -1321,7 +1381,12 @@ class EntityFacadeImpl implements EntityFacade {
         if (offset != null && !offset.isEmpty()) ef.offset(Integer.valueOf(offset))
         String limit = node.attribute("limit")
         if (limit != null && !limit.isEmpty()) ef.limit(Integer.valueOf(limit))
-        for (MNode sf in node.children("select-field")) ef.selectField(sf.attribute("field-name"))
+        for (MNode sf in node.children("select-field")) {
+            String fieldToSelect = sf.attribute("field-name")
+            if (fieldToSelect == null || fieldToSelect.isEmpty()) continue
+            if (fieldToSelect.contains('${')) fieldToSelect = ecfi.resourceFacade.expandNoL10n(fieldToSelect, null)
+            ef.selectField(fieldToSelect)
+        }
         for (MNode ob in node.children("order-by")) ef.orderBy(ob.attribute("field-name"))
 
         if (node.hasChild("search-form-inputs")) {

@@ -198,7 +198,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
                 ExecutionContextFactoryImpl ecfi = getEcfi()
                 threadEci = ecfi.getEci()
                 if (threadUsername != null && threadUsername.length() > 0)
-                    threadEci.userFacade.internalLoginUser(threadUsername)
+                    threadEci.userFacade.internalLoginUser(threadUsername, false)
 
                 // set hostAddress, hostName, runThread, startTime on ServiceJobRun
                 InetAddress localHost = ecfi.getLocalhostAddress()
@@ -212,7 +212,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
                 if (lastRunTime != (Object) null) parameters.put("lastRunTime", lastRunTime)
 
                 // NOTE: authz is disabled because authz is checked before queueing
-                Map<String, Object> results = (Map<String, Object>) null
+                Map<String, Object> results = new HashMap<>()
                 try {
                     results = ecfi.serviceFacade.sync().name(serviceName).parameters(parameters)
                             .transactionTimeout(transactionTimeout).disableAuthz().call()
@@ -222,7 +222,16 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
                 }
 
                 // set endTime, results, messages, errors on ServiceJobRun
-                String resultString = JsonOutput.toJson(results)
+                if (results.containsKey(null)) {
+                    logger.warn("Service Job ${jobName} results has a null key with value ${results.get(null)}, removing")
+                    results.remove(null)
+                }
+                String resultString = (String) null
+                try {
+                    resultString = JsonOutput.toJson(results)
+                } catch (Exception e) {
+                    logger.warn("Error writing JSON for Service Job ${jobName} results: ${e.toString()}\n${results}")
+                }
                 boolean hasError = threadEci.messageFacade.hasError()
                 String messages = threadEci.messageFacade.getMessagesString()
                 if (messages != null && messages.length() > 4000) messages = messages.substring(0, 4000)

@@ -20,7 +20,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.sql.Timestamp;
 import java.util.*;
 
@@ -126,12 +125,22 @@ public class CollectionUtilities {
         String[] fieldNameArray;
 
         public MapOrderByComparator(List<? extends CharSequence> fieldNameList) {
-            fieldNameArray = new String[fieldNameList.size()];
-            int i = 0;
+            ArrayList<String> fieldArrayList = new ArrayList<>();
             for (CharSequence fieldName : fieldNameList) {
-                fieldNameArray[i] = fieldName.toString();
-                i++;
+                String fieldStr = fieldName.toString();
+                if (fieldStr.contains(",")) {
+                    String[] curFieldArray = fieldStr.split(",");
+                    for (int i = 0; i < curFieldArray.length; i++) {
+                        String curField = curFieldArray[i];
+                        if (curField == null) continue;
+                        fieldArrayList.add(curField.trim());
+                    }
+                } else {
+                    fieldArrayList.add(fieldStr);
+                }
             }
+            fieldNameArray = fieldArrayList.toArray(new String[0]);
+            // logger.warn("Order list by " + Arrays.asList(fieldNameArray));
         }
 
         @SuppressWarnings("unchecked")
@@ -165,6 +174,13 @@ public class CollectionUtilities {
                             int comp = ((String) value1).compareToIgnoreCase((String) value2);
                             if (comp != 0) return ascending ? comp : -comp;
                         } else {
+                            if (value1.getClass() != value2.getClass()) {
+                                if (value1 instanceof Number && value2 instanceof Number) {
+                                    value1 = new BigDecimal(value1.toString());
+                                    value2 = new BigDecimal(value2.toString());
+                                }
+                                // NOTE: any other type normalization to avoid compareTo() casting exceptions?
+                            }
                             int comp = value1.compareTo(value2);
                             if (comp != 0) return ascending ? comp : -comp;
                         }

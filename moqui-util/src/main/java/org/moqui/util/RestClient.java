@@ -17,17 +17,20 @@ import groovy.json.JsonBuilder;
 import groovy.json.JsonSlurper;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.HttpResponseException;
-import org.eclipse.jetty.client.api.ContentResponse;
-import org.eclipse.jetty.client.api.Request;
-import org.eclipse.jetty.client.util.BasicAuthentication;
+import org.eclipse.jetty.client.api.*;
+import org.eclipse.jetty.client.util.FutureResponseListener;
+import org.eclipse.jetty.client.util.InputStreamContentProvider;
+import org.eclipse.jetty.client.util.MultiPartContentProvider;
 import org.eclipse.jetty.client.util.StringContentProvider;
 import org.eclipse.jetty.http.HttpField;
+import org.eclipse.jetty.http.HttpFields;
 import org.eclipse.jetty.http.HttpHeader;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.moqui.BaseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -35,37 +38,46 @@ import java.net.URLEncoder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.locks.ReentrantLock;
 
 @SuppressWarnings("unused")
 public class RestClient {
     public enum Method { GET, PATCH, PUT, POST, DELETE, OPTIONS, HEAD }
     public static final Method GET = Method.GET, PATCH = Method.PATCH, PUT = Method.PUT, POST = Method.POST,
             DELETE = Method.DELETE, OPTIONS = Method.OPTIONS, HEAD = Method.HEAD;
+
+    // NOTE: there is no constant on HttpServletResponse for 429; see RFC 6585 for details
+    public static final int TOO_MANY = 429;
+
     private static final EnumSet<Method> BODY_METHODS = EnumSet.of(Method.PATCH, Method.POST, Method.PUT);
     private static final Logger logger = LoggerFactory.getLogger(RestClient.class);
 
-    private URI uri = null;
+    private String uriString = null;
     private Method method = Method.GET;
     private String contentType = "application/json";
     private Charset charset = StandardCharsets.UTF_8;
     private String bodyText = null;
+    private MultiPartContentProvider multiPart = null;
     private List<KeyValueString> headerList = new LinkedList<>();
     private List<KeyValueString> bodyParameterList = new LinkedList<>();
     private String username = null;
     private String password = null;
+    private float initialWaitSeconds = 2.0F;
+    private int maxRetries = 0;
+    private int maxResponseSize = 4 * 1024 * 1024;
+    private int timeoutSeconds = 30;
+    private boolean timeoutRetry = false;
 
     public RestClient() { }
 
     /** Full URL String including protocol, host, path, parameters, etc */
-    public RestClient uri(String location) throws URISyntaxException {
-        uri = new URI(location);
-        return this;
-    }
-
+    public RestClient uri(String location) { uriString = location; return this; }
     /** URL object including protocol, host, path, parameters, etc */
-    public RestClient uri(URI uri) { this.uri = uri; return this; }
+    public RestClient uri(URI uri) { this.uriString = uri.toASCIIString(); return this; }
     public UriBuilder uri() { return new UriBuilder(this); }
-    public URI getUri() { return uri; }
+    public URI getUri() { return URI.create(uriString); }
+    public String getUriString() { return uriString; }
 
     /** Sets the HTTP request method, defaults to 'GET'; must be in the METHODS array */
     public RestClient method(String method) {
@@ -156,53 +168,156 @@ public class RestClient {
         bodyParameterList.add(new KeyValueString(name, value));
         return this;
     }
+    /** Add a field part to a multi part request **/
+    public RestClient addFieldPart(String field, String value) {
+        if (method != Method.POST) throw new IllegalStateException("Can only use multipart body with POST method, not supported for method " + method + "; if you need a different effective request method try using the X-HTTP-Method-Override header");
+        if (multiPart == null) multiPart = new MultiPartContentProvider();
+        multiPart.addFieldPart(field, new StringContentProvider(value), null);
+        return this;
+    }
+    /** Add a String file part to a multi part request **/
+    public RestClient addFilePart(String name, String fileName, String stringContent) {
+        return addFilePart(name, fileName, new StringContentProvider(stringContent), null);
+    }
+    /** Add a InputStream file part to a multi part request **/
+    public RestClient addFilePart(String name, String fileName, InputStream streamContent) {
+        return addFilePart(name, fileName, new InputStreamContentProvider(streamContent), null);
+    }
+    /** Add file part using Jetty ContentProvider.
+     * WARNING: This uses Jetty HTTP Client API objects and may change over time, do not use if alternative will work.
+     */
+    public RestClient addFilePart(String name, String fileName, ContentProvider content, HttpFields fields) {
+        if (method != Method.POST) throw new IllegalStateException("Can only use multipart body with POST method, not supported for method " + method + "; if you need a different effective request method try using the X-HTTP-Method-Override header");
+        if (multiPart == null) multiPart = new MultiPartContentProvider();
+        multiPart.addFilePart(name, fileName, content, fields);
+        return this;
+    }
+
+    /** If a velocity limit (429) response is received then retry up to maxRetries with
+     * exponential back off (initialWaitSeconds^i) sleep time in between requests. */
+    public RestClient retry(float initialWaitSeconds, int maxRetries) {
+        this.initialWaitSeconds = initialWaitSeconds;
+        this.maxRetries = maxRetries;
+        return this;
+    }
+    /** Same as retry(int, int) with defaults of 2 for initialWaitSeconds and 5 for maxRetries
+     * (2, 4, 8, 16, 32 seconds; up to total 62 seconds wait time and 6 HTTP requests) */
+    public RestClient retry() { return retry(2.0F, 5); }
+
+    /** Set a maximum response size, defaults to 4MB (4 * 1024 * 1024) */
+    public RestClient maxResponseSize(int maxSize) { this.maxResponseSize = maxSize; return this; }
+    /** Set a full response timeout in seconds, defaults to 30 */
+    public RestClient timeout(int seconds) { this.timeoutSeconds = seconds; return this; }
+    /** Set to true if retry should also be done on timeout; must call retry() to set retry parameters otherwise defaults to 1 retry with 2.0 initial wait time. */
+    public RestClient timeoutRetry(boolean tr) { this.timeoutRetry = tr; if (maxRetries == 0) maxRetries = 1; return this; }
 
     /** Do the HTTP request and get the response */
     public RestResponse call() {
-        if (uri == null) throw new IllegalStateException("No URI set in RestClient");
+        float curWaitSeconds = initialWaitSeconds;
+        if (curWaitSeconds == 0) curWaitSeconds = 1;
 
-        ContentResponse response = null;
-
-        SslContextFactory sslContextFactory = new SslContextFactory();
-        sslContextFactory.setTrustAll(true);
-        HttpClient httpClient = new HttpClient(sslContextFactory);
-
-        try {
-            httpClient.start();
-
-            final Request request = httpClient.newRequest(uri);
-            request.method(method.name());
-            // set charset on request?
-
-            // add headers and parameters
-            for (KeyValueString nvp : headerList) request.header(nvp.key, nvp.value);
-            for (KeyValueString nvp : bodyParameterList) request.param(nvp.key, nvp.value);
-            // authc
-            if (username != null && !username.isEmpty())
-                httpClient.getAuthenticationStore().addAuthentication(new BasicAuthentication(uri, null, username, password));
-
-            if (bodyText != null && !bodyText.isEmpty()) {
-                request.content(new StringContentProvider(contentType, bodyText, charset), contentType);
-                request.header(HttpHeader.CONTENT_TYPE, contentType);
-            }
-
-            request.accept(contentType);
-
-            if (logger.isTraceEnabled())
-                logger.trace("RestClient request " + request.getMethod() + " " + String.valueOf(request.getURI()) + " Headers: " + String.valueOf(request.getHeaders()));
-
-            response = request.send();
-        } catch (Exception e) {
-            throw new BaseException("Error calling REST request", e);
-        } finally {
+        RestResponse curResponse = null;
+        for (int i = 0; i <= maxRetries; i++) {
             try {
-                httpClient.stop();
-            } catch (Exception e) {
-                logger.error("Error stopping REST HttpClient", e);
+                // do the request
+                curResponse = callInternal();
+            } catch (TimeoutException e) {
+                // if set to do so retry on timeout
+                if (timeoutRetry && i < maxRetries) {
+                    try {
+                        Thread.sleep(Math.round(curWaitSeconds * 1000));
+                    } catch (InterruptedException ie) {
+                        logger.warn("RestClient timeout retry sleep interrupted, returning most recent response", ie);
+                        return curResponse;
+                    }
+                    curWaitSeconds = curWaitSeconds * initialWaitSeconds;
+                    continue;
+                } else {
+                    throw new BaseException("Timeout error calling REST request", e);
+                }
+            }
+            if (curResponse.statusCode == TOO_MANY && i < maxRetries) {
+                try {
+                    Thread.sleep(Math.round(curWaitSeconds * 1000));
+                } catch (InterruptedException e) {
+                    logger.warn("RestClient velocity retry sleep interrupted, returning most recent response", e);
+                    return curResponse;
+                }
+                curWaitSeconds = curWaitSeconds * initialWaitSeconds;
+            } else {
+                break;
             }
         }
 
-        return new RestResponse(this, response);
+        return curResponse;
+    }
+    protected RestResponse callInternal() throws TimeoutException {
+        if (uriString == null || uriString.isEmpty()) throw new IllegalStateException("No URI set in RestClient");
+        HttpClient httpClient = makeStartHttpClient();
+        try {
+            Request request = makeRequest(httpClient);
+            // use a FutureResponseListener so we can set the timeout and max response size (old: response = request.send(); )
+            FutureResponseListener listener = new FutureResponseListener(request, maxResponseSize);
+            request.send(listener);
+
+            ContentResponse response = listener.get(timeoutSeconds, TimeUnit.SECONDS);
+            return new RestResponse(this, response);
+        } catch (TimeoutException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new BaseException("Error calling REST request", e);
+        } finally {
+            try { httpClient.stop(); } catch (Exception e) { logger.error("Error stopping REST HttpClient", e); }
+        }
+    }
+
+    protected HttpClient makeStartHttpClient() {
+        SslContextFactory sslContextFactory = new SslContextFactory();
+        sslContextFactory.setTrustAll(true);
+        HttpClient httpClient = new HttpClient(sslContextFactory);
+        try { httpClient.start(); } catch (Exception e) { throw new BaseException("Error starting HTTP client", e); }
+        return httpClient;
+    }
+    protected Request makeRequest(HttpClient httpClient) {
+        final Request request = httpClient.newRequest(uriString);
+        request.method(method.name());
+        // set charset on request?
+
+        // add headers and parameters
+        for (KeyValueString nvp : headerList) request.header(nvp.key, nvp.value);
+        for (KeyValueString nvp : bodyParameterList) request.param(nvp.key, nvp.value);
+        // authc
+        if (username != null && !username.isEmpty()) {
+            String unPwString = username + ':' + password;
+            String basicAuthStr  = "Basic " + Base64.getEncoder().encodeToString(unPwString.getBytes());
+            request.header(HttpHeader.AUTHORIZATION, basicAuthStr);
+            // using basic Authorization header instead, too many issues with this: httpClient.getAuthenticationStore().addAuthentication(new BasicAuthentication(uri, BasicAuthentication.ANY_REALM, username, password));
+        }
+
+        if (multiPart != null) {
+            if (method == Method.POST) {
+                // HttpClient will send the correct headers when it's a multi-part content type (ie set content type to multipart/form-data, etc)
+                request.content(multiPart);
+            } else {
+                throw new IllegalStateException("Can only use multipart body with POST method, not supported for method " + method + "; if you need a different effective request method try using the X-HTTP-Method-Override header");
+            }
+        } else if (bodyText != null && !bodyText.isEmpty()) {
+            request.content(new StringContentProvider(contentType, bodyText, charset), contentType);
+            request.header(HttpHeader.CONTENT_TYPE, contentType);
+        }
+
+        request.accept(contentType);
+
+        if (logger.isTraceEnabled())
+            logger.trace("RestClient request " + request.getMethod() + " " + String.valueOf(request.getURI()) + " Headers: " + String.valueOf(request.getHeaders()));
+
+        return request;
+    }
+
+    /** Call in background  */
+    public Future<RestResponse> callFuture() {
+        if (uriString == null || uriString.isEmpty()) throw new IllegalStateException("No URI set in RestClient");
+        return new RestClientFuture(this);
     }
 
     public static class RestResponse {
@@ -241,8 +356,8 @@ public class RestClient {
          * handling or skip it to handle manually or allow errors */
         public RestResponse checkError() {
             if (statusCode < 200 || statusCode >= 300) {
-                logger.info("Error " + String.valueOf(statusCode) + " (" + reasonPhrase + ") in response to " + rci.method + " to " + rci.uri.toASCIIString() + ", response text:\n" + text());
-                throw new HttpResponseException("Error " + String.valueOf(statusCode) + " (" + reasonPhrase + ") in response to " + rci.method + " to " + rci.uri.toASCIIString(), response);
+                logger.info("Error " + String.valueOf(statusCode) + " (" + reasonPhrase + ") in response to " + rci.method + " to " + rci.uriString + ", response text:\n" + text());
+                throw new HttpResponseException("Error " + String.valueOf(statusCode) + " (" + reasonPhrase + ") in response to " + rci.method + " to " + rci.uriString, response);
             }
 
             return this;
@@ -271,11 +386,11 @@ public class RestClient {
             try {
                 return new JsonSlurper().parseText(text());
             } catch (Throwable t) {
-                throw new BaseException("Error parsing JSON response from request to " + rci.uri.toASCIIString(), t);
+                throw new BaseException("Error parsing JSON response from request to " + rci.uriString, t);
             }
         }
         /** Parse the response as XML and return a MNode */
-        public MNode xmlNode() { return MNode.parseText(rci.uri.toASCIIString(), text()); }
+        public MNode xmlNode() { return MNode.parseText(rci.uriString, text()); }
 
         /** Get bytes from a binary response */
         public byte[] bytes() { return bytes; }
@@ -292,9 +407,9 @@ public class RestClient {
             if (bytes == null || bytes.length == 0) return "";
             // UTF-8 BOM = 239, 187, 191
             if (bytes[0] == (byte) 239) {
-                return new String(bytes, 3, bytes.length - 3, "UTF-8");
+                return new String(bytes, 3, bytes.length - 3, StandardCharsets.UTF_8);
             } else {
-                return new String(bytes, "UTF-8");
+                return new String(bytes, StandardCharsets.UTF_8);
             }
         }
     }
@@ -302,11 +417,11 @@ public class RestClient {
     public static class UriBuilder {
         private RestClient rci;
         private String protocol = "http";
-        private String host = (String) null;
+        private String host = null;
         private int port = 80;
         private StringBuilder path = new StringBuilder();
-        private Map<String, String> parameters = (Map<String, String>) null;
-        private String fragment = (String) null;
+        private Map<String, String> parameters = null;
+        private String fragment = null;
 
         UriBuilder(RestClient rci) { this.rci = rci; }
 
@@ -354,6 +469,13 @@ public class RestClient {
         public RestClient build() throws URISyntaxException, UnsupportedEncodingException {
             if (host == null || host.isEmpty())
                 throw new IllegalArgumentException("No host specified, call the host() method before build()");
+
+            StringBuilder uriSb = new StringBuilder();
+            uriSb.append(protocol).append("://").append(host).append(':').append(port);
+
+            if (path.length() == 0) path.append("/");
+            uriSb.append(path);
+
             StringBuilder query = null;
             if (parameters != null && parameters.size() > 0) {
                 query = new StringBuilder();
@@ -361,12 +483,10 @@ public class RestClient {
                     if (query.length() > 0) query.append("&");
                     query.append(URLEncoder.encode(parm.getKey(), "UTF-8")).append("=").append(URLEncoder.encode(parm.getValue(), "UTF-8"));
                 }
-
             }
+            if (query != null && query.length() > 0) uriSb.append('?').append(query);
 
-            if (path.length() == 0) path.append("/");
-            URI newUri = new URI(protocol, null, host, port, path.toString(), query != null ? query.toString() : null, null);
-            return rci.uri(newUri);
+            return rci.uri(uriSb.toString());
         }
     }
 
@@ -378,5 +498,117 @@ public class RestClient {
 
         public String key;
         public String value;
+    }
+
+    public static class RetryListener implements Response.CompleteListener {
+        RestClientFuture rcf;
+        RetryListener(RestClientFuture rcf) { this.rcf = rcf; }
+        @Override public void onComplete(Result result) {
+            if (result.getResponse().getStatus() == TOO_MANY && rcf.retryCount < rcf.rci.maxRetries && !rcf.cancelled) {
+                // lock before new request to make sure not in the middle of get()
+                rcf.retryLock.lock();
+                try {
+                    try {
+                        Thread.sleep(Math.round(rcf.curWaitSeconds * 1000));
+                    } catch (InterruptedException e) {
+                        logger.warn("RestClientFuture retry sleep interrupted, returning most recent response", e);
+                        return;
+                    }
+                    // update wait time and count
+                    rcf.curWaitSeconds = rcf.curWaitSeconds * rcf.rci.initialWaitSeconds;
+                    rcf.retryCount++;
+
+                    // do a new request, still in the background
+                    rcf.newRequest();
+                } finally { rcf.retryLock.unlock(); }
+            }
+        }
+    }
+    public static class RestClientFuture implements Future<RestResponse> {
+        RestClient rci;
+        HttpClient httpClient;
+        FutureResponseListener listener;
+        volatile float curWaitSeconds;
+        volatile int retryCount = 0;
+        volatile boolean cancelled = false;
+        ReentrantLock retryLock = new ReentrantLock();
+        ContentResponse lastResponse = null;
+
+        RestClientFuture(RestClient rci) {
+            this.rci = rci;
+            curWaitSeconds = rci.initialWaitSeconds;
+            if (curWaitSeconds == 0) curWaitSeconds = 1;
+            // start the initial request
+            newRequest();
+        }
+
+        void newRequest() {
+            if (httpClient != null && httpClient.isRunning()) {
+                try { httpClient.stop(); } catch (Exception e) { logger.error("Error stopping REST HttpClient", e); }
+            }
+            // NOTE: RestClientFuture methods call httpClient.stop() so not handled here
+            httpClient = rci.makeStartHttpClient();
+            try {
+                Request request = rci.makeRequest(httpClient);
+                // use a CompleteListener to retry in background
+                request.onComplete(new RetryListener(this));
+                // use a FutureResponseListener so we can set the timeout and max response size (old: response = request.send(); )
+                listener = new FutureResponseListener(request, rci.maxResponseSize);
+                request.send(listener);
+            } catch (Exception e) {
+                throw new BaseException("Error calling REST request", e);
+            }
+        }
+
+        @Override public boolean isCancelled() { return cancelled || listener.isCancelled(); }
+        @Override public boolean isDone() { return retryCount >= rci.maxRetries && listener.isDone(); }
+
+        @Override public boolean cancel(boolean mayInterruptIfRunning) {
+            retryLock.lock();
+            try {
+                try {
+                    cancelled = true;
+                    return listener.cancel(mayInterruptIfRunning);
+                } finally {
+                    try { httpClient.stop(); } catch (Exception e) { logger.error("Error stopping REST HttpClient", e); }
+                }
+            } finally { retryLock.unlock(); }
+        }
+
+        @Override
+        public RestResponse get() throws InterruptedException, ExecutionException {
+            try {
+                return get(rci.timeoutSeconds, TimeUnit.SECONDS);
+            } catch (TimeoutException e) {
+                throw new BaseException("Timeout error calling REST request", e);
+            }
+        }
+
+        @Override
+        public RestResponse get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+            do {
+                // lock before new request to make sure not in the middle of retry
+                retryLock.lock();
+                try {
+                    try {
+                        lastResponse = listener.get(timeout, unit);
+                        if (lastResponse.getStatus() != TOO_MANY) break;
+                    } finally {
+                        try { httpClient.stop(); } catch (Exception e) { logger.error("Error stopping REST HttpClient", e); }
+                    }
+                } finally { retryLock.unlock(); }
+            } while (!cancelled && retryCount < rci.maxRetries);
+
+            return new RestResponse(rci, lastResponse);
+        }
+
+        @Override
+        protected void finalize() throws Throwable {
+            if (httpClient != null && httpClient.isRunning()) {
+                logger.warn("RestClientFuture finalize and httpClient still running for " + rci.uriString + ", stopping");
+                try { httpClient.stop(); } catch (Exception e) { logger.error("Error stopping REST HttpClient", e); }
+            }
+            super.finalize();
+        }
     }
 }

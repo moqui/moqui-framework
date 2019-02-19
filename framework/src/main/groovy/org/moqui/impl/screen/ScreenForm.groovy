@@ -1024,7 +1024,7 @@ class ScreenForm {
                                 addFieldOption(options, fieldNode, childNode, [entry:listOption], ec)
                             } else {
                                 String loString = ObjectUtilities.toPlainString(listOption)
-                                if (loString != null) options.put(loString, loString)
+                                if (loString != null) options.put(loString, ec.l10n.localize(loString))
                             }
                         }
                     }
@@ -1032,7 +1032,7 @@ class ScreenForm {
             } else if ("option".equals(childNode.name)) {
                 String key = ec.resource.expandNoL10n(childNode.attribute('key'), null)
                 String text = ec.resource.expand(childNode.attribute('text'), null)
-                options.put(key, text ?: key)
+                options.put(key, text ?: ec.l10n.localize(key))
             }
         }
         return options
@@ -1064,13 +1064,13 @@ class ScreenForm {
             if (text == null || text.length() == 0) {
                 if (listOptionEvb == null || listOptionEvb.getEntityDefinition().isField("description")) {
                     Object desc = listOption.get("description")
-                    options.put(key, desc != null ? (String) desc : key)
+                    options.put(key, desc != null ? (String) desc : ec.l10n.localize(key))
                 } else {
-                    options.put(key, key)
+                    options.put(key, ec.l10n.localize(key))
                 }
             } else {
                 String value = ec.resource.expand(text, null)
-                if ("null".equals(value)) value = key
+                if ("null".equals(value)) value = ec.l10n.localize(key)
                 options.put(key, value)
             }
         } finally {
@@ -1337,14 +1337,14 @@ class ScreenForm {
             return headerField.hasChild("submit")
         }
 
-        private boolean isListFieldHiddenAttr(MNode fieldNode) {
+        boolean isListFieldHiddenAttr(MNode fieldNode) {
             String hideAttr = fieldNode.attribute("hide")
             if (hideAttr != null && hideAttr.length() > 0) {
                 return ecfi.getEci().resource.condition(hideAttr, "")
             }
             return false
         }
-        private static boolean isListFieldHiddenWidget(MNode fieldNode) {
+        static boolean isListFieldHiddenWidget(MNode fieldNode) {
             // if default-field or any conditional-field don't have hidden or ignored elements then it's not hidden
             MNode defaultField = fieldNode.first("default-field")
             if (defaultField != null && !defaultField.hasChild("hidden") && !defaultField.hasChild("ignored")) return false
@@ -1480,12 +1480,23 @@ class ScreenForm {
 
         ArrayList<EntityValue> makeFormListFindFields(String formListFindId, ExecutionContext ec) {
             ContextStack cs = ec.context
+
+            Set<String> skipSet = null
+            MNode entityFindNode = screenForm.entityFindNode
+            if (entityFindNode != null) {
+                MNode sfiNode = entityFindNode.first("search-form-inputs")
+                String skipFields = sfiNode?.attribute("skip-fields")
+                if (skipFields != null && !skipFields.isEmpty())
+                    skipSet = new HashSet<>(Arrays.asList(skipFields.split(",")).collect({ it.trim() }))
+            }
+
             List<EntityValue> valueList = new ArrayList<>()
             for (MNode fieldNode in allFieldNodes) {
                 // skip submit
                 if (isHeaderSubmitField(fieldNode)) continue
 
                 String fn = fieldNode.attribute("name")
+                if (skipSet != null && skipSet.contains(fn)) continue
 
                 if (cs.containsKey(fn) || cs.containsKey(fn + "_op")) {
                     // this will handle text-line, text-find, etc
@@ -1701,9 +1712,11 @@ class ScreenForm {
                         pageSize = efList.pageSize
                         pageIndex = efList.pageIndex
                     } else {
-                        count = ef.count()
                         pageIndex = ef.pageIndex
                         pageSize = ef.pageSize
+                        // this can be expensive, only get count if efList size is equal to pageSize (can skip if no paginate needed)
+                        if (efList.size() < pageSize) count = efList.size()
+                        else count = ef.count()
                     }
                     long maxIndex = (new BigDecimal(count-1)).divide(new BigDecimal(pageSize), 0, BigDecimal.ROUND_DOWN).longValue()
                     long pageRangeLow = (pageIndex * pageSize) + 1

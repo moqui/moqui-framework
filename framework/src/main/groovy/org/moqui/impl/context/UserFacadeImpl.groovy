@@ -15,12 +15,14 @@ package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
 import org.moqui.context.ArtifactExecutionInfo
+import org.moqui.context.AuthenticationRequiredException
 import org.moqui.entity.EntityCondition
 import org.moqui.impl.context.ArtifactExecutionInfoImpl.ArtifactAuthzCheck
 import org.moqui.impl.entity.EntityValueBase
 import org.moqui.impl.screen.ScreenUrlInfo
 import org.moqui.impl.util.MoquiShiroRealm
 import org.moqui.util.MNode
+import org.moqui.util.ObjectUtilities
 import org.moqui.util.StringUtilities
 import org.moqui.util.WebUtilities
 
@@ -61,10 +63,12 @@ class UserFacadeImpl implements UserFacade {
     protected String visitId = (String) null
     protected EntityValue visitInternal = (EntityValue) null
     protected String visitorIdInternal = (String) null
+    protected String clientIpInternal = (String) null
 
     // we mostly want this for the Locale default, and may be useful for other things
     protected HttpServletRequest request = (HttpServletRequest) null
     protected HttpServletResponse response = (HttpServletResponse) null
+    // NOTE: a better practice is to always get from the request, but for WebSocket handshakes we don't have a request
     protected HttpSession session = (HttpSession) null
 
     UserFacadeImpl(ExecutionContextImpl eci) {
@@ -89,19 +93,42 @@ class UserFacadeImpl implements UserFacade {
         this.response = response
         this.session = request.getSession()
 
+        // get client IP address, handle proxy original address if exists
+        String forwardedFor = request.getHeader("X-Forwarded-For")
+        if (forwardedFor != null && !forwardedFor.isEmpty()) { clientIpInternal = forwardedFor.split(",")[0].trim() }
+        else { clientIpInternal = request.getRemoteAddr() }
+
         String preUsername = getUsername()
         Subject webSubject = makeEmptySubject()
         if (webSubject.authenticated) {
+            String sesUsername = (String) webSubject.getPrincipal()
             if (preUsername != null && !preUsername.isEmpty()) {
-                String sesUsername = (String) webSubject.getPrincipal()
                 if (!preUsername.equals(sesUsername)) {
                     logger.warn("Found user ${sesUsername} in session but UserFacade has user ${preUsername}, popping user")
                     popUser()
                 }
             }
-            // effectively login the user
-            pushUserSubject(webSubject)
-            if (logger.traceEnabled) logger.trace("For new request found user [${username}] in the session")
+
+            // user found in session so no login needed, but make sure hasLoggedOut != "Y"
+            EntityValue userAccount = (EntityValue) null
+            if (sesUsername != null && !sesUsername.isEmpty()) {
+                userAccount = eci.getEntity().find("moqui.security.UserAccount")
+                        .condition("username", sesUsername).useCache(false).disableAuthz().one()
+            }
+
+            if (userAccount != null && "Y".equals(userAccount.getNoCheckSimple("hasLoggedOut"))) {
+                // logout user through Shiro, invalidate session, continue
+                logger.info("User ${sesUsername} is authenticated in session but hasLoggedOut elsewhere, logging out")
+                webSubject.logout()
+                // Shiro invalidates session, but make sure just in case
+                HttpSession oldSession = request.getSession(false)
+                if (oldSession != null) oldSession.invalidate()
+                this.session = request.getSession()
+            } else {
+                // effectively login the user for framework (already logged in for session through Shiro)
+                pushUserSubject(webSubject)
+                if (logger.traceEnabled) logger.trace("For new request found user [${getUsername()}] in the session")
+            }
         } else {
             if (logger.traceEnabled) logger.trace("For new request NO user authenticated in the session")
             if (preUsername != null && !preUsername.isEmpty()) {
@@ -126,13 +153,20 @@ class UserFacadeImpl implements UserFacade {
             } else {
                 logger.warn("For HTTP Basic Authorization got bad credentials string. Base64 encoded is [${basicAuthEncoded}] and after decoding is [${basicAuthAsString}].")
             }
-        } else if (request.getHeader("api_key") || request.getHeader("login_key")) {
+        }
+        if (currentInfo.username == null && (request.getHeader("api_key") || request.getHeader("login_key"))) {
             String loginKey = request.getHeader("api_key") ?: request.getHeader("login_key")
-            this.loginUserKey(loginKey.trim())
-        } else if (secureParameters.api_key || secureParameters.login_key) {
+            loginKey = loginKey.trim()
+            if (loginKey != null && !loginKey.isEmpty() && !"null".equals(loginKey) && !"undefined".equals(loginKey))
+                this.loginUserKey(loginKey)
+        }
+        if (currentInfo.username == null && (secureParameters.api_key || secureParameters.login_key)) {
             String loginKey = secureParameters.api_key ?: secureParameters.login_key
-            this.loginUserKey(loginKey.trim())
-        } else if (secureParameters.authUsername) {
+            loginKey = loginKey.trim()
+            if (loginKey != null && !loginKey.isEmpty() && !"null".equals(loginKey) && !"undefined".equals(loginKey))
+                this.loginUserKey(loginKey)
+        }
+        if (currentInfo.username == null && secureParameters.authUsername) {
             // try the Moqui-specific parameters for instant login
             // if we have credentials coming in anywhere other than URL parameters, try logging in
             String authUsername = secureParameters.authUsername
@@ -175,13 +209,14 @@ class UserFacadeImpl implements UserFacade {
                     Map cvResult = eci.service.sync().name("create", "moqui.server.Visitor")
                             .parameter("createdDate", getNowTimestamp()).disableAuthz().call()
                     cookieVisitorId = (String) cvResult?.visitorId
-                    logger.info("Created new Visitor with ID [${cookieVisitorId}] in session [${session.id}]")
+                    if (logger.traceEnabled) logger.trace("Created new Visitor with ID [${cookieVisitorId}] in session [${session.id}]")
                 }
                 if (cookieVisitorId) {
                     // whether it existed or not, add it again to keep it fresh; stale cookies get thrown away
                     Cookie visitorCookie = new Cookie("moqui.visitor", cookieVisitorId)
                     visitorCookie.setMaxAge(60 * 60 * 24 * 365)
                     visitorCookie.setPath("/")
+                    visitorCookie.setHttpOnly(true)
                     response.addCookie(visitorCookie)
                 }
             }
@@ -203,14 +238,7 @@ class UserFacadeImpl implements UserFacade {
                 InetAddress address = eci.ecfi.getLocalhostAddress()
                 parameters.serverIpAddress = address?.getHostAddress() ?: "127.0.0.1"
                 parameters.serverHostName = address?.getHostName() ?: "localhost"
-
-                // handle proxy original address, if exists
-                String forwardedFor = request.getHeader("X-Forwarded-For")
-                if (forwardedFor != null && !forwardedFor.isEmpty()) {
-                    parameters.clientIpAddress = forwardedFor.split(",")[0].trim()
-                } else {
-                    parameters.clientIpAddress = request.getRemoteAddr()
-                }
+                parameters.clientIpAddress = clientIpInternal
                 if (cookieVisitorId) parameters.visitorId = cookieVisitorId
 
                 // NOTE: disable authz for this call, don't normally want to allow create of Visit, but this is special case
@@ -220,13 +248,18 @@ class UserFacadeImpl implements UserFacade {
                 if (visitResult) {
                     session.setAttribute("moqui.visitId", visitResult.visitId)
                     this.visitId = visitResult.visitId
-                    logger.info("Created new Visit with ID [${this.visitId}] in session [${session.id}]")
+                    if (logger.traceEnabled) logger.trace("Created new Visit with ID [${this.visitId}] in session [${session.id}]")
                 }
             }
         }
     }
     void initFromHandshakeRequest(HandshakeRequest request) {
         this.session = (HttpSession) request.getHttpSession()
+
+        // get client IP address, handle proxy original address if exists
+        String forwardedFor = request.getHeaders().get("X-Forwarded-For")?.first()
+        if (forwardedFor != null && !forwardedFor.isEmpty()) { clientIpInternal = forwardedFor.split(",")[0].trim() }
+        // any other way to get websocket client IP? else { clientIpInternal = request.getRemoteAddr() }
 
         // WebSocket handshake request is the HTTP upgrade request so this will be the original session
         // login user from value in session
@@ -252,13 +285,21 @@ class UserFacadeImpl implements UserFacade {
             } else {
                 logger.warn("For HTTP Basic Authorization got bad credentials string. Base64 encoded is [${basicAuthEncoded}] and after decoding is [${basicAuthAsString}].")
             }
-        } else if (headers.api_key || headers.login_key) {
+        }
+        if (currentInfo.username == null && (headers.api_key || headers.login_key)) {
             String loginKey = headers.api_key ? headers.api_key.get(0) : (headers.login_key ? headers.login_key.get(0) : null)
-            if (loginKey) this.loginUserKey(loginKey.trim())
-        } else if (parameters.api_key || parameters.login_key) {
+            loginKey = loginKey.trim()
+            if (loginKey != null && !loginKey.isEmpty() && !"null".equals(loginKey) && !"undefined".equals(loginKey))
+                this.loginUserKey(loginKey)
+        }
+        if (currentInfo.username == null && (parameters.api_key || parameters.login_key)) {
             String loginKey = parameters.api_key ? parameters.api_key.get(0) : (parameters.login_key ? parameters.login_key.get(0) : null)
-            if (loginKey) this.loginUserKey(loginKey.trim())
-        } else if (parameters.authUsername) {
+            loginKey = loginKey.trim()
+            logger.warn("loginKey2 ${loginKey}")
+            if (loginKey != null && !loginKey.isEmpty() && !"null".equals(loginKey) && !"undefined".equals(loginKey))
+                this.loginUserKey(loginKey)
+        }
+        if (currentInfo.username == null && parameters.authUsername) {
             // try the Moqui-specific parameters for instant login
             // if we have credentials coming in anywhere other than URL parameters, try logging in
             String authUsername = parameters.authUsername.get(0)
@@ -334,6 +375,16 @@ class UserFacadeImpl implements UserFacade {
         return getPreference(preferenceKey, userId)
     }
     String getPreference(String preferenceKey, String userId) {
+        if (preferenceKey == null || preferenceKey.isEmpty()) return null
+
+        // look in system properties for preferenceKey or key with '.' replaced by '_'; overrides DB values
+        String sysPropVal = System.getProperty(preferenceKey)
+        if (sysPropVal == null || sysPropVal.isEmpty()) {
+            String underscoreKey = preferenceKey.replace('.' as char, '_' as char)
+            sysPropVal = System.getProperty(underscoreKey)
+        }
+        if (sysPropVal != null && !sysPropVal.isEmpty()) return sysPropVal
+
         EntityValue up = userId != null ? eci.entityFacade.fastFindOne("moqui.security.UserPreference", true, true, userId, preferenceKey) : null
         if (up == null) {
             // try UserGroupPreference
@@ -345,9 +396,40 @@ class UserFacadeImpl implements UserFacade {
         return up?.preferenceValue
     }
 
+    @Override Map<String, String> getPreferences(String keyRegexp) {
+        String userId = getUserId()
+        boolean hasKeyFilter = keyRegexp != null && !keyRegexp.isEmpty()
+
+        Map<String, String> prefMap = new HashMap<>()
+        // start with UserGroupPreference, put UserPreference values over top to override
+        EntityList ugpList = eci.getEntity().find("moqui.security.UserGroupPreference")
+                .condition("userGroupId", EntityCondition.IN, getUserGroupIdSet(userId)).disableAuthz().list()
+        int ugpListSize = ugpList.size()
+        for (int i = 0; i < ugpListSize; i++) {
+            EntityValue ugp = (EntityValue) ugpList.get(i)
+            String prefKey = (String) ugp.getNoCheckSimple("preferenceKey")
+            if (hasKeyFilter && !prefKey.matches(keyRegexp)) continue
+            prefMap.put(prefKey, (String) ugp.getNoCheckSimple("preferenceValue"))
+        }
+
+        if (userId != null) {
+            EntityList uprefList = eci.getEntity().find("moqui.security.UserPreference")
+                    .condition("userId", userId).disableAuthz().list()
+            int uprefListSize = uprefList.size()
+            for (int i = 0; i < uprefListSize; i++) {
+                EntityValue upref = (EntityValue) uprefList.get(i)
+                String prefKey = (String) upref.getNoCheckSimple("preferenceKey")
+                if (hasKeyFilter && !prefKey.matches(keyRegexp)) continue
+                prefMap.put(prefKey, (String) upref.getNoCheckSimple("preferenceValue"))
+            }
+        }
+
+        return prefMap
+    }
+
     @Override void setPreference(String preferenceKey, String preferenceValue) {
         String userId = getUserId()
-        if (!userId) throw new IllegalStateException("Cannot set preference with key [${preferenceKey}], no user logged in.")
+        if (!userId) throw new IllegalStateException("Cannot set preference with key ${preferenceKey}, no user logged in.")
         boolean alreadyDisabled = eci.getArtifactExecution().disableAuthz()
         boolean beganTransaction = eci.transaction.begin(null)
         try {
@@ -500,6 +582,37 @@ class UserFacadeImpl implements UserFacade {
         return desc.toString()
     }
 
+    @Override ArrayList<Timestamp> getPeriodRange(String baseName, Map<String, Object> inputFieldsMap) {
+        if (inputFieldsMap.get(baseName + "_period")) {
+            return getPeriodRange((String) inputFieldsMap.get(baseName + "_period"),
+                    (String) inputFieldsMap.get(baseName + "_poffset"), (String) inputFieldsMap.get(baseName + "_pdate"))
+        } else {
+            ArrayList<Timestamp> rangeList = new ArrayList<>(2)
+            rangeList.add(null); rangeList.add(null)
+
+            Object fromValue = inputFieldsMap.get(baseName + "_from")
+            if (fromValue && fromValue instanceof CharSequence) {
+                if (fromValue.length() < 12)
+                    rangeList.set(0, eci.l10nFacade.parseTimestamp(fromValue.toString() + " 00:00:00.000", "yyyy-MM-dd HH:mm:ss.SSS"))
+                else
+                    rangeList.set(0, eci.l10nFacade.parseTimestamp(fromValue.toString(), null))
+            } else if (fromValue instanceof Timestamp) {
+                rangeList.set(0, (Timestamp) fromValue)
+            }
+            Object thruValue = inputFieldsMap.get(baseName + "_thru")
+            if (thruValue && thruValue instanceof CharSequence) {
+                if (thruValue.length() < 12)
+                    rangeList.set(1, eci.l10nFacade.parseTimestamp(thruValue.toString() + " 23:59:59.999", "yyyy-MM-dd HH:mm:ss.SSS"))
+                else
+                    rangeList.set(1, eci.l10nFacade.parseTimestamp(thruValue.toString(), null))
+            } else if (thruValue instanceof Timestamp) {
+                rangeList.set(1, (Timestamp) thruValue)
+            }
+
+            return rangeList
+        }
+    }
+
     @Override void setEffectiveTime(Timestamp effectiveTime) { this.effectiveTime = effectiveTime }
 
     @Override boolean loginUser(String username, String password) {
@@ -513,8 +626,12 @@ class UserFacadeImpl implements UserFacade {
         }
 
         UsernamePasswordToken token = new UsernamePasswordToken(username, password, true)
+        // if there is a web session invalidate it so there is a new session for the login (prevent Session Fixation attacks)
+        if (eci.getWebImpl() != null) session = eci.getWebImpl().makeNewSession()
+
         Subject loginSubject = makeEmptySubject()
         try {
+            // do the actual login through Shiro
             loginSubject.login(token)
 
             // do this first so that the rest will be done as this user
@@ -538,13 +655,14 @@ class UserFacadeImpl implements UserFacade {
     }
 
     /** For internal framework use only, does a login without authc. */
-    boolean internalLoginUser(String username) {
+    boolean internalLoginUser(String username) { return internalLoginUser(username, true) }
+    boolean internalLoginUser(String username, boolean saveHistory) {
         if (username == null || username.isEmpty()) {
             eci.message.addError(eci.l10n.localize("No username specified"))
             return false
         }
 
-        UsernamePasswordToken token = new MoquiShiroRealm.ForceLoginToken(username, true)
+        UsernamePasswordToken token = new MoquiShiroRealm.ForceLoginToken(username, true, saveHistory)
         Subject loginSubject = makeEmptySubject()
         try {
             loginSubject.login(token)
@@ -576,7 +694,23 @@ class UserFacadeImpl implements UserFacade {
         // before logout trigger the before-logout actions
         if (eci.getWebImpl() != null) eci.getWebImpl().runBeforeLogoutActions()
 
+        String userId = getUserId()
+
+        // pop from user stack, also calls Shiro logout()
         popUser()
+
+        // if there is a request and session invalidate and get new
+        if (request != null) {
+            HttpSession oldSession = request.getSession(false)
+            if (oldSession != null) oldSession.invalidate()
+            session = request.getSession()
+        }
+
+        // if userId set hasLoggedOut
+        if (userId != null && !userId.isEmpty()) {
+            eci.serviceFacade.sync().name("update", "moqui.security.UserAccount")
+                    .parameters([userId:userId, hasLoggedOut:"Y"]).disableAuthz().call()
+        }
     }
 
     @Override boolean loginUserKey(String loginKey) {
@@ -610,7 +744,7 @@ class UserFacadeImpl implements UserFacade {
     }
     @Override String getLoginKey() {
         String userId = getUserId()
-        if (!userId) throw new IllegalStateException("No active user, cannot get login key")
+        if (!userId) throw new AuthenticationRequiredException("No active user, cannot get login key")
 
         // generate login key
         String loginKey = StringUtilities.getRandomString(40)
@@ -744,6 +878,7 @@ class UserFacadeImpl implements UserFacade {
         visitorIdInternal = visitLocal != null ? visitLocal.getNoCheckSimple("visitorId") : null
         return visitorIdInternal
     }
+    @Override String getClientIp() { return clientIpInternal }
 
     // ========== UserInfo ==========
 

@@ -198,8 +198,7 @@ public class ExecutionContextImpl implements ExecutionContext {
         if (skipStats != null) return skipStats;
         String skipStatsCond = ecfi.skipStatsCond;
         Map<String, Object> skipParms = new HashMap<>();
-        if (webFacade != null)
-            skipParms.put("pathInfo", webFacade.getRequest().getPathInfo());
+        if (webFacade != null) skipParms.put("pathInfo", webFacade.getPathInfo());
         skipStats = (skipStatsCond != null && !skipStatsCond.isEmpty()) && ecfi.resourceFacade.condition(skipStatsCond, null, skipParms);
         return skipStats;
     }

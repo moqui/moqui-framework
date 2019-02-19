@@ -13,6 +13,16 @@
  */
 package org.moqui.impl.context;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.SerializerProvider;
+import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.databind.ser.std.StdSerializer;
+import groovy.lang.GString;
 import org.moqui.context.ArtifactExecutionInfo;
 import org.moqui.entity.EntityFind;
 import org.moqui.entity.EntityList;
@@ -27,10 +37,13 @@ import org.slf4j.LoggerFactory;
 import javax.transaction.Synchronization;
 import javax.transaction.Transaction;
 import javax.transaction.xa.XAResource;
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.*;
 import java.util.*;
-import java.util.concurrent.Executor;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class ContextJavaUtil {
     protected final static Logger logger = LoggerFactory.getLogger(ContextJavaUtil.class);
@@ -182,10 +195,11 @@ public class ContextJavaUtil {
             ahb.putNoCheck("binStartDateTime", new Timestamp(startTime));
             ahb.putNoCheck("binEndDateTime", binEndDateTime);
             ahb.putNoCheck("hitCount", hitCount);
-            ahb.putNoCheck("totalTimeMillis", new BigDecimal(totalTimeMillis));
-            ahb.putNoCheck("totalSquaredTime", new BigDecimal(totalSquaredTime));
-            ahb.putNoCheck("minTimeMillis", new BigDecimal(minTimeMillis));
-            ahb.putNoCheck("maxTimeMillis", new BigDecimal(maxTimeMillis));
+            // NOTE: use 6 digit precision for nanos in millisecond unit
+            ahb.putNoCheck("totalTimeMillis", new BigDecimal(totalTimeMillis).setScale(6, RoundingMode.HALF_UP));
+            ahb.putNoCheck("totalSquaredTime", new BigDecimal(totalSquaredTime).setScale(6, RoundingMode.HALF_UP));
+            ahb.putNoCheck("minTimeMillis", new BigDecimal(minTimeMillis).setScale(6, RoundingMode.HALF_UP));
+            ahb.putNoCheck("maxTimeMillis", new BigDecimal(maxTimeMillis).setScale(6, RoundingMode.HALF_UP));
             ahb.putNoCheck("slowHitCount", slowHitCount);
             ahb.putNoCheck("serverIpAddress", ecfi.localhostAddress != null ? ecfi.localhostAddress.getHostAddress() : "127.0.0.1");
             ahb.putNoCheck("serverHostName", ecfi.localhostAddress != null ? ecfi.localhostAddress.getHostName() : "localhost");
@@ -241,7 +255,7 @@ public class ContextJavaUtil {
             ahp.putNoCheck("artifactSubType", artifactSubType);
             ahp.putNoCheck("artifactName", artifactName);
             ahp.putNoCheck("startDateTime", new Timestamp(startTime));
-            ahp.putNoCheck("runningTimeMillis", new BigDecimal(runningTimeMillis));
+            ahp.putNoCheck("runningTimeMillis", new BigDecimal(runningTimeMillis).setScale(6, RoundingMode.HALF_UP));
 
             if (parameters != null && parameters.size() > 0) {
                 StringBuilder ps = new StringBuilder();
@@ -442,5 +456,52 @@ public class ContextJavaUtil {
             return new ConnectionWrapper((Connection) con.clone(), tfi, groupName) }
         protected void finalize() throws Throwable { con.finalize() }
         */
+    }
+
+
+    public final static ObjectMapper jacksonMapper = new ObjectMapper()
+            .setSerializationInclusion(JsonInclude.Include.ALWAYS)
+            .enable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS).enable(SerializationFeature.INDENT_OUTPUT)
+            .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
+            .configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true);
+    static {
+        // Jackson custom serializers, etc
+        SimpleModule module = new SimpleModule();
+        module.addSerializer(GString.class, new ContextJavaUtil.GStringJsonSerializer());
+        jacksonMapper.registerModule(module);
+    }
+    static class GStringJsonSerializer extends StdSerializer<GString> {
+        GStringJsonSerializer() { super(GString.class); }
+        @Override public void serialize(GString value, JsonGenerator gen, SerializerProvider serializers)
+                throws IOException, JsonProcessingException { if (value != null) gen.writeString(value.toString()); }
+    }
+
+    // NOTE: using unbound LinkedBlockingQueue, so max pool size in ThreadPoolExecutor has no effect
+    static class WorkerThreadFactory implements ThreadFactory {
+        private final ThreadGroup workerGroup = new ThreadGroup("MoquiWorkers");
+        private final AtomicInteger threadNumber = new AtomicInteger(1);
+        public Thread newThread(Runnable r) { return new Thread(workerGroup, r, "MoquiWorker-" + threadNumber.getAndIncrement()); }
+    }
+    static class WorkerThreadPoolExecutor extends ThreadPoolExecutor {
+        private ExecutionContextFactoryImpl ecfi;
+        public WorkerThreadPoolExecutor(ExecutionContextFactoryImpl ecfi, int coreSize, int maxSize, long aliveTime,
+                                 TimeUnit timeUnit, BlockingQueue<Runnable> blockingQueue) {
+            super(coreSize, maxSize, aliveTime, timeUnit, blockingQueue, new WorkerThreadFactory());
+            this.ecfi = ecfi;
+        }
+
+        @Override protected void afterExecute(Runnable runnable, Throwable throwable) {
+            ExecutionContextImpl activeEc = ecfi.activeContext.get();
+            if (activeEc != null) {
+                logger.warn("In WorkerThreadPoolExecutor.afterExecute() there is still an ExecutionContext for runnable " + runnable.getClass().getName() + " in thread (" + Thread.currentThread().getId() + ":" + Thread.currentThread().getName() + "), destroying");
+                try {
+                    activeEc.destroy();
+                } catch (Throwable t) {
+                    logger.error("Error destroying ExecutionContext in WorkerThreadPoolExecutor.afterExecute()", t);
+                }
+            }
+
+            super.afterExecute(runnable, throwable);
+        }
     }
 }

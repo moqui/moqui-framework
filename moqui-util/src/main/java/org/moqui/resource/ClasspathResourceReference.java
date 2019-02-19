@@ -13,11 +13,7 @@
  */
 package org.moqui.resource;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 public class ClasspathResourceReference extends UrlResourceReference {
-    private static final Logger logger = LoggerFactory.getLogger(ClasspathResourceReference.class);
     private String strippedLocation;
 
     public ClasspathResourceReference() { super(); }
@@ -34,8 +30,6 @@ public class ClasspathResourceReference extends UrlResourceReference {
         if (locationUrl != null) {
             exists = true;
             isFileProtocol = "file".equals(locationUrl.getProtocol());
-        } else {
-            logger.warn("Could not find location [" + strippedLocation + "] on the classpath");
         }
 
         return this;

@@ -6,6 +6,7 @@ import org.moqui.context.*;
 import org.moqui.entity.EntityValue;
 import org.moqui.impl.context.*;
 import org.moqui.impl.entity.EntityDefinition;
+import org.moqui.impl.entity.EntitySqlException;
 import org.moqui.impl.service.runner.EntityAutoServiceRunner;
 import org.moqui.service.ServiceCallSync;
 import org.moqui.service.ServiceException;
@@ -18,6 +19,7 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallSync {
     private static final Logger logger = LoggerFactory.getLogger(ServiceCallSyncImpl.class);
@@ -28,6 +30,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
     private Boolean useTransactionCache = null;
     private Integer transactionTimeout = null;
     private boolean ignorePreviousError = false;
+    private boolean softValidate = false;
     private boolean multi = false;
     protected boolean disableAuthz = false;
 
@@ -46,6 +49,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
     @Override public ServiceCallSync transactionTimeout(int timeout) { this.transactionTimeout = timeout; return this; }
 
     @Override public ServiceCallSync ignorePreviousError(boolean ipe) { this.ignorePreviousError = ipe; return this; }
+    @Override public ServiceCallSync softValidate(boolean sv) { this.softValidate = sv; return this; }
     @Override public ServiceCallSync multi(boolean mlt) { this.multi = mlt; return this; }
     @Override public ServiceCallSync disableAuthz() { disableAuthz = true; return this; }
 
@@ -132,8 +136,12 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         TransactionFacadeImpl tf = eci.transactionFacade;
         int transactionStatus = tf.getStatus();
         if (!requireNewTransaction && transactionStatus == Status.STATUS_MARKED_ROLLBACK) {
-            logger.warn("Transaction marked for rollback, not running service " + serviceName + ". Errors: " + eci.messageFacade.getErrorsString());
-            if (ignorePreviousError) eci.messageFacade.popErrors();
+            logger.warn("Transaction marked for rollback, not running service " + serviceName + ". Errors: [" + eci.messageFacade.getErrorsString() + "] Artifact stack: " + eci.artifactExecutionFacade.getStackNameString());
+            if (ignorePreviousError) {
+                eci.messageFacade.popErrors();
+            } else if (!eci.messageFacade.hasError()) {
+                eci.messageFacade.addError("Transaction marked for rollback, not running service " + serviceName);
+            }
             return null;
         }
 
@@ -159,7 +167,18 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
 
         // in-parameter validation
         if (hasSecaRules) ServiceFacadeImpl.runSecaRules(serviceNameNoHash, currentParameters, null, "pre-validate", secaRules, eci);
-        if (sd != null) currentParameters = sd.convertValidateCleanParameters(currentParameters, eci);
+        if (sd != null) {
+            if (softValidate) eci.messageFacade.pushErrors();
+            currentParameters = sd.convertValidateCleanParameters(currentParameters, eci);
+            if (softValidate) {
+                if (eci.messageFacade.hasError()) {
+                    eci.messageFacade.moveErrorsToDangerMessages();
+                    eci.messageFacade.popErrors();
+                    return null;
+                }
+                eci.messageFacade.popErrors();
+            }
+        }
         // if error(s) in parameters, return now with no results
         if (eci.messageFacade.hasError()) {
             StringBuilder errMsg = new StringBuilder("Found error(s) when validating input parameters for service " + serviceName + ", so not running service. Errors: " + eci.messageFacade.getErrorsString() + "; the artifact stack is:\n");
@@ -186,6 +205,32 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
             throw new AuthenticationRequiredException("User must be logged in to call service " + serviceName);
         }
 
+        if (sd == null) {
+            if (sfi.isEntityAutoPattern(path, verb, noun)) {
+                try {
+                    return runImplicitEntityAuto(currentParameters, secaRules, eci);
+                } finally {
+                    if (ignorePreviousError) eci.messageFacade.popErrors();
+                }
+            } else {
+                logger.info("No service with name " + serviceName + ", isEntityAutoPattern=" + isEntityAutoPattern() +
+                        ", path=" + path + ", verb=" + verb + ", noun=" + noun + ", noun is entity? " + eci.getEntityFacade().isEntityDefined(noun));
+                if (ignorePreviousError) eci.messageFacade.popErrors();
+                throw new ServiceException("Could not find service with name " + serviceName);
+            }
+        }
+
+        if ("interface".equals(serviceType)) {
+            if (ignorePreviousError) eci.messageFacade.popErrors();
+            throw new ServiceException("Service " + serviceName + " is an interface and cannot be run");
+        }
+
+        ServiceRunner serviceRunner = sd.serviceRunner;
+        if (serviceRunner == null) {
+            if (ignorePreviousError) eci.messageFacade.popErrors();
+            throw new ServiceException("Could not find service runner for type " + serviceType + " for service " + serviceName);
+        }
+
         // pre authentication and authorization SECA rules
         if (hasSecaRules) ServiceFacadeImpl.runSecaRules(serviceNameNoHash, currentParameters, null, "pre-auth", secaRules, eci);
 
@@ -199,6 +244,15 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
                 authzAction, serviceType).setParameters(currentParameters);
         eci.artifactExecutionFacade.pushInternal(aei, (sd != null && "true".equals(sd.authenticate)), true);
 
+        // if error in auth or for other reasons, return now with no results
+        if (eci.messageFacade.hasError()) {
+            eci.artifactExecutionFacade.pop(aei);
+            if (ignorePreviousError) eci.messageFacade.popErrors();
+            logger.warn("Found error(s) when checking authc for service " + serviceName + ", so not running service. Errors: " +
+                    eci.messageFacade.getErrorsString() + "; the artifact stack is:\n " + eci.getArtifactExecution().getStack());
+            return null;
+        }
+
         // must be done after the artifact execution push so that AEII object to set anonymous authorized is in place
         boolean loggedInAnonymous = false;
         if (sd != null && "anonymous-all".equals(sd.authenticate)) {
@@ -209,34 +263,14 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
             loggedInAnonymous = eci.userFacade.loginAnonymousIfNoUser();
         }
 
-        if (sd == null) {
-            if (sfi.isEntityAutoPattern(path, verb, noun)) {
-                try {
-                    return runImplicitEntityAuto(currentParameters, secaRules, eci);
-                } finally {
-                    eci.artifactExecutionFacade.pop(aei);
-                    if (ignorePreviousError) eci.messageFacade.popErrors();
-                }
-            } else {
-                logger.info("No service with name " + serviceName + ", isEntityAutoPattern=" + isEntityAutoPattern() +
-                        ", path=" + path + ", verb=" + verb + ", noun=" + noun + ", noun is entity? " + eci.getEntityFacade().isEntityDefined(noun));
+        // handle sd.serviceNode."@semaphore"; do this BEFORE local transaction created, etc so waiting for this doesn't cause TX timeout
+        if (sd.hasSemaphore) {
+            try {
+                checkAddSemaphore(eci, currentParameters, true);
+            } catch (Throwable t) {
                 eci.artifactExecutionFacade.pop(aei);
-                if (ignorePreviousError) eci.messageFacade.popErrors();
-                throw new ServiceException("Could not find service with name " + serviceName);
+                throw t;
             }
-        }
-
-        if ("interface".equals(serviceType)) {
-            eci.artifactExecutionFacade.pop(aei);
-            if (ignorePreviousError) eci.messageFacade.popErrors();
-            throw new ServiceException("Service " + serviceName + " is an interface and cannot be run");
-        }
-
-        ServiceRunner serviceRunner = sd.serviceRunner;
-        if (serviceRunner == null) {
-            eci.artifactExecutionFacade.pop(aei);
-            if (ignorePreviousError) eci.messageFacade.popErrors();
-            throw new ServiceException("Could not find service runner for type " + serviceType + " for service " + serviceName);
         }
 
         // start with the settings for the default: use-or-begin
@@ -246,21 +280,15 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         if (requireNewTransaction || sd.txForceNew) pauseResumeIfNeeded = true;
 
         boolean suspendedTransaction = false;
-        Map<String, Object> result = null;
+        Map<String, Object> result = new HashMap<>();
         try {
-            // if error in auth or for other reasons, return now with no results
-            if (eci.messageFacade.hasError()) {
-                logger.warn("Found error(s) when checking authc for service " + serviceName + ", so not running service. Errors: " +
-                        eci.messageFacade.getErrorsString() + "; the artifact stack is:\n " + eci.getArtifactExecution().getStack());
-                return null;
-            }
-
             if (pauseResumeIfNeeded && transactionStatus != Status.STATUS_NO_TRANSACTION) {
                 suspendedTransaction = tf.suspend();
                 transactionStatus = tf.getStatus();
             }
             boolean beganTransaction = false;
             if (beginTransactionIfNeeded && transactionStatus != Status.STATUS_ACTIVE) {
+                // logger.warn("Service " + serviceName + " begin TX timeout " + transactionTimeout + " SD txTimeout " + sd.txTimeout);
                 beganTransaction = tf.begin(transactionTimeout != null ? transactionTimeout : sd.txTimeout);
                 transactionStatus = tf.getStatus();
             }
@@ -271,9 +299,6 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
             }
 
             try {
-                // handle sd.serviceNode."@semaphore"; do this after local transaction created, etc.
-                if (sd.hasSemaphore) checkAddSemaphore(eci, currentParameters);
-
                 if (hasSecaRules) ServiceFacadeImpl.runSecaRules(serviceNameNoHash, currentParameters, null, "pre-service", secaRules, eci);
                 if (traceEnabled) logger.trace("Calling service " + serviceName + " pre-call input: " + currentParameters);
 
@@ -283,6 +308,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
                 } finally {
                     if (hasSecaRules) sfi.registerTxSecaRules(serviceNameNoHash, currentParameters, result, secaRules);
                 }
+                // logger.warn("Called " + serviceName + " has error message " + eci.messageFacade.hasError() + " began TX " + beganTransaction + " TX status " + tf.getStatusString());
 
                 // post-service SECA rules
                 if (hasSecaRules) ServiceFacadeImpl.runSecaRules(serviceNameNoHash, currentParameters, result, "post-service", secaRules, eci);
@@ -305,7 +331,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
                 // rollback the transaction
                 tf.rollback(beganTransaction, "Error running service " + serviceName + " (Throwable)", t);
                 transactionStatus = tf.getStatus();
-                logger.warn("Error running service " + serviceName + " (Throwable)", t);
+                logger.warn("Error running service " + serviceName + " (Throwable) Artifact stack: " + eci.artifactExecutionFacade.getStackNameString(), t);
                 // add all exception messages to the error messages list
                 eci.messageFacade.addError(t.getMessage());
                 Throwable parent = t.getCause();
@@ -314,11 +340,24 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
                     parent = parent.getCause();
                 }
             } finally {
-                // clear the semaphore
-                if (sd.hasSemaphore) clearSemaphore(eci, currentParameters);
-
                 try {
-                    if (beganTransaction && transactionStatus == Status.STATUS_ACTIVE) tf.commit();
+                    if (beganTransaction) {
+                        transactionStatus = tf.getStatus();
+                        if (transactionStatus == Status.STATUS_ACTIVE) {
+                            tf.commit();
+                        } else if (transactionStatus == Status.STATUS_MARKED_ROLLBACK) {
+                            if (!eci.messageFacade.hasError())
+                                eci.messageFacade.addError("Cannot commit transaction for service " + serviceName + ", marked rollback-only");
+                            // will rollback based on marked rollback only
+                            tf.commit();
+                        }
+                        /* most likely in this case is no transaction in place, already rolled back above, do nothing:
+                        else {
+                            logger.warn("In call to service " + serviceName + " transaction not Active or Marked Rollback-Only (" + tf.getStatusString() + "), doing commit to make sure TX closed");
+                            tf.commit();
+                        }
+                        */
+                    }
                 } catch (Throwable t) {
                     logger.warn("Error committing transaction for service " + serviceName, t);
                     // add all exception messages to the error messages list
@@ -336,6 +375,9 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
 
             return result;
         } finally {
+            // clear the semaphore
+            if (sd.hasSemaphore) clearSemaphore(eci, currentParameters);
+
             try {
                 if (suspendedTransaction) tf.resume();
             } catch (Throwable t) {
@@ -364,6 +406,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
 
     @SuppressWarnings("unused")
     private void clearSemaphore(final ExecutionContextImpl eci, Map<String, Object> currentParameters) {
+        final String semaphoreName = sd.semaphoreName != null && !sd.semaphoreName.isEmpty() ? sd.semaphoreName : serviceName;
         String semParameter = sd.semaphoreParameter;
         String parameterValue;
         if (semParameter == null || semParameter.isEmpty()) {
@@ -378,7 +421,8 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
                 boolean authzDisabled = eci.artifactExecutionFacade.disableAuthz();
                 try {
                     return eci.getEntity().makeValue("moqui.service.semaphore.ServiceParameterSemaphore")
-                            .set("serviceName", serviceName).set("parameterValue", parameterValue).delete();
+                            .set("serviceName", semaphoreName).set("parameterValue", parameterValue)
+                            .set("lockThread", null).set("lockTime", null).update();
                 } finally {
                     if (!authzDisabled) eci.artifactExecutionFacade.enableAuthz();
                 }
@@ -387,9 +431,16 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         });
     }
 
+    /* A good test case is the place#Order service which is used in the AssetReservationMultipleThreads.groovy tests:
+        conflicting lock:
+            <service verb="place" noun="Order" semaphore="wait" semaphore-name="TestOrder">
+        segemented lock (bad in practice, good test with transacitonal ID):
+            <service verb="place" noun="Order" semaphore="wait" semaphore-name="TestOrder" semaphore-parameter="orderId">
+     */
     @SuppressWarnings("unused")
-    private void checkAddSemaphore(final ExecutionContextImpl eci, Map<String, Object> currentParameters) {
+    private void checkAddSemaphore(final ExecutionContextImpl eci, Map<String, Object> currentParameters, boolean allowRetry) {
         final String semaphore = sd.semaphore;
+        final String semaphoreName = sd.semaphoreName != null && !sd.semaphoreName.isEmpty() ? sd.semaphoreName : serviceName;
         String semaphoreParameter = sd.semaphoreParameter;
         final String parameterValue;
         if (semaphoreParameter == null || semaphoreParameter.isEmpty()) {
@@ -402,42 +453,50 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         final long semaphoreIgnoreMillis = sd.semaphoreIgnoreMillis;
         final long semaphoreSleepTime = sd.semaphoreSleepTime;
         final long semaphoreTimeoutTime = sd.semaphoreTimeoutTime;
+        final int txTimeout = Math.toIntExact(sd.semaphoreTimeoutTime / 1000) * 2;
 
-        final long currentTime = System.currentTimeMillis();
+        // NOTE: get Thread name outside runRequireNew otherwise will always be RequireNewTx
         final String lockThreadName = Thread.currentThread().getName();
+        // support a single wait/retry on error creating semaphore record
+        AtomicBoolean retrySemaphore = new AtomicBoolean(false);
 
-        eci.transactionFacade.runRequireNew(null, "Error in check/add service semaphore", new Closure<EntityValue>(this, this) {
+        eci.transactionFacade.runRequireNew(txTimeout, "Error in check/add service semaphore", new Closure<EntityValue>(this, this) {
             EntityValue doCall(Object it) {
                 boolean authzDisabled = eci.artifactExecutionFacade.disableAuthz();
                 try {
-                    EntityValue serviceSemaphore = eci.getEntity().find("moqui.service.semaphore.ServiceParameterSemaphore").condition("serviceName", serviceName).condition("parameterValue", parameterValue).useCache(false).one();
-                    if (serviceSemaphore != null) {
+                    final long startTime = System.currentTimeMillis();
+
+                    // look up semaphore, note that is no forUpdate, we want to loop wait below instead of doing a database lock wait
+                    EntityValue serviceSemaphore = eci.getEntity().find("moqui.service.semaphore.ServiceParameterSemaphore")
+                            .condition("serviceName", semaphoreName).condition("parameterValue", parameterValue).useCache(false).one();
+                    // if there is an active semaphore but lockTime is too old reset and ignore it
+                    if (serviceSemaphore != null && (serviceSemaphore.getNoCheckSimple("lockThread") != null || serviceSemaphore.getNoCheckSimple("lockTime") != null)) {
                         Timestamp lockTime = serviceSemaphore.getTimestamp("lockTime");
-                        if (currentTime > (lockTime.getTime() + semaphoreIgnoreMillis)) {
-                            eci.getEntity().makeValue("moqui.service.semaphore.ServiceParameterSemaphore")
-                                    .set("serviceName", serviceName).set("parameterValue", parameterValue).delete();
-                            serviceSemaphore = null;
+                        if (startTime > (lockTime.getTime() + semaphoreIgnoreMillis)) {
+                            serviceSemaphore.set("lockThread", null).set("lockTime", null).update();
                         }
                     }
 
-                    if (serviceSemaphore != null) {
+                    if (serviceSemaphore != null && (serviceSemaphore.getNoCheckSimple("lockThread") != null || serviceSemaphore.getNoCheckSimple("lockTime") != null)) {
                         if ("fail".equals(semaphore)) {
-                            throw new ServiceException("An instance of service " + serviceName + " with parameter value " +
+                            throw new ServiceException("An instance of service semaphore " + semaphoreName + " with parameter value " +
                                     "[" + parameterValue + "] is already running (thread [" + serviceSemaphore.get("lockThread") +
                                     "], locked at " + serviceSemaphore.get("lockTime") + ") and it is setup to fail on semaphore conflict.");
                         } else {
                             boolean semaphoreCleared = false;
-                            while (System.currentTimeMillis() < (currentTime + semaphoreTimeoutTime)) {
-                                try { Thread.sleep(semaphoreSleepTime); } catch (InterruptedException e) { /* do nothing */ }
-                                if (eci.getEntity().find("moqui.service.semaphore.ServiceParameterSemaphore")
-                                        .condition("serviceName", serviceName).condition("parameterValue", parameterValue)
-                                        .useCache(false).one() == null) {
+                            while (System.currentTimeMillis() < (startTime + semaphoreTimeoutTime)) {
+                                // sleep, watch for interrupt
+                                try { Thread.sleep(semaphoreSleepTime); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+                                // get updated semaphore and see if it has been cleared
+                                serviceSemaphore = eci.getEntity().find("moqui.service.semaphore.ServiceParameterSemaphore")
+                                        .condition("serviceName", semaphoreName).condition("parameterValue", parameterValue).useCache(false).one();
+                                if (serviceSemaphore == null || (serviceSemaphore.getNoCheckSimple("lockThread") == null && serviceSemaphore.getNoCheckSimple("lockTime") == null)) {
                                     semaphoreCleared = true;
                                     break;
                                 }
                             }
                             if (!semaphoreCleared) {
-                                throw new ServiceException("An instance of service " + serviceName + " with parameter value [" +
+                                throw new ServiceException("An instance of service semaphore " + semaphoreName + " with parameter value [" +
                                         parameterValue + "] is already running (thread [" + serviceSemaphore.get("lockThread") +
                                         "], locked at " + serviceSemaphore.get("lockTime") + ") and it is setup to wait on semaphore conflict, but the semaphore did not clear in " +
                                         (semaphoreTimeoutTime / 1000) + " seconds.");
@@ -445,16 +504,40 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
                         }
                     }
 
-                    // if we got to here the semaphore didn't exist or has cleared, so create one
-                    return eci.getEntity().makeValue("moqui.service.semaphore.ServiceParameterSemaphore")
-                            .set("serviceName", serviceName).set("parameterValue", parameterValue)
-                            .set("lockThread", lockThreadName).set("lockTime", new Timestamp(currentTime)).create();
+                    // if we got to here the semaphore didn't exist or has cleared, so update existing or create new
+                    // do a for-update find now to make sure we own the record if one exists
+                    serviceSemaphore = eci.getEntity().find("moqui.service.semaphore.ServiceParameterSemaphore")
+                            .condition("serviceName", semaphoreName).condition("parameterValue", parameterValue)
+                            .useCache(false).forUpdate(true).one();
+
+                    final Timestamp lockTime = new Timestamp(System.currentTimeMillis());
+                    if (serviceSemaphore != null) {
+                        return serviceSemaphore.set("lockThread", lockThreadName).set("lockTime", lockTime).update();
+                    } else {
+                        try {
+                            return eci.getEntity().makeValue("moqui.service.semaphore.ServiceParameterSemaphore")
+                                    .set("serviceName", semaphoreName).set("parameterValue", parameterValue)
+                                    .set("lockThread", lockThreadName).set("lockTime", lockTime).create();
+                        } catch (EntitySqlException e) {
+                            if ("23505".equals(e.getSQLState())) {
+                                logger.warn("Record exists error creating semaphore " + semaphoreName + " parameter " + parameterValue + ", retrying: " + e.toString());
+                                retrySemaphore.set(true);
+                                return null;
+                            } else {
+                                throw new ServiceException("Error creating semaphore " + semaphoreName + " with parameter value [" + parameterValue + "]", e);
+                            }
+                        }
+                    }
                 } finally {
                     if (!authzDisabled) eci.artifactExecutionFacade.enableAuthz();
                 }
             }
             public EntityValue doCall() { return doCall(null); }
         });
+
+        if (allowRetry && retrySemaphore.get()) {
+            checkAddSemaphore(eci, currentParameters, false);
+        }
     }
 
     private Map<String, Object> runImplicitEntityAuto(Map<String, Object> currentParameters, ArrayList<ServiceEcaRule> secaRules, ExecutionContextImpl eci) {

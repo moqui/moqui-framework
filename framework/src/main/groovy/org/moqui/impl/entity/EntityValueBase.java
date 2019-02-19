@@ -99,8 +99,11 @@ public abstract class EntityValueBase implements EntityValue {
 
     protected EntityFacadeImpl getEntityFacadeImpl() {
         // handle null after deserialize; this requires a static reference in Moqui.java or we'll get an error
-        if (efiTransient == null)
-            efiTransient = ((ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory()).entityFacade;
+        if (efiTransient == null) {
+            ExecutionContextFactoryImpl ecfi = (ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory();
+            if (ecfi == null) throw new EntityException("No ExecutionContextFactory found, cannot get EntityFacade for new EVB for entity " + entityName);
+            efiTransient = ecfi.entityFacade;
+        }
         return efiTransient;
     }
     private TransactionCache getTxCache(ExecutionContextFactoryImpl ecfi) {
@@ -118,9 +121,10 @@ public abstract class EntityValueBase implements EntityValue {
 
     protected void setDbValueMap(Map<String, Object> map) {
         dbValueMap = new HashMap<>();
-        FieldInfo[] nonPkFields = getEntityDefinition().entityInfo.nonPkFieldInfoArray;
-        for (int i = 0; i < nonPkFields.length; i++) {
-            FieldInfo fi = nonPkFields[i];
+        // copy all fields, including pk to fix false positives in the old approach of only non-pk fields
+        FieldInfo[] allFields = getEntityDefinition().entityInfo.allFieldInfoArray;
+        for (int i = 0; i < allFields.length; i++) {
+            FieldInfo fi = allFields[i];
             if (!map.containsKey(fi.name)) continue;
             Object curValue = map.get(fi.name);
             dbValueMap.put(fi.name, curValue);
@@ -685,6 +689,10 @@ public abstract class EntityValueBase implements EntityValue {
         Map<String, Object> condMap = new HashMap<>();
         for (Entry<String, String> entry : keyMap.entrySet())
             condMap.put(entry.getValue(), valueMapInternal.get(entry.getKey()));
+        if (relInfo.keyValueMap != null) {
+            for (Map.Entry<String, String> keyValueEntry: relInfo.keyValueMap.entrySet())
+                condMap.put(keyValueEntry.getKey(), keyValueEntry.getValue());
+        }
         if (byAndFields != null && byAndFields.size() > 0) condMap.putAll(byAndFields);
 
         EntityFind find = getEntityFacadeImpl().find(relatedEntityName);
@@ -706,6 +714,10 @@ public abstract class EntityValueBase implements EntityValue {
         // make a Map where the key is the related entity's field name, and the value is the value from this entity
         Map<String, Object> condMap = new HashMap<>();
         for (Entry<String, String> entry : keyMap.entrySet()) condMap.put(entry.getValue(), valueMapInternal.get(entry.getKey()));
+        if (relInfo.keyValueMap != null) {
+            for (Map.Entry<String, String> keyValueEntry: relInfo.keyValueMap.entrySet())
+                condMap.put(keyValueEntry.getKey(), keyValueEntry.getValue());
+        }
 
         // logger.warn("========== findRelatedOne ${relInfo.relationshipName} keyMap=${keyMap}, condMap=${condMap}")
 
@@ -725,6 +737,10 @@ public abstract class EntityValueBase implements EntityValue {
         // make a Map where the key is the related entity's field name, and the value is the value from this entity
         Map<String, Object> condMap = new HashMap<>();
         for (Entry<String, String> entry : keyMap.entrySet()) condMap.put(entry.getValue(), valueMapInternal.get(entry.getKey()));
+        if (relInfo.keyValueMap != null) {
+            for (Map.Entry<String, String> keyValueEntry: relInfo.keyValueMap.entrySet())
+                condMap.put(keyValueEntry.getKey(), keyValueEntry.getValue());
+        }
 
         EntityFind find = getEntityFacadeImpl().find(relatedEntityName);
         return find.condition(condMap).useCache(useCache).count();
@@ -1071,13 +1087,23 @@ public abstract class EntityValueBase implements EntityValue {
         EntityDefinition.MasterDefinition masterDefinition = getEntityDefinition().getMasterDefinition(name);
         if (masterDefinition == null)
             throw new EntityException("No master definition found for name [" + name + "] in entity [" + entityName + "]");
-        return internalMasterValueMap(masterDefinition.getDetailList(), null);
+        return internalMasterValueMap(masterDefinition.getDetailList(), null, null);
     }
 
-    private Map<String, Object> internalMasterValueMap(ArrayList<EntityDefinition.MasterDetail> detailList, Set<String> parentPkFields) {
+    private Map<String, Object> internalMasterValueMap(ArrayList<EntityDefinition.MasterDetail> detailList, Set<String> parentPkFields, EntityJavaUtil.RelationshipInfo parentRelInfo) {
         Map<String, Object> vMap = new HashMap<>(valueMapInternal);
         CollectionUtilities.removeNullsFromMap(vMap);
-        if (parentPkFields != null) for (String pkField : parentPkFields) vMap.remove(pkField);
+        if (parentPkFields != null) {
+            if (parentRelInfo != null) {
+                // handle cases like the Product toAssocs relationship where ProductAssoc.productId != Product.productId, needs to look at relationship field map
+                for (String pkField : parentPkFields) {
+                    String relatedName = parentRelInfo.keyMap.get(pkField);
+                    if (pkField.equals(relatedName)) vMap.remove(pkField);
+                }
+            } else {
+                for (String pkField : parentPkFields) vMap.remove(pkField);
+            }
+        }
         EntityDefinition ed = getEntityDefinition();
         vMap.put("_entity", ed.getShortOrFullEntityName());
 
@@ -1096,7 +1122,7 @@ public abstract class EntityValueBase implements EntityValue {
                 String entryName = relAlias != null && !relAlias.isEmpty() ? relAlias : relationshipName;
                 if (relInfo.isTypeOne) {
                     EntityValue relEv = findRelatedOne(relationshipName, null, false);
-                    if (relEv != null) vMap.put(entryName, ((EntityValueBase) relEv).internalMasterValueMap(detail.getDetailList(), curPkFields));
+                    if (relEv != null) vMap.put(entryName, ((EntityValueBase) relEv).internalMasterValueMap(detail.getDetailList(), curPkFields, relInfo));
                 } else {
                     EntityList relList = findRelated(relationshipName, null, null, null, false);
                     if (relList != null && !relList.isEmpty()) {
@@ -1104,7 +1130,7 @@ public abstract class EntityValueBase implements EntityValue {
                         int relListSize = relList.size();
                         for (int rlIndex = 0; rlIndex < relListSize; rlIndex++) {
                             EntityValue relEv = relList.get(rlIndex);
-                            plainRelList.add(((EntityValueBase) relEv).internalMasterValueMap(detail.getDetailList(), curPkFields));
+                            plainRelList.add(((EntityValueBase) relEv).internalMasterValueMap(detail.getDetailList(), curPkFields, relInfo));
                         }
                         vMap.put(entryName, plainRelList);
                     }
@@ -1413,7 +1439,7 @@ public abstract class EntityValueBase implements EntityValue {
                 Object valueLus = valueMapInternal.get("lastUpdatedStamp");
                 Object dbLus = dbValueMap.get("lastUpdatedStamp");
                 if (valueLus != null && dbLus != null && !dbLus.equals(valueLus))
-                    throw new EntityException("This record was updated by someone else at " + valueLus + " which was after the version you loaded at " + dbLus + ". Not updating to avoid overwriting data.");
+                    throw new EntityException("This record was updated by someone else at " + dbLus + " which was after the version you loaded at " + valueLus + ". Not updating to avoid overwriting data.");
             }
 
             // set lastUpdatedStamp

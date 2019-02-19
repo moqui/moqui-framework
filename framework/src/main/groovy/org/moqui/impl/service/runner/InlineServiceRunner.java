@@ -44,9 +44,10 @@ public class InlineServiceRunner implements ServiceRunner {
         if (sd.xmlAction == null) throw new ServiceException("Service" + sd.serviceName + " run inline but has no actions");
         ExecutionContextImpl ec = ecfi.getEci();
         ContextStack cs = ec.contextStack;
+
+        // push the entire context to isolate the context for the service call
+        cs.pushContext();
         try {
-            // push the entire context to isolate the context for the service call
-            cs.pushContext();
             // add the parameters to this service call; copy instead of pushing, faster with newer ContextStack
             cs.putAll(parameters);
             // we have an empty context so add the ec
@@ -63,11 +64,7 @@ public class InlineServiceRunner implements ServiceRunner {
                 ScriptServiceRunner.combineResults(sd, autoResult, cs.getCombinedMap());
                 return autoResult;
             }
-        /* ServiceCallSyncImpl logs this anyway, no point logging it here:
-        } catch (Throwable t) {
-            logger.error("Error running inline XML Actions in service [${sd.serviceName}]: ", t)
-            throw t
-         */
+        /* ServiceCallSyncImpl logs this anyway, no point logging it here: } catch (Throwable t) { logger.error("Error running inline XML Actions in service [${sd.serviceName}]: ", t); throw t */
         } finally {
             // pop the entire context to get back to where we were before isolating the context with pushContext
             cs.popContext();

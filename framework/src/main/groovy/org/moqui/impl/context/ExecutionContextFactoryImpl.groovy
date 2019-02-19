@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.context
 
+import groovy.json.JsonSlurper
 import groovy.transform.CompileStatic
 import org.apache.logging.log4j.LogManager
 import org.apache.logging.log4j.core.LoggerContext
@@ -57,6 +58,7 @@ import org.slf4j.LoggerFactory
 import javax.annotation.Nonnull
 import javax.servlet.ServletContext
 import javax.servlet.http.HttpServletRequest
+import javax.servlet.http.HttpServletResponse
 import javax.websocket.server.ServerContainer
 import java.lang.management.ManagementFactory
 import java.sql.Timestamp
@@ -87,6 +89,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     @SuppressWarnings("GrFinalVariableAccess") protected final MNode confXmlRoot
     protected MNode serverStatsNode
     protected String moquiVersion = ""
+    protected Map versionMap = null
     protected InetAddress localhostAddress = null
 
     protected MClassLoader moquiClassLoader
@@ -142,7 +145,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     /** The main worker pool for services, running async closures and runnables, etc */
     @SuppressWarnings("GrFinalVariableAccess") public final ThreadPoolExecutor workerPool
     /** An executor for the scheduled job runner */
-    public final ScheduledThreadPoolExecutor scheduledExecutor = new ScheduledThreadPoolExecutor(4)
+    // TODO: make the scheduled thread pool size configurable
+    public final ScheduledThreadPoolExecutor scheduledExecutor = new ScheduledThreadPoolExecutor(16)
 
     /**
      * This constructor gets runtime directory and conf file location from a properties file on the classpath so that
@@ -325,6 +329,15 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         return newConfigXmlRoot
     }
     protected void initComponents(MNode baseConfigNode) {
+        File versionJsonFile = new File(runtimePath + "/version.json")
+        if (versionJsonFile.exists()) {
+            try {
+                versionMap = (Map) new JsonSlurper().parse(versionJsonFile)
+            } catch (Exception e) {
+                logger.warn("Error parsion runtime/version.json", e)
+            }
+        }
+
         // init components referred to in component-list.component and component-dir elements in the conf file
         for (MNode childNode in baseConfigNode.first("component-list").children) {
             if ("component".equals(childNode.name)) {
@@ -353,13 +366,33 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // set default System properties now that all is merged
         for (MNode defPropNode in baseConfigNode.children("default-property")) {
             String propName = defPropNode.attribute("name")
+            if (System.getProperty(propName)) {
+                if (propName.contains("pass") || propName.contains("pw") || propName.contains("key")) {
+                    logger.info("Found pw/key property ${propName}, not setting from env var or default")
+                } else {
+                    logger.info("Found property ${propName} with value [${System.getProperty(propName)}], not setting from env var or default")
+                }
+                continue
+            }
             if (System.getenv(propName) && !System.getProperty(propName)) {
                 // make env vars available as Java System properties
                 System.setProperty(propName, System.getenv(propName))
+                if (propName.contains("pass") || propName.contains("pw") || propName.contains("key")) {
+                    logger.info("Setting pw/key property ${propName} from env var")
+                } else {
+                    logger.info("Setting property ${propName} from env var with value [${System.getProperty(propName)}]")
+                }
             }
             if (!System.getProperty(propName) && !System.getenv(propName)) {
                 String valueAttr = defPropNode.attribute("value")
-                if (valueAttr != null && !valueAttr.isEmpty()) System.setProperty(propName, SystemBinding.expand(valueAttr))
+                if (valueAttr != null && !valueAttr.isEmpty()) {
+                    System.setProperty(propName, SystemBinding.expand(valueAttr))
+                    if (propName.contains("pass") || propName.contains("pw") || propName.contains("key")) {
+                        logger.info("Setting pw/key property ${propName} from default")
+                    } else {
+                        logger.info("Setting property ${propName} from default with value [${System.getProperty(propName)}]")
+                    }
+                }
             }
         }
 
@@ -388,20 +421,14 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         return baseConfigNode
     }
 
-    // NOTE: using unbound LinkedBlockingQueue, so max pool size in ThreadPoolExecutor has no effect
-    private static class WorkerThreadFactory implements ThreadFactory {
-        private final ThreadGroup workerGroup = new ThreadGroup("MoquiWorkers")
-        private final AtomicInteger threadNumber = new AtomicInteger(1)
-        Thread newThread(Runnable r) { return new Thread(workerGroup, r, "MoquiWorker-" + threadNumber.getAndIncrement()) }
-    }
     private ThreadPoolExecutor makeWorkerPool() {
         MNode toolsNode = confXmlRoot.first('tools')
 
         int workerQueueSize = (toolsNode.attribute("worker-queue") ?: "65536") as int
         BlockingQueue<Runnable> workQueue = new LinkedBlockingQueue<>(workerQueueSize)
 
-        int coreSize = (toolsNode.attribute("worker-pool-core") ?: "4") as int
-        int maxSize = (toolsNode.attribute("worker-pool-max") ?: "16") as int
+        int coreSize = (toolsNode.attribute("worker-pool-core") ?: "16") as int
+        int maxSize = (toolsNode.attribute("worker-pool-max") ?: "24") as int
         int availableProcessorsSize = Runtime.getRuntime().availableProcessors() * 2
         if (availableProcessorsSize > maxSize) {
             logger.info("Setting worker pool size to ${availableProcessorsSize} based on available processors * 2")
@@ -410,7 +437,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         long aliveTime = (toolsNode.attribute("worker-pool-alive") ?: "60") as long
 
         logger.info("Initializing worker ThreadPoolExecutor: queue limit ${workerQueueSize}, pool-core ${coreSize}, pool-max ${maxSize}, pool-alive ${aliveTime}s")
-        return new ThreadPoolExecutor(coreSize, maxSize, aliveTime, TimeUnit.SECONDS, workQueue, new WorkerThreadFactory())
+        return new ContextJavaUtil.WorkerThreadPoolExecutor(this, coreSize, maxSize, aliveTime, TimeUnit.SECONDS, workQueue)
     }
     boolean waitWorkerPoolEmpty(int retryLimit) {
         int count = 0
@@ -499,17 +526,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     private void postFacadeInit() {
-        // ========== load a few things in advance so first page hit is faster in production (in dev mode will reload anyway as caches timeout)
-        // load entity definitions
-        logger.info("Loading entity definitions")
-        long entityStartTime = System.currentTimeMillis()
-        entityFacade.loadAllEntityLocations()
-        int entityCount = entityFacade.loadAllEntityDefinitions()
-        // don't always load/warm framework entities, in production warms anyway and in dev not needed: entityFacade.loadFrameworkEntities()
-        logger.info("Loaded ${entityCount} entity definitions in ${System.currentTimeMillis() - entityStartTime}ms")
-
-        // now that everything is started up, if configured check all entity tables
-        entityFacade.checkInitDatasourceTables()
+        entityFacade.postFacadeInit()
+        serviceFacade.postFacadeInit()
 
         // Run init() in ToolFactory implementations from tools.tool-factory elements
         for (ToolFactory tf in toolFactoryMap.values()) {
@@ -523,8 +541,13 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         // Notification Message Topic
         String notificationTopicFactory = confXmlRoot.first("tools").attribute("notification-topic-factory")
-        if (notificationTopicFactory)
-            notificationMessageTopic = (SimpleTopic<NotificationMessageImpl>) getTool(notificationTopicFactory, SimpleTopic.class)
+        if (notificationTopicFactory) {
+            try {
+                notificationMessageTopic = (SimpleTopic<NotificationMessageImpl>) getTool(notificationTopicFactory, SimpleTopic.class)
+            } catch (Throwable t) {
+                logger.error("Error initializing notification-topic-factory ${notificationTopicFactory}", t)
+            }
+        }
 
         // schedule DeferredHitInfoFlush (every 5 seconds, after 10 second init delay)
         DeferredHitInfoFlush dhif = new DeferredHitInfoFlush(this)
@@ -763,7 +786,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
     @Override boolean isDestroyed() { return destroyed }
 
-    @Override protected void finalize() throws Throwable {
+    @Override void finalize() throws Throwable {
         try {
             if (!this.destroyed) {
                 this.destroy()
@@ -785,6 +808,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     @Override @Nonnull String getRuntimePath() { return runtimePath }
     @Override @Nonnull String getMoquiVersion() { return moquiVersion }
+    Map getVersionMap() { return versionMap }
     MNode getConfXmlRoot() { return confXmlRoot }
     MNode getServerStatsNode() { return serverStatsNode }
     MNode getArtifactExecutionNode(String artifactTypeEnumId) {
@@ -1053,7 +1077,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     List<Map<String, Object>> getComponentInfoList() {
         List<Map<String, Object>> infoList = new ArrayList<>(componentInfoMap.size())
         for (ComponentInfo ci in componentInfoMap.values())
-            infoList.add([name:ci.name, location:ci.location, version:ci.version, dependsOnNames:ci.dependsOnNames] as Map<String, Object>)
+            infoList.add([name:ci.name, location:ci.location, version:ci.version, versionMap:ci.versionMap, dependsOnNames:ci.dependsOnNames] as Map<String, Object>)
         return infoList
     }
 
@@ -1166,6 +1190,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     static class ComponentInfo {
         ExecutionContextFactoryImpl ecfi
         String name, location, version
+        Map versionMap = null
         ResourceReference componentRr
         Set<String> dependsOnNames = new LinkedHashSet<String>()
         ComponentInfo(String baseLocation, MNode componentNode, ExecutionContextFactoryImpl ecfi) {
@@ -1242,7 +1267,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
             // see if there is a component.xml file, if so use that as the componentNode instead of origNode
             ResourceReference compXmlRr = componentRr.getChild("component.xml")
-            MNode componentNode = compXmlRr.getExists() ? MNode.parse(compXmlRr) : origNode
+            MNode componentNode = compXmlRr.exists ? MNode.parse(compXmlRr) : origNode
             if (componentNode != null) {
                 String nameAttr = componentNode.attribute("name")
                 if (nameAttr) name = nameAttr
@@ -1250,6 +1275,15 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                 if (versionAttr) version = SystemBinding.expand(versionAttr)
                 if (componentNode.hasChild("depends-on")) for (MNode dependsOnNode in componentNode.children("depends-on"))
                     dependsOnNames.add(dependsOnNode.attribute("name"))
+            }
+
+            ResourceReference versionJsonRr = componentRr.getChild("version.json")
+            if (versionJsonRr.exists) {
+                try {
+                    versionMap = (Map) new JsonSlurper().parseText(versionJsonRr.getText())
+                } catch (Exception e) {
+                    logger.warn("Error parsing ${versionJsonRr.location}", e)
+                }
             }
         }
 
@@ -1600,6 +1634,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         baseNode.mergeSingleChild(overrideNode, "session-config")
 
         baseNode.mergeChildrenByKey(overrideNode, "endpoint", "path", null)
+
+        baseNode.mergeChildrenByKeys(overrideNode, "response-header", null, "type", "name")
     }
 
     protected static void mergeWebappActions(MNode baseWebappNode, MNode overrideWebappNode, String childNodeName) {
@@ -1618,10 +1654,12 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             .first({ MNode it -> it.name == "webapp" && it.attribute("name") == webappName }) }
 
     WebappInfo getWebappInfo(String webappName) {
-        if (webappInfoMap.containsKey(webappName)) return webappInfoMap.get(webappName)
+        WebappInfo wi = webappInfoMap.get(webappName)
+        if (wi != null) return wi
         return makeWebappInfo(webappName)
     }
     protected synchronized WebappInfo makeWebappInfo(String webappName) {
+        if (webappName == null || webappName.isEmpty()) return null
         WebappInfo wi = new WebappInfo(webappName, this)
         webappInfoMap.put(webappName, wi)
         return wi
@@ -1637,8 +1675,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         XmlAction beforeLogoutActions = null
         XmlAction afterStartupActions = null
         XmlAction beforeShutdownActions = null
-        Integer sessionTimeoutSeconds = null
+        ArrayList<MNode> responseHeaderList
 
+        Integer sessionTimeoutSeconds = null
         String httpPort, httpHost, httpsPort, httpsHost
         boolean httpsEnabled
         boolean requireSessionToken
@@ -1684,6 +1723,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                 beforeShutdownActions = new XmlAction(ecfi, webappNode.first("before-shutdown").first("actions"),
                         "webapp_${webappName}.before_shutdown.actions")
 
+            responseHeaderList = webappNode.children("response-header")
+
             MNode sessionConfigNode = webappNode.first("session-config")
             if (sessionConfigNode != null && sessionConfigNode.attribute("timeout")) {
                 sessionTimeoutSeconds = (sessionConfigNode.attribute("timeout") as int) * 60
@@ -1692,6 +1733,19 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         MNode getErrorScreenNode(String error) {
             return webappNode.first({ MNode it -> it.name == "error-screen" && it.attribute("error") == error })
+        }
+
+        void addHeaders(String type, HttpServletResponse response) {
+            if (type == null || response == null) return
+            int responseHeaderListSize = responseHeaderList.size()
+            for (int i = 0; i < responseHeaderListSize; i++) {
+                MNode responseHeader = (MNode) responseHeaderList.get(i)
+                if (!type.equals(responseHeader.attribute("type"))) continue
+                String headerValue = responseHeader.attribute("value")
+                if (headerValue == null || headerValue.isEmpty()) continue
+                response.addHeader(responseHeader.attribute("name"), headerValue)
+                // logger.warn("Added header ${responseHeader.attribute("name")} value ${headerValue} type ${type}")
+            }
         }
     }
 
