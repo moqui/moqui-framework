@@ -252,13 +252,7 @@ task runNewPort(type: JavaExec) {
     argList.add("port=8081")
     args = argList
 }
-task run(type: JavaExec) {
-    dependsOn getRuntime, allBuildTasks, cleanTempDir
-    workingDir = '.'; jvmArgs = ['-server', '-XX:-OmitStackTraceInFastThrow']
-    systemProperties = ['moqui.conf':moquiConfDev, 'moqui.runtime':moquiRuntime, 'moqui.log.directory':moquiDefaulLogDirectory]
-    // NOTE: this is a hack, using -jar instead of a class name, and then the first argument is the name of the jar file
-    main = '-jar'; args = [warName]
-}
+
 task runProduction(type: JavaExec) {
     dependsOn checkRuntime, allBuildTasks, cleanTempDir
     workingDir = '.'; jvmArgs = ['-server', '-Xms1024M']
