@@ -311,7 +311,7 @@ class ScreenRenderImpl implements ScreenRender {
                 // NOTE: We decode path parameter ourselves, so use getRequestURI instead of getPathInfo
                 Map<String, Object> pathInfoParameterMap = WebUtilities.getPathInfoParameterMap(request.getRequestURI())
                 if (!targetTransition.isReadOnly() && (
-                        (!request.isSecure() && webappInfo.httpsEnabled) ||
+                        (!request.isSecure() && webappInfo != null && webappInfo.httpsEnabled) ||
                         (queryString != null && queryString.length() > 0) ||
                         (pathInfoParameterMap != null && pathInfoParameterMap.size() > 0))) {
                     throw new BaseArtifactException(
@@ -321,7 +321,7 @@ class ScreenRenderImpl implements ScreenRender {
                         form with hidden input fields instead, or declare the transition as read-only.""")
                 }
                 // require a moquiSessionToken parameter for all but get
-                if (request.getMethod().toLowerCase() != "get" && webappInfo.requireSessionToken &&
+                if (request.getMethod().toLowerCase() != "get" && webappInfo != null && webappInfo.requireSessionToken &&
                         targetTransition.getRequireSessionToken() &&
                         !"true".equals(request.getAttribute("moqui.session.token.created")) &&
                         !"true".equals(request.getAttribute("moqui.request.authenticated"))) {
@@ -408,12 +408,11 @@ class ScreenRenderImpl implements ScreenRender {
                         List<Map> historyList = wfi.getScreenHistory()
                         Map historyMap = historyList != null && historyList.size() > 0 ? historyList.first() : (Map) null
                         if (historyMap != null) {
-                            url = isScreenLast ? historyMap.url : historyMap.urlNoParams
-                            urlType = "plain"
+                            url = isScreenLast ? historyMap.pathWithParams : historyMap.path
                             // logger.warn("going to screen-last from screen history ${url}")
                         } else {
                             // if no saved URL, just go to root/default; avoid getting stuck on Login screen, etc
-                            url = savedUrl ?: "/"
+                            url = "/"
                             // logger.warn("going to screen-last no last path or history to going to root")
                         }
                     }
@@ -513,13 +512,17 @@ class ScreenRenderImpl implements ScreenRender {
             boolean isBinary = tr == null && ResourceReference.isBinaryContentType(fileContentType)
             // if (isTraceEnabled) logger.trace("Content type for screen sub-content filename [${fileName}] is [${fileContentType}], default [${this.outputContentType}], is binary? ${isBinary}")
 
+            ExecutionContextFactoryImpl.WebappInfo webappInfo = ec.ecfi.getWebappInfo(webappName)
             if (isBinary) {
                 if (response != null) {
                     this.outputContentType = fileContentType
                     response.setContentType(this.outputContentType)
                     // static binary, tell the browser to cache it
-                    // NOTE: make this configurable?
-                    response.addHeader("Cache-Control", "max-age=3600, must-revalidate, public")
+                    if (webappInfo != null) {
+                        webappInfo.addHeaders("screen-resource-binary", response)
+                    } else {
+                        response.addHeader("Cache-Control", "max-age=86400, must-revalidate, public")
+                    }
 
                     InputStream is
                     try {
@@ -549,12 +552,23 @@ class ScreenRenderImpl implements ScreenRender {
 
                 if (tr != null) {
                     // if requires a render, don't cache and make it private
-                    if (response != null) response.addHeader("Cache-Control", "no-cache, no-store, must-revalidate, private")
+                    if (response != null) {
+                        if (webappInfo != null) {
+                            webappInfo.addHeaders("screen-resource-template", response)
+                        } else {
+                            response.addHeader("Cache-Control", "no-cache, no-store, must-revalidate, private")
+                        }
+                    }
                     tr.render(fileResourceRef.location, writer)
                 } else {
                     // static text, tell the browser to cache it
-                    // TODO: make this configurable?
-                    if (response != null) response.addHeader("Cache-Control", "max-age=3600, must-revalidate, public")
+                    if (response != null) {
+                        if (webappInfo != null) {
+                            webappInfo.addHeaders("screen-resource-text", response)
+                        } else {
+                            response.addHeader("Cache-Control", "max-age=86400, must-revalidate, public")
+                        }
+                    }
                     // no renderer found, just grab the text (cached) and throw it to the writer
                     String text = sfi.ecfi.resourceFacade.getLocationText(fileResourceRef.location, true)
                     if (text != null && text.length() > 0) {
@@ -669,11 +683,10 @@ class ScreenRenderImpl implements ScreenRender {
     void doActualRender() {
         ArrayList<ScreenDefinition> screenPathDefList = screenUrlInfo.screenPathDefList
         int screenPathDefListSize = screenPathDefList.size()
+        ExecutionContextFactoryImpl.WebappInfo webappInfo = ec.ecfi.getWebappInfo(webappName)
 
-        if (screenUrlInfo.targetScreen.isServerStatic(renderMode)) {
-            if (response != null) response.addHeader("Cache-Control", "max-age=3600, must-revalidate, private")
-            // TODO: consider server caching of rendered screen, this is the place to do it
-        }
+        boolean isServerStatic = screenUrlInfo.targetScreen.isServerStatic(renderMode)
+        // TODO: consider server caching of rendered screen, this is the place to do it
 
         boolean beganTransaction = screenUrlInfo.beginTransaction ? sfi.ecfi.transactionFacade.begin(null) : false
         try {
@@ -692,8 +705,33 @@ class ScreenRenderImpl implements ScreenRender {
             if (response != null) {
                 response.setContentType(this.outputContentType)
                 response.setCharacterEncoding(this.characterEncoding)
-                // if requires a render, don't cache and make it private
-                response.addHeader("Cache-Control", "no-cache, no-store, must-revalidate, private")
+                if (isServerStatic) {
+                    if (webappInfo != null) {
+                        webappInfo.addHeaders("screen-server-static", response)
+                    } else {
+                        response.addHeader("Cache-Control", "max-age=86400, must-revalidate, public")
+                    }
+                } else {
+                    if (webappInfo != null) {
+                        webappInfo.addHeaders("screen-render", response)
+                    } else {
+                        // if requires a render, don't cache and make it private
+                        response.addHeader("Cache-Control", "no-cache, no-store, must-revalidate, private")
+                        // add Content-Security-Policy by default to not allow use in iframe or allow form actions on different host
+                        // see https://content-security-policy.com/
+                        // TODO make this configurable for different screen paths? maybe a screen.web-settings attribute to exclude or add to?
+                        response.addHeader("Content-Security-Policy", "frame-ancestors 'none'; form-action 'self';")
+                        response.addHeader("X-Frame-Options", "deny")
+                    }
+                }
+                // if the request is secure add HSTS Strict-Transport-Security header with one leap year age (in seconds)
+                if (request.isSecure()) {
+                    if (webappInfo != null) {
+                        webappInfo.addHeaders("screen-secure", response)
+                    } else {
+                        response.addHeader("Strict-Transport-Security", "max-age=31536000")
+                    }
+                }
 
                 String filename = ec.context.saveFilename as String
                 if (filename) {

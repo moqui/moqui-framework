@@ -40,6 +40,7 @@ class MarkdownTemplateRenderer implements TemplateRenderer {
 
     static final MutableDataHolder OPTIONS = new MutableDataSet()
             .set(Parser.REFERENCES_KEEP, KeepType.LAST)
+            .set(Parser.SPACE_IN_LINK_URLS, true)
             .set(HtmlRenderer.INDENT_SIZE, 2)
             .set(HtmlRenderer.PERCENT_ENCODE_URLS, true)
             // for full GitHub Flavored Markdown table compatibility add the following table extension options:

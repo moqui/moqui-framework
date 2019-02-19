@@ -158,26 +158,27 @@ try {
     //email.setTextMsg("Your email client does not support HTML messages")
 
     for (EntityValue emailTemplateAttachment in emailTemplateAttachmentList) {
-        if (emailTemplateAttachment.attachmentCondition && !ec.resourceFacade.condition((String) emailTemplateAttachment.attachmentCondition, "")) continue
+        // check attachmentCondition if there is one
+        String attachmentCondition = (String) emailTemplateAttachment.attachmentCondition
+        if (attachmentCondition && !ec.resourceFacade.condition(attachmentCondition, null)) continue
+        // if screenRenderMode render attachment, otherwise just get attachment from location
         if (emailTemplateAttachment.screenRenderMode) {
-            def attachmentRender = ec.screen.makeRender().rootScreen((String) emailTemplateAttachment.attachmentLocation)
-                    .webappName((String) emailTemplate.webappName).renderMode((String) emailTemplateAttachment.screenRenderMode)
-            String attachmentText = attachmentRender.render()
-            if (!attachmentText) continue
-            String fileName = ec.resource.expand((String) emailTemplateAttachment.fileName, "")
-            if (emailTemplateAttachment.screenRenderMode == "xsl-fo") {
-                // use ResourceFacade.xslFoTransform() to change to PDF, then attach that
-                try {
-                    ByteArrayOutputStream baos = new ByteArrayOutputStream()
-                    ec.resource.xslFoTransform(new StreamSource(new StringReader(attachmentText)), null, baos, "application/pdf")
-                    email.attach(new ByteArrayDataSource(baos.toByteArray(), "application/pdf"), fileName, "")
-                } catch (Exception e) {
-                    logger.warn("Error generating PDF from XSL-FO: ${e.toString()}")
+            String forEachIn = (String) emailTemplateAttachment.forEachIn
+            if (forEachIn) {
+                Collection forEachCol = (Collection) ec.resourceFacade.expression(forEachIn, null)
+                if (forEachCol) for (Object forEachEntry in forEachCol) {
+                    ec.contextStack.push()
+                    try {
+                        if (forEachEntry instanceof Map) { ec.contextStack.putAll((Map) forEachEntry) }
+                        else { ec.contextStack.put("forEachEntry", forEachEntry) }
+
+                        renderScreenAttachment(emailTemplate, emailTemplateAttachment, email, ec, logger)
+                    } finally {
+                        ec.contextStack.pop()
+                    }
                 }
             } else {
-                String mimeType = ec.screenFacade.getMimeTypeByMode((String) emailTemplateAttachment.screenRenderMode)
-                DataSource dataSource = new ByteArrayDataSource(attachmentText, mimeType)
-                email.attach(dataSource, fileName, "")
+                renderScreenAttachment(emailTemplate, emailTemplateAttachment, email, ec, logger)
             }
         } else {
             // not a screen, get straight data with type depending on extension
@@ -193,7 +194,7 @@ try {
     // send the email
     try {
         messageId = email.send()
-
+        // if we created an EmailMessage record update it now with the messageId
         if (emailMessageId) {
             ec.service.sync().name("update", "moqui.basic.email.EmailMessage").requireNewTransaction(true)
                     .parameters([emailMessageId:emailMessageId, sentDate:ec.user.nowTimestamp, statusId:"ES_SENT", messageId:messageId])
@@ -209,4 +210,28 @@ try {
     logger.error("Error in sendEmailTemplate", t)
     ec.message.addMessage("Error sending email: ${t.toString()}")
     // don't rethrow: throw new BaseArtifactException("Error in sendEmailTemplate", t)
+}
+
+static void renderScreenAttachment(EntityValue emailTemplate, EntityValue emailTemplateAttachment, HtmlEmail email, ExecutionContextImpl ec, Logger logger) {
+    def attachmentRender = ec.screen.makeRender().rootScreen((String) emailTemplateAttachment.attachmentLocation)
+            .webappName((String) emailTemplate.webappName).renderMode((String) emailTemplateAttachment.screenRenderMode)
+    String attachmentText = attachmentRender.render()
+    if (attachmentText == null) return
+    if (attachmentText.trim().length() == 0) return
+
+    String fileName = ec.resource.expand((String) emailTemplateAttachment.fileName, null)
+    if (emailTemplateAttachment.screenRenderMode == "xsl-fo") {
+        // use ResourceFacade.xslFoTransform() to change to PDF, then attach that
+        try {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream()
+            ec.resource.xslFoTransform(new StreamSource(new StringReader(attachmentText)), null, baos, "application/pdf")
+            email.attach(new ByteArrayDataSource(baos.toByteArray(), "application/pdf"), fileName, "")
+        } catch (Exception e) {
+            logger.warn("Error generating PDF from XSL-FO: ${e.toString()}")
+        }
+    } else {
+        String mimeType = ec.screenFacade.getMimeTypeByMode((String) emailTemplateAttachment.screenRenderMode)
+        DataSource dataSource = new ByteArrayDataSource(attachmentText, mimeType)
+        email.attach(dataSource, fileName, "")
+    }
 }

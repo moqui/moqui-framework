@@ -139,6 +139,88 @@ public class WebUtilities {
         return reqParmMap;
     }
 
+    public static String encodeHtmlJsSafe(String original) {
+        if (original == null) return "";
+        StringBuilder newValue = new StringBuilder(original);
+        for (int i = 0; i < newValue.length(); i++) {
+            char curChar = newValue.charAt(i);
+            switch (curChar) {
+                case '\'': newValue.replace(i, i + 1, "\\'"); i += 1; break;
+                case '"': newValue.replace(i, i + 1, "&quot;"); i += 5; break;
+                case '&': newValue.replace(i, i + 1, "&amp;"); i += 4; break;
+                case '<': newValue.replace(i, i + 1, "&lt;"); i += 3; break;
+                case '>': newValue.replace(i, i + 1, "&gt;"); i += 3; break;
+                case 0x5: newValue.replace(i, i + 1, "..."); i += 2; break;
+                case 0x12: newValue.replace(i, i + 1, "&apos;"); i += 5; break;
+                case 0x13: newValue.replace(i, i + 1, "&quot;"); i += 5; break;
+                case 0x14: newValue.replace(i, i + 1, "&quot;"); i += 5; break;
+                case 0x16: newValue.replace(i, i + 1, "-"); break;
+                case 0x17: newValue.replace(i, i + 1, "-"); break;
+                case 0x19: newValue.replace(i, i + 1, "tm"); i++; break;
+            }
+        }
+        return newValue.toString();
+    }
+    public static String encodeHtml(String original) {
+        if (original == null) return "";
+        StringBuilder newValue = new StringBuilder(original);
+        for (int i = 0; i < newValue.length(); i++) {
+            char curChar = newValue.charAt(i);
+            switch (curChar) {
+                case '\'': newValue.replace(i, i + 1, "&#39;"); i += 4; break;
+                case '"': newValue.replace(i, i + 1, "&quot;"); i += 5; break;
+                case '&': newValue.replace(i, i + 1, "&amp;"); i += 4; break;
+                case '<': newValue.replace(i, i + 1, "&lt;"); i += 3; break;
+                case '>': newValue.replace(i, i + 1, "&gt;"); i += 3; break;
+                case 0x5: newValue.replace(i, i + 1, "..."); i += 2; break;
+                case 0x12: newValue.replace(i, i + 1, "&apos;"); i += 5; break;
+                case 0x13: newValue.replace(i, i + 1, "&quot;"); i += 5; break;
+                case 0x14: newValue.replace(i, i + 1, "&quot;"); i += 5; break;
+                case 0x16: newValue.replace(i, i + 1, "-"); break;
+                case 0x17: newValue.replace(i, i + 1, "-"); break;
+                case 0x19: newValue.replace(i, i + 1, "tm"); i++; break;
+            }
+        }
+        return newValue.toString();
+    }
+
+    /** Pattern may have a plain number, '*' for wildcard, or a '-' separated number range for each dot separated segment;
+     * may also have multiple comma-separated patterns */
+    public static boolean ip4Matches(String patternString, String address) {
+        if (patternString == null || patternString.isEmpty()) return true;
+        if (address == null || address.isEmpty()) return false;
+
+        String[] patterns = patternString.split(",");
+        boolean anyMatches = false;
+        for (int pi = 0; pi < patterns.length; pi++) {
+            String pattern = patterns[pi].trim();
+            if (pattern.isEmpty()) continue;
+            if (pattern.equals("*.*.*.*") || pattern.equals("*")) {
+                anyMatches = true;
+                break;
+            }
+            String[] patternArray = pattern.split("\\.");
+            String[] addressArray = address.split("\\.");
+            boolean allMatch = true;
+            for (int i = 0; i < patternArray.length; i++) {
+                String curPattern = patternArray[i];
+                String curAddress = addressArray[i];
+                if (curPattern.equals("*") || curPattern.equals(curAddress)) continue;
+                if (curPattern.contains("-")) {
+                    byte min = Byte.parseByte(curPattern.split("-")[0]);
+                    byte max = Byte.parseByte(curPattern.split("-")[1]);
+                    byte ip = Byte.parseByte(curAddress);
+                    if (ip < min || ip > max) { allMatch = false; break; }
+                } else {
+                    allMatch = false;
+                    break;
+                }
+            }
+            if (allMatch) { anyMatches = true; break; }
+        }
+        return anyMatches;
+    }
+
     public static String simpleHttpStringRequest(String location, String requestBody, String contentType) {
         if (contentType == null || contentType.isEmpty()) contentType = "text/plain";
         String resultString = "";
@@ -262,7 +344,7 @@ public class WebUtilities {
             try {
                 return ses.getAttributeNames();
             } catch (IllegalStateException e) {
-                logger.info("Tried getAttributeNames() on invalidated session " + ses.getId() + ": " + e.toString());
+                logger.warn("Tried getAttributeNames() on invalidated session " + ses.getId() + ": " + e.toString());
                 return emptyStringEnum;
             }
         }
@@ -270,7 +352,7 @@ public class WebUtilities {
             try {
                 return ses.getAttribute(name);
             } catch (IllegalStateException e) {
-                logger.info("Tried getAttribute(" + name + ") on invalidated session " + ses.getId() + ": " + e.toString());
+                logger.warn("Tried getAttribute(" + name + ") on invalidated session " + ses.getId(), BaseException.filterStackTrace(e));
                 return null;
             }
         }
@@ -280,14 +362,14 @@ public class WebUtilities {
             try {
                 ses.setAttribute(name, value);
             } catch (IllegalStateException e) {
-                logger.info("Tried setAttribute(" + name + ", " + value + ") on invalidated session " + ses.getId() + ": " + e.toString());
+                logger.warn("Tried setAttribute(" + name + ", " + value + ") on invalidated session " + ses.getId(), BaseException.filterStackTrace(e));
             }
         }
         @Override public void removeAttribute(String name) {
             try {
                 ses.removeAttribute(name);
             } catch (IllegalStateException e) {
-                logger.info("Tried removeAttribute(" + name + ") on invalidated session " + ses.getId() + ": " + e.toString());
+                logger.warn("Tried removeAttribute(" + name + ") on invalidated session " + ses.getId() + ": " + e.toString());
             }
         }
     }

@@ -81,6 +81,7 @@ public interface UserFacade {
     ArrayList<Timestamp> getPeriodRange(String period, int poffset, java.sql.Date pdate);
     ArrayList<Timestamp> getPeriodRange(String period, String poffset);
     String getPeriodDescription(String period, String poffset, String pdate);
+    ArrayList<Timestamp> getPeriodRange(String baseName, Map<String, Object> inputFieldsMap);
 
     /** Set an EffectiveTime for the current context which will then be returned from the getNowTimestamp() method.
      * This is used to test past and future behavior of applications.
@@ -143,4 +144,6 @@ public interface UserFacade {
     /** @return The current visit (aka session; from the Visit entity). Depending on the artifact being executed this may be null. */
     EntityValue getVisit();
     String getVisitorId();
+    /** @return Client IP address from HTTP request or X-Forwarded-For header */
+    String getClientIp();
 }

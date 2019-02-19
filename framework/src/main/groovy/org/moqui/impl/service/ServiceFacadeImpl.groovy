@@ -49,10 +49,10 @@ class ServiceFacadeImpl implements ServiceFacade {
 
     protected final Map<String, ServiceRunner> serviceRunners = new HashMap()
 
-    private final ScheduledJobRunner jobRunner
+    private ScheduledJobRunner jobRunner = null
 
     /** Distributed ExecutorService for async services, etc */
-    protected final ExecutorService distributedExecutorService
+    protected ExecutorService distributedExecutorService = null
 
     protected final ConcurrentMap<String, List<ServiceCallback>> callbackRegistry = new ConcurrentHashMap<>()
 
@@ -60,21 +60,25 @@ class ServiceFacadeImpl implements ServiceFacade {
         this.ecfi = ecfi
         serviceLocationCache = ecfi.cacheFacade.getCache("service.location", String.class, ServiceDefinition.class)
 
-        // load Service ECA rules
-        loadSecaRulesAll()
-        // load Email ECA rules
-        loadEmecaRulesAll()
-        // load REST API
-        restApi = new RestApi(ecfi)
-
         MNode serviceFacadeNode = ecfi.confXmlRoot.first("service-facade")
-
         // load service runners from configuration
         for (MNode serviceType in serviceFacadeNode.children("service-type")) {
             ServiceRunner sr = (ServiceRunner) Thread.currentThread().getContextClassLoader()
                     .loadClass(serviceType.attribute("runner-class")).newInstance()
             serviceRunners.put(serviceType.attribute("name"), sr.init(this))
         }
+
+        // load REST API
+        restApi = new RestApi(ecfi)
+    }
+
+    void postFacadeInit() {
+        // load Service ECA rules
+        loadSecaRulesAll()
+        // load Email ECA rules
+        loadEmecaRulesAll()
+
+        MNode serviceFacadeNode = ecfi.confXmlRoot.first("service-facade")
 
         // get distributed ExecutorService
         String distEsFactoryName = serviceFacadeNode.attribute("distributed-factory")
@@ -101,6 +105,7 @@ class ServiceFacadeImpl implements ServiceFacade {
         } else {
             jobRunner = null
         }
+
     }
 
     void warmCache()  {
@@ -255,17 +260,31 @@ class ServiceFacadeImpl implements ServiceFacade {
         return serviceNode
     }
 
-    protected static MNode findServiceNode(ResourceReference serviceComponentRr, String verb, String noun) {
+    protected MNode findServiceNode(ResourceReference serviceComponentRr, String verb, String noun) {
         if (serviceComponentRr == null || !serviceComponentRr.exists) return null
 
         MNode serviceRoot = MNode.parse(serviceComponentRr)
         MNode serviceNode
         if (noun) {
             // only accept the separated names
-            serviceNode = serviceRoot.first({ MNode it -> it.name == "service" && it.attribute("verb") == verb && it.attribute("noun") == noun })
+            serviceNode = serviceRoot.first({ MNode it -> ("service".equals(it.name) || "service-include".equals(it.name)) &&
+                    it.attribute("verb") == verb && it.attribute("noun") == noun })
         } else {
             // we just have a verb, this should work if the noun field is empty, or if noun + verb makes up the verb passed in
-            serviceNode = serviceRoot.first({ MNode it -> it.name == "service" && (it.attribute("verb") + (it.attribute("noun") ?: "")) == verb })
+            serviceNode = serviceRoot.first({ MNode it -> ("service".equals(it.name) || "service-include".equals(it.name)) &&
+                    (it.attribute("verb") + (it.attribute("noun") ?: "")) == verb })
+        }
+
+        // if we found a service-include look up the referenced service node
+        if (serviceNode != null && "service-include".equals(serviceNode.name)) {
+            String includeLocation = serviceNode.attribute("location")
+            if (includeLocation == null || includeLocation.isEmpty()) {
+                logger.error("Ignoring service-include with no location for verb ${verb} noun ${noun} in ${serviceComponentRr.location}")
+                return null
+            }
+
+            ResourceReference includeRr = ecfi.resourceFacade.getLocationReference(includeLocation)
+            return findServiceNode(includeRr, verb, noun)
         }
 
         return serviceNode
@@ -342,16 +361,19 @@ class ServiceFacadeImpl implements ServiceFacade {
         if (location.charAt(0) == '/' as char) location = location.substring(1)
         location = location.replace('/', '.')
 
-        for (MNode serviceNode in serviceRoot.children("service")) {
+        for (MNode serviceNode in serviceRoot.children) {
+            String nodeName = serviceNode.name
+            if (!"service".equals(nodeName) && !"service-include".equals(nodeName)) continue
             sns.add(location + "." + serviceNode.attribute("verb") +
                     (serviceNode.attribute("noun") ? "#" + serviceNode.attribute("noun") : ""))
         }
     }
 
     void loadSecaRulesAll() {
-        Map<String, ArrayList<ServiceEcaRule>> localRulesByServiceName = new HashMap<>()
         int numLoaded = 0
         int numFiles = 0
+        HashMap<String, ServiceEcaRule> ruleByIdMap = new HashMap<>()
+        LinkedList<ServiceEcaRule> ruleNoIdList = new LinkedList<>()
         // search for the service def XML file in the components
         for (String location in this.ecfi.getComponentBaseLocations().values()) {
             ResourceReference serviceDirRr = this.ecfi.resourceFacade.getLocationReference(location + "/service")
@@ -360,38 +382,53 @@ class ServiceFacadeImpl implements ServiceFacade {
                 if (!serviceDirRr.isDirectory()) continue
                 for (ResourceReference rr in serviceDirRr.directoryEntries) {
                     if (!rr.fileName.endsWith(".secas.xml")) continue
-                    numLoaded += loadSecaRulesFile(rr, localRulesByServiceName)
+                    numLoaded += loadSecaRulesFile(rr, ruleByIdMap, ruleNoIdList)
                     numFiles++
                 }
             } else {
                 logger.warn("Can't load SECA rules from component at [${serviceDirRr.location}] because it doesn't support exists/directory/etc")
             }
         }
-        if (logger.infoEnabled) logger.info("Loaded ${numLoaded} Service ECA rules from ${numFiles} .secas.xml files")
+        if (logger.infoEnabled) logger.info("Loaded ${numLoaded} Service ECA rules from ${numFiles} .secas.xml files, ${ruleNoIdList.size()} rules have no id, ${ruleNoIdList.size() + ruleByIdMap.size()} SECA rules active")
 
-        // replace entire SECA rules Map in one operation
-        secaRulesByServiceName = localRulesByServiceName
-    }
-    protected int loadSecaRulesFile(ResourceReference rr, Map<String, ArrayList<ServiceEcaRule>> localRulesByServiceName) {
-        MNode serviceRoot = MNode.parse(rr)
-        int numLoaded = 0
-        for (MNode secaNode in serviceRoot.children("seca")) {
-            ServiceEcaRule ser = new ServiceEcaRule(ecfi, secaNode, rr.location)
-            String serviceName = ser.serviceName
+        Map<String, ArrayList<ServiceEcaRule>> ruleMap = new HashMap<>()
+        ruleNoIdList.addAll(ruleByIdMap.values())
+        for (ServiceEcaRule ecaRule in ruleNoIdList) {
+            String serviceName = ecaRule.serviceName
             // remove the hash if there is one to more consistently match the service name
             serviceName = StringUtilities.removeChar(serviceName, (char) '#')
-            ArrayList<ServiceEcaRule> lst = localRulesByServiceName.get(serviceName)
+            ArrayList<ServiceEcaRule> lst = ruleMap.get(serviceName)
             if (lst == null) {
                 lst = new ArrayList<>()
-                localRulesByServiceName.put(serviceName, lst)
+                ruleMap.put(serviceName, lst)
             }
             // insert by priority
             int insertIdx = 0
             for (int i = 0; i < lst.size(); i++) {
                 ServiceEcaRule lstSer = (ServiceEcaRule) lst.get(i)
-                if (lstSer.priority <= ser.priority) { insertIdx++ } else { break }
+                if (lstSer.priority <= ecaRule.priority) { insertIdx++ } else { break }
             }
-            lst.add(insertIdx, ser)
+            lst.add(insertIdx, ecaRule)
+        }
+
+        // replace entire SECA rules Map in one operation
+        secaRulesByServiceName = ruleMap
+    }
+    protected int loadSecaRulesFile(ResourceReference rr, HashMap<String, ServiceEcaRule> ruleByIdMap, LinkedList<ServiceEcaRule> ruleNoIdList) {
+        MNode serviceRoot = MNode.parse(rr)
+        int numLoaded = 0
+        for (MNode secaNode in serviceRoot.children("seca")) {
+            String serviceName = secaNode.attribute("service")
+            if (!isServiceDefined(serviceName)) {
+                logger.warn("Invalid service name ${serviceName} found in SECA file ${rr.location}, skipping")
+                continue
+            }
+
+            ServiceEcaRule ecaRule = new ServiceEcaRule(ecfi, secaNode, rr.location)
+            String ruleId = secaNode.attribute("id")
+            if (ruleId != null && !ruleId.isEmpty()) ruleByIdMap.put(ruleId, ecaRule)
+            else ruleNoIdList.add(ecaRule)
+
             numLoaded++
         }
         if (logger.isTraceEnabled()) logger.trace("Loaded ${numLoaded} Service ECA rules from [${rr.location}]")

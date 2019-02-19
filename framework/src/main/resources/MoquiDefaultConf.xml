@@ -28,8 +28,10 @@
     <default-property name="entity_ds_user" value="sa"/>
     <default-property name="entity_ds_password" value="sa"/>
     <default-property name="entity_ds_crypt_pass" value="MoquiDefaultPassword:CHANGEME"/>
+    <default-property name="entity_add_missing_runtime" value=""/>
+    <default-property name="entity_add_missing_startup" value=""/>
 
-    <tools empty-db-load="seed,seed-initial,install" worker-queue="65535" worker-pool-core="4" worker-pool-max="16" worker-pool-alive="60">
+    <tools empty-db-load="seed,seed-initial,install" worker-queue="65535" worker-pool-core="16" worker-pool-max="24" worker-pool-alive="60">
         <tool-factory class="org.moqui.impl.tools.MCacheToolFactory" init-priority="03" disabled="false"/>
         <!-- Apache Commons JCS, an alternative for distributed caches (cannot be used as local cache as requires Serializable keys/values just like Hazelcast) -->
         <!-- <tool-factory class="org.moqui.impl.tools.JCSCacheToolFactory" init-priority="09" disabled="true"/> -->
@@ -152,6 +154,22 @@
 
             <!-- Notification Message Endpoint -->
             <endpoint path="/notws" class="org.moqui.impl.webapp.NotificationEndpoint" timeout="3600000" enabled="true"/>
+
+            <!-- Default response headers, for override keyed on type+name -->
+            <response-header type="web-resource-inline" name="Cache-Control" value="max-age=86400, must-revalidate, public"/>
+            <response-header type="screen-resource-binary" name="Cache-Control" value="max-age=86400, must-revalidate, public"/>
+            <response-header type="screen-resource-text" name="Cache-Control" value="max-age=86400, must-revalidate, public"/>
+            <response-header type="screen-resource-template" name="Cache-Control" value="no-cache, no-store, must-revalidate, private"/>
+            <response-header type="screen-server-static" name="Cache-Control" value="max-age=86400, must-revalidate, public"/>
+            <response-header type="screen-secure" name="Strict-Transport-Security" value="max-age=31536000"/>
+            <response-header type="screen-render" name="Cache-Control" value="no-cache, no-store, must-revalidate, private"/>
+            <!--
+            Content-Security-Policy by default to not allow use in iframe or allow form actions on different host
+            see https://content-security-policy.com/
+            consider "child-src 'self';", leaving out as default because 3rd party hosts needed for payment processing hosted forms, etc
+            -->
+            <response-header type="screen-render" name="Content-Security-Policy" value="frame-ancestors 'none'; form-action 'self';"/>
+            <response-header type="screen-render" name="X-Frame-Options" value="deny"/>
         </webapp>
     </webapp-list>
 
@@ -242,11 +260,10 @@
         <!-- vuet is a custom extension for Vue JS component templates (extended HTML) -->
         <screen-text-output type="vuet" mime-type="text/html" always-standalone="true"
                             macro-template-location="template/screen-macro/DefaultScreenMacros.vuet.ftl"/>
+
     </screen-facade>
 
     <service-facade distributed-factory="" scheduled-job-check-time="60">
-        <!-- NOTE: scheduled service jobs are managed using Quartz Scheduler, see quartz configuration for more details -->
-
         <service-location name="main-xml" location="http://localhost:8080/rpc/xml"/>
         <service-location name="main-json" location="http://localhost:8080/rpc/json"/>
 
@@ -312,7 +329,8 @@
             Good numbers for a decent sized server are 100 servlet container (Jetty) threads, 16 worker threads, plus a
             few extra so 120 connections in the main pool.
         -->
-        <datasource group-name="transactional" database-conf-name="${entity_ds_db_conf}" schema-name="${entity_ds_schema}">
+        <datasource group-name="transactional" database-conf-name="${entity_ds_db_conf}" schema-name="${entity_ds_schema}"
+                runtime-add-missing="${entity_add_missing_runtime}" startup-add-missing="${entity_add_missing_startup}">
             <!-- by default no inline-jdbc or jndi-jdbc elements, use default from database conf -->
         </datasource>
 

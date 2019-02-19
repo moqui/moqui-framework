@@ -59,6 +59,7 @@ public class Moqui {
             throw new IllegalStateException("Active ExecutionContextFactory already in place, cannot set one dynamically.");
 
         K newEcf = ecfClass.newInstance();
+        activeExecutionContextFactory = newEcf;
         // check for an empty DB
         if (newEcf.checkEmptyDb()) {
             logger.warn("Data loaded into empty DB, re-initializing ExecutionContextFactory");
@@ -66,6 +67,7 @@ public class Moqui {
             newEcf.destroy();
             // create new ECFI to get framework init data from DB
             newEcf = ecfClass.newInstance();
+            activeExecutionContextFactory = newEcf;
         }
 
         if (sc != null) {
@@ -75,7 +77,6 @@ public class Moqui {
             sc.setAttribute("executionContextFactory", newEcf);
         }
 
-        activeExecutionContextFactory = newEcf;
         return newEcf;
     }
     public static <K extends ExecutionContextFactory> K dynamicReInit(Class<K> ecfClass, ServletContext sc)

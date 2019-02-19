@@ -65,6 +65,11 @@ public interface EntityDataLoader {
      */
     EntityDataLoader useTryInsert(boolean useTryInsert);
 
+    /** If true only creates records that don't exist, does not update existing records.
+     * @return Reference to this for convenience.
+     */
+    EntityDataLoader onlyCreate(boolean onlyInsert);
+
     /** If true will check all foreign key relationships for each value and if any of them are missing create a new
      * record with primary key only to avoid foreign key constraint errors.
      *
@@ -105,6 +110,7 @@ public interface EntityDataLoader {
 
     /** Load the values into the database(s). */
     long load();
+    long load(List<String> messageList);
 
     /** Create an EntityList with all of the values from the data file(s).
      *

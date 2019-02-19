@@ -1,16 +1,54 @@
 
 # Moqui Framework Release Notes
 
-## Release 2.1.1 - Not Yet Released
+## Release 2.1.2 - Not Yet Released
 
-Moqui Framework 2.1.1 is a patch level new feature and bug fix release.
+Moqui Framework 2.1.2 is a patch level new feature and bug fix release.
 
 ### New Features
 
-- Updated to Gradle 4.3.1 along with changes to gradle files that require Gradle 4.0 or later
-- Moved validate-* attributes from XML Form field element to sub-field elements so that in form-list different validation can be
-  done for header, first-/second-/last-row, and default-/conditional-field; as part of this the automatic validate settings from
-  transition.service-call are now set on the sub-field instead of the field element
+- Service include for refactoring, etc with new services.service-include element
+- RestClient now supports retry on timeout for call() and 429 (velocity) return for callFuture()
+- The general worker thread pool now checks for an active ExecutionContext after each run to make sure destroyed
+
+### Bug Fixes
+
+- Issue with DataFeed Runnable not destroying the ExecutionContext causing errors to bleed over
+
+## Release 2.1.1 - 29 Nov 2018
+
+Moqui Framework 2.1.1 is a patch level new feature and bug fix release.
+
+While this release has new features maybe significant enough to warrant a 2.2.0 version bump it is mostly refinements and 
+improvements to existing functionality or to address design limitations and generally make things easier and cleaner. 
+
+There are various bug fixes and security improvements in this release. There are no known backward compatibility issues since the 
+last release but there are minor cases where default behavior has changed (see detailed notes). 
+
+### New Features
+
+- Various library updates (see framework/build.gradle for details)
+- Updated to Gradle 4 along with changes to gradle files that require Gradle 4.0 or later
+- In gradle addRuntime task create version.json files for framework/runtime and for each component, shown on System app dashboard
+- New gradle gitCheckoutAll task to bulk checkout branches with option to create
+- New default/example Procfile, include in moqui-plus-runtime.war
+
+##### Web Facade and HTTP
+
+- RestClient improvements for background requests with a Future, retry on 429 for velocity limited APIs, multipart requests, etc
+- In user preferences support override by Java system property (or env var if default-property declared in Moqui Conf XML)
+- Add WebFacade.getRequestBodyText() method, use to get body text more easily and now necessary as WebFacade reads the body for all 
+  requests with a text content type instead of just application/json or text/json types as before
+- Add email support for notifications with basic default template, enabled only per user for a specific NotificationTopic
+- Add NotificationTopic for web (screen) critical errors
+- Invalidate session before login (with attributes copy to new session) to mitigate session fixation attacks
+- Add more secure defaults for Strict-Transport-Security, Content-Security-Policy, and X-Frame-Options
+
+##### XML Screen and Form
+
+- Support for Vue component based XML Screens using a .js file and a .vuet file that gets merged into the Vue component as the 
+  template (template can be inline in the .js file); for an example see the DynamicExampleItems.xml screen in the example component
+- XML Screen and WebFacade response headers now configurable with webapp.response-header element in Moqui Conf XML
 - Add moqui-conf.screen-facade.screen and screen.subscreens-item elements that override screen.subscreens.subscreens-item elements 
   within a screen definition so that application root screens can be added under webroot and apps in a MoquiConf.xml file in a 
   component or in the active Moqui Conf XML file instead of using database records
@@ -18,8 +56,32 @@ Moqui Framework 2.1.1 is a patch level new feature and bug fix release.
   looking first in each no sub-path subscreen for a given screen path and if not found then look under the parent screen; for 
   example this is used in the moqui-org component for the moqui.org web-site so that /index.html is found in the moqui-org 
   component and so that /Login resolves to the Login.xml screen in the moqui-org component instead of the default one under webroot
+- Add screen path alias support configured with ScreenPathAlias entity records
+- Now uses URLDecoder for all screen path segments to match use of URLEncoder as default for URL encoding in output
+- In XML Screen transition both service-call and actions are now allowed, service-call runs first
+
+
 - Changed Markdown rendering from Pegdown to flexmark-java to support CommonMark 0.28, some aspects of GitHub Flavored Markdown,
-  and automatic table of contents 
+  and automatic table of contents
+- Add form-single.@pass-through-parameters attribute to create hidden inputs for current request parameters
+- Moved validate-* attributes from XML Form field element to sub-field elements so that in form-list different validation can be
+  done for header, first-/second-/last-row, and default-/conditional-field; as part of this the automatic validate settings from
+  transition.service-call are now set on the sub-field instead of the field element
+
+##### Service Facade
+
+- Add seca.@id and eeca.@id attributes to specify optional IDs that can be used to override or disable SECAs and EECAs
+- SystemMessage improvements for security, HTTP receive endpoint, processing/etc timeouts, etc
+- Service semaphore concurrency improvements, support for semaphore-name which defaults to prior behavior of service name
+
+##### Entity Facade
+
+- Add eeca.set-results attribute to set results of actions in the fields for rules run before entity operation
+- Add entity.relationship.key-value element for constants on join conditions 
+- Authorization based entity find filters are now applied after view entities are trimmed so constraints are only added for 
+  entities actually used in the query
+- EntityDataLoader now supports a create only mode (used in the improved Data Import screen in the Tools app, usable directly)
+- Add mysql8 database conf for new MySQL 8 JDBC driver
 
 ### Bug Fixes
 
@@ -29,6 +91,12 @@ Moqui Framework 2.1.1 is a patch level new feature and bug fix release.
   authenticated in session
 - MNode merge methods did not properly clear node by name internal cache when adding child nodes causing new children to show up
   in full child node list but not when getting first or all children by node name if they had been accessed by name before the merge
+- Fix RestClient path and parameter encoding
+- Fix RestClient basic authentication realm issue, now custom builds Authorization request header
+- Fix issue in update#Password service with reset password when UserAccount has a resetPassword but no currentPassword
+- Disable default geo IP lookup for Visit records because the freegeoip service has been discontinued
+- Fix DataFeed trigger false positives for PK fields on related entities included in DataDocument definitions
+- Fix transaction response type screen-last in vuet/vapps mode, history wasn't being maintained server side
 
 ## Release 2.1.0 - 22 Oct 2017
 

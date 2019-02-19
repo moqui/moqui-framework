@@ -43,6 +43,10 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element minOccurs="0" ref="condition"/>
                 <xs:element ref="actions"/>
             </xs:sequence>
+            <xs:attribute name="id" type="xs:string">
+                <xs:annotation><xs:documentation>Optional but recommended. If another SECA rule has the same id it will override
+                    any previously found with that id to change behavior or disable by override with empty actions.</xs:documentation></xs:annotation>
+            </xs:attribute>
             <xs:attribute name="service" type="name-full" use="required">
                 <xs:annotation><xs:documentation>
                     The combined service name, like: "${path}.${verb}${noun}". To explicitly separate the verb and noun

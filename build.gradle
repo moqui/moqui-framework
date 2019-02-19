@@ -88,11 +88,10 @@ task gitPullAll {
     description "Do a git pull to update moqui, runtime, and each installed component (for each where a .git directory is found)"
     doLast {
         // framework and runtime
-        if (file(".git").exists()) { logger.lifecycle("\nPulling moqui"); doGitPullWithStatus('.') }
-        if (file("runtime/.git").exists()) { logger.lifecycle("\nPulling runtime"); doGitPullWithStatus('runtime') }
+        if (file(".git").exists()) { doGitPullWithStatus(file('.').path) }
+        if (file("runtime/.git").exists()) { doGitPullWithStatus(file('runtime').path) }
         // all directories under runtime/component
         for (File compDir in file('runtime/component').listFiles().findAll { it.isDirectory() && it.listFiles().find { it.name == '.git' } }) {
-            logger.lifecycle("\nPulling ${compDir.path}")
             doGitPullWithStatus(compDir.path)
         }
     }
@@ -100,6 +99,8 @@ task gitPullAll {
 def doGitPullWithStatus(def gitDir) {
     try {
         def curGrgit = Grgit.open(dir: gitDir)
+        logger.lifecycle("\nPulling ${gitDir} (branch:${curGrgit.branch.current()?.name}, tracking:${curGrgit.branch.current()?.trackingBranch?.name})")
+
         def beforeHead = curGrgit.head()
         curGrgit.pull()
         def afterHead = curGrgit.head()
@@ -113,6 +114,57 @@ def doGitPullWithStatus(def gitDir) {
         logger.error(t.message)
     }
 }
+task gitCheckoutAll {
+    description "Do a git checkout on moqui, runtime, and each installed component (for each where a .git directory is found); use -Pbranch= (required) to specify a branch, use -Pcreate=true to create branches with the given name"
+    doLast {
+        if (!project.hasProperty('branch')) throw new InvalidUserDataException("No branch property specified (use -Pbranch=...)")
+        String curBranch = branch
+        String curTag = (project.hasProperty('tag') ? tag : null) ?: curBranch
+        boolean createBranch = false
+        if (project.hasProperty('create') && create == 'true') createBranch = true
+
+        List<String> gitDirectories = []
+        if (file(".git").exists()) gitDirectories.add(file('.').path)
+        if (file("runtime/.git").exists()) gitDirectories.add(file('runtime').path)
+        for (File compDir in file('runtime/component').listFiles().findAll { it.isDirectory() && it.listFiles().find { it.name == '.git' } })
+            gitDirectories.add(compDir.path)
+
+        for (String gitDir in gitDirectories) {
+            def curGrgit = Grgit.open(dir: gitDir)
+            def branchList = curGrgit.branch.list(mode: org.ajoberstar.grgit.operation.BranchListOp.Mode.ALL)
+            def tagList = curGrgit.tag.list()
+            def targetBranch = branchList.find({ it.name == curBranch })
+            def targetTag = tagList.find({ it.name == curTag })
+            if (targetBranch == null && targetTag == null) {
+                def originBranch = branchList.find({ it.name == 'origin/' + curBranch })
+                if (originBranch != null) {
+                    logger.lifecycle("In ${gitDir} branch ${curBranch} not found but found ${originBranch.name}, creating local branch tracking that branch")
+                    targetBranch = curGrgit.branch.add(name: curBranch, startPoint: originBranch, mode: org.ajoberstar.grgit.operation.BranchAddOp.Mode.TRACK)
+                }
+            }
+            if (createBranch || targetBranch != null || targetTag != null) {
+                if (targetTag != null) {
+                    if (createBranch && curBranch != curTag) {
+                        logger.lifecycle("== Git checkout ${gitDir} tag ${curTag} and create branch ${curBranch}")
+                        try { curGrgit.checkout(branch: curBranch, createBranch: true, startPoint: targetTag) }
+                        catch (Exception e) { logger.lifecycle("Checkout error", e) }
+                    } else {
+                        logger.lifecycle("== Git checkout ${gitDir} tag ${curTag}")
+                        try { curGrgit.checkout(branch: curTag, createBranch: false) }
+                        catch (Exception e) { logger.lifecycle("Checkout error", e) }
+                    }
+                } else {
+                    logger.lifecycle("== Git checkout ${gitDir} branch ${curBranch} create ${createBranch}")
+                    try { curGrgit.checkout(branch: curBranch, createBranch: createBranch) }
+                    catch (Exception e) { logger.lifecycle("Checkout error", e) }
+                }
+            } else {
+                logger.lifecycle("* No branch or tag '${curBranch}' in ${gitDir}\nBranches: ${branchList.collect({it.name})}\nTags: ${tagList.collect({it.name})}")
+            }
+            logger.lifecycle("")
+        }
+    }
+}
 task gitStatusAll {
     description "Do a git status to check moqui, runtime, and each installed component (for each where a .git directory is found)"
     doLast {
@@ -122,8 +174,9 @@ task gitStatusAll {
         for (File compDir in file('runtime/component').listFiles().findAll { it.isDirectory() && it.listFiles().find { it.name == '.git' } })
             gitDirectories.add(compDir.path)
         for (String gitDir in gitDirectories) {
-            logger.lifecycle("\nGit status for ${gitDir}")
             def curGrgit = Grgit.open(dir: gitDir)
+            logger.lifecycle("\nGit status for ${gitDir} (branch:${curGrgit.branch.current()?.name}, tracking:${curGrgit.branch.current()?.trackingBranch?.name})")
+
             if (curGrgit.remote.list().find({ it.name == 'upstream'})) {
                 def upstreamAhead = curGrgit.log { range curGrgit.resolve.toCommit('refs/remotes/upstream/master'), curGrgit.resolve.toCommit('refs/remotes/origin/master') }
                 if (upstreamAhead) logger.lifecycle("- origin/master ${upstreamAhead.size()} commits ahead of upstream/master")
@@ -221,7 +274,7 @@ task loadSave {
 
 task reloadSave {
     description "After a loadSave clean database (H2, Derby), OrientDB, and ElasticSearch files and reload from saved copy"
-    dependsOn cleanTempDir, cleanDb, cleanLog
+    dependsOn cleanTempDir, cleanDb, cleanLog, cleanSessions
     dependsOn allBuildTasks
     doLast {
         if (file('SaveDerby.zip').exists()) copy { from zipTree('SaveDerby.zip'); into file(moquiRuntime+'/db/derby/moqui') }
@@ -247,13 +300,15 @@ task addRuntime {
     description "Create a moqui-plus-runtime.war file with the Moqui WAR and the runtime directory embedded in it"
     dependsOn checkRuntime, allBuildTasks
     doLast {
+        // make version detail files
+        makeVersionDetailFiles()
         // unzip the "moqui-${version}.war" file to the wartemp directory
         //directory { dir = file('wartemp') }
         copy { from zipTree(warName); into file('wartemp') }
         // copy runtime directory (with a few exceptions) into a runtime directory in the war
         copy {
             from fileTree(dir: '.', include: moquiRuntime+'/**',
-                    excludes: ['**/*.jar', moquiRuntime+'/classes/**', moquiRuntime+'/lib/**', moquiRuntime+'/log/**', moquiRuntime+'/sessions/**'])
+                    excludes: ['**/*.jar', '**/build', moquiRuntime+'/classes/**', moquiRuntime+'/lib/**', moquiRuntime+'/log/**', moquiRuntime+'/sessions/**'])
             into file('wartemp')
         }
         // copy the jar files from runtime/lib
@@ -278,6 +333,8 @@ task addRuntime {
         // alternative once supported: zip { archiveName plusRuntimeName; from fileTree(dir: 'wartemp', include: '**/*') }
         // clean up the temporary directory
         delete file('wartemp')
+        // clean up version detail files
+        cleanVersionDetailFiles()
     }
 }
 
@@ -335,7 +392,7 @@ task getDepends {
 }
 
 task getComponentSet {
-    description "Gets all components in the specied componentSet using specified location type, also check/get all components it depends on; requires component property; locationType property optional (defaults to git if there is a .git directory, otherwise to current)"
+    description "Gets all components in the specied componentSet using specified location type, also check/get all components it depends on; requires -Pcomponent property; -PlocationType property optional (defaults to git if there is a .git directory, otherwise to current)"
     doLast {
         String curLocationType = file('.git').exists() ? 'git' : 'current'
         if (project.hasProperty('locationType')) curLocationType = locationType
@@ -506,6 +563,40 @@ def checkAllComponentDependencies(String type) {
         checkComponentDependencies(compDir.name, type, addons, myaddons, compsChecked)
     }
     logger.lifecycle("Dependent components checked: ${compsChecked}")
+}
+
+def makeVersionDetailFiles() {
+    if (file(".git").exists()) {
+        def topVersionMap = [framework:getVersionDetailMap(file('.'))]
+        if (file("runtime/.git").exists()) topVersionMap.runtime = getVersionDetailMap(file('runtime'))
+        file('runtime/version.json').write(groovy.json.JsonOutput.toJson(topVersionMap), "UTF-8")
+    }
+    for (File compDir in file('runtime/component').listFiles().findAll { it.isDirectory() && it.listFiles().find { it.name == '.git' } }) {
+        file(compDir.path + '/version.json').write(groovy.json.JsonOutput.toJson(getVersionDetailMap(compDir)), "UTF-8")
+    }
+}
+Map getVersionDetailMap(File gitDir) {
+    def curGrgit = Grgit.open(dir: gitDir)
+    String trackingName = curGrgit.branch.current()?.trackingBranch?.name
+    String trackingUrl = ""
+    int trackingNameSlash = trackingName ? trackingName.indexOf('/') : -1
+    if (trackingNameSlash > 0) {
+        String remoteName = trackingName.substring(0, trackingNameSlash)
+        def trackingRemote = curGrgit.remote.list().find({ it.name == remoteName })
+        if (trackingRemote != null) trackingUrl = trackingRemote.url
+    }
+    String headId = curGrgit.head()?.id
+    // tags come in order of oldest first so want to find last in case multiple tags refer to HEAD commit
+    def headTag = curGrgit.tag.list().reverse().find({ it.commit.id == headId })
+    return [branch:curGrgit.branch.current()?.name, tracking:trackingName, url:trackingUrl, head:headId?.take(10), tag:headTag?.name]
+}
+def cleanVersionDetailFiles() {
+    def runtimeVersionFile = file("runtime/version.json")
+    if (runtimeVersionFile.exists()) runtimeVersionFile.delete()
+    for (File compDir in file('runtime/component').listFiles().findAll { it.isDirectory() }) {
+        File versionDetailFile = file(compDir.path + '/version.json')
+        if (versionDetailFile.exists()) versionDetailFile.delete()
+    }
 }
 
 // ========== combined tasks ==========

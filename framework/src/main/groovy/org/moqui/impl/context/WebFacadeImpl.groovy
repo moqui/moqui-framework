@@ -215,7 +215,7 @@ class WebFacadeImpl implements WebFacade {
         }
     }
 
-    @Override String getSessionToken() { return session.getAttribute("moqui.session.token") }
+    @Override String getSessionToken() { return getSession().getAttribute("moqui.session.token") }
 
     void runFirstHitInVisitActions() {
         WebappInfo wi = eci.ecfi.getWebappInfo(webappMoquiName)
@@ -242,7 +242,7 @@ class WebFacadeImpl implements WebFacade {
         ScreenUrlInfo sui = urlInstanceOrig.sui
         ScreenDefinition targetScreen = urlInstanceOrig.sui.targetScreen
 
-        // logger.warn("save hist standalone ${sui.lastStandalone} ${targetScreen.isStandalone()} transition ${urlInstanceOrig.getTargetTransition()}")
+        // logger.warn("save hist ${urlInstanceOrig.path} standalone ${sui.lastStandalone} ${targetScreen.isStandalone()} transition ${urlInstanceOrig.getTargetTransition()}")
         // don't save standalone screens (for sui.lastStandalone int only exclude negative so vapps, etc are saved)
         if (sui.lastStandalone < 0 || targetScreen.isStandalone()) return
         // don't save transition requests, just screens
@@ -317,6 +317,7 @@ class WebFacadeImpl implements WebFacade {
             }
             // add to history list
             screenHistoryList.add(0, [name:nameBuilder.toString(), url:urlWithParams, urlNoParams:urlNoParams,
+                    path:urlInstance.path, pathWithParams:urlInstance.pathWithParams,
                     image:sui.menuImage, imageType:sui.menuImageType, screenLocation:targetScreen.getLocation()])
             // trim the list if needed; keep 40, whatever uses it may display less
             while (screenHistoryList.size() > 40) screenHistoryList.remove(40)
@@ -469,7 +470,31 @@ class WebFacadeImpl implements WebFacade {
     @Override String getRequestBodyText() { return requestBodyText }
     @Override HttpServletResponse getResponse() { return response }
 
-    @Override HttpSession getSession() { return request.getSession(true) }
+    @Override HttpSession getSession() { return request.getSession() }
+    /** Invalidate the current session (if there is one) and create a new session for the request, copies attributes.
+     * NOTE that this must be called before any response is sent and more generally before screen rendering begins. */
+    HttpSession makeNewSession() {
+        HttpSession oldSession = request.getSession(false)
+        Map<String, Object> oldSessionAttributes = (Map<String, Object>) null
+        if (oldSession != null) {
+            // get old session attributes and put in new HashMap so that are copied right away, because this wraps the session won't work after invalidate
+            oldSessionAttributes = new HashMap<>(new WebUtilities.AttributeContainerMap(new WebUtilities.HttpSessionContainer(oldSession)))
+            oldSession.invalidate()
+        }
+        HttpSession newSession = request.getSession(true)
+        if (oldSessionAttributes != null) for (Map.Entry<String, Object> attrEntry in oldSessionAttributes.entrySet()) {
+            newSession.setAttribute(attrEntry.getKey(), attrEntry.getValue())
+            // logger.warn("Copying attr ${attrEntry.getKey()}:${attrEntry.getValue()}")
+        }
+        // force a new moqui.session.token
+        session.setAttribute("moqui.session.token", StringUtilities.getRandomString(20))
+        request.setAttribute("moqui.session.token.created", "true")
+        // remake sessionAttributes to use newSession
+        sessionAttributes = new WebUtilities.AttributeContainerMap(new WebUtilities.HttpSessionContainer(newSession))
+        // done
+        return newSession
+    }
+
     @Override Map<String, Object> getSessionAttributes() {
         if (sessionAttributes != null) return sessionAttributes
         sessionAttributes = new WebUtilities.AttributeContainerMap(new WebUtilities.HttpSessionContainer(getSession()))
@@ -744,7 +769,13 @@ class WebFacadeImpl implements WebFacade {
         if (contentType) response.setContentType(contentType)
         if (inline) {
             response.addHeader("Content-Disposition", "inline")
-            response.addHeader("Cache-Control", "max-age=3600, must-revalidate, public")
+
+            WebappInfo webappInfo = eci.ecfi.getWebappInfo(eci.webImpl?.webappMoquiName)
+            if (webappInfo != null) {
+                webappInfo.addHeaders("web-resource-inline", response)
+            } else {
+                response.addHeader("Cache-Control", "max-age=86400, must-revalidate, public")
+            }
         } else {
             response.addHeader("Content-Disposition", "attachment; filename=\"${rr.getFileName()}\"; filename*=utf-8''${StringUtilities.encodeAsciiFilename(rr.getFileName())}")
         }
