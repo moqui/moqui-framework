@@ -20,6 +20,7 @@ import org.moqui.entity.EntityFind
 import org.moqui.entity.EntityValue
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.util.MNode
+import org.moqui.util.StringUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -46,7 +47,10 @@ class EntityEcaRule {
         }
         // prep actions
         if (eecaNode.hasChild("actions")) {
-            actions = new XmlAction(ecfi, eecaNode.first("actions"), null) // was location + ".actions" but not unique!
+            String actionsLocation = null
+            String eecaId = eecaNode.attribute("id")
+            if (eecaId != null && !eecaId.isEmpty()) actionsLocation = eecaId + "_" + StringUtilities.getRandomString(8)
+            actions = new XmlAction(ecfi, eecaNode.first("actions"), actionsLocation) // was location + ".actions" but not unique!
         }
     }
 
