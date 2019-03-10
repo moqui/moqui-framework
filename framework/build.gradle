@@ -67,11 +67,11 @@ dependencies {
     compile project(':moqui-util')
 
     // Groovy
-    compile 'org.codehaus.groovy:groovy:2.5.4' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-dateutil:2.5.4' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-json:2.5.4' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-templates:2.5.4' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-xml:2.5.4' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy:2.5.6' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-dateutil:2.5.6' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-json:2.5.6' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-templates:2.5.6' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-xml:2.5.6' // Apache 2.0
     // jansi is needed for groovydoc only, so in providedCompile (not included in war)
     compileOnly 'org.fusesource.jansi:jansi:1.17.1'
     // Findbugs need only during compile (used by freemarker and various moqui classes)
@@ -82,12 +82,12 @@ dependencies {
     // Bitronix Transaction Manager (the default internal tx mgr; custom build from source as 3.0.0 not yet released)
     compile 'org.codehaus.btm:btm:3.0.0-SNAPSHOT' // Apache 2.0
     // Bitronix depends on javassist (as does OrientDB, etc; note included here for easier reference, not in framework/lib)
-    compile 'org.javassist:javassist:3.23.1-GA' // Apache 2.0
+    compile 'org.javassist:javassist:3.24.1-GA' // Apache 2.0
 
     // CUPS4J - print through CUPS server
     compile name: 'cups4j', version: '0.6.4' // LGPL <== NOTE!
     // CUPS4J sepends on Apache HTTP Client (unfortunate, adds about 1.1MB)
-    compile 'org.apache.httpcomponents:httpclient:4.5.6'
+    compile 'org.apache.httpcomponents:httpclient:4.5.7'
 
     // ========== Libraries from jcenter ==========
 
@@ -127,11 +127,13 @@ dependencies {
     // compile 'javax.jms:jms:1.1'
 
     // H2 Database
+    // NOTE: update to 1.4.198 causes tests to fail, may be transaction isolation or other sort of issue with new MVStore, or something else entirely
+    // see https://github.com/h2database/h2database/releases http://h2database.com/html/changelog.html
     compile 'com.h2database:h2:1.4.197' // MPL 2.0, EPL 1.0
 
     // Jackson Databind (JSON, etc)
-    compile 'com.fasterxml.jackson.core:jackson-databind:2.9.7'
-    compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:2.9.7'
+    compile 'com.fasterxml.jackson.core:jackson-databind:2.9.8'
+    compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:2.9.8'
 
     // Jetty HTTP Client and Proxy Servlet
     compile 'org.eclipse.jetty:jetty-client:9.4.12.v20180830' // Apache 2.0
@@ -168,7 +170,7 @@ dependencies {
     // compile module('org.apache.xmlrpc:xmlrpc-client:3.1.3') // Apache 2.0
 
     // Snake YAML
-    compile 'org.yaml:snakeyaml:1.23' // Apache 2.0
+    compile 'org.yaml:snakeyaml:1.24' // Apache 2.0
 
     // Apache Jackrabbit - uncomment here or include elsewhere when Jackrabbit repository configurations are used
     // compile 'org.apache.jackrabbit:jackrabbit-jcr-rmi:2.12.1' // Apache 2.0
