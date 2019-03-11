@@ -35,7 +35,7 @@ buildscript {
     }
 }
 dependencyUpdates.resolutionStrategy = { componentSelection { rules -> rules.all { ComponentSelection selection ->
-    boolean rejected = ['alpha', 'beta', 'rc', 'cr', 'm', 'b'].any { qualifier -> selection.candidate.version ==~ /(?i).*[.-]${qualifier}[.\d-]*/ }
+    boolean rejected = ['alpha', 'beta', 'rc', 'cr', 'm', 'b'].any { qualifier -> selection.candidate.version ==~ /(?i).*[.-]${qualifier}[.\d-].*/ }
     if (rejected) selection.reject('Release candidate')
 } } }
 
@@ -93,7 +93,8 @@ dependencies {
 
     // Apache Commons
     compile 'org.apache.commons:commons-csv:1.6' // Apache 2.0
-    compile 'org.apache.commons:commons-email:1.5' // Apache 2.0
+    // NOTE: commons-email depends on com.sun.mail:javax.mail, included below
+    compile module('org.apache.commons:commons-email:1.5') // Apache 2.0
     compile 'org.apache.commons:commons-lang3:3.8.1' // Apache 2.0; used by cron-utils
     compile 'commons-beanutils:commons-beanutils:1.9.3' // Apache 2.0
     compile 'commons-collections:commons-collections:3.2.2' // Apache 2.0
@@ -118,7 +119,9 @@ dependencies {
     compile 'javax.cache:cache-api:1.1.0'
     compile 'javax.jcr:jcr:2.0'
     // jaxb-api no longer included in Java 9 and later, also tested with openjdk-8
-    compile 'javax.xml.bind:jaxb-api:2.3.0' // CDDL 1.1
+    compile 'javax.xml.bind:jaxb-api:2.3.1' // CDDL 1.1
+    // NOTE: javax.activation:javax.activation-api is required by jaxb-api, has classes same as old 2012 javax.activation:activation used by javax.mail
+    compile 'javax.activation:javax.activation-api:1.2.0' // CDDL 1.1
     // using websocket-api 1.0, don't update to 1.1 until used in Jetty, Tomcat, etc
     compile 'javax.websocket:javax.websocket-api:1.0'
     providedCompile 'javax.servlet:javax.servlet-api:3.1.0'
@@ -140,7 +143,8 @@ dependencies {
     compile 'org.eclipse.jetty:jetty-proxy:9.4.15.v20190215' // Apache 2.0
 
     // javax.mail
-    compile 'com.sun.mail:javax.mail:1.6.2' // CDDL
+    // NOTE: javax.mail depends on 'javax.activation:activation' which is the old package for 'javax.activation:javax.activation-api' used by jaxb-api
+    compile module('com.sun.mail:javax.mail:1.6.2') // CDDL
 
     // Joda Time (used by elasticsearch, aws)
     compile 'joda-time:joda-time:2.10.1' // Apache 2.0
@@ -184,9 +188,9 @@ dependencies {
 
     // ========== test dependencies ==========
     // spock-core depends on groovy-all but we are including selected groovy modules, so don't get its dependencies
-    testCompile module('org.spockframework:spock-core:1.1-groovy-2.4') // Apache 2.0
+    testCompile module('org.spockframework:spock-core:1.3-groovy-2.5') // Apache 2.0
     testCompile 'junit:junit:4.12' // Apache 2.0
-    testCompile 'org.hamcrest:hamcrest-core:1.3' // BSD 3-Clause
+    testCompile 'org.hamcrest:hamcrest-core:2.1' // BSD 3-Clause
 
     // ========== executable war dependencies ==========
     // Jetty
