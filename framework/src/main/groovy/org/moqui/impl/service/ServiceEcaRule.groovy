@@ -18,6 +18,7 @@ import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.util.MNode
+import org.moqui.util.StringUtilities
 
 import javax.transaction.Synchronization
 import javax.transaction.xa.XAException
@@ -58,6 +59,9 @@ class ServiceEcaRule {
         }
         // prep actions
         if (secaNode.hasChild("actions")) {
+            String actionsLocation = null
+            String secaId = secaNode.attribute("id")
+            if (secaId != null && !secaId.isEmpty()) actionsLocation = secaId + "_" + StringUtilities.getRandomString(8)
             actions = new XmlAction(ecfi, secaNode.first("actions"), null) // was location + ".actions" but no unique!
         } else {
             actions = (XmlAction) null

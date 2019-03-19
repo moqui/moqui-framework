@@ -186,6 +186,18 @@ public class StringUtilities {
         return camelCase.toString();
     }
 
+    public static String removeNonAlphaNumeric(String origString) {
+        if (origString == null || origString.isEmpty()) return origString;
+        int origLength = origString.length();
+        char[] orig = origString.toCharArray();
+        StringBuilder remBuffer = new StringBuilder();
+        int replIdx = 0;
+        for (int i = 0; i < origLength; i++) {
+            char ochr = orig[i];
+            if (Character.isLetterOrDigit(ochr)) { remBuffer.append(ochr); }
+        }
+        return remBuffer.toString();
+    }
     public static String replaceNonAlphaNumeric(String origString, char chr) {
         if (origString == null || origString.isEmpty()) return origString;
         int origLength = origString.length();
@@ -207,6 +219,24 @@ public class StringUtilities {
             if (!Character.isLetterOrDigit(c) && (allowedChars == null || allowedChars.indexOf(c) == -1)) return false;
         }
         return true;
+    }
+    public static String findFirstNumber(String orig) {
+        if (orig == null || orig.isEmpty()) return orig;
+        int origLength = orig.length();
+        StringBuilder numBuffer = new StringBuilder();
+        for (int i = 0; i < origLength; i++) {
+            char curChar = orig.charAt(i);
+            if (Character.isDigit(curChar)) {
+                numBuffer.append(curChar);
+            } else if (numBuffer.length() > 0 && (curChar == '.' || curChar == ',')) {
+                numBuffer.append(curChar);
+            } else if (numBuffer.length() > 0) {
+                // if we have any numbers and find something else we're done
+                break;
+            }
+        }
+        if (numBuffer.length() == 0) return null;
+        return numBuffer.toString();
     }
 
     public static String decodeFromXml(String original) {
