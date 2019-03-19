@@ -66,11 +66,9 @@ import java.util.concurrent.BlockingQueue
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ScheduledThreadPoolExecutor
-import java.util.concurrent.ThreadFactory
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicInteger
 import java.util.jar.Attributes
 import java.util.jar.JarFile
 import java.util.jar.Manifest
@@ -578,6 +576,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         ClassLoader pcl = (Thread.currentThread().getContextClassLoader() ?: this.class.classLoader) ?: System.classLoader
         moquiClassLoader = new MClassLoader(pcl)
+        // NOTE: initialized here but NOT used as currentThread ClassLoader
         groovyClassLoader = new GroovyClassLoader(moquiClassLoader)
 
         File scriptClassesDir = new File(runtimePath + "/script-classes")
@@ -627,7 +626,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // clear not found info just in case anything was falsely added
         moquiClassLoader.clearNotFoundInfo()
         // set as context classloader
-        Thread.currentThread().setContextClassLoader(groovyClassLoader)
+        Thread.currentThread().setContextClassLoader(moquiClassLoader)
 
         logger.info("Initialized ClassLoader in ${System.currentTimeMillis() - startTime}ms")
     }
@@ -907,7 +906,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         Thread currentThread = Thread.currentThread()
         if (logger.traceEnabled) logger.trace("Creating new ExecutionContext in thread [${currentThread.id}:${currentThread.name}]")
-        if (!currentThread.getContextClassLoader().is(groovyClassLoader)) currentThread.setContextClassLoader(groovyClassLoader)
+        if (!currentThread.getContextClassLoader().is(moquiClassLoader)) currentThread.setContextClassLoader(moquiClassLoader)
         ec = new ExecutionContextImpl(this, currentThread)
         this.activeContext.set(ec)
         this.activeContextMap.put(currentThread.id, ec)
@@ -957,7 +956,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     @Override @Nonnull ServiceFacade getService() { serviceFacade }
     @Override @Nonnull ScreenFacade getScreen() { screenFacade }
 
-    @Override @Nonnull ClassLoader getClassLoader() { groovyClassLoader }
+    @Override @Nonnull ClassLoader getClassLoader() { moquiClassLoader }
     @Override @Nonnull GroovyClassLoader getGroovyClassLoader() { groovyClassLoader }
 
     synchronized Class compileGroovy(String script, String className) {

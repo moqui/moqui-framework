@@ -143,6 +143,14 @@ class MoquiServlet extends HttpServlet {
             // make sure everything is cleaned up
             ec.destroy()
         }
+
+        /* definitely don't want this normally, but uncomment to help debug session attribute issues:
+        logger.warn("Thread ClassLoader ${Thread.currentThread().getContextClassLoader()?.getClass()?.getName()}")
+        for (String name in ec.web.session.getAttributeNames()) {
+            Object value = ec.web.session.getAttribute(name)
+            logger.warn("Session attr " + name + "(" + (value != null ? value.getClass().getName() : "") + ":" + (value != null && value.getClass().getClassLoader() != null ? value.getClass().getClassLoader().getClass().getName() : "") + ")" + " value: " + value)
+        }
+        */
     }
 
     static void sendErrorResponse(HttpServletRequest request, HttpServletResponse response, int errorCode, String errorType,
