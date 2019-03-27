@@ -213,6 +213,8 @@
         <resource-reference scheme="jar" class="org.moqui.resource.UrlResourceReference"/>
         <resource-reference scheme="bundleresource" class="org.moqui.resource.UrlResourceReference"/>
         <resource-reference scheme="wsjar" class="org.moqui.resource.UrlResourceReference"/>
+        <resource-reference scheme="runtime" class="org.moqui.resource.UrlResourceReference"/>
+
         <resource-reference scheme="classpath" class="org.moqui.resource.ClasspathResourceReference"/>
         <resource-reference scheme="component" class="org.moqui.impl.context.reference.ComponentResourceReference"/>
         <resource-reference scheme="content" class="org.moqui.impl.context.reference.ContentResourceReference"/>
