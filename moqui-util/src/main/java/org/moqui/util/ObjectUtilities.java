@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.math.BigDecimal;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.sql.Time;
@@ -186,11 +187,12 @@ public class ObjectUtilities {
         return count;
     }
 
-    public static String getStreamText(InputStream is) {
+    public static String getStreamText(InputStream is) { return getStreamText(is, StandardCharsets.UTF_8); }
+    public static String getStreamText(InputStream is, Charset charset) {
         if (is == null) return null;
         Reader r = null;
         try {
-            r = new InputStreamReader(new BufferedInputStream(is), StandardCharsets.UTF_8);
+            r = new InputStreamReader(new BufferedInputStream(is), charset);
 
             StringBuilder sb = new StringBuilder();
             char[] buf = new char[4096];
