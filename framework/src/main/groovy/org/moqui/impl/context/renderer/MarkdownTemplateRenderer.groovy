@@ -98,7 +98,7 @@ class MarkdownTemplateRenderer implements TemplateRenderer {
         mdText = pdp.markdownToHtml(sourceText)
         */
 
-        com.vladsch.flexmark.ast.Node document = PARSER.parse(sourceText)
+        com.vladsch.flexmark.util.ast.Node document = PARSER.parse(sourceText)
         mdText = RENDERER.render(document)
 
         // logger.warn("==== render md at ${location} version ${hasVersion} sourceText ${sourceText.length() > 100 ? sourceText.substring(0, 100) : sourceText}\nmdText ${mdText.length() > 100 ? mdText.substring(0, 100) : mdText}")

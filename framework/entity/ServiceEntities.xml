@@ -59,6 +59,7 @@ along with this software (see the LICENSE.md file). If not, see
             minutes. This should generally be much greater than the longest time the service is expected to run. This is
             the mechanism for recovering jobs after a run failed in a way that did not clean up the ServiceJobRunLock
             record. Defaults to 24 hours (1440 minutes) to make sure jobs get recovered.</description></field>
+        <field name="minRetryTime" type="number-integer"><description></description></field>
 
         <relationship type="one-nofk" related="moqui.security.user.NotificationTopic"/>
         <relationship type="many" related="moqui.service.job.ServiceJobParameter" short-alias="parameters"/>

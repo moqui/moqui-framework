@@ -123,10 +123,10 @@ class MoquiShiroRealm implements Realm, Authorizer {
         // check ipAllowed if on UserAccount or any UserGroup a member of
         String clientIp = eci.userFacade.getClientIp()
         if (clientIp == null || clientIp.isEmpty()) {
-            logger.warn("Login with no client IP for userId ${newUserAccount.userId}, not checking ipAllowed")
+            if (eci.web != null) logger.warn("Web login with no client IP for userId ${newUserAccount.userId}, not checking ipAllowed")
         } else {
             if (clientIp.contains(":")) {
-                logger.warn("Login with IPv6 client IP ${clientIp} for userId ${newUserAccount.userId}, not checking ipAllowed")
+                logger.warn("Web login with IPv6 client IP ${clientIp} for userId ${newUserAccount.userId}, not checking ipAllowed")
             } else {
                 ArrayList<String> ipAllowedList = new ArrayList<>()
                 String uaIpAllowed = newUserAccount.getNoCheckSimple("ipAllowed")

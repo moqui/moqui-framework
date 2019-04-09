@@ -264,7 +264,14 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         }
 
         // handle sd.serviceNode."@semaphore"; do this BEFORE local transaction created, etc so waiting for this doesn't cause TX timeout
-        if (sd.hasSemaphore) checkAddSemaphore(eci, currentParameters, true);
+        if (sd.hasSemaphore) {
+            try {
+                checkAddSemaphore(eci, currentParameters, true);
+            } catch (Throwable t) {
+                eci.artifactExecutionFacade.pop(aei);
+                throw t;
+            }
+        }
 
         // start with the settings for the default: use-or-begin
         boolean pauseResumeIfNeeded = false;
