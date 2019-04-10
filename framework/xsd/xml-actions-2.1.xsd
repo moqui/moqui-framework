@@ -432,6 +432,9 @@ along with this software (see the LICENSE.md file). If not, see
                     no pageSize and pageIndex parameters. Also adds a context field called "${entity-find.@list}Count"
                     with a count of the total possible results (ie without the offset/limit). Defaults to true.</xs:documentation></xs:annotation>
             </xs:attribute>
+            <xs:attribute name="require-parameters" default="false" type="boolean">
+                <xs:annotation><xs:documentation>If true only do find if there is at least one parameter</xs:documentation></xs:annotation>
+            </xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="econditions">
