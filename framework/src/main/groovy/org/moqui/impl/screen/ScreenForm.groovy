@@ -610,7 +610,7 @@ class ScreenForm {
 
             // handle header-field
             if (baseFormNode.name == "form-list" && !newFieldNode.hasChild("header-field"))
-                newFieldNode.append("header-field", ["show-order-by":"case-insensitive"])
+                newFieldNode.append("header-field", ["show-order-by":"true"])
 
             // handle sub field (default-field)
             if (subFieldNode == null) break
@@ -695,7 +695,7 @@ class ScreenForm {
             if (efType == "date" || efType == "time") {
                 headerFieldNode.append("date-find", [type:efType])
             } else if (efType == "date-time") {
-                headerFieldNode.append("date-period", null)
+                headerFieldNode.append("date-period", [time:"true"])
             } else if (efType.startsWith("number-") || efType.startsWith("currency-")) {
                 headerFieldNode.append("range-find", [size:'10'])
                 newFieldNode.attributes.put("align", "right")
@@ -705,12 +705,11 @@ class ScreenForm {
                 } else {
                     newFieldNode.attributes.put("show-total", "sum")
                 }
-
             } else {
                 if (oneRelNode != null) {
                     addEntityFieldDropDown(oneRelNode, headerFieldNode, relatedEd, relKeyField, "")
                 } else {
-                    headerFieldNode.append("text-find", ['hide-options':'true', size:'15'])
+                    headerFieldNode.append("text-find", [size:'30', "default-operator":"begins", "ignore-case":"false"])
                 }
             }
             // handle sub field (default-field)
