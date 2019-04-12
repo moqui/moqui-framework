@@ -140,7 +140,7 @@ ${.node}
         <#else>
         Map efSfiDefParms = null
         </#if>
-        <#if sfiNode["@input-fields-map"]! == "true">${listName}_xafind.requireSearchFormParameters(true)</#if>
+        <#if sfiNode["@require-parameters"]! == "true">${listName}_xafind.requireSearchFormParameters(true)</#if>
         ${listName}_xafind.searchFormMap(${sfiNode["@input-fields-map"]!"ec.context"}, efSfiDefParms, "${sfiNode["@skip-fields"]!("")}", "${sfiNode["@default-order-by"]!("")}", ${sfiNode["@paginate"]!("true")})
     }
     </#if>
