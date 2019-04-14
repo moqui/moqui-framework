@@ -224,6 +224,8 @@ task gitTagAll {
     description "Do a git add or remove tag on the currently checked out commit in moqui, runtime, and each installed component"
     doLast {
         def tagName = (project.hasProperty('tag')) ? tag : null;
+        def tagMessage = (project.hasProperty('message')) ? message : null;
+
         boolean removeTags = (project.hasProperty('remove') && remove == 'true')
         boolean pushTags = (project.hasProperty('push') && push == 'true')
 
@@ -252,7 +254,7 @@ task gitTagAll {
                     if (removeTags) {
                         logger.lifecycle("== Git tag '${tagName}' not found in ${branchName} of ${relativePath} ... skipping")
                     } else {
-                        curGrgit.tag.add(name: tagName, message: "Tagging version ${tagName}")
+                        curGrgit.tag.add(name: tagName, message: tagMessage ?: "Tagging version ${tagName}")
                         logger.lifecycle("== Git tagging commit ${commit.abbreviatedId} - '${commit.shortMessage}' by '${commit.author.name}' in ${branchName} of ${relativePath}")
                     }
 
