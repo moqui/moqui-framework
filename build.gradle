@@ -257,7 +257,6 @@ task gitTagAll {
                         curGrgit.tag.add(name: tagName, message: tagMessage ?: "Tagging version ${tagName}")
                         logger.lifecycle("== Git tagging commit ${commit.abbreviatedId} - '${commit.shortMessage}' by '${commit.author.name}' in ${branchName} of ${relativePath}")
                     }
-
                 } else {
                     if (removeTags) {
                         curGrgit.tag.remove(names: [tagName])
@@ -275,17 +274,16 @@ task gitTagAll {
                 }
                 logger.lifecycle("== Git pushing tag changes to remote of ${relativePath}")
             }
-
         }
     }
 }
 task gitDiffTagsAll {
-    description "Do a git add or remove tag on the currently checked out commit in moqui, runtime, and each installed component"
+    description "Do a git diff between two tags in the currently checked out branch in moqui, runtime, and each installed component"
     doLast {
         def tagAName = (project.hasProperty('taga')) ? taga : null;
         def tagBName = (project.hasProperty('tagb')) ? tagb : null;
 
-        logger.lifecycle("Diffing tags ${tagAName} and ${tagBName}")
+        logger.lifecycle("== Git diffing tags ${tagAName} and ${tagBName}")
 
         List<String> gitDirectories = []
         if (file(".git").exists()) gitDirectories.add(file('.').path)
@@ -306,7 +304,7 @@ task gitDiffTagsAll {
 
             if (targetTagA != null && targetTagB != null) {
                 grgit.log {
-                  range tagAName, tagBName
+                    range tagAName, tagBName
                 }.each {
                     logger.lifecycle("    ${it.abbreviatedId} - ${it.shortMessage}")
                 }
