@@ -279,6 +279,42 @@ task gitTagAll {
         }
     }
 }
+task gitDiffTagsAll {
+    description "Do a git add or remove tag on the currently checked out commit in moqui, runtime, and each installed component"
+    doLast {
+        def tagAName = (project.hasProperty('taga')) ? taga : null;
+        def tagBName = (project.hasProperty('tagb')) ? tagb : null;
+
+        logger.lifecycle("Diffing tags ${tagAName} and ${tagBName}")
+
+        List<String> gitDirectories = []
+        if (file(".git").exists()) gitDirectories.add(file('.').path)
+        if (file("runtime/.git").exists()) gitDirectories.add(file('runtime').path)
+        for (File compDir in file('runtime/component').listFiles().findAll { it.isDirectory() && it.listFiles().find { it.name == '.git' } })
+            gitDirectories.add(compDir.path)
+
+        def frameworkDir = gitDirectories.first()
+        for (String gitDir in gitDirectories) {
+            def relativePath = "."+gitDir.minus(frameworkDir)
+            def grgit = Grgit.open(dir: gitDir)
+
+            def tagList = grgit.tag.list()
+            def targetTagA = tagList.find({ it.name == tagAName })
+            def targetTagB = tagList.find({ it.name == tagBName })
+
+            logger.lifecycle("${relativePath}")
+
+            if (targetTagA != null && targetTagB != null) {
+                grgit.log {
+                  range tagAName, tagBName
+                }.each {
+                    logger.lifecycle("    ${it.abbreviatedId} - ${it.shortMessage}")
+                }
+            }
+        }
+    }
+}
+
 // ========== run tasks ==========
 
 task run(type: JavaExec) {
