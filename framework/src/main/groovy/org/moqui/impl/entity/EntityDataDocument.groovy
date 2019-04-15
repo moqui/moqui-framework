@@ -269,7 +269,7 @@ class EntityDataDocument {
                   - Map for primary entity with primaryEntityName as key
                   - nested List of Maps for each related entity with aliased fields with relationship name as key
                  */
-                Map<String, Object> docMap = hasAllPrimaryPks ? documentMapMap.get(docId) : null
+                Map<String, Object> docMap = hasAllPrimaryPks ? (documentMapMap.get(docId) as Map<String, Object>) : null
                 if (docMap == null) {
                     // add special entries
                     docMap = new LinkedHashMap<>()
@@ -569,8 +569,9 @@ class EntityDataDocument {
                     String fieldAlias = (String) fieldAliasList.get(i)
                     EntityValue ddf = ddfByAlias.get(fieldAlias)
                     if (ddf == null) throw new EntityException("Could not find DataDocumentField for field alias ${fieldEntryKey}")
+                    String defaultDisplay = ddf.getNoCheckSimple("defaultDisplay")
                     dynamicView.addAlias(entityAlias, fieldAlias, fieldEntryKey, (String) ddf.getNoCheckSimple("functionName"),
-                            "N".equals(ddf.getNoCheckSimple("defaultDisplay")) ? "false" : null)
+                            "N".equals(defaultDisplay) ? "false" : ("Y".equals(defaultDisplay) ? "true" : null))
                 }
             }
         }
