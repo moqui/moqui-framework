@@ -549,8 +549,6 @@ class EntityDataDocument {
         for (Map.Entry fieldTreeEntry in fieldTreeCurrent.entrySet()) {
             String fieldEntryKey = (String) fieldTreeEntry.getKey()
             if ("_ALIAS".equals(fieldEntryKey)) continue
-            // skip fields where DataDocumentField.fieldPath has an expression
-            if (fieldEntryKey.startsWith("(")) continue
 
             Object entryValue = fieldTreeEntry.getValue()
             if (entryValue instanceof Map) {
@@ -570,8 +568,16 @@ class EntityDataDocument {
                     EntityValue ddf = ddfByAlias.get(fieldAlias)
                     if (ddf == null) throw new EntityException("Could not find DataDocumentField for field alias ${fieldEntryKey}")
                     String defaultDisplay = ddf.getNoCheckSimple("defaultDisplay")
-                    dynamicView.addAlias(entityAlias, fieldAlias, fieldEntryKey, (String) ddf.getNoCheckSimple("functionName"),
-                            "N".equals(defaultDisplay) ? "false" : ("Y".equals(defaultDisplay) ? "true" : null))
+
+                    if (fieldEntryKey.startsWith("(")) {
+                        // handle expressions differently, expressions have to be meant for this but nice for various cases
+                        // TODO: somehow specify type, yet another new field on DataDocumentField entity? for now defaulting to 'text-long'
+                        dynamicView.addPqExprAlias(fieldAlias, fieldEntryKey, "text-long",
+                                "N".equals(defaultDisplay) ? "false" : ("Y".equals(defaultDisplay) ? "true" : null))
+                    } else {
+                        dynamicView.addAlias(entityAlias, fieldAlias, fieldEntryKey, (String) ddf.getNoCheckSimple("functionName"),
+                                "N".equals(defaultDisplay) ? "false" : ("Y".equals(defaultDisplay) ? "true" : null))
+                    }
                 }
             }
         }
