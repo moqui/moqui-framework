@@ -216,7 +216,7 @@ public abstract class EntityValueBase implements EntityValue {
                     EntityFacadeImpl efi = getEntityFacadeImpl();
                     return efi.ecfi.resourceFacade.expression(pqExpression, null, valueMapInternal);
                 } catch (Throwable t) {
-                    logger.error("Error evaluating pq-expression for " + entityName + "." + name);
+                    throw new EntityException("Error evaluating pq-expression for " + entityName + "." + name, t);
                 }
             }
         }
