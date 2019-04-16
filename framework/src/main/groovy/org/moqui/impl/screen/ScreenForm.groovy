@@ -571,12 +571,31 @@ class ScreenForm {
             // logger.info("Adding form auto entity field [${fieldName}] of type [${efType}], fieldType [${fieldType}] serviceVerb [${serviceVerb}], node: ${newFieldNode}")
             mergeFieldNode(baseFormNode, newFieldNode, false)
         }
+        // separate handling for view-entity with aliases using pq-expression
+        if (ed.isViewEntity) {
+            Map<String, MNode> pqExpressionNodeMap = ed.getPqExpressionNodeMap()
+            if (pqExpressionNodeMap != null) {
+                for (MNode pqExprNode in pqExpressionNodeMap.values()) {
+                    String defaultDisplay = pqExprNode.attribute("default-display")
+                    if (!"true".equals(defaultDisplay)) continue
+
+                    String fieldName = pqExprNode.attribute("name")
+                    MNode newFieldNode = new MNode("field", [name:fieldName])
+                    MNode subFieldNode = newFieldNode.append("default-field", ["validate-entity":ed.getFullEntityName(), "validate-field":fieldName])
+
+                    addAutoEntityField(ed, fieldName, "display", newFieldNode, subFieldNode, baseFormNode)
+                    mergeFieldNode(baseFormNode, newFieldNode, false)
+                }
+            }
+        }
+
         // logger.info("TOREMOVE: after addEntityFields formNode is: ${baseFormNode}")
     }
 
     void addAutoEntityField(EntityDefinition ed, String fieldName, String fieldType, MNode newFieldNode, MNode subFieldNode, MNode baseFormNode) {
+        // NOTE: in some cases this may be null
         FieldInfo fieldInfo = ed.getFieldInfo(fieldName)
-        String efType = fieldInfo.type ?: "text-long"
+        String efType = fieldInfo?.type ?: "text-long"
 
         // to see if this should be a drop-down with data from another entity,
         // find first relationship that has this field as the only key map and is not a many relationship
@@ -699,7 +718,7 @@ class ScreenForm {
             } else if (efType.startsWith("number-") || efType.startsWith("currency-")) {
                 headerFieldNode.append("range-find", [size:'10'])
                 newFieldNode.attributes.put("align", "right")
-                String function = fieldInfo.fieldNode.attribute("function")
+                String function = fieldInfo?.fieldNode?.attribute("function")
                 if (function != null && function in ['min', 'max', 'avg']) {
                     newFieldNode.attributes.put("show-total", function)
                 } else {
