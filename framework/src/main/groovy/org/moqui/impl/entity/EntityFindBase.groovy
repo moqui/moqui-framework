@@ -172,7 +172,7 @@ abstract class EntityFindBase implements EntityFind {
                 singleCondField = (String) null
                 singleCondValue = null
             }
-            getEntityDef().entityInfo.setFields(fields, simpleAndMap, true, null, null)
+            getEntityDef().entityInfo.setFields(fields, simpleAndMap, true, null, null, null)
         }
         return this
     }

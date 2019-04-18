@@ -352,7 +352,7 @@ public class EntityJavaUtil {
             }
         }
 
-        void setFields(Map<String, Object> src, Map<String, Object> dest, boolean setIfEmpty, String namePrefix, Boolean pks) {
+        void setFields(Map<String, Object> src, Map<String, Object> dest, boolean setIfEmpty, String namePrefix, Boolean pks, Locale locale) {
             if (src == null || dest == null) return;
 
             ExecutionContextImpl eci = efi.ecfi.getEci();
@@ -416,7 +416,7 @@ public class EntityJavaUtil {
             }
         }
 
-        void setFieldsEv(Map<String, Object> src, EntityValueBase dest, Boolean pks) {
+        void setFieldsEv(Map<String, Object> src, EntityValueBase dest, Boolean pks, Locale locale) {
             // like above with setIfEmpty=true, namePrefix=null, pks=null
             if (src == null || dest == null) return;
 
@@ -447,7 +447,7 @@ public class EntityJavaUtil {
                     if (!isEmpty) {
                         if (isCharSequence) {
                             try {
-                                Object converted = fi.convertFromString(value.toString(), eci.l10nFacade);
+                                Object converted = fi.convertFromString(value.toString(), eci.l10nFacade, locale);
                                 dest.putNoCheck(fieldName, converted);
                             } catch (BaseException be) {
                                 eci.messageFacade.addValidationError(null, fieldName, null, be.getMessage(), be);

@@ -44,6 +44,7 @@ import javax.xml.parsers.SAXParserFactory
 import java.nio.charset.StandardCharsets
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
+import java.util.Locale
 
 @CompileStatic
 class EntityDataLoaderImpl implements EntityDataLoader {
@@ -182,6 +183,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         if (this.disableFkCreate) reenableFkCreate = !eci.artifactExecutionFacade.disableEntityFkCreate()
         boolean reenableDataFeed = false
         if (this.disableDataFeed) reenableDataFeed = !eci.artifactExecutionFacade.disableEntityDataFeed()
+        Locale locale = new Locale("en_US")
 
         // if no xmlText or locations, so find all of the component and entity-facade files
         if (!this.xmlText && !this.csvText && !this.jsonText && !this.locationList) {
@@ -264,7 +266,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             if (this.csvText) {
                 InputStream csvInputStream = new ByteArrayInputStream(csvText.getBytes("UTF-8"))
                 try {
-                    tf.runUseOrBegin(transactionTimeout, "Error loading CSV entity data", { ech.loadFile("csvText", csvInputStream) })
+                    tf.runUseOrBegin(transactionTimeout, "Error loading CSV entity data", { ech.loadFile("csvText", csvInputStream, locale) })
                 } finally {
                     if (csvInputStream != null) csvInputStream.close()
                 }
@@ -274,14 +276,14 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             if (this.jsonText) {
                 InputStream jsonInputStream = new ByteArrayInputStream(jsonText.getBytes("UTF-8"))
                 try {
-                    tf.runUseOrBegin(transactionTimeout, "Error loading JSON entity data", { ejh.loadFile("jsonText", jsonInputStream) })
+                    tf.runUseOrBegin(transactionTimeout, "Error loading JSON entity data", { ejh.loadFile("jsonText", jsonInputStream, locale) })
                 } finally {
                     if (jsonInputStream != null) jsonInputStream.close()
                 }
             }
 
             // load each file in its own transaction
-            for (String location in this.locationList) loadSingleFile(location, exh, ech, ejh)
+            for (String location in this.locationList) loadSingleFile(location, exh, ech, ejh, locale)
         })
 
         if (reenableEeca) eci.artifactExecutionFacade.enableEntityEca()
@@ -293,7 +295,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         // Thread.sleep(60*1000*100)
     }
 
-    void loadSingleFile(String location, EntityXmlHandler exh, EntityCsvHandler ech, EntityJsonHandler ejh) {
+    void loadSingleFile(String location, EntityXmlHandler exh, EntityCsvHandler ech, EntityJsonHandler ejh, Locale locale) {
         TransactionFacade tf = efi.ecfi.transactionFacade
         boolean beganTransaction = tf.begin(transactionTimeout)
         try {
@@ -312,12 +314,12 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                     logger.info("Loaded ${(exh.valuesRead?:0) - beforeRecords} records from ${location} in ${((System.currentTimeMillis() - beforeTime)/1000)}s")
                 } else if (location.endsWith(".csv")) {
                     long beforeRecords = ech.valuesRead ?: 0
-                    if (ech.loadFile(location, inputStream)) {
+                    if (ech.loadFile(location, inputStream, locale)) {
                         logger.info("Loaded ${(ech.valuesRead?:0) - beforeRecords} records from ${location} in ${((System.currentTimeMillis() - beforeTime)/1000)}s")
                     }
                 } else if (location.endsWith(".json")) {
                     long beforeRecords = ejh.valuesRead ?: 0
-                    if (ejh.loadFile(location, inputStream)) {
+                    if (ejh.loadFile(location, inputStream, locale)) {
                         logger.info("Loaded ${(ejh.valuesRead?:0) - beforeRecords} records from ${location} in ${((System.currentTimeMillis() - beforeTime)/1000)}s")
                     }
                 } else if (location.endsWith(".zip")) {
@@ -383,7 +385,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         ValueHandler(EntityDataLoaderImpl edli) { this.edli = edli }
 
         abstract void handleValue(EntityValue value)
-        abstract void handlePlainMap(String entityName, Map value)
+        abstract void handlePlainMap(String entityName, Map value, Locale locale)
         abstract void handleService(ServiceCallSync scs)
     }
     static class CheckValueHandler extends ValueHandler {
@@ -401,8 +403,8 @@ class EntityDataLoaderImpl implements EntityDataLoader {
 
         long getFieldsChecked() { return fieldsChecked }
         void handleValue(EntityValue value) { value.checkAgainstDatabase(messageList) }
-        void handlePlainMap(String entityName, Map value) {
-            EntityList el = edli.getEfi().getValueListFromPlainMap(value, entityName)
+        void handlePlainMap(String entityName, Map value, Locale locale) {
+            EntityList el = edli.getEfi().getValueListFromPlainMap(value, entityName, locale)
             // logger.warn("=========== Check value: ${value}\nel: ${el}")
             for (EntityValue ev in el) fieldsChecked += ev.checkAgainstDatabase(messageList)
         }
@@ -461,11 +463,11 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                 value.createOrUpdate()
             }
         }
-        void handlePlainMap(String entityName, Map value) {
+        void handlePlainMap(String entityName, Map value, Locale locale) {
             EntityDefinition ed = ec.entityFacade.getEntityDefinition(entityName)
             if (ed == null) throw new BaseException("Could not find entity ${entityName}")
             if (edli.onlyCreate) {
-                EntityList el = ec.entityFacade.getValueListFromPlainMap(value, entityName)
+                EntityList el = ec.entityFacade.getValueListFromPlainMap(value, entityName, locale)
                 int elSize = el.size()
                 for (int i = 0; i < elSize; i++) {
                     EntityValue curValue = (EntityValue) el.get(i)
@@ -480,7 +482,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                 }
             } else {
                 Map<String, Object> results = new HashMap()
-                EntityAutoServiceRunner.storeEntity(ec, ed, value, results, null)
+                EntityAutoServiceRunner.storeEntity(ec, ed, value, results, null, locale)
                 // no need to call the store auto service, use storeEntity directly:
                 // Map results = sfi.sync().name('store', entityName).parameters(value).call()
                 if (logger.isTraceEnabled()) logger.trace("Called store service for entity [${entityName}] in data load, results: ${results}")
@@ -516,9 +518,9 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         void handleValue(EntityValue value) {
             el.add(value)
         }
-        void handlePlainMap(String entityName, Map value) {
+        void handlePlainMap(String entityName, Map value, Locale locale) {
             EntityDefinition ed = edli.getEfi().getEntityDefinition(entityName)
-            edli.getEfi().addValuesFromPlainMapRecursive(ed, value, el, null)
+            edli.getEfi().addValuesFromPlainMapRecursive(ed, value, el, null, locale)
         }
         void handleService(ServiceCallSync scs) { logger.warn("For load to EntityList not calling service [${scs.getServiceName()}] with parameters ${scs.getCurrentParameters()}") }
     }
@@ -545,6 +547,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         protected long valuesRead = 0
         protected List<String> messageList = new LinkedList<>()
         String location
+        Locale locale = new Locale("en_US")
 
         protected boolean loadElements = false
 
@@ -758,11 +761,11 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                             // if (currentEntityDef.getFullEntityName().contains("DbForm")) logger.warn("========= DbForm rootValueMap: ${rootValueMap}")
                             if (edli.dummyFks || edli.useTryInsert) {
                                 EntityValue curValue = currentEntityDef.makeEntityValue()
-                                curValue.setAll(valueMap)
+                                curValue.setAll(valueMap, locale)
                                 valueHandler.handleValue(curValue)
                                 valuesRead++
                             } else {
-                                valueHandler.handlePlainMap(currentEntityDef.getFullEntityName(), valueMap)
+                                valueHandler.handlePlainMap(currentEntityDef.getFullEntityName(), valueMap, locale)
                                 valuesRead++
                             }
                             currentEntityDef = (EntityDefinition) null
@@ -812,7 +815,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         long getValuesRead() { return valuesRead }
         List<String> getMessageList() { return messageList }
 
-        boolean loadFile(String location, InputStream is) {
+        boolean loadFile(String location, InputStream is, Locale locale) {
             BufferedReader reader = new BufferedReader(new InputStreamReader(is, "UTF-8"))
 
             CSVParser parser = CSVFormat.newFormat(edli.csvDelimiter)
@@ -917,7 +920,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         long getValuesRead() { return valuesRead }
         List<String> getMessageList() { return messageList }
 
-        boolean loadFile(String location, InputStream is) {
+        boolean loadFile(String location, InputStream is, Locale locale) {
             JsonSlurper slurper = new JsonSlurper()
             Object jsonObj
             try {
@@ -978,7 +981,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                     valueHandler.handleService(currentScs)
                     valuesRead++
                 } else {
-                    valueHandler.handlePlainMap(entityName, value)
+                    valueHandler.handlePlainMap(entityName, value, locale)
                     // TODO: make this more complete, like counting nested Maps?
                     valuesRead++
                 }

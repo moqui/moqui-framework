@@ -90,6 +90,16 @@ public interface EntityValue extends Map<String, Object>, Externalizable, Compar
      */
     EntityValue setAll(Map<String, Object> fields);
 
+    /** Sets fields on this entity from the Map of fields passed in using the entity definition to only get valid
+     * fields from the Map. For any String values passed in this will call setString to convert based on the field
+     * definition, otherwise it sets the Object as-is.
+     *
+     * @param fields The fields Map to get the values from
+     * @param locale The locale to use when parsing the values
+     * @return reference to this for convenience
+     */
+    EntityValue setAll(Map<String, Object> fields, java.util.Locale locale);
+
     /** Sets the named field to the passed value, converting the value from a String to the corresponding type using 
      *   <code>Type.valueOf()</code>
      *
@@ -130,6 +140,20 @@ public interface EntityValue extends Map<String, Object>, Externalizable, Compar
      * @return reference to this for convenience
      */
     EntityValue setFields(Map<String, Object> fields, boolean setIfEmpty, String namePrefix, Boolean pks);
+
+    /** Sets fields on this entity from the Map of fields passed in using the entity definition to only get valid
+     * fields from the Map. For any String values passed in this will call setString to convert based on the field
+     * definition, otherwise it sets the Object as-is.
+     *
+     * @param fields The fields Map to get the values from
+     * @param setIfEmpty Used to specify whether empty/null values in the field Map should be set
+     * @param namePrefix If not null or empty will be pre-pended to each field name (upper-casing the first letter of
+     *   the field name first), and that will be used as the fields Map lookup name instead of the field-name
+     * @param pks If null, get all values, if TRUE just get PKs, if FALSE just get non-PKs
+     * @param locale Locale to use for parsing values
+     * @return reference to this for convenience
+     */
+    EntityValue setFields(Map<String, Object> fields, boolean setIfEmpty, String namePrefix, Boolean pks, java.util.Locale locale);
 
     /** Get the next guaranteed unique seq id for this entity, and set it in the primary key field. This will set it in
      * the first primary key field in the entity definition, but it really should be used for entities with only one
