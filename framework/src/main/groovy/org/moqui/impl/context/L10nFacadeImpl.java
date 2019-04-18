@@ -300,7 +300,7 @@ public class L10nFacadeImpl implements L10nFacade {
     @Override public BigDecimal parseNumber(String input, String format) {
         return parseNumber(input, format, null);
     }
-    public BigDecimal parseNumber(String input, String format, Locale locale) {
+    @Override public BigDecimal parseNumber(String input, String format, Locale locale) {
         if (locale == null) locale = getLocale();
         return bigDecimalValidator.validate(input, format, locale); }
     public String formatNumber(Number input, String format, Locale locale) {
