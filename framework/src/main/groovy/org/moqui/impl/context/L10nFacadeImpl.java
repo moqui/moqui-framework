@@ -136,16 +136,16 @@ public class L10nFacadeImpl implements L10nFacade {
         return parseTime(input, format, null);
     }
     public Time parseTime(String input, String format, Locale locale) {
-        if (locale == null) locale = getLocale();
+        Locale curLocale = locale != null ? locale : getLocale();
         TimeZone curTz = getTimeZone();
         if (format == null || format.isEmpty()) format = "HH:mm:ss.SSS";
-        Calendar cal = calendarValidator.validate(input, format, locale, curTz);
-        if (cal == null) cal = calendarValidator.validate(input, "HH:mm:ss", locale, curTz);
-        if (cal == null) cal = calendarValidator.validate(input, "HH:mm", locale, curTz);
-        if (cal == null) cal = calendarValidator.validate(input, "h:mm a", locale, curTz);
-        if (cal == null) cal = calendarValidator.validate(input, "h:mm:ss a", locale, curTz);
+        Calendar cal = calendarValidator.validate(input, format, curLocale, curTz);
+        if (cal == null) cal = calendarValidator.validate(input, "HH:mm:ss", curLocale, curTz);
+        if (cal == null) cal = calendarValidator.validate(input, "HH:mm", curLocale, curTz);
+        if (cal == null) cal = calendarValidator.validate(input, "h:mm a", curLocale, curTz);
+        if (cal == null) cal = calendarValidator.validate(input, "h:mm:ss a", curLocale, curTz);
         // also try the full ISO-8601, times may come in that way (even if funny with a date of 1970-01-01)
-        if (cal == null) cal = calendarValidator.validate(input, "yyyy-MM-dd'T'HH:mm:ssZ", locale, curTz);
+        if (cal == null) cal = calendarValidator.validate(input, "yyyy-MM-dd'T'HH:mm:ssZ", curLocale, curTz);
         if (cal != null) {
             Time time = new Time(cal.getTimeInMillis());
             // logger.warn("============== parseTime input=${input} cal=${cal} long=${cal.getTimeInMillis()} time=${time} time long=${time.getTime()} util date=${new java.util.Date(cal.getTimeInMillis())} timestamp=${new java.sql.Timestamp(cal.getTimeInMillis())}")
@@ -163,7 +163,7 @@ public class L10nFacadeImpl implements L10nFacade {
         return null;
     }
     public String formatTime(Time input, String format, Locale locale, TimeZone tz) {
-        if (locale == null) locale = getLocale();
+        Locale curLocale = locale != null ? locale : getLocale();
         if (tz == null) tz = getTimeZone();
         if (format == null || format.isEmpty()) format = "HH:mm:ss";
         String timeStr = calendarValidator.format(input, format, locale, tz);
@@ -301,32 +301,30 @@ public class L10nFacadeImpl implements L10nFacade {
         return parseNumber(input, format, null);
     }
     @Override public BigDecimal parseNumber(String input, String format, Locale locale) {
-        if (locale == null) locale = getLocale();
-        return bigDecimalValidator.validate(input, format, locale); }
+        Locale curLocale = locale != null? locale: getLocale();
+        return bigDecimalValidator.validate(input, format, curLocale); }
     public String formatNumber(Number input, String format, Locale locale) {
-        if (locale == null) locale = getLocale();
-        return bigDecimalValidator.format(input, format, locale);
+        Locale curLocale = locale != null ? locale : getLocale();
+        return bigDecimalValidator.format(input, format, curLocale);
     }
 
     @Override
-    public String format(Object value, String format) {
-        return this.format(value, format, getLocale(), getTimeZone());
-    }
+    public String format(Object value, String format) { return this.format(value, format, null, getTimeZone()); }
     @Override
     public String format(Object value, String format, Locale locale, TimeZone tz) {
         if (value == null) return "";
-        if (locale == null) locale = getLocale();
+        Locale curLocale = locale != null ? locale : getLocale();
         if (tz == null) tz = getTimeZone();
         Class valueClass = value.getClass();
         if (valueClass == String.class) return (String) value;
-        if (valueClass == Timestamp.class) return formatTimestamp((Timestamp) value, format, locale, tz);
-        if (valueClass == java.util.Date.class) return formatTimestamp((java.util.Date) value, format, locale, tz);
-        if (valueClass == java.sql.Date.class) return formatDate((Date) value, format, locale, tz);
-        if (valueClass == Time.class) return formatTime((Time) value, format, locale, tz);
+        if (valueClass == Timestamp.class) return formatTimestamp((Timestamp) value, format, curLocale, tz);
+        if (valueClass == java.util.Date.class) return formatTimestamp((java.util.Date) value, format, curLocale, tz);
+        if (valueClass == java.sql.Date.class) return formatDate((Date) value, format, curLocale, tz);
+        if (valueClass == Time.class) return formatTime((Time) value, format, curLocale, tz);
         // this one needs to be instanceof to include the many sub-classes of Number
-        if (value instanceof Number) return formatNumber((Number) value, format, locale);
+        if (value instanceof Number) return formatNumber((Number) value, format, curLocale);
         // Calendar is an abstract class, so must use instanceof here as well
-        if (value instanceof Calendar) return formatDateTime((Calendar) value, format, locale, tz);
+        if (value instanceof Calendar) return formatDateTime((Calendar) value, format, curLocale, tz);
         return value.toString();
     }
 }
