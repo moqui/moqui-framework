@@ -563,8 +563,15 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         void startElement(String ns, String localName, String qName, Attributes attributes) {
             // logger.info("startElement ns [${ns}], localName [${localName}] qName [${qName}]")
             String type = null
-            if (qName == "entity-facade-xml") { type = attributes.getValue("type") }
-            else if (qName == "seed-data") { type = "seed" }
+            String localeStr = null
+            if (qName == "entity-facade-xml") {
+                type = attributes.getValue("type")
+                localeStr = attributes.getValue("locale")
+            }
+            else if (qName == "seed-data") {
+                type = "seed"
+                localeStr = attributes.getValue("locale")
+            }
             if (type && edli.dataTypes && !edli.dataTypes.contains(type)) {
                 if (logger.isInfoEnabled()) logger.info("Skipping file [${location}], is a type to skip (${type})")
                 throw new TypeToSkipException()
@@ -578,6 +585,8 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                 return
             }
             if (!loadElements) return
+
+            if (localeStr != null) locale = new Locale(localeStr)
 
             String elementName = qName
             // get everything after a colon, but replace - with # for verb#noun separation

@@ -336,7 +336,10 @@ along with this software (see the LICENSE.md file). If not, see
     -->
 
     <xs:element name="seed-data">
-        <xs:complexType><xs:sequence><xs:any minOccurs="0" maxOccurs="unbounded" processContents="skip"/></xs:sequence></xs:complexType>
+        <xs:complexType><xs:sequence><xs:any minOccurs="0" maxOccurs="unbounded" processContents="skip"/></xs:sequence>
+            <xs:attribute name="locale" type="xs:string" default="en_US"><xs:annotation><xs:documentation>Set the locale to be used when parsing the string data to the corresponding data type.
+                Relevant mostly for decimal numbers where differing decimal separators result in different interpretations.</xs:documentation></xs:annotation></xs:attribute>
+        </xs:complexType>
     </xs:element>
 
     <xs:element name="master">

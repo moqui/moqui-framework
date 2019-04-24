@@ -304,7 +304,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
             writer.println("[")
         } else {
             writer.println("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
-            writer.println("<entity-facade-xml>")
+            writer.println("<entity-facade-xml locale=\"en_US\">")
         }
     }
     private void endFile(Writer writer) {
