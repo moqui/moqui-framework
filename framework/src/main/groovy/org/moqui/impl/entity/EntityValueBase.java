@@ -407,10 +407,11 @@ public abstract class EntityValueBase implements EntityValue {
         getEntityDefinition().entityInfo.setFieldsEv(fields, this, null, locale);
         return this;
     }
-    @Override public EntityValue setString(String name, String value) {
+    @Override public EntityValue setString(String name, String value) { return setString(name, value, null); }
+    @Override public EntityValue setString(String name, String value, Locale locale) {
         // this will do a field name check
         ExecutionContextImpl eci = getEntityFacadeImpl().ecfi.getEci();
-        Object converted = getEntityDefinition().convertFieldString(name, value, eci);
+        Object converted = getEntityDefinition().convertFieldString(name, value, eci, locale);
         putNoCheck(name, converted);
         return this;
     }

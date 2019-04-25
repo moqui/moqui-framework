@@ -952,11 +952,12 @@ class EntityDefinition {
         return mePkFieldToAliasNameMap
     }
 
-    Object convertFieldString(String name, String value, ExecutionContextImpl eci) {
+    Object convertFieldString(String name, String value, ExecutionContextImpl eci) { return convertFieldString(name, value, eci, null) }
+    Object convertFieldString(String name, String value, ExecutionContextImpl eci, Locale locale) {
         if (value == null) return null
         FieldInfo fieldInfo = getFieldInfo(name)
         if (fieldInfo == null) throw new EntityException("Invalid field name ${name} for entity ${fullEntityName}")
-        return fieldInfo.convertFromString(value, eci.l10nFacade)
+        return fieldInfo.convertFromString(value, eci.l10nFacade, locale)
     }
 
     static String getFieldStringForFile(FieldInfo fieldInfo, Object value) {

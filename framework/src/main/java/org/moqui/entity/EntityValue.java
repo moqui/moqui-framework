@@ -24,6 +24,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Locale;
 
 
 /** Entity Value Interface - Represents a single database record. */
@@ -98,7 +99,20 @@ public interface EntityValue extends Map<String, Object>, Externalizable, Compar
      * @param locale The locale to use when parsing the values
      * @return reference to this for convenience
      */
-    EntityValue setAll(Map<String, Object> fields, java.util.Locale locale);
+    EntityValue setAll(Map<String, Object> fields, Locale locale);
+
+    /** Sets the named field to the passed value, converting the value from a String to the corresponding type using
+     *   <code>Type.valueOf()</code>
+     *
+     * If the String "null" is passed in it will be treated the same as a null value. If you really want to set a
+     * String of "null" then pass in "\null".
+     *
+     * @param name The field name to set
+     * @param value The String value to convert and set
+     * @param locale The locale to use when parsing the values
+     * @return reference to this for convenience
+     */
+    EntityValue setString(String name, String value, Locale locale);
 
     /** Sets the named field to the passed value, converting the value from a String to the corresponding type using 
      *   <code>Type.valueOf()</code>
@@ -153,7 +167,7 @@ public interface EntityValue extends Map<String, Object>, Externalizable, Compar
      * @param locale Locale to use for parsing values
      * @return reference to this for convenience
      */
-    EntityValue setFields(Map<String, Object> fields, boolean setIfEmpty, String namePrefix, Boolean pks, java.util.Locale locale);
+    EntityValue setFields(Map<String, Object> fields, boolean setIfEmpty, String namePrefix, Boolean pks, Locale locale);
 
     /** Get the next guaranteed unique seq id for this entity, and set it in the primary key field. This will set it in
      * the first primary key field in the entity definition, but it really should be used for entities with only one

@@ -876,6 +876,14 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                         return false
                     }
                 }
+
+                if (firstLineRecord.size() > 2) {
+                    // third field is locale
+                    String localeStr = firstLineRecord.get(2)
+                    int usIdx = localeStr.indexOf("_")
+                    locale = usIdx < 0 ? new Locale(localeStr) :
+                            new Locale(localeStr.substring(0, usIdx), localeStr.substring(usIdx+1).toUpperCase())
+                }
             }
 
             Map<String, Integer> headerMap = [:]
@@ -903,9 +911,9 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                     valuesRead++
                 } else {
                     EntityValueImpl currentEntityValue = (EntityValueImpl) edli.efi.makeValue(entityName)
-                    if (edli.defaultValues) currentEntityValue.setFields(edli.defaultValues, true, null, null)
+                    if (edli.defaultValues) currentEntityValue.setFields(edli.defaultValues, true, null, null, locale)
                     for (Map.Entry<String, Integer> header in headerMap)
-                        currentEntityValue.setString(header.key, record.get(header.value))
+                        currentEntityValue.setString(header.key, record.get(header.value), locale)
 
                     if (!currentEntityValue.containsPrimaryKey()) {
                         if (currentEntityValue.getEntityDefinition().getPkFieldNames().size() == 1) {
