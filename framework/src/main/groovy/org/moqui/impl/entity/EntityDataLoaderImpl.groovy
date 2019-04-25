@@ -969,18 +969,21 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             }
 
             String type = null
+            String localeStr = null
             List valueList
             if (jsonObj instanceof Map) {
                 Map jsonMap = (Map) jsonObj
                 type = jsonMap.get("_dataType")
+                localeStr = jsonMap.get("_locale")
                 valueList = [jsonObj]
             } else if (jsonObj instanceof List) {
                 valueList = (List) jsonObj
                 Object firstValue = valueList?.get(0)
                 if (firstValue instanceof Map) {
                     Map firstValMap = (Map) firstValue
-                    if (firstValMap.get("_dataType")) {
+                    if (firstValMap.get("_dataType") || firstValMap.get("_locale")) {
                         type = firstValMap.get("_dataType")
+                        localeStr = firstValMap.get("_locale")
                         valueList.remove((int) 0I)
                     }
                 }
@@ -991,6 +994,12 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             if (type && edli.dataTypes && !edli.dataTypes.contains(type)) {
                 if (logger.isInfoEnabled()) logger.info("Skipping file [${location}], is a type to skip (${type})")
                 return false
+            }
+
+            if (localeStr != null) {
+                int usIdx = localeStr.indexOf("_")
+                locale = usIdx < 0 ? new Locale(localeStr) :
+                        new Locale(localeStr.substring(0, usIdx), localeStr.substring(usIdx+1).toUpperCase())
             }
 
             for (Object valueObj in valueList) {
@@ -1004,6 +1013,13 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                 value.putAll((Map) valueObj)
 
                 String entityName = value."_entity"
+                String valueLocaleStr = value."_locale"
+                Locale valueLocale = null
+                if (valueLocaleStr) {
+                    int usIdx = valueLocaleStr.indexOf("_")
+                    valueLocale = usIdx < 0 ? new Locale(valueLocaleStr) :
+                            new Locale(valueLocaleStr.substring(0, usIdx), valueLocaleStr.substring(usIdx+1).toUpperCase())
+                }
                 boolean isService
                 if (edli.efi.isEntityDefined(entityName)) {
                     isService = false
@@ -1018,7 +1034,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                     valueHandler.handleService(currentScs)
                     valuesRead++
                 } else {
-                    valueHandler.handlePlainMap(entityName, value, getLocale())
+                    valueHandler.handlePlainMap(entityName, value, valueLocale?:getLocale())
                     // TODO: make this more complete, like counting nested Maps?
                     valuesRead++
                 }
