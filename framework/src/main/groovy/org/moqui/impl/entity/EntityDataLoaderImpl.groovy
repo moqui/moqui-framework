@@ -183,7 +183,6 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         if (this.disableFkCreate) reenableFkCreate = !eci.artifactExecutionFacade.disableEntityFkCreate()
         boolean reenableDataFeed = false
         if (this.disableDataFeed) reenableDataFeed = !eci.artifactExecutionFacade.disableEntityDataFeed()
-        Locale locale = new Locale("en_US")
 
         // if no xmlText or locations, so find all of the component and entity-facade files
         if (!this.xmlText && !this.csvText && !this.jsonText && !this.locationList) {
@@ -266,7 +265,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             if (this.csvText) {
                 InputStream csvInputStream = new ByteArrayInputStream(csvText.getBytes("UTF-8"))
                 try {
-                    tf.runUseOrBegin(transactionTimeout, "Error loading CSV entity data", { ech.loadFile("csvText", csvInputStream, locale) })
+                    tf.runUseOrBegin(transactionTimeout, "Error loading CSV entity data", { ech.loadFile("csvText", csvInputStream) })
                 } finally {
                     if (csvInputStream != null) csvInputStream.close()
                 }
@@ -276,14 +275,14 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             if (this.jsonText) {
                 InputStream jsonInputStream = new ByteArrayInputStream(jsonText.getBytes("UTF-8"))
                 try {
-                    tf.runUseOrBegin(transactionTimeout, "Error loading JSON entity data", { ejh.loadFile("jsonText", jsonInputStream, locale) })
+                    tf.runUseOrBegin(transactionTimeout, "Error loading JSON entity data", { ejh.loadFile("jsonText", jsonInputStream) })
                 } finally {
                     if (jsonInputStream != null) jsonInputStream.close()
                 }
             }
 
             // load each file in its own transaction
-            for (String location in this.locationList) loadSingleFile(location, exh, ech, ejh, locale)
+            for (String location in this.locationList) loadSingleFile(location, exh, ech, ejh)
         })
 
         if (reenableEeca) eci.artifactExecutionFacade.enableEntityEca()
@@ -295,7 +294,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         // Thread.sleep(60*1000*100)
     }
 
-    void loadSingleFile(String location, EntityXmlHandler exh, EntityCsvHandler ech, EntityJsonHandler ejh, Locale locale) {
+    void loadSingleFile(String location, EntityXmlHandler exh, EntityCsvHandler ech, EntityJsonHandler ejh) {
         TransactionFacade tf = efi.ecfi.transactionFacade
         boolean beganTransaction = tf.begin(transactionTimeout)
         try {
@@ -314,12 +313,12 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                     logger.info("Loaded ${(exh.valuesRead?:0) - beforeRecords} records from ${location} in ${((System.currentTimeMillis() - beforeTime)/1000)}s")
                 } else if (location.endsWith(".csv")) {
                     long beforeRecords = ech.valuesRead ?: 0
-                    if (ech.loadFile(location, inputStream, locale)) {
+                    if (ech.loadFile(location, inputStream)) {
                         logger.info("Loaded ${(ech.valuesRead?:0) - beforeRecords} records from ${location} in ${((System.currentTimeMillis() - beforeTime)/1000)}s")
                     }
                 } else if (location.endsWith(".json")) {
                     long beforeRecords = ejh.valuesRead ?: 0
-                    if (ejh.loadFile(location, inputStream, locale)) {
+                    if (ejh.loadFile(location, inputStream)) {
                         logger.info("Loaded ${(ejh.valuesRead?:0) - beforeRecords} records from ${location} in ${((System.currentTimeMillis() - beforeTime)/1000)}s")
                     }
                 } else if (location.endsWith(".zip")) {
@@ -547,7 +546,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         protected long valuesRead = 0
         protected List<String> messageList = new LinkedList<>()
         String location
-        Locale locale = new Locale("en_US")
+        Locale locale = null
 
         protected boolean loadElements = false
 
@@ -577,6 +576,12 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                 throw new TypeToSkipException()
             }
 
+            if (localeStr != null) {
+                int usIdx = localeStr.indexOf("_")
+                locale = (usIdx < 0 ? new Locale(localeStr) :
+                        new Locale(localeStr.substring(0, usIdx), localeStr.substring(usIdx+1).toUpperCase()))
+            }
+
             if (qName == "entity-facade-xml") {
                 loadElements = true
                 return
@@ -585,8 +590,6 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                 return
             }
             if (!loadElements) return
-
-            if (localeStr != null) locale = new Locale(localeStr)
 
             String elementName = qName
             // get everything after a colon, but replace - with # for verb#noun separation
@@ -774,7 +777,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                                 valueHandler.handleValue(curValue)
                                 valuesRead++
                             } else {
-                                valueHandler.handlePlainMap(currentEntityDef.getFullEntityName(), valueMap, locale)
+                                valueHandler.handlePlainMap(currentEntityDef.getFullEntityName(), valueMap, getLocale())
                                 valuesRead++
                             }
                             currentEntityDef = (EntityDefinition) null
@@ -806,6 +809,12 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         }
 
         void setDocumentLocator(Locator locator) { this.locator = locator }
+
+        void setLocale(Locale locale) { this.locale = locale }
+        Locale getLocale() {
+            if (locale == null) locale = new Locale("en", "US")
+            return locale
+        }
     }
 
     static class EntityCsvHandler {
@@ -814,6 +823,8 @@ class EntityDataLoaderImpl implements EntityDataLoader {
 
         protected long valuesRead = 0
         protected List<String> messageList = new LinkedList()
+
+        protected Locale locale = null
 
         EntityCsvHandler(EntityDataLoaderImpl edli, ValueHandler valueHandler) {
             this.edli = edli
@@ -824,7 +835,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         long getValuesRead() { return valuesRead }
         List<String> getMessageList() { return messageList }
 
-        boolean loadFile(String location, InputStream is, Locale locale) {
+        boolean loadFile(String location, InputStream is) {
             BufferedReader reader = new BufferedReader(new InputStreamReader(is, "UTF-8"))
 
             CSVParser parser = CSVFormat.newFormat(edli.csvDelimiter)
@@ -911,6 +922,13 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             }
             return true
         }
+
+        void setLocale(Locale locale) { this.locale = locale }
+        Locale getLocale() {
+            if (locale == null) locale = new Locale("en", "US")
+            return locale
+        }
+
     }
 
     static class EntityJsonHandler {
@@ -919,6 +937,8 @@ class EntityDataLoaderImpl implements EntityDataLoader {
 
         protected long valuesRead = 0
         protected List<String> messageList = new LinkedList()
+
+        protected Locale locale = null
 
         EntityJsonHandler(EntityDataLoaderImpl edli, ValueHandler valueHandler) {
             this.edli = edli
@@ -929,7 +949,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         long getValuesRead() { return valuesRead }
         List<String> getMessageList() { return messageList }
 
-        boolean loadFile(String location, InputStream is, Locale locale) {
+        boolean loadFile(String location, InputStream is) {
             JsonSlurper slurper = new JsonSlurper()
             Object jsonObj
             try {
@@ -990,7 +1010,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                     valueHandler.handleService(currentScs)
                     valuesRead++
                 } else {
-                    valueHandler.handlePlainMap(entityName, value, locale)
+                    valueHandler.handlePlainMap(entityName, value, getLocale())
                     // TODO: make this more complete, like counting nested Maps?
                     valuesRead++
                 }
@@ -998,5 +1018,12 @@ class EntityDataLoaderImpl implements EntityDataLoader {
 
             return true
         }
+
+        void setLocale(Locale locale) { this.locale = locale }
+        Locale getLocale() {
+            if (locale == null) locale = new Locale("en", "US")
+            return locale
+        }
+
     }
 }

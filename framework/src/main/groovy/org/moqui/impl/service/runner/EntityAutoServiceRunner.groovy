@@ -120,7 +120,7 @@ class EntityAutoServiceRunner implements ServiceRunner {
         return checkAllPkFields(ed, parameters, tempResult, newEntityValue, outParamNames, null);
     }
     protected static boolean checkAllPkFields(EntityDefinition ed, Map<String, Object> parameters, Map<String, Object> tempResult,
-                                    EntityValue newEntityValue, ArrayList<String> outParamNames, java.util.Locale locale) {
+                                    EntityValue newEntityValue, ArrayList<String> outParamNames, Locale locale) {
         FieldInfo[] pkFieldInfos = ed.entityInfo.pkFieldInfoArray
 
         // see if all PK fields were passed in
@@ -357,7 +357,7 @@ class EntityAutoServiceRunner implements ServiceRunner {
                 // no lookedUpValue at this point? doesn't exist so create
                 newEntityValue.setFields(parameters, true, null, false, locale)
                 newEntityValue.create()
-                storeRelated(ecfi, efi, (EntityValueBase) newEntityValue, parameters, result, parentPks)
+                storeRelated(ecfi, efi, (EntityValueBase) newEntityValue, parameters, result, parentPks, locale)
                 return
             }
         }
