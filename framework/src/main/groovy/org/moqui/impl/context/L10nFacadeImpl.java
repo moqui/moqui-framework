@@ -166,7 +166,7 @@ public class L10nFacadeImpl implements L10nFacade {
         Locale curLocale = locale != null ? locale : getLocale();
         if (tz == null) tz = getTimeZone();
         if (format == null || format.isEmpty()) format = "HH:mm:ss";
-        String timeStr = calendarValidator.format(input, format, locale, tz);
+        String timeStr = calendarValidator.format(input, format, curLocale, tz);
         // logger.warn("============= formatTime input=${input} timeStr=${timeStr} long=${input.getTime()}")
         return timeStr;
     }
@@ -176,8 +176,8 @@ public class L10nFacadeImpl implements L10nFacade {
         return parseDate(input, format, null);
     }
     public java.sql.Date parseDate(String input, String format, Locale locale) {
+        Locale curLocale = locale != null ? locale : getLocale();
         if (format == null || format.isEmpty()) format = "yyyy-MM-dd";
-        if (locale == null) locale = getLocale();
 
         // NOTE DEJ 20150317 Date parsing in terms of time zone causes funny issues because the time part of the long
         //   since epoch representation is lost going to/from the DB, especially since the time portion is set to 0 and
@@ -194,10 +194,10 @@ public class L10nFacadeImpl implements L10nFacade {
         if (cal == null) cal = calendarValidator.validate(input, "yyyy-MM-dd'T'HH:mm:ssZ", locale, curTz)
         */
 
-        Calendar cal = calendarValidator.validate(input, format, locale);
-        if (cal == null) cal = calendarValidator.validate(input, "MM/dd/yyyy", locale);
+        Calendar cal = calendarValidator.validate(input, format, curLocale);
+        if (cal == null) cal = calendarValidator.validate(input, "MM/dd/yyyy", curLocale);
         // also try the full ISO-8601, dates may come in that way
-        if (cal == null) cal = calendarValidator.validate(input, "yyyy-MM-dd'T'HH:mm:ssZ", locale);
+        if (cal == null) cal = calendarValidator.validate(input, "yyyy-MM-dd'T'HH:mm:ssZ", curLocale);
         if (cal != null) {
             java.sql.Date date = new java.sql.Date(cal.getTimeInMillis());
             // logger.warn("============== parseDate input=${input} cal=${cal} long=${cal.getTimeInMillis()} date=${date} date long=${date.getTime()} util date=${new java.util.Date(cal.getTimeInMillis())} timestamp=${new java.sql.Timestamp(cal.getTimeInMillis())}")
