@@ -194,6 +194,7 @@ class WebFacadeImpl implements WebFacade {
             sessionToken = StringUtilities.getRandomString(20)
             session.setAttribute("moqui.session.token", sessionToken)
             request.setAttribute("moqui.session.token.created", "true")
+            response.setHeader("X-CSRF-Token", sessionToken)
         }
     }
 

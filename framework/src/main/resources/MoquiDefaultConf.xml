@@ -18,6 +18,7 @@
     <default-property name="webapp_http_port" value=""/>
     <default-property name="webapp_https_port" value=""/>
     <default-property name="webapp_https_enabled" value="false"/>
+    <default-property name="webapp_allow_origins" value=""/>
 
     <default-property name="entity_ds_db_conf" value="h2"/>
     <default-property name="entity_ds_host" value="localhost"/>
@@ -120,7 +121,7 @@
     <webapp-list>
         <!-- The webapp.@name is looked up based on the value of the 'moqui-name' context-param in the web.xml file -->
         <webapp name="webroot" http-port="${webapp_http_port}" http-host="${webapp_http_host}" https-port="${webapp_https_port}"
-                https-host="${webapp_http_host}" https-enabled="${webapp_https_enabled}"
+                https-host="${webapp_http_host}" https-enabled="${webapp_https_enabled}" allow-origins="${webapp_allow_origins}"
                 require-session-token="true" websocket-timeout="600000">
             <!-- root and error screens for OOTB runtime directory (moqui/moqui-runtime repository) -->
             <root-screen host=".*" location="component://webroot/screen/webroot.xml"/>
@@ -167,9 +168,25 @@
             Content-Security-Policy by default to not allow use in iframe or allow form actions on different host
             see https://content-security-policy.com/
             consider "child-src 'self';", leaving out as default because 3rd party hosts needed for payment processing hosted forms, etc
+            consider "connect-src 'self';" Applies to XMLHttpRequest (AJAX), WebSocket or EventSource
             -->
             <response-header type="screen-render" name="Content-Security-Policy" value="frame-ancestors 'none'; form-action 'self';"/>
             <response-header type="screen-render" name="X-Frame-Options" value="deny"/>
+            <!-- CORS actual and preflight headers -->
+            <!-- NOTE: Access-Control-Allow-Origin is set dynamically by MoquiServlet if Origin request header value is in the value of the webapp.@allow-origins attribute -->
+            <!-- Access-Control-Allow-Credentials - always true so cookies, authc, etc always allowed -->
+            <response-header type="cors-actual" name="Vary" value="Origin"/>
+            <response-header type="cors-actual" name="Access-Control-Allow-Credentials" value="true"/>
+            <response-header type="cors-actual" name="Access-Control-Expose-Headers"
+                    value="Access-Control-Allow-Origin,Access-Control-Allow-Credentials,X-CSRF-Token"/>
+            <response-header type="cors-preflight" name="Vary" value="Origin"/>
+            <response-header type="cors-preflight" name="Access-Control-Allow-Credentials" value="true"/>
+            <!-- doesn't seem these are needed, allowed by default: ,Authorization,Referrer,User-Agent -->
+            <response-header type="cors-preflight" name="Access-Control-Allow-Headers"
+                    value="Accept,Accept-Encoding,Content-Type,Content-Encoding,Origin,X-Requested-With,Access-Control-Request-Method,Access-Control-Request-Headers,api_key,login_key,X-HTTP-Method-Override,moquiSessionToken,SessionToken,X-CSRF-Token"/>
+            <!-- TODO: would be nice to handle this differently, ie dynamically based on preflight request path -->
+            <response-header type="cors-preflight" name="Access-Control-Allow-Methods" value="GET,PUT,POST,PATCH,DELETE,OPTIONS"/>
+            <response-header type="cors-preflight" name="Access-Control-Max-Age" value="3600"/>
         </webapp>
     </webapp-list>
 
