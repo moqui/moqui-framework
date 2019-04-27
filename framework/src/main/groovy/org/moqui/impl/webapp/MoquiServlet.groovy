@@ -64,6 +64,40 @@ class MoquiServlet extends HttpServlet {
             return
         }
 
+        // handle CORS actual and preflight request headers
+        String originHeader = request.getHeader("Origin")
+        if (originHeader != null && !originHeader.isEmpty()) {
+            ExecutionContextFactoryImpl.WebappInfo webappInfo = ecfi.getWebappInfo(webappName)
+
+            // generate Access-Control-Allow-Origin based on Origin, if allowed
+            Set<String> allowOriginSet = webappInfo.allowOriginSet
+            int originSepIdx = originHeader.indexOf("://")
+            String originDomain = originSepIdx > 0 ? originHeader.substring(originSepIdx + 3) : originHeader
+            // if * allowed or Origin domain matches request domain always allow (same origin)
+            if (allowOriginSet.contains("*") || originDomain == request.getLocalName()) {
+                response.setHeader("Access-Control-Allow-Origin", originHeader)
+            } else {
+                if (allowOriginSet.contains(originHeader) || allowOriginSet.contains(originDomain)) {
+                    response.setHeader("Access-Control-Allow-Origin", originHeader)
+                } else {
+                    logger.warn("Returning 401, Origin ${originHeader} not allowed for configuration ${allowOriginSet} or local name ${request.getLocalName()}")
+                    // Origin not allowed, send 401 response
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Origin not allowed")
+                    return
+                }
+            }
+
+            String acRequestMethod = request.getHeader("Access-Control-Request-Method")
+            if ("OPTIONS".equals(request.getMethod()) && acRequestMethod != null && !acRequestMethod.isEmpty()) {
+                // String acRequestHeaders = request.getHeader("Access-Control-Request-Headers")
+                webappInfo.addHeaders("cors-preflight", response)
+                response.setStatus(HttpServletResponse.SC_OK)
+                return
+            } else {
+                webappInfo.addHeaders("cors-actual", response)
+            }
+        }
+
         if (!request.characterEncoding) request.setCharacterEncoding("UTF-8")
         long startTime = System.currentTimeMillis()
 
