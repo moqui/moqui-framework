@@ -279,16 +279,29 @@ along with this software (see the LICENSE.md file). If not, see
             If not specified receive#IncomingSystemMessage just saves the message directly.
             When applicable, used by the send service as the service on the remote server to call to receive the message.</description></field>
         <field name="contentType" type="text-short"/>
-        <field name="receivePath" type="text-medium"><description>Where to look for files on a remote server, syntax is implementation
-            specific and may include both path and a filename pattern</description></field>
+        <field name="receivePath" type="text-medium"><description>Where to look for files on a remote server, syntax is implementation specific</description></field>
+        <field name="receiveFilePattern" type="text-medium"><description>Regular expression to match filenames in receivePath (optional)</description></field>
+        <field name="receiveResponseEnumId" type="id"/>
+        <field name="receiveMovePath" type="text-medium"><description>After successful receive move file to this path if receiveResponseEnumId = MsgRrMove</description></field>
         <field name="sendPath" type="text-medium"><description>Where to put files on a remote server, syntax is implementation
             specific and may include both path and a filename pattern</description></field>
+
+        <relationship type="one" title="MessageReceiveResponse" related="moqui.basic.Enumeration" short-alias="receiveResponseEnum">
+            <key-map field-name="receiveResponseEnumId"/></relationship>
+
+        <seed-data>
+            <moqui.basic.EnumerationType description="Message Receive Response" enumTypeId="MessageReceiveResponse"/>
+            <moqui.basic.Enumeration enumId="MsgRrNone" description="None" enumTypeId="MessageReceiveResponse"/>
+            <moqui.basic.Enumeration enumId="MsgRrDelete" description="Delete" enumTypeId="MessageReceiveResponse"/>
+            <moqui.basic.Enumeration enumId="MsgRrMove" description="Move" enumTypeId="MessageReceiveResponse"/>
+        </seed-data>
     </entity>
     <entity entity-name="SystemMessageRemote" package="moqui.service.message" use="configuration" cache="true">
         <field name="systemMessageRemoteId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
         <field name="sendUrl" type="text-medium"/>
         <field name="receiveUrl" type="text-medium"/>
+        <field name="remoteCharset" type="text-short"/>
         <field name="sendServiceName" type="text-medium"><description>Override for SystemMessageType.sendServiceName</description></field>
         <field name="username" type="text-medium"><description>
             Username for basic auth when sending to the remote system.
