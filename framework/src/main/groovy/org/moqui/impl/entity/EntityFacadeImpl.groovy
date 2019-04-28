@@ -1964,6 +1964,11 @@ class EntityFacadeImpl implements EntityFacade {
     }
 
     @Override
+    Boolean hasConnection(String groupName) {
+        return datasourceFactoryByGroupMap.containsKey(groupName)
+    }
+
+    @Override
     Connection getConnection(String groupName) {
         TransactionFacadeImpl tfi = ecfi.transactionFacade
         if (!tfi.isTransactionOperable()) throw new EntityException("Cannot get connection, transaction not in operable status (${tfi.getStatusString()})")
