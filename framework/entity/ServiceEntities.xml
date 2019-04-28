@@ -192,6 +192,7 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="systemMessageId"/></relationship>
 
         <index name="SYS_MSG_MSGID"><index-field name="messageId"/></index>
+        <index name="SYS_MSG_RMSGID"><index-field name="remoteMessageId"/></index>
 
         <seed-data>
             <moqui.basic.StatusType description="System Message" statusTypeId="SystemMessage"/>
