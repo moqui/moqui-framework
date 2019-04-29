@@ -136,6 +136,8 @@ along with this software (see the LICENSE.md file). If not, see
             use="transactional" cache="never">
         <field name="systemMessageId" type="id" is-pk="true"/>
         <field name="systemMessageTypeId" type="id"/>
+        <field name="systemMessageRemoteId" type="id"><description>Reference to the SystemMessageRemote record for the remote system
+            this message came from for incoming messages or should be sent to for outgoing messages.</description></field>
         <field name="statusId" type="id" enable-audit-log="true"/>
         <field name="isOutgoing" type="text-indicator"/>
         <field name="initDate" type="date-time"><description>For incoming the received date, for outgoing the produced date</description></field>
@@ -147,8 +149,6 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="remoteMessageId" type="text-medium"><description>For messages to/from another Moqui system, the
             systemMessageId on the remote system; may also be used for other system level message IDs (as opposed to
             messageId which is for the ID in the envelope of the message)</description></field>
-        <field name="systemMessageRemoteId" type="id"><description>Reference to the SystemMessageRemote record for the remote system
-            this message came from for incoming messages or should be sent to for outgoing messages.</description></field>
         <field name="messageText" type="text-very-long"/>
 
         <!-- these fields are from the message envelope, populated by receive or consume service (after initial parse) -->
@@ -181,12 +181,12 @@ along with this software (see the LICENSE.md file). If not, see
         -->
 
         <relationship type="one" related="moqui.service.message.SystemMessageType" short-alias="type"/>
+        <relationship type="one" related="moqui.service.message.SystemMessageRemote" short-alias="remote"/>
         <relationship type="one" title="SystemMessage" related="moqui.basic.StatusItem" short-alias="status"/>
         <relationship type="one" title="Parent" related="moqui.service.message.SystemMessage" short-alias="parent">
             <key-map field-name="parentMessageId" related="systemMessageId"/></relationship>
         <relationship type="one" title="Ack" related="moqui.service.message.SystemMessage" short-alias="ackMessage">
             <key-map field-name="ackMessageId" related="systemMessageId"/></relationship>
-        <relationship type="one" related="moqui.service.message.SystemMessageRemote" short-alias="remote"/>
 
         <relationship type="many" related="moqui.service.message.SystemMessageError" short-alias="errors">
             <key-map field-name="systemMessageId"/></relationship>
