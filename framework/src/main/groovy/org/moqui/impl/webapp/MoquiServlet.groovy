@@ -73,6 +73,8 @@ class MoquiServlet extends HttpServlet {
             Set<String> allowOriginSet = webappInfo.allowOriginSet
             int originSepIdx = originHeader.indexOf("://")
             String originDomain = originSepIdx > 0 ? originHeader.substring(originSepIdx + 3) : originHeader
+            int originDomColonIdx = originDomain.indexOf(":")
+            if (originDomColonIdx > 0) originDomain = originDomain.substring(0, originDomColonIdx)
             // if * allowed or Origin domain matches request domain always allow (same origin)
             String serverName = request.getServerName()
             URL requestUrl = new URL(request.getRequestURL().toString())
