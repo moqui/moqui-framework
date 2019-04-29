@@ -74,13 +74,16 @@ class MoquiServlet extends HttpServlet {
             int originSepIdx = originHeader.indexOf("://")
             String originDomain = originSepIdx > 0 ? originHeader.substring(originSepIdx + 3) : originHeader
             // if * allowed or Origin domain matches request domain always allow (same origin)
-            if (allowOriginSet.contains("*") || originDomain == request.getLocalName()) {
+            String serverName = request.getServerName()
+            URL requestUrl = new URL(request.getRequestURL().toString())
+            String hostName = requestUrl.getHost()
+            if (allowOriginSet.contains("*") || originDomain == serverName || originDomain == hostName) {
                 response.setHeader("Access-Control-Allow-Origin", originHeader)
             } else {
                 if (allowOriginSet.contains(originHeader) || allowOriginSet.contains(originDomain)) {
                     response.setHeader("Access-Control-Allow-Origin", originHeader)
                 } else {
-                    logger.warn("Returning 401, Origin ${originHeader} not allowed for configuration ${allowOriginSet} or local name ${request.getLocalName()}")
+                    logger.warn("Returning 401, Origin ${originHeader} not allowed for configuration ${allowOriginSet} or server name ${serverName} or request host ${hostName}")
                     // Origin not allowed, send 401 response
                     response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Origin not allowed")
                     return
