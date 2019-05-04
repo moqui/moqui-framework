@@ -303,6 +303,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="sendUrl" type="text-medium"/>
         <field name="receiveUrl" type="text-medium"/>
         <field name="remoteCharset" type="text-short"/>
+        <field name="remoteAttributes" type="text-indicator"><description>May be useful for other transports, for SFTP servers
+            that do not support setting file attributes after put/upload set to N</description></field>
         <field name="sendServiceName" type="text-medium"><description>Override for SystemMessageType.sendServiceName</description></field>
         <field name="username" type="text-medium"><description>
             Username for basic auth when sending to the remote system.
