@@ -266,6 +266,9 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="https-host" type="xs:string"/>
             <xs:attribute name="http-port" type="xs:string"/>
             <xs:attribute name="http-host" type="xs:string"/>
+            <xs:attribute name="handle-cors" type="boolean" default="true"><xs:annotation><xs:documentation>
+                Set to false to disable CORS handling globally in MoquiServlet including Origin validation and adding cors-preflight and cors-actual configured response headers
+            </xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="allow-origins" type="xs:string"><xs:annotation><xs:documentation>
                 Comma separated list of host name or protocol plus host name to match against Origin request header; can be '*' to allow all</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="require-session-token" default="true" type="boolean"><xs:annotation><xs:documentation>

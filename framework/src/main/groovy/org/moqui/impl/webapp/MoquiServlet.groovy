@@ -65,9 +65,10 @@ class MoquiServlet extends HttpServlet {
         }
 
         // handle CORS actual and preflight request headers
+        ExecutionContextFactoryImpl.WebappInfo webappInfo = ecfi.getWebappInfo(webappName)
         String originHeader = request.getHeader("Origin")
-        if (originHeader != null && !originHeader.isEmpty()) {
-            ExecutionContextFactoryImpl.WebappInfo webappInfo = ecfi.getWebappInfo(webappName)
+        if (originHeader != null && !originHeader.isEmpty() && webappInfo != null &&
+                !"false".equals(webappInfo.webappNode.attribute("handle-cors"))) {
 
             // generate Access-Control-Allow-Origin based on Origin, if allowed
             Set<String> allowOriginSet = webappInfo.allowOriginSet
