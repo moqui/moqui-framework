@@ -19,6 +19,7 @@
     <default-property name="webapp_https_port" value=""/>
     <default-property name="webapp_https_enabled" value="false"/>
     <default-property name="webapp_allow_origins" value=""/>
+    <default-property name="webapp_handle_cors" value="true"/>
 
     <default-property name="entity_ds_db_conf" value="h2"/>
     <default-property name="entity_ds_host" value="localhost"/>
@@ -121,7 +122,8 @@
     <webapp-list>
         <!-- The webapp.@name is looked up based on the value of the 'moqui-name' context-param in the web.xml file -->
         <webapp name="webroot" http-port="${webapp_http_port}" http-host="${webapp_http_host}" https-port="${webapp_https_port}"
-                https-host="${webapp_http_host}" https-enabled="${webapp_https_enabled}" allow-origins="${webapp_allow_origins}"
+                https-host="${webapp_http_host}" https-enabled="${webapp_https_enabled}"
+                handle-cors="${webapp_handle_cors}" allow-origins="${webapp_allow_origins}"
                 require-session-token="true" websocket-timeout="600000">
             <!-- root and error screens for OOTB runtime directory (moqui/moqui-runtime repository) -->
             <root-screen host=".*" location="component://webroot/screen/webroot.xml"/>
