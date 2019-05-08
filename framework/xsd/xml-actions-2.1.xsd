@@ -139,6 +139,7 @@ along with this software (see the LICENSE.md file). If not, see
             </xs:attribute>
         </xs:complexType>
     </xs:element>
+    <!-- tabled, adds little value, not likely to be implemented:
     <xs:element name="service-group" substitutionGroup="CallOperations">
         <xs:complexType>
             <xs:sequence>
@@ -179,6 +180,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="result-to-context" default="false" type="boolean"/>
         </xs:complexType>
     </xs:element>
+    -->
 
     <xs:element name="script" substitutionGroup="CallOperations">
         <xs:annotation><xs:documentation>
