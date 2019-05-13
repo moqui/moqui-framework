@@ -120,6 +120,12 @@ along with this software (see the LICENSE.md file). If not, see
                 <service-call name="create#moqui.server.instance.AppInstanceVolume"
                         in-map="[appInstanceId:appInstanceId, mountPoint:imageTypeVolume.mountPoint, volumeName:volumeName]"/>
             </iterate>
+            <set field="imageTypeHostConfigList" from="imageType.hostConfigs"/>
+            <iterate list="imageTypeHostConfigList" entry="imageTypeHostConfig">
+                <set field="hostConfigValue" from="ec.resource.expand(imageTypeHostConfig.hostConfigValue, '')"/>
+                <service-call name="create#moqui.server.instance.AppInstanceHostConfig"
+                        in-map="[appInstanceId:appInstanceId, hostConfigName:imageTypeHostConfig.hostConfigName, hostConfigValue:hostConfigValue, type:imageTypeHostConfig.type]"/>
+            </iterate>
         </actions>
     </service>
 
@@ -280,6 +286,7 @@ along with this software (see the LICENSE.md file). If not, see
         <implements service="org.moqui.impl.InstanceServices.init#Instance"/>
         <actions><script><![CDATA[
             import groovy.json.JsonSlurper
+            import org.moqui.BaseException
             import org.moqui.context.ExecutionContext
             import org.moqui.entity.EntityValue
             import org.moqui.util.RestClient
@@ -315,11 +322,18 @@ along with this software (see the LICENSE.md file). If not, see
             if (networkMode) hostConfigMap.NetworkMode = networkMode
 
             List<String> envList = []
-            for (Map env in appInstance.envs) if(env.envValue) envList.add("${env.envName}=${env.envValue}")
+            for (Map env in appInstance.envs) if (env.envValue) envList.add("${env.envName}=${env.envValue}")
 
             List<String> bindList = []
             for (Map vol in appInstance.vols) if (vol.mountPoint && vol.volumeName) bindList.add("${vol.volumeName}:${vol.mountPoint}")
             if (bindList) hostConfigMap.Binds = bindList
+
+            for (Map hostConf in appInstance.hostConfigs) if (hostConf.hostConfigName && hostConf.hostConfigValue) {
+                if (hostConf.type == null || hostConf.type == 'String') hostConfigValue = hostConf.hostConfigValue
+                else if (hostConf.type == 'Number') hostConfigValue = ec.l10n.parseNumber(hostConf.hostConfigValue, null)
+                else throw new BaseException("Unknown type '${hostConf.type}' for hostConfig")
+                hostConfigMap.put(hostConf.hostConfigName, hostConfigValue)
+            }
 
             Map jsonBody = [Image: instanceImage.imageName, Env: envList, HostConfig: hostConfigMap]
             String initCommand = appInstance.initCommand ?: instanceImageType.defaultInitCommand
