@@ -303,13 +303,13 @@ public class RestClient {
             }
         } else if (bodyText != null && !bodyText.isEmpty()) {
             request.content(new StringContentProvider(contentType, bodyText, charset), contentType);
-            request.header(HttpHeader.CONTENT_TYPE, contentType);
+            // not needed, set by call to request.content() with passed contentType: request.header(HttpHeader.CONTENT_TYPE, contentType);
         }
 
         request.accept(contentType);
 
         if (logger.isTraceEnabled())
-            logger.trace("RestClient request " + request.getMethod() + " " + String.valueOf(request.getURI()) + " Headers: " + String.valueOf(request.getHeaders()));
+            logger.trace("RestClient request " + request.getMethod() + " " + request.getURI() + " Headers: " + request.getHeaders());
 
         return request;
     }
