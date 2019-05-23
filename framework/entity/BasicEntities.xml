@@ -258,6 +258,9 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" related="moqui.basic.DataSource" short-alias="dataSource"/>
         <relationship type="one" title="Elevation" related="moqui.basic.Uom" short-alias="elevationUom">
             <key-map field-name="elevationUomId"/></relationship>
+        <seed-data>
+            <moqui.basic.EnumerationType description="Geo Point Type" enumTypeId="GeoPointType"/>
+        </seed-data>
         <master><detail relationship="type"/><detail relationship="dataSource"/><detail relationship="elevationUom"/></master>
     </entity>
 

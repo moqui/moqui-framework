@@ -29,7 +29,10 @@ class EntityDynamicViewImpl implements EntityDynamicView {
     EntityDynamicViewImpl(EntityFindImpl entityFind) { this.efi = entityFind.efi }
     EntityDynamicViewImpl(EntityFacadeImpl efi) { this.efi = efi }
 
-    EntityDefinition makeEntityDefinition() { return new EntityDefinition(efi, entityNode) }
+    EntityDefinition makeEntityDefinition() {
+        // System.out.println("========= MNode:\n${entityNode.toString()}")
+        return new EntityDefinition(efi, entityNode)
+    }
 
     @Override
     EntityDynamicView setEntityName(String entityName) {
@@ -102,6 +105,11 @@ class EntityDynamicViewImpl implements EntityDynamicView {
         MNode aNode = entityNode.append("alias", ["entity-alias":entityAlias, name:name])
         if (field != null && !field.isEmpty()) aNode.attributes.put("field", field)
         if (function != null && !function.isEmpty()) aNode.attributes.put("function", function)
+        if (defaultDisplay != null && !defaultDisplay.isEmpty()) aNode.attributes.put("default-display", defaultDisplay)
+        return this
+    }
+    EntityDynamicView addPqExprAlias(String name, String pqExpression, String type, String defaultDisplay) {
+        MNode aNode = entityNode.append("alias", [name:name, "pq-expression":pqExpression, type:(type ?: "text-long")])
         if (defaultDisplay != null && !defaultDisplay.isEmpty()) aNode.attributes.put("default-display", defaultDisplay)
         return this
     }

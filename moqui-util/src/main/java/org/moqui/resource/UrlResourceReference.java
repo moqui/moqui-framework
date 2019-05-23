@@ -28,6 +28,7 @@ import java.util.TreeSet;
 
 public class UrlResourceReference extends ResourceReference {
     private static final Logger logger = LoggerFactory.getLogger(UrlResourceReference.class);
+    static final String runtimePrefix = "runtime://";
     URL locationUrl = null;
     Boolean exists = null;
     boolean isFileProtocol = false;
@@ -44,6 +45,8 @@ public class UrlResourceReference extends ResourceReference {
     @Override
     public ResourceReference init(String location) {
         if (location == null || location.isEmpty()) throw new BaseException("Cannot create URL Resource Reference with empty location");
+
+        if (location.startsWith(runtimePrefix)) location = location.substring(runtimePrefix.length());
 
         if (location.startsWith("/") || !location.contains(":")) {
             // no prefix, local file: if starts with '/' is absolute, otherwise is relative to runtime path

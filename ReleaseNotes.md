@@ -10,6 +10,10 @@ Moqui Framework 2.1.2 is a patch level new feature and bug fix release.
 - Service include for refactoring, etc with new services.service-include element
 - RestClient now supports retry on timeout for call() and 429 (velocity) return for callFuture()
 - The general worker thread pool now checks for an active ExecutionContext after each run to make sure destroyed
+- CORS preflight OPTIONS request and CORS actual request handling in MoquiServlet
+    - headers configured using cors-preflight and cors-actual types in webapp.response-header elements with default headers in MoquiDefaultConf.xml
+    - allowed origins configured with the webapp.@allow-origins attribute which defaults the value of the 'webapp_allow_origins'
+      property or env var for production configuration; default to empty which means only same origin is allowed 
 
 ### Bug Fixes
 

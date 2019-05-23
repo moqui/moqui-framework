@@ -66,6 +66,8 @@ class MoquiContextListener implements ServletContextListener {
 
             ecfi = Moqui.dynamicInit(ExecutionContextFactoryImpl.class, sc)
 
+            // logger.warn("ServletContext (" + (sc != null ? sc.getClass().getName() : "") + ":" + (sc != null && sc.getClass().getClassLoader() != null ? sc.getClass().getClassLoader().getClass().getName() : "") + ")" + " value: " + sc)
+
             WebappInfo wi = ecfi.getWebappInfo(moquiWebappName)
 
             // add webapp filters, listeners, servlets

@@ -57,6 +57,7 @@ class EntityDefinition {
     protected final ArrayList<String> nonPkFieldNameList = new ArrayList<>()
     protected final ArrayList<String> allFieldNameList = new ArrayList<>()
     protected final ArrayList<FieldInfo> allFieldInfoList = new ArrayList<>()
+    protected Map<String, MNode> pqExpressionNodeMap = null
     protected Map<String, Map<String, String>> mePkFieldToAliasNameMapMap = null
     protected Map<String, Map<String, ArrayList<MNode>>> memberEntityFieldAliases = null
     protected Map<String, MNode> memberEntityAliasMap = null
@@ -179,6 +180,7 @@ class EntityDefinition {
             // set @type, set is-pk on all alias Nodes if the related field is-pk
             for (MNode aliasNode in internalEntityNode.children("alias")) {
                 if (aliasNode.hasChild("complex-alias") || aliasNode.hasChild("case")) continue
+                if (aliasNode.attribute("pq-expression")) continue
 
                 String entityAlias = aliasNode.attribute("entity-alias")
                 MNode memberEntity = memberEntityAliasMap.get(entityAlias)
@@ -201,6 +203,13 @@ class EntityDefinition {
                 aliasByField.add(aliasNode)
             }
             for (MNode aliasNode in internalEntityNode.children("alias")) {
+                if (aliasNode.attribute("pq-expression")) {
+                    if (pqExpressionNodeMap == null) pqExpressionNodeMap = new HashMap<>()
+                    String pqFieldName = aliasNode.attribute("name")
+                    pqExpressionNodeMap.put(pqFieldName, aliasNode)
+                    continue
+                }
+
                 FieldInfo fi = new FieldInfo(this, aliasNode)
                 addFieldInfo(fi)
             }
@@ -697,6 +706,12 @@ class EntityDefinition {
             defMap.put(curDef.name, curDef)
         }
         masterDefinitionMap = defMap
+    }
+
+    Map<String, MNode> getPqExpressionNodeMap() { return pqExpressionNodeMap }
+    MNode getPqExpressionNode(String name) {
+        if (pqExpressionNodeMap == null) return null
+        return pqExpressionNodeMap.get(name)
     }
 
     @CompileStatic

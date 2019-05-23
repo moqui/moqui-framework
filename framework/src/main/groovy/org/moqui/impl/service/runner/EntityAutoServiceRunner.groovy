@@ -462,6 +462,7 @@ class EntityAutoServiceRunner implements ServiceRunner {
                             .condition("statusId", lookedUpStatusId).useCache(true).one()
                     EntityValue parameterStatus = efi.find("moqui.basic.StatusItem")
                             .condition("statusId", parameterStatusId).useCache(true).one()
+                    logger.warn("Status transition not allowed from ${lookedUpStatusId} to ${parameterStatusId} on entity ${ed.fullEntityName} with PK ${lookedUpValue.getPrimaryKeys()}")
                     throw new ServiceException(eci.resource.expand('StatusFlowTransitionNotFoundTemplate', "",
                             [fullEntityName:eci.l10n.localize(ed.fullEntityName + '##EntityName'),
                                 lookedUpStatusId:lookedUpStatusId, parameterStatusId:parameterStatusId,

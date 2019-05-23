@@ -220,6 +220,99 @@ task gitUpstreamAll {
     }
 }
 
+task gitTagAll {
+    description "Do a git add or remove tag on the currently checked out commit in moqui, runtime, and each installed component"
+    doLast {
+        def tagName = (project.hasProperty('tag')) ? tag : null;
+        def tagMessage = (project.hasProperty('message')) ? message : null;
+
+        boolean removeTags = (project.hasProperty('remove') && remove == 'true')
+        boolean pushTags = (project.hasProperty('push') && push == 'true')
+
+        // Users can simply push tags to the remote
+        if (tagName == null && pushTags == false) 
+            throw new InvalidUserDataException("No tag property specified (use -Ptag=...) and No push tag specified (use -Ppush=true)")
+
+        List<String> gitDirectories = []
+        if (file(".git").exists()) gitDirectories.add(file('.').path)
+        if (file("runtime/.git").exists()) gitDirectories.add(file('runtime').path)
+        for (File compDir in file('runtime/component').listFiles().findAll { it.isDirectory() && it.listFiles().find { it.name == '.git' } })
+            gitDirectories.add(compDir.path)
+
+        def frameworkDir = gitDirectories.first()
+        for (String gitDir in gitDirectories) {
+            def relativePath = "."+gitDir.minus(frameworkDir)
+            def curGrgit = Grgit.open(dir: gitDir)
+            def branchName = curGrgit.branch.current().name
+            def commit = curGrgit.log(maxCommits: 1).find()
+
+            if (tagName != null) {
+                def tagList = curGrgit.tag.list()
+                def targetTag = tagList.find({ it.name == tagName })
+
+                if (targetTag == null) {
+                    if (removeTags) {
+                        logger.lifecycle("== Git tag '${tagName}' not found in ${branchName} of ${relativePath} ... skipping")
+                    } else {
+                        curGrgit.tag.add(name: tagName, message: tagMessage ?: "Tagging version ${tagName}")
+                        logger.lifecycle("== Git tagging commit ${commit.abbreviatedId} - '${commit.shortMessage}' by '${commit.author.name}' in ${branchName} of ${relativePath}")
+                    }
+                } else {
+                    if (removeTags) {
+                        curGrgit.tag.remove(names: [tagName])
+                        logger.lifecycle("== Git removing tag '${tagName}' in ${branchName} of ${relativePath}")
+                    } else {
+                        logger.lifecycle("== Git tag '${tagName}' already exists in ${branchName} of ${relativePath}, skipping...")
+                    }
+                }
+            }
+            if (pushTags) {
+                if (removeTags) {
+                    curGrgit.push(refsOrSpecs: [':refs/tags/'+tagName])
+                } else {
+                    curGrgit.push(tags: true)
+                }
+                logger.lifecycle("== Git pushing tag changes to remote of ${relativePath}")
+            }
+        }
+    }
+}
+task gitDiffTagsAll {
+    description "Do a git diff between two tags in the currently checked out branch in moqui, runtime, and each installed component"
+    doLast {
+        def tagAName = (project.hasProperty('taga')) ? taga : null;
+        def tagBName = (project.hasProperty('tagb')) ? tagb : null;
+
+        logger.lifecycle("== Git diffing tags ${tagAName} and ${tagBName}")
+
+        List<String> gitDirectories = []
+        if (file(".git").exists()) gitDirectories.add(file('.').path)
+        if (file("runtime/.git").exists()) gitDirectories.add(file('runtime').path)
+        for (File compDir in file('runtime/component').listFiles().findAll { it.isDirectory() && it.listFiles().find { it.name == '.git' } })
+            gitDirectories.add(compDir.path)
+
+        def frameworkDir = gitDirectories.first()
+        for (String gitDir in gitDirectories) {
+            def relativePath = "."+gitDir.minus(frameworkDir)
+            def grgit = Grgit.open(dir: gitDir)
+
+            def tagList = grgit.tag.list()
+            def targetTagA = tagList.find({ it.name == tagAName })
+            def targetTagB = tagList.find({ it.name == tagBName })
+
+            logger.lifecycle("${relativePath}")
+
+            if (targetTagA != null && targetTagB != null) {
+                grgit.log {
+                    range tagAName, tagBName
+                }.each {
+                    logger.lifecycle("    ${it.abbreviatedId} - ${it.shortMessage}")
+                }
+            }
+        }
+    }
+}
+
 // ========== run tasks ==========
 
 task run(type: JavaExec) {
