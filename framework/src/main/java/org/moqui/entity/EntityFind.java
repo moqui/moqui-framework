@@ -247,8 +247,11 @@ public interface EntityFind extends java.io.Serializable, SimpleEtl.Extractor {
     EntityFind maxRows(Integer maxRows);
     Integer getMaxRows();
 
-
+    /** Disable authorization for this find */
     EntityFind disableAuthz();
+    /** If true don't do find (return empty list or null) when there are no search form parameters */
+    EntityFind requireSearchFormParameters(boolean req);
+    /** Determine if this find should be cached by the various options on entity definition and EntityFind */
     boolean shouldCache();
 
     // ======================== Run Find Methods ==============================

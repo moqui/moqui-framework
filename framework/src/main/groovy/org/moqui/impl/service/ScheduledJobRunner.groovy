@@ -149,6 +149,23 @@ class ScheduledJobRunner implements Runnable {
                         if (lastSchedule.isBefore(lastRunDt)) continue
                     }
 
+                    // if the last run had an error check the minRetryTime, don't run if hasn't been long enough
+                    EntityValue lastJobRun = efi.find("moqui.service.job.ServiceJobRun").condition("jobName", jobName)
+                            .orderBy("-startTime").limit(1).useCache(false).list().getFirst()
+                    if (lastJobRun != null && "Y".equals(lastJobRun.hasError)) {
+                        Timestamp lastErrorTime = (Timestamp) lastJobRun.endTime ?: (Timestamp) lastJobRun.startTime
+                        if (lastErrorTime != (Timestamp) null) {
+                            ZonedDateTime lastErrorDt = ZonedDateTime.ofInstant(Instant.ofEpochMilli(lastErrorTime.getTime()), now.getZone())
+                            Long minRetryTime = (Long) serviceJob.minRetryTime ?: 5L
+                            ZonedDateTime retryCheckTime = now.minusMinutes(minRetryTime.intValue())
+                            // if last error time after retry check time don't run the job
+                            if (lastErrorDt.isAfter(retryCheckTime)) {
+                                logger.info("Not retrying job ${jobName} after error, before ${minRetryTime} min retry minutes (error run at ${lastErrorDt})")
+                                continue
+                            }
+                        }
+                    }
+
                     // create a job run and lock it
                     serviceJobRun = efi.makeValue("moqui.service.job.ServiceJobRun")
                             .set("jobName", jobName).setSequencedIdPrimary().create()

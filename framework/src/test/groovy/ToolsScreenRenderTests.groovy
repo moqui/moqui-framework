@@ -72,7 +72,7 @@ class ToolsScreenRenderTests extends Specification {
 
         // AutoScreen screens
         "AutoScreen/MainEntityList" | "" | ""
-        "AutoScreen/AutoFind?aen=moqui.test.TestEntity" | "Test Name A" | ""
+        "AutoScreen/AutoFind?aen=moqui.test.TestEntity&testMedium=Test&testMedium_op=begins" | "Test Name A" | ""
         "AutoScreen/AutoEdit/AutoEditMaster?testId=SVCTSTA&aen=moqui.test.TestEntity" | "Test Name A" | ""
         // TODO "AutoScreen/AutoEdit/AutoEditDetail?exampleId=TEST1&aen=moqui.example.Example&den=moqui.example.ExampleItem" | "Amount Uom ID" | "Test 1 Item 1"
         // test moqui.test.TestEntity create through transition, then view it

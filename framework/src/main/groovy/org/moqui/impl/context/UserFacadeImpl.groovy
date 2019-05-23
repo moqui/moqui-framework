@@ -549,6 +549,8 @@ class UserFacadeImpl implements UserFacade {
         ArrayList<Timestamp> rangeList = new ArrayList<>(2)
         rangeList.add(new Timestamp(fromCal.getTimeInMillis()))
         rangeList.add(new Timestamp(thruCal.getTimeInMillis()))
+        // logger.warn("fromCal first ${fromCal.getFirstDayOfWeek()} TZ ${fromCal.getTimeZone().getDisplayName()} basisCal first ${basisCal.getFirstDayOfWeek()} TZ ${basisCal.getTimeZone().getDisplayName()} range ${rangeList} default TZ ${TimeZone.getDefault().getDisplayName()}")
+
         return rangeList
     }
 

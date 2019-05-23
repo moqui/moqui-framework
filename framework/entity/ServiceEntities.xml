@@ -59,6 +59,7 @@ along with this software (see the LICENSE.md file). If not, see
             minutes. This should generally be much greater than the longest time the service is expected to run. This is
             the mechanism for recovering jobs after a run failed in a way that did not clean up the ServiceJobRunLock
             record. Defaults to 24 hours (1440 minutes) to make sure jobs get recovered.</description></field>
+        <field name="minRetryTime" type="number-integer"><description></description></field>
 
         <relationship type="one-nofk" related="moqui.security.user.NotificationTopic"/>
         <relationship type="many" related="moqui.service.job.ServiceJobParameter" short-alias="parameters"/>
@@ -135,6 +136,8 @@ along with this software (see the LICENSE.md file). If not, see
             use="transactional" cache="never">
         <field name="systemMessageId" type="id" is-pk="true"/>
         <field name="systemMessageTypeId" type="id"/>
+        <field name="systemMessageRemoteId" type="id"><description>Reference to the SystemMessageRemote record for the remote system
+            this message came from for incoming messages or should be sent to for outgoing messages.</description></field>
         <field name="statusId" type="id" enable-audit-log="true"/>
         <field name="isOutgoing" type="text-indicator"/>
         <field name="initDate" type="date-time"><description>For incoming the received date, for outgoing the produced date</description></field>
@@ -146,8 +149,6 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="remoteMessageId" type="text-medium"><description>For messages to/from another Moqui system, the
             systemMessageId on the remote system; may also be used for other system level message IDs (as opposed to
             messageId which is for the ID in the envelope of the message)</description></field>
-        <field name="systemMessageRemoteId" type="id"><description>Reference to the SystemMessageRemote record for the remote system
-            this message came from for incoming messages or should be sent to for outgoing messages.</description></field>
         <field name="messageText" type="text-very-long"/>
 
         <!-- these fields are from the message envelope, populated by receive or consume service (after initial parse) -->
@@ -180,17 +181,18 @@ along with this software (see the LICENSE.md file). If not, see
         -->
 
         <relationship type="one" related="moqui.service.message.SystemMessageType" short-alias="type"/>
+        <relationship type="one" related="moqui.service.message.SystemMessageRemote" short-alias="remote"/>
         <relationship type="one" title="SystemMessage" related="moqui.basic.StatusItem" short-alias="status"/>
         <relationship type="one" title="Parent" related="moqui.service.message.SystemMessage" short-alias="parent">
             <key-map field-name="parentMessageId" related="systemMessageId"/></relationship>
         <relationship type="one" title="Ack" related="moqui.service.message.SystemMessage" short-alias="ackMessage">
             <key-map field-name="ackMessageId" related="systemMessageId"/></relationship>
-        <relationship type="one" related="moqui.service.message.SystemMessageRemote" short-alias="remote"/>
 
         <relationship type="many" related="moqui.service.message.SystemMessageError" short-alias="errors">
             <key-map field-name="systemMessageId"/></relationship>
 
         <index name="SYS_MSG_MSGID"><index-field name="messageId"/></index>
+        <index name="SYS_MSG_RMSGID"><index-field name="remoteMessageId"/></index>
 
         <seed-data>
             <moqui.basic.StatusType description="System Message" statusTypeId="SystemMessage"/>
@@ -248,6 +250,7 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="SmsgConsuming" toStatusId="SmsgCancelled" transitionName="Cancel"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="SmsgConsumed" toStatusId="SmsgCancelled" transitionName="Cancel"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="SmsgError" toStatusId="SmsgCancelled" transitionName="Cancel"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="SmsgRejected" toStatusId="SmsgCancelled" transitionName="Cancel"/>
 
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="SmsgCancelled" toStatusId="SmsgProduced" transitionName="Back to Produced"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="SmsgCancelled" toStatusId="SmsgReceived" transitionName="Back to Received"/>
@@ -278,12 +281,31 @@ along with this software (see the LICENSE.md file). If not, see
             If not specified receive#IncomingSystemMessage just saves the message directly.
             When applicable, used by the send service as the service on the remote server to call to receive the message.</description></field>
         <field name="contentType" type="text-short"/>
+        <field name="receivePath" type="text-medium"><description>Where to look for files on a remote server, syntax is implementation specific</description></field>
+        <field name="receiveFilePattern" type="text-medium"><description>Regular expression to match filenames in receivePath (optional)</description></field>
+        <field name="receiveResponseEnumId" type="id"/>
+        <field name="receiveMovePath" type="text-medium"><description>After successful receive move file to this path if receiveResponseEnumId = MsgRrMove</description></field>
+        <field name="sendPath" type="text-medium"><description>Where to put files on a remote server, syntax is implementation
+            specific and may include both path and a filename pattern</description></field>
+
+        <relationship type="one" title="MessageReceiveResponse" related="moqui.basic.Enumeration" short-alias="receiveResponseEnum">
+            <key-map field-name="receiveResponseEnumId"/></relationship>
+
+        <seed-data>
+            <moqui.basic.EnumerationType description="Message Receive Response" enumTypeId="MessageReceiveResponse"/>
+            <moqui.basic.Enumeration enumId="MsgRrNone" description="None" enumTypeId="MessageReceiveResponse"/>
+            <moqui.basic.Enumeration enumId="MsgRrDelete" description="Delete" enumTypeId="MessageReceiveResponse"/>
+            <moqui.basic.Enumeration enumId="MsgRrMove" description="Move" enumTypeId="MessageReceiveResponse"/>
+        </seed-data>
     </entity>
     <entity entity-name="SystemMessageRemote" package="moqui.service.message" use="configuration" cache="true">
         <field name="systemMessageRemoteId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
         <field name="sendUrl" type="text-medium"/>
         <field name="receiveUrl" type="text-medium"/>
+        <field name="remoteCharset" type="text-short"/>
+        <field name="remoteAttributes" type="text-indicator"><description>May be useful for other transports, for SFTP servers
+            that do not support setting file attributes after put/upload set to N</description></field>
         <field name="sendServiceName" type="text-medium"><description>Override for SystemMessageType.sendServiceName</description></field>
         <field name="username" type="text-medium"><description>
             Username for basic auth when sending to the remote system.
@@ -295,6 +317,10 @@ along with this software (see the LICENSE.md file). If not, see
         </description></field>
         <field name="password" type="text-medium" encrypt="true">
             <description>Username for basic auth when sending to the remote system.</description></field>
+        <field name="publicKey" type="text-long">
+            <description>Public Key for key based authentication, generally RSA PEM format</description></field>
+        <field name="privateKey" type="text-long" encrypt="true">
+            <description>Private Key for key based authentication, generally RSA PEM PKCS #8 format like OpenSSH</description></field>
         <!-- potential future use, restrict receive message: <field name="authorizedIpAddresses" type="text-medium"/> -->
         <field name="sharedSecret" type="text-medium" encrypt="true"><description>Shared secret for auth on receive and/or sign on send.</description></field>
         <field name="sendSharedSecret" type="text-medium" encrypt="true"><description>Shared secret for auth on send if different from secret used to authorize on receive.</description></field>

@@ -48,6 +48,7 @@
     <component name="moqui-hazelcast" group="moqui" version="1.1.0" branch="master"/>
     <component name="moqui-kie" group="moqui" version="1.0.2" branch="master"/>
     <component name="moqui-orientdb" group="moqui" version="1.0.2" branch="master"/>
+    <component name="moqui-sftp" group="moqui" version="" branch="master"/><!-- no releases yet -->
     <component name="moqui-wikitext" group="moqui" version="1.0.1" branch="master"/>
 
     <component name="moqui-atomikos" group="moqui" version="1.0.0" branch="master"/><!-- not actively maintained -->
@@ -62,6 +63,7 @@
     <component name="mantle-shippo" group="moqui" version="1.1.0" branch="master"/>
 
     <component name="mantle-braintree" group="moqui" version="" branch="master"/><!-- no releases yet -->
+    <component name="mantle-rsis" group="moqui" version="" branch="master"/><!-- no releases yet -->
     <component name="mantle-yotpo" group="moqui" version="" branch="master"/><!-- no releases yet -->
 
     <component name="mantle-ubpl" group="moqui" version="" branch="master"/><!-- no releases -->
