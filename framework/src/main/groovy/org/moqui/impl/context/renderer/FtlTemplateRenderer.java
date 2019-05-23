@@ -13,6 +13,8 @@
  */
 package org.moqui.impl.context.renderer;
 
+import freemarker.cache.NullCacheStorage;
+import freemarker.cache.TemplateLoader;
 import freemarker.core.Environment;
 import freemarker.core.InvalidReferenceException;
 import freemarker.ext.beans.BeansWrapper;
@@ -37,7 +39,7 @@ import java.util.Locale;
 
 @CompileStatic
 public class FtlTemplateRenderer implements TemplateRenderer {
-    public static final Version FTL_VERSION = Configuration.VERSION_2_3_25;
+    public static final Version FTL_VERSION = Configuration.VERSION_2_3_28;
     private static final Logger logger = LoggerFactory.getLogger(FtlTemplateRenderer.class);
 
     protected ExecutionContextFactoryImpl ecfi;
@@ -94,8 +96,12 @@ public class FtlTemplateRenderer implements TemplateRenderer {
 
         Template newTemplate;
         Reader templateReader = null;
+
+        InputStream is = ecfi.resourceFacade.getLocationStream(location);
+        if (is == null) throw new BaseArtifactException("Template not found at " + location);
+
         try {
-            templateReader = new InputStreamReader(ecfi.resourceFacade.getLocationStream(location), "UTF-8");
+            templateReader = new InputStreamReader(is, "UTF-8");
             newTemplate = new Template(location, templateReader, getFtlConfiguration());
         } catch (Exception e) {
             throw new BaseArtifactException("Error while initializing template at " + location, e);
@@ -118,11 +124,23 @@ public class FtlTemplateRenderer implements TemplateRenderer {
         newConfig.setObjectWrapper(defaultWrapper);
         newConfig.setSharedVariable("Static", defaultWrapper.getStaticModels());
 
-        // not needed, using getTemplate override instead: newConfig.setCacheStorage(new NullCacheStorage())
-        // not needed, using getTemplate override instead: newConfig.setTemplateUpdateDelay(1)
-        // not needed, using getTemplate override instead: newConfig.setTemplateLoader(new MoquiResourceTemplateLoader(ecfi))
-        // not needed, using getTemplate override instead: newConfig.setLocalizedLookup(false)
-
+        /* not needed, using getTemplate override instead:
+        newConfig.setCacheStorage(new NullCacheStorage())
+        newConfig.setTemplateUpdateDelay(1)
+        newConfig.setTemplateLoader(new MoquiTemplateLoader(ecfi))
+        newConfig.setLocalizedLookup(false)
+        */
+        /*
+        String moquiRuntime = System.getProperty("moqui.runtime");
+        if (moquiRuntime != null && !moquiRuntime.isEmpty()) {
+            File runtimeFile = new File(moquiRuntime);
+            try {
+                newConfig.setDirectoryForTemplateLoading(runtimeFile);
+            } catch (Exception e) {
+                logger.error("Error setting FTL template loading directory to " + moquiRuntime, e);
+            }
+        }
+        */
         newConfig.setTemplateExceptionHandler(new MoquiTemplateExceptionHandler());
         newConfig.setLogTemplateExceptions(false);
         newConfig.setWhitespaceStripping(true);
@@ -138,7 +156,7 @@ public class FtlTemplateRenderer implements TemplateRenderer {
         }
 
         @Override
-        public Template getTemplate(final String name, Locale locale, Object customLookupCondition, String encoding,
+        public Template getTemplate(String name, Locale locale, Object customLookupCondition, String encoding,
                                     boolean parseAsFTL, boolean ignoreMissing) throws IOException {
             //return super.getTemplate(name, locale, encoding, parse)
             // NOTE: doing this because template loading behavior with cache/etc not desired and was having issues
@@ -158,6 +176,24 @@ public class FtlTemplateRenderer implements TemplateRenderer {
         public ExecutionContextFactoryImpl getEcfi() { return ecfi; }
         public void setEcfi(ExecutionContextFactoryImpl ecfi) { this.ecfi = ecfi; }
     }
+
+    /*
+    private static class MoquiTemplateLoader implements TemplateLoader {
+        private ExecutionContextFactoryImpl ecfi;
+        MoquiTemplateLoader(ExecutionContextFactoryImpl ecfi) { this.ecfi = ecfi; }
+        @Override public Object findTemplateSource(String name) throws IOException { return ecfi.resourceFacade.getLocationReference(name); }
+        @Override public long getLastModified(Object templateSource) { if (templateSource instanceof ResourceReference) { return ((ResourceReference) templateSource).getLastModified(); } else { return 0; } }
+        @Override public Reader getReader(Object templateSource, String encoding) throws IOException {
+            if (!(templateSource instanceof ResourceReference))
+                throw new IllegalArgumentException("Cannot get Reader, templateSource is not a ResourceReference");
+            ResourceReference rr = (ResourceReference) templateSource;
+            InputStream is = rr.openStream();
+            if (is == null) throw new IOException("Template not found at " + rr.getLocation());
+            return new InputStreamReader(is);
+        }
+        @Override public void closeTemplateSource(Object templateSource) throws IOException { }
+    }
+    */
 
     private static class MoquiTemplateExceptionHandler implements TemplateExceptionHandler {
         public void handleTemplateException(final TemplateException te, Environment env, Writer out) throws TemplateException {
