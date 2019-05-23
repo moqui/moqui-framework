@@ -77,7 +77,7 @@ class FtlMarkdownTemplateRenderer implements TemplateRenderer {
             String mdText = pdp.markdownToHtml(ecfi.resourceFacade.getLocationText(location, false))
             */
 
-            com.vladsch.flexmark.ast.Node document = MarkdownTemplateRenderer.PARSER.parse(ecfi.resourceFacade.getLocationText(location, false))
+            com.vladsch.flexmark.util.ast.Node document = MarkdownTemplateRenderer.PARSER.parse(ecfi.resourceFacade.getLocationText(location, false))
             String mdText = MarkdownTemplateRenderer.RENDERER.render(document)
 
             // logger.warn("======== .md.ftl post-markdown text: ${mdText}")

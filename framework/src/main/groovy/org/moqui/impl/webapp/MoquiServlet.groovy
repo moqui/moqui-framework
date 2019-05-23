@@ -64,6 +64,46 @@ class MoquiServlet extends HttpServlet {
             return
         }
 
+        // handle CORS actual and preflight request headers
+        ExecutionContextFactoryImpl.WebappInfo webappInfo = ecfi.getWebappInfo(webappName)
+        String originHeader = request.getHeader("Origin")
+        if (originHeader != null && !originHeader.isEmpty() && webappInfo != null &&
+                !"false".equals(webappInfo.webappNode.attribute("handle-cors"))) {
+
+            // generate Access-Control-Allow-Origin based on Origin, if allowed
+            Set<String> allowOriginSet = webappInfo.allowOriginSet
+            int originSepIdx = originHeader.indexOf("://")
+            String originDomain = originSepIdx > 0 ? originHeader.substring(originSepIdx + 3) : originHeader
+            int originDomColonIdx = originDomain.indexOf(":")
+            if (originDomColonIdx > 0) originDomain = originDomain.substring(0, originDomColonIdx)
+            // if * allowed or Origin domain matches request domain always allow (same origin)
+            String serverName = request.getServerName()
+            URL requestUrl = new URL(request.getRequestURL().toString())
+            String hostName = requestUrl.getHost()
+            if (allowOriginSet.contains("*") || originDomain == serverName || originDomain == hostName) {
+                response.setHeader("Access-Control-Allow-Origin", originHeader)
+            } else {
+                if (allowOriginSet.contains(originHeader) || allowOriginSet.contains(originDomain)) {
+                    response.setHeader("Access-Control-Allow-Origin", originHeader)
+                } else {
+                    logger.warn("Returning 401, Origin ${originHeader} not allowed for configuration ${allowOriginSet} or server name ${serverName} or request host ${hostName}")
+                    // Origin not allowed, send 401 response
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Origin not allowed")
+                    return
+                }
+            }
+
+            String acRequestMethod = request.getHeader("Access-Control-Request-Method")
+            if ("OPTIONS".equals(request.getMethod()) && acRequestMethod != null && !acRequestMethod.isEmpty()) {
+                // String acRequestHeaders = request.getHeader("Access-Control-Request-Headers")
+                webappInfo.addHeaders("cors-preflight", response)
+                response.setStatus(HttpServletResponse.SC_OK)
+                return
+            } else {
+                webappInfo.addHeaders("cors-actual", response)
+            }
+        }
+
         if (!request.characterEncoding) request.setCharacterEncoding("UTF-8")
         long startTime = System.currentTimeMillis()
 
@@ -143,6 +183,14 @@ class MoquiServlet extends HttpServlet {
             // make sure everything is cleaned up
             ec.destroy()
         }
+
+        /* definitely don't want this normally, but uncomment to help debug session attribute issues:
+        logger.warn("Thread ClassLoader ${Thread.currentThread().getContextClassLoader()?.getClass()?.getName()}")
+        for (String name in ec.web.session.getAttributeNames()) {
+            Object value = ec.web.session.getAttribute(name)
+            logger.warn("Session attr " + name + "(" + (value != null ? value.getClass().getName() : "") + ":" + (value != null && value.getClass().getClassLoader() != null ? value.getClass().getClassLoader().getClass().getName() : "") + ")" + " value: " + value)
+        }
+        */
     }
 
     static void sendErrorResponse(HttpServletRequest request, HttpServletResponse response, int errorCode, String errorType,

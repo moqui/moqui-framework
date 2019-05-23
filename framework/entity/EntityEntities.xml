@@ -35,6 +35,8 @@ along with this software (see the LICENSE.md file). If not, see
         <!-- index for common query looking for changes to a certain field on a certain entity -->
         <index name="ENTAUDLOG_FLD1PK"><index-field name="changedEntityName"/><index-field name="changedFieldName"/>
             <index-field name="pkPrimaryValue"/></index>
+        <index name="ENTAUDLOG_ENTPKPR"><index-field name="changedEntityName"/><index-field name="pkPrimaryValue"/></index>
+        <index name="ENTAUDLOG_PKPRIM"><index-field name="pkPrimaryValue"/></index>
     </entity>
 
     <entity entity-name="SequenceValueItem" package="moqui.entity" use="transactional" cache="never">

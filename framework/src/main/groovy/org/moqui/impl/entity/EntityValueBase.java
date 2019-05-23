@@ -179,6 +179,13 @@ public abstract class EntityValueBase implements EntityValue {
             theMap.put(fieldInfo.name, fieldValue);
         }
 
+        if (ed.isViewEntity) {
+            Map<String, MNode> pqExpressionNodeMap = ed.getPqExpressionNodeMap();
+            if (pqExpressionNodeMap != null) for (String fieldName : pqExpressionNodeMap.keySet()) {
+                theMap.put(fieldName, get(fieldName));
+            }
+        }
+
         return theMap;
     }
 
@@ -187,23 +194,35 @@ public abstract class EntityValueBase implements EntityValue {
         EntityDefinition ed = getEntityDefinition();
 
         FieldInfo fieldInfo = ed.getFieldInfo(name);
-        if (fieldInfo != null) {
-            return getKnownField(fieldInfo);
-        } else {
-            // if this is not a valid field name but is a valid relationship name, do a getRelated or getRelatedOne to return an EntityList or an EntityValue
-            EntityJavaUtil.RelationshipInfo relInfo = ed.getRelationshipInfo(name);
-            // logger.warn("====== get related relInfo: ${relInfo}")
-            if (relInfo != null) {
-                if (relInfo.isTypeOne) {
-                    return this.findRelatedOne(name, null, null);
-                } else {
-                    return this.findRelated(name, null, null, null, null);
-                }
+        if (fieldInfo != null) return getKnownField(fieldInfo);
+
+        // if this is not a valid field name but is a valid relationship name, do a getRelated or getRelatedOne to return an EntityList or an EntityValue
+        EntityJavaUtil.RelationshipInfo relInfo = ed.getRelationshipInfo(name);
+        // logger.warn("====== get related relInfo: ${relInfo}")
+        if (relInfo != null) {
+            if (relInfo.isTypeOne) {
+                return this.findRelatedOne(name, null, null);
             } else {
-                // logger.warn("========== relInfo Map keys: ${ed.getRelationshipInfoMap().keySet()}, relInfoList: ${ed.getRelationshipsInfo(false)}")
-                throw new EntityException("The name [" + name + "] is not a valid field name or relationship name for entity [" + entityName + "]");
+                return this.findRelated(name, null, null, null, null);
             }
         }
+
+        // special case, see if this is a alias with a pq-expression, if so evaluate
+        if (ed.isViewEntity) {
+            MNode pqExprNode = ed.getPqExpressionNode(name);
+            if (pqExprNode != null) {
+                String pqExpression = pqExprNode.attribute("pq-expression");
+                try {
+                    EntityFacadeImpl efi = getEntityFacadeImpl();
+                    return efi.ecfi.resourceFacade.expression(pqExpression, null, valueMapInternal);
+                } catch (Throwable t) {
+                    throw new EntityException("Error evaluating pq-expression for " + entityName + "." + name, t);
+                }
+            }
+        }
+
+        // logger.warn("========== relInfo Map keys: ${ed.getRelationshipInfoMap().keySet()}, relInfoList: ${ed.getRelationshipsInfo(false)}")
+        throw new EntityException("The name [" + name + "] is not a valid field name or relationship name for entity " + entityName);
     }
 
     private Object getKnownField(FieldInfo fieldInfo) {
