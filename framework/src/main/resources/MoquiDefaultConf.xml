@@ -401,8 +401,8 @@
         <dictionary-type type="number-decimal" java-type="java.math.BigDecimal" default-sql-type="NUMERIC(26,6)"/>
         <dictionary-type type="number-float" java-type="java.lang.Double" default-sql-type="DOUBLE"/>
 
-        <dictionary-type type="currency-amount" java-type="java.math.BigDecimal" default-sql-type="NUMERIC(22,2)"/>
-        <dictionary-type type="currency-precise" java-type="java.math.BigDecimal" default-sql-type="NUMERIC(23,3)"/>
+        <dictionary-type type="currency-amount" java-type="java.math.BigDecimal" default-sql-type="NUMERIC(24,4)"/>
+        <dictionary-type type="currency-precise" java-type="java.math.BigDecimal" default-sql-type="NUMERIC(25,5)"/>
 
         <dictionary-type type="text-indicator" java-type="java.lang.String" default-sql-type="CHAR(1)"/>
         <dictionary-type type="text-short" java-type="java.lang.String" default-sql-type="VARCHAR(63)"/>
@@ -440,8 +440,8 @@
             <database-type type="number-integer" sql-type="DECIMAL(20,0)"/>
             <database-type type="number-decimal" sql-type="DECIMAL(26,6)"/>
             <database-type type="number-float" sql-type="DECIMAL(30,12)"/>
-            <database-type type="currency-amount" sql-type="DECIMAL(22,2)"/>
-            <database-type type="currency-precise" sql-type="DECIMAL(23,3)"/>
+            <database-type type="currency-amount" sql-type="DECIMAL(24,4)"/>
+            <database-type type="currency-precise" sql-type="DECIMAL(25,5)"/>
 
             <inline-jdbc><xa-properties driverType="4" serverName="${entity_ds_host}" portNumber="${entity_ds_port?:'50000'}"
                     databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
@@ -456,8 +456,8 @@
             <database-type type="number-integer" sql-type="DECIMAL(20,0)"/>
             <database-type type="number-decimal" sql-type="DECIMAL(26,6)"/>
             <database-type type="number-float" sql-type="DECIMAL(30,12)"/>
-            <database-type type="currency-amount" sql-type="DECIMAL(22,2)"/>
-            <database-type type="currency-precise" sql-type="DECIMAL(23,3)"/>
+            <database-type type="currency-amount" sql-type="DECIMAL(24,4)"/>
+            <database-type type="currency-precise" sql-type="DECIMAL(25,5)"/>
 
             <inline-jdbc><xa-properties serverName="${entity_ds_host}" databaseName="${entity_ds_database}"
                     user="${entity_ds_user}" password="${entity_ds_password}" cursorHold="false" threadUsed="false"/></inline-jdbc>
@@ -543,8 +543,8 @@
             <database-type type="number-decimal" sql-type="DECIMAL(26,6)"/>
             <database-type type="number-float" sql-type="DECIMAL(32,12)"/>
 
-            <database-type type="currency-amount" sql-type="DECIMAL(22,2)"/>
-            <database-type type="currency-precise" sql-type="DECIMAL(23,3)"/>
+            <database-type type="currency-amount" sql-type="DECIMAL(24,4)"/>
+            <database-type type="currency-precise" sql-type="DECIMAL(25,5)"/>
 
             <database-type type="text-indicator" sql-type="CHAR(1)"/>
             <database-type type="text-short" sql-type="NVARCHAR(63)"/>
@@ -590,8 +590,8 @@
             <database-type type="number-decimal" sql-type="DECIMAL(26,6)"/>
             <database-type type="number-float" sql-type="DECIMAL(32,12)"/>
 
-            <database-type type="currency-amount" sql-type="DECIMAL(22,2)"/>
-            <database-type type="currency-precise" sql-type="DECIMAL(23,3)"/>
+            <database-type type="currency-amount" sql-type="DECIMAL(24,4)"/>
+            <database-type type="currency-precise" sql-type="DECIMAL(25,5)"/>
 
             <database-type type="text-very-long" sql-type="LONGTEXT"/>
             <database-type type="binary-very-long" sql-type="LONGBLOB"/>
@@ -613,8 +613,8 @@
             <database-type type="number-decimal" sql-type="DECIMAL(26,6)"/>
             <database-type type="number-float" sql-type="DECIMAL(32,12)"/>
 
-            <database-type type="currency-amount" sql-type="DECIMAL(22,2)"/>
-            <database-type type="currency-precise" sql-type="DECIMAL(23,3)"/>
+            <database-type type="currency-amount" sql-type="DECIMAL(24,4)"/>
+            <database-type type="currency-precise" sql-type="DECIMAL(25,5)"/>
 
             <database-type type="text-very-long" sql-type="LONGTEXT"/>
             <database-type type="binary-very-long" sql-type="LONGBLOB"/>
@@ -645,8 +645,8 @@
             <database-type type="number-decimal" sql-type="NUMBER(26,6)"/>
             <database-type type="number-float" sql-type="NUMBER(32,12)"/>
 
-            <database-type type="currency-amount" sql-type="NUMBER(22,2)"/>
-            <database-type type="currency-precise" sql-type="NUMBER(23,3)"/>
+            <database-type type="currency-amount" sql-type="NUMBER(24,4)"/>
+            <database-type type="currency-precise" sql-type="NUMBER(25,5)"/>
 
             <database-type type="text-short" sql-type="VARCHAR2(10)"/>
             <database-type type="text-medium" sql-type="VARCHAR2(255)"/>
