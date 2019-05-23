@@ -197,6 +197,8 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="imageTypeId"/></relationship>
         <relationship type="many" related="moqui.server.instance.InstanceImageTypeVolume" short-alias="vols">
             <key-map field-name="imageTypeId"/></relationship>
+        <relationship type="many" related="moqui.server.instance.InstanceImageTypeHostConfig" short-alias="hostConfigs">
+            <key-map field-name="imageTypeId"/></relationship>
 
         <seed-data>
             <!-- matches configuration in nginx-mysql-compose.yml -->
@@ -258,6 +260,13 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="imageTypeId" type="id" is-pk="true"/>
         <field name="mountPoint" type="text-medium" is-pk="true"/>
         <field name="volumeName" type="text-medium"/>
+        <relationship type="one" related="moqui.server.instance.InstanceImageType"/>
+    </entity>
+    <entity entity-name="InstanceImageTypeHostConfig" package="moqui.server.instance" use="configuration">
+        <field name="imageTypeId" type="id" is-pk="true"/>
+        <field name="hostConfigName" type="text-medium" is-pk="true"/>
+        <field name="hostConfigValue" type="text-medium"/>
+        <field name="type" type="text-short"/>
         <relationship type="one" related="moqui.server.instance.InstanceImageType"/>
     </entity>
     <view-entity entity-name="InstanceImageDetail" package="moqui.server.instance">
@@ -329,6 +338,8 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="appInstanceId"/></relationship>
         <relationship type="many" related="moqui.server.instance.AppInstanceVolume" short-alias="vols">
             <key-map field-name="appInstanceId"/></relationship>
+        <relationship type="many" related="moqui.server.instance.AppInstanceHostConfig" short-alias="hostConfigs">
+            <key-map field-name="appInstanceId"/></relationship>
     </entity>
     <entity entity-name="AppInstanceEnv" package="moqui.server.instance" use="configuration">
         <field name="appInstanceId" type="id" is-pk="true"/>
@@ -346,6 +357,13 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="appInstanceId" type="id" is-pk="true"/>
         <field name="mountPoint" type="text-medium" is-pk="true"/>
         <field name="volumeName" type="text-medium"/>
+        <relationship type="one" related="moqui.server.instance.AppInstance"/>
+    </entity>
+    <entity entity-name="AppInstanceHostConfig" package="moqui.server.instance" use="configuration">
+        <field name="appInstanceId" type="id" is-pk="true"/>
+        <field name="hostConfigName" type="text-medium" is-pk="true"/>
+        <field name="hostConfigValue" type="text-medium"/>
+        <field name="type" type="text-short"/>
         <relationship type="one" related="moqui.server.instance.AppInstance"/>
     </entity>
 </entities>
