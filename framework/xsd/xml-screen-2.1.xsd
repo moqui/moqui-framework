@@ -709,6 +709,7 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/>
         <xs:attribute name="id" type="xs:string" use="required"/>
         <xs:attribute name="button-text" type="xs:string" use="required"/>
+        <xs:attribute name="title" type="xs:string"/>
         <xs:attribute name="width" type="xs:string" default="760"/>
         <xs:attribute name="height" type="xs:string" default="600"/>
         <xs:attribute name="condition" type="xs:string"/>
