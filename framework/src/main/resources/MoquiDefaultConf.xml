@@ -180,12 +180,12 @@
             <response-header type="cors-actual" name="Vary" value="Origin"/>
             <response-header type="cors-actual" name="Access-Control-Allow-Credentials" value="true"/>
             <response-header type="cors-actual" name="Access-Control-Expose-Headers"
-                    value="Access-Control-Allow-Origin,Access-Control-Allow-Credentials,X-CSRF-Token"/>
+                    value="Access-Control-Allow-Origin,Access-Control-Allow-Credentials,X-CSRF-Token,moquiSessionToken"/>
             <response-header type="cors-preflight" name="Vary" value="Origin"/>
             <response-header type="cors-preflight" name="Access-Control-Allow-Credentials" value="true"/>
             <!-- doesn't seem these are needed, allowed by default: ,Authorization,Referrer,User-Agent -->
             <response-header type="cors-preflight" name="Access-Control-Allow-Headers"
-                    value="Accept,Accept-Encoding,Content-Type,Content-Encoding,Origin,X-Requested-With,Access-Control-Request-Method,Access-Control-Request-Headers,api_key,login_key,X-HTTP-Method-Override,moquiSessionToken,SessionToken,X-CSRF-Token"/>
+                    value="Accept,Accept-Encoding,Content-Type,Content-Encoding,Origin,X-Requested-With,Access-Control-Request-Method,Access-Control-Request-Headers,api_key,login_key,X-HTTP-Method-Override,moquiSessionToken,SessionToken,X-CSRF-Token,Authorization"/>
             <!-- TODO: would be nice to handle this differently, ie dynamically based on preflight request path -->
             <response-header type="cors-preflight" name="Access-Control-Allow-Methods" value="GET,PUT,POST,PATCH,DELETE,OPTIONS"/>
             <response-header type="cors-preflight" name="Access-Control-Max-Age" value="3600"/>
