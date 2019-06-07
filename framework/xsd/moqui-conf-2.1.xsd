@@ -870,6 +870,8 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:element name="component">
         <xs:complexType>
             <xs:sequence>
+                <xs:element ref="after" minOccurs="0" maxOccurs="unbounded"/>
+                <xs:element ref="before" minOccurs="0" maxOccurs="unbounded"/>
                 <xs:element ref="depends-on" minOccurs="0" maxOccurs="unbounded"/>
             </xs:sequence>
             <xs:attribute name="name" type="xs:string" use="optional"/>
@@ -884,6 +886,16 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:complexType>
             <xs:attribute name="name" type="xs:string" use="required"/>
             <xs:attribute name="version" type="xs:string" use="optional"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="after">
+        <xs:complexType>
+            <xs:attribute name="name" type="xs:string" use="required"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="before">
+        <xs:complexType>
+            <xs:attribute name="name" type="xs:string" use="required"/>
         </xs:complexType>
     </xs:element>
 </xs:schema>

@@ -1101,42 +1101,72 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // we have an issue here where not all dependencies are declared, most are implied by component load order
         // because of this not doing a full topological sort, just a single pass with dependencies inserted as needed
 
-        ArrayList<String> sortedNames = new ArrayList<>()
-        for (ComponentInfo componentInfo in componentInfoMap.values()) {
-            // for each dependsOn make sure component is valid, add to the list if not already there
-            // given a close starting sort order this should get us to a pretty good list
-            for (String dependsOnName in componentInfo.getRecursiveDependencies())
-                if (!sortedNames.contains(dependsOnName)) sortedNames.add(dependsOnName)
-
-            if (!sortedNames.contains(componentInfo.name)) sortedNames.add(componentInfo.name)
-        }
-
-        logger.info("Components after depends-on sort: ${sortedNames}")
-
-        // see if all dependencies are met
-        List<String> messages = []
-        for (int i = 0; i < sortedNames.size(); i++) {
-            String name = sortedNames.get(i)
-            ComponentInfo componentInfo = componentInfoMap.get(name)
-            for (String dependsOnName in componentInfo.dependsOnNames) {
-                int dependsOnIndex = sortedNames.indexOf(dependsOnName)
-                if (dependsOnIndex > i)
-                    messages.add("Broken dependency order after initial pass: [${dependsOnName}] is after [${name}]".toString())
+        LinkedHashMap<String, ComponentInfo> newMap = new LinkedHashMap<String, ComponentInfo>()
+        List<ComponentInfo> componentInfos = componentInfoMap.values() as List
+        while (!componentInfos.isEmpty()) {
+            boolean madeProgress = false
+            for (int i = 0; i < componentInfos.size(); ) {
+                ComponentInfo componentInfo = componentInfos[i]
+                if (newMap.keySet().containsAll(componentInfo.afterNames)) {
+                    // all depends are processed, can add
+                } else {
+                    // try again later on subsequent passes
+                    i++
+                    continue
+                }
+                if (!componentInfo.beforeNames.isEmpty()) {
+                    // this component needs to come before something, check to see
+                    // if those before items have already been proccessed
+                    Iterator<ComponentInfo> newValuesIt = newMap.values().iterator()
+                    while (newValuesIt.hasNext()) {
+                        ComponentInfo processedComponent = newValuesIt.next()
+                        if (componentInfo.beforeNames.contains(processedComponent.name)) {
+                            // Found a before item already processed, remove it, add it
+                            // back to the end of the queue
+                            newValuesIt.remove()
+                            componentInfos.add(processedComponent)
+                            break
+                        }
+                    }
+                    // If the above loop was aborted early, that means that something
+                    // was found on the before list.  To keep a stable load-order, remove
+                    // all following items, and also place them back onto the queue.
+                    while (newValuesIt.hasNext()) {
+                        ComponentInfo processedComponent = newValuesIt.next()
+                        newValuesIt.remove()
+                        componentInfos.add(processedComponent)
+                    }
+                    if (!newMap.keySet().containsAll(componentInfo.afterNames)) {
+                        String message = "Component ${componentInfo.name} as a before and after setting that conflict".toString()
+                        logger.error(message)
+                        throw new IllegalArgumentException(message)
+                    }
+                }
+                componentInfos.remove(i)
+                newMap[componentInfo.name] = componentInfo
+                madeProgress = true
+            }
+            if (!madeProgress) {
+                // was not able to find any items to remove from the queue, which means
+                // some of their dependencies have not been met, abort
+                break
             }
         }
 
-        if (messages) {
+        logger.info("Components after depends-on sort: ${newMap.keySet()}")
+
+        // see if all dependencies are met
+        if (!componentInfos.isEmpty()) {
             StringBuilder sb = new StringBuilder()
-            for (String message in messages) {
+            for (ComponentInfo componentInfo: componentInfos) {
+                Set<String> unresolved = new LinkedHashSet<>(componentInfo.dependsOnNames)
+                unresolved.removeAll(newMap.keySet())
+                String message = "Could not resolve dependency order for ${componentInfo.name}: unresolved dependencies [$unresolved]".toString()
                 logger.error(message)
                 sb.append(message).append(" ")
             }
             throw new IllegalArgumentException(sb.toString())
         }
-
-        // now create a new Map and replace the original
-        LinkedHashMap<String, ComponentInfo> newMap = new LinkedHashMap<String, ComponentInfo>()
-        for (String sortedName in sortedNames) newMap.put(sortedName, componentInfoMap.get(sortedName))
         componentInfoMap = newMap
     }
 
@@ -1209,6 +1239,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         Map versionMap = null
         ResourceReference componentRr
         Set<String> dependsOnNames = new LinkedHashSet<String>()
+        Set<String> afterNames = new LinkedHashSet<String>()
+        Set<String> beforeNames = new LinkedHashSet<String>()
         ComponentInfo(String baseLocation, MNode componentNode, ExecutionContextFactoryImpl ecfi) {
             this.ecfi = ecfi
             String curLoc = null
@@ -1291,6 +1323,14 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                 if (versionAttr) version = SystemBinding.expand(versionAttr)
                 if (componentNode.hasChild("depends-on")) for (MNode dependsOnNode in componentNode.children("depends-on"))
                     dependsOnNames.add(dependsOnNode.attribute("name"))
+                if (componentNode.hasChild("after")) {
+                    for (MNode afterNode in componentNode.children("after"))
+                        afterNames.add(afterNode.attribute("name"))
+                } else {
+                    afterNames.addAll(dependsOnNames)
+                }
+                if (componentNode.hasChild("before")) for (MNode beforeNode in componentNode.children("before"))
+                    beforeNames.add(beforeNode.attribute("name"))
             }
 
             ResourceReference versionJsonRr = componentRr.getChild("version.json")
