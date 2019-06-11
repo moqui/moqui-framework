@@ -32,6 +32,7 @@
     <default-property name="entity_ds_crypt_pass" value="MoquiDefaultPassword:CHANGEME"/>
     <default-property name="entity_add_missing_runtime" value=""/>
     <default-property name="entity_add_missing_startup" value=""/>
+    <default-property name="webapp_status_ips" value="127.0.0.1"/>
 
     <tools empty-db-load="seed,seed-initial,install" worker-queue="65535" worker-pool-core="16" worker-pool-max="24" worker-pool-alive="60">
         <tool-factory class="org.moqui.impl.tools.MCacheToolFactory" init-priority="03" disabled="false"/>
