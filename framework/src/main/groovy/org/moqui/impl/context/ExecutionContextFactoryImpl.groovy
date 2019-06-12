@@ -1084,7 +1084,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // we have an issue here where not all dependencies are declared, most are implied by component load order
         // because of this not doing a full topological sort, just a single pass with dependencies inserted as needed
 
-        ArrayList<String> sortedNames = []
+        ArrayList<String> sortedNames = new ArrayList<>()
         for (ComponentInfo componentInfo in componentInfoMap.values()) {
             // for each dependsOn make sure component is valid, add to the list if not already there
             // given a close starting sort order this should get us to a pretty good list
