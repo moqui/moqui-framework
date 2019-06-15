@@ -196,6 +196,11 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
             ExecutionContextImpl threadEci = (ExecutionContextImpl) null
             try {
                 ExecutionContextFactoryImpl ecfi = getEcfi()
+                if (ecfi == null) {
+                    String errMsg = "ExecutionContextFactory not initialized, cannot call service job ${jobName} with run ID ${jobRunId}"
+                    logger.error(errMsg)
+                    throw new IllegalStateException(errMsg)
+                }
                 threadEci = ecfi.getEci()
                 if (threadUsername != null && threadUsername.length() > 0)
                     threadEci.userFacade.internalLoginUser(threadUsername, false)
