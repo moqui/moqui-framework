@@ -172,12 +172,12 @@ ${.node}
         <#if !useCache>
             if (${listName}_xafind.getLimit() == null) {
                 ${listName}Count = ${listName}.size()
-                ${listName}PageIndex = ${listName}.pageIndex
+                ${listName}PageIndex = ${listName}.getPageIndex()
                 ${listName}PageSize = ${listName}Count > 20 ? ${listName}Count : 20
             } else {
-                ${listName}PageIndex = ${listName}_xafind.pageIndex
-                ${listName}PageSize = ${listName}_xafind.pageSize
-                if (${listName}.size() < ${listName}PageSize) { ${listName}Count = ${listName}.size() }
+                ${listName}PageIndex = ${listName}_xafind.getPageIndex()
+                ${listName}PageSize = ${listName}_xafind.getPageSize()
+                if (${listName}.size() < ${listName}PageSize) { ${listName}Count = ${listName}.size() + ${listName}PageIndex * ${listName}PageSize }
                 else { ${listName}Count = ${listName}_xafind.count() }
             }
         </#if>
