@@ -22,20 +22,21 @@ services:
       # note: .crt, .key, and .dhparam.pem files start with the domain name in VIRTUAL_HOST (ie 'moqui.local.*') or use CERT_NAME env var
       - ./certs:/etc/nginx/certs
       - ./nginx/my_proxy.conf:/etc/nginx/conf.d/my_proxy.conf
+      #- ./nginx/my_serv.conf:/etc/nginx/conf.d/my_serv.conf
 
   moqui-database:
     image: postgres:9.6
     container_name: moqui-database
     restart: unless-stopped
     # uncomment this to expose the port for use outside other containers
-    # ports:
+    ports:
      - 127.0.0.1:5432:5432
     volumes:
      # edit these as needed to map configuration and data storage
      - ./db/postgres/data:/var/lib/postgresql/data
     environment:
-     - POSTGRES_DB=moqui
+     - POSTGRES_DB=postgres
      - POSTGRES_DB_SCHEMA=public
-     - POSTGRES_USER=moqui
-     - POSTGRES_PASSWORD=moqui
+     - POSTGRES_USER=postgres
+     - POSTGRES_PASSWORD=postgres
      # PGDATA, POSTGRES_INITDB_ARGS
