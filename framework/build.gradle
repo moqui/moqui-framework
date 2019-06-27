@@ -16,7 +16,7 @@ tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:unchecked" }
 tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:unchecked" }
 // tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:deprecation" }
 
-version = '2.1.2-rc1'
+version = '2.1.2-rc2'
 
 apply plugin: 'groovy'
 apply plugin: 'war'
@@ -67,13 +67,14 @@ dependencies {
     compile project(':moqui-util')
 
     // Groovy
+    // NOTE 2019-06-11 can't update to Groovy 2.5.7: has issue with local field reference within closure in class with CompileStatic
     compile 'org.codehaus.groovy:groovy:2.5.6' // Apache 2.0
     compile 'org.codehaus.groovy:groovy-dateutil:2.5.6' // Apache 2.0
     compile 'org.codehaus.groovy:groovy-json:2.5.6' // Apache 2.0
     compile 'org.codehaus.groovy:groovy-templates:2.5.6' // Apache 2.0
     compile 'org.codehaus.groovy:groovy-xml:2.5.6' // Apache 2.0
     // jansi is needed for groovydoc only, so in providedCompile (not included in war)
-    compileOnly 'org.fusesource.jansi:jansi:1.17.1'
+    compileOnly 'org.fusesource.jansi:jansi:1.18'
     // Findbugs need only during compile (used by freemarker and various moqui classes)
     compileOnly 'com.google.code.findbugs:annotations:3.0.1'
 
@@ -82,12 +83,12 @@ dependencies {
     // Bitronix Transaction Manager (the default internal tx mgr; custom build from source as 3.0.0 not yet released)
     compile 'org.codehaus.btm:btm:3.0.0-SNAPSHOT' // Apache 2.0
     // Bitronix depends on javassist (as does OrientDB, etc; note included here for easier reference, not in framework/lib)
-    compile 'org.javassist:javassist:3.24.1-GA' // Apache 2.0
+    compile 'org.javassist:javassist:3.25.0-GA' // Apache 2.0
 
     // CUPS4J - print through CUPS server
     compile name: 'cups4j', version: '0.6.4' // LGPL <== NOTE!
     // CUPS4J sepends on Apache HTTP Client (unfortunate, adds about 1.1MB)
-    compile 'org.apache.httpcomponents:httpclient:4.5.7'
+    compile 'org.apache.httpcomponents:httpclient:4.5.8'
 
     // ========== Libraries from jcenter ==========
 
@@ -95,7 +96,7 @@ dependencies {
     compile 'org.apache.commons:commons-csv:1.6' // Apache 2.0
     // NOTE: commons-email depends on com.sun.mail:javax.mail, included below
     compile module('org.apache.commons:commons-email:1.5') // Apache 2.0
-    compile 'org.apache.commons:commons-lang3:3.8.1' // Apache 2.0; used by cron-utils
+    compile 'org.apache.commons:commons-lang3:3.9' // Apache 2.0; used by cron-utils
     compile 'commons-beanutils:commons-beanutils:1.9.3' // Apache 2.0
     compile 'commons-collections:commons-collections:3.2.2' // Apache 2.0
     compile 'commons-digester:commons-digester:2.1' // Apache 2.0
@@ -104,12 +105,13 @@ dependencies {
     compile 'commons-logging:commons-logging:1.2' // Apache 2.0
     compile 'commons-validator:commons-validator:1.6' // Apache 2.0
 
-    compile 'com.cronutils:cron-utils:8.0.0' // Apache 2.0
+    // Cron Utils
+    compile 'com.cronutils:cron-utils:8.1.1' // Apache 2.0
 
     // Flexmark (markdown)
-    compile 'com.vladsch.flexmark:flexmark:0.40.22'
-    compile 'com.vladsch.flexmark:flexmark-ext-tables:0.40.22'
-    compile 'com.vladsch.flexmark:flexmark-ext-toc:0.40.22'
+    compile 'com.vladsch.flexmark:flexmark:0.42.12'
+    compile 'com.vladsch.flexmark:flexmark-ext-tables:0.42.12'
+    compile 'com.vladsch.flexmark:flexmark-ext-toc:0.42.12'
 
     // Freemarker
     compile 'org.freemarker:freemarker:2.3.28' // Apache 2.0
@@ -130,31 +132,29 @@ dependencies {
     // compile 'javax.jms:jms:1.1'
 
     // H2 Database
-    // NOTE: update to 1.4.198 causes tests to fail, may be transaction isolation or other sort of issue with new MVStore, or something else entirely
-    // see https://github.com/h2database/h2database/releases http://h2database.com/html/changelog.html
-    compile 'com.h2database:h2:1.4.197' // MPL 2.0, EPL 1.0
+    compile 'com.h2database:h2:1.4.199' // MPL 2.0, EPL 1.0
 
     // Jackson Databind (JSON, etc)
-    compile 'com.fasterxml.jackson.core:jackson-databind:2.9.8'
-    compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:2.9.8'
+    compile 'com.fasterxml.jackson.core:jackson-databind:2.9.9'
+    compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:2.9.9'
 
     // Jetty HTTP Client and Proxy Servlet
-    compile 'org.eclipse.jetty:jetty-client:9.4.15.v20190215' // Apache 2.0
-    compile 'org.eclipse.jetty:jetty-proxy:9.4.15.v20190215' // Apache 2.0
+    compile 'org.eclipse.jetty:jetty-client:9.4.18.v20190429' // Apache 2.0
+    compile 'org.eclipse.jetty:jetty-proxy:9.4.18.v20190429' // Apache 2.0
 
     // javax.mail
     // NOTE: javax.mail depends on 'javax.activation:activation' which is the old package for 'javax.activation:javax.activation-api' used by jaxb-api
     compile module('com.sun.mail:javax.mail:1.6.2') // CDDL
 
     // Joda Time (used by elasticsearch, aws)
-    compile 'joda-time:joda-time:2.10.1' // Apache 2.0
+    compile 'joda-time:joda-time:2.10.2' // Apache 2.0
 
     // JSoup (HTML parser, cleaner)
-    compile 'org.jsoup:jsoup:1.11.3' // MIT
+    compile 'org.jsoup:jsoup:1.12.1' // MIT
 
     // Apache Shiro
-    compile module('org.apache.shiro:shiro-core:1.4.0') // Apache 2.0
-    compile module('org.apache.shiro:shiro-web:1.4.0') // Apache 2.0
+    compile module('org.apache.shiro:shiro-core:1.4.1') // Apache 2.0
+    compile module('org.apache.shiro:shiro-web:1.4.1') // Apache 2.0
 
     // SLF4J, Log4j 2 (note Log4j 2 is used by various libraries, best not to replace it even if mostly possible with SLF4J)
     compile 'org.slf4j:slf4j-api:1.7.26'
@@ -194,16 +194,16 @@ dependencies {
 
     // ========== executable war dependencies ==========
     // Jetty
-    execWarRuntime 'org.eclipse.jetty:jetty-server:9.4.15.v20190215' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.4.15.v20190215' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.4.15.v20190215' // Apache 2.0
-    execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.4.15.v20190215') // Apache 2.0
-    execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.4.15.v20190215') { // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-server:9.4.18.v20190429' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.4.18.v20190429' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.4.18.v20190429' // Apache 2.0
+    execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.4.18.v20190429') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.4.18.v20190429') { // Apache 2.0
         exclude group: 'javax.websocket' } // we have the full websocket API, including the client one causes problems
     execWarRuntime 'javax.websocket:javax.websocket-api:1.0' // using 1.0, don't update to 1.1 until used in Jetty, Tomcat, etc
-    execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.4.15.v20190215') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.4.18.v20190429') // Apache 2.0
     // only include this if using Endpoint and MessageHandler annotations:
-    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:9.4.15.v20190215') // Apache 2.0
+    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:9.4.18.v20190429') // Apache 2.0
 }
 
 // setup task dependencies to make sure the start sourceSets always get run

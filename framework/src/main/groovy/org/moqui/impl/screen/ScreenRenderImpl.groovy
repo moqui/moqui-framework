@@ -326,7 +326,9 @@ class ScreenRenderImpl implements ScreenRender {
                         !"true".equals(request.getAttribute("moqui.session.token.created")) &&
                         !"true".equals(request.getAttribute("moqui.request.authenticated"))) {
                     String passedToken = (String) ec.web.getParameters().get("moquiSessionToken")
-                    if (!passedToken) passedToken = request.getHeader("moquiSessionToken") ?: request.getHeader("SessionToken")
+                    if (!passedToken) passedToken = request.getHeader("moquiSessionToken") ?:
+                            request.getHeader("SessionToken") ?: request.getHeader("X-CSRF-Token")
+
                     String curToken = ec.web.getSessionToken()
                     if (curToken != null && curToken.length() > 0) {
                         if (passedToken == null || passedToken.length() == 0) {
@@ -1874,7 +1876,7 @@ class ScreenRenderImpl implements ScreenRender {
 
         if (extraPathList != null) {
             int extraPathListSize = extraPathList.size()
-            for (int i = 0; i < extraPathListSize; i++) extraPathList.set(i, StringUtilities.urlEncodeIfNeeded(extraPathList.get(i)))
+            for (int i = 0; i < extraPathListSize; i++) extraPathList.set(i, StringUtilities.urlEncodeIfNeeded((String) extraPathList.get(i)))
         }
         Map lastMap = [name:lastPathItem, title:lastTitle, path:lastPath, pathWithParams:currentPath.toString(), image:lastImage,
                 extraPathList:extraPathList, screenDocList:screenDocList, renderModes:fullUrlInfo.targetScreen.renderModes]
