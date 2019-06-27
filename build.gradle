@@ -282,8 +282,9 @@ task gitDiffTagsAll {
     doLast {
         if (!project.hasProperty('taga') || taga == null) 
             throw new InvalidUserDataException("No taga property specified (use -Ptaga=...)")
-        if (!project.hasProperty('tagb') || tagb == null) 
-            throw new InvalidUserDataException("No tagb property specified (use -Ptagb=...)")
+
+        // If tagb is not passed, we assume HEAD
+        def tagb = (project.hasProperty('tagb') && tagb != null) ? tagb : "HEAD";
 
         logger.lifecycle("== Git diffing tags ${taga} and ${tagb}")
 
