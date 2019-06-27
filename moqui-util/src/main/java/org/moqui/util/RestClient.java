@@ -272,8 +272,7 @@ public class RestClient {
     }
 
     protected HttpClient makeStartHttpClient() {
-        SslContextFactory sslContextFactory = new SslContextFactory();
-        sslContextFactory.setTrustAll(true);
+        SslContextFactory sslContextFactory = new SslContextFactory.Client(true);
         HttpClient httpClient = new HttpClient(sslContextFactory);
         try { httpClient.start(); } catch (Exception e) { throw new BaseException("Error starting HTTP client", e); }
         return httpClient;
@@ -303,13 +302,13 @@ public class RestClient {
             }
         } else if (bodyText != null && !bodyText.isEmpty()) {
             request.content(new StringContentProvider(contentType, bodyText, charset), contentType);
-            request.header(HttpHeader.CONTENT_TYPE, contentType);
+            // not needed, set by call to request.content() with passed contentType: request.header(HttpHeader.CONTENT_TYPE, contentType);
         }
 
         request.accept(contentType);
 
         if (logger.isTraceEnabled())
-            logger.trace("RestClient request " + request.getMethod() + " " + String.valueOf(request.getURI()) + " Headers: " + String.valueOf(request.getHeaders()));
+            logger.trace("RestClient request " + request.getMethod() + " " + request.getURI() + " Headers: " + request.getHeaders());
 
         return request;
     }
