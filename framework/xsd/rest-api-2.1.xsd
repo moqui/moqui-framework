@@ -72,7 +72,13 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:element name="entity">
         <xs:complexType>
             <xs:attribute name="name" type="xs:string" use="required"/>
-            <xs:attribute name="masterName" type="xs:string"/>
+            <xs:attribute name="masterName" type="xs:string">
+                <xs:annotation><xs:documentation>
+                    Name of the master definition applicable. There can be more than one
+                    master definition. It is defined along with the entity definition.
+                    Each master definition represents specific structure of the entity.
+                </xs:documentation></xs:annotation>
+            </xs:attribute>
             <xs:attribute name="operation" use="required">
                 <xs:simpleType>
                     <xs:restriction base="xs:token">
