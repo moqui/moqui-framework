@@ -88,12 +88,12 @@ dependencies {
     // CUPS4J - print through CUPS server
     compile name: 'cups4j', version: '0.6.4' // LGPL <== NOTE!
     // CUPS4J sepends on Apache HTTP Client (unfortunate, adds about 1.1MB)
-    compile 'org.apache.httpcomponents:httpclient:4.5.8'
+    compile 'org.apache.httpcomponents:httpclient:4.5.9'
 
     // ========== Libraries from jcenter ==========
 
     // Apache Commons
-    compile 'org.apache.commons:commons-csv:1.6' // Apache 2.0
+    compile 'org.apache.commons:commons-csv:1.7' // Apache 2.0
     // NOTE: commons-email depends on com.sun.mail:javax.mail, included below
     compile module('org.apache.commons:commons-email:1.5') // Apache 2.0
     compile 'org.apache.commons:commons-lang3:3.9' // Apache 2.0; used by cron-utils
@@ -194,6 +194,7 @@ dependencies {
 
     // ========== executable war dependencies ==========
     // Jetty
+    // NOTE: update to version 9.4.19.v20190610 results in 'URI is not hierarchical' error, they must have yet again changed their classpath logic
     execWarRuntime 'org.eclipse.jetty:jetty-server:9.4.18.v20190429' // Apache 2.0
     execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.4.18.v20190429' // Apache 2.0
     execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.4.18.v20190429' // Apache 2.0
