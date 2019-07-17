@@ -89,6 +89,8 @@ dependencies {
     compile name: 'cups4j', version: '0.6.4' // LGPL <== NOTE!
     // CUPS4J sepends on Apache HTTP Client (unfortunate, adds about 1.1MB)
     compile 'org.apache.httpcomponents:httpclient:4.5.9'
+    // Apache httpclient depends on commons-codec, but an older version with a security vulnerability
+    compile 'commons-codec:commons-codec:1.12'
 
     // ========== Libraries from jcenter ==========
 
