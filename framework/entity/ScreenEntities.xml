@@ -109,6 +109,7 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Footer Item" enumId="STRT_FOOTER_ITEM" enumTypeId="ScreenThemeResourceType"/>
             <moqui.basic.Enumeration description="HTML Body CSS Class" enumId="STRT_BODY_CLASS" enumTypeId="ScreenThemeResourceType"/>
             <moqui.basic.Enumeration description="Theme Preview Screenshot" enumId="STRT_SCREENSHOT" enumTypeId="ScreenThemeResourceType"/>
+            <moqui.basic.Enumeration description="Shortcut Icon Resource Location" enumId="STRT_SHORTCUT_ICON_LOCATION" enumTypeId="ScreenThemeResourceType"/>
         </seed-data>
     </entity>
     <entity entity-name="ScreenThemeIcon" package="moqui.screen" use="configuration" cache="true">
