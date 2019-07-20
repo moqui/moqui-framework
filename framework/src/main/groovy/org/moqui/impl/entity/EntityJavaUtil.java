@@ -91,6 +91,7 @@ public class EntityJavaUtil {
             byte[] outBytes = pbeCipher.doFinal(inBytes);
             return encrypt ? DatatypeConverter.printHexBinary(outBytes) : new String(outBytes);
         } catch (Exception e) {
+            // logger.warn("crypt-pass " + pwStr + " salt " + saltStr + " algo " + algo + " count " + count);
             throw new EntityException("Encryption error", e);
         }
     }

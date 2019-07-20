@@ -252,6 +252,8 @@ along with this software (see the LICENSE.md file). If not, see
                         <xs:enumeration value="screen-render"/>
                         <xs:enumeration value="screen-secure"/>
                         <xs:enumeration value="screen-server-static"/>
+                        <xs:enumeration value="cors-actual"/>
+                        <xs:enumeration value="cors-preflight"/>
                     </xs:restriction></xs:simpleType></xs:attribute>
                     <xs:attribute name="name" type="xs:string" use="required"/>
                     <xs:attribute name="value" type="xs:string" use="required"/>
@@ -264,6 +266,11 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="https-host" type="xs:string"/>
             <xs:attribute name="http-port" type="xs:string"/>
             <xs:attribute name="http-host" type="xs:string"/>
+            <xs:attribute name="handle-cors" type="boolean" default="true"><xs:annotation><xs:documentation>
+                Set to false to disable CORS handling globally in MoquiServlet including Origin validation and adding cors-preflight and cors-actual configured response headers
+            </xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="allow-origins" type="xs:string"><xs:annotation><xs:documentation>
+                Comma separated list of host name or protocol plus host name to match against Origin request header; can be '*' to allow all</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="require-session-token" default="true" type="boolean"><xs:annotation><xs:documentation>
                 If not false (default true) moquiSessionToken (from ec.web.sessionToken) must be passed to all
                 screen/transition requests in a session after the first.</xs:documentation></xs:annotation></xs:attribute>

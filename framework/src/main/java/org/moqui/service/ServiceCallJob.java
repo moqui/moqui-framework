@@ -27,6 +27,8 @@ public interface ServiceCallJob extends ServiceCall, Future<Map<String, Object>>
     ServiceCallJob parameters(Map<String, ?> context);
     /** Single name, value pairs to put in the context (in parameters) passed to the service. */
     ServiceCallJob parameter(String name, Object value);
+    /** Set to true to run local even if a distributed executor service is configured (defaults to false) */
+    ServiceCallJob localOnly(boolean local);
 
     /**
      * Run a service job.

@@ -53,6 +53,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="indexName" required="true"/>
             <parameter name="documentType"/>
             <parameter name="queryString" required="true"/>
+            <parameter name="nestedQueryMap" type="Map"/>
             <parameter name="orderByFields" type="List"><parameter name="orderByField"/></parameter>
             <parameter name="pageIndex" type="Integer" default="0"/>
             <parameter name="pageSize" type="Integer" default="20"/>

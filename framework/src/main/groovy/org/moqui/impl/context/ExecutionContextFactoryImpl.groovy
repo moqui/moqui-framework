@@ -1084,7 +1084,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // we have an issue here where not all dependencies are declared, most are implied by component load order
         // because of this not doing a full topological sort, just a single pass with dependencies inserted as needed
 
-        ArrayList<String> sortedNames = []
+        ArrayList<String> sortedNames = new ArrayList<>()
         for (ComponentInfo componentInfo in componentInfoMap.values()) {
             // for each dependsOn make sure component is valid, add to the list if not already there
             // given a close starting sort order this should get us to a pretty good list
@@ -1675,6 +1675,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         XmlAction afterStartupActions = null
         XmlAction beforeShutdownActions = null
         ArrayList<MNode> responseHeaderList
+        Set<String> allowOriginSet = new HashSet<>()
 
         Integer sessionTimeoutSeconds = null
         String httpPort, httpHost, httpsPort, httpsHost
@@ -1693,6 +1694,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             httpsHost = webappNode.attribute("https-host") ?: httpHost ?: null
             httpsEnabled = "true".equals(webappNode.attribute("https-enabled"))
             requireSessionToken = !"false".equals(webappNode.attribute("require-session-token"))
+
+            String allowOrigins = webappNode.attribute("allow-origins")
+            if (allowOrigins) for (String origin in allowOrigins.split(",")) allowOriginSet.add(origin.trim())
 
             logger.info("Initializing webapp ${webappName} http://${httpHost}:${httpPort} https://${httpsHost}:${httpsPort} https enabled? ${httpsEnabled}")
 
