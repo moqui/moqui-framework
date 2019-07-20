@@ -266,12 +266,12 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="https-host" type="xs:string"/>
             <xs:attribute name="http-port" type="xs:string"/>
             <xs:attribute name="http-host" type="xs:string"/>
-            <xs:attribute name="handle-cors" type="boolean" default="true"><xs:annotation><xs:documentation>
+            <xs:attribute name="handle-cors" type="boolean-expandable" default="true"><xs:annotation><xs:documentation>
                 Set to false to disable CORS handling globally in MoquiServlet including Origin validation and adding cors-preflight and cors-actual configured response headers
             </xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="allow-origins" type="xs:string"><xs:annotation><xs:documentation>
                 Comma separated list of host name or protocol plus host name to match against Origin request header; can be '*' to allow all</xs:documentation></xs:annotation></xs:attribute>
-            <xs:attribute name="require-session-token" default="true" type="boolean"><xs:annotation><xs:documentation>
+            <xs:attribute name="require-session-token" type="boolean-expandable" default="true"><xs:annotation><xs:documentation>
                 If not false (default true) moquiSessionToken (from ec.web.sessionToken) must be passed to all
                 screen/transition requests in a session after the first.</xs:documentation></xs:annotation></xs:attribute>
             <!-- Needed? Not yet implemented: <xs:attribute name="cookie-domain" type="xs:string"/> -->
@@ -587,14 +587,14 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:annotation><xs:documentation>This is only required for JDBC/SQL datasources.</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="schema-name" type="xs:string"/>
-            <xs:attribute name="startup-add-missing" default="false" type="boolean"/>
-            <xs:attribute name="runtime-add-missing" default="true" type="boolean"/>
-            <xs:attribute name="runtime-add-fks" default="true" type="boolean"/>
+            <xs:attribute name="startup-add-missing" default="false" type="boolean-expandable"/>
+            <xs:attribute name="runtime-add-missing" default="true" type="boolean-expandable"/>
+            <xs:attribute name="runtime-add-fks" default="true" type="boolean-expandable"/>
             <xs:attribute name="object-factory" type="xs:string" default="org.moqui.impl.entity.EntityDatasourceFactoryImpl">
                 <xs:annotation><xs:documentation>The references class must implement the
                     org.moqui.entity.EntityDatasourceFactory interface.</xs:documentation></xs:annotation>
             </xs:attribute>
-            <xs:attribute name="sequence-primary-use-uuid" type="boolean" default="false">
+            <xs:attribute name="sequence-primary-use-uuid" type="boolean-expandable" default="false">
                 <xs:annotation><xs:documentation>Uses java.util.UUID.randomUUID() to get sequenced IDs for all entities in this datasource.</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="start-server-args" type="xs:string">
