@@ -72,6 +72,7 @@ abstract class EntityFindBase implements EntityFind {
     protected Integer offset = (Integer) null
     protected Integer limit = (Integer) null
     protected boolean forUpdate = false
+    protected boolean useClone = false
 
     protected int resultSetType = defaultResultSetType
     protected int resultSetConcurrency = ResultSet.CONCUR_READ_ONLY
@@ -594,6 +595,8 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override EntityFind useCache(Boolean useCache) { this.useCache = useCache; return this }
     @Override boolean getUseCache() { return this.useCache }
+
+    @Override EntityFind useClone(boolean uc) { useClone = uc; return this }
 
     // ======================== Advanced Options ==============================
 

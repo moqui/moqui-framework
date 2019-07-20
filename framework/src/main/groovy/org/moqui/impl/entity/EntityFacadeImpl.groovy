@@ -46,6 +46,7 @@ import javax.sql.XAConnection
 import javax.sql.XADataSource
 import java.sql.*
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ThreadLocalRandom
 import java.util.concurrent.locks.Lock
 import java.util.concurrent.locks.ReentrantLock
 
@@ -1306,6 +1307,24 @@ class EntityFacadeImpl implements EntityFacade {
         }
         return dsiList
     }
+    String getDatasourceCloneName(String groupName) {
+        String baseGroupName = groupName == null || groupName.isEmpty() ? defaultGroupName : groupName
+        String groupPrefix = baseGroupName.concat('#')
+
+        ArrayList<String> cloneGroupNames = new ArrayList<>(5)
+        for (String curGroup in datasourceFactoryByGroupMap.keySet())
+            if (curGroup.startsWith(groupPrefix)) cloneGroupNames.add(curGroup)
+
+        int cloneNamesSize = cloneGroupNames.size()
+        if (cloneNamesSize == 0) {
+            return baseGroupName
+        } else if (cloneNamesSize == 1) {
+            // logger.warn("Using DB clone ${cloneGroupNames.get(0)} instead of ${groupName}")
+            return cloneGroupNames.get(0)
+        } else {
+            return cloneGroupNames.get(ThreadLocalRandom.current().nextInt(cloneNamesSize))
+        }
+    }
 
     @Override EntityConditionFactory getConditionFactory() { return this.entityConditionFactory }
     EntityConditionFactoryImpl getConditionFactoryImpl() { return this.entityConditionFactory }
@@ -1352,6 +1371,8 @@ class EntityFacadeImpl implements EntityFacade {
         if (forUpdate != null && !forUpdate.isEmpty()) ef.forUpdate("true".equals(forUpdate))
         String distinct = node.attribute("distinct")
         if (distinct != null && !distinct.isEmpty()) ef.distinct("true".equals(distinct))
+        String useClone = node.attribute("use-clone")
+        if (useClone != null && !useClone.isEmpty()) ef.useClone("true".equals(useClone))
         String offset = node.attribute("offset")
         if (offset != null && !offset.isEmpty()) ef.offset(Integer.valueOf(offset))
         String limit = node.attribute("limit")
@@ -1621,7 +1642,7 @@ class EntityFacadeImpl implements EntityFacade {
         if (operation == 'find') {
             if (lastEd.containsPrimaryKey(parameters)) {
                 // if we have a full PK lookup by PK and return the single value
-                Map pkValues = [:]
+                Map<String, Object> pkValues = [:]
                 lastEd.entityInfo.setFields(parameters, pkValues, false, null, true)
 
                 if (masterName != null && masterName.length() > 0) {
@@ -1941,23 +1962,26 @@ class EntityFacadeImpl implements EntityFacade {
         return entityGroupName
     }
 
-    @Override
-    Connection getConnection(String groupName) {
+    @Override Connection getConnection(String groupName) { return getConnection(groupName, false) }
+    @Override Connection getConnection(String groupName, boolean useClone) {
         TransactionFacadeImpl tfi = ecfi.transactionFacade
         if (!tfi.isTransactionOperable()) throw new EntityException("Cannot get connection, transaction not in operable status (${tfi.getStatusString()})")
-        Connection stashed = tfi.getTxConnection(groupName)
+
+        String groupToUse = useClone ? getDatasourceCloneName(groupName) : groupName
+
+        Connection stashed = tfi.getTxConnection(groupToUse)
         if (stashed != null) return stashed
 
-        EntityDatasourceFactory edf = getDatasourceFactory(groupName)
+        EntityDatasourceFactory edf = getDatasourceFactory(groupToUse)
         DataSource ds = edf.getDataSource()
-        if (ds == null) throw new EntityException("Cannot get JDBC Connection for group-name [${groupName}] because it has no DataSource")
+        if (ds == null) throw new EntityException("Cannot get JDBC Connection for group-name [${groupToUse}] because it has no DataSource")
         Connection newCon
         if (ds instanceof XADataSource) {
             newCon = tfi.enlistConnection(((XADataSource) ds).getXAConnection())
         } else {
             newCon = ds.getConnection()
         }
-        if (newCon != null) newCon = tfi.stashTxConnection(groupName, newCon)
+        if (newCon != null) newCon = tfi.stashTxConnection(groupToUse, newCon)
         return newCon
     }
 
