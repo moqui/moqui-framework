@@ -35,11 +35,12 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:simpleType name="name-full"><xs:restriction base="xs:string">
         <xs:pattern value="[a-zA-Z$][$\{\}\.#a-zA-Z0-9]*"/></xs:restriction></xs:simpleType>
 
-    <xs:simpleType name="boolean"><xs:restriction base="xs:token">
-        <xs:enumeration value="true"/>
-        <xs:enumeration value="false"/>
-    </xs:restriction></xs:simpleType>
-    
+    <xs:simpleType name="boolean"><xs:restriction base="xs:token"><xs:enumeration value="true"/><xs:enumeration value="false"/></xs:restriction></xs:simpleType>
+    <xs:simpleType name="boolean-expandable"><xs:union>
+        <xs:simpleType><xs:restriction base="xs:token"><xs:enumeration value="true"/><xs:enumeration value="false"/></xs:restriction></xs:simpleType>
+        <xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="\$\{.*"/></xs:restriction></xs:simpleType>
+    </xs:union></xs:simpleType>
+
     <xs:simpleType name="object-type"><xs:restriction base="xs:token">
         <xs:enumeration value="String"/>
         <xs:enumeration value="BigDecimal"/>
