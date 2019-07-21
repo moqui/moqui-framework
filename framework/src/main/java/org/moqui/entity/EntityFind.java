@@ -159,6 +159,9 @@ public interface EntityFind extends java.io.Serializable, SimpleEtl.Extractor {
     EntityFind useCache(Boolean useCache);
     boolean getUseCache();
 
+    /** Use a clone of the configured datasource, if at least one clone is configured */
+    EntityFind useClone(boolean uc);
+
     // ======================== Advanced Options ==============================
 
     /** Specifies whether the values returned should be filtered to remove duplicate values.

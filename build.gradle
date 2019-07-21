@@ -280,10 +280,13 @@ task gitTagAll {
 task gitDiffTagsAll {
     description "Do a git diff between two tags in the currently checked out branch in moqui, runtime, and each installed component"
     doLast {
-        def tagAName = (project.hasProperty('taga')) ? taga : null;
-        def tagBName = (project.hasProperty('tagb')) ? tagb : null;
+        if (!project.hasProperty('taga') || taga == null) 
+            throw new InvalidUserDataException("No taga property specified (use -Ptaga=...)")
 
-        logger.lifecycle("== Git diffing tags ${tagAName} and ${tagBName}")
+        // If tagb is not passed, we assume HEAD
+        def tagb = (project.hasProperty('tagb') && tagb != null) ? tagb : "HEAD";
+
+        logger.lifecycle("== Git diffing tags ${taga} and ${tagb}")
 
         List<String> gitDirectories = []
         if (file(".git").exists()) gitDirectories.add(file('.').path)
@@ -297,14 +300,14 @@ task gitDiffTagsAll {
             def grgit = Grgit.open(dir: gitDir)
 
             def tagList = grgit.tag.list()
-            def targetTagA = tagList.find({ it.name == tagAName })
-            def targetTagB = tagList.find({ it.name == tagBName })
+            def tagaCommit = tagList.find({ it.name == taga })
+            def tagbCommit = tagList.find({ it.name == tagb })
 
             logger.lifecycle("${relativePath}")
 
-            if (targetTagA != null && targetTagB != null) {
-                grgit.log {
-                    range tagAName, tagBName
+            if ((taga == "HEAD" || tagaCommit != null) && (tagb == "HEAD" || tagbCommit != null)) {
+                grgit.log { 
+                    range taga, tagb
                 }.each {
                     logger.lifecycle("    ${it.abbreviatedId} - ${it.shortMessage}")
                 }
