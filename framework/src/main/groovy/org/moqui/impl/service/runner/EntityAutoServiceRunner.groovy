@@ -342,7 +342,7 @@ class EntityAutoServiceRunner implements ServiceRunner {
             // we had to fill some stuff in, so do a create
             newEntityValue.setFields(parameters, true, null, false, locale)
             newEntityValue.create()
-            storeRelated(ecfi, efi, (EntityValueBase) newEntityValue, parameters, result, parentPks)
+            storeRelated(ecfi, efi, (EntityValueBase) newEntityValue, parameters, result, parentPks, locale)
             return
         }
 
