@@ -366,9 +366,11 @@
         <!-- MySQL clone server example configuration, for reporting/etc queries to run against a read-only clone:
         <datasource group-name="transactional#clone1" database-conf-name="mysql" schema-name="${entity_ds_schema_c1}"
                 runtime-add-missing="false" startup-add-missing="false">
-            <inline-jdbc pool-maxsize="140"><xa-properties pinGlobalTxToPhysicalConnection="true" autoReconnectForPools="true"
-                    useUnicode="true" encoding="UTF-8" serverName="${entity_ds_host}" port="${entity_ds_port_c1?:'3306'}"
-                    databaseName="${entity_ds_database_c1}" user="${entity_ds_user_c1}" password="${entity_ds_password_c1}"/></inline-jdbc>
+            <inline-jdbc pool-maxsize="140" isolation-level="None">
+                <xa-properties pinGlobalTxToPhysicalConnection="true" autoReconnectForPools="true" useUnicode="true"
+                        encoding="UTF-8" serverName="${entity_ds_host_c1}" port="${entity_ds_port_c1?:'3306'}"
+                        databaseName="${entity_ds_database_c1}" user="${entity_ds_user_c1}" password="${entity_ds_password_c1}"/>
+            </inline-jdbc>
         </datasource>
         -->
 
