@@ -10,17 +10,21 @@
     <!-- recommended values: production, dev, test; any code may look at these Java System properties to vary behavior (System.getProperty("instance_purpose")) -->
     <default-property name="instance_purpose" value="production"/>
 
+    <!-- Locale and Time Zone Properties -->
     <default-property name="default_locale" value="en_US"/>
     <default-property name="default_time_zone" value="US/Pacific"/>
     <default-property name="database_time_zone" value="US/Pacific"/>
 
+    <!-- Web App Properties -->
     <default-property name="webapp_http_host" value=""/>
     <default-property name="webapp_http_port" value=""/>
     <default-property name="webapp_https_port" value=""/>
     <default-property name="webapp_https_enabled" value="false"/>
     <default-property name="webapp_allow_origins" value=""/>
     <default-property name="webapp_handle_cors" value="true"/>
+    <default-property name="webapp_status_ips" value="127.0.0.1"/>
 
+    <!-- Properties for the primary (transactional group) datasource -->
     <default-property name="entity_ds_db_conf" value="h2"/>
     <default-property name="entity_ds_host" value="localhost"/>
     <default-property name="entity_ds_port" value=""/>
@@ -32,7 +36,17 @@
     <default-property name="entity_ds_crypt_pass" value="MoquiDefaultPassword:CHANGEME"/>
     <default-property name="entity_add_missing_runtime" value=""/>
     <default-property name="entity_add_missing_startup" value=""/>
-    <default-property name="webapp_status_ips" value="127.0.0.1"/>
+
+    <!-- Properties for a database clone; note that without overriding the transactional#clone1 datasource the default works only
+        with MySQL and Postgres because of different properties on XADataSource classes of other JDBC drivers -->
+    <default-property name="entity_ds_c1_disabled" value="true"/>
+    <default-property name="entity_ds_c1_db_conf" value="mysql"/>
+    <default-property name="entity_ds_c1_schema" value=""/>
+    <default-property name="entity_ds_c1_host" value=""/>
+    <default-property name="entity_ds_c1_port" value=""/>
+    <default-property name="entity_ds_c1_database" value=""/>
+    <default-property name="entity_ds_c1_user" value=""/>
+    <default-property name="entity_ds_c1_password" value=""/>
 
     <tools empty-db-load="seed,seed-initial,install" worker-queue="65535" worker-pool-core="16" worker-pool-max="24" worker-pool-alive="60">
         <tool-factory class="org.moqui.impl.tools.MCacheToolFactory" init-priority="03" disabled="false"/>
@@ -363,16 +377,19 @@
         </datasource>
         -->
 
-        <!-- MySQL clone server example configuration, for reporting/etc queries to run against a read-only clone:
-        <datasource group-name="transactional#clone1" database-conf-name="mysql" schema-name="${entity_ds_schema_c1}"
-                runtime-add-missing="false" startup-add-missing="false">
-            <inline-jdbc pool-maxsize="140" isolation-level="None">
-                <xa-properties pinGlobalTxToPhysicalConnection="true" autoReconnectForPools="true" useUnicode="true"
-                        encoding="UTF-8" serverName="${entity_ds_host_c1}" port="${entity_ds_port_c1?:'3306'}"
-                        databaseName="${entity_ds_database_c1}" user="${entity_ds_user_c1}" password="${entity_ds_password_c1}"/>
+        <!--
+            MySQL clone server example configuration, for reporting/etc queries to run against a read-only clone.
+            NOTE: this is only for MySQL, adjust or override for other databases as the xa-properties attributes differ.
+            This will also work for Postgres but you will get warnings about errors setting invalid properties on the XADataSource.
+        -->
+        <datasource group-name="transactional#clone1" database-conf-name="${entity_ds_c1_db_conf}" schema-name="${entity_ds_c1_schema}"
+                runtime-add-missing="false" startup-add-missing="false" disabled="${entity_ds_c1_disabled}">
+            <inline-jdbc pool-maxsize="40" isolation-level="None">
+                <xa-properties serverName="${entity_ds_c1_host}" port="${entity_ds_c1_port?:'3306'}"
+                        databaseName="${entity_ds_c1_database}" user="${entity_ds_c1_user}" password="${entity_ds_c1_password}"
+                        pinGlobalTxToPhysicalConnection="true" autoReconnectForPools="true" useUnicode="true" encoding="UTF-8"/>
             </inline-jdbc>
         </datasource>
-        -->
 
         <!-- The nontransactional group is in the transactional db by default. To use OrientDB use the datasource below.
             NOTE: startup-add-missing=true is required because OrientDB doesn't allow class create in a TX
