@@ -342,6 +342,9 @@ along with this software (see the LICENSE.md file). If not, see
                     entity definition.
                 </xs:documentation></xs:annotation>
             </xs:attribute>
+            <xs:attribute name="use-clone" default="false" type="boolean">
+                <xs:annotation><xs:documentation>Use a datasource clone, if one is configured</xs:documentation></xs:annotation>
+            </xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="entity-find" substitutionGroup="EntityFindOperations">
