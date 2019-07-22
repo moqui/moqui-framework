@@ -602,6 +602,7 @@ along with this software (see the LICENSE.md file). If not, see
                     the embedded DB using these arguments. See the main() method at
                     http://www.h2database.com/javadoc/org/h2/tools/Server.html for details.</xs:documentation></xs:annotation>
             </xs:attribute>
+            <xs:attribute name="disabled" default="false" type="boolean-expandable"/>
         </xs:complexType>
     </xs:element>
     <xs:element name="inline-jdbc">

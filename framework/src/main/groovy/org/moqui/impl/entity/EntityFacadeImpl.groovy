@@ -242,6 +242,12 @@ class EntityFacadeImpl implements EntityFacade {
         for (MNode datasourceNode in getEntityFacadeNode().children("datasource")) {
             datasourceNode.setSystemExpandAttributes(true)
             String groupName = datasourceNode.attribute("group-name")
+
+            if ("true".equals(datasourceNode.attribute("disabled"))) {
+                logger.info("Skipping disabled datasource ${groupName}")
+                continue
+            }
+
             String objectFactoryClass = datasourceNode.attribute("object-factory") ?: "org.moqui.impl.entity.EntityDatasourceFactoryImpl"
             EntityDatasourceFactory edf = (EntityDatasourceFactory) Thread.currentThread().getContextClassLoader().loadClass(objectFactoryClass).newInstance()
             datasourceFactoryByGroupMap.put(groupName, edf.init(this, datasourceNode))
