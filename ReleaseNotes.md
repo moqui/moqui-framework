@@ -1,11 +1,11 @@
 
 # Moqui Framework Release Notes
 
-## Release 2.1.2 - Not Yet Released
+## Release 2.1.2 - 23 July 2019
 
 Moqui Framework 2.1.2 is a patch level new feature and bug fix release.
 
-There are only minor changes and fixes in this release. For a complete list of commits see:
+There are only minor changes and fixes in this release. For a complete list of changes see:
 
 https://github.com/moqui/moqui-framework/compare/v2.1.1...v2.1.2
 
