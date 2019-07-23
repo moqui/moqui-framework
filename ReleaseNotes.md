@@ -22,6 +22,7 @@ https://github.com/moqui/moqui-framework/compare/v2.1.1...v2.1.2
 - Entity field currency-amount now has 4 decimal digits in the DB and currency-precise has 5 decimal digits for more currency flexibility
 - Added minRetryTime to ServiceJob to avoid immediate and excessive retries
 - New Gradle tasks for managing git tags
+- Support for read only clone datasource configuration and use (if available) in entity finds
 
 ### Bug Fixes
 
