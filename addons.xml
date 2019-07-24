@@ -89,11 +89,11 @@
     <component-set name="apps" components="HiveMind,PopCommerce"/>
     <component-set name="ecosystem" sets="framework,mantle,apps"/>
 
-    <component-set name="demo" components="example,HiveMind,PopCommerce"/>
+    <component-set name="demo" components="example,HiveMind,PopCommerce,PopRestStore"/>
 
     <!-- Release builds:
         gradle getComponentSet -PcomponentSet=demo -PlocationType=release
-        gradle getComponent -Pcomponent=PopCommerce -PlocationType=release
+        gradle getComponent -Pcomponent=PopCommerce -PlocationType=release (also get PopRestStore)
         gradle getComponent -Pcomponent=HiveMind -PlocationType=release
         - these make the source distro for each
         - to build the demo war: gradle load test addRuntime
