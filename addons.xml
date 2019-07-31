@@ -48,7 +48,8 @@
     <component name="moqui-hazelcast" group="moqui" version="1.1.1" branch="master"/>
     <component name="moqui-kie" group="moqui" version="1.0.3" branch="master"/>
     <component name="moqui-orientdb" group="moqui" version="1.0.3" branch="master"/>
-    <component name="moqui-sftp" group="moqui" version="1.0.0" branch="master"/><!-- no releases yet -->
+    <component name="moqui-poi" group="moqui" version="" branch="master"/><!-- no releases yet -->
+    <component name="moqui-sftp" group="moqui" version="1.0.0" branch="master"/>
     <component name="moqui-wikitext" group="moqui" version="1.0.2" branch="master"/>
 
     <component name="moqui-atomikos" group="moqui" version="1.0.0" branch="master"/><!-- not actively maintained -->
@@ -90,10 +91,11 @@
     <component-set name="ecosystem" sets="framework,mantle,apps"/>
 
     <component-set name="demo" components="example,HiveMind,PopCommerce,PopRestStore"/>
+    <component-set name="popc" components="PopCommerce,PopRestStore"/>
 
     <!-- Release builds:
         gradle getComponentSet -PcomponentSet=demo -PlocationType=release
-        gradle getComponent -Pcomponent=PopCommerce -PlocationType=release (also get PopRestStore)
+        gradle getComponentSet -PcomponentSet=popc -PlocationType=release
         gradle getComponent -Pcomponent=HiveMind -PlocationType=release
         - these make the source distro for each
         - to build the demo war: gradle load test addRuntime
