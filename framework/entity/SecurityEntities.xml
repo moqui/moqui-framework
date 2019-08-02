@@ -192,8 +192,10 @@ along with this software (see the LICENSE.md file). If not, see
         <member-entity entity-alias="AAF" entity-name="moqui.security.ArtifactAuthzFilter"/>
         <member-entity entity-alias="EFS" entity-name="moqui.security.EntityFilterSet" join-from-alias="AAF">
             <key-map field-name="entityFilterSetId"/></member-entity>
-        <alias-all entity-alias="AAF"/>
-        <alias-all entity-alias="EFS"/>
+        <alias-all entity-alias="AAF"><exclude field="applyCond"/></alias-all>
+        <alias-all entity-alias="EFS"><exclude field="applyCond"/></alias-all>
+        <alias entity-alias="AAF" field="applyCond" name="filterApplyCond"/>
+        <alias entity-alias="EFS" field="applyCond" name="setApplyCond"/>
     </view-entity>
 
     <!-- ========== Artifact Tarpit ========== -->
