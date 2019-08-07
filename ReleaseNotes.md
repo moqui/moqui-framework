@@ -1,6 +1,23 @@
 
 # Moqui Framework Release Notes
 
+## Release 2.1.3 - Not Yet Released
+
+Moqui Framework 2.1.3 is a patch level new feature and bug fix release.
+
+There are only minor changes and fixes in this release. For a complete list of changes see:
+
+https://github.com/moqui/moqui-framework/compare/v2.1.2...v2.1.3
+
+### New Features
+
+- Support for binary render modes for screen with new ScreenWidgetRender interface and screen-facade.screen-output
+  element in the Moqui Conf XML file; this was initially implemented to support an xlsx render mode implemented in
+  the new moqui-poi tool component
+
+### Bug Fixes
+
+
 ## Release 2.1.2 - 23 July 2019
 
 Moqui Framework 2.1.2 is a patch level new feature and bug fix release.
