@@ -463,6 +463,7 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:complexType>
             <xs:sequence>
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="screen-text-output"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="screen-output"/>
                 <xs:element minOccurs="0" maxOccurs="unbounded" name="screen"><xs:complexType>
                     <xs:sequence>
                         <xs:element minOccurs="0" maxOccurs="unbounded" name="subscreens-item"><xs:annotation><xs:documentation>
@@ -485,18 +486,24 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="default-autocomplete-rows" type="xs:string" default="10"/>
         </xs:complexType>
     </xs:element>
-    <xs:element name="screen-text-output">
-        <xs:complexType>
-            <xs:attribute name="type" type="xs:string" use="required">
-                <xs:annotation><xs:documentation>Can be anything. Default supported values include: text, html, xsl-fo,
-                    xml, and csv.</xs:documentation></xs:annotation>
-            </xs:attribute>
-            <xs:attribute name="mime-type" type="xs:string" use="optional"/>
-            <xs:attribute name="always-standalone" type="boolean" default="false"/>
-            <xs:attribute name="skip-actions" type="boolean" default="false"/>
-            <xs:attribute name="macro-template-location" type="xs:string" use="required"/>
-        </xs:complexType>
-    </xs:element>
+    <xs:element name="screen-text-output"><xs:complexType>
+        <xs:attribute name="type" type="xs:string" use="required"><xs:annotation>
+            <xs:documentation>Can be anything. Default supported values include: text, html, xsl-fo, xml, and csv.</xs:documentation>
+        </xs:annotation></xs:attribute>
+        <xs:attribute name="mime-type" type="xs:string" use="optional"/>
+        <xs:attribute name="always-standalone" type="boolean" default="false"/>
+        <xs:attribute name="skip-actions" type="boolean" default="false"/>
+        <xs:attribute name="macro-template-location" type="xs:string" use="required"/>
+    </xs:complexType></xs:element>
+    <xs:element name="screen-output"><xs:complexType>
+        <xs:attribute name="type" type="xs:string" use="required"><xs:annotation>
+            <xs:documentation>Can be anything. Default supported values include: text, html, xsl-fo, xml, and csv.</xs:documentation>
+        </xs:annotation></xs:attribute>
+        <xs:attribute name="mime-type" type="xs:string" use="optional"/>
+        <xs:attribute name="always-standalone" type="boolean" default="false"/>
+        <xs:attribute name="skip-actions" type="boolean" default="false"/>
+        <xs:attribute name="widget-render-class" type="xs:string" use="required"/>
+    </xs:complexType></xs:element>
 
     <!-- ====================== Service Facade Conf Root ======================= -->
     <xs:element name="service-facade">
