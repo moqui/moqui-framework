@@ -1536,6 +1536,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         if (overrideNode.hasChild("screen-facade")) {
             baseNode.mergeChildWithChildKey(overrideNode, "screen-facade", "screen-text-output", "type", null)
+            baseNode.mergeChildWithChildKey(overrideNode, "screen-facade", "screen-output", "type", null)
             baseNode.mergeChildWithChildKey(overrideNode, "screen-facade", "screen", "location", {
                 MNode childBaseNode, MNode childOverrideNode -> childBaseNode.mergeChildrenByKey(childOverrideNode, "subscreens-item", "name", null) })
         }
