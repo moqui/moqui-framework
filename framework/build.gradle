@@ -67,12 +67,11 @@ dependencies {
     compile project(':moqui-util')
 
     // Groovy
-    // NOTE 2019-06-11 can't update to Groovy 2.5.7: has issue with local field reference within closure in class with CompileStatic
-    compile 'org.codehaus.groovy:groovy:2.5.6' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-dateutil:2.5.6' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-json:2.5.6' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-templates:2.5.6' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-xml:2.5.6' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy:2.5.8' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-dateutil:2.5.8' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-json:2.5.8' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-templates:2.5.8' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-xml:2.5.8' // Apache 2.0
     // jansi is needed for groovydoc only, so in providedCompile (not included in war)
     compileOnly 'org.fusesource.jansi:jansi:1.18'
     // Findbugs need only during compile (used by freemarker and various moqui classes)

@@ -148,7 +148,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
                         String filename = path + '/' + en + (JSON.is(fileType) ? ".json" : ".xml")
                         File outFile = new File(filename)
                         if (outFile.exists()) {
-                            efi.ecfi.eci.message.addError(efi.ecfi.resource.expand('File ${filename} already exists, skipping entity ${en}.','',[filename:filename,en:en]))
+                            efi.ecfi.getEci().message.addError(efi.ecfi.resource.expand('File ${filename} already exists, skipping entity ${en}.','',[filename:filename,en:en]))
                             continue
                         }
                         outFile.createNewFile()
@@ -165,7 +165,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
 
                             endFile(pw)
 
-                            efi.ecfi.eci.message.addMessage(efi.ecfi.resource.expand('Wrote ${curValuesWritten} records to file ${filename}','',[curValuesWritten:curValuesWritten,filename:filename]))
+                            efi.ecfi.getEci().message.addMessage(efi.ecfi.resource.expand('Wrote ${curValuesWritten} records to file ${filename}','',[curValuesWritten:curValuesWritten,filename:filename]))
                             valuesWritten += curValuesWritten
                         } finally {
                             pw.close()
@@ -232,7 +232,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
                         endFile(pw)
 
                         pw.flush()
-                        efi.ecfi.eci.message.addMessage(efi.ecfi.resource.expand('Wrote ${curValuesWritten} records to ${filename}','',[curValuesWritten:curValuesWritten,filename:filenameWithinZip]))
+                        efi.ecfi.getEci().message.addMessage(efi.ecfi.resource.expand('Wrote ${curValuesWritten} records to ${filename}','',[curValuesWritten:curValuesWritten,filename:filenameWithinZip]))
 
                         valuesWritten += curValuesWritten
                     } finally {

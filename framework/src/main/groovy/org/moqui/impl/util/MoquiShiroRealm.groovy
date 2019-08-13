@@ -204,13 +204,12 @@ class MoquiShiroRealm implements Realm, Authorizer {
                         visitId:eci.user.visitId, successfulLogin:(successful?"Y":"N")] as Map<String, Object>
                 if (!successful && loginNode.attribute("history-incorrect-password") != "false") ulhContext.passwordUsed = passwordUsed
 
-                ExecutionContextFactoryImpl ecfi = eci.ecfi
                 eci.runInWorkerThread({
                     try {
                         long recentUlh = eci.entity.find("moqui.security.UserLoginHistory").condition("userId", userId)
                                 .condition("fromDate", EntityCondition.GREATER_THAN, recentDate).disableAuthz().count()
                         if (recentUlh == 0) {
-                            ecfi.serviceFacade.sync().name("create", "moqui.security.UserLoginHistory")
+                            eci.ecfi.serviceFacade.sync().name("create", "moqui.security.UserLoginHistory")
                                     .parameters(ulhContext).disableAuthz().call()
                         } else {
                             if (logger.isDebugEnabled()) logger.debug("Not creating UserLoginHistory, found existing record for userId ${userId} and more recent than ${recentDate}")
@@ -301,7 +300,7 @@ class MoquiShiroRealm implements Realm, Authorizer {
     boolean isPermitted(PrincipalCollection principalCollection, String resourceAccess) {
         // String username = (String) principalCollection.primaryPrincipal
         // TODO: if we want to support other users than the current need to look them up here
-        return ArtifactExecutionFacadeImpl.isPermitted(resourceAccess, ecfi.eci)
+        return ArtifactExecutionFacadeImpl.isPermitted(resourceAccess, ecfi.getEci())
     }
 
     boolean[] isPermitted(PrincipalCollection principalCollection, String... resourceAccesses) {
@@ -342,7 +341,7 @@ class MoquiShiroRealm implements Realm, Authorizer {
 
     void checkPermission(PrincipalCollection principalCollection, String permission) {
         String username = (String) principalCollection.primaryPrincipal
-        if (UserFacadeImpl.hasPermission(username, permission, null, ecfi.eci)) {
+        if (UserFacadeImpl.hasPermission(username, permission, null, ecfi.getEci())) {
             throw new UnauthorizedException(ecfi.resource.expand('User ${username} does not have permission ${permission}','',[username:username,permission:permission]))
         }
     }
@@ -357,7 +356,7 @@ class MoquiShiroRealm implements Realm, Authorizer {
 
     boolean hasRole(PrincipalCollection principalCollection, String roleName) {
         String username = (String) principalCollection.primaryPrincipal
-        return UserFacadeImpl.isInGroup(username, roleName, null, ecfi.eci)
+        return UserFacadeImpl.isInGroup(username, roleName, null, ecfi.getEci())
     }
 
     boolean[] hasRoles(PrincipalCollection principalCollection, List<String> roleNames) {
