@@ -73,6 +73,19 @@ class MoquiShiroRealm implements Realm, Authorizer {
         EntityValue newUserAccount = eci.entity.find("moqui.security.UserAccount").condition("username", username)
                 .useCache(true).disableAuthz().one()
 
+        if (newUserAccount == null) {
+            // case-insensitive lookup by username
+            EntityCondition usernameCond = eci.entityFacade.getConditionFactory()
+                    .makeCondition("username", EntityCondition.ComparisonOperator.EQUALS, username).ignoreCase()
+            newUserAccount = eci.entity.find("moqui.security.UserAccount").condition(usernameCond).disableAuthz().one()
+        }
+        if (newUserAccount == null) {
+            // look at emailAddress if used instead, with case-insensitive lookup
+            EntityCondition emailAddressCond = eci.entityFacade.getConditionFactory()
+                    .makeCondition("emailAddress", EntityCondition.ComparisonOperator.EQUALS, username).ignoreCase()
+            newUserAccount = eci.entity.find("moqui.security.UserAccount").condition(emailAddressCond).disableAuthz().one()
+        }
+
         // no account found?
         if (newUserAccount == null) throw new UnknownAccountException(eci.resource.expand('No account found for username ${username}','',[username:username]))
 
