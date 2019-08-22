@@ -38,6 +38,18 @@ along with this software (see the LICENSE.md file). If not, see
         </in-parameters>
         <out-parameters><parameter name="userId" required="true"/></out-parameters>
         <actions>
+            <!-- see if username already in use (instead of catching on unique index) -->
+            <entity-find entity-name="moqui.security.UserAccount" list="existingUaList">
+                <econdition field-name="username" ignore-case="true"/></entity-find>
+            <if condition="existingUaList"><return error="true" message="Username [${username}] is already in use. Please choose another."/></if>
+
+            <if condition="emailAddress">
+                <!-- see if emailAddress already in use (instead of catching on unique index) -->
+                <entity-find entity-name="moqui.security.UserAccount" list="existingUaList">
+                    <econdition field-name="emailAddress" ignore-case="true"/></entity-find>
+                <if condition="existingUaList"><return error="true" message="Email ${emailAddress} is already in use. Login with username ${existingUaList[0].username}"/></if>
+            </if>
+
             <service-call name="create#moqui.security.UserAccount" out-map="context" in-map="context"/>
             <service-call name="org.moqui.impl.UserServices.update#PasswordInternal" out-map="updateOut"
                 in-map="[userId:userId, newPassword:newPassword, newPasswordVerify:newPasswordVerify,
@@ -48,6 +60,34 @@ along with this software (see the LICENSE.md file). If not, see
                 <message public="true" type="danger">Because of password issues not creating account with username ${username}</message>
                 <return error="true" message="Removed temporary account with username ${username} for password issues"/>
             </else-if></if>
+        </actions>
+    </service>
+    <service verb="update" noun="UserAccount">
+        <in-parameters>
+            <parameter name="userId" required="true"/>
+            <auto-parameters entity-name="moqui.security.UserAccount" include="nonpk">
+                <exclude field-name="currentPassword"/><exclude field-name="resetPassword"/><exclude field-name="passwordSalt"/>
+                <exclude field-name="passwordHashType"/><exclude field-name="passwordBase64"/><exclude field-name="passwordSetDate"/>
+                <exclude field-name="hasLoggedOut"/><exclude field-name="disabledDateTime"/><exclude field-name="successiveFailedLogins"/></auto-parameters>
+        </in-parameters>
+        <actions>
+            <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount"/>
+            <if condition="userAccount == null"><return error="true" message="User Account not found for User ID ${userId}"/></if>
+
+            <if condition="username &amp;&amp; username != userAccount.username">
+                <!-- see if username already in use -->
+                <entity-find entity-name="moqui.security.UserAccount" list="existingUaList">
+                    <econdition field-name="username" ignore-case="true"/></entity-find>
+                <if condition="existingUaList"><return error="true" message="Username [${username}] is already in use. Please choose another."/></if>
+            </if>
+            <if condition="emailAddress &amp;&amp; emailAddress != userAccount.emailAddress">
+                <!-- see if emailAddress already in use (instead of catching on unique index) -->
+                <entity-find entity-name="moqui.security.UserAccount" list="existingUaList">
+                    <econdition field-name="emailAddress" ignore-case="true"/></entity-find>
+                <if condition="existingUaList"><return error="true" message="Email ${emailAddress} is already in use. Login with username ${existingUaList[0].username}"/></if>
+            </if>
+
+            <service-call name="update#moqui.security.UserAccount" in-map="context"/>
         </actions>
     </service>
 
@@ -84,6 +124,7 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="userId"><then>
                 <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount"/>
             </then><else-if condition="username">
+                <!-- NOTE: not using ignore-case here, for PW update required exact username match -->
                 <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
                     <field-map field-name="username"/></entity-find-one>
             </else-if><else>
@@ -253,7 +294,7 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- find by userId -->
             <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount" for-update="true"/>
             <if condition="userAccount == null">
-                <!-- find by username -->
+                <!-- find by username, no ignore-case here to require exact match for PW reset -->
                 <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount" for-update="true">
                     <field-map field-name="username"/></entity-find-one>
             </if>
