@@ -21,6 +21,10 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.email.EmailTemplate emailTemplateId="NOTIFICATION" description="Default Notification" emailServerId="SYSTEM"
             emailTypeEnumId="EMT_NOTIFICATION" bodyScreenLocation="classpath://screen/NotificationEmail.xml" webappName="webroot"
             fromAddress="" fromName="" ccAddresses="" bccAddresses="" subject="${title}" sendPartial="Y"/>
+    <!-- EmailTemplate for rendered screens (reports, etc) -->
+    <moqui.basic.email.EmailTemplate emailTemplateId="SCREEN_RENDER" description="Default Screen Render" emailServerId="SYSTEM"
+            emailTypeEnumId="EMT_SCREEN_RENDER" bodyScreenLocation="classpath://screen/ScreenRenderEmail.xml" webappName="webroot"
+            fromAddress="" fromName="" ccAddresses="" bccAddresses="" subject="Screen Export ${title}" sendPartial="Y"/>
 
     <!-- Web Servlet Errors NotificationTopic -->
     <moqui.security.user.NotificationTopic topic="WebServletError" description="Web Servlet Error"
