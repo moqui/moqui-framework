@@ -713,7 +713,7 @@ class ScreenRenderImpl implements ScreenRender {
         boolean isServerStatic = screenUrlInfo.targetScreen.isServerStatic(renderMode)
         // TODO: consider server caching of rendered screen, this is the place to do it
 
-        boolean beganTransaction = screenUrlInfo.beginTransaction ? sfi.ecfi.transactionFacade.begin(null) : false
+        boolean beganTransaction = screenUrlInfo.beginTransaction ? sfi.ecfi.transactionFacade.begin(screenUrlInfo.transactionTimeout) : false
         try {
             // run always-actions for all screens in path
             boolean hasAlwaysActions = false

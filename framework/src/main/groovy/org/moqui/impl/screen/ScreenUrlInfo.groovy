@@ -61,6 +61,7 @@ class ScreenUrlInfo {
     // boolean disableLink = false
     boolean alwaysUseFullPath = false
     boolean beginTransaction = false
+    Integer transactionTimeout = null
 
     String menuImage = (String) null
     String menuImageType = (String) null
@@ -435,6 +436,8 @@ class ScreenUrlInfo {
         // encrypt is the default loop through screens if all are not secure/etc use http setting, otherwise https
         requireEncryption = !"false".equals(rootSd?.webSettingsNode?.attribute("require-encryption"))
         if ("true".equals(rootSd?.screenNode?.attribute('begin-transaction'))) beginTransaction = true
+        String txTimeoutAttr = rootSd?.screenNode?.attribute("transaction-timeout")
+        if (txTimeoutAttr) transactionTimeout = Integer.getInteger(txTimeoutAttr)
 
         // start the render lists with the root SD
         screenRenderDefList.add(rootSd)
@@ -587,6 +590,12 @@ class ScreenUrlInfo {
 
             if (curSd.webSettingsNode?.attribute('require-encryption') != "false") this.requireEncryption = true
             if (curSd.screenNode?.attribute('begin-transaction') == "true") this.beginTransaction = true
+            String curTxTimeoutAttr = curSd.screenNode?.attribute("transaction-timeout")
+            if (curTxTimeoutAttr) {
+                Integer curTransactionTimeout = Integer.getInteger(txTimeoutAttr)
+                if (transactionTimeout == null || curTransactionTimeout > transactionTimeout)
+                    transactionTimeout = curTransactionTimeout
+            }
             if (curSd.getSubscreensNode()?.attribute('always-use-full-path') == "true") alwaysUseFullPath = true
 
             for (ParameterItem pi in curSd.getParameterMap().values())
@@ -682,6 +691,12 @@ class ScreenUrlInfo {
 
             if (curSd.webSettingsNode?.attribute('require-encryption') != "false") this.requireEncryption = true
             if (curSd.screenNode?.attribute('begin-transaction') == "true") this.beginTransaction = true
+            String curTxTimeoutAttr = curSd.screenNode?.attribute("transaction-timeout")
+            if (curTxTimeoutAttr) {
+                Integer curTransactionTimeout = Integer.getInteger(txTimeoutAttr)
+                if (transactionTimeout == null || curTransactionTimeout > transactionTimeout)
+                    transactionTimeout = curTransactionTimeout
+            }
 
             // if standalone, clear out screenRenderDefList before adding this to it
             if (curSd.isStandalone()) {
@@ -755,6 +770,7 @@ class ScreenUrlInfo {
         sui.pathParameterMap = this.pathParameterMap != null ? new HashMap(this.pathParameterMap) : null
         sui.requireEncryption = this.requireEncryption
         sui.beginTransaction = this.beginTransaction
+        sui.transactionTimeout = this.transactionTimeout
         sui.fullPathNameList = this.fullPathNameList != null ? new ArrayList<String>(this.fullPathNameList) : null
         sui.minimalPathNameList = this.minimalPathNameList != null ? new ArrayList<String>(this.minimalPathNameList) : null
         sui.fileResourcePathList = this.fileResourcePathList != null ? new ArrayList<String>(this.fileResourcePathList) : null
