@@ -61,8 +61,8 @@ def custMoquiConfDev = System.properties['moqui.conf.dev']
 def custMoquiConfProduction = System.properties['moqui.conf.production']
 
 logger.lifecycle("Custom command line arguments:")
-logger.lifecycle("  moqui.conf.production: ${custMoquiConfProduction}")
-logger.lifecycle("  moqui.conf.dev: ${custMoquiConfDev}")
+logger.lifecycle("  moqui.conf.production: ${custMoquiConfProduction?:'not set'}")
+logger.lifecycle("  moqui.conf.dev: ${custMoquiConfDev?:'not set'}")
 
 if (custMoquiConfProduction) { moquiConfProduction = custMoquiConfProduction }
 if (custMoquiConfDev) { moquiConfDev = custMoquiConfDev }
