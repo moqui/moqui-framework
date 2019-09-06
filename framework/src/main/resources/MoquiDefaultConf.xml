@@ -48,6 +48,9 @@
     <default-property name="entity_ds_c1_user" value=""/>
     <default-property name="entity_ds_c1_password" value=""/>
 
+    <!-- How often (in seconds) to check for scheduled jobs to run, set to 0 to not run scheduled jobs -->
+    <default-property name="scheduled_job_check_time" value="60"/>
+
     <tools empty-db-load="seed,seed-initial,install" worker-queue="65535" worker-pool-core="16" worker-pool-max="24" worker-pool-alive="60">
         <tool-factory class="org.moqui.impl.tools.MCacheToolFactory" init-priority="03" disabled="false"/>
         <!-- Apache Commons JCS, an alternative for distributed caches (cannot be used as local cache as requires Serializable keys/values just like Hazelcast) -->
@@ -299,7 +302,7 @@
 
     </screen-facade>
 
-    <service-facade distributed-factory="" scheduled-job-check-time="60">
+    <service-facade distributed-factory="" scheduled-job-check-time="${scheduled-job-check-time}">
         <service-location name="main-xml" location="http://localhost:8080/rpc/xml"/>
         <service-location name="main-json" location="http://localhost:8080/rpc/json"/>
 
