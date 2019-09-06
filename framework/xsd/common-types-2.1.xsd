@@ -43,6 +43,10 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:simpleType><xs:restriction base="xs:token"><xs:enumeration value="true"/><xs:enumeration value="false"/></xs:restriction></xs:simpleType>
         <xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="\$\{.*"/></xs:restriction></xs:simpleType>
     </xs:union></xs:simpleType>
+    <xs:simpleType name="non-neg-int-expandable"><xs:union>
+        <xs:simpleType><xs:restriction base="xs:nonNegativeInteger"/></xs:simpleType>
+        <xs:simpleType><xs:restriction base="xs:string"><xs:pattern value="\$\{.*"/></xs:restriction></xs:simpleType>
+    </xs:union></xs:simpleType>
 
     <xs:simpleType name="object-type"><xs:restriction base="xs:token">
         <xs:enumeration value="String"/>
