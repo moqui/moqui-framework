@@ -202,6 +202,7 @@ along with this software (see the LICENSE.md file). If not, see
                     <xs:attribute name="class" type="xs:string" use="required"/>
                     <xs:attribute name="async-supported" type="boolean" default="false"/>
                     <xs:attribute name="enabled" type="boolean" default="true"/>
+                    <xs:attribute name="priority" type="xs:nonNegativeInteger" default="5"/>
                 </xs:complexType></xs:element>
                 <xs:element minOccurs="0" maxOccurs="unbounded" name="listener">
                     <xs:annotation><xs:documentation>
