@@ -87,7 +87,7 @@ dependencies {
     // CUPS4J - print through CUPS server
     compile name: 'cups4j', version: '0.6.4' // LGPL <== NOTE!
     // CUPS4J sepends on Apache HTTP Client (unfortunate, adds about 1.1MB)
-    compile 'org.apache.httpcomponents:httpclient:4.5.9'
+    compile 'org.apache.httpcomponents:httpclient:4.5.10'
     // Apache httpclient depends on commons-codec, but an older version with a security vulnerability
     compile 'commons-codec:commons-codec:1.13'
 
@@ -115,7 +115,7 @@ dependencies {
     compile 'com.vladsch.flexmark:flexmark-ext-toc:0.42.12'
 
     // Freemarker
-    compile 'org.freemarker:freemarker:2.3.28' // Apache 2.0
+    compile 'org.freemarker:freemarker:2.3.29' // Apache 2.0
 
     // Java Specifications
     compile 'javax.transaction:jta:1.1'
