@@ -680,6 +680,8 @@
             <database-type type="id" sql-type="VARCHAR2(40)"/>
             <database-type type="id-long" sql-type="VARCHAR2(255)"/>
 
+            <database-type type="time" sql-type="DATE"/>
+
             <database-type type="number-integer" sql-type="NUMBER(20,0)"/>
             <database-type type="number-decimal" sql-type="NUMBER(26,6)"/>
             <database-type type="number-float" sql-type="NUMBER(32,12)"/>
@@ -687,7 +689,7 @@
             <database-type type="currency-amount" sql-type="NUMBER(24,4)"/>
             <database-type type="currency-precise" sql-type="NUMBER(25,5)"/>
 
-            <database-type type="text-short" sql-type="VARCHAR2(10)"/>
+            <database-type type="text-short" sql-type="VARCHAR2(63)"/>
             <database-type type="text-medium" sql-type="VARCHAR2(255)"/>
             <database-type type="text-long" sql-type="VARCHAR2(4000)"/>
 
