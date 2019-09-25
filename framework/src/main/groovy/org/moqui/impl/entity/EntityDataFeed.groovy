@@ -17,6 +17,7 @@ import groovy.transform.CompileStatic
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityException
 import org.moqui.entity.EntityList
+import org.moqui.entity.EntityNotFoundException
 import org.moqui.entity.EntityValue
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
@@ -119,7 +120,13 @@ class EntityDataFeed {
         if (isUpdate && oldValues == null) return
 
         // see if this should be added to the feed
-        ArrayList<DocumentEntityInfo> entityInfoList = getDataFeedEntityInfoList(ev.getEntityName())
+        ArrayList<DocumentEntityInfo> entityInfoList
+        try {
+            entityInfoList = getDataFeedEntityInfoList(ev.getEntityName())
+        } catch (Throwable t) {
+            logger.error("Error getting DataFeed entity info, not registering value for entity ${ev.getEntityName()}", t)
+            return
+        }
         // if (ev.getEntityName().endsWith(debugEntityName)) logger.warn("======= dataFeedCheckAndRegister entityInfoList size ${entityInfoList.size()}")
         if (entityInfoList.size() > 0) {
             // logger.warn("============== found registered entity [${ev.getEntityName()}] value: ${ev}")
@@ -282,6 +289,7 @@ class EntityDataFeed {
 
         String primaryEntityName = dataDocument.primaryEntityName
         EntityDefinition primaryEd = efi.getEntityDefinition(primaryEntityName)
+        if (primaryEd == null) throw new EntityNotFoundException("Could not find primary entity ${primaryEntityName} for DataDocument ${dataDocumentId}")
 
         Map<String, DocumentEntityInfo> entityInfoMap = [:]
 
@@ -614,7 +622,7 @@ class EntityDataFeed {
                     } else {
                         List<EntityCondition> condList = []
                         for (Map pkFieldValueMap in primaryPkFieldValues) {
-                            Map condAndMap = [:]
+                            Map<String, Object> condAndMap = new LinkedHashMap<String, Object>()
                             // if pk field is aliased used the alias name
                             for (String pkFieldName in primaryPkFieldNames)
                                 condAndMap.put(pkFieldAliasMap.get(pkFieldName), pkFieldValueMap.get(pkFieldName))
