@@ -253,8 +253,9 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="pageAttachmentRefList" from="pageAttachmentsDirectoryRef?.getDirectoryEntries()"/>
             <set field="attachmentList" from="[]"/>
             <iterate list="pageAttachmentRefList" entry="pageAttachmentRef"><script>
-                if (pageAttachmentRef.isFile()) attachmentList.add([filename:pageAttachmentRef.getFileName(),
-                        contentType:pageAttachmentRef.getContentType(), lastModified:pageAttachmentRef.getLastModified()])
+                if (pageAttachmentRef.isFile())
+                    attachmentList.add([filename:pageAttachmentRef.getFileName(), contentType:pageAttachmentRef.getContentType(),
+                            lastModified:pageAttachmentRef.getLastModified(), resourceReference:pageAttachmentRef])
             </script></iterate>
 
             <!-- <log level="warn" message="========= wikiSpaceId=${wikiSpaceId}, pagePath: ${pagePath}, wikiSpace: ${wikiSpace}, rootPageRef: ${rootPageRef}, pageReference: ${pageReference}, pageLocation: ${pageLocation}"/> -->
@@ -310,6 +311,42 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="pageReference" from="rootPageRef.findChildFile(pagePath)"/>
             <set field="pageAttachmentsDirectoryRef" from="pageReference?.getChild('_attachments')"/>
             <set field="attachmentReference" from="pageAttachmentsDirectoryRef?.getChild(filename)"/>
+        </actions>
+    </service>
+    <service verb="upload" noun="WikiPageAttachment">
+        <in-parameters>
+            <parameter name="wikiSpaceId"><description>Optional if pagePath is a wikiPageId or the first segment is a wikiSpaceId</description></parameter>
+            <parameter name="pagePath"><description>Not required, is empty for the space root page. Can be a wikiPageId or the page path within the space.</description></parameter>
+            <parameter name="attachmentFile" type="org.apache.commons.fileupload.FileItem"/>
+        </in-parameters>
+        <out-parameters><parameter name="attachmentReference" type="org.moqui.content.ResourceReference"/></out-parameters>
+        <actions>
+            <if condition="attachmentFile == null"><return message="No attachment uploaded"/></if>
+            <set field="filename" from="attachmentFile.getName()"/>
+            <service-call name="org.moqui.impl.WikiServices.get#WikiPageAttachment" in-map="context" out-map="context"/>
+            <script><![CDATA[
+                org.moqui.context.ExecutionContext ec = context.ec
+                org.apache.commons.fileupload.FileItem attachmentFile = context.attachmentFile
+                ec.logger.info("Uploading file ${filename} for page path ${pagePath} in space ${wikiSpaceId}")
+
+                InputStream fileStream = attachmentFile.getInputStream()
+                attachmentReference.putStream(fileStream)
+                fileStream.close()
+            ]]></script>
+        </actions>
+    </service>
+    <service verb="delete" noun="WikiPageAttachment">
+        <in-parameters>
+            <parameter name="wikiSpaceId"><description>Optional if pagePath is a wikiPageId or the first segment is a wikiSpaceId</description></parameter>
+            <parameter name="pagePath"><description>Not required, is empty for the space root page. Can be a wikiPageId or the page path within the space.</description></parameter>
+            <parameter name="filename"><description>If not specified last segment of pagePath will be used</description></parameter>
+        </in-parameters>
+        <actions>
+            <service-call name="org.moqui.impl.WikiServices.get#WikiPageAttachment" in-map="context" out-map="context"/>
+            <script><![CDATA[
+                ec.logger.info("Deleting file ${filename} for page path ${pagePath} in space ${wikiSpaceId} location ${attachmentReference.location}")
+                attachmentReference.delete()
+            ]]></script>
         </actions>
     </service>
 
@@ -624,6 +661,79 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
 
             <!-- TODO FUTURE copy history, optional based on parameter; complex because underlying ResourceReference impl needs to support on its side -->
+        </actions>
+    </service>
+    <service verb="delete" noun="WikiPage">
+        <in-parameters>
+            <parameter name="wikiSpaceId" required="true"/>
+            <parameter name="pagePath" required="true"/>
+            <parameter name="deleteAttachments" type="Boolean" default="false"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="wikiSpaceId"/>
+            <parameter name="pagePath"><description>Out pagePath is path of parent or empty</description></parameter>
+        </out-parameters>
+        <actions>
+            <service-call name="org.moqui.impl.WikiServices.get#WikiPageInfo" out-map="pageInfo"
+                    in-map="[wikiSpaceId:wikiSpaceId, pagePath:pagePath]"/>
+            <set field="pageReference" from="pageInfo.pageReference"/>
+            <set field="matchingDirRef" from="pageReference.findMatchingDirectory()"/>
+            <set field="wikiPageId" from="pageInfo.wikiPageId"/>
+            <entity-find-one entity-name="moqui.resource.wiki.WikiPage" value-field="wikiPage" for-update="true"/>
+
+            <!-- check for WikiBlog references, if any don't delete -->
+            <if condition="wikiPageId">
+                <entity-find entity-name="moqui.resource.wiki.WikiBlog" list="wikiBlogList">
+                    <econdition field-name="wikiPageId"/></entity-find>
+                <if condition="wikiBlogList"><return type="danger" message="Page at ${pagePath} has Wiki Blog references from ${wikiBlogList*.wikiBlogId}, cannot delete"/></if>
+            </if>
+
+            <!-- check for child pages -->
+            <!-- FUTURE: option to delete child pages as well -->
+            <set field="childPageList" from="pageInfo.pageReference.getChildren()"/>
+            <if condition="childPageList"><return type="danger" message="Page at ${pagePath} has child pages, cannot delete"/></if>
+
+            <!-- if has attachments delete if deleteAttachments else return -->
+            <if condition="pageInfo.attachmentList">
+                <if condition="deleteAttachments"><then>
+                    <!-- delete attachments -->
+                    <iterate list="pageInfo.attachmentList" entry="attachmentInfo">
+                        <script>attachmentInfo.resourceReference.delete()</script>
+                    </iterate>
+                    <!-- delete attachments directory -->
+                    <script>matchingDirRef.getChild('_attachments').delete()</script>
+                </then><else>
+                    <return type="danger" message="Page at ${pagePath} has attachments and delete attachments is not enabled"/>
+                </else></if>
+            </if>
+
+            <if condition="wikiPageId">
+                <!-- delete dependent records -->
+                <entity-delete-by-condition entity-name="moqui.resource.wiki.WikiPageAlias">
+                    <econdition field-name="wikiPageId"/></entity-delete-by-condition>
+                <entity-delete-by-condition entity-name="moqui.resource.wiki.WikiPageCategoryMember">
+                    <econdition field-name="wikiPageId"/></entity-delete-by-condition>
+                <entity-delete-by-condition entity-name="moqui.resource.wiki.WikiPageHistory">
+                    <econdition field-name="wikiPageId"/></entity-delete-by-condition>
+                <entity-delete-by-condition entity-name="moqui.resource.wiki.WikiPageUser">
+                    <econdition field-name="wikiPageId"/></entity-delete-by-condition>
+                <!-- delete WikiPage record -->
+                <entity-delete value-field="wikiPage"/>
+            </if>
+
+            <!-- lastly delete the page file and related directory -->
+            <if condition="matchingDirRef.exists">
+                <!-- NOTE: may want to do more to delete remaining directory entries, etc -->
+                <script>
+                    try { matchingDirRef.delete() }
+                    catch (Throwable t) { ec.message.addMessage('Could not delete matching directory ' + matchingDirRef.location + ': ' + t.toString(), 'danger') }
+                </script>
+            </if>
+            <!-- NOTE: if main page delete fails allow exception to bubble up and rollback other changes -->
+            <script>pageReference.delete()</script>
+
+            <!-- set the out page path to the parent -->
+            <set field="pagePath" from="pagePath?.contains('/') ? pagePath.substring(0, pagePath.lastIndexOf('/')) : ''"/>
         </actions>
     </service>
 
