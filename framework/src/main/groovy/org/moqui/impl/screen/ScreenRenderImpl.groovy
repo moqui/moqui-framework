@@ -1903,6 +1903,11 @@ class ScreenRenderImpl implements ScreenRender {
         return groovy.json.JsonOutput.toJson(anyList).replace("\"", "'")
     }
 
+    String getPreferenceValue(String preferenceKey)
+    {
+        return ec.userFacade.getPreference(preferenceKey)
+    }
+
     String getVueColumns(MNode setupNode) {
         Map<String, ArrayList<MNode>> nodesByName = setupNode.getChildrenByName()
         ArrayList<MNode> columnsNode =  nodesByName.get("columns")
