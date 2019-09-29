@@ -83,4 +83,17 @@ class ServiceCrudImplicit extends Specification {
         then:
         testEntityCheck.testMedium == "Test Name A"
     }
+
+    def "create and find TestIntPk 123 with service"() {
+        when:
+        // create with String for ID though is type number-integer, test single PK type conversion
+        ec.service.sync().name("create#moqui.test.TestIntPk").parameters([intId:"123", testMedium:"Test Name"]).call()
+        EntityValue testString = ec.entity.find("moqui.test.TestIntPk").condition([intId:"123"]).one()
+        EntityValue testInt = ec.entity.find("moqui.test.TestIntPk").condition([intId:123]).one()
+
+        then:
+        testString?.testMedium == "Test Name"
+        testInt?.testMedium == "Test Name"
+    }
+
 }
