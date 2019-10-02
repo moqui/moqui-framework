@@ -599,10 +599,24 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- NOTE don't do this for root page, content of page handled in clone#WikiSpace -->
             <if condition="pagePath"><then>
                 <!-- determine parentPath, make sure exists in target space -->
-                <set field="parentPath" from="parentPath ?: basePageInfo.parentPath"/>
-                <service-call name="org.moqui.impl.WikiServices.get#WikiPageInfo" out-map="parentPageInfo"
-                        in-map="[wikiSpaceId:wikiSpaceId, pagePath:parentPath]"/>
-                <if condition="!parentPageInfo.wikiPageId"><set field="parentPath" from="null"/></if>
+                <if condition="parentPath == wikiSpaceId"><then>
+                    <set field="parentPath" from="null"/>
+                </then><else>
+                    <set field="parentPath" from="parentPath ?: basePageInfo.parentPath"/>
+                    <service-call name="org.moqui.impl.WikiServices.get#WikiPageInfo" out-map="parentPageInfo"
+                            in-map="[wikiSpaceId:wikiSpaceId, pagePath:parentPath]"/>
+                    <if condition="parentPageInfo.pageReference == null || !parentPageInfo.pageReference.exists">
+                        <message>Parent page not found at ${parentPath}, copying under Root Page</message>
+                        <set field="parentPath" from="null"/>
+                    </if>
+                </else></if>
+
+                <!-- make sure page doesn't already exist -->
+                <service-call name="org.moqui.impl.WikiServices.get#WikiPageInfo" out-map="existingPageInfo"
+                        in-map="[wikiSpaceId:wikiSpaceId, pagePath:((parentPath ? parentPath+'/' : '') + (basePageInfo.pageName?:''))]"/>
+                <if condition="existingPageInfo.pageReference?.exists">
+                    <return type="danger" message="Page already exists in space ${wikiSpaceId} at ${parentPath?:''}/${basePageInfo.pageName}"/></if>
+
 
                 <!-- TODO FUTURE this gets the latest text for the page; consider getting published version based on parameter, if there is a published version for this page -->
                 <service-call name="org.moqui.impl.WikiServices.update#WikiPage" out-map="newPageOut"
@@ -655,16 +669,24 @@ along with this software (see the LICENSE.md file). If not, see
                     <entity-create value-field="wikiPageUser"/>
                 </iterate>
 
-                <!-- copy WikiPageAlias records -->
+                <!-- copy WikiPageAlias records, only if alias doesn't exist -->
                 <entity-find entity-name="moqui.resource.wiki.WikiPageAlias" list="baseWikiPageAliasList">
                     <econdition field-name="wikiSpaceId" from="baseWikiSpaceId"/>
                     <econdition field-name="wikiPageId" from="basePageInfo.wikiPageId"/>
                 </entity-find>
                 <iterate list="baseWikiPageAliasList" entry="baseWikiPageAlias">
-                    <set field="wikiPageAlias" from="baseWikiPageAlias.cloneValue()"/>
-                    <set field="wikiPageAlias.wikiSpaceId" from="wikiSpaceId"/>
-                    <set field="wikiPageAlias.wikiPageId" from="wikiPageId"/>
-                    <entity-create value-field="wikiPageAlias"/>
+                    <entity-find-one entity-name="moqui.resource.wiki.WikiPageAlias" value-field="existingAlias">
+                        <field-map field-name="wikiSpaceId"/>
+                        <field-map field-name="aliasPath" from="baseWikiPageAlias.aliasPath"/>
+                    </entity-find-one>
+                    <if condition="existingAlias == null"><then>
+                        <set field="wikiPageAlias" from="baseWikiPageAlias.cloneValue()"/>
+                        <set field="wikiPageAlias.wikiSpaceId" from="wikiSpaceId"/>
+                        <set field="wikiPageAlias.wikiPageId" from="wikiPageId"/>
+                        <entity-create value-field="wikiPageAlias"/>
+                    </then><else>
+                        <message type="warning">Not copying wiki page alias ${baseWikiPageAlias.aliasPath}, already exists in space ${wikiSpaceId}</message>
+                    </else></if>
                 </iterate>
             </if>
 
