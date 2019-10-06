@@ -316,6 +316,52 @@ task gitDiffTagsAll {
     }
 }
 
+task gitMergeAll {
+    description "Do a git diff between two tags in the currently checked out branch in moqui, runtime, and each installed component"
+    doLast {
+        def branchName = (project.hasProperty('branch')) ? branch : null;
+        def tagName = (project.hasProperty('tag')) ? tag : null;
+        def pushMerge = (project.hasProperty('push')) ? push : null;
+
+
+        List<String> gitDirectories = []
+        if (file(".git").exists()) gitDirectories.add(file('.').path)
+        if (file("runtime/.git").exists()) gitDirectories.add(file('runtime').path)
+        for (File compDir in file('runtime/component').listFiles().findAll { it.isDirectory() && it.listFiles().find { it.name == '.git' } })
+            gitDirectories.add(compDir.path)
+
+        def frameworkDir = gitDirectories.first()
+        for (String gitDir in gitDirectories) {
+            def relativePath = "."+gitDir.minus(frameworkDir)
+            logger.lifecycle("${relativePath}")
+            def grgit = Grgit.open(dir: gitDir)
+            def currentBranch = grgit.branch.current()?.name;
+            if (branchName == currentBranch)
+                continue
+
+            def doMerge = false;
+
+            if (branchName && grgit.branch.list().find({ it.name == branchName }) != null) {
+                doMerge = true;
+            }
+
+            if (tagName && grgit.tag.list().find({ it.name == tagName }) != null) {
+                doMerge = true;
+            }
+
+            if (doMerge) {
+                grgit.merge(head: branchName ?: tagName)
+                logger.lifecycle("    Merging ${branchName ?: tagName} into ${currentBranch}")
+            }
+
+            if (pushMerge) {
+                grgit.push();
+                logger.lifecycle("    Pushing merge")
+            }
+        }
+    }
+}
+
 // ========== run tasks ==========
 
 task run(type: JavaExec) {
