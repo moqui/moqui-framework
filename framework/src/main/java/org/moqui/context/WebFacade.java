@@ -74,7 +74,7 @@ public interface WebFacade {
     void sendJsonResponse(Object responseObj);
     void sendTextResponse(String text);
     void sendTextResponse(String text, String contentType, String filename);
-    void sendResourceResponse(String location);
+    void sendResourceResponse(String location, String fileName);
     void sendError(int errorCode, String message, Throwable origThrowable);
 
     void handleXmlRpcServiceCall();

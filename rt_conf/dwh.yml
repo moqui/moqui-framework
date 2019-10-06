@@ -1,0 +1,29 @@
+# Sample config file
+---
+application: mis.issk.sk
+debug: true
+storePath: /home/jetty/dwh
+defaults:
+  - enumLabel: workRecordTypeCheckedProject
+    defaultValue: workorder
+  - enumLabel: ia_types
+    defaultValue: costs_own
+enums:
+  - enumLabel: ia_types
+    enumValues:
+      - value: costs_material
+        allowed: MATERIÁL
+      - value: costs_external
+        allowed: CUDZIE VÝKONY
+      - value: costs_own
+        allowed: VLASTNÉ VÝKONY
+      - value: costs_other
+        allowed: OSTATNÉ NÁKLADY
+      - value: invoice_total
+        allowed: FAKTURÁCIA
+      - value: costs_risk
+        allowed: Riziková priráźka
+  - enumLabel: workRecordTypeCheckedProject
+    enumValues:
+      - value: workorder
+        allowed:

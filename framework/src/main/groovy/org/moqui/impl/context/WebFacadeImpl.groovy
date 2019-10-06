@@ -756,9 +756,9 @@ class WebFacadeImpl implements WebFacade {
         }
     }
 
-    @Override void sendResourceResponse(String location) { sendResourceResponseInternal(location, false, eci, response) }
-    void sendResourceResponse(String location, boolean inline) { sendResourceResponseInternal(location, inline, eci, response) }
-    static void sendResourceResponseInternal(String location, boolean inline, ExecutionContextImpl eci, HttpServletResponse response) {
+    @Override void sendResourceResponse(String location, String fileName) { sendResourceResponseInternal(location, false, eci, response, fileName) }
+    void sendResourceResponse(String location, boolean inline, String fileName) { sendResourceResponseInternal(location, inline, eci, response, fileName) }
+    static void sendResourceResponseInternal(String location, boolean inline, ExecutionContextImpl eci, HttpServletResponse response, String fileName) {
         ResourceReference rr = eci.resource.getLocationReference(location)
         if (rr == null || (rr.supportsExists() && !rr.getExists())) {
             logger.warn("Sending not found response, resource not found at: ${location}")
@@ -777,7 +777,7 @@ class WebFacadeImpl implements WebFacade {
                 response.addHeader("Cache-Control", "max-age=86400, must-revalidate, public")
             }
         } else {
-            response.addHeader("Content-Disposition", "attachment; filename=\"${rr.getFileName()}\"; filename*=utf-8''${StringUtilities.encodeAsciiFilename(rr.getFileName())}")
+            response.addHeader("Content-Disposition", "attachment; filename=\"${fileName?:rr.getFileName()}\"; filename*=utf-8''${StringUtilities.encodeAsciiFilename(fileName?:rr.getFileName())}")
         }
         if (contentType == null || contentType.isEmpty() || ResourceReference.isBinaryContentType(contentType)) {
             InputStream is = rr.openStream()

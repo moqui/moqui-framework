@@ -166,8 +166,8 @@ class WebFacadeStub implements WebFacade {
         // logger.info("WebFacadeStub sendTextResponse (${text.length()} chars, content type ${contentType}, filename: ${filename})")
     }
 
-    @Override void sendResourceResponse(String location) {
-        WebFacadeImpl.sendResourceResponseInternal(location, false, ecfi.eci, httpServletResponse)
+    @Override void sendResourceResponse(String location, String fileName = null) {
+        WebFacadeImpl.sendResourceResponseInternal(location, false, ecfi.eci, httpServletResponse, fileName)
         /*
         ResourceReference rr = ecfi.getResource().getLocationReference(location)
         if (rr == null) throw new IllegalArgumentException("Resource not found at: ${location}")
