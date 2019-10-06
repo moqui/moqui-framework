@@ -321,6 +321,8 @@ task gitMergeAll {
     doLast {
         def branchName = (project.hasProperty('branch')) ? branch : null;
         def tagName = (project.hasProperty('tag')) ? tag : null;
+        def mergeMode = (project.hasProperty('mode')) ? mode : null;
+        def mergeMessage = (project.hasProperty('message')) ? message : null;
         def pushMerge = (project.hasProperty('push')) ? push : null;
 
 
@@ -350,7 +352,7 @@ task gitMergeAll {
             }
 
             if (doMerge) {
-                grgit.merge(head: branchName ?: tagName)
+                grgit.merge(head: branchName ?: tagName, mode: mergeMode, message: mergeMessage)
                 logger.lifecycle("    Merging ${branchName ?: tagName} into ${currentBranch}")
             }
 
