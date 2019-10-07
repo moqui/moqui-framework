@@ -136,6 +136,7 @@ dependencies {
     compile 'com.h2database:h2:1.4.199' // MPL 2.0, EPL 1.0
 
     // Jackson Databind (JSON, etc)
+    // NOTE: ran into ElasticSearch jar-hell issue on 'module-info' after update to 2.10.0, something weird there
     compile 'com.fasterxml.jackson.core:jackson-databind:2.9.9.2'
     compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:2.9.9'
 
