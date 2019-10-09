@@ -248,6 +248,10 @@ class EntityDataFeed {
 
         for (String dataDocumentId in fullDataDocumentIdSet) {
             Map<String, DocumentEntityInfo> entityInfoMap = getDataDocumentEntityInfo(dataDocumentId)
+            if (entityInfoMap == null) {
+                logger.error("Invalid or missing DataDocument ${dataDocumentId}, ignoring for real time feed")
+                continue
+            }
             // got a Map for all entities in the document, now split them by entity and add to master list for the entity
             for (Map.Entry<String, DocumentEntityInfo> entityInfoMapEntry in entityInfoMap.entrySet()) {
                 String entityName = entityInfoMapEntry.getKey()
@@ -288,8 +292,11 @@ class EntityDataFeed {
         }
 
         String primaryEntityName = dataDocument.primaryEntityName
+        if (!efi.isEntityDefined(primaryEntityName)) {
+            logger.error("Could not find primary entity ${primaryEntityName} for DataDocument ${dataDocumentId}")
+            return null
+        }
         EntityDefinition primaryEd = efi.getEntityDefinition(primaryEntityName)
-        if (primaryEd == null) throw new EntityNotFoundException("Could not find primary entity ${primaryEntityName} for DataDocument ${dataDocumentId}")
 
         Map<String, DocumentEntityInfo> entityInfoMap = [:]
 
