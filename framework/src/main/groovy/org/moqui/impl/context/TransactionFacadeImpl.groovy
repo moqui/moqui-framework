@@ -68,6 +68,8 @@ class TransactionFacadeImpl implements TransactionFacade {
 
             ut = transactionInternal.getUserTransaction()
             tm = transactionInternal.getTransactionManager()
+
+            logger.info("Internal transaction manager initialized: UserTransaction class ${ut?.class?.name}, TransactionManager class ${tm?.class?.name}")
         } else {
             throw new IllegalArgumentException("No transaction-jndi or transaction-internal elements found in Moqui Conf XML file")
         }
@@ -470,7 +472,7 @@ class TransactionFacadeImpl implements TransactionFacade {
                     if (causeThrowable != null) {
                         String causeString = causeThrowable.toString()
                         if (causeString.contains("org.eclipse.jetty.io.EofException")) {
-                            logger.warn("Transaction rollback. The rollback was originally caused by: ${causeMessage}\n${causeString}")
+                            logger.warn("Transaction set rollback only. The rollback was originally caused by: ${causeMessage}\n${causeString}")
                         } else {
                             logger.warn("Transaction set rollback only. The rollback was originally caused by: ${causeMessage}", causeThrowable)
                             logger.warn("Transaction set rollback only for [${causeMessage}]. Here is the current location: ", rbLocation)
