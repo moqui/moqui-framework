@@ -226,7 +226,7 @@ class MoquiServlet extends HttpServlet {
 
         if (ecfi != null && errorCode == HttpServletResponse.SC_INTERNAL_SERVER_ERROR && !isBrokenPipe(origThrowable)) {
             ExecutionContextImpl ec = ecfi.getEci()
-            ec.makeNotificationMessage().topic("WebServletError").type(NotificationMessage.NotificationType.danger)
+            ec.makeNotificationMessage().topic("WebServletError").type(NotificationMessage.danger)
                     .title('''Web Error ${errorCode?:''} (${username?:'no user'}) ${path?:''} ${message?:'N/A'}''')
                     .message([errorCode:errorCode, errorType:errorType, message:message, exception:origThrowable?.toString(),
                         path:ec.web.getPathInfo(), parameters:ec.web.getRequestParameters(), username:ec.user.username] as Map<String, Object>)
