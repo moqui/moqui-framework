@@ -90,7 +90,7 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
         if (!isPermitted(aeii, lastAeii, requiresAuthz, countTarpit, true, null)) {
             Deque<ArtifactExecutionInfo> curStack = getStack()
             StringBuilder warning = new StringBuilder()
-            warning.append("User ${eci.user.username ?: eci.user.userId} is not authorized for ${aeii.getActionDescription()} on ${aeii.getTypeDescription()} ${aeii.getName()}")
+            warning.append("User ${eci.user.username ?: eci.user.userId ?: '[No User]'} is not authorized for ${aeii.getActionDescription()} on ${aeii.getTypeDescription()} ${aeii.getName()}")
 
             ArtifactAuthorizationException e = new ArtifactAuthorizationException(warning.toString(), aeii, curStack)
             // end users see this message in vuet mode so better not to add all of this to the main message:
