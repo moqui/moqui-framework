@@ -958,6 +958,8 @@ class WebFacadeImpl implements WebFacade {
     void handleServiceRestCall(List<String> extraPathNameList) {
         ContextStack parmStack = (ContextStack) getParameters()
 
+        logger.info("Service REST for ${request.getMethod()} to ${request.getPathInfo()} headers ${request.headerNames.collect()} parameters ${getRequestParameters()}")
+
         // check for login, etc error messages
         if (eci.message.hasError()) {
             String errorsString = eci.message.errorsString
