@@ -263,24 +263,44 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
                             messages:messages, hasError:(hasError ? 'Y' : 'N'), errors:errors] as Map<String, Object>)
                         .disableAuthz().call()
 
+                // notifications
+                Map<String, Object> msgMap = (Map<String, Object>) null
+                EntityList serviceJobUsers = (EntityList) null
+                if (topic || hasError) {
+                    msgMap = new HashMap<>()
+                    msgMap.put("serviceCallRun", [jobName:jobName, description:jobDescription, jobRunId:jobRunId,
+                          endTime:nowTimestamp, messages:messages, hasError:hasError, errors:errors])
+                    msgMap.put("parameters", parameters)
+                    msgMap.put("results", results)
+
+                    serviceJobUsers = threadEci.entityFacade.find("moqui.service.job.ServiceJobUser")
+                            .condition("jobName", jobName).useCache(true).disableAuthz().list()
+                }
+
                 // if topic send NotificationMessage
                 if (topic) {
                     NotificationMessage nm = threadEci.makeNotificationMessage().topic(topic)
-                    Map<String, Object> msgMap = new HashMap<>()
-                    msgMap.put("serviceCallRun", [jobName:jobName, description:jobDescription, jobRunId:jobRunId,
-                            endTime:nowTimestamp, messages:messages, hasError:hasError, errors:errors])
-                    msgMap.put("parameters", parameters)
-                    msgMap.put("results", results)
                     nm.message(msgMap)
 
                     if (currentUserId) nm.userId(currentUserId)
-                    EntityList serviceJobUsers = threadEci.entity.find("moqui.service.job.ServiceJobUser")
-                            .condition("jobName", jobName).useCache(true).disableAuthz().list()
                     for (EntityValue serviceJobUser in serviceJobUsers)
-                        if (serviceJobUser.receiveNotifications != 'N')
-                            nm.userId((String) serviceJobUser.userId)
+                        if (serviceJobUser.receiveNotifications != 'N') nm.userId((String) serviceJobUser.userId)
 
                     nm.type(hasError ? NotificationMessage.danger : NotificationMessage.success)
+                    nm.send()
+                }
+
+                // if hasError send general error notification
+                if (hasError) {
+                    NotificationMessage nm = threadEci.makeNotificationMessage().topic("ServiceJobError")
+                            .type(NotificationMessage.danger)
+                            .title('''Job Error ${serviceCallRun.jobName?:''} [${serviceCallRun.jobRunId?:''}] ${serviceCallRun.errors?:'N/A'}''')
+                            .message(msgMap)
+
+                    if (currentUserId) nm.userId(currentUserId)
+                    for (EntityValue serviceJobUser in serviceJobUsers)
+                        if (serviceJobUser.receiveNotifications != 'N') nm.userId((String) serviceJobUser.userId)
+
                     nm.send()
                 }
 
