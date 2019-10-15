@@ -395,21 +395,38 @@ class ServiceFacadeImpl implements ServiceFacade {
         Map<String, ArrayList<ServiceEcaRule>> ruleMap = new HashMap<>()
         ruleNoIdList.addAll(ruleByIdMap.values())
         for (ServiceEcaRule ecaRule in ruleNoIdList) {
-            String serviceName = ecaRule.serviceName
-            // remove the hash if there is one to more consistently match the service name
-            serviceName = StringUtilities.removeChar(serviceName, (char) '#')
-            ArrayList<ServiceEcaRule> lst = ruleMap.get(serviceName)
-            if (lst == null) {
-                lst = new ArrayList<>()
-                ruleMap.put(serviceName, lst)
+
+            // find all matching services if the name is a pattern, otherwise just add the service name to the list
+            boolean nameIsPattern = ecaRule.nameIsPattern
+            List<String> serviceNameList = new ArrayList<>()
+            if (nameIsPattern) {
+                String serviceNamePattern = ecaRule.serviceName
+                for (String ksn : knownServiceNames) {
+                    if (ksn.matches(serviceNamePattern)) {
+                        serviceNameList.add(ksn)
+                    }
+                }
+            } else {
+                serviceNameList.add(ecaRule.serviceName)
             }
-            // insert by priority
-            int insertIdx = 0
-            for (int i = 0; i < lst.size(); i++) {
-                ServiceEcaRule lstSer = (ServiceEcaRule) lst.get(i)
-                if (lstSer.priority <= ecaRule.priority) { insertIdx++ } else { break }
+
+            // add each of the services in the list to the rule map
+            for (String serviceName in serviceNameList) {
+                // remove the hash if there is one to more consistently match the service name
+                serviceName = StringUtilities.removeChar(serviceName, (char) '#')
+                ArrayList<ServiceEcaRule> lst = ruleMap.get(serviceName)
+                if (lst == null) {
+                    lst = new ArrayList<>()
+                    ruleMap.put(serviceName, lst)
+                }
+                // insert by priority
+                int insertIdx = 0
+                for (int i = 0; i < lst.size(); i++) {
+                    ServiceEcaRule lstSer = (ServiceEcaRule) lst.get(i)
+                    if (lstSer.priority <= ecaRule.priority) { insertIdx++ } else { break }
+                }
+                lst.add(insertIdx, ecaRule)
             }
-            lst.add(insertIdx, ecaRule)
         }
 
         // replace entire SECA rules Map in one operation
@@ -419,8 +436,20 @@ class ServiceFacadeImpl implements ServiceFacade {
         MNode serviceRoot = MNode.parse(rr)
         int numLoaded = 0
         for (MNode secaNode in serviceRoot.children("seca")) {
+            // a service name is valid if it is not a pattern and represents a defined service or if it is a pattern and
+            // matches at least one of the known service names
             String serviceName = secaNode.attribute("service")
-            if (!isServiceDefined(serviceName)) {
+            boolean nameIsPattern = secaNode.attribute("name-is-pattern") == "true"
+            boolean serviceDefined = false
+            if (nameIsPattern) {
+                for (String ksn : knownServiceNames) {
+                    serviceDefined = ksn.matches(serviceName)
+                    if (serviceDefined) break
+                }
+            } else {
+                serviceDefined = isServiceDefined(serviceName)
+            }
+            if (!serviceDefined) {
                 logger.warn("Invalid service name ${serviceName} found in SECA file ${rr.location}, skipping")
                 continue
             }

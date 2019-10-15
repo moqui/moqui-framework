@@ -47,10 +47,11 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:annotation><xs:documentation>Optional but recommended. If another SECA rule has the same id it will override
                     any previously found with that id to change behavior or disable by override with empty actions.</xs:documentation></xs:annotation>
             </xs:attribute>
-            <xs:attribute name="service" type="name-full" use="required">
+            <xs:attribute name="service" type="xs:string" use="required">
                 <xs:annotation><xs:documentation>
-                    The combined service name, like: "${path}.${verb}${noun}". To explicitly separate the verb and noun
-                    put a hash (#) between them, like: "${path}.${verb}#${noun}".
+                    The combined service name, like: "${path}.${verb}${noun}", or a pattern to match multiple service
+                    names, like: "${path}\.(.*)". To explicitly separate the verb and noun put a hash (#) between them,
+                    like: "${path}.${verb}#${noun}".
                 </xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="when" use="required">
@@ -91,6 +92,7 @@ along with this software (see the LICENSE.md file). If not, see
                     </xs:restriction>
                 </xs:simpleType>
             </xs:attribute>
+            <xs:attribute name="name-is-pattern" type="boolean" default="false"/>
             <xs:attribute name="run-on-error" type="boolean" default="false"/>
             <xs:attribute name="priority" type="xs:positiveInteger" default="5"/>
         </xs:complexType>
