@@ -36,7 +36,7 @@ class ServiceEcaRule {
     protected final MNode secaNode
     public final String location, serviceName, serviceNameNoHash, when
     public final int priority
-    protected final boolean runOnError
+    protected final boolean nameIsPattern, runOnError
 
     protected final XmlAction condition
     protected final XmlAction actions
@@ -47,6 +47,7 @@ class ServiceEcaRule {
         serviceName = secaNode.attribute("service")
         serviceNameNoHash = serviceName.replace("#", "")
         when = secaNode.attribute("when")
+        nameIsPattern = secaNode.attribute("name-is-pattern") == "true"
         runOnError = secaNode.attribute("run-on-error") == "true"
         priority = (secaNode.attribute("priority") ?: "5") as int
 
@@ -70,7 +71,8 @@ class ServiceEcaRule {
 
     void runIfMatches(String serviceName, Map<String, Object> parameters, Map<String, Object> results, String when, ExecutionContextImpl ec) {
         // see if we match this event and should run
-        if (!this.serviceNameNoHash.equals(serviceName)) return
+        if (!nameIsPattern && !serviceNameNoHash.equals(serviceName)) return
+        if (nameIsPattern && !serviceName.matches(this.serviceName)) return
         if (!this.when.equals(when)) return
         if (!runOnError && ec.getMessage().hasError()) return
 
