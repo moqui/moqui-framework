@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd">
+    <actions>
+        <set field="title" from="title ?: 'Rendered screen attached'"/>
+        <set field="bodyParmKeys" from="new TreeSet(bodyParameters.keySet())"/>
+        <set field="excludeParmKeys" from="['moquiSessionToken', 'screenRenderMode', 'moquiFormName', 'title', 'toAddresses', 'findButton', 'submitButton', 'lastStandalone']"/>
+        <iterate list="excludeParmKeys" entry="excludeParmKey"><script>bodyParmKeys.remove(excludeParmKey)</script></iterate>
+    </actions>
+    <widgets><render-mode>
+        <text type="html"><![CDATA[
+<html><body>
+    <h2>${title}</h2>
+
+    <#list bodyParmKeys as parmName>
+        <#assign parmValue = bodyParameters.get(parmName)!>
+        <#if parmValue?has_content>
+            <div><strong>${parmName}</strong>: ${parmValue}</div>
+        </#if>
+    </#list>
+</body></html>
+        ]]></text>
+        <text type="text"><![CDATA[
+${title}
+
+<#list bodyParmKeys as parmName>
+    <#assign parmValue = bodyParameters.get(parmName)!>
+    <#if parmValue?has_content>
+${parmName}: ${parmValue}
+    </#if>
+</#list>
+        ]]></text>
+    </render-mode></widgets>
+</screen>

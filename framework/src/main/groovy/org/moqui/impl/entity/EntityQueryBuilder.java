@@ -52,8 +52,8 @@ public class EntityQueryBuilder {
 
     public EntityDefinition getMainEd() { return mainEntityDefinition; }
 
-    Connection makeConnection() {
-        connection = efi.getConnection(mainEntityDefinition.getEntityGroupName());
+    Connection makeConnection(boolean useClone) {
+        connection = efi.getConnection(mainEntityDefinition.getEntityGroupName(), useClone);
         return connection;
     }
 

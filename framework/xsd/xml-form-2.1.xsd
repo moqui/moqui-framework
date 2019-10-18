@@ -239,6 +239,9 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:attribute name="show-csv-button" type="boolean" default="false">
             <xs:annotation><xs:documentation>Show a button to export as CSV (renderMode=csv), if the pagination header is displayed</xs:documentation></xs:annotation>
         </xs:attribute>
+        <xs:attribute name="show-xlsx-button" type="boolean" default="false">
+            <xs:annotation><xs:documentation>Show a button to export as XLS (renderMode=xlsx), if the pagination header is displayed</xs:documentation></xs:annotation>
+        </xs:attribute>
         <xs:attribute name="show-text-button" type="boolean" default="false">
             <xs:annotation><xs:documentation>Show a button to export as plain text (renderMode=text), if the pagination header
                 is displayed. Because fixed-width text output is limited by nature and the default of evenly sizing all columns

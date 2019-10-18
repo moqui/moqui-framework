@@ -1,9 +1,30 @@
 
 # Moqui Framework Release Notes
 
-## Release 2.1.2 - Not Yet Released
+## Release 2.1.3 - Not Yet Released
+
+Moqui Framework 2.1.3 is a patch level new feature and bug fix release.
+
+There are only minor changes and fixes in this release. For a complete list of changes see:
+
+https://github.com/moqui/moqui-framework/compare/v2.1.2...v2.1.3
+
+### New Features
+
+- Support for binary render modes for screen with new ScreenWidgetRender interface and screen-facade.screen-output
+  element in the Moqui Conf XML file; this was initially implemented to support an xlsx render mode implemented in
+  the new moqui-poi tool component
+
+### Bug Fixes
+
+
+## Release 2.1.2 - 23 July 2019
 
 Moqui Framework 2.1.2 is a patch level new feature and bug fix release.
+
+There are only minor changes and fixes in this release. For a complete list of changes see:
+
+https://github.com/moqui/moqui-framework/compare/v2.1.1...v2.1.2
 
 ### New Features
 
@@ -13,11 +34,17 @@ Moqui Framework 2.1.2 is a patch level new feature and bug fix release.
 - CORS preflight OPTIONS request and CORS actual request handling in MoquiServlet
     - headers configured using cors-preflight and cors-actual types in webapp.response-header elements with default headers in MoquiDefaultConf.xml
     - allowed origins configured with the webapp.@allow-origins attribute which defaults the value of the 'webapp_allow_origins'
-      property or env var for production configuration; default to empty which means only same origin is allowed 
+      property or env var for production configuration; default to empty which means only same origin is allowed
+- Docker and instance management monitoring and configuration option improvements, Postgres support for database instances
+- Entity field currency-amount now has 4 decimal digits in the DB and currency-precise has 5 decimal digits for more currency flexibility
+- Added minRetryTime to ServiceJob to avoid immediate and excessive retries
+- New Gradle tasks for managing git tags
+- Support for read only clone datasource configuration and use (if available) in entity finds
 
 ### Bug Fixes
 
 - Issue with DataFeed Runnable not destroying the ExecutionContext causing errors to bleed over
+- Fix double content type header in RestClient in certain scenarios
 
 ## Release 2.1.1 - 29 Nov 2018
 

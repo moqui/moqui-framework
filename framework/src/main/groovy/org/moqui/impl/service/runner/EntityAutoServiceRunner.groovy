@@ -144,7 +144,9 @@ class EntityAutoServiceRunner implements ServiceRunner {
 
             Object pkValue = parameters.get(singlePkField.name)
             if (!ObjectUtilities.isEmpty(pkValue)) {
-                newEntityValue.set(singlePkField.name, pkValue)
+                // convert from String if parameter type is String, PK field type may not be
+                if (pkValue instanceof CharSequence) newEntityValue.setString(singlePkField.name, pkValue.toString())
+                else newEntityValue.set(singlePkField.name, pkValue)
             } else {
                 // if it has a default value don't sequence the PK
                 if (singlePkField.defaultStr == null || singlePkField.defaultStr.isEmpty()) {

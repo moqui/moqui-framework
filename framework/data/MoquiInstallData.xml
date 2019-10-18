@@ -21,11 +21,19 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.email.EmailTemplate emailTemplateId="NOTIFICATION" description="Default Notification" emailServerId="SYSTEM"
             emailTypeEnumId="EMT_NOTIFICATION" bodyScreenLocation="classpath://screen/NotificationEmail.xml" webappName="webroot"
             fromAddress="" fromName="" ccAddresses="" bccAddresses="" subject="${title}" sendPartial="Y"/>
+    <!-- EmailTemplate for rendered screens (reports, etc) -->
+    <moqui.basic.email.EmailTemplate emailTemplateId="SCREEN_RENDER" description="Default Screen Render" emailServerId="SYSTEM"
+            emailTypeEnumId="EMT_SCREEN_RENDER" bodyScreenLocation="classpath://screen/ScreenRenderEmail.xml" webappName="webroot"
+            fromAddress="" fromName="" ccAddresses="" bccAddresses="" subject="${title}" sendPartial="Y"/>
 
     <!-- Web Servlet Errors NotificationTopic -->
     <moqui.security.user.NotificationTopic topic="WebServletError" description="Web Servlet Error"
             typeString="danger" showAlert="Y" persistOnSend="Y" receiveNotifications="N" isPrivate="Y" emailTemplateId="NOTIFICATION"
             titleTemplate="Web Error ${errorCode?:''} (${username?:'no user'}) ${path?:''} ${message?:'N/A'}"/>
+    <moqui.security.user.NotificationTopic topic="ServiceJobError" description="Service Job Error"
+            typeString="danger" showAlert="Y" persistOnSend="Y" receiveNotifications="N" isPrivate="Y" emailTemplateId="NOTIFICATION"
+            titleTemplate="Job Error ${serviceCallRun.jobName?:''} [${serviceCallRun.jobRunId?:''}] ${serviceCallRun.errors?:'N/A'}"
+            linkTemplate="/vapps/system/ServiceJob/JobRuns/JobRunDetail?jobRunId=${serviceCallRun.jobRunId}"/>
 
     <!-- ========== Framework Scheduled ServiceJob Data ========== -->
     <!-- Handy cron strings: [0 0 2 * * ?] every night at 2:00 am, [0 0/15 * * * ?] every 15 minutes, [0 0/2 * * * ?] every 2 minutes -->

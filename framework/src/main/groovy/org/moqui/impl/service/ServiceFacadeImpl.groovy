@@ -61,6 +61,7 @@ class ServiceFacadeImpl implements ServiceFacade {
         serviceLocationCache = ecfi.cacheFacade.getCache("service.location", String.class, ServiceDefinition.class)
 
         MNode serviceFacadeNode = ecfi.confXmlRoot.first("service-facade")
+        serviceFacadeNode.setSystemExpandAttributes(true)
         // load service runners from configuration
         for (MNode serviceType in serviceFacadeNode.children("service-type")) {
             ServiceRunner sr = (ServiceRunner) Thread.currentThread().getContextClassLoader()
@@ -100,7 +101,7 @@ class ServiceFacadeImpl implements ServiceFacade {
         long jobRunnerRate = (serviceFacadeNode.attribute("scheduled-job-check-time") ?: "60") as long
         if (jobRunnerRate > 0L) {
             jobRunner = new ScheduledJobRunner(ecfi)
-            // wait 60 seconds before first run to make sure all is loaded and we're past an initial activity burst
+            // wait 120 seconds before first run to make sure all is loaded and we're past an initial activity burst
             ecfi.scheduledExecutor.scheduleAtFixedRate(jobRunner, 120, jobRunnerRate, TimeUnit.SECONDS)
         } else {
             jobRunner = null

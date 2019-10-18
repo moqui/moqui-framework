@@ -362,7 +362,7 @@ public abstract class ResourceReference implements Serializable {
             List<Map> curChildResourceList = new LinkedList<>();
 
             String curFileName = getFileName();
-            if (curFileName.contains(".")) curFileName = curFileName.substring(0, curFileName.indexOf('.'));
+            if (curFileName.contains(".")) curFileName = curFileName.substring(0, curFileName.lastIndexOf('.'));
             String curPath = childPathBase + curFileName;
 
             if (allChildFileFlatList != null) {

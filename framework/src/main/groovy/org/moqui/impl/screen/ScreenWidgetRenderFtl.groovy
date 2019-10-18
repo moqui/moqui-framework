@@ -14,27 +14,24 @@
 package org.moqui.impl.screen
 
 import groovy.transform.CompileStatic
-import org.moqui.util.MNode
-import org.slf4j.LoggerFactory
-import org.slf4j.Logger
+import org.moqui.util.ContextStack
 
 @CompileStatic
-class ScreenWidgets {
-    protected final static Logger logger = LoggerFactory.getLogger(ScreenWidgets.class)
+class ScreenWidgetRenderFtl implements ScreenWidgetRender {
 
-    protected MNode widgetsNode
-    protected String location
+    ScreenWidgetRenderFtl() { }
 
-    ScreenWidgets(MNode widgetsNode, String location) {
-        this.widgetsNode = widgetsNode
-        this.location = location
-    }
+    @Override
+    void render(ScreenWidgets widgets, ScreenRenderImpl sri) {
+        ContextStack cs = sri.ec.contextStack
+        cs.push()
+        try {
+            cs.sri = sri
+            cs.widgetsNode = widgets.getWidgetsNode()
 
-    MNode getWidgetsNode() { return widgetsNode }
-    String getLocation() { return location }
-
-    void render(ScreenRenderImpl sri) {
-        ScreenWidgetRender swr = sri.getScreenWidgetRender()
-        swr.render(this, sri)
+            sri.template.createProcessingEnvironment(cs, sri.writer).process()
+        } finally {
+            cs.pop()
+        }
     }
 }

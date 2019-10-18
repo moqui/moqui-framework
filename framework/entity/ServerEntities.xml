@@ -40,6 +40,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="serverHostName" type="text-medium"/>
         <relationship type="one-nofk" related="moqui.server.Visit"/>
         <relationship type="one-nofk" related="moqui.security.UserAccount"/>
+        <index name="ARTIFACT_HIT_VST"><index-field name="visitId"/></index>
+        <index name="ARTIFACT_HIT_USR"><index-field name="userId"/></index>
     </entity>
     <entity entity-name="ArtifactHitBin" package="moqui.server" use="nontransactional"
             cache="never" sequence-bank-size="100">

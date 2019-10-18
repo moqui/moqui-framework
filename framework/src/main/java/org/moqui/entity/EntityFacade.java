@@ -134,9 +134,10 @@ public interface EntityFacade {
      * @param groupName The name of entity group to get a connection for.
      *     Corresponds to the entity.@group attribute and the moqui-conf datasource.@group-name attribute.
      * @return JDBC Connection object for the associated database
-     * @throws EntityException
+     * @throws EntityException if there is an error getting a Connection
      */
     Connection getConnection(String groupName) throws EntityException;
+    Connection getConnection(String groupName, boolean useClone) throws EntityException;
 
     // ======= Import/Export (XML, CSV, etc) Related Methods ========
 

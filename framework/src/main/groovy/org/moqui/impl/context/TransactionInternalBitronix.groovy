@@ -16,6 +16,8 @@ package org.moqui.impl.context
 import bitronix.tm.BitronixTransactionManager
 import bitronix.tm.TransactionManagerServices
 import bitronix.tm.resource.jdbc.PoolingDataSource
+import bitronix.tm.utils.ClassLoaderUtils
+import bitronix.tm.utils.PropertyUtils
 import groovy.transform.CompileStatic
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.TransactionInternal
@@ -26,6 +28,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import javax.sql.DataSource
+import javax.sql.XADataSource
 import javax.transaction.TransactionManager
 import javax.transaction.UserTransaction
 import java.sql.Connection
@@ -73,6 +76,24 @@ class TransactionInternalBitronix implements TransactionInternal {
         if (dsi.xaDsClass) {
             pds.setClassName(dsi.xaDsClass)
             pds.setDriverProperties(dsi.xaProps)
+
+            Class<?> xaFactoryClass = ClassLoaderUtils.loadClass(dsi.xaDsClass)
+            Object xaFactory = xaFactoryClass.newInstance()
+            if (!(xaFactory instanceof XADataSource))
+                throw new IllegalArgumentException("xa-ds-class " + xaFactory.getClass().getName() + " does not implement XADataSource")
+            XADataSource xaDataSource = (XADataSource) xaFactory
+
+            for (Map.Entry<Object, Object> entry : dsi.xaProps.entrySet()) {
+                String name = (String) entry.getKey()
+                Object value = entry.getValue()
+
+                try {
+                    PropertyUtils.setProperty(xaDataSource, name, value)
+                } catch (Exception e) {
+                    logger.warn("Error setting ${dsi.uniqueName} property ${name}, ignoring: ${e.toString()}")
+                }
+            }
+            pds.setXaDataSource(xaDataSource)
         } else {
             pds.setClassName("bitronix.tm.resource.jdbc.lrc.LrcXADataSource")
             pds.getDriverProperties().setProperty("driverClassName", dsi.jdbcDriver)
