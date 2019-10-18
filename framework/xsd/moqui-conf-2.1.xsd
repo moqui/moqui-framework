@@ -202,6 +202,7 @@ along with this software (see the LICENSE.md file). If not, see
                     <xs:attribute name="class" type="xs:string" use="required"/>
                     <xs:attribute name="async-supported" type="boolean" default="false"/>
                     <xs:attribute name="enabled" type="boolean" default="true"/>
+                    <xs:attribute name="priority" type="xs:nonNegativeInteger" default="5"/>
                 </xs:complexType></xs:element>
                 <xs:element minOccurs="0" maxOccurs="unbounded" name="listener">
                     <xs:annotation><xs:documentation>
@@ -266,12 +267,12 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="https-host" type="xs:string"/>
             <xs:attribute name="http-port" type="xs:string"/>
             <xs:attribute name="http-host" type="xs:string"/>
-            <xs:attribute name="handle-cors" type="boolean" default="true"><xs:annotation><xs:documentation>
+            <xs:attribute name="handle-cors" type="boolean-expandable" default="true"><xs:annotation><xs:documentation>
                 Set to false to disable CORS handling globally in MoquiServlet including Origin validation and adding cors-preflight and cors-actual configured response headers
             </xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="allow-origins" type="xs:string"><xs:annotation><xs:documentation>
                 Comma separated list of host name or protocol plus host name to match against Origin request header; can be '*' to allow all</xs:documentation></xs:annotation></xs:attribute>
-            <xs:attribute name="require-session-token" default="true" type="boolean"><xs:annotation><xs:documentation>
+            <xs:attribute name="require-session-token" type="boolean-expandable" default="true"><xs:annotation><xs:documentation>
                 If not false (default true) moquiSessionToken (from ec.web.sessionToken) must be passed to all
                 screen/transition requests in a session after the first.</xs:documentation></xs:annotation></xs:attribute>
             <!-- Needed? Not yet implemented: <xs:attribute name="cookie-domain" type="xs:string"/> -->
@@ -463,6 +464,7 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:complexType>
             <xs:sequence>
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="screen-text-output"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="screen-output"/>
                 <xs:element minOccurs="0" maxOccurs="unbounded" name="screen"><xs:complexType>
                     <xs:sequence>
                         <xs:element minOccurs="0" maxOccurs="unbounded" name="subscreens-item"><xs:annotation><xs:documentation>
@@ -485,18 +487,24 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="default-autocomplete-rows" type="xs:string" default="10"/>
         </xs:complexType>
     </xs:element>
-    <xs:element name="screen-text-output">
-        <xs:complexType>
-            <xs:attribute name="type" type="xs:string" use="required">
-                <xs:annotation><xs:documentation>Can be anything. Default supported values include: text, html, xsl-fo,
-                    xml, and csv.</xs:documentation></xs:annotation>
-            </xs:attribute>
-            <xs:attribute name="mime-type" type="xs:string" use="optional"/>
-            <xs:attribute name="always-standalone" type="boolean" default="false"/>
-            <xs:attribute name="skip-actions" type="boolean" default="false"/>
-            <xs:attribute name="macro-template-location" type="xs:string" use="required"/>
-        </xs:complexType>
-    </xs:element>
+    <xs:element name="screen-text-output"><xs:complexType>
+        <xs:attribute name="type" type="xs:string" use="required"><xs:annotation>
+            <xs:documentation>Can be anything. Default supported values include: text, html, xsl-fo, xml, and csv.</xs:documentation>
+        </xs:annotation></xs:attribute>
+        <xs:attribute name="mime-type" type="xs:string" use="optional"/>
+        <xs:attribute name="always-standalone" type="boolean" default="false"/>
+        <xs:attribute name="skip-actions" type="boolean" default="false"/>
+        <xs:attribute name="macro-template-location" type="xs:string" use="required"/>
+    </xs:complexType></xs:element>
+    <xs:element name="screen-output"><xs:complexType>
+        <xs:attribute name="type" type="xs:string" use="required"><xs:annotation>
+            <xs:documentation>Can be anything. Default supported values include: text, html, xsl-fo, xml, and csv.</xs:documentation>
+        </xs:annotation></xs:attribute>
+        <xs:attribute name="mime-type" type="xs:string" use="optional"/>
+        <xs:attribute name="always-standalone" type="boolean" default="false"/>
+        <xs:attribute name="skip-actions" type="boolean" default="false"/>
+        <xs:attribute name="widget-render-class" type="xs:string" use="required"/>
+    </xs:complexType></xs:element>
 
     <!-- ====================== Service Facade Conf Root ======================= -->
     <xs:element name="service-facade">
@@ -511,7 +519,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="distributed-factory" type="xs:string"><xs:annotation><xs:documentation>
                 The name of the ToolFactory to use for the distributed async service ExecutorService implementation.
             </xs:documentation></xs:annotation></xs:attribute>
-            <xs:attribute name="scheduled-job-check-time" type="xs:nonNegativeInteger"><xs:annotation><xs:documentation>
+            <xs:attribute name="scheduled-job-check-time" type="non-neg-int-expandable"><xs:annotation><xs:documentation>
                 How often to check for and run scheduled service jobs in seconds. Set to 0 (zero) to disable.
             </xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
@@ -582,19 +590,19 @@ along with this software (see the LICENSE.md file). If not, see
                     <xs:element minOccurs="0" maxOccurs="1" ref="inline-other"/>
                 </xs:choice>
             </xs:sequence>
-            <xs:attribute name="group-name" type="name-plain" use="required"/>
+            <xs:attribute name="group-name" type="name-segmented" use="required"/>
             <xs:attribute name="database-conf-name" type="xs:string">
                 <xs:annotation><xs:documentation>This is only required for JDBC/SQL datasources.</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="schema-name" type="xs:string"/>
-            <xs:attribute name="startup-add-missing" default="false" type="boolean"/>
-            <xs:attribute name="runtime-add-missing" default="true" type="boolean"/>
-            <xs:attribute name="runtime-add-fks" default="true" type="boolean"/>
+            <xs:attribute name="startup-add-missing" default="false" type="boolean-expandable"/>
+            <xs:attribute name="runtime-add-missing" default="true" type="boolean-expandable"/>
+            <xs:attribute name="runtime-add-fks" default="true" type="boolean-expandable"/>
             <xs:attribute name="object-factory" type="xs:string" default="org.moqui.impl.entity.EntityDatasourceFactoryImpl">
                 <xs:annotation><xs:documentation>The references class must implement the
                     org.moqui.entity.EntityDatasourceFactory interface.</xs:documentation></xs:annotation>
             </xs:attribute>
-            <xs:attribute name="sequence-primary-use-uuid" type="boolean" default="false">
+            <xs:attribute name="sequence-primary-use-uuid" type="boolean-expandable" default="false">
                 <xs:annotation><xs:documentation>Uses java.util.UUID.randomUUID() to get sequenced IDs for all entities in this datasource.</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="start-server-args" type="xs:string">
@@ -602,6 +610,7 @@ along with this software (see the LICENSE.md file). If not, see
                     the embedded DB using these arguments. See the main() method at
                     http://www.h2database.com/javadoc/org/h2/tools/Server.html for details.</xs:documentation></xs:annotation>
             </xs:attribute>
+            <xs:attribute name="disabled" default="false" type="boolean-expandable"/>
         </xs:complexType>
     </xs:element>
     <xs:element name="inline-jdbc">

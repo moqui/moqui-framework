@@ -88,7 +88,7 @@ public class EntityValueImpl extends EntityValueBase {
                 efi.getEntityDbMeta().checkTableRuntime(ed);
 
                 if (con != null) eqb.useConnection(con);
-                else eqb.makeConnection();
+                else eqb.makeConnection(false);
                 eqb.makePreparedStatement();
                 for (int i = 0; i < size; i++) {
                     FieldInfo fieldInfo = fieldInfoArray[i];
@@ -142,7 +142,7 @@ public class EntityValueImpl extends EntityValueBase {
                 efi.getEntityDbMeta().checkTableRuntime(ed);
 
                 if (con != null) eqb.useConnection(con);
-                else eqb.makeConnection();
+                else eqb.makeConnection(false);
                 eqb.makePreparedStatement();
                 eqb.setPreparedStatementValues();
 
@@ -183,7 +183,7 @@ public class EntityValueImpl extends EntityValueBase {
                 efi.getEntityDbMeta().checkTableRuntime(ed);
 
                 if (con != null) eqb.useConnection(con);
-                else eqb.makeConnection();
+                else eqb.makeConnection(false);
                 eqb.makePreparedStatement();
                 eqb.setPreparedStatementValues();
                 if (eqb.executeUpdate() == 0) logger.info("Tried to delete a value that does not exist " + this.toString());
@@ -240,7 +240,7 @@ public class EntityValueImpl extends EntityValueBase {
             // if this is a view-entity and any table in it exists check/create all or will fail with optional members, etc
             if (ed.isViewEntity) efi.getEntityDbMeta().checkTableRuntime(ed);
 
-            eqb.makeConnection();
+            eqb.makeConnection(false);
             eqb.makePreparedStatement();
             eqb.setPreparedStatementValues();
 

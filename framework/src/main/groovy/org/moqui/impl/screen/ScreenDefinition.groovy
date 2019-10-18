@@ -74,7 +74,7 @@ class ScreenDefinition {
 
     protected ScreenSection rootSection = null
     protected Map<String, ScreenSection> sectionByName = new HashMap<>()
-    protected Map<String, ScreenForm> formByName = new HashMap<>()
+    protected Map<String, ScreenForm> formByName = new LinkedHashMap<>()
     protected Map<String, ScreenTree> treeByName = new HashMap<>()
     protected final Set<String> dependsOnScreenLocations = new HashSet<>()
     protected boolean hasTabMenu = false
@@ -348,6 +348,9 @@ class ScreenDefinition {
     boolean hasRequiredParameters() { return hasRequired }
     boolean hasTabMenu() { return hasTabMenu }
 
+    XmlAction getPreActions() { return preActions }
+    XmlAction getAlwaysActions() { return alwaysActions }
+
     boolean hasTransition(String name) {
         for (TransitionItem curTi in transitionByName.values()) if (curTi.name == name) return true
         return false
@@ -553,6 +556,7 @@ class ScreenDefinition {
         if (sf == null) throw new BaseArtifactException("Could not find form ${formName} in screen ${getLocation()}")
         return sf
     }
+    ArrayList<ScreenForm> getAllForms() { return new ArrayList<>(formByName.values()) }
     ScreenTree getTree(String treeName) {
         ScreenTree st = treeByName.get(treeName)
         if (st == null) throw new BaseArtifactException("Could not find tree ${treeName} in screen ${getLocation()}")

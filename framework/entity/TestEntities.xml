@@ -38,9 +38,9 @@ along with this software (see the LICENSE.md file). If not, see
     </entity>
     <entity entity-name="Bar" package="moqui.test" sequence-bank-size="100">
         <field name="barId" type="id" is-pk="true" />
-        <field name="fooId" type="id"></field>
-        <field name="rank" type="number-integer"></field>
-        <field name="score" type="number-decimal"></field>
+        <field name="fooId" type="id"/>
+        <field name="rank" type="number-integer"/>
+        <field name="score" type="number-decimal"/>
     </entity>
     <view-entity entity-name="FooBar" package="moqui.test">
         <member-entity entity-alias="T1" entity-name="moqui.test.Foo" />
@@ -65,5 +65,9 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="testNumberFloat" type="number-float"/>
         <field name="testCurrencyAmount" type="currency-amount"/>
         <field name="testCurrencyPrecise" type="currency-precise"/>
+    </entity>
+    <entity entity-name="TestIntPk" package="moqui.test">
+        <field name="intId" type="number-integer" is-pk="true"/>
+        <field name="testMedium" type="text-medium"/>
     </entity>
 </entities>

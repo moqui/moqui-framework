@@ -154,12 +154,16 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="ArtifactAuthzFilter" package="moqui.security" use="configuration">
         <field name="artifactAuthzId" type="id" is-pk="true"/>
         <field name="entityFilterSetId" type="id" is-pk="true"/>
+        <field name="applyCond" type="text-medium">
+            <description>Groovy boolean (if) expression, if specified checked before applying filters in the set</description></field>
         <relationship type="one" related="moqui.security.ArtifactAuthz" short-alias="authz"/>
         <relationship type="one" related="moqui.security.EntityFilterSet" short-alias="filterSet"/>
     </entity>
     <entity entity-name="EntityFilterSet" package="moqui.security" use="configuration">
         <field name="entityFilterSetId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
+        <field name="applyCond" type="text-medium">
+            <description>Groovy boolean (if) expression, if specified checked before applying filters in the set</description></field>
         <relationship type="many" related="moqui.security.EntityFilter" short-alias="filters">
             <key-map field-name="entityFilterSetId"/></relationship>
     </entity>
@@ -188,8 +192,9 @@ along with this software (see the LICENSE.md file). If not, see
         <member-entity entity-alias="AAF" entity-name="moqui.security.ArtifactAuthzFilter"/>
         <member-entity entity-alias="EFS" entity-name="moqui.security.EntityFilterSet" join-from-alias="AAF">
             <key-map field-name="entityFilterSetId"/></member-entity>
-        <alias-all entity-alias="AAF"/>
+        <alias-all entity-alias="AAF"><exclude field="applyCond"/></alias-all>
         <alias-all entity-alias="EFS"/>
+        <alias entity-alias="AAF" name="authzApplyCond" field="applyCond"/>
     </view-entity>
 
     <!-- ========== Artifact Tarpit ========== -->

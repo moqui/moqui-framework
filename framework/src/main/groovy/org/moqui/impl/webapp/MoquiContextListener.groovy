@@ -70,8 +70,10 @@ class MoquiContextListener implements ServletContextListener {
 
             WebappInfo wi = ecfi.getWebappInfo(moquiWebappName)
 
-            // add webapp filters, listeners, servlets
-            for (MNode filterNode in wi.webappNode.children("filter")) {
+            // add webapp filters
+            List<MNode> filterNodeList = wi.webappNode.children("filter")
+            filterNodeList = (List<MNode>) filterNodeList.sort(false, { Integer.parseInt(it.attribute("priority") ?: '5') })
+            for (MNode filterNode in filterNodeList) {
                 if (filterNode.attribute("enabled") == "false") continue
 
                 String filterName = filterNode.attribute("name")
@@ -104,6 +106,7 @@ class MoquiContextListener implements ServletContextListener {
                 }
             }
 
+            // add webapp listeners
             for (MNode listenerNode in wi.webappNode.children("listener")) {
                 if (listenerNode.attribute("enabled") == "false") continue
                 String className = listenerNode.attribute("class")
@@ -116,6 +119,7 @@ class MoquiContextListener implements ServletContextListener {
                 }
             }
 
+            // add webapp servlets
             for (MNode servletNode in wi.webappNode.children("servlet")) {
                 if (servletNode.attribute("enabled") == "false") continue
 

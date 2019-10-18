@@ -114,11 +114,27 @@ class MoquiServlet extends HttpServlet {
         MDC.remove("moqui_userId")
         MDC.remove("moqui_visitorId")
 
+        // make sure no transaction is active in thread
+        if (ecfi.transactionFacade.isTransactionInPlace()) {
+            logger.warn("In MoquiServlet.service there is already a transaction for thread [${Thread.currentThread().id}:${Thread.currentThread().name}], closing")
+            try {
+                ecfi.transactionFacade.destroyAllInThread()
+            } catch (Throwable t) {
+                logger.error("Error destroying transaction already in place in MoquiServlet.service", t)
+            }
+        }
+
+        // check for active ExecutionContext
         ExecutionContextImpl activeEc = ecfi.activeContext.get()
         if (activeEc != null) {
             logger.warn("In MoquiServlet.service there is already an ExecutionContext for user ${activeEc.user.username} (from ${activeEc.forThreadId}:${activeEc.forThreadName}) in this thread (${Thread.currentThread().id}:${Thread.currentThread().name}), destroying")
-            activeEc.destroy()
+            try {
+                activeEc.destroy()
+            } catch (Throwable t) {
+                logger.error("Error destroying ExecutionContext already in place in MoquiServlet.service", t)
+            }
         }
+        // get a new ExecutionContext
         ExecutionContextImpl ec = ecfi.getEci()
 
         /** NOTE to set render settings manually do something like this, but it is not necessary to set these things
@@ -210,10 +226,10 @@ class MoquiServlet extends HttpServlet {
 
         if (ecfi != null && errorCode == HttpServletResponse.SC_INTERNAL_SERVER_ERROR && !isBrokenPipe(origThrowable)) {
             ExecutionContextImpl ec = ecfi.getEci()
-            ec.makeNotificationMessage().topic("WebServletError").type(NotificationMessage.NotificationType.danger)
+            ec.makeNotificationMessage().topic("WebServletError").type(NotificationMessage.danger)
                     .title('''Web Error ${errorCode?:''} (${username?:'no user'}) ${path?:''} ${message?:'N/A'}''')
                     .message([errorCode:errorCode, errorType:errorType, message:message, exception:origThrowable?.toString(),
-                        path:ec.web.getPathInfo(), parameters:ec.web.getRequestParameters(), username:ec.user.username] as Map<String, Object>)
+                        path:ec.web?.getPathInfo(), parameters:ec.web?.getRequestParameters(), username:ec.user.username] as Map<String, Object>)
                     .send()
         }
 

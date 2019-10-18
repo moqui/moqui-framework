@@ -176,9 +176,7 @@ services:
      - "ES_JAVA_OPTS=-Xms1024m -Xmx1024m"
 
   kibana:
-    # using the docker hub image which does not include X-Pack (causes issues because embedded ES does not including X-Pack)
-    # the kibana image on docker hub is deprecated and slated to be removed, then will need an alternative without X-Pack
-    image: docker.elastic.co/kibana/kibana:6.3.2
+    image: docker.elastic.co/kibana/kibana-oss:6.3.2
     container_name: kibana
     restart: unless-stopped
     ports:
@@ -190,7 +188,7 @@ services:
     environment:
      # override value in kibana.yml so it can remain for other setups; NOTE: kibana may modify the kibana.yml file for this setting!
      - ELASTICSEARCH_URL=http://elasticsearch:9200
-     # - SERVER_BASEPATH=/kibana
+     - SERVER_BASEPATH=/kibana
      # - SERVER_HOST=kibana
      # - XPACK_SECURITY_ENABLED=false
      # - XPACK_MONITORING_ENABLED=false

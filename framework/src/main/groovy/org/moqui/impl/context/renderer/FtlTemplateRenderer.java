@@ -13,8 +13,6 @@
  */
 package org.moqui.impl.context.renderer;
 
-import freemarker.cache.NullCacheStorage;
-import freemarker.cache.TemplateLoader;
 import freemarker.core.Environment;
 import freemarker.core.InvalidReferenceException;
 import freemarker.ext.beans.BeansWrapper;
@@ -35,11 +33,12 @@ import org.slf4j.LoggerFactory;
 
 import javax.cache.Cache;
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 
 @CompileStatic
 public class FtlTemplateRenderer implements TemplateRenderer {
-    public static final Version FTL_VERSION = Configuration.VERSION_2_3_28;
+    public static final Version FTL_VERSION = Configuration.VERSION_2_3_29;
     private static final Logger logger = LoggerFactory.getLogger(FtlTemplateRenderer.class);
 
     protected ExecutionContextFactoryImpl ecfi;
@@ -101,7 +100,7 @@ public class FtlTemplateRenderer implements TemplateRenderer {
         if (is == null) throw new BaseArtifactException("Template not found at " + location);
 
         try {
-            templateReader = new InputStreamReader(is, "UTF-8");
+            templateReader = new InputStreamReader(is, StandardCharsets.UTF_8);
             newTemplate = new Template(location, templateReader, getFtlConfiguration());
         } catch (Exception e) {
             throw new BaseArtifactException("Error while initializing template at " + location, e);

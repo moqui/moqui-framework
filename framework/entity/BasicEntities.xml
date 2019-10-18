@@ -534,6 +534,7 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="System" enumId="EMT_SYSTEM" enumTypeId="EmailType"/>
             <moqui.basic.Enumeration description="Password Reset" enumId="EMT_PWD_RESET" parentEnumId="EMT_SYSTEM" enumTypeId="EmailType"/>
             <moqui.basic.Enumeration description="Notification" enumId="EMT_NOTIFICATION" parentEnumId="EMT_SYSTEM" enumTypeId="EmailType"/>
+            <moqui.basic.Enumeration description="Screen Render" enumId="EMT_SCREEN_RENDER" parentEnumId="EMT_SYSTEM" enumTypeId="EmailType"/>
             <!-- <moqui.basic.Enumeration description="Error Notice" enumId="EMT_ERROR_NOTICE" parentEnumId="EMT_SYSTEM" enumTypeId="EmailType"/> -->
 
             <moqui.basic.Enumeration description="Registration Confirmation" enumId="EMT_REG_CONFIRM" enumTypeId="EmailType"/>

@@ -74,4 +74,32 @@ along with this software (see the LICENSE.md file). If not, see
                     messageId:messageId, emailServerId:emailServerId]"/>
         </actions>
     </service>
+
+    <service verb="send" noun="ScreenRenderEmail">
+        <in-parameters>
+            <parameter name="screenLocation" required="true"/>
+            <parameter name="screenRenderMode" required="true"/>
+            <parameter name="fileName"/>
+
+            <parameter name="toAddresses" required="true"><description>Comma separated list of to email addresses</description></parameter>
+            <parameter name="ccAddresses"><description>Comma separated list of CC email addresses</description></parameter>
+            <parameter name="bccAddresses"><description>Comma separated list of BCC email addresses</description></parameter>
+
+            <parameter name="emailTemplateId" default-value="SCREEN_RENDER"/>
+            <parameter name="createEmailMessage" type="Boolean" default="false"/>
+            <parameter name="bodyParameters" type="Map"/>
+            <parameter name="title"/>
+        </in-parameters>
+        <actions>
+            <set field="attachments" from="[[fileName:fileName, attachmentLocation:screenLocation, screenRenderMode:screenRenderMode]]"/>
+            <if condition="bodyParameters == null"><set field="bodyParameters" from="[:]"/></if>
+            <if condition="title"><set field="bodyParameters.title" from="title"/></if>
+
+            <!-- default pageNoLimit=true and lastStandalone=true -->
+            <if condition="!bodyParameters.pageNoLimit"><set field="bodyParameters.pageNoLimit" value="true"/></if>
+            <if condition="!bodyParameters.lastStandalone"><set field="bodyParameters.lastStandalone" value="true"/></if>
+
+            <service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" in-map="context"/>
+        </actions>
+    </service>
 </services>

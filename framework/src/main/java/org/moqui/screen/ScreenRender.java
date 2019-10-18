@@ -15,6 +15,7 @@ package org.moqui.screen;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.io.OutputStream;
 import java.io.Writer;
 import java.util.List;
 
@@ -99,6 +100,7 @@ public interface ScreenRender {
      * context will not be changed.
      */
     void render(Writer writer);
+    void render(OutputStream os);
 
     /** Render a screen and return the output as a String. Context semantics are the same as other render methods. */
     String render();

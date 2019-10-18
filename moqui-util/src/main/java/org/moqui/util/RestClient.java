@@ -272,8 +272,7 @@ public class RestClient {
     }
 
     protected HttpClient makeStartHttpClient() {
-        SslContextFactory sslContextFactory = new SslContextFactory();
-        sslContextFactory.setTrustAll(true);
+        SslContextFactory sslContextFactory = new SslContextFactory.Client(true);
         HttpClient httpClient = new HttpClient(sslContextFactory);
         try { httpClient.start(); } catch (Exception e) { throw new BaseException("Error starting HTTP client", e); }
         return httpClient;

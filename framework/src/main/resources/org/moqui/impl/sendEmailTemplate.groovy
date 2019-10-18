@@ -157,6 +157,19 @@ try {
     if (bodyText) email.setTextMsg(bodyText)
     //email.setTextMsg("Your email client does not support HTML messages")
 
+    // parameter attachments
+    if (attachments instanceof List) for (Map attachmentInfo in attachments) {
+        if (attachmentInfo.screenRenderMode) {
+            renderScreenAttachment(emailTemplate, email, ec, logger, (String) attachmentInfo.filename,
+                    (String) attachmentInfo.screenRenderMode, (String) attachmentInfo.attachmentLocation)
+        } else {
+            // not a screen, get straight data with type depending on extension
+            DataSource dataSource = ec.resource.getLocationDataSource((String) attachmentInfo.attachmentLocation)
+            email.attach(dataSource, (String) attachmentInfo.fileName, "")
+        }
+    }
+
+    // DB configured attachments
     for (EntityValue emailTemplateAttachment in emailTemplateAttachmentList) {
         // check attachmentCondition if there is one
         String attachmentCondition = (String) emailTemplateAttachment.attachmentCondition
@@ -213,25 +226,46 @@ try {
 }
 
 static void renderScreenAttachment(EntityValue emailTemplate, EntityValue emailTemplateAttachment, HtmlEmail email, ExecutionContextImpl ec, Logger logger) {
-    def attachmentRender = ec.screen.makeRender().rootScreen((String) emailTemplateAttachment.attachmentLocation)
-            .webappName((String) emailTemplate.webappName).renderMode((String) emailTemplateAttachment.screenRenderMode)
-    String attachmentText = attachmentRender.render()
-    if (attachmentText == null) return
-    if (attachmentText.trim().length() == 0) return
+    renderScreenAttachment(emailTemplate, email, ec, logger, (String) emailTemplateAttachment.fileName,
+            (String) emailTemplateAttachment.screenRenderMode, (String) emailTemplateAttachment.attachmentLocation)
+}
+static void renderScreenAttachment(EntityValue emailTemplate, HtmlEmail email, ExecutionContextImpl ec, Logger logger,
+        String filename, String renderMode, String attachmentLocation) {
 
-    String fileName = ec.resource.expand((String) emailTemplateAttachment.fileName, null)
-    if (emailTemplateAttachment.screenRenderMode == "xsl-fo") {
-        // use ResourceFacade.xslFoTransform() to change to PDF, then attach that
-        try {
-            ByteArrayOutputStream baos = new ByteArrayOutputStream()
-            ec.resource.xslFoTransform(new StreamSource(new StringReader(attachmentText)), null, baos, "application/pdf")
-            email.attach(new ByteArrayDataSource(baos.toByteArray(), "application/pdf"), fileName, "")
-        } catch (Exception e) {
-            logger.warn("Error generating PDF from XSL-FO: ${e.toString()}")
+    if (!filename) {
+        String extension = renderMode == "xsl-fo" ? "pdf" : renderMode
+        filename = attachmentLocation.substring(attachmentLocation.lastIndexOf("/")+1, attachmentLocation.length()-4) + "." + extension
+    }
+    String filenameExp = ec.resource.expand(filename, null)
+
+    def attachmentRender = ec.screen.makeRender().rootScreen(attachmentLocation)
+            .webappName((String) emailTemplate.webappName).renderMode(renderMode)
+
+    if (ec.screenFacade.isRenderModeText(renderMode)) {
+        String attachmentText = attachmentRender.render()
+        if (attachmentText == null) return
+        if (attachmentText.trim().length() == 0) return
+
+        if (renderMode == "xsl-fo") {
+            // use ResourceFacade.xslFoTransform() to change to PDF, then attach that
+            try {
+                ByteArrayOutputStream baos = new ByteArrayOutputStream()
+                ec.resource.xslFoTransform(new StreamSource(new StringReader(attachmentText)), null, baos, "application/pdf")
+                email.attach(new ByteArrayDataSource(baos.toByteArray(), "application/pdf"), filenameExp, "")
+            } catch (Exception e) {
+                logger.warn("Error generating PDF from XSL-FO: ${e.toString()}")
+            }
+        } else {
+            String mimeType = ec.screenFacade.getMimeTypeByMode(renderMode)
+            DataSource dataSource = new ByteArrayDataSource(attachmentText, mimeType)
+            email.attach(dataSource, filenameExp, "")
         }
     } else {
-        String mimeType = ec.screenFacade.getMimeTypeByMode((String) emailTemplateAttachment.screenRenderMode)
-        DataSource dataSource = new ByteArrayDataSource(attachmentText, mimeType)
-        email.attach(dataSource, fileName, "")
+        ByteArrayOutputStream baos = new ByteArrayOutputStream()
+        attachmentRender.render(baos)
+
+        String mimeType = ec.screenFacade.getMimeTypeByMode(renderMode)
+        DataSource dataSource = new ByteArrayDataSource(baos.toByteArray(), mimeType)
+        email.attach(dataSource, filenameExp, "")
     }
 }

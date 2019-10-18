@@ -119,7 +119,7 @@ ${.node}
 <#macro "entity-find-one">
     <#assign autoFieldMap = .node["@auto-field-map"]?if_exists>
     if (true) {
-        org.moqui.entity.EntityValue find_one_result = ec.entity.find("${.node["@entity-name"]}")<#if .node["@cache"]?has_content>.useCache(${.node["@cache"]})</#if><#if .node["@for-update"]?has_content>.forUpdate(${.node["@for-update"]})</#if>
+        org.moqui.entity.EntityValue find_one_result = ec.entity.find("${.node["@entity-name"]}")<#if .node["@cache"]?has_content>.useCache(${.node["@cache"]})</#if><#if .node["@for-update"]?has_content>.forUpdate(${.node["@for-update"]})</#if><#if .node["@use-clone"]?has_content>.useClone(${.node["@use-clone"]})</#if>
                 <#if autoFieldMap?has_content><#if autoFieldMap == "true">.condition(context)<#elseif autoFieldMap != "false">.condition(${autoFieldMap})</#if><#elseif !.node["field-map"]?has_content>.condition(context)</#if><#list .node["field-map"] as fieldMap>.condition("${fieldMap["@field-name"]}", <#if fieldMap["@from"]?has_content>${fieldMap["@from"]}<#elseif fieldMap["@value"]?has_content>"""${fieldMap["@value"]}"""<#else>${fieldMap["@field-name"]}</#if>)</#list><#list .node["select-field"] as sf>.selectField("${sf["@field-name"]}")</#list>.one()
         if (${.node["@value-field"]} instanceof Map && !(${.node["@value-field"]} instanceof org.moqui.entity.EntityValue)) { if (find_one_result) ${.node["@value-field"]}.putAll(find_one_result) } else { ${.node["@value-field"]} = find_one_result }
     }
@@ -128,7 +128,7 @@ ${.node}
     <#assign useCache = (.node["@cache"]?if_exists == "true")>
     <#assign listName = .node["@list"]>
     <#assign doPaginate = .node["search-form-inputs"]?has_content && !(.node["search-form-inputs"][0]["@paginate"]?if_exists == "false")>
-    ${listName}_xafind = ec.entity.find("${.node["@entity-name"]}")<#if .node["@cache"]?has_content>.useCache(${.node["@cache"]})</#if><#if .node["@for-update"]?has_content>.forUpdate(${.node["@for-update"]})</#if><#if .node["@distinct"]?has_content>.distinct(${.node["@distinct"]})</#if><#if .node["@offset"]?has_content>.offset(${.node["@offset"]})</#if><#if .node["@limit"]?has_content>.limit(${.node["@limit"]})</#if><#list .node["select-field"] as sf>.selectField("${sf["@field-name"]}")</#list><#list .node["order-by"] as ob>.orderBy("${ob["@field-name"]}")</#list>
+    ${listName}_xafind = ec.entity.find("${.node["@entity-name"]}")<#if .node["@cache"]?has_content>.useCache(${.node["@cache"]})</#if><#if .node["@for-update"]?has_content>.forUpdate(${.node["@for-update"]})</#if><#if .node["@distinct"]?has_content>.distinct(${.node["@distinct"]})</#if><#if .node["@use-clone"]?has_content>.useClone(${.node["@use-clone"]})</#if><#if .node["@offset"]?has_content>.offset(${.node["@offset"]})</#if><#if .node["@limit"]?has_content>.limit(${.node["@limit"]})</#if><#list .node["select-field"] as sf>.selectField("${sf["@field-name"]}")</#list><#list .node["order-by"] as ob>.orderBy("${ob["@field-name"]}")</#list>
             <#if !useCache><#list .node["date-filter"] as df>.condition(<#visit df/>)</#list></#if><#list .node["econdition"] as ecn>.condition(<#visit ecn/>)</#list><#list .node["econditions"] as ecs>.condition(<#visit ecs/>)</#list><#list .node["econdition-object"] as eco>.condition(<#visit eco/>)</#list>
     <#-- do having-econditions first, if present will disable cached query, used in search-form-inputs -->
     <#if .node["having-econditions"]?has_content>${listName}_xafind<#list .node["having-econditions"][0]?children as havingCond>.havingCondition(<#visit havingCond/>)</#list>
@@ -172,12 +172,12 @@ ${.node}
         <#if !useCache>
             if (${listName}_xafind.getLimit() == null) {
                 ${listName}Count = ${listName}.size()
-                ${listName}PageIndex = ${listName}.pageIndex
+                ${listName}PageIndex = ${listName}.getPageIndex()
                 ${listName}PageSize = ${listName}Count > 20 ? ${listName}Count : 20
             } else {
-                ${listName}PageIndex = ${listName}_xafind.pageIndex
-                ${listName}PageSize = ${listName}_xafind.pageSize
-                if (${listName}.size() < ${listName}PageSize) { ${listName}Count = ${listName}.size() }
+                ${listName}PageIndex = ${listName}_xafind.getPageIndex()
+                ${listName}PageSize = ${listName}_xafind.getPageSize()
+                if (${listName}.size() < ${listName}PageSize) { ${listName}Count = ${listName}.size() + ${listName}PageIndex * ${listName}PageSize }
                 else { ${listName}Count = ${listName}_xafind.count() }
             }
         </#if>

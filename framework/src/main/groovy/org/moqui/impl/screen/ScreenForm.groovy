@@ -1724,23 +1724,24 @@ class ScreenForm {
                     if (ef.getLimit() == null) {
                         count = efList.size()
                         pageSize = count > 20 ? count : 20
-                        pageIndex = efList.pageIndex
+                        pageIndex = efList.getPageIndex()
                     } else if (useCache) {
                         count = efList.size()
                         efList.filterByLimit(sfiNode.attribute("input-fields-map"), true)
-                        pageSize = efList.pageSize
-                        pageIndex = efList.pageIndex
+                        pageSize = efList.getPageSize()
+                        pageIndex = efList.getPageIndex()
                     } else {
                         pageIndex = ef.pageIndex
                         pageSize = ef.pageSize
                         // this can be expensive, only get count if efList size is equal to pageSize (can skip if no paginate needed)
-                        if (efList.size() < pageSize) count = efList.size()
+                        if (efList.size() < pageSize) count = efList.size() + pageSize * pageIndex
                         else count = ef.count()
                     }
                     long maxIndex = (new BigDecimal(count-1)).divide(new BigDecimal(pageSize), 0, BigDecimal.ROUND_DOWN).longValue()
                     long pageRangeLow = (pageIndex * pageSize) + 1
                     long pageRangeHigh = (pageIndex * pageSize) + pageSize
                     if (pageRangeHigh > count) pageRangeHigh = count
+                    // logger.info("count ${count} pageSize ${pageSize} maxIndex ${maxIndex} pageRangeLow ${pageRangeLow} pageRangeHigh ${pageRangeHigh}")
 
                     context.put(listName.concat("Count"), count)
                     context.put(listName.concat("PageIndex"), pageIndex)
