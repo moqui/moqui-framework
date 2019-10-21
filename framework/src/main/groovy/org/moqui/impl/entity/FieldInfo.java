@@ -463,7 +463,7 @@ public class FieldInfo {
                             ps.setDate(index, (java.sql.Date) value, efi.getCalendarForTzLc());
                         } else if (valClass == java.util.Date.class) {
                             ps.setTimestamp(index, new Timestamp(((java.util.Date) value).getTime()), efi.getCalendarForTzLc());
-                        } else if (valClass == java.lang.Long.class) {
+                        } else if (valClass == Long.class) {
                             ps.setTimestamp(index, new Timestamp((Long) value), efi.getCalendarForTzLc());
                         } else {
                             throw new EntityException("Class " + valClass.getName() + " not allowed for date-time (Timestamp) fields, for field " + entityName + "." + name);
@@ -492,7 +492,7 @@ public class FieldInfo {
                             ps.setDate(index, new java.sql.Date(((Timestamp) value).getTime()), efi.getCalendarForTzLc());
                         } else if (valClass == java.util.Date.class) {
                             ps.setDate(index, new java.sql.Date(((java.util.Date) value).getTime()), efi.getCalendarForTzLc());
-                        } else if (valClass == java.lang.Long.class) {
+                        } else if (valClass == Long.class) {
                             ps.setDate(index, new java.sql.Date((Long) value), efi.getCalendarForTzLc());
                         } else {
                             throw new EntityException("Class " + valClass.getName() + " not allowed for date fields, for field " + entityName + "." + name);
