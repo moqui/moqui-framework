@@ -52,7 +52,7 @@ class ScreenFacadeImpl implements ScreenFacade {
     protected final Cache<String, MNode> dbFormNodeByIdCache
 
     protected final Map<String, ScreenWidgetRender> screenWidgetRenderByMode = new HashMap<>()
-    protected final ScreenWidgetRender textMacroWidgerRender = new ScreenWidgetRenderFtl()
+    protected final ScreenWidgetRender textMacroWidgetRender = new ScreenWidgetRenderFtl()
     protected final Set<String> textOutputRenderModes = new HashSet<>()
     protected final Set<String> allRenderModes = new HashSet<>()
 
@@ -312,7 +312,7 @@ class ScreenFacadeImpl implements ScreenFacade {
         ScreenWidgetRender swr = (ScreenWidgetRender) screenWidgetRenderByMode.get(renderMode)
         if (swr != null) return swr
         // special case for text output render modes
-        if (textOutputRenderModes.contains(renderMode)) return textMacroWidgerRender
+        if (textOutputRenderModes.contains(renderMode)) return textMacroWidgetRender
         // try making the ScreenWidgerRender object
         swr = makeWidgetRenderByMode(renderMode)
         if (swr == null) throw new BaseArtifactException("Could not find screen widger renderer for mode ${renderMode}")
