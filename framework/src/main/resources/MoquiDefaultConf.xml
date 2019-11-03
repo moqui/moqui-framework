@@ -51,6 +51,10 @@
     <!-- How often (in seconds) to check for scheduled jobs to run, set to 0 to not run scheduled jobs -->
     <default-property name="scheduled_job_check_time" value="60"/>
 
+    <default-property name="elasticsearch_url" value="http://localhost:9200"/>
+    <default-property name="elasticsearch_user" value=""/>
+    <default-property name="elasticsearch_password" value=""/>
+
     <tools empty-db-load="seed,seed-initial,install" worker-queue="65535" worker-pool-core="16" worker-pool-max="24" worker-pool-alive="60">
         <tool-factory class="org.moqui.impl.tools.MCacheToolFactory" init-priority="03" disabled="false"/>
         <!-- Apache Commons JCS, an alternative for distributed caches (cannot be used as local cache as requires Serializable keys/values just like Hazelcast) -->
@@ -333,6 +337,11 @@
         <service-file location="classpath://service/org/moqui/impl/WikiServices.xml"/>
         <service-file location="classpath://service/org/moqui/search/SearchServices.xml"/>
     </service-facade>
+
+    <elastic-facade>
+        <cluster name="default" url="${elasticsearch_url}" user="${elasticsearch_user}" password="${elasticsearch_password}"
+                pool-max="64" queue-size="1024"/>
+    </elastic-facade>
 
     <entity-facade default-group-name="transactional" entity-eca-enabled="true" sequenced-id-prefix=""
             distributed-cache-invalidate="false" dci-topic-factory="" query-stats="false"
