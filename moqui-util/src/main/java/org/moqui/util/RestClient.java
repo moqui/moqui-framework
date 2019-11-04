@@ -141,6 +141,9 @@ public class RestClient {
             bodyText = null;
             return this;
         }
+        if (bodyJsonObject instanceof CharSequence) {
+            return text(bodyJsonObject.toString());
+        }
 
         JsonBuilder jb = new JsonBuilder();
         if (bodyJsonObject instanceof Map) {
@@ -429,19 +432,26 @@ public class RestClient {
 
         UriBuilder(RestClient rci) { this.rci = rci; }
 
-        public UriBuilder protocol(String protocol) { this.protocol = protocol; return this; }
+        public UriBuilder protocol(String protocol) {
+            if (protocol == null || protocol.isEmpty()) throw new IllegalArgumentException("Empty protocol not allowed");
+            this.protocol = protocol;
+            return this;
+        }
 
         public UriBuilder host(String host) {
+            if (host == null || host.isEmpty()) throw new IllegalArgumentException("Empty host not allowed");
             this.host = host;
             return this;
         }
 
         public UriBuilder port(int port) {
+            if (port <= 0) throw new IllegalArgumentException("Invalid port " + port);
             this.port = port;
             return this;
         }
 
         public UriBuilder path(String pathEl) {
+            if (pathEl == null || pathEl.isEmpty()) throw new IllegalArgumentException("Empty path element not allowed");
             if (!pathEl.startsWith("/")) path.append("/");
             path.append(pathEl);
             int lastIndex = path.length() - 1;
@@ -456,6 +466,7 @@ public class RestClient {
         }
 
         public UriBuilder parameters(Map<String, String> parms) {
+            if (parms == null) return this;
             if (parameters == null) {
                 parameters = new LinkedHashMap<>(parms);
             } else {
@@ -692,9 +703,9 @@ public class RestClient {
             return httpClient.newRequest(uriString);
         }
 
-        HttpClient getHttpClient() { return httpClient; }
+        public HttpClient getHttpClient() { return httpClient; }
 
-        void destroy() {
+        public void destroy() {
             if (httpClient != null && httpClient.isRunning()) {
                 try { httpClient.stop(); }
                 catch (Exception e) { logger.error("Error stopping PooledRequestFactory HttpClient for " + shortName, e); }
