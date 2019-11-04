@@ -137,6 +137,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     @SuppressWarnings("GrFinalVariableAccess") public final ResourceFacadeImpl resourceFacade
     @SuppressWarnings("GrFinalVariableAccess") public final TransactionFacadeImpl transactionFacade
     @SuppressWarnings("GrFinalVariableAccess") public final EntityFacadeImpl entityFacade
+    @SuppressWarnings("GrFinalVariableAccess") public final ElasticFacadeImpl elasticFacade
     @SuppressWarnings("GrFinalVariableAccess") public final ServiceFacadeImpl serviceFacade
     @SuppressWarnings("GrFinalVariableAccess") public final ScreenFacadeImpl screenFacade
 
@@ -220,6 +221,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         logger.info("Transaction Facade initialized")
         entityFacade = new EntityFacadeImpl(this)
         logger.info("Entity Facade initialized")
+        elasticFacade = new ElasticFacadeImpl(this)
+        logger.info("Elastic Facade initialized")
         serviceFacade = new ServiceFacadeImpl(this)
         logger.info("Service Facade initialized")
         screenFacade = new ScreenFacadeImpl(this)
@@ -272,6 +275,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         logger.info("Transaction Facade initialized")
         entityFacade = new EntityFacadeImpl(this)
         logger.info("Entity Facade initialized")
+        elasticFacade = new ElasticFacadeImpl(this)
+        logger.info("Elastic Facade initialized")
         serviceFacade = new ServiceFacadeImpl(this)
         logger.info("Service Facade initialized")
         screenFacade = new ScreenFacadeImpl(this)
@@ -764,6 +769,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         // this destroy order is important as some use others so must be destroyed first
         if (this.serviceFacade != null) this.serviceFacade.destroy()
+        if (this.elasticFacade != null) this.elasticFacade.destroy()
         if (this.entityFacade != null) this.entityFacade.destroy()
         if (this.transactionFacade != null) this.transactionFacade.destroy()
         if (this.cacheFacade != null) this.cacheFacade.destroy()
@@ -953,6 +959,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     @Override @Nonnull CacheFacade getCache() { cacheFacade }
     @Override @Nonnull TransactionFacade getTransaction() { transactionFacade }
     @Override @Nonnull EntityFacade getEntity() { entityFacade }
+    @Override @Nonnull ElasticFacade getElastic() { elasticFacade }
     @Override @Nonnull ServiceFacade getService() { serviceFacade }
     @Override @Nonnull ScreenFacade getScreen() { screenFacade }
 
@@ -1564,6 +1571,12 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             for (MNode jsOverrideNode in sfOverrideNode.children("jms-service")) {
                 sfBaseNode.append(jsOverrideNode)
             }
+        }
+
+        if (overrideNode.hasChild("elastic-facade")) {
+            MNode efBaseNode = baseNode.first("elastic-facade")
+            MNode efOverrideNode = overrideNode.first("elastic-facade")
+            efBaseNode.mergeChildrenByKey(efOverrideNode, "cluster", "name", null)
         }
 
         if (overrideNode.hasChild("entity-facade")) {

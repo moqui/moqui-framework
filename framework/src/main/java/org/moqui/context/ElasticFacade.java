@@ -70,9 +70,11 @@ public interface ElasticFacade {
          * See https://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-body.html */
         List<Map<String, Object>> searchHits(String index, Map<String, Object> query);
 
-        /** Basic REST endpoint synchronous call, all operation specific synchronous methods use this method */
-        RestClient.RestResponse call(RestClient.Method method, String path, Map<String, String> parameters, String jsonBody);
+        /** Basic REST endpoint synchronous call */
+        RestClient.RestResponse call(RestClient.Method method, String path, Map<String, String> parameters, Object bodyJsonObject);
         /** Basic REST endpoint future (asynchronous) call */
-        Future<RestClient.RestResponse> callFuture(RestClient.Method method, String path, Map<String, String> parameters, String jsonBody);
+        Future<RestClient.RestResponse> callFuture(RestClient.Method method, String path, Map<String, String> parameters, Object bodyJsonObject);
+        /** Make a RestClient with configured protocol/host/port and user/password if configured, RequestFactory for this ElasticClient, and the given parameters */
+        RestClient makeRestClient(RestClient.Method method, String path, Map<String, String> parameters);
     }
 }
