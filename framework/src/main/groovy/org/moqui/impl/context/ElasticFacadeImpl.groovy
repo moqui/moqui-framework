@@ -53,6 +53,7 @@ class ElasticFacadeImpl implements ElasticFacade {
         MNode elasticFacadeNode = ecfi.getConfXmlRoot().first("elastic-facade")
         ArrayList<MNode> clusterNodeList = elasticFacadeNode.children("cluster")
         for (MNode clusterNode in clusterNodeList) {
+            clusterNode.setSystemExpandAttributes(true)
             String clusterName = clusterNode.attribute("name")
             String clusterUrl = clusterNode.attribute("url")
             if (!clusterUrl) {
