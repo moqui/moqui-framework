@@ -95,6 +95,8 @@ class ElasticFacadeImpl implements ElasticFacade {
         private final int clusterPort
         private RestClient.PooledRequestFactory requestFactory
         private Map serverInfo = (Map) null
+        private String esVersion = (String) null
+        private boolean esVersionUnder7 = false
 
         ElasticClientImpl(MNode clusterNode, ExecutionContextFactoryImpl ecfi) {
             this.ecfi = ecfi
@@ -136,7 +138,9 @@ class ElasticFacadeImpl implements ElasticFacade {
                     }
                 }
                 if (serverInfo != null) {
-                    logger.info("Connected to ElasticSearch cluster ${clusterName} at ${clusterProtocol}://${clusterHost}:${clusterPort}\n${serverInfo}")
+                    esVersion = ((Map) serverInfo.version)?.number
+                    esVersionUnder7 = esVersion?.charAt(0) < ((char) '7')
+                    logger.info("Connected to ElasticSearch cluster ${clusterName} at ${clusterProtocol}://${clusterHost}:${clusterPort} version ${esVersion} earlier than 7.0 ${esVersionUnder7}\n${serverInfo}")
                     break
                 }
             }
@@ -166,10 +170,16 @@ class ElasticFacadeImpl implements ElasticFacade {
 
         @Override
         void createIndex(String index, Map docMapping, String alias) {
+            createIndex(index, null, docMapping, alias)
+        }
+        void createIndex(String index, String docType, Map docMapping, String alias) {
             RestClient restClient = makeRestClient(Method.PUT, index, null)
             if (docMapping || alias) {
                 Map requestMap = new HashMap()
-                if (docMapping) requestMap.put("mappings", docMapping)
+                if (docMapping) {
+                    if (esVersionUnder7) requestMap.put("mappings", [(docType?:'_doc'):docMapping])
+                    else requestMap.put("mappings", docMapping)
+                }
                 if (alias) requestMap.put("aliases", [(alias):[:]])
                 restClient.text(objectToJson(requestMap))
             }
@@ -179,10 +189,14 @@ class ElasticFacadeImpl implements ElasticFacade {
         }
         @Override
         void putMapping(String index, Map docMapping) {
+            putMapping(index, null, docMapping)
+        }
+        void putMapping(String index, String docType, Map docMapping) {
             if (!docMapping) throw new IllegalArgumentException("Mapping may not be empty for put mapping")
             // NOTE: this is for ES 7.0+ only, before that mapping needed to be named in the path
-            RestClient restClient = makeRestClient(Method.PUT, index + "/_mapping", null)
-            restClient.text(objectToJson([mappings:docMapping]))
+            String path = esVersionUnder7 ? index + "/_mapping/" + (docType?:'_doc') : index + "/_mapping"
+            RestClient restClient = makeRestClient(Method.PUT, path, null)
+            restClient.text(objectToJson(docMapping))
             RestClient.RestResponse response = restClient.call()
             checkResponse(response, "Put mapping", index)
         }
@@ -353,10 +367,10 @@ class ElasticFacadeImpl implements ElasticFacade {
             Map docMapping = makeElasticSearchMapping(dataDocumentId, ecfi)
             if (hasIndex) {
                 logger.info("Updating ElasticSearch index ${esIndexName} for ${dataDocumentId} document mapping")
-                putMapping(esIndexName, docMapping)
+                putMapping(esIndexName, dataDocumentId, docMapping)
             } else {
                 logger.info("Creating ElasticSearch index ${esIndexName} for ${dataDocumentId} with alias ${indexName} and adding document mapping")
-                createIndex(esIndexName, docMapping, indexName)
+                createIndex(esIndexName, dataDocumentId, docMapping, indexName)
                 // logger.warn("========== Added mapping for ${dataDocumentId} to index ${esIndexName}:\n${docMapping}")
             }
         }
