@@ -221,14 +221,16 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         logger.info("Transaction Facade initialized")
         entityFacade = new EntityFacadeImpl(this)
         logger.info("Entity Facade initialized")
-        elasticFacade = new ElasticFacadeImpl(this)
-        logger.info("Elastic Facade initialized")
         serviceFacade = new ServiceFacadeImpl(this)
         logger.info("Service Facade initialized")
         screenFacade = new ScreenFacadeImpl(this)
         logger.info("Screen Facade initialized")
 
         postFacadeInit()
+
+        // NOTE: ElasticFacade init after postFacadeInit() so finds embedded from moqui-elasticsearch if present, can move up once moqui-elasticsearch deprecated
+        elasticFacade = new ElasticFacadeImpl(this)
+        logger.info("Elastic Facade initialized")
 
         logger.info("Execution Context Factory initialized in ${(System.currentTimeMillis() - initStartTime)/1000} seconds")
     }
@@ -275,14 +277,16 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         logger.info("Transaction Facade initialized")
         entityFacade = new EntityFacadeImpl(this)
         logger.info("Entity Facade initialized")
-        elasticFacade = new ElasticFacadeImpl(this)
-        logger.info("Elastic Facade initialized")
         serviceFacade = new ServiceFacadeImpl(this)
         logger.info("Service Facade initialized")
         screenFacade = new ScreenFacadeImpl(this)
         logger.info("Screen Facade initialized")
 
         postFacadeInit()
+
+        // NOTE: ElasticFacade init after postFacadeInit() so finds embedded from moqui-elasticsearch if present, can move up once moqui-elasticsearch deprecated
+        elasticFacade = new ElasticFacadeImpl(this)
+        logger.info("Elastic Facade initialized")
 
         logger.info("Execution Context Factory initialized in ${(System.currentTimeMillis() - initStartTime)/1000} seconds")
     }
