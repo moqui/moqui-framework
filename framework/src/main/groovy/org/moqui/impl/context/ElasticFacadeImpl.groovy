@@ -62,9 +62,15 @@ class ElasticFacadeImpl implements ElasticFacade {
             }
 
             try {
-                clientByClusterName.put(clusterName, new ElasticClientImpl(clusterNode, ecfi))
+                ElasticClientImpl elci = new ElasticClientImpl(clusterNode, ecfi)
+                clientByClusterName.put(clusterName, elci)
             } catch (Throwable t) {
-                logger.error("Error initializing ElasticClient for cluster ${clusterName}", t)
+                Throwable cause = t.getCause()
+                if (cause != null && cause.message.contains("refused")) {
+                    logger.error("Error initializing ElasticClient for cluster ${clusterName}: ${cause.toString()}")
+                } else {
+                    logger.error("Error initializing ElasticClient for cluster ${clusterName}", t)
+                }
             }
         }
     }
@@ -88,6 +94,7 @@ class ElasticFacadeImpl implements ElasticFacade {
         private final String clusterUrl, clusterProtocol, clusterHost
         private final int clusterPort
         private RestClient.PooledRequestFactory requestFactory
+        private Map serverInfo = (Map) null
 
         ElasticClientImpl(MNode clusterNode, ExecutionContextFactoryImpl ecfi) {
             this.ecfi = ecfi
@@ -112,9 +119,37 @@ class ElasticFacadeImpl implements ElasticFacade {
             if (poolMaxStr) requestFactory.poolSize(Integer.parseInt(poolMaxStr))
             if (queueSizeStr) requestFactory.queueSize(Integer.parseInt(queueSizeStr))
             requestFactory.init()
+
+            // try connecting and get server info
+            int retries = clusterHost == 'localhost' ? 1 : 5;
+            for (int i = 1; i <= retries; i++) {
+                try {
+                    serverInfo = getServerInfo()
+                } catch (Throwable t) {
+                    if (i == retries) {
+                        requestFactory.destroy()
+                        throw t
+                        // logger.error("Final error connecting to ElasticSearch cluster ${clusterName} at ${clusterProtocol}://${clusterHost}:${clusterPort}, try ${i} of ${retries}: ${t.toString()}", t)
+                    } else {
+                        logger.error("Error connecting to ElasticSearch cluster ${clusterName} at ${clusterProtocol}://${clusterHost}:${clusterPort}, try ${i} of ${retries}: ${t.toString()}")
+                        Thread.sleep(2000)
+                    }
+                }
+                if (serverInfo != null) {
+                    logger.info("Connected to ElasticSearch cluster ${clusterName} at ${clusterProtocol}://${clusterHost}:${clusterPort}\n${serverInfo}")
+                    break
+                }
+            }
+
         }
 
         void destroy() { requestFactory.destroy() }
+
+        Map getServerInfo() {
+            RestClient.RestResponse response = makeRestClient(Method.GET, null, null).call()
+            checkResponse(response, "Server info", null)
+            return (Map) jsonToObject(response.text())
+        }
 
         @Override
         boolean indexExists(String index) {
@@ -196,6 +231,12 @@ class ElasticFacadeImpl implements ElasticFacade {
         void bulk(String index, List<Map> actionSourceList) {
             if (actionSourceList == null || actionSourceList.size() == 0) return
 
+            RestClient.RestResponse response = bulkResponse(index, actionSourceList)
+            checkResponse(response, "Bulk operations", index)
+        }
+        RestClient.RestResponse bulkResponse(String index, List<Map> actionSourceList) {
+            if (actionSourceList == null || actionSourceList.size() == 0) return null
+
             StringWriter bodyWriter = new StringWriter(actionSourceList.size() * 100)
             for (Map entry in actionSourceList) {
                 jacksonMapper.writeValue(bodyWriter, entry)
@@ -205,8 +246,7 @@ class ElasticFacadeImpl implements ElasticFacade {
             RestClient restClient = makeRestClient(Method.POST, path, null).contentType("application/x-ndjson")
             restClient.text(bodyWriter.toString())
 
-            RestClient.RestResponse response = restClient.call()
-            checkResponse(response, "Bulk operations", index)
+            return restClient.call()
         }
 
         @Override
@@ -312,7 +352,7 @@ class ElasticFacadeImpl implements ElasticFacade {
             boolean hasIndex = indexExists(esIndexName)
             Map docMapping = makeElasticSearchMapping(dataDocumentId, ecfi)
             if (hasIndex) {
-                logger.info("Updating ElasticSearch index ${esIndexName} for ${dataDocumentId} with alias ${indexName} document mapping")
+                logger.info("Updating ElasticSearch index ${esIndexName} for ${dataDocumentId} document mapping")
                 putMapping(esIndexName, docMapping)
             } else {
                 logger.info("Creating ElasticSearch index ${esIndexName} for ${dataDocumentId} with alias ${indexName} and adding document mapping")
@@ -322,8 +362,79 @@ class ElasticFacadeImpl implements ElasticFacade {
         }
 
         @Override
+        void verifyDataDocumentIndexes(List<Map> documentList) {
+            Set<String> indexNames = new HashSet()
+            Set<String> dataDocumentIds = new HashSet()
+            for (Map document in documentList) {
+                indexNames.add((String) document.get("_index"))
+                dataDocumentIds.add((String) document.get("_type"))
+            }
+            for (String indexName in indexNames) checkCreateDataDocumentIndexes(indexName)
+            for (String dataDocumentId in dataDocumentIds) checkCreateDataDocumentIndex(dataDocumentId)
+        }
+
+        @Override
         void bulkIndexDataDocument(List<Map> documentList) {
-            // TODO
+            int docsPerBulk = 1000
+
+            ArrayList<Map> actionSourceList = new ArrayList<Map>(docsPerBulk * 2)
+            int curBulkDocs = 0
+            for (Map document in documentList) {
+                // logger.warn("====== Indexing document: ${document}")
+
+                String _index = document._index
+                String _type = document._type
+                String _id = document._id
+                // String _timestamp = document._timestamp
+                // As of ES 2.0 _index, _type, _id, and _timestamp shouldn't be in document to be indexed
+                // clone document before removing fields so they are present for other code using the same data
+                document = new LinkedHashMap(document)
+                document.remove('_index'); document.remove('_type'); document.remove('_id'); document.remove('_timestamp')
+
+                // as of ES 6.0, and required for 7 series, one index per doc type so one per dataDocumentId, cleaned up to be valid ES index name (all lower case, etc)
+                String esIndexName = ddIdToEsIndex(_type)
+
+                // before indexing convert types needed for ES
+                // hopefully not needed with Jackson settings, but if so: ElasticSearchUtil.convertTypesForEs(document)
+
+                // add the document to the bulk index
+                actionSourceList.add([index:[_index:esIndexName, _id:_id]])
+                actionSourceList.add(document)
+
+                curBulkDocs++
+
+                if (curBulkDocs >= docsPerBulk) {
+                    RestClient.RestResponse response = bulkResponse(null, actionSourceList)
+                    if (response.statusCode < 200 || response.statusCode >= 300) {
+                        ecfi.eci.message.addMessage("Bulk index failed with code ${response.statusCode}: ${response.reasonPhrase}", "danger")
+                        curBulkDocs = 0
+                        actionSourceList = null
+                        break
+                    }
+
+                    /* don't support getting versions any more, generally waste of resources:
+                    BulkItemResponse[] itemResponses = bulkResponse.getItems()
+                    int itemResponsesSize = itemResponses.length
+                    for (int i = 0; i < itemResponsesSize; i++) documentVersionList.add(itemResponses[i].getVersion())
+                     */
+
+                    // reset for the next set
+                    curBulkDocs = 0
+                    actionSourceList = new ArrayList<Map>(docsPerBulk * 2)
+                }
+            }
+            if (curBulkDocs > 0) {
+                RestClient.RestResponse response = bulkResponse(null, actionSourceList)
+                if (response.statusCode < 200 || response.statusCode >= 300) {
+                    ecfi.eci.message.addMessage("Bulk index failed with code ${response.statusCode}: ${response.reasonPhrase}", "danger")
+                }
+
+                /* don't support getting versions any more, generally waste of resources:
+                BulkItemResponse[] itemResponses = bulkResponse.getItems()
+                int itemResponsesSize = itemResponses.length
+                for (int i = 0; i < itemResponsesSize; i++) documentVersionList.add(itemResponses[i].getVersion())
+                 */
+            }
         }
     }
 
@@ -331,7 +442,7 @@ class ElasticFacadeImpl implements ElasticFacade {
 
     static void checkResponse(RestClient.RestResponse response, String operation, String index) {
         if (response.statusCode < 200 || response.statusCode >= 300) {
-            String msg = "${operation} on index ${index} failed with code ${response.statusCode}: ${response.reasonPhrase}"
+            String msg = "${operation}${index ? ' on index ' + index : ''} failed with code ${response.statusCode}: ${response.reasonPhrase}"
             String responseText = response.text()
             logger.error("ElasticSearch ${msg}${responseText ? '\n' + responseText : ''}")
             throw new BaseException(msg)
@@ -401,6 +512,9 @@ class ElasticFacadeImpl implements ElasticFacade {
     static String ddIdToEsIndex(String dataDocumentId) {
         if (dataDocumentId.contains("_")) return dataDocumentId.toLowerCase()
         return EntityJavaUtil.camelCaseToUnderscored(dataDocumentId).toLowerCase()
+    }
+    static String esIndexToDdId(String index) {
+        return EntityJavaUtil.underscoredToCamelCase(index, true)
     }
 
     static final Map<String, String> esTypeMap = [id:'keyword', 'id-long':'keyword', date:'date', time:'text',

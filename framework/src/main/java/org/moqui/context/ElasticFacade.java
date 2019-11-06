@@ -84,6 +84,8 @@ public interface ElasticFacade {
         void checkCreateDataDocumentIndex(String dataDocumentId);
         /** Put document mappings for all DataDocument records with given indexName */
         void putDataDocumentMappings(String indexName);
+        /** Verify index aliases and dataDocumentId based indexes from all distinct _index and _type values in documentList */
+        void verifyDataDocumentIndexes(List<Map> documentList);
         /** Bulk index documents with standard _index, _type, _id, and _timestamp fields which are used for the index and id per
          * document but removed from the actual document sent to ElasticSearch; note that for legacy reasons related to one type
          * per index the _type is used for the index name */

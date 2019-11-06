@@ -599,6 +599,30 @@ public class EntityJavaUtil {
         camelToUnderscoreMap.put(camelCase, usv);
         return usv;
     }
+    public static String underscoredToCamelCase(String underscored, boolean firstUpper) {
+        if (underscored == null || underscored.length() == 0) return "";
+
+        StringBuilder camelCased = new StringBuilder();
+        camelCased.append(firstUpper ? Character.toUpperCase(underscored.charAt(0)) : Character.toLowerCase(underscored.charAt(0)));
+        int inPos = 1;
+        boolean lastUnderscore = false;
+        while (inPos < underscored.length()) {
+            char curChar = underscored.charAt(inPos);
+            if (curChar == '_') {
+                lastUnderscore = true;
+            } else {
+                if (lastUnderscore) {
+                    camelCased.append(Character.toUpperCase(curChar));
+                    lastUnderscore = false;
+                } else {
+                    camelCased.append(Character.toLowerCase(curChar));
+                }
+            }
+            inPos++;
+        }
+
+        return camelCased.toString();
+    }
 
     public static class EntityConditionParameter {
         protected FieldInfo fieldInfo;

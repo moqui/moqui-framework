@@ -56,7 +56,7 @@ public class RestClient {
     // NOTE: there is no constant on HttpServletResponse for 429; see RFC 6585 for details
     public static final int TOO_MANY = 429;
 
-    private static final EnumSet<Method> BODY_METHODS = EnumSet.of(Method.PATCH, Method.POST, Method.PUT);
+    private static final EnumSet<Method> BODY_METHODS = EnumSet.of(Method.GET, Method.PATCH, Method.POST, Method.PUT);
     private static final Logger logger = LoggerFactory.getLogger(RestClient.class);
 
     private String uriString = null;
@@ -451,7 +451,7 @@ public class RestClient {
         }
 
         public UriBuilder path(String pathEl) {
-            if (pathEl == null || pathEl.isEmpty()) throw new IllegalArgumentException("Empty path element not allowed");
+            if (pathEl == null || pathEl.isEmpty()) return this;
             if (!pathEl.startsWith("/")) path.append("/");
             path.append(pathEl);
             int lastIndex = path.length() - 1;
