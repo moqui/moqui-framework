@@ -339,7 +339,8 @@
     </service-facade>
 
     <elastic-facade>
-        <cluster name="default" url="${elasticsearch_url}" user="${elasticsearch_user}" password="${elasticsearch_password}"
+        <!-- NOTE: elasticsearch_host1 used from moqui-elasticsearch with elasticsearch_mode=rest for compatibility until moqui-elasticsearch deprecated -->
+        <cluster name="default" url="${elasticsearch_host1 ?: elasticsearch_url}" user="${elasticsearch_user}" password="${elasticsearch_password}"
                 pool-max="64" queue-size="1024"/>
     </elastic-facade>
 
