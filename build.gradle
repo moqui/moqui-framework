@@ -22,6 +22,7 @@ import org.ajoberstar.grgit.*
 
 defaultTasks 'build'
 
+def elasticSearchVersion = '7.4.2'
 def tomcatHome = '../apache-tomcat-8.5.14'
 // no longer include version in war file name: def getWarName() { 'moqui-' + childProjects.framework.version + '.war' }
 def getWarName() { 'moqui.war' }
@@ -79,15 +80,9 @@ def cleanElasticSearch(String esDir) {
     if (file(esDir+'/bin').exists()) {
         if (file(esDir+'/pid').exists()) {
             logger.lifecycle("ElasticSearch running, stopping before delete data")
-            exec {
-                workingDir esDir
-                commandLine 'pkill', '-F', 'pid'
-            }
+            exec { workingDir esDir; commandLine 'pkill', '-F', 'pid' }
             delete file(esDir+'/data')
-            exec {
-                workingDir esDir
-                commandLine './bin/elasticsearch', '-d', '-p', 'pid'
-            }
+            exec { workingDir esDir; commandLine './bin/elasticsearch', '-d', '-p', 'pid' }
         } else {
             logger.lifecycle("Found ElasticSearch ${esDir}/bin directory but no pid, deleting data without stop/start; WARNING if ElasticSearch is running this will cause problems!")
             delete file(esDir+'/data')
@@ -96,14 +91,29 @@ def cleanElasticSearch(String esDir) {
         delete file(esDir+'/data')
     }
 }
-task startElasticSearch(type:Exec) {
-    workingDir moquiRuntime + '/elasticsearch'
-    commandLine './bin/elasticsearch', '-d', '-p', 'pid'
-}
-task stopElasticSearch(type:Exec) {
-    workingDir moquiRuntime + '/elasticsearch'
-    commandLine 'pkill', '-F', 'pid'
-}
+task downloadElasticSearchLinux { doLast {
+    // TODO: consider conditional download and start/stop commands for Windows, MacOS
+    String esUrl = "https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-oss-${elasticSearchVersion}-no-jdk-linux-x86_64.tar.gz"
+    String targetDirPath = moquiRuntime + '/elasticsearch'
+    String esExtraDirPath = targetDirPath + '/elasticsearch-' + elasticSearchVersion
+    File targetDir = file(targetDirPath)
+    if (targetDir.exists()) { logger.lifecycle("Found directory at ${targetDirPath}, deleting"); delete targetDir }
+    File zipFile = file("${targetDirPath}-${elasticSearchVersion}.tar.gz")
+    if (!zipFile.exists()) {
+        logger.lifecycle("Downloading ElasticSearch from ${esUrl}")
+        ant.get(src: esUrl, dest: zipFile)
+    } else {
+        logger.lifecycle("Found ElasticSearch archive at ${zipFile.getPath()}, using that instead of downloading")
+    }
+    // the eachFile closure removes the first path from each file, moving everything up a directory, which also requires delete of the extra dirs
+    copy { from tarTree(zipFile); into targetDir; eachFile { it.setPath((it.getRelativePath().getSegments() as List).tail().join("/")); return it } }
+    File extraDir = file(esExtraDirPath)
+    if (extraDir.exists()) delete extraDir
+
+    delete zipFile
+}}
+task startElasticSearch(type:Exec) { workingDir moquiRuntime + '/elasticsearch'; commandLine './bin/elasticsearch', '-d', '-p', 'pid' }
+task stopElasticSearch(type:Exec) { workingDir moquiRuntime + '/elasticsearch'; commandLine 'pkill', '-F', 'pid' }
 
 // ========== check/update tasks ==========
 
