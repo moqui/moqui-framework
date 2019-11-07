@@ -90,5 +90,10 @@ public interface ElasticFacade {
          * document but removed from the actual document sent to ElasticSearch; note that for legacy reasons related to one type
          * per index the _type is used for the index name */
         void bulkIndexDataDocument(List<Map> documentList);
+
+        /** Convert Object (generally Map or List) to JSON String using internal ElasticSearch specific settings */
+        String objectToJson(Object jsonObject);
+        /** Convert JSON String to Object (generally Map or List) using internal ElasticSearch specific settings */
+        Object jsonToObject(String jsonString);
     }
 }

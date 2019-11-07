@@ -44,6 +44,18 @@ import java.util.concurrent.Future
 class ElasticFacadeImpl implements ElasticFacade {
     protected final static Logger logger = LoggerFactory.getLogger(ElasticFacadeImpl.class)
 
+    public final static ObjectMapper jacksonMapper = new ObjectMapper()
+            .setSerializationInclusion(JsonInclude.Include.ALWAYS)
+            .enable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+            .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
+            .configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true)
+    static {
+        // Jackson custom serializers, etc
+        SimpleModule module = new SimpleModule()
+        module.addSerializer(GString.class, new ContextJavaUtil.GStringJsonSerializer())
+        jacksonMapper.registerModule(module)
+    }
+
     public final ExecutionContextFactoryImpl ecfi
     private final Map<String, ElasticClientImpl> clientByClusterName = new HashMap<>()
 
@@ -279,17 +291,19 @@ class ElasticFacadeImpl implements ElasticFacade {
         Map get(String index, String _id) {
             if (index == null || index.isEmpty()) throw new IllegalArgumentException("In get document the index name may not be empty")
             if (_id == null || _id.isEmpty()) throw new IllegalArgumentException("In get document the _id may not be empty")
-            RestClient.RestResponse response = makeRestClient(Method.GET, index + "/_doc/" + _id, null).call()
+            String path = index + "/_doc/" + _id
+            if (esVersionUnder7) {
+                // need actual doc type, this is a hack that will only work with old moqui-elasticsearch DataDocument based index name, otherwise need another parameter so API changes
+                // NOTE: this is for partial backwards compatibility for specific scenarios, remove after moqui-elasticsearch deprecate
+                path = index + "/" + esIndexToDdId(index) + "/" + _id
+            }
+            RestClient.RestResponse response = makeRestClient(Method.GET, path, null).call()
             checkResponse(response, "Get document ${_id}", index)
             return (Map) jsonToObject(response.text())
         }
         @Override
         Map getSource(String index, String _id) {
-            if (index == null || index.isEmpty()) throw new IllegalArgumentException("In get document the index name may not be empty")
-            if (_id == null || _id.isEmpty()) throw new IllegalArgumentException("In get document the _id may not be empty")
-            RestClient.RestResponse response = makeRestClient(Method.GET, index + "/_source/" + _id, null).call()
-            checkResponse(response, "Get document ${_id} source", index)
-            return (Map) jsonToObject(response.text())
+            return (Map) get(index, _id)?._source
         }
 
         @Override
@@ -450,6 +464,9 @@ class ElasticFacadeImpl implements ElasticFacade {
                  */
             }
         }
+
+        @Override String objectToJson(Object jsonObject) { return ElasticFacadeImpl.objectToJson(jsonObject) }
+        @Override Object jsonToObject(String jsonString) { return ElasticFacadeImpl.jsonToObject(jsonString) }
     }
 
     // ============== Utility Methods ==============
@@ -480,18 +497,6 @@ class ElasticFacadeImpl implements ElasticFacade {
         } catch (Throwable t) {
             throw new BaseException("Error parsing JSON: " + t.toString(), t)
         }
-    }
-
-    public final static ObjectMapper jacksonMapper = new ObjectMapper()
-            .setSerializationInclusion(JsonInclude.Include.ALWAYS)
-            .enable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
-            .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
-            .configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true)
-    static {
-        // Jackson custom serializers, etc
-        SimpleModule module = new SimpleModule()
-        module.addSerializer(GString.class, new ContextJavaUtil.GStringJsonSerializer())
-        jacksonMapper.registerModule(module)
     }
 
     /* with Jackson configuration for serialization should not need this:
