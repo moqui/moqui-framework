@@ -32,6 +32,7 @@ import org.moqui.impl.entity.EntityDataDocument
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityJavaUtil
 import org.moqui.impl.entity.FieldInfo
+import org.moqui.impl.util.ElasticSearchLogger
 import org.moqui.util.MNode
 import org.moqui.util.RestClient
 import org.moqui.util.RestClient.Method
@@ -58,10 +59,13 @@ class ElasticFacadeImpl implements ElasticFacade {
 
     public final ExecutionContextFactoryImpl ecfi
     private final Map<String, ElasticClientImpl> clientByClusterName = new HashMap<>()
+    private ElasticSearchLogger esLogger
 
     ElasticFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
-
+        init()
+    }
+    void init() {
         MNode elasticFacadeNode = ecfi.getConfXmlRoot().first("elastic-facade")
         ArrayList<MNode> clusterNodeList = elasticFacadeNode.children("cluster")
         for (MNode clusterNode in clusterNodeList) {
@@ -85,9 +89,14 @@ class ElasticFacadeImpl implements ElasticFacade {
                 }
             }
         }
+
+        // init ElasticSearchLogger
+        ElasticClientImpl loggerEci = clientByClusterName.get("logger") ?: clientByClusterName.get("default")
+        if (loggerEci != null) esLogger = new ElasticSearchLogger(loggerEci, ecfi)
     }
 
     void destroy() {
+        if (esLogger != null) esLogger.destroy()
         for (ElasticClientImpl eci in clientByClusterName.values()) eci.destroy()
     }
 
@@ -156,8 +165,10 @@ class ElasticFacadeImpl implements ElasticFacade {
                     break
                 }
             }
-
         }
+
+        String getClusterName() { return clusterName }
+        boolean isEsVersionUnder7() { return esVersionUnder7 }
 
         void destroy() { requestFactory.destroy() }
 
