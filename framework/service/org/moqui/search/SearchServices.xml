@@ -309,4 +309,54 @@ along with this software (see the LICENSE.md file). If not, see
         <actions><message>No search implementation installed, not searching DataDocuments by source (see the moqui-elasticsearch component)</message></actions>
     </service>
     -->
+
+    <service verb="delete" noun="Documents" authenticate="anonymous-all" transaction-timeout="1800">
+        <!-- authenticate=anonymous-all as this is called in a service job, should be exposed through only trusted UI/etc -->
+        <in-parameters>
+            <parameter name="indexName" required="true"/>
+            <!-- no longer used: <parameter name="documentType"/> -->
+            <parameter name="timestampField" default-value="@timestamp"/>
+            <parameter name="daysToKeep" type="Integer"/>
+            <parameter name="queryString"/>
+            <parameter name="clusterName" default-value="default"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="deletedCount" type="Long"/>
+        </out-parameters>
+        <actions><script><![CDATA[
+            import org.moqui.context.ExecutionContext
+            ExecutionContext ec = context.ec
+
+            // ec.logger.warn("delete#DataDocuments documents from index ${indexName} with days to keep ${daysToKeep} and query ${queryString}")
+            if (daysToKeep == null && !queryString) {
+                ec.message.addError("To delete documents must specify daysToKeep, queryString, or both")
+                return
+            }
+
+            def elasticClient = ec.factory.elastic.getClient((String) clusterName)
+
+            Long thruMillis = null
+            if (daysToKeep != null) {
+                Calendar basisCal = ec.user.getCalendarSafe()
+                basisCal.add(Calendar.DAY_OF_YEAR, (int) -daysToKeep)
+                thruMillis = basisCal.getTimeInMillis()
+            }
+
+            List mustList = []
+            Map queryMap = [bool:[must:mustList]]
+            if (queryString) mustList.add([query_string:[query:queryString, lenient:true, time_zone:TimeZone.default.getID()]])
+            if (thruMillis) mustList.add([range:[(timestampField):[lte:thruMillis]]])
+
+            if (mustList.size() == 0) {
+                ec.message.addError("To delete documents must specify daysToKeep, queryString, or both")
+                return
+            }
+
+            deletedCount = elasticClient.deleteByQuery((String) indexName, queryMap)
+
+            String resultMsg = "Deleted ${deletedCount} documents from index ${indexName} with days to keep ${daysToKeep} and query ${queryString}".toString()
+            ec.logger.info(resultMsg)
+            ec.message.addMessage(resultMsg)
+        ]]></script></actions>
+    </service>
 </services>

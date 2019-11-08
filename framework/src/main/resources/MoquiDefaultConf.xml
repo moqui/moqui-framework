@@ -169,6 +169,15 @@
                 <url-pattern>/*</url-pattern>
                 <dispatcher>REQUEST</dispatcher>
             </filter>
+            <!-- ElasticSearch and Kibana auth filters, see below for proxy servlets on the same url-pattern -->
+            <filter name="ElasticAuthFilter" class="org.moqui.impl.webapp.MoquiAuthFilter" async-supported="true">
+                <init-param name="permission" value="ElasticRemote"/>
+                <url-pattern>/elastic/*</url-pattern>
+            </filter>
+            <filter name="KibanaAuthFilter" class="org.moqui.impl.webapp.MoquiAuthFilter" async-supported="true">
+                <init-param name="permission" value="KibanaRemote"/>
+                <url-pattern>/kibana/*</url-pattern>
+            </filter>
 
             <!-- Moqui Session Listener (necessary to handle expired sessions, etc) -->
             <listener class="org.moqui.impl.webapp.MoquiSessionListener"/>
@@ -178,6 +187,21 @@
             </servlet>
             <servlet name="MoquiFopServlet" class="org.moqui.impl.webapp.MoquiFopServlet" load-on-startup="1">
                 <url-pattern>/fop/*</url-pattern>
+            </servlet>
+
+            <!-- ElasticSearch and Kibana proxy servlets, see above for auth filters on the same url-pattern -->
+            <servlet name="ElasticSearchProxy" class="org.eclipse.jetty.proxy.ProxyServlet$Transparent" load-on-startup="1" async-supported="true">
+                <!-- this proxies to the embedded ElasticSearch instance -->
+                <init-param name="proxyTo" value="http://localhost:9200"/>
+                <init-param name="prefix" value="/elastic"/>
+                <url-pattern>/elastic/*</url-pattern>
+            </servlet>
+            <servlet name="KibanaProxy" class="org.eclipse.jetty.proxy.ProxyServlet$Transparent" load-on-startup="1" async-supported="true">
+                <!-- this proxies to a Kibana instance run locally, in another container, etc -->
+                <!-- in kibana.yml set server.basePath: "/kibana" -->
+                <init-param name="proxyTo" value="http://${kibana_host}:${kibana_port}"/>
+                <init-param name="prefix" value="/kibana"/>
+                <url-pattern>/kibana/*</url-pattern>
             </servlet>
 
             <!-- timeout session in 60 minutes without a request -->
