@@ -167,6 +167,8 @@ public class RestClient {
         return text(bodyXmlNode.toString());
     }
 
+    public String getBodyText() { return bodyText; }
+
     /** Add fields to put in body form parameters */
     public RestClient addBodyParameters(Map<String, String> formFields) {
         for (Map.Entry<String, String> entry : formFields.entrySet())
@@ -369,6 +371,8 @@ public class RestClient {
 
             return this;
         }
+
+        public RestClient getClient() { return rci; }
 
         public int getStatusCode() { return statusCode; }
         public String getReasonPhrase() { return reasonPhrase; }

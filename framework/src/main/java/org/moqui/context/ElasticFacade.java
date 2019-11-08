@@ -50,7 +50,7 @@ public interface ElasticFacade {
         /** Delete a document. See https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-delete.html */
         void delete(String index, String _id);
         /** Delete documents by query. See https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-delete-by-query.html */
-        void deleteByQuery(String index, Map queryMap);
+        Integer deleteByQuery(String index, Map queryMap);
         /** Perform bulk operations. See https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-bulk.html
          * @param actionSourceList List of action objects each followed by a source object if relevant. */
         void bulk(String index, List<Map> actionSourceList);

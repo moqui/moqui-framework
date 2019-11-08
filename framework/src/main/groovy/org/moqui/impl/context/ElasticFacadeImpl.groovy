@@ -257,11 +257,13 @@ class ElasticFacadeImpl implements ElasticFacade {
         }
 
         @Override
-        void deleteByQuery(String index, Map queryMap) {
+        Integer deleteByQuery(String index, Map queryMap) {
             if (index == null || index.isEmpty()) throw new IllegalArgumentException("In delete by query the index name may not be empty")
             RestClient.RestResponse response = makeRestClient(Method.POST, index + "/_delete_by_query", null)
                     .text(objectToJson([query:queryMap])).call()
             checkResponse(response, "Delete by query", index)
+            Map responseMap = (Map) jsonToObject(response.text())
+            return responseMap.deleted as Integer
         }
 
         @Override
@@ -483,12 +485,28 @@ class ElasticFacadeImpl implements ElasticFacade {
     // ============== Utility Methods ==============
 
     static void checkResponse(RestClient.RestResponse response, String operation, String index) {
-        if (response.statusCode < 200 || response.statusCode >= 300) {
-            String msg = "${operation}${index ? ' on index ' + index : ''} failed with code ${response.statusCode}: ${response.reasonPhrase}"
-            String responseText = response.text()
-            logger.error("ElasticSearch ${msg}${responseText ? '\n' + responseText : ''}")
-            throw new BaseException(msg)
+        if (response.statusCode >= 200 && response.statusCode < 300) return
+
+        String msg = "${operation}${index ? ' on index ' + index : ''} failed with code ${response.statusCode}: ${response.reasonPhrase}"
+        String responseText = response.text()
+        boolean logRequestBody = true
+        try {
+            Map responseMap = (Map) jsonToObject(response.text())
+            Map errorMap = (Map) responseMap.error
+            if (errorMap) {
+                msg = msg + ' - ' + errorMap.reason + ' (line ' + errorMap.line + ' col ' + errorMap.col + ')'
+                // maybe not, just always do it: logRequestBody = errorMap.type == 'parsing_exception'
+            }
+        } catch (Throwable t) {
+            logger.error("Error parsing ElasticSearch response: ${t.toString()}")
         }
+
+        String requestUri = response.getClient().getUriString()
+        String requestBody = response.getClient().getBodyText()
+        if (requestBody.length() > 1000) requestBody = requestBody.substring(0, 1000)
+        logger.error("ElasticSearch ${msg}${responseText ? '\nResponse: ' + responseText : ''}${requestUri ? '\nURI: ' + requestUri : ''}${requestBody ? '\nRequest: ' + requestBody : ''}")
+
+        throw new BaseException(msg)
     }
 
     static String objectToJson(Object jsonObject) {
