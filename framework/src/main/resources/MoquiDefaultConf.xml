@@ -164,6 +164,12 @@
             <before-shutdown><actions><log level="info" message="========================== before-shutdown actions"/></actions></before-logout>
             -->
 
+            <!-- ElasticSearch Request Log Filter (log requests directly to ElasticSearch) -->
+            <filter name="ElasticRequestLogFilter" class="org.moqui.impl.webapp.ElasticRequestLogFilter" async-supported="true">
+                <url-pattern>/*</url-pattern>
+                <dispatcher>REQUEST</dispatcher>
+            </filter>
+
             <!-- Moqui Session Listener (necessary to handle expired sessions, etc) -->
             <listener class="org.moqui.impl.webapp.MoquiSessionListener"/>
 
