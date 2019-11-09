@@ -385,7 +385,7 @@ class ElasticFacadeImpl implements ElasticFacade {
             EntityList ddList = ecfi.entityFacade.find("moqui.entity.document.DataDocument").condition("indexName", indexName).list()
             for (EntityValue dd in ddList) storeIndexAndMapping(indexName, dd)
         }
-        protected void storeIndexAndMapping(String indexName, EntityValue dd) {
+        synchronized protected void storeIndexAndMapping(String indexName, EntityValue dd) {
             String dataDocumentId = (String) dd.getNoCheckSimple("dataDocumentId")
             String esIndexName = ddIdToEsIndex(dataDocumentId)
 
@@ -503,7 +503,7 @@ class ElasticFacadeImpl implements ElasticFacade {
 
         String requestUri = response.getClient().getUriString()
         String requestBody = response.getClient().getBodyText()
-        if (requestBody.length() > 1000) requestBody = requestBody.substring(0, 1000)
+        if (requestBody.length() > 2000) requestBody = requestBody.substring(0, 2000)
         logger.error("ElasticSearch ${msg}${responseText ? '\nResponse: ' + responseText : ''}${requestUri ? '\nURI: ' + requestUri : ''}${requestBody ? '\nRequest: ' + requestBody : ''}")
 
         throw new BaseException(msg)
