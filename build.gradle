@@ -78,10 +78,14 @@ task cleanAll { dependsOn clean, allCleanTasks, cleanDb, cleanLog, cleanSessions
 
 def cleanElasticSearch(String esDir) {
     if (file(esDir+'/bin').exists()) {
-        if (file(esDir+'/pid').exists()) {
-            logger.lifecycle("ElasticSearch running, stopping before delete data")
-            exec { workingDir esDir; commandLine 'pkill', '-F', 'pid' }
+        def pidFile = file(esDir+'/pid')
+        if (pidFile.exists()) {
+            String pid = pidFile.getText()
+            logger.lifecycle("ElasticSearch running with pid ${pid}, stopping before deleting data then restarting")
+            exec { workingDir esDir; commandLine 'kill', pid }
+            exec { workingDir esDir; commandLine 'tail', "--pid=${pid}", '-f', '/dev/null' }
             delete file(esDir+'/data')
+            if (pidFile.exists()) delete pidFile
             exec { workingDir esDir; commandLine './bin/elasticsearch', '-d', '-p', 'pid' }
         } else {
             logger.lifecycle("Found ElasticSearch ${esDir}/bin directory but no pid, deleting data without stop/start; WARNING if ElasticSearch is running this will cause problems!")
@@ -403,8 +407,26 @@ task saveDb { doLast {
         ant.zip(destfile: 'SaveH2.zip') { fileset(dir: moquiRuntime+'/db/h2') { include(name: '**/*') } }
     if (file(moquiRuntime+'/db/orientdb/databases').exists())
         ant.zip(destfile: 'SaveOrientDb.zip') { fileset(dir: moquiRuntime+'/db/orientdb/databases') { include(name: '**/*') } }
-    if (file(moquiRuntime+'/elasticsearch/data').exists())
-        ant.zip(destfile: 'SaveElasticSearch.zip') { fileset(dir: moquiRuntime+'/elasticsearch/data') { include(name: '**/*') } }
+    if (file(moquiRuntime+'/elasticsearch/data').exists()) {
+        String esDir = moquiRuntime+'/elasticsearch'
+        if (file(esDir+'/bin').exists()) {
+            def pidFile = file(esDir+'/pid')
+            if (pidFile.exists()) {
+                String pid = pidFile.getText()
+                logger.lifecycle("ElasticSearch running with pid ${pid}, stopping before saving data then restarting")
+                exec { workingDir esDir; commandLine 'kill', pid }
+                exec { workingDir esDir; commandLine 'tail', "--pid=${pid}", '-f', '/dev/null' }
+                ant.zip(destfile: 'SaveElasticSearch.zip') { fileset(dir: moquiRuntime+'/elasticsearch/data') { include(name: '**/*') } }
+                if (pidFile.exists()) delete pidFile
+                exec { workingDir esDir; commandLine './bin/elasticsearch', '-d', '-p', 'pid' }
+            } else {
+                logger.lifecycle("Found ElasticSearch ${esDir}/bin directory but no pid, saving data without stop/start; WARNING if ElasticSearch is running this will cause problems!")
+                ant.zip(destfile: 'SaveElasticSearch.zip') { fileset(dir: moquiRuntime+'/elasticsearch/data') { include(name: '**/*') } }
+            }
+        } else {
+            ant.zip(destfile: 'SaveElasticSearch.zip') { fileset(dir: moquiRuntime+'/elasticsearch/data') { include(name: '**/*') } }
+        }
+    }
 } }
 task loadSave {
     description "Clean all, build and load, then save database (H2, Derby), OrientDB, and ElasticSearch files; to be used before reloadSave"
@@ -419,7 +441,26 @@ task reloadSave {
         if (file('SaveDerby.zip').exists()) copy { from zipTree('SaveDerby.zip'); into file(moquiRuntime+'/db/derby/moqui') }
         if (file('SaveH2.zip').exists()) copy { from zipTree('SaveH2.zip'); into file(moquiRuntime+'/db/h2') }
         if (file('SaveOrientDb.zip').exists()) copy { from zipTree('SaveOrientDb.zip'); into file(moquiRuntime+'/db/orientdb/databases') }
-        if (file('SaveElasticSearch.zip').exists()) copy { from zipTree('SaveElasticSearch.zip'); into file(moquiRuntime+'/elasticsearch/data') }
+        if (file('SaveElasticSearch.zip').exists()) {
+            String esDir = moquiRuntime+'/elasticsearch'
+            if (file(esDir+'/bin').exists()) {
+                def pidFile = file(esDir+'/pid')
+                if (pidFile.exists()) {
+                    String pid = pidFile.getText()
+                    logger.lifecycle("ElasticSearch running with pid ${pid}, stopping before restoring data then restarting")
+                    exec { workingDir esDir; commandLine 'kill', pid }
+                    exec { workingDir esDir; commandLine 'tail', "--pid=${pid}", '-f', '/dev/null' }
+                    copy { from zipTree('SaveElasticSearch.zip'); into file(moquiRuntime+'/elasticsearch/data') }
+                    if (pidFile.exists()) delete pidFile
+                    exec { workingDir esDir; commandLine './bin/elasticsearch', '-d', '-p', 'pid' }
+                } else {
+                    logger.lifecycle("Found ElasticSearch ${esDir}/bin directory but no pid, saving data without stop/start; WARNING if ElasticSearch is running this will cause problems!")
+                    copy { from zipTree('SaveElasticSearch.zip'); into file(moquiRuntime+'/elasticsearch/data') }
+                }
+            } else {
+                copy { from zipTree('SaveElasticSearch.zip'); into file(moquiRuntime+'/elasticsearch/data') }
+            }
+        }
     }
 }
 
