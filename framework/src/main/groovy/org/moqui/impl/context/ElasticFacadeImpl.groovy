@@ -144,7 +144,7 @@ class ElasticFacadeImpl implements ElasticFacade {
             requestFactory.init()
 
             // try connecting and get server info
-            int retries = clusterHost == 'localhost' ? 1 : 5;
+            int retries = clusterHost == 'localhost' && !"true".equals(System.getProperty("moqui.elasticsearch.started")) ? 1 : 5
             for (int i = 1; i <= retries; i++) {
                 try {
                     serverInfo = getServerInfo()
