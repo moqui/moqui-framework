@@ -360,6 +360,7 @@ class ElasticFacadeImpl implements ElasticFacade {
         RestClient makeRestClient(Method method, String path, Map<String, String> parameters) {
             RestClient restClient = new RestClient().withRequestFactory(requestFactory).method(method).contentType("application/json")
             restClient.uri().protocol(clusterProtocol).host(clusterHost).port(clusterPort).path(path).parameters(parameters).build()
+            // see https://www.elastic.co/guide/en/elasticsearch/reference/7.4/http-clients.html
             if (clusterUser) restClient.basicAuth(clusterUser, clusterPassword)
             return restClient
         }
