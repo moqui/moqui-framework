@@ -112,7 +112,10 @@ task downloadElasticSearchLinux { doLast {
 
     delete zipFile
 }}
-task startElasticSearch(type:Exec) { workingDir moquiRuntime + '/elasticsearch'; commandLine './bin/elasticsearch', '-d', '-p', 'pid' }
+task startElasticSearch(type:Exec) {
+    workingDir moquiRuntime + '/elasticsearch'; commandLine './bin/elasticsearch', '-d', '-p', 'pid'
+    onlyIf { !file(moquiRuntime + '/elasticsearch/pid').exists() }
+}
 task stopElasticSearch(type:Exec) { workingDir moquiRuntime + '/elasticsearch'; commandLine 'pkill', '-F', 'pid' }
 
 // ========== check/update tasks ==========
