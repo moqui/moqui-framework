@@ -144,7 +144,7 @@ class ElasticFacadeImpl implements ElasticFacade {
             requestFactory.init()
 
             // try connecting and get server info
-            int retries = clusterHost == 'localhost' && !"true".equals(System.getProperty("moqui.elasticsearch.started")) ? 1 : 5
+            int retries = clusterHost == 'localhost' && !"true".equals(System.getProperty("moqui.elasticsearch.started")) ? 1 : 10
             for (int i = 1; i <= retries; i++) {
                 try {
                     serverInfo = getServerInfo()
@@ -155,7 +155,7 @@ class ElasticFacadeImpl implements ElasticFacade {
                         // logger.error("Final error connecting to ElasticSearch cluster ${clusterName} at ${clusterProtocol}://${clusterHost}:${clusterPort}, try ${i} of ${retries}: ${t.toString()}", t)
                     } else {
                         logger.error("Error connecting to ElasticSearch cluster ${clusterName} at ${clusterProtocol}://${clusterHost}:${clusterPort}, try ${i} of ${retries}: ${t.toString()}")
-                        Thread.sleep(2000)
+                        Thread.sleep(1000)
                     }
                 }
                 if (serverInfo != null) {
