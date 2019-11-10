@@ -488,41 +488,47 @@ task deployTomcat { doLast {
     copy { from file(warName); into file(tomcatHome + '/webapps'); rename(warName, 'ROOT.war') }
 } }
 
-task addRuntime {
-    description "Create a moqui-plus-runtime.war file with the Moqui WAR and the runtime directory embedded in it"
-    dependsOn checkRuntime, allBuildTasks
-    doLast {
-        // make version detail files
-        makeVersionDetailFiles()
-        // unzip the "moqui-${version}.war" file to the wartemp directory
-        //directory { dir = file('wartemp') }
-        copy { from zipTree(warName); into file('wartemp') }
-        // copy runtime directory (with a few exceptions) into a runtime directory in the war
-        copy {
-            from fileTree(dir: '.', include: moquiRuntime+'/**',
-                    excludes: ['**/*.jar', '**/build', moquiRuntime+'/classes/**', moquiRuntime+'/lib/**', moquiRuntime+'/log/**', moquiRuntime+'/sessions/**'])
-            into file('wartemp')
-        }
-        // copy the jar files from runtime/lib
-        copy { from fileTree(dir: moquiRuntime+'/lib', include: '**/*.jar').files into 'wartemp/WEB-INF/lib' }
-        // copy the classpath resource files from runtime/classes
-        copy { from fileTree(dir: moquiRuntime+'/classes', include: '**/*') into 'wartemp/WEB-INF/classes' }
-        // copy the jar files from components
-        copy { from fileTree(dir: moquiRuntime+'/base-component', include: '**/*.jar').files into 'wartemp/WEB-INF/lib' }
-        copy { from fileTree(dir: moquiRuntime+'/component', include: '**/*.jar').files into 'wartemp/WEB-INF/lib' }
-        copy { from fileTree(dir: moquiRuntime+'/ecomponent', include: '**/*.jar').files into 'wartemp/WEB-INF/lib' }
-        // add MoquiInit.properties fresh copy, just in case it was changed
-        copy { from file('MoquiInit.properties') into 'wartemp/WEB-INF/classes' }
-        // add Procfile to root
-        copy { from file('Procfile') into 'wartemp' }
-        // special case: copy elasticsearch plugin/module jars
-        copy { from fileTree(dir: '.', include: moquiRuntime+'/elasticsearch/**/*.jar') into file('wartemp') }
-        // special case: copy jackrabbit standalone jar (if exists)
-        copy { from fileTree(dir: moquiRuntime + '/jackrabbit', include: 'jackrabbit-standalone-*.jar').files; into 'wartemp/' + moquiRuntime + '/jackrabbit' }
+def getPlusRuntimeFiles(String moquiRuntime, String plusRuntimeName) {
+    if (file(plusRuntimeName).exists()) delete file(plusRuntimeName)
 
-        // zip it up again
-        ant.zip(destfile: plusRuntimeName) { fileset(dir: 'wartemp') { include(name: '**/*') } }
-        // alternative once supported: zip { archiveName plusRuntimeName; from fileTree(dir: 'wartemp', include: '**/*') }
+    // make version detail files
+    makeVersionDetailFiles()
+    // unzip the "moqui-${version}.war" file to the wartemp directory
+    //directory { dir = file('wartemp') }
+    copy { from zipTree(warName); into file('wartemp') }
+    // copy runtime directory (with a few exceptions) into a runtime directory in the war
+    copy {
+        from fileTree(dir: '.', include: moquiRuntime+'/**',
+                excludes: ['**/*.jar', '**/build', moquiRuntime+'/classes/**', moquiRuntime+'/lib/**', moquiRuntime+'/log/**', moquiRuntime+'/sessions/**'])
+        into file('wartemp')
+    }
+    // copy the jar files from runtime/lib
+    copy { from fileTree(dir: moquiRuntime+'/lib', include: '**/*.jar').files into 'wartemp/WEB-INF/lib' }
+    // copy the classpath resource files from runtime/classes
+    copy { from fileTree(dir: moquiRuntime+'/classes', include: '**/*') into 'wartemp/WEB-INF/classes' }
+    // copy the jar files from components
+    copy { from fileTree(dir: moquiRuntime+'/base-component', include: '**/*.jar').files into 'wartemp/WEB-INF/lib' }
+    copy { from fileTree(dir: moquiRuntime+'/component', include: '**/*.jar').files into 'wartemp/WEB-INF/lib' }
+    copy { from fileTree(dir: moquiRuntime+'/ecomponent', include: '**/*.jar').files into 'wartemp/WEB-INF/lib' }
+    // add MoquiInit.properties fresh copy, just in case it was changed
+    copy { from file('MoquiInit.properties') into 'wartemp/WEB-INF/classes' }
+    // add Procfile to root
+    copy { from file('Procfile') into 'wartemp' }
+    // special case: copy elasticsearch plugin/module jars
+    copy { from fileTree(dir: '.', include: moquiRuntime+'/elasticsearch/**/*.jar') into file('wartemp') }
+    // special case: copy jackrabbit standalone jar (if exists)
+    copy { from fileTree(dir: moquiRuntime + '/jackrabbit', include: 'jackrabbit-standalone-*.jar').files; into 'wartemp/' + moquiRuntime + '/jackrabbit' }
+
+    return file('wartemp')
+}
+task addRuntime(type: Zip) {
+    description "Create moqui-plus-runtime.war file from the moqui.war file and the runtime directory embedded in it"
+    dependsOn checkRuntime, allBuildTasks
+    archiveName plusRuntimeName
+
+    from getPlusRuntimeFiles(moquiRuntime, plusRuntimeName)
+
+    doLast {
         // clean up the temporary directory
         delete file('wartemp')
         // clean up version detail files
