@@ -95,4 +95,25 @@ along with this software (see the LICENSE.md file). If not, see
             serviceName="org.moqui.impl.EntityServices.import#EntityDataSnapshot" topic="ImportEntityDataSnapshot"
             transactionTimeout="3600"/>
 
+    <!-- ========== ElasticSearch Setup Data ========== -->
+
+    <moqui.security.UserPermission userPermissionId="ElasticRemote" description="ElasticSearch Remote Access"/>
+    <moqui.security.UserGroupPermission userGroupId="ADMIN" userPermissionId="ElasticRemote" fromDate="0"/>
+
+    <moqui.security.UserPermission userPermissionId="KibanaRemote" description="Kibana Remote Access"/>
+    <moqui.security.UserGroupPermission userGroupId="ADMIN" userPermissionId="KibanaRemote" fromDate="0"/>
+
+    <!-- Handy cron strings: [0 0 2 * * ?] every night at 2:00 am, [0 0/15 * * * ?] every 15 minutes, [0 0/2 * * * ?] every 2 minutes -->
+    <moqui.service.job.ServiceJob jobName="clean_ElasticSearchLogMessages_daily" description="Clean log messages stored in ElasticSearch"
+            serviceName="org.moqui.search.SearchServices.delete#Documents" cronExpression="0 0 2 * * ?" paused="Y">
+        <parameters parameterName="indexName" parameterValue="moqui_logs"/>
+        <parameters parameterName="timestampField" parameterValue="@timestamp"/>
+        <parameters parameterName="daysToKeep" parameterValue="90"/>
+    </moqui.service.job.ServiceJob>
+    <moqui.service.job.ServiceJob jobName="clean_ElasticSearchHttpLogMessages_daily" description="Clean http request log messages stored in ElasticSearch"
+            serviceName="org.moqui.search.SearchServices.delete#Documents" cronExpression="0 0 2 * * ?" paused="Y">
+        <parameters parameterName="indexName" parameterValue="moqui_http_log"/>
+        <parameters parameterName="timestampField" parameterValue="@timestamp"/>
+        <parameters parameterName="daysToKeep" parameterValue="180"/>
+    </moqui.service.job.ServiceJob>
 </entity-facade-xml>
