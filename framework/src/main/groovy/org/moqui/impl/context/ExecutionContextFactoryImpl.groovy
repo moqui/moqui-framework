@@ -642,7 +642,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     /** Called from MoquiContextListener.contextInitialized after ECFI init */
     @Override boolean checkEmptyDb() {
-        String emptyDbLoad = confXmlRoot.first("tools").attribute("empty-db-load")
+        MNode toolsNode = confXmlRoot.first("tools")
+        toolsNode.setSystemExpandAttributes(true)
+        String emptyDbLoad = toolsNode.attribute("empty-db-load")
         if (!emptyDbLoad || emptyDbLoad == 'none') return false
 
         long enumCount = getEntity().find("moqui.basic.Enumeration").disableAuthz().count()
