@@ -72,7 +72,7 @@ class ServiceEcaRule {
     void runIfMatches(String serviceName, Map<String, Object> parameters, Map<String, Object> results, String when, ExecutionContextImpl ec) {
         // see if we match this event and should run
         if (!nameIsPattern && !serviceNameNoHash.equals(serviceName)) return
-        if (nameIsPattern && !serviceName.matches(this.serviceName)) return
+        if (nameIsPattern && !serviceName.matches(this.serviceNameNoHash)) return
         if (!this.when.equals(when)) return
         if (!runOnError && ec.getMessage().hasError()) return
 
