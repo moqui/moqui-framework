@@ -5,4 +5,4 @@
 # The port specified here is the default for the AWS ElasticBeanstalk Java SE image
 # see: https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/java-se-procfile.html
 #
-web: java -cp . MoquiStart port=5000 conf=conf/MoquiProductionConf.xml
+web: java -cp . MoquiStart port=5000 conf=conf/MoquiProductionConf.xml run-es

@@ -16,8 +16,11 @@ package org.moqui.util;
 import groovy.json.JsonBuilder;
 import groovy.json.JsonSlurper;
 import org.eclipse.jetty.client.HttpClient;
+import org.eclipse.jetty.client.HttpClientTransport;
 import org.eclipse.jetty.client.HttpResponseException;
+import org.eclipse.jetty.client.ValidatingConnectionPool;
 import org.eclipse.jetty.client.api.*;
+import org.eclipse.jetty.client.http.HttpClientTransportOverHTTP;
 import org.eclipse.jetty.client.util.FutureResponseListener;
 import org.eclipse.jetty.client.util.InputStreamContentProvider;
 import org.eclipse.jetty.client.util.MultiPartContentProvider;
@@ -26,6 +29,9 @@ import org.eclipse.jetty.http.HttpField;
 import org.eclipse.jetty.http.HttpFields;
 import org.eclipse.jetty.http.HttpHeader;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
+import org.eclipse.jetty.util.thread.QueuedThreadPool;
+import org.eclipse.jetty.util.thread.ScheduledExecutorScheduler;
+import org.eclipse.jetty.util.thread.Scheduler;
 import org.moqui.BaseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,7 +56,7 @@ public class RestClient {
     // NOTE: there is no constant on HttpServletResponse for 429; see RFC 6585 for details
     public static final int TOO_MANY = 429;
 
-    private static final EnumSet<Method> BODY_METHODS = EnumSet.of(Method.PATCH, Method.POST, Method.PUT);
+    private static final EnumSet<Method> BODY_METHODS = EnumSet.of(Method.GET, Method.PATCH, Method.POST, Method.PUT);
     private static final Logger logger = LoggerFactory.getLogger(RestClient.class);
 
     private String uriString = null;
@@ -68,6 +74,7 @@ public class RestClient {
     private int maxResponseSize = 4 * 1024 * 1024;
     private int timeoutSeconds = 30;
     private boolean timeoutRetry = false;
+    private RequestFactory overrideRequestFactory = null;
 
     public RestClient() { }
 
@@ -134,6 +141,9 @@ public class RestClient {
             bodyText = null;
             return this;
         }
+        if (bodyJsonObject instanceof CharSequence) {
+            return text(bodyJsonObject.toString());
+        }
 
         JsonBuilder jb = new JsonBuilder();
         if (bodyJsonObject instanceof Map) {
@@ -156,6 +166,8 @@ public class RestClient {
 
         return text(bodyXmlNode.toString());
     }
+
+    public String getBodyText() { return bodyText; }
 
     /** Add fields to put in body form parameters */
     public RestClient addBodyParameters(Map<String, String> formFields) {
@@ -211,6 +223,9 @@ public class RestClient {
     /** Set to true if retry should also be done on timeout; must call retry() to set retry parameters otherwise defaults to 1 retry with 2.0 initial wait time. */
     public RestClient timeoutRetry(boolean tr) { this.timeoutRetry = tr; if (maxRetries == 0) maxRetries = 1; return this; }
 
+    /** Use a specific RequestFactory for pooling, keep alive, etc */
+    public RestClient withRequestFactory(RequestFactory requestFactory) { overrideRequestFactory = requestFactory; return this; }
+
     /** Do the HTTP request and get the response */
     public RestResponse call() {
         float curWaitSeconds = initialWaitSeconds;
@@ -253,9 +268,10 @@ public class RestClient {
     }
     protected RestResponse callInternal() throws TimeoutException {
         if (uriString == null || uriString.isEmpty()) throw new IllegalStateException("No URI set in RestClient");
-        HttpClient httpClient = makeStartHttpClient();
+        SimpleRequestFactory tempRequestFactory = null;
+        if (overrideRequestFactory == null) { tempRequestFactory = new SimpleRequestFactory(); }
         try {
-            Request request = makeRequest(httpClient);
+            Request request = makeRequest(overrideRequestFactory != null ? overrideRequestFactory : tempRequestFactory);
             // use a FutureResponseListener so we can set the timeout and max response size (old: response = request.send(); )
             FutureResponseListener listener = new FutureResponseListener(request, maxResponseSize);
             request.send(listener);
@@ -267,18 +283,12 @@ public class RestClient {
         } catch (Exception e) {
             throw new BaseException("Error calling REST request", e);
         } finally {
-            try { httpClient.stop(); } catch (Exception e) { logger.error("Error stopping REST HttpClient", e); }
+            if (tempRequestFactory != null) tempRequestFactory.destroy();
         }
     }
 
-    protected HttpClient makeStartHttpClient() {
-        SslContextFactory sslContextFactory = new SslContextFactory.Client(true);
-        HttpClient httpClient = new HttpClient(sslContextFactory);
-        try { httpClient.start(); } catch (Exception e) { throw new BaseException("Error starting HTTP client", e); }
-        return httpClient;
-    }
-    protected Request makeRequest(HttpClient httpClient) {
-        final Request request = httpClient.newRequest(uriString);
+    protected Request makeRequest(RequestFactory requestFactory) {
+        final Request request = requestFactory.makeRequest(uriString);
         request.method(method.name());
         // set charset on request?
 
@@ -355,12 +365,14 @@ public class RestClient {
          * handling or skip it to handle manually or allow errors */
         public RestResponse checkError() {
             if (statusCode < 200 || statusCode >= 300) {
-                logger.info("Error " + String.valueOf(statusCode) + " (" + reasonPhrase + ") in response to " + rci.method + " to " + rci.uriString + ", response text:\n" + text());
-                throw new HttpResponseException("Error " + String.valueOf(statusCode) + " (" + reasonPhrase + ") in response to " + rci.method + " to " + rci.uriString, response);
+                logger.info("Error " + statusCode + " (" + reasonPhrase + ") in response to " + rci.method + " to " + rci.uriString + ", response text:\n" + text());
+                throw new HttpResponseException("Error " + statusCode + " (" + reasonPhrase + ") in response to " + rci.method + " to " + rci.uriString, response);
             }
 
             return this;
         }
+
+        public RestClient getClient() { return rci; }
 
         public int getStatusCode() { return statusCode; }
         public String getReasonPhrase() { return reasonPhrase; }
@@ -424,19 +436,26 @@ public class RestClient {
 
         UriBuilder(RestClient rci) { this.rci = rci; }
 
-        public UriBuilder protocol(String protocol) { this.protocol = protocol; return this; }
+        public UriBuilder protocol(String protocol) {
+            if (protocol == null || protocol.isEmpty()) throw new IllegalArgumentException("Empty protocol not allowed");
+            this.protocol = protocol;
+            return this;
+        }
 
         public UriBuilder host(String host) {
+            if (host == null || host.isEmpty()) throw new IllegalArgumentException("Empty host not allowed");
             this.host = host;
             return this;
         }
 
         public UriBuilder port(int port) {
+            if (port <= 0) throw new IllegalArgumentException("Invalid port " + port);
             this.port = port;
             return this;
         }
 
         public UriBuilder path(String pathEl) {
+            if (pathEl == null || pathEl.isEmpty()) return this;
             if (!pathEl.startsWith("/")) path.append("/");
             path.append(pathEl);
             int lastIndex = path.length() - 1;
@@ -451,6 +470,7 @@ public class RestClient {
         }
 
         public UriBuilder parameters(Map<String, String> parms) {
+            if (parms == null) return this;
             if (parameters == null) {
                 parameters = new LinkedHashMap<>(parms);
             } else {
@@ -525,7 +545,7 @@ public class RestClient {
     }
     public static class RestClientFuture implements Future<RestResponse> {
         RestClient rci;
-        HttpClient httpClient;
+        SimpleRequestFactory tempRequestFactory = null;
         FutureResponseListener listener;
         volatile float curWaitSeconds;
         volatile int retryCount = 0;
@@ -542,13 +562,12 @@ public class RestClient {
         }
 
         void newRequest() {
-            if (httpClient != null && httpClient.isRunning()) {
-                try { httpClient.stop(); } catch (Exception e) { logger.error("Error stopping REST HttpClient", e); }
-            }
+            if (tempRequestFactory != null) tempRequestFactory.destroy();
+
             // NOTE: RestClientFuture methods call httpClient.stop() so not handled here
-            httpClient = rci.makeStartHttpClient();
+            if (rci.overrideRequestFactory == null) { tempRequestFactory = new SimpleRequestFactory(); }
             try {
-                Request request = rci.makeRequest(httpClient);
+                Request request = rci.makeRequest(rci.overrideRequestFactory != null ? rci.overrideRequestFactory : tempRequestFactory);
                 // use a CompleteListener to retry in background
                 request.onComplete(new RetryListener(this));
                 // use a FutureResponseListener so we can set the timeout and max response size (old: response = request.send(); )
@@ -569,7 +588,7 @@ public class RestClient {
                     cancelled = true;
                     return listener.cancel(mayInterruptIfRunning);
                 } finally {
-                    try { httpClient.stop(); } catch (Exception e) { logger.error("Error stopping REST HttpClient", e); }
+                    if (tempRequestFactory != null) tempRequestFactory.destroy();
                 }
             } finally { retryLock.unlock(); }
         }
@@ -593,19 +612,113 @@ public class RestClient {
                         lastResponse = listener.get(timeout, unit);
                         if (lastResponse.getStatus() != TOO_MANY) break;
                     } finally {
-                        try { httpClient.stop(); } catch (Exception e) { logger.error("Error stopping REST HttpClient", e); }
+                        if (tempRequestFactory != null) tempRequestFactory.destroy();
                     }
                 } finally { retryLock.unlock(); }
             } while (!cancelled && retryCount < rci.maxRetries);
 
             return new RestResponse(rci, lastResponse);
         }
+    }
 
-        @Override
-        protected void finalize() throws Throwable {
+    public interface RequestFactory {
+        Request makeRequest(String uriString);
+    }
+    public static class SimpleRequestFactory implements RequestFactory {
+        private final HttpClient httpClient;
+
+        public SimpleRequestFactory() {
+            SslContextFactory sslContextFactory = new SslContextFactory.Client(true);
+            sslContextFactory.setEndpointIdentificationAlgorithm(null);
+            httpClient = new HttpClient(sslContextFactory);
+            try { httpClient.start(); } catch (Exception e) { throw new BaseException("Error starting HTTP client", e); }
+        }
+
+        @Override public Request makeRequest(String uriString) {
+            return httpClient.newRequest(uriString);
+        }
+
+        HttpClient getHttpClient() { return httpClient; }
+
+        void destroy() {
             if (httpClient != null && httpClient.isRunning()) {
-                logger.warn("RestClientFuture finalize and httpClient still running for " + rci.uriString + ", stopping");
-                try { httpClient.stop(); } catch (Exception e) { logger.error("Error stopping REST HttpClient", e); }
+                try { httpClient.stop(); }
+                catch (Exception e) { logger.error("Error stopping SimpleRequestFactory HttpClient", e); }
+            }
+        }
+        @Override protected void finalize() throws Throwable {
+            if (httpClient != null && httpClient.isRunning()) {
+                logger.warn("SimpleRequestFactory finalize and httpClient still running, stopping");
+                try { httpClient.stop(); } catch (Exception e) { logger.error("Error stopping SimpleRequestFactory HttpClient", e); }
+            }
+            super.finalize();
+        }
+    }
+    public static class PooledRequestFactory implements RequestFactory {
+        private HttpClient httpClient;
+        private final String shortName;
+        private int poolSize = 64;
+        private int queueSize = 1024;
+        private long validationTimeoutMillis = 1000;
+
+        private SslContextFactory sslContextFactory = null;
+        private HttpClientTransport transport = null;
+        private QueuedThreadPool executor = null;
+        private Scheduler scheduler = null;
+
+        /** The required shortName is used as a prefix for thread names and should be distinct. */
+        public PooledRequestFactory(String shortName) { this.shortName = shortName; }
+
+        public PooledRequestFactory with(SslContextFactory sslcf) { sslContextFactory = sslcf; return this; }
+        public PooledRequestFactory with(HttpClientTransport transport) { this.transport = transport; return this; }
+        public PooledRequestFactory with(QueuedThreadPool executor) { this.executor = executor; return this; }
+        public PooledRequestFactory with(Scheduler scheduler) { this.scheduler = scheduler; return this; }
+
+        /** Size of the HTTP connection pool per destination (scheme + host + port) */
+        public PooledRequestFactory poolSize(int size) { poolSize = size; return this; }
+        /** Size of the HTTP request queue per destination (scheme + host + port) */
+        public PooledRequestFactory queueSize(int size) { queueSize = size; return this; }
+        /** Quarantine timeout for connection validation, see ValidatingConnectionPool javadoc for details */
+        public PooledRequestFactory validationTimeout(long millis) { validationTimeoutMillis = millis; return this; }
+
+        public PooledRequestFactory init() {
+            if (sslContextFactory == null) sslContextFactory = new SslContextFactory.Client(true);
+            if (transport == null) transport = new HttpClientTransportOverHTTP(1);
+
+            if (executor == null) { executor = new QueuedThreadPool(); executor.setName(shortName + "-queue"); }
+            if (scheduler == null) scheduler = new ScheduledExecutorScheduler(shortName + "-scheduler", false);
+
+            transport.setConnectionPoolFactory(destination -> new ValidatingConnectionPool(destination,
+                    destination.getHttpClient().getMaxConnectionsPerDestination(), destination,
+                    destination.getHttpClient().getScheduler(), validationTimeoutMillis));
+
+            httpClient = new HttpClient(transport, sslContextFactory);
+            httpClient.setExecutor(executor);
+            httpClient.setScheduler(scheduler);
+            httpClient.setMaxConnectionsPerDestination(poolSize);
+            httpClient.setMaxRequestsQueuedPerDestination(queueSize);
+
+            try { httpClient.start(); } catch (Exception e) { throw new BaseException("Error starting HTTP client for " + shortName, e); }
+
+            return this;
+        }
+
+        @Override public Request makeRequest(String uriString) {
+            return httpClient.newRequest(uriString);
+        }
+
+        public HttpClient getHttpClient() { return httpClient; }
+
+        public void destroy() {
+            if (httpClient != null && httpClient.isRunning()) {
+                try { httpClient.stop(); }
+                catch (Exception e) { logger.error("Error stopping PooledRequestFactory HttpClient for " + shortName, e); }
+            }
+        }
+        @Override protected void finalize() throws Throwable {
+            if (httpClient != null && httpClient.isRunning()) {
+                logger.warn("PooledRequestFactory finalize and httpClient still running for " + shortName + ", stopping");
+                try { httpClient.stop(); } catch (Exception e) { logger.error("Error stopping PooledRequestFactory HttpClient for " + shortName, e); }
             }
             super.finalize();
         }

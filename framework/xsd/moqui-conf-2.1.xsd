@@ -30,6 +30,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element minOccurs="0" ref="resource-facade"/>
                 <xs:element minOccurs="0" ref="screen-facade"/>
                 <xs:element minOccurs="0" ref="service-facade"/>
+                <xs:element minOccurs="0" ref="elastic-facade"/>
                 <xs:element minOccurs="0" ref="entity-facade"/>
                 <xs:element minOccurs="0" ref="database-list"/>
                 <xs:element minOccurs="0" ref="repository-list"/>
@@ -552,6 +553,21 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="security-credentials" type="xs:string"><xs:annotation><xs:documentation>The password</xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
+
+    <!-- ===================== Elastic Facade Conf Root ===================== -->
+
+    <xs:element name="elastic-facade"><xs:complexType>
+        <xs:sequence>
+            <xs:element name="cluster" minOccurs="0" maxOccurs="unbounded"><xs:complexType>
+                <xs:attribute name="name" type="xs:string" use="required"/>
+                <xs:attribute name="url" type="xs:string" use="required"/>
+                <xs:attribute name="user" type="xs:string"/>
+                <xs:attribute name="password" type="xs:string"/>
+                <xs:attribute name="pool-max" type="xs:positiveInteger"/>
+                <xs:attribute name="queue-size" type="xs:positiveInteger"/>
+            </xs:complexType></xs:element>
+        </xs:sequence>
+    </xs:complexType></xs:element>
 
     <!-- ===================== Entity Facade Conf Root ===================== -->
     <xs:element name="entity-facade">
