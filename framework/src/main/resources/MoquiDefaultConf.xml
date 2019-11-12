@@ -193,7 +193,7 @@
             <!-- ElasticSearch and Kibana proxy servlets, see above for auth filters on the same url-pattern -->
             <servlet name="ElasticSearchProxy" class="org.eclipse.jetty.proxy.ProxyServlet$Transparent" load-on-startup="1" async-supported="true">
                 <!-- this proxies to the embedded ElasticSearch instance -->
-                <init-param name="proxyTo" value="http://localhost:9200"/>
+                <init-param name="proxyTo" value="${elasticsearch_url ?: 'http://localhost:9200'}"/>
                 <init-param name="prefix" value="/elastic"/>
                 <url-pattern>/elastic/*</url-pattern>
             </servlet>
