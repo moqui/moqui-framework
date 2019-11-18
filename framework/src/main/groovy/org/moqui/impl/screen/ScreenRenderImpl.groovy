@@ -16,6 +16,7 @@ package org.moqui.impl.screen
 import freemarker.template.Template
 import groovy.json.JsonSlurper
 import groovy.transform.CompileStatic
+import org.apache.http.HttpResponse
 import org.moqui.BaseArtifactException
 import org.moqui.BaseException
 import org.moqui.context.*
@@ -194,9 +195,16 @@ class ScreenRenderImpl implements ScreenRender {
         if (response != null) {
             if (servletContextPath != null && !servletContextPath.isEmpty() && redirectUrl.startsWith("/"))
                 redirectUrl = servletContextPath + redirectUrl
-            response.sendRedirect(redirectUrl)
+            if ("vuet".equals(renderMode)) {
+                if (logger.isInfoEnabled()) logger.info("Redirecting (vuet) to ${redirectUrl} instead of rendering ${this.getScreenUrlInfo().getFullPathNameList()}")
+                response.addHeader("X-Redirect-To", redirectUrl)
+                // use code 205 (Reset Content) for client router handled redirect
+                response.setStatus(HttpServletResponse.SC_RESET_CONTENT)
+            } else {
+                if (logger.isInfoEnabled()) logger.info("Redirecting to ${redirectUrl} instead of rendering ${this.getScreenUrlInfo().getFullPathNameList()}")
+                response.sendRedirect(redirectUrl)
+            }
             dontDoRender = true
-            if (logger.isInfoEnabled()) logger.info("Redirecting to ${redirectUrl} instead of rendering ${this.getScreenUrlInfo().getFullPathNameList()}")
         }
     }
     boolean sendJsonRedirect(UrlInstance fullUrl, Long renderStartTime) {
