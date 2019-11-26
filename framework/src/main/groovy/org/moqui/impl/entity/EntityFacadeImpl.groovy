@@ -1393,7 +1393,8 @@ class EntityFacadeImpl implements EntityFacade {
 
         if (node.hasChild("search-form-inputs")) {
             MNode sfiNode = node.first("search-form-inputs")
-            if ("true".equals(sfiNode.attribute("require-parameters"))) ef.requireSearchFormParameters(true)
+            String requireParameters = ecfi.resourceFacade.expand(sfiNode.attribute("require-parameters"), null)
+            if ("true".equals(requireParameters)) ef.requireSearchFormParameters(true)
 
             boolean paginate = !"false".equals(sfiNode.attribute("paginate"))
             MNode defaultParametersNode = sfiNode.first("default-parameters")

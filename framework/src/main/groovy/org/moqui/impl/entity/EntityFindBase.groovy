@@ -988,7 +988,10 @@ abstract class EntityFindBase implements EntityFind {
     }
 
     protected EntityList listInternal(ExecutionContextImpl ec, EntityDefinition ed) throws EntityException, SQLException {
-        if (requireSearchFormParameters && !hasSearchFormParameters) return new EntityListImpl(efi)
+        if (requireSearchFormParameters && !hasSearchFormParameters) {
+            logger.info("No parameters for list find on ${ed.fullEntityName}, not doing search")
+            return new EntityListImpl(efi)
+        }
 
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
         boolean isViewEntity = entityInfo.isView
