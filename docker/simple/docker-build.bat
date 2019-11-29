@@ -23,5 +23,5 @@ cd ..
 rmdir /Q /S runtime
 
 REM prepare database
-cd ..
-gradlew build -x test
+REM cd ..
+REM gradlew build -x test
