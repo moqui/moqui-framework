@@ -13,6 +13,8 @@
  */
 package org.moqui.context;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.Timestamp;
 import java.util.Locale;
 import java.util.TimeZone;
@@ -48,12 +50,13 @@ public interface L10nFacade {
      * @param amount The amount in BigDecimal to be rounded.
      * @param uomId The currency uomId (ISO currency code), required
      * @param precise A boolean indicating whether the currency should be treated with an additional digit
-     * @param roundingMethod Rounding method to use (e.g. BigDecimal.ROUND_HALF_UP)
+     * @param roundingMode Rounding method to use (e.g. RoundingMode.HALF_UP)
      * @return The rounded currency amount.
      */
-    java.math.BigDecimal roundCurrency(java.math.BigDecimal amount, String uomId, boolean precise, int roundingMethod);
-    java.math.BigDecimal roundCurrency(java.math.BigDecimal amount, String uomId, boolean precise);
-    java.math.BigDecimal roundCurrency(java.math.BigDecimal amount, String uomId);
+    BigDecimal roundCurrency(BigDecimal amount, String uomId, boolean precise, RoundingMode roundingMode);
+    BigDecimal roundCurrency(java.math.BigDecimal amount, String uomId, boolean precise, int roundingMethod);
+    BigDecimal roundCurrency(java.math.BigDecimal amount, String uomId, boolean precise);
+    BigDecimal roundCurrency(java.math.BigDecimal amount, String uomId);
 
     /** Format a Number, Timestamp, Date, Time, or Calendar object using the given format string. If no format string
      * is specified the default for the user's locale and time zone will be used.

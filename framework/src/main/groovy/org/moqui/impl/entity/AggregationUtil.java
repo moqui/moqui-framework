@@ -27,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.*;
 
 public class AggregationUtil {
@@ -327,7 +328,7 @@ public class AggregationUtil {
                         BigDecimal total = (BigDecimal) resultMap.get(fieldTotalName);
                         BigDecimal avgTotal = total.add(newNumBd);
                         BigDecimal countPlusOne = count.add(BigDecimal.ONE);
-                        resultMap.put(fieldName, avgTotal.divide(countPlusOne, BigDecimal.ROUND_HALF_EVEN));
+                        resultMap.put(fieldName, avgTotal.divide(countPlusOne, RoundingMode.HALF_EVEN));
                         resultMap.put(fieldCountName, countPlusOne);
                         resultMap.put(fieldTotalName, avgTotal);
                     }

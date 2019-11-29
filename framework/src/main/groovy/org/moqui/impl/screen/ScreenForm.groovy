@@ -1737,7 +1737,7 @@ class ScreenForm {
                         if (efList.size() < pageSize) count = efList.size() + pageSize * pageIndex
                         else count = ef.count()
                     }
-                    long maxIndex = (new BigDecimal(count-1)).divide(new BigDecimal(pageSize), 0, BigDecimal.ROUND_DOWN).longValue()
+                    long maxIndex = (new BigDecimal(count-1)).divide(new BigDecimal(pageSize), 0, RoundingMode.DOWN).longValue()
                     long pageRangeLow = (pageIndex * pageSize) + 1
                     long pageRangeHigh = (pageIndex * pageSize) + pageSize
                     if (pageRangeHigh > count) pageRangeHigh = count

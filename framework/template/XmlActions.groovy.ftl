@@ -181,7 +181,7 @@ ${.node}
                 else { ${listName}Count = ${listName}_xafind.count() }
             }
         </#if>
-        ${listName}PageMaxIndex = ((BigDecimal) (${listName}Count - 1)).divide(${listName}PageSize ?: (${listName}Count - 1), 0, BigDecimal.ROUND_DOWN) as int
+        ${listName}PageMaxIndex = ((BigDecimal) (${listName}Count - 1)).divide(${listName}PageSize ?: (${listName}Count - 1), 0, java.math.RoundingMode.DOWN) as int
         ${listName}PageRangeLow = ${listName}PageIndex * ${listName}PageSize + 1
         ${listName}PageRangeHigh = (${listName}PageIndex * ${listName}PageSize) + ${listName}PageSize
         if (${listName}PageRangeHigh > ${listName}Count) ${listName}PageRangeHigh = ${listName}Count
