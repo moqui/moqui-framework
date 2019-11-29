@@ -52,9 +52,9 @@ dependencies {
     compile 'javax.cache:cache-api:1.0.0'
     compile 'javax.servlet:javax.servlet-api:3.1.0'
     // SLF4J
-    compile 'org.slf4j:slf4j-api:1.7.28'
+    compile 'org.slf4j:slf4j-api:1.7.29'
     // Freemarker
-    compile 'org.freemarker:freemarker:2.3.28' // Apache 2.0
+    compile 'org.freemarker:freemarker:2.3.29' // Apache 2.0
     // Groovy
     compile 'org.codehaus.groovy:groovy:2.5.8' // Apache 2.0
     compile 'org.codehaus.groovy:groovy-json:2.5.8' // Apache 2.0
