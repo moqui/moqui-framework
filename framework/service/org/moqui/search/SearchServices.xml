@@ -177,6 +177,8 @@ along with this software (see the LICENSE.md file). If not, see
             import org.moqui.context.ExecutionContext
             import org.moqui.impl.context.ElasticFacadeImpl
 
+            import java.math.RoundingMode
+
             ExecutionContext ec = context.ec
             def elasticClient = ec.factory.elastic.getClient((String) clusterName)
             if (elasticClient == null) {
@@ -203,11 +205,11 @@ along with this software (see the LICENSE.md file). If not, see
             }
 
             List mustList = []
-            Map queryMap = [bool:[must:mustList]]
-            Map searchMap = [query:queryMap, from:fromOffset, size:sizeLimit, track_total_hits:true]
+            Map queryMap = [bool: [must: mustList]]
+            Map searchMap = [query: queryMap, from: fromOffset, size: sizeLimit, track_total_hits: true]
 
             // query string: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html
-            mustList.add([query_string:[query:queryString, lenient:true, time_zone:TimeZone.default.getID()]])
+            mustList.add([query_string: [query: queryString, lenient: true, time_zone: TimeZone.default.getID()]])
 
             if (nestedQueryMap) {
                 // nested: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-nested-query.html
@@ -218,7 +220,7 @@ along with this software (see the LICENSE.md file). If not, see
                     String nestedPath = nestedEntry.key as String
                     def nestedQuery = (nestedEntry.value instanceof CharSequence) ? ElasticFacadeImpl.jsonToObject(nestedEntry.value.toString()) : nestedEntry.value
                     if (nestedPath) {
-                        mustList.add([nested:[path:nestedPath, query:nestedQuery, score_mode:"avg"]])
+                        mustList.add([nested: [path: nestedPath, query: nestedQuery, score_mode: "avg"]])
                         // ec.logger.warn("${nestedPath}: ${nestedQuery}")
                     } else {
                         mustList.add(nestedQuery)
@@ -229,7 +231,7 @@ along with this software (see the LICENSE.md file). If not, see
             if (hasHighlights) {
                 Map hlFieldMap = [:]
                 for (String hlField in highlightFields) hlFieldMap.put(hlField, [:])
-                searchMap.put("highlight", [fields:hlFieldMap])
+                searchMap.put("highlight", [fields: hlFieldMap])
             }
             if (orderByFields) {
                 List sortList = []
@@ -244,14 +246,14 @@ along with this software (see the LICENSE.md file). If not, see
                         orderByField = orderByField.substring(1)
                     }
                     // ec.logger.warn("========= adding [${orderByField}], ${ascending}; from ${orderByFields}")
-                    sortList.add(ascending ? orderByField : [(orderByField):"desc"])
+                    sortList.add(ascending ? orderByField : [(orderByField): "desc"])
                 }
                 searchMap.put("sort", sortList)
             }
 
             // if documentType use instead of indexName to get only specific indexes (split on comma, ddIdToEsIndex, join with comma)
             String index = indexName
-            if (documentType) index = ((String) documentType).split(",").collect({ElasticFacadeImpl.ddIdToEsIndex(it)}).join(",")
+            if (documentType) index = ((String) documentType).split(",").collect({ ElasticFacadeImpl.ddIdToEsIndex(it) }).join(",")
             Map resultMap = elasticClient.search(index, searchMap)
             Map hitsMap = (Map) resultMap.hits
             List<Map> hitsList = (List<Map>) hitsMap.hits
@@ -288,7 +290,7 @@ along with this software (see the LICENSE.md file). If not, see
             // calculate the pagination values
             documentListPageIndex = pageIndex
             documentListPageSize = pageSize
-            documentListPageMaxIndex = ((documentListCount as BigDecimal) - 1.0).divide(documentListPageSize, 0, BigDecimal.ROUND_DOWN) as int
+            documentListPageMaxIndex = ((documentListCount as BigDecimal) - 1.0).divide(documentListPageSize as BigDecimal, 0, java.math.RoundingMode.DOWN) as int
             documentListPageRangeLow = documentListPageIndex * documentListPageSize + 1
             documentListPageRangeHigh = (documentListPageIndex * documentListPageSize) + documentListPageSize
             if (documentListPageRangeHigh > documentListCount) documentListPageRangeHigh = documentListCount

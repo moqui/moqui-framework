@@ -13,7 +13,7 @@
  */
 
 // tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:unchecked" }
-// tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:deprecation" }
+tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:deprecation" }
 
 version = '1.0.1'
 
@@ -60,6 +60,8 @@ dependencies {
     compile 'org.codehaus.groovy:groovy-json:2.5.8' // Apache 2.0
     // Jetty HTTP Client
     compile 'org.eclipse.jetty:jetty-client:9.4.18.v20190429' // Apache 2.0
+    // javax.activation - required for Java 11
+    compile 'com.sun.activation:javax.activation:1.2.0' // CDDL 1.1
 }
 
 jar {

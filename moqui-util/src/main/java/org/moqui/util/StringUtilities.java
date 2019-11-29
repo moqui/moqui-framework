@@ -22,6 +22,7 @@ import org.w3c.dom.Element;
 import javax.swing.text.MaskFormatter;
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
@@ -460,7 +461,7 @@ public class StringUtilities {
 
     public static String numberToWordsWithDecimal(BigDecimal value) {
         final String integerText = numberToWords(value.longValue(), false);
-        String decimalText = value.setScale(2, BigDecimal.ROUND_HALF_UP).toPlainString();
+        String decimalText = value.setScale(2, RoundingMode.HALF_UP).toPlainString();
         decimalText = decimalText.substring(decimalText.indexOf(".") + 1);
         return integerText + " and " + decimalText + "/100";
     }

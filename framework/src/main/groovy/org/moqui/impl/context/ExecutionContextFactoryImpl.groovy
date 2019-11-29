@@ -61,6 +61,7 @@ import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
 import javax.websocket.server.ServerContainer
 import java.lang.management.ManagementFactory
+import java.math.RoundingMode
 import java.sql.Timestamp
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -1043,31 +1044,31 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         def threadMXBean = ManagementFactory.getThreadMXBean()
 
-        BigDecimal loadAvg = new BigDecimal(osMXBean.getSystemLoadAverage()).setScale(2, BigDecimal.ROUND_HALF_UP)
+        BigDecimal loadAvg = new BigDecimal(osMXBean.getSystemLoadAverage()).setScale(2, RoundingMode.HALF_UP)
         int processors = osMXBean.getAvailableProcessors()
-        BigDecimal loadPercent = ((loadAvg / processors) * 100.0).setScale(2, BigDecimal.ROUND_HALF_UP)
+        BigDecimal loadPercent = ((loadAvg / processors) * 100.0).setScale(2, RoundingMode.HALF_UP)
 
         long heapUsed = heapMemoryUsage.getUsed()
         long heapMax = heapMemoryUsage.getMax()
-        BigDecimal heapPercent = ((heapUsed / heapMax) * 100.0).setScale(2, BigDecimal.ROUND_HALF_UP)
+        BigDecimal heapPercent = ((heapUsed / heapMax) * 100.0).setScale(2, RoundingMode.HALF_UP)
 
         long diskFreeSpace = runtimeFile.getFreeSpace()
         long diskTotalSpace = runtimeFile.getTotalSpace()
-        BigDecimal diskPercent = (((diskTotalSpace - diskFreeSpace) / diskTotalSpace) * 100.0).setScale(2, BigDecimal.ROUND_HALF_UP)
+        BigDecimal diskPercent = (((diskTotalSpace - diskFreeSpace) / diskTotalSpace) * 100.0).setScale(2, RoundingMode.HALF_UP)
 
         HttpServletRequest request = getEci().getWeb()?.getRequest()
         Map<String, Object> statusMap = [ MoquiFramework:moquiVersion,
             Utilization: [LoadPercent:loadPercent, HeapPercent:heapPercent, DiskPercent:diskPercent],
             Web: [ LocalAddr:request?.getLocalAddr(), LocalPort:request?.getLocalPort(), LocalName:request?.getLocalName(),
                      ServerName:request?.getServerName(), ServerPort:request?.getServerPort() ],
-            Heap: [ Used:(heapUsed/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP),
-                      Committed:(heapMemoryUsage.getCommitted()/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP),
-                      Max:(heapMax/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP) ],
-            NonHeap: [ Used:(nonHeapMemoryUsage.getUsed()/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP),
-                         Committed:(nonHeapMemoryUsage.getCommitted()/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP) ],
-            Disk: [ Free:(diskFreeSpace/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP),
-                      Usable:(runtimeFile.getUsableSpace()/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP),
-                      Total:(diskTotalSpace/(1024*1024)).setScale(3, BigDecimal.ROUND_HALF_UP) ],
+            Heap: [ Used:(heapUsed/(1024*1024)).setScale(3, RoundingMode.HALF_UP),
+                      Committed:(heapMemoryUsage.getCommitted()/(1024*1024)).setScale(3, RoundingMode.HALF_UP),
+                      Max:(heapMax/(1024*1024)).setScale(3, RoundingMode.HALF_UP) ],
+            NonHeap: [ Used:(nonHeapMemoryUsage.getUsed()/(1024*1024)).setScale(3, RoundingMode.HALF_UP),
+                         Committed:(nonHeapMemoryUsage.getCommitted()/(1024*1024)).setScale(3, RoundingMode.HALF_UP) ],
+            Disk: [ Free:(diskFreeSpace/(1024*1024)).setScale(3, RoundingMode.HALF_UP),
+                      Usable:(runtimeFile.getUsableSpace()/(1024*1024)).setScale(3, RoundingMode.HALF_UP),
+                      Total:(diskTotalSpace/(1024*1024)).setScale(3, RoundingMode.HALF_UP) ],
             System: [ Load:loadAvg, Processors:processors, CPU:osMXBean.getArch(),
                         OsName:osMXBean.getName(), OsVersion:osMXBean.getVersion() ],
             JavaRuntime: [ SpecVersion:runtimeMXBean.getSpecVersion(), VmVendor:runtimeMXBean.getVmVendor(),
