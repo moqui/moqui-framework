@@ -137,6 +137,8 @@ class UserFacadeImpl implements UserFacade {
             }
         }
 
+        this.visitId = session.getAttribute("moqui.visitId")
+
         // check for HTTP Basic Authorization for Authentication purposes
         // NOTE: do this even if there is another user logged in, will go on stack
         Map secureParameters = eci.webImpl != null ? eci.webImpl.getSecureRequestParameters() :
@@ -175,7 +177,6 @@ class UserFacadeImpl implements UserFacade {
         }
         if (eci.messageFacade.hasError()) request.setAttribute("moqui.login.error", "true")
 
-        this.visitId = session.getAttribute("moqui.visitId")
         // NOTE: only tracking Visitor and Visit if there is a WebFacadeImpl in place
         if (eci.webImpl != null && !this.visitId && !eci.getSkipStats()) {
             MNode serverStatsNode = eci.ecfi.getServerStatsNode()
