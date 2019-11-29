@@ -44,6 +44,7 @@ import javax.cache.Cache
 import javax.sql.DataSource
 import javax.sql.XAConnection
 import javax.sql.XADataSource
+import java.math.RoundingMode
 import java.sql.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ThreadLocalRandom
@@ -1393,7 +1394,8 @@ class EntityFacadeImpl implements EntityFacade {
 
         if (node.hasChild("search-form-inputs")) {
             MNode sfiNode = node.first("search-form-inputs")
-            if ("true".equals(sfiNode.attribute("require-parameters"))) ef.requireSearchFormParameters(true)
+            String requireParameters = ecfi.resourceFacade.expand(sfiNode.attribute("require-parameters"), null)
+            if ("true".equals(requireParameters)) ef.requireSearchFormParameters(true)
 
             boolean paginate = !"false".equals(sfiNode.attribute("paginate"))
             MNode defaultParametersNode = sfiNode.first("default-parameters")
@@ -1671,7 +1673,7 @@ class EntityFacadeImpl implements EntityFacade {
                 long count = ef.count()
                 long pageIndex = ef.getPageIndex()
                 long pageSize = ef.getPageSize()
-                long pageMaxIndex = ((count - 1) as BigDecimal).divide(pageSize as BigDecimal, 0, BigDecimal.ROUND_DOWN).longValue()
+                long pageMaxIndex = ((count - 1) as BigDecimal).divide(pageSize as BigDecimal, 0, RoundingMode.DOWN).longValue()
                 long pageRangeLow = pageIndex * pageSize + 1
                 long pageRangeHigh = (pageIndex * pageSize) + pageSize
                 if (pageRangeHigh > count) pageRangeHigh = count

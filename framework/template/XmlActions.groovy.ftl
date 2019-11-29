@@ -140,7 +140,7 @@ ${.node}
         <#else>
         Map efSfiDefParms = null
         </#if>
-        <#if sfiNode["@require-parameters"]! == "true">${listName}_xafind.requireSearchFormParameters(true)</#if>
+        <#if sfiNode["@require-parameters"]?has_content>${listName}_xafind.requireSearchFormParameters(ec.resource.expand(${sfiNode["@require-parameters"]}, "") == "true")</#if>
         ${listName}_xafind.searchFormMap(${sfiNode["@input-fields-map"]!"ec.context"}, efSfiDefParms, "${sfiNode["@skip-fields"]!("")}", "${sfiNode["@default-order-by"]!("")}", ${sfiNode["@paginate"]!("true")})
     }
     </#if>
@@ -181,7 +181,7 @@ ${.node}
                 else { ${listName}Count = ${listName}_xafind.count() }
             }
         </#if>
-        ${listName}PageMaxIndex = ((BigDecimal) (${listName}Count - 1)).divide(${listName}PageSize ?: (${listName}Count - 1), 0, BigDecimal.ROUND_DOWN) as int
+        ${listName}PageMaxIndex = ((BigDecimal) (${listName}Count - 1)).divide(${listName}PageSize ?: (${listName}Count - 1), 0, java.math.RoundingMode.DOWN) as int
         ${listName}PageRangeLow = ${listName}PageIndex * ${listName}PageSize + 1
         ${listName}PageRangeHigh = (${listName}PageIndex * ${listName}PageSize) + ${listName}PageSize
         if (${listName}PageRangeHigh > ${listName}Count) ${listName}PageRangeHigh = ${listName}Count

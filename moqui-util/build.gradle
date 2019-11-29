@@ -13,7 +13,7 @@
  */
 
 // tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:unchecked" }
-// tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:deprecation" }
+tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:deprecation" }
 
 version = '1.0.1'
 
@@ -52,14 +52,16 @@ dependencies {
     compile 'javax.cache:cache-api:1.0.0'
     compile 'javax.servlet:javax.servlet-api:3.1.0'
     // SLF4J
-    compile 'org.slf4j:slf4j-api:1.7.28'
+    compile 'org.slf4j:slf4j-api:1.7.29'
     // Freemarker
-    compile 'org.freemarker:freemarker:2.3.28' // Apache 2.0
+    compile 'org.freemarker:freemarker:2.3.29' // Apache 2.0
     // Groovy
     compile 'org.codehaus.groovy:groovy:2.5.8' // Apache 2.0
     compile 'org.codehaus.groovy:groovy-json:2.5.8' // Apache 2.0
     // Jetty HTTP Client
     compile 'org.eclipse.jetty:jetty-client:9.4.18.v20190429' // Apache 2.0
+    // javax.activation - required for Java 11
+    compile 'com.sun.activation:javax.activation:1.2.0' // CDDL 1.1
 }
 
 jar {
