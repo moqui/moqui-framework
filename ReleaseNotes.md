@@ -9,14 +9,28 @@ There are only minor changes and fixes in this release. For a complete list of c
 
 https://github.com/moqui/moqui-framework/compare/v2.1.2...v2.1.3
 
+This is the last release where the moqui-elasticsearch component for embedded ElasticSearch will be supported. It is
+being replaced by the new ElasticFacade included in this release.
+
 ### New Features
 
+- Java 11 now supported with some additional libraries (like javax.activation) included by default; some code changes
+  to address deprecations in the Java 11 API but more needed to resolve all for better future compatibility
+  (in other words expect deprecation warnings when building with Java 11) 
+- Built-in ElasticSearch client in the new ElasticFacade that uses pooled HTTP connections with the Moqui RestClient
+  for the ElasticSearch JSON REST API; this is most easily used with Groovy where you can use the inline Map and List
+  syntax to build what becomes the JSON body for search and other requests; after this release it will replace the old
+  moqui-elasticsearch component, now included in the framework because the large ES jar files are no longer required
+- RestClient improvements to support an externally managed RequestFactory to maintain a HttpClient across requests
+  for connection pooling, managing cookies, etc 
 - Support for binary render modes for screen with new ScreenWidgetRender interface and screen-facade.screen-output
   element in the Moqui Conf XML file; this was initially implemented to support an xlsx render mode implemented in
   the new moqui-poi tool component
-
-### Bug Fixes
-
+- Screen rendering to XLSX file with one sheet to form-list enabled with the form-list.@show-xlsx-button attribute,
+  the XLS button will only show if the moqui-poi tool component is in place
+- Support for binary rendered screen attachments to emails, and reusable emailScreenAsync transition and EmailScreenSection
+  to easily add a form to screens to send the screen render as an attachment to an outgoing email, rendered in the background
+- WikiServices to upload and delete attachments, and delete wiki pages; improvements to clone wiki page
 
 ## Release 2.1.2 - 23 July 2019
 
