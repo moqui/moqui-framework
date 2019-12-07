@@ -13,6 +13,7 @@
  */
 
 tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:unchecked" }
+tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:deprecation" }
 tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:unchecked" }
 tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:deprecation" }
 
@@ -137,9 +138,7 @@ dependencies {
     compile 'com.h2database:h2:1.4.200' // MPL 2.0, EPL 1.0
 
     // Jackson Databind (JSON, etc)
-    // NOTE: ran into ElasticSearch jar-hell issue on 'module-info' after update to 2.10.1, something weird there (conflicts with jaxb-api:2.3.1)
-    compile 'com.fasterxml.jackson.core:jackson-databind:2.9.9.2'
-    compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:2.9.9'
+    compile 'com.fasterxml.jackson.core:jackson-databind:2.10.1'
 
     // Jetty HTTP Client and Proxy Servlet
     compile 'org.eclipse.jetty:jetty-client:9.4.18.v20190429' // Apache 2.0
@@ -161,10 +160,9 @@ dependencies {
 
     // SLF4J, Log4j 2 (note Log4j 2 is used by various libraries, best not to replace it even if mostly possible with SLF4J)
     compile 'org.slf4j:slf4j-api:1.7.29'
-    // Log4J version note: limited by embedded ElasticSearch through 6.2.4 still uses Log4J 2.9.1
-    compile 'org.apache.logging.log4j:log4j-core:2.9.1'
-    compile 'org.apache.logging.log4j:log4j-api:2.9.1'
-    runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.9.1'
+    compile 'org.apache.logging.log4j:log4j-core:2.12.1'
+    compile 'org.apache.logging.log4j:log4j-api:2.12.1'
+    runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.12.1'
 
     // SubEtha SMTP (module as depends on old javax.mail location; also uses SLF4J, activation included elsewhere)
     compile module('org.subethamail:subethasmtp:3.1.7')
