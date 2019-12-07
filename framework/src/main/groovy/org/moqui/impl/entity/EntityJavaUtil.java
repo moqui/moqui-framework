@@ -315,8 +315,13 @@ public class EntityJavaUtil {
                 if ("true".equals(fi.fieldNode.attribute("encrypt"))) needsEncryptTemp = true;
                 if (isView && fi.hasAggregateFunction) {
                     MNode memberEntity = fi.memberEntityNode;
-                    if (memberEntity == null || !"true".equals(memberEntity.attribute("sub-select")))
+                    if (memberEntity == null) {
                         hasFunctionAliasTemp = true;
+                    } else {
+                        String subSelectAttr = memberEntity.attribute("sub-select");
+                        if (subSelectAttr == null || subSelectAttr.isEmpty() || "false".equals(subSelectAttr))
+                            hasFunctionAliasTemp = true;
+                    }
                 }
                 String defaultStr = fi.fieldNode.attribute("default");
                 if (defaultStr != null && !defaultStr.isEmpty()) {

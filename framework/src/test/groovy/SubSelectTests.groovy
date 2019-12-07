@@ -12,19 +12,14 @@
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
 
-
 import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
-import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityFind
 import org.moqui.entity.EntityList
-import org.moqui.entity.EntityValue
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import spock.lang.Ignore
 import spock.lang.Shared
 import spock.lang.Specification
-import spock.lang.Unroll
 
 import java.sql.Timestamp
 
@@ -63,21 +58,21 @@ class SubSelectTests extends Specification {
 
     def "find subselect search form equal"() {
         when:
-        EntityFind find =  ec.entity.find("moqui.test.FooBar").searchFormMap(["rank":100], null,null,null,true)
+        EntityFind find =  ec.entity.find("moqui.test.FooBar").searchFormMap(["barRank":100], null,null,null,true)
         EntityList list = find.list()
 
         then:
         list.isEmpty()
-        find.getQueryTextList()[0].contains(" RANK = ? ")
+        find.getQueryTextList()[0].contains(" BAR_RANK = ? ")
     }
 
     def "find subselect search form range"() {
         when:
-        EntityFind find = ec.entity.find("moqui.test.FooBar").searchFormMap(["rank_from":100], null,null,null,true)
+        EntityFind find = ec.entity.find("moqui.test.FooBar").searchFormMap(["barRank_from":100], null,null,null,true)
         EntityList list = find.list()
 
         then:
         list.isEmpty()
-        find.getQueryTextList()[0].contains(" RANK >= ? ")
+        find.getQueryTextList()[0].contains(" BAR_RANK >= ? ")
     }
 }

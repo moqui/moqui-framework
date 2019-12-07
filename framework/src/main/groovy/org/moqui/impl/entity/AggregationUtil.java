@@ -309,8 +309,18 @@ public class AggregationUtil {
                 }
                 break;
             case SUM:
-                Number sumNum = ObjectUtilities.addNumbers((Number) resultMap.get(fieldName), (Number) fieldValue);
-                if (sumNum != null) resultMap.put(fieldName, sumNum);
+                if (fieldValue != null) {
+                    Number curNumber;
+                    if (fieldValue instanceof Number) {
+                        curNumber = (Number) fieldValue;
+                    } else if (fieldValue instanceof CharSequence) {
+                        curNumber = new BigDecimal(fieldValue.toString());
+                    } else {
+                        throw new IllegalArgumentException("Tried to sum non-number value " + fieldValue);
+                    }
+                    Number sumNum = ObjectUtilities.addNumbers((Number) resultMap.get(fieldName), curNumber);
+                    if (sumNum != null) resultMap.put(fieldName, sumNum);
+                }
                 break;
             case AVG:
                 Number newNum = (Number) fieldValue;
