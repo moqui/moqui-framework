@@ -303,6 +303,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     protected MNode initBaseConfig(MNode runtimeConfXmlRoot) {
+        String version = this.class.getPackage().getImplementationVersion()
+        if (version != null) moquiVersion = version
+        /*
         Enumeration<URL> resources = getClass().getClassLoader().getResources("META-INF/MANIFEST.MF")
         while (resources.hasMoreElements()) {
             try {
@@ -318,6 +321,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                 logger.info("Error reading manifest files", e)
             }
         }
+        */
         System.setProperty("moqui.version", moquiVersion)
 
         // don't set the moqui.runtime and moqui.conf system properties as before, causes conflict with multiple moqui instances in one JVM
