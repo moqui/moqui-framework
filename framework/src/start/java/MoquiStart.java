@@ -93,13 +93,13 @@ public class MoquiStart {
             System.out.println("    disable-audit-log ----------- Disable Entity Audit Log");
             System.out.println("    raw ------------------------- Short for dummy-fks, use-try-insert, disable-eeca, disable-audit-log");
             System.out.println("    conf=<moqui.conf> ----------- The Moqui Conf XML file to use, overrides other ways of specifying it");
-            System.out.println("    run-es ---------------------- Try starting and stopping ElasticSearch in runtime/elasticsearch");
+            System.out.println("    no-run-es ------------------- Don't Try starting and stopping ElasticSearch in runtime/elasticsearch");
             System.out.println("    If no -types or -location argument is used all known data files of all types will be loaded.");
             System.out.println("[default] ---- Run embedded Jetty server");
             System.out.println("    port=<port> ---------------- The http listening port. Default is 8080");
             System.out.println("    threads=<max threads> ------ Maximum number of threads. Default is 100");
             System.out.println("    conf=<moqui.conf> ---------- The Moqui Conf XML file to use, overrides other ways of specifying it");
-            System.out.println("    run-es ---------------------- Try starting and stopping ElasticSearch in runtime/elasticsearch");
+            System.out.println("    no-run-es ------------------- Don't Try starting and stopping ElasticSearch in runtime/elasticsearch");
             System.out.println("");
             System.exit(0);
         }
@@ -132,7 +132,7 @@ public class MoquiStart {
             Thread.currentThread().setContextClassLoader(moquiStartLoader);
             // Runtime.getRuntime().addShutdownHook(new MoquiShutdown(null, null, moquiStartLoader));
             initSystemProperties(moquiStartLoader, false, argMap);
-            Process esProcess = argMap.containsKey("run-es") ? checkStartElasticSearch() : null;
+            Process esProcess = argMap.containsKey("no-run-es") ? null : checkStartElasticSearch();
 
             try {
                 System.out.println("Loading data with args " + argMap);
@@ -162,7 +162,7 @@ public class MoquiStart {
         initSystemProperties(moquiStartLoader, false, argMap);
         String runtimePath = System.getProperty("moqui.runtime");
 
-        Process esProcess = argMap.containsKey("run-es") ? checkStartElasticSearch() : null;
+        Process esProcess = argMap.containsKey("no-run-es") ? null : checkStartElasticSearch();
         if (esProcess != null) {
             Thread shutdownHook = new ElasticShutdown(esProcess);
             shutdownHook.setDaemon(true);
