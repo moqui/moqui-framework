@@ -299,9 +299,14 @@ public class MClassLoader extends ClassLoader {
             }
         }
         // add all resources found in parent loader too
-        Enumeration<URL> superResources = getParent().getResources(resourceName);
-        while (superResources.hasMoreElements()) urlList.add(superResources.nextElement());
-        resourceAllCache.putIfAbsent(resourceName, urlList);
+        try {
+            Enumeration<URL> superResources = getParent().getResources(resourceName);
+            while (superResources.hasMoreElements()) urlList.add(superResources.nextElement());
+            resourceAllCache.putIfAbsent(resourceName, urlList);
+        } catch (Throwable t) {
+            System.out.println("Error finding resources in parent classloader " + getParent().getClass().getCanonicalName() + " for name [" + resourceName + "]: " + t.toString());
+            // t.printStackTrace();
+        }
         // System.out.println("finding all resources with name " + resourceName + " got " + urlList);
         return Collections.enumeration(urlList);
     }
