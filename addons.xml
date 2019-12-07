@@ -35,33 +35,33 @@
     </repository>
 
     <!-- Where to get runtime directory if not present -->
-    <runtime name="moqui-runtime" group="moqui" version="2.1.2" branch="master"/>
+    <runtime name="moqui-runtime" group="moqui" version="2.1.3" branch="master"/>
 
     <!-- Example Component -->
-    <component name="example" group="moqui" version="2.1.2" branch="master"/>
+    <component name="example" group="moqui" version="2.1.3" branch="master"/>
 
     <!-- Moqui Tool Components -->
     <component name="moqui-aws" group="moqui" version="1.0.1" branch="master"/>
     <component name="moqui-camel" group="moqui" version="1.0.3" branch="master"/>
-    <component name="moqui-elasticsearch" group="moqui" version="1.2.1" branch="master"/>
+    <component name="moqui-elasticsearch" group="moqui" version="1.2.2" branch="master"/>
     <component name="moqui-fop" group="moqui" version="1.1.2" branch="master"/>
-    <component name="moqui-hazelcast" group="moqui" version="1.1.1" branch="master"/>
+    <component name="moqui-hazelcast" group="moqui" version="1.1.2" branch="master"/>
     <component name="moqui-kie" group="moqui" version="1.0.3" branch="master"/>
     <component name="moqui-orientdb" group="moqui" version="1.0.3" branch="master"/>
-    <component name="moqui-poi" group="moqui" version="" branch="master"/><!-- no releases yet -->
+    <component name="moqui-poi" group="moqui" version="1.0.0" branch="master"/>
     <component name="moqui-sftp" group="moqui" version="1.0.0" branch="master"/>
     <component name="moqui-wikitext" group="moqui" version="1.0.2" branch="master"/>
 
     <component name="moqui-atomikos" group="moqui" version="1.0.0" branch="master"/><!-- not actively maintained -->
 
     <!-- Mantle Business Artifact and Integration Components -->
-    <component name="mantle-udm" group="moqui" version="2.1.1" branch="master"/>
-    <component name="mantle-usl" group="moqui" version="2.1.1" branch="master"/>
+    <component name="mantle-udm" group="moqui" version="2.1.2" branch="master"/>
+    <component name="mantle-usl" group="moqui" version="2.1.2" branch="master"/>
 
-    <component name="AuthorizeDotNet" group="moqui" version="1.2.2" branch="master"/>
+    <component name="AuthorizeDotNet" group="moqui" version="1.2.3" branch="master"/>
     <component name="mantle-edi" group="moqui" version="1.1.3" branch="master"/>
     <component name="mantle-paytrace" group="moqui" version="1.0.1" branch="master"/>
-    <component name="mantle-shippo" group="moqui" version="1.1.1" branch="master"/>
+    <component name="mantle-shippo" group="moqui" version="1.1.2" branch="master"/>
     <component name="mantle-yotpo" group="moqui" version="1.0.0" branch="master"/>
 
     <component name="mantle-braintree" group="moqui" version="" branch="master"/><!-- no releases yet -->
@@ -71,10 +71,10 @@
     <component name="mantle-ubpl" group="moqui" version="" branch="master"/><!-- no releases -->
 
     <!-- Moqui Applications -->
-    <component name="SimpleScreens" group="moqui" version="2.1.1" branch="master"/>
-    <component name="HiveMind" group="moqui" version="1.4.1" branch="master"/>
-    <component name="PopCommerce" group="moqui" version="2.1.1" branch="master"/>
-    <component name="PopRestStore" group="moqui" version="1.0.0" branch="master"/>
+    <component name="SimpleScreens" group="moqui" version="2.1.2" branch="master"/>
+    <component name="HiveMind" group="moqui" version="1.4.2" branch="master"/>
+    <component name="PopCommerce" group="moqui" version="2.1.2" branch="master"/>
+    <component name="PopRestStore" group="moqui" version="1.0.1" branch="master"/>
     <component name="moqui-org" group="moqui" version="" branch="master"/><!-- no releases -->
 
     <!-- Third Party Components -->
