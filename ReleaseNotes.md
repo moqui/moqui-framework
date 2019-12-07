@@ -1,6 +1,22 @@
 
 # Moqui Framework Release Notes
 
+## Release 3.0.0 - Not Yet Released
+
+Moqui Framework 3.0.0 is a major new feature and bug fix release.
+
+In this release the old moqui-elasticsearch component with embedded ElasticSearch is no longer supported. Instead the new
+ElasticFacade is included in the framework as a client to an external ElasticSearch instance which can be installed in
+runtime/elasticsearch and automatically started/stopped in a separate process by the MoquiStart class (executable WAR, not when
+WAR file dropped into Servlet container).
+
+For a complete list of changes see:
+
+https://github.com/moqui/moqui-framework/compare/v2.1.3...v3.0.0
+
+### New Features
+
+
 ## Release 2.1.3 - 07 Dec 2019
 
 Moqui Framework 2.1.3 is a patch level new feature and bug fix release.
