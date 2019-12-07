@@ -50,7 +50,7 @@ services:
      # this one isn't needed when not using H2/etc: - ./runtime/db:/opt/moqui/runtime/db
     environment:
      - instance_purpose=production
-     - entity_ds_db_conf=mysql
+     - entity_ds_db_conf=mysql8
      - entity_ds_host=moqui-database
      - entity_ds_port=3306
      - entity_ds_database=moqui
@@ -71,7 +71,7 @@ services:
      - default_time_zone=US/Pacific
 
   moqui-database:
-    image: mysql:5.7
+    image: mysql:8.0
     container_name: moqui-database
     restart: unless-stopped
     ports:

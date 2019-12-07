@@ -72,7 +72,7 @@ services:
      - default_time_zone=US/Pacific
 
   moqui-database:
-    image: postgres:9.6
+    image: postgres:12.1
     container_name: moqui-database
     restart: unless-stopped
     ports:
