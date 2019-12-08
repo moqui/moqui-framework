@@ -338,7 +338,6 @@
     </screen-facade>
 
     <service-facade distributed-factory="" scheduled-job-check-time="${scheduled-job-check-time}">
-        <service-location name="main-xml" location="http://localhost:8080/rpc/xml"/>
         <service-location name="main-json" location="http://localhost:8080/rpc/json"/>
 
         <!-- runner-class needs to implement the org.moqui.impl.service.ServiceRunner interface -->
@@ -347,7 +346,6 @@
         <service-type name="script" runner-class="org.moqui.impl.service.runner.ScriptServiceRunner"/>
         <service-type name="java" runner-class="org.moqui.impl.service.runner.JavaServiceRunner"/>
         <service-type name="remote-json-rpc" runner-class="org.moqui.impl.service.runner.RemoteJsonRpcServiceRunner"/>
-        <!-- not commonly used, see class: <service-type name="remote-xml-rpc" runner-class="org.moqui.impl.service.runner.RemoteXmlrpcServiceRunner"/> -->
 
         <!-- These are not needed for running classpath services, are for service reference (known services) -->
         <service-file location="classpath://service/org/moqui/EmailServices.xml"/>
