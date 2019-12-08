@@ -23,7 +23,7 @@ import org.ajoberstar.grgit.*
 defaultTasks 'build'
 
 def elasticSearchVersion = '7.4.2'
-def tomcatHome = '../apache-tomcat-8.5.14'
+def tomcatHome = '../apache-tomcat'
 // no longer include version in war file name: def getWarName() { 'moqui-' + childProjects.framework.version + '.war' }
 def getWarName() { 'moqui.war' }
 def plusRuntimeName = 'moqui-plus-runtime.war'
@@ -36,6 +36,8 @@ def moquiConfProduction = 'conf/MoquiProductionConf.xml'
 def allCleanTasks = getTasksByName('clean', true)
 def allBuildTasks = getTasksByName('build', true)
 def allTestTasks = getTasksByName('test', true)
+allTestTasks.each { it.systemProperties << System.properties.subMap(getDefaultPropertyKeys()) }
+
 Set<Task> getComponentTestTasks() {
     Set<Task> testTasks = new LinkedHashSet()
     for (Project subProject in getSubprojects())
@@ -48,7 +50,6 @@ def getDefaultPropertyKeys() {
     for (Node defaultProperty in confXml.'default-property') { defaultProperties << defaultProperty.'@name' }
     defaultProperties
 }
-allTestTasks.each { it.systemProperties << System.properties.subMap(getDefaultPropertyKeys()) }
 
 // ========== clean tasks ==========
 
