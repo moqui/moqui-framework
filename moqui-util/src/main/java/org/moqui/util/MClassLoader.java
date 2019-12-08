@@ -253,7 +253,29 @@ public class MClassLoader extends ClassLoader {
             }
         }
 
-        if (resourceUrl == null) resourceUrl = getParent().getResource(resourceName);
+        if (resourceUrl == null) {
+            // NOTE: it is weird for any ClassLoader to throw exceptions for valid resource names, but
+            //   org.eclipse.jetty.webapp.WebAppClassLoader does just that as part of
+            //   org.eclipse.jetty.webapp.WebAppContext.isServerResource(WebAppContext.java:816)
+            // As a workaround catch that exception, try the grand-parent classloader, and move on...
+            try {
+                resourceUrl = getParent().getResource(resourceName);
+            } catch (Throwable t) {
+                System.out.println("Error in findResource() in parent classloader " + getParent().getClass().getCanonicalName() + " for name [" + resourceName + "]: " + t.toString());
+                // t.printStackTrace();
+
+                // try grand-parent classloader if there is one
+                ClassLoader grandParent = getParent().getParent();
+                if (grandParent != null) {
+                    try {
+                        resourceUrl = grandParent.getResource(resourceName);
+                        if (resourceUrl != null) System.out.println("Found " + resourceName + " in grand-parent ClassLoader " + grandParent.getClass().getCanonicalName());
+                    } catch (Throwable t2) {
+                        System.out.println("Error in findResource() in grand-parent classloader " + grandParent.getClass().getCanonicalName() + " for name [" + resourceName + "]: " + t2.toString());
+                    }
+                }
+            }
+        }
         if (resourceUrl != null) {
             // System.out.println("finding resource " + resourceName + " got " + resourceUrl.toExternalForm());
             URL existingUrl = resourceCache.putIfAbsent(resourceName, resourceUrl);
@@ -298,15 +320,32 @@ public class MClassLoader extends ClassLoader {
                 }
             }
         }
+
         // add all resources found in parent loader too
+        // NOTE: it is weird for any ClassLoader to throw exceptions for valid resource names, but
+        //   org.eclipse.jetty.webapp.WebAppClassLoader does just that as part of
+        //   org.eclipse.jetty.webapp.WebAppContext.isServerResource(WebAppContext.java:816)
+        // As a workaround catch that exception, try the grand-parent classloader, and move on...
         try {
             Enumeration<URL> superResources = getParent().getResources(resourceName);
             while (superResources.hasMoreElements()) urlList.add(superResources.nextElement());
-            resourceAllCache.putIfAbsent(resourceName, urlList);
         } catch (Throwable t) {
-            System.out.println("Error finding resources in parent classloader " + getParent().getClass().getCanonicalName() + " for name [" + resourceName + "]: " + t.toString());
+            System.out.println("Error in findResources() in parent classloader " + getParent().getClass().getCanonicalName() + " for name [" + resourceName + "]: " + t.toString());
             // t.printStackTrace();
+
+            // try grand-parent classloader if there is one
+            ClassLoader grandParent = getParent().getParent();
+            if (grandParent != null) {
+                try {
+                    Enumeration<URL> superResources = grandParent.getResources(resourceName);
+                    while (superResources.hasMoreElements()) urlList.add(superResources.nextElement());
+                } catch (Throwable t2) {
+                    System.out.println("Error in findResources() in grand-parent classloader " + grandParent.getClass().getCanonicalName() + " for name [" + resourceName + "]: " + t2.toString());
+                }
+            }
         }
+
+        resourceAllCache.putIfAbsent(resourceName, urlList);
         // System.out.println("finding all resources with name " + resourceName + " got " + urlList);
         return Collections.enumeration(urlList);
     }
