@@ -83,14 +83,17 @@ def cleanElasticSearch(String esDir) {
             exec { workingDir esDir; commandLine 'kill', pid }
             exec { workingDir esDir; commandLine 'tail', "--pid=${pid}", '-f', '/dev/null' }
             delete file(esDir+'/data')
+            if (file(esDir+'/logs').exists()) delete files(file(esDir+'/logs').listFiles())
             if (pidFile.exists()) delete pidFile
             exec { workingDir esDir; commandLine './bin/elasticsearch', '-d', '-p', 'pid' }
         } else {
             logger.lifecycle("Found ElasticSearch ${esDir}/bin directory but no pid, deleting data without stop/start; WARNING if ElasticSearch is running this will cause problems!")
             delete file(esDir+'/data')
+            if (file(esDir+'/logs').exists()) delete files(file(esDir+'/logs').listFiles())
         }
     } else {
         delete file(esDir+'/data')
+        if (file(esDir+'/logs').exists()) delete files(file(esDir+'/logs').listFiles())
     }
 }
 task downloadElasticSearchLinux { doLast {
