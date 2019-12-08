@@ -579,7 +579,8 @@ task addRuntime(type: Zip) {
     description "Create moqui-plus-runtime.war file from the moqui.war file and the runtime directory embedded in it"
     dependsOn checkRuntime, allBuildTasks, plusRuntimeWarTemp
 
-    archiveName plusRuntimeName
+    archiveFileName = plusRuntimeName
+    destinationDirectory = file('.')
     from file('wartemp')
 
     doFirst { if (file(plusRuntimeName).exists()) delete file(plusRuntimeName) }
