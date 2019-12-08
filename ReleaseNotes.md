@@ -16,6 +16,7 @@ https://github.com/moqui/moqui-framework/compare/v2.1.3...v3.0.0
 
 ### New Features
 
+- Recommended Gradle version is 5.6.4 (at least Gradle 5+)
 - Java versions 8 and 11 supported (compiles to Java 8 bytecode by default, does not use any Java 11 language constructs or API)
 - View Entity find improvements
   - correlated sub-select using SQL LATERAL (mysql8, postgres, db2) or APPLY (mssql and oracle; not yet implemented)
