@@ -16,7 +16,6 @@ package org.moqui.impl.screen
 import freemarker.template.Template
 import groovy.json.JsonSlurper
 import groovy.transform.CompileStatic
-import org.apache.http.HttpResponse
 import org.moqui.BaseArtifactException
 import org.moqui.BaseException
 import org.moqui.context.*
