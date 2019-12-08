@@ -32,7 +32,6 @@ import org.moqui.impl.screen.ScreenDefinition
 import org.moqui.impl.screen.ScreenUrlInfo
 import org.moqui.impl.service.RestApi
 import org.moqui.impl.service.ServiceJsonRpcDispatcher
-import org.moqui.impl.service.ServiceXmlRpcDispatcher
 import org.moqui.util.ContextStack
 import org.moqui.resource.ResourceReference
 import org.moqui.util.ObjectUtilities
@@ -856,7 +855,6 @@ class WebFacadeImpl implements WebFacade {
         }
     }
 
-    @Override void handleXmlRpcServiceCall() { new ServiceXmlRpcDispatcher(eci).dispatch(request, response) }
     @Override void handleJsonRpcServiceCall() { new ServiceJsonRpcDispatcher(eci).dispatch() }
 
     @Override

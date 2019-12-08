@@ -14,6 +14,11 @@ For a complete list of changes see:
 
 https://github.com/moqui/moqui-framework/compare/v2.1.3...v3.0.0
 
+### Non Backward Compatible Changes
+
+- Library updates have been done that conflict with ElasticSearch making it impossible to run embedded
+- XMLRPC support had been partly removed years ago, is now completely removed
+
 ### New Features
 
 - Recommended Gradle version is 5.6.4 (at least Gradle 5+)
