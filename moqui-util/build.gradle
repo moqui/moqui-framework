@@ -15,7 +15,7 @@
 // tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:unchecked" }
 tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:deprecation" }
 
-version = '1.0.1'
+version = '3.0.0-rc1'
 
 apply plugin: 'java'
 // to run gradle-versions-plugin use "gradle dependencyUpdates"
