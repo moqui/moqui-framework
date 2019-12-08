@@ -437,6 +437,8 @@
             NOTE: startup-add-missing=true is required because OrientDB doesn't allow class create in a TX
             NOTE: adding more entities to the nontransactional group is a work in progress, this will not currently run,
                 but you can use a similar configuration for your own entity groups
+            NOTE: to test on an entity that is not used in general in view entities (can't join across DBs) try adding
+                group="nontransactional" to ArtifactHit in ServerEntities.xml
         -->
         <!--
         <datasource group-name="nontransactional" startup-add-missing="true"
