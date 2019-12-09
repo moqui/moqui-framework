@@ -61,8 +61,13 @@ class ElasticRequestLogFilter implements Filter {
         }
 
         // check for index exists, create with mapping for log doc if not
-        boolean hasIndex = elasticClient.indexExists(INDEX_NAME)
-        if (!hasIndex) elasticClient.createIndex(INDEX_NAME, docMapping, null)
+        try {
+            boolean hasIndex = elasticClient.indexExists(INDEX_NAME)
+            if (!hasIndex) elasticClient.createIndex(INDEX_NAME, docMapping, null)
+        } catch (Exception e) {
+            logger.error("Error checking and creating ${INDEX_NAME} ES index, not starting ElasticRequestLogFilter", e)
+            return
+        }
 
         RequestLogQueueFlush rlqf = new RequestLogQueueFlush(this)
         ecfi.scheduledExecutor.scheduleAtFixedRate(rlqf, 15, 5, TimeUnit.SECONDS)
