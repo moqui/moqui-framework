@@ -31,7 +31,7 @@ def moquiRuntime = 'runtime'
 
 def moquiConfDev = 'conf/MoquiDevConf.xml'
 def moquiConfProduction = 'conf/MoquiProductionConf.xml'
-def moquiDefaulLogDirectory = 'def_log'
+def moquiDefaulLogDirectory = 'log'
 
 def allCleanTasks = getTasksByName('clean', true)
 def allBuildTasks = getTasksByName('build', true)
@@ -59,13 +59,16 @@ allTestTasks.each {
 // =================================
 def custMoquiConfDev = System.properties['moqui.conf.dev']
 def custMoquiConfProduction = System.properties['moqui.conf.production']
+def custMoquiLogDirectory = System.properties['moqui.conf.logging.dir']
 
 logger.lifecycle("Custom command line arguments:")
 logger.lifecycle("  moqui.conf.production: ${custMoquiConfProduction?:'not set'}")
 logger.lifecycle("  moqui.conf.dev: ${custMoquiConfDev?:'not set'}")
+logger.lifecycle("  moqui.conf.logging.dir: ${custMoquiLogDirectory?:'not set'}")
 
 if (custMoquiConfProduction) { moquiConfProduction = custMoquiConfProduction }
 if (custMoquiConfDev) { moquiConfDev = custMoquiConfDev }
+if (custMoquiLogDirectory) { moquiDefaulLogDirectory = custMoquiLogDirectory }
 
 // ========== clean tasks ==========
 
