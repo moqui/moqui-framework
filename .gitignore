@@ -1,6 +1,9 @@
 # separate addons file to add/override components
 # myaddons.xml
 
+# temp or backup files
+*.old
+
 # gradle/build files
 build
 .gradle
