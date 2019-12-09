@@ -93,6 +93,29 @@ class ElasticFacadeImpl implements ElasticFacade {
         // init ElasticSearchLogger
         ElasticClientImpl loggerEci = clientByClusterName.get("logger") ?: clientByClusterName.get("default")
         if (loggerEci != null) esLogger = new ElasticSearchLogger(loggerEci, ecfi)
+
+        // Index DataFeed with indexOnStartEmpty=Y
+        try {
+            ElasticClientImpl defaultEci = clientByClusterName.get("default")
+            if (defaultEci != null) {
+                EntityList dataFeedList = ecfi.entityFacade.find("moqui.entity.feed.DataFeed")
+                        .condition("indexOnStartEmpty", "Y").disableAuthz().list()
+                for (EntityValue dataFeed in dataFeedList) {
+                    EntityList dfddList = ecfi.entityFacade.find("moqui.entity.feed.DataFeedDocumentDetail")
+                            .condition("dataFeedId", dataFeed.dataFeedId).disableAuthz().list()
+                    Set<String> indexNames = new HashSet<String>(dfddList*.getString("indexName"))
+                    boolean foundNotExists = false
+                    for (String indexName in indexNames) if (!defaultEci.indexExists(indexName)) foundNotExists = true
+                    if (foundNotExists) {
+                        // NOTE: called with localOnly(true) to avoid issues during startup if a distributed executor service is configured
+                        String jobRunId = ecfi.service.job("IndexDataFeedDocuments").parameter("dataFeedId", dataFeed.dataFeedId).localOnly(true).run()
+                        logger.info("Found index does not exist for DataFeed ${dataFeed.dataFeedId}, started job ${jobRunId} to index")
+                    }
+                }
+            }
+        } catch (Throwable t) {
+            logger.error("Error checking or indexing for all DataFeed with indexOnStartEmpty=Y", t)
+        }
     }
 
     void destroy() {
