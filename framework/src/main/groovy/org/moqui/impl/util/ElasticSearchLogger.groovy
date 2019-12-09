@@ -58,8 +58,13 @@ class ElasticSearchLogger {
     }
     void init() {
         // check for index exists, create with mapping for log doc if not
-        boolean hasIndex = elasticClient.indexExists(INDEX_NAME)
-        if (!hasIndex) elasticClient.createIndex(INDEX_NAME, docMapping, (String) null)
+        try {
+            boolean hasIndex = elasticClient.indexExists(INDEX_NAME)
+            if (!hasIndex) elasticClient.createIndex(INDEX_NAME, docMapping, (String) null)
+        } catch (Exception e) {
+            logger.error("Error checking and creating ${INDEX_NAME} ES index, not starting ElasticSearchLogger", e)
+            return
+        }
 
         subscriber = new ElasticSearchSubscriber(this)
         ecfi.registerLogEventSubscriber(subscriber)
