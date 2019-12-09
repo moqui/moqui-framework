@@ -58,8 +58,8 @@ class ElasticFacadeImpl implements ElasticFacade {
     }
 
     public final ExecutionContextFactoryImpl ecfi
-    private final Map<String, ElasticClientImpl> clientByClusterName = new HashMap<>()
-    private ElasticSearchLogger esLogger
+    private final Map<String, ElasticClientImpl> clientByClusterName = new LinkedHashMap<>()
+    private ElasticSearchLogger esLogger = null
 
     ElasticFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
@@ -70,10 +70,17 @@ class ElasticFacadeImpl implements ElasticFacade {
         ArrayList<MNode> clusterNodeList = elasticFacadeNode.children("cluster")
         for (MNode clusterNode in clusterNodeList) {
             clusterNode.setSystemExpandAttributes(true)
+
             String clusterName = clusterNode.attribute("name")
             String clusterUrl = clusterNode.attribute("url")
+            logger.info("Initializing ElasticFacade Client for cluster ${clusterName} at ${clusterUrl}")
+
+            if (clientByClusterName.containsKey(clusterName)) {
+                logger.warn("ElasticFacade Client for cluster ${clusterName} already initialized, skipping")
+                continue
+            }
             if (!clusterUrl) {
-                logger.warn("ElasticFacade cluster ${clusterName} has no url, skipping")
+                logger.warn("ElasticFacade Client for cluster ${clusterName} has no url, skipping")
                 continue
             }
 
@@ -91,8 +98,17 @@ class ElasticFacadeImpl implements ElasticFacade {
         }
 
         // init ElasticSearchLogger
-        ElasticClientImpl loggerEci = clientByClusterName.get("logger") ?: clientByClusterName.get("default")
-        if (loggerEci != null) esLogger = new ElasticSearchLogger(loggerEci, ecfi)
+        if (esLogger == null || !esLogger.isInitialized()) {
+            ElasticClientImpl loggerEci = clientByClusterName.get("logger") ?: clientByClusterName.get("default")
+            if (loggerEci != null) {
+                logger.info("Initializing ElasticSearchLogger with cluster ${loggerEci.getClusterName()}")
+                esLogger = new ElasticSearchLogger(loggerEci, ecfi)
+            } else {
+                logger.warn("No Elastic Client found with name 'logger' or 'default', not initializing ElasticSearchLogger")
+            }
+        } else {
+            logger.warn("ElasticSearchLogger in place and initialized, not initializing ElasticSearchLogger")
+        }
 
         // Index DataFeed with indexOnStartEmpty=Y
         try {
@@ -123,13 +139,9 @@ class ElasticFacadeImpl implements ElasticFacade {
         for (ElasticClientImpl eci in clientByClusterName.values()) eci.destroy()
     }
 
-    @Override ElasticClient getDefault() {
-        return clientByClusterName.get("default")
-    }
-
-    @Override ElasticClient getClient(String clusterName) {
-        return clientByClusterName.get(clusterName)
-    }
+    @Override ElasticClient getDefault() { return clientByClusterName.get("default") }
+    @Override ElasticClient getClient(String clusterName) { return clientByClusterName.get(clusterName) }
+    @Override List<ElasticClient> getClientList() { return new ArrayList<ElasticClient>(clientByClusterName.values()) }
 
     static class ElasticClientImpl implements ElasticClient {
         private final ExecutionContextFactoryImpl ecfi
@@ -167,7 +179,7 @@ class ElasticFacadeImpl implements ElasticFacade {
             requestFactory.init()
 
             // try connecting and get server info
-            int retries = clusterHost == 'localhost' && !"true".equals(System.getProperty("moqui.elasticsearch.started")) ? 1 : 10
+            int retries = clusterHost == 'localhost' && !"true".equals(System.getProperty("moqui.elasticsearch.started")) ? 1 : 20
             for (int i = 1; i <= retries; i++) {
                 try {
                     serverInfo = getServerInfo()
@@ -190,11 +202,13 @@ class ElasticFacadeImpl implements ElasticFacade {
             }
         }
 
-        String getClusterName() { return clusterName }
+        @Override String getClusterName() { return clusterName }
+        @Override String getClusterLocation() { return clusterProtocol + "://" + clusterHost + ":" + clusterPort }
         boolean isEsVersionUnder7() { return esVersionUnder7 }
 
         void destroy() { requestFactory.destroy() }
 
+        @Override
         Map getServerInfo() {
             RestClient.RestResponse response = makeRestClient(Method.GET, null, null).call()
             checkResponse(response, "Server info", null)
