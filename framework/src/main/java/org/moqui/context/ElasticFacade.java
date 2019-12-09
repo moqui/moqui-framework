@@ -31,7 +31,14 @@ public interface ElasticFacade {
     /** Get a client for named cluster configured in Moqui Conf XML elastic-facade.cluster */
     ElasticClient getClient(String clusterName);
 
+    List<ElasticClient> getClientList();
+
     interface ElasticClient {
+        String getClusterName();
+        String getClusterLocation();
+        /** Returns a Map with the response from ElasticSearch for GET on the root path with ES server info */
+        Map getServerInfo();
+
         /** Returns true if index or alias exists. See https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-exists.html */
         boolean indexExists(String index);
         /** Returns true if alias exists. See https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-alias-exists.html */

@@ -43,6 +43,7 @@ class ElasticSearchLogger {
     protected ExecutionContextFactoryImpl ecfi = null
     protected ElasticSearchSubscriber subscriber = null
 
+    private boolean initialized = false
     private boolean disabled = false
     final ConcurrentLinkedQueue<Map> logMessageQueue = new ConcurrentLinkedQueue<>()
     final AtomicBoolean flushRunning = new AtomicBoolean(false)
@@ -66,15 +67,19 @@ class ElasticSearchLogger {
             return
         }
 
-        subscriber = new ElasticSearchSubscriber(this)
-        ecfi.registerLogEventSubscriber(subscriber)
-
         LogMessageQueueFlush lmqf = new LogMessageQueueFlush(this)
         // running every 3 seconds (was originally 1), might be good to have configurable as a higher value better for less busy servers, lower for busier
         ecfi.scheduledExecutor.scheduleAtFixedRate(lmqf, 10, 3, TimeUnit.SECONDS)
+
+        subscriber = new ElasticSearchSubscriber(this)
+        ecfi.registerLogEventSubscriber(subscriber)
+
+        initialized = true
     }
 
     void destroy() { disabled = true }
+
+    boolean isInitialized() { return initialized }
 
     static class ElasticSearchSubscriber implements LogEventSubscriber {
         private final ElasticSearchLogger esLogger
