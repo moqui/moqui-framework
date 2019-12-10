@@ -26,7 +26,7 @@ services:
     # https://github.com/jwilder/nginx-proxy
     image: jwilder/nginx-proxy
     container_name: nginx-proxy
-    restart: unless-stopped
+    restart: always
     ports:
       - 80:80
       - 443:443
@@ -40,7 +40,7 @@ services:
     image: moqui
     container_name: moqui-server1
     command: conf=conf/MoquiProductionConf.xml
-    restart: unless-stopped
+    restart: always
     links:
      - moqui-database
      - elasticsearch
@@ -60,8 +60,9 @@ services:
      - entity_ds_host=moqui-database
      - entity_ds_port=3306
      - entity_ds_database=moqui
-     - entity_ds_user=moqui
-     - entity_ds_password=moqui
+     # NOTE: using root user because for TX recovery MySQL requires the 'XA_RECOVER_ADMIN' and in version 8 that must be granted explicitly
+     - entity_ds_user=root
+     - entity_ds_password=moquiroot
      - entity_ds_crypt_pass='MoquiDefaultPassword:CHANGEME'
      - entity_add_missing_runtime=false
      - entity_add_missing_startup=true
@@ -89,7 +90,7 @@ services:
     image: moqui
     container_name: moqui-server2
     command: conf=conf/MoquiProductionConf.xml
-    restart: unless-stopped
+    restart: always
     links:
      - moqui-database
      - elasticsearch
@@ -110,8 +111,9 @@ services:
      - entity_ds_host=moqui-database
      - entity_ds_port=3306
      - entity_ds_database=moqui
-     - entity_ds_user=moqui
-     - entity_ds_password=moqui
+     # NOTE: using root user because for TX recovery MySQL requires the 'XA_RECOVER_ADMIN' and in version 8 that must be granted explicitly
+     - entity_ds_user=root
+     - entity_ds_password=moquiroot
      - entity_ds_crypt_pass='MoquiDefaultPassword:CHANGEME'
      - entity_add_missing_runtime=false
      - entity_add_missing_startup=false
@@ -140,7 +142,7 @@ services:
   moqui-database:
     image: mysql:8.0
     container_name: moqui-database
-    restart: unless-stopped
+    restart: always
     ports:
      # change this as needed to bind to any address or even comment to not expose port outside containers
      - 127.0.0.1:3306:3306
@@ -159,7 +161,7 @@ services:
     image: docker.elastic.co/elasticsearch/elasticsearch-oss:7.4.2
     container_name: elasticsearch
     # command: elasticsearch
-    restart: unless-stopped
+    restart: always
     ports:
      # change this as needed to bind to any address or even comment to not expose port outside containers
      - 127.0.0.1:9200:9200
@@ -177,7 +179,7 @@ services:
   kibana:
     image: docker.elastic.co/kibana/kibana-oss:7.4.2
     container_name: kibana
-    restart: unless-stopped
+    restart: always
     ports:
      - 127.0.0.1:5601:5601
     links:
