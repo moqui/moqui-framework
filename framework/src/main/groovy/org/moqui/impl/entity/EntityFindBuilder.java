@@ -346,9 +346,12 @@ public class EntityFindBuilder extends EntityQueryBuilder {
             for (int ai = 0; ai < aliasNodes.size(); ai++) {
                 MNode curAliasNode = aliasNodes.get(ai);
                 if (joinFromAlias.equals(curAliasNode.attribute("entity-alias"))) {
+                    // must match field name
                     String curFieldName = curAliasNode.attribute("field");
                     if (curFieldName == null || curFieldName.isEmpty()) curFieldName = curAliasNode.attribute("name");
-                    if (joinFromField.equals(curFieldName)) {
+                    // must not have a function (not valid in JOIN ON clause)
+                    String curFunction = curAliasNode.attribute("function");
+                    if (joinFromField.equals(curFieldName) && (curFunction == null || curFunction.isEmpty())) {
                         outerAliasNode = curAliasNode;
                         break;
                     }
