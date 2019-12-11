@@ -262,7 +262,7 @@ class ServiceFacadeImpl implements ServiceFacade {
     }
 
     protected MNode findServiceNode(ResourceReference serviceComponentRr, String verb, String noun) {
-        if (serviceComponentRr == null || !serviceComponentRr.exists) return null
+        if (serviceComponentRr == null || (serviceComponentRr.supportsExists() && !serviceComponentRr.exists)) return null
 
         MNode serviceRoot = MNode.parse(serviceComponentRr)
         MNode serviceNode
@@ -285,6 +285,7 @@ class ServiceFacadeImpl implements ServiceFacade {
             }
 
             ResourceReference includeRr = ecfi.resourceFacade.getLocationReference(includeLocation)
+            logger.warn("includeLocation: ${includeLocation}\nincludeRr: ${includeRr}")
             return findServiceNode(includeRr, verb, noun)
         }
 
