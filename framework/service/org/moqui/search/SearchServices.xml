@@ -53,6 +53,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="dataFeedId" required="true"/>
             <parameter name="fromUpdateStamp" type="Timestamp"/>
             <parameter name="thruUpdateStamp" type="Timestamp"/>
+            <parameter name="batchSize" type="Integer" default="1000"/>
             <parameter name="clusterName" default-value="default"/>
         </in-parameters>
         <out-parameters><parameter name="documentsIndexed" type="Integer"/></out-parameters>
@@ -77,35 +78,13 @@ along with this software (see the LICENSE.md file). If not, see
                 String feedReceiveServiceName = df.feedReceiveServiceName ?: 'org.moqui.search.SearchServices.index#DataDocuments'
 
                 for (Map dfDoc in dfDocList) {
-                    ArrayList<Map> documentList = ec.entity.entityDataDocument.getDataDocuments(dfDoc.dataDocumentId, null, fromUpdateStamp, thruUpdatedStamp)
-                    if (!documentList) continue
                     // make sure the index exists
-                    elasticClient.checkCreateDataDocumentIndexes((String) documentList.get(0).get("_index"))
+                    Map dataDocument = ec.entity.fastFindOne("moqui.entity.document.DataDocument", true, false, dfDoc.dataDocumentId)
+                    if (dataDocument?.indexName) elasticClient.checkCreateDataDocumentIndexes((String) dataDocument.indexName)
 
-                    // index the documents
-                    int docListSize = documentList.size()
-                    // NOTE: doing multiple threads doesn't make a big difference, the bulk indexing makes a huge difference, so effectively disabling this in the if expression
-                    if (false) {
-                        int numThreads = Runtime.getRuntime().availableProcessors() / 2
-                        ec.logger.info("Indexing ${docListSize} type ${dfDoc.dataDocumentId} documents for feed ${dataFeedId} with ${numThreads} threads")
-                        int subListSize = docListSize / numThreads
-                        ArrayList<Future> futureList = new ArrayList<>(numThreads)
-                        for (int i = 0; i < numThreads - 1; i++) {
-                            futureList.add(ec.service.async().name(feedReceiveServiceName)
-                                    .parameter("documentList", documentList.subList(i * subListSize, (i + 1) * subListSize))
-                                    .parameter("verifyIndexes", false)
-                                    .callFuture())
-                        }
-                        futureList.add(ec.service.async().name(feedReceiveServiceName)
-                                .parameter("documentList", documentList.subList((numThreads - 1) * subListSize, docListSize))
-                                .parameter("verifyIndexes", false)
-                                .callFuture())
-                        for (Future future in futureList) future.get()
-                    } else {
-                        ec.logger.info("Indexing ${docListSize} type ${dfDoc.dataDocumentId} documents for feed ${dataFeedId}")
-                        ec.service.sync().name(feedReceiveServiceName).parameter("documentList", documentList).call()
-                    }
-                    documentsIndexed += documentList.size()
+                    int docListSize = ec.entity.entityDataDocument.feedDataDocuments(dfDoc.dataDocumentId, null,
+                            fromUpdateStamp, thruUpdatedStamp, feedReceiveServiceName, batchSize)
+                    documentsIndexed += docListSize
                 }
             ]]></script>
 

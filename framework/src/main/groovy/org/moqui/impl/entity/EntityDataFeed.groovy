@@ -111,13 +111,20 @@ class EntityDataFeed {
      */
 
     void dataFeedCheckAndRegister(EntityValue ev, boolean isUpdate, Map valueMap, Map oldValues) {
+        boolean shouldLogDetail = false // ev.getEntityName().startsWith("WikiPage")
         // logger.warn("============== DataFeed checking entity isModified=${ev.isModified()} [${ev.getEntityName()}] value: ${ev}")
         // String debugEntityName = "Request"
-        // if (ev.getEntityName().endsWith(debugEntityName)) logger.warn("======= dataFeedCheckAndRegister update? ${isUpdate} mod? ${ev.isModified()}\nev: ${ev}\noldValues=${oldValues}")
+        if (shouldLogDetail) logger.warn("======= dataFeedCheckAndRegister update? ${isUpdate} mod? ${ev.isModified()}\nev: ${ev}\noldValues=${oldValues}")
 
         // if the value isn't modified don't register for DataFeed at all
-        if (!ev.isModified()) return
-        if (isUpdate && oldValues == null) return
+        if (!ev.isModified()) {
+            if (shouldLogDetail) logger.warn("Not registering ${ev.getEntityName()} PK ${ev.getPrimaryKeys()}, is not modified")
+            return
+        }
+        if (isUpdate && oldValues == null) {
+            if (shouldLogDetail) logger.warn("Not registering ${ev.getEntityName()} PK ${ev.getPrimaryKeys()}, isUpdate and oldValues is null")
+            return
+        }
 
         // see if this should be added to the feed
         ArrayList<DocumentEntityInfo> entityInfoList
@@ -127,7 +134,7 @@ class EntityDataFeed {
             logger.error("Error getting DataFeed entity info, not registering value for entity ${ev.getEntityName()}", t)
             return
         }
-        // if (ev.getEntityName().endsWith(debugEntityName)) logger.warn("======= dataFeedCheckAndRegister entityInfoList size ${entityInfoList.size()}")
+        if (shouldLogDetail) logger.warn("======= dataFeedCheckAndRegister ${ev.getEntityName()} entityInfoList size ${entityInfoList.size()}")
         if (entityInfoList.size() > 0) {
             // logger.warn("============== found registered entity [${ev.getEntityName()}] value: ${ev}")
 
@@ -176,6 +183,8 @@ class EntityDataFeed {
                 // logger.warn("============== DataFeed registering entity value [${ev.getEntityName()}] value: ${ev.getPrimaryKeys()}")
                 // NOTE: comment out this line to disable real-time push DataFeed in one simple place:
                 getDataFeedSynchronization().addValueToFeed(ev, dataDocumentIdSet)
+            } else if (shouldLogDetail) {
+                logger.warn("Not registering ${ev.getEntityName()} PK ${ev.getPrimaryKeys()}, dataDocumentIdSet is empty")
             }
         }
     }
