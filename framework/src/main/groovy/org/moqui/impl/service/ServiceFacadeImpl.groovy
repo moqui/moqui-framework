@@ -285,7 +285,7 @@ class ServiceFacadeImpl implements ServiceFacade {
             }
 
             ResourceReference includeRr = ecfi.resourceFacade.getLocationReference(includeLocation)
-            logger.warn("includeLocation: ${includeLocation}\nincludeRr: ${includeRr}")
+            // logger.warn("includeLocation: ${includeLocation}\nincludeRr: ${includeRr}")
             return findServiceNode(includeRr, verb, noun)
         }
 
