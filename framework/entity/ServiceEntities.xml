@@ -114,6 +114,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="jobRunId" type="id"><description>If not null this is the currently running job instance.</description></field>
         <field name="lastRunTime" type="date-time"/>
         <relationship type="one" related="moqui.service.job.ServiceJob"/>
+        <relationship type="one" related="moqui.service.job.ServiceJobRun"/>
     </entity>
 
     <!-- ========================================================= -->
