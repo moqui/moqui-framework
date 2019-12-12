@@ -440,8 +440,8 @@ class EntityDataDocument {
     }
     void postProcessDocMapList(ArrayList<Map> documentMapList, DataDocumentInfo ddi) {
         String manualDataServiceName = (String) ddi.dataDocument.getNoCheckSimple("manualDataServiceName")
-        int documentMapListSize = documentMapList.size()
-        for (int i = 0; i < documentMapListSize; ) {
+        // NOTE: have to get size() each time in case records are removed
+        for (int i = 0; i < documentMapList.size(); ) {
             Map<String, Object> docMap = (Map<String, Object>) documentMapList.get(i)
             // call the manualDataServiceName service for each document
             if (manualDataServiceName != null && !manualDataServiceName.isEmpty()) {
