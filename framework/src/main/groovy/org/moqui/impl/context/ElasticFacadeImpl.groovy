@@ -18,7 +18,6 @@ import com.fasterxml.jackson.core.JsonGenerator
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.databind.module.SimpleModule
 import groovy.json.JsonOutput
 import groovy.transform.CompileStatic
@@ -39,6 +38,7 @@ import org.moqui.util.RestClient.Method
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import java.sql.Timestamp
 import java.util.concurrent.Future
 
 @CompileStatic
@@ -47,13 +47,15 @@ class ElasticFacadeImpl implements ElasticFacade {
 
     public final static ObjectMapper jacksonMapper = new ObjectMapper()
             .setSerializationInclusion(JsonInclude.Include.ALWAYS)
-            .enable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
             .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
             .configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true)
     static {
         // Jackson custom serializers, etc
         SimpleModule module = new SimpleModule()
         module.addSerializer(GString.class, new ContextJavaUtil.GStringJsonSerializer())
+        // NOTE: using custom serializer for Timestamps because ElasticSearch 7+ does NOT allow negative longs for epoch_millis format... sigh
+        //     .enable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+        module.addSerializer(Timestamp.class, new ContextJavaUtil.TimestampNoNegativeJsonSerializer())
         jacksonMapper.registerModule(module)
     }
 
@@ -119,7 +121,11 @@ class ElasticFacadeImpl implements ElasticFacade {
                 for (EntityValue dataFeed in dataFeedList) {
                     EntityList dfddList = ecfi.entityFacade.find("moqui.entity.feed.DataFeedDocumentDetail")
                             .condition("dataFeedId", dataFeed.dataFeedId).disableAuthz().list()
-                    Set<String> indexNames = new HashSet<String>(dfddList*.getString("indexName"))
+                    Set<String> indexNames = new HashSet<String>()
+                    for (int i = 0; i < dfddList.size(); i++) {
+                        EntityValue dfdd = (EntityValue) dfddList.get(i)
+                        indexNames.add(dfdd.getString("indexName"))
+                    }
                     boolean foundNotExists = false
                     for (String indexName in indexNames) if (!defaultEci.indexExists(indexName)) foundNotExists = true
                     if (foundNotExists) {
@@ -320,6 +326,7 @@ class ElasticFacadeImpl implements ElasticFacade {
             }
             String path = index != null && !index.isEmpty() ? index + "/_bulk" : "_bulk"
             RestClient restClient = makeRestClient(Method.POST, path, null).contentType("application/x-ndjson")
+            restClient.timeout(600)
             restClient.text(bodyWriter.toString())
 
             return restClient.call()
@@ -395,7 +402,7 @@ class ElasticFacadeImpl implements ElasticFacade {
 
         @Override
         RestClient makeRestClient(Method method, String path, Map<String, String> parameters) {
-            RestClient restClient = new RestClient().withRequestFactory(requestFactory).method(method).contentType("application/json")
+            RestClient restClient = new RestClient().withRequestFactory(requestFactory).method(method).contentType("application/json").timeout(60)
             restClient.uri().protocol(clusterProtocol).host(clusterHost).port(clusterPort).path(path).parameters(parameters).build()
             // see https://www.elastic.co/guide/en/elasticsearch/reference/7.4/http-clients.html
             if (clusterUser) restClient.basicAuth(clusterUser, clusterPassword)
@@ -455,15 +462,22 @@ class ElasticFacadeImpl implements ElasticFacade {
         @Override
         void bulkIndexDataDocument(List<Map> documentList) {
             int docsPerBulk = 1000
+            int docListSize = documentList.size()
+
+            String _index = null
+            String _type = null
+            String _id = null
+            String esIndexName = null
 
             ArrayList<Map> actionSourceList = new ArrayList<Map>(docsPerBulk * 2)
             int curBulkDocs = 0
+            int batchCount = 0
             for (Map document in documentList) {
                 // logger.warn("====== Indexing document: ${document}")
 
-                String _index = document._index
-                String _type = document._type
-                String _id = document._id
+                _index = document._index
+                _type = document._type
+                _id = document._id
                 // String _timestamp = document._timestamp
                 // As of ES 2.0 _index, _type, _id, and _timestamp shouldn't be in document to be indexed
                 // clone document before removing fields so they are present for other code using the same data
@@ -471,7 +485,7 @@ class ElasticFacadeImpl implements ElasticFacade {
                 document.remove('_index'); document.remove('_type'); document.remove('_id'); document.remove('_timestamp')
 
                 // as of ES 6.0, and required for 7 series, one index per doc type so one per dataDocumentId, cleaned up to be valid ES index name (all lower case, etc)
-                String esIndexName = ddIdToEsIndex(_type)
+                esIndexName = ddIdToEsIndex(_type)
 
                 // before indexing convert types needed for ES
                 // hopefully not needed with Jackson settings, but if so: ElasticSearchUtil.convertTypesForEs(document)
@@ -483,6 +497,8 @@ class ElasticFacadeImpl implements ElasticFacade {
                 curBulkDocs++
 
                 if (curBulkDocs >= docsPerBulk) {
+                    logger.info("Bulk index batch ${batchCount}, cur docs ${curBulkDocs} of ${docListSize}, last index ${esIndexName} (for index ${_index} type ${_type})")
+                    // logger.warn("last document: ${document}")
                     RestClient.RestResponse response = bulkResponse(null, actionSourceList)
                     if (response.statusCode < 200 || response.statusCode >= 300) {
                         ecfi.eci.message.addMessage("Bulk index failed with code ${response.statusCode}: ${response.reasonPhrase}", "danger")
@@ -500,9 +516,11 @@ class ElasticFacadeImpl implements ElasticFacade {
                     // reset for the next set
                     curBulkDocs = 0
                     actionSourceList = new ArrayList<Map>(docsPerBulk * 2)
+                    batchCount++
                 }
             }
             if (curBulkDocs > 0) {
+                logger.info("Bulk index last, cur docs ${curBulkDocs} of ${docListSize}, last index ${esIndexName} (for index ${_index} type ${_type})")
                 RestClient.RestResponse response = bulkResponse(null, actionSourceList)
                 if (response.statusCode < 200 || response.statusCode >= 300) {
                     ecfi.eci.message.addMessage("Bulk index failed with code ${response.statusCode}: ${response.reasonPhrase}", "danger")
