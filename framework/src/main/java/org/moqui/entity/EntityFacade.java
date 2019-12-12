@@ -53,6 +53,7 @@ public interface EntityFacade {
      */
     EntityFind find(String entityName);
     EntityFind find(MNode entityFindNode);
+    EntityValue fastFindOne(String entityName, Boolean useCache, boolean disableAuthz, Object... values);
 
     /** Meant for processing entity REST requests, but useful more generally as a simple way to perform entity operations.
      *
