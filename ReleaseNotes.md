@@ -21,10 +21,10 @@ https://github.com/moqui/moqui-framework/compare/v2.1.3...v3.0.0
 
 ### New Features
 
-- Recommended Gradle version is 5.6.4 (at least Gradle 5+)
+- Recommended Gradle version is 5.6.4 (at least Gradle 5+ but not Gradle 6+ for compatibility with current plugins)
 - Java versions 8 and 11 supported (compiles to Java 8 bytecode by default, does not use any Java 11 language constructs or API)
-- Optimization for startup-add-missing to get meta data for all tables, columns, and foreign keys instead of per entity for much
-  faster startup time when enabled; default for runtime-add-missing is false and startup-add-missing is true for all DBs including H2 
+- Optimization for startup-add-missing to get meta data for all tables and columns instead of per entity for much faster startup
+  when enabled; default for runtime-add-missing is now 'false' and startup-add-missing is now 'true' for all DBs including H2
 - View Entity find improvements
   - correlated sub-select using SQL LATERAL (mysql8, postgres, db2) or APPLY (mssql and oracle; not yet implemented)
   - extend the member-entity.@sub-select attribute with non-lateral option where not wanted, is used by default as is best for how
