@@ -34,8 +34,8 @@
     <default-property name="entity_ds_user" value="sa"/>
     <default-property name="entity_ds_password" value="sa"/>
     <default-property name="entity_ds_crypt_pass" value="MoquiDefaultPassword:CHANGEME"/>
-    <default-property name="entity_add_missing_runtime" value=""/>
-    <default-property name="entity_add_missing_startup" value=""/>
+    <default-property name="entity_add_missing_runtime" value="false"/>
+    <default-property name="entity_add_missing_startup" value="true"/>
     <default-property name="entity_empty_db_load" value="seed,seed-initial,install"/>
 
     <!-- Properties for a database clone; note that without overriding the transactional#clone1 datasource the default works only

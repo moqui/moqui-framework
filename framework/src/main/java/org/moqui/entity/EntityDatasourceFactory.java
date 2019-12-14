@@ -22,6 +22,7 @@ public interface EntityDatasourceFactory {
     void destroy();
     boolean checkTableExists(String entityName);
     boolean checkAndAddTable(String entityName);
+    int checkAndAddAllTables();
     EntityValue makeEntityValue(String entityName);
     EntityFind makeEntityFind(String entityName);
 
