@@ -91,6 +91,142 @@ class EntityDbMeta {
         }
     }
 
+    int checkAndAddAllTables(String groupName) {
+        int tablesAdded = 0
+
+        MNode datasourceNode = efi.getDatasourceNode(groupName)
+        // MNode databaseNode = efi.getDatabaseNode(groupName)
+        String schemaName = datasourceNode != null ? datasourceNode.attribute("schema-name") : null
+
+        Connection con = null
+
+        boolean beganTx = useTxForMetaData ? efi.ecfi.transactionFacade.begin(30) : false
+        try {
+            con = efi.getConnection(groupName)
+
+            try {
+                DatabaseMetaData dbData = con.getMetaData()
+
+                Set<String> existingTableNames = new HashSet<>()
+                ResultSet tableSet = null
+                try {
+
+                    String[] types = ["TABLE", "VIEW", "ALIAS", "SYNONYM"]
+                    tableSet = dbData.getTables(null, schemaName, "%", types)
+                    while (tableSet.next()) {
+                        String tableName = tableSet.getString('TABLE_NAME')
+                        existingTableNames.add(tableName)
+                    }
+                } catch (Exception e) {
+                    throw new EntityException("Exception getting tables in group ${groupName}", e)
+                } finally {
+                    if (tableSet != null && !tableSet.isClosed()) tableSet.close()
+                }
+
+                Map<String, Set<String>> existingColumnsByTable = new HashMap<>()
+                ResultSet colSet = null
+                try {
+                    colSet = dbData.getColumns(null, schemaName, "%", "%")
+                    while (colSet.next()) {
+                        String tableName = colSet.getString("TABLE_NAME")
+                        String colName = colSet.getString("COLUMN_NAME")
+
+                        Set<String> existingColumns = existingColumnsByTable.get(tableName)
+                        if (existingColumns == null) {
+                            existingColumns = new HashSet<>()
+                            existingColumnsByTable.put(tableName, existingColumns)
+                        }
+                        existingColumns.add(colName)
+
+                        // FUTURE: while we're at it also get type info, etc to validate and warn?
+                    }
+                } catch (Exception e) {
+                    throw new EntityException("Exception getting columns in group ${groupName}", e)
+                } finally {
+                    if (colSet != null && !colSet.isClosed()) colSet.close()
+                }
+
+                // TODO reuse connection and dbData in all create/add method calls
+
+                Set<String> remainingTableNames = new HashSet<>(existingTableNames)
+                Set<String> groupEntityNames = efi.getAllEntityNamesInGroup(groupName)
+                for (String entityName in groupEntityNames) {
+                    EntityDefinition ed = efi.getEntityDefinition(entityName)
+                    if (ed.isViewEntity) continue
+                    String tableName = ed.getTableName()
+                    boolean tableExists = existingTableNames.contains(tableName) || existingTableNames.contains(tableName.toLowerCase())
+                    try {
+                        if (tableExists) {
+                            // table exists, see if it is missing any columns
+                            ArrayList<FieldInfo> fieldInfos = new ArrayList<>(ed.allFieldInfoList)
+                            Set<String> existingColumns = existingColumnsByTable.get(tableName)
+                            if (existingColumns == null || existingColumns.size() == 0) {
+                                logger.warn("No existing columns found for table ${tableName} entity ${entityName}, not trying to add columns but this is bad, probably a DB meta data issue so we can't check columns")
+                            } else {
+                                Set<String> remainingColumns = new HashSet<>(existingColumns)
+                                for (int fii = 0; fii < fieldInfos.size(); fii++) {
+                                    FieldInfo fi = (FieldInfo) fieldInfos.get(fii)
+                                    if (existingColumns.contains(fi.columnName) || existingColumns.contains(fi.columnName.toLowerCase())) {
+                                        remainingColumns.remove(fi.columnName)
+                                        remainingColumns.remove(fi.columnName.toLowerCase())
+                                    } else {
+                                        addColumn(ed, fi)
+                                    }
+                                }
+                                if (remainingColumns.size() > 0)
+                                    logger.warn("Found unknown columns on table ${tableName} for entity ${entityName}: ${remainingColumns}")
+                            }
+
+                            // create foreign keys after checking each to see if it already exists
+                            // DON'T DO THIS, will check all later in one pass: createForeignKeys(ed, true)
+
+                            remainingTableNames.remove(tableName)
+                            remainingTableNames.remove(tableName.toLowerCase())
+                        } else {
+                            createTable(ed)
+                            // create explicit and foreign key auto indexes
+                            createIndexes(ed)
+                            // create foreign keys to all other tables that exist
+                            createForeignKeys(ed, false)
+
+                            tablesAdded++
+                        }
+                        entityTablesChecked.put(ed.getFullEntityName(), new Timestamp(System.currentTimeMillis()))
+                        entityTablesExist.put(ed.getFullEntityName(), true)
+                    } catch (Throwable t) {
+                        logger.error("Error ${tableExists ? 'updating' : 'creating'} table for for entity ${entityName}", t)
+                    }
+                }
+
+                if (remainingTableNames.size() > 0)
+                    logger.info("Found unknown tables in database for group ${groupName}: ${remainingTableNames}")
+
+
+                // do second pass to make sure all FKs created
+
+                // TODO redo big query to get all FK info
+                if (tablesAdded > 0) {
+                    logger.info("Tables were created, checking FKs for all entities in group ${groupName}")
+                    for (String entityName in groupEntityNames) {
+                        EntityDefinition ed = efi.getEntityDefinition(entityName)
+                        if (ed.isViewEntity) continue
+
+                        ArrayList<FieldInfo> fieldInfos = new ArrayList<>(ed.allFieldInfoList)
+
+                        // TODO: do one big query for all FKs instead of per entity
+                        createForeignKeys(ed, true)
+                    }
+                }
+            } finally {
+                if (con != null) con.close()
+            }
+        } finally {
+            if (beganTx) efi.ecfi.transactionFacade.commit()
+        }
+
+        return tablesAdded
+    }
+
     void forceCheckTableRuntime(EntityDefinition ed) {
         entityTablesExist.remove(ed.getFullEntityName())
         entityTablesChecked.remove(ed.getFullEntityName())
