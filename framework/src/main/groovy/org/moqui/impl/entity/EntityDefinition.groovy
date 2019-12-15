@@ -778,9 +778,9 @@ class EntityDefinition {
     static class EntityDependents {
         String entityName
         EntityDefinition ed
-        Map<String, EntityDependents> dependentEntities = new TreeMap()
+        Map<String, EntityDependents> dependentEntities = new TreeMap<String, EntityDependents>()
         Set<String> descendants = new TreeSet()
-        Map<String, RelationshipInfo> relationshipInfos = new HashMap()
+        Map<String, RelationshipInfo> relationshipInfos = new HashMap<String, RelationshipInfo>()
 
         EntityDependents(EntityDefinition ed, Deque<String> ancestorEntities, Map<String, EntityDependents> allDependents) {
             this.ed = ed

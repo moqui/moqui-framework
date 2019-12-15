@@ -328,6 +328,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // System.setProperty("moqui.conf", runtimeConfPath)
 
         logger.info("Initializing Moqui Framework version ${moquiVersion ?: 'Unknown'}\n - runtime directory: ${this.runtimePath}\n - runtime config:    ${this.runtimeConfPath}")
+        logger.info("Running on Java ${System.getProperty("java.version")} VM ${System.getProperty("java.vm.version")} Runtime ${System.getProperty("java.runtime.version")}")
 
         URL defaultConfUrl = this.class.getClassLoader().getResource("MoquiDefaultConf.xml")
         if (defaultConfUrl == null) throw new IllegalArgumentException("Could not find MoquiDefaultConf.xml file on the classpath")

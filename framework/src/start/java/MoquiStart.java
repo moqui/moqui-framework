@@ -781,16 +781,18 @@ public class MoquiStart {
         }
 
         private void definePackage(String className, JarFile jarFile) throws IllegalArgumentException {
-            Manifest mf;
+            Manifest mf = null;
             try {
                 mf = jarFile.getManifest();
             } catch (IOException e) {
-                // use default manifest
-                mf = new Manifest();
+                System.out.println("Error getting manifest from " + jarFile.getName() + ": " + e.toString());
             }
+            // if no manifest use default
             if (mf == null) mf = new Manifest();
+
             int dotIndex = className.lastIndexOf('.');
             String packageName = dotIndex > 0 ? className.substring(0, dotIndex) : "";
+            // NOTE: for Java 11 change getPackage() to getDefinedPackage(), can't do before because getDefinedPackage() doesn't exist in Java 8
             if (getPackage(packageName) == null) {
                 definePackage(packageName,
                         mf.getMainAttributes().getValue(Attributes.Name.SPECIFICATION_TITLE),
