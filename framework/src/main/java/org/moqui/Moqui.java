@@ -21,6 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.servlet.ServletContext;
+import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 
 /**
@@ -54,11 +55,11 @@ public class Moqui {
         activeExecutionContextFactory = executionContextFactory;
     }
     public static <K extends ExecutionContextFactory> K dynamicInit(Class<K> ecfClass, ServletContext sc)
-            throws InstantiationException, IllegalAccessException {
+            throws InstantiationException, IllegalAccessException, NoSuchMethodException, InvocationTargetException {
         if (activeExecutionContextFactory != null && !activeExecutionContextFactory.isDestroyed())
             throw new IllegalStateException("Active ExecutionContextFactory already in place, cannot set one dynamically.");
 
-        K newEcf = ecfClass.newInstance();
+        K newEcf = ecfClass.getDeclaredConstructor().newInstance();
         activeExecutionContextFactory = newEcf;
         // check for an empty DB
         if (newEcf.checkEmptyDb()) {
@@ -66,7 +67,7 @@ public class Moqui {
             // destroy old ECFI
             newEcf.destroy();
             // create new ECFI to get framework init data from DB
-            newEcf = ecfClass.newInstance();
+            newEcf = ecfClass.getDeclaredConstructor().newInstance();
             activeExecutionContextFactory = newEcf;
         }
 
@@ -80,7 +81,7 @@ public class Moqui {
         return newEcf;
     }
     public static <K extends ExecutionContextFactory> K dynamicReInit(Class<K> ecfClass, ServletContext sc)
-            throws InstantiationException, IllegalAccessException {
+            throws InstantiationException, IllegalAccessException, NoSuchMethodException, InvocationTargetException {
 
         // handle Servlet pause then resume taking requests after by removing executionContextFactory attribute
         if (sc.getAttribute("executionContextFactory") != null) sc.removeAttribute("executionContextFactory");

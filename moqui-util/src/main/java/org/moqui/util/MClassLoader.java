@@ -586,6 +586,7 @@ public class MClassLoader extends ClassLoader {
 
         int dotIndex = className.lastIndexOf('.');
         String packageName = dotIndex > 0 ? className.substring(0, dotIndex) : "";
+        // NOTE: for Java 11 change getPackage() to getDefinedPackage(), can't do before because getDefinedPackage() doesn't exist in Java 8
         if (getPackage(packageName) == null) {
             definePackage(packageName,
                     mf.getMainAttributes().getValue(Attributes.Name.SPECIFICATION_TITLE),
