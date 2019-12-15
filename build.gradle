@@ -37,6 +37,8 @@ def allCleanTasks = getTasksByName('clean', true)
 def allBuildTasks = getTasksByName('build', true)
 def allTestTasks = getTasksByName('test', true)
 allTestTasks.each { it.systemProperties << System.properties.subMap(getDefaultPropertyKeys()) }
+// kill the build -> check -> test dependency, only run tests explicitly and not always on build
+getTasksByName('check', true).each { it.dependsOn.clear() }
 
 Set<Task> getComponentTestTasks() {
     Set<Task> testTasks = new LinkedHashSet()
@@ -122,20 +124,30 @@ task startElasticSearch(type:Exec) {
     onlyIf { file(moquiRuntime + '/elasticsearch/bin').exists() && !file(moquiRuntime + '/elasticsearch/pid').exists() }
     doFirst { logger.lifecycle("Starting ElasticSearch installed in runtime/elasticsearch") }
 }
-task stopElasticSearch(type:Exec) {
-    workingDir moquiRuntime + '/elasticsearch'; commandLine 'pkill', '-F', 'pid'
-    onlyIf { file(moquiRuntime + '/elasticsearch/bin').exists() && file(moquiRuntime + '/elasticsearch/pid').exists() }
-    doFirst { logger.lifecycle("Stopping ElasticSearch installed in runtime/elasticsearch") }
-}
+task stopElasticSearch { doLast {
+    String esDir = moquiRuntime + '/elasticsearch'
+    def pidFile = file(moquiRuntime + '/elasticsearch/pid')
+    if (pidFile.exists() && file(moquiRuntime + '/elasticsearch/bin').exists()) {
+        String pid = pidFile.getText()
+        logger.lifecycle("Stopping ElasticSearch installed in runtime/elasticsearch with pid ${pid}")
+        exec { workingDir esDir; commandLine 'kill', pid }
+        // don't bother waiting in this case: exec { workingDir esDir; commandLine 'tail', "--pid=${pid}", '-f', '/dev/null' }
+        if (pidFile.exists()) delete pidFile
+    }
+} }
 
 // ========== test task ==========
-
+// NOTE1: to run startElasticSearch before the first test task add it as a dependency to all test tasks
+// NOTE2: to run stopElasticSearch after the last test task make the root test task run last via dependsOn and make it finalizedBy stopElasticSearch
 task test {
-    dependsOn startElasticSearch
-    // TODO: how to get stopElasticSearch to run after all tests?
-    // tried with "dependsOn startElasticSearch, allTestTasks, stopElasticSearch" runs stopElasticSearch before tests
-    // tried with "task testStopElasticSearch { dependsOn allTestTasks; doLast { stopElasticSearch } }" doesn't run stopElasticSearch at all
-    // NOTE: for now can run "gradle loadsave test stopel"
+    finalizedBy stopElasticSearch
+}
+getTasksByName('test', true).each {
+    if (it.path != ':test') {
+        // logger.lifecycle("Adding dependencies for test task ${it.getPath()}")
+        it.dependsOn(startElasticSearch)
+        test.dependsOn(it)
+    }
 }
 
 // ========== check/update tasks ==========
