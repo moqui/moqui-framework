@@ -21,10 +21,11 @@ import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.screen.ScreenRender
 import org.moqui.screen.ScreenTest
-import org.moqui.screen.ScreenTest.ScreenTestRender
 import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+
+import java.util.concurrent.Future
 
 @CompileStatic
 class ScreenTestImpl implements ScreenTest {
@@ -124,6 +125,32 @@ class ScreenTestImpl implements ScreenTest {
     ScreenTestRender render(String screenPath, Map<String, Object> parameters, String requestMethod) {
         if (!rootScreenLocation) throw new IllegalArgumentException("No rootScreenLocation specified")
         return new ScreenTestRenderImpl(this, screenPath, parameters, requestMethod).render()
+    }
+    @Override
+    void renderAll(List<String> screenPathList, Map<String, Object> parameters, String requestMethod) {
+        // NOTE: using single thread for now, doesn't actually make a lot of difference in overall test run time
+        int threads = 1
+        if (threads == 1) {
+            for (String screenPath in screenPathList) {
+                ScreenTestRender str = render(screenPath, parameters, requestMethod)
+                logger.info("Rendered ${screenPath} in ${str.getRenderTime()}ms, ${str.output?.length()} characters")
+            }
+        } else {
+            ExecutionContextImpl eci = ecfi.getEci()
+            ArrayList<Future> threadList = new ArrayList<Future>(threads)
+            int screenPathListSize = screenPathList.size()
+            for (int si = 0; si < screenPathListSize; si++) {
+                String screenPath = (String) screenPathList.get(si)
+                threadList.add(eci.runAsync({
+                    ScreenTestRender str = render(screenPath, parameters, requestMethod)
+                    logger.info("Rendered ${screenPath} in ${str.getRenderTime()}ms, ${str.output?.length()} characters")
+                }))
+                if (threadList.size() == threads || (si + 1) == screenPathList.size()) {
+                    for (int i = 0; i < threadList.size(); i++) { ((Future) threadList.get(i)).get() }
+                    threadList.clear()
+                }
+            }
+        }
     }
 
     long getRenderCount() { return renderCount }

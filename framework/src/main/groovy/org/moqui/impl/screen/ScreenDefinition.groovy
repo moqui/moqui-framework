@@ -471,7 +471,7 @@ class ScreenDefinition {
 
     List<String> nestedNoReqParmLocations(String currentPath, Set<String> screensToSkip) {
         if (!screensToSkip) screensToSkip = new HashSet<String>()
-        List<String> locList = []
+        List<String> locList = new ArrayList<>()
         List<SubscreensItem> ssiList = getSubscreensItemsSorted()
         for (SubscreensItem ssi in ssiList) {
             if (screensToSkip.contains(ssi.name)) continue

@@ -70,9 +70,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.jar.Attributes
 import java.util.jar.JarFile
-import java.util.jar.Manifest
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 
