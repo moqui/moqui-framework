@@ -138,15 +138,12 @@ task stopElasticSearch { doLast {
 
 // ========== test task ==========
 // NOTE1: to run startElasticSearch before the first test task add it as a dependency to all test tasks
-// NOTE2: to run stopElasticSearch after the last test task make the root test task run last via dependsOn and make it finalizedBy stopElasticSearch
-task test {
-    finalizedBy stopElasticSearch
-}
+// NOTE2: to run stopElasticSearch after the last test task make all test tasks finalizedBy stopElasticSearch
 getTasksByName('test', true).each {
     if (it.path != ':test') {
         // logger.lifecycle("Adding dependencies for test task ${it.getPath()}")
         it.dependsOn(startElasticSearch)
-        test.dependsOn(it)
+        it.finalizedBy(stopElasticSearch)
     }
 }
 
