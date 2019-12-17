@@ -17,11 +17,11 @@ import groovy.transform.CompileStatic
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityException
 import org.moqui.entity.EntityList
-import org.moqui.entity.EntityNotFoundException
 import org.moqui.entity.EntityValue
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.EntityJavaUtil.RelationshipInfo
+import org.moqui.jcache.MCache
 
 import javax.cache.Cache
 import javax.transaction.Status
@@ -42,12 +42,12 @@ class EntityDataFeed {
 
     protected final EntityFacadeImpl efi
 
-    protected final Cache<String, ArrayList<DocumentEntityInfo>> dataFeedEntityInfo
+    protected final MCache<String, ArrayList<DocumentEntityInfo>> dataFeedEntityInfo
     Set<String> entitiesWithDataFeed = null
 
     EntityDataFeed(EntityFacadeImpl efi) {
         this.efi = efi
-        dataFeedEntityInfo = efi.ecfi.cacheFacade.getCache("entity.data.feed.info")
+        dataFeedEntityInfo = efi.ecfi.cacheFacade.getLocalCache("entity.data.feed.info")
     }
 
     EntityFacadeImpl getEfi() { return efi }
@@ -236,7 +236,8 @@ class EntityDataFeed {
     private long lastRebuildTime = 0
     protected synchronized void rebuildDataFeedEntityInfo() {
         // under load make sure waiting threads don't redo it, give it some time
-        if (System.currentTimeMillis() < (lastRebuildTime + 60000)) return
+        // NOTE: no other good way to limit this, cache entries may expire individually so we can't check to see if any are missing without a full reload
+        if (dataFeedEntityInfo.size() > 0 && System.currentTimeMillis() < (lastRebuildTime + 5000)) return
 
         // logger.info("Building entity.data.feed.info cache")
         long startTime = System.currentTimeMillis()
@@ -256,30 +257,34 @@ class EntityDataFeed {
         }
 
         for (String dataDocumentId in fullDataDocumentIdSet) {
-            Map<String, DocumentEntityInfo> entityInfoMap = getDataDocumentEntityInfo(dataDocumentId)
-            if (entityInfoMap == null) {
-                logger.error("Invalid or missing DataDocument ${dataDocumentId}, ignoring for real time feed")
-                continue
-            }
-            // got a Map for all entities in the document, now split them by entity and add to master list for the entity
-            for (Map.Entry<String, DocumentEntityInfo> entityInfoMapEntry in entityInfoMap.entrySet()) {
-                String entityName = entityInfoMapEntry.getKey()
-                ArrayList<DocumentEntityInfo> newEntityInfoList = (ArrayList<DocumentEntityInfo>) localInfo.get(entityName)
-                if (newEntityInfoList == null) {
-                    newEntityInfoList = new ArrayList<DocumentEntityInfo>()
-                    localInfo.put(entityName, newEntityInfoList)
-                    // logger.warn("============= added dataFeedEntityInfo entry for entity [${entityInfoMapEntry.getKey()}]")
+            try {
+                Map<String, DocumentEntityInfo> entityInfoMap = getDataDocumentEntityInfo(dataDocumentId)
+                if (entityInfoMap == null) {
+                    logger.error("Invalid or missing DataDocument ${dataDocumentId}, ignoring for real time feed")
+                    continue
                 }
-                newEntityInfoList.add(entityInfoMapEntry.getValue())
+                // got a Map for all entities in the document, now split them by entity and add to master list for the entity
+                for (Map.Entry<String, DocumentEntityInfo> entityInfoMapEntry in entityInfoMap.entrySet()) {
+                    String entityName = entityInfoMapEntry.getKey()
+                    ArrayList<DocumentEntityInfo> newEntityInfoList = (ArrayList<DocumentEntityInfo>) localInfo.get(entityName)
+                    if (newEntityInfoList == null) {
+                        newEntityInfoList = new ArrayList<DocumentEntityInfo>()
+                        localInfo.put(entityName, newEntityInfoList)
+                        // logger.warn("============= added dataFeedEntityInfo entry for entity [${entityInfoMapEntry.getKey()}]")
+                    }
+                    newEntityInfoList.add(entityInfoMapEntry.getValue())
+                }
+            } catch (Throwable t) {
+                logger.error("Error loading DataFeed info for DataDocument ${dataDocumentId}", t)
             }
         }
 
         Set<String> entityNameSet = localInfo.keySet()
         if (entitiesWithDataFeed == null) {
-            logger.info("Built entity.data.feed.info cache for in ${System.currentTimeMillis() - startTime}ms, entries for ${entityNameSet.size()} entities")
+            logger.info("Built entity.data.feed.info cache in ${System.currentTimeMillis() - startTime}ms, entries for ${entityNameSet.size()} entities")
             if (logger.isTraceEnabled()) logger.trace("Built entity.data.feed.info cache for in ${System.currentTimeMillis() - startTime}ms, entries for ${entityNameSet.size()} entities: ${entityNameSet}")
         } else {
-            logger.info("Rebuilt entity.data.feed.info cache for in ${System.currentTimeMillis() - startTime}ms, entries for ${entityNameSet.size()} entities")
+            logger.info("Rebuilt entity.data.feed.info cache in ${System.currentTimeMillis() - startTime}ms, entries for ${entityNameSet.size()} entities")
         }
         dataFeedEntityInfo.putAll(localInfo)
         entitiesWithDataFeed = entityNameSet
@@ -313,7 +318,7 @@ class EntityDataFeed {
         entityInfoMap.put(primaryEntityName, new DocumentEntityInfo(primaryEntityName, dataDocumentId, primaryEntityName, ""))
 
         // have to go through entire fieldTree instead of entity names directly from fieldPath because may not have hash (#) separator
-        Map<String, Object> fieldTree = [:]
+        Map<String, Object> fieldTree = new LinkedHashMap<String, Object>()
         for (EntityValue dataDocumentField in dataDocumentFieldList) {
             String fieldPath = (String) dataDocumentField.fieldPath
             if (fieldPath.contains("(")) continue
