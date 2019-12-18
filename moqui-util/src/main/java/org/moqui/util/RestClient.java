@@ -566,7 +566,6 @@ public class RestClient {
     }
     public static class RestClientFuture implements Future<RestResponse> {
         RestClient rci;
-        SimpleRequestFactory tempRequestFactory = null;
         FutureResponseListener listener;
         volatile float curWaitSeconds;
         volatile int retryCount = 0;
@@ -583,12 +582,9 @@ public class RestClient {
         }
 
         void newRequest() {
-            if (tempRequestFactory != null) tempRequestFactory.destroy();
-
             // NOTE: RestClientFuture methods call httpClient.stop() so not handled here
-            if (rci.overrideRequestFactory == null) { tempRequestFactory = new SimpleRequestFactory(); }
             try {
-                Request request = rci.makeRequest(rci.overrideRequestFactory != null ? rci.overrideRequestFactory : tempRequestFactory);
+                Request request = rci.makeRequest(rci.overrideRequestFactory != null ? rci.overrideRequestFactory : getDefaultRequestFactory());
                 // use a CompleteListener to retry in background
                 request.onComplete(new RetryListener(this));
                 // use a FutureResponseListener so we can set the timeout and max response size (old: response = request.send(); )
@@ -605,12 +601,8 @@ public class RestClient {
         @Override public boolean cancel(boolean mayInterruptIfRunning) {
             retryLock.lock();
             try {
-                try {
-                    cancelled = true;
-                    return listener.cancel(mayInterruptIfRunning);
-                } finally {
-                    if (tempRequestFactory != null) tempRequestFactory.destroy();
-                }
+                cancelled = true;
+                return listener.cancel(mayInterruptIfRunning);
             } finally { retryLock.unlock(); }
         }
 
@@ -629,12 +621,8 @@ public class RestClient {
                 // lock before new request to make sure not in the middle of retry
                 retryLock.lock();
                 try {
-                    try {
-                        lastResponse = listener.get(timeout, unit);
-                        if (lastResponse.getStatus() != TOO_MANY) break;
-                    } finally {
-                        if (tempRequestFactory != null) tempRequestFactory.destroy();
-                    }
+                    lastResponse = listener.get(timeout, unit);
+                    if (lastResponse.getStatus() != TOO_MANY) break;
                 } finally { retryLock.unlock(); }
             } while (!cancelled && retryCount < rci.maxRetries);
 
