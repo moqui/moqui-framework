@@ -52,9 +52,13 @@
     <!-- How often (in seconds) to check for scheduled jobs to run, set to 0 to not run scheduled jobs -->
     <default-property name="scheduled_job_check_time" value="60"/>
 
-    <default-property name="elasticsearch_url" value="http://localhost:9200"/>
+    <!-- ElasticSearch Client and Proxy Servlet settings -->
+    <default-property name="elasticsearch_url" value="http://127.0.0.1:9200"/>
     <default-property name="elasticsearch_user" value=""/>
     <default-property name="elasticsearch_password" value=""/>
+    <!-- Kibana Proxy Servlet settings -->
+    <default-property name="kibana_host" value="127.0.0.1"/>
+    <default-property name="kibana_port" value="5601"/>
 
     <tools empty-db-load="${entity_empty_db_load}" worker-queue="65535" worker-pool-core="16" worker-pool-max="24" worker-pool-alive="60">
         <tool-factory class="org.moqui.impl.tools.MCacheToolFactory" init-priority="03" disabled="false"/>
@@ -193,7 +197,7 @@
             <!-- ElasticSearch and Kibana proxy servlets, see above for auth filters on the same url-pattern -->
             <servlet name="ElasticSearchProxy" class="org.eclipse.jetty.proxy.ProxyServlet$Transparent" load-on-startup="1" async-supported="true">
                 <!-- this proxies to the embedded ElasticSearch instance -->
-                <init-param name="proxyTo" value="${elasticsearch_url ?: 'http://localhost:9200'}"/>
+                <init-param name="proxyTo" value="${elasticsearch_url ?: 'http://127.0.0.1:9200'}"/>
                 <init-param name="prefix" value="/elastic"/>
                 <url-pattern>/elastic/*</url-pattern>
             </servlet>
