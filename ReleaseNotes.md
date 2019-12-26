@@ -18,6 +18,9 @@ https://github.com/moqui/moqui-framework/compare/v2.1.3...v3.0.0
 
 - Library updates have been done that conflict with ElasticSearch making it impossible to run embedded
 - XMLRPC support had been partly removed years ago, is now completely removed
+- CUPS4J library no longer included in moqui-framework
+- Network printing services (org.moqui.impl.PrintServices) are now mostly placeholders that return error messages if used, CUPS4J
+  library and services that depend on it are now in the moqui-cups tool component 
 
 ### New Features
 
@@ -31,6 +34,10 @@ https://github.com/moqui/moqui-framework/compare/v2.1.3...v3.0.0
     sub-select is commonly used in view entities
   - entity find SQL improvements for view entities where a member entity links to another member-entity with a function on a join field
   - support entity-condition in view-entity used as a sub-select, was being ignored before
+
+### Bug Fixes
+
+- H2 embedded shutdown hook removal updated, no more Bitronix errors on shutdown from H2 already having been terminated
 
 ## Release 2.1.3 - 07 Dec 2019
 
