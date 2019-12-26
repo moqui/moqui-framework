@@ -25,27 +25,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="networkPrinterIdList" type="List"><parameter name="networkPrinterId"/></parameter>
         </out-parameters>
         <actions>
-            <set field="networkPrinterIdList" from="[]"/>
-
-            <!-- lookup existing printers for this server, don't create them again but include them in the result -->
-            <set field="printerNameSet" from="new HashSet()"/>
-            <entity-find entity-name="moqui.basic.print.NetworkPrinter" list="networkPrinterList">
-                <econdition field-name="serverHost"/><econdition field-name="serverPort"/></entity-find>
-            <iterate list="networkPrinterList" entry="networkPrinter">
-                <script>networkPrinterIdList.add(networkPrinter.networkPrinterId)</script>
-                <script>printerNameSet.add(networkPrinter.printerName)</script>
-            </iterate>
-
-            <set field="cupsClient" from="new org.cups4j.CupsClient(serverHost, serverPort)"/>
-            <set field="printerList" from="cupsClient.getPrinters()"/>
-            <iterate list="printerList" entry="cupsPrinter">
-                <if condition="!printerNameSet.contains(cupsPrinter.getName())">
-                    <service-call name="create#moqui.basic.print.NetworkPrinter" out-map="npOut"
-                            in-map="[serverHost:serverHost, serverPort:serverPort, printerName:cupsPrinter.getName(),
-                                description:cupsPrinter.getDescription(), location:cupsPrinter.getLocation()]"/>
-                    <script>networkPrinterIdList.add(npOut.networkPrinterId)</script>
-                </if>
-            </iterate>
+            <return error="true" message="Network printing support not installed (add moqui-cups component)"/>
         </actions>
     </service>
     <service verb="print" noun="DocumentInterface">
@@ -175,40 +155,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="jobId" type="Integer"/>
         </out-parameters>
         <actions>
-            <!-- <log level="warn" message="====== printJob=${printJob}"/> -->
-            <service-call name="org.moqui.impl.PrintServices.make#CupsPrinter"
-                    in-map="[networkPrinterId:printJob.networkPrinterId]" out-map="context"/>
-
-            <script>
-                import org.cups4j.CupsPrinter
-                import org.cups4j.PrintJob
-                import org.cups4j.PrintRequestResult
-
-                errMsg = null
-                try {
-                    CupsPrinter cupsPrinter = context.cupsPrinter
-                    PrintJob.Builder pjb = new PrintJob.Builder(printJob.document)
-                    if (printJob.username) pjb.userName((String) printJob.username)
-                    if (printJob.jobName) pjb.jobName((String) printJob.jobName)
-                    if (printJob.copies) pjb.copies(printJob.copies as int)
-                    if (printJob.duplex) pjb.duplex(printJob.duplex == 'Y')
-                    if (printJob.pageRanges) pjb.pageRanges((String) printJob.pageRanges)
-                    PrintJob pj = pjb.build()
-                    PrintRequestResult prr = cupsPrinter.print(pj)
-                    jobId = prr.getJobId()
-                    if (!prr.isSuccessfulResult()) errMsg = prr.getResultDescription()
-                } catch (Exception e) {
-                    errMsg = e.getMessage()
-                }
-            </script>
-            <if condition="errMsg"><then>
-                <service-call name="update#moqui.basic.print.PrintJob" transaction="force-new"
-                        in-map="[printJobId:printJob.printJobId, jobId:jobId, statusId:'PtjSendFailed', errorMessage:errMsg]"/>
-                <return error="true" message="${errMsg}"/>
-            </then><else>
-                <service-call name="update#moqui.basic.print.PrintJob" transaction="force-new"
-                        in-map="[printJobId:printJob.printJobId, jobId:jobId, statusId:'PtjPending']"/>
-            </else></if>
+            <return error="true" message="Network printing support not installed (add moqui-cups component)"/>
         </actions>
     </service>
 
@@ -228,34 +175,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="size" type="Integer"/>
         </out-parameters>
         <actions>
-            <service-call name="org.moqui.impl.PrintServices.make#CupsClient"
-                    in-map="[printJobId:printJobId]" out-map="context"/>
-            <script>
-                import org.cups4j.CupsClient
-                import org.cups4j.JobStateEnum
-                import org.cups4j.PrintJobAttributes
-
-                Map stateMap = ['aborted':'PtjAborted', 'canceled':'PtjCanceled', 'completed':'PtjCompleted',
-                                'pending':'PtjPending', 'pending-held':'PtjPendingHeld',
-                                'processing':'PtjProcessing', 'processing-stopped':'PtjProcessingStopped']
-
-                context.putAll(printJob)
-
-                CupsClient cupsClient = context.cupsClient
-                PrintJobAttributes pja = cupsClient.getJobAttributes((int) printJob.jobId)
-
-                statusId = stateMap.get(pja.getJobState().toString())
-                if (pja.getJobCompleteTime()) completeTime = new Timestamp(pja.getJobCompleteTime().getTime())
-                if (pja.getJobCreateTime()) createTime = new Timestamp(pja.getJobCreateTime().getTime())
-                jobUrl = pja.getJobURL()
-                pagesPrinted = pja.getPagesPrinted()
-                printerUrl = pja.getPrinterURL()
-                size = pja.getSize()
-            </script>
-            <if condition="statusId != printJob.statusId">
-                <service-call name="update#moqui.basic.print.PrintJob"
-                        in-map="[printJobId:printJob.printJobId, statusId:statusId]"/>
-            </if>
+            <return error="true" message="Network printing support not installed (add moqui-cups component)"/>
         </actions>
     </service>
 
@@ -263,87 +183,21 @@ along with this software (see the LICENSE.md file). If not, see
         <!-- org.moqui.impl.PrintServices.hold#PrintJob -->
         <in-parameters><parameter name="printJobId"/></in-parameters>
         <actions>
-            <service-call name="org.moqui.impl.PrintServices.make#CupsClient"
-                    in-map="[printJobId:printJobId]" out-map="context"/>
-            <if condition="!cupsClient.holdJob((int) printJob.jobId)"><then>
-                <message>Could not hold job [${printJob.jobId}] on print server at [${networkPrinter.serverHost}] for PrintJob [${printJobId}]</message>
-            </then><else>
-                <service-call name="update#moqui.basic.print.PrintJob" in-map="[printJobId:printJobId, statusId:'PtjPendingHeld']"/>
-            </else></if>
+            <return error="true" message="Network printing support not installed (add moqui-cups component)"/>
         </actions>
     </service>
     <service verb="release" noun="PrintJob">
         <!-- org.moqui.impl.PrintServices.release#PrintJob -->
         <in-parameters><parameter name="printJobId"/></in-parameters>
         <actions>
-            <service-call name="org.moqui.impl.PrintServices.make#CupsClient"
-                    in-map="[printJobId:printJobId]" out-map="context"/>
-            <if condition="!cupsClient.releaseJob((int) printJob.jobId)"><then>
-                <message>Could not release job [${printJob.jobId}] on print server at [${networkPrinter.serverHost}] for PrintJob [${printJobId}]</message>
-            </then><else>
-                <service-call name="update#moqui.basic.print.PrintJob" in-map="[printJobId:printJobId, statusId:'PtjPending']"/>
-            </else></if>
+            <return error="true" message="Network printing support not installed (add moqui-cups component)"/>
         </actions>
     </service>
     <service verb="cancel" noun="PrintJob">
         <!-- org.moqui.impl.PrintServices.cancel#PrintJob -->
         <in-parameters><parameter name="printJobId"/></in-parameters>
         <actions>
-            <service-call name="org.moqui.impl.PrintServices.make#CupsClient"
-                    in-map="[printJobId:printJobId]" out-map="context"/>
-            <if condition="!cupsClient.cancelJob((int) printJob.jobId)"><then>
-                <message>Could not cancel job [${printJob.jobId}] on print server at [${networkPrinter.serverHost}] for PrintJob [${printJobId}]</message>
-            </then><else>
-                <service-call name="update#moqui.basic.print.PrintJob" in-map="[printJobId:printJobId, statusId:'PtjCanceled']"/>
-            </else></if>
-        </actions>
-    </service>
-
-    <service verb="make" noun="CupsPrinter">
-        <in-parameters><parameter name="networkPrinterId"/></in-parameters>
-        <out-parameters>
-            <parameter name="cupsClient" type="org.cups4j.CupsClient"/>
-            <parameter name="cupsPrinter" type="org.cups4j.CupsPrinter"/>
-            <parameter name="networkPrinter" type="EntityValue"/>
-        </out-parameters>
-        <actions>
-            <entity-find-one entity-name="moqui.basic.print.NetworkPrinter" value-field="networkPrinter"/>
-            <if condition="networkPrinter == null">
-                <return error="true" message="Could not find NetworkPrinter [${networkPrinterId}]"/></if>
-            <script><![CDATA[
-                import org.cups4j.CupsPrinter
-                import org.cups4j.CupsClient
-
-                String printerName = networkPrinter.printerName
-                cupsClient = new CupsClient((String) networkPrinter.serverHost, (int) networkPrinter.serverPort ?: 631)
-                if (printerName) {
-                    printerList = cupsClient.getPrinters()
-                    for (CupsPrinter curPrinter in printerList) {
-                        if (curPrinter.getName() == printerName) {
-                            cupsPrinter = curPrinter
-                            break
-                        }
-                    }
-                } else {
-                    cupsPrinter = cupsClient.getDefaultPrinter()
-                }
-                ]]></script>
-            <if condition="cupsPrinter == null">
-                <return error="true" message="Print not found with name [${printerName}] on server [${networkPrinter.serverHost}] for NetworkPrinter [${networkPrinterId}]"/></if>
-        </actions>
-    </service>
-    <service verb="make" noun="CupsClient">
-        <in-parameters><parameter name="printJobId"/></in-parameters>
-        <out-parameters>
-            <parameter name="cupsClient" type="org.cups4j.CupsClient"/>
-            <parameter name="printJob" type="EntityValue"/>
-            <parameter name="networkPrinter" type="EntityValue"/>
-        </out-parameters>
-        <actions>
-            <entity-find-one entity-name="moqui.basic.print.PrintJob" value-field="printJob"/>
-            <set field="networkPrinterId" from="printJob.networkPrinterId"/>
-            <entity-find-one entity-name="moqui.basic.print.NetworkPrinter" value-field="networkPrinter"/>
-            <set field="cupsClient" from="new org.cups4j.CupsClient((String) networkPrinter.serverHost, (int) networkPrinter.serverPort ?: 631)"/>
+            <return error="true" message="Network printing support not installed (add moqui-cups component)"/>
         </actions>
     </service>
 </services>

@@ -43,6 +43,7 @@
     <!-- Moqui Tool Components -->
     <component name="moqui-aws" group="moqui" version="1.0.1" branch="master"/>
     <component name="moqui-camel" group="moqui" version="1.0.3" branch="master"/>
+    <component name="moqui-cups" group="moqui" version="" branch="master"/><!-- no releases yet -->
     <!-- no longer supported: <component name="moqui-elasticsearch" group="moqui" version="1.2.2" branch="master"/> -->
     <component name="moqui-fop" group="moqui" version="1.1.2" branch="master"/>
     <component name="moqui-hazelcast" group="moqui" version="1.1.2" branch="master"/>
