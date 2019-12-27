@@ -104,9 +104,9 @@ dependencies {
     compile 'com.cronutils:cron-utils:9.0.2' // Apache 2.0
 
     // Flexmark (markdown)
-    compile 'com.vladsch.flexmark:flexmark:0.50.44'
-    compile 'com.vladsch.flexmark:flexmark-ext-tables:0.50.44'
-    compile 'com.vladsch.flexmark:flexmark-ext-toc:0.50.44'
+    compile 'com.vladsch.flexmark:flexmark:0.50.46'
+    compile 'com.vladsch.flexmark:flexmark-ext-tables:0.50.46'
+    compile 'com.vladsch.flexmark:flexmark-ext-toc:0.50.46'
 
     // Freemarker
     compile 'org.freemarker:freemarker:2.3.29' // Apache 2.0
@@ -153,11 +153,11 @@ dependencies {
     compile module('org.apache.shiro:shiro-web:1.4.2') // Apache 2.0
 
     // SLF4J, Log4j 2 (note Log4j 2 is used by various libraries, best not to replace it even if mostly possible with SLF4J)
-    compile 'org.slf4j:slf4j-api:1.7.29'
-    compile 'org.apache.logging.log4j:log4j-core:2.12.1'
-    compile 'org.apache.logging.log4j:log4j-api:2.12.1'
-    runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.12.1'
-    runtime 'org.apache.logging.log4j:log4j-jcl:2.12.1'
+    compile 'org.slf4j:slf4j-api:1.7.30'
+    compile 'org.apache.logging.log4j:log4j-core:2.13.0'
+    compile 'org.apache.logging.log4j:log4j-api:2.13.0'
+    runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.13.0'
+    runtime 'org.apache.logging.log4j:log4j-jcl:2.13.0'
 
     // SubEtha SMTP (module as depends on old javax.mail location; also uses SLF4J, activation included elsewhere)
     compile module('org.subethamail:subethasmtp:3.1.7')
@@ -183,6 +183,7 @@ dependencies {
 
     // ========== executable war dependencies ==========
     // Jetty
+    // NOTE: update to Jetty 9.4.25.v20191220 caused issue on response.getWriter().write(String): Internal error processing request: java.lang.IllegalStateException: s=OPEN,api=BLOCKED,sc=false,e=null
     execWarRuntime 'org.eclipse.jetty:jetty-server:9.4.24.v20191120' // Apache 2.0
     execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.4.24.v20191120' // Apache 2.0
     execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.4.24.v20191120' // Apache 2.0
