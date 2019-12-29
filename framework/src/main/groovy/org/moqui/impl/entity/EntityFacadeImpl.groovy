@@ -2172,7 +2172,8 @@ class EntityFacadeImpl implements EntityFacade {
             "date-time":2, "time":3, "date":4,
             "number-integer":6, "number-float":8,
             "number-decimal":9, "currency-amount":9, "currency-precise":9,
-            "binary-very-long":12 ]
+            "binary-very-long":12,
+            "jsonb": 16]
     protected static final Map<String, String> fieldTypeJavaMap = [
             "id":"java.lang.String", "id-long":"java.lang.String",
             "text-indicator":"java.lang.String", "text-short":"java.lang.String", "text-medium":"java.lang.String",
@@ -2180,7 +2181,8 @@ class EntityFacadeImpl implements EntityFacade {
             "date-time":"java.sql.Timestamp", "time":"java.sql.Time", "date":"java.sql.Date",
             "number-integer":"java.lang.Long", "number-float":"java.lang.Double",
             "number-decimal":"java.math.BigDecimal", "currency-amount":"java.math.BigDecimal", "currency-precise":"java.math.BigDecimal",
-            "binary-very-long":"java.sql.Blob" ]
+            "binary-very-long":"java.sql.Blob",
+            "jsonb": "java.util.HashMap"]
     protected static final Map<String, Integer> javaIntTypeMap = [
             "java.lang.String":1, "String":1, "org.codehaus.groovy.runtime.GStringImpl":1, "char[]":1,
             "java.sql.Timestamp":2, "Timestamp":2,
@@ -2196,7 +2198,8 @@ class EntityFacadeImpl implements EntityFacade {
             "java.sql.Blob":12, "Blob":12, "byte[]":12, "java.nio.ByteBuffer":12, "java.nio.HeapByteBuffer":12,
             "java.sql.Clob":13, "Clob":13,
             "java.util.Date":14,
-            "java.util.ArrayList":15, "java.util.HashSet":15, "java.util.LinkedHashSet":15, "java.util.LinkedList":15]
+            "java.util.ArrayList":15, "java.util.HashSet":15, "java.util.LinkedHashSet":15, "java.util.LinkedList":15,
+            "java.util.HashMap": 16]
     static int getJavaTypeInt(String javaType) {
         Integer typeInt = (Integer) javaIntTypeMap.get(javaType)
         if (typeInt == null) throw new EntityException("Java type " + javaType + " not supported for entity fields")

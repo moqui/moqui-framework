@@ -665,6 +665,8 @@
 
             <database-type type="binary-very-long" sql-type="BYTEA"/>
 
+            <database-type type="jsonb" java-type="java.util.HashMap" sql-type="JSONB"/>
+
             <!-- default max connections for PostgreSQL is 100 -->
             <inline-jdbc pool-maxsize="90"><xa-properties serverName="${entity_ds_host}" portNumber="${entity_ds_port?:'5432'}"
                     databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>

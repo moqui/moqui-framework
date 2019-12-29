@@ -56,6 +56,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:enumeration value="text-long"/>
             <xs:enumeration value="text-very-long"/>
             <xs:enumeration value="binary-very-long"/>
+            <xs:enumeration value="jsonb"/>
         </xs:restriction>
     </xs:simpleType>
 

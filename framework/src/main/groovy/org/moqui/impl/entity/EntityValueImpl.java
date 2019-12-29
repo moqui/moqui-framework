@@ -68,6 +68,7 @@ public class EntityValueImpl extends EntityValueBase {
 
             sql.append(" (");
             StringBuilder values = new StringBuilder();
+            StringBuilder valuesForCast = new StringBuilder();
 
             int size = fieldInfoArray.length;
             for (int i = 0; i < size; i++) {
@@ -76,13 +77,23 @@ public class EntityValueImpl extends EntityValueBase {
                 if (i > 0) {
                     sql.append(", ");
                     values.append(", ");
+                    valuesForCast.append(", ");
                 }
 
                 sql.append(fieldInfo.getFullColumnName());
                 values.append("?");
+
+                // cycle through values and construct list of fields
+                // for those that are json, insert `cast` function
+                if (fieldInfo.type.toLowerCase().contains("json"))
+                {
+                    valuesForCast.append("to_json(?::json)");
+                } else {
+                    valuesForCast.append("?");
+                }
             }
 
-            sql.append(") VALUES (").append(values.toString()).append(")");
+            sql.append(") VALUES (").append(valuesForCast.toString()).append(")");
 
             try {
                 efi.getEntityDbMeta().checkTableRuntime(ed);
