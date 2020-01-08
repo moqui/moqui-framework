@@ -1661,8 +1661,9 @@ class EntityFacadeImpl implements EntityFacade {
         if (operation == 'find') {
             if (lastEd.containsPrimaryKey(parameters)) {
                 // if we have a full PK lookup by PK and return the single value
+
                 Map<String, Object> pkValues = [:]
-                lastEd.entityInfo.setFields(parameters, pkValues, false, null, true)
+                lastEd.entityInfo.setFields(parameters, pkValues, false, null, true, new java.util.Locale("en_US"))
 
                 if (masterName != null && masterName.length() > 0) {
                     Map resultMap = find(lastEd.getFullEntityName()).condition(pkValues).oneMaster(masterName)
@@ -1712,7 +1713,7 @@ class EntityFacadeImpl implements EntityFacade {
         }
     }
 
-    EntityList getValueListFromPlainMap(Map value, String entityName) {
+    EntityList getValueListFromPlainMap(Map value, String entityName, Locale locale) {
         if (entityName == null || entityName.length() == 0) entityName = value."_entity"
         if (entityName == null || entityName.length() == 0) throw new EntityException("No entityName passed and no _entity field in value Map")
 
@@ -1720,10 +1721,10 @@ class EntityFacadeImpl implements EntityFacade {
         if (ed == null) throw new EntityNotFoundException("Not entity found with name ${entityName}")
 
         EntityList valueList = new EntityListImpl(this)
-        addValuesFromPlainMapRecursive(ed, value, valueList, null)
+        addValuesFromPlainMapRecursive(ed, value, valueList, null, locale)
         return valueList
     }
-    void addValuesFromPlainMapRecursive(EntityDefinition ed, Map value, EntityList valueList, Map<String, Object> parentPks) {
+    void addValuesFromPlainMapRecursive(EntityDefinition ed, Map value, EntityList valueList, Map<String, Object> parentPks, Locale locale) {
         // add in all of the main entity's primary key fields, this is necessary for auto-generated, and to
         //     allow them to be left out of related records
         if (parentPks != null) {
@@ -1732,7 +1733,7 @@ class EntityFacadeImpl implements EntityFacade {
         }
 
         EntityValue newEntityValue = makeValue(ed.getFullEntityName())
-        newEntityValue.setFields(value, true, null, null)
+        newEntityValue.setFields(value, true, null, null, locale)
         valueList.add(newEntityValue)
 
         Map<String, Object> sharedPkMap = newEntityValue.getPrimaryKeys()
@@ -1770,11 +1771,11 @@ class EntityFacadeImpl implements EntityFacade {
 
             boolean isEntityValue = relParmObj instanceof EntityValue
             if (relParmObj instanceof Map && !isEntityValue) {
-                addValuesFromPlainMapRecursive(subEd, (Map) relParmObj, valueList, pkMap)
+                addValuesFromPlainMapRecursive(subEd, (Map) relParmObj, valueList, pkMap, locale)
             } else if (relParmObj instanceof List) {
                 for (Object relParmEntry in relParmObj) {
                     if (relParmEntry instanceof Map) {
-                        addValuesFromPlainMapRecursive(subEd, (Map) relParmEntry, valueList, pkMap)
+                        addValuesFromPlainMapRecursive(subEd, (Map) relParmEntry, valueList, pkMap, locale)
                     } else {
                         logger.warn("In entity values from plain map for entity ${ed.getFullEntityName()} found list for sub-object ${entryName} with a non-Map entry: ${relParmEntry}")
                     }
@@ -2030,7 +2031,7 @@ class EntityFacadeImpl implements EntityFacade {
             // NOTE: the following uses the same pattern as EntityDataLoaderImpl.LoadValueHandler
             if (dummyFks || useTryInsert) {
                 EntityValue curValue = ed.makeEntityValue()
-                curValue.setAll(entry.getEtlValues())
+                curValue.setAll(entry.getEtlValues(), null)
                 if (useTryInsert) {
                     try {
                         curValue.create()

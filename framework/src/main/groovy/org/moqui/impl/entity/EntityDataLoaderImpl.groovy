@@ -44,6 +44,7 @@ import javax.xml.parsers.SAXParserFactory
 import java.nio.charset.StandardCharsets
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
+import java.util.Locale
 
 @CompileStatic
 class EntityDataLoaderImpl implements EntityDataLoader {
@@ -383,7 +384,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         ValueHandler(EntityDataLoaderImpl edli) { this.edli = edli }
 
         abstract void handleValue(EntityValue value)
-        abstract void handlePlainMap(String entityName, Map value)
+        abstract void handlePlainMap(String entityName, Map value, Locale locale)
         abstract void handleService(ServiceCallSync scs)
     }
     static class CheckValueHandler extends ValueHandler {
@@ -401,8 +402,8 @@ class EntityDataLoaderImpl implements EntityDataLoader {
 
         long getFieldsChecked() { return fieldsChecked }
         void handleValue(EntityValue value) { value.checkAgainstDatabase(messageList) }
-        void handlePlainMap(String entityName, Map value) {
-            EntityList el = edli.getEfi().getValueListFromPlainMap(value, entityName)
+        void handlePlainMap(String entityName, Map value, Locale locale) {
+            EntityList el = edli.getEfi().getValueListFromPlainMap(value, entityName, locale)
             // logger.warn("=========== Check value: ${value}\nel: ${el}")
             for (EntityValue ev in el) fieldsChecked += ev.checkAgainstDatabase(messageList)
         }
@@ -461,11 +462,11 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                 value.createOrUpdate()
             }
         }
-        void handlePlainMap(String entityName, Map value) {
+        void handlePlainMap(String entityName, Map value, Locale locale) {
             EntityDefinition ed = ec.entityFacade.getEntityDefinition(entityName)
             if (ed == null) throw new BaseException("Could not find entity ${entityName}")
             if (edli.onlyCreate) {
-                EntityList el = ec.entityFacade.getValueListFromPlainMap(value, entityName)
+                EntityList el = ec.entityFacade.getValueListFromPlainMap(value, entityName, locale)
                 int elSize = el.size()
                 for (int i = 0; i < elSize; i++) {
                     EntityValue curValue = (EntityValue) el.get(i)
@@ -480,7 +481,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                 }
             } else {
                 Map<String, Object> results = new HashMap()
-                EntityAutoServiceRunner.storeEntity(ec, ed, value, results, null)
+                EntityAutoServiceRunner.storeEntity(ec, ed, value, results, null, locale)
                 // no need to call the store auto service, use storeEntity directly:
                 // Map results = sfi.sync().name('store', entityName).parameters(value).call()
                 if (logger.isTraceEnabled()) logger.trace("Called store service for entity [${entityName}] in data load, results: ${results}")
@@ -516,9 +517,9 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         void handleValue(EntityValue value) {
             el.add(value)
         }
-        void handlePlainMap(String entityName, Map value) {
+        void handlePlainMap(String entityName, Map value, Locale locale) {
             EntityDefinition ed = edli.getEfi().getEntityDefinition(entityName)
-            edli.getEfi().addValuesFromPlainMapRecursive(ed, value, el, null)
+            edli.getEfi().addValuesFromPlainMapRecursive(ed, value, el, null, locale)
         }
         void handleService(ServiceCallSync scs) { logger.warn("For load to EntityList not calling service [${scs.getServiceName()}] with parameters ${scs.getCurrentParameters()}") }
     }
@@ -545,6 +546,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         protected long valuesRead = 0
         protected List<String> messageList = new LinkedList<>()
         String location
+        Locale locale = null
 
         protected boolean loadElements = false
 
@@ -560,11 +562,24 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         void startElement(String ns, String localName, String qName, Attributes attributes) {
             // logger.info("startElement ns [${ns}], localName [${localName}] qName [${qName}]")
             String type = null
-            if (qName == "entity-facade-xml") { type = attributes.getValue("type") }
-            else if (qName == "seed-data") { type = "seed" }
+            String localeStr = null
+            if (qName == "entity-facade-xml") {
+                type = attributes.getValue("type")
+                localeStr = attributes.getValue("locale")
+            }
+            else if (qName == "seed-data") {
+                type = "seed"
+                localeStr = attributes.getValue("locale")
+            }
             if (type && edli.dataTypes && !edli.dataTypes.contains(type)) {
                 if (logger.isInfoEnabled()) logger.info("Skipping file [${location}], is a type to skip (${type})")
                 throw new TypeToSkipException()
+            }
+
+            if (localeStr != null) {
+                int usIdx = localeStr.indexOf("_")
+                locale = (usIdx < 0 ? new Locale(localeStr) :
+                        new Locale(localeStr.substring(0, usIdx), localeStr.substring(usIdx+1).toUpperCase()))
             }
 
             if (qName == "entity-facade-xml") {
@@ -758,11 +773,11 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                             // if (currentEntityDef.getFullEntityName().contains("DbForm")) logger.warn("========= DbForm rootValueMap: ${rootValueMap}")
                             if (edli.dummyFks || edli.useTryInsert) {
                                 EntityValue curValue = currentEntityDef.makeEntityValue()
-                                curValue.setAll(valueMap)
+                                curValue.setAll(valueMap, locale)
                                 valueHandler.handleValue(curValue)
                                 valuesRead++
                             } else {
-                                valueHandler.handlePlainMap(currentEntityDef.getFullEntityName(), valueMap)
+                                valueHandler.handlePlainMap(currentEntityDef.getFullEntityName(), valueMap, getLocale())
                                 valuesRead++
                             }
                             currentEntityDef = (EntityDefinition) null
@@ -794,6 +809,12 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         }
 
         void setDocumentLocator(Locator locator) { this.locator = locator }
+
+        void setLocale(Locale locale) { this.locale = locale }
+        Locale getLocale() {
+            if (locale == null) locale = new Locale("en", "US")
+            return locale
+        }
     }
 
     static class EntityCsvHandler {
@@ -802,6 +823,8 @@ class EntityDataLoaderImpl implements EntityDataLoader {
 
         protected long valuesRead = 0
         protected List<String> messageList = new LinkedList()
+
+        protected Locale locale = null
 
         EntityCsvHandler(EntityDataLoaderImpl edli, ValueHandler valueHandler) {
             this.edli = edli
@@ -853,6 +876,14 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                         return false
                     }
                 }
+
+                if (firstLineRecord.size() > 2) {
+                    // third field is locale
+                    String localeStr = firstLineRecord.get(2)
+                    int usIdx = localeStr.indexOf("_")
+                    locale = usIdx < 0 ? new Locale(localeStr) :
+                            new Locale(localeStr.substring(0, usIdx), localeStr.substring(usIdx+1).toUpperCase())
+                }
             }
 
             Map<String, Integer> headerMap = [:]
@@ -880,9 +911,9 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                     valuesRead++
                 } else {
                     EntityValueImpl currentEntityValue = (EntityValueImpl) edli.efi.makeValue(entityName)
-                    if (edli.defaultValues) currentEntityValue.setFields(edli.defaultValues, true, null, null)
+                    if (edli.defaultValues) currentEntityValue.setFields(edli.defaultValues, true, null, null, locale)
                     for (Map.Entry<String, Integer> header in headerMap)
-                        currentEntityValue.setString(header.key, record.get(header.value))
+                        currentEntityValue.setString(header.key, record.get(header.value), locale)
 
                     if (!currentEntityValue.containsPrimaryKey()) {
                         if (currentEntityValue.getEntityDefinition().getPkFieldNames().size() == 1) {
@@ -899,6 +930,13 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             }
             return true
         }
+
+        void setLocale(Locale locale) { this.locale = locale }
+        Locale getLocale() {
+            if (locale == null) locale = new Locale("en", "US")
+            return locale
+        }
+
     }
 
     static class EntityJsonHandler {
@@ -907,6 +945,8 @@ class EntityDataLoaderImpl implements EntityDataLoader {
 
         protected long valuesRead = 0
         protected List<String> messageList = new LinkedList()
+
+        protected Locale locale = null
 
         EntityJsonHandler(EntityDataLoaderImpl edli, ValueHandler valueHandler) {
             this.edli = edli
@@ -929,18 +969,21 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             }
 
             String type = null
+            String localeStr = null
             List valueList
             if (jsonObj instanceof Map) {
                 Map jsonMap = (Map) jsonObj
                 type = jsonMap.get("_dataType")
+                localeStr = jsonMap.get("_locale")
                 valueList = [jsonObj]
             } else if (jsonObj instanceof List) {
                 valueList = (List) jsonObj
                 Object firstValue = valueList?.get(0)
                 if (firstValue instanceof Map) {
                     Map firstValMap = (Map) firstValue
-                    if (firstValMap.get("_dataType")) {
+                    if (firstValMap.get("_dataType") || firstValMap.get("_locale")) {
                         type = firstValMap.get("_dataType")
+                        localeStr = firstValMap.get("_locale")
                         valueList.remove((int) 0I)
                     }
                 }
@@ -951,6 +994,12 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             if (type && edli.dataTypes && !edli.dataTypes.contains(type)) {
                 if (logger.isInfoEnabled()) logger.info("Skipping file [${location}], is a type to skip (${type})")
                 return false
+            }
+
+            if (localeStr != null) {
+                int usIdx = localeStr.indexOf("_")
+                locale = usIdx < 0 ? new Locale(localeStr) :
+                        new Locale(localeStr.substring(0, usIdx), localeStr.substring(usIdx+1).toUpperCase())
             }
 
             for (Object valueObj in valueList) {
@@ -964,6 +1013,13 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                 value.putAll((Map) valueObj)
 
                 String entityName = value."_entity"
+                String valueLocaleStr = value."_locale"
+                Locale valueLocale = null
+                if (valueLocaleStr) {
+                    int usIdx = valueLocaleStr.indexOf("_")
+                    valueLocale = usIdx < 0 ? new Locale(valueLocaleStr) :
+                            new Locale(valueLocaleStr.substring(0, usIdx), valueLocaleStr.substring(usIdx+1).toUpperCase())
+                }
                 boolean isService
                 if (edli.efi.isEntityDefined(entityName)) {
                     isService = false
@@ -978,7 +1034,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                     valueHandler.handleService(currentScs)
                     valuesRead++
                 } else {
-                    valueHandler.handlePlainMap(entityName, value)
+                    valueHandler.handlePlainMap(entityName, value, valueLocale?:getLocale())
                     // TODO: make this more complete, like counting nested Maps?
                     valuesRead++
                 }
@@ -986,5 +1042,12 @@ class EntityDataLoaderImpl implements EntityDataLoader {
 
             return true
         }
+
+        void setLocale(Locale locale) { this.locale = locale }
+        Locale getLocale() {
+            if (locale == null) locale = new Locale("en", "US")
+            return locale
+        }
+
     }
 }

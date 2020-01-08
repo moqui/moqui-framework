@@ -401,15 +401,17 @@ public abstract class EntityValueBase implements EntityValue {
     }
 
     @Override public EntityValue set(String name, Object value) { put(name, value); return this; }
-    @Override public EntityValue setAll(Map<String, Object> fields) {
+    @Override public EntityValue setAll(Map<String, Object> fields) { return setAll(fields, null); }
+    @Override public EntityValue setAll(Map<String, Object> fields, Locale locale) {
         if (!mutable) throw new EntityException("Cannot set fields, this entity value is not mutable (it is read-only)");
-        getEntityDefinition().entityInfo.setFieldsEv(fields, this, null);
+        getEntityDefinition().entityInfo.setFieldsEv(fields, this, null, locale);
         return this;
     }
-    @Override public EntityValue setString(String name, String value) {
+    @Override public EntityValue setString(String name, String value) { return setString(name, value, null); }
+    @Override public EntityValue setString(String name, String value, Locale locale) {
         // this will do a field name check
         ExecutionContextImpl eci = getEntityFacadeImpl().ecfi.getEci();
-        Object converted = getEntityDefinition().convertFieldString(name, value, eci);
+        Object converted = getEntityDefinition().convertFieldString(name, value, eci, locale);
         putNoCheck(name, converted);
         return this;
     }
@@ -467,10 +469,13 @@ public abstract class EntityValueBase implements EntityValue {
     }
 
     @Override public EntityValue setFields(Map<String, Object> fields, boolean setIfEmpty, String namePrefix, Boolean pks) {
+        return setFields(fields, setIfEmpty, namePrefix, pks, null);
+    }
+    @Override public EntityValue setFields(Map<String, Object> fields, boolean setIfEmpty, String namePrefix, Boolean pks, Locale locale) {
         if (!setIfEmpty && (namePrefix == null || namePrefix.length() == 0)) {
-            getEntityDefinition().entityInfo.setFields(fields, this, false, namePrefix, pks);
+            getEntityDefinition().entityInfo.setFields(fields, this, false, namePrefix, pks, locale);
         } else {
-            getEntityDefinition().entityInfo.setFieldsEv(fields, this, pks);
+            getEntityDefinition().entityInfo.setFieldsEv(fields, this, pks, locale);
         }
 
         return this;
@@ -506,7 +511,7 @@ public abstract class EntityValueBase implements EntityValue {
 
         this.remove(seqFieldName);
         Map<String, Object> otherPkMap = new LinkedHashMap<>();
-        getEntityDefinition().entityInfo.setFields(this, otherPkMap, false, null, true);
+        getEntityDefinition().entityInfo.setFields(this, otherPkMap, false, null, true, null);
 
         // temporarily disable authz for this, just doing lookup to get next value and to allow for a
         //     authorize-skip="create" with authorize-skip of view too this is necessary

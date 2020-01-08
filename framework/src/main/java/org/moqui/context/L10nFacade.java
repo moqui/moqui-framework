@@ -75,4 +75,5 @@ public interface L10nFacade {
     java.util.Calendar parseDateTime(String input, String format);
 
     java.math.BigDecimal parseNumber(String input, String format);
+    java.math.BigDecimal parseNumber(String input, String format, Locale locale);
 }
