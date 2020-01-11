@@ -335,11 +335,14 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="toStatusId" type="id" is-pk="true"/>
         <field name="transitionSequence" type="number-integer"/>
         <field name="transitionName" type="text-medium" enable-localization="true"/>
-        <field name="conditionExpression" type="text-medium"/>
+        <field name="conditionExpression" type="text-medium"><description>Not currently supported, may be removed, issue with what is the context for the expression</description></field>
+        <field name="userPermissionId" type="id-long"/>
         <relationship type="one" related="moqui.basic.StatusFlow" short-alias="flow"/>
         <relationship type="one" related="moqui.basic.StatusItem" short-alias="status"/>
         <relationship type="one" title="To" related="moqui.basic.StatusItem" short-alias="toStatus">
             <key-map field-name="toStatusId" related="statusId"/></relationship>
+        <relationship type="one-nofk" related="moqui.security.UserPermission" short-alias="permission">
+            <description>No FK in order to allow arbitrary permissions (ie not pre-configured).</description></relationship>
     </entity>
     <view-entity entity-name="StatusFlowItemDetail" package="moqui.basic">
         <member-entity entity-alias="SFI" entity-name="moqui.basic.StatusFlowItem"/>
