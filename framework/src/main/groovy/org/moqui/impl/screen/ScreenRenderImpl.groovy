@@ -71,6 +71,7 @@ class ScreenRenderImpl implements ScreenRender {
     protected Map<String, ScreenUrlInfo> subscreenUrlInfos = new HashMap()
     protected int screenPathIndex = 0
     protected Set<String> stopRenderScreenLocations = new HashSet()
+    protected String lastStandalone = (String) null
 
     protected String baseLinkUrl = (String) null
     protected String servletContextPath = (String) null
@@ -132,7 +133,11 @@ class ScreenRenderImpl implements ScreenRender {
 
     @Override ScreenRender rootScreen(String rsLocation) { rootScreenLocation = rsLocation; return this }
     ScreenRender rootScreenFromHost(String host) { return rootScreen(sfi.rootScreenFromHost(host, webappName)) }
+
     @Override ScreenRender screenPath(List<String> screenNameList) { originalScreenPathNameList.addAll(screenNameList); return this }
+    @Override ScreenRender screenPath(String path) { screenPath(StringUtilities.pathStringToList(path, 0)); return this }
+    @Override ScreenRender lastStandalone(String ls) { lastStandalone = ls; return this }
+
     @Override ScreenRender renderMode(String renderMode) { this.renderMode = renderMode; return this }
     String getRenderMode() { return renderMode }
 
@@ -278,7 +283,9 @@ class ScreenRenderImpl implements ScreenRender {
         // logger.info("Rendering screen [${rootScreenLocation}] with path list [${originalScreenPathNameList}]")
 
         WebFacade web = ec.getWeb()
-        String lastStandalone = web != null ? web.requestParameters.lastStandalone : null
+        if ((lastStandalone == null || lastStandalone.isEmpty()) && web != null)
+            lastStandalone = (String) web.requestParameters.lastStandalone
+
         screenUrlInfo = ScreenUrlInfo.getScreenUrlInfo(this, rootScreenDef, originalScreenPathNameList, null,
                 ScreenUrlInfo.parseLastStandalone(lastStandalone, 0))
 
@@ -288,7 +295,7 @@ class ScreenRenderImpl implements ScreenRender {
 
         if (web != null) {
             // clear out the parameters used for special screen URL config
-            if (lastStandalone != null && lastStandalone.length() > 0) web.requestParameters.lastStandalone = ""
+            if (web.requestParameters.lastStandalone) web.requestParameters.lastStandalone = ""
 
             // if screenUrlInfo has any parameters add them to the request (probably came from a transition acting as an alias)
             Map<String, String> suiParameterMap = screenUrlInstance.getTransitionAliasParameters()

@@ -27,8 +27,15 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="fromUserId"/><parameter name="toUserId"/>
             <parameter name="attachments" type="List"><parameter name="attachment" type="Map">
                 <parameter name="fileName"/>
-                <parameter name="attachmentLocation" required="true"/>
+                <!-- specify mime type with contentType or for screen renders determine from render mode, for others from fileName extension -->
+                <parameter name="contentType"/>
+                <!-- use contentText or contentBytes for direct attachments (not a screen to render) -->
+                <parameter name="contentText" allow-html="any"/>
+                <parameter name="contentBytes" type="byte[]"/>
+                <!-- for more details on these see the matching field descriptions on EmailTemplateAttachment -->
+                <parameter name="screenPath"/>
                 <parameter name="screenRenderMode"/>
+                <parameter name="attachmentLocation"/>
             </parameter></parameter>
         </in-parameters>
         <out-parameters>

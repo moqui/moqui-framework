@@ -49,9 +49,9 @@ class ScheduledJobRunner implements Runnable {
     private final static Logger logger = LoggerFactory.getLogger(ScheduledJobRunner.class)
     private final ExecutionContextFactoryImpl ecfi
 
-    private final CronDefinition cronDefinition = CronDefinitionBuilder.instanceDefinitionFor(CronType.QUARTZ)
-    private final CronParser parser = new CronParser(cronDefinition)
-    private final Map<String, ExecutionTime> executionTimeByExpression = new HashMap<>()
+    private final static CronDefinition cronDefinition = CronDefinitionBuilder.instanceDefinitionFor(CronType.QUARTZ)
+    private final static CronParser parser = new CronParser(cronDefinition)
+    private final static Map<String, ExecutionTime> executionTimeByExpression = new HashMap<>()
     private long lastExecuteTime = 0
     private int executeCount = 0, totalJobsRun = 0, lastJobsActive = 0, lastJobsPaused = 0
 
@@ -230,7 +230,7 @@ class ScheduledJobRunner implements Runnable {
     }
 
     // ExecutionTime appears to be reusable, so cache by cronExpression
-    ExecutionTime getExecutionTime(String cronExpression) {
+    static ExecutionTime getExecutionTime(String cronExpression) {
         ExecutionTime cachedEt = executionTimeByExpression.get(cronExpression)
         if (cachedEt != null) return cachedEt
 
