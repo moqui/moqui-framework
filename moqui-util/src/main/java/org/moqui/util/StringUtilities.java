@@ -25,6 +25,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.security.SecureRandom;
 import java.text.ParseException;
@@ -156,6 +157,21 @@ public class StringUtilities {
             return false;
         }
         return true;
+    }
+
+    public static ArrayList<String> pathStringToList(String path, int skipSegments) {
+        ArrayList<String> pathList = new ArrayList<>();
+        if (path == null || path.isEmpty()) return pathList;
+        if (path.charAt(0) == '/') path = path.substring(1);
+        String[] pathArray = path.split("/");
+        for (int i = skipSegments; i < pathArray.length; i++) {
+            String pathSegment = pathArray[i];
+            if (pathSegment == null || pathSegment.isEmpty()) continue;
+            try { pathSegment = URLDecoder.decode(pathSegment, "UTF-8"); }
+            catch (Exception e) { if (logger.isTraceEnabled()) logger.trace("Error decoding screen path segment ${pathSegment}", e); }
+            pathList.add(pathSegment);
+        }
+        return pathList;
     }
 
     public static String camelCaseToPretty(String camelCase) {

@@ -18,6 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.activation.MimetypesFileTypeMap;
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Serializable;
@@ -70,6 +71,8 @@ public abstract class ResourceReference implements Serializable {
 
     /** Get the entries of a directory */
     public abstract List<ResourceReference> getDirectoryEntries();
+
+    public void putBytes(byte[] bytes) { putStream(new ByteArrayInputStream(bytes)); }
 
     public URI getUri() {
         try {
