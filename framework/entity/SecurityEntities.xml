@@ -313,6 +313,12 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="many" related="moqui.security.UserGroupPermission" short-alias="permissions">
             <key-map field-name="userGroupId"/></relationship>
     </entity>
+    <view-entity entity-name="UserGroupMemberUser" package="moqui.security">
+        <member-entity entity-alias="UGM" entity-name="moqui.security.UserGroupMember"/>
+        <member-relationship entity-alias="UAC" join-from-alias="UGM" relationship="user"/>
+        <alias-all entity-alias="UGM"/>
+        <alias-all entity-alias="UAC"/>
+    </view-entity>
     <view-entity entity-name="UserGroupAndMember" package="moqui.security">
         <member-entity entity-alias="UGM" entity-name="moqui.security.UserGroupMember"/>
         <member-relationship entity-alias="UG" join-from-alias="UGM" relationship="group"/>
