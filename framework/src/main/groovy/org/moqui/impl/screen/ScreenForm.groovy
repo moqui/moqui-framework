@@ -1664,6 +1664,8 @@ class ScreenForm {
         LinkedHashSet<String> getDisplayedFields() { return displayedFieldSet }
 
         Object getListObject(boolean aggregateList) {
+            ContextStack context = ecfi.getEci().contextStack
+
             Object listObject
             String listName = formInstance.formNode.attribute("list")
             Set<String> includeFields = new HashSet<>(displayedFieldSet)
@@ -1712,7 +1714,6 @@ class ScreenForm {
                 }
 
                 // put in context for external use
-                ContextStack context = ecfi.getEci().contextStack
                 context.put(listName, efList)
                 context.put(listName.concat("_xafind"), ef)
 
@@ -1758,7 +1759,16 @@ class ScreenForm {
 
             // NOTE: always call AggregationUtil.aggregateList, passing aggregateList to tell it to do sub-lists or not
             // this does the pre-processing for all form-list renders, handles row-actions, field.@from, etc
-            return formInstance.aggregationUtil.aggregateList(listObject, includeFields, aggregateList, ecfi.getEci())
+            ArrayList<Map<String, Object>> aggList = formInstance.aggregationUtil.aggregateList(listObject, includeFields, aggregateList, ecfi.getEci())
+
+            // set _formListRendered and _formListResultCount so code running later on knows what happened during the screen render
+            context.getSharedMap().put("_formListRendered", true)
+            int aggListSize = aggList.size()
+            Object curResultCount = context.getSharedMap().get("_formListResultCount")
+            if (curResultCount instanceof Number) aggListSize += ((Number) curResultCount).intValue()
+            context.getSharedMap().put("_formListResultCount", aggListSize)
+
+            return aggList
         }
 
         List<Map<String, Object>> getUserFormListFinds(ExecutionContextImpl ec) {
@@ -2186,15 +2196,16 @@ class ScreenForm {
 
         JsonSlurper slurper = new JsonSlurper()
         List<Map> columnsTree = (List<Map>) slurper.parseText(columnsTreeStr)
-
         CollectionUtilities.orderMapList(columnsTree, ['order'])
+
         int columnIndex = 0
-        for (Map columnMap in columnsTree) {
+        for (Map columnMap in (List<Map>) columnsTree) {
             if (columnMap.get("id") == "hidden") continue
             List<Map> children = (List<Map>) columnMap.get("children")
             CollectionUtilities.orderMapList(children, ['order'])
+
             int columnSequence = 0
-            for (Map fieldMap in children) {
+            for (Map fieldMap in (List<Map>) children) {
                 String fieldName = (String) fieldMap.get("id")
                 // logger.info("Adding field ${fieldName} to column ${columnIndex} at sequence ${columnSequence}")
                 ec.service.sync().name("create#moqui.screen.form.FormConfigField")

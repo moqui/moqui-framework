@@ -67,6 +67,10 @@ along with this software (see the LICENSE.md file). If not, see
         <parameters parameterName="emailServerId" parameterValue="SYSTEM"/>
     </moqui.service.job.ServiceJob>
 
+    <!-- Render ScheduledScreens -->
+    <moqui.service.job.ServiceJob jobName="render_ScheduledScreens_frequent" description="Render Scheduled Screens"
+            serviceName="org.moqui.impl.ScreenServices.render#ScheduledScreens" cronExpression="0 0/15 * * * ?" paused="N"/>
+
     <!-- Service Job: Index DataFeed Documents -->
     <moqui.security.user.NotificationTopic topic="IndexDataFeedDocuments" description="Index DataFeed Documents Completed"
             typeString="success" showAlert="Y" persistOnSend="Y" receiveNotifications="Y"
