@@ -43,7 +43,7 @@ along with this software (see the LICENSE.md file). If not, see
     <h2>${title}</h2>
 
     <#if curScreenUrl?has_content>
-        <a href="${curScreenUrl}">${curScreenUrl}</a>
+        <p><a href="${curScreenUrl}">${curScreenUrl}</a></p>
     </#if>
 
     <#list bodyParmKeys as parmName>
@@ -58,7 +58,7 @@ along with this software (see the LICENSE.md file). If not, see
 ${title}
 
 <#if curScreenUrl?has_content>
-    <a href="${curScreenUrl}">${curScreenUrl}</a>
+${curScreenUrl}
 
 </#if>
 <#list bodyParmKeys as parmName>
