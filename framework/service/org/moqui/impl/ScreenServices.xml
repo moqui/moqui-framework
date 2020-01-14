@@ -67,6 +67,7 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="emailTemplate" from="screenScheduled.emailTemplate"/>
             <set field="webappName" from="emailTemplate?.webappName ?: 'webroot'"/>
             <set field="webHostName" from="emailTemplate?.webHostName"/>
+            <if condition="!webHostName"><set field="webHostName" from="ec.factory.getWebappInfo(webappName)?.httpsHost"/></if>
 
             <!-- return here if validations fail -->
             <if condition="!screenPath"><log level="error" message="ScreenScheduled ${screenScheduledId} has no screenPath, not running"/><return/></if>
@@ -97,7 +98,7 @@ along with this software (see the LICENSE.md file). If not, see
                 emailSubject = ec.resource.expand(screenScheduled.emailSubject, null)
                 if (!emailSubject) emailSubject = "Scheduled Report ${lastPath} ${ec.l10n.format(ec.user.nowTimestamp, null)}"
 
-                bodyParameters = [pageNoLimit:'true', emailSubject:emailSubject, title:emailSubject]
+                bodyParameters = [pageNoLimit:'true', emailSubject:emailSubject, title:emailSubject, screenPath:screenPath, webHostName:webHostName]
                 ec.context.putAll(bodyParameters)
 
                 // handle formListFindId parameters (formListFindId already in context to set columns, etc)
@@ -111,7 +112,16 @@ along with this software (see the LICENSE.md file). If not, see
                 if (userAccount != null) ec.user.internalLoginUser(userAccount.username, false)
 
                 def screenRender = ec.screen.makeRender().webappName(webappName).rootScreenFromHost(webHostName ?: 'localhost')
-                        .screenPath(screenPath).renderMode(renderMode).lastStandalone("true")
+                        .screenPath(screenPath).renderMode(renderMode)
+                // TODO: consider config or something for protocol and port
+                if (webHostName) screenRender.baseLinkUrl("https://${webHostName}")
+                if (renderMode == "xsl-fo") {
+                    // TODO: consider making this configurable on ScreenScheduled or something
+                    layoutMaster = "letter-landscape"
+                } else {
+                    // xsl-fo needs the full render path for header/footer, others better just the last screen
+                    screenRender.lastStandalone("true")
+                }
 
                 if (ec.screen.isRenderModeText(renderMode)) {
                     String screenText = screenRender.render()
