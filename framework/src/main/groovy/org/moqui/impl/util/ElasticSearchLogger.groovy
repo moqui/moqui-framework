@@ -36,7 +36,7 @@ class ElasticSearchLogger {
 
     // TODO: make INDEX_NAME configurable somehow
     final static String INDEX_NAME = "moqui_logs"
-    // final static String DOC_TYPE = "LogMessage"
+    final static String DOC_TYPE = "LogMessage"
     final static int QUEUE_LIMIT = 16384
 
     private ElasticFacadeImpl.ElasticClientImpl elasticClient = null
@@ -51,8 +51,10 @@ class ElasticSearchLogger {
     ElasticSearchLogger(ElasticFacadeImpl.ElasticClientImpl elasticClient, ExecutionContextFactoryImpl ecfi) {
         this.elasticClient = elasticClient
         this.ecfi = ecfi
-        if (elasticClient.esVersionUnder7) {
-            logger.warn("ElasticClient ${elasticClient.clusterName} has version under 7.0, not starting ElasticSearchLogger")
+        if (ecfi.getToolFactory("ElasticSearchLogger") != null) {
+            // used to check: elasticClient.esVersionUnder7
+            // logger.warn("ElasticClient ${elasticClient.clusterName} has version under 7.0, not starting ElasticSearchLogger")
+            logger.warn("Found 'ElasticSearchLogger' ToolFactory from moqui-elasticsearch, not starting embedded ElasticSearchLogger")
         } else {
             init()
         }
@@ -61,7 +63,7 @@ class ElasticSearchLogger {
         // check for index exists, create with mapping for log doc if not
         try {
             boolean hasIndex = elasticClient.indexExists(INDEX_NAME)
-            if (!hasIndex) elasticClient.createIndex(INDEX_NAME, docMapping, (String) null)
+            if (!hasIndex) elasticClient.createIndex(INDEX_NAME, DOC_TYPE, docMapping, (String) null)
         } catch (Exception e) {
             logger.error("Error checking and creating ${INDEX_NAME} ES index, not starting ElasticSearchLogger", e)
             return
@@ -196,7 +198,7 @@ class ElasticSearchLogger {
                 try {
                     // long startTime = System.currentTimeMillis()
                     try {
-                        esLogger.elasticClient.bulkIndex(INDEX_NAME, null, createList)
+                        esLogger.elasticClient.bulkIndex(INDEX_NAME, DOC_TYPE, null, createList)
                     } catch (Exception e) {
                         System.out.println("Error logging to ElasticSearch: ${e.toString()}")
                     }
