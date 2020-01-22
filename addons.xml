@@ -79,11 +79,14 @@
     <component name="moqui-org" group="moqui" version="" branch="master"/><!-- no releases -->
 
     <!-- Third Party Components -->
-    <component name="moqui-zh_CN-addon" group="chunlinyao" version="" branch="master"/><!-- no releases -->
+    <component name="moqui-captcha" group="shendepu" version="" branch="master"/><!-- no releases -->
+    <component name="moqui-chile" group="Moitcl" version="" branch="master"/><!-- no releases -->
+    <component name="moqui-de_DE-addon" group="mckhoi" version="" branch="master"/><!-- no releases -->
     <component name="moqui-graphql" group="shendepu" version="" branch="master"/><!-- no releases -->
     <component name="moqui-react-ssr" group="shendepu" version="" branch="master"/><!-- no releases -->
-    <component name="moqui-captcha" group="shendepu" version="" branch="master"/><!-- no releases -->
+    <component name="moqui-zh_CN-addon" group="chunlinyao" version="" branch="master"/><!-- no releases -->
     <component name="OFBizToMantle" group="jonesde" version="" branch="master"/><!-- no releases -->
+    <component name="ServiceJobMonitor" group="tailorsoft" version="" branch="master"/><!-- no releases -->
 
     <!-- Component Sets -->
     <component-set name="framework" components="example,moqui-camel,moqui-elasticsearch,moqui-fop,moqui-hazelcast,moqui-kie,moqui-orientdb"/>
