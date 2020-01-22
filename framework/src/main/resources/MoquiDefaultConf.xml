@@ -430,7 +430,8 @@
         -->
         <datasource group-name="transactional#clone1" database-conf-name="${entity_ds_c1_db_conf}" schema-name="${entity_ds_c1_schema}"
                 runtime-add-missing="false" startup-add-missing="false" disabled="${entity_ds_c1_disabled}">
-            <inline-jdbc pool-maxsize="40" isolation-level="None">
+            <!-- NOTE: isolation-level="None" not supported (by Bitronix?), use most lenient instead: ReadUncommitted -->
+            <inline-jdbc pool-maxsize="40" isolation-level="ReadUncommitted">
                 <xa-properties serverName="${entity_ds_c1_host}" port="${entity_ds_c1_port?:'3306'}"
                         databaseName="${entity_ds_c1_database}" user="${entity_ds_c1_user}" password="${entity_ds_c1_password}"
                         pinGlobalTxToPhysicalConnection="true" autoReconnectForPools="true" useUnicode="true" encoding="UTF-8"/>
