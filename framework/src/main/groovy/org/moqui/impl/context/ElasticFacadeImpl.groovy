@@ -522,7 +522,7 @@ class ElasticFacadeImpl implements ElasticFacade {
                 curBulkDocs++
 
                 if (curBulkDocs >= docsPerBulk) {
-                    logger.info("Bulk index batch ${batchCount}, cur docs ${curBulkDocs} of ${docListSize}, last index ${esIndexName} (for index ${_index} type ${_type})")
+                    // logger.info("Bulk index batch ${batchCount}, cur docs ${curBulkDocs} of ${docListSize}, last index ${esIndexName} (for index ${_index} type ${_type})")
                     // logger.warn("last document: ${document}")
                     RestClient.RestResponse response = bulkResponse(null, actionSourceList)
                     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -545,7 +545,7 @@ class ElasticFacadeImpl implements ElasticFacade {
                 }
             }
             if (curBulkDocs > 0) {
-                logger.info("Bulk index last, cur docs ${curBulkDocs} of ${docListSize}, last index ${esIndexName} (for index ${_index} type ${_type})")
+                // logger.info("Bulk index last, cur docs ${curBulkDocs} of ${docListSize}, last index ${esIndexName} (for index ${_index} type ${_type})")
                 RestClient.RestResponse response = bulkResponse(null, actionSourceList)
                 checkResponse(response, "Bulk index", null)
 
