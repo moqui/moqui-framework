@@ -62,8 +62,8 @@ class ServiceEcaRule {
         if (secaNode.hasChild("actions")) {
             String actionsLocation = null
             String secaId = secaNode.attribute("id")
-            if (secaId != null && !secaId.isEmpty()) actionsLocation = secaId + "_" + StringUtilities.getRandomString(8)
-            actions = new XmlAction(ecfi, secaNode.first("actions"), null) // was location + ".actions" but no unique!
+            if (secaId != null && !secaId.isEmpty()) actionsLocation = "seca." + secaId + "." + StringUtilities.getRandomString(8) + ".actions"
+            actions = new XmlAction(ecfi, secaNode.first("actions"), actionsLocation)
         } else {
             actions = (XmlAction) null
         }
