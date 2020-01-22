@@ -113,6 +113,8 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one-nofk" title="ClientIpCountry" related="Geo">
             <key-map field-name="clientIpCountryGeoId" related="geoId"/></relationship>
         <!-- expensive for updates <index name="VisitThruIndex" unique="false"><index-field name="thruDate"/></index> -->
+        <index name="VISIT_USER_ACC"><index-field name="userId"/></index>
+        <index name="VISIT_VISITOR"><index-field name="visitorId"/></index>
     </entity>
     <view-entity entity-name="VisitUserSummary" package="moqui.server">
         <member-entity entity-alias="VST" entity-name="moqui.server.Visit"/>
