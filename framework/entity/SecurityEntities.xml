@@ -164,6 +164,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="description" type="text-medium"/>
         <field name="applyCond" type="text-medium">
             <description>Groovy boolean (if) expression, if specified checked before applying filters in the set</description></field>
+        <field name="allowMissingAlias" type="text-indicator">
+            <description>By default if a filterMap refers to a field not aliased in a view-entity there will be an error, set this to Y to do the query anyway</description></field>
         <relationship type="many" related="moqui.security.EntityFilter" short-alias="filters">
             <key-map field-name="entityFilterSetId"/></relationship>
     </entity>
