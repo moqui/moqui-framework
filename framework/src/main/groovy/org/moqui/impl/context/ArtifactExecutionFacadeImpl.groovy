@@ -14,6 +14,7 @@
 package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
+import org.moqui.entity.EntityException
 import org.moqui.impl.entity.EntityConditionFactoryImpl
 import org.moqui.impl.entity.condition.EntityConditionImplBase
 
@@ -531,11 +532,11 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
     }
 
     static class AuthzFilterInfo {
-        String entityFilterSetId
+        EntityValue entityFilterSet
         EntityValue entityFilter
         Map<String, ArrayList<MNode>> memberFieldAliases
-        AuthzFilterInfo(String entityFilterSetId, EntityValue entityFilter, Map<String, ArrayList<MNode>> memberFieldAliases) {
-            this.entityFilterSetId = entityFilterSetId
+        AuthzFilterInfo(EntityValue entityFilterSet, EntityValue entityFilter, Map<String, ArrayList<MNode>> memberFieldAliases) {
+            this.entityFilterSet = entityFilterSet
             this.entityFilter = entityFilter
             this.memberFieldAliases = memberFieldAliases
         }
@@ -647,7 +648,7 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
 
                 // if we got to this point we found a matching filter
                 if (authzFilterInfoList == (ArrayList<AuthzFilterInfo>) null) authzFilterInfoList = new ArrayList<>()
-                authzFilterInfoList.add(new AuthzFilterInfo(entityFilterSetId, entityFilter, memberFieldAliases))
+                authzFilterInfoList.add(new AuthzFilterInfo(entityFilterSet, entityFilter, memberFieldAliases))
             }
         }
 
@@ -699,7 +700,10 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                     // logger.info("Query on ${findEntityName} added authz filter conditions: ${entCond}")
                     // logger.info("Query on ${findEntityName} find: ${efb.toString()}")
                 } catch (Exception e) {
-                    logger.warn("Error adding authz entity filter ${entityFilter.getNoCheckSimple("entityFilterId")} condition: ${e.toString()}")
+                    String entityFilterId = (String) entityFilter.getNoCheckSimple("entityFilterId")
+                    logger.error("Error adding authz entity filter ${entityFilterId} condition: ${e.toString()}")
+                    if (!"Y".equals(authzFilterInfo.entityFilterSet.getNoCheckSimple("allowMissingAlias")))
+                        throw new ArtifactAuthorizationException("Could not apply data filter so not doing query", e)
                 }
             }
         } finally {
