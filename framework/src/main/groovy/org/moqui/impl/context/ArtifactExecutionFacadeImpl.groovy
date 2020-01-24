@@ -532,11 +532,13 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
     }
 
     static class AuthzFilterInfo {
+        String entityFilterSetId
         EntityValue entityFilterSet
         EntityValue entityFilter
         Map<String, ArrayList<MNode>> memberFieldAliases
         AuthzFilterInfo(EntityValue entityFilterSet, EntityValue entityFilter, Map<String, ArrayList<MNode>> memberFieldAliases) {
             this.entityFilterSet = entityFilterSet
+            entityFilterSetId = (String) entityFilterSet?.getNoCheckSimple("entityFilterSetId")
             this.entityFilter = entityFilter
             this.memberFieldAliases = memberFieldAliases
         }
