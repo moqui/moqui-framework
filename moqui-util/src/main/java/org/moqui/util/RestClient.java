@@ -297,14 +297,20 @@ public class RestClient {
             Request request = makeRequest(overrideRequestFactory != null ? overrideRequestFactory : getDefaultRequestFactory());
             // use a FutureResponseListener so we can set the timeout and max response size (old: response = request.send(); )
             FutureResponseListener listener = new FutureResponseListener(request, maxResponseSize);
-            request.send(listener);
-
-            ContentResponse response = listener.get(timeoutSeconds, TimeUnit.SECONDS);
-            return new RestResponse(this, response);
-        } catch (TimeoutException e) {
-            throw e;
+            try {
+                request.send(listener);
+                ContentResponse response = listener.get(timeoutSeconds, TimeUnit.SECONDS);
+                return new RestResponse(this, response);
+            } catch (TimeoutException e) {
+                logger.warn("RestClient request timed out after " + timeoutSeconds + "s to " + request.getURI());
+                // cancel listener, just in case
+                listener.cancel(true);
+                // abort request to make sure it gets closed and cleaned up
+                request.abort(e);
+                throw e;
+            }
         } catch (Exception e) {
-            throw new BaseException("Error calling REST request", e);
+            throw new BaseException("Error calling HTTP request", e);
         }
     }
 
