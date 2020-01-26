@@ -47,6 +47,8 @@ class ElasticFacadeImpl implements ElasticFacade {
 
     // Max HTTP Response Size for Search - this may need to be configurable, set very high for now (appears that Jetty only grows the buffer as needed for response content)
     public static int MAX_RESPONSE_SIZE_SEARCH = 100 * 1024 * 1024
+    // Request Timeout, another thing that could be configurable but can be specified via API, set to 50 to give plenty of time for TX/etc cleanup
+    public static int DEFAULT_REQUEST_TIMEOUT = 50
 
     public final static ObjectMapper jacksonMapper = new ObjectMapper()
             .setSerializationInclusion(JsonInclude.Include.ALWAYS)
@@ -411,6 +413,20 @@ class ElasticFacadeImpl implements ElasticFacade {
             Map resultMap = search(index, searchMap)
             return (List) ((Map) resultMap.hits).hits
         }
+        @Override
+        Map validateQuery(String index, Map queryMap, boolean explain) {
+            String path = index != null && !index.isEmpty() ? index + "/_validate/query" : "_validate/query"
+            String queryJson = objectToJson([query:queryMap])
+            RestClient.RestResponse response = makeRestClient(Method.GET, path, explain ? [explain:'true'] : null)
+                    .text(queryJson).call()
+            checkResponse(response, "Validate Query", index)
+            Map responseMap = (Map) jsonToObject(response.text())
+            // System.out.println("Validate Query Response: ${response.statusCode} ${response.reasonPhrase} Value? ${responseMap.get("valid") as boolean}\n${response.text()}")
+            // return null if valid
+            if (responseMap.get("valid")) return null
+            logger.warn("Invalid ElasticSearch query\n${queryJson}\nExplanations: ${responseMap.explanations}")
+            return responseMap
+        }
 
         @Override
         RestClient.RestResponse call(Method method, String path, Map<String, String> parameters, Object bodyJsonObject) {
@@ -426,7 +442,8 @@ class ElasticFacadeImpl implements ElasticFacade {
 
         @Override
         RestClient makeRestClient(Method method, String path, Map<String, String> parameters) {
-            RestClient restClient = new RestClient().withRequestFactory(requestFactory).method(method).contentType("application/json").timeout(60)
+            RestClient restClient = new RestClient().withRequestFactory(requestFactory).method(method)
+                    .contentType("application/json").timeout(DEFAULT_REQUEST_TIMEOUT)
             restClient.uri().protocol(clusterProtocol).host(clusterHost).port(clusterPort).path(path).parameters(parameters).build()
             // see https://www.elastic.co/guide/en/elasticsearch/reference/7.4/http-clients.html
             if (clusterUser) restClient.basicAuth(clusterUser, clusterPassword)
