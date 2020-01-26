@@ -77,6 +77,11 @@ public interface ElasticFacade {
         /** Search documents. Result is the list in 'hits.hits' from the plain object returned for convenience.
          * See https://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-body.html */
         List<Map> searchHits(String index, Map searchMap);
+        /** Validate a query Map.
+         * Returns null if valid otherwise returns Map from JSON response with 'valid' boolean and if explain is true also 'explanations' for more information.
+         * See https://www.elastic.co/guide/en/elasticsearch/reference/current/search-validate.html
+         * @param queryMap Map sent to ElasticSearch as the 'query' field (should not include 'query' entry, may include 'bool', 'query_string', etc) */
+        Map validateQuery(String index, Map queryMap, boolean explain);
 
         /** Basic REST endpoint synchronous call */
         RestClient.RestResponse call(RestClient.Method method, String path, Map<String, String> parameters, Object bodyJsonObject);

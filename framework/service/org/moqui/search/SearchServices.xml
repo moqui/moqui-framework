@@ -233,6 +233,17 @@ along with this software (see the LICENSE.md file). If not, see
             // if documentType use instead of indexName to get only specific indexes (split on comma, ddIdToEsIndex, join with comma)
             String index = indexName
             if (documentType) index = ((String) documentType).split(",").collect({ ElasticFacadeImpl.ddIdToEsIndex(it) }).join(",")
+
+            // validate the query
+            // TODO: consider pulling error message from ElasticSearch, but they are pretty ugly
+            Map validateRespMap = elasticClient.validateQuery(index, queryMap, false)
+            if (validateRespMap != null) {
+                ec.message.addMessage("Invalid search: ${queryString}", "danger")
+                documentListCount = 0
+                return
+            }
+
+            // do the search
             Map resultMap = elasticClient.search(index, searchMap)
             Map hitsMap = (Map) resultMap.hits
             List<Map> hitsList = (List<Map>) hitsMap.hits
