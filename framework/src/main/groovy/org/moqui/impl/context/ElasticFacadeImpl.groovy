@@ -45,6 +45,9 @@ import java.util.concurrent.Future
 class ElasticFacadeImpl implements ElasticFacade {
     protected final static Logger logger = LoggerFactory.getLogger(ElasticFacadeImpl.class)
 
+    // Max HTTP Response Size for Search - this may need to be configurable, set very high for now (appears that Jetty only grows the buffer as needed for response content)
+    public static int MAX_RESPONSE_SIZE_SEARCH = 100 * 1024 * 1024
+
     public final static ObjectMapper jacksonMapper = new ObjectMapper()
             .setSerializationInclusion(JsonInclude.Include.ALWAYS)
             .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
@@ -397,7 +400,7 @@ class ElasticFacadeImpl implements ElasticFacade {
         Map search(String index, Map searchMap) {
             String path = index != null && !index.isEmpty() ? index + "/_search" : "_search"
             // logger.warn("Search ${index}\n${objectToJson(searchMap)}")
-            RestClient.RestResponse response = makeRestClient(Method.GET, path, null)
+            RestClient.RestResponse response = makeRestClient(Method.GET, path, null).maxResponseSize(MAX_RESPONSE_SIZE_SEARCH)
                     .text(objectToJson(searchMap)).call()
             // System.out.println("Search Response: ${response.statusCode} ${response.reasonPhrase}\n${response.text()}")
             checkResponse(response, "Search", index)
