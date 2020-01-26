@@ -15,7 +15,7 @@
 // tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:unchecked" }
 tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:deprecation" }
 
-version = '3.0.0-rc1'
+version = '3.0.0-rc2'
 
 apply plugin: 'java'
 // to run gradle-versions-plugin use "gradle dependencyUpdates"
@@ -39,7 +39,10 @@ dependencyUpdates.resolutionStrategy = { componentSelection { rules -> rules.all
 
 // NOTE: packages should match group, name, version found at https://bintray.com/bintray/jcenter
 repositories {
-    jcenter() // http://jcenter.bintray.com
+    // only needed for jar files in framework/lib, ie not available from jcenter, mainly for testing unreleased jars
+    // flatDir name: 'localLib', dirs: projectDir.getParentFile().absolutePath + '/framework/lib'
+    // use jcenter as the primary mvn repo: http://jcenter.bintray.com
+    jcenter()
 }
 
 sourceCompatibility = '1.8'
