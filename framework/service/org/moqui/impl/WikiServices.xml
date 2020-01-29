@@ -242,9 +242,15 @@ along with this software (see the LICENSE.md file). If not, see
                 for (String parentPathName in parentPathList) {
                     if (!parentPathName) continue
                     String curPath = ""
-                    for (int i = 0; i <= listIndex; i++) { if (curPath) { curPath += "/" }; curPath += parentPathList[i] }
+                    String curPathEncoded  = ""
+                    for (int i = 0; i <= listIndex; i++) {
+                        if (curPath) curPath += "/"
+                        curPath += parentPathList[i]
+                        if (curPathEncoded) curPathEncoded += "/"
+                        curPathEncoded += urlEncodeIfNeeded(parentPathList[i])
+                    }
                     breadcrumbNameList.add(parentPathName)
-                    breadcrumbMapList.add([pageName:parentPathName, pagePath:curPath])
+                    breadcrumbMapList.add([pageName:parentPathName, pagePath:curPath, encodedPagePath:curPathEncoded])
                     listIndex++
                 }
             ]]></script>
