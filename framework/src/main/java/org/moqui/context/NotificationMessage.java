@@ -69,6 +69,8 @@ public interface NotificationMessage extends java.io.Serializable {
     NotificationMessage showAlert(boolean show);
     /** Show an alert for this notification? If not set and topic has a NotificationTopic record will default to value there */
     boolean isShowAlert();
+    NotificationMessage alertNoAutoHide(boolean noAutoHide);
+    boolean isAlertNoAutoHide();
 
     NotificationMessage emailTemplateId(String id);
     String getEmailTemplateId();
