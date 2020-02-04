@@ -89,9 +89,12 @@
     <component name="ServiceJobMonitor" group="tailorsoft" version="" branch="master"/><!-- no releases -->
 
     <!-- Component Sets -->
-    <component-set name="framework" components="example,moqui-camel,moqui-elasticsearch,moqui-fop,moqui-hazelcast,moqui-kie,moqui-orientdb"/>
-    <component-set name="mantle" components="mantle-udm,mantle-usl,mantle-edi,AuthorizeDotNet,mantle-shippo,SimpleScreens"/>
-    <component-set name="apps" components="HiveMind,PopCommerce"/>
+    <!-- NOTE: using these component sets is NOT recommended, with so many components doing
+        different things it is better to add and configure only the components you need;
+        some components change system behavior and may cause unexpected and undesired results -->
+    <component-set name="framework" components="example,moqui-aws,moqui-cups,moqui-fop,moqui-hazelcast,moqui-kie,moqui-orientdb,moqui-poi,moqui-sftp,moqui-wikitext"/>
+    <component-set name="mantle" components="mantle-udm,mantle-usl,AuthorizeDotNet,mantle-edi,mantle-paytrace,mantle-shippo,mantle-yotpo"/>
+    <component-set name="apps" components="HiveMind,PopCommerce,PopRestStore"/>
     <component-set name="ecosystem" sets="framework,mantle,apps"/>
 
     <component-set name="demo" components="example,HiveMind,PopCommerce,PopRestStore"/>
