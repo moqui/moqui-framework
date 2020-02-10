@@ -1490,7 +1490,7 @@ class ScreenRenderImpl implements ScreenRender {
         // find the entity value
         String keyFieldName = widgetNode.attribute("key-field-name")
         if (keyFieldName == null || keyFieldName.isEmpty()) keyFieldName = widgetNode.attribute("entity-key-name")
-        if (keyFieldName == null || keyFieldName.isEmpty()) keyFieldName = ed.getPkFieldNames().get(0)
+        if ((keyFieldName == null || keyFieldName.isEmpty()) && ed != null) keyFieldName = ed.getPkFieldNames().get(0)
         String useCache = widgetNode.attribute("use-cache") ?: widgetNode.attribute("entity-use-cache") ?: "true"
         EntityValue ev = ec.entity.find(entityName).condition(keyFieldName, fieldValue)
                 .useCache(useCache == "true").one()
