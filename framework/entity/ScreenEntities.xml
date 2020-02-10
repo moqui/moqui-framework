@@ -55,6 +55,12 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="lastRunTime" type="date-time"/>
         <relationship type="one" related="moqui.screen.ScreenScheduled"/>
     </entity>
+    <view-entity entity-name="ScreenScheduledAndFind" package="moqui.screen">
+        <member-entity entity-alias="SSCH" entity-name="moqui.screen.ScreenScheduled"/>
+        <member-relationship entity-alias="FLF" join-from-alias="SSCH" relationship="formListFind"/>
+        <alias-all entity-alias="SSCH"/>
+        <alias-all entity-alias="FLF"/>
+    </view-entity>
 
     <!-- ========== Subscreen ========== -->
     <entity entity-name="SubscreensItem" package="moqui.screen" use="configuration" cache="true">
