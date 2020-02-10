@@ -272,7 +272,7 @@ class ScreenRenderImpl implements ScreenRender {
 
     protected void internalRender() {
         // make sure this (sri) is in the context before running actions or rendering screens
-        ec.context.put("sri", this)
+        ec.contextStack.put("sri", this)
 
         long renderStartTime = System.currentTimeMillis()
 
@@ -281,6 +281,30 @@ class ScreenRenderImpl implements ScreenRender {
 
         if (logger.traceEnabled) logger.trace("Rendering screen ${rootScreenLocation} with path list ${originalScreenPathNameList}")
         // logger.info("Rendering screen [${rootScreenLocation}] with path list [${originalScreenPathNameList}]")
+
+        // if there is a formListFindId parameter see if any matching parameters are set otherwise set all configured params
+        // NOTE: needs to be done very early in screen rendering so that parameters are available for actions, etc
+        // NOTE: this should allow override of parameters along with a formListFindId while defaulting to configured ones,
+        //     but is far from ideal in detecting whether configured parms should be used
+        String formListFindId = ec.contextStack.getByString("formListFindId")
+        if (formListFindId != null && !formListFindId.isEmpty()) {
+            Map<String, String> flfParameters = ScreenForm.makeFormListFindParameters(formListFindId, ec)
+            boolean foundMatchingParm = false
+            for (String flfParmName in flfParameters.keySet()) {
+                if ("formListFindId".equals(flfParmName)) continue
+                Object parmValue = ec.contextStack.getByString(flfParmName)
+                if (!ObjectUtilities.isEmpty(parmValue)) {
+                    foundMatchingParm = true
+                    break
+                }
+            }
+            if (!foundMatchingParm) {
+                EntityValue formListFind = ec.entityFacade.fastFindOne("moqui.screen.form.FormListFind", true, true, formListFindId)
+                if (formListFind?.orderByField) ec.contextStack.put("orderByField", formListFind.orderByField)
+                ec.contextStack.putAll(flfParameters)
+                logger.warn("Found formListFindId and no matching parameters, orderByField [${formListFind?.orderByField}], added paramters: ${flfParameters}")
+            }
+        }
 
         WebFacade web = ec.getWeb()
         if ((lastStandalone == null || lastStandalone.isEmpty()) && web != null)

@@ -1946,7 +1946,7 @@ class ScreenForm {
 
     static Map<String, String> makeFormListFindParameters(String formListFindId, ExecutionContext ec) {
         EntityList flffList = ec.entity.find("moqui.screen.form.FormListFindField")
-                .condition("formListFindId", formListFindId).useCache(true).list()
+                .condition("formListFindId", formListFindId).useCache(true).disableAuthz().list()
 
         Map<String, String> parmMap = new LinkedHashMap<>()
         parmMap.put("formListFindId", formListFindId)
@@ -1976,7 +1976,7 @@ class ScreenForm {
     }
 
     static Map<String, Object> getFormListFindInfo(String formListFindId, ExecutionContextImpl ec, Set<String> userOnlyFlfIdSet) {
-        EntityValue formListFind = ec.entityFacade.fastFindOne("moqui.screen.form.FormListFind", true, false, formListFindId)
+        EntityValue formListFind = ec.entityFacade.fastFindOne("moqui.screen.form.FormListFind", true, true, formListFindId)
         Map<String, String> flfParameters = makeFormListFindParameters(formListFindId, ec)
         flfParameters.put("formListFindId", formListFindId)
         if (formListFind.orderByField) flfParameters.put("orderByField", (String) formListFind.orderByField)
