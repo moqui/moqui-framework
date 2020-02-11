@@ -158,7 +158,11 @@ along with this software (see the LICENSE.md file). If not, see
                     <set field="toAddressSet" from="new HashSet()"/>
                     <if condition="userAccount != null">
                         <if condition="userAccount?.emailAddress"><then>
-                            <script>toAddressSet.add(userAccount.emailAddress)</script>
+                            <if condition="userAccount.disabled != 'Y'"><then>
+                                <script>toAddressSet.add(userAccount.emailAddress)</script>
+                            </then><else>
+                                <log level="warn" message="User ${userAccount.username} [${userAccount.userId}] is disabled, not sending email for ScreenScheduled ${screenScheduledId}"/>
+                            </else></if>
                         </then><else>
                             <log level="warn" message="User ${userAccount.username} [${userAccount.userId}] has no emailAddress, tried to use in ScreenScheduled ${screenScheduledId}"/>
                         </else></if>
@@ -167,13 +171,17 @@ along with this software (see the LICENSE.md file). If not, see
                         <entity-find entity-name="moqui.security.UserGroupMemberUser" list="groupUserList">
                             <date-filter/>
                             <econdition field-name="userGroupId" from="screenScheduled.userGroupId"/>
-                            <select-field field-name="userId,emailAddress"/>
+                            <select-field field-name="userId,username,emailAddress,disabled"/>
                         </entity-find>
                         <iterate list="groupUserList" entry="groupUser">
                             <if condition="groupUser.emailAddress"><then>
-                                <script>toAddressSet.add(groupUser.emailAddress)</script>
+                                <if condition="groupUser.disabled != 'Y'"><then>
+                                    <script>toAddressSet.add(groupUser.emailAddress)</script>
+                                </then><else>
+                                    <log level="warn" message="User ${groupUser.username} [${groupUser.userId}] in group ${screenScheduled.userGroupId} is disabled, not sending email for ScreenScheduled ${screenScheduledId}"/>
+                                </else></if>
                             </then><else>
-                                <log level="warn" message="User ${groupUser.userId} in group ${screenScheduled.userGroupId} has no emailAddress, tried to use in ScreenScheduled ${screenScheduledId}"/>
+                                <log level="warn" message="User ${groupUser.username} [${groupUser.userId}] in group ${screenScheduled.userGroupId} has no emailAddress, tried to use in ScreenScheduled ${screenScheduledId}"/>
                             </else></if>
                         </iterate>
                     </if>
