@@ -978,8 +978,10 @@ class ScreenDefinition {
             ScreenUrlInfo fwdUrlInfo = ScreenUrlInfo.getScreenUrlInfo(sri, null, curFpnl, null, 0)
             ScreenUrlInfo.UrlInstance fwdInstance = fwdUrlInfo.getInstance(sri, null)
 
-            Map<String, Object> flfInfo = ScreenForm.getFormListFindInfo(formListFindId, sri.ec, null)
-            fwdInstance.addParameters((Map<String, String>) flfInfo.findParameters)
+            // use only formListFindId now that ScreenRenderImpl picks it up and auto adds configured parameters:
+            // Map<String, Object> flfInfo = ScreenForm.getFormListFindInfo(formListFindId, sri.ec, null)
+            // fwdInstance.addParameters((Map<String, String>) flfInfo.findParameters)
+            fwdInstance.addParameter("formListFindId", formListFindId)
 
             if (!sri.sendJsonRedirect(fwdInstance, null)) sri.response.sendRedirect(fwdInstance.getUrlWithParams())
             return noneResponse

@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.service
 
+import com.cronutils.descriptor.CronDescriptor
 import com.cronutils.model.Cron
 import com.cronutils.model.CronType
 import com.cronutils.model.definition.CronDefinition
@@ -51,7 +52,7 @@ class ScheduledJobRunner implements Runnable {
 
     private final static CronDefinition cronDefinition = CronDefinitionBuilder.instanceDefinitionFor(CronType.QUARTZ)
     private final static CronParser parser = new CronParser(cronDefinition)
-    private final static Map<String, ExecutionTime> executionTimeByExpression = new HashMap<>()
+    private final static Map<String, Cron> cronByExpression = new HashMap<>()
     private long lastExecuteTime = 0
     private int executeCount = 0, totalJobsRun = 0, lastJobsActive = 0, lastJobsPaused = 0
 
@@ -229,15 +230,29 @@ class ScheduledJobRunner implements Runnable {
         }
     }
 
-    // ExecutionTime appears to be reusable, so cache by cronExpression
-    static ExecutionTime getExecutionTime(String cronExpression) {
-        ExecutionTime cachedEt = executionTimeByExpression.get(cronExpression)
-        if (cachedEt != null) return cachedEt
+    static Cron getCron(String cronExpression) {
+        Cron cachedCron = cronByExpression.get(cronExpression)
+        if (cachedCron != null) return cachedCron
 
         Cron cron = parser.parse(cronExpression)
-        ExecutionTime executionTime = ExecutionTime.forCron(cron)
+        cronByExpression.put(cronExpression, cron)
 
-        executionTimeByExpression.put(cronExpression, executionTime)
-        return executionTime
+        return cron
+    }
+
+    static ExecutionTime getExecutionTime(String cronExpression) { return ExecutionTime.forCron(getCron(cronExpression)) }
+
+    static String getCronDescription(String cronExpression, Locale locale, boolean handleInvalid) {
+        if (cronExpression == null || cronExpression.isEmpty()) return null
+        if (locale == null) locale = Locale.US
+        try {
+            return CronDescriptor.instance(locale).describe(getCron(cronExpression))
+        } catch (Exception e) {
+            if (handleInvalid) {
+                return "Invalid cron '${cronExpression}': ${e.message}"
+            } else {
+                throw e
+            }
+        }
     }
 }

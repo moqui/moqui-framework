@@ -1653,6 +1653,7 @@ class ScreenForm {
         String getFormLocation() { return formInstance.screenForm.location }
 
         FormInstance getFormInstance() { return formInstance }
+        ScreenForm getScreenForm() { return screenForm }
         ArrayList<ArrayList<MNode>> getAllColInfo() { return allColInfo }
         ArrayList<ArrayList<MNode>> getMainColInfo() { return mainColInfo ?: allColInfo }
         ArrayList<ArrayList<MNode>> getSubColInfo() { return subColInfo }
@@ -1975,26 +1976,38 @@ class ScreenForm {
         return parmMap
     }
 
+    static EntityValue getFormListFindScreenScheduled(String formListFindId, ExecutionContextImpl ec) {
+        EntityList screenScheduledList = ec.entityFacade.find("moqui.screen.ScreenScheduled")
+                .condition("formListFindId", formListFindId).condition("userId", ec.userFacade.userId)
+                .orderBy("-screenScheduledId").useCache(true).disableAuthz().list()
+        if (screenScheduledList.size() == 0) {
+            Set<String> userGroupIdSet = ec.userFacade.getUserGroupIdSet()
+            screenScheduledList = ec.entityFacade.find("moqui.screen.ScreenScheduled")
+                    .condition("formListFindId", formListFindId).condition("userGroupId", "in", userGroupIdSet)
+                    .orderBy("-screenScheduledId").useCache(true).disableAuthz().list()
+        }
+
+        return screenScheduledList.getFirst()
+    }
+
     static Map<String, Object> getFormListFindInfo(String formListFindId, ExecutionContextImpl ec, Set<String> userOnlyFlfIdSet) {
         EntityValue formListFind = ec.entityFacade.fastFindOne("moqui.screen.form.FormListFind", true, true, formListFindId)
         Map<String, String> flfParameters = makeFormListFindParameters(formListFindId, ec)
         flfParameters.put("formListFindId", formListFindId)
         if (formListFind.orderByField) flfParameters.put("orderByField", (String) formListFind.orderByField)
         return [description:formListFind.description, formListFind:formListFind, findParameters:flfParameters,
-                isByUserId:userOnlyFlfIdSet?.contains(formListFindId) ? "true" : "false"]
+                isByUserId:(userOnlyFlfIdSet?.contains(formListFindId) ? "true" : "false")]
     }
 
     static String processFormSavedFind(ExecutionContextImpl ec) {
         String userId = ec.userFacade.userId
         ContextStack cs = ec.contextStack
 
-        String formListFindId = (String) cs.formListFindId
+        String formListFindId = (String) cs.getByString("formListFindId")
         EntityValue flf = formListFindId != null && !formListFindId.isEmpty() ? ec.entity.find("moqui.screen.form.FormListFind")
                 .condition("formListFindId", formListFindId).useCache(false).one() : null
 
-        boolean isDelete = cs.containsKey("DeleteFind")
-
-        if (isDelete) {
+        if (cs.containsKey("DeleteFind")) {
             if (flf == null) { ec.messageFacade.addError("Saved find with ID ${formListFindId} not found, not deleting"); return null }
 
             // delete FormListFindUser record; if there are no other FormListFindUser records or FormListFindUserGroup
@@ -2018,6 +2031,29 @@ class ScreenForm {
                 }
             }
             return null
+        }
+
+        if (cs.containsKey("ScheduleFind")) {
+            if (flf == null) { ec.messageFacade.addError("Saved find with ID ${formListFindId} not found, not scheduling"); return null }
+            if (!userId) { ec.messageFacade.addError("No user logged in, not scheduling saved find with ID ${formListFindId}"); return formListFindId }
+
+            String renderMode = (String) cs.getByString("renderMode") ?: "csv"
+            String screenPath = (String) cs.getByString("screenPath")
+            String cronSelected = (String) cs.getByString("cronSelected")
+
+            if (!screenPath) { ec.messageFacade.addError("Screen Path not specified, not scheduling saved find with ID ${formListFindId}"); return formListFindId }
+            if (!cronSelected) { ec.messageFacade.addError("Cron Schedule not specified, not scheduling saved find with ID ${formListFindId}"); return formListFindId }
+
+            String emailSubject = flf.getString("description") + ' ${ec.l10n.format(ec.user.nowTimestamp, null)}'
+
+            Map<String, Object> screenScheduledMap = [screenPath:screenPath, formListFindId:formListFindId, renderMode:renderMode,
+                    noResultsAbort:"Y", cronExpression:cronSelected, emailTemplateId:"SCREEN_RENDER", emailSubject:emailSubject,
+                    userId:userId] as Map<String, Object>
+            ec.serviceFacade.sync().name("create#moqui.screen.ScreenScheduled").parameters(screenScheduledMap).disableAuthz().call()
+
+            ec.messageFacade.addMessage("Saved find scheduled to send by email")
+
+            return formListFindId
         }
 
         String formLocation = cs.formLocation
