@@ -44,8 +44,10 @@ import javax.cache.Cache
 import javax.sql.DataSource
 import javax.sql.XAConnection
 import javax.sql.XADataSource
+import java.math.RoundingMode
 import java.sql.*
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ThreadLocalRandom
 import java.util.concurrent.locks.Lock
 import java.util.concurrent.locks.ReentrantLock
 
@@ -207,7 +209,14 @@ class EntityFacadeImpl implements EntityFacade {
         boolean defaultStartAddMissing = startupAddMissingGroups.contains(getEntityFacadeNode().attribute("default-group-name"))
         if (startupAddMissingGroups.size() > 0) {
             logger.info("Checking tables for entities in groups ${startupAddMissingGroups}")
+
+            // check and create all tables
             boolean createdTables = false
+            for (String groupName in startupAddMissingGroups) {
+                EntityDatasourceFactory edf = getDatasourceFactory(groupName)
+                edf.checkAndAddAllTables()
+            }
+            /* old one at a time approach:
             for (String entityName in getAllEntityNames()) {
                 String groupName = getEntityGroupName(entityName) ?: defaultGroupName
                 if (startupAddMissingGroups.contains(groupName) ||
@@ -233,6 +242,8 @@ class EntityFacadeImpl implements EntityFacade {
                     }
                 }
             }
+            */
+
             logger.info("Checked tables for all entities in ${(System.currentTimeMillis() - currentTime)/1000} seconds")
         }
     }
@@ -241,6 +252,12 @@ class EntityFacadeImpl implements EntityFacade {
         for (MNode datasourceNode in getEntityFacadeNode().children("datasource")) {
             datasourceNode.setSystemExpandAttributes(true)
             String groupName = datasourceNode.attribute("group-name")
+
+            if ("true".equals(datasourceNode.attribute("disabled"))) {
+                logger.info("Skipping disabled datasource ${groupName}")
+                continue
+            }
+
             String objectFactoryClass = datasourceNode.attribute("object-factory") ?: "org.moqui.impl.entity.EntityDatasourceFactoryImpl"
             EntityDatasourceFactory edf = (EntityDatasourceFactory) Thread.currentThread().getContextClassLoader().loadClass(objectFactoryClass).newInstance()
             datasourceFactoryByGroupMap.put(groupName, edf.init(this, datasourceNode))
@@ -1306,6 +1323,24 @@ class EntityFacadeImpl implements EntityFacade {
         }
         return dsiList
     }
+    String getDatasourceCloneName(String groupName) {
+        String baseGroupName = groupName == null || groupName.isEmpty() ? defaultGroupName : groupName
+        String groupPrefix = baseGroupName.concat('#')
+
+        ArrayList<String> cloneGroupNames = new ArrayList<>(5)
+        for (String curGroup in datasourceFactoryByGroupMap.keySet())
+            if (curGroup.startsWith(groupPrefix)) cloneGroupNames.add(curGroup)
+
+        int cloneNamesSize = cloneGroupNames.size()
+        if (cloneNamesSize == 0) {
+            return baseGroupName
+        } else if (cloneNamesSize == 1) {
+            // logger.warn("Using DB clone ${cloneGroupNames.get(0)} instead of ${groupName}")
+            return cloneGroupNames.get(0)
+        } else {
+            return cloneGroupNames.get(ThreadLocalRandom.current().nextInt(cloneNamesSize))
+        }
+    }
 
     @Override EntityConditionFactory getConditionFactory() { return this.entityConditionFactory }
     EntityConditionFactoryImpl getConditionFactoryImpl() { return this.entityConditionFactory }
@@ -1352,6 +1387,8 @@ class EntityFacadeImpl implements EntityFacade {
         if (forUpdate != null && !forUpdate.isEmpty()) ef.forUpdate("true".equals(forUpdate))
         String distinct = node.attribute("distinct")
         if (distinct != null && !distinct.isEmpty()) ef.distinct("true".equals(distinct))
+        String useClone = node.attribute("use-clone")
+        if (useClone != null && !useClone.isEmpty()) ef.useClone("true".equals(useClone))
         String offset = node.attribute("offset")
         if (offset != null && !offset.isEmpty()) ef.offset(Integer.valueOf(offset))
         String limit = node.attribute("limit")
@@ -1366,9 +1403,13 @@ class EntityFacadeImpl implements EntityFacade {
 
         if (node.hasChild("search-form-inputs")) {
             MNode sfiNode = node.first("search-form-inputs")
+            String requireParameters = ecfi.resourceFacade.expand(sfiNode.attribute("require-parameters"), null)
+            if ("true".equals(requireParameters)) ef.requireSearchFormParameters(true)
+
             boolean paginate = !"false".equals(sfiNode.attribute("paginate"))
             MNode defaultParametersNode = sfiNode.first("default-parameters")
             String inputFieldsMapName = sfiNode.attribute("input-fields-map")
+
             Map<String, Object> inf = inputFieldsMapName ? (Map<String, Object>) ecfi.resourceFacade.expression(inputFieldsMapName, "") : ecfi.getEci().context
             ef.searchFormMap(inf, defaultParametersNode?.attributes as Map<String, Object>, sfiNode.attribute("skip-fields"), sfiNode.attribute("default-order-by"), paginate)
         }
@@ -1387,6 +1428,7 @@ class EntityFacadeImpl implements EntityFacade {
 
     /** Simple, fast find by primary key; doesn't filter find based on authz; doesn't use TransactionCache
      * For cached queries this is about 50% faster (6M/s vs 4M/s) for non-cached queries only about 10% faster (500K vs 450K) */
+    @Override
     EntityValue fastFindOne(String entityName, Boolean useCache, boolean disableAuthz, Object... values) {
         ExecutionContextImpl ec = ecfi.getEci()
         ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
@@ -1618,7 +1660,7 @@ class EntityFacadeImpl implements EntityFacade {
         if (operation == 'find') {
             if (lastEd.containsPrimaryKey(parameters)) {
                 // if we have a full PK lookup by PK and return the single value
-                Map pkValues = [:]
+                Map<String, Object> pkValues = [:]
                 lastEd.entityInfo.setFields(parameters, pkValues, false, null, true)
 
                 if (masterName != null && masterName.length() > 0) {
@@ -1641,7 +1683,7 @@ class EntityFacadeImpl implements EntityFacade {
                 long count = ef.count()
                 long pageIndex = ef.getPageIndex()
                 long pageSize = ef.getPageSize()
-                long pageMaxIndex = ((count - 1) as BigDecimal).divide(pageSize as BigDecimal, 0, BigDecimal.ROUND_DOWN).longValue()
+                long pageMaxIndex = ((count - 1) as BigDecimal).divide(pageSize as BigDecimal, 0, RoundingMode.DOWN).longValue()
                 long pageRangeLow = pageIndex * pageSize + 1
                 long pageRangeHigh = (pageIndex * pageSize) + pageSize
                 if (pageRangeHigh > count) pageRangeHigh = count
@@ -1938,23 +1980,26 @@ class EntityFacadeImpl implements EntityFacade {
         return entityGroupName
     }
 
-    @Override
-    Connection getConnection(String groupName) {
+    @Override Connection getConnection(String groupName) { return getConnection(groupName, false) }
+    @Override Connection getConnection(String groupName, boolean useClone) {
         TransactionFacadeImpl tfi = ecfi.transactionFacade
         if (!tfi.isTransactionOperable()) throw new EntityException("Cannot get connection, transaction not in operable status (${tfi.getStatusString()})")
-        Connection stashed = tfi.getTxConnection(groupName)
+
+        String groupToUse = useClone ? getDatasourceCloneName(groupName) : groupName
+
+        Connection stashed = tfi.getTxConnection(groupToUse)
         if (stashed != null) return stashed
 
-        EntityDatasourceFactory edf = getDatasourceFactory(groupName)
+        EntityDatasourceFactory edf = getDatasourceFactory(groupToUse)
         DataSource ds = edf.getDataSource()
-        if (ds == null) throw new EntityException("Cannot get JDBC Connection for group-name [${groupName}] because it has no DataSource")
+        if (ds == null) throw new EntityException("Cannot get JDBC Connection for group-name [${groupToUse}] because it has no DataSource")
         Connection newCon
         if (ds instanceof XADataSource) {
             newCon = tfi.enlistConnection(((XADataSource) ds).getXAConnection())
         } else {
             newCon = ds.getConnection()
         }
-        if (newCon != null) newCon = tfi.stashTxConnection(groupName, newCon)
+        if (newCon != null) newCon = tfi.stashTxConnection(groupToUse, newCon)
         return newCon
     }
 

@@ -14,6 +14,7 @@
 package org.moqui.impl.entity;
 
 import org.moqui.BaseArtifactException;
+import org.moqui.entity.EntityCondition;
 import org.moqui.entity.EntityException;
 import org.moqui.impl.entity.condition.EntityConditionImplBase;
 import org.moqui.impl.entity.EntityJavaUtil.FieldOrderOptions;
@@ -242,7 +243,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
                     if (!joinedAliasSet.contains(joinFromAlias)) {
                         logger.error("For view-entity [" + localEntityDefinition.fullEntityName +
                                 "] found member-entity with @join-from-alias [" + joinFromAlias +
-                                "] that isn\'t in the joinedAliasSet: " + joinedAliasSet + "; view-entity Node: " + entityNode);
+                                "] that is not in the joinedAliasSet: " + joinedAliasSet + "; view-entity Node: " + entityNode);
                         throw new EntityException("Tried to link the " + entityAlias + " alias to the " + joinFromAlias +
                                 " alias of the " + localEntityDefinition.fullEntityName +
                                 " view-entity, but it is not the first member-entity and has not been joined to a previous member-entity. In other words, the left/main alias isn't connected to the rest of the member-entities yet.");
@@ -251,68 +252,38 @@ public class EntityFindBuilder extends EntityQueryBuilder {
                 // now put the rel (right) entity alias into the set that is in the join
                 joinedAliasSet.add(entityAlias);
 
+                String fromLateralStyle = "none";
+                String subSelectAttr = relatedMemberEntityNode.attribute("sub-select");
+                boolean subSelect = "true".equals(subSelectAttr) || "non-lateral".equals(subSelectAttr);
+                if ("true".equals(subSelectAttr)) {
+                    fromLateralStyle = databaseNode.attribute("from-lateral-style");
+                    if (fromLateralStyle == null || fromLateralStyle.isEmpty()) fromLateralStyle = "none";
+                }
+                boolean isLateralStyle = "lateral".equals(fromLateralStyle);
+                boolean isApplyStyle = "apply".equals(fromLateralStyle);
+                if (isApplyStyle) logger.warn("from-lateral-style=apply not yet supported, using non-lateral join for sub-select in " + localEntityDefinition.getFullEntityName());
+
+                // TODO: for isApplyStyle need to use CROSS APPLY or OUTER APPLY for join-optional=true INSTEAD of [INNER|OUTER LEFT] JOIN in calling code
                 if ("true".equals(relatedMemberEntityNode.attribute("join-optional"))) {
                     localBuilder.append(" LEFT OUTER JOIN ");
                 } else {
                     localBuilder.append(" INNER JOIN ");
                 }
 
-                boolean subSelect = "true".equals(relatedMemberEntityNode.attribute("sub-select"));
                 if (subSelect) {
-                    makeSqlMemberSubSelect(entityAlias, relatedMemberEntityNode, relatedLinkEntityDefinition, localBuilder);
+                    makeSqlMemberSubSelect(entityAlias, relatedMemberEntityNode, relatedLinkEntityDefinition, linkEntityDefinition, localBuilder);
                 } else {
                     outWhereCondition = makeSqlViewTableName(relatedLinkEntityDefinition, localBuilder, outWhereCondition, localHavingCondition);
                 }
-                localBuilder.append(" ").append(entityAlias).append(" ON ");
+                localBuilder.append(" ").append(entityAlias);
 
-                ArrayList<MNode> keyMaps = relatedMemberEntityNode.children("key-map");
-                ArrayList<MNode> entityConditionList = relatedMemberEntityNode.children("entity-condition");
-                if ((keyMaps == null || keyMaps.size() == 0) && (entityConditionList == null || entityConditionList.size() == 0)) {
-                    throw new EntityException("No member-entity/join key-maps found for the " + joinFromAlias +
-                            " and the " + entityAlias + " member-entities of the " + localEntityDefinition.fullEntityName + " view-entity.");
-                }
-
-                int keyMapsSize = keyMaps != null ? keyMaps.size() : 0;
-                for (int i = 0; i < keyMapsSize; i++) {
-                    MNode keyMap = keyMaps.get(i);
-                    if (i > 0) localBuilder.append(" AND ");
-
-                    localBuilder.append(joinFromAlias).append(".");
-                    // NOTE: sanitizeColumnName caused issues elsewhere, eliminate here too since we're not using AS clauses
-                    localBuilder.append(linkEntityDefinition.getColumnName(keyMap.attribute("field-name")));
-                    // localBuilder.append(sanitizeColumnName(linkEntityDefinition.getColumnName(keyMap.attribute("field-name"), false)))
-
-                    localBuilder.append(" = ");
-
-                    final String relatedAttr = keyMap.attribute("related");
-                    String relatedFieldName = relatedAttr != null && !relatedAttr.isEmpty() ? relatedAttr : keyMap.attribute("related-field-name");
-                    if (relatedFieldName == null || relatedFieldName.length() == 0)
-                        relatedFieldName = keyMap.attribute("field-name");
-                    if (!relatedLinkEntityDefinition.isField(relatedFieldName) &&
-                            relatedLinkEntityDefinition.getPkFieldNames().size() == 1 && keyMaps.size() == 1) {
-                        relatedFieldName = relatedLinkEntityDefinition.getPkFieldNames().get(0);
-                        // if we don't match these constraints and get this default we'll get an error later...
-                    }
-
-                    localBuilder.append(entityAlias);
-                    localBuilder.append(".");
-                    FieldInfo relatedFieldInfo = relatedLinkEntityDefinition.getFieldInfo(relatedFieldName);
-                    if (relatedFieldInfo == null) throw new EntityException("Invalid field name " + relatedFieldName + " for entity " + relatedLinkEntityDefinition.fullEntityName);
-                    if (subSelect) {
-                        localBuilder.append(EntityJavaUtil.camelCaseToUnderscored(relatedFieldInfo.name));
-                    } else {
-                        localBuilder.append(relatedFieldInfo.getFullColumnName());
-                    }
-                    // NOTE: sanitizeColumnName here breaks the generated SQL, in the case of a view within a view we want EAO.EAI.COL_NAME...
-                    // localBuilder.append(sanitizeColumnName(relatedLinkEntityDefinition.getColumnName(relatedFieldName, false)))
-                }
-
-                if (entityConditionList != null && entityConditionList.size() > 0) {
-                    // add any additional manual conditions for the member-entity view link here
-                    MNode entityCondition = entityConditionList.get(0);
-                    EntityConditionImplBase linkEcib = localEntityDefinition.makeViewListCondition(entityCondition);
-                    if (keyMapsSize > 0) localBuilder.append(" AND ");
-                    linkEcib.makeSqlWhere(this, null);
+                // TODO: for isApplyStyle skip ON clause completely
+                localBuilder.append(" ON ");
+                if (isLateralStyle) {
+                    localBuilder.append("1=1");
+                } else {
+                    appendJoinConditions(relatedMemberEntityNode, entityAlias, localEntityDefinition, linkEntityDefinition,
+                            relatedLinkEntityDefinition, localBuilder);
                 }
 
                 isFirst = false;
@@ -330,9 +301,10 @@ public class EntityFindBuilder extends EntityQueryBuilder {
                 if (joinedAliasSet.contains(memberEntityAlias)) continue;
 
                 EntityDefinition fromEntityDefinition = efi.getEntityDefinition(memberEntity.attribute("entity-name"));
-                if (fromEmpty) { fromEmpty = false; } else  { localBuilder.append(", "); }
-                if ("true".equals(memberEntity.attribute("sub-select"))) {
-                    makeSqlMemberSubSelect(memberEntityAlias, memberEntity, fromEntityDefinition, localBuilder);
+                if (fromEmpty) { fromEmpty = false; } else { localBuilder.append(", "); }
+                String subSelectAttr = memberEntity.attribute("sub-select");
+                if ("true".equals(subSelectAttr) || "non-lateral".equals(subSelectAttr)) {
+                    makeSqlMemberSubSelect(memberEntityAlias, memberEntity, fromEntityDefinition, null, localBuilder);
                 } else {
                     outWhereCondition = makeSqlViewTableName(fromEntityDefinition, localBuilder, outWhereCondition, localHavingCondition);
                 }
@@ -347,6 +319,83 @@ public class EntityFindBuilder extends EntityQueryBuilder {
         }
 
         return outWhereCondition;
+    }
+
+    public void appendJoinConditions(MNode relatedMemberEntityNode, String entityAlias, EntityDefinition localEntityDefinition,
+            EntityDefinition linkEntityDefinition, EntityDefinition relatedLinkEntityDefinition, StringBuilder localBuilder) {
+        final String joinFromAlias = relatedMemberEntityNode.attribute("join-from-alias");
+
+        String subSelectAttr = relatedMemberEntityNode.attribute("sub-select");
+        boolean subSelect = "true".equals(subSelectAttr) || "non-lateral".equals(subSelectAttr);
+
+        ArrayList<MNode> keyMaps = relatedMemberEntityNode.children("key-map");
+        ArrayList<MNode> entityConditionList = relatedMemberEntityNode.children("entity-condition");
+        if ((keyMaps == null || keyMaps.size() == 0) && (entityConditionList == null || entityConditionList.size() == 0)) {
+            throw new EntityException("No member-entity/join key-maps found for the " + joinFromAlias +
+                    " and the " + entityAlias + " member-entities of the " + localEntityDefinition.fullEntityName + " view-entity.");
+        }
+
+        int keyMapsSize = keyMaps != null ? keyMaps.size() : 0;
+        for (int i = 0; i < keyMapsSize; i++) {
+            MNode keyMap = keyMaps.get(i);
+            String joinFromField = keyMap.attribute("field-name");
+            if (i > 0) localBuilder.append(" AND ");
+
+            ArrayList<MNode> aliasNodes = localEntityDefinition.getEntityNode().children("alias");
+            MNode outerAliasNode = null;
+            for (int ai = 0; ai < aliasNodes.size(); ai++) {
+                MNode curAliasNode = aliasNodes.get(ai);
+                if (joinFromAlias.equals(curAliasNode.attribute("entity-alias"))) {
+                    // must match field name
+                    String curFieldName = curAliasNode.attribute("field");
+                    if (curFieldName == null || curFieldName.isEmpty()) curFieldName = curAliasNode.attribute("name");
+                    // must not have a function (not valid in JOIN ON clause)
+                    String curFunction = curAliasNode.attribute("function");
+                    if (joinFromField.equals(curFieldName) && (curFunction == null || curFunction.isEmpty())) {
+                        outerAliasNode = curAliasNode;
+                        break;
+                    }
+                }
+            }
+            if (outerAliasNode != null) {
+                localBuilder.append(localEntityDefinition.getColumnName(outerAliasNode.attribute("name")));
+            } else {
+                localBuilder.append(joinFromAlias).append(".");
+                localBuilder.append(linkEntityDefinition.getColumnName(joinFromField));
+            }
+
+            localBuilder.append(" = ");
+
+            final String relatedAttr = keyMap.attribute("related");
+            String relatedFieldName = relatedAttr != null && !relatedAttr.isEmpty() ? relatedAttr : keyMap.attribute("related-field-name");
+            if (relatedFieldName == null || relatedFieldName.length() == 0)
+                relatedFieldName = keyMap.attribute("field-name");
+            if (!relatedLinkEntityDefinition.isField(relatedFieldName) &&
+                    relatedLinkEntityDefinition.getPkFieldNames().size() == 1 && keyMaps.size() == 1) {
+                relatedFieldName = relatedLinkEntityDefinition.getPkFieldNames().get(0);
+                // if we don't match these constraints and get this default we'll get an error later...
+            }
+
+            if (entityAlias != null && !entityAlias.isEmpty()) localBuilder.append(entityAlias).append(".");
+            FieldInfo relatedFieldInfo = relatedLinkEntityDefinition.getFieldInfo(relatedFieldName);
+            if (relatedFieldInfo == null) throw new EntityException("Invalid field name " + relatedFieldName + " for entity " + relatedLinkEntityDefinition.fullEntityName);
+            if (subSelect && entityAlias != null && !entityAlias.isEmpty()) {
+                localBuilder.append(EntityJavaUtil.camelCaseToUnderscored(relatedFieldInfo.name));
+            } else {
+                localBuilder.append(relatedFieldInfo.getFullColumnName());
+            }
+            // NOTE: sanitizeColumnName here breaks the generated SQL, in the case of a view within a view we want EAO.EAI.COL_NAME...
+            // localBuilder.append(sanitizeColumnName(relatedLinkEntityDefinition.getColumnName(relatedFieldName, false)))
+        }
+
+        if (entityConditionList != null && entityConditionList.size() > 0) {
+            // add any additional manual conditions for the member-entity view link here
+            MNode entityCondition = entityConditionList.get(0);
+            EntityConditionImplBase linkEcib = localEntityDefinition.makeViewListCondition(entityCondition);
+            if (keyMapsSize > 0) localBuilder.append(" AND ");
+            // TODO: is this correct? what does it append to? not localBuilder?
+            linkEcib.makeSqlWhere(this, null);
+        }
     }
 
     public EntityConditionImplBase makeSqlViewTableName(EntityDefinition localEntityDefinition, StringBuilder localBuilder,
@@ -410,7 +459,17 @@ public class EntityFindBuilder extends EntityQueryBuilder {
     }
 
     public void makeSqlMemberSubSelect(String entityAlias, MNode memberEntity, EntityDefinition localEntityDefinition,
-                                       StringBuilder localBuilder) {
+                                       EntityDefinition linkEntityDefinition, StringBuilder localBuilder) {
+        String fromLateralStyle = "none";
+        if ("true".equals(memberEntity.attribute("sub-select"))) {
+            final MNode databaseNode = efi.getDatabaseNode(localEntityDefinition.getEntityGroupName());
+            fromLateralStyle = databaseNode.attribute("from-lateral-style");
+            if (fromLateralStyle == null || fromLateralStyle.isEmpty()) fromLateralStyle = "none";
+        }
+        boolean isLateralStyle = "lateral".equals(fromLateralStyle);
+        boolean isApplyStyle = "apply".equals(fromLateralStyle);
+
+        if (isLateralStyle) localBuilder.append(" LATERAL ");
         localBuilder.append("(SELECT ");
 
         // add any fields needed to join this to another member-entity, even if not in the main set of selected fields
@@ -431,6 +490,13 @@ public class EntityFindBuilder extends EntityQueryBuilder {
                 if (entityAlias.equals(econd.attribute("entity-alias"))) joinFields.add(econd.attribute("field-name"));
                 if (entityAlias.equals(econd.attribute("to-entity-alias"))) joinFields.add(econd.attribute("to-field-name"));
             }
+        }
+
+        EntityConditionImplBase viewCondition = null;
+        ArrayList<MNode> viewEntityConditionList = localEntityDefinition.getEntityNode().children("entity-condition");
+        if (viewEntityConditionList != null && viewEntityConditionList.size() > 0) {
+            MNode entCondNode = viewEntityConditionList.get(0);
+            viewCondition = localEntityDefinition.makeViewListCondition(entCondNode);
         }
 
         // additional fields to consider when trimming the member-entities to join
@@ -530,19 +596,26 @@ public class EntityFindBuilder extends EntityQueryBuilder {
                 }
             }
         }
+
         // do the actual add of join field columns to select and group by
-        for (String joinField : joinFields) {
-            if (hasSelected) { localBuilder.append(", "); } else { hasSelected = true; }
-            String asName = EntityJavaUtil.camelCaseToUnderscored(joinField);
-            String colName = localEntityDefinition.getColumnName(joinField);
-            localBuilder.append(colName).append(" AS ").append(asName);
-            if (gbClause.length() > 0) gbClause.append(", ");
-            gbClause.append(colName);
-            if (localEntityDefinition.isViewEntity) additionalFieldsUsed.add(joinField);
+        // TODO: for isApplyStyle also don't do this
+        if (!isLateralStyle) {
+            for (String joinField : joinFields) {
+                if (hasSelected) { localBuilder.append(", "); } else { hasSelected = true; }
+                String asName = EntityJavaUtil.camelCaseToUnderscored(joinField);
+                String colName = localEntityDefinition.getColumnName(joinField);
+                localBuilder.append(colName).append(" AS ").append(asName);
+
+                if (gbClause.length() > 0) gbClause.append(", ");
+                gbClause.append(colName);
+
+                if (localEntityDefinition.isViewEntity) additionalFieldsUsed.add(joinField);
+            }
         }
 
         // where condition to use for FROM clause (field filtering) and for sub-select WHERE clause
         EntityConditionImplBase condition = whereCondition != null ? whereCondition.filter(entityAlias, mainEntityDefinition) : null;
+        condition = EntityConditionFactoryImpl.makeConditionImpl(condition, EntityCondition.AND, viewCondition);
 
         // logger.warn("makeSqlMemberSubSelect SQL so far " + localBuilder.toString());
         // logger.warn("Calling makeSqlFromClause for " + entityAlias + ":" + localEntityDefinition.getEntityName() + " condition " + condition);
@@ -550,8 +623,17 @@ public class EntityFindBuilder extends EntityQueryBuilder {
         condition = makeSqlFromClause(localEntityDefinition, localBuilder, condition, null, additionalFieldsUsed);
 
         // add where clause, just for conditions on aliased fields on this entity-alias
+        // TODO: for isApplyStyle also do this
+        if (condition != null || isLateralStyle) localBuilder.append(" WHERE ");
+        // TODO: for isApplyStyle also do this
+        if (isLateralStyle) {
+            // TODO how to get this... is per field on inner/local view entity? probably should be otherwise all fields that join to outer view must be on first member-entity
+            String joinToIeThisAlias = localEntityDefinition.isViewEntity ? null : localEntityDefinition.getTableName();
+            appendJoinConditions(memberEntity, joinToIeThisAlias, localEntityDefinition, linkEntityDefinition, localEntityDefinition, localBuilder);
+            if (condition != null) localBuilder.append(" AND ");
+        }
         if (condition != null) {
-            localBuilder.append(" WHERE ");
+            // TODO: does this need to use localBuilder?
             condition.makeSqlWhere(this, localEntityDefinition);
         }
 
@@ -585,10 +667,13 @@ public class EntityFindBuilder extends EntityQueryBuilder {
                 FieldInfo fi = fieldInfoArray[j];
                 if (fi == null) continue;
                 boolean doGroupBy = !fi.hasAggregateFunction;
-                if (!doGroupBy && fi.memberEntityNode != null && "true".equals(fi.memberEntityNode.attribute("sub-select"))) {
-                    // TODO we have a sub-select, if it is on a non-view entity we want to group by (on a view-entity would be only if no aggregate in wrapping alias)
-                    EntityDefinition fromEntityDefinition = efi.getEntityDefinition(fi.memberEntityNode.attribute("entity-name"));
-                    if (!fromEntityDefinition.isViewEntity) doGroupBy = true;
+                if (fi.hasAggregateFunction && fi.memberEntityNode != null) {
+                    String subSelectAttr = fi.memberEntityNode.attribute("sub-select");
+                    if ("true".equals(subSelectAttr) || "non-lateral".equals(subSelectAttr)) {
+                        // TODO we have a sub-select, if it is on a non-view entity we want to group by (on a view-entity would be only if no aggregate in wrapping alias)
+                        EntityDefinition fromEntityDefinition = efi.getEntityDefinition(fi.memberEntityNode.attribute("entity-name"));
+                        if (!fromEntityDefinition.isViewEntity) doGroupBy = true;
+                    }
                 }
                 if (doGroupBy) {
                     if (gbClause.length() > 0) gbClause.append(", ");
@@ -678,7 +763,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
     public PreparedStatement makePreparedStatement() {
         if (connection == null) throw new IllegalStateException("Cannot make PreparedStatement, no Connection in place");
         finalSql = sqlTopLevel.toString();
-        // if (this.mainEntityDefinition.entityName.equals("Foo")) logger.warn("========= making find PreparedStatement for SQL: ${sql}; parameters: ${getParameters()}")
+        // if (this.mainEntityDefinition.getEntityName().contains("FooBar")) logger.warn("========= making find PreparedStatement for SQL: " + finalSql + "; parameters: " + parameters);
         if (isDebugEnabled) logger.debug("making find PreparedStatement for SQL: " + finalSql);
         try {
             ps = connection.prepareStatement(finalSql, entityFindBase.getResultSetType(), entityFindBase.getResultSetConcurrency());

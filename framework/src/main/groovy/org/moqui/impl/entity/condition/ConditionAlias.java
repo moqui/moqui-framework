@@ -63,7 +63,8 @@ public class ConditionAlias extends ConditionField implements Externalizable {
         EntityDefinition memberEd = getAliasEntityDef(ed);
         if (memberEd.isViewEntity) {
             MNode memberEntity = ed.getMemberEntityNode(entityAlias);
-            if ("true".equals(memberEntity.attribute("sub-select"))) colName.append(memberEd.getFieldInfo(fieldName).columnName);
+            String subSelectAttr = memberEntity.attribute("sub-select");
+            if ("true".equals(subSelectAttr) || "non-lateral".equals(subSelectAttr)) colName.append(memberEd.getFieldInfo(fieldName).columnName);
             else colName.append(memberEd.getColumnName(fieldName));
         } else {
             colName.append(memberEd.getColumnName(fieldName));

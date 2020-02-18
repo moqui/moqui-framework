@@ -91,6 +91,7 @@ public class EntityJavaUtil {
             byte[] outBytes = pbeCipher.doFinal(inBytes);
             return encrypt ? DatatypeConverter.printHexBinary(outBytes) : new String(outBytes);
         } catch (Exception e) {
+            // logger.warn("crypt-pass " + pwStr + " salt " + saltStr + " algo " + algo + " count " + count);
             throw new EntityException("Encryption error", e);
         }
     }
@@ -314,8 +315,13 @@ public class EntityJavaUtil {
                 if ("true".equals(fi.fieldNode.attribute("encrypt"))) needsEncryptTemp = true;
                 if (isView && fi.hasAggregateFunction) {
                     MNode memberEntity = fi.memberEntityNode;
-                    if (memberEntity == null || !"true".equals(memberEntity.attribute("sub-select")))
+                    if (memberEntity == null) {
                         hasFunctionAliasTemp = true;
+                    } else {
+                        String subSelectAttr = memberEntity.attribute("sub-select");
+                        if (subSelectAttr == null || subSelectAttr.isEmpty() || "false".equals(subSelectAttr))
+                            hasFunctionAliasTemp = true;
+                    }
                 }
                 String defaultStr = fi.fieldNode.attribute("default");
                 if (defaultStr != null && !defaultStr.isEmpty()) {
@@ -597,6 +603,30 @@ public class EntityJavaUtil {
         usv = underscored.toString();
         camelToUnderscoreMap.put(camelCase, usv);
         return usv;
+    }
+    public static String underscoredToCamelCase(String underscored, boolean firstUpper) {
+        if (underscored == null || underscored.length() == 0) return "";
+
+        StringBuilder camelCased = new StringBuilder();
+        camelCased.append(firstUpper ? Character.toUpperCase(underscored.charAt(0)) : Character.toLowerCase(underscored.charAt(0)));
+        int inPos = 1;
+        boolean lastUnderscore = false;
+        while (inPos < underscored.length()) {
+            char curChar = underscored.charAt(inPos);
+            if (curChar == '_') {
+                lastUnderscore = true;
+            } else {
+                if (lastUnderscore) {
+                    camelCased.append(Character.toUpperCase(curChar));
+                    lastUnderscore = false;
+                } else {
+                    camelCased.append(Character.toLowerCase(curChar));
+                }
+            }
+            inPos++;
+        }
+
+        return camelCased.toString();
     }
 
     public static class EntityConditionParameter {

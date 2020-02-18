@@ -159,6 +159,9 @@ public interface EntityFind extends java.io.Serializable, SimpleEtl.Extractor {
     EntityFind useCache(Boolean useCache);
     boolean getUseCache();
 
+    /** Use a clone of the configured datasource, if at least one clone is configured */
+    EntityFind useClone(boolean uc);
+
     // ======================== Advanced Options ==============================
 
     /** Specifies whether the values returned should be filtered to remove duplicate values.
@@ -247,8 +250,11 @@ public interface EntityFind extends java.io.Serializable, SimpleEtl.Extractor {
     EntityFind maxRows(Integer maxRows);
     Integer getMaxRows();
 
-
+    /** Disable authorization for this find */
     EntityFind disableAuthz();
+    /** If true don't do find (return empty list or null) when there are no search form parameters */
+    EntityFind requireSearchFormParameters(boolean req);
+    /** Determine if this find should be cached by the various options on entity definition and EntityFind */
     boolean shouldCache();
 
     // ======================== Run Find Methods ==============================
@@ -267,8 +273,24 @@ public interface EntityFind extends java.io.Serializable, SimpleEtl.Extractor {
      * entities according to the named master definition (default name is 'default') */
     List<Map<String, Object>> listMaster(String name) throws EntityException;
 
-    /** Runs a find with current options and returns an EntityListIterator object.
-     * This method ignores the cache setting and always gets results from the database.
+    /**
+     * Runs a find with current options and returns an EntityListIterator object which retains an open JDBC Connection
+     * and ResultSet until closed. This method ignores the cache setting and always gets results from the database.
+     *
+     * The returned EntityListIterator must be closed when you are done with it using the close() method in a finally
+     * block to ensure it is closed regardless of exceptions. For example:
+     *
+     * <pre>
+     * EntityListIterator eli = entityFind.iterator();
+     * try {
+     *     EntityValue ev;
+     *     while ((ev = eli.next()) != null) {
+     *         // do stuff with ev
+     *     }
+     * } finally {
+     *     eli.close();
+     * }
+     * </pre>
      */
     EntityListIterator iterator() throws EntityException;
 

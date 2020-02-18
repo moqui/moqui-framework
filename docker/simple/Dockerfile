@@ -34,5 +34,7 @@ EXPOSE 5701
 # this is to run from the war file directly, preferred approach unzips war file in advance
 # ENTRYPOINT ["java", "-jar", "moqui.war"]
 ENTRYPOINT ["java", "-cp", ".", "MoquiStart", "port=80"]
+
+HEALTHCHECK --interval=30s --timeout=600ms --start-period=120s CMD curl -f -H "X-Forwarded-Proto: https" -H "X-Forwarded-Ssl: on" http://localhost/status || exit 1
 # specify this as a default parameter if none are specified with docker exec/run, ie run production by default
 CMD ["conf=conf/MoquiProductionConf.xml"]

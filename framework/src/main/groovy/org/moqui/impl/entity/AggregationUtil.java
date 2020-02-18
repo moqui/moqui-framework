@@ -27,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.*;
 
 public class AggregationUtil {
@@ -308,8 +309,18 @@ public class AggregationUtil {
                 }
                 break;
             case SUM:
-                Number sumNum = ObjectUtilities.addNumbers((Number) resultMap.get(fieldName), (Number) fieldValue);
-                if (sumNum != null) resultMap.put(fieldName, sumNum);
+                if (fieldValue != null) {
+                    Number curNumber;
+                    if (fieldValue instanceof Number) {
+                        curNumber = (Number) fieldValue;
+                    } else if (fieldValue instanceof CharSequence) {
+                        curNumber = new BigDecimal(fieldValue.toString());
+                    } else {
+                        throw new IllegalArgumentException("Tried to sum non-number value " + fieldValue);
+                    }
+                    Number sumNum = ObjectUtilities.addNumbers((Number) resultMap.get(fieldName), curNumber);
+                    if (sumNum != null) resultMap.put(fieldName, sumNum);
+                }
                 break;
             case AVG:
                 Number newNum = (Number) fieldValue;
@@ -327,7 +338,7 @@ public class AggregationUtil {
                         BigDecimal total = (BigDecimal) resultMap.get(fieldTotalName);
                         BigDecimal avgTotal = total.add(newNumBd);
                         BigDecimal countPlusOne = count.add(BigDecimal.ONE);
-                        resultMap.put(fieldName, avgTotal.divide(countPlusOne, BigDecimal.ROUND_HALF_EVEN));
+                        resultMap.put(fieldName, avgTotal.divide(countPlusOne, RoundingMode.HALF_EVEN));
                         resultMap.put(fieldCountName, countPlusOne);
                         resultMap.put(fieldTotalName, avgTotal);
                     }

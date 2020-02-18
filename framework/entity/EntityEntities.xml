@@ -35,6 +35,8 @@ along with this software (see the LICENSE.md file). If not, see
         <!-- index for common query looking for changes to a certain field on a certain entity -->
         <index name="ENTAUDLOG_FLD1PK"><index-field name="changedEntityName"/><index-field name="changedFieldName"/>
             <index-field name="pkPrimaryValue"/></index>
+        <index name="ENTAUDLOG_ENTPKPR"><index-field name="changedEntityName"/><index-field name="pkPrimaryValue"/></index>
+        <index name="ENTAUDLOG_PKPRIM"><index-field name="pkPrimaryValue"/></index>
     </entity>
 
     <entity entity-name="SequenceValueItem" package="moqui.entity" use="transactional" cache="never">
@@ -90,14 +92,16 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- ========================================================= -->
 
     <entity entity-name="DataDocument" package="moqui.entity.document" use="configuration" short-alias="dataDocuments">
-        <field name="dataDocumentId" type="id" is-pk="true"/>
+        <field name="dataDocumentId" type="id" is-pk="true"><description>For ElasticSearch compatibility, and as a general good
+            practice for use as a dynamic view-entity, must follow entity name convention of camel case and starting with a capital letter.</description></field>
         <field name="documentName" type="text-medium"><description>The name of the document for display in search
-            results and such.</description></field>
+            results and such. Is generally expanded on display and may use any field in the DataDocument.</description></field>
         <field name="documentTitle" type="text-medium"><description>A title for each document instance for display in
             search results or other places. Meant to be string expanded using a "flattened" version of the document
             (see the CollectionUtilities.flattenNestedMap() method).</description></field>
         <field name="indexName" type="text-medium"><description>This should be specified for documents that will be indexed by
-            ElasticSearch and must be lower-case (ElasticSearch requires all lower-case).</description></field>
+            ElasticSearch and must be lower-case (ElasticSearch requires all lower-case). Because of changes in ElasticSearch 5
+            this is no longer the actual index name and is instead an alias for each index from a DataDocument.</description></field>
         <field name="primaryEntityName" type="text-medium"/>
         <field name="manualDataServiceName" type="text-medium"><description>Name of a service to call to get additional
             data to include in the document. This service should implement the

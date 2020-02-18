@@ -21,7 +21,7 @@ services:
     # https://github.com/jwilder/nginx-proxy
     image: jwilder/nginx-proxy
     container_name: nginx-proxy
-    restart: unless-stopped
+    restart: always
     ports:
       - 80:80
       - 443:443
@@ -35,9 +35,10 @@ services:
     image: moqui
     container_name: moqui-server
     command: conf=conf/MoquiProductionConf.xml
-    restart: unless-stopped
+    restart: always
     links:
      - moqui-database
+     - elasticsearch
     volumes:
      - ./runtime/conf:/opt/moqui/runtime/conf
      - ./runtime/lib:/opt/moqui/runtime/lib
@@ -47,16 +48,18 @@ services:
      - ./runtime/txlog:/opt/moqui/runtime/txlog
      - ./runtime/sessions:/opt/moqui/runtime/sessions
      # this one isn't needed when not using H2/etc: - ./runtime/db:/opt/moqui/runtime/db
-     - ./runtime/elasticsearch:/opt/moqui/runtime/elasticsearch
     environment:
      - instance_purpose=production
-     - entity_ds_db_conf=mysql
+     - entity_ds_db_conf=mysql8
      - entity_ds_host=moqui-database
      - entity_ds_port=3306
      - entity_ds_database=moqui
-     - entity_ds_user=moqui
-     - entity_ds_password=moqui
+     # NOTE: using root user because for TX recovery MySQL requires the 'XA_RECOVER_ADMIN' and in version 8 that must be granted explicitly
+     - entity_ds_user=root
+     - entity_ds_password=moquiroot
      - entity_ds_crypt_pass='MoquiDefaultPassword:CHANGEME'
+     # configuration for ElasticFacade.ElasticClient, make sure moqui-elasticsearch is NOT included in the Moqui build
+     - elasticsearch_url=http://elasticsearch:9200
      # CHANGE ME - note that VIRTUAL_HOST is for nginx-proxy so it picks up this container as one it should reverse proxy
      # this can be a comma separate list of hosts like 'example.com,www.example.com'
      - VIRTUAL_HOST=moqui.local
@@ -69,9 +72,9 @@ services:
      - default_time_zone=US/Pacific
 
   moqui-database:
-    image: mysql:5.7
+    image: mysql:8.0
     container_name: moqui-database
-    restart: unless-stopped
+    restart: always
     ports:
      # change this as needed to bind to any address or even comment to not expose port outside containers
      - 127.0.0.1:3306:3306
@@ -84,3 +87,21 @@ services:
      - MYSQL_DATABASE=moqui
      - MYSQL_USER=moqui
      - MYSQL_PASSWORD=moqui
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch-oss:7.4.2
+    container_name: elasticsearch
+    restart: always
+    ports:
+     # change this as needed to bind to any address or even comment to not expose port outside containers
+     - 127.0.0.1:9200:9200
+     - 127.0.0.1:9300:9300
+    volumes:
+     # edit these as needed to map configuration and data storage
+     - ./elasticsearch/data:/usr/share/elasticsearch/data
+     # - ./elasticsearch/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+     # - ./elasticsearch/logs:/usr/share/elasticsearch/logs
+    environment:
+     - "ES_JAVA_OPTS=-Xms1024m -Xmx1024m"
+     - discovery.type=single-node
+     - network.host=_site_

@@ -36,6 +36,7 @@ import javax.cache.Cache;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.util.*;
+import java.util.concurrent.Future;
 
 public class ExecutionContextImpl implements ExecutionContext {
     private static final Logger loggerDirect = LoggerFactory.getLogger(ExecutionContextFactoryImpl.class);
@@ -138,6 +139,7 @@ public class ExecutionContextImpl implements ExecutionContext {
     @Override public @Nonnull EntityFacade getEntity() { return activeEntityFacade; }
     public @Nonnull EntityFacadeImpl getEntityFacade() { return activeEntityFacade; }
 
+    @Override public @Nonnull ElasticFacade getElastic() { return ecfi.elasticFacade; }
     @Override public @Nonnull ServiceFacade getService() { return serviceFacade; }
     @Override public @Nonnull ScreenFacade getScreen() { return screenFacade; }
 
@@ -204,14 +206,14 @@ public class ExecutionContextImpl implements ExecutionContext {
     }
 
     @Override
-    public void runAsync(@Nonnull Closure closure) {
+    public Future runAsync(@Nonnull Closure closure) {
         ThreadPoolRunnable runnable = new ThreadPoolRunnable(this, closure);
-        ecfi.workerPool.submit(runnable);
+        return ecfi.workerPool.submit(runnable);
     }
     /** Uses the ECFI constructor for ThreadPoolRunnable so does NOT use the current ECI in the separate thread */
-    public void runInWorkerThread(@Nonnull Closure closure) {
+    public Future runInWorkerThread(@Nonnull Closure closure) {
         ThreadPoolRunnable runnable = new ThreadPoolRunnable(ecfi, closure);
-        ecfi.workerPool.submit(runnable);
+        return ecfi.workerPool.submit(runnable);
     }
 
     @Override
@@ -255,13 +257,22 @@ public class ExecutionContextImpl implements ExecutionContext {
 
         @Override
         public void run() {
-            if (threadEci != null) ecfi.useExecutionContextInThread(threadEci);
+            if (threadEci != null) {
+                // ecfi.useExecutionContextInThread(threadEci);
+                ExecutionContextImpl eci = ecfi.getEci();
+                String threadUsername = threadEci.userFacade.getUsername();
+                if (threadUsername != null && !threadUsername.isEmpty())
+                    eci.userFacade.internalLoginUser(threadUsername, false);
+                if (threadEci.artifactExecutionFacade.authzDisabled)
+                    eci.artifactExecutionFacade.disableAuthz();
+            }
             try {
                 closure.call();
             } catch (Throwable t) {
                 loggerDirect.error("Error in EC worker Runnable", t);
             } finally {
-                if (threadEci == null) ecfi.destroyActiveExecutionContext();
+                // now using separate ECI in thread so always destroy, ie don't do: if (threadEci == null)
+                ecfi.destroyActiveExecutionContext();
             }
         }
 

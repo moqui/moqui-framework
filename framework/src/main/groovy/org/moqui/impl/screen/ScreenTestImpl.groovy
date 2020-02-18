@@ -21,10 +21,11 @@ import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.screen.ScreenRender
 import org.moqui.screen.ScreenTest
-import org.moqui.screen.ScreenTest.ScreenTestRender
 import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+
+import java.util.concurrent.Future
 
 @CompileStatic
 class ScreenTestImpl implements ScreenTest {
@@ -125,6 +126,32 @@ class ScreenTestImpl implements ScreenTest {
         if (!rootScreenLocation) throw new IllegalArgumentException("No rootScreenLocation specified")
         return new ScreenTestRenderImpl(this, screenPath, parameters, requestMethod).render()
     }
+    @Override
+    void renderAll(List<String> screenPathList, Map<String, Object> parameters, String requestMethod) {
+        // NOTE: using single thread for now, doesn't actually make a lot of difference in overall test run time
+        int threads = 1
+        if (threads == 1) {
+            for (String screenPath in screenPathList) {
+                ScreenTestRender str = render(screenPath, parameters, requestMethod)
+                logger.info("Rendered ${screenPath} in ${str.getRenderTime()}ms, ${str.output?.length()} characters")
+            }
+        } else {
+            ExecutionContextImpl eci = ecfi.getEci()
+            ArrayList<Future> threadList = new ArrayList<Future>(threads)
+            int screenPathListSize = screenPathList.size()
+            for (int si = 0; si < screenPathListSize; si++) {
+                String screenPath = (String) screenPathList.get(si)
+                threadList.add(eci.runAsync({
+                    ScreenTestRender str = render(screenPath, parameters, requestMethod)
+                    logger.info("Rendered ${screenPath} in ${str.getRenderTime()}ms, ${str.output?.length()} characters")
+                }))
+                if (threadList.size() == threads || (si + 1) == screenPathList.size()) {
+                    for (int i = 0; i < threadList.size(); i++) { ((Future) threadList.get(i)).get() }
+                    threadList.clear()
+                }
+            }
+        }
+    }
 
     long getRenderCount() { return renderCount }
     long getErrorCount() { return errorCount }
@@ -160,22 +187,27 @@ class ScreenTestImpl implements ScreenTest {
             String username = localEci.userFacade.getUsername()
             Subject loginSubject = localEci.userFacade.getCurrentSubject()
             boolean authzDisabled = localEci.artifactExecutionFacade.getAuthzDisabled()
+            ScreenTestRenderImpl stri = this
             Throwable threadThrown = null
-            Thread txThread = Thread.start('ScreenTestRender', {
-                try {
-                    ExecutionContextImpl eci = ecfi.getEci()
-                    if (loginSubject != null) eci.userFacade.internalLoginSubject(loginSubject)
-                    else if (username != null && !username.isEmpty()) eci.userFacade.internalLoginUser(username)
-                    if (authzDisabled) eci.artifactExecutionFacade.disableAuthz()
-                    // as this is used for server-side transition calls don't do tarpit checks
-                    eci.artifactExecutionFacade.disableTarpit()
-                    renderInternal(eci, this)
-                    eci.destroy()
-                } catch (Throwable t) {
-                    threadThrown = t
+
+            Thread newThread = new Thread("ScreenTestRender") {
+                @Override void run() {
+                    try {
+                        ExecutionContextImpl threadEci = ecfi.getEci()
+                        if (loginSubject != null) threadEci.userFacade.internalLoginSubject(loginSubject)
+                        else if (username != null && !username.isEmpty()) threadEci.userFacade.internalLoginUser(username)
+                        if (authzDisabled) threadEci.artifactExecutionFacade.disableAuthz()
+                        // as this is used for server-side transition calls don't do tarpit checks
+                        threadEci.artifactExecutionFacade.disableTarpit()
+                        renderInternal(threadEci, stri)
+                        threadEci.destroy()
+                    } catch (Throwable t) {
+                        threadThrown = t
+                    }
                 }
-            })
-            txThread.join()
+            }
+            newThread.start()
+            newThread.join()
             if (threadThrown != null) throw threadThrown
             return this
         }

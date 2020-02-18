@@ -71,6 +71,7 @@ class ScreenRenderImpl implements ScreenRender {
     protected Map<String, ScreenUrlInfo> subscreenUrlInfos = new HashMap()
     protected int screenPathIndex = 0
     protected Set<String> stopRenderScreenLocations = new HashSet()
+    protected String lastStandalone = (String) null
 
     protected String baseLinkUrl = (String) null
     protected String servletContextPath = (String) null
@@ -90,6 +91,7 @@ class ScreenRenderImpl implements ScreenRender {
     protected Writer internalWriter = (Writer) null
     protected Writer afterScreenWriter = (Writer) null
     protected Writer scriptWriter = (Writer) null
+    protected OutputStream internalOutputStream = (OutputStream) null
 
     protected boolean dontDoRender = false
     protected boolean saveHistory = false
@@ -105,6 +107,11 @@ class ScreenRenderImpl implements ScreenRender {
 
     Writer getWriter() {
         if (internalWriter != null) return internalWriter
+        if (internalOutputStream != null) {
+            if (characterEncoding == null || characterEncoding.length() == 0) characterEncoding = "UTF-8"
+            internalWriter = new OutputStreamWriter(internalOutputStream, characterEncoding)
+            return internalWriter
+        }
         if (response != null) {
             internalWriter = response.getWriter()
             return internalWriter
@@ -112,12 +119,25 @@ class ScreenRenderImpl implements ScreenRender {
         throw new BaseArtifactException("Could not render screen, no writer available")
     }
 
+    OutputStream getOutputStream() {
+        if (internalOutputStream != null) return internalOutputStream
+        if (response != null) {
+            internalOutputStream = response.getOutputStream()
+            return internalOutputStream
+        }
+        throw new BaseArtifactException("Could not render screen, no output stream available")
+    }
+
     ScreenUrlInfo getScreenUrlInfo() { return screenUrlInfo }
     UrlInstance getScreenUrlInstance() { return screenUrlInstance }
 
     @Override ScreenRender rootScreen(String rsLocation) { rootScreenLocation = rsLocation; return this }
     ScreenRender rootScreenFromHost(String host) { return rootScreen(sfi.rootScreenFromHost(host, webappName)) }
+
     @Override ScreenRender screenPath(List<String> screenNameList) { originalScreenPathNameList.addAll(screenNameList); return this }
+    @Override ScreenRender screenPath(String path) { screenPath(StringUtilities.pathStringToList(path, 0)); return this }
+    @Override ScreenRender lastStandalone(String ls) { lastStandalone = ls; return this }
+
     @Override ScreenRender renderMode(String renderMode) { this.renderMode = renderMode; return this }
     String getRenderMode() { return renderMode }
 
@@ -158,6 +178,14 @@ class ScreenRenderImpl implements ScreenRender {
     }
 
     @Override
+    void render(OutputStream os) {
+        if (rendering) throw new IllegalStateException("This screen render has already been used")
+        rendering = true
+        internalOutputStream = os
+        internalRender()
+    }
+
+    @Override
     String render() {
         if (rendering) throw new IllegalStateException("This screen render has already been used")
         rendering = true
@@ -171,9 +199,16 @@ class ScreenRenderImpl implements ScreenRender {
         if (response != null) {
             if (servletContextPath != null && !servletContextPath.isEmpty() && redirectUrl.startsWith("/"))
                 redirectUrl = servletContextPath + redirectUrl
-            response.sendRedirect(redirectUrl)
+            if ("vuet".equals(renderMode)) {
+                if (logger.isInfoEnabled()) logger.info("Redirecting (vuet) to ${redirectUrl} instead of rendering ${this.getScreenUrlInfo().getFullPathNameList()}")
+                response.addHeader("X-Redirect-To", redirectUrl)
+                // use code 205 (Reset Content) for client router handled redirect
+                response.setStatus(HttpServletResponse.SC_RESET_CONTENT)
+            } else {
+                if (logger.isInfoEnabled()) logger.info("Redirecting to ${redirectUrl} instead of rendering ${this.getScreenUrlInfo().getFullPathNameList()}")
+                response.sendRedirect(redirectUrl)
+            }
             dontDoRender = true
-            if (logger.isInfoEnabled()) logger.info("Redirecting to ${redirectUrl} instead of rendering ${this.getScreenUrlInfo().getFullPathNameList()}")
         }
     }
     boolean sendJsonRedirect(UrlInstance fullUrl, Long renderStartTime) {
@@ -237,7 +272,7 @@ class ScreenRenderImpl implements ScreenRender {
 
     protected void internalRender() {
         // make sure this (sri) is in the context before running actions or rendering screens
-        ec.context.put("sri", this)
+        ec.contextStack.put("sri", this)
 
         long renderStartTime = System.currentTimeMillis()
 
@@ -247,8 +282,34 @@ class ScreenRenderImpl implements ScreenRender {
         if (logger.traceEnabled) logger.trace("Rendering screen ${rootScreenLocation} with path list ${originalScreenPathNameList}")
         // logger.info("Rendering screen [${rootScreenLocation}] with path list [${originalScreenPathNameList}]")
 
+        // if there is a formListFindId parameter see if any matching parameters are set otherwise set all configured params
+        // NOTE: needs to be done very early in screen rendering so that parameters are available for actions, etc
+        // NOTE: this should allow override of parameters along with a formListFindId while defaulting to configured ones,
+        //     but is far from ideal in detecting whether configured parms should be used
+        String formListFindId = ec.contextStack.getByString("formListFindId")
+        if (formListFindId != null && !formListFindId.isEmpty()) {
+            Map<String, String> flfParameters = ScreenForm.makeFormListFindParameters(formListFindId, ec)
+            boolean foundMatchingParm = false
+            for (String flfParmName in flfParameters.keySet()) {
+                if ("formListFindId".equals(flfParmName)) continue
+                Object parmValue = ec.contextStack.getByString(flfParmName)
+                if (!ObjectUtilities.isEmpty(parmValue)) {
+                    foundMatchingParm = true
+                    break
+                }
+            }
+            if (!foundMatchingParm) {
+                EntityValue formListFind = ec.entityFacade.fastFindOne("moqui.screen.form.FormListFind", true, true, formListFindId)
+                if (formListFind?.orderByField) ec.contextStack.put("orderByField", formListFind.orderByField)
+                ec.contextStack.putAll(flfParameters)
+                // logger.warn("Found formListFindId and no matching parameters, orderByField [${formListFind?.orderByField}], added paramters: ${flfParameters}")
+            }
+        }
+
         WebFacade web = ec.getWeb()
-        String lastStandalone = web != null ? web.requestParameters.lastStandalone : null
+        if ((lastStandalone == null || lastStandalone.isEmpty()) && web != null)
+            lastStandalone = (String) web.requestParameters.lastStandalone
+
         screenUrlInfo = ScreenUrlInfo.getScreenUrlInfo(this, rootScreenDef, originalScreenPathNameList, null,
                 ScreenUrlInfo.parseLastStandalone(lastStandalone, 0))
 
@@ -258,7 +319,7 @@ class ScreenRenderImpl implements ScreenRender {
 
         if (web != null) {
             // clear out the parameters used for special screen URL config
-            if (lastStandalone != null && lastStandalone.length() > 0) web.requestParameters.lastStandalone = ""
+            if (web.requestParameters.lastStandalone) web.requestParameters.lastStandalone = ""
 
             // if screenUrlInfo has any parameters add them to the request (probably came from a transition acting as an alias)
             Map<String, String> suiParameterMap = screenUrlInstance.getTransitionAliasParameters()
@@ -326,7 +387,9 @@ class ScreenRenderImpl implements ScreenRender {
                         !"true".equals(request.getAttribute("moqui.session.token.created")) &&
                         !"true".equals(request.getAttribute("moqui.request.authenticated"))) {
                     String passedToken = (String) ec.web.getParameters().get("moquiSessionToken")
-                    if (!passedToken) passedToken = request.getHeader("moquiSessionToken") ?: request.getHeader("SessionToken")
+                    if (!passedToken) passedToken = request.getHeader("moquiSessionToken") ?:
+                            request.getHeader("SessionToken") ?: request.getHeader("X-CSRF-Token")
+
                     String curToken = ec.web.getSessionToken()
                     if (curToken != null && curToken.length() > 0) {
                         if (passedToken == null || passedToken.length() == 0) {
@@ -688,7 +751,7 @@ class ScreenRenderImpl implements ScreenRender {
         boolean isServerStatic = screenUrlInfo.targetScreen.isServerStatic(renderMode)
         // TODO: consider server caching of rendered screen, this is the place to do it
 
-        boolean beganTransaction = screenUrlInfo.beginTransaction ? sfi.ecfi.transactionFacade.begin(null) : false
+        boolean beganTransaction = screenUrlInfo.beginTransaction ? sfi.ecfi.transactionFacade.begin(screenUrlInfo.transactionTimeout) : false
         try {
             // run always-actions for all screens in path
             boolean hasAlwaysActions = false
@@ -1052,6 +1115,11 @@ class ScreenRenderImpl implements ScreenRender {
             }
             return overrideTemplateLocation != null ? sfi.getTemplateByLocation(overrideTemplateLocation) : sfi.getTemplateByMode(renderMode)
         }
+    }
+    ScreenWidgetRender getScreenWidgetRender() {
+        ScreenWidgetRender swr = sfi.getWidgetRenderByMode(renderMode)
+        if (swr == null) throw new BaseArtifactException("Could not find ScreenWidgerRender implementation for render mode ${renderMode}")
+        return swr
     }
 
     String renderSection(String sectionName) {
@@ -1446,7 +1514,7 @@ class ScreenRenderImpl implements ScreenRender {
         // find the entity value
         String keyFieldName = widgetNode.attribute("key-field-name")
         if (keyFieldName == null || keyFieldName.isEmpty()) keyFieldName = widgetNode.attribute("entity-key-name")
-        if (keyFieldName == null || keyFieldName.isEmpty()) keyFieldName = ed.getPkFieldNames().get(0)
+        if ((keyFieldName == null || keyFieldName.isEmpty()) && ed != null) keyFieldName = ed.getPkFieldNames().get(0)
         String useCache = widgetNode.attribute("use-cache") ?: widgetNode.attribute("entity-use-cache") ?: "true"
         EntityValue ev = ec.entity.find(entityName).condition(keyFieldName, fieldValue)
                 .useCache(useCache == "true").one()
@@ -1778,7 +1846,7 @@ class ScreenRenderImpl implements ScreenRender {
         int extraPathSize = extraPathList != null ? extraPathList.size() : 0
         if (extraPathSize > 0) {
             fullPathSize -= extraPathSize
-            fullPathList = new ArrayList<>(fullPathList.subList(0, fullPathSize))
+            fullPathList = new ArrayList<String>(fullPathList.subList(0, fullPathSize))
         }
 
         StringBuilder currentPath = new StringBuilder()
@@ -1874,7 +1942,7 @@ class ScreenRenderImpl implements ScreenRender {
 
         if (extraPathList != null) {
             int extraPathListSize = extraPathList.size()
-            for (int i = 0; i < extraPathListSize; i++) extraPathList.set(i, StringUtilities.urlEncodeIfNeeded(extraPathList.get(i)))
+            for (int i = 0; i < extraPathListSize; i++) extraPathList.set(i, StringUtilities.urlEncodeIfNeeded((String) extraPathList.get(i)))
         }
         Map lastMap = [name:lastPathItem, title:lastTitle, path:lastPath, pathWithParams:currentPath.toString(), image:lastImage,
                 extraPathList:extraPathList, screenDocList:screenDocList, renderModes:fullUrlInfo.targetScreen.renderModes]

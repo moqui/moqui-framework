@@ -144,7 +144,9 @@ class EntityAutoServiceRunner implements ServiceRunner {
 
             Object pkValue = parameters.get(singlePkField.name)
             if (!ObjectUtilities.isEmpty(pkValue)) {
-                newEntityValue.set(singlePkField.name, pkValue)
+                // convert from String if parameter type is String, PK field type may not be
+                if (pkValue instanceof CharSequence) newEntityValue.setString(singlePkField.name, pkValue.toString())
+                else newEntityValue.set(singlePkField.name, pkValue)
             } else {
                 // if it has a default value don't sequence the PK
                 if (singlePkField.defaultStr == null || singlePkField.defaultStr.isEmpty()) {
@@ -276,13 +278,13 @@ class EntityAutoServiceRunner implements ServiceRunner {
 
             boolean isEntityValue = relParmObj instanceof EntityValue
             if (relParmObj instanceof Map && !isEntityValue) {
-                Map relResults = [:]
+                Map<String, Object> relResults = new HashMap<String, Object>()
                 createRecursive(ecfi, efi, subEd, (Map) relParmObj, relResults, null, pkMap)
                 tempResult.put(entryName, relResults)
             } else if (relParmObj instanceof List) {
                 List relResultList = []
                 for (Object relParmEntry in relParmObj) {
-                    Map relResults = [:]
+                    Map<String, Object> relResults = new HashMap<String, Object>()
                     if (relParmEntry instanceof Map) {
                         createRecursive(ecfi, efi, subEd, (Map) relParmEntry, relResults, null, pkMap)
                     } else {
@@ -407,13 +409,13 @@ class EntityAutoServiceRunner implements ServiceRunner {
 
             boolean isEntityValue = relParmObj instanceof EntityValue
             if (relParmObj instanceof Map && !isEntityValue) {
-                Map relResults = [:]
+                Map<String, Object> relResults = new HashMap<String, Object>()
                 storeRecursive(ecfi, efi, subEd, (Map) relParmObj, relResults, null, pkMap)
                 result.put(entryName, relResults)
             } else if (relParmObj instanceof List) {
                 List relResultList = []
                 for (Object relParmEntry in relParmObj) {
-                    Map relResults = [:]
+                    Map<String, Object> relResults = new HashMap<String, Object>()
                     if (relParmEntry instanceof Map) {
                         storeRecursive(ecfi, efi, subEd, (Map) relParmEntry, relResults, null, pkMap)
                     } else {
@@ -451,17 +453,37 @@ class EntityAutoServiceRunner implements ServiceRunner {
         if (parameterStatusId) {
             String lookedUpStatusId = (String) lookedUpValue.getNoCheckSimple("statusId")
             if (lookedUpStatusId && !parameterStatusId.equals(lookedUpStatusId)) {
+                ExecutionContext eci = efi.ecfi.getEci()
+
                 // there was an old status, and in this call we are trying to change it, so do the StatusFlowTransition check
                 // NOTE that we are using a cached list from a common pattern so it should generally be there instead of a count that wouldn't
                 EntityList statusFlowTransitionList = efi.find("moqui.basic.StatusFlowTransition")
                         .condition("statusId", lookedUpStatusId).condition("toStatusId", parameterStatusId).useCache(true).list()
-                if (statusFlowTransitionList.size() == 0) {
+                // check userPermissionId for each
+                int statusFlowTransitionListSize = statusFlowTransitionList.size()
+                int validTransitionCount = 0
+                List<String> transitionCheckMessages = new LinkedList<String>()
+                for (int i = 0; i < statusFlowTransitionListSize; i++) {
+                    EntityValue statusFlowTransition = (EntityValue) statusFlowTransitionList.get(i)
+                    // NOTE: could check the old conditionExpression field here as well but there are issues with context definition (check here, in screens, etc), may have limited use anyway, may be better to remove
+                    String userPermissionId = (String) statusFlowTransition.getNoCheckSimple("userPermissionId")
+                    if (userPermissionId == null || userPermissionId.isEmpty()) {
+                        validTransitionCount++
+                    } else {
+                        if (eci.userFacade.hasPermission(userPermissionId)) {
+                            validTransitionCount++
+                        } else {
+                            transitionCheckMessages.add("User ${eci.userFacade.username} (${eci.userFacade.userId}) does not have permission ${userPermissionId} to change status in flow ${statusFlowTransition.statusFlowId} from ${lookedUpStatusId} to ${parameterStatusId} for ${ed.getFullEntityName()} ${lookedUpValue.getPrimaryKeys()}".toString())
+                        }
+                    }
+                }
+                if (validTransitionCount == 0) {
                     // uh-oh, no valid change...
-                    ExecutionContext eci = efi.ecfi.getEci()
                     EntityValue lookedUpStatus = efi.find("moqui.basic.StatusItem")
                             .condition("statusId", lookedUpStatusId).useCache(true).one()
                     EntityValue parameterStatus = efi.find("moqui.basic.StatusItem")
                             .condition("statusId", parameterStatusId).useCache(true).one()
+                    logger.warn("Status transition not allowed from ${lookedUpStatusId} to ${parameterStatusId} on entity ${ed.fullEntityName} with PK ${lookedUpValue.getPrimaryKeys()}\n${transitionCheckMessages.join('\n')}")
                     throw new ServiceException(eci.resource.expand('StatusFlowTransitionNotFoundTemplate', "",
                             [fullEntityName:eci.l10n.localize(ed.fullEntityName + '##EntityName'),
                                 lookedUpStatusId:lookedUpStatusId, parameterStatusId:parameterStatusId,

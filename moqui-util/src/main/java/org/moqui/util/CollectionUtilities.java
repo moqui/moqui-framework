@@ -112,17 +112,19 @@ public class CollectionUtilities {
         filterMapListByDate(theList, fromDateName, thruDateName, compareStamp);
     }
 
-    /**
-     * Order list elements in place (modifies the list passed in), returns the list for convenience
-     */
+    /** Order list elements in place (modifies the list passed in), returns the list for convenience */
     public static List<Map<String, Object>> orderMapList(List<Map<String, Object>> theList, List<? extends CharSequence> fieldNames) {
+        return orderMapList(theList, fieldNames, null);
+    }
+    public static List<Map<String, Object>> orderMapList(List<Map<String, Object>> theList, List<? extends CharSequence> fieldNames, Boolean nullsLast) {
         if (fieldNames == null) throw new IllegalArgumentException("Cannot order List of Maps with null order by field list");
-        if (theList != null && fieldNames.size() > 0) theList.sort(new MapOrderByComparator(fieldNames));
+        if (theList != null && fieldNames.size() > 0) theList.sort(new MapOrderByComparator(fieldNames).nullsLast(nullsLast));
         return theList;
     }
 
     public static class MapOrderByComparator implements Comparator<Map> {
         String[] fieldNameArray;
+        Boolean nullsLast = null;
 
         public MapOrderByComparator(List<? extends CharSequence> fieldNameList) {
             ArrayList<String> fieldArrayList = new ArrayList<>();
@@ -143,6 +145,11 @@ public class CollectionUtilities {
             // logger.warn("Order list by " + Arrays.asList(fieldNameArray));
         }
 
+        public MapOrderByComparator nullsLast(Boolean nl) {
+            nullsLast = nl;
+            return this;
+        }
+
         @SuppressWarnings("unchecked")
         @Override public int compare(Map map1, Map map2) {
             if (map1 == null) return -1;
@@ -161,14 +168,17 @@ public class CollectionUtilities {
                     ignoreCase = true;
                     fieldName = fieldName.substring(1);
                 }
+
+                boolean nullsFirst = nullsLast != null ? !nullsLast.booleanValue() : ascending;
+
                 Comparable value1 = (Comparable) map1.get(fieldName);
                 Comparable value2 = (Comparable) map2.get(fieldName);
                 // NOTE: nulls go earlier in the list for ascending, later in the list for !ascending
                 if (value1 == null) {
-                    if (value2 != null) return ascending ? 1 : -1;
+                    if (value2 != null) return nullsFirst ? -1 : 1;
                 } else {
                     if (value2 == null) {
-                        return ascending ? -1 : 1;
+                        return nullsFirst ? 1 : -1;
                     } else {
                         if (ignoreCase && value1 instanceof String && value2 instanceof String) {
                             int comp = ((String) value1).compareToIgnoreCase((String) value2);
@@ -309,7 +319,7 @@ public class CollectionUtilities {
         for (Map.Entry<String, Object> entry : baseMap.entrySet()) {
             if (!(entry.getValue() instanceof BigDecimal)) continue;
             BigDecimal baseVal = (BigDecimal) entry.getValue();
-            entry.setValue(baseVal.divide(divisor, BigDecimal.ROUND_HALF_UP));
+            entry.setValue(baseVal.divide(divisor, RoundingMode.HALF_UP));
         }
     }
 
@@ -330,7 +340,7 @@ public class CollectionUtilities {
         if (count < 2) return null;
 
         BigDecimal countBd = new BigDecimal(count);
-        BigDecimal average = total.divide(countBd, BigDecimal.ROUND_HALF_UP);
+        BigDecimal average = total.divide(countBd, RoundingMode.HALF_UP);
         double totalDouble = total.doubleValue();
         BigDecimal stdDev = new BigDecimal(Math.sqrt(Math.abs(squaredTotal.doubleValue() - ((totalDouble*totalDouble) / count)) / (count - 1)));
 
@@ -537,7 +547,7 @@ public class CollectionUtilities {
         int count = theList.size();
 
         // calculate the pagination values
-        int maxIndex = (new BigDecimal(count - 1)).divide(new BigDecimal(pageSize), 0, BigDecimal.ROUND_DOWN).intValue();
+        int maxIndex = (new BigDecimal(count - 1)).divide(new BigDecimal(pageSize), 0, RoundingMode.DOWN).intValue();
         int pageRangeLow = (pageIndex * pageSize) + 1;
         if (pageRangeLow > count) pageRangeLow = count + 1;
         int pageRangeHigh = (pageIndex * pageSize) + pageSize;

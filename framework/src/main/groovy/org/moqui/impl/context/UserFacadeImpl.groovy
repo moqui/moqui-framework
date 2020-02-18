@@ -137,6 +137,8 @@ class UserFacadeImpl implements UserFacade {
             }
         }
 
+        this.visitId = session.getAttribute("moqui.visitId")
+
         // check for HTTP Basic Authorization for Authentication purposes
         // NOTE: do this even if there is another user logged in, will go on stack
         Map secureParameters = eci.webImpl != null ? eci.webImpl.getSecureRequestParameters() :
@@ -175,7 +177,6 @@ class UserFacadeImpl implements UserFacade {
         }
         if (eci.messageFacade.hasError()) request.setAttribute("moqui.login.error", "true")
 
-        this.visitId = session.getAttribute("moqui.visitId")
         // NOTE: only tracking Visitor and Visit if there is a WebFacadeImpl in place
         if (eci.webImpl != null && !this.visitId && !eci.getSkipStats()) {
             MNode serverStatsNode = eci.ecfi.getServerStatsNode()
@@ -228,11 +229,13 @@ class UserFacadeImpl implements UserFacade {
                 String webappId = contextPath.length() > 1 ? contextPath.substring(1) : "ROOT"
                 String fullUrl = eci.webImpl.requestUrl
                 fullUrl = (fullUrl.length() > 255) ? fullUrl.substring(0, 255) : fullUrl.toString()
+                String curUserAgent = request.getHeader("User-Agent") ?: ""
+                if (curUserAgent != null && curUserAgent.length() > 255) curUserAgent = curUserAgent.substring(0, 255)
                 Map<String, Object> parameters = new HashMap<String, Object>([sessionId:session.id, webappName:webappId,
                         fromDate:new Timestamp(session.getCreationTime()),
                         initialLocale:getLocale().toString(), initialRequest:fullUrl,
                         initialReferrer:request.getHeader("Referrer")?:"",
-                        initialUserAgent:request.getHeader("User-Agent")?:"",
+                        initialUserAgent:curUserAgent,
                         clientHostName:request.getRemoteHost(), clientUser:request.getRemoteUser()])
 
                 InetAddress address = eci.ecfi.getLocalhostAddress()
@@ -549,6 +552,8 @@ class UserFacadeImpl implements UserFacade {
         ArrayList<Timestamp> rangeList = new ArrayList<>(2)
         rangeList.add(new Timestamp(fromCal.getTimeInMillis()))
         rangeList.add(new Timestamp(thruCal.getTimeInMillis()))
+        // logger.warn("fromCal first ${fromCal.getFirstDayOfWeek()} TZ ${fromCal.getTimeZone().getDisplayName()} basisCal first ${basisCal.getFirstDayOfWeek()} TZ ${basisCal.getTimeZone().getDisplayName()} range ${rangeList} default TZ ${TimeZone.getDefault().getDisplayName()}")
+
         return rangeList
     }
 

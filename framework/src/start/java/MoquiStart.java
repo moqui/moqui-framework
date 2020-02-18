@@ -93,11 +93,13 @@ public class MoquiStart {
             System.out.println("    disable-audit-log ----------- Disable Entity Audit Log");
             System.out.println("    raw ------------------------- Short for dummy-fks, use-try-insert, disable-eeca, disable-audit-log");
             System.out.println("    conf=<moqui.conf> ----------- The Moqui Conf XML file to use, overrides other ways of specifying it");
+            System.out.println("    no-run-es ------------------- Don't Try starting and stopping ElasticSearch in runtime/elasticsearch");
             System.out.println("    If no -types or -location argument is used all known data files of all types will be loaded.");
             System.out.println("[default] ---- Run embedded Jetty server");
             System.out.println("    port=<port> ---------------- The http listening port. Default is 8080");
             System.out.println("    threads=<max threads> ------ Maximum number of threads. Default is 100");
             System.out.println("    conf=<moqui.conf> ---------- The Moqui Conf XML file to use, overrides other ways of specifying it");
+            System.out.println("    no-run-es ------------------- Don't Try starting and stopping ElasticSearch in runtime/elasticsearch");
             System.out.println("");
             System.exit(0);
         }
@@ -130,6 +132,7 @@ public class MoquiStart {
             Thread.currentThread().setContextClassLoader(moquiStartLoader);
             // Runtime.getRuntime().addShutdownHook(new MoquiShutdown(null, null, moquiStartLoader));
             initSystemProperties(moquiStartLoader, false, argMap);
+            Process esProcess = argMap.containsKey("no-run-es") ? null : checkStartElasticSearch();
 
             try {
                 System.out.println("Loading data with args " + argMap);
@@ -140,6 +143,7 @@ public class MoquiStart {
                 System.out.println("Error loading or running Moqui.loadData with args [" + argMap + "]: " + e.toString());
                 e.printStackTrace();
             }
+            checkStopElasticSearch(esProcess);
             System.exit(0);
         }
 
@@ -157,6 +161,13 @@ public class MoquiStart {
 
         initSystemProperties(moquiStartLoader, false, argMap);
         String runtimePath = System.getProperty("moqui.runtime");
+
+        Process esProcess = argMap.containsKey("no-run-es") ? null : checkStartElasticSearch();
+        if (esProcess != null) {
+            Thread shutdownHook = new ElasticShutdown(esProcess);
+            shutdownHook.setDaemon(true);
+            Runtime.getRuntime().addShutdownHook(shutdownHook);
+        }
 
         try {
             int port = 8080;
@@ -440,6 +451,34 @@ public class MoquiStart {
             System.out.println("Determined conf by default (dev conf file): " + confPath);
         }
         if (confPath != null && !confPath.isEmpty()) System.setProperty("moqui.conf", confPath);
+    }
+
+    private static Process checkStartElasticSearch() {
+        String runtimePath = System.getProperty("moqui.runtime");
+        String esDir = runtimePath + "/elasticsearch";
+        if (!new File(esDir + "/bin").exists()) return null;
+        if (new File(esDir + "/pid").exists()) {
+            System.out.println("ElasticSearch install found in runtime/elasticsearch, pid file found so not starting");
+            return null;
+        }
+        String[] envArr = { "JAVA_HOME=" + System.getProperty("java.home") };
+        System.out.println("Starting ElasticSearch install found in runtime/elasticsearch, pid file not found (" + envArr[0] + ")");
+        try {
+            Process esProcess = Runtime.getRuntime().exec("./bin/elasticsearch", envArr, new File(esDir));
+            System.setProperty("moqui.elasticsearch.started", "true");
+            return esProcess;
+        } catch (Exception e) {
+            System.out.println("Error starting ElasticSearch in runtime/elasticsearch: " + e.toString());
+            return null;
+        }
+    }
+    private static void checkStopElasticSearch(Process esProcess) {
+        if (esProcess != null) esProcess.destroy();
+    }
+    private static class ElasticShutdown extends Thread {
+        final Process esProcess;
+        ElasticShutdown(Process esProcess) { super(); this.esProcess = esProcess; }
+        @Override public void run() { esProcess.destroy(); }
     }
 
     private static class MoquiShutdown extends Thread {
@@ -742,16 +781,18 @@ public class MoquiStart {
         }
 
         private void definePackage(String className, JarFile jarFile) throws IllegalArgumentException {
-            Manifest mf;
+            Manifest mf = null;
             try {
                 mf = jarFile.getManifest();
             } catch (IOException e) {
-                // use default manifest
-                mf = new Manifest();
+                System.out.println("Error getting manifest from " + jarFile.getName() + ": " + e.toString());
             }
+            // if no manifest use default
             if (mf == null) mf = new Manifest();
+
             int dotIndex = className.lastIndexOf('.');
             String packageName = dotIndex > 0 ? className.substring(0, dotIndex) : "";
+            // NOTE: for Java 11 change getPackage() to getDefinedPackage(), can't do before because getDefinedPackage() doesn't exist in Java 8
             if (getPackage(packageName) == null) {
                 definePackage(packageName,
                         mf.getMainAttributes().getValue(Attributes.Name.SPECIFICATION_TITLE),

@@ -22,8 +22,10 @@ import org.w3c.dom.Element;
 import javax.swing.text.MaskFormatter;
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.security.SecureRandom;
 import java.text.ParseException;
@@ -118,7 +120,18 @@ public class StringUtilities {
         for (int i = 0; i < textLen; i++) {
             char ch = text.charAt(i);
             if (Character.isLetterOrDigit(ch)) continue;
-            if (ch == '.' || ch == '_' || ch == '-' || ch == '*' || ch == '%' || ch == '+') continue;
+            if (ch == '.' || ch == '_' || ch == '-' || ch == '*' || ch == '+') continue;
+            if (ch == '%') {
+                if (i + 2 < textLen) {
+                    char ch1 = text.charAt(i + 1);
+                    char ch2 = text.charAt(i + 2);
+                    if (isHexChar(ch1) && isHexChar(ch2)) {
+                        i += 2;
+                        continue;
+                    }
+                }
+                return false;
+            }
             return false;
         }
         return true;
@@ -144,6 +157,21 @@ public class StringUtilities {
             return false;
         }
         return true;
+    }
+
+    public static ArrayList<String> pathStringToList(String path, int skipSegments) {
+        ArrayList<String> pathList = new ArrayList<>();
+        if (path == null || path.isEmpty()) return pathList;
+        if (path.charAt(0) == '/') path = path.substring(1);
+        String[] pathArray = path.split("/");
+        for (int i = skipSegments; i < pathArray.length; i++) {
+            String pathSegment = pathArray[i];
+            if (pathSegment == null || pathSegment.isEmpty()) continue;
+            try { pathSegment = URLDecoder.decode(pathSegment, "UTF-8"); }
+            catch (Exception e) { if (logger.isTraceEnabled()) logger.trace("Error decoding screen path segment ${pathSegment}", e); }
+            pathList.add(pathSegment);
+        }
+        return pathList;
     }
 
     public static String camelCaseToPretty(String camelCase) {
@@ -449,7 +477,7 @@ public class StringUtilities {
 
     public static String numberToWordsWithDecimal(BigDecimal value) {
         final String integerText = numberToWords(value.longValue(), false);
-        String decimalText = value.setScale(2, BigDecimal.ROUND_HALF_UP).toPlainString();
+        String decimalText = value.setScale(2, RoundingMode.HALF_UP).toPlainString();
         decimalText = decimalText.substring(decimalText.indexOf(".") + 1);
         return integerText + " and " + decimalText + "/100";
     }
@@ -512,5 +540,35 @@ public class StringUtilities {
         int crc = 0x0000;
         for (byte b : bytes) crc = (crc >>> 8) ^ crc16Table[(crc ^ b) & 0xff];
         return crc;
+    }
+
+    public static boolean isHexChar(char c) {
+        switch (c) {
+            case '0':
+            case '1':
+            case '2':
+            case '3':
+            case '4':
+            case '5':
+            case '6':
+            case '7':
+            case '8':
+            case '9':
+            case 'a':
+            case 'b':
+            case 'c':
+            case 'd':
+            case 'e':
+            case 'f':
+            case 'A':
+            case 'B':
+            case 'C':
+            case 'D':
+            case 'E':
+            case 'F':
+                return true;
+            default:
+                return false;
+        }
     }
 }

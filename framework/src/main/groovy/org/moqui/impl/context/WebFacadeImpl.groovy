@@ -32,7 +32,6 @@ import org.moqui.impl.screen.ScreenDefinition
 import org.moqui.impl.screen.ScreenUrlInfo
 import org.moqui.impl.service.RestApi
 import org.moqui.impl.service.ServiceJsonRpcDispatcher
-import org.moqui.impl.service.ServiceXmlRpcDispatcher
 import org.moqui.util.ContextStack
 import org.moqui.resource.ResourceReference
 import org.moqui.util.ObjectUtilities
@@ -194,6 +193,7 @@ class WebFacadeImpl implements WebFacade {
             sessionToken = StringUtilities.getRandomString(20)
             session.setAttribute("moqui.session.token", sessionToken)
             request.setAttribute("moqui.session.token.created", "true")
+            response.setHeader("X-CSRF-Token", sessionToken)
         }
     }
 
@@ -448,21 +448,11 @@ class WebFacadeImpl implements WebFacade {
         // this uses the application/x-www-form-urlencoded MIME format for screen path segments
         // was: String pathInfo = request.getPathInfo()
         String reqURI = request.getRequestURI()
-        // reqURI should always start with a '/' but make sure then remove to avoid empty leading path segment
-        if (reqURI.charAt(0) == (char) '/') reqURI = reqURI.substring(1)
-        String[] pathArray = reqURI.split("/")
         // exclude servlet path segments
         String servletPath = request.getServletPath()
         // subtract 1 to exclude empty string before leading '/' that will always be there
         int servletPathSize = servletPath.isEmpty() ? 0 : (servletPath.split("/").length - 1)
-        ArrayList<String> pathList = new ArrayList<>()
-        for (int i = servletPathSize; i < pathArray.length; i++) {
-            String pathSegment = (String) pathArray[i]
-            if (pathSegment == null || pathSegment.isEmpty()) continue
-            try { pathSegment = URLDecoder.decode(pathSegment, "UTF-8") }
-            catch (Exception e) { if (logger.isTraceEnabled()) logger.trace("Error decoding screen path segment ${pathSegment}", e) }
-            pathList.add(pathSegment)
-        }
+        ArrayList<String> pathList = StringUtilities.pathStringToList(reqURI, servletPathSize)
         // logger.warn("pathInfo ${request.getPathInfo()} servletPath ${servletPath} reqURI ${request.getRequestURI()} pathList ${pathList}")
         return pathList
     }
@@ -855,7 +845,6 @@ class WebFacadeImpl implements WebFacade {
         }
     }
 
-    @Override void handleXmlRpcServiceCall() { new ServiceXmlRpcDispatcher(eci).dispatch(request, response) }
     @Override void handleJsonRpcServiceCall() { new ServiceJsonRpcDispatcher(eci).dispatch() }
 
     @Override
@@ -956,6 +945,8 @@ class WebFacadeImpl implements WebFacade {
     @Override
     void handleServiceRestCall(List<String> extraPathNameList) {
         ContextStack parmStack = (ContextStack) getParameters()
+
+        logger.info("Service REST for ${request.getMethod()} to ${request.getPathInfo()} headers ${request.headerNames.collect()} parameters ${getRequestParameters()}")
 
         // check for login, etc error messages
         if (eci.message.hasError()) {

@@ -71,7 +71,7 @@ public class EntityFindImpl extends EntityFindBase {
             // if this is a view-entity and any table in it exists check/create all or will fail with optional members, etc
             if (ed.isViewEntity) efi.getEntityDbMeta().checkTableRuntime(ed);
 
-            efb.makeConnection();
+            efb.makeConnection(useClone);
             efb.makePreparedStatement();
             efb.setPreparedStatementValues();
 
@@ -139,7 +139,7 @@ public class EntityFindImpl extends EntityFindBase {
             // if this is a view-entity and any table in it exists check/create all or will fail with optional members, etc
             if (ed.isViewEntity) efi.getEntityDbMeta().checkTableRuntime(ed);
 
-            Connection con = efb.makeConnection();
+            Connection con = efb.makeConnection(useClone);
             efb.makePreparedStatement();
             efb.setPreparedStatementValues();
 
@@ -195,7 +195,7 @@ public class EntityFindImpl extends EntityFindBase {
             // if this is a view-entity and any table in it exists check/create all or will fail with optional members, etc
             if (ed.isViewEntity) efi.getEntityDbMeta().checkTableRuntime(ed);
 
-            efb.makeConnection();
+            efb.makeConnection(useClone);
             efb.makePreparedStatement();
             efb.setPreparedStatementValues();
 

@@ -1,19 +1,108 @@
 
 # Moqui Framework Release Notes
 
-## Release 2.1.2 - Not Yet Released
+## Release 3.0.0 - Not Yet Released
+
+Moqui Framework 3.0.0 is a major new feature and bug fix release.
+
+In this release the old moqui-elasticsearch component with embedded ElasticSearch is no longer supported. Instead the new
+ElasticFacade is included in the framework as a client to an external ElasticSearch instance which can be installed in
+runtime/elasticsearch and automatically started/stopped in a separate process by the MoquiStart class (executable WAR, not when
+WAR file dropped into Servlet container).
+
+For a complete list of changes see:
+
+https://github.com/moqui/moqui-framework/compare/v2.1.3...v3.0.0
+
+### Non Backward Compatible Changes
+
+- Library updates have been done that conflict with ElasticSearch making it impossible to run embedded
+- XMLRPC support had been partly removed years ago, is now completely removed
+- CUPS4J library no longer included in moqui-framework
+- Network printing services (org.moqui.impl.PrintServices) are now mostly placeholders that return error messages if used, CUPS4J
+  library and services that depend on it are now in the moqui-cups tool component 
+
+### New Features
+
+- Recommended Gradle version is 5.6.4 (at least Gradle 5+ but not Gradle 6+ for compatibility with current plugins)
+- Java versions 8 and 11 supported (compiles to Java 8 bytecode by default, does not use any Java 11 language constructs or API)
+- Optimization for startup-add-missing to get meta data for all tables and columns instead of per entity for much faster startup
+  when enabled; default for runtime-add-missing is now 'false' and startup-add-missing is now 'true' for all DBs including H2
+- View Entity find improvements
+  - correlated sub-select using SQL LATERAL (mysql8, postgres, db2) or APPLY (mssql and oracle; not yet implemented)
+  - extend the member-entity.@sub-select attribute with non-lateral option where not wanted, is used by default as is best for how
+    sub-select is commonly used in view entities
+  - entity find SQL improvements for view entities where a member entity links to another member-entity with a function on a join field
+  - support entity-condition in view-entity used as a sub-select, was being ignored before
+
+### Bug Fixes
+
+- H2 embedded shutdown hook removal updated, no more Bitronix errors on shutdown from H2 already having been terminated
+
+## Release 2.1.3 - 07 Dec 2019
+
+Moqui Framework 2.1.3 is a patch level new feature and bug fix release.
+
+There are only minor changes and fixes in this release. For a complete list of changes see:
+
+https://github.com/moqui/moqui-framework/compare/v2.1.2...v2.1.3
+
+This is the last release where the moqui-elasticsearch component for embedded ElasticSearch will be supported. It is
+being replaced by the new ElasticFacade included in this release.
+
+### New Features
+
+- Java 11 now supported with some additional libraries (like javax.activation) included by default; some code changes
+  to address deprecations in the Java 11 API but more needed to resolve all for better future compatibility
+  (in other words expect deprecation warnings when building with Java 11) 
+- Built-in ElasticSearch client in the new ElasticFacade that uses pooled HTTP connections with the Moqui RestClient
+  for the ElasticSearch JSON REST API; this is most easily used with Groovy where you can use the inline Map and List
+  syntax to build what becomes the JSON body for search and other requests; after this release it will replace the old
+  moqui-elasticsearch component, now included in the framework because the large ES jar files are no longer required
+- RestClient improvements to support an externally managed RequestFactory to maintain a HttpClient across requests
+  for connection pooling, managing cookies, etc 
+- Support for binary render modes for screen with new ScreenWidgetRender interface and screen-facade.screen-output
+  element in the Moqui Conf XML file; this was initially implemented to support an xlsx render mode implemented in
+  the new moqui-poi tool component
+- Screen rendering to XLSX file with one sheet to form-list enabled with the form-list.@show-xlsx-button attribute,
+  the XLS button will only show if the moqui-poi tool component is in place
+- Support for binary rendered screen attachments to emails, and reusable emailScreenAsync transition and EmailScreenSection
+  to easily add a form to screens to send the screen render as an attachment to an outgoing email, rendered in the background
+- WikiServices to upload and delete attachments, and delete wiki pages; improvements to clone wiki page
+
+## Release 2.1.2 - 23 July 2019
 
 Moqui Framework 2.1.2 is a patch level new feature and bug fix release.
+
+There are only minor changes and fixes in this release. For a complete list of changes see:
+
+https://github.com/moqui/moqui-framework/compare/v2.1.1...v2.1.2
 
 ### New Features
 
 - Service include for refactoring, etc with new services.service-include element
 - RestClient now supports retry on timeout for call() and 429 (velocity) return for callFuture()
 - The general worker thread pool now checks for an active ExecutionContext after each run to make sure destroyed
+<<<<<<< HEAD
+=======
+- CORS preflight OPTIONS request and CORS actual request handling in MoquiServlet
+    - headers configured using cors-preflight and cors-actual types in webapp.response-header elements with default headers in MoquiDefaultConf.xml
+    - allowed origins configured with the webapp.@allow-origins attribute which defaults the value of the 'webapp_allow_origins'
+      property or env var for production configuration; default to empty which means only same origin is allowed
+- Docker and instance management monitoring and configuration option improvements, Postgres support for database instances
+- Entity field currency-amount now has 4 decimal digits in the DB and currency-precise has 5 decimal digits for more currency flexibility
+- Added minRetryTime to ServiceJob to avoid immediate and excessive retries
+- New Gradle tasks for managing git tags
+- Support for read only clone datasource configuration and use (if available) in entity finds
+>>>>>>> 69620aafbd4a96315ddedbdf5ac7bfc5ec0307bd
 
 ### Bug Fixes
 
 - Issue with DataFeed Runnable not destroying the ExecutionContext causing errors to bleed over
+<<<<<<< HEAD
+=======
+- Fix double content type header in RestClient in certain scenarios
+>>>>>>> 69620aafbd4a96315ddedbdf5ac7bfc5ec0307bd
 
 ## Release 2.1.1 - 29 Nov 2018
 

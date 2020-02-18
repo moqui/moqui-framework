@@ -57,6 +57,7 @@ class EntityDefinition {
     protected final ArrayList<String> nonPkFieldNameList = new ArrayList<>()
     protected final ArrayList<String> allFieldNameList = new ArrayList<>()
     protected final ArrayList<FieldInfo> allFieldInfoList = new ArrayList<>()
+    protected Map<String, MNode> pqExpressionNodeMap = null
     protected Map<String, Map<String, String>> mePkFieldToAliasNameMapMap = null
     protected Map<String, Map<String, ArrayList<MNode>>> memberEntityFieldAliases = null
     protected Map<String, MNode> memberEntityAliasMap = null
@@ -154,7 +155,8 @@ class EntityDefinition {
             for (MNode memberEntity in internalEntityNode.children("member-entity")) {
                 String memberEntityName = memberEntity.attribute("entity-name")
                 memberEntityAliasMap.put(memberEntity.attribute("entity-alias"), memberEntity)
-                if ("true".equals(memberEntity.attribute("sub-select"))) hasSubSelectMembers = true
+                String subSelectAttr = memberEntity.attribute("sub-select")
+                if ("true".equals(subSelectAttr) || "non-lateral".equals(subSelectAttr)) hasSubSelectMembers = true
                 EntityDefinition memberEd = efi.getEntityDefinition(memberEntityName)
                 if (memberEd == null) throw new EntityException("No definition found for member-entity ${memberEntity.attribute("entity-alias")} name ${memberEntityName} in view-entity ${fullEntityName}")
                 MNode memberEntityNode = memberEd.getEntityNode()
@@ -179,6 +181,7 @@ class EntityDefinition {
             // set @type, set is-pk on all alias Nodes if the related field is-pk
             for (MNode aliasNode in internalEntityNode.children("alias")) {
                 if (aliasNode.hasChild("complex-alias") || aliasNode.hasChild("case")) continue
+                if (aliasNode.attribute("pq-expression")) continue
 
                 String entityAlias = aliasNode.attribute("entity-alias")
                 MNode memberEntity = memberEntityAliasMap.get(entityAlias)
@@ -201,6 +204,13 @@ class EntityDefinition {
                 aliasByField.add(aliasNode)
             }
             for (MNode aliasNode in internalEntityNode.children("alias")) {
+                if (aliasNode.attribute("pq-expression")) {
+                    if (pqExpressionNodeMap == null) pqExpressionNodeMap = new HashMap<>()
+                    String pqFieldName = aliasNode.attribute("name")
+                    pqExpressionNodeMap.put(pqFieldName, aliasNode)
+                    continue
+                }
+
                 FieldInfo fi = new FieldInfo(this, aliasNode)
                 addFieldInfo(fi)
             }
@@ -244,7 +254,8 @@ class EntityDefinition {
         EntityDefinition memberEd = this.efi.getEntityDefinition(memberEntity.attribute("entity-name"))
         FieldInfo fieldInfo = memberEd.getFieldInfo(fieldName)
         if (fieldInfo == null) throw new EntityException("Invalid field name ${fieldName} for entity ${memberEd.getFullEntityName()}")
-        if ("true".equals(memberEntity.attribute("sub-select"))) {
+        String subSelectAttr = memberEntity.attribute("sub-select")
+        if ("true".equals(subSelectAttr) || "non-lateral".equals(subSelectAttr)) {
             // sub-select uses alias field name changed to underscored
             return EntityJavaUtil.camelCaseToUnderscored(fieldInfo.name)
         } else {
@@ -276,7 +287,8 @@ class EntityDefinition {
                 // special case for member-entity with sub-select=true, use alias underscored
                 MNode memberEntity = (MNode) memberEntityAliasMap.get(entityAlias)
                 EntityDefinition memberEd = this.efi.getEntityDefinition(memberEntity.attribute("entity-name"))
-                if (!memberEd.isViewEntity && "true".equals(memberEntity.attribute("sub-select"))) {
+                String subSelectAttr = memberEntity.attribute("sub-select")
+                if (!memberEd.isViewEntity && ("true".equals(subSelectAttr) || "non-lateral".equals(subSelectAttr))) {
                     return entityAlias + '.' + EntityJavaUtil.camelCaseToUnderscored(memberAliasName)
                 }
             }
@@ -699,6 +711,12 @@ class EntityDefinition {
         masterDefinitionMap = defMap
     }
 
+    Map<String, MNode> getPqExpressionNodeMap() { return pqExpressionNodeMap }
+    MNode getPqExpressionNode(String name) {
+        if (pqExpressionNodeMap == null) return null
+        return pqExpressionNodeMap.get(name)
+    }
+
     @CompileStatic
     static class MasterDefinition {
         String name
@@ -721,7 +739,7 @@ class EntityDefinition {
         EntityDefinition parentEd
         RelationshipInfo relInfo
         String relatedMasterName
-        ArrayList<MasterDetail> internalDetailList = []
+        ArrayList<MasterDetail> internalDetailList = new ArrayList<>()
         MasterDetail(EntityDefinition parentEd, MNode detailNode) {
             this.parentEd = parentEd
             relationshipName = detailNode.attribute("relationship")
@@ -760,9 +778,9 @@ class EntityDefinition {
     static class EntityDependents {
         String entityName
         EntityDefinition ed
-        Map<String, EntityDependents> dependentEntities = new TreeMap()
+        Map<String, EntityDependents> dependentEntities = new TreeMap<String, EntityDependents>()
         Set<String> descendants = new TreeSet()
-        Map<String, RelationshipInfo> relationshipInfos = new HashMap()
+        Map<String, RelationshipInfo> relationshipInfos = new HashMap<String, RelationshipInfo>()
 
         EntityDependents(EntityDefinition ed, Deque<String> ancestorEntities, Map<String, EntityDependents> allDependents) {
             this.ed = ed

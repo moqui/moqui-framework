@@ -21,11 +21,19 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.email.EmailTemplate emailTemplateId="NOTIFICATION" description="Default Notification" emailServerId="SYSTEM"
             emailTypeEnumId="EMT_NOTIFICATION" bodyScreenLocation="classpath://screen/NotificationEmail.xml" webappName="webroot"
             fromAddress="" fromName="" ccAddresses="" bccAddresses="" subject="${title}" sendPartial="Y"/>
+    <!-- EmailTemplate for rendered screens (reports, etc) -->
+    <moqui.basic.email.EmailTemplate emailTemplateId="SCREEN_RENDER" description="Default Screen Render" emailServerId="SYSTEM"
+            emailTypeEnumId="EMT_SCREEN_RENDER" bodyScreenLocation="classpath://screen/ScreenRenderEmail.xml" webappName="webroot"
+            fromAddress="" fromName="" ccAddresses="" bccAddresses="" subject="${title}" sendPartial="Y"/>
 
     <!-- Web Servlet Errors NotificationTopic -->
     <moqui.security.user.NotificationTopic topic="WebServletError" description="Web Servlet Error"
             typeString="danger" showAlert="Y" persistOnSend="Y" receiveNotifications="N" isPrivate="Y" emailTemplateId="NOTIFICATION"
             titleTemplate="Web Error ${errorCode?:''} (${username?:'no user'}) ${path?:''} ${message?:'N/A'}"/>
+    <moqui.security.user.NotificationTopic topic="ServiceJobError" description="Service Job Error"
+            typeString="danger" showAlert="Y" persistOnSend="Y" receiveNotifications="N" isPrivate="Y" emailTemplateId="NOTIFICATION"
+            titleTemplate="Job Error ${serviceCallRun.jobName?:''} [${serviceCallRun.jobRunId?:''}] ${serviceCallRun.errors?:'N/A'}"
+            linkTemplate="/vapps/system/ServiceJob/JobRuns/JobRunDetail?jobRunId=${serviceCallRun.jobRunId}"/>
 
     <!-- ========== Framework Scheduled ServiceJob Data ========== -->
     <!-- Handy cron strings: [0 0 2 * * ?] every night at 2:00 am, [0 0/15 * * * ?] every 15 minutes, [0 0/2 * * * ?] every 2 minutes -->
@@ -59,6 +67,10 @@ along with this software (see the LICENSE.md file). If not, see
         <parameters parameterName="emailServerId" parameterValue="SYSTEM"/>
     </moqui.service.job.ServiceJob>
 
+    <!-- Render ScheduledScreens -->
+    <moqui.service.job.ServiceJob jobName="render_ScheduledScreens_frequent" description="Render Scheduled Screens"
+            serviceName="org.moqui.impl.ScreenServices.render#ScheduledScreens" cronExpression="0 0/15 * * * ?" paused="N"/>
+
     <!-- Service Job: Index DataFeed Documents -->
     <moqui.security.user.NotificationTopic topic="IndexDataFeedDocuments" description="Index DataFeed Documents Completed"
             typeString="success" showAlert="Y" persistOnSend="Y" receiveNotifications="Y"
@@ -87,4 +99,25 @@ along with this software (see the LICENSE.md file). If not, see
             serviceName="org.moqui.impl.EntityServices.import#EntityDataSnapshot" topic="ImportEntityDataSnapshot"
             transactionTimeout="3600"/>
 
+    <!-- ========== ElasticSearch Setup Data ========== -->
+
+    <moqui.security.UserPermission userPermissionId="ElasticRemote" description="ElasticSearch Remote Access"/>
+    <moqui.security.UserGroupPermission userGroupId="ADMIN" userPermissionId="ElasticRemote" fromDate="0"/>
+
+    <moqui.security.UserPermission userPermissionId="KibanaRemote" description="Kibana Remote Access"/>
+    <moqui.security.UserGroupPermission userGroupId="ADMIN" userPermissionId="KibanaRemote" fromDate="0"/>
+
+    <!-- Handy cron strings: [0 0 2 * * ?] every night at 2:00 am, [0 0/15 * * * ?] every 15 minutes, [0 0/2 * * * ?] every 2 minutes -->
+    <moqui.service.job.ServiceJob jobName="clean_ElasticSearchLogMessages_daily" description="Clean log messages stored in ElasticSearch"
+            serviceName="org.moqui.search.SearchServices.delete#Documents" cronExpression="0 0 2 * * ?" paused="Y">
+        <parameters parameterName="indexName" parameterValue="moqui_logs"/>
+        <parameters parameterName="timestampField" parameterValue="@timestamp"/>
+        <parameters parameterName="daysToKeep" parameterValue="90"/>
+    </moqui.service.job.ServiceJob>
+    <moqui.service.job.ServiceJob jobName="clean_ElasticSearchHttpLogMessages_daily" description="Clean http request log messages stored in ElasticSearch"
+            serviceName="org.moqui.search.SearchServices.delete#Documents" cronExpression="0 0 2 * * ?" paused="Y">
+        <parameters parameterName="indexName" parameterValue="moqui_http_log"/>
+        <parameters parameterName="timestampField" parameterValue="@timestamp"/>
+        <parameters parameterName="daysToKeep" parameterValue="180"/>
+    </moqui.service.job.ServiceJob>
 </entity-facade-xml>

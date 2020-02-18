@@ -124,6 +124,10 @@ class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
         if (ed == null) return false
         return efi.getEntityDbMeta().checkTableStartup(ed)
     }
+    @Override
+    int checkAndAddAllTables() {
+        return efi.getEntityDbMeta().checkAndAddAllTables(datasourceNode.attribute("group-name"))
+    }
 
     @Override
     EntityValue makeEntityValue(String entityName) {

@@ -15,6 +15,7 @@ package org.moqui.screen;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.io.OutputStream;
 import java.io.Writer;
 import java.util.List;
 
@@ -37,6 +38,10 @@ public interface ScreenRender {
      * @return Reference to this ScreenRender for convenience
      */
     ScreenRender screenPath(List<String> screenNameList);
+    ScreenRender screenPath(String path);
+    /** Alternative to lastStandalone parameter and accepts same values (true, false, positive numbers to render that many from
+     * end of path (true = 1), negative to render not render that many from start of path */
+    ScreenRender lastStandalone(String ls);
 
     /** The mode to render for (type of output). Used to select sub-elements of the <code>render-mode</code>
      * element and the default macro template (if one is not specified for this render).
@@ -99,6 +104,7 @@ public interface ScreenRender {
      * context will not be changed.
      */
     void render(Writer writer);
+    void render(OutputStream os);
 
     /** Render a screen and return the output as a String. Context semantics are the same as other render methods. */
     String render();

@@ -18,14 +18,25 @@ along with this software (see the LICENSE.md file). If not, see
         <description>Send Email with settings in EmailTemplate entity record</description>
         <in-parameters>
             <parameter name="emailTemplateId" required="true"/>
-            <parameter name="toAddresses" type="String" required="true">
-                <description>Comma separated list of to email addresses</description></parameter>
-            <parameter name="ccAddresses" type="String"><description>Comma separated list of CC email addresses</description></parameter>
-            <parameter name="bccAddresses" type="String"><description>Comma separated list of BCC email addresses</description></parameter>
+            <parameter name="toAddresses" required="true"><description>Comma separated list of to email addresses</description></parameter>
+            <parameter name="ccAddresses"><description>Comma separated list of CC email addresses</description></parameter>
+            <parameter name="bccAddresses"><description>Comma separated list of BCC email addresses</description></parameter>
             <parameter name="bodyParameters" type="Map"/>
             <parameter name="createEmailMessage" type="Boolean" default="true"/>
             <parameter name="emailTypeEnumId"/>
             <parameter name="fromUserId"/><parameter name="toUserId"/>
+            <parameter name="attachments" type="List"><parameter name="attachment" type="Map">
+                <parameter name="fileName"/>
+                <!-- specify mime type with contentType or for screen renders determine from render mode, for others from fileName extension -->
+                <parameter name="contentType"/>
+                <!-- use contentText or contentBytes for direct attachments (not a screen to render) -->
+                <parameter name="contentText" allow-html="any"/>
+                <parameter name="contentBytes" type="byte[]"/>
+                <!-- for more details on these see the matching field descriptions on EmailTemplateAttachment -->
+                <parameter name="screenPath"/>
+                <parameter name="screenRenderMode"/>
+                <parameter name="attachmentLocation"/>
+            </parameter></parameter>
         </in-parameters>
         <out-parameters>
             <parameter name="messageId"><description>From the Message-ID email header field.</description></parameter>

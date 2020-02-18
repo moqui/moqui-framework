@@ -64,6 +64,46 @@ class MoquiServlet extends HttpServlet {
             return
         }
 
+        // handle CORS actual and preflight request headers
+        ExecutionContextFactoryImpl.WebappInfo webappInfo = ecfi.getWebappInfo(webappName)
+        String originHeader = request.getHeader("Origin")
+        if (originHeader != null && !originHeader.isEmpty() && webappInfo != null &&
+                !"false".equals(webappInfo.webappNode.attribute("handle-cors"))) {
+
+            // generate Access-Control-Allow-Origin based on Origin, if allowed
+            Set<String> allowOriginSet = webappInfo.allowOriginSet
+            int originSepIdx = originHeader.indexOf("://")
+            String originDomain = originSepIdx > 0 ? originHeader.substring(originSepIdx + 3) : originHeader
+            int originDomColonIdx = originDomain.indexOf(":")
+            if (originDomColonIdx > 0) originDomain = originDomain.substring(0, originDomColonIdx)
+            // if * allowed or Origin domain matches request domain always allow (same origin)
+            String serverName = request.getServerName()
+            URL requestUrl = new URL(request.getRequestURL().toString())
+            String hostName = requestUrl.getHost()
+            if (allowOriginSet.contains("*") || originDomain == serverName || originDomain == hostName) {
+                response.setHeader("Access-Control-Allow-Origin", originHeader)
+            } else {
+                if (allowOriginSet.contains(originHeader) || allowOriginSet.contains(originDomain)) {
+                    response.setHeader("Access-Control-Allow-Origin", originHeader)
+                } else {
+                    logger.warn("Returning 401, Origin ${originHeader} not allowed for configuration ${allowOriginSet} or server name ${serverName} or request host ${hostName}")
+                    // Origin not allowed, send 401 response
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Origin not allowed")
+                    return
+                }
+            }
+
+            String acRequestMethod = request.getHeader("Access-Control-Request-Method")
+            if ("OPTIONS".equals(request.getMethod()) && acRequestMethod != null && !acRequestMethod.isEmpty()) {
+                // String acRequestHeaders = request.getHeader("Access-Control-Request-Headers")
+                webappInfo.addHeaders("cors-preflight", response)
+                response.setStatus(HttpServletResponse.SC_OK)
+                return
+            } else {
+                webappInfo.addHeaders("cors-actual", response)
+            }
+        }
+
         if (!request.characterEncoding) request.setCharacterEncoding("UTF-8")
         long startTime = System.currentTimeMillis()
 
@@ -74,11 +114,27 @@ class MoquiServlet extends HttpServlet {
         MDC.remove("moqui_userId")
         MDC.remove("moqui_visitorId")
 
+        // make sure no transaction is active in thread
+        if (ecfi.transactionFacade.isTransactionInPlace()) {
+            logger.warn("In MoquiServlet.service there is already a transaction for thread [${Thread.currentThread().id}:${Thread.currentThread().name}], closing")
+            try {
+                ecfi.transactionFacade.destroyAllInThread()
+            } catch (Throwable t) {
+                logger.error("Error destroying transaction already in place in MoquiServlet.service", t)
+            }
+        }
+
+        // check for active ExecutionContext
         ExecutionContextImpl activeEc = ecfi.activeContext.get()
         if (activeEc != null) {
             logger.warn("In MoquiServlet.service there is already an ExecutionContext for user ${activeEc.user.username} (from ${activeEc.forThreadId}:${activeEc.forThreadName}) in this thread (${Thread.currentThread().id}:${Thread.currentThread().name}), destroying")
-            activeEc.destroy()
+            try {
+                activeEc.destroy()
+            } catch (Throwable t) {
+                logger.error("Error destroying ExecutionContext already in place in MoquiServlet.service", t)
+            }
         }
+        // get a new ExecutionContext
         ExecutionContextImpl ec = ecfi.getEci()
 
         /** NOTE to set render settings manually do something like this, but it is not necessary to set these things
@@ -170,10 +226,10 @@ class MoquiServlet extends HttpServlet {
 
         if (ecfi != null && errorCode == HttpServletResponse.SC_INTERNAL_SERVER_ERROR && !isBrokenPipe(origThrowable)) {
             ExecutionContextImpl ec = ecfi.getEci()
-            ec.makeNotificationMessage().topic("WebServletError").type(NotificationMessage.NotificationType.danger)
+            ec.makeNotificationMessage().topic("WebServletError").type(NotificationMessage.danger)
                     .title('''Web Error ${errorCode?:''} (${username?:'no user'}) ${path?:''} ${message?:'N/A'}''')
                     .message([errorCode:errorCode, errorType:errorType, message:message, exception:origThrowable?.toString(),
-                        path:ec.web.getPathInfo(), parameters:ec.web.getRequestParameters(), username:ec.user.username] as Map<String, Object>)
+                        path:ec.web?.getPathInfo(), parameters:ec.web?.getRequestParameters(), username:ec.user.username] as Map<String, Object>)
                     .send()
         }
 

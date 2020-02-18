@@ -28,6 +28,7 @@ import java.util.TreeSet;
 
 public class UrlResourceReference extends ResourceReference {
     private static final Logger logger = LoggerFactory.getLogger(UrlResourceReference.class);
+    static final String runtimePrefix = "runtime://";
     URL locationUrl = null;
     Boolean exists = null;
     boolean isFileProtocol = false;
@@ -44,6 +45,8 @@ public class UrlResourceReference extends ResourceReference {
     @Override
     public ResourceReference init(String location) {
         if (location == null || location.isEmpty()) throw new BaseException("Cannot create URL Resource Reference with empty location");
+
+        if (location.startsWith(runtimePrefix)) location = location.substring(runtimePrefix.length());
 
         if (location.startsWith("/") || !location.contains(":")) {
             // no prefix, local file: if starts with '/' is absolute, otherwise is relative to runtime path
@@ -234,13 +237,15 @@ public class UrlResourceReference extends ResourceReference {
         if (!isFileProtocol) throw new IllegalArgumentException("Move not supported for resource [" + locationUrl + "] with protocol [" + (locationUrl == null ? null : locationUrl.getProtocol()) + "]");
 
         File curFile = getFile();
-        if (!curFile.exists()) return;
+        if (!curFile.exists()) throw new IllegalArgumentException("File at " + getLocation() + " [" + curFile.getAbsolutePath() + "] does not exist, cannot move");
 
         String path = newRr.getUrl().toExternalForm().substring(5);
         File newFile = new File(path);
         File newFileParent = newFile.getParentFile();
         if (newFileParent != null && !newFileParent.exists()) newFileParent.mkdirs();
-        curFile.renameTo(newFile);
+        if (!curFile.renameTo(newFile)) {
+            throw new IllegalArgumentException("Could not move " + curFile + " to " + newFile);
+        }
     }
 
     @Override public ResourceReference makeDirectory(final String name) {

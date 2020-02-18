@@ -74,7 +74,7 @@ class ScreenDefinition {
 
     protected ScreenSection rootSection = null
     protected Map<String, ScreenSection> sectionByName = new HashMap<>()
-    protected Map<String, ScreenForm> formByName = new HashMap<>()
+    protected Map<String, ScreenForm> formByName = new LinkedHashMap<>()
     protected Map<String, ScreenTree> treeByName = new HashMap<>()
     protected final Set<String> dependsOnScreenLocations = new HashSet<>()
     protected boolean hasTabMenu = false
@@ -348,6 +348,9 @@ class ScreenDefinition {
     boolean hasRequiredParameters() { return hasRequired }
     boolean hasTabMenu() { return hasTabMenu }
 
+    XmlAction getPreActions() { return preActions }
+    XmlAction getAlwaysActions() { return alwaysActions }
+
     boolean hasTransition(String name) {
         for (TransitionItem curTi in transitionByName.values()) if (curTi.name == name) return true
         return false
@@ -468,7 +471,7 @@ class ScreenDefinition {
 
     List<String> nestedNoReqParmLocations(String currentPath, Set<String> screensToSkip) {
         if (!screensToSkip) screensToSkip = new HashSet<String>()
-        List<String> locList = []
+        List<String> locList = new ArrayList<>()
         List<SubscreensItem> ssiList = getSubscreensItemsSorted()
         for (SubscreensItem ssi in ssiList) {
             if (screensToSkip.contains(ssi.name)) continue
@@ -553,6 +556,7 @@ class ScreenDefinition {
         if (sf == null) throw new BaseArtifactException("Could not find form ${formName} in screen ${getLocation()}")
         return sf
     }
+    ArrayList<ScreenForm> getAllForms() { return new ArrayList<>(formByName.values()) }
     ScreenTree getTree(String treeName) {
         ScreenTree st = treeByName.get(treeName)
         if (st == null) throw new BaseArtifactException("Could not find tree ${treeName} in screen ${getLocation()}")
@@ -974,8 +978,10 @@ class ScreenDefinition {
             ScreenUrlInfo fwdUrlInfo = ScreenUrlInfo.getScreenUrlInfo(sri, null, curFpnl, null, 0)
             ScreenUrlInfo.UrlInstance fwdInstance = fwdUrlInfo.getInstance(sri, null)
 
-            Map<String, Object> flfInfo = ScreenForm.getFormListFindInfo(formListFindId, sri.ec, null)
-            fwdInstance.addParameters((Map<String, String>) flfInfo.findParameters)
+            // use only formListFindId now that ScreenRenderImpl picks it up and auto adds configured parameters:
+            // Map<String, Object> flfInfo = ScreenForm.getFormListFindInfo(formListFindId, sri.ec, null)
+            // fwdInstance.addParameters((Map<String, String>) flfInfo.findParameters)
+            fwdInstance.addParameter("formListFindId", formListFindId)
 
             if (!sri.sendJsonRedirect(fwdInstance, null)) sri.response.sendRedirect(fwdInstance.getUrlWithParams())
             return noneResponse
