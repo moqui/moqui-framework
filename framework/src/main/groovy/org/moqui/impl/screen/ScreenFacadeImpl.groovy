@@ -51,6 +51,11 @@ class ScreenFacadeImpl implements ScreenFacade {
     protected final Cache<String, ArrayList<String>> screenFindPathCache
     protected final Cache<String, MNode> dbFormNodeByIdCache
 
+    protected final Map<String, ScreenWidgetRender> screenWidgetRenderByMode = new HashMap<>()
+    protected final ScreenWidgetRender textMacroWidgetRender = new ScreenWidgetRenderFtl()
+    protected final Set<String> textOutputRenderModes = new HashSet<>()
+    protected final Set<String> allRenderModes = new HashSet<>()
+
     protected final Map<String, Map<String, String>> themeIconByTextByTheme = new HashMap<>()
 
     ScreenFacadeImpl(ExecutionContextFactoryImpl ecfi) {
@@ -66,11 +71,19 @@ class ScreenFacadeImpl implements ScreenFacade {
         screenFindPathCache = ecfi.cacheFacade.getCache("screen.find.path", String.class, ArrayList.class)
         dbFormNodeByIdCache = ecfi.cacheFacade.getCache("screen.form.db.node", String.class, MNode.class)
 
-        List<MNode> stoNodes = ecfi.getConfXmlRoot().first("screen-facade").children("screen-text-output")
-        for (MNode stoNode in stoNodes) {
-            mimeTypeByRenderMode.put(stoNode.attribute("type"), stoNode.attribute("mime-type"))
-            alwaysStandaloneByRenderMode.put(stoNode.attribute("type"), stoNode.attribute("always-standalone") == "true")
-            skipActionsByRenderMode.put(stoNode.attribute("type"), stoNode.attribute("skip-actions") == "true")
+        MNode screenFacadeNode = ecfi.getConfXmlRoot().first("screen-facade")
+        ArrayList<MNode> stoNodes = screenFacadeNode.children("screen-text-output")
+        for (MNode stoNode in stoNodes) textOutputRenderModes.add(stoNode.attribute("type"))
+
+        ArrayList<MNode> outputNodes = new ArrayList<>(stoNodes)
+        ArrayList<MNode> soutNodes = screenFacadeNode.children("screen-output")
+        if (soutNodes != null && soutNodes.size() > 0) outputNodes.addAll(soutNodes)
+        for (MNode outputNode in outputNodes) {
+            String type = outputNode.attribute("type")
+            allRenderModes.add(type)
+            mimeTypeByRenderMode.put(type, outputNode.attribute("mime-type"))
+            alwaysStandaloneByRenderMode.put(type, outputNode.attribute("always-standalone") == "true")
+            skipActionsByRenderMode.put(type, outputNode.attribute("skip-actions") == "true")
         }
     }
 
@@ -213,7 +226,8 @@ class ScreenFacadeImpl implements ScreenFacade {
         }
     }
 
-    boolean isRenderModeValid(String renderMode) { return mimeTypeByRenderMode.containsKey(renderMode) }
+    boolean isRenderModeValid(String renderMode) { return allRenderModes.contains(renderMode) }
+    boolean isRenderModeText(String renderMode) { return textOutputRenderModes.contains(renderMode) }
     boolean isRenderModeAlwaysStandalone(String renderMode) { return alwaysStandaloneByRenderMode.get(renderMode) }
     boolean isRenderModeSkipActions(String renderMode) { return skipActionsByRenderMode.get(renderMode) }
     String getMimeTypeByMode(String renderMode) { return (String) mimeTypeByRenderMode.get(renderMode) }
@@ -291,6 +305,38 @@ class ScreenFacadeImpl implements ScreenFacade {
         templatesNode = MNode.parse(templateLocation, ecfi.resourceFacade.getLocationStream(templateLocation))
         widgetTemplateLocationCache.put(templateLocation, templatesNode)
         return templatesNode
+    }
+
+    ScreenWidgetRender getWidgetRenderByMode(String renderMode) {
+        // first try the cache
+        ScreenWidgetRender swr = (ScreenWidgetRender) screenWidgetRenderByMode.get(renderMode)
+        if (swr != null) return swr
+        // special case for text output render modes
+        if (textOutputRenderModes.contains(renderMode)) return textMacroWidgetRender
+        // try making the ScreenWidgerRender object
+        swr = makeWidgetRenderByMode(renderMode)
+        if (swr == null) throw new BaseArtifactException("Could not find screen widger renderer for mode ${renderMode}")
+        return swr
+    }
+    protected synchronized ScreenWidgetRender makeWidgetRenderByMode(String renderMode) {
+        ScreenWidgetRender swr = (ScreenWidgetRender) screenWidgetRenderByMode.get(renderMode)
+        if (swr != null) return swr
+
+        MNode stoNode = ecfi.getConfXmlRoot().first("screen-facade")
+                .first({ MNode it -> it.name == "screen-output" && it.attribute("type") == renderMode })
+        String renderClass = stoNode != null ? stoNode.attribute("widget-render-class") : null
+        if (!renderClass) throw new BaseArtifactException("Could not find widget-render-class for render mode (screen-output.@type) ${renderMode}")
+
+        ScreenWidgetRender newSwr
+        try {
+            Class swrClass = Thread.currentThread().getContextClassLoader().loadClass(renderClass)
+            newSwr = (ScreenWidgetRender) swrClass.newInstance()
+        } catch (Exception e) {
+            throw new BaseArtifactException("Error while initializing Screen Widgets render class [${renderClass}]", e)
+        }
+
+        screenWidgetRenderByMode.put(renderMode, newSwr)
+        return newSwr
     }
 
     Map<String, String> getThemeIconByText(String screenThemeId) {

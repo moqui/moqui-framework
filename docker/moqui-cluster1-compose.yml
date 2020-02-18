@@ -26,7 +26,7 @@ services:
     # https://github.com/jwilder/nginx-proxy
     image: jwilder/nginx-proxy
     container_name: nginx-proxy
-    restart: unless-stopped
+    restart: always
     ports:
       - 80:80
       - 443:443
@@ -40,7 +40,7 @@ services:
     image: moqui
     container_name: moqui-server1
     command: conf=conf/MoquiProductionConf.xml
-    restart: unless-stopped
+    restart: always
     links:
      - moqui-database
      - elasticsearch
@@ -54,18 +54,18 @@ services:
      - ./runtime1/txlog:/opt/moqui/runtime/txlog
      - ./runtime1/sessions:/opt/moqui/runtime/sessions
      # this one isn't needed when not using H2/etc: - ./runtime/db:/opt/moqui/runtime/db
-     # ES should be setup with no local storage, so don't do:
-     - ./runtime1/elasticsearch:/opt/moqui/runtime/elasticsearch
-     - ./elasticsearch/moquiconfig:/opt/moqui/runtime/component/moqui-elasticsearch/home/config
     environment:
      - instance_purpose=production
-     - entity_ds_db_conf=mysql
+     - entity_ds_db_conf=mysql8
      - entity_ds_host=moqui-database
      - entity_ds_port=3306
      - entity_ds_database=moqui
-     - entity_ds_user=moqui
-     - entity_ds_password=moqui
+     # NOTE: using root user because for TX recovery MySQL requires the 'XA_RECOVER_ADMIN' and in version 8 that must be granted explicitly
+     - entity_ds_user=root
+     - entity_ds_password=moquiroot
      - entity_ds_crypt_pass='MoquiDefaultPassword:CHANGEME'
+     - entity_add_missing_runtime=false
+     - entity_add_missing_startup=true
      # CHANGE ME - note that VIRTUAL_HOST is for nginx-proxy so it picks up this container as one it should reverse proxy
      # this can be a comma separate list of hosts like 'example.com,www.example.com'
      - VIRTUAL_HOST=moqui1.local
@@ -78,9 +78,8 @@ services:
      - default_time_zone=US/Pacific
      # settings for kibana proxy
      - kibana_host=kibana
-     # comment or set to 'embedded' to have Moqui use embedded coordinating node instead of ElasticSearch REST client
-     - elasticsearch_mode=rest
-     - elasticsearch_host1=http://elasticsearch:9200
+      # configuration for ElasticFacade.ElasticClient, make sure moqui-elasticsearch is NOT included in the Moqui build
+     - elasticsearch_url=http://elasticsearch:9200
      # hazelcast multicast setup
      - hazelcast_multicast_enabled=true
      - hazelcast_multicast_group=224.2.2.3
@@ -91,7 +90,7 @@ services:
     image: moqui
     container_name: moqui-server2
     command: conf=conf/MoquiProductionConf.xml
-    restart: unless-stopped
+    restart: always
     links:
      - moqui-database
      - elasticsearch
@@ -106,18 +105,19 @@ services:
      - ./runtime2/txlog:/opt/moqui/runtime/txlog
      - ./runtime2/sessions:/opt/moqui/runtime/sessions
      # this one isn't needed when not using H2/etc: - ./runtime/db:/opt/moqui/runtime/db
-     # ES should be setup with no local storage, so don't do:
-     - ./runtime2/elasticsearch:/opt/moqui/runtime/elasticsearch
-     - ./elasticsearch/moquiconfig:/opt/moqui/runtime/component/moqui-elasticsearch/home/config
     environment:
      - instance_purpose=production
-     - entity_ds_db_conf=mysql
+     - entity_ds_db_conf=mysql8
      - entity_ds_host=moqui-database
      - entity_ds_port=3306
      - entity_ds_database=moqui
-     - entity_ds_user=moqui
-     - entity_ds_password=moqui
+     # NOTE: using root user because for TX recovery MySQL requires the 'XA_RECOVER_ADMIN' and in version 8 that must be granted explicitly
+     - entity_ds_user=root
+     - entity_ds_password=moquiroot
      - entity_ds_crypt_pass='MoquiDefaultPassword:CHANGEME'
+     - entity_add_missing_runtime=false
+     - entity_add_missing_startup=false
+     - entity_empty_db_load=none
      # CHANGE ME - note that VIRTUAL_HOST is for nginx-proxy so it picks up this container as one it should reverse proxy
      # this can be a comma separate list of hosts like 'example.com,www.example.com'
      - VIRTUAL_HOST=moqui2.local
@@ -130,9 +130,8 @@ services:
      - default_time_zone=US/Pacific
      # settings for kibana proxy
      - kibana_host=kibana
-     # comment or set to 'embedded' to have Moqui use embedded coordinating node instead of ElasticSearch REST client
-     - elasticsearch_mode=rest
-     - elasticsearch_host1=http://elasticsearch:9200
+     # configuration for ElasticFacade.ElasticClient, make sure moqui-elasticsearch is NOT included in the Moqui build
+     - elasticsearch_url=http://elasticsearch:9200
      # hazelcast multicast setup
      - hazelcast_multicast_enabled=true
      - hazelcast_multicast_group=224.2.2.3
@@ -141,9 +140,9 @@ services:
      - hazelcast_group_password=test-pass
 
   moqui-database:
-    image: mysql:5.7
+    image: mysql:8.0
     container_name: moqui-database
-    restart: unless-stopped
+    restart: always
     ports:
      # change this as needed to bind to any address or even comment to not expose port outside containers
      - 127.0.0.1:3306:3306
@@ -159,28 +158,28 @@ services:
 
   elasticsearch:
     # very important: use the '-oss' version otherwise x-pack is included and because of licensing, etc moqui instances can't join the cluster
-    image: docker.elastic.co/elasticsearch/elasticsearch-oss:6.3.2
+    image: docker.elastic.co/elasticsearch/elasticsearch-oss:7.4.2
     container_name: elasticsearch
     # command: elasticsearch
-    restart: unless-stopped
+    restart: always
     ports:
      # change this as needed to bind to any address or even comment to not expose port outside containers
      - 127.0.0.1:9200:9200
      - 127.0.0.1:9300:9300
     volumes:
      # edit these as needed to map configuration and data storage
-     - ./elasticsearch/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
      - ./elasticsearch/data:/usr/share/elasticsearch/data
+     # - ./elasticsearch/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
      # - ./elasticsearch/logs:/usr/share/elasticsearch/logs
     environment:
      - "ES_JAVA_OPTS=-Xms1024m -Xmx1024m"
+     - discovery.type=single-node
+     - network.host=_site_
 
   kibana:
-    # using the docker hub image which does not include X-Pack (causes issues because embedded ES does not including X-Pack)
-    # the kibana image on docker hub is deprecated and slated to be removed, then will need an alternative without X-Pack
-    image: docker.elastic.co/kibana/kibana:6.3.2
+    image: docker.elastic.co/kibana/kibana-oss:7.4.2
     container_name: kibana
-    restart: unless-stopped
+    restart: always
     ports:
      - 127.0.0.1:5601:5601
     links:
@@ -190,7 +189,7 @@ services:
     environment:
      # override value in kibana.yml so it can remain for other setups; NOTE: kibana may modify the kibana.yml file for this setting!
      - ELASTICSEARCH_URL=http://elasticsearch:9200
-     # - SERVER_BASEPATH=/kibana
+     - SERVER_BASEPATH=/kibana
      # - SERVER_HOST=kibana
      # - XPACK_SECURITY_ENABLED=false
      # - XPACK_MONITORING_ENABLED=false

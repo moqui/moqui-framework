@@ -402,7 +402,19 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="entity-name" type="name-full" use="required"/>
             <xs:attribute name="join-from-alias" type="name-plain" use="optional"/>
             <xs:attribute name="join-optional" type="boolean" default="false"/>
-            <xs:attribute name="sub-select" type="boolean" default="false"/>
+            <xs:attribute name="sub-select" default="false">
+                <xs:simpleType><xs:restriction base="xs:token">
+                    <xs:enumeration value="true"><xs:annotation><xs:documentation>
+                        Correlated sub-select with ON conditions moved to WHERE clause of sub-select (far more efficient for
+                        what would be a large temporary table from the less constrained sub-select, common for Moqui view entities)
+                    </xs:documentation></xs:annotation></xs:enumeration>
+                    <xs:enumeration value="non-lateral"><xs:annotation>
+                        <xs:documentation>Simple non-correlated sub-select (full sub-select run in temp table)</xs:documentation>
+                    </xs:annotation></xs:enumeration>
+                    <xs:enumeration value="false"><xs:annotation>
+                        <xs:documentation>Not a sub-select</xs:documentation></xs:annotation></xs:enumeration>
+                </xs:restriction></xs:simpleType>
+            </xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="member-relationship">
@@ -466,14 +478,19 @@ along with this software (see the LICENSE.md file). If not, see
                     If unspecified determined automatically from function attribute.
                 </xs:documentation></xs:annotation>
             </xs:attribute>
-            <xs:attribute name="type" type="field-type-options" use="optional">
+            <xs:attribute name="type" type="field-type-options">
                 <xs:annotation><xs:documentation>Normally determined automatically from the entity field it is based on
                     but needs to be specified for complex-alias with a function if you want something other than
                     number-decimal.</xs:documentation></xs:annotation>
             </xs:attribute>
-            <xs:attribute name="default-display" type="boolean" use="optional"><xs:annotation><xs:documentation>
+            <xs:attribute name="default-display" type="boolean"><xs:annotation><xs:documentation>
                 Mostly used internally for auto form fields from entity fields. If not set uses default behavior
                 (in form-list display all types except text-long, text-very-long, binary-very-long).
+            </xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="pq-expression" type="xs:string"><xs:annotation><xs:documentation>
+                Post-query Groovy expression evaluated using the values of other aliased fields on this view-entity. Meant primarily
+                for use in EntityDynamicView instances created from DataDocument definitions. If specified the alias is not queried
+                from the database and other attributes such as entity-alias, field, and function are ignored.
             </xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>

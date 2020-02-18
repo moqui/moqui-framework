@@ -63,9 +63,10 @@ public interface EntityListIterator extends ListIterator<EntityValue> {
      *
      * For example, you could use the following to iterate through the results in an EntityListIterator:
      *
-     *      EntityValue nextValue;
-     *      while ((nextValue = (EntityValue) eli.next()) != null) { ... }
-     *
+     * <pre>
+     * EntityValue nextValue;
+     * while ((nextValue = eli.next()) != null) { ... }
+     * </pre>
      */
     @Override boolean hasNext();
 
@@ -79,9 +80,10 @@ public interface EntityListIterator extends ListIterator<EntityValue> {
      *
      * For example, you could use the following to iterate through the results in an EntityListIterator:
      *
-     *      EntityValue nextValue;
-     *      while ((nextValue = (EntityValue) eli.next()) != null) { ... }
-     *
+     * <pre>
+     * EntityValue nextValue;
+     * while ((nextValue = eli.next()) != null) { ... }
+     * </pre>
      */
     @Override EntityValue next();
 

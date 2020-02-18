@@ -43,6 +43,24 @@ along with this software (see the LICENSE.md file). If not, see
         <out-parameters><parameter name="remoteMessageId"/></out-parameters>
     </service>
 
+    <service verb="cancel" noun="SystemMessage">
+        <in-parameters><parameter name="systemMessageId" required="true"/></in-parameters>
+        <actions>
+            <entity-find-one entity-name="moqui.service.message.SystemMessage" value-field="systemMessage" for-update="true"/>
+            <if condition="systemMessage.statusId == 'SmsgCancelled'"><return/></if>
+            <if condition="systemMessage.statusId in ['SmsgSending', 'SmsgSent', 'SmsgConsuming', 'SmsgConsumed', 'SmsgConfirmed']">
+                <return error="true" message="Cannot cancel SystemMessage ${systemMessageId} in status ${systemMessage.statusId}"/>
+            </if>
+            <!-- at this point statusId should be in 'SmsgProduced', 'SmsgReceived', 'SmsgError', 'SmsgRejected' -->
+
+            <set field="systemMessage.statusId" value="SmsgCancelled"/>
+            <entity-update value-field="systemMessage"/>
+            <!-- could use update server but no real point, all other could should call this to cancel:
+            <service-call name="update#moqui.service.message.SystemMessage" in-map="[systemMessageId:systemMessageId, statusId:'SmsgCancelled']"/>
+            -->
+        </actions>
+    </service>
+
     <!-- =========== Send Services =========== -->
 
     <service verb="queue" noun="SystemMessage">

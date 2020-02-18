@@ -135,7 +135,7 @@ class WebFacadeStub implements WebFacade {
         if (skipJsonSerialize) {
             responseJsonObj = responseObj
         } else {
-            WebFacadeImpl.sendJsonResponseInternal(responseObj, ecfi.eci, httpServletRequest, httpServletResponse, requestAttributes)
+            WebFacadeImpl.sendJsonResponseInternal(responseObj, ecfi.getEci(), httpServletRequest, httpServletResponse, requestAttributes)
         }
         /*
         String jsonStr
@@ -161,13 +161,13 @@ class WebFacadeStub implements WebFacade {
 
     @Override void sendTextResponse(String text) { sendTextResponse(text, "text/plain", null) }
     @Override void sendTextResponse(String text, String contentType, String filename) {
-        WebFacadeImpl.sendTextResponseInternal(text, contentType, filename, ecfi.eci, httpServletRequest, httpServletResponse, requestAttributes)
+        WebFacadeImpl.sendTextResponseInternal(text, contentType, filename, ecfi.getEci(), httpServletRequest, httpServletResponse, requestAttributes)
         // responseWriter.append(text)
         // logger.info("WebFacadeStub sendTextResponse (${text.length()} chars, content type ${contentType}, filename: ${filename})")
     }
 
     @Override void sendResourceResponse(String location) {
-        WebFacadeImpl.sendResourceResponseInternal(location, false, ecfi.eci, httpServletResponse)
+        WebFacadeImpl.sendResourceResponseInternal(location, false, ecfi.getEci(), httpServletResponse)
         /*
         ResourceReference rr = ecfi.getResource().getLocationReference(location)
         if (rr == null) throw new IllegalArgumentException("Resource not found at: ${location}")
@@ -178,7 +178,6 @@ class WebFacadeStub implements WebFacade {
     }
     @Override void sendError(int errorCode, String message, Throwable origThrowable) { response.sendError(errorCode, message) }
 
-    @Override void handleXmlRpcServiceCall() { throw new IllegalArgumentException("WebFacadeStub handleXmlRpcServiceCall not supported") }
     @Override void handleJsonRpcServiceCall() { throw new IllegalArgumentException("WebFacadeStub handleJsonRpcServiceCall not supported") }
     @Override void handleEntityRestCall(List<String> extraPathNameList, boolean masterNameInPath) {
         throw new IllegalArgumentException("WebFacadeStub handleEntityRestCall not supported") }

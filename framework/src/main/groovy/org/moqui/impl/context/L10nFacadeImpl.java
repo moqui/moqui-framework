@@ -20,6 +20,7 @@ import org.moqui.entity.EntityFind;
 
 import javax.xml.bind.DatatypeConverter;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.text.NumberFormat;
 import java.sql.Date;
 import java.sql.Time;
@@ -129,6 +130,25 @@ public class L10nFacadeImpl implements L10nFacade {
             nf.setMinimumFractionDigits(fractionDigits);
             return nf.format(amount);
         }
+    }
+
+    @Override
+    public BigDecimal roundCurrency(BigDecimal amount, String uomId) { return roundCurrency(amount, uomId, false); }
+    @Override
+    public BigDecimal roundCurrency(BigDecimal amount, String uomId, boolean precise) { return roundCurrency(amount, uomId, false, RoundingMode.HALF_UP); }
+    @Override
+    public BigDecimal roundCurrency(BigDecimal amount, String uomId, boolean precise, int roundingMethod) {
+        Currency currency = Currency.getInstance(uomId);
+        int nDigits = currency.getDefaultFractionDigits();
+        if (precise) nDigits++;
+        return amount.setScale(nDigits, roundingMethod);
+    }
+    @Override
+    public BigDecimal roundCurrency(BigDecimal amount, String uomId, boolean precise, RoundingMode mode) {
+        Currency currency = Currency.getInstance(uomId);
+        int nDigits = currency.getDefaultFractionDigits();
+        if (precise) nDigits++;
+        return amount.setScale(nDigits, mode);
     }
 
     @Override

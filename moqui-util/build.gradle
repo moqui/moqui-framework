@@ -13,8 +13,9 @@
  */
 
 // tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:unchecked" }
+tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:deprecation" }
 
-version = '1.0.1'
+version = '3.0.0-rc2'
 
 apply plugin: 'java'
 // to run gradle-versions-plugin use "gradle dependencyUpdates"
@@ -27,7 +28,7 @@ buildscript {
         // uncomment to add the Error Prone compiler: maven { url "https://plugins.gradle.org/m2/" }
     }
     dependencies {
-        classpath 'com.github.ben-manes:gradle-versions-plugin:0.21.0'
+        classpath 'com.github.ben-manes:gradle-versions-plugin:0.27.0'
         // uncomment to add the Error Prone compiler: classpath 'net.ltgt.gradle:gradle-errorprone-plugin:0.0.8'
     }
 }
@@ -38,7 +39,10 @@ dependencyUpdates.resolutionStrategy = { componentSelection { rules -> rules.all
 
 // NOTE: packages should match group, name, version found at https://bintray.com/bintray/jcenter
 repositories {
-    jcenter() // http://jcenter.bintray.com
+    // only needed for jar files in framework/lib, ie not available from jcenter, mainly for testing unreleased jars
+    // flatDir name: 'localLib', dirs: projectDir.getParentFile().absolutePath + '/framework/lib'
+    // use jcenter as the primary mvn repo: http://jcenter.bintray.com
+    jcenter()
 }
 
 sourceCompatibility = '1.8'
@@ -51,14 +55,16 @@ dependencies {
     compile 'javax.cache:cache-api:1.0.0'
     compile 'javax.servlet:javax.servlet-api:3.1.0'
     // SLF4J
-    compile 'org.slf4j:slf4j-api:1.7.26'
+    compile 'org.slf4j:slf4j-api:1.7.30'
     // Freemarker
-    compile 'org.freemarker:freemarker:2.3.28' // Apache 2.0
+    compile 'org.freemarker:freemarker:2.3.29' // Apache 2.0
     // Groovy
-    compile 'org.codehaus.groovy:groovy:2.5.6' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-json:2.5.6' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy:2.5.8' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-json:2.5.8' // Apache 2.0
     // Jetty HTTP Client
-    compile 'org.eclipse.jetty:jetty-client:9.4.15.v20190215' // Apache 2.0
+    compile 'org.eclipse.jetty:jetty-client:9.4.24.v20191120' // Apache 2.0
+    // javax.activation - required for Java 11
+    compile 'com.sun.activation:javax.activation:1.2.0' // CDDL 1.1
 }
 
 jar {

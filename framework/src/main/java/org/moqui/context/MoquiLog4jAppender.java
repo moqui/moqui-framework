@@ -17,6 +17,7 @@ import java.io.Serializable;
 import java.util.List;
 import org.apache.logging.log4j.core.*;
 import org.apache.logging.log4j.core.appender.AbstractAppender;
+import org.apache.logging.log4j.core.config.Property;
 import org.apache.logging.log4j.core.config.plugins.Plugin;
 import org.apache.logging.log4j.core.config.plugins.PluginAttribute;
 import org.apache.logging.log4j.core.config.plugins.PluginElement;
@@ -29,8 +30,9 @@ public final class MoquiLog4jAppender extends AbstractAppender {
     // private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
     // private final Lock readLock = rwLock.readLock();
 
-    protected MoquiLog4jAppender(String name, Filter filter, Layout<? extends Serializable> layout, final boolean ignoreExceptions) {
-        super(name, filter, layout, ignoreExceptions);
+    protected MoquiLog4jAppender(String name, Filter filter, Layout<? extends Serializable> layout,
+                                 final boolean ignoreExceptions, final Property[] properties) {
+        super(name, filter, layout, ignoreExceptions, properties);
     }
 
     @Override
@@ -62,6 +64,6 @@ public final class MoquiLog4jAppender extends AbstractAppender {
                                                     @PluginElement("Filter") final Filter filter) {
         // not using Layout config, let subscribers choose: @PluginElement("Layout") Layout<? extends Serializable> layout
         if (name == null) { LOGGER.error("No name provided for MoquiLog4jAppender"); return null; }
-        return new MoquiLog4jAppender(name, filter, null, true);
+        return new MoquiLog4jAppender(name, filter, null, true, null);
     }
 }

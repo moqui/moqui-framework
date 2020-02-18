@@ -137,7 +137,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="transaction" default="use-or-begin" type="transaction-options"/>
             <xs:attribute name="transaction-timeout" type="xs:int">
                 <xs:annotation><xs:documentation>
-                    The timeout for the transaction, in seconds.
+                    The timeout for the transaction, in seconds. Defaults to global transaction timeout default (usually 60s).
                     This value is only used if this service begins a transaction (force-new, force-cache, or
                     use-or-begin or cache and there is no other transaction already in place).
                 </xs:documentation></xs:annotation>

@@ -15,10 +15,10 @@ package org.moqui.context;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Future;
 
 import groovy.lang.Closure;
 import org.moqui.entity.EntityFacade;
-import org.moqui.entity.EntityValue;
 import org.moqui.screen.ScreenFacade;
 import org.moqui.service.ServiceFacade;
 import org.moqui.util.ContextBinding;
@@ -83,6 +83,9 @@ public interface ExecutionContext {
     /** For interactions with a relational database. */
     @Nonnull EntityFacade getEntity();
 
+    /** For interactions with ElasticSearch using the built in HTTP REST client. */
+    @Nonnull ElasticFacade getElastic();
+
     /** For calling services (local or remote, sync or async or scheduled). */
     @Nonnull ServiceFacade getService();
 
@@ -96,9 +99,9 @@ public interface ExecutionContext {
      * for the current thread. */
     void initWebFacade(@Nonnull String webappMoquiName, @Nonnull HttpServletRequest request, @Nonnull HttpServletResponse response);
 
-    /** A lightweight asynchronous executor. An alternative to Quartz, still ExecutionContext aware and uses
-     * the current ExecutionContext in the separate thread (retaining user, authz context, etc). */
-    void runAsync(@Nonnull Closure closure);
+    /** A lightweight asynchronous executor. ExecutionContext aware and uses a new ExecutionContext in the separate thread
+     * based on the current (retaining user, disable authz, etc and may be improved over time to copy more). */
+    Future runAsync(@Nonnull Closure closure);
 
     /** This should be called when the ExecutionContext won't be used any more. Implementations should make sure
      * any active transactions, database connections, etc are closed.

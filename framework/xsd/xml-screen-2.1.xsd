@@ -97,6 +97,17 @@ along with this software (see the LICENSE.md file). If not, see
                 Most screens don't need this, but it is useful for greater data consistency in certain cases.
             </xs:documentation></xs:annotation>
         </xs:attribute>
+        <xs:attribute name="transaction-timeout" type="xs:int">
+            <xs:annotation><xs:documentation>
+                The timeout for the screen render transaction, in seconds. Defaults to global transaction timeout default (usually 60s).
+
+                This value is only used if a screen in the rendered screen path begins a transaction. If multiple screens in the
+                render path have a timeout the highest will be used.
+
+                This is not intended for interactive screen rendering as the HTTP request or gateway will generally timeout first
+                anyway but is useful for background rendered screens for large reports and such.
+            </xs:documentation></xs:annotation>
+        </xs:attribute>
         <xs:attribute name="include-child-content" type="boolean" default="false">
             <xs:annotation><xs:documentation>
                 False by default, meaning that child content is sent to the client as they are and nothing else with
@@ -709,6 +720,8 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/>
         <xs:attribute name="id" type="xs:string" use="required"/>
         <xs:attribute name="button-text" type="xs:string" use="required"/>
+        <xs:attribute name="button-style" type="xs:string"/>
+        <xs:attribute name="title" type="xs:string"/>
         <xs:attribute name="width" type="xs:string" default="760"/>
         <xs:attribute name="height" type="xs:string" default="600"/>
         <xs:attribute name="condition" type="xs:string"/>

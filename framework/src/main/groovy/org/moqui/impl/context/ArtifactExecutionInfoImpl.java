@@ -173,7 +173,7 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     public ArtifactExecutionInfo getParent() { return parentAeii; }
     @Override
     public BigDecimal getPercentOfParentTime() { return parentAeii != null && endTimeNanos != 0 ?
-        new BigDecimal((getRunningTime() / parentAeii.getRunningTime()) * 100).setScale(2, BigDecimal.ROUND_HALF_UP) : BigDecimal.ZERO; }
+        new BigDecimal((getRunningTime() / parentAeii.getRunningTime()) * 100).setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO; }
 
 
     void addChild(ArtifactExecutionInfoImpl aeii) {
@@ -233,8 +233,8 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
                 BigDecimal newTotal = BigDecimal.ZERO;
                 BigDecimal newMax = BigDecimal.ZERO;
                 for (BigDecimal time: newTimes) { newTotal = newTotal.add(time); if (time.compareTo(newMax) > 0) newMax = time; }
-                BigDecimal newAvg = newTotal.divide(new BigDecimal(newTimes.size()), 2, BigDecimal.ROUND_HALF_UP);
-                // long newTimeAvg = newAvg.setScale(0, BigDecimal.ROUND_HALF_UP)
+                BigDecimal newAvg = newTotal.divide(new BigDecimal(newTimes.size()), 2, RoundingMode.HALF_UP);
+                // long newTimeAvg = newAvg.setScale(0, RoundingMode.HALF_UP)
                 newTotal = newTotal.add(newAvg.multiply(new BigDecimal(knockOutCount)));
                 val.put("time", newTotal);
                 val.put("timeMax", newMax);
@@ -277,7 +277,7 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
                 val.put("time", ((BigDecimal) val.get("time")).add(curTime));
                 val.put("timeMin", ((BigDecimal) val.get("timeMin")).compareTo(curTime) > 0 ? curTime : (BigDecimal) val.get("timeMin"));
                 val.put("timeMax", ((BigDecimal) val.get("timeMax")).compareTo(curTime) > 0 ? (BigDecimal) val.get("timeMax") : curTime);
-                val.put("timeAvg", ((BigDecimal) val.get("time")).divide((BigDecimal) val.get("count"), 2, BigDecimal.ROUND_HALF_UP));
+                val.put("timeAvg", ((BigDecimal) val.get("time")).divide((BigDecimal) val.get("count"), 2, RoundingMode.HALF_UP));
             }
         }
         if (childList != null) for (ArtifactExecutionInfoImpl aeii: childList) aeii.addToMapByTime(timeByArtifact, ownTime);

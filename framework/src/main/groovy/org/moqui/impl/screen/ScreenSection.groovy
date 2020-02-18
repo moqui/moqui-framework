@@ -20,6 +20,7 @@ import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.util.ContextStack
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.util.MNode
+import org.moqui.util.WebUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -133,7 +134,7 @@ class ScreenSection {
             if (widgets != null) {
                 // was there an error in the actions? don't try to render the widgets, likely to be more and more errors
                 if (ec.message.hasError()) {
-                    sri.writer.append(ec.message.getErrorsString())
+                    sri.writer.append(WebUtilities.encodeHtml(ec.message.getErrorsString()))
                 } else {
                     // render the widgets
                     widgets.render(sri)

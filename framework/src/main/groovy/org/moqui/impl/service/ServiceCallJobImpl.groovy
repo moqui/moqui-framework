@@ -45,6 +45,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
     private String withJobRunId = (String) null
     private Timestamp lastRunTime = (Timestamp) null
     private boolean clearLock = false
+    private boolean localOnly = false
 
     ServiceCallJobImpl(String jobName, ServiceFacadeImpl sfi) {
         super(sfi)
@@ -65,10 +66,9 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
         serviceNameInternal((String) serviceJob.serviceName)
     }
 
-    @Override
-    ServiceCallJob parameters(Map<String, ?> map) { parameters.putAll(map); return this }
-    @Override
-    ServiceCallJob parameter(String name, Object value) { parameters.put(name, value); return this }
+    @Override ServiceCallJob parameters(Map<String, ?> map) { parameters.putAll(map); return this }
+    @Override ServiceCallJob parameter(String name, Object value) { parameters.put(name, value); return this }
+    @Override ServiceCallJob localOnly(boolean local) { localOnly = local; return this }
 
     ServiceCallJobImpl withJobRunId(String jobRunId) { withJobRunId = jobRunId; return this }
     ServiceCallJobImpl withLastRunTime(Timestamp lastRunTime) { this.lastRunTime = lastRunTime; return this }
@@ -94,7 +94,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
 
         // run it
         ServiceJobCallable callable = new ServiceJobCallable(eci, serviceJob, jobRunId, lastRunTime, clearLock, parameters)
-        if (sfi.distributedExecutorService == null || serviceJob.localOnly == 'Y') {
+        if (sfi.distributedExecutorService == null || localOnly || "Y".equals(serviceJob.localOnly)) {
             runFuture = ecfi.workerPool.submit(callable)
         } else {
             runFuture = sfi.distributedExecutorService.submit(callable)
@@ -196,6 +196,11 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
             ExecutionContextImpl threadEci = (ExecutionContextImpl) null
             try {
                 ExecutionContextFactoryImpl ecfi = getEcfi()
+                if (ecfi == null) {
+                    String errMsg = "ExecutionContextFactory not initialized, cannot call service job ${jobName} with run ID ${jobRunId}"
+                    logger.error(errMsg)
+                    throw new IllegalStateException(errMsg)
+                }
                 threadEci = ecfi.getEci()
                 if (threadUsername != null && threadUsername.length() > 0)
                     threadEci.userFacade.internalLoginUser(threadUsername, false)
@@ -258,24 +263,44 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
                             messages:messages, hasError:(hasError ? 'Y' : 'N'), errors:errors] as Map<String, Object>)
                         .disableAuthz().call()
 
+                // notifications
+                Map<String, Object> msgMap = (Map<String, Object>) null
+                EntityList serviceJobUsers = (EntityList) null
+                if (topic || hasError) {
+                    msgMap = new HashMap<>()
+                    msgMap.put("serviceCallRun", [jobName:jobName, description:jobDescription, jobRunId:jobRunId,
+                          endTime:nowTimestamp, messages:messages, hasError:hasError, errors:errors])
+                    msgMap.put("parameters", parameters)
+                    msgMap.put("results", results)
+
+                    serviceJobUsers = threadEci.entityFacade.find("moqui.service.job.ServiceJobUser")
+                            .condition("jobName", jobName).useCache(true).disableAuthz().list()
+                }
+
                 // if topic send NotificationMessage
                 if (topic) {
                     NotificationMessage nm = threadEci.makeNotificationMessage().topic(topic)
-                    Map<String, Object> msgMap = new HashMap<>()
-                    msgMap.put("serviceCallRun", [jobName:jobName, description:jobDescription, jobRunId:jobRunId,
-                            endTime:nowTimestamp, messages:messages, hasError:hasError, errors:errors])
-                    msgMap.put("parameters", parameters)
-                    msgMap.put("results", results)
                     nm.message(msgMap)
 
                     if (currentUserId) nm.userId(currentUserId)
-                    EntityList serviceJobUsers = threadEci.entity.find("moqui.service.job.ServiceJobUser")
-                            .condition("jobName", jobName).useCache(true).disableAuthz().list()
                     for (EntityValue serviceJobUser in serviceJobUsers)
-                        if (serviceJobUser.receiveNotifications != 'N')
-                            nm.userId((String) serviceJobUser.userId)
+                        if (serviceJobUser.receiveNotifications != 'N') nm.userId((String) serviceJobUser.userId)
 
                     nm.type(hasError ? NotificationMessage.danger : NotificationMessage.success)
+                    nm.send()
+                }
+
+                // if hasError send general error notification
+                if (hasError) {
+                    NotificationMessage nm = threadEci.makeNotificationMessage().topic("ServiceJobError")
+                            .type(NotificationMessage.danger)
+                            .title('''Job Error ${serviceCallRun.jobName?:''} [${serviceCallRun.jobRunId?:''}] ${serviceCallRun.errors?:'N/A'}''')
+                            .message(msgMap)
+
+                    if (currentUserId) nm.userId(currentUserId)
+                    for (EntityValue serviceJobUser in serviceJobUsers)
+                        if (serviceJobUser.receiveNotifications != 'N') nm.userId((String) serviceJobUser.userId)
+
                     nm.send()
                 }
 

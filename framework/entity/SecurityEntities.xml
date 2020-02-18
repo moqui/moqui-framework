@@ -154,12 +154,18 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="ArtifactAuthzFilter" package="moqui.security" use="configuration">
         <field name="artifactAuthzId" type="id" is-pk="true"/>
         <field name="entityFilterSetId" type="id" is-pk="true"/>
+        <field name="applyCond" type="text-medium">
+            <description>Groovy boolean (if) expression, if specified checked before applying filters in the set</description></field>
         <relationship type="one" related="moqui.security.ArtifactAuthz" short-alias="authz"/>
         <relationship type="one" related="moqui.security.EntityFilterSet" short-alias="filterSet"/>
     </entity>
     <entity entity-name="EntityFilterSet" package="moqui.security" use="configuration">
         <field name="entityFilterSetId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
+        <field name="applyCond" type="text-medium">
+            <description>Groovy boolean (if) expression, if specified checked before applying filters in the set</description></field>
+        <field name="allowMissingAlias" type="text-indicator">
+            <description>By default if a filterMap refers to a field not aliased in a view-entity there will be an error, set this to Y to do the query anyway</description></field>
         <relationship type="many" related="moqui.security.EntityFilter" short-alias="filters">
             <key-map field-name="entityFilterSetId"/></relationship>
     </entity>
@@ -188,8 +194,9 @@ along with this software (see the LICENSE.md file). If not, see
         <member-entity entity-alias="AAF" entity-name="moqui.security.ArtifactAuthzFilter"/>
         <member-entity entity-alias="EFS" entity-name="moqui.security.EntityFilterSet" join-from-alias="AAF">
             <key-map field-name="entityFilterSetId"/></member-entity>
-        <alias-all entity-alias="AAF"/>
+        <alias-all entity-alias="AAF"><exclude field="applyCond"/></alias-all>
         <alias-all entity-alias="EFS"/>
+        <alias entity-alias="AAF" name="authzApplyCond" field="applyCond"/>
     </view-entity>
 
     <!-- ========== Artifact Tarpit ========== -->
@@ -249,6 +256,7 @@ along with this software (see the LICENSE.md file). If not, see
             <description>Set to Y is currentPassword Base64 encoded, defaults to Hex encoded</description></field>
         <field name="passwordSetDate" type="date-time"/>
         <field name="passwordHint" type="text-medium"/>
+        <field name="publicKey" type="text-long"><description>RSA public key for key based authentication</description></field>
         <field name="hasLoggedOut" type="text-indicator"><description>Set to Y when user logs out and to N when user logs in.
             If user is session authenticated on request and this is Y then treat as if user not authenticated.</description></field>
         <field name="disabled" type="text-indicator"/>
@@ -307,6 +315,12 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="many" related="moqui.security.UserGroupPermission" short-alias="permissions">
             <key-map field-name="userGroupId"/></relationship>
     </entity>
+    <view-entity entity-name="UserGroupMemberUser" package="moqui.security">
+        <member-entity entity-alias="UGM" entity-name="moqui.security.UserGroupMember"/>
+        <member-relationship entity-alias="UAC" join-from-alias="UGM" relationship="user"/>
+        <alias-all entity-alias="UGM"/>
+        <alias-all entity-alias="UAC"/>
+    </view-entity>
     <view-entity entity-name="UserGroupAndMember" package="moqui.security">
         <member-entity entity-alias="UGM" entity-name="moqui.security.UserGroupMember"/>
         <member-relationship entity-alias="UG" join-from-alias="UGM" relationship="group"/>
@@ -415,6 +429,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="linkTemplate" type="text-long"/>
         <field name="typeString" type="text-short"><description>One of: info, success, warning, danger</description></field>
         <field name="showAlert" type="text-indicator"/>
+        <field name="alertNoAutoHide" type="text-indicator"/>
         <field name="persistOnSend" type="text-indicator"/>
         <field name="isPrivate" type="text-indicator"><description>If Y user must be associated to see it or receive notifications.</description></field>
         <field name="receiveNotifications" type="text-indicator"><description>If Y all applicable users will be sent
