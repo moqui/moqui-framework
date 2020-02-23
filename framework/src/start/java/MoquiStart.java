@@ -87,11 +87,13 @@ public class MoquiStart {
             System.out.println("    components=<name>[,<name>] -- Component names to load for data types; if none specified loads from all");
             System.out.println("    location=<location> --------- Location of data file to load");
             System.out.println("    timeout=<seconds> ----------- Transaction timeout for each file, defaults to 600 seconds (10 minutes)");
+            System.out.println("    no-fk-create ---------------- Don't create foreign-keys, for empty database to avoid referential integrity errors");
             System.out.println("    dummy-fks ------------------- Use dummy foreign-keys to avoid referential integrity errors");
             System.out.println("    use-try-insert -------------- Try insert and update on error instead of checking for record first");
             System.out.println("    disable-eeca ---------------- Disable Entity ECA rules");
             System.out.println("    disable-audit-log ----------- Disable Entity Audit Log");
-            System.out.println("    raw ------------------------- Short for dummy-fks, use-try-insert, disable-eeca, disable-audit-log");
+            System.out.println("    disable-data-feed ----------- Disable Entity DataFeed");
+            System.out.println("    raw ------------------------- For raw data load to an empty database; short for no-fk-create, use-try-insert, disable-eeca, disable-audit-log, disable-data-feed");
             System.out.println("    conf=<moqui.conf> ----------- The Moqui Conf XML file to use, overrides other ways of specifying it");
             System.out.println("    no-run-es ------------------- Don't Try starting and stopping ElasticSearch in runtime/elasticsearch");
             System.out.println("    If no -types or -location argument is used all known data files of all types will be loaded.");

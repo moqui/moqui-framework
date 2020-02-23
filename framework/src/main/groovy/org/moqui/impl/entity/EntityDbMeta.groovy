@@ -14,9 +14,11 @@
 package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
+import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.entity.EntityJavaUtil.RelationshipInfo
 import org.moqui.util.CollectionUtilities
 import org.moqui.util.MNode
+import org.moqui.util.SystemBinding
 
 import java.sql.Connection
 import java.sql.Statement
@@ -47,6 +49,12 @@ class EntityDbMeta {
     protected EntityFacadeImpl efi
 
     EntityDbMeta(EntityFacadeImpl efi) { this.efi = efi }
+
+    static boolean shouldCreateFks(ExecutionContextFactoryImpl ecfi) {
+        if (ecfi.getEci().artifactExecutionFacade.entityFkCreateDisabled()) return false
+        if ("true".equals(SystemBinding.getPropOrEnv("entity_disable_fk_create"))) return false
+        return true
+    }
 
     boolean checkTableRuntime(EntityDefinition ed) {
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
@@ -210,7 +218,7 @@ class EntityDbMeta {
         }
 
         // do second pass to make sure all FKs created
-        if (tablesAdded > 0) {
+        if (tablesAdded > 0 && shouldCreateFks(efi.ecfi)) {
             logger.info("Tables were created, checking FKs for all entities in group ${groupName}")
 
             beganTx = useTxForMetaData ? efi.ecfi.transactionFacade.begin(300) : false
@@ -247,7 +255,7 @@ class EntityDbMeta {
                     }
 
                     if (fkInfoByFkTable.size() == 0) {
-                        logger.warn("Bulk find imported keys got no results for group ${groupName}, getting per table (slower!)")
+                        logger.warn("Bulk find imported keys got no results for group ${groupName}, getting per table (slower)")
                         for (String entityName in groupEntityNames) {
                             EntityDefinition ed = efi.getEntityDefinition(entityName)
                             if (ed.isViewEntity) continue
@@ -907,7 +915,7 @@ class EntityDbMeta {
         if (ed == null) throw new IllegalArgumentException("No EntityDefinition specified, cannot create foreign keys")
         if (ed.isViewEntity) throw new IllegalArgumentException("Cannot create foreign keys for a view entity")
 
-        if (ed.getEfi().ecfi.getEci().artifactExecutionFacade.entityFkCreateDisabled()) return 0
+        if (!shouldCreateFks(ed.getEfi().ecfi)) return 0
 
         // NOTE: in order to get all FKs in place by the time they are used we will probably need to check all incoming
         //     FKs as well as outgoing because of entity use order, tables not rechecked after first hit, etc
