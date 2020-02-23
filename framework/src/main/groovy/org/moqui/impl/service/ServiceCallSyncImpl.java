@@ -302,6 +302,16 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
                 if (hasSecaRules) ServiceFacadeImpl.runSecaRules(serviceNameNoHash, currentParameters, null, "pre-service", secaRules, eci);
                 if (traceEnabled) logger.trace("Calling service " + serviceName + " pre-call input: " + currentParameters);
 
+                // if error(s) in pre-service or anything else before actual run then return now with no results
+                if (eci.messageFacade.hasError()) {
+                    StringBuilder errMsg = new StringBuilder("Found error(s) before running service " + serviceName + " so not running. Errors: " + eci.messageFacade.getErrorsString() + "; the artifact stack is:\n");
+                    for (ArtifactExecutionInfo stackItem : eci.artifactExecutionFacade.getStack())
+                        errMsg.append(stackItem.toString()).append("\n");
+                    logger.warn(errMsg.toString());
+                    if (ignorePreviousError) eci.messageFacade.popErrors();
+                    return null;
+                }
+
                 try {
                     // run the service through the ServiceRunner
                     result = serviceRunner.runService(sd, currentParameters);
@@ -564,6 +574,16 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
             if (useTransactionCache != null && useTransactionCache) tf.initTransactionCache();
             try {
                 if (hasSecaRules) ServiceFacadeImpl.runSecaRules(serviceNameNoHash, currentParameters, null, "pre-service", secaRules, eci);
+
+                // if error(s) in pre-service or anything else before actual run then return now with no results
+                if (eci.messageFacade.hasError()) {
+                    StringBuilder errMsg = new StringBuilder("Found error(s) before running service " + serviceName + " so not running. Errors: " + eci.messageFacade.getErrorsString() + "; the artifact stack is:\n");
+                    for (ArtifactExecutionInfo stackItem : eci.artifactExecutionFacade.getStack())
+                        errMsg.append(stackItem.toString()).append("\n");
+                    logger.warn(errMsg.toString());
+                    if (ignorePreviousError) eci.messageFacade.popErrors();
+                    return null;
+                }
 
                 try {
                     EntityDefinition ed = eci.getEntityFacade().getEntityDefinition(noun);
