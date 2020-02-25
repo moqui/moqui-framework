@@ -1092,7 +1092,8 @@ class ScreenRenderImpl implements ScreenRender {
             }
         } catch (Throwable t) {
             logger.error("Error rendering screen [${screenDef.location}]", t)
-            return "Error rendering screen [${screenDef.location}]: ${t.toString()}"
+            // HTML encode by default, not ideal for non-html/xml/etc output but important for XSS protection
+            return WebUtilities.encodeHtml("Error rendering screen [${screenDef.location}]: ${t.toString()}".toString())
         } finally {
             screenPathIndex--
         }
@@ -1133,7 +1134,8 @@ class ScreenRenderImpl implements ScreenRender {
         } catch (Throwable t) {
             BaseException.filterStackTrace(t)
             logger.error("Error rendering section [${sectionName}] in screen [${sd.location}]: " + t.toString(), t)
-            return "Error rendering section [${sectionName}] in screen [${sd.location}]: ${t.toString()}"
+            // HTML encode by default, not ideal for non-html/xml/etc output but important for XSS protection
+            return WebUtilities.encodeHtml("Error rendering section [${sectionName}] in screen [${sd.location}]: ${t.toString()}".toString())
         }
         // NOTE: this returns a String so that it can be used in an FTL interpolation, but it always writes to the writer
         return ""
@@ -1180,7 +1182,8 @@ class ScreenRenderImpl implements ScreenRender {
             writer.flush()
         } catch (Throwable t) {
             logger.error("Error rendering screen [${location}]", t)
-            return "Error rendering screen [${location}]: ${t.toString()}"
+            // HTML encode by default, not ideal for non-html/xml/etc output but important for XSS protection
+            return WebUtilities.encodeHtml("Error rendering screen [${location}]: ${t.toString()}".toString())
         } finally {
             overrideActiveScreenDef = oldOverrideActiveScreenDef
             if (!shareScope) cs.pop()
