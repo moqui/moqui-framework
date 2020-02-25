@@ -1065,7 +1065,8 @@ class ScreenRenderImpl implements ScreenRender {
                 sfi.ecfi.resourceFacade.template(screenUrlInfo.fileResourceRef.location, writer)
                 return ""
             } else {
-                return "Tried to render subscreen in screen [${getActiveScreenDef()?.location}] but there is no subscreens.@default-item, and no more valid subscreen names in the screen path [${screenUrlInfo.fullPathNameList}]"
+                // HTML encode by default, not ideal for non-html/xml/etc output but important for XSS protection
+                return WebUtilities.encodeHtml("Tried to render subscreen in screen [${getActiveScreenDef()?.location}] but there is no subscreens.@default-item, and no more valid subscreen names in the screen path [${screenUrlInfo.fullPathNameList}]".toString())
             }
         }
 
