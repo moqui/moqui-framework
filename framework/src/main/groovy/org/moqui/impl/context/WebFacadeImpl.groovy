@@ -825,8 +825,8 @@ class WebFacadeImpl implements WebFacade {
             writer.write("<title>Error ${errorCode} ${errorCodeName}</title>\n")
             writer.write("</head><body>\n")
             writer.write("<h2>Error ${errorCode} ${errorCodeName}</h2>")
-            writer.write("<p>Problem accessing ${getPathInfo()}</p>\n")
-            if (message != null && !message.isEmpty()) writer.write("<p>Reason: ${message}</p>\n")
+            writer.write("<p>Problem accessing ${WebUtilities.encodeHtml(getPathInfo())}</p>\n")
+            if (message != null && !message.isEmpty()) writer.write("<p>Reason: ${WebUtilities.encodeHtml(message)}</p>\n")
             writer.write("</body></html>\n")
 
             // NOTE: maybe include throwable info, do we ever want that?
