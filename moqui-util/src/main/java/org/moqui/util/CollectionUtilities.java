@@ -546,6 +546,7 @@ public class CollectionUtilities {
             try { pageIndex = Integer.parseInt(pageIndexObj.toString()); }
             catch (Exception e) { /* just use the 0 default above */ }
         }
+        if (pageIndex < 0) pageIndex = 0;
 
         final Object pageSizeObj = context.get("pageSize");
         int pageSize = 20;
@@ -553,6 +554,7 @@ public class CollectionUtilities {
             try { pageSize = Integer.parseInt(pageSizeObj.toString()); }
             catch (Exception e) { /* just use the 20 default above */ }
         }
+        if (pageSize < 0) pageSize = 20;
 
         int count = theList.size();
 
