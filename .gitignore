@@ -11,7 +11,7 @@ build
 /Save*.zip
 
 # runtime directory (separate repository so ignore directory entirely)
-/runtime
+# /runtime
 /execwartmp
 /docker/runtime
 /docker/db
