@@ -22,6 +22,9 @@ services:
       # note: .crt, .key, and .dhparam.pem files start with the domain name in VIRTUAL_HOST (ie 'moqui.local.*') or use CERT_NAME env var
       - ./certs:/etc/nginx/certs
       - ./nginx/my_proxy.conf:/etc/nginx/conf.d/my_proxy.conf
+    environment:
+      # use SSL_POLICY to disable TLSv1.0, etc in nginx-proxy
+      - SSL_POLICY=AWS-TLS-1-1-2017-01
 
   moqui-database:
     image: mysql:8.0

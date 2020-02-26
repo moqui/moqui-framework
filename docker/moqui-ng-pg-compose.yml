@@ -30,6 +30,11 @@ services:
       # note: .crt, .key, and .dhparam.pem files start with the domain name in VIRTUAL_HOST (ie 'moqui.local.*') or use CERT_NAME env var
       - ./certs:/etc/nginx/certs
       - ./nginx/my_proxy.conf:/etc/nginx/conf.d/my_proxy.conf
+    environment:
+      # change this for the default host to use when accessing directly by IP, etc
+      - DEFAULT_HOST=moqui.local
+      # use SSL_POLICY to disable TLSv1.0, etc in nginx-proxy
+      - SSL_POLICY=AWS-TLS-1-1-2017-01
 
   moqui-server:
     image: moqui
@@ -58,7 +63,7 @@ services:
      - entity_ds_user=moqui
      - entity_ds_password=moqui
      - entity_ds_crypt_pass='MoquiDefaultPassword:CHANGEME'
-      # configuration for ElasticFacade.ElasticClient, make sure moqui-elasticsearch is NOT included in the Moqui build
+     # configuration for ElasticFacade.ElasticClient, make sure moqui-elasticsearch is NOT included in the Moqui build
      - elasticsearch_url=http://elasticsearch:9200
      # CHANGE ME - note that VIRTUAL_HOST is for nginx-proxy so it picks up this container as one it should reverse proxy
      # this can be a comma separate list of hosts like 'example.com,www.example.com'
