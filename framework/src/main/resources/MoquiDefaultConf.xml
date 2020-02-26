@@ -230,7 +230,11 @@
             consider "connect-src 'self';" Applies to XMLHttpRequest (AJAX), WebSocket or EventSource
             -->
             <response-header type="screen-render" name="Content-Security-Policy" value="frame-ancestors 'none'; form-action 'self';"/>
-            <response-header type="screen-render" name="X-Frame-Options" value="deny"/>
+            <response-header type="screen-render" name="X-Frame-Options" value="sameorigin"/>
+            <!-- X-XSS-Protection: this is largely useless with the Content-Security-Policy but here because some web security scanners look for it -->
+            <response-header type="screen-render" name="X-XSS-Protection" value="1; mode=block"/>
+            <!-- X-Content-Type-Options: this could cause problems as much as help but here because some web security scanners look for it -->
+            <response-header type="screen-render" name="X-Content-Type-Options" value="nosniff"/>
             <!-- CORS actual and preflight headers -->
             <!-- NOTE: Access-Control-Allow-Origin is set dynamically by MoquiServlet if Origin request header value is in the value of the webapp.@allow-origins attribute -->
             <!-- Access-Control-Allow-Credentials - always true so cookies, authc, etc always allowed -->
