@@ -132,10 +132,11 @@ public class Moqui {
 
         // set the data load parameters
         EntityDataLoader edl = ec.getEntity().makeDataLoader();
-        if (argMap.containsKey("types"))
-            edl.dataTypes(new HashSet<>(Arrays.asList(argMap.get("types").split(","))));
-        if (argMap.containsKey("components"))
-            edl.componentNameList(Arrays.asList(argMap.get("components").split(",")));
+        if (argMap.containsKey("types")) {
+            String types = argMap.get("types");
+            if (!"all".equals(types)) edl.dataTypes(new HashSet<>(Arrays.asList(types.split(","))));
+        }
+        if (argMap.containsKey("components")) edl.componentNameList(Arrays.asList(argMap.get("components").split(",")));
         if (argMap.containsKey("location")) edl.location(argMap.get("location"));
         if (argMap.containsKey("timeout")) edl.transactionTimeout(Integer.valueOf(argMap.get("timeout")));
         if (argMap.containsKey("dummy-fks")) edl.dummyFks(true);

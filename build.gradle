@@ -455,22 +455,27 @@ task runProduction(type: JavaExec) {
 task load(type: JavaExec) {
     description "Run Moqui to load data; to specify data types use something like: gradle load -Ptypes=seed,seed-initial,install"
     dependsOn checkRuntime, allBuildTasks
-    workingDir = '.'; jvmArgs = ['-server']
     systemProperties = ['moqui.conf':moquiConfDev, 'moqui.runtime':moquiRuntime]
-    main = '-jar'
-    def argList = [warName, 'load']
-    if (project.properties.containsKey('types')) argList.add("types=${types}")
-    args = argList
+    workingDir = '.'; jvmArgs = ['-server']; main = '-jar'
+    args = [warName, 'load', (project.properties.containsKey('types') ? "types=${types}" : "types=all")]
+}
+task loadSeed(type: JavaExec) {
+    dependsOn checkRuntime, allBuildTasks
+    systemProperties = ['moqui.conf':moquiConfProduction, 'moqui.runtime':moquiRuntime]
+    workingDir = '.'; jvmArgs = ['-server']; main = '-jar'
+    args = [warName, 'load', (project.properties.containsKey('types') ? "types=${types}" : "types=seed")]
+}
+task loadSeedInitial(type: JavaExec) {
+    dependsOn checkRuntime, allBuildTasks
+    systemProperties = ['moqui.conf':moquiConfProduction, 'moqui.runtime':moquiRuntime]
+    workingDir = '.'; jvmArgs = ['-server']; main = '-jar'
+    args = [warName, 'load', (project.properties.containsKey('types') ? "types=${types}" : "types=seed,seed-initial")]
 }
 task loadProduction(type: JavaExec) {
     dependsOn checkRuntime, allBuildTasks
-    workingDir = '.'; jvmArgs = ['-server']
     systemProperties = ['moqui.conf':moquiConfProduction, 'moqui.runtime':moquiRuntime]
-    main = '-jar'
-    def argList = [warName, 'load']
-    if (project.properties.containsKey('types')) argList.add("types=${types}")
-    else argList.add("types=seed,seed-initial,install")
-    args = argList
+    workingDir = '.'; jvmArgs = ['-server']; main = '-jar'
+    args = [warName, 'load', (project.properties.containsKey('types') ? "types=${types}" : "types=seed,seed-initial,install")]
 }
 
 task saveDb { doLast {
