@@ -383,6 +383,7 @@ public class FieldInfo {
             case 13: value = new SerialClob(rs.getClob(index)); break;
             case 14:
             case 15: value = rs.getObject(index); break;
+            case 16: value = rs.getObject(index); break;
             }
         } catch (SQLException sqle) {
             logger.error("SQL Exception while getting value for field: " + name + " (" + index + ")", sqle);
