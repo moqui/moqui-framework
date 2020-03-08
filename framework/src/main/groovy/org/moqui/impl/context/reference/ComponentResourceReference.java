@@ -27,6 +27,10 @@ public class ComponentResourceReference extends WrapperResourceReference {
     public ResourceReference init(String location, ExecutionContextFactoryImpl ecf) {
         this.ecf = ecf;
 
+        // if there is a hash (used in resource locations for versions) strip the hash and everything after
+        int hashIdx = location.indexOf("#");
+        if (hashIdx > 0) location = location.substring(0, hashIdx);
+        // remove trailing slash if there is one
         if (location.endsWith("/")) location = location.substring(0, location.length() - 1);
         this.componentLocation = location;
 

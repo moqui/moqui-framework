@@ -210,7 +210,7 @@ public abstract class ResourceReference implements Serializable {
                 // first find the most matching directory
                 ResourceReference childDirectoryRef = directoryRef.findChildDirectory(directoryPath);
                 // recursively walk the directory tree and find the childFilename
-                childRef = internalFindChildFile(childDirectoryRef, childFilename);
+                childRef = internalFindChildFile(childDirectoryRef, childFilename, null);
                 // logger.warn("============= finding child resource path [${relativePath}] directoryRef [${directoryRef}] childFilename [${childFilename}] childRef [${childRef}]")
             }
 
@@ -261,7 +261,7 @@ public abstract class ResourceReference implements Serializable {
 
         // search remaining relativePathNameList, ie partial directories leading up to filename
         for (String relativePathName : relativePathNameList) {
-            childDirectoryRef = internalFindChildDir(childDirectoryRef, relativePathName);
+            childDirectoryRef = internalFindChildDir(childDirectoryRef, relativePathName, null);
             if (childDirectoryRef == null) break;
         }
 
@@ -285,12 +285,12 @@ public abstract class ResourceReference implements Serializable {
         return childDirectoryRef;
     }
 
-    private ResourceReference internalFindChildDir(ResourceReference directoryRef, String childDirName) {
+    private ResourceReference internalFindChildDir(ResourceReference directoryRef, String childDirName, Set<String> parentLocSet) {
         if (directoryRef == null || !directoryRef.getExists()) return null;
         // no child dir name, means this/current dir
         if (childDirName == null || childDirName.isEmpty()) return directoryRef;
 
-        // try a direct sub-directory, if it is there it's more efficient than a brute-force search
+        // try a direct sub-directory, if it is there it's more efficient than a recursive search
         StringBuilder dirLocation = new StringBuilder(directoryRef.getLocation());
         if (dirLocation.charAt(dirLocation.length() - 1) == '/') dirLocation.deleteCharAt(dirLocation.length() - 1);
         if (childDirName.charAt(0) != '/') dirLocation.append('/');
@@ -304,15 +304,28 @@ public abstract class ResourceReference implements Serializable {
                 // matching directory name, use it
                 return childRef;
             } else if (childRef.isDirectory()) {
+                Set<String> recurseParentLocSet = new HashSet<>();
+                if (parentLocSet != null) {
+                    if (parentLocSet.contains(childRef.getLocation())) {
+                        logger.error("In internalFindChildDir found loop in directory tree, " + childRef.getLocation() + " already visited, parent locations: " + parentLocSet);
+                        continue;
+                    }
+                    recurseParentLocSet.addAll(parentLocSet);
+                } else {
+                    recurseParentLocSet.add(directoryRef.getLocation());
+                }
+                recurseParentLocSet.add(childRef.getLocation());
+
                 // non-matching directory name, recurse into it
-                ResourceReference subRef = internalFindChildDir(childRef, childDirName);
+                ResourceReference subRef = internalFindChildDir(childRef, childDirName, recurseParentLocSet);
                 if (subRef != null) return subRef;
             }
         }
         return null;
     }
 
-    private ResourceReference internalFindChildFile(ResourceReference directoryRef, String childFilename) {
+    private ResourceReference internalFindChildFile(ResourceReference directoryRef, String childFilename, Set<String> parentLocSet) {
+        // logger.warn("internalFindChildFile " + directoryRef + " [" + childFilename + "] "  + parentLocSet);
         if (directoryRef == null || !directoryRef.getExists()) return null;
 
         // find check exact filename first
@@ -329,7 +342,19 @@ public abstract class ResourceReference implements Serializable {
 
         for (ResourceReference childRef : childEntries) {
             if (childRef.isDirectory()) {
-                ResourceReference subRef = internalFindChildFile(childRef, childFilename);
+                Set<String> recurseParentLocSet = new HashSet<>();
+                if (parentLocSet != null) {
+                    if (parentLocSet.contains(childRef.getLocation())) {
+                        logger.error("In internalFindChildFile found loop in directory tree, " + childRef.getLocation() + " already visited, parent locations: " + parentLocSet);
+                        continue;
+                    }
+                    recurseParentLocSet.addAll(parentLocSet);
+                } else {
+                    recurseParentLocSet.add(directoryRef.getLocation());
+                }
+                recurseParentLocSet.add(childRef.getLocation());
+
+                ResourceReference subRef = internalFindChildFile(childRef, childFilename, recurseParentLocSet);
                 if (subRef != null) return subRef;
             }
         }
