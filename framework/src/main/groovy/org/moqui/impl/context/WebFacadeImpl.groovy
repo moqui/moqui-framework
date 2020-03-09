@@ -14,6 +14,7 @@
 package org.moqui.impl.context
 
 import com.fasterxml.jackson.databind.JsonNode
+import com.google.gson.JsonParseException
 import groovy.transform.CompileStatic
 
 import org.apache.commons.fileupload.FileItem
@@ -46,6 +47,8 @@ import javax.servlet.ServletContext
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
 import javax.servlet.http.HttpSession
+
+import com.google.gson.Gson
 
 /** This class is a facade to easily get information from and about the web context. */
 @CompileStatic
@@ -80,12 +83,15 @@ class WebFacadeImpl implements WebFacade {
     protected List<String> savedErrors = (List<String>) null
     protected List<ValidationError> savedValidationErrors = (List<ValidationError>) null
 
+    protected Gson gson
+
     WebFacadeImpl(String webappMoquiName, HttpServletRequest request, HttpServletResponse response,
                   ExecutionContextImpl eci) {
         this.eci = eci
         this.webappMoquiName = webappMoquiName
         this.request = request
         this.response = response
+        this.gson = new Gson()
 
         // NOTE: the Visit is not setup here but rather in the MoquiEventListener (for init and destroy)
         request.setAttribute("ec", eci)
@@ -212,6 +218,18 @@ class WebFacadeImpl implements WebFacade {
                 valueList.add(previousValue)
             }
             valueList.add(value)
+        }
+
+        // what if we are passing (as multipart's component) a string that could be converted to JSON?
+        // try to convert+parse multipart components into hashmaps
+        try  {
+            HashMap<String, String> jsonContent = gson.fromJson(value.toString(), HashMap.class)
+            if (!jsonParameters) jsonParameters = new HashMap<String, Object>()
+            jsonParameters.put(key, jsonContent)
+        } catch (JsonParseException jsonExc) {
+            // nothing
+        } catch (Exception exc) {
+            // nothing
         }
     }
 
