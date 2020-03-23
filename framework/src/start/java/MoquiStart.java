@@ -26,6 +26,7 @@ import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
+import java.util.stream.*;
 
 /** This start class implements a ClassLoader and supports loading jars within a jar or war file in order to facilitate
  * an executable war file. To do this it overrides the findResource, findResources, and loadClass methods of the
@@ -463,10 +464,20 @@ public class MoquiStart {
             System.out.println("ElasticSearch install found in runtime/elasticsearch, pid file found so not starting");
             return null;
         }
-        String[] envArr = { "JAVA_HOME=" + System.getProperty("java.home") };
+        // On Windows ElasticSearch require COMPUTERNAME env variable.
+        Map<String,String> envMap = new HashMap<>(System.getenv());
+        envMap.put("JAVA_HOME", System.getProperty("java.home"));
+        String[] envArr = envMap.entrySet().stream().map(it -> it.getKey() + "=" + it.getValue()).collect(Collectors.toList()).toArray(new String[0]);
         System.out.println("Starting ElasticSearch install found in runtime/elasticsearch, pid file not found (" + envArr[0] + ")");
+        boolean isWindows = System.getProperty("os.name").toLowerCase().startsWith("windows");
         try {
-            Process esProcess = Runtime.getRuntime().exec("./bin/elasticsearch", envArr, new File(esDir));
+            String command;
+            if (isWindows) {
+                command = "cmd.exe /c start bin\\elasticsearch.bat";
+            } else {
+                command = "./bin/elasticsearch";
+            }
+            Process esProcess = Runtime.getRuntime().exec(command, envArr, new File(esDir));
             System.setProperty("moqui.elasticsearch.started", "true");
             return esProcess;
         } catch (Exception e) {
