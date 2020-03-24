@@ -26,7 +26,6 @@ import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
-import java.util.stream.*;
 
 /** This start class implements a ClassLoader and supports loading jars within a jar or war file in order to facilitate
  * an executable war file. To do this it overrides the findResource, findResources, and loadClass methods of the
