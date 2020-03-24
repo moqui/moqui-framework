@@ -464,20 +464,22 @@ public class MoquiStart {
             System.out.println("ElasticSearch install found in runtime/elasticsearch, pid file found so not starting");
             return null;
         }
-        // On Windows ElasticSearch require COMPUTERNAME env variable.
-        Map<String,String> envMap = new HashMap<>(System.getenv());
-        envMap.put("JAVA_HOME", System.getProperty("java.home"));
-        String[] envArr = envMap.entrySet().stream().map(it -> it.getKey() + "=" + it.getValue()).collect(Collectors.toList()).toArray(new String[0]);
-        System.out.println("Starting ElasticSearch install found in runtime/elasticsearch, pid file not found (" + envArr[0] + ")");
+        String javaHome = System.getProperty("java.home");
+        System.out.println("Starting ElasticSearch install found in runtime/elasticsearch, pid file not found (" + javaHome + ")");
         boolean isWindows = System.getProperty("os.name").toLowerCase().startsWith("windows");
         try {
-            String command;
+            String[] command;
             if (isWindows) {
-                command = "cmd.exe /c start bin\\elasticsearch.bat";
+                command = new String[] {"cmd.exe", "/c", "bin\\elasticsearch.bat"};
             } else {
-                command = "./bin/elasticsearch";
+                command = new String[] {"./bin/elasticsearch"};
             }
-            Process esProcess = Runtime.getRuntime().exec(command, envArr, new File(esDir));
+            ProcessBuilder pb = new ProcessBuilder(command);
+            pb.redirectErrorStream(true);
+            pb.directory(new File(esDir));
+            pb.environment().put("JAVA_HOME", javaHome);
+            pb.inheritIO();
+            Process esProcess = pb.start();
             System.setProperty("moqui.elasticsearch.started", "true");
             return esProcess;
         } catch (Exception e) {
