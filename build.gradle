@@ -98,14 +98,26 @@ def cleanElasticSearch(String esDir) {
         if (file(esDir+'/logs').exists()) delete files(file(esDir+'/logs').listFiles())
     }
 }
-task downloadElasticSearchLinux { doLast {
-    // TODO: consider conditional download and start/stop commands for Windows, MacOS
-    String esUrl = "https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-oss-${elasticSearchVersion}-no-jdk-linux-x86_64.tar.gz"
+task downloadElasticSearch { doLast {
+    String suffix
+    String distType
+    String osName = System.getProperty("os.name").toLowerCase();
+    if (osName.startsWith("windows")) {
+        suffix = "windows-x86_64.zip"
+        distType = "zip"
+    } else if (osName.startsWith("mac")) {
+        suffix = "darwin-x86_64.tar.gz"
+        distType = "tar.gz"
+    } else {
+        suffix = "linux-x86_64.tar.gz"
+        distType = "tar.gz"
+    }
+    String esUrl = "https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-oss-${elasticSearchVersion}-no-jdk-${suffix}"
     String targetDirPath = moquiRuntime + '/elasticsearch'
     String esExtraDirPath = targetDirPath + '/elasticsearch-' + elasticSearchVersion
     File targetDir = file(targetDirPath)
     if (targetDir.exists()) { logger.lifecycle("Found directory at ${targetDirPath}, deleting"); delete targetDir }
-    File zipFile = file("${targetDirPath}-${elasticSearchVersion}.tar.gz")
+    File zipFile = file("${targetDirPath}-${elasticSearchVersion}.${distType}")
     if (!zipFile.exists()) {
         logger.lifecycle("Downloading ElasticSearch from ${esUrl}")
         ant.get(src: esUrl, dest: zipFile)
@@ -113,7 +125,7 @@ task downloadElasticSearchLinux { doLast {
         logger.lifecycle("Found ElasticSearch archive at ${zipFile.getPath()}, using that instead of downloading")
     }
     // the eachFile closure removes the first path from each file, moving everything up a directory, which also requires delete of the extra dirs
-    copy { from tarTree(zipFile); into targetDir; eachFile { it.setPath((it.getRelativePath().getSegments() as List).tail().join("/")); return it } }
+    copy { from distType == "zip"? zipTree(zipFile) : tarTree(zipFile); into targetDir; eachFile { it.setPath((it.getRelativePath().getSegments() as List).tail().join("/")); return it } }
     File extraDir = file(esExtraDirPath)
     if (extraDir.exists()) delete extraDir
 
