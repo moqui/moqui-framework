@@ -38,4 +38,4 @@ EXPOSE 80
 # ENTRYPOINT ["java", "-jar", "moqui.war"]
 ENTRYPOINT ["java", "-cp", ".", "MoquiStart", "port=80"]
 # specify this as a default parameter if none are specified with docker exec/run, ie run production by default
-CMD ["conf=conf/MoquiProductionConf.xml"]
+CMD ["conf=conf/MoquiTestConf.xml"]
