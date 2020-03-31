@@ -9,7 +9,7 @@ REM "Building docker image from moqui-plus-runtime.war"
 
 REM docker build - < Dockerfile -t %NAME_TAG%
 docker build -t %NAME_TAG% .
-IF NOT "%REPO_NAME%"=="" (docker push %REPO_NAME%/%NAME_TAG%)
+IF NOT "%REPO_NAME%"=="" (docker tag %NAME_TAG% %REPO_NAME%/%NAME_TAG% && docker push %REPO_NAME%/%NAME_TAG%)
 
 REM delete all remains
 rmdir /Q /S META-INF 
