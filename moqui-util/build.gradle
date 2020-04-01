@@ -28,7 +28,7 @@ buildscript {
         // uncomment to add the Error Prone compiler: maven { url "https://plugins.gradle.org/m2/" }
     }
     dependencies {
-        classpath 'com.github.ben-manes:gradle-versions-plugin:0.27.0'
+        classpath 'com.github.ben-manes:gradle-versions-plugin:0.28.0'
         // uncomment to add the Error Prone compiler: classpath 'net.ltgt.gradle:gradle-errorprone-plugin:0.0.8'
     }
 }
@@ -57,7 +57,7 @@ dependencies {
     // SLF4J
     compile 'org.slf4j:slf4j-api:1.7.30'
     // Freemarker
-    compile 'org.freemarker:freemarker:2.3.29' // Apache 2.0
+    compile 'org.freemarker:freemarker:2.3.30' // Apache 2.0
     // Groovy
     compile 'org.codehaus.groovy:groovy:2.5.8' // Apache 2.0
     compile 'org.codehaus.groovy:groovy-json:2.5.8' // Apache 2.0
