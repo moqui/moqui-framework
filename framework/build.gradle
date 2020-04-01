@@ -31,7 +31,7 @@ buildscript {
         // uncomment to add the Error Prone compiler: maven { url "https://plugins.gradle.org/m2/" }
     }
     dependencies {
-        classpath 'com.github.ben-manes:gradle-versions-plugin:0.27.0'
+        classpath 'com.github.ben-manes:gradle-versions-plugin:0.28.0'
         // uncomment to add the Error Prone compiler: classpath 'net.ltgt.gradle:gradle-errorprone-plugin:0.0.8'
     }
 }
@@ -149,8 +149,8 @@ dependencies {
     compile 'org.jsoup:jsoup:1.12.1' // MIT
 
     // Apache Shiro
-    compile module('org.apache.shiro:shiro-core:1.4.2') // Apache 2.0
-    compile module('org.apache.shiro:shiro-web:1.4.2') // Apache 2.0
+    compile module('org.apache.shiro:shiro-core:1.5.2') // Apache 2.0
+    compile module('org.apache.shiro:shiro-web:1.5.2') // Apache 2.0
 
     // SLF4J, Log4j 2 (note Log4j 2 is used by various libraries, best not to replace it even if mostly possible with SLF4J)
     compile 'org.slf4j:slf4j-api:1.7.30'
@@ -163,7 +163,7 @@ dependencies {
     compile module('org.subethamail:subethasmtp:3.1.7')
 
     // Snake YAML
-    compile 'org.yaml:snakeyaml:1.25' // Apache 2.0
+    compile 'org.yaml:snakeyaml:1.26' // Apache 2.0
 
     // Apache Jackrabbit - uncomment here or include elsewhere when Jackrabbit repository configurations are used
     // compile 'org.apache.jackrabbit:jackrabbit-jcr-rmi:2.12.1' // Apache 2.0
