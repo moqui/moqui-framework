@@ -351,8 +351,8 @@ class ServiceFacadeImpl implements ServiceFacade {
     }
     protected void findServicesInFile(String baseLocation, ResourceReference entryRr, Set<String> sns) {
         MNode serviceRoot = MNode.parse(entryRr)
-        if ((serviceRoot.name) in ["secas", "emecas", "resource"]) return
-        if (serviceRoot.name != "services") {
+        if ((serviceRoot.getName()) in ["secas", "emecas", "resource"]) return
+        if (serviceRoot.getName() != "services") {
             logger.info("While finding service ignoring XML file [${entryRr.location}] in a services directory because the root element is ${serviceRoot.name} and not services")
             return
         }

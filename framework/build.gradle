@@ -68,11 +68,13 @@ dependencies {
     compile project(':moqui-util')
 
     // Groovy
-    compile 'org.codehaus.groovy:groovy:2.5.8' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-dateutil:2.5.8' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-json:2.5.8' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-templates:2.5.8' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-xml:2.5.8' // Apache 2.0
+    // NOTE: update attempt to 3.0.2 has issues with slow build (just slow stub generation? seems others are seeing that too)
+    //     and updated Spock required (tried 2.0-M2-groovy-3.0, not final release and tests didn't work)
+    compile 'org.codehaus.groovy:groovy:2.5.10' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-dateutil:2.5.10' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-json:2.5.10' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-templates:2.5.10' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-xml:2.5.10' // Apache 2.0
     // jansi is needed for groovydoc only, so in providedCompile (not included in war)
     compileOnly 'org.fusesource.jansi:jansi:1.18'
     // Findbugs need only during compile (used by freemarker and various moqui classes)
