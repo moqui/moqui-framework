@@ -808,6 +808,7 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:attribute name="size" type="xs:positiveInteger"/>
         <xs:attribute name="max-length" type="xs:positiveInteger"/>
         <xs:attribute name="auto-year" default="true" type="boolean"/>
+        <xs:attribute name="minute-stepping" type="xs:positiveInteger" default="5"/>
     </xs:complexType></xs:element>
     <xs:element name="display" substitutionGroup="SubFields"><xs:complexType>
         <xs:sequence>
