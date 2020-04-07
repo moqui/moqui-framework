@@ -107,7 +107,8 @@ along with this software (see the LICENSE.md file). If not, see
             data to include in the document. This service should implement the
             org.moqui.EntityServices.add#ManualDocumentData interface.</description></field>
         <field name="manualMappingServiceName" type="text-medium"><description>Name of a service to call to alter the generated
-            elasticsearch mapping for the data document </description></field>
+            elasticsearch mapping for the data document. This service should implement the
+            org.moqui.EntityServices.transform#DocumentMapping interface.</description></field>
 
         <relationship type="many" related="moqui.entity.document.DataDocumentField" short-alias="fields">
             <key-map field-name="dataDocumentId"/></relationship>
