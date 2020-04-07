@@ -241,15 +241,21 @@ class ElasticFacadeImpl implements ElasticFacade {
 
         @Override
         void createIndex(String index, Map docMapping, String alias) {
-            createIndex(index, null, docMapping, alias)
+            createIndex(index, null, docMapping, alias, null)
         }
         void createIndex(String index, String docType, Map docMapping, String alias) {
+            createIndex(index, docType, docMapping, alias, null)
+        }
+        void createIndex(String index, String docType, Map docMapping, String alias, Map settings) {
             RestClient restClient = makeRestClient(Method.PUT, index, null)
             if (docMapping || alias) {
                 Map requestMap = new HashMap()
                 if (docMapping) {
                     if (esVersionUnder7) requestMap.put("mappings", [(docType?:'_doc'):docMapping])
                     else requestMap.put("mappings", docMapping)
+                }
+                if (settings) {
+                    requestMap.put('settings', settings)
                 }
                 if (alias) requestMap.put("aliases", [(alias):[:]])
                 restClient.text(objectToJson(requestMap))
@@ -474,17 +480,26 @@ class ElasticFacadeImpl implements ElasticFacade {
         }
         synchronized protected void storeIndexAndMapping(String indexName, EntityValue dd) {
             String dataDocumentId = (String) dd.getNoCheckSimple("dataDocumentId")
+            String manualMappingServiceName = (String) dd.getNoCheckSimple("manualMappingServiceName")
             String esIndexName = ddIdToEsIndex(dataDocumentId)
 
             // logger.warn("========== Checking index ${esIndexName} with alias ${indexName} , hasIndex=${hasIndex}")
             boolean hasIndex = indexExists(esIndexName)
             Map docMapping = makeElasticSearchMapping(dataDocumentId, ecfi)
+            Map settings = null
+
+            if (manualMappingServiceName) {
+                def serviceResult = ecfi.service.sync().name(manualMappingServiceName).parameter('mapping', docMapping).call()
+                docMapping = (Map) serviceResult.mapping
+                settings = (Map) serviceResult.settings
+            }
+
             if (hasIndex) {
                 logger.info("Updating ElasticSearch index ${esIndexName} for ${dataDocumentId} document mapping")
                 putMapping(esIndexName, dataDocumentId, docMapping)
             } else {
                 logger.info("Creating ElasticSearch index ${esIndexName} for ${dataDocumentId} with alias ${indexName} and adding document mapping")
-                createIndex(esIndexName, dataDocumentId, docMapping, indexName)
+                createIndex(esIndexName, dataDocumentId, docMapping, indexName, settings)
                 // logger.warn("========== Added mapping for ${dataDocumentId} to index ${esIndexName}:\n${docMapping}")
             }
         }

@@ -41,4 +41,14 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="document" type="Map"><description>For details see document parameter in receive#DataFeed.</description></parameter>
         </out-parameters>
     </service>
+    <service verb="transform" noun="DocumentMapping" type="interface">
+        <description>Services named in the DataDocument.manualMappingServiceName field should implement this interface.</description>
+        <in-parameters>
+            <parameter name="mapping" type="Map"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="mapping" type="Map"/>
+            <parameter name="settings" type="Map"/>
+        </out-parameters>
+    </service>
 </services>
