@@ -420,11 +420,12 @@ class ElasticFacadeImpl implements ElasticFacade {
             RestClient.RestResponse response = makeRestClient(Method.GET, path, explain ? [explain:'true'] : null)
                     .text(queryJson).call()
             checkResponse(response, "Validate Query", index)
-            Map responseMap = (Map) jsonToObject(response.text())
+            String responseText = response.text()
+            Map responseMap = (Map) jsonToObject(responseText)
             // System.out.println("Validate Query Response: ${response.statusCode} ${response.reasonPhrase} Value? ${responseMap.get("valid") as boolean}\n${response.text()}")
             // return null if valid
             if (responseMap.get("valid")) return null
-            logger.warn("Invalid ElasticSearch query\n${queryJson}\nExplanations: ${responseMap.explanations}")
+            logger.warn("Invalid ElasticSearch query\n${JsonOutput.prettyPrint(queryJson)}\nResponse: ${JsonOutput.prettyPrint(responseText)}")
             return responseMap
         }
 

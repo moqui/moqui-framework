@@ -137,6 +137,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="highlightFields" type="List"><parameter name="highlightField"/></parameter>
             <parameter name="pageIndex" type="Integer" default="0"/>
             <parameter name="pageSize" type="Integer" default="20"/>
+            <parameter name="pageNoLimit" type="Boolean" default="false"/>
             <parameter name="flattenDocument" type="Boolean" default="true"/>
             <parameter name="clusterName" default-value="default"/>
         </in-parameters>
@@ -165,8 +166,9 @@ along with this software (see the LICENSE.md file). If not, see
                 return
             }
 
-            int fromOffset = pageIndex * pageSize
-            int sizeLimit = pageSize
+            int fromOffset = pageNoLimit ? 0 : pageIndex * pageSize
+            // TODO FUTURE: for this type of search ES limits size to 10k (default for index.max_result_window, can be changed per index), must use a scroll search to do more
+            int sizeLimit = pageNoLimit ? 10000 : pageSize
 
             documentList = []
             boolean hasHighlights = highlightFields != null && highlightFields.size() > 0
@@ -206,6 +208,7 @@ along with this software (see the LICENSE.md file). If not, see
                     }
                 }
             }
+            // ec.logger.warn("queryMap : ${groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(queryMap))}")
 
             if (hasHighlights) {
                 Map hlFieldMap = [:]
@@ -236,7 +239,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             // validate the query
             // TODO: consider pulling error message from ElasticSearch, but they are pretty ugly
-            Map validateRespMap = elasticClient.validateQuery(index, queryMap, false)
+            Map validateRespMap = elasticClient.validateQuery(index, queryMap, true)
             if (validateRespMap != null) {
                 ec.message.addMessage("Invalid search: ${queryString}", "danger")
                 documentListCount = 0
