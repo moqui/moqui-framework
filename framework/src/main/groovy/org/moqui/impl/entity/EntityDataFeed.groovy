@@ -643,7 +643,7 @@ class EntityDataFeed {
                     return
                 }
 
-                logger.warn("Doing DataFeed with dataDocumentId: ${dataDocumentId}, feedValues: ${feedValues} primaryPkFieldValues ${primaryPkFieldValues.size()}")
+                // logger.warn("Doing DataFeed with dataDocumentId: ${dataDocumentId}, feedValues: ${feedValues} primaryPkFieldValues ${primaryPkFieldValues.size()}")
 
                 ArrayList primaryPkValueList = new ArrayList<Map<String, Object>>(primaryPkFieldValues)
                 int primaryPkValueListSize = primaryPkValueList.size()
