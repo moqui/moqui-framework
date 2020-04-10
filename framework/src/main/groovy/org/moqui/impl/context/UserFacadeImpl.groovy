@@ -220,6 +220,8 @@ class UserFacadeImpl implements UserFacade {
                     visitorCookie.setHttpOnly(true)
                     if (request.isSecure()) visitorCookie.setSecure(true)
                     response.addCookie(visitorCookie)
+
+                    session.setAttribute("moqui.visitorId", cookieVisitorId)
                 }
             }
             visitorIdInternal = cookieVisitorId
