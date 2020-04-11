@@ -683,7 +683,7 @@ class ElasticFacadeImpl implements ElasticFacade {
     static final Map<String, String> esTypeMap = [id:'keyword', 'id-long':'keyword', date:'date', time:'text',
             'date-time':'date', 'number-integer':'long', 'number-decimal':'double', 'number-float':'double',
             'currency-amount':'double', 'currency-precise':'double', 'text-indicator':'keyword', 'text-short':'text',
-            'text-medium':'text', 'text-long':'text', 'text-very-long':'text', 'binary-very-long':'binary']
+            'text-medium':'text', 'text-intermediate':'text', 'text-long':'text', 'text-very-long':'text', 'binary-very-long':'binary']
 
     static Map makeElasticSearchMapping(String dataDocumentId, ExecutionContextFactoryImpl ecfi) {
         EntityValue dataDocument = ecfi.entityFacade.find("moqui.entity.document.DataDocument")
