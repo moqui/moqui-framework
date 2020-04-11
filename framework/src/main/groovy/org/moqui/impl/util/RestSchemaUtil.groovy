@@ -44,7 +44,7 @@ class RestSchemaUtil {
 
     static final Map<String, String> fieldTypeJsonMap = [
             "id":"string", "id-long":"string", "text-indicator":"string", "text-short":"string", "text-medium":"string",
-            "text-long":"string", "text-very-long":"string", "date-time":"string", "time":"string",
+            "text-intermediate":"string", "text-long":"string", "text-very-long":"string", "date-time":"string", "time":"string",
             "date":"string", "number-integer":"number", "number-float":"number",
             "number-decimal":"number", "currency-amount":"number", "currency-precise":"number",
             "binary-very-long":"string" ] // NOTE: binary-very-long may need hyper-schema stuff
@@ -79,7 +79,7 @@ class RestSchemaUtil {
             ]
     static final Map<String, String> fieldTypeRamlMap = [
             "id":"string", "id-long":"string", "text-indicator":"string", "text-short":"string", "text-medium":"string",
-            "text-long":"string", "text-very-long":"string", "date-time":"date", "time":"string",
+            "text-intermediate":"string", "text-long":"string", "text-very-long":"string", "date-time":"date", "time":"string",
             "date":"string", "number-integer":"integer", "number-float":"number",
             "number-decimal":"number", "currency-amount":"number", "currency-precise":"number",
             "binary-very-long":"string" ] // NOTE: binary-very-long may need hyper-schema stuff
