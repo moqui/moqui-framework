@@ -496,6 +496,7 @@
         <dictionary-type type="text-indicator" java-type="java.lang.String" default-sql-type="CHAR(1)"/>
         <dictionary-type type="text-short" java-type="java.lang.String" default-sql-type="VARCHAR(63)"/>
         <dictionary-type type="text-medium" java-type="java.lang.String" default-sql-type="VARCHAR(255)"/>
+        <dictionary-type type="text-intermediate" java-type="java.lang.String" default-sql-type="VARCHAR(1023)"/>
         <!-- text-long was 32000, but changed to 4095 because MySQL max size is 21K or so for a VARCHAR, and 64K for a
             row (not including text-very-long), and it seems that the limit is bytes, not characters, so 4K characters
             is 12K bytes... just like the old annoying column size which is now in characters, but the row size still
@@ -600,6 +601,7 @@
             <database-type type="text-indicator" sql-type="CHAR"/>
             <database-type type="text-short" sql-type="VARCHAR"/>
             <database-type type="text-medium" sql-type="VARCHAR"/>
+            <database-type type="text-intermediate" sql-type="VARCHAR"/>
             <database-type type="text-long" sql-type="VARCHAR"/>
             <database-type type="text-very-long" sql-type="VARCHAR"/>
 
@@ -638,6 +640,7 @@
             <database-type type="text-indicator" sql-type="CHAR(1)"/>
             <database-type type="text-short" sql-type="NVARCHAR(63)"/>
             <database-type type="text-medium" sql-type="NVARCHAR(255)"/>
+            <database-type type="text-intermediate" sql-type="NVARCHAR(1023)"/>
             <database-type type="text-long" sql-type="NVARCHAR(4000)"/>
             <database-type type="text-very-long" sql-type="TEXT"/>
 
@@ -751,6 +754,7 @@
 
             <database-type type="text-short" sql-type="VARCHAR2(63)"/>
             <database-type type="text-medium" sql-type="VARCHAR2(255)"/>
+            <database-type type="text-intermediate" sql-type="VARCHAR2(1023)"/>
             <database-type type="text-long" sql-type="VARCHAR2(4000)"/>
 
             <inline-jdbc><xa-properties user="${entity_ds_user}" password="${entity_ds_password}"
@@ -781,6 +785,7 @@
             <database-type type="number-float" sql-type="FLOAT8"/>
 
             <database-type type="text-medium" sql-type="TEXT"/>
+            <database-type type="text-intermediate" sql-type="TEXT"/>
             <database-type type="text-long" sql-type="TEXT"/>
             <database-type type="text-very-long" sql-type="TEXT"/>
 
