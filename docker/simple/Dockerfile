@@ -17,6 +17,9 @@ COPY execlib execlib
 # always want the runtime directory
 COPY runtime runtime
 
+# create user for elasticsearch and chown corresponding files
+RUN groupadd -r elasticsearch && useradd --no-log-init -r -d /opt/moqui/runtime/elasticsearch -g elasticsearch elasticsearch && chown -R elasticsearch:elasticsearch runtime/elasticsearch
+
 # exposed as volumes for configuration purposes
 VOLUME ["/opt/moqui/runtime/conf", "/opt/moqui/runtime/lib", "/opt/moqui/runtime/classes", "/opt/moqui/runtime/ecomponent"]
 # exposed as volumes to persist data outside the container, recommended
