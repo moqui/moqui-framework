@@ -478,7 +478,7 @@ public class MoquiStart {
                     boolean elasticsearchOwner = Files.getOwner(Paths.get(runtimePath, "elasticsearch")).getName().equals("elasticsearch");
                     boolean suAble = Runtime.getRuntime().exec(new String[]{"/bin/su", "-c", "/bin/true", "elasticsearch"}).waitFor() == 0;
                     if (elasticsearchOwner && suAble) command = new String[]{"su", "-c", "./bin/elasticsearch", "elasticsearch"};
-                } catch (java.io.IOException e) {}
+                } catch (IOException e) {}
             }
             ProcessBuilder pb = new ProcessBuilder(command);
             pb.redirectErrorStream(true);
