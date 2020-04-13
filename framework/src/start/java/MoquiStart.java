@@ -17,6 +17,8 @@ import java.lang.reflect.Array;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.security.CodeSource;
 import java.security.ProtectionDomain;
 import java.security.cert.Certificate;
@@ -471,7 +473,12 @@ public class MoquiStart {
             if (isWindows) {
                 command = new String[] {"cmd.exe", "/c", "bin\\elasticsearch.bat"};
             } else {
-                command = new String[] {"./bin/elasticsearch"};
+                command = new String[]{"./bin/elasticsearch"};
+                try {
+                    boolean elasticsearchOwner = Files.getOwner(Paths.get(runtimePath, "elasticsearch")).getName().equals("elasticsearch");
+                    boolean suAble = Runtime.getRuntime().exec(new String[]{"/bin/su", "-c", "/bin/true", "elasticsearch"}).waitFor() == 0;
+                    if (elasticsearchOwner && suAble) command = new String[]{"su", "-c", "./bin/elasticsearch", "elasticsearch"};
+                } catch (IOException e) {}
             }
             ProcessBuilder pb = new ProcessBuilder(command);
             pb.redirectErrorStream(true);
