@@ -135,34 +135,23 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="wikiPageId" from="wikiPage?.wikiPageId"/>
         </actions>
     </service>
-    <service verb="get" noun="WikiPageInfo">
+    <service verb="get" noun="WikiPageReference">
         <in-parameters>
             <parameter name="wikiSpaceId"/>
             <parameter name="pagePath"/>
             <parameter name="wikiPageId"/>
             <parameter name="extraPathNameList" type="List"/>
-            <parameter name="historySeqId"/>
-            <parameter name="versionName"/>
         </in-parameters>
         <out-parameters>
             <parameter name="wikiSpaceId"/>
-            <parameter name="wikiPageId"/>
             <parameter name="pagePath"/>
+            <parameter name="wikiPageId"/>
             <parameter name="wikiSpace" type="org.moqui.entity.EntityValue"/>
-            <parameter name="wikiType"/>
+            <parameter name="wikiPage" type="org.moqui.entity.EntityValue"/>
+            <parameter name="rootPageLocation"/>
+            <parameter name="rootPageRef"/>
+            <parameter name="spaceRootName"/>
             <parameter name="pageReference" type="org.moqui.content.ResourceReference"/>
-            <parameter name="versionName"/>
-            <parameter name="currentVersionName"/>
-            <parameter name="publishedVersionName"/>
-            <parameter name="attachmentList" type="List"><parameter name="attachmentInfo" type="Map">
-                <parameter name="filename"/><parameter name="contentType"/><parameter name="lastModified" type="Long"/>
-            </parameter></parameter>
-            <parameter name="pageLocation"/>
-            <parameter name="pageName"/>
-            <parameter name="parentPath"/>
-            <parameter name="breadcrumbNameList" type="List"><parameter name="pageName"/></parameter>
-            <parameter name="breadcrumbMapList" type="List"><parameter name="breadcrumbMap">
-                <parameter name="pageName"/><parameter name="pagePath"/></parameter></parameter>
         </out-parameters>
         <actions>
             <if condition="wikiPageId">
@@ -192,6 +181,37 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- NOTE: WikiPage record may not exist, but don't create one on get/view only -->
             <if condition="wikiPage == null"><service-call name="org.moqui.impl.WikiServices.get#WikiPageId" in-map="context" out-map="context"/></if>
 
+            <!-- get the ResourceReferences -->
+            <set field="rootPageRef" from="ec.resource.getLocationReference(wikiSpace.rootPageLocation)"/>
+            <set field="pageReference" from="rootPageRef.findChildFile(pagePath)"/>
+        </actions>
+    </service>
+    <service verb="get" noun="WikiPageInfo">
+        <implements service="org.moqui.impl.WikiServices.get#WikiPageReference"/>
+        <in-parameters>
+            <!-- see other in-parameters from get#WikiPageReference above -->
+            <parameter name="historySeqId"/>
+            <parameter name="versionName"/>
+        </in-parameters>
+        <out-parameters>
+            <!-- see other out-parameters from get#WikiPageReference above -->
+            <parameter name="wikiType"/>
+            <parameter name="versionName"/>
+            <parameter name="currentVersionName"/>
+            <parameter name="publishedVersionName"/>
+            <parameter name="attachmentList" type="List"><parameter name="attachmentInfo" type="Map">
+                <parameter name="filename"/><parameter name="contentType"/><parameter name="lastModified" type="Long"/>
+            </parameter></parameter>
+            <parameter name="pageLocation"/>
+            <parameter name="pageName"/>
+            <parameter name="parentPath"/>
+            <parameter name="breadcrumbNameList" type="List"><parameter name="pageName"/></parameter>
+            <parameter name="breadcrumbMapList" type="List"><parameter name="breadcrumbMap">
+                <parameter name="pageName"/><parameter name="pagePath"/></parameter></parameter>
+        </out-parameters>
+        <actions>
+            <service-call name="org.moqui.impl.WikiServices.get#WikiPageReference" in-map="context" out-map="context"/>
+
             <!-- check restrictView for space and page -->
             <if condition="wikiSpace.restrictView == 'Y'">
                 <entity-find entity-name="moqui.resource.wiki.WikiSpaceUser" list="wsuList">
@@ -204,11 +224,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <if condition="!wpuList"><return error="true" message="Wiki Page [${wikiSpaceId}/${pagePath}] has restricted view and user ${ec.user.username} [${ec.user.userId}] is not allowed."/></if>
             </if>
 
-            <!-- get the ResourceReferences -->
-            <set field="rootPageRef" from="ec.resource.getLocationReference(wikiSpace.rootPageLocation)"/>
-            <set field="pageReference" from="rootPageRef.findChildFile(pagePath)"/>
             <set field="pageLocation" from="pageReference?.location"/>
-
             <set field="pageName" from="pageReference?.fileName"/>
             <if condition="pageName?.contains('.')">
                 <set field="wikiType" from="pageName.substring(pageName.lastIndexOf('.')+1)"/>
@@ -265,6 +281,36 @@ along with this software (see the LICENSE.md file). If not, see
             </script></iterate>
 
             <!-- <log level="warn" message="========= wikiSpaceId=${wikiSpaceId}, pagePath: ${pagePath}, wikiSpace: ${wikiSpace}, rootPageRef: ${rootPageRef}, pageReference: ${pageReference}, pageLocation: ${pageLocation}"/> -->
+        </actions>
+    </service>
+    <service verb="get" noun="WikiPageChildren">
+        <implements service="org.moqui.impl.WikiServices.get#WikiPageReference"/>
+        <out-parameters>
+            <parameter name="childPageInfoList" type="List"><parameter name="childPageInfo" type="Map"/></parameter>
+        </out-parameters>
+        <actions>
+            <service-call name="org.moqui.impl.WikiServices.get#WikiPageReference" in-map="context" out-map="context"/>
+            <if condition="pageReference == null"><return/></if>
+
+            <set field="childPageRefList" from="pageReference.getChildren()"/>
+            <set field="childPageInfoList" from="[]"/>
+            <iterate list="childPageRefList" entry="childPageRef">
+                <set field="childFilename" from="childPageRef.getFileName()"/>
+                <set field="childDotIdx" from="childFilename.lastIndexOf('.')"/>
+                <set field="childPageName" from="childDotIdx &gt; 0 ? childFilename.substring(0, childDotIdx) : childFilename"/>
+                <set field="childPagePath" from="(pagePath ? pagePath + '/' : '') + childPageName"/>
+                <!-- <log level="warn" message="wikiSpaceId ${wikiSpaceId} childPagePath '${childPagePath}' childFilename '${childFilename}' pagePath '${pagePath}'"/> -->
+
+                <set field="sequenceNum" from="50"/>
+                <service-call name="org.moqui.impl.WikiServices.get#WikiPageId" out-map="pageIdOut" out-map-add-to-existing="false"
+                        in-map="[wikiSpaceId:wikiSpaceId, pagePath:childPagePath]"/>
+                <if condition="pageIdOut.wikiPage != null">
+                    <set field="sequenceNum" from="pageIdOut.wikiPage.sequenceNum ?: 50"/></if>
+
+                <script>childPageInfoList.add([filename:childFilename, pagePath:childPagePath, pageName:childPageName, sequenceNum:sequenceNum])</script>
+            </iterate>
+
+            <order-map-list list="childPageInfoList"><order-by field-name="sequenceNum"/><order-by field-name="childPageName"/></order-map-list>
         </actions>
     </service>
     <service verb="get" noun="WikiPageAttachment">
@@ -369,6 +415,7 @@ along with this software (see the LICENSE.md file). If not, see
             </parameter>
             <parameter name="wikiType" default-value="md"/>
             <parameter name="pageText" allow-html="any"><description>If WikiSpace.allowAnyHtml = Y will be stored as-is, otherwise filtered like parameter.allow-html=safe.</description></parameter>
+            <parameter name="sequenceNum" type="Integer"/>
         </in-parameters>
         <out-parameters>
             <parameter name="wikiPageId"/>
@@ -414,6 +461,10 @@ along with this software (see the LICENSE.md file). If not, see
                 </entity-find>
                 <if condition="!wpuList">
                     <return error="true" message="Wiki Page [${wikiSpaceId}/${pagePath}] has restricted update and user ${ec.user.username} [${ec.user.userId}] is not allowed."/></if>
+            </if>
+
+            <if condition="sequenceNum != null &amp;&amp; sequenceNum != wikiPage.sequenceNum">
+                <service-call name="update#moqui.resource.wiki.WikiPage" in-map="[wikiPageId:wikiPageId, sequenceNum:sequenceNum]"/>
             </if>
 
             <set field="rootPageRef" from="ec.resource.getLocationReference(wikiSpace.rootPageLocation)"/>
