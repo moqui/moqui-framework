@@ -70,11 +70,11 @@ dependencies {
     // Groovy
     // NOTE: update attempt to 3.0.2 has issues with slow build (just slow stub generation? seems others are seeing that too)
     //     and updated Spock required (tried 2.0-M2-groovy-3.0, not final release and tests didn't work)
-    compile 'org.codehaus.groovy:groovy:2.5.10' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-dateutil:2.5.10' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-json:2.5.10' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-templates:2.5.10' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-xml:2.5.10' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy:2.5.11' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-dateutil:2.5.11' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-json:2.5.11' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-templates:2.5.11' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-xml:2.5.11' // Apache 2.0
     // jansi is needed for groovydoc only, so in providedCompile (not included in war)
     compileOnly 'org.fusesource.jansi:jansi:1.18'
     // Findbugs need only during compile (used by freemarker and various moqui classes)
@@ -106,9 +106,9 @@ dependencies {
     compile 'com.cronutils:cron-utils:9.0.2' // Apache 2.0
 
     // Flexmark (markdown)
-    compile 'com.vladsch.flexmark:flexmark:0.50.46'
-    compile 'com.vladsch.flexmark:flexmark-ext-tables:0.50.46'
-    compile 'com.vladsch.flexmark:flexmark-ext-toc:0.50.46'
+    compile 'com.vladsch.flexmark:flexmark:0.61.0'
+    compile 'com.vladsch.flexmark:flexmark-ext-tables:0.61.0'
+    compile 'com.vladsch.flexmark:flexmark-ext-toc:0.61.0'
 
     // Freemarker
     compile 'org.freemarker:freemarker:2.3.30' // Apache 2.0
