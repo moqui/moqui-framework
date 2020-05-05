@@ -705,7 +705,7 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                     String entityFilterId = (String) entityFilter.getNoCheckSimple("entityFilterId")
                     logger.error("Error adding authz entity filter ${entityFilterId} condition: ${e.toString()}")
                     if (!"Y".equals(authzFilterInfo.entityFilterSet.getNoCheckSimple("allowMissingAlias")))
-                        throw new ArtifactAuthorizationException("Could not apply data filter so not doing query", e)
+                        throw new ArtifactAuthorizationException("Could not apply authorized data filter so not doing query, required field alias missing", e)
                 }
             }
         } finally {
