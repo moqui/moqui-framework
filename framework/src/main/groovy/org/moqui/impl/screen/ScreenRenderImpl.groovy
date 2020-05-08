@@ -300,7 +300,7 @@ class ScreenRenderImpl implements ScreenRender {
             }
             if (!foundMatchingParm) {
                 EntityValue formListFind = ec.entityFacade.fastFindOne("moqui.screen.form.FormListFind", true, true, formListFindId)
-                if (formListFind?.orderByField) ec.contextStack.put("orderByField", formListFind.orderByField)
+                if (formListFind?.orderByField && !ec.contextStack.getByString("orderByField")) ec.contextStack.put("orderByField", formListFind.orderByField)
                 ec.contextStack.putAll(flfParameters)
                 // logger.warn("Found formListFindId and no matching parameters, orderByField [${formListFind?.orderByField}], added paramters: ${flfParameters}")
             }
