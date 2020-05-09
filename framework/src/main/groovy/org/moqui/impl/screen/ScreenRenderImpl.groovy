@@ -282,16 +282,29 @@ class ScreenRenderImpl implements ScreenRender {
         if (logger.traceEnabled) logger.trace("Rendering screen ${rootScreenLocation} with path list ${originalScreenPathNameList}")
         // logger.info("Rendering screen [${rootScreenLocation}] with path list [${originalScreenPathNameList}]")
 
+        WebFacade web = ec.getWeb()
+        if ((lastStandalone == null || lastStandalone.isEmpty()) && web != null)
+            lastStandalone = (String) web.requestParameters.lastStandalone
+
+        screenUrlInfo = ScreenUrlInfo.getScreenUrlInfo(this, rootScreenDef, originalScreenPathNameList, null,
+                ScreenUrlInfo.parseLastStandalone(lastStandalone, 0))
+
+        // if the target of the url doesn't exist throw exception
+        screenUrlInfo.checkExists()
+        screenUrlInstance = screenUrlInfo.getInstance(this, false)
+
         // if there is a formListFindId parameter see if any matching parameters are set otherwise set all configured params
         // NOTE: needs to be done very early in screen rendering so that parameters are available for actions, etc
         // NOTE: this should allow override of parameters along with a formListFindId while defaulting to configured ones,
         //     but is far from ideal in detecting whether configured parms should be used
         String formListFindId = ec.contextStack.getByString("formListFindId")
         if (formListFindId != null && !formListFindId.isEmpty()) {
+            Set<String> targetScreenParmNames = screenUrlInfo.targetScreen?.getParameterMap()?.keySet()
             Map<String, String> flfParameters = ScreenForm.makeFormListFindParameters(formListFindId, ec)
             boolean foundMatchingParm = false
             for (String flfParmName in flfParameters.keySet()) {
                 if ("formListFindId".equals(flfParmName)) continue
+                if (targetScreenParmNames != null && targetScreenParmNames.contains(flfParmName)) continue
                 Object parmValue = ec.contextStack.getByString(flfParmName)
                 if (!ObjectUtilities.isEmpty(parmValue)) {
                     foundMatchingParm = true
@@ -305,17 +318,6 @@ class ScreenRenderImpl implements ScreenRender {
                 // logger.warn("Found formListFindId and no matching parameters, orderByField [${formListFind?.orderByField}], added paramters: ${flfParameters}")
             }
         }
-
-        WebFacade web = ec.getWeb()
-        if ((lastStandalone == null || lastStandalone.isEmpty()) && web != null)
-            lastStandalone = (String) web.requestParameters.lastStandalone
-
-        screenUrlInfo = ScreenUrlInfo.getScreenUrlInfo(this, rootScreenDef, originalScreenPathNameList, null,
-                ScreenUrlInfo.parseLastStandalone(lastStandalone, 0))
-
-        // if the target of the url doesn't exist throw exception
-        screenUrlInfo.checkExists()
-        screenUrlInstance = screenUrlInfo.getInstance(this, false)
 
         if (web != null) {
             // clear out the parameters used for special screen URL config
