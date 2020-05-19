@@ -164,6 +164,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="description" type="text-medium"/>
         <field name="applyCond" type="text-medium">
             <description>Groovy boolean (if) expression, if specified checked before applying filters in the set</description></field>
+        <field name="allowMissingAlias" type="text-indicator">
+            <description>By default if a filterMap refers to a field not aliased in a view-entity there will be an error, set this to Y to do the query anyway</description></field>
         <relationship type="many" related="moqui.security.EntityFilter" short-alias="filters">
             <key-map field-name="entityFilterSetId"/></relationship>
     </entity>
@@ -313,6 +315,12 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="many" related="moqui.security.UserGroupPermission" short-alias="permissions">
             <key-map field-name="userGroupId"/></relationship>
     </entity>
+    <view-entity entity-name="UserGroupMemberUser" package="moqui.security">
+        <member-entity entity-alias="UGM" entity-name="moqui.security.UserGroupMember"/>
+        <member-relationship entity-alias="UAC" join-from-alias="UGM" relationship="user"/>
+        <alias-all entity-alias="UGM"/>
+        <alias-all entity-alias="UAC"/>
+    </view-entity>
     <view-entity entity-name="UserGroupAndMember" package="moqui.security">
         <member-entity entity-alias="UGM" entity-name="moqui.security.UserGroupMember"/>
         <member-relationship entity-alias="UG" join-from-alias="UGM" relationship="group"/>
@@ -421,6 +429,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="linkTemplate" type="text-long"/>
         <field name="typeString" type="text-short"><description>One of: info, success, warning, danger</description></field>
         <field name="showAlert" type="text-indicator"/>
+        <field name="alertNoAutoHide" type="text-indicator"/>
         <field name="persistOnSend" type="text-indicator"/>
         <field name="isPrivate" type="text-indicator"><description>If Y user must be associated to see it or receive notifications.</description></field>
         <field name="receiveNotifications" type="text-indicator"><description>If Y all applicable users will be sent

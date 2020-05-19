@@ -50,6 +50,7 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
 
     private NotificationType type = (NotificationType) null
     private Boolean showAlert = (Boolean) null
+    private Boolean alertNoAutoHide = (Boolean) null
     private String emailTemplateId = (String) null
     private Boolean persistOnSend = (Boolean) null
 
@@ -210,6 +211,20 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
         }
     }
 
+    @Override NotificationMessage alertNoAutoHide(boolean noAutoHide) { alertNoAutoHide = noAutoHide; return this }
+    @Override boolean isAlertNoAutoHide() {
+        if (alertNoAutoHide != null) {
+            return alertNoAutoHide.booleanValue()
+        } else {
+            EntityValue localNotTopic = getNotificationTopic()
+            if (localNotTopic != null && localNotTopic.alertNoAutoHide) {
+                return localNotTopic.alertNoAutoHide == 'Y'
+            } else {
+                return false
+            }
+        }
+    }
+
     @Override NotificationMessage emailTemplateId(String id) {
         emailTemplateId = id
         if (emailTemplateId != null && emailTemplateId.isEmpty()) emailTemplateId = null
@@ -355,7 +370,8 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
     @Override Map<String, Object> getWrappedMessageMap() {
         EntityValue localNotTopic = getNotificationTopic()
         return [topic:topic, sentDate:sentDate, notificationMessageId:notificationMessageId, topicDescription:localNotTopic?.description,
-            message:getMessageMap(), title:getTitle(), link:getLink(), type:getType(), showAlert:isShowAlert(), persistOnSend:isPersistOnSend()]
+                message:getMessageMap(), title:getTitle(), link:getLink(), type:getType(), persistOnSend:isPersistOnSend(),
+                showAlert:isShowAlert(), alertNoAutoHide:isAlertNoAutoHide()]
     }
     @Override String getWrappedMessageJson() {
         Map<String, Object> wrappedMap = getWrappedMessageMap()
@@ -377,6 +393,7 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
         this.linkText = nmbu.linkText
         if (nmbu.typeString) this.type = NotificationType.valueOf((String) nmbu.typeString)
         this.showAlert = nmbu.showAlert == 'Y'
+        this.alertNoAutoHide = nmbu.alertNoAutoHide == 'Y'
 
         EntityList nmuList = nmbu.findRelated("moqui.security.user.NotificationMessageUser",
                 [notificationMessageId:notificationMessageId] as Map<String, Object>, null, false, false)
@@ -395,6 +412,7 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
         out.writeObject(getLink())
         out.writeObject(type)
         out.writeObject(showAlert)
+        out.writeObject(alertNoAutoHide)
         out.writeObject(persistOnSend)
     }
     @Override void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
@@ -408,6 +426,7 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
         linkText = (String) objectInput.readObject()
         type = (NotificationType) objectInput.readObject()
         showAlert = (Boolean) objectInput.readObject()
+        alertNoAutoHide = (Boolean) objectInput.readObject()
         persistOnSend = (Boolean) objectInput.readObject()
     }
 }

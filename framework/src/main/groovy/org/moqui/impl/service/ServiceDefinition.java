@@ -380,13 +380,18 @@ public class ServiceDefinition {
     @SuppressWarnings("unchecked")
     private Map<String, Object> nestedParameterClean(String namePrefix, Map<String, Object> parameters,
                                       ParameterInfo[] parameterInfoArray, ExecutionContextImpl eci) {
+        // a copy of the parameters Map to retain unknown entries to add at the end when NOT validating (pass through unknown parameters)
+        HashMap<String, Object> parametersCopy = validate ? null : new HashMap<>(parameters);
+        // the new Map that will be populated and returned
         HashMap<String, Object> newMap = new HashMap<>();
+
         for (int i = 0; i < parameterInfoArray.length; i++) {
             ParameterInfo parameterInfo = parameterInfoArray[i];
             String parameterName = parameterInfo.name;
 
             boolean hasParameter = parameters.containsKey(parameterName);
-            Object parameterValue = hasParameter ? parameters.remove(parameterName) : null;
+            Object parameterValue = hasParameter ? parameters.get(parameterName) : null;
+            if (hasParameter && parametersCopy != null) parametersCopy.remove(parameterName);
 
             boolean parameterIsEmpty;
             boolean isString = false;
@@ -540,8 +545,8 @@ public class ServiceDefinition {
         }
 
         // if we are not validating and there are parameters remaining, add them to the newMap
-        if (!validate && parameters.size() > 0) {
-            newMap.putAll(parameters);
+        if (!validate && parametersCopy != null && parametersCopy.size() > 0) {
+            newMap.putAll(parametersCopy);
         }
 
         return newMap;

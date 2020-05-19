@@ -471,7 +471,7 @@ class ScreenDefinition {
 
     List<String> nestedNoReqParmLocations(String currentPath, Set<String> screensToSkip) {
         if (!screensToSkip) screensToSkip = new HashSet<String>()
-        List<String> locList = []
+        List<String> locList = new ArrayList<>()
         List<SubscreensItem> ssiList = getSubscreensItemsSorted()
         for (SubscreensItem ssi in ssiList) {
             if (screensToSkip.contains(ssi.name)) continue
@@ -978,8 +978,10 @@ class ScreenDefinition {
             ScreenUrlInfo fwdUrlInfo = ScreenUrlInfo.getScreenUrlInfo(sri, null, curFpnl, null, 0)
             ScreenUrlInfo.UrlInstance fwdInstance = fwdUrlInfo.getInstance(sri, null)
 
-            Map<String, Object> flfInfo = ScreenForm.getFormListFindInfo(formListFindId, sri.ec, null)
-            fwdInstance.addParameters((Map<String, String>) flfInfo.findParameters)
+            // use only formListFindId now that ScreenRenderImpl picks it up and auto adds configured parameters:
+            // Map<String, Object> flfInfo = ScreenForm.getFormListFindInfo(formListFindId, sri.ec, null)
+            // fwdInstance.addParameters((Map<String, String>) flfInfo.findParameters)
+            fwdInstance.addParameter("formListFindId", formListFindId)
 
             if (!sri.sendJsonRedirect(fwdInstance, null)) sri.response.sendRedirect(fwdInstance.getUrlWithParams())
             return noneResponse

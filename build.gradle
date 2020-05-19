@@ -22,7 +22,8 @@ import org.ajoberstar.grgit.*
 
 defaultTasks 'build'
 
-def tomcatHome = '../apache-tomcat-8.5.14'
+def elasticSearchVersion = '7.4.2'
+def tomcatHome = '../apache-tomcat'
 // no longer include version in war file name: def getWarName() { 'moqui-' + childProjects.framework.version + '.war' }
 def getWarName() { 'moqui.war' }
 def plusRuntimeName = 'moqui-plus-runtime.war'
@@ -35,36 +36,34 @@ def moquiConfProduction = 'conf/MoquiProductionConf.xml'
 def allCleanTasks = getTasksByName('clean', true)
 def allBuildTasks = getTasksByName('build', true)
 def allTestTasks = getTasksByName('test', true)
+allTestTasks.each { it.systemProperties << System.properties.subMap(getDefaultPropertyKeys()) }
+// kill the build -> check -> test dependency, only run tests explicitly and not always on build
+getTasksByName('check', true).each { it.dependsOn.clear() }
+
 Set<Task> getComponentTestTasks() {
     Set<Task> testTasks = new LinkedHashSet()
-    for (Project subProject in getSubprojects()) {
-        if (subProject.getPath().startsWith(':runtime:component:'))
-            testTasks.addAll(subProject.getTasksByName('test', false))
-    }
+    for (Project subProject in getSubprojects())
+        if (subProject.getPath().startsWith(':runtime:component:')) testTasks.addAll(subProject.getTasksByName('test', false))
     return testTasks
 }
 def getDefaultPropertyKeys() {
     def defaultProperties = []
     Node confXml = new XmlParser().parse(file('framework/src/main/resources/MoquiDefaultConf.xml'))
-    for (Node defaultProperty in confXml.'default-property') {
-        defaultProperties << defaultProperty.'@name'
-    }
+    for (Node defaultProperty in confXml.'default-property') { defaultProperties << defaultProperty.'@name' }
     defaultProperties
 }
-allTestTasks.each {
-    it.systemProperties << System.properties.subMap(getDefaultPropertyKeys())
-}
+
 // ========== clean tasks ==========
 
-task clean(type: Delete) { delete file(warName); delete file(execTempDir) }
+task clean(type: Delete) { delete file(warName); delete file(execTempDir); delete file('wartemp'); cleanVersionDetailFiles() }
 task cleanTempDir(type: Delete) { delete file(execTempDir) }
 task cleanDb { doLast {
     if (!file(moquiRuntime).exists()) return
     delete files(file(moquiRuntime+'/db/derby').listFiles()) - files(moquiRuntime+'/db/derby/derby.properties')
     delete file(moquiRuntime+'/db/h2')
     delete file(moquiRuntime+'/db/orientdb/databases')
-    delete file(moquiRuntime+'/elasticsearch/data')
     delete fileTree(dir: moquiRuntime+'/txlog', include: '*')
+    cleanElasticSearch((String) moquiRuntime+'/elasticsearch')
 } }
 task cleanLog(type: Delete) { delete fileTree(dir: moquiRuntime+'/log', include: '*') }
 task cleanSessions(type: Delete) { delete fileTree(dir: moquiRuntime+'/sessions', include: '*') }
@@ -74,6 +73,91 @@ task cleanPlusRuntime(type: Delete) { delete file(plusRuntimeName) }
 task cleanOther(type: Delete) { delete fileTree(dir: '.', includes: ['**/.nbattrs', '**/*~', '**/.#*', '**/.DS_Store', '**/*.rej', '**/*.orig']) }
 
 task cleanAll { dependsOn clean, allCleanTasks, cleanDb, cleanLog, cleanSessions, cleanLoadSave, cleanPlusRuntime }
+
+// ========== ElasticSearch tasks (for install in runtime/elasticsearch) ==========
+
+def cleanElasticSearch(String esDir) {
+    if (file(esDir+'/bin').exists()) {
+        def pidFile = file(esDir+'/pid')
+        if (pidFile.exists()) {
+            String pid = pidFile.getText()
+            logger.lifecycle("ElasticSearch running with pid ${pid}, stopping before deleting data then restarting")
+            exec { workingDir esDir; commandLine 'kill', pid }
+            exec { workingDir esDir; commandLine 'tail', "--pid=${pid}", '-f', '/dev/null' }
+            delete file(esDir+'/data')
+            if (file(esDir+'/logs').exists()) delete files(file(esDir+'/logs').listFiles())
+            if (pidFile.exists()) delete pidFile
+            exec { workingDir esDir; commandLine './bin/elasticsearch', '-d', '-p', 'pid' }
+        } else {
+            logger.lifecycle("Found ElasticSearch ${esDir}/bin directory but no pid, deleting data without stop/start; WARNING if ElasticSearch is running this will cause problems!")
+            delete file(esDir+'/data')
+            if (file(esDir+'/logs').exists()) delete files(file(esDir+'/logs').listFiles())
+        }
+    } else {
+        delete file(esDir+'/data')
+        if (file(esDir+'/logs').exists()) delete files(file(esDir+'/logs').listFiles())
+    }
+}
+task downloadElasticSearch { doLast {
+    String suffix
+    String distType
+    String osName = System.getProperty("os.name").toLowerCase();
+    if (osName.startsWith("windows")) {
+        suffix = "windows-x86_64.zip"
+        distType = "zip"
+    } else if (osName.startsWith("mac")) {
+        suffix = "darwin-x86_64.tar.gz"
+        distType = "tar.gz"
+    } else {
+        suffix = "linux-x86_64.tar.gz"
+        distType = "tar.gz"
+    }
+    String esUrl = "https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-oss-${elasticSearchVersion}-no-jdk-${suffix}"
+    String targetDirPath = moquiRuntime + '/elasticsearch'
+    String esExtraDirPath = targetDirPath + '/elasticsearch-' + elasticSearchVersion
+    File targetDir = file(targetDirPath)
+    if (targetDir.exists()) { logger.lifecycle("Found directory at ${targetDirPath}, deleting"); delete targetDir }
+    File zipFile = file("${targetDirPath}-${elasticSearchVersion}.${distType}")
+    if (!zipFile.exists()) {
+        logger.lifecycle("Downloading ElasticSearch from ${esUrl}")
+        ant.get(src: esUrl, dest: zipFile)
+    } else {
+        logger.lifecycle("Found ElasticSearch archive at ${zipFile.getPath()}, using that instead of downloading")
+    }
+    // the eachFile closure removes the first path from each file, moving everything up a directory, which also requires delete of the extra dirs
+    copy { from distType == "zip"? zipTree(zipFile) : tarTree(zipFile); into targetDir; eachFile { it.setPath((it.getRelativePath().getSegments() as List).tail().join("/")); return it } }
+    File extraDir = file(esExtraDirPath)
+    if (extraDir.exists()) delete extraDir
+
+    delete zipFile
+}}
+task startElasticSearch(type:Exec) {
+    workingDir moquiRuntime + '/elasticsearch'; commandLine './bin/elasticsearch', '-d', '-p', 'pid'
+    onlyIf { file(moquiRuntime + '/elasticsearch/bin').exists() && !file(moquiRuntime + '/elasticsearch/pid').exists() }
+    doFirst { logger.lifecycle("Starting ElasticSearch installed in runtime/elasticsearch") }
+}
+task stopElasticSearch { doLast {
+    String esDir = moquiRuntime + '/elasticsearch'
+    def pidFile = file(moquiRuntime + '/elasticsearch/pid')
+    if (pidFile.exists() && file(moquiRuntime + '/elasticsearch/bin').exists()) {
+        String pid = pidFile.getText()
+        logger.lifecycle("Stopping ElasticSearch installed in runtime/elasticsearch with pid ${pid}")
+        exec { workingDir esDir; commandLine 'kill', pid }
+        // don't bother waiting in this case: exec { workingDir esDir; commandLine 'tail', "--pid=${pid}", '-f', '/dev/null' }
+        if (pidFile.exists()) delete pidFile
+    }
+} }
+
+// ========== test task ==========
+// NOTE1: to run startElasticSearch before the first test task add it as a dependency to all test tasks
+// NOTE2: to run stopElasticSearch after the last test task make all test tasks finalizedBy stopElasticSearch
+getTasksByName('test', true).each {
+    if (it.path != ':test') {
+        // logger.lifecycle("Adding dependencies for test task ${it.getPath()}")
+        it.dependsOn(startElasticSearch)
+        it.finalizedBy(stopElasticSearch)
+    }
+}
 
 // ========== check/update tasks ==========
 
@@ -316,6 +400,54 @@ task gitDiffTagsAll {
     }
 }
 
+task gitMergeAll {
+    description "Do a git diff between two tags in the currently checked out branch in moqui, runtime, and each installed component"
+    doLast {
+        def branchName = (project.hasProperty('branch')) ? branch : null;
+        def tagName = (project.hasProperty('tag')) ? tag : null;
+        def mergeMode = (project.hasProperty('mode')) ? mode : null;
+        def mergeMessage = (project.hasProperty('message')) ? message : null;
+        def pushMerge = (project.hasProperty('push')) ? push : null;
+
+
+        List<String> gitDirectories = []
+        if (file(".git").exists()) gitDirectories.add(file('.').path)
+        if (file("runtime/.git").exists()) gitDirectories.add(file('runtime').path)
+        for (File compDir in file('runtime/component').listFiles().findAll { it.isDirectory() && it.listFiles().find { it.name == '.git' } })
+            gitDirectories.add(compDir.path)
+
+        def frameworkDir = gitDirectories.first()
+        for (String gitDir in gitDirectories) {
+            def relativePath = "."+gitDir.minus(frameworkDir)
+            logger.lifecycle("${relativePath}")
+            def grgit = Grgit.open(dir: gitDir)
+            def currentBranch = grgit.branch.current()?.name;
+            if (branchName == currentBranch)
+                continue
+
+            def doMerge = false;
+
+            if (branchName && grgit.branch.list().find({ it.name == branchName }) != null) {
+                doMerge = true;
+            }
+
+            if (tagName && grgit.tag.list().find({ it.name == tagName }) != null) {
+                doMerge = true;
+            }
+
+            if (doMerge) {
+                grgit.merge(head: branchName ?: tagName, mode: mergeMode, message: mergeMessage)
+                logger.lifecycle("    Merging ${branchName ?: tagName} into ${currentBranch}")
+            }
+
+            if (pushMerge) {
+                grgit.push();
+                logger.lifecycle("    Pushing merge")
+            }
+        }
+    }
+}
+
 // ========== run tasks ==========
 
 task run(type: JavaExec) {
@@ -335,22 +467,27 @@ task runProduction(type: JavaExec) {
 task load(type: JavaExec) {
     description "Run Moqui to load data; to specify data types use something like: gradle load -Ptypes=seed,seed-initial,install"
     dependsOn checkRuntime, allBuildTasks
-    workingDir = '.'; jvmArgs = ['-server']
     systemProperties = ['moqui.conf':moquiConfDev, 'moqui.runtime':moquiRuntime]
-    main = '-jar'
-    def argList = [warName, 'load']
-    if (project.properties.containsKey('types')) argList.add("types=${types}")
-    args = argList
+    workingDir = '.'; jvmArgs = ['-server']; main = '-jar'
+    args = [warName, 'load', (project.properties.containsKey('types') ? "types=${types}" : "types=all")]
+}
+task loadSeed(type: JavaExec) {
+    dependsOn checkRuntime, allBuildTasks
+    systemProperties = ['moqui.conf':moquiConfProduction, 'moqui.runtime':moquiRuntime]
+    workingDir = '.'; jvmArgs = ['-server']; main = '-jar'
+    args = [warName, 'load', (project.properties.containsKey('types') ? "types=${types}" : "types=seed")]
+}
+task loadSeedInitial(type: JavaExec) {
+    dependsOn checkRuntime, allBuildTasks
+    systemProperties = ['moqui.conf':moquiConfProduction, 'moqui.runtime':moquiRuntime]
+    workingDir = '.'; jvmArgs = ['-server']; main = '-jar'
+    args = [warName, 'load', (project.properties.containsKey('types') ? "types=${types}" : "types=seed,seed-initial")]
 }
 task loadProduction(type: JavaExec) {
     dependsOn checkRuntime, allBuildTasks
-    workingDir = '.'; jvmArgs = ['-server']
     systemProperties = ['moqui.conf':moquiConfProduction, 'moqui.runtime':moquiRuntime]
-    main = '-jar'
-    def argList = [warName, 'load']
-    if (project.properties.containsKey('types')) argList.add("types=${types}")
-    else argList.add("types=seed,seed-initial,install")
-    args = argList
+    workingDir = '.'; jvmArgs = ['-server']; main = '-jar'
+    args = [warName, 'load', (project.properties.containsKey('types') ? "types=${types}" : "types=seed,seed-initial,install")]
 }
 
 task saveDb { doLast {
@@ -360,8 +497,26 @@ task saveDb { doLast {
         ant.zip(destfile: 'SaveH2.zip') { fileset(dir: moquiRuntime+'/db/h2') { include(name: '**/*') } }
     if (file(moquiRuntime+'/db/orientdb/databases').exists())
         ant.zip(destfile: 'SaveOrientDb.zip') { fileset(dir: moquiRuntime+'/db/orientdb/databases') { include(name: '**/*') } }
-    if (file(moquiRuntime+'/elasticsearch/data').exists())
-        ant.zip(destfile: 'SaveElasticSearch.zip') { fileset(dir: moquiRuntime+'/elasticsearch/data') { include(name: '**/*') } }
+    if (file(moquiRuntime+'/elasticsearch/data').exists()) {
+        String esDir = moquiRuntime+'/elasticsearch'
+        if (file(esDir+'/bin').exists()) {
+            def pidFile = file(esDir+'/pid')
+            if (pidFile.exists()) {
+                String pid = pidFile.getText()
+                logger.lifecycle("ElasticSearch running with pid ${pid}, stopping before saving data then restarting")
+                exec { workingDir esDir; commandLine 'kill', pid }
+                exec { workingDir esDir; commandLine 'tail', "--pid=${pid}", '-f', '/dev/null' }
+                ant.zip(destfile: 'SaveElasticSearch.zip') { fileset(dir: moquiRuntime+'/elasticsearch/data') { include(name: '**/*') } }
+                if (pidFile.exists()) delete pidFile
+                exec { workingDir esDir; commandLine './bin/elasticsearch', '-d', '-p', 'pid' }
+            } else {
+                logger.lifecycle("Found ElasticSearch ${esDir}/bin directory but no pid, saving data without stop/start; WARNING if ElasticSearch is running this will cause problems!")
+                ant.zip(destfile: 'SaveElasticSearch.zip') { fileset(dir: moquiRuntime+'/elasticsearch/data') { include(name: '**/*') } }
+            }
+        } else {
+            ant.zip(destfile: 'SaveElasticSearch.zip') { fileset(dir: moquiRuntime+'/elasticsearch/data') { include(name: '**/*') } }
+        }
+    }
 } }
 task loadSave {
     description "Clean all, build and load, then save database (H2, Derby), OrientDB, and ElasticSearch files; to be used before reloadSave"
@@ -376,7 +531,26 @@ task reloadSave {
         if (file('SaveDerby.zip').exists()) copy { from zipTree('SaveDerby.zip'); into file(moquiRuntime+'/db/derby/moqui') }
         if (file('SaveH2.zip').exists()) copy { from zipTree('SaveH2.zip'); into file(moquiRuntime+'/db/h2') }
         if (file('SaveOrientDb.zip').exists()) copy { from zipTree('SaveOrientDb.zip'); into file(moquiRuntime+'/db/orientdb/databases') }
-        if (file('SaveElasticSearch.zip').exists()) copy { from zipTree('SaveElasticSearch.zip'); into file(moquiRuntime+'/elasticsearch/data') }
+        if (file('SaveElasticSearch.zip').exists()) {
+            String esDir = moquiRuntime+'/elasticsearch'
+            if (file(esDir+'/bin').exists()) {
+                def pidFile = file(esDir+'/pid')
+                if (pidFile.exists()) {
+                    String pid = pidFile.getText()
+                    logger.lifecycle("ElasticSearch running with pid ${pid}, stopping before restoring data then restarting")
+                    exec { workingDir esDir; commandLine 'kill', pid }
+                    exec { workingDir esDir; commandLine 'tail', "--pid=${pid}", '-f', '/dev/null' }
+                    copy { from zipTree('SaveElasticSearch.zip'); into file(moquiRuntime+'/elasticsearch/data') }
+                    if (pidFile.exists()) delete pidFile
+                    exec { workingDir esDir; commandLine './bin/elasticsearch', '-d', '-p', 'pid' }
+                } else {
+                    logger.lifecycle("Found ElasticSearch ${esDir}/bin directory but no pid, saving data without stop/start; WARNING if ElasticSearch is running this will cause problems!")
+                    copy { from zipTree('SaveElasticSearch.zip'); into file(moquiRuntime+'/elasticsearch/data') }
+                }
+            } else {
+                copy { from zipTree('SaveElasticSearch.zip'); into file(moquiRuntime+'/elasticsearch/data') }
+            }
+        }
     }
 }
 
@@ -392,20 +566,22 @@ task deployTomcat { doLast {
     copy { from file(warName); into file(tomcatHome + '/webapps'); rename(warName, 'ROOT.war') }
 } }
 
-task addRuntime {
-    description "Create a moqui-plus-runtime.war file with the Moqui WAR and the runtime directory embedded in it"
+task plusRuntimeWarTemp {
     dependsOn checkRuntime, allBuildTasks
+
     doLast {
+        File wartempFile = file('wartemp')
+        if (wartempFile.exists()) delete wartempFile
+
         // make version detail files
         makeVersionDetailFiles()
         // unzip the "moqui-${version}.war" file to the wartemp directory
-        //directory { dir = file('wartemp') }
-        copy { from zipTree(warName); into file('wartemp') }
+        copy { from zipTree(warName); into wartempFile }
         // copy runtime directory (with a few exceptions) into a runtime directory in the war
         copy {
             from fileTree(dir: '.', include: moquiRuntime+'/**',
                     excludes: ['**/*.jar', '**/build', moquiRuntime+'/classes/**', moquiRuntime+'/lib/**', moquiRuntime+'/log/**', moquiRuntime+'/sessions/**'])
-            into file('wartemp')
+            into wartempFile
         }
         // copy the jar files from runtime/lib
         copy { from fileTree(dir: moquiRuntime+'/lib', include: '**/*.jar').files into 'wartemp/WEB-INF/lib' }
@@ -419,19 +595,25 @@ task addRuntime {
         copy { from file('MoquiInit.properties') into 'wartemp/WEB-INF/classes' }
         // add Procfile to root
         copy { from file('Procfile') into 'wartemp' }
-        // special case: copy elasticsearch plugin/module jars
-        copy { from fileTree(dir: '.', include: moquiRuntime+'/elasticsearch/**/*.jar') into file('wartemp') }
+        // special case: copy elasticsearch plugin/module jars (needed for ES installed in runtime/elasticsearch
+        copy { from fileTree(dir: '.', include: moquiRuntime+'/elasticsearch/**/*.jar') into wartempFile }
         // special case: copy jackrabbit standalone jar (if exists)
         copy { from fileTree(dir: moquiRuntime + '/jackrabbit', include: 'jackrabbit-standalone-*.jar').files; into 'wartemp/' + moquiRuntime + '/jackrabbit' }
 
-        // zip it up again
-        ant.zip(destfile: plusRuntimeName) { fileset(dir: 'wartemp') { include(name: '**/*') } }
-        // alternative once supported: zip { archiveName plusRuntimeName; from fileTree(dir: 'wartemp', include: '**/*') }
-        // clean up the temporary directory
-        delete file('wartemp')
         // clean up version detail files
         cleanVersionDetailFiles()
     }
+}
+task addRuntime(type: Zip) {
+    description "Create moqui-plus-runtime.war file from the moqui.war file and the runtime directory embedded in it"
+    dependsOn checkRuntime, allBuildTasks, plusRuntimeWarTemp
+
+    archiveFileName = plusRuntimeName
+    destinationDirectory = file('.')
+    from file('wartemp')
+
+    doFirst { if (file(plusRuntimeName).exists()) delete file(plusRuntimeName) }
+    doLast { delete file('wartemp') }
 }
 
 // don't use this task directly, use addRuntimeTomcat which calls this

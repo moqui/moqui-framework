@@ -178,7 +178,6 @@ class WebFacadeStub implements WebFacade {
     }
     @Override void sendError(int errorCode, String message, Throwable origThrowable) { response.sendError(errorCode, message) }
 
-    @Override void handleXmlRpcServiceCall() { throw new IllegalArgumentException("WebFacadeStub handleXmlRpcServiceCall not supported") }
     @Override void handleJsonRpcServiceCall() { throw new IllegalArgumentException("WebFacadeStub handleJsonRpcServiceCall not supported") }
     @Override void handleEntityRestCall(List<String> extraPathNameList, boolean masterNameInPath) {
         throw new IllegalArgumentException("WebFacadeStub handleEntityRestCall not supported") }

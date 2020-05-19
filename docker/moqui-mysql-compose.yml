@@ -4,7 +4,7 @@ services:
     image: moqui
     container_name: moqui-server
     command: conf=conf/MoquiProductionConf.xml
-    restart: unless-stopped
+    restart: always
     links:
      - moqui-database
     ports:
@@ -21,12 +21,13 @@ services:
      - ./runtime/elasticsearch:/opt/moqui/runtime/elasticsearch
     environment:
      - instance_purpose=production
-     - entity_ds_db_conf=mysql
+     - entity_ds_db_conf=mysql8
      - entity_ds_host=moqui-database
      - entity_ds_port=3306
      - entity_ds_database=moqui
-     - entity_ds_user=moqui
-     - entity_ds_password=moqui
+     # NOTE: using root user because for TX recovery MySQL requires the 'XA_RECOVER_ADMIN' and in version 8 that must be granted explicitly
+     - entity_ds_user=root
+     - entity_ds_password=moquiroot
      - entity_ds_crypt_pass='MoquiDefaultPassword:CHANGEME'
      # moqui will accept traffic from other hosts but these are the values used for URL writing when specified:
      - webapp_http_host=moqui.local
@@ -37,7 +38,7 @@ services:
      - default_time_zone=US/Pacific
 
   moqui-database:
-    image: mysql:5.7
+    image: mysql:8.0
     container_name: moqui-database
     restart: always
     ports:

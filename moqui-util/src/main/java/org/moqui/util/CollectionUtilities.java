@@ -20,6 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.Timestamp;
 import java.util.*;
 
@@ -319,7 +320,7 @@ public class CollectionUtilities {
         for (Map.Entry<String, Object> entry : baseMap.entrySet()) {
             if (!(entry.getValue() instanceof BigDecimal)) continue;
             BigDecimal baseVal = (BigDecimal) entry.getValue();
-            entry.setValue(baseVal.divide(divisor, BigDecimal.ROUND_HALF_UP));
+            entry.setValue(baseVal.divide(divisor, RoundingMode.HALF_UP));
         }
     }
 
@@ -340,7 +341,7 @@ public class CollectionUtilities {
         if (count < 2) return null;
 
         BigDecimal countBd = new BigDecimal(count);
-        BigDecimal average = total.divide(countBd, BigDecimal.ROUND_HALF_UP);
+        BigDecimal average = total.divide(countBd, RoundingMode.HALF_UP);
         double totalDouble = total.doubleValue();
         BigDecimal stdDev = new BigDecimal(Math.sqrt(Math.abs(squaredTotal.doubleValue() - ((totalDouble*totalDouble) / count)) / (count - 1)));
 
@@ -540,14 +541,25 @@ public class CollectionUtilities {
         if (theList == null) theList = new ArrayList();
 
         final Object pageIndexObj = context.get("pageIndex");
-        int pageIndex = ObjectUtilities.isEmpty(pageIndexObj) ? 0 : Integer.parseInt(pageIndexObj.toString());
+        int pageIndex = 0;
+        if (!ObjectUtilities.isEmpty(pageIndexObj)) {
+            try { pageIndex = Integer.parseInt(pageIndexObj.toString()); }
+            catch (Exception e) { /* just use the 0 default above */ }
+        }
+        if (pageIndex < 0) pageIndex = 0;
+
         final Object pageSizeObj = context.get("pageSize");
-        int pageSize = ObjectUtilities.isEmpty(pageSizeObj) ? 20 : Integer.parseInt(pageSizeObj.toString());
+        int pageSize = 20;
+        if (!ObjectUtilities.isEmpty(pageSizeObj)) {
+            try { pageSize = Integer.parseInt(pageSizeObj.toString()); }
+            catch (Exception e) { /* just use the 20 default above */ }
+        }
+        if (pageSize < 0) pageSize = 20;
 
         int count = theList.size();
 
         // calculate the pagination values
-        int maxIndex = (new BigDecimal(count - 1)).divide(new BigDecimal(pageSize), 0, BigDecimal.ROUND_DOWN).intValue();
+        int maxIndex = (new BigDecimal(count - 1)).divide(new BigDecimal(pageSize), 0, RoundingMode.DOWN).intValue();
         int pageRangeLow = (pageIndex * pageSize) + 1;
         if (pageRangeLow > count) pageRangeLow = count + 1;
         int pageRangeHigh = (pageIndex * pageSize) + pageSize;

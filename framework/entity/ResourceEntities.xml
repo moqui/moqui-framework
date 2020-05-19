@@ -60,6 +60,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="wikiSpaceId" type="id"/>
         <field name="pagePath" type="text-medium"/>
         <field name="parentWikiPageId" type="id"/>
+        <field name="sequenceNum" type="number-integer"/>
         <field name="createdByUserId" type="id"/>
         <field name="publishedVersionName" type="text-short"/>
         <field name="restrictView" type="text-indicator"/>

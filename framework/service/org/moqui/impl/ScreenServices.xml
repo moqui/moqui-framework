@@ -13,6 +13,216 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
+
+    <!-- ========== ScheduledScreen Services ========== -->
+
+    <service verb="render" noun="ScheduledScreens" authenticate="anonymous-all">
+        <actions>
+            <entity-find entity-name="moqui.screen.ScreenScheduled" list="screenScheduledList" cache="true">
+                <date-filter/></entity-find>
+            <iterate list="screenScheduledList" entry="screenScheduled">
+                <if condition="!screenScheduled.cronExpression">
+                    <log level="warn" message="ScreenScheduled ${screenScheduled.screenScheduledId} has no cronExpression, not running"/>
+                    <continue/>
+                </if>
+
+                <!-- check cronExpression vs lastRunTime to see if we need to run -->
+                <entity-find-one entity-name="moqui.screen.ScreenScheduledLock" value-field="screenScheduledLock" for-update="true">
+                    <field-map field-name="screenScheduledId" from="screenScheduled.screenScheduledId"/></entity-find-one>
+                <script><![CDATA[
+                    if (screenScheduledLock != null && screenScheduledLock.lastRunTime != null) {
+                        try {
+                            def now = java.time.ZonedDateTime.now()
+                            def lastRunDt = java.time.ZonedDateTime.ofInstant(java.time.Instant.ofEpochMilli(screenScheduledLock.lastRunTime.getTime()), now.getZone())
+                            def executionTime = org.moqui.impl.service.ScheduledJobRunner.getExecutionTime((String) screenScheduled.cronExpression)
+                            def lastSchedule = executionTime.lastExecution(now).get()
+                            if (lastSchedule != null && lastRunDt != null) {
+                                // if the time it should have run last is before the time it ran last don't run it
+                                if (lastSchedule.isBefore(lastRunDt)) continue
+                            }
+                        } catch (Throwable t) {
+                            ec.logger.log(200, "Error processing cronExpression and lastRunTime for ScreenScheduled ${screenScheduled.screenScheduledId}, skipping", t)
+                            continue
+                        }
+                    }
+                ]]></script>
+
+                <service-call name="org.moqui.impl.ScreenServices.render#ScheduledScreen"
+                        in-map="[screenScheduledId:screenScheduled.screenScheduledId]" async="distribute"/>
+            </iterate>
+        </actions>
+    </service>
+    <service verb="render" noun="ScheduledScreen" authenticate="anonymous-all">
+        <in-parameters>
+            <parameter name="screenScheduledId" required="true"/>
+        </in-parameters>
+        <actions>
+            <entity-find-one entity-name="moqui.screen.ScreenScheduled" value-field="screenScheduled"/>
+            <set field="screenPath" from="screenScheduled.screenPath"/>
+            <set field="renderMode" from="screenScheduled.renderMode ?: 'csv'"/>
+            <set field="formListFindId" from="screenScheduled.formListFindId"/>
+            <set field="saveToLocation" from="screenScheduled.saveToLocation"/>
+
+            <!-- NOTE: emailTemplate may be null, if so don't sent email -->
+            <set field="emailTemplate" from="screenScheduled.emailTemplate"/>
+            <set field="webappName" from="emailTemplate?.webappName ?: 'webroot'"/>
+            <set field="webHostName" from="emailTemplate?.webHostName"/>
+            <if condition="!webHostName"><set field="webHostName" from="ec.factory.getWebappInfo(webappName)?.httpsHost"/></if>
+
+            <!-- return here if validations fail -->
+            <if condition="!screenPath"><log level="error" message="ScreenScheduled ${screenScheduledId} has no screenPath, not running"/><return/></if>
+            <if condition="emailTemplate == null &amp;&amp; !saveToLocation"><log level="error" message="ScreenScheduled ${screenScheduledId} has no emailTemplate or saveToLocation, not running"/><return/></if>
+
+            <if condition="screenScheduled.userId">
+                <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
+                    <field-map field-name="userId" from="screenScheduled.userId"/></entity-find-one>
+            </if>
+
+            <!-- get the lock record with for-update to make sure we're the only one running, if no record create one to lock -->
+            <entity-find-one entity-name="moqui.screen.ScreenScheduledLock" value-field="screenScheduledLock" for-update="true"/>
+            <if condition="screenScheduledLock == null">
+                <service-call name="create#moqui.screen.ScreenScheduledLock"
+                        in-map="[screenScheduledId:screenScheduledId, lastRunTime:ec.user.nowTimestamp]"/>
+            </if>
+
+            <!-- render screen -->
+            <script><![CDATA[
+                // TODO FUTURE: support renderMode == 'html' with inline content instead of attached
+
+                Map attachmentInfo = null
+
+                String extension = renderMode == "xsl-fo" ? "pdf" : renderMode
+                String lastPath = screenPath.substring(screenPath.lastIndexOf("/")+1)
+                String filename = lastPath + "-" + ec.l10n.format(ec.user.nowTimestamp, "yyyy-MM-dd-HH-mm") + "." + extension
+
+                emailSubject = ec.resource.expand(screenScheduled.emailSubject, null)
+                if (!emailSubject) emailSubject = "Scheduled Report ${lastPath} ${ec.l10n.format(ec.user.nowTimestamp, null)}"
+
+                bodyParameters = [pageNoLimit:'true', emailSubject:emailSubject, title:emailSubject, screenPath:screenPath, webHostName:webHostName]
+                ec.context.putAll(bodyParameters)
+
+                // handle formListFindId parameters (formListFindId already in context to set columns, etc)
+                if (formListFindId) {
+                    def flfParameters = org.moqui.impl.screen.ScreenForm.makeFormListFindParameters(formListFindId, ec)
+                    ec.context.putAll(flfParameters)
+                    bodyParameters.putAll(flfParameters)
+                }
+
+                // login user before rendering screen, render as user
+                if (userAccount != null) ec.user.internalLoginUser(userAccount.username, false)
+
+                def screenRender = ec.screen.makeRender().webappName(webappName).rootScreenFromHost(webHostName ?: 'localhost')
+                        .screenPath(screenPath).renderMode(renderMode)
+                // TODO: consider config or something for protocol and port
+                if (webHostName) screenRender.baseLinkUrl("https://${webHostName}")
+                if (renderMode == "xsl-fo") {
+                    // TODO: consider making this configurable on ScreenScheduled or something
+                    layoutMaster = "letter-landscape"
+                } else {
+                    // xsl-fo needs the full render path for header/footer, others better just the last screen
+                    screenRender.lastStandalone("true")
+                }
+
+                if (ec.screen.isRenderModeText(renderMode)) {
+                    String screenText = screenRender.render()
+                    if (screenText != null && screenText.trim().length() > 0) {
+                        if (renderMode == "xsl-fo") {
+                            // use ResourceFacade.xslFoTransform() to change to PDF
+                            try {
+                                ByteArrayOutputStream baos = new ByteArrayOutputStream()
+                                ec.resource.xslFoTransform(new javax.xml.transform.stream.StreamSource(
+                                        new java.io.StringReader(screenText)), null, baos, "application/pdf")
+
+                                attachmentInfo = [fileName:filename, contentType:"application/pdf", contentBytes:baos.toByteArray()]
+                            } catch (Exception e) {
+                                ec.logger.warn("Error generating PDF from XSL-FO: ${e.toString()}")
+                            }
+                        } else {
+                            String mimeType = ec.screen.getMimeTypeByMode(renderMode)
+                            attachmentInfo = [fileName:filename, contentType:mimeType, contentText:screenText]
+                        }
+                    }
+                } else {
+                    ByteArrayOutputStream baos = new ByteArrayOutputStream()
+                    screenRender.render(baos)
+
+                    String mimeType = ec.screen.getMimeTypeByMode(renderMode)
+                    attachmentInfo = [fileName:filename, contentType:mimeType, contentBytes:baos.toByteArray()]
+                }
+            ]]></script>
+
+            <!-- if noResultsAbort == 'Y' don't write file or send email -->
+            <if condition="screenScheduled.noResultsAbort != 'Y' || !ec.context.getSharedMap().get('_formListRendered') || ec.context.getSharedMap().get('_formListResultCount')"><then>
+                <!-- send email -->
+                <if condition="emailTemplate != null">
+                    <set field="toAddressSet" from="new HashSet()"/>
+                    <if condition="userAccount != null">
+                        <if condition="userAccount?.emailAddress"><then>
+                            <if condition="userAccount.disabled != 'Y'"><then>
+                                <script>toAddressSet.add(userAccount.emailAddress)</script>
+                            </then><else>
+                                <log level="warn" message="User ${userAccount.username} [${userAccount.userId}] is disabled, not sending email for ScreenScheduled ${screenScheduledId}"/>
+                            </else></if>
+                        </then><else>
+                            <log level="warn" message="User ${userAccount.username} [${userAccount.userId}] has no emailAddress, tried to use in ScreenScheduled ${screenScheduledId}"/>
+                        </else></if>
+                    </if>
+                    <if condition="screenScheduled.userGroupId">
+                        <entity-find entity-name="moqui.security.UserGroupMemberUser" list="groupUserList">
+                            <date-filter/>
+                            <econdition field-name="userGroupId" from="screenScheduled.userGroupId"/>
+                            <select-field field-name="userId,username,emailAddress,disabled"/>
+                        </entity-find>
+                        <iterate list="groupUserList" entry="groupUser">
+                            <if condition="groupUser.emailAddress"><then>
+                                <if condition="groupUser.disabled != 'Y'"><then>
+                                    <script>toAddressSet.add(groupUser.emailAddress)</script>
+                                </then><else>
+                                    <log level="warn" message="User ${groupUser.username} [${groupUser.userId}] in group ${screenScheduled.userGroupId} is disabled, not sending email for ScreenScheduled ${screenScheduledId}"/>
+                                </else></if>
+                            </then><else>
+                                <log level="warn" message="User ${groupUser.username} [${groupUser.userId}] in group ${screenScheduled.userGroupId} has no emailAddress, tried to use in ScreenScheduled ${screenScheduledId}"/>
+                            </else></if>
+                        </iterate>
+                    </if>
+                    <if condition="toAddressSet"><then>
+                        <set field="toAddresses" from="toAddressSet.join(',')"/>
+                        <service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" ignore-error="true" transaction="force-new"
+                                in-map="[emailTemplateId:emailTemplate.emailTemplateId, bodyParameters:bodyParameters,
+                                    attachments:[attachmentInfo], toAddresses:toAddresses, createEmailMessage:false]"/>
+                    </then><else>
+                        <log level="error" message="No email addresses found trying to send email for ScreenScheduled ${screenScheduledId} user ${screenScheduled.userId} group ${screenScheduled.userGroupId}"/>
+                    </else></if>
+                </if>
+
+                <!-- saveToLocation -->
+                <if condition="saveToLocation">
+                    <script>
+                        String saveToLocationExp = ec.resource.expand(saveToLocation, null)
+                        try {
+                            saveToRr = ec.resource.getLocationReference(saveToLocationExp)
+                            if (attachmentInfo.contentText) {
+                                saveToRr.putText(attachmentInfo.contentText)
+                            } else if (attachmentInfo.contentBytes) {
+                                saveToRr.putBytes(attachmentInfo.contentBytes)
+                            }
+                        } catch (Throwable t) {
+                            ec.logger.log(200, "Error saving to saveToLocation ${saveToLocationExp} for ScreenScheduled ${screenScheduledId}", t)
+                        }
+                    </script>
+                </if>
+            </then><else>
+                <log level="warn" message="Not saving or sending email for ScheduledScreen ${screenScheduledId}: noResultsAbort ${screenScheduled.noResultsAbort} _formListRendered ${ec.context.getSharedMap().get('_formListRendered')} _formListResultCount ${ec.context.getSharedMap().get('_formListResultCount')}"/>
+            </else></if>
+
+            <!-- save lastRunTime -->
+            <service-call name="update#moqui.screen.ScreenScheduledLock"
+                    in-map="[screenScheduledId:screenScheduledId, lastRunTime:ec.user.nowTimestamp]"/>
+        </actions>
+    </service>
+
+    <!-- ========== DB Form Services ========== -->
+
     <service verb="get" noun="FormResponse">
         <in-parameters><parameter name="formResponseId" required="true"/></in-parameters>
         <out-parameters>

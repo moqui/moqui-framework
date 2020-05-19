@@ -52,7 +52,7 @@ class ScreenFacadeImpl implements ScreenFacade {
     protected final Cache<String, MNode> dbFormNodeByIdCache
 
     protected final Map<String, ScreenWidgetRender> screenWidgetRenderByMode = new HashMap<>()
-    protected final ScreenWidgetRender textMacroWidgerRender = new ScreenWidgetRenderFtl()
+    protected final ScreenWidgetRender textMacroWidgetRender = new ScreenWidgetRenderFtl()
     protected final Set<String> textOutputRenderModes = new HashSet<>()
     protected final Set<String> allRenderModes = new HashSet<>()
 
@@ -312,7 +312,7 @@ class ScreenFacadeImpl implements ScreenFacade {
         ScreenWidgetRender swr = (ScreenWidgetRender) screenWidgetRenderByMode.get(renderMode)
         if (swr != null) return swr
         // special case for text output render modes
-        if (textOutputRenderModes.contains(renderMode)) return textMacroWidgerRender
+        if (textOutputRenderModes.contains(renderMode)) return textMacroWidgetRender
         // try making the ScreenWidgerRender object
         swr = makeWidgetRenderByMode(renderMode)
         if (swr == null) throw new BaseArtifactException("Could not find screen widger renderer for mode ${renderMode}")
@@ -378,8 +378,8 @@ class ScreenFacadeImpl implements ScreenFacade {
         SubscreensItem ssi
         ScreenInfo parentInfo
         ScreenInfo rootInfo
-        Map<String, ScreenInfo> subscreenInfoByName = new TreeMap()
-        Map<String, TransitionInfo> transitionInfoByName = new TreeMap()
+        Map<String, ScreenInfo> subscreenInfoByName = new TreeMap<String, ScreenInfo>()
+        Map<String, TransitionInfo> transitionInfoByName = new TreeMap<String, TransitionInfo>()
         int level
         String name
         ArrayList<String> screenPath = new ArrayList<>()
@@ -427,7 +427,8 @@ class ScreenFacadeImpl implements ScreenFacade {
             if (rootInfo == null) rootInfo = this
 
             // get info for all subscreens
-            for (Map.Entry<String, SubscreensItem> ssEntry in sd.subscreensByName.entrySet()) {
+            ArrayList ssItemEntryList = new ArrayList<Map.Entry<String, SubscreensItem>>(sd.subscreensByName.entrySet())
+            for (Map.Entry<String, SubscreensItem> ssEntry in ssItemEntryList) {
                 SubscreensItem curSsi = ssEntry.getValue()
                 List<String> childPath = new ArrayList(screenPath)
                 childPath.add(curSsi.getName())
@@ -473,7 +474,9 @@ class ScreenFacadeImpl implements ScreenFacade {
         }
 
         void addChildrenToList(List<ScreenInfo> infoList, int maxLevel) {
-            for (ScreenInfo si in subscreenInfoByName.values()) {
+            ArrayList ssInfoList = new ArrayList<ScreenInfo>(subscreenInfoByName.values())
+            ssInfoList.sort({ a, b -> a.ssi?.menuIndex <=> b.ssi?.menuIndex })
+            for (ScreenInfo si in ssInfoList) {
                 infoList.add(si)
                 if (maxLevel > level) si.addChildrenToList(infoList, maxLevel)
             }

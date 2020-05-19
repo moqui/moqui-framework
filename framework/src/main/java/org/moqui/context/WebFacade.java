@@ -77,7 +77,6 @@ public interface WebFacade {
     void sendResourceResponse(String location);
     void sendError(int errorCode, String message, Throwable origThrowable);
 
-    void handleXmlRpcServiceCall();
     void handleJsonRpcServiceCall();
     void handleEntityRestCall(List<String> extraPathNameList, boolean masterNameInPath);
     void handleServiceRestCall(List<String> extraPathNameList);

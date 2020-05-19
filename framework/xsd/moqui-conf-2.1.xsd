@@ -30,6 +30,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element minOccurs="0" ref="resource-facade"/>
                 <xs:element minOccurs="0" ref="screen-facade"/>
                 <xs:element minOccurs="0" ref="service-facade"/>
+                <xs:element minOccurs="0" ref="elastic-facade"/>
                 <xs:element minOccurs="0" ref="entity-facade"/>
                 <xs:element minOccurs="0" ref="database-list"/>
                 <xs:element minOccurs="0" ref="repository-list"/>
@@ -553,6 +554,21 @@ along with this software (see the LICENSE.md file). If not, see
         </xs:complexType>
     </xs:element>
 
+    <!-- ===================== Elastic Facade Conf Root ===================== -->
+
+    <xs:element name="elastic-facade"><xs:complexType>
+        <xs:sequence>
+            <xs:element name="cluster" minOccurs="0" maxOccurs="unbounded"><xs:complexType>
+                <xs:attribute name="name" type="xs:string" use="required"/>
+                <xs:attribute name="url" type="xs:string" use="required"/>
+                <xs:attribute name="user" type="xs:string"/>
+                <xs:attribute name="password" type="xs:string"/>
+                <xs:attribute name="pool-max" type="xs:positiveInteger"/>
+                <xs:attribute name="queue-size" type="xs:positiveInteger"/>
+            </xs:complexType></xs:element>
+        </xs:sequence>
+    </xs:complexType></xs:element>
+
     <!-- ===================== Entity Facade Conf Root ===================== -->
     <xs:element name="entity-facade">
         <xs:complexType>
@@ -728,7 +744,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="offset-style" default="fetch">
                 <xs:simpleType><xs:restriction base="xs:token">
                     <xs:enumeration value="fetch"><xs:annotation>
-                        <xs:documentation>Use the SQL2008 syntax (OFFSET ? ROWS FETCH FIRST ? ROWS ONLY)</xs:documentation>
+                        <xs:documentation>Use the SQL:2008 syntax (OFFSET ? ROWS FETCH FIRST ? ROWS ONLY)</xs:documentation>
                     </xs:annotation></xs:enumeration>
                     <xs:enumeration value="limit"><xs:annotation>
                         <xs:documentation>Use the basic limit/offset syntax (LIMIT ? OFFSET ?)</xs:documentation>
@@ -738,6 +754,22 @@ along with this software (see the LICENSE.md file). If not, see
                             EntityListIterator.getPartialList() method. Note that there may be different behavior when
                             calling EntityFind.iterator() as it only seeks to the offset but doesn't restrict by the
                             limit.</xs:documentation>
+                    </xs:annotation></xs:enumeration>
+                </xs:restriction></xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="from-lateral-style" default="none">
+                <xs:annotation><xs:documentation>
+                    The SQL style for correlated sub-selects for joins in a FROM clause for sub-select=true; setting this to 'none'
+                    results in the same SQL that would be generated for sub-select=non-lateral</xs:documentation></xs:annotation>
+                <xs:simpleType><xs:restriction base="xs:token">
+                    <xs:enumeration value="lateral"><xs:annotation>
+                        <xs:documentation>Use the SQL:1999 syntax ([INNER|OUTER LEFT] JOIN LATERAL)</xs:documentation>
+                    </xs:annotation></xs:enumeration>
+                    <xs:enumeration value="apply"><xs:annotation>
+                        <xs:documentation>Use the apply syntax (CROSS APPLY or OUTER APPLY for join-optional=true)</xs:documentation>
+                    </xs:annotation></xs:enumeration>
+                    <xs:enumeration value="none"><xs:annotation>
+                        <xs:documentation>No sort of lateral join supported, use non-correlated sub-selects</xs:documentation>
                     </xs:annotation></xs:enumeration>
                 </xs:restriction></xs:simpleType>
             </xs:attribute>

@@ -15,6 +15,7 @@ package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
 import org.moqui.BaseException
+import org.moqui.context.ArtifactAuthorizationException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.entity.*
 import org.moqui.etl.SimpleEtl
@@ -988,7 +989,11 @@ abstract class EntityFindBase implements EntityFind {
     }
 
     protected EntityList listInternal(ExecutionContextImpl ec, EntityDefinition ed) throws EntityException, SQLException {
-        if (requireSearchFormParameters && !hasSearchFormParameters) return new EntityListImpl(efi)
+        if (requireSearchFormParameters && !hasSearchFormParameters) {
+            ec.contextStack.getSharedMap().put("_entityListNoSearchParms", true)
+            logger.info("No parameters for list find on ${ed.fullEntityName}, not doing search")
+            return new EntityListImpl(efi)
+        }
 
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
         boolean isViewEntity = entityInfo.isView
@@ -1104,6 +1109,7 @@ abstract class EntityFindBase implements EntityFind {
             EntityListIterator eli
             try { eli = iteratorExtended(queryWhereCondition, havingCondition, orderByExpanded, fieldInfoArray, fieldOptionsArray) }
             catch (SQLException e) { throw new EntitySqlException(makeErrorMsg("Error finding list of", LIST_ERROR, queryWhereCondition, ed, ec), e) }
+            catch (ArtifactAuthorizationException e) { throw e }
             catch (Exception e) { throw new EntityException(makeErrorMsg("Error finding list of", LIST_ERROR, queryWhereCondition, ed, ec), e) }
 
             MNode databaseNode = this.efi.getDatabaseNode(ed.getEntityGroupName())
@@ -1232,6 +1238,7 @@ abstract class EntityFindBase implements EntityFind {
         EntityListIterator eli
         try { eli = iteratorExtended(whereCondition, havingCondition, orderByExpanded, fieldInfoArray, fieldOptionsArray) }
         catch (SQLException e) { throw new EntitySqlException(makeErrorMsg("Error finding list of", LIST_ERROR, whereCondition, ed, ec), e) }
+        catch (ArtifactAuthorizationException e) { throw e }
         catch (Exception e) { throw new EntityException(makeErrorMsg("Error finding list of", LIST_ERROR, whereCondition, ed, ec), e) }
 
         // NOTE: if we are doing offset/limit with a cursor no good way to limit results, but we'll at least jump to the offset

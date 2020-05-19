@@ -78,7 +78,10 @@ class H2ServerToolFactory implements ToolFactory<Server> {
             for (Thread hook in hookList) {
                 String clazzName = hook.class.name
                 logger.info("Found shutdown hook: ${clazzName} ${hook}")
-                if ("org.h2.engine.DatabaseCloser".equals(clazzName)) Runtime.getRuntime().removeShutdownHook(hook)
+                if ("org.h2.engine.DatabaseCloser".equals(clazzName) || "org.h2.engine.OnExitDatabaseCloser".equals(clazzName)) {
+                    logger.info("Removing H2 shutdown hook with class ${clazzName}")
+                    Runtime.getRuntime().removeShutdownHook(hook)
+                }
             }
         }
     }

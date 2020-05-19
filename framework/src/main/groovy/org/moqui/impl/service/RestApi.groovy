@@ -38,6 +38,7 @@ import org.slf4j.LoggerFactory
 import javax.cache.Cache
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
+import java.math.RoundingMode
 
 @CompileStatic
 class RestApi {
@@ -379,7 +380,7 @@ class RestApi {
                     int count = ef.count() as int
                     int pageIndex = ef.getPageIndex()
                     int pageSize = ef.getPageSize()
-                    int pageMaxIndex = ((count - 1) as BigDecimal).divide(pageSize as BigDecimal, 0, BigDecimal.ROUND_DOWN).intValue()
+                    int pageMaxIndex = ((count - 1) as BigDecimal).divide(pageSize as BigDecimal, 0, RoundingMode.DOWN).intValue()
                     int pageRangeLow = pageIndex * pageSize + 1
                     int pageRangeHigh = (pageIndex * pageSize) + pageSize
                     if (pageRangeHigh > count) pageRangeHigh = count

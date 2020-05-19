@@ -49,9 +49,7 @@ class ScreenForm {
     protected ScreenDefinition sd
     protected MNode internalFormNode
     protected FormInstance internalFormInstance
-    protected String location
-    protected String formName
-    protected String fullFormName
+    protected String location, formName, fullFormName
     protected boolean hasDbExtensions = false
     protected boolean isDynamic = false
     protected String extendsScreenLocation = null
@@ -94,6 +92,27 @@ class ScreenForm {
         return "true".equals(cs.getByString("formDisplayOnly")) || "true".equals(cs.getByString("formDisplayOnly_${formName}"))
     }
     boolean hasDataPrep() { return entityFindNode != null }
+
+    String getSavedFindFullLocation() {
+        String fullLocation = location
+        if (isDynamic) {
+            String locationExtension = ecfi.getEci().contextStack.getByString("formLocationExtension")
+            if (!locationExtension) {
+                // try getting service name from auto-fields-service
+                MNode autoFieldsServiceNode = internalFormNode.first("auto-fields-service")
+                if (autoFieldsServiceNode != null)
+                    locationExtension = ecfi.resourceFacade.expandNoL10n(autoFieldsServiceNode.attribute("service-name"), null)
+            }
+            if (!locationExtension) {
+                // try getting entity name from auto-fields-entity
+                MNode autoFieldsServiceNode = internalFormNode.first("auto-fields-entity")
+                if (autoFieldsServiceNode != null)
+                    locationExtension = ecfi.resourceFacade.expandNoL10n(autoFieldsServiceNode.attribute("entity-name"), null)
+            }
+            if (locationExtension) fullLocation = fullLocation + '#' + locationExtension
+        }
+        return fullLocation
+    }
 
     void initForm(MNode baseFormNode, MNode newFormNode) {
         // if there is an extends, put that in first (everything else overrides it)
@@ -148,7 +167,13 @@ class ScreenForm {
                     MNode excludeNode = (MNode) excludeList.get(i)
                     excludes.add(excludeNode.attribute("parameter-name"))
                 }
-                if (isDynamic) serviceName = ecfi.resourceFacade.expand(serviceName, "")
+
+                if (isDynamic) {
+                    serviceName = ecfi.resourceFacade.expandNoL10n(serviceName, null)
+                    // NOTE: because this is a GString expand if value not found will evaluate to 'null'
+                    if (!serviceName || "null".equals(serviceName)) serviceName = ecfi.getEci().contextStack.getByString("formLocationExtension")
+                }
+
                 ServiceDefinition serviceDef = ecfi.serviceFacade.getServiceDefinition(serviceName)
                 if (serviceDef != null) {
                     addServiceFields(serviceDef, formSubNode.attribute("include")?:"in", formSubNode.attribute("field-type")?:"edit",
@@ -165,7 +190,13 @@ class ScreenForm {
                 throw new BaseArtifactException("Cound not find service [${serviceName}] or entity noun referred to in auto-fields-service of form [${newFormNode.attribute("name")}] of screen [${sd.location}]")
             } else if (formSubNode.name == "auto-fields-entity") {
                 String entityName = formSubNode.attribute("entity-name")
-                if (isDynamic) entityName = ecfi.resourceFacade.expand(entityName, "")
+
+                if (isDynamic) {
+                    entityName = ecfi.resourceFacade.expandNoL10n(entityName, null)
+                    // NOTE: because this is a GString expand if value not found will evaluate to 'null'
+                    if (!entityName || "null".equals(entityName)) entityName = ecfi.getEci().contextStack.getByString("formLocationExtension")
+                }
+
                 EntityDefinition ed = ecfi.entityFacade.getEntityDefinition(entityName)
                 if (ed != null) {
                     ArrayList<MNode> excludeList = formSubNode.children("exclude")
@@ -1273,6 +1304,7 @@ class ScreenForm {
         MNode getFormNode() { formNode }
         MNode getFieldNode(String fieldName) { fieldNodeMap.get(fieldName) }
         String getFormLocation() { screenForm.location }
+        String getSavedFindFullLocation() { screenForm.getSavedFindFullLocation() }
         FormListRenderInfo makeFormListRenderInfo() { new FormListRenderInfo(this) }
         boolean isUpload() { isUploadForm }
         boolean isList() { isListForm }
@@ -1397,7 +1429,8 @@ class ScreenForm {
             if (!formListFindId) return null
             EntityValue formListFind = ec.entityFacade.fastFindOne("moqui.screen.form.FormListFind", true, false, formListFindId)
             // see if this applies to this form-list, may be multiple on the screen
-            if (screenForm.location != formListFind.getNoCheckSimple("formLocation")) formListFind = null
+            String fullLocation = screenForm.getSavedFindFullLocation()
+            if (formListFind != null && fullLocation != formListFind.getNoCheckSimple("formLocation")) formListFind = null
             return formListFind
         }
 
@@ -1651,8 +1684,10 @@ class ScreenForm {
         boolean hasSecondRow() { return formInstance.hasSecondRow }
         boolean hasLastRow() { return formInstance.hasLastRow }
         String getFormLocation() { return formInstance.screenForm.location }
+        String getSavedFindFullLocation() { return formInstance.screenForm.getSavedFindFullLocation() }
 
         FormInstance getFormInstance() { return formInstance }
+        ScreenForm getScreenForm() { return screenForm }
         ArrayList<ArrayList<MNode>> getAllColInfo() { return allColInfo }
         ArrayList<ArrayList<MNode>> getMainColInfo() { return mainColInfo ?: allColInfo }
         ArrayList<ArrayList<MNode>> getSubColInfo() { return subColInfo }
@@ -1664,6 +1699,8 @@ class ScreenForm {
         LinkedHashSet<String> getDisplayedFields() { return displayedFieldSet }
 
         Object getListObject(boolean aggregateList) {
+            ContextStack context = ecfi.getEci().contextStack
+
             Object listObject
             String listName = formInstance.formNode.attribute("list")
             Set<String> includeFields = new HashSet<>(displayedFieldSet)
@@ -1712,7 +1749,6 @@ class ScreenForm {
                 }
 
                 // put in context for external use
-                ContextStack context = ecfi.getEci().contextStack
                 context.put(listName, efList)
                 context.put(listName.concat("_xafind"), ef)
 
@@ -1737,7 +1773,7 @@ class ScreenForm {
                         if (efList.size() < pageSize) count = efList.size() + pageSize * pageIndex
                         else count = ef.count()
                     }
-                    long maxIndex = (new BigDecimal(count-1)).divide(new BigDecimal(pageSize), 0, BigDecimal.ROUND_DOWN).longValue()
+                    long maxIndex = (new BigDecimal(count-1)).divide(new BigDecimal(pageSize), 0, RoundingMode.DOWN).longValue()
                     long pageRangeLow = (pageIndex * pageSize) + 1
                     long pageRangeHigh = (pageIndex * pageSize) + pageSize
                     if (pageRangeHigh > count) pageRangeHigh = count
@@ -1758,16 +1794,25 @@ class ScreenForm {
 
             // NOTE: always call AggregationUtil.aggregateList, passing aggregateList to tell it to do sub-lists or not
             // this does the pre-processing for all form-list renders, handles row-actions, field.@from, etc
-            return formInstance.aggregationUtil.aggregateList(listObject, includeFields, aggregateList, ecfi.getEci())
+            ArrayList<Map<String, Object>> aggList = formInstance.aggregationUtil.aggregateList(listObject, includeFields, aggregateList, ecfi.getEci())
+
+            // set _formListRendered and _formListResultCount so code running later on knows what happened during the screen render
+            context.getSharedMap().put("_formListRendered", true)
+            int aggListSize = aggList.size()
+            Object curResultCount = context.getSharedMap().get("_formListResultCount")
+            if (curResultCount instanceof Number) aggListSize += ((Number) curResultCount).intValue()
+            context.getSharedMap().put("_formListResultCount", aggListSize)
+
+            return aggList
         }
 
         List<Map<String, Object>> getUserFormListFinds(ExecutionContextImpl ec) {
             EntityList flfuList = ec.entity.find("moqui.screen.form.FormListFindUserView")
                     .condition("userId", ec.user.userId)
-                    .condition("formLocation", screenForm.location).useCache(true).list()
+                    .condition("formLocation", getSavedFindFullLocation()).useCache(true).list()
             EntityList flfugList = ec.entity.find("moqui.screen.form.FormListFindUserGroupView")
                     .condition("userGroupId", EntityCondition.IN, ec.user.userGroupIdSet)
-                    .condition("formLocation", screenForm.location).useCache(true).list()
+                    .condition("formLocation", getSavedFindFullLocation()).useCache(true).list()
             Set<String> userOnlyFlfIdSet = new HashSet<>()
             Set<String> formListFindIdSet = new HashSet<>()
             for (EntityValue ev in flfuList) {
@@ -1936,7 +1981,7 @@ class ScreenForm {
 
     static Map<String, String> makeFormListFindParameters(String formListFindId, ExecutionContext ec) {
         EntityList flffList = ec.entity.find("moqui.screen.form.FormListFindField")
-                .condition("formListFindId", formListFindId).useCache(true).list()
+                .condition("formListFindId", formListFindId).useCache(true).disableAuthz().list()
 
         Map<String, String> parmMap = new LinkedHashMap<>()
         parmMap.put("formListFindId", formListFindId)
@@ -1965,26 +2010,38 @@ class ScreenForm {
         return parmMap
     }
 
+    static EntityValue getFormListFindScreenScheduled(String formListFindId, ExecutionContextImpl ec) {
+        EntityList screenScheduledList = ec.entityFacade.find("moqui.screen.ScreenScheduled")
+                .condition("formListFindId", formListFindId).condition("userId", ec.userFacade.userId)
+                .orderBy("-screenScheduledId").useCache(true).disableAuthz().list()
+        if (screenScheduledList.size() == 0) {
+            Set<String> userGroupIdSet = ec.userFacade.getUserGroupIdSet()
+            screenScheduledList = ec.entityFacade.find("moqui.screen.ScreenScheduled")
+                    .condition("formListFindId", formListFindId).condition("userGroupId", "in", userGroupIdSet)
+                    .orderBy("-screenScheduledId").useCache(true).disableAuthz().list()
+        }
+
+        return screenScheduledList.getFirst()
+    }
+
     static Map<String, Object> getFormListFindInfo(String formListFindId, ExecutionContextImpl ec, Set<String> userOnlyFlfIdSet) {
-        EntityValue formListFind = ec.entityFacade.fastFindOne("moqui.screen.form.FormListFind", true, false, formListFindId)
+        EntityValue formListFind = ec.entityFacade.fastFindOne("moqui.screen.form.FormListFind", true, true, formListFindId)
         Map<String, String> flfParameters = makeFormListFindParameters(formListFindId, ec)
         flfParameters.put("formListFindId", formListFindId)
         if (formListFind.orderByField) flfParameters.put("orderByField", (String) formListFind.orderByField)
         return [description:formListFind.description, formListFind:formListFind, findParameters:flfParameters,
-                isByUserId:userOnlyFlfIdSet?.contains(formListFindId) ? "true" : "false"]
+                isByUserId:(userOnlyFlfIdSet?.contains(formListFindId) ? "true" : "false")]
     }
 
     static String processFormSavedFind(ExecutionContextImpl ec) {
         String userId = ec.userFacade.userId
         ContextStack cs = ec.contextStack
 
-        String formListFindId = (String) cs.formListFindId
+        String formListFindId = (String) cs.getByString("formListFindId")
         EntityValue flf = formListFindId != null && !formListFindId.isEmpty() ? ec.entity.find("moqui.screen.form.FormListFind")
                 .condition("formListFindId", formListFindId).useCache(false).one() : null
 
-        boolean isDelete = cs.containsKey("DeleteFind")
-
-        if (isDelete) {
+        if (cs.containsKey("DeleteFind")) {
             if (flf == null) { ec.messageFacade.addError("Saved find with ID ${formListFindId} not found, not deleting"); return null }
 
             // delete FormListFindUser record; if there are no other FormListFindUser records or FormListFindUserGroup
@@ -2010,14 +2067,52 @@ class ScreenForm {
             return null
         }
 
-        String formLocation = cs.formLocation
+        if (cs.containsKey("ScheduleFind")) {
+            if (flf == null) { ec.messageFacade.addError("Saved find with ID ${formListFindId} not found, not scheduling"); return null }
+            if (!userId) { ec.messageFacade.addError("No user logged in, not scheduling saved find with ID ${formListFindId}"); return formListFindId }
+
+            String renderMode = (String) cs.getByString("renderMode") ?: "csv"
+            String screenPath = (String) cs.getByString("screenPath")
+            String cronSelected = (String) cs.getByString("cronSelected")
+
+            if (!screenPath) { ec.messageFacade.addError("Screen Path not specified, not scheduling saved find with ID ${formListFindId}"); return formListFindId }
+            if (!cronSelected) { ec.messageFacade.addError("Cron Schedule not specified, not scheduling saved find with ID ${formListFindId}"); return formListFindId }
+
+            String emailSubject = flf.getString("description") + ' ${ec.l10n.format(ec.user.nowTimestamp, null)}'
+
+            Map<String, Object> screenScheduledMap = [screenPath:screenPath, formListFindId:formListFindId, renderMode:renderMode,
+                    noResultsAbort:"Y", cronExpression:cronSelected, emailTemplateId:"SCREEN_RENDER", emailSubject:emailSubject,
+                    userId:userId] as Map<String, Object>
+            ec.serviceFacade.sync().name("create#moqui.screen.ScreenScheduled").parameters(screenScheduledMap).disableAuthz().call()
+
+            ec.messageFacade.addMessage("Saved find scheduled to send by email")
+
+            return formListFindId
+        }
+
+        String formLocation = cs.getByString("formLocation")
         if (!formLocation) { ec.message.addError("No form location specified, cannot process saved find"); return null; }
-        int lastDotIndex = formLocation.lastIndexOf(".")
+
+        // example location: component://SimpleScreens/screen/SimpleScreens/Accounting/Reports/InvoiceAgingDetail.xml.form_list$InvoiceAgingList
+        // example location with extension: component://SimpleScreens/screen/SimpleScreens/Accounting/Reports/InvoiceAgingDetail.xml.form_list$InvoiceAgingList#123456
+        // pull out location extension if there is a '#' in the location (optional)
+        String formLocationTemp = formLocation
+        int lastHashIndex = formLocationTemp.lastIndexOf('#')
+        String locationExtension = null
+        if (lastHashIndex > 0) {
+            locationExtension = formLocationTemp.substring(lastHashIndex + 1)
+            formLocationTemp = formLocationTemp.substring(0, lastHashIndex)
+        }
+        // save this to the context for FormInstance init which for dynamic=true is called per form-instance and uses this for auto-fields-service or auto-fields-entity
+        if (locationExtension) cs.put("formLocationExtension", locationExtension)
+
+        // separate formName and screenLocation
+        int lastDotIndex = formLocationTemp.lastIndexOf(".")
         if (lastDotIndex < 0) { ec.message.addError("Form location invalid, cannot process saved find"); return null; }
-        String screenLocation = formLocation.substring(0, lastDotIndex)
-        int lastDollarIndex = formLocation.lastIndexOf('$')
+        String screenLocation = formLocationTemp.substring(0, lastDotIndex)
+        int lastDollarIndex = formLocationTemp.lastIndexOf('$')
         if (lastDollarIndex < 0) { ec.message.addError("Form location invalid, cannot process saved find"); return null; }
-        String formName = formLocation.substring(lastDollarIndex + 1)
+        String formName = formLocationTemp.substring(lastDollarIndex + 1)
 
         ScreenDefinition screenDef = ec.screenFacade.getScreenDefinition(screenLocation)
         if (screenDef == null) { ec.message.addError("Screen not found at ${screenLocation}, cannot process saved find"); return null; }
@@ -2186,15 +2281,16 @@ class ScreenForm {
 
         JsonSlurper slurper = new JsonSlurper()
         List<Map> columnsTree = (List<Map>) slurper.parseText(columnsTreeStr)
-
         CollectionUtilities.orderMapList(columnsTree, ['order'])
+
         int columnIndex = 0
-        for (Map columnMap in columnsTree) {
+        for (Map columnMap in (List<Map>) columnsTree) {
             if (columnMap.get("id") == "hidden") continue
             List<Map> children = (List<Map>) columnMap.get("children")
             CollectionUtilities.orderMapList(children, ['order'])
+
             int columnSequence = 0
-            for (Map fieldMap in children) {
+            for (Map fieldMap in (List<Map>) children) {
                 String fieldName = (String) fieldMap.get("id")
                 // logger.info("Adding field ${fieldName} to column ${columnIndex} at sequence ${columnSequence}")
                 ec.service.sync().name("create#moqui.screen.form.FormConfigField")

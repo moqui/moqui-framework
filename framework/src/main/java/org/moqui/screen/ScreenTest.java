@@ -53,6 +53,7 @@ public interface ScreenTest {
      * @return ScreenTestRender object with the render result
      */
     ScreenTestRender render(String screenPath, Map<String, Object> parameters, String requestMethod);
+    void renderAll(List<String> screenPathList, Map<String, Object> parameters, String requestMethod);
 
     long getRenderCount();
     long getErrorCount();

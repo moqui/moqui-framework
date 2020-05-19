@@ -21,6 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.servlet.ServletContext;
+import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 
 /**
@@ -54,11 +55,11 @@ public class Moqui {
         activeExecutionContextFactory = executionContextFactory;
     }
     public static <K extends ExecutionContextFactory> K dynamicInit(Class<K> ecfClass, ServletContext sc)
-            throws InstantiationException, IllegalAccessException {
+            throws InstantiationException, IllegalAccessException, NoSuchMethodException, InvocationTargetException {
         if (activeExecutionContextFactory != null && !activeExecutionContextFactory.isDestroyed())
             throw new IllegalStateException("Active ExecutionContextFactory already in place, cannot set one dynamically.");
 
-        K newEcf = ecfClass.newInstance();
+        K newEcf = ecfClass.getDeclaredConstructor().newInstance();
         activeExecutionContextFactory = newEcf;
         // check for an empty DB
         if (newEcf.checkEmptyDb()) {
@@ -66,7 +67,7 @@ public class Moqui {
             // destroy old ECFI
             newEcf.destroy();
             // create new ECFI to get framework init data from DB
-            newEcf = ecfClass.newInstance();
+            newEcf = ecfClass.getDeclaredConstructor().newInstance();
             activeExecutionContextFactory = newEcf;
         }
 
@@ -80,7 +81,7 @@ public class Moqui {
         return newEcf;
     }
     public static <K extends ExecutionContextFactory> K dynamicReInit(Class<K> ecfClass, ServletContext sc)
-            throws InstantiationException, IllegalAccessException {
+            throws InstantiationException, IllegalAccessException, NoSuchMethodException, InvocationTargetException {
 
         // handle Servlet pause then resume taking requests after by removing executionContextFactory attribute
         if (sc.getAttribute("executionContextFactory") != null) sc.removeAttribute("executionContextFactory");
@@ -113,6 +114,9 @@ public class Moqui {
      * @param argMap Arguments, generally from command line, to configure this data load.
      */
     public static void loadData(Map<String, String> argMap) {
+        if (argMap.containsKey("raw") || argMap.containsKey("no-fk-create"))
+            System.setProperty("entity_disable_fk_create", "true");
+
         // make sure we have a factory, even if moqui.init.static != true
         if (activeExecutionContextFactory == null)
             activeExecutionContextFactory = executionContextFactoryLoader.iterator().next();
@@ -128,16 +132,19 @@ public class Moqui {
 
         // set the data load parameters
         EntityDataLoader edl = ec.getEntity().makeDataLoader();
-        if (argMap.containsKey("types"))
-            edl.dataTypes(new HashSet<>(Arrays.asList(argMap.get("types").split(","))));
-        if (argMap.containsKey("components"))
-            edl.componentNameList(Arrays.asList(argMap.get("components").split(",")));
+        if (argMap.containsKey("types")) {
+            String types = argMap.get("types");
+            if (!"all".equals(types)) edl.dataTypes(new HashSet<>(Arrays.asList(types.split(","))));
+        }
+        if (argMap.containsKey("components")) edl.componentNameList(Arrays.asList(argMap.get("components").split(",")));
         if (argMap.containsKey("location")) edl.location(argMap.get("location"));
         if (argMap.containsKey("timeout")) edl.transactionTimeout(Integer.valueOf(argMap.get("timeout")));
-        if (argMap.containsKey("raw") || argMap.containsKey("dummy-fks")) edl.dummyFks(true);
+        if (argMap.containsKey("dummy-fks")) edl.dummyFks(true);
+        if (argMap.containsKey("raw") || argMap.containsKey("no-fk-create")) edl.disableFkCreate(true);
         if (argMap.containsKey("raw") || argMap.containsKey("use-try-insert")) edl.useTryInsert(true);
         if (argMap.containsKey("raw") || argMap.containsKey("disable-eeca")) edl.disableEntityEca(true);
         if (argMap.containsKey("raw") || argMap.containsKey("disable-audit-log")) edl.disableAuditLog(true);
+        if (argMap.containsKey("raw") || argMap.containsKey("disable-data-feed")) edl.disableDataFeed(true);
 
         // do the data load
         try {

@@ -335,11 +335,14 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="toStatusId" type="id" is-pk="true"/>
         <field name="transitionSequence" type="number-integer"/>
         <field name="transitionName" type="text-medium" enable-localization="true"/>
-        <field name="conditionExpression" type="text-medium"/>
+        <field name="conditionExpression" type="text-medium"><description>Not currently supported, may be removed, issue with what is the context for the expression</description></field>
+        <field name="userPermissionId" type="id-long"/>
         <relationship type="one" related="moqui.basic.StatusFlow" short-alias="flow"/>
         <relationship type="one" related="moqui.basic.StatusItem" short-alias="status"/>
         <relationship type="one" title="To" related="moqui.basic.StatusItem" short-alias="toStatus">
             <key-map field-name="toStatusId" related="statusId"/></relationship>
+        <relationship type="one-nofk" related="moqui.security.UserPermission" short-alias="permission">
+            <description>No FK in order to allow arbitrary permissions (ie not pre-configured).</description></relationship>
     </entity>
     <view-entity entity-name="StatusFlowItemDetail" package="moqui.basic">
         <member-entity entity-alias="SFI" entity-name="moqui.basic.StatusFlowItem"/>
@@ -388,6 +391,8 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Pressure" enumId="UT_PRESSURE_MEASURE" enumTypeId="UomType"/>
             <moqui.basic.Enumeration description="Temperature" enumId="UT_TEMP_MEASURE" enumTypeId="UomType"/>
             <moqui.basic.Enumeration description="Other" enumId="UT_OTHER_MEASURE" enumTypeId="UomType"/>
+
+            <!-- see additional seed data in UnitData.xml -->
         </seed-data>
         <master>
             <detail relationship="type"/>
@@ -414,8 +419,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="conversionFactor" type="number-float"/>
         <field name="conversionOffset" type="number-decimal">
             <description>The factor is multiplied first, then the offset is added. When converting in the reverse
-                direction the offset is subtracted first, then divided by the factor.
-            </description>
+                direction the offset is subtracted first, then divided by the factor.</description>
         </field>
         <field name="purposeEnumId" type="id"/>
         <relationship type="one" related="moqui.basic.Uom" short-alias="uom"/>
@@ -425,6 +429,8 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="purposeEnumId" related="enumId"/></relationship>
         <seed-data>
             <moqui.basic.EnumerationType description="Uom Conversion Purpose" enumTypeId="UomConversionPurpose"/>
+
+            <!-- see additional seed data in UnitData.xml -->
         </seed-data>
     </entity>
     <view-entity entity-name="UomConversionAndToDetail" package="moqui.basic">
@@ -458,6 +464,38 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="uomId"/></member-entity>
         <alias-all entity-alias="UOM"/>
         <alias-all entity-alias="UGM"/>
+    </view-entity>
+    <entity entity-name="UomDimensionType" package="moqui.basic" use="configuration" cache="true">
+        <field name="uomDimensionTypeId" type="id" is-pk="true"/>
+        <field name="description" type="text-medium"/>
+        <field name="uomTypeEnumId" type="id"/>
+        <field name="defaultUomId" type="id"/>
+        <relationship type="one" title="UomType" related="moqui.basic.Enumeration" short-alias="uomType">
+            <key-map field-name="uomTypeEnumId"/></relationship>
+        <relationship type="one" title="Default" related="moqui.basic.Uom" short-alias="defaultUom">
+            <key-map field-name="defaultUomId"/></relationship>
+        <!-- see seed data in UnitData.xml -->
+    </entity>
+    <entity entity-name="UomDimTypeGroupMember" package="moqui.basic" use="configuration" cache="true">
+        <field name="uomDimTypeGroupEnumId" type="id" is-pk="true"/>
+        <field name="uomDimensionTypeId" type="id" is-pk="true"/>
+        <field name="sequenceNum" type="number-integer"/>
+        <relationship type="one" title="UomDimTypeGroup" related="moqui.basic.Enumeration" short-alias="group">
+            <key-map field-name="uomDimTypeGroupEnumId"/></relationship>
+        <relationship type="one" related="moqui.basic.UomDimensionType" short-alias="type"/>
+        <seed-data>
+            <moqui.basic.EnumerationType description="UOM Dimension Type Group" enumTypeId="UomDimTypeGroup"/>
+            <moqui.basic.Enumeration description="Product" enumId="UdtgProduct" enumTypeId="UomDimTypeGroup"/>
+            <moqui.basic.Enumeration description="Party" enumId="UdtgParty" enumTypeId="UomDimTypeGroup"/>
+            <moqui.basic.Enumeration description="Person" enumId="UdtgPerson" parentEnumId="UdtgParty" enumTypeId="UomDimTypeGroup"/>
+            <moqui.basic.Enumeration description="Organization" enumId="UdtgOrg" parentEnumId="UdtgParty" enumTypeId="UomDimTypeGroup"/>
+        </seed-data>
+    </entity>
+    <view-entity entity-name="UomDimensionTypeAndGroup" package="moqui.basic" cache="true">
+        <member-entity entity-alias="UDTGM" entity-name="moqui.basic.UomDimTypeGroupMember"/>
+        <member-relationship entity-alias="UDT" join-from-alias="UDTGM" relationship="type"/>
+        <alias-all entity-alias="UDTGM"/>
+        <alias-all entity-alias="UDT"/>
     </view-entity>
 
     <!-- ========================================================= -->
@@ -605,6 +643,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="subject" type="text-long"/>
         <field name="bodyScreenLocation" type="text-medium"/>
         <field name="webappName" type="text-medium"/>
+        <field name="webHostName" type="text-medium"/>
         <field name="sendPartial" type="text-indicator"/>
         <relationship type="one" related="moqui.basic.email.EmailServer" short-alias="server"/>
         <relationship type="one" title="EmailType" related="moqui.basic.Enumeration" short-alias="type">
@@ -616,7 +655,12 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="EmailTemplateAttachment" package="moqui.basic.email" use="configuration" cache="true">
         <field name="emailTemplateId" type="id" is-pk="true"/>
         <field name="fileName" type="text-medium" is-pk="true"/>
-        <field name="attachmentLocation" type="text-medium"/>
+        <field name="attachmentLocation" type="text-medium">
+            <description>ResourceFacade location for attachment content or screen (if screenRenderMode specified)</description></field>
+        <field name="screenPath" type="text-medium"><description>
+            Alternative to attachmentLocation as a location for the screen rendered on its own. If specified is used to
+            determine the screen by path from the root screen looked up using the webappName and webHostName values from EmailTemplate.
+        </description></field>
         <field name="screenRenderMode" type="text-short"><description>
             Used to determine the MIME/content type, and which screen render template to use. Can be used to generate
             XSL:FO that is transformed to a PDF and attached to the email with screenRenderMode=xsl-fo.

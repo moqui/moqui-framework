@@ -50,7 +50,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
     /* ========== Factories (XML Parsing) ========== */
 
     public static MNode parse(ResourceReference rr) throws BaseException {
-        if (rr == null || !rr.getExists()) return null;
+        if (rr == null || (rr.supportsExists() && !rr.getExists())) return null;
         String location = rr.getLocation();
         MNode cached = parsedNodeCache.get(location);
         if (cached != null && cached.lastModified >= rr.getLastModified()) return cached;

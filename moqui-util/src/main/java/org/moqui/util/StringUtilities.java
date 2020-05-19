@@ -22,12 +22,15 @@ import org.w3c.dom.Element;
 import javax.swing.text.MaskFormatter;
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.security.SecureRandom;
 import java.text.ParseException;
 import java.util.*;
+import java.util.regex.Pattern;
 
 /**
  * These are utilities that should exist elsewhere, but I can't find a good simple library for them, and they are
@@ -155,6 +158,21 @@ public class StringUtilities {
             return false;
         }
         return true;
+    }
+
+    public static ArrayList<String> pathStringToList(String path, int skipSegments) {
+        ArrayList<String> pathList = new ArrayList<>();
+        if (path == null || path.isEmpty()) return pathList;
+        if (path.charAt(0) == '/') path = path.substring(1);
+        String[] pathArray = path.split("/");
+        for (int i = skipSegments; i < pathArray.length; i++) {
+            String pathSegment = pathArray[i];
+            if (pathSegment == null || pathSegment.isEmpty()) continue;
+            try { pathSegment = URLDecoder.decode(pathSegment, "UTF-8"); }
+            catch (Exception e) { if (logger.isTraceEnabled()) logger.trace("Error decoding screen path segment ${pathSegment}", e); }
+            pathList.add(pathSegment);
+        }
+        return pathList;
     }
 
     public static String camelCaseToPretty(String camelCase) {
@@ -338,6 +356,7 @@ public class StringUtilities {
     }
 
     public static String escapeElasticQueryString(CharSequence queryString) {
+        if (queryString == null || queryString.length() == 0) return "";
         int length = queryString.length();
         StringBuilder sb = new StringBuilder(length * 2);
         for (int i = 0; i < length; i++) {
@@ -346,6 +365,37 @@ public class StringUtilities {
             sb.append(c);
         }
         return sb.toString();
+    }
+    public static Pattern elasticSearchChars = Pattern.compile("[^*:\\\\?_~\\/\\.\\[\\]\\{\\}+?*><=\"^-]*");
+    public static Set<String> elasticSearchWords = new HashSet<>(Arrays.asList("AND", "OR", "NOT"));
+    public static String elasticQueryAutoWildcard(CharSequence query, boolean allFieldPrefix) {
+        // TODO: would be nice to somehow parse the query string, matching parentheses and quotes, and add *: for the field if none for each term
+        if (query == null) return "*";
+        String queryString = query.toString().trim();
+        int length = queryString.length();
+        if (length == 0) return "*";
+
+        StringBuilder sb = new StringBuilder(length * 2);
+        String[] querySplit = queryString.split(" ");
+
+        for (int i = 0; i < querySplit.length; i++) {
+            String term = querySplit[i].trim();
+            if (term.length() == 0) continue;
+            boolean isEsWord = elasticSearchWords.contains(term);
+            boolean noEsChars = !isEsWord && elasticSearchChars.matcher(term).matches();
+            if (sb.length() > 0) sb.append(' ');
+            if (!isEsWord && allFieldPrefix && noEsChars) sb.append("*:");
+            sb.append(term);
+            if (!isEsWord && noEsChars) sb.append('*');
+        }
+        return sb.toString();
+
+        /* based on old code:
+        if (term) { termSb.append((term.split(' ') as List).collect({ it.matches(/[^*:\\?_~\/\.\[\]\{\}+?*><="^-]* /) ? (it + '*') : it }).join(' ')) } else { termSb.append('*') }
+
+        <if condition="queryString &amp;&amp; isAlphaNumeric(queryString, ' *?')">
+            <set field="queryString" from="queryString.split(' ').collect({ (!it || it in ['AND', 'OR', 'NOT']) ? it : '*:' + (it.contains('*') || it.contains('?') ? it : it + '*') }).join(' ')"/></if>
+         */
     }
 
     public static String paddedNumber(long number, Integer desiredLength) {
@@ -460,7 +510,7 @@ public class StringUtilities {
 
     public static String numberToWordsWithDecimal(BigDecimal value) {
         final String integerText = numberToWords(value.longValue(), false);
-        String decimalText = value.setScale(2, BigDecimal.ROUND_HALF_UP).toPlainString();
+        String decimalText = value.setScale(2, RoundingMode.HALF_UP).toPlainString();
         decimalText = decimalText.substring(decimalText.indexOf(".") + 1);
         return integerText + " and " + decimalText + "/100";
     }

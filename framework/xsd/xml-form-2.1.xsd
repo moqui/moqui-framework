@@ -257,6 +257,9 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:attribute name="show-all-button" type="boolean" default="false">
             <xs:annotation><xs:documentation>Show a button to display all results (pageNoLimit=true), if the pagination header is displayed</xs:documentation></xs:annotation>
         </xs:attribute>
+        <xs:attribute name="show-page-size" type="boolean" default="false">
+            <xs:annotation><xs:documentation>Show a drop-down to select different page sizes, if the pagination header is displayed</xs:documentation></xs:annotation>
+        </xs:attribute>
         <xs:attribute name="dynamic" type="boolean" default="false">
             <xs:annotation><xs:documentation>If true then this form will be considered dynamic and the internal
                 definition will be built up each time it is used instead of only when first referred to.</xs:documentation></xs:annotation>
@@ -805,6 +808,7 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:attribute name="size" type="xs:positiveInteger"/>
         <xs:attribute name="max-length" type="xs:positiveInteger"/>
         <xs:attribute name="auto-year" default="true" type="boolean"/>
+        <xs:attribute name="minute-stepping" type="xs:positiveInteger" default="5"/>
     </xs:complexType></xs:element>
     <xs:element name="display" substitutionGroup="SubFields"><xs:complexType>
         <xs:sequence>

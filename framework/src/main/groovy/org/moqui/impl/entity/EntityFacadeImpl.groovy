@@ -44,6 +44,7 @@ import javax.cache.Cache
 import javax.sql.DataSource
 import javax.sql.XAConnection
 import javax.sql.XADataSource
+import java.math.RoundingMode
 import java.sql.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ThreadLocalRandom
@@ -208,7 +209,14 @@ class EntityFacadeImpl implements EntityFacade {
         boolean defaultStartAddMissing = startupAddMissingGroups.contains(getEntityFacadeNode().attribute("default-group-name"))
         if (startupAddMissingGroups.size() > 0) {
             logger.info("Checking tables for entities in groups ${startupAddMissingGroups}")
+
+            // check and create all tables
             boolean createdTables = false
+            for (String groupName in startupAddMissingGroups) {
+                EntityDatasourceFactory edf = getDatasourceFactory(groupName)
+                edf.checkAndAddAllTables()
+            }
+            /* old one at a time approach:
             for (String entityName in getAllEntityNames()) {
                 String groupName = getEntityGroupName(entityName) ?: defaultGroupName
                 if (startupAddMissingGroups.contains(groupName) ||
@@ -217,6 +225,7 @@ class EntityFacadeImpl implements EntityFacade {
                     if (edf.checkAndAddTable(entityName)) createdTables = true
                 }
             }
+
             // do second pass to make sure all FKs created
             if (createdTables) {
                 logger.info("Tables were created, checking FKs for all entities in groups ${startupAddMissingGroups}")
@@ -234,6 +243,8 @@ class EntityFacadeImpl implements EntityFacade {
                     }
                 }
             }
+            */
+
             logger.info("Checked tables for all entities in ${(System.currentTimeMillis() - currentTime)/1000} seconds")
         }
     }
@@ -1393,7 +1404,8 @@ class EntityFacadeImpl implements EntityFacade {
 
         if (node.hasChild("search-form-inputs")) {
             MNode sfiNode = node.first("search-form-inputs")
-            if ("true".equals(sfiNode.attribute("require-parameters"))) ef.requireSearchFormParameters(true)
+            String requireParameters = ecfi.resourceFacade.expand(sfiNode.attribute("require-parameters"), null)
+            if ("true".equals(requireParameters)) ef.requireSearchFormParameters(true)
 
             boolean paginate = !"false".equals(sfiNode.attribute("paginate"))
             MNode defaultParametersNode = sfiNode.first("default-parameters")
@@ -1417,6 +1429,7 @@ class EntityFacadeImpl implements EntityFacade {
 
     /** Simple, fast find by primary key; doesn't filter find based on authz; doesn't use TransactionCache
      * For cached queries this is about 50% faster (6M/s vs 4M/s) for non-cached queries only about 10% faster (500K vs 450K) */
+    @Override
     EntityValue fastFindOne(String entityName, Boolean useCache, boolean disableAuthz, Object... values) {
         ExecutionContextImpl ec = ecfi.getEci()
         ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
@@ -1671,7 +1684,7 @@ class EntityFacadeImpl implements EntityFacade {
                 long count = ef.count()
                 long pageIndex = ef.getPageIndex()
                 long pageSize = ef.getPageSize()
-                long pageMaxIndex = ((count - 1) as BigDecimal).divide(pageSize as BigDecimal, 0, BigDecimal.ROUND_DOWN).longValue()
+                long pageMaxIndex = ((count - 1) as BigDecimal).divide(pageSize as BigDecimal, 0, RoundingMode.DOWN).longValue()
                 long pageRangeLow = pageIndex * pageSize + 1
                 long pageRangeHigh = (pageIndex * pageSize) + pageSize
                 if (pageRangeHigh > count) pageRangeHigh = count
@@ -2171,7 +2184,7 @@ class EntityFacadeImpl implements EntityFacade {
     }
 
     protected static final Map<String, Integer> fieldTypeIntMap = [
-            "id":1, "id-long":1, "text-indicator":1, "text-short":1, "text-medium":1, "text-long":1, "text-very-long":1,
+            "id":1, "id-long":1, "text-indicator":1, "text-short":1, "text-medium":1, "text-intermediate":1, "text-long":1, "text-very-long":1,
             "date-time":2, "time":3, "date":4,
             "number-integer":6, "number-float":8,
             "number-decimal":9, "currency-amount":9, "currency-precise":9,
@@ -2179,7 +2192,7 @@ class EntityFacadeImpl implements EntityFacade {
     protected static final Map<String, String> fieldTypeJavaMap = [
             "id":"java.lang.String", "id-long":"java.lang.String",
             "text-indicator":"java.lang.String", "text-short":"java.lang.String", "text-medium":"java.lang.String",
-            "text-long":"java.lang.String", "text-very-long":"java.lang.String",
+            "text-intermediate":"java.lang.String", "text-long":"java.lang.String", "text-very-long":"java.lang.String",
             "date-time":"java.sql.Timestamp", "time":"java.sql.Time", "date":"java.sql.Date",
             "number-integer":"java.lang.Long", "number-float":"java.lang.Double",
             "number-decimal":"java.math.BigDecimal", "currency-amount":"java.math.BigDecimal", "currency-precise":"java.math.BigDecimal",

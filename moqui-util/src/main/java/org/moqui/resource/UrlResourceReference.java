@@ -237,13 +237,15 @@ public class UrlResourceReference extends ResourceReference {
         if (!isFileProtocol) throw new IllegalArgumentException("Move not supported for resource [" + locationUrl + "] with protocol [" + (locationUrl == null ? null : locationUrl.getProtocol()) + "]");
 
         File curFile = getFile();
-        if (!curFile.exists()) return;
+        if (!curFile.exists()) throw new IllegalArgumentException("File at " + getLocation() + " [" + curFile.getAbsolutePath() + "] does not exist, cannot move");
 
         String path = newRr.getUrl().toExternalForm().substring(5);
         File newFile = new File(path);
         File newFileParent = newFile.getParentFile();
         if (newFileParent != null && !newFileParent.exists()) newFileParent.mkdirs();
-        curFile.renameTo(newFile);
+        if (!curFile.renameTo(newFile)) {
+            throw new IllegalArgumentException("Could not move " + curFile + " to " + newFile);
+        }
     }
 
     @Override public ResourceReference makeDirectory(final String name) {

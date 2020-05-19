@@ -53,6 +53,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:enumeration value="text-indicator"/>
             <xs:enumeration value="text-short"/>
             <xs:enumeration value="text-medium"/>
+            <xs:enumeration value="text-intermediate"/>
             <xs:enumeration value="text-long"/>
             <xs:enumeration value="text-very-long"/>
             <xs:enumeration value="binary-very-long"/>
@@ -402,7 +403,19 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="entity-name" type="name-full" use="required"/>
             <xs:attribute name="join-from-alias" type="name-plain" use="optional"/>
             <xs:attribute name="join-optional" type="boolean" default="false"/>
-            <xs:attribute name="sub-select" type="boolean" default="false"/>
+            <xs:attribute name="sub-select" default="false">
+                <xs:simpleType><xs:restriction base="xs:token">
+                    <xs:enumeration value="true"><xs:annotation><xs:documentation>
+                        Correlated sub-select with ON conditions moved to WHERE clause of sub-select (far more efficient for
+                        what would be a large temporary table from the less constrained sub-select, common for Moqui view entities)
+                    </xs:documentation></xs:annotation></xs:enumeration>
+                    <xs:enumeration value="non-lateral"><xs:annotation>
+                        <xs:documentation>Simple non-correlated sub-select (full sub-select run in temp table)</xs:documentation>
+                    </xs:annotation></xs:enumeration>
+                    <xs:enumeration value="false"><xs:annotation>
+                        <xs:documentation>Not a sub-select</xs:documentation></xs:annotation></xs:enumeration>
+                </xs:restriction></xs:simpleType>
+            </xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="member-relationship">

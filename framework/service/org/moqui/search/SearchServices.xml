@@ -14,63 +14,283 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
 
-    <service verb="index" noun="DataDocuments" authenticate="false">
+    <service verb="index" noun="DataDocuments" authenticate="false" transaction-timeout="3600">
         <implements service="org.moqui.EntityServices.receive#DataFeed"/>
         <in-parameters>
             <parameter name="dataFeedId" required="false"/>
             <parameter name="feedStamp" type="Timestamp" required="false"/>
-            <parameter name="getOriginalDocuments" type="Boolean" default="false"/>
+            <!-- deprecated: <parameter name="getOriginalDocuments" type="Boolean" default="false"/> -->
+            <parameter name="verifyIndexes" type="Boolean" default="true"/>
+            <parameter name="clusterName" default-value="default"/>
         </in-parameters>
         <out-parameters>
-            <parameter name="documentVersionList" type="List" required="true"/>
-            <parameter name="originalDocumentList" type="List" required="false"/>
+            <!-- deprecated: <parameter name="documentVersionList" type="List" required="true"/> -->
+            <!-- deprecated: <parameter name="originalDocumentList" type="List" required="false"/> -->
         </out-parameters>
-        <actions><message>No search implementation installed, not indexing DataDocuments (see the moqui-elasticsearch component)</message></actions>
+        <actions>
+            <set field="elasticClient" from="ec.factory.elastic.getClient(clusterName)"/>
+            <if condition="elasticClient == null"><return type="danger" message="No Elastic Client found for cluster name ${clusterName}, not indexing documents"/></if>
+
+            <if condition="verifyIndexes"><script>elasticClient.verifyDataDocumentIndexes(documentList)</script></if>
+            <script>elasticClient.bulkIndexDataDocument(documentList)</script>
+        </actions>
     </service>
     <service verb="put" noun="DataDocumentMappings">
-        <in-parameters><parameter name="indexName" required="true"/></in-parameters>
-        <actions><message>No search implementation installed, not putting DataDocument mappings (see the moqui-elasticsearch component)</message></actions>
+        <in-parameters>
+            <parameter name="indexName" required="true"/>
+            <parameter name="clusterName" default-value="default"/>
+        </in-parameters>
+        <actions>
+            <set field="elasticClient" from="ec.factory.elastic.getClient(clusterName)"/>
+            <if condition="elasticClient == null"><return type="danger" message="No Elastic Client found for cluster name ${clusterName}, not indexing documents"/></if>
+
+            <script>elasticClient.putDataDocumentMappings(indexName)</script>
+        </actions>
     </service>
-    <service verb="index" noun="DataFeedDocuments" authenticate="false" transaction-timeout="600">
+    <service verb="index" noun="DataFeedDocuments" authenticate="false" transaction-timeout="3600">
+        <description>Index all documents associated with the feed within the date range. Recommend calling through the IndexDataFeedDocuments service job.</description>
         <in-parameters>
             <parameter name="dataFeedId" required="true"/>
             <parameter name="fromUpdateStamp" type="Timestamp"/>
             <parameter name="thruUpdateStamp" type="Timestamp"/>
+            <parameter name="batchSize" type="Integer" default="1000"/>
+            <parameter name="clusterName" default-value="default"/>
         </in-parameters>
         <out-parameters><parameter name="documentsIndexed" type="Integer"/></out-parameters>
-        <actions><message>No search implementation installed, not indexing DataFeed Documents (see the moqui-elasticsearch component)</message></actions>
+        <actions>
+            <set field="startTime" from="System.currentTimeMillis()"/>
+            <entity-find-one entity-name="moqui.entity.feed.DataFeed" value-field="df" cache="true"/>
+            <if condition="df == null"><return type="danger" message="No DataFeed found for ID ${dataFeedId}"/></if>
+            <entity-find entity-name="moqui.entity.feed.DataFeedDocument" list="dfDocList" cache="true">
+                <econdition field-name="dataFeedId"/></entity-find>
+
+            <set field="documentsIndexed" from="0"/>
+            <script><![CDATA[
+                import org.moqui.context.ExecutionContext
+                import java.util.concurrent.Future
+
+                ExecutionContext ec = context.ec
+                def elasticClient = ec.factory.elastic.getClient(clusterName)
+                if (elasticClient == null) {
+                    ec.message.addMessage("No Elastic Client found for cluster name ${clusterName}, not indexing documents", "danger")
+                    return
+                }
+                String feedReceiveServiceName = df.feedReceiveServiceName ?: 'org.moqui.search.SearchServices.index#DataDocuments'
+
+                for (Map dfDoc in dfDocList) {
+                    // make sure the index exists
+                    Map dataDocument = ec.entity.fastFindOne("moqui.entity.document.DataDocument", true, false, dfDoc.dataDocumentId)
+                    if (dataDocument?.indexName) elasticClient.checkCreateDataDocumentIndexes((String) dataDocument.indexName)
+
+                    int docListSize = ec.entity.entityDataDocument.feedDataDocuments(dfDoc.dataDocumentId, null,
+                            fromUpdateStamp, thruUpdatedStamp, feedReceiveServiceName, batchSize)
+                    documentsIndexed += docListSize
+                }
+            ]]></script>
+
+            <message>Indexed ${documentsIndexed} documents for feed ${dataFeedId} in ${System.currentTimeMillis() - startTime}ms</message>
+        </actions>
     </service>
     <service verb="index" noun="WikiSpacePages">
         <in-parameters>
             <parameter name="wikiSpaceId"/>
             <parameter name="dataDocumentId" required="true"/>
+            <parameter name="clusterName" default-value="default"/>
         </in-parameters>
-        <actions><message>No search implementation installed, not indexing Wiki Space Pages (see the moqui-elasticsearch component)</message></actions>
+        <actions>
+            <service-call name="org.moqui.impl.WikiServices.get#WikiSpacePages" in-map="[wikiSpaceId:wikiSpaceId]" out-map="context"/>
+
+            <set field="recordsCreated" from="0"/>
+            <set field="documentList" from="[]"/>
+            <iterate list="allChildFileFlatList" entry="allChildFileFlat">
+                <service-call name="org.moqui.impl.WikiServices.get#WikiPageId" out-map="getWpiResult"
+                        in-map="[wikiSpaceId:wikiSpaceId, pagePath:allChildFileFlat.path, createIfMissing:true]"/>
+                <if condition="getWpiResult.createdRecord"><set field="recordsCreated" from="recordsCreated + 1"/></if>
+
+                <script>documentList.addAll(ec.entity.getDataDocuments(dataDocumentId,
+                        ec.entity.conditionFactory.makeCondition([wikiPageId:getWpiResult.wikiPageId]), null, null))</script>
+            </iterate>
+            <script>ec.service.sync().name("org.moqui.search.SearchServices.index#DataDocuments").parameter("documentList", documentList).parameter("clusterName", clusterName).call()</script>
+
+            <message>Found and indexed ${allChildFileFlatList.size()} pages in Wiki Space ${wikiSpaceId}, created DB records for ${recordsCreated}.</message>
+        </actions>
     </service>
 
     <service verb="search" noun="DataDocuments">
+        <description>
+            The queryString format is the ElasticSearch supported one, based on the Lucene query strings which are documented here:
+
+            https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html
+
+            Sort options are described here:
+
+            https://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-body.html#request-body-search-sort
+        </description>
         <in-parameters>
             <parameter name="indexName" required="true"/>
-            <parameter name="documentType"/>
+            <parameter name="documentType">
+                <description>The ElasticSearch document type. For DataDocument based docs this is the dataDocumentId.</description></parameter>
             <parameter name="queryString" required="true"/>
-            <parameter name="nestedQueryMap" type="Map"/>
+            <parameter name="nestedQueryMap" type="Map"><description>For explicit field constraints and such; key is path and
+                may be null for a general query; value is a query JSON String (parsed to Map) or a query Map object</description></parameter>
             <parameter name="orderByFields" type="List"><parameter name="orderByField"/></parameter>
+            <parameter name="highlightFields" type="List"><parameter name="highlightField"/></parameter>
             <parameter name="pageIndex" type="Integer" default="0"/>
             <parameter name="pageSize" type="Integer" default="20"/>
+            <parameter name="pageNoLimit" type="Boolean" default="false"/>
             <parameter name="flattenDocument" type="Boolean" default="true"/>
+            <parameter name="clusterName" default-value="default"/>
         </in-parameters>
         <out-parameters>
             <parameter name="documentList" type="List"><parameter name="document" type="Map"/></parameter>
-            <parameter name="documentListCount" type="Integer"><description>The total count of hits, not just the
-                limited number returned.</description></parameter>
+            <parameter name="documentListCount" type="Integer">
+                <description>The total count of hits, not just the limited number returned.</description></parameter>
             <parameter name="documentListPageIndex" type="Integer"/>
             <parameter name="documentListPageSize" type="Integer"/>
             <parameter name="documentListPageMaxIndex" type="Integer"/>
             <parameter name="documentListPageRangeLow" type="Integer"/>
             <parameter name="documentListPageRangeHigh" type="Integer"/>
         </out-parameters>
-        <actions><message>No search implementation installed, not searching DataDocuments (see the moqui-elasticsearch component)</message></actions>
+        <actions><script><![CDATA[
+            /* useful docs for query API: https://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-body.html */
+
+            import org.moqui.context.ExecutionContext
+            import org.moqui.impl.context.ElasticFacadeImpl
+
+            import java.math.RoundingMode
+
+            ExecutionContext ec = context.ec
+            def elasticClient = ec.factory.elastic.getClient((String) clusterName)
+            if (elasticClient == null) {
+                ec.message.addMessage("No Elastic Client found for cluster name ${clusterName}, not running search", "danger")
+                return
+            }
+
+            int fromOffset = pageNoLimit ? 0 : pageIndex * pageSize
+            // TODO FUTURE: for this type of search ES limits size to 10k (default for index.max_result_window, can be changed per index), must use a scroll search to do more
+            int sizeLimit = pageNoLimit ? 10000 : pageSize
+
+            documentList = []
+            boolean hasHighlights = highlightFields != null && highlightFields.size() > 0
+
+            // make sure index exists
+            if (!elasticClient.indexExists((String) indexName)) {
+                ec.loggerFacade.warn("Tried to search with indexName ${indexName} that does not exist, returning empty list")
+                documentListCount = 0
+                documentListPageIndex = pageIndex
+                documentListPageSize = pageSize
+                documentListPageMaxIndex = 0
+                documentListPageRangeLow = 0
+                documentListPageRangeHigh = 0
+                return
+            }
+
+            List mustList = []
+            Map queryMap = [bool: [must: mustList]]
+            Map searchMap = [query: queryMap, from: fromOffset, size: sizeLimit, track_total_hits: true]
+
+            // query string: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html
+            mustList.add([query_string: [query: queryString, lenient: true, time_zone: TimeZone.default.getID()]])
+
+            if (nestedQueryMap) {
+                // nested: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-nested-query.html
+                // wrapper: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-wrapper-query.html
+                // exists: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-exists-query.html
+                for (Map.Entry nestedEntry in nestedQueryMap.entrySet()) {
+                    // NOTE: could be filter() instead of must()...
+                    String nestedPath = nestedEntry.key as String
+                    def nestedQuery = (nestedEntry.value instanceof CharSequence) ? ElasticFacadeImpl.jsonToObject(nestedEntry.value.toString()) : nestedEntry.value
+                    if (nestedPath) {
+                        mustList.add([nested: [path: nestedPath, query: nestedQuery, score_mode: "avg"]])
+                        // ec.logger.warn("${nestedPath}: ${nestedQuery}")
+                    } else {
+                        mustList.add(nestedQuery)
+                    }
+                }
+            }
+            // ec.logger.warn("queryMap : ${groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(queryMap))}")
+
+            if (hasHighlights) {
+                Map hlFieldMap = [:]
+                for (String hlField in highlightFields) hlFieldMap.put(hlField, [:])
+                searchMap.put("highlight", [fields: hlFieldMap])
+            }
+            if (orderByFields) {
+                List sortList = []
+                for (String orderByField in orderByFields) {
+                    orderByField = orderByField.trim()
+                    boolean ascending = true
+                    if (orderByField.charAt(0) == (char) '-') {
+                        ascending = false
+                        orderByField = orderByField.substring(1)
+                    } else if (orderByField.charAt(0) == (char) '+') {
+                        ascending = true
+                        orderByField = orderByField.substring(1)
+                    }
+                    // ec.logger.warn("========= adding [${orderByField}], ${ascending}; from ${orderByFields}")
+                    sortList.add(ascending ? orderByField : [(orderByField): "desc"])
+                }
+                searchMap.put("sort", sortList)
+            }
+
+            // if documentType use instead of indexName to get only specific indexes (split on comma, ddIdToEsIndex, join with comma)
+            String index = indexName
+            if (documentType) index = ((String) documentType).split(",").collect({ ElasticFacadeImpl.ddIdToEsIndex(it) }).join(",")
+
+            // validate the query
+            // TODO: consider pulling error message from ElasticSearch, but they are pretty ugly
+            Map validateRespMap = elasticClient.validateQuery(index, queryMap, true)
+            if (validateRespMap != null) {
+                ec.message.addMessage("Invalid search: ${queryString}", "danger")
+                documentListCount = 0
+                return
+            }
+
+            // do the search
+            Map resultMap = elasticClient.search(index, searchMap)
+            Map hitsMap = (Map) resultMap.hits
+            List<Map> hitsList = (List<Map>) hitsMap.hits
+
+            for (Map hit in hitsList) {
+                Map document = (Map) hit._source
+                if (flattenDocument) document = flattenNestedMap(document)
+
+                // As of ES 2.0 _index, _type, _id aren't included in the document
+                String _index = (String) hit._index
+                document._index = _index
+                document._id = hit._id
+                // how to get timestamp? doesn't seem to be in API: document._timestamp = hit.get?
+                document._version = hit._version
+                // as of ES 7.0 _type defaults to _doc and may go away entirely in 8.0, so default to _index with underscore to camel case conversion
+                String _type = (String) hit._type
+                if (!_type || "_doc".equals(_type)) {
+                    document._type = ElasticFacadeImpl.esIndexToDdId(_index)
+                } else {
+                    document._type = _type
+                }
+
+                if (hasHighlights) {
+                    document.put("highlights", hit.highlight)
+                    // ec.logger.warn("Highlight Fields: " + hit.highlight)
+                }
+
+                documentList.add(document)
+            }
+
+            // get the total search count
+            documentListCount = hitsMap.total.value
+
+            // calculate the pagination values
+            documentListPageIndex = pageIndex
+            documentListPageSize = pageSize
+            documentListPageMaxIndex = ((documentListCount as BigDecimal) - 1.0).divide(documentListPageSize as BigDecimal, 0, java.math.RoundingMode.DOWN) as int
+            documentListPageRangeLow = documentListPageIndex * documentListPageSize + 1
+            documentListPageRangeHigh = (documentListPageIndex * documentListPageSize) + documentListPageSize
+            if (documentListPageRangeHigh > documentListCount) documentListPageRangeHigh = documentListCount
+        ]]></script></actions>
     </service>
+
+    <!-- not used, removed for now:
     <service verb="search" noun="CountBySource">
         <in-parameters>
             <parameter name="indexName" required="true"/>
@@ -78,8 +298,60 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="maxResults" type="Integer" default="1000"/>
             <parameter name="sourceJson"/>
             <parameter name="sourceMap" type="Map"/>
+            <parameter name="clusterName" default-value="default"/>
         </in-parameters>
         <out-parameters><parameter name="searchResponse" type="Object"/></out-parameters>
         <actions><message>No search implementation installed, not searching DataDocuments by source (see the moqui-elasticsearch component)</message></actions>
+    </service>
+    -->
+
+    <service verb="delete" noun="Documents" authenticate="anonymous-all" transaction-timeout="1800">
+        <!-- authenticate=anonymous-all as this is called in a service job, should be exposed through only trusted UI/etc -->
+        <in-parameters>
+            <parameter name="indexName" required="true"/>
+            <!-- no longer used: <parameter name="documentType"/> -->
+            <parameter name="timestampField" default-value="@timestamp"/>
+            <parameter name="daysToKeep" type="Integer"/>
+            <parameter name="queryString"/>
+            <parameter name="clusterName" default-value="default"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="deletedCount" type="Long"/>
+        </out-parameters>
+        <actions><script><![CDATA[
+            import org.moqui.context.ExecutionContext
+            ExecutionContext ec = context.ec
+
+            // ec.logger.warn("delete#DataDocuments documents from index ${indexName} with days to keep ${daysToKeep} and query ${queryString}")
+            if (daysToKeep == null && !queryString) {
+                ec.message.addError("To delete documents must specify daysToKeep, queryString, or both")
+                return
+            }
+
+            def elasticClient = ec.factory.elastic.getClient((String) clusterName)
+
+            Long thruMillis = null
+            if (daysToKeep != null) {
+                Calendar basisCal = ec.user.getCalendarSafe()
+                basisCal.add(Calendar.DAY_OF_YEAR, (int) -daysToKeep)
+                thruMillis = basisCal.getTimeInMillis()
+            }
+
+            List mustList = []
+            Map queryMap = [bool:[must:mustList]]
+            if (queryString) mustList.add([query_string:[query:queryString, lenient:true, time_zone:TimeZone.default.getID()]])
+            if (thruMillis) mustList.add([range:[(timestampField):[lte:thruMillis]]])
+
+            if (mustList.size() == 0) {
+                ec.message.addError("To delete documents must specify daysToKeep, queryString, or both")
+                return
+            }
+
+            deletedCount = elasticClient.deleteByQuery((String) indexName, queryMap)
+
+            String resultMsg = "Deleted ${deletedCount} documents from index ${indexName} with days to keep ${daysToKeep} and query ${queryString}".toString()
+            ec.logger.info(resultMsg)
+            ec.message.addMessage(resultMsg)
+        ]]></script></actions>
     </service>
 </services>

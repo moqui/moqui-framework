@@ -13,6 +13,12 @@
  */
 package org.moqui.resource;
 
+import org.moqui.BaseException;
+
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+
 public class ClasspathResourceReference extends UrlResourceReference {
     private String strippedLocation;
 
@@ -39,6 +45,22 @@ public class ClasspathResourceReference extends UrlResourceReference {
         ClasspathResourceReference resRef = new ClasspathResourceReference();
         resRef.init(location);
         return resRef;
+    }
+
+    @Override public InputStream openStream() {
+        if (locationUrl == null) throw new IllegalStateException("Classpath Resource not found at " + strippedLocation);
+        try {
+            return locationUrl.openStream();
+        } catch (FileNotFoundException e) {
+            return null;
+        } catch (IOException e) {
+            throw new BaseException("Error opening stream for " + locationUrl.toString(), e);
+        }
+    }
+
+    @Override public boolean getExists() {
+        // only count exists if true
+        return exists != null && exists;
     }
 
     @Override public String getLocation() { return "classpath://" + strippedLocation; }
