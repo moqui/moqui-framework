@@ -946,6 +946,7 @@ along with this software (see the LICENSE.md file). If not, see
             If there is a message here it will show in a confirmation box when the button is clicked on.
         </xs:documentation></xs:annotation></xs:attribute>
         <xs:attribute name="icon" type="xs:string"/>
+        <xs:attribute name="btn-type" type="color-context" default="primary"/>
     </xs:complexType></xs:element>
     <xs:element name="text-line" substitutionGroup="SubFields"><xs:complexType>
         <xs:sequence>
