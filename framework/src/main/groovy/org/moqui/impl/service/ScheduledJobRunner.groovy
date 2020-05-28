@@ -32,6 +32,7 @@ import org.slf4j.LoggerFactory
 
 import java.sql.Timestamp
 import java.time.Instant
+import java.time.ZoneId
 import java.time.ZonedDateTime
 
 /**
@@ -241,6 +242,29 @@ class ScheduledJobRunner implements Runnable {
     }
 
     static ExecutionTime getExecutionTime(String cronExpression) { return ExecutionTime.forCron(getCron(cronExpression)) }
+
+    /** Use to determine if it is time to run again, if returns true then run and if false don't run.
+     * See if lastRun is before last scheduled run time based on cronExpression and nowTimestamp (defaults to current date/time) */
+    static boolean isLastRunBeforeLastSchedule(String cronExpression, Timestamp lastRun, String description, Timestamp nowTimestamp) {
+        try {
+            if (lastRun == (Timestamp) null) return true
+            ZonedDateTime now = nowTimestamp != (Timestamp) null ?
+                    ZonedDateTime.ofInstant(Instant.ofEpochMilli(nowTimestamp.getTime()), ZoneId.systemDefault()) :
+                    ZonedDateTime.now()
+            def lastRunDt = ZonedDateTime.ofInstant(Instant.ofEpochMilli(lastRun.getTime()), now.getZone())
+
+            ExecutionTime executionTime = getExecutionTime(cronExpression)
+            ZonedDateTime lastSchedule = executionTime.lastExecution(now).get()
+
+            if (lastSchedule == null) return false
+            if (lastRunDt == null) return true
+
+            return lastRunDt.isBefore(lastSchedule)
+        } catch (Throwable t) {
+            logger.error("Error processing Cron Expression ${cronExpression} and Last Run ${lastRun} for ${description}, skipping", t)
+            return false
+        }
+    }
 
     static String getCronDescription(String cronExpression, Locale locale, boolean handleInvalid) {
         if (cronExpression == null || cronExpression.isEmpty()) return null
