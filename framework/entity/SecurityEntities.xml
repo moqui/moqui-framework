@@ -435,6 +435,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="receiveNotifications" type="text-indicator"><description>If Y all applicable users will be sent
             notification messages. If N users must subscribe (NotificationTopicUser) to receive messages.</description></field>
         <field name="emailTemplateId" type="id"><description>If is specified use this template to send a notification email to each user with emailNotifications=Y</description></field>
+        <field name="emailMessageSave" type="text-indicator"/>
         <relationship type="one" related="moqui.basic.email.EmailTemplate"/>
     </entity>
     <entity entity-name="NotificationTopicUser" package="moqui.security.user" use="configuration" cache="true">
@@ -467,10 +468,10 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="userId" type="id" is-pk="true"/>
         <field name="sentDate" type="date-time"/>
         <field name="viewedDate" type="date-time"/>
-        <!-- not saving EmailMessage for now: <field name="emailMessageId" type="id"/> -->
+        <field name="emailMessageId" type="id"/>
         <relationship type="one" related="moqui.security.user.NotificationMessage" short-alias="notification"/>
         <relationship type="one-nofk" related="moqui.security.UserAccount" short-alias="user"/>
-        <!-- not saving EmailMessage for now: <relationship type="one" related="moqui.basic.email.EmailMessage" short-alias="emailMessage"/> -->
+        <relationship type="one" related="moqui.basic.email.EmailMessage" short-alias="emailMessage"/>
         <index name="NOTMSGUSR_UID_VD" unique="false"><index-field name="userId"/><index-field name="viewedDate"/></index>
     </entity>
     <view-entity entity-name="NotificationMessageByUser" package="moqui.security.user" cache="never">
