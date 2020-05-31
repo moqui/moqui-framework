@@ -161,6 +161,35 @@ public class WebUtilities {
         }
         return newValue.toString();
     }
+    /** Sort of like JSON but output in JS syntax for HTML attributes like in a Vue Template */
+    public static String fieldValuesEncodeHtmlJsSafe(Map<String, Object> fieldValues) {
+        StringBuilder out = new StringBuilder().append("{");
+        boolean isFirst = true;
+        for (Map.Entry<String, Object> entry : fieldValues.entrySet()) {
+            if (isFirst) { isFirst = false; } else { out.append(","); }
+            out.append("'").append(WebUtilities.encodeHtmlJsSafe(entry.getKey())).append("':");
+            Object value = entry.getValue();
+            if (value == null) {
+                out.append("null");
+            } else if (value instanceof ArrayList) {
+                ArrayList curList = (ArrayList) value;
+                int curListSize = curList.size();
+                out.append("[");
+                for (int vi = 0; vi < curListSize; vi++) {
+                    Object listVal = curList.get(vi);
+                    if (listVal == null) continue;
+                    out.append("'").append(WebUtilities.encodeHtmlJsSafe(listVal.toString())).append("'");
+                    if ((vi + 1) < curListSize) out.append(",");
+                }
+                out.append("]");
+            } else {
+                out.append("'").append(WebUtilities.encodeHtmlJsSafe(value.toString())).append("'");
+            }
+        }
+        out.append("}");
+        return out.toString();
+    }
+
     public static String encodeHtml(String original) {
         if (original == null) return "";
         StringBuilder newValue = new StringBuilder(original);
