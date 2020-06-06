@@ -1648,11 +1648,39 @@ class ScreenRenderImpl implements ScreenRender {
                 String alsoHidden = widgetNode.attribute("also-hidden")
                 if (alsoHidden == null || alsoHidden.isEmpty() || "true".equals(alsoHidden))
                     fieldValues.put(fieldName, valuePlainString)
+
+                // display value, reproduce logic that was in the ftl display macro
+                String fieldValue = (String) null
+                String textAttr = widgetNode.attribute("text")
+                String currencyAttr = widgetNode.attribute("currency-unit-field")
+                if (textAttr != null && ! textAttr.isEmpty()) {
+                    String textMapAttr = widgetNode.attribute("text-map")
+                    Map textMap = (Map) null
+                    if (textMapAttr != null && !textMapAttr.isEmpty())
+                        textMap = (Map) ec.resourceFacade.expression(textMapAttr, null)
+                    if (textMap != null && textMap.size() > 0) {
+                        fieldValue = ec.resourceFacade.expand(textAttr, null, textMap)
+                    } else {
+                        fieldValue = ec.resourceFacade.expand(textAttr, null)
+                    }
+                    if (currencyAttr != null && !currencyAttr.isEmpty())
+                        fieldValue = ec.l10nFacade.formatCurrency(fieldValue, ec.resourceFacade.expression(currencyAttr, null) as String)
+                } else if (currencyAttr != null && !currencyAttr.isEmpty()) {
+                    fieldValue = ec.l10nFacade.formatCurrency(getFieldValue(fieldNode, ""), ec.resourceFacade.expression(currencyAttr, null) as String)
+                } else {
+                    fieldValue = getFieldValueString(widgetNode)
+                }
+                fieldValues.put(fieldName + "_display", fieldValue)
+
+                // TODO: handle dynamic-transition attribute for initial value, and dynamic on client side too
             } else if ("display-entity".equals(widgetName)) {
                 // primary value is for hidden field only, otherwise add nothing (display only)
                 String alsoHidden = widgetNode.attribute("also-hidden")
                 if (alsoHidden == null || alsoHidden.isEmpty() || "true".equals(alsoHidden))
                     fieldValues.put(fieldName, valuePlainString)
+
+                // display value, reproduce logic that was in the ftl display macro
+                fieldValues.put(fieldName + "_display", getFieldEntityValue(widgetNode))
             } else if ("hidden".equals(widgetName)) {
                 fieldValues.put(fieldName, getFieldValuePlainString(fieldNode, widgetNode.attribute("default-value")))
             } else if ("file".equals(widgetName) || "ignored".equals(widgetName) || "password".equals(widgetName)) {
