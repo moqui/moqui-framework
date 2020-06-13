@@ -569,14 +569,9 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:annotation><xs:documentation>A condition expression, just like the section-iterate.condition.expression
                 element but more concise.</xs:documentation></xs:annotation>
         </xs:attribute>
-        <!-- TODO handle paginate* in ScreenSection.groovy
-        <xs:attribute name="paginate" type="xs:string" default="false">
-            <xs:annotation><xs:documentation>
-                Indicate if this section is paginated or not, false by default.
-            </xs:documentation></xs:annotation>
+        <xs:attribute name="paginate" type="boolean" default="false">
+            <xs:annotation><xs:documentation>Indicate if this section is paginated or not, false by default.</xs:documentation></xs:annotation>
         </xs:attribute>
-        <xs:attribute name="paginate-size" type="xs:string"/>
-        -->
     </xs:complexType></xs:element>
 
     <xs:element name="widgets"><xs:complexType>
