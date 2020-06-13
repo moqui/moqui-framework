@@ -28,6 +28,7 @@ import org.eclipse.jetty.client.util.StringContentProvider;
 import org.eclipse.jetty.http.HttpField;
 import org.eclipse.jetty.http.HttpFields;
 import org.eclipse.jetty.http.HttpHeader;
+import org.eclipse.jetty.util.HttpCookieStore;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
 import org.eclipse.jetty.util.thread.ScheduledExecutorScheduler;
@@ -644,9 +645,14 @@ public class RestClient {
         private final HttpClient httpClient;
 
         public SimpleRequestFactory() {
-            SslContextFactory sslContextFactory = new SslContextFactory.Client(true);
+            this(true, false);
+        }
+
+        public SimpleRequestFactory(boolean trustAll, boolean disableCookieManagement) {
+            SslContextFactory sslContextFactory = new SslContextFactory.Client(trustAll);
             sslContextFactory.setEndpointIdentificationAlgorithm(null);
             httpClient = new HttpClient(sslContextFactory);
+            if (disableCookieManagement) httpClient.setCookieStore(new HttpCookieStore.Empty());
             try { httpClient.start(); } catch (Exception e) { throw new BaseException("Error starting HTTP client", e); }
         }
 
