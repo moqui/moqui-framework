@@ -540,6 +540,20 @@ public class CollectionUtilities {
         List theList = (List) context.get(listName);
         if (theList == null) theList = new ArrayList();
 
+        List pageList = paginateList(theList, pageListName, context);
+        context.put(pageListName, pageList);
+    }
+    public static List paginateList(List theList, String pageListName, Map<String, Object> context) {
+        Integer pageRangeLow = (Integer) context.get(pageListName + "PageRangeLow");
+        Integer pageRangeHigh = (Integer) context.get(pageListName + "PageRangeHigh");
+        if (pageRangeLow == null || pageRangeHigh == null) {
+            paginateParameters(theList != null ? theList.size() : 0, pageListName, context);
+            pageRangeLow = (Integer) context.get(pageListName + "PageRangeLow");
+            pageRangeHigh = (Integer) context.get(pageListName + "PageRangeHigh");
+        }
+        return theList.subList(pageRangeLow - 1, pageRangeHigh);
+    }
+    public static Map paginateParameters(int listSize, String pageListName, Map<String, Object> context) {
         final Object pageIndexObj = context.get("pageIndex");
         int pageIndex = 0;
         if (!ObjectUtilities.isEmpty(pageIndexObj)) {
@@ -556,8 +570,7 @@ public class CollectionUtilities {
         }
         if (pageSize < 0) pageSize = 20;
 
-        int count = theList.size();
-
+        int count = listSize;
         // calculate the pagination values
         int maxIndex = (new BigDecimal(count - 1)).divide(new BigDecimal(pageSize), 0, RoundingMode.DOWN).intValue();
         int pageRangeLow = (pageIndex * pageSize) + 1;
@@ -565,13 +578,13 @@ public class CollectionUtilities {
         int pageRangeHigh = (pageIndex * pageSize) + pageSize;
         if (pageRangeHigh > count) pageRangeHigh = count;
 
-        List pageList = theList.subList(pageRangeLow - 1, pageRangeHigh);
-        context.put(pageListName, pageList);
         context.put(pageListName + "Count", count);
         context.put(pageListName + "PageIndex", pageIndex);
         context.put(pageListName + "PageSize", pageSize);
         context.put(pageListName + "PageMaxIndex", maxIndex);
         context.put(pageListName + "PageRangeLow", pageRangeLow);
         context.put(pageListName + "PageRangeHigh", pageRangeHigh);
+
+        return context;
     }
 }

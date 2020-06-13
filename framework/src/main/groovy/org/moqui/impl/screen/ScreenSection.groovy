@@ -17,6 +17,7 @@ import groovy.transform.CompileStatic
 import org.codehaus.groovy.runtime.InvokerHelper
 import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.ExecutionContextFactoryImpl
+import org.moqui.util.CollectionUtilities
 import org.moqui.util.ContextStack
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.util.MNode
@@ -74,21 +75,35 @@ class ScreenSection {
     void render(ScreenRenderImpl sri) {
         ContextStack cs = sri.ec.contextStack
         if (sectionNode.name == "section-iterate") {
+            String listName = sectionNode.attribute("list")
+            Object list = sri.ec.resourceFacade.expression(listName, null)
+
             // if nothing to iterate over, all done
-            Object list = sri.ec.resourceFacade.expression(sectionNode.attribute("list"), null)
             if (!list) {
                 if (logger.traceEnabled) logger.trace("Target list [${list}] is empty, not rendering section-iterate at [${location}]")
                 return
             }
+
+            boolean paginate = "true".equals(sectionNode.attribute("paginate"))
+
             Iterator listIterator = null
-            if (list instanceof Iterator) listIterator = (Iterator) list
-            else if (list instanceof Map) listIterator = ((Map) list).entrySet().iterator()
-            else if (list instanceof Iterable) listIterator = ((Iterable) list).iterator()
+            if (paginate) {
+                cs.push()
+                if (list instanceof List) {
+                    List pageList = CollectionUtilities.paginateList((List) list, listName, cs)
+                    listIterator = pageList.iterator()
+                } else {
+                    throw new IllegalArgumentException("section-iterate paginate requires a List, found type ${list?.class?.name}")
+                }
+            } else {
+                if (list instanceof Iterator) listIterator = (Iterator) list
+                else if (list instanceof Map) listIterator = ((Map) list).entrySet().iterator()
+                else if (list instanceof Iterable) listIterator = ((Iterable) list).iterator()
+            }
 
-            String sectionEntry = (String) sectionNode.attribute("entry")
-            String sectionKey = (String) sectionNode.attribute("key")
+            String sectionEntry = sectionNode.attribute("entry")
+            String sectionKey = sectionNode.attribute("key")
 
-            // TODO: handle paginate, paginate-size (lower priority...)
             int index = 0
             while (listIterator != null && listIterator.hasNext()) {
                 Object entry = listIterator.next()
@@ -106,6 +121,10 @@ class ScreenSection {
                     cs.pop()
                 }
                 index++
+            }
+
+            if (paginate) {
+                cs.pop()
             }
         } else {
             // NOTE: don't push/pop context for normal sections, for root section want to be able to share-scope when it
