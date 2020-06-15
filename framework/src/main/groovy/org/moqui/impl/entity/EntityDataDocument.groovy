@@ -288,8 +288,8 @@ class EntityDataDocument {
 
         boolean hasAllPrimaryPks = ddi.hasAllPrimaryPks
         if (!hasAllPrimaryPks) logger.warn("DataDocument ${dataDocumentId} does not have all primary keys for feed to service ${feedReceiveServiceName}")
-        Map<String, Map> documentMapMap = hasAllPrimaryPks ? new LinkedHashMap<String, Map>() : null
-        ArrayList<Map> documentMapList = hasAllPrimaryPks ? null : new ArrayList<Map>()
+        Map<String, Map> documentMapMap = hasAllPrimaryPks ? new LinkedHashMap<String, Map>(batchSize + 10) : null
+        ArrayList<Map> documentMapList = hasAllPrimaryPks ? null : new ArrayList<Map>(batchSize + 10)
 
         EntityFind mainFind = makeDataDocumentFind(ddi, fromUpdateStamp, thruUpdatedStamp)
         if (condition != null) mainFind.condition(condition)
@@ -326,8 +326,8 @@ class EntityDataDocument {
                         if (efi.ecfi.getEci().messageFacade.hasError()) break
 
                         // dereference and reset queue Map or List
-                        documentMapMap = hasAllPrimaryPks ? new LinkedHashMap<String, Map>() : null
-                        documentMapList = hasAllPrimaryPks ? null : new ArrayList<Map>()
+                        documentMapMap = hasAllPrimaryPks ? new LinkedHashMap<String, Map>(batchSize + 10) : null
+                        documentMapList = hasAllPrimaryPks ? null : new ArrayList<Map>(batchSize + 10)
                     }
                 }
 
@@ -344,7 +344,6 @@ class EntityDataDocument {
                 // call the feed receive service
                 efi.ecfi.serviceFacade.sync().name(feedReceiveServiceName).parameter("documentList", documentMapList).call()
             }
-
         } finally {
             mainEli.close()
         }
