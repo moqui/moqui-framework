@@ -150,6 +150,8 @@ public class WebUtilities {
                 case '&': newValue.replace(i, i + 1, "&amp;"); i += 4; break;
                 case '<': newValue.replace(i, i + 1, "&lt;"); i += 3; break;
                 case '>': newValue.replace(i, i + 1, "&gt;"); i += 3; break;
+                case '\n': newValue.replace(i, i + 1, "\\n"); i += 1; break;
+                case '\r': newValue.replace(i, i + 1, "\\r"); i += 1; break;
                 case 0x5: newValue.replace(i, i + 1, "..."); i += 2; break;
                 case 0x12: newValue.replace(i, i + 1, "&apos;"); i += 5; break;
                 case 0x13: newValue.replace(i, i + 1, "&quot;"); i += 5; break;
@@ -167,7 +169,7 @@ public class WebUtilities {
         boolean isFirst = true;
         for (Map.Entry<String, Object> entry : fieldValues.entrySet()) {
             if (isFirst) { isFirst = false; } else { out.append(","); }
-            out.append("'").append(WebUtilities.encodeHtmlJsSafe(entry.getKey())).append("':");
+            out.append("'").append(encodeHtmlJsSafe(entry.getKey())).append("':");
             Object value = entry.getValue();
             if (value == null) {
                 out.append("null");
@@ -178,12 +180,12 @@ public class WebUtilities {
                 for (int vi = 0; vi < curListSize; vi++) {
                     Object listVal = curList.get(vi);
                     if (listVal == null) continue;
-                    out.append("'").append(WebUtilities.encodeHtmlJsSafe(listVal.toString())).append("'");
+                    out.append("'").append(encodeHtmlJsSafe(listVal.toString())).append("'");
                     if ((vi + 1) < curListSize) out.append(",");
                 }
                 out.append("]");
             } else {
-                out.append("'").append(WebUtilities.encodeHtmlJsSafe(value.toString())).append("'");
+                out.append("'").append(encodeHtmlJsSafe(value.toString())).append("'");
             }
         }
         out.append("}");
