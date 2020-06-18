@@ -1686,7 +1686,7 @@ class ScreenRenderImpl implements ScreenRender {
             } else if ("file".equals(widgetName) || "ignored".equals(widgetName) || "password".equals(widgetName)) {
                 // do nothing
             } else if ("radio".equals(widgetName)) {
-                fieldValues.put(fieldName, getFieldValueString(widgetNode, widgetNode.attribute("no-current-selected-key"), null))
+                fieldValues.put(fieldName, getFieldValueString(fieldNode, widgetNode.attribute("no-current-selected-key"), null))
             } else if ("range-find".equals(widgetName)) {
                 fieldValues.put(fieldName + "_from", ec.getWeb()?.getParameters()?.get(fieldName + "_from"))
                 fieldValues.put(fieldName + "_thru", ec.getWeb()?.getParameters()?.get(fieldName + "_thru"))
