@@ -31,6 +31,7 @@ import java.util.TreeSet;
 
 public class EntityFindBuilder extends EntityQueryBuilder {
     protected static final Logger logger = LoggerFactory.getLogger(EntityFindBuilder.class);
+    static final boolean isDebugEnabled = logger.isDebugEnabled();
 
     private EntityFindBase entityFindBase;
     private EntityConditionImplBase whereCondition;
