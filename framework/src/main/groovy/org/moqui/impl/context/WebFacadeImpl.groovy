@@ -685,9 +685,14 @@ class WebFacadeImpl implements WebFacade {
         }
     }
 
-    void sendJsonError(int statusCode, String errorMessages) {
+    @Override
+    void sendJsonError(int statusCode, String message, Throwable origThrowable) {
+        sendJsonErrorInternal(statusCode, message, origThrowable, response)
+    }
+    static void sendJsonErrorInternal(int statusCode, String message, Throwable origThrowable, HttpServletResponse response) {
+        if ((message == null || message.isEmpty()) && origThrowable != null) message = origThrowable.message
         // NOTE: uses same field name as sendJsonResponseInternal
-        String jsonStr = ContextJavaUtil.jacksonMapper.writeValueAsString([errorCode:statusCode, errors:errorMessages])
+        String jsonStr = ContextJavaUtil.jacksonMapper.writeValueAsString([errorCode:statusCode, errors:message])
         response.setContentType("application/json")
         // NOTE: String.length not correct for byte length
         String charset = response.getCharacterEncoding() ?: "UTF-8"
@@ -853,7 +858,7 @@ class WebFacadeImpl implements WebFacade {
 
         // check for parsing error, send a 400 response
         if (parmStack._requestBodyJsonParseError) {
-            sendJsonError(HttpServletResponse.SC_BAD_REQUEST, (String) parmStack._requestBodyJsonParseError)
+            sendJsonError(HttpServletResponse.SC_BAD_REQUEST, (String) parmStack._requestBodyJsonParseError, null)
             return
         }
 
@@ -862,7 +867,7 @@ class WebFacadeImpl implements WebFacade {
             // if there was a login error there will be a MessageFacade error message
             String errorMessage = eci.message.errorsString
             if (!errorMessage) errorMessage = "Authentication required for entity REST operations"
-            sendJsonError(HttpServletResponse.SC_UNAUTHORIZED, errorMessage)
+            sendJsonError(HttpServletResponse.SC_UNAUTHORIZED, errorMessage, null)
             return
         }
 
@@ -884,7 +889,7 @@ class WebFacadeImpl implements WebFacade {
                     if (!(bodyListObj instanceof Map)) {
                         String errMsg = "If request body JSON is a list/array it must contain only object/map values, found non-map entry of type ${bodyListObj.getClass().getName()} with value: ${bodyListObj}"
                         logger.warn(errMsg)
-                        sendJsonError(HttpServletResponse.SC_BAD_REQUEST, errMsg)
+                        sendJsonError(HttpServletResponse.SC_BAD_REQUEST, errMsg, null)
                         return
                     }
                     // logger.warn("========== REST ${method} ${request.getPathInfo()} ${extraPathNameList}; body list object: ${bodyListObj}")
@@ -916,20 +921,20 @@ class WebFacadeImpl implements WebFacade {
         } catch (ArtifactAuthorizationException e) {
             // SC_UNAUTHORIZED 401 used when authc/login fails, use SC_FORBIDDEN 403 for authz failures
             logger.warn("REST Access Forbidden (403 no authz): " + e.message)
-            sendJsonError(HttpServletResponse.SC_FORBIDDEN, e.message)
+            sendJsonError(HttpServletResponse.SC_FORBIDDEN, null, e)
         } catch (ArtifactTarpitException e) {
             logger.warn("REST Too Many Requests (429 tarpit): " + e.message)
             if (e.getRetryAfterSeconds()) response.addIntHeader("Retry-After", e.getRetryAfterSeconds())
             // NOTE: there is no constant on HttpServletResponse for 429; see RFC 6585 for details
-            sendJsonError(429, e.message)
+            sendJsonError(429, null, e)
         } catch (EntityNotFoundException e) {
-            logger.warn((String) "REST Entity Not Found (404): " + e.getMessage(), e)
+            logger.warn((String) "REST Entity Not Found (404): " + e.message, e)
             // send 404 Not Found for entities that don't exist (along with records that don't exist)
-            sendJsonError(HttpServletResponse.SC_NOT_FOUND, e.message)
+            sendJsonError(HttpServletResponse.SC_NOT_FOUND, null, e)
         } catch (EntityValueNotFoundException e) {
-            logger.warn("REST Entity Value Not Found (404): " + e.getMessage())
+            logger.warn("REST Entity Value Not Found (404): " + e.message)
             // record doesn't exist, send 404 Not Found
-            sendJsonError(HttpServletResponse.SC_NOT_FOUND, e.message)
+            sendJsonError(HttpServletResponse.SC_NOT_FOUND, null, e)
         } catch (Throwable t) {
             String errorMessage = t.toString()
             if (eci.message.hasError()) {
@@ -938,7 +943,7 @@ class WebFacadeImpl implements WebFacade {
                 errorMessage = errorMessage + ' ' + errorsString
             }
             logger.warn((String) "General error in entity REST: " + t.toString(), t)
-            sendJsonError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, errorMessage)
+            sendJsonError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, errorMessage, null)
         }
     }
 
@@ -953,17 +958,17 @@ class WebFacadeImpl implements WebFacade {
             String errorsString = eci.message.errorsString
             if ("true".equals(request.getAttribute("moqui.login.error"))) {
                 logger.warn((String) "Login error in Service REST API: " + errorsString)
-                sendJsonError(HttpServletResponse.SC_UNAUTHORIZED, errorsString)
+                sendJsonError(HttpServletResponse.SC_UNAUTHORIZED, errorsString, null)
             } else {
                 logger.warn((String) "General error in Service REST API: " + errorsString)
-                sendJsonError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, errorsString)
+                sendJsonError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, errorsString, null)
             }
             return
         }
 
         // check for parsing error, send a 400 response
         if (parmStack._requestBodyJsonParseError) {
-            sendJsonError(HttpServletResponse.SC_BAD_REQUEST, (String) parmStack._requestBodyJsonParseError)
+            sendJsonError(HttpServletResponse.SC_BAD_REQUEST, (String) parmStack._requestBodyJsonParseError, null)
             return
         }
 
@@ -978,7 +983,7 @@ class WebFacadeImpl implements WebFacade {
                     if (!(bodyListObj instanceof Map)) {
                         String errMsg = "If request body JSON is a list/array it must contain only object/map values, found non-map entry of type ${bodyListObj.getClass().getName()} with value: ${bodyListObj}"
                         logger.warn(errMsg)
-                        sendJsonError(HttpServletResponse.SC_BAD_REQUEST, errMsg)
+                        sendJsonError(HttpServletResponse.SC_BAD_REQUEST, errMsg, null)
                         return
                     }
                     // logger.warn("========== REST ${request.getMethod()} ${request.getPathInfo()} ${extraPathNameList}; body list object: ${bodyListObj}")
@@ -999,7 +1004,7 @@ class WebFacadeImpl implements WebFacade {
                     // if error return that
                     String errorsString = eci.message.errorsString
                     logger.warn((String) "General error in Service REST API: " + errorsString)
-                    sendJsonError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, errorsString)
+                    sendJsonError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, errorsString, null)
                 } else {
                     // otherwise send response
                     sendJsonResponse(responseList)
@@ -1016,7 +1021,7 @@ class WebFacadeImpl implements WebFacade {
                     // if error return that
                     String errorsString = eci.message.errorsString
                     logger.warn((String) "Error message from Service REST API (400): " + errorsString)
-                    sendJsonError(HttpServletResponse.SC_BAD_REQUEST, errorsString)
+                    sendJsonError(HttpServletResponse.SC_BAD_REQUEST, errorsString, null)
                 } else {
                     // NOTE: This will always respond with 200 OK, consider using 201 Created (for successful POST, create PUT)
                     //     and 204 No Content (for DELETE and other when no content is returned)
@@ -1025,27 +1030,27 @@ class WebFacadeImpl implements WebFacade {
             }
         } catch (AuthenticationRequiredException e) {
             logger.warn("REST Unauthorized (401 no authc): " + e.message)
-            sendJsonError(HttpServletResponse.SC_UNAUTHORIZED, e.message)
+            sendJsonError(HttpServletResponse.SC_UNAUTHORIZED, null, e)
         } catch (ArtifactAuthorizationException e) {
             // SC_UNAUTHORIZED 401 used when authc/login fails, use SC_FORBIDDEN 403 for authz failures
             logger.warn("REST Access Forbidden (403 no authz): " + e.message)
-            sendJsonError(HttpServletResponse.SC_FORBIDDEN, e.message)
+            sendJsonError(HttpServletResponse.SC_FORBIDDEN, null, e)
         } catch (ArtifactTarpitException e) {
             logger.warn("REST Too Many Requests (429 tarpit): " + e.message)
             if (e.getRetryAfterSeconds()) response.addIntHeader("Retry-After", e.getRetryAfterSeconds())
             // NOTE: there is no constant on HttpServletResponse for 429; see RFC 6585 for details
-            sendJsonError(429, e.message)
+            sendJsonError(429, null, e)
         } catch (RestApi.ResourceNotFoundException e) {
-            logger.warn((String) "REST Resource Not Found (404): " + e.getMessage())
+            logger.warn((String) "REST Resource Not Found (404): " + e.message)
             // send 404 Not Found for resources/paths that don't exist (along with records that don't exist)
-            sendJsonError(HttpServletResponse.SC_NOT_FOUND, e.message)
+            sendJsonError(HttpServletResponse.SC_NOT_FOUND, null, e)
         } catch (RestApi.MethodNotSupportedException e) {
-            logger.warn((String) "REST Method Not Supported (405): " + e.getMessage())
-            sendJsonError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, e.message)
+            logger.warn((String) "REST Method Not Supported (405): " + e.message)
+            sendJsonError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, null, e)
         } catch (EntityValueNotFoundException e) {
-            logger.warn("REST Entity Value Not Found (404): " + e.getMessage())
+            logger.warn("REST Entity Value Not Found (404): " + e.message)
             // record doesn't exist, send 404 Not Found
-            sendJsonError(HttpServletResponse.SC_NOT_FOUND, e.message)
+            sendJsonError(HttpServletResponse.SC_NOT_FOUND, null, e)
         } catch (Throwable t) {
             String errorMessage = t.toString()
             if (eci.message.hasError()) {
@@ -1054,7 +1059,7 @@ class WebFacadeImpl implements WebFacade {
                 errorMessage = errorMessage + ' ' + errorsString
             }
             logger.warn((String) "Error thrown in Service REST API (500): " + t.toString(), t)
-            sendJsonError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, errorMessage)
+            sendJsonError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, errorMessage, null)
         }
     }
 

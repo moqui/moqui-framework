@@ -72,6 +72,7 @@ public interface WebFacade {
     List<Map> getScreenHistory();
 
     void sendJsonResponse(Object responseObj);
+    void sendJsonError(int statusCode, String message, Throwable origThrowable);
     void sendTextResponse(String text);
     void sendTextResponse(String text, String contentType, String filename);
     void sendResourceResponse(String location);

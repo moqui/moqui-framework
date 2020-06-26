@@ -14,6 +14,7 @@
 package org.moqui.impl.screen
 
 import groovy.transform.CompileStatic
+import org.moqui.impl.context.ContextJavaUtil
 import org.moqui.util.ContextStack
 import org.moqui.context.ValidationError
 import org.moqui.context.WebFacade
@@ -157,6 +158,10 @@ class WebFacadeStub implements WebFacade {
         responseWriter.append(jsonStr)
         logger.info("WebFacadeStub sendJsonResponse ${jsonStr.length()} chars")
         */
+    }
+    @Override
+    void sendJsonError(int statusCode, String message, Throwable origThrowable) {
+        WebFacadeImpl.sendJsonErrorInternal(statusCode, message, origThrowable, response)
     }
 
     @Override void sendTextResponse(String text) { sendTextResponse(text, "text/plain", null) }
