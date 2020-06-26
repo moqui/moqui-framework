@@ -1627,11 +1627,28 @@ class ScreenRenderImpl implements ScreenRender {
             }
             if (activeSubNode == null) activeSubNode = fieldNode.first("default-field")
         }
+        // logger.warn("field ${fieldName} activeSubNode ${activeSubNode?.toString()}")
         if (activeSubNode == null) return
 
         ArrayList<MNode> childNodeList = activeSubNode.getChildren()
-        for (int k = 0; k < childNodeList.size(); k++) {
+        int childNodeListSize = childNodeList.size()
+
+        // check 'set' elements used with widget-template-include
+        ArrayList<MNode> setNodeList = new ArrayList<>(childNodeListSize)
+        for (int k = 0; k < childNodeListSize; k++) {
             MNode widgetNode = (MNode) childNodeList.get(k)
+            if ("set".equals(widgetNode.getName())) setNodeList.add(widgetNode)
+        }
+        if (setNodeList.size() > 0) {
+            ec.contextStack.push()
+            for (int si = 0; si < setNodeList.size(); si++) { setInContext((MNode) setNodeList.get(si)) }
+        }
+
+        for (int k = 0; k < childNodeListSize; k++) {
+            MNode widgetNode = (MNode) childNodeList.get(k)
+            String widgetName = widgetNode.getName()
+            // set element used with widget-template-include, skip here
+            if ("set".equals(widgetName)) continue
 
             String valuePlainString = getFieldValuePlainString(fieldNode, "")
             if (valuePlainString == null || valuePlainString.isEmpty())
@@ -1640,7 +1657,6 @@ class ScreenRenderImpl implements ScreenRender {
                 valuePlainString = valuePlainString.substring(1, valuePlainString.length() - 1).replaceAll(" ", "")
             String[] currentValueArr = valuePlainString != null ? valuePlainString.split(",") : null
 
-            String widgetName = widgetNode.getName()
             if ("drop-down".equals(widgetName)) {
                 boolean allowMultiple = "true".equals(ec.resourceFacade.expandNoL10n(widgetNode.attribute("allow-multiple"), null))
                 if (allowMultiple) {
@@ -1650,7 +1666,7 @@ class ScreenRenderImpl implements ScreenRender {
                     fieldValues.put(fieldName, currentValueArr[0])
                 }
                 if (ec.resourceFacade.expandNoL10n(widgetNode.attribute("show-not"), "") == "true") {
-                    fieldValues.put(fieldName + "_not", ec.getWeb()?.getParameters()?.get(fieldName + "_not"))
+                    fieldValues.put(fieldName + "_not", ec.getWeb()?.getParameters()?.get(fieldName + "_not") ?: "N")
                 }
             } else if ("text-line".equals(widgetName)) {
                 fieldValues.put(fieldName, getFieldValueString(widgetNode))
@@ -1739,18 +1755,20 @@ class ScreenRenderImpl implements ScreenRender {
 
                 String notName = fieldName + "_not"
                 String notValue = ec.getWeb()?.getParameters()?.get(notName)
-                fieldValues.put(notName, notValue)
+                fieldValues.put(notName, notValue ?: "N")
 
                 String icName = fieldName + "_ic"
                 String icAttr = widgetNode.attribute("ignore-case")
                 String icValue = ec.getWeb()?.getParameters()?.get(icName)
                 if ((icValue == null || icValue.isEmpty()) && (icAttr == null || icAttr.isEmpty() || icAttr.equals("true"))) icValue = "Y"
-                fieldValues.put(icName, icValue)
+                fieldValues.put(icName, icValue ?: "N")
             } else {
                 // unknown/other type
                 fieldValues.put(fieldName, valuePlainString)
             }
         }
+
+        if (setNodeList.size() > 0) ec.contextStack.pop()
     }
 
     LinkedHashMap<String, String> getFieldOptions(MNode widgetNode) {
