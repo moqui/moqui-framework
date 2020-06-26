@@ -1573,26 +1573,60 @@ class ScreenRenderImpl implements ScreenRender {
         int afnSize = allFieldNodes.size()
         for (int i = 0; i < afnSize; i++) {
             MNode fieldNode = (MNode) allFieldNodes.get(i)
-            addFormFieldValue(fieldNode, fieldValues)
+            addFormFieldValue(fieldNode, fieldValues, false)
         }
         return fieldValues
     }
+
+    Map<String, Object> getFormListHeaderValues(MNode formNode) {
+        Map<String, Object> fieldValues = new LinkedHashMap<>()
+
+        ArrayList<MNode> allFieldNodes = formNode.children("field")
+        int afnSize = allFieldNodes.size()
+        for (int i = 0; i < afnSize; i++) {
+            MNode fieldNode = (MNode) allFieldNodes.get(i)
+            addFormFieldValue(fieldNode, fieldValues, true)
+        }
+
+        // add orderByField
+        String orderByFieldAll = ec.contextStack.getByString("orderByField")
+        if (orderByFieldAll != null && !orderByFieldAll.isEmpty()) {
+            fieldValues.put("orderByField", new ArrayList(Arrays.asList(orderByFieldAll.split(","))))
+        } else {
+            fieldValues.put("orderByField", new ArrayList())
+        }
+
+        // formListFindId
+        String formListFindId = ec.contextStack.getByString("formListFindId")
+        if (formListFindId != null && !formListFindId.isEmpty()) fieldValues.put("formListFindId", formListFindId)
+        // pageSize
+        String listName = formNode.attribute("list")
+        Object pageSize = ec.contextStack.getByString(listName + "PageSize") ?: ec.contextStack.getByString("pageSize")
+        if (pageSize) fieldValues.put("pageSize", pageSize.toString())
+
+        return fieldValues
+    }
+
     // NOTE: this takes a fieldValues Map as a parameter to populate because a singe form field may have multiple values
-    void addFormFieldValue(MNode fieldNode, Map<String, Object> fieldValues) {
+    void addFormFieldValue(MNode fieldNode, Map<String, Object> fieldValues, boolean useHeader) {
         String fieldName = fieldNode.attribute("name")
 
         MNode activeSubNode = (MNode) null
-        ArrayList<MNode> condFieldNodeList = fieldNode.children("conditional-field")
-        for (int j = 0; j < condFieldNodeList.size(); j++) {
-            MNode condFieldNode = (MNode) condFieldNodeList.get(j)
-            String condition = condFieldNode.attribute("condition")
-            if (condition == null || condition.isEmpty()) {
-                logger.warn("Screen ${activeScreenDef.getScreenName()} field ${fieldName} conditional-field has no condition, skipping")
-                continue
+        if (useHeader) {
+            activeSubNode = fieldNode.first("header-field")
+        } else {
+            ArrayList<MNode> condFieldNodeList = fieldNode.children("conditional-field")
+            for (int j = 0; j < condFieldNodeList.size(); j++) {
+                MNode condFieldNode = (MNode) condFieldNodeList.get(j)
+                String condition = condFieldNode.attribute("condition")
+                if (condition == null || condition.isEmpty()) {
+                    logger.warn("Screen ${activeScreenDef.getScreenName()} field ${fieldName} conditional-field has no condition, skipping")
+                    continue
+                }
+                if (ec.resourceFacade.condition(condition, null)) activeSubNode = condFieldNode
             }
-            if (ec.resourceFacade.condition(condition, null)) activeSubNode = condFieldNode
+            if (activeSubNode == null) activeSubNode = fieldNode.first("default-field")
         }
-        if (activeSubNode == null) activeSubNode = fieldNode.first("default-field")
         if (activeSubNode == null) return
 
         ArrayList<MNode> childNodeList = activeSubNode.getChildren()
@@ -1611,8 +1645,12 @@ class ScreenRenderImpl implements ScreenRender {
                 boolean allowMultiple = "true".equals(ec.resourceFacade.expandNoL10n(widgetNode.attribute("allow-multiple"), null))
                 if (allowMultiple) {
                     fieldValues.put(fieldName, new ArrayList(Arrays.asList(currentValueArr)))
+                    fieldValues.put(fieldName + "_op", "in")
                 } else {
                     fieldValues.put(fieldName, currentValueArr[0])
+                }
+                if (ec.resourceFacade.expandNoL10n(widgetNode.attribute("show-not"), "") == "true") {
+                    fieldValues.put(fieldName + "_not", ec.getWeb()?.getParameters()?.get(fieldName + "_not"))
                 }
             } else if ("text-line".equals(widgetName)) {
                 fieldValues.put(fieldName, getFieldValueString(widgetNode))
@@ -1694,14 +1732,19 @@ class ScreenRenderImpl implements ScreenRender {
                 fieldValues.put(fieldName, getFieldValueString(widgetNode))
             } else if ("text-find".equals(widgetName)) {
                 fieldValues.put(fieldName, getFieldValueString(widgetNode))
+
                 String opName = fieldName + "_op"
                 String opValue = ec.getWeb()?.getParameters()?.get(opName) ?: widgetNode.attribute("default-operator") ?: "contains"
                 fieldValues.put(opName, opValue)
+
                 String notName = fieldName + "_not"
                 String notValue = ec.getWeb()?.getParameters()?.get(notName)
                 fieldValues.put(notName, notValue)
+
                 String icName = fieldName + "_ic"
+                String icAttr = widgetNode.attribute("ignore-case")
                 String icValue = ec.getWeb()?.getParameters()?.get(icName)
+                if ((icValue == null || icValue.isEmpty()) && (icAttr == null || icAttr.isEmpty() || icAttr.equals("true"))) icValue = "Y"
                 fieldValues.put(icName, icValue)
             } else {
                 // unknown/other type
@@ -1875,7 +1918,7 @@ class ScreenRenderImpl implements ScreenRender {
             MNode doNode = (MNode) doNodeList.get(i)
             String doField = doNode.attribute("field")
             String doParameter = doNode.attribute("parameter") ?: doField
-            Object contextVal = ec.context.get(doField)
+            Object contextVal = ec.contextStack.get(doField)
             if (ObjectUtilities.isEmpty(contextVal) && ec.contextStack.get("_formMap") != null)
                 contextVal = ((Map) ec.contextStack.get("_formMap")).get(doField)
             if (ObjectUtilities.isEmpty(contextVal)) {
