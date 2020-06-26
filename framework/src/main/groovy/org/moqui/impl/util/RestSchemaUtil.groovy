@@ -574,7 +574,7 @@ class RestSchemaUtil {
             // if there was a login error there will be a MessageFacade error message
             String errorMessage = eci.message.errorsString
             if (!errorMessage) errorMessage = "Authentication required for entity REST schema"
-            eci.webImpl.sendJsonError(HttpServletResponse.SC_UNAUTHORIZED, errorMessage)
+            eci.webImpl.sendJsonError(HttpServletResponse.SC_UNAUTHORIZED, errorMessage, null)
             return
         }
 
@@ -635,7 +635,7 @@ class RestSchemaUtil {
             try {
                 EntityDefinition ed = efi.getEntityDefinition(entityName)
                 if (ed == null) {
-                    eci.webImpl.sendJsonError(HttpServletResponse.SC_BAD_REQUEST, "No entity found with name or alias [${entityName}]")
+                    eci.webImpl.sendJsonError(HttpServletResponse.SC_BAD_REQUEST, "No entity found with name or alias [${entityName}]", null)
                     return
                 }
 
@@ -650,7 +650,7 @@ class RestSchemaUtil {
                 eci.webImpl.sendTextResponse(jsonStr, "application/schema+json", "${entityName}.schema.json")
             } catch (EntityNotFoundException e) {
                 if (logger.isTraceEnabled()) logger.trace("In entity REST schema entity not found: " + e.toString())
-                eci.webImpl.sendJsonError(HttpServletResponse.SC_BAD_REQUEST, "No entity found with name or alias [${entityName}]")
+                eci.webImpl.sendJsonError(HttpServletResponse.SC_BAD_REQUEST, "No entity found with name or alias [${entityName}]", null)
             }
         }
     }
@@ -661,7 +661,7 @@ class RestSchemaUtil {
             // if there was a login error there will be a MessageFacade error message
             String errorMessage = eci.message.errorsString
             if (!errorMessage) errorMessage = "Authentication required for entity REST schema"
-            eci.webImpl.sendJsonError(HttpServletResponse.SC_UNAUTHORIZED, errorMessage)
+            eci.webImpl.sendJsonError(HttpServletResponse.SC_UNAUTHORIZED, errorMessage, null)
             return
         }
 
@@ -732,7 +732,7 @@ class RestSchemaUtil {
 
     static void handleEntityRestSwagger(ExecutionContextImpl eci, List<String> extraPathNameList, String basePath, boolean getMaster) {
         if (extraPathNameList.size() == 0) {
-            eci.webImpl.sendJsonError(HttpServletResponse.SC_BAD_REQUEST, "No entity name specified in path (for all entities use 'all')")
+            eci.webImpl.sendJsonError(HttpServletResponse.SC_BAD_REQUEST, "No entity name specified in path (for all entities use 'all')", null)
             return
         }
 
@@ -815,13 +815,13 @@ class RestSchemaUtil {
 
             eci.webImpl.sendTextResponse(yamlString, "application/yaml", "${filename}.swagger.yaml")
         } else {
-            eci.webImpl.sendJsonError(HttpServletResponse.SC_BAD_REQUEST, "Output type ${outputType} not supported")
+            eci.webImpl.sendJsonError(HttpServletResponse.SC_BAD_REQUEST, "Output type ${outputType} not supported", null)
         }
     }
 
     static void handleServiceRestSwagger(ExecutionContextImpl eci, List<String> extraPathNameList, String basePath) {
         if (extraPathNameList.size() == 0) {
-            eci.webImpl.sendJsonError(HttpServletResponse.SC_BAD_REQUEST, "No root resource name specified in path")
+            eci.webImpl.sendJsonError(HttpServletResponse.SC_BAD_REQUEST, "No root resource name specified in path", null)
             return
         }
 
@@ -859,13 +859,13 @@ class RestSchemaUtil {
 
             eci.webImpl.sendTextResponse(yamlString, "application/yaml", "${filenameBase}swagger.yaml")
         } else {
-            eci.webImpl.sendJsonError(HttpServletResponse.SC_BAD_REQUEST, "Output type ${outputType} not supported")
+            eci.webImpl.sendJsonError(HttpServletResponse.SC_BAD_REQUEST, "Output type ${outputType} not supported", null)
         }
     }
 
     static void handleServiceRestRaml(ExecutionContextImpl eci, List<String> extraPathNameList, String linkPrefix) {
         if (extraPathNameList.size() == 0) {
-            eci.webImpl.sendJsonError(HttpServletResponse.SC_BAD_REQUEST, "No root resource name specified in path")
+            eci.webImpl.sendJsonError(HttpServletResponse.SC_BAD_REQUEST, "No root resource name specified in path", null)
             return
         }
         String rootResourceName = extraPathNameList.get(0)

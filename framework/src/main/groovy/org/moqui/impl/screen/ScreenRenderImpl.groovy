@@ -2059,11 +2059,11 @@ class ScreenRenderImpl implements ScreenRender {
     }
 
     List<Map> getMenuData(ArrayList<String> pathNameList) {
-        if (!ec.user.userId) { ec.web.sendError(401, "Authentication required", null); return null }
+        if (!ec.user.userId) { ec.web.sendJsonError(401, "Authentication required", null); return null }
         ScreenUrlInfo fullUrlInfo = ScreenUrlInfo.getScreenUrlInfo(this, rootScreenDef, pathNameList, null, 0)
-        if (!fullUrlInfo.targetExists) { ec.web.sendError(404, "Screen not found for path ${pathNameList}", null); return null }
+        if (!fullUrlInfo.targetExists) { ec.web.sendJsonError(404, "Screen not found for path ${pathNameList}", null); return null }
         UrlInstance fullUrlInstance = fullUrlInfo.getInstance(this, null)
-        if (!fullUrlInstance.isPermitted()) { ec.web.sendError(403, "View not permitted for path ${pathNameList}", null); return null }
+        if (!fullUrlInstance.isPermitted()) { ec.web.sendJsonError(403, "View not permitted for path ${pathNameList}", null); return null }
 
         ArrayList<String> fullPathList = fullUrlInfo.fullPathNameList
         int fullPathSize = fullPathList.size()
