@@ -1666,7 +1666,7 @@ class ScreenRenderImpl implements ScreenRender {
                     fieldValues.put(fieldName, currentValueArr[0])
                 }
                 if (ec.resourceFacade.expandNoL10n(widgetNode.attribute("show-not"), "") == "true") {
-                    fieldValues.put(fieldName + "_not", ec.getWeb()?.getParameters()?.get(fieldName + "_not") ?: "N")
+                    fieldValues.put(fieldName + "_not", ec.contextStack.getByString(fieldName + "_not") ?: "N")
                 }
             } else if ("text-line".equals(widgetName)) {
                 fieldValues.put(fieldName, getFieldValueString(widgetNode))
@@ -1683,16 +1683,16 @@ class ScreenRenderImpl implements ScreenRender {
             } else if ("date-find".equals(widgetName)) {
                 String type = widgetNode.attribute("type")
                 String defaultFormat = "date".equals(type) ? "yyyy-MM-dd" : ("time".equals(type) ? "HH:mm" : "yyyy-MM-dd HH:mm")
-                String fieldValueFrom = ec.l10nFacade.format(ec.getWeb()?.getParameters()?.get(fieldName + "_from") ?: widgetNode.attribute("default-value-from"), defaultFormat)
-                String fieldValueThru = ec.l10nFacade.format(ec.getWeb()?.getParameters()?.get(fieldName + "_thru") ?: widgetNode.attribute("default-value-thru"), defaultFormat)
+                String fieldValueFrom = ec.l10nFacade.format(ec.contextStack.getByString(fieldName + "_from") ?: widgetNode.attribute("default-value-from"), defaultFormat)
+                String fieldValueThru = ec.l10nFacade.format(ec.contextStack.getByString(fieldName + "_thru") ?: widgetNode.attribute("default-value-thru"), defaultFormat)
                 fieldValues.put(fieldName + "_from", fieldValueFrom)
                 fieldValues.put(fieldName + "_thru", fieldValueThru)
             } else if ("date-period".equals(widgetName)) {
-                fieldValues.put(fieldName + "_poffset", ec.getWeb()?.getParameters()?.get(fieldName + "_poffset"))
-                fieldValues.put(fieldName + "_period", ec.getWeb()?.getParameters()?.get(fieldName + "_period"))
-                fieldValues.put(fieldName + "_pdate", ec.getWeb()?.getParameters()?.get(fieldName + "_pdate"))
-                fieldValues.put(fieldName + "_from", ec.getWeb()?.getParameters()?.get(fieldName + "_from"))
-                fieldValues.put(fieldName + "_thru", ec.getWeb()?.getParameters()?.get(fieldName + "_thru"))
+                fieldValues.put(fieldName + "_poffset", ec.contextStack.getByString(fieldName + "_poffset"))
+                fieldValues.put(fieldName + "_period", ec.contextStack.getByString(fieldName + "_period"))
+                fieldValues.put(fieldName + "_pdate", ec.contextStack.getByString(fieldName + "_pdate"))
+                fieldValues.put(fieldName + "_from", ec.contextStack.getByString(fieldName + "_from"))
+                fieldValues.put(fieldName + "_thru", ec.contextStack.getByString(fieldName + "_thru"))
             } else if ("date-time".equals(widgetName)) {
                 String type = widgetNode.attribute("type")
                 String javaFormat = "date".equals(type) ? "yyyy-MM-dd" : ("time".equals(type) ? "HH:mm" : "yyyy-MM-dd HH:mm")
@@ -1742,24 +1742,24 @@ class ScreenRenderImpl implements ScreenRender {
             } else if ("radio".equals(widgetName)) {
                 fieldValues.put(fieldName, getFieldValueString(fieldNode, widgetNode.attribute("no-current-selected-key"), null))
             } else if ("range-find".equals(widgetName)) {
-                fieldValues.put(fieldName + "_from", ec.getWeb()?.getParameters()?.get(fieldName + "_from"))
-                fieldValues.put(fieldName + "_thru", ec.getWeb()?.getParameters()?.get(fieldName + "_thru"))
+                fieldValues.put(fieldName + "_from", ec.contextStack.getByString(fieldName + "_from"))
+                fieldValues.put(fieldName + "_thru", ec.contextStack.getByString(fieldName + "_thru"))
             } else if ("text-area".equals(widgetName)) {
                 fieldValues.put(fieldName, getFieldValueString(widgetNode))
             } else if ("text-find".equals(widgetName)) {
                 fieldValues.put(fieldName, getFieldValueString(widgetNode))
 
                 String opName = fieldName + "_op"
-                String opValue = ec.getWeb()?.getParameters()?.get(opName) ?: widgetNode.attribute("default-operator") ?: "contains"
+                String opValue = ec.contextStack.getByString(opName) ?: widgetNode.attribute("default-operator") ?: "contains"
                 fieldValues.put(opName, opValue)
 
                 String notName = fieldName + "_not"
-                String notValue = ec.getWeb()?.getParameters()?.get(notName)
+                String notValue = ec.contextStack.getByString(notName)
                 fieldValues.put(notName, notValue ?: "N")
 
                 String icName = fieldName + "_ic"
                 String icAttr = widgetNode.attribute("ignore-case")
-                String icValue = ec.getWeb()?.getParameters()?.get(icName)
+                String icValue = ec.contextStack.getByString(icName)
                 if ((icValue == null || icValue.isEmpty()) && (icAttr == null || icAttr.isEmpty() || icAttr.equals("true"))) icValue = "Y"
                 fieldValues.put(icName, icValue ?: "N")
             } else {
