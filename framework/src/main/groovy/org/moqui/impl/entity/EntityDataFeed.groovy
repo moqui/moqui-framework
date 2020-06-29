@@ -344,6 +344,7 @@ class EntityDataFeed {
                     String relEntityName = relInfo.relatedEntityName
                     EntityDefinition relEd = relInfo.relatedEd
 
+                    // TODO: handle entity used multiple times on different paths, perhaps with List<DocumentEntityInfo> in Map
                     // add entry for the related entity
                     if (!entityInfoMap.containsKey(relEntityName)) entityInfoMap.put(relEntityName,
                             new DocumentEntityInfo(relEntityName, dataDocumentId, primaryEntityName,
