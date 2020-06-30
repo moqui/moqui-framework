@@ -51,6 +51,7 @@ along with this software (see the LICENSE.md file). If not, see
         <description>Index all documents associated with the feed within the date range. Recommend calling through the IndexDataFeedDocuments service job.</description>
         <in-parameters>
             <parameter name="dataFeedId" required="true"/>
+            <parameter name="dataDocumentId"/>
             <parameter name="fromUpdateStamp" type="Timestamp"/>
             <parameter name="thruUpdateStamp" type="Timestamp"/>
             <parameter name="batchSize" type="Integer" default="1000"/>
@@ -60,9 +61,14 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <set field="startTime" from="System.currentTimeMillis()"/>
             <entity-find-one entity-name="moqui.entity.feed.DataFeed" value-field="df" cache="true"/>
-            <if condition="df == null"><return type="danger" message="No DataFeed found for ID ${dataFeedId}"/></if>
+            <if condition="df == null"><return error="true" message="No DataFeed found for ID ${dataFeedId}"/></if>
+
             <entity-find entity-name="moqui.entity.feed.DataFeedDocument" list="dfDocList" cache="true">
-                <econdition field-name="dataFeedId"/></entity-find>
+                <econdition field-name="dataFeedId"/>
+                <econdition field-name="dataDocumentId" ignore-if-empty="true"/>
+            </entity-find>
+
+            <if condition="!dfDocList"><return error="true" message="No DataDocuments found for DataFeed ID ${dataFeedId}${dataDocumentId ? ' and DataDocument ID ' + dataDocumentId : ''}"/></if>
 
             <set field="documentsIndexed" from="0"/>
             <script><![CDATA[
