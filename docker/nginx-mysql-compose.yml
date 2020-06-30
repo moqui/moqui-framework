@@ -6,6 +6,9 @@
 # $ docker-compose -f nginx-mysql-compose.yml -p moqui up -d
 # This sets the project/app name to 'moqui' and the network will be 'moqui_default', to be used by external moqui containers
 
+# To import data using port 3306 mapped for 127.0.0.1 only use something like from the docker host:
+# $ mysql -p -u root -h 127.0.0.1 moqui < mysql-export.sql
+
 version: "2"
 services:
   nginx-proxy:
