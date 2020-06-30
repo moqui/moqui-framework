@@ -6,6 +6,9 @@
 # $ docker-compose -f nginx-postgres-compose.yml -p moqui up -d
 # This sets the project/app name to 'moqui' and the network will be 'moqui_default', to be used by external moqui containers
 
+# To import data using port 5432 mapped for 127.0.0.1 only use something like this from the docker host:
+# $ psql -h 127.0.0.1 -p 5432 -U moqui -W moqui < pg-dump.sql
+
 version: "2"
 services:
   nginx-proxy:
