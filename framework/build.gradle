@@ -133,7 +133,7 @@ dependencies {
     compile 'com.h2database:h2:1.4.200' // MPL 2.0, EPL 1.0
 
     // Jackson Databind (JSON, etc)
-    compile 'com.fasterxml.jackson.core:jackson-databind:2.10.3'
+    compile 'com.fasterxml.jackson.core:jackson-databind:2.11.0'
 
     // Jetty HTTP Client and Proxy Servlet
     compile 'org.eclipse.jetty:jetty-client:9.4.27.v20200227' // Apache 2.0
