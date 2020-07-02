@@ -26,6 +26,7 @@ import org.moqui.impl.entity.condition.ConditionAlias
 import org.moqui.impl.entity.condition.ConditionField
 import org.moqui.impl.entity.condition.FieldValueCondition
 import org.moqui.util.CollectionUtilities
+import org.moqui.util.LiteStringMap
 import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -283,7 +284,8 @@ class EntityDataDocument {
 
         DataDocumentInfo ddi = new DataDocumentInfo(dataDocumentId, efi)
 
-        Timestamp docTimestamp = thruUpdatedStamp != (Timestamp) null ? thruUpdatedStamp : new Timestamp(System.currentTimeMillis())
+        long startTimeMillis = System.currentTimeMillis()
+        Timestamp docTimestamp = thruUpdatedStamp != (Timestamp) null ? thruUpdatedStamp : new Timestamp(startTimeMillis)
         String docTsString = docTimestamp.toInstant().atZone(ZoneOffset.UTC.normalized()).format(DateTimeFormatter.ISO_INSTANT)
 
         boolean hasAllPrimaryPks = ddi.hasAllPrimaryPks
@@ -302,6 +304,7 @@ class EntityDataDocument {
         int docCount = 0
         EntityListIterator mainEli = mainFind.iterator()
         try {
+            logger.info("Feed dataDocumentId ${dataDocumentId} query complete (cursor opened) in ${System.currentTimeMillis() - startTimeMillis}ms")
             EntityValue ev
             while ((ev = (EntityValue) mainEli.next()) != null) {
                 String curDocId = ddi.makeDocId(ev)
@@ -315,8 +318,7 @@ class EntityDataDocument {
                         // logger.warn("curDocId ${curDocId} lastDocId ${lastDocId}")
 
                         if (hasAllPrimaryPks) {
-                            documentMapList = new ArrayList<>(documentMapMap.size())
-                            documentMapList.addAll(documentMapMap.values())
+                            documentMapList = new ArrayList<>(documentMapMap.values())
                         }
                         postProcessDocMapList(documentMapList, ddi)
 
@@ -326,8 +328,11 @@ class EntityDataDocument {
                         if (efi.ecfi.getEci().messageFacade.hasError()) break
 
                         // dereference and reset queue Map or List
-                        documentMapMap = hasAllPrimaryPks ? new LinkedHashMap<String, Map>(batchSize + 10) : null
-                        documentMapList = hasAllPrimaryPks ? null : new ArrayList<Map>(batchSize + 10)
+                        if (documentMapMap != null) documentMapMap.clear()
+                        if (documentMapList != null) documentMapList.clear()
+                        // old approach with new objects:
+                        // documentMapMap = hasAllPrimaryPks ? new LinkedHashMap<String, Map>(batchSize + 10) : null
+                        // documentMapList = hasAllPrimaryPks ? null : new ArrayList<Map>(batchSize + 10)
                     }
                 }
 
@@ -336,8 +341,7 @@ class EntityDataDocument {
             }
             // feed remaining documents
             if (documentMapMap != null && documentMapMap.size() > 0) {
-                documentMapList = new ArrayList<>(documentMapMap.size())
-                documentMapList.addAll(documentMapMap.values())
+                documentMapList = new ArrayList<>(documentMapMap.values())
             }
             if (documentMapList != null && documentMapList.size() > 0) {
                 postProcessDocMapList(documentMapList, ddi)
@@ -346,6 +350,7 @@ class EntityDataDocument {
             }
         } finally {
             mainEli.close()
+            logger.info("Feed dataDocumentId ${dataDocumentId} feed complete and cursor closed in ${System.currentTimeMillis() - startTimeMillis}ms")
         }
 
         logger.info("Fed ${docCount} data documents for dataDocumentId ${dataDocumentId} to service ${feedReceiveServiceName}")
@@ -398,10 +403,10 @@ class EntityDataDocument {
           - nested List of Maps for each related entity with aliased fields with relationship name as key
          */
         String docId = ddi.makeDocId(ev)
-        Map<String, Object> docMap = ddi.hasAllPrimaryPks ? (documentMapMap.get(docId) as Map<String, Object>) : null
+        Map<String, Object> docMap = ddi.hasAllPrimaryPks ? ((Map<String, Object>) documentMapMap.get(docId)) : (Map<String, Object>) null
         if (docMap == null) {
             // add special entries
-            docMap = new LinkedHashMap<>()
+            docMap = new LiteStringMap()
             docMap.put("_type", ddi.dataDocumentId)
             if (docId) docMap.put("_id", docId)
             docMap.put('_timestamp', docTsString)
@@ -410,7 +415,6 @@ class EntityDataDocument {
             docMap.put('_entity', ddi.primaryEd.getShortOrFullEntityName())
 
             // add Map for primary entity
-            Map primaryEntityMap = [:]
             for (Map.Entry<String, Object> fieldTreeEntry in ddi.fieldTree.entrySet()) {
                 Object entryValue = fieldTreeEntry.getValue()
                 // if ("_ALIAS".equals(fieldTreeEntry.getKey())) continue
@@ -421,12 +425,10 @@ class EntityDataDocument {
                     for (int i = 0; i < fieldAliasList.size(); i++) {
                         String fieldAlias = (String) fieldAliasList.get(i)
                         Object curVal = ev.get(fieldAlias)
-                        if (curVal != null) primaryEntityMap.put(fieldAlias, curVal)
+                        if (curVal != null) docMap.put(fieldAlias, curVal)
                     }
                 }
             }
-            // docMap.put((String) relationshipAliasMap.get(primaryEntityName) ?: primaryEntityName, primaryEntityMap)
-            docMap.putAll(primaryEntityMap)
 
             if (ddi.hasAllPrimaryPks) documentMapMap.put(docId, docMap)
             else documentMapList.add(docMap)
@@ -447,10 +449,15 @@ class EntityDataDocument {
                 // logger.warn("Calling ${manualDataServiceName} with doc: ${docMap}")
                 Map result = efi.ecfi.serviceFacade.sync().name(manualDataServiceName)
                         .parameter("dataDocumentId", ddi.dataDocumentId).parameter("document", docMap).call()
-                Map outDoc = (Map<String, Object>) result.get("document")
-                if (outDoc != null && outDoc.size() > 0) {
-                    docMap = outDoc
-                    documentMapList.set(i, docMap)
+                if (result == null || efi.ecfi.getEci().messageFacade.hasError()) {
+                    logger.error("Error calling manual data service for ${ddi.dataDocumentId}, document may be missing data: ${efi.ecfi.getEci().messageFacade.getErrorsString()}")
+                    efi.ecfi.getEci().messageFacade.clearErrors()
+                } else {
+                    Map outDoc = (Map<String, Object>) result.get("document")
+                    if (outDoc != null && outDoc.size() > 0) {
+                        docMap = outDoc
+                        documentMapList.set(i, docMap)
+                    }
                 }
             }
 
@@ -547,18 +554,26 @@ class EntityDataDocument {
                 } else {
                     List<Map> relatedEntityDocList = (List<Map>) curDocMap.get(relDocumentAlias)
                     if (relatedEntityDocList != null) for (Map childMap in relatedEntityDocList) {
-                        Map<String, Object> newParentsMap = new HashMap<>()
-                        if (parentsMap != null) parentsMap.putAll(parentsMap)
-                        newParentsMap.putAll(curDocMap)
+                        Map<String, Object> newParentsMap
+                        if (parentsMap != null) {
+                            newParentsMap = new HashMap<String, Object>(parentsMap)
+                            newParentsMap.putAll(curDocMap)
+                        } else {
+                            newParentsMap = curDocMap
+                        }
                         runDocExpressions(childMap, newParentsMap, relatedEd, fieldTreeChild, relationshipAliasMap)
                     }
                 }
             } else if (fieldEntryValue instanceof ArrayList) {
                 if (fieldEntryKey.startsWith("(")) {
                     // run expression to get value, set for all aliases (though will always be one)
-                    Map<String, Object> evalMap = new HashMap<>()
-                    if (parentsMap != null) evalMap.putAll(parentsMap)
-                    evalMap.putAll(curDocMap)
+                    Map<String, Object> evalMap
+                    if (parentsMap != null) {
+                        evalMap = new HashMap<String, Object>(parentsMap)
+                        evalMap.putAll(curDocMap)
+                    } else {
+                        evalMap = curDocMap
+                    }
                     try {
                         Object curVal = efi.ecfi.resourceFacade.expression(fieldEntryKey, null, evalMap)
                         if (curVal != null) {
@@ -596,7 +611,7 @@ class EntityDataDocument {
                     populateDataDocRelatedMap(ev, parentDocMap, relatedEd, fieldTreeChild, relationshipAliasMap, true)
                 } else {
                     // we need a List of Maps
-                    Map relatedEntityDocMap = null
+                    Map relatedEntityDocMap = (Map) null
 
                     // see if there is a Map in the List in the matching entry
                     List<Map> relatedEntityDocList = (List<Map>) parentDocMap.get(relDocumentAlias)
@@ -625,12 +640,13 @@ class EntityDataDocument {
 
                     if (relatedEntityDocMap == null) {
                         // no matching Map? create a new one... and it will get populated in the recursive call
-                        relatedEntityDocMap = new LinkedHashMap()
+                        relatedEntityDocMap = new LiteStringMap()
                         // now time to recurse
                         populateDataDocRelatedMap(ev, relatedEntityDocMap, relatedEd, fieldTreeChild, relationshipAliasMap, true)
-                        if (relatedEntityDocMap) {
+                        if (relatedEntityDocMap.size() > 0) {
                             if (relatedEntityDocList == null) {
-                                relatedEntityDocList = []
+                                // use ArrayList internally, avoid new object per entry with LinkedList
+                                relatedEntityDocList = new ArrayList<>()
                                 parentDocMap.put(relDocumentAlias, relatedEntityDocList)
                             }
                             relatedEntityDocList.add(relatedEntityDocMap)

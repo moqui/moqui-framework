@@ -376,15 +376,39 @@ public class CollectionUtilities {
 
     /** Find all values of a named field in a nested Map containing fields, Maps, and Collections of Maps (Lists, etc) */
     public static void findAllFieldsNestedMap(String key, Map theMap, Set<Object> valueSet) {
-        Object localValue = theMap.get(key);
-        if (localValue != null) valueSet.add(localValue);
-        for (Object value : theMap.values()) {
-            if (value instanceof Map) {
-                findAllFieldsNestedMap(key, (Map) value, valueSet);
-            } else if (value instanceof Collection) {
-                // only look in Collections of Maps
-                for (Object colValue : (Collection) value) {
-                    if (colValue instanceof Map) findAllFieldsNestedMap(key, (Map) colValue, valueSet);
+        if (theMap instanceof LiteStringMap) {
+            LiteStringMap lsm = (LiteStringMap) theMap;
+            int keyLength = key != null ? key.length() : 0;
+            int keyHashCode = key != null ? key.hashCode() : 0;
+            boolean foundKey = false;
+            int lsmSize = lsm.size();
+            for (int i = 0; i < lsmSize; i++) {
+                String curKey = lsm.getKey(i);
+                Object curValue = lsm.getValue(i);
+                if (!foundKey && keyLength == curKey.length() && keyHashCode == curKey.hashCode() && curKey.equals(key)) {
+                    foundKey = true;
+                    if (curValue != null) valueSet.add(curValue);
+                }
+                if (curValue instanceof Map) {
+                    findAllFieldsNestedMap(key, (Map) curValue, valueSet);
+                } else if (curValue instanceof Collection) {
+                    // only look in Collections of Maps
+                    for (Object colValue : (Collection) curValue) {
+                        if (colValue instanceof Map) findAllFieldsNestedMap(key, (Map) colValue, valueSet);
+                    }
+                }
+            }
+        } else {
+            Object localValue = theMap.get(key);
+            if (localValue != null) valueSet.add(localValue);
+            for (Object value : theMap.values()) {
+                if (value instanceof Map) {
+                    findAllFieldsNestedMap(key, (Map) value, valueSet);
+                } else if (value instanceof Collection) {
+                    // only look in Collections of Maps
+                    for (Object colValue : (Collection) value) {
+                        if (colValue instanceof Map) findAllFieldsNestedMap(key, (Map) colValue, valueSet);
+                    }
                 }
             }
         }

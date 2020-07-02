@@ -30,6 +30,7 @@ import org.moqui.entity.EntityValue;
 import org.moqui.impl.entity.EntityValueBase;
 import org.moqui.impl.screen.ScreenRenderImpl;
 import org.moqui.util.ContextStack;
+import org.moqui.util.LiteStringMap;
 import org.moqui.util.ObjectUtilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -470,6 +471,7 @@ public class ContextJavaUtil {
         // Jackson custom serializers, etc
         SimpleModule module = new SimpleModule();
         module.addSerializer(GString.class, new ContextJavaUtil.GStringJsonSerializer());
+        module.addSerializer(LiteStringMap.class, new ContextJavaUtil.LiteStringMapJsonSerializer());
         jacksonMapper.registerModule(module);
     }
     static class GStringJsonSerializer extends StdSerializer<GString> {
@@ -491,6 +493,20 @@ public class ContextJavaUtil {
                     gen.writeNumber(time);
                 }
             }
+        }
+    }
+    static class LiteStringMapJsonSerializer extends StdSerializer<LiteStringMap> {
+        LiteStringMapJsonSerializer() { super(LiteStringMap.class); }
+        @Override public void serialize(LiteStringMap lsm, JsonGenerator gen, SerializerProvider serializers)
+                throws IOException, JsonProcessingException {
+            gen.writeStartObject();
+            if (lsm != null) {
+                int size = lsm.size();
+                for (int i = 0; i < size; i++) {
+                    gen.writeObjectField(lsm.getKey(i), lsm.getValue(i));
+                }
+            }
+            gen.writeEndObject();
         }
     }
 

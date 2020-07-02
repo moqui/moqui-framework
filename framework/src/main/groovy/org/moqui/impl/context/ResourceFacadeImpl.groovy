@@ -487,6 +487,7 @@ class ResourceFacadeImpl implements ResourceFacade {
                 if (additionalContext instanceof EntityValueBase) cs.push(((EntityValueBase) additionalContext).getValueMap())
                 else cs.push(additionalContext)
                 // do another push so writes to the context don't modify the passed in Map
+                // TODO: is this really necessary? is very memory inefficient; these expressions are meant to evaluate to a value, not generally to set anything
                 cs.push()
             }
             return expressionInternal(expr, debugLocation, ec)
