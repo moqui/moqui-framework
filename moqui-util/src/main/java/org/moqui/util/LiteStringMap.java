@@ -17,11 +17,12 @@ import java.util.*;
 
 /** Lightweight String/Object Map optimized for memory usage, slower than HashMap; this is most certainly not thread-safe */
 public class LiteStringMap implements Map<String, Object> {
-    private static int DEFAULT_CAPACITY = 32;
+    private static final int DEFAULT_CAPACITY = 32;
 
     private String[] keyArray;
     private Object[] valueArray;
     private int arrayIndex = -1;
+    private int mapHash = 0;
 
     public LiteStringMap() { init(DEFAULT_CAPACITY); }
     public LiteStringMap(int initialCapacity) { init(initialCapacity); }
@@ -118,6 +119,8 @@ public class LiteStringMap implements Map<String, Object> {
         return valueArray[keyIndex];
     }
 
+    /* ========= Start Mutate Methods ========= */
+
     @Override
     public Object put(String keyOrig, Object value) {
         if (keyOrig == null) throw new IllegalArgumentException("LiteStringMap Key may not be null");
@@ -128,10 +131,12 @@ public class LiteStringMap implements Map<String, Object> {
             if (arrayIndex >= keyArray.length) growArrays();
             keyArray[arrayIndex] = key;
             valueArray[arrayIndex] = value;
+            mapHash = 0;
             return null;
         } else {
             Object oldValue = valueArray[keyIndex];
             valueArray[keyIndex] = value;
+            mapHash = 0;
             return oldValue;
         }
     }
@@ -142,6 +147,7 @@ public class LiteStringMap implements Map<String, Object> {
         if (arrayIndex >= keyArray.length) growArrays();
         keyArray[arrayIndex] = key;
         valueArray[arrayIndex] = value;
+        mapHash = 0;
     }
 
     @Override
@@ -150,10 +156,20 @@ public class LiteStringMap implements Map<String, Object> {
         if (keyIndex == -1) {
             return null;
         } else {
-            // use very lazy approach, not even needed for primary use case of temporary Map assembly for nested Map/List structures to convert to JSON docs
-            // FUTURE: could improve to remove from array and shift all later elements back one, then size() and containsKey() would be correct following the call
             Object oldValue = valueArray[keyIndex];
-            valueArray[keyIndex] = null;
+            // shift all later values up one position
+            for (int i = keyIndex; i < arrayIndex; i++) {
+                keyArray[i] = keyArray[i+1];
+                valueArray[i] = valueArray[i+1];
+            }
+            // null the last values to avoid memory leak
+            keyArray[arrayIndex] = null;
+            valueArray[arrayIndex] = null;
+            // decrement last index
+            arrayIndex--;
+            // reset hash
+            mapHash = 0;
+            // done
             return oldValue;
         }
     }
@@ -184,6 +200,7 @@ public class LiteStringMap implements Map<String, Object> {
                 }
             }
         }
+        mapHash = 0;
     }
 
     @Override
@@ -191,11 +208,67 @@ public class LiteStringMap implements Map<String, Object> {
         arrayIndex = -1;
         Arrays.fill(keyArray, null);
         Arrays.fill(valueArray, null);
+        mapHash = 0;
     }
+
+    /* ========= End Mutate Methods ========= */
 
     @Override public Set<String> keySet() { return new KeySetWrapper(this); }
     @Override public Collection<Object> values() { return new ValueCollectionWrapper(this); }
     @Override public Set<Entry<String, Object>> entrySet() { return new EntrySetWrapper(this); }
+
+    @Override
+    public int hashCode() {
+        if (mapHash == 0) {
+            // NOTE: this mimics the HashMap implementation from AbstractMap.java for the outer (add entry hash codes) and HashMap.java for the Map.Entry impl
+            for (int i = 0; i <= arrayIndex; i++) {
+                mapHash += (keyArray[i] == null ? 0 : keyArray[i].hashCode()) ^ (valueArray[i] == null ? 0 : valueArray[i].hashCode());
+            }
+        }
+        return mapHash;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o instanceof LiteStringMap) {
+            LiteStringMap lsm = (LiteStringMap) o;
+            if (arrayIndex != lsm.arrayIndex) return false;
+            for (int i = 0; i <= arrayIndex; i++) {
+                // identity compare of interned String keys, if equal the value in the other LSM is conveniently at the same index
+                if (keyArray[i] == lsm.keyArray[i]) {
+                    if (!Objects.equals(valueArray[i], lsm.valueArray[i])) return false;
+                } else {
+                    Object value = lsm.get(keyArray[i]);
+                    if (!Objects.equals(valueArray[i], value)) return false;
+                }
+            }
+            return true;
+        } else if (o instanceof Map) {
+            Map map = (Map) o;
+            if (size() != map.size()) return false;
+            for (int i = 0; i <= arrayIndex; i++) {
+                Object value = map.get(keyArray[i]);
+                if (!Objects.equals(valueArray[i], value)) return false;
+            }
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    @Override protected Object clone() throws CloneNotSupportedException { return new LiteStringMap(this); }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append('[');
+        for (int i = 0; i <= arrayIndex; i++) {
+            if (i != 0) sb.append(", ");
+            sb.append(keyArray[i]).append(":").append(valueArray[i]);
+        }
+        sb.append(']');
+        return sb.toString();
+    }
 
     /* ========== Interface Wrapper Classes ========== */
 
