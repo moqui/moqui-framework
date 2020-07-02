@@ -14,7 +14,7 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
 
-    <service verb="index" noun="DataDocuments" authenticate="false" transaction-timeout="3600">
+    <service verb="index" noun="DataDocuments" authenticate="false" no-remember-parameters="true" transaction-timeout="3600">
         <implements service="org.moqui.EntityServices.receive#DataFeed"/>
         <in-parameters>
             <parameter name="dataFeedId" required="false"/>

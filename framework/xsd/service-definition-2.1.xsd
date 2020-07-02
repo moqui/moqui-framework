@@ -134,6 +134,16 @@ along with this software (see the LICENSE.md file). If not, see
                     not automatically remove unspecified parameters.</xs:documentation></xs:annotation>
             </xs:attribute>
 
+            <xs:attribute name="no-remember-parameters" type="boolean" default="false">
+                <xs:annotation><xs:documentation>
+                    If true do not remember parameters in ArtifactExecutionFacade history and stack, important for service calls
+                    with large parameters that should be de-referenced for GC before ExecutionContext is destroyed.
+
+                    Note that this attribute can be used on interface service definitions (service.@type=interface) and if true
+                    will be cause all services that implement the interface to have this set to true to disable parameter remember.
+                </xs:documentation></xs:annotation>
+            </xs:attribute>
+
             <xs:attribute name="transaction" default="use-or-begin" type="transaction-options"/>
             <xs:attribute name="transaction-timeout" type="xs:int">
                 <xs:annotation><xs:documentation>
