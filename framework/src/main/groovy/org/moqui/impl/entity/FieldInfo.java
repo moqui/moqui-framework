@@ -17,6 +17,7 @@ import org.moqui.BaseArtifactException;
 import org.moqui.entity.EntityException;
 import org.moqui.impl.context.L10nFacadeImpl;
 import org.moqui.impl.entity.condition.ConditionField;
+import org.moqui.util.LiteStringMap;
 import org.moqui.util.MNode;
 import org.moqui.util.ObjectUtilities;
 import org.slf4j.Logger;
@@ -70,6 +71,7 @@ public class FieldInfo {
         Map<String, String> fnAttrs = fieldNode.getAttributes();
         String nameAttr = fnAttrs.get("name");
         if (nameAttr == null) throw new EntityException("No name attribute specified for field in entity " + entityName);
+        // NOTE: intern a must here for use with LiteStringMap, without this all sorts of bad behavior, not finding any fields sort of thing
         name = nameAttr.intern();
         conditionField = new ConditionField(this);
         String columnNameAttr = fnAttrs.get("column-name");
@@ -274,7 +276,7 @@ public class FieldInfo {
         return outValue;
     }
 
-    void getResultSetValue(ResultSet rs, int index, Map<String, Object> valueMap, EntityFacadeImpl efi) throws EntityException {
+    void getResultSetValue(ResultSet rs, int index, LiteStringMap valueMap, EntityFacadeImpl efi) throws EntityException {
         if (typeValue == -1) throw new EntityException("No typeValue found for " + entityName + "." + name);
 
         Object value = null;
@@ -396,7 +398,7 @@ public class FieldInfo {
             }
         }
 
-        valueMap.put(name, value);
+        valueMap.putByIString(name, value);
     }
 
     private static final boolean checkPreparedStatementValueType = false;

@@ -16,6 +16,7 @@ package org.moqui.impl.entity;
 import org.moqui.entity.EntityException;
 import org.moqui.impl.entity.EntityJavaUtil.EntityConditionParameter;
 import org.moqui.impl.entity.EntityJavaUtil.FieldOrderOptions;
+import org.moqui.util.LiteStringMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -220,7 +221,7 @@ public class EntityQueryBuilder {
         }
     }
 
-    public void addWhereClause(FieldInfo[] pkFieldArray, Map<String, Object> valueMapInternal) {
+    public void addWhereClause(FieldInfo[] pkFieldArray, LiteStringMap valueMapInternal) {
         sqlTopLevel.append(" WHERE ");
         int sizePk = pkFieldArray.length;
         for (int i = 0; i < sizePk; i++) {
@@ -228,7 +229,7 @@ public class EntityQueryBuilder {
             if (fieldInfo == null) break;
             if (i > 0) sqlTopLevel.append(" AND ");
             sqlTopLevel.append(fieldInfo.getFullColumnName()).append("=?");
-            parameters.add(new EntityJavaUtil.EntityConditionParameter(fieldInfo, valueMapInternal.get(fieldInfo.name), this));
+            parameters.add(new EntityJavaUtil.EntityConditionParameter(fieldInfo, valueMapInternal.getByIString(fieldInfo.name), this));
         }
     }
 }

@@ -93,8 +93,7 @@ public class EntityValueImpl extends EntityValueBase {
                 for (int i = 0; i < size; i++) {
                     FieldInfo fieldInfo = fieldInfoArray[i];
                     if (fieldInfo == null) break;
-                    String fieldName = fieldInfo.name;
-                    eqb.setPreparedStatementValue(i + 1, valueMapInternal.get(fieldName), fieldInfo);
+                    eqb.setPreparedStatementValue(i + 1, valueMapInternal.getByIString(fieldInfo.name), fieldInfo);
                 }
 
                 // if (ed.entityName == "Subscription") logger.warn("Create ${this.toString()} tx ${efi.getEcfi().transaction.getTransactionManager().getTransaction()} con ${eqb.connection}")
@@ -133,7 +132,7 @@ public class EntityValueImpl extends EntityValueBase {
                 if (fieldInfo == null) break;
                 if (i > 0) sql.append(", ");
                 sql.append(fieldInfo.getFullColumnName()).append("=?");
-                parameters.add(new EntityConditionParameter(fieldInfo, valueMapInternal.get(fieldInfo.name), eqb));
+                parameters.add(new EntityConditionParameter(fieldInfo, valueMapInternal.getByIString(fieldInfo.name), eqb));
             }
 
             eqb.addWhereClause(pkFieldArray, valueMapInternal);
@@ -230,7 +229,7 @@ public class EntityValueImpl extends EntityValueBase {
             FieldInfo fi = pkFieldArray[i];
             if (i > 0) sql.append(" AND ");
             sql.append(fi.getFullColumnName()).append("=?");
-            parameters.add(new EntityConditionParameter(fi, valueMapInternal.get(fi.name), eqb));
+            parameters.add(new EntityConditionParameter(fi, valueMapInternal.getByIString(fi.name), eqb));
         }
 
         boolean retVal = false;
