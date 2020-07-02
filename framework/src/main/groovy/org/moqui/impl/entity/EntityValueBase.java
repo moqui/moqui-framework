@@ -56,15 +56,15 @@ public abstract class EntityValueBase implements EntityValue {
     private static final String PLACEHOLDER = "PLHLDR";
 
     private String entityName;
-    final Map<String, Object> valueMapInternal = new HashMap<>();
+    final LiteStringMap valueMapInternal = new LiteStringMap();
 
     private transient EntityFacadeImpl efiTransient = null;
     private transient TransactionCache txCacheInternal = null;
     private transient EntityDefinition entityDefinitionTransient = null;
 
-    private transient Map<String, Object> dbValueMap = null;
-    private transient Map<String, Object> oldDbValueMap = null;
-    private transient Map<String, Object> internalPkMap = null;
+    private transient LiteStringMap dbValueMap = null;
+    private transient LiteStringMap oldDbValueMap = null;
+    private transient LiteStringMap internalPkMap = null;
     private transient Map<String, Map<String, String>> localizedByLocaleByField = null;
 
     private transient boolean modified = false;
@@ -82,7 +82,7 @@ public abstract class EntityValueBase implements EntityValue {
     }
 
     @Override public void writeExternal(ObjectOutput out) throws IOException {
-        // NOTE: found that the serializer in Hazelcast is REALLY slow with writeUTF(), uses String.chatAt() in a for loop, crazy
+        // NOTE: found that the serializer in Hazelcast is slow with writeUTF(), uses String.charAt() in a for loop
         // NOTE2: in Groovy this results in castToType() overhead anyway, so for now use writeUTF/readUTF as other serialization might be more efficient
         out.writeUTF(entityName);
         out.writeObject(valueMapInternal);
@@ -113,11 +113,13 @@ public abstract class EntityValueBase implements EntityValue {
         return entityDefinitionTransient;
     }
 
-    public Map<String, Object> getValueMap() { return valueMapInternal; }
-    protected Map<String, Object> getDbValueMap() { return dbValueMap; }
+    public LiteStringMap getValueMap() { return valueMapInternal; }
+    protected LiteStringMap getDbValueMap() { return dbValueMap; }
 
     protected void setDbValueMap(Map<String, Object> map) {
-        dbValueMap = new HashMap<>();
+        // TODO: could optimize for LiteStringMap internal arrays by using the copy constructor
+        //  and then iterate over entries copied in new LiteStringMap to see if any need to be added to valueMapInternal
+        dbValueMap = new LiteStringMap();
         // copy all fields, including pk to fix false positives in the old approach of only non-pk fields
         FieldInfo[] allFields = getEntityDefinition().entityInfo.allFieldInfoArray;
         for (int i = 0; i < allFields.length; i++) {
@@ -125,7 +127,7 @@ public abstract class EntityValueBase implements EntityValue {
             if (!map.containsKey(fi.name)) continue;
             Object curValue = map.get(fi.name);
             dbValueMap.put(fi.name, curValue);
-            if (!valueMapInternal.containsKey(fi.name)) valueMapInternal.put(fi.name, curValue);
+            if (!valueMapInternal.containsKeyIString(fi.name)) valueMapInternal.putByIString(fi.name, curValue);
         }
         isFromDb = true;
     }
@@ -140,14 +142,19 @@ public abstract class EntityValueBase implements EntityValue {
     @Override public String getEntityName() { return entityName; }
     @Override public String getEntityNamePretty() { return StringUtilities.camelCaseToPretty(getEntityDefinition().getEntityName()); }
     @Override public boolean isModified() { return modified; }
-    @Override public boolean isFieldModified(String name) {
-        Object valueMapValue = valueMapInternal.getOrDefault(name, PLACEHOLDER);
-        // identity compare as alternative to containsKey() call, if is PLACEHOLDER then Map didn't contain the key
-        if (valueMapValue == PLACEHOLDER) return false;
+    @Override public boolean isFieldModified(String name) { if (name == null) return false; return isFieldModifiedIString(name.intern()); }
+    private boolean isFieldModifiedIString(String name) {
+        int valueMapIdx = valueMapInternal.findIndexIString(name);
+        if (valueMapIdx == -1) return false;
+
         if (dbValueMap == null) return true;
-        Object dbValue = dbValueMap.getOrDefault(name, PLACEHOLDER);
-        if (dbValue == PLACEHOLDER) return true;
+        int dbIdx = dbValueMap.findIndexIString(name);
+        if (dbIdx == -1) return true;
+
+        Object valueMapValue = valueMapInternal.getValue(valueMapIdx);
+        Object dbValue = dbValueMap.getValue(dbIdx);
         return (valueMapValue == null && dbValue != null) || (valueMapValue != null && !valueMapValue.equals(dbValue));
+
         /*
         if (!valueMapInternal.containsKey(name)) return false;
         if (dbValueMap == null || !dbValueMap.containsKey(name)) return true;
@@ -156,6 +163,7 @@ public abstract class EntityValueBase implements EntityValue {
         return (valueMapValue == null && dbValue != null) || (valueMapValue != null && !valueMapValue.equals(dbValue));
         */
     }
+
     @Override public boolean isFieldSet(String name) { return valueMapInternal.containsKey(name); }
     @Override public boolean isField(String name) { return getEntityDefinition().isField(name); }
     @Override public boolean isMutable() { return mutable; }
@@ -224,16 +232,16 @@ public abstract class EntityValueBase implements EntityValue {
 
     private Object getKnownField(FieldInfo fieldInfo) {
         EntityDefinition ed = fieldInfo.ed;
-        String name = fieldInfo.name;
         // if this is a simple field (is field, no l10n, not user field) just get the value right away (vast majority of use)
-        if (fieldInfo.isSimple) return valueMapInternal.get(name);
+        if (fieldInfo.isSimple) return valueMapInternal.getByIString(fieldInfo.name);
 
         // if enabled use moqui.basic.LocalizedEntityField for any localized fields
         if (fieldInfo.enableLocalization) {
+            String name = fieldInfo.name;
             Locale locale = getEntityFacadeImpl().ecfi.getEci().userFacade.getLocale();
             String localeStr = locale != null ? locale.toString() : null;
             if (localeStr != null) {
-                Object internalValue = valueMapInternal.get(name);
+                Object internalValue = valueMapInternal.getByIString(fieldInfo.name);
 
                 boolean knownNoLocalized = false;
                 if (localizedByLocaleByField == null) {
@@ -358,7 +366,7 @@ public abstract class EntityValueBase implements EntityValue {
         }
 
 
-        return valueMapInternal.get(name);
+        return valueMapInternal.getByIString(fieldInfo.name);
     }
 
     @Override public Object getNoCheckSimple(String name) { return valueMapInternal.get(name); }
@@ -373,21 +381,19 @@ public abstract class EntityValueBase implements EntityValue {
 
     @Override public boolean containsPrimaryKey() { return this.getEntityDefinition().containsPrimaryKey(valueMapInternal); }
     @Override public Map<String, Object> getPrimaryKeys() {
-        if (internalPkMap != null) return new HashMap<>(internalPkMap);
+        if (internalPkMap != null) return new LiteStringMap(internalPkMap);
         internalPkMap = getEntityDefinition().getPrimaryKeys(this.valueMapInternal);
-        return new HashMap<>(internalPkMap);
+        return new LiteStringMap(internalPkMap);
     }
 
     public boolean primaryKeyMatches(EntityValueBase evb) {
         if (evb == null) return false;
-        Map<String, Object> evbValue = evb.getValueMap();
-        ArrayList<String> pkFields = getEntityDefinition().getPkFieldNames();
-        int pkFieldsSize = pkFields.size();
+        FieldInfo[] pkFieldInfos = getEntityDefinition().entityInfo.pkFieldInfoArray;
         boolean allMatch = true;
-        for (int i = 0; i < pkFieldsSize; i++) {
-            String pkField = pkFields.get(i);
-            Object thisValue = valueMapInternal.get(pkField);
-            Object thatValue = evbValue.get(pkField);
+        for (int i = 0; i < pkFieldInfos.length; i++) {
+            String pkField = pkFieldInfos[i].name;
+            Object thisValue = valueMapInternal.getByIString(pkField);
+            Object thatValue = evb.valueMapInternal.getByIString(pkField);
             if (thisValue == null) {
                 if (thatValue != null) { allMatch = false; break; }
             } else {
@@ -552,7 +558,7 @@ public abstract class EntityValueBase implements EntityValue {
     }
     @SuppressWarnings("unchecked")
     private int compareFields(EntityValue that, String name) {
-        Comparable thisVal = (Comparable) this.valueMapInternal.get(name);
+        Comparable thisVal = (Comparable) this.valueMapInternal.getByString(name);
         Comparable thatVal = (Comparable) that.get(name);
         // NOTE: nulls go earlier in the list
         if (thisVal == null) {
@@ -566,7 +572,7 @@ public abstract class EntityValueBase implements EntityValue {
     public boolean mapMatches(Map<String, Object> theMap) {
         boolean matches = true;
         for (Entry<String, Object> entry : theMap.entrySet()) {
-            if (!entry.getValue().equals(this.valueMapInternal.get(entry.getKey()))) {
+            if (!entry.getValue().equals(this.valueMapInternal.getByString(entry.getKey()))) {
                 matches = false;
                 break;
             }
@@ -594,12 +600,12 @@ public abstract class EntityValueBase implements EntityValue {
     @Override
     public EntityValue store() { return createOrUpdate(); }
 
-    private void handleAuditLog(boolean isUpdate, Map oldValues, EntityDefinition ed, ExecutionContextImpl ec) {
+    private void handleAuditLog(boolean isUpdate, LiteStringMap oldValues, EntityDefinition ed, ExecutionContextImpl ec) {
         if ((isUpdate && oldValues == null) || !ed.entityInfo.needsAuditLog || ec.artifactExecutionFacade.entityAuditLogDisabled()) return;
 
         Timestamp nowTimestamp = ec.userFacade.getNowTimestamp();
 
-        Map<String, Object> pksValueMap = new HashMap<>();
+        Map<String, Object> pksValueMap = new LiteStringMap();
         addThreeFieldPkValues(pksValueMap, ed);
 
         FieldInfo[] fieldInfoList = ed.entityInfo.allFieldInfoArray;
@@ -610,10 +616,10 @@ public abstract class EntityValueBase implements EntityValue {
                 String fieldName = fieldInfo.name;
 
                 // is there a new value? if not continue
-                if (!this.valueMapInternal.containsKey(fieldName)) continue;
+                if (!this.valueMapInternal.containsKeyIString(fieldInfo.name)) continue;
 
-                Object value = get(fieldName);
-                Object oldValue = oldValues != null ? oldValues.get(fieldName) : null;
+                Object value = getKnownField(fieldInfo);
+                Object oldValue = oldValues != null ? oldValues.getByIString(fieldInfo.name) : null;
                 // if set to log updates and old value is null don't consider it an update (is initial set of value)
                 if (isLogUpdate && oldValue == null) continue;
                 if (isUpdate) {
@@ -704,7 +710,7 @@ public abstract class EntityValueBase implements EntityValue {
         // make a Map where the key is the related entity's field name, and the value is the value from this entity
         Map<String, Object> condMap = new HashMap<>();
         for (Entry<String, String> entry : keyMap.entrySet())
-            condMap.put(entry.getValue(), valueMapInternal.get(entry.getKey()));
+            condMap.put(entry.getValue(), valueMapInternal.getByString(entry.getKey()));
         if (relInfo.keyValueMap != null) {
             for (Map.Entry<String, String> keyValueEntry: relInfo.keyValueMap.entrySet())
                 condMap.put(keyValueEntry.getKey(), keyValueEntry.getValue());
@@ -729,7 +735,7 @@ public abstract class EntityValueBase implements EntityValue {
 
         // make a Map where the key is the related entity's field name, and the value is the value from this entity
         Map<String, Object> condMap = new HashMap<>();
-        for (Entry<String, String> entry : keyMap.entrySet()) condMap.put(entry.getValue(), valueMapInternal.get(entry.getKey()));
+        for (Entry<String, String> entry : keyMap.entrySet()) condMap.put(entry.getValue(), valueMapInternal.getByString(entry.getKey()));
         if (relInfo.keyValueMap != null) {
             for (Map.Entry<String, String> keyValueEntry: relInfo.keyValueMap.entrySet())
                 condMap.put(keyValueEntry.getKey(), keyValueEntry.getValue());
@@ -752,7 +758,7 @@ public abstract class EntityValueBase implements EntityValue {
 
         // make a Map where the key is the related entity's field name, and the value is the value from this entity
         Map<String, Object> condMap = new HashMap<>();
-        for (Entry<String, String> entry : keyMap.entrySet()) condMap.put(entry.getValue(), valueMapInternal.get(entry.getKey()));
+        for (Entry<String, String> entry : keyMap.entrySet()) condMap.put(entry.getValue(), valueMapInternal.getByString(entry.getKey()));
         if (relInfo.keyValueMap != null) {
             for (Map.Entry<String, String> keyValueEntry: relInfo.keyValueMap.entrySet())
                 condMap.put(keyValueEntry.getKey(), keyValueEntry.getValue());
@@ -871,7 +877,7 @@ public abstract class EntityValueBase implements EntityValue {
 
                     // make a Map where the key is the related entity's field name, and the value is the value from this entity
                     for (Entry<String, String> entry : keyMap.entrySet())
-                        newValue.set(entry.getValue(), valueMapInternal.get(entry.getKey()));
+                        newValue.set(entry.getValue(), valueMapInternal.getByString(entry.getKey()));
 
                     if (newValue.containsPrimaryKey()) {
                         newValue.checkFks(true);
@@ -1159,7 +1165,7 @@ public abstract class EntityValueBase implements EntityValue {
 
     @Override public int size() { return valueMapInternal.size(); }
     @Override public boolean isEmpty() { return valueMapInternal.isEmpty(); }
-    @Override public boolean containsKey(Object o) { return o instanceof CharSequence && valueMapInternal.containsKey(o.toString()); }
+    @Override public boolean containsKey(Object o) { return valueMapInternal.containsKey(o); }
     @Override public boolean containsValue(Object o) { return values().contains(o); }
     @Override public Object get(Object o) {
         if (o instanceof CharSequence) {
@@ -1178,13 +1184,13 @@ public abstract class EntityValueBase implements EntityValue {
         if (!mutable) throw new EntityException("Cannot set field " + name + ", this entity value is not mutable (it is read-only)");
         Object curValue = null;
         if (isFromDb) {
-            curValue = valueMapInternal.get(name);
+            curValue = valueMapInternal.getByString(name);
             if (curValue == null) {
                 if (value != null) modified = true;
             } else {
                 if (!curValue.equals(value)) {
                     modified = true;
-                    if (dbValueMap == null) dbValueMap = new HashMap<>();
+                    if (dbValueMap == null) dbValueMap = new LiteStringMap();
                     dbValueMap.put(name, curValue);
                 }
             }
@@ -1265,9 +1271,9 @@ public abstract class EntityValueBase implements EntityValue {
     private void checkSetDefault(String fieldName, String defaultStr, ExecutionContext ec) {
         Object curVal = null;
         if (valueMapInternal.containsKey(fieldName)) {
-            curVal = valueMapInternal.get(fieldName);
+            curVal = valueMapInternal.getByString(fieldName);
         } else if (dbValueMap != null) {
-            curVal = dbValueMap.get(fieldName);
+            curVal = dbValueMap.getByString(fieldName);
         }
 
         if (ObjectUtilities.isEmpty(curVal)) {
@@ -1311,8 +1317,8 @@ public abstract class EntityValueBase implements EntityValue {
         // set lastUpdatedStamp
         final Long time = ecfi.transactionFacade.getCurrentTransactionStartTime();
         Long lastUpdatedLong = time != null && time > 0 ? time : System.currentTimeMillis();
-        if (ed.isField("lastUpdatedStamp") && valueMapInternal.get("lastUpdatedStamp") == null)
-            valueMapInternal.put("lastUpdatedStamp", new Timestamp(lastUpdatedLong));
+        if (ed.isField("lastUpdatedStamp") && valueMapInternal.getByIString("lastUpdatedStamp") == null)
+            valueMapInternal.putByIString("lastUpdatedStamp", new Timestamp(lastUpdatedLong));
 
         // do the artifact push/authz
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(entityName, ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_CREATE, "create").setParameters(valueMapInternal);
@@ -1356,7 +1362,7 @@ public abstract class EntityValueBase implements EntityValue {
         int fieldArrayIndex = 0;
         for (int i = 0; i < size; i++) {
             FieldInfo fi = allFieldArray[i];
-            if (valueMapInternal.containsKey(fi.name)) {
+            if (valueMapInternal.containsKeyIString(fi.name)) {
                 fieldArray[fieldArrayIndex] = fi;
                 fieldArrayIndex++;
             }
@@ -1405,7 +1411,7 @@ public abstract class EntityValueBase implements EntityValue {
         if (hasFieldDefaults) checkSetFieldDefaults(ed, ec, false);
 
         // Save original values before anything is changed for DataFeed and audit log
-        Map<String, Object> originalValues = dbValueMap != null && !dbValueMap.isEmpty() ? new HashMap<>(dbValueMap) : null;
+        LiteStringMap originalValues = dbValueMap != null && !dbValueMap.isEmpty() ? new LiteStringMap(dbValueMap) : null;
 
         // do the artifact push/authz
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(entityName, ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_UPDATE, "update").setParameters(valueMapInternal);
@@ -1424,18 +1430,17 @@ public abstract class EntityValueBase implements EntityValue {
             int nonPkFieldArrayIndex = 0;
             for (int i = 0; i < size; i++) {
                 FieldInfo fieldInfo = allNonPkFieldArray[i];
-                String fieldName = fieldInfo.name;
-                if (isFieldModified(fieldName)) {
+                if (isFieldModifiedIString(fieldInfo.name)) {
                     if (fieldInfo.isLastUpdatedStamp) {
                         // more stringent is modified check for lastUpdatedStamp
-                        if (dbValueMap == null || dbValueMap.get(fieldName) == null) continue;
+                        if (dbValueMap == null || dbValueMap.getByIString(fieldInfo.name) == null) continue;
                         modifiedLastUpdatedStamp = true;
                     }
                     nonPkFieldArray[nonPkFieldArrayIndex] = fieldInfo;
                     nonPkFieldArrayIndex++;
                     if (createOnlyAny && fieldInfo.createOnly) {
                         if (changedCreateOnlyFields == null) changedCreateOnlyFields = new ArrayList<>();
-                        changedCreateOnlyFields.add(fieldName);
+                        changedCreateOnlyFields.add(fieldInfo.name);
                     }
                 }
             }
@@ -1452,8 +1457,8 @@ public abstract class EntityValueBase implements EntityValue {
 
             // check optimistic lock with lastUpdatedStamp; if optimisticLock() dbValueMap will have latest from DB
             if (optimisticLock) {
-                Object valueLus = valueMapInternal.get("lastUpdatedStamp");
-                Object dbLus = dbValueMap.get("lastUpdatedStamp");
+                Object valueLus = valueMapInternal.getByIString("lastUpdatedStamp");
+                Object dbLus = dbValueMap.getByIString("lastUpdatedStamp");
                 if (valueLus != null && dbLus != null && !dbLus.equals(valueLus))
                     throw new EntityException("This record was updated by someone else at " + dbLus + " which was after the version you loaded at " + valueLus + ". Not updating to avoid overwriting data.");
             }
@@ -1463,7 +1468,7 @@ public abstract class EntityValueBase implements EntityValue {
             if (!modifiedLastUpdatedStamp && lastUpdatedStampInfo != null) {
                 final Long time = ecfi.transactionFacade.getCurrentTransactionStartTime();
                 long lastUpdatedLong = time != null && time > 0 ? time : System.currentTimeMillis();
-                valueMapInternal.put("lastUpdatedStamp", new Timestamp(lastUpdatedLong));
+                valueMapInternal.putByIString("lastUpdatedStamp", new Timestamp(lastUpdatedLong));
                 nonPkFieldArray[nonPkFieldArrayIndex] = lastUpdatedStampInfo;
                 // never gets used after this point, but if ever does will need to: nonPkFieldArrayIndex++
             }
@@ -1512,8 +1517,7 @@ public abstract class EntityValueBase implements EntityValue {
         int nonPkFieldArrayIndex = 0;
         for (int i = 0; i < size; i++) {
             FieldInfo fi = allNonPkFieldArray[i];
-            String fieldName = fi.name;
-            if (isFieldModified(fieldName)) {
+            if (isFieldModifiedIString(fi.name)) {
                 nonPkFieldArray[nonPkFieldArrayIndex] = fi;
                 nonPkFieldArrayIndex++;
             }

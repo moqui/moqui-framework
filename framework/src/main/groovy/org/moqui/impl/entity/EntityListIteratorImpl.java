@@ -19,6 +19,7 @@ import org.moqui.entity.*;
 import org.moqui.impl.context.TransactionCache;
 import org.moqui.impl.entity.EntityJavaUtil.FindAugmentInfo;
 import org.moqui.util.CollectionUtilities;
+import org.moqui.util.LiteStringMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -143,10 +144,10 @@ public class EntityListIteratorImpl implements EntityListIterator {
     @Override public EntityValue currentEntityValue() { return currentEntityValueBase(); }
     public EntityValueBase currentEntityValueBase() {
         EntityValueImpl newEntityValue = new EntityValueImpl(entityDefinition, efi);
-        Map<String, Object> valueMap = newEntityValue.getValueMap();
         if (txcListIndex >= 0) {
             return findAugmentInfo.valueList.get(txcListIndex);
         } else {
+            LiteStringMap valueMap = newEntityValue.valueMapInternal;
             for (int i = 0; i < fieldInfoListSize; i++) {
                 FieldInfo fi = fieldInfoArray[i];
                 if (fi == null) break;

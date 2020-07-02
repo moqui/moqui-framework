@@ -314,7 +314,7 @@ class TransactionCache implements Synchronization {
         if (cacheList == null) {
             // if the condition depends on a record that was created in this tx cache, then build the list from here
             //     instead of letting it drop to the DB, finding nothing, then being expanded from the txCache
-            Map condMap = [:]
+            Map<String, Object> condMap = new LinkedHashMap<>()
             if (whereCondition != null && whereCondition.populateMap(condMap)) {
                 boolean foundCreatedDependent = false
 

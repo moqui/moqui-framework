@@ -45,33 +45,11 @@ public class LiteStringMap implements Map<String, Object> {
         valueArray = Arrays.copyOf(valueArray, newLength);
     }
 
-    private int findIndexObject(Object key) {
-        String keyString;
-        if (key instanceof String) {
-            keyString = (String) key;
-        } else if (key instanceof CharSequence) {
-            keyString = key.toString();
-        } else if (key == null) {
-            keyString = null;
-        } else {
-            return -1;
-        }
-        return findIndex(keyString);
-    }
     public int findIndex(String keyOrig) {
         if (keyOrig == null) return -1;
-        String keyString = keyOrig.intern();
+        return findIndexIString(keyOrig.intern());
 
-        for (int i = 0; i <= arrayIndex; i++) {
-            // all strings in keyArray should be interned, only added via put()
-            String curKey = keyArray[i];
-            // first optimization is using interned String with identity compare, but don't always rely on this
-            // next optimization comparing length() and hashCode() first to eliminate mismatches more quickly (by far the most common case)
-            //     basic premise is that key Strings will be reused frequently and will already have a hashCode calculated
-            if (curKey == keyString) return i;
-        }
-
-        /* safer but slower approach, needed?
+        /* safer but slower approach, needed? by String.intern() JavaDoc no, consistency guaranteed
         int keyLength = keyString.length();
         int keyHashCode = keyString.hashCode();
         // NOTE: can't use Arrays.binarySearch() as we want to maintain the insertion order and not use natural order for array elements
@@ -83,8 +61,15 @@ public class LiteStringMap implements Map<String, Object> {
             //     basic premise is that key Strings will be reused frequently and will already have a hashCode calculated
             if (curKey == keyString || (curKey.length() == keyLength && curKey.hashCode() == keyHashCode && keyString.equals(curKey))) return i;
         }
+        return -1;
         */
-
+    }
+    /** For this method the String key must be non-null and interned (returned value from String.intern()) */
+    public int findIndexIString(String key) {
+        for (int i = 0; i <= arrayIndex; i++) {
+            // all strings in keyArray should be interned, only added via put()
+            if (keyArray[i] == key) return i;
+        }
         return -1;
     }
 
@@ -93,7 +78,14 @@ public class LiteStringMap implements Map<String, Object> {
 
     @Override public int size() { return arrayIndex + 1; }
     @Override public boolean isEmpty() { return arrayIndex == -1; }
-    @Override public boolean containsKey(Object key) { return findIndexObject(key) != -1; }
+    @Override public boolean containsKey(Object key) {
+        if (key == null) return false;
+        return findIndex(key.toString()) != -1;
+    }
+    /** For this method the String key must be non-null and interned (returned value from String.intern()) */
+    public boolean containsKeyIString(String key) {
+        return findIndexIString(key) != -1;
+    }
 
     @Override
     public boolean containsValue(Object value) {
@@ -109,12 +101,19 @@ public class LiteStringMap implements Map<String, Object> {
 
     @Override
     public Object get(Object key) {
-        int keyIndex = findIndexObject(key);
+        if (key == null) return null;
+        int keyIndex = findIndex(key.toString());
         if (keyIndex == -1) return null;
         return valueArray[keyIndex];
     }
     public Object getByString(String key) {
         int keyIndex = findIndex(key);
+        if (keyIndex == -1) return null;
+        return valueArray[keyIndex];
+    }
+    /** For this method the String key must be non-null and interned (returned value from String.intern()) */
+    public Object getByIString(String key) {
+        int keyIndex = findIndexIString(key);
         if (keyIndex == -1) return null;
         return valueArray[keyIndex];
     }
@@ -124,8 +123,11 @@ public class LiteStringMap implements Map<String, Object> {
     @Override
     public Object put(String keyOrig, Object value) {
         if (keyOrig == null) throw new IllegalArgumentException("LiteStringMap Key may not be null");
-        String key = keyOrig.intern();
-        int keyIndex = findIndex(key);
+        return putByIString(keyOrig.intern(), value);
+    }
+    /** For this method the String key must be non-null and interned (returned value from String.intern()) */
+    public Object putByIString(String key, Object value) {
+        int keyIndex = findIndexIString(key);
         if (keyIndex == -1) {
             arrayIndex++;
             if (arrayIndex >= keyArray.length) growArrays();
@@ -140,19 +142,11 @@ public class LiteStringMap implements Map<String, Object> {
             return oldValue;
         }
     }
-    private void putNoFind(String keyOrig, Object value) {
-        if (keyOrig == null) throw new IllegalArgumentException("LiteStringMap Key may not be null");
-        String key = keyOrig.intern();
-        arrayIndex++;
-        if (arrayIndex >= keyArray.length) growArrays();
-        keyArray[arrayIndex] = key;
-        valueArray[arrayIndex] = value;
-        mapHash = 0;
-    }
 
     @Override
     public Object remove(Object key) {
-        int keyIndex = findIndexObject(key);
+        if (key == null) return null;
+        int keyIndex = findIndexIString(key.toString().intern());
         if (keyIndex == -1) {
             return null;
         } else {
@@ -186,20 +180,29 @@ public class LiteStringMap implements Map<String, Object> {
                 if (initialEmpty) {
                     putNoFind(lsm.keyArray[i], lsm.valueArray[i]);
                 } else {
-                    put(lsm.keyArray[i], lsm.valueArray[i]);
+                    putByIString(lsm.keyArray[i], lsm.valueArray[i]);
                 }
             }
         } else {
             for (Map.Entry<? extends String, ?> entry : map.entrySet()) {
                 String key = entry.getKey();
+                if (key == null) throw new IllegalArgumentException("LiteStringMap Key may not be null");
                 if (skipKeys != null && skipKeys.contains(key)) continue;
                 if (initialEmpty) {
-                    putNoFind(key, entry.getValue());
+                    putNoFind(key.intern(), entry.getValue());
                 } else {
-                    put(key, entry.getValue());
+                    putByIString(key.intern(), entry.getValue());
                 }
             }
         }
+        mapHash = 0;
+    }
+    /** For this method the String key must be non-null and interned (returned value from String.intern()) */
+    private void putNoFind(String key, Object value) {
+        arrayIndex++;
+        if (arrayIndex >= keyArray.length) growArrays();
+        keyArray[arrayIndex] = key;
+        valueArray[arrayIndex] = value;
         mapHash = 0;
     }
 
@@ -305,7 +308,7 @@ public class LiteStringMap implements Map<String, Object> {
         @Override
         public boolean containsAll(Collection<?> collection) {
             if (collection == null) return false;
-            for (Object obj : collection)  if (lsm.findIndexObject(obj) == -1) return false;
+            for (Object obj : collection)  if (obj == null || lsm.findIndex(obj.toString()) == -1) return false;
             return true;
         }
 
@@ -386,7 +389,8 @@ public class LiteStringMap implements Map<String, Object> {
             if (obj instanceof Entry) {
                 Entry entry = (Entry) obj;
                 Object keyObj = entry.getKey();
-                int idx = lsm.findIndexObject(keyObj);
+                if (keyObj == null) return false;
+                int idx = lsm.findIndex(keyObj.toString());
                 if (idx == -1) return false;
                 Object entryValue = entry.getValue();
                 Object keyValue = lsm.valueArray[idx];
@@ -407,7 +411,7 @@ public class LiteStringMap implements Map<String, Object> {
         @Override
         public boolean containsAll(Collection<?> collection) {
             if (collection == null) return false;
-            for (Object obj : collection)  if (lsm.findIndexObject(obj) == -1) return false;
+            for (Object obj : collection) if (obj == null || lsm.findIndex(obj.toString()) == -1) return false;
             return true;
         }
 
