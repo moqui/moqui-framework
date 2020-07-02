@@ -24,7 +24,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Map;
 
 public class EntityQueryBuilder {
     protected static final Logger logger = LoggerFactory.getLogger(EntityQueryBuilder.class);
@@ -220,7 +220,7 @@ public class EntityQueryBuilder {
         }
     }
 
-    public void addWhereClause(FieldInfo[] pkFieldArray, HashMap<String, Object> valueMapInternal) {
+    public void addWhereClause(FieldInfo[] pkFieldArray, Map<String, Object> valueMapInternal) {
         sqlTopLevel.append(" WHERE ");
         int sizePk = pkFieldArray.length;
         for (int i = 0; i < sizePk; i++) {

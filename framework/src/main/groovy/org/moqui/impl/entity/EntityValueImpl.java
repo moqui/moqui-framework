@@ -23,7 +23,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Map;
 
 public class EntityValueImpl extends EntityValueBase {
     protected static final Logger logger = LoggerFactory.getLogger(EntityValueImpl.class);
@@ -37,7 +37,7 @@ public class EntityValueImpl extends EntityValueBase {
     public EntityValue cloneValue() {
         EntityValueImpl newObj = new EntityValueImpl(getEntityDefinition(), getEntityFacadeImpl());
         newObj.getValueMap().putAll(getValueMap());
-        HashMap<String, Object> dbValueMap = getDbValueMap();
+        Map<String, Object> dbValueMap = getDbValueMap();
         if (dbValueMap != null) newObj.setDbValueMap(dbValueMap);
         // don't set mutable (default to mutable even if original was not) or modified (start out not modified)
         return newObj;

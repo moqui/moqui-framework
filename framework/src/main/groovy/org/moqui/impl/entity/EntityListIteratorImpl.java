@@ -27,7 +27,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Map;
 
 public class EntityListIteratorImpl implements EntityListIterator {
     protected static final Logger logger = LoggerFactory.getLogger(EntityListIteratorImpl.class);
@@ -143,7 +143,7 @@ public class EntityListIteratorImpl implements EntityListIterator {
     @Override public EntityValue currentEntityValue() { return currentEntityValueBase(); }
     public EntityValueBase currentEntityValueBase() {
         EntityValueImpl newEntityValue = new EntityValueImpl(entityDefinition, efi);
-        HashMap<String, Object> valueMap = newEntityValue.getValueMap();
+        Map<String, Object> valueMap = newEntityValue.getValueMap();
         if (txcListIndex >= 0) {
             return findAugmentInfo.valueList.get(txcListIndex);
         } else {

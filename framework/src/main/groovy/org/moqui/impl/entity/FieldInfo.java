@@ -274,8 +274,7 @@ public class FieldInfo {
         return outValue;
     }
 
-    void getResultSetValue(ResultSet rs, int index, HashMap<String, Object> valueMap,
-                                  EntityFacadeImpl efi) throws EntityException {
+    void getResultSetValue(ResultSet rs, int index, Map<String, Object> valueMap, EntityFacadeImpl efi) throws EntityException {
         if (typeValue == -1) throw new EntityException("No typeValue found for " + entityName + "." + name);
 
         Object value = null;
