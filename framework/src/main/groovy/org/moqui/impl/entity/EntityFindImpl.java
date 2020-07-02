@@ -25,7 +25,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Map;
 
 public class EntityFindImpl extends EntityFindBase {
     protected static final Logger logger = LoggerFactory.getLogger(EntityFindImpl.class);
@@ -79,7 +79,7 @@ public class EntityFindImpl extends EntityFindBase {
             ResultSet rs = efb.executeQuery();
             if (rs.next()) {
                 newEntityValue = new EntityValueImpl(ed, efi);
-                HashMap<String, Object> valueMap = newEntityValue.getValueMap();
+                Map<String, Object> valueMap = newEntityValue.getValueMap();
                 int size = fieldInfoArray.length;
                 for (int i = 0; i < size; i++) {
                     FieldInfo fi = fieldInfoArray[i];

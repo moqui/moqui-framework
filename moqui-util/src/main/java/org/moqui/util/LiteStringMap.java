@@ -13,9 +13,6 @@
  */
 package org.moqui.util;
 
-import groovy.lang.GString;
-
-import java.io.IOException;
 import java.util.*;
 
 /** Lightweight String/Object Map optimized for memory usage, slower than HashMap; this is most certainly not thread-safe */

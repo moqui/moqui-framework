@@ -1561,7 +1561,7 @@ class EntityFacadeImpl implements EntityFacade {
 
             if (rs.next()) {
                 newEntityValue = new EntityValueImpl(ed, this)
-                HashMap<String, Object> valueMap = newEntityValue.getValueMap()
+                Map<String, Object> valueMap = newEntityValue.getValueMap()
                 int size = fieldInfoArray.length;
                 for (int i = 0; i < size; i++) {
                     FieldInfo fi = fieldInfoArray[i];

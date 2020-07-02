@@ -23,10 +23,7 @@ import org.moqui.entity.EntityFind;
 import org.moqui.entity.EntityList;
 import org.moqui.entity.EntityValue;
 import org.moqui.impl.context.*;
-import org.moqui.util.CollectionUtilities;
-import org.moqui.util.MNode;
-import org.moqui.util.ObjectUtilities;
-import org.moqui.util.StringUtilities;
+import org.moqui.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
@@ -59,14 +56,14 @@ public abstract class EntityValueBase implements EntityValue {
     private static final String PLACEHOLDER = "PLHLDR";
 
     private String entityName;
-    final HashMap<String, Object> valueMapInternal = new HashMap<>();
+    final Map<String, Object> valueMapInternal = new HashMap<>();
 
     private transient EntityFacadeImpl efiTransient = null;
     private transient TransactionCache txCacheInternal = null;
     private transient EntityDefinition entityDefinitionTransient = null;
 
-    private transient HashMap<String, Object> dbValueMap = null;
-    private transient HashMap<String, Object> oldDbValueMap = null;
+    private transient Map<String, Object> dbValueMap = null;
+    private transient Map<String, Object> oldDbValueMap = null;
     private transient Map<String, Object> internalPkMap = null;
     private transient Map<String, Map<String, String>> localizedByLocaleByField = null;
 
@@ -116,8 +113,8 @@ public abstract class EntityValueBase implements EntityValue {
         return entityDefinitionTransient;
     }
 
-    public HashMap<String, Object> getValueMap() { return valueMapInternal; }
-    protected HashMap<String, Object> getDbValueMap() { return dbValueMap; }
+    public Map<String, Object> getValueMap() { return valueMapInternal; }
+    protected Map<String, Object> getDbValueMap() { return dbValueMap; }
 
     protected void setDbValueMap(Map<String, Object> map) {
         dbValueMap = new HashMap<>();
