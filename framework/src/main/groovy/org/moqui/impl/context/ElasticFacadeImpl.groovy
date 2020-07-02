@@ -32,6 +32,7 @@ import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityJavaUtil
 import org.moqui.impl.entity.FieldInfo
 import org.moqui.impl.util.ElasticSearchLogger
+import org.moqui.util.LiteStringMap
 import org.moqui.util.MNode
 import org.moqui.util.RestClient
 import org.moqui.util.RestClient.Method
@@ -43,7 +44,8 @@ import java.util.concurrent.Future
 
 @CompileStatic
 class ElasticFacadeImpl implements ElasticFacade {
-    protected final static Logger logger = LoggerFactory.getLogger(ElasticFacadeImpl.class)
+    private final static Logger logger = LoggerFactory.getLogger(ElasticFacadeImpl.class)
+    private final static Set<String> docSkipKeys = new HashSet<>(Arrays.asList("_index", "_type", "_id", "_timestamp"))
 
     // Max HTTP Response Size for Search - this may need to be configurable, set very high for now (appears that Jetty only grows the buffer as needed for response content)
     public static int MAX_RESPONSE_SIZE_SEARCH = 100 * 1024 * 1024
@@ -58,6 +60,7 @@ class ElasticFacadeImpl implements ElasticFacade {
         // Jackson custom serializers, etc
         SimpleModule module = new SimpleModule()
         module.addSerializer(GString.class, new ContextJavaUtil.GStringJsonSerializer())
+        module.addSerializer(LiteStringMap.class, new ContextJavaUtil.LiteStringMapJsonSerializer())
         // NOTE: using custom serializer for Timestamps because ElasticSearch 7+ does NOT allow negative longs for epoch_millis format... sigh
         //     .enable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
         module.addSerializer(Timestamp.class, new ContextJavaUtil.TimestampNoNegativeJsonSerializer())
@@ -538,8 +541,8 @@ class ElasticFacadeImpl implements ElasticFacade {
                 // String _timestamp = document._timestamp
                 // As of ES 2.0 _index, _type, _id, and _timestamp shouldn't be in document to be indexed
                 // clone document before removing fields so they are present for other code using the same data
-                document = new LinkedHashMap(document)
-                document.remove('_index'); document.remove('_type'); document.remove('_id'); document.remove('_timestamp')
+                document = new LiteStringMap(document, docSkipKeys)
+                // no longer needed with docSkipKeys: document.remove('_index'); document.remove('_type'); document.remove('_id'); document.remove('_timestamp')
 
                 // as of ES 6.0, and required for 7 series, one index per doc type so one per dataDocumentId, cleaned up to be valid ES index name (all lower case, etc)
                 esIndexName = ddIdToEsIndex(_type)
