@@ -72,6 +72,7 @@ public class ServiceDefinition {
     public final Integer txTimeout;
     public final boolean validate;
     public final boolean allowRemote;
+    public final boolean noRememberParameters;
 
     public final boolean hasSemaphore;
     public final String semaphore, semaphoreName, semaphoreParameter;
@@ -99,6 +100,8 @@ public class ServiceDefinition {
         MNode inParameters = new MNode("in-parameters", null);
         MNode outParameters = new MNode("out-parameters", null);
 
+        boolean noRememberParmsTemp = "true".equals(serviceNode.attribute("no-remember-parameters"));
+
         // handle implements elements
         if (serviceNode.hasChild("implements")) for (MNode implementsNode : serviceNode.children("implements")) {
             final String implServiceName = implementsNode.attribute("service");
@@ -107,6 +110,9 @@ public class ServiceDefinition {
             ServiceDefinition sd = sfi.getServiceDefinition(implServiceName);
             if (sd == null) throw new ServiceException("Service " + implServiceName +
                     " not found, specified in service.implements in service " + serviceName);
+
+            // while most attributes aren't passed through do pass through no-remember-parameters if true
+            if (sd.noRememberParameters) noRememberParmsTemp = true;
 
             // these are the first params to be set, so just deep copy them over
             MNode implInParms = sd.serviceNode.first("in-parameters");
@@ -127,6 +133,8 @@ public class ServiceDefinition {
                 }
             }
         }
+
+        noRememberParameters = noRememberParmsTemp;
 
         // expand auto-parameters and merge parameter in in-parameters and out-parameters
         // if noun is a valid entity name set it on parameters with valid field names on it

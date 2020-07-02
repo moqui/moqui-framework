@@ -32,6 +32,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
     private boolean ignorePreviousError = false;
     private boolean softValidate = false;
     private boolean multi = false;
+    private boolean rememberParameters = true;
     protected boolean disableAuthz = false;
 
     public ServiceCallSyncImpl(ServiceFacadeImpl sfi) { super(sfi); }
@@ -52,6 +53,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
     @Override public ServiceCallSync softValidate(boolean sv) { this.softValidate = sv; return this; }
     @Override public ServiceCallSync multi(boolean mlt) { this.multi = mlt; return this; }
     @Override public ServiceCallSync disableAuthz() { disableAuthz = true; return this; }
+    @Override public ServiceCallSync noRememberParameters() { rememberParameters = false; return this; }
 
     @Override
     public Map<String, Object> call() {
@@ -240,8 +242,8 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         //     the service on the stack)
         ArtifactExecutionInfo.AuthzAction authzAction = sd != null ? sd.authzAction : ServiceDefinition.verbAuthzActionEnumMap.get(verb);
         if (authzAction == null) authzAction = ArtifactExecutionInfo.AUTHZA_ALL;
-        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(serviceName, ArtifactExecutionInfo.AT_SERVICE,
-                authzAction, serviceType).setParameters(currentParameters);
+        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(serviceName, ArtifactExecutionInfo.AT_SERVICE, authzAction, serviceType);
+        if (rememberParameters && !sd.noRememberParameters) aei.setParameters(currentParameters);
         eci.artifactExecutionFacade.pushInternal(aei, (sd != null && "true".equals(sd.authenticate)), true);
 
         // if error in auth or for other reasons, return now with no results

@@ -323,16 +323,13 @@ class EntityDataDocument {
                         postProcessDocMapList(documentMapList, ddi)
 
                         // call the feed receive service
-                        efi.ecfi.serviceFacade.sync().name(feedReceiveServiceName).parameter("documentList", documentMapList).call()
+                        efi.ecfi.serviceFacade.sync().name(feedReceiveServiceName).parameter("documentList", documentMapList)
+                                .noRememberParameters().call()
                         // stop if there was an error
                         if (efi.ecfi.getEci().messageFacade.hasError()) break
 
-                        // dereference and reset queue Map or List
-                        if (documentMapMap != null) documentMapMap.clear()
-                        if (documentMapList != null) documentMapList.clear()
-                        // old approach with new objects:
-                        // documentMapMap = hasAllPrimaryPks ? new LinkedHashMap<String, Map>(batchSize + 10) : null
-                        // documentMapList = hasAllPrimaryPks ? null : new ArrayList<Map>(batchSize + 10)
+                        documentMapMap = hasAllPrimaryPks ? new LinkedHashMap<String, Map>(batchSize + 10) : null
+                        documentMapList = hasAllPrimaryPks ? null : new ArrayList<Map>(batchSize + 10)
                     }
                 }
 
