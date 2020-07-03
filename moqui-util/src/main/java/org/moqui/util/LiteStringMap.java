@@ -13,16 +13,21 @@
  */
 package org.moqui.util;
 
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
 import java.util.*;
 
 /** Lightweight String/Object Map optimized for memory usage, slower than HashMap; this is most certainly not thread-safe */
-public class LiteStringMap implements Map<String, Object> {
+public class LiteStringMap implements Map<String, Object>, Externalizable, Comparable<Map<String,?>>, Cloneable {
     private static final int DEFAULT_CAPACITY = 32;
 
+    // NOTE: key design point is to use parallel arrays with simple values in each so that no Object need be created per entry (minimize GC overhead, etc)
     private String[] keyArray;
     private Object[] valueArray;
     private int arrayIndex = -1;
-    private int mapHash = 0;
+    private transient int mapHash = 0;
 
     public LiteStringMap() { init(DEFAULT_CAPACITY); }
     public LiteStringMap(int initialCapacity) { init(initialCapacity); }
@@ -241,14 +246,14 @@ public class LiteStringMap implements Map<String, Object> {
                 if (keyArray[i] == lsm.keyArray[i]) {
                     if (!Objects.equals(valueArray[i], lsm.valueArray[i])) return false;
                 } else {
-                    Object value = lsm.get(keyArray[i]);
+                    Object value = lsm.getByIString(keyArray[i]);
                     if (!Objects.equals(valueArray[i], value)) return false;
                 }
             }
             return true;
         } else if (o instanceof Map) {
             Map map = (Map) o;
-            if (size() != map.size()) return false;
+            if ((arrayIndex + 1) != map.size()) return false;
             for (int i = 0; i <= arrayIndex; i++) {
                 Object value = map.get(keyArray[i]);
                 if (!Objects.equals(valueArray[i], value)) return false;
@@ -259,7 +264,8 @@ public class LiteStringMap implements Map<String, Object> {
         }
     }
 
-    @Override protected Object clone() throws CloneNotSupportedException { return new LiteStringMap(this); }
+    @Override protected Object clone() { return new LiteStringMap(this); }
+    public LiteStringMap cloneLite() { return new LiteStringMap(this); }
 
     @Override
     public String toString() {
@@ -271,6 +277,69 @@ public class LiteStringMap implements Map<String, Object> {
         }
         sb.append(']');
         return sb.toString();
+    }
+
+    @Override
+    public void writeExternal(ObjectOutput out) throws IOException {
+        int size = arrayIndex + 1;
+        out.writeInt(size);
+        // after writing size write each key/value pair
+        for (int i = 0; i < size; i++) {
+            out.writeUTF(keyArray[i]);
+            out.writeObject(valueArray[i]);
+        }
+    }
+    @Override
+    public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
+        int size = in.readInt();
+        arrayIndex = size - 1;
+        mapHash = 0;
+        // now that we know the size read each key/value pair
+        for (int i = 0; i < size; i++) {
+            keyArray[i] = in.readUTF();
+            valueArray[i] = in.readObject();
+        }
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public int compareTo(Map<String, ?> that) {
+        int result = 0;
+        if (that instanceof LiteStringMap) {
+            LiteStringMap lsm = (LiteStringMap) that;
+            result = Integer.compare(arrayIndex, lsm.arrayIndex);
+            if (result != 0) return result;
+
+            for (int i = 0; i <= arrayIndex; i++) {
+                Comparable thisVal = (Comparable) valueArray[i];
+                // identity compare of interned String keys, if equal the value in the other LSM is conveniently at the same index
+                Comparable thatVal = keyArray[i] == lsm.keyArray[i] ? (Comparable) lsm.valueArray[i] : (Comparable) lsm.getByIString(keyArray[i]);
+                // NOTE: nulls go earlier in the list
+                if (thisVal == null) {
+                    result = thatVal == null ? 0 : 1;
+                } else {
+                    result = thatVal == null ? -1 : thisVal.compareTo(thatVal);
+                }
+                if (result != 0) return result;
+            }
+        } else {
+            result = Integer.compare(arrayIndex + 1, that.size());
+            if (result != 0) return result;
+
+            for (int i = 0; i <= arrayIndex; i++) {
+                Comparable thisVal = (Comparable) valueArray[i];
+                Comparable thatVal = (Comparable) that.get(keyArray[i]);
+                // NOTE: nulls go earlier in the list
+                if (thisVal == null) {
+                    result = thatVal == null ? 0 : 1;
+                } else {
+                    result = thatVal == null ? -1 : thisVal.compareTo(thatVal);
+                }
+                if (result != 0) return result;
+            }
+        }
+
+        return result;
     }
 
     /* ========== Interface Wrapper Classes ========== */
