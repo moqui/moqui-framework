@@ -28,9 +28,9 @@ import java.util.*;
 public class LiteStringMap<V> implements Map<String, V>, Externalizable, Comparable<Map<String,? extends V>>, Cloneable {
     // NOTE: for over the wire compatibility do not change this unless writeExternal() and readExternal() are changed OR the non-transient fields change from only keyArray, valueArray, and lastIndex
     private static final long serialVersionUID = -5846214179631630980L;
-    private static final int DEFAULT_CAPACITY = 32;
+    private static final int DEFAULT_CAPACITY = 8;
 
-    // NOTE: from basic profiling HashMap.get() runs in about half the time (0.13 microseconds) of String.intern() (0.24 microseconds) over ~500k runs
+    // NOTE: from basic profiling HashMap.get() runs in just over half the time (0.13 microseconds) of String.intern() (0.24 microseconds) over ~500k runs with OpenJDK 8
     private static HashMap<String, String> internedMap = new HashMap<>();
     public static String internString(String orig) {
         String interned = internedMap.get(orig);
@@ -66,6 +66,7 @@ public class LiteStringMap<V> implements Map<String, V>, Externalizable, Compara
     }
     private void growArrays() {
         int newLength = keyArray.length * 2;
+        // System.out.println("=============================\n============= grow to " + newLength);
         keyArray = Arrays.copyOf(keyArray, newLength);
         valueArray = Arrays.copyOf(valueArray, newLength);
     }
