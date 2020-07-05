@@ -56,15 +56,15 @@ public abstract class EntityValueBase implements EntityValue {
     private static final String PLACEHOLDER = "PLHLDR";
 
     private String entityName;
-    final LiteStringMap valueMapInternal = new LiteStringMap();
+    final LiteStringMap<Object> valueMapInternal = new LiteStringMap<>();
 
     private transient EntityFacadeImpl efiTransient = null;
     private transient TransactionCache txCacheInternal = null;
     private transient EntityDefinition entityDefinitionTransient = null;
 
-    private transient LiteStringMap dbValueMap = null;
-    private transient LiteStringMap oldDbValueMap = null;
-    private transient LiteStringMap internalPkMap = null;
+    private transient LiteStringMap<Object> dbValueMap = null;
+    private transient LiteStringMap<Object> oldDbValueMap = null;
+    private transient LiteStringMap<Object> internalPkMap = null;
     private transient Map<String, Map<String, String>> localizedByLocaleByField = null;
 
     private transient boolean modified = false;
@@ -113,13 +113,13 @@ public abstract class EntityValueBase implements EntityValue {
         return entityDefinitionTransient;
     }
 
-    public LiteStringMap getValueMap() { return valueMapInternal; }
-    protected LiteStringMap getDbValueMap() { return dbValueMap; }
+    public LiteStringMap<Object> getValueMap() { return valueMapInternal; }
+    protected LiteStringMap<Object> getDbValueMap() { return dbValueMap; }
 
     protected void setDbValueMap(Map<String, Object> map) {
         // TODO: could optimize for LiteStringMap internal arrays by using the copy constructor
         //  and then iterate over entries copied in new LiteStringMap to see if any need to be added to valueMapInternal
-        dbValueMap = new LiteStringMap();
+        dbValueMap = new LiteStringMap<>();
         // copy all fields, including pk to fix false positives in the old approach of only non-pk fields
         FieldInfo[] allFields = getEntityDefinition().entityInfo.allFieldInfoArray;
         for (int i = 0; i < allFields.length; i++) {
@@ -381,9 +381,9 @@ public abstract class EntityValueBase implements EntityValue {
 
     @Override public boolean containsPrimaryKey() { return this.getEntityDefinition().containsPrimaryKey(valueMapInternal); }
     @Override public Map<String, Object> getPrimaryKeys() {
-        if (internalPkMap != null) return new LiteStringMap(internalPkMap);
+        if (internalPkMap != null) return new LiteStringMap<Object>(internalPkMap);
         internalPkMap = getEntityDefinition().getPrimaryKeys(this.valueMapInternal);
-        return new LiteStringMap(internalPkMap);
+        return new LiteStringMap<Object>(internalPkMap);
     }
 
     public boolean primaryKeyMatches(EntityValueBase evb) {
@@ -600,12 +600,12 @@ public abstract class EntityValueBase implements EntityValue {
     @Override
     public EntityValue store() { return createOrUpdate(); }
 
-    private void handleAuditLog(boolean isUpdate, LiteStringMap oldValues, EntityDefinition ed, ExecutionContextImpl ec) {
+    private void handleAuditLog(boolean isUpdate, LiteStringMap<Object> oldValues, EntityDefinition ed, ExecutionContextImpl ec) {
         if ((isUpdate && oldValues == null) || !ed.entityInfo.needsAuditLog || ec.artifactExecutionFacade.entityAuditLogDisabled()) return;
 
         Timestamp nowTimestamp = ec.userFacade.getNowTimestamp();
 
-        Map<String, Object> pksValueMap = new LiteStringMap();
+        LiteStringMap<Object> pksValueMap = new LiteStringMap<>();
         addThreeFieldPkValues(pksValueMap, ed);
 
         FieldInfo[] fieldInfoList = ed.entityInfo.allFieldInfoArray;
@@ -1190,7 +1190,7 @@ public abstract class EntityValueBase implements EntityValue {
             } else {
                 if (!curValue.equals(value)) {
                     modified = true;
-                    if (dbValueMap == null) dbValueMap = new LiteStringMap();
+                    if (dbValueMap == null) dbValueMap = new LiteStringMap<>();
                     dbValueMap.put(name, curValue);
                 }
             }
@@ -1411,7 +1411,7 @@ public abstract class EntityValueBase implements EntityValue {
         if (hasFieldDefaults) checkSetFieldDefaults(ed, ec, false);
 
         // Save original values before anything is changed for DataFeed and audit log
-        LiteStringMap originalValues = dbValueMap != null && !dbValueMap.isEmpty() ? new LiteStringMap(dbValueMap) : null;
+        LiteStringMap<Object> originalValues = dbValueMap != null && !dbValueMap.isEmpty() ? new LiteStringMap<>(dbValueMap) : null;
 
         // do the artifact push/authz
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(entityName, ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_UPDATE, "update").setParameters(valueMapInternal);

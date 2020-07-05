@@ -52,6 +52,8 @@ public class EntityFindImpl extends EntityFindBase {
         if (!ed.tableExistsDbMetaOnly()) return null;
 
         EntityFindBuilder efb = new EntityFindBuilder(ed, this, whereCondition, fieldInfoArray);
+        // flag as a find one, small changes to internal behavior to reduce overhead
+        efb.isFineOne();
 
         // SELECT fields
         efb.makeSqlSelectFields(fieldInfoArray, fieldOptionsArray, false);
@@ -61,6 +63,8 @@ public class EntityFindImpl extends EntityFindBase {
         efb.makeWhereClause();
         // GROUP BY clause
         efb.makeGroupByClause();
+        // LIMIT/OFFSET clause - for find one always limit to 1
+        efb.addLimitOffset(1, 0);
         // FOR UPDATE
         if (getForUpdate()) efb.makeForUpdate();
 
@@ -80,7 +84,7 @@ public class EntityFindImpl extends EntityFindBase {
             ResultSet rs = efb.executeQuery();
             if (rs.next()) {
                 newEntityValue = new EntityValueImpl(ed, efi);
-                LiteStringMap valueMap = newEntityValue.valueMapInternal;
+                LiteStringMap<Object> valueMap = newEntityValue.valueMapInternal;
                 int size = fieldInfoArray.length;
                 for (int i = 0; i < size; i++) {
                     FieldInfo fi = fieldInfoArray[i];

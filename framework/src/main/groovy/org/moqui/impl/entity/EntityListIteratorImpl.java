@@ -147,7 +147,7 @@ public class EntityListIteratorImpl implements EntityListIterator {
         if (txcListIndex >= 0) {
             return findAugmentInfo.valueList.get(txcListIndex);
         } else {
-            LiteStringMap valueMap = newEntityValue.valueMapInternal;
+            LiteStringMap<Object> valueMap = newEntityValue.valueMapInternal;
             for (int i = 0; i < fieldInfoListSize; i++) {
                 FieldInfo fi = fieldInfoArray[i];
                 if (fi == null) break;
