@@ -56,7 +56,7 @@ public abstract class EntityValueBase implements EntityValue {
     private static final String PLACEHOLDER = "PLHLDR";
 
     private String entityName;
-    final LiteStringMap<Object> valueMapInternal = new LiteStringMap<>();
+    final LiteStringMap<Object> valueMapInternal;
 
     private transient EntityFacadeImpl efiTransient = null;
     private transient TransactionCache txCacheInternal = null;
@@ -73,12 +73,15 @@ public abstract class EntityValueBase implements EntityValue {
     private static final String indentString = "    ";
 
     /** Default constructor for deserialization ONLY. */
-    public EntityValueBase() { }
+    public EntityValueBase() {
+        valueMapInternal = new LiteStringMap<>();
+    }
 
     public EntityValueBase(EntityDefinition ed, EntityFacadeImpl efip) {
         efiTransient = efip;
         entityName = ed.fullEntityName;
         entityDefinitionTransient = ed;
+        valueMapInternal = new LiteStringMap<>(ed.allFieldNameList.size());
     }
 
     @Override public void writeExternal(ObjectOutput out) throws IOException {
@@ -117,11 +120,9 @@ public abstract class EntityValueBase implements EntityValue {
     protected LiteStringMap<Object> getDbValueMap() { return dbValueMap; }
 
     protected void setDbValueMap(Map<String, Object> map) {
-        // TODO: could optimize for LiteStringMap internal arrays by using the copy constructor
-        //  and then iterate over entries copied in new LiteStringMap to see if any need to be added to valueMapInternal
-        dbValueMap = new LiteStringMap<>();
-        // copy all fields, including pk to fix false positives in the old approach of only non-pk fields
         FieldInfo[] allFields = getEntityDefinition().entityInfo.allFieldInfoArray;
+        dbValueMap = new LiteStringMap<>(allFields.length);
+        // copy all fields, including pk to fix false positives in the old approach of only non-pk fields
         for (int i = 0; i < allFields.length; i++) {
             FieldInfo fi = allFields[i];
             if (!map.containsKey(fi.name)) continue;
@@ -605,7 +606,7 @@ public abstract class EntityValueBase implements EntityValue {
 
         Timestamp nowTimestamp = ec.userFacade.getNowTimestamp();
 
-        LiteStringMap<Object> pksValueMap = new LiteStringMap<>();
+        LiteStringMap<Object> pksValueMap = new LiteStringMap<>(ed.entityInfo.pkFieldInfoArray.length);
         addThreeFieldPkValues(pksValueMap, ed);
 
         FieldInfo[] fieldInfoList = ed.entityInfo.allFieldInfoArray;
@@ -1190,7 +1191,7 @@ public abstract class EntityValueBase implements EntityValue {
             } else {
                 if (!curValue.equals(value)) {
                     modified = true;
-                    if (dbValueMap == null) dbValueMap = new LiteStringMap<>();
+                    if (dbValueMap == null) dbValueMap = new LiteStringMap<>(getEntityDefinition().allFieldNameList.size());
                     dbValueMap.put(name, curValue);
                 }
             }
