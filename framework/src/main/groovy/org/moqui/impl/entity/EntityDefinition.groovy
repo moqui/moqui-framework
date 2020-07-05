@@ -542,14 +542,23 @@ class EntityDefinition {
         }
         return true
     }
-    LiteStringMap getPrimaryKeys(Map<String, Object> fields) {
-        LiteStringMap pks = new LiteStringMap()
-        ArrayList<String> fieldNameList = this.getPkFieldNames()
-        int size = fieldNameList.size()
-        for (int i = 0; i < size; i++) {
-            String fieldName = (String) fieldNameList.get(i)
-            pks.put(fieldName, fields.get(fieldName))
+    LiteStringMap<Object> getPrimaryKeys(Map<String, Object> fields) {
+        LiteStringMap<Object> pks = new LiteStringMap<>()
+        FieldInfo[] pkFieldInfos = this.entityInfo.pkFieldInfoArray
+
+        if (fields instanceof LiteStringMap) {
+            LiteStringMap<Object> fieldsLsm = (LiteStringMap<Object>) fields
+            for (int i = 0; i < pkFieldInfos.length; i++) {
+                String fieldName = pkFieldInfos[i].name
+                pks.putByIString(fieldName, fieldsLsm.getByIString(fieldName))
+            }
+        } else {
+            for (int i = 0; i < pkFieldInfos.length; i++) {
+                String fieldName = pkFieldInfos[i].name
+                pks.putByIString(fieldName, fields.get(fieldName))
+            }
         }
+
         return pks
     }
 

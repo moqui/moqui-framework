@@ -403,7 +403,7 @@ class EntityDataDocument {
         Map<String, Object> docMap = ddi.hasAllPrimaryPks ? ((Map<String, Object>) documentMapMap.get(docId)) : (Map<String, Object>) null
         if (docMap == null) {
             // add special entries
-            docMap = new LiteStringMap()
+            docMap = new LiteStringMap<Object>()
             docMap.put("_type", ddi.dataDocumentId)
             if (docId) docMap.put("_id", docId)
             docMap.put('_timestamp', docTsString)
@@ -637,7 +637,7 @@ class EntityDataDocument {
 
                     if (relatedEntityDocMap == null) {
                         // no matching Map? create a new one... and it will get populated in the recursive call
-                        relatedEntityDocMap = new LiteStringMap()
+                        relatedEntityDocMap = new LiteStringMap<Object>()
                         // now time to recurse
                         populateDataDocRelatedMap(ev, relatedEntityDocMap, relatedEd, fieldTreeChild, relationshipAliasMap, true)
                         if (relatedEntityDocMap.size() > 0) {

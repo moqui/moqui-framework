@@ -19,30 +19,50 @@ import java.io.ObjectInput;
 import java.io.ObjectOutput;
 import java.util.*;
 
-/** Lightweight String/Object Map optimized for memory usage, slower than HashMap; this is most certainly not thread-safe */
-public class LiteStringMap implements Map<String, Object>, Externalizable, Comparable<Map<String,?>>, Cloneable {
+/** Light weight String Keyed Map optimized for memory usage and garbage collection overhead.
+ * Uses parallel key and value arrays internally and does not create an object for each Map.Entry unless entrySet() is used.
+ * This is generally slower than HashMap unless key String objects are already interned.
+ * With '*IString' variations of methods a call with a known already interned String can operate as fast, and for smaller Maps faster, than HashMap (such as in the EntityFacade where field names come from an interned String in a FieldInfo object).
+ * This is most certainly not thread-safe.
+ */
+public class LiteStringMap<V> implements Map<String, V>, Externalizable, Comparable<Map<String,? extends V>>, Cloneable {
+    // NOTE: for over the wire compatibility do not change this unless writeExternal() and readExternal() are changed OR the non-transient fields change from only keyArray, valueArray, and lastIndex
+    private static final long serialVersionUID = -5846214179631630980L;
     private static final int DEFAULT_CAPACITY = 32;
+
+    // NOTE: from basic profiling HashMap.get() runs in about half the time (0.13 microseconds) of String.intern() (0.24 microseconds) over ~500k runs
+    private static HashMap<String, String> internedMap = new HashMap<>();
+    public static String internString(String orig) {
+        String interned = internedMap.get(orig);
+        if (interned != null) return interned;
+        // don't even check for null until we have to
+        if (orig == null) return null;
+        interned = orig.intern();
+        internedMap.put(interned, interned);
+        return interned;
+    }
 
     // NOTE: key design point is to use parallel arrays with simple values in each so that no Object need be created per entry (minimize GC overhead, etc)
     private String[] keyArray;
-    private Object[] valueArray;
-    private int arrayIndex = -1;
+    private V[] valueArray;
+    private int lastIndex = -1;
     private transient int mapHash = 0;
 
     public LiteStringMap() { init(DEFAULT_CAPACITY); }
     public LiteStringMap(int initialCapacity) { init(initialCapacity); }
-    public LiteStringMap(Map<String, Object> cloneMap) {
+    public LiteStringMap(Map<String, V> cloneMap) {
         init(cloneMap.size());
         putAll(cloneMap);
     }
-    public LiteStringMap(Map<String, Object> cloneMap, Set<String> skipKeys) {
+    public LiteStringMap(Map<String, V> cloneMap, Set<String> skipKeys) {
         init(cloneMap.size());
         putAll(cloneMap, skipKeys);
     }
 
+    @SuppressWarnings("unchecked")
     private void init(int capacity) {
         keyArray = new String[capacity];
-        valueArray = new Object[capacity];
+        valueArray = (V[]) new Object[capacity];
     }
     private void growArrays() {
         int newLength = keyArray.length * 2;
@@ -52,13 +72,13 @@ public class LiteStringMap implements Map<String, Object>, Externalizable, Compa
 
     public int findIndex(String keyOrig) {
         if (keyOrig == null) return -1;
-        return findIndexIString(keyOrig.intern());
+        return findIndexIString(internString(keyOrig));
 
         /* safer but slower approach, needed? by String.intern() JavaDoc no, consistency guaranteed
         int keyLength = keyString.length();
         int keyHashCode = keyString.hashCode();
         // NOTE: can't use Arrays.binarySearch() as we want to maintain the insertion order and not use natural order for array elements
-        for (int i = 0; i <= arrayIndex; i++) {
+        for (int i = 0; i <= lastIndex; i++) {
             // all strings in keyArray should be interned, only added via put()
             String curKey = keyArray[i];
             // first optimization is using interned String with identity compare, but don't always rely on this
@@ -71,7 +91,7 @@ public class LiteStringMap implements Map<String, Object>, Externalizable, Compa
     }
     /** For this method the String key must be non-null and interned (returned value from String.intern()) */
     public int findIndexIString(String key) {
-        for (int i = 0; i <= arrayIndex; i++) {
+        for (int i = 0; i <= lastIndex; i++) {
             // all strings in keyArray should be interned, only added via put()
             if (keyArray[i] == key) return i;
         }
@@ -79,10 +99,11 @@ public class LiteStringMap implements Map<String, Object>, Externalizable, Compa
     }
 
     public String getKey(int index) { return keyArray[index]; }
-    public Object getValue(int index) { return valueArray[index]; }
 
-    @Override public int size() { return arrayIndex + 1; }
-    @Override public boolean isEmpty() { return arrayIndex == -1; }
+    public V getValue(int index) { return (V) valueArray[index]; }
+
+    @Override public int size() { return lastIndex + 1; }
+    @Override public boolean isEmpty() { return lastIndex == -1; }
     @Override public boolean containsKey(Object key) {
         if (key == null) return false;
         return findIndex(key.toString()) != -1;
@@ -94,7 +115,7 @@ public class LiteStringMap implements Map<String, Object>, Externalizable, Compa
 
     @Override
     public boolean containsValue(Object value) {
-        for (int i = 0; i <= arrayIndex; i++) {
+        for (int i = 0; i <= lastIndex; i++) {
             if (valueArray[i] == null) {
                 if (value == null) return true;
             } else {
@@ -105,19 +126,19 @@ public class LiteStringMap implements Map<String, Object>, Externalizable, Compa
     }
 
     @Override
-    public Object get(Object key) {
+    public V get(Object key) {
         if (key == null) return null;
         int keyIndex = findIndex(key.toString());
         if (keyIndex == -1) return null;
         return valueArray[keyIndex];
     }
-    public Object getByString(String key) {
+    public V getByString(String key) {
         int keyIndex = findIndex(key);
         if (keyIndex == -1) return null;
         return valueArray[keyIndex];
     }
     /** For this method the String key must be non-null and interned (returned value from String.intern()) */
-    public Object getByIString(String key) {
+    public V getByIString(String key) {
         int keyIndex = findIndexIString(key);
         if (keyIndex == -1) return null;
         return valueArray[keyIndex];
@@ -126,22 +147,22 @@ public class LiteStringMap implements Map<String, Object>, Externalizable, Compa
     /* ========= Start Mutate Methods ========= */
 
     @Override
-    public Object put(String keyOrig, Object value) {
+    public V put(String keyOrig, V value) {
         if (keyOrig == null) throw new IllegalArgumentException("LiteStringMap Key may not be null");
-        return putByIString(keyOrig.intern(), value);
+        return putByIString(internString(keyOrig), value);
     }
     /** For this method the String key must be non-null and interned (returned value from String.intern()) */
-    public Object putByIString(String key, Object value) {
+    public V putByIString(String key, V value) {
         int keyIndex = findIndexIString(key);
         if (keyIndex == -1) {
-            arrayIndex++;
-            if (arrayIndex >= keyArray.length) growArrays();
-            keyArray[arrayIndex] = key;
-            valueArray[arrayIndex] = value;
+            lastIndex++;
+            if (lastIndex >= keyArray.length) growArrays();
+            keyArray[lastIndex] = key;
+            valueArray[lastIndex] = value;
             mapHash = 0;
             return null;
         } else {
-            Object oldValue = valueArray[keyIndex];
+            V oldValue = valueArray[keyIndex];
             valueArray[keyIndex] = value;
             mapHash = 0;
             return oldValue;
@@ -149,23 +170,23 @@ public class LiteStringMap implements Map<String, Object>, Externalizable, Compa
     }
 
     @Override
-    public Object remove(Object key) {
+    public V remove(Object key) {
         if (key == null) return null;
-        int keyIndex = findIndexIString(key.toString().intern());
+        int keyIndex = findIndexIString(internString(key.toString()));
         if (keyIndex == -1) {
             return null;
         } else {
-            Object oldValue = valueArray[keyIndex];
+            V oldValue = valueArray[keyIndex];
             // shift all later values up one position
-            for (int i = keyIndex; i < arrayIndex; i++) {
+            for (int i = keyIndex; i < lastIndex; i++) {
                 keyArray[i] = keyArray[i+1];
                 valueArray[i] = valueArray[i+1];
             }
             // null the last values to avoid memory leak
-            keyArray[arrayIndex] = null;
-            valueArray[arrayIndex] = null;
+            keyArray[lastIndex] = null;
+            valueArray[lastIndex] = null;
             // decrement last index
-            arrayIndex--;
+            lastIndex--;
             // reset hash
             mapHash = 0;
             // done
@@ -173,14 +194,15 @@ public class LiteStringMap implements Map<String, Object>, Externalizable, Compa
         }
     }
 
-    @Override public void putAll(Map<? extends String, ?> map) { putAll(map, null); }
+    @Override public void putAll(Map<? extends String, ? extends V> map) { putAll(map, null); }
 
-    public void putAll(Map<? extends String, ?> map, Set<String> skipKeys) {
+    @SuppressWarnings("unchecked")
+    public void putAll(Map<? extends String, ? extends V> map, Set<String> skipKeys) {
         if (map == null) return;
-        boolean initialEmpty = arrayIndex == -1;
+        boolean initialEmpty = lastIndex == -1;
         if (map instanceof LiteStringMap) {
-            LiteStringMap lsm = (LiteStringMap) map;
-            for (int i = 0; i <= lsm.arrayIndex; i++) {
+            LiteStringMap<V> lsm = (LiteStringMap<V>) map;
+            for (int i = 0; i <= lsm.lastIndex; i++) {
                 if (skipKeys != null && skipKeys.contains(lsm.keyArray[i])) continue;
                 if (initialEmpty) {
                     putNoFind(lsm.keyArray[i], lsm.valueArray[i]);
@@ -189,31 +211,31 @@ public class LiteStringMap implements Map<String, Object>, Externalizable, Compa
                 }
             }
         } else {
-            for (Map.Entry<? extends String, ?> entry : map.entrySet()) {
+            for (Map.Entry<? extends String, ? extends V> entry : map.entrySet()) {
                 String key = entry.getKey();
                 if (key == null) throw new IllegalArgumentException("LiteStringMap Key may not be null");
                 if (skipKeys != null && skipKeys.contains(key)) continue;
                 if (initialEmpty) {
-                    putNoFind(key.intern(), entry.getValue());
+                    putNoFind(internString(key), entry.getValue());
                 } else {
-                    putByIString(key.intern(), entry.getValue());
+                    putByIString(internString(key), entry.getValue());
                 }
             }
         }
         mapHash = 0;
     }
     /** For this method the String key must be non-null and interned (returned value from String.intern()) */
-    private void putNoFind(String key, Object value) {
-        arrayIndex++;
-        if (arrayIndex >= keyArray.length) growArrays();
-        keyArray[arrayIndex] = key;
-        valueArray[arrayIndex] = value;
+    private void putNoFind(String key, V value) {
+        lastIndex++;
+        if (lastIndex >= keyArray.length) growArrays();
+        keyArray[lastIndex] = key;
+        valueArray[lastIndex] = value;
         mapHash = 0;
     }
 
     @Override
     public void clear() {
-        arrayIndex = -1;
+        lastIndex = -1;
         Arrays.fill(keyArray, null);
         Arrays.fill(valueArray, null);
         mapHash = 0;
@@ -222,14 +244,14 @@ public class LiteStringMap implements Map<String, Object>, Externalizable, Compa
     /* ========= End Mutate Methods ========= */
 
     @Override public Set<String> keySet() { return new KeySetWrapper(this); }
-    @Override public Collection<Object> values() { return new ValueCollectionWrapper(this); }
-    @Override public Set<Entry<String, Object>> entrySet() { return new EntrySetWrapper(this); }
+    @Override public Collection<V> values() { return new ValueCollectionWrapper<>(this); }
+    @Override public Set<Entry<String, V>> entrySet() { return new EntrySetWrapper<>(this); }
 
     @Override
     public int hashCode() {
         if (mapHash == 0) {
             // NOTE: this mimics the HashMap implementation from AbstractMap.java for the outer (add entry hash codes) and HashMap.java for the Map.Entry impl
-            for (int i = 0; i <= arrayIndex; i++) {
+            for (int i = 0; i <= lastIndex; i++) {
                 mapHash += (keyArray[i] == null ? 0 : keyArray[i].hashCode()) ^ (valueArray[i] == null ? 0 : valueArray[i].hashCode());
             }
         }
@@ -240,8 +262,8 @@ public class LiteStringMap implements Map<String, Object>, Externalizable, Compa
     public boolean equals(Object o) {
         if (o instanceof LiteStringMap) {
             LiteStringMap lsm = (LiteStringMap) o;
-            if (arrayIndex != lsm.arrayIndex) return false;
-            for (int i = 0; i <= arrayIndex; i++) {
+            if (lastIndex != lsm.lastIndex) return false;
+            for (int i = 0; i <= lastIndex; i++) {
                 // identity compare of interned String keys, if equal the value in the other LSM is conveniently at the same index
                 if (keyArray[i] == lsm.keyArray[i]) {
                     if (!Objects.equals(valueArray[i], lsm.valueArray[i])) return false;
@@ -253,8 +275,8 @@ public class LiteStringMap implements Map<String, Object>, Externalizable, Compa
             return true;
         } else if (o instanceof Map) {
             Map map = (Map) o;
-            if ((arrayIndex + 1) != map.size()) return false;
-            for (int i = 0; i <= arrayIndex; i++) {
+            if ((lastIndex + 1) != map.size()) return false;
+            for (int i = 0; i <= lastIndex; i++) {
                 Object value = map.get(keyArray[i]);
                 if (!Objects.equals(valueArray[i], value)) return false;
             }
@@ -264,14 +286,14 @@ public class LiteStringMap implements Map<String, Object>, Externalizable, Compa
         }
     }
 
-    @Override protected Object clone() { return new LiteStringMap(this); }
-    public LiteStringMap cloneLite() { return new LiteStringMap(this); }
+    @Override protected Object clone() { return new LiteStringMap<V>(this); }
+    public LiteStringMap<V> cloneLite() { return new LiteStringMap<V>(this); }
 
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
         sb.append('[');
-        for (int i = 0; i <= arrayIndex; i++) {
+        for (int i = 0; i <= lastIndex; i++) {
             if (i != 0) sb.append(", ");
             sb.append(keyArray[i]).append(":").append(valueArray[i]);
         }
@@ -281,7 +303,7 @@ public class LiteStringMap implements Map<String, Object>, Externalizable, Compa
 
     @Override
     public void writeExternal(ObjectOutput out) throws IOException {
-        int size = arrayIndex + 1;
+        int size = lastIndex + 1;
         out.writeInt(size);
         // after writing size write each key/value pair
         for (int i = 0; i < size; i++) {
@@ -289,28 +311,30 @@ public class LiteStringMap implements Map<String, Object>, Externalizable, Compa
             out.writeObject(valueArray[i]);
         }
     }
+
     @Override
+    @SuppressWarnings("unchecked")
     public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
         int size = in.readInt();
-        arrayIndex = size - 1;
+        lastIndex = size - 1;
         mapHash = 0;
         // now that we know the size read each key/value pair
         for (int i = 0; i < size; i++) {
             keyArray[i] = in.readUTF();
-            valueArray[i] = in.readObject();
+            valueArray[i] = (V) in.readObject();
         }
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public int compareTo(Map<String, ?> that) {
+    public int compareTo(Map<String, ? extends V> that) {
         int result = 0;
         if (that instanceof LiteStringMap) {
             LiteStringMap lsm = (LiteStringMap) that;
-            result = Integer.compare(arrayIndex, lsm.arrayIndex);
+            result = Integer.compare(lastIndex, lsm.lastIndex);
             if (result != 0) return result;
 
-            for (int i = 0; i <= arrayIndex; i++) {
+            for (int i = 0; i <= lastIndex; i++) {
                 Comparable thisVal = (Comparable) valueArray[i];
                 // identity compare of interned String keys, if equal the value in the other LSM is conveniently at the same index
                 Comparable thatVal = keyArray[i] == lsm.keyArray[i] ? (Comparable) lsm.valueArray[i] : (Comparable) lsm.getByIString(keyArray[i]);
@@ -323,10 +347,10 @@ public class LiteStringMap implements Map<String, Object>, Externalizable, Compa
                 if (result != 0) return result;
             }
         } else {
-            result = Integer.compare(arrayIndex + 1, that.size());
+            result = Integer.compare(lastIndex + 1, that.size());
             if (result != 0) return result;
 
-            for (int i = 0; i <= arrayIndex; i++) {
+            for (int i = 0; i <= lastIndex; i++) {
                 Comparable thisVal = (Comparable) valueArray[i];
                 Comparable thatVal = (Comparable) that.get(keyArray[i]);
                 // NOTE: nulls go earlier in the list
@@ -348,15 +372,15 @@ public class LiteStringMap implements Map<String, Object>, Externalizable, Compa
         private final LiteStringMap lsm;
         private int curIndex = -1;
         KeyIterator(LiteStringMap liteStringMap) { lsm = liteStringMap; }
-        @Override public boolean hasNext() { return lsm.arrayIndex > curIndex; }
+        @Override public boolean hasNext() { return lsm.lastIndex > curIndex; }
         @Override public String next() { curIndex++; return lsm.keyArray[curIndex]; }
     }
-    public static class ValueIterator implements Iterator<Object> {
-        private final LiteStringMap lsm;
+    public static class ValueIterator<V> implements Iterator<V> {
+        private final LiteStringMap<V> lsm;
         private int curIndex = -1;
-        ValueIterator(LiteStringMap liteStringMap) { lsm = liteStringMap; }
-        @Override public boolean hasNext() { return lsm.arrayIndex > curIndex; }
-        @Override public Object next() { curIndex++; return lsm.valueArray[curIndex]; }
+        ValueIterator(LiteStringMap<V> liteStringMap) { lsm = liteStringMap; }
+        @Override public boolean hasNext() { return lsm.lastIndex > curIndex; }
+        @Override public V next() { curIndex++; return lsm.valueArray[curIndex]; }
     }
 
     public static class KeySetWrapper implements Set<String> {
@@ -368,9 +392,9 @@ public class LiteStringMap implements Map<String, Object>, Externalizable, Compa
         @Override public boolean contains(Object o) { return lsm.containsKey(o); }
         @Override public Iterator<String> iterator() { return new KeyIterator(lsm); }
 
-        @Override public Object[] toArray() { return Arrays.copyOf(lsm.keyArray, lsm.arrayIndex + 1); }
-        @Override public <String> String[] toArray(String[] ts) {
-            int toCopy = ts.length > lsm.arrayIndex ? lsm.arrayIndex + 1 : ts.length;
+        @Override public Object[] toArray() { return Arrays.copyOf(lsm.keyArray, lsm.lastIndex + 1); }
+        @Override public <T> T[] toArray(T[] ts) {
+            int toCopy = ts.length > lsm.lastIndex ? lsm.lastIndex + 1 : ts.length;
             System.arraycopy(lsm.keyArray, 0, ts, 0, toCopy);
             return ts;
         }
@@ -389,9 +413,9 @@ public class LiteStringMap implements Map<String, Object>, Externalizable, Compa
         @Override public void clear() { throw new UnsupportedOperationException("Key Set clear not allowed"); }
     }
 
-    public static class ValueCollectionWrapper implements Collection<Object> {
-        private final LiteStringMap lsm;
-        ValueCollectionWrapper(LiteStringMap liteStringMap) { lsm = liteStringMap; }
+    public static class ValueCollectionWrapper<V> implements Collection<V> {
+        private final LiteStringMap<V> lsm;
+        ValueCollectionWrapper(LiteStringMap<V> liteStringMap) { lsm = liteStringMap; }
 
         @Override public int size() { return lsm.size(); }
         @Override public boolean isEmpty() { return lsm.isEmpty(); }
@@ -404,53 +428,54 @@ public class LiteStringMap implements Map<String, Object>, Externalizable, Compa
             return true;
         }
 
-        @Override public Iterator<Object> iterator() { return new ValueIterator(lsm); }
+        @Override public Iterator<V> iterator() { return new ValueIterator<V>(lsm); }
 
-        @Override public Object[] toArray() { return Arrays.copyOf(lsm.valueArray, lsm.arrayIndex + 1); }
-        @Override public <Object> Object[] toArray(Object[] ts) {
-            int toCopy = ts.length > lsm.arrayIndex ? lsm.arrayIndex + 1 : ts.length;
+        @Override public Object[] toArray() { return Arrays.copyOf(lsm.valueArray, lsm.lastIndex + 1); }
+        @Override public <T> T[] toArray(T[] ts) {
+            int toCopy = ts.length > lsm.lastIndex ? lsm.lastIndex + 1 : ts.length;
             System.arraycopy(lsm.valueArray, 0, ts, 0, toCopy);
             return ts;
         }
 
         @Override public boolean add(Object s) { throw new UnsupportedOperationException("Value Collection add not allowed"); }
         @Override public boolean remove(Object o) { throw new UnsupportedOperationException("Value Collection remove not allowed"); }
-        @Override public boolean addAll(Collection<?> collection) { throw new UnsupportedOperationException("Value Collection add all not allowed"); }
+        @Override public boolean addAll(Collection<? extends V> collection) { throw new UnsupportedOperationException("Value Collection add all not allowed"); }
         @Override public boolean retainAll(Collection<?> collection) { throw new UnsupportedOperationException("Value Collection retain all not allowed"); }
         @Override public boolean removeAll(Collection<?> collection) { throw new UnsupportedOperationException("Value Collection remove all not allowed"); }
         @Override public void clear() { throw new UnsupportedOperationException("Value Collection clear not allowed"); }
     }
 
-    public static class EntryWrapper implements Entry<String, Object> {
-        private final LiteStringMap lsm;
+    public static class EntryWrapper<V> implements Entry<String, V> {
+        private final LiteStringMap<V> lsm;
         private final String key;
         private int curIndex;
 
-        EntryWrapper(LiteStringMap liteStringMap, int index) {
+        EntryWrapper(LiteStringMap<V> liteStringMap, int index) {
             lsm = liteStringMap;
             curIndex = index;
             key = lsm.keyArray[index];
         }
 
         @Override public String getKey() { return key; }
-        @Override public Object getValue() {
+
+        @Override public V getValue() {
             String keyCheck = lsm.keyArray[curIndex];
             if (!Objects.equals(key, keyCheck)) curIndex = lsm.findIndex(key);
             if (curIndex == -1) return null;
             return lsm.valueArray[curIndex];
         }
-        @Override public Object setValue(Object value) {
+        @Override public V setValue(V value) {
             String keyCheck = lsm.keyArray[curIndex];
             if (!Objects.equals(key, keyCheck)) curIndex = lsm.findIndex(key);
             if (curIndex == -1) return lsm.put(key, value);
-            Object oldValue = lsm.valueArray[curIndex];
+            V oldValue = lsm.valueArray[curIndex];
             lsm.valueArray[curIndex] = value;
             return oldValue;
         }
     }
-    public static class EntrySetWrapper implements Set<Entry<String, Object>> {
-        private final LiteStringMap lsm;
-        EntrySetWrapper(LiteStringMap liteStringMap) { lsm = liteStringMap; }
+    public static class EntrySetWrapper<V> implements Set<Entry<String, V>> {
+        private final LiteStringMap<V> lsm;
+        EntrySetWrapper(LiteStringMap<V> liteStringMap) { lsm = liteStringMap; }
 
         @Override public int size() { return lsm.size(); }
         @Override public boolean isEmpty() { return lsm.isEmpty(); }
@@ -468,13 +493,13 @@ public class LiteStringMap implements Map<String, Object>, Externalizable, Compa
                 return false;
             }
         }
-        @Override public Iterator<Entry<String, Object>> iterator() {
-            ArrayList<Entry<String, Object>> entryList = new ArrayList<>(lsm.arrayIndex + 1);
-            for (int i = 0; i <= lsm.arrayIndex; i++) { entryList.add(new EntryWrapper(lsm, i)); }
+        @Override public Iterator<Entry<String, V>> iterator() {
+            ArrayList<Entry<String, V>> entryList = new ArrayList<>(lsm.lastIndex + 1);
+            for (int i = 0; i <= lsm.lastIndex; i++) { entryList.add(new EntryWrapper<V>(lsm, i)); }
             return entryList.iterator();
         }
 
-        @Override public Object[] toArray() { throw new UnsupportedOperationException("Entry Set to array not supported"); }
+        @Override public V[] toArray() { throw new UnsupportedOperationException("Entry Set to array not supported"); }
         @Override public <T> T[] toArray(T[] ts) { throw new UnsupportedOperationException("Entry Set copy to array not supported"); }
 
         @Override
@@ -484,9 +509,9 @@ public class LiteStringMap implements Map<String, Object>, Externalizable, Compa
             return true;
         }
 
-        @Override public boolean add(Entry<String, Object> entry) { throw new UnsupportedOperationException("Entry Set add not allowed"); }
+        @Override public boolean add(Entry<String, V> entry) { throw new UnsupportedOperationException("Entry Set add not allowed"); }
         @Override public boolean remove(Object o) { throw new UnsupportedOperationException("Entry Set remove not allowed"); }
-        @Override public boolean addAll(Collection<? extends Entry<String, Object>> collection) { throw new UnsupportedOperationException("Entry Set add all not allowed"); }
+        @Override public boolean addAll(Collection<? extends Entry<String, V>> collection) { throw new UnsupportedOperationException("Entry Set add all not allowed"); }
         @Override public boolean retainAll(Collection<?> collection) { throw new UnsupportedOperationException("Entry Set retain all not allowed"); }
         @Override public boolean removeAll(Collection<?> collection) { throw new UnsupportedOperationException("Entry Set remove all not allowed"); }
         @Override public void clear() { throw new UnsupportedOperationException("Entry Set clear not allowed"); }
