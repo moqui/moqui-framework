@@ -63,8 +63,7 @@ public class EntityFindImpl extends EntityFindBase {
         efb.makeWhereClause();
         // GROUP BY clause
         efb.makeGroupByClause();
-        // LIMIT/OFFSET clause - for find one always limit to 1
-        efb.addLimitOffset(1, 0);
+        // NOTE 20200707 don't do this, databases such as Oracle (error ORA-02014) do not allow use of limit/offset with for update: LIMIT/OFFSET clause - for find one always limit to 1: efb.addLimitOffset(1, 0);
         // FOR UPDATE
         if (getForUpdate()) efb.makeForUpdate();
 
