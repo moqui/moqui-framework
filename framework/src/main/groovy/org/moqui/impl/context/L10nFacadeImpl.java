@@ -138,10 +138,7 @@ public class L10nFacadeImpl implements L10nFacade {
     public BigDecimal roundCurrency(BigDecimal amount, String uomId, boolean precise) { return roundCurrency(amount, uomId, false, RoundingMode.HALF_UP); }
     @Override
     public BigDecimal roundCurrency(BigDecimal amount, String uomId, boolean precise, int roundingMethod) {
-        Currency currency = Currency.getInstance(uomId);
-        int nDigits = currency.getDefaultFractionDigits();
-        if (precise) nDigits++;
-        return amount.setScale(nDigits, roundingMethod);
+        return roundCurrency(amount, uomId, precise, RoundingMode.valueOf(roundingMethod));
     }
     @Override
     public BigDecimal roundCurrency(BigDecimal amount, String uomId, boolean precise, RoundingMode mode) {
