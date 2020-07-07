@@ -740,7 +740,8 @@ class UserFacadeImpl implements UserFacade {
 
         // check expire date
         Timestamp nowDate = getNowTimestamp()
-        if (nowDate > userLoginKey.getTimestamp("thruDate")) {
+        Timestamp thruDate = userLoginKey.getTimestamp("thruDate")
+        if (thruDate != (Timestamp) null && nowDate > thruDate) {
             eci.message.addError(eci.l10n.localize("Login key expired"))
             return false
         }
