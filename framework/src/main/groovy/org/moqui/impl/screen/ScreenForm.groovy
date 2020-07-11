@@ -1163,6 +1163,7 @@ class ScreenForm {
         private ArrayList<MNode> nonReferencedFieldList = (ArrayList<MNode>) null
         private ArrayList<MNode> hiddenFieldList = (ArrayList<MNode>) null
         private ArrayList<String> hiddenFieldNameList = (ArrayList<String>) null
+        private Set<String> hiddenFieldNameSet = (Set<String>) null
         private ArrayList<MNode> hiddenHeaderFieldList = (ArrayList<MNode>) null
         private ArrayList<MNode> hiddenFirstRowFieldList = (ArrayList<MNode>) null
         private ArrayList<MNode> hiddenSecondRowFieldList = (ArrayList<MNode>) null
@@ -1193,6 +1194,7 @@ class ScreenForm {
             if (isListForm) {
                 hiddenFieldList = new ArrayList<>()
                 hiddenFieldNameList = new ArrayList<>()
+                hiddenFieldNameSet = new HashSet<>()
                 hiddenHeaderFieldList = new ArrayList<>()
                 hiddenFirstRowFieldList = new ArrayList<>()
                 hiddenSecondRowFieldList = new ArrayList<>()
@@ -1211,7 +1213,10 @@ class ScreenForm {
                 if (isListForm) {
                     if (isListFieldHiddenWidget(fieldNode)) {
                         hiddenFieldList.add(fieldNode)
-                        if (!hiddenFieldNameList.contains(fieldName)) hiddenFieldNameList.add(fieldName)
+                        if (!hiddenFieldNameSet.contains(fieldName)) {
+                            hiddenFieldNameList.add(fieldName)
+                            hiddenFieldNameSet.add(fieldName)
+                        }
                     }
                     MNode headerField = fieldNode.first("header-field")
                     if (headerField != null && headerField.hasChild("hidden")) hiddenHeaderFieldList.add(fieldNode)
@@ -1406,6 +1411,7 @@ class ScreenForm {
 
         ArrayList<MNode> getListHiddenFieldList() { return hiddenFieldList }
         ArrayList<String> getListHiddenFieldNameList() { return hiddenFieldNameList }
+        Set<String> getListHiddenFieldNameSet() { return hiddenFieldNameSet }
         boolean hasFormListColumns() { return formNode.children("form-list-column").size() > 0 }
 
         String getUserActiveFormConfigId(ExecutionContext ec) {
@@ -1698,7 +1704,7 @@ class ScreenForm {
         ArrayList<MNode> getListLastRowHiddenFieldList() { return formInstance.hiddenLastRowFieldList }
         LinkedHashSet<String> getDisplayedFields() { return displayedFieldSet }
 
-        Object getListObject(boolean aggregateList) {
+        ArrayList<Map<String, Object>> getListObject(boolean aggregateList) {
             ContextStack context = ecfi.getEci().contextStack
 
             Object listObject
