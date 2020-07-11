@@ -1607,6 +1607,38 @@ class ScreenRenderImpl implements ScreenRender {
         return fieldValues
     }
 
+    ArrayList<Map<String, Object>> getFormListRowValues(ScreenForm.FormListRenderInfo renderInfo) {
+        ArrayList<MNode> fieldNodeList = renderInfo.getFormNode().children("field")
+        int fieldNodeListSize = fieldNodeList.size()
+        Set<String> displayedFields = renderInfo.getDisplayedFields()
+        Set<String> hiddenFields = renderInfo.getFormInstance().getListHiddenFieldNameSet()
+        ContextStack cs = ec.contextStack
+
+        // get row data, aggregated if needed and row-actions run
+        ArrayList<Map<String, Object>> rows = renderInfo.getListObject(true)
+        // convert raw data to formatted strings, fill in auxiliary values, etc
+        int rowsSize = rows.size()
+        for (int ri = 0; ri < rowsSize; ri++) {
+            Map<String, Object> row = (Map<String, Object>) rows.get(ri)
+            for (int fni = 0; fni < fieldNodeListSize; fni++) {
+                MNode fieldNode = (MNode) fieldNodeList.get(fni)
+                String fieldName = fieldNode.get("name")
+                if (displayedFields.contains(fieldName) || hiddenFields.contains(fieldName)) {
+                    // field values come from context so push current row, like SRI.startFormListRow() but slightly different approach with 2nd push to prevent potential writes
+                    cs.push(row)
+                    cs.push()
+                    try {
+                        addFormFieldValue(fieldNode, row, false)
+                    } finally {
+                        cs.pop()
+                        cs.pop()
+                    }
+                }
+            }
+        }
+        return rows
+    }
+
     // NOTE: this takes a fieldValues Map as a parameter to populate because a singe form field may have multiple values
     void addFormFieldValue(MNode fieldNode, Map<String, Object> fieldValues, boolean useHeader) {
         String fieldName = fieldNode.attribute("name")
