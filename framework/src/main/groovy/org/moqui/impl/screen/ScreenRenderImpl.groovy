@@ -14,6 +14,7 @@
 package org.moqui.impl.screen
 
 import freemarker.template.Template
+import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 import groovy.transform.CompileStatic
 import org.moqui.BaseArtifactException
@@ -1612,31 +1613,38 @@ class ScreenRenderImpl implements ScreenRender {
         int fieldNodeListSize = fieldNodeList.size()
         Set<String> displayedFields = renderInfo.getDisplayedFields()
         Set<String> hiddenFields = renderInfo.getFormInstance().getListHiddenFieldNameSet()
+        // logger.warn("form ${renderInfo.formNode.attribute('name')} displayed ${displayedFields} hidden ${hiddenFields}")
         ContextStack cs = ec.contextStack
 
         // get row data, aggregated if needed and row-actions run
         ArrayList<Map<String, Object>> rows = renderInfo.getListObject(true)
         // convert raw data to formatted strings, fill in auxiliary values, etc
         int rowsSize = rows.size()
+        ArrayList<Map<String, Object>> outRows = new ArrayList<>(rowsSize)
         for (int ri = 0; ri < rowsSize; ri++) {
             Map<String, Object> row = (Map<String, Object>) rows.get(ri)
+            // TODO: row Map by default has a "${listName}_entry" entry for internal processing, remove here or perhaps only before converting to JSON?
+            Map<String, Object> outRow = new LinkedHashMap<>(row)
+            outRows.add(outRow)
             for (int fni = 0; fni < fieldNodeListSize; fni++) {
                 MNode fieldNode = (MNode) fieldNodeList.get(fni)
-                String fieldName = fieldNode.get("name")
+                String fieldName = fieldNode.attribute("name")
+                // logger.warn("form ${renderInfo.formNode.attribute( 'name')} field ${fieldName} raw val ${row.get(fieldName)}")
                 if (displayedFields.contains(fieldName) || hiddenFields.contains(fieldName)) {
                     // field values come from context so push current row, like SRI.startFormListRow() but slightly different approach with 2nd push to prevent potential writes
                     cs.push(row)
                     cs.push()
                     try {
-                        addFormFieldValue(fieldNode, row, false)
+                        addFormFieldValue(fieldNode, outRow, false)
                     } finally {
                         cs.pop()
                         cs.pop()
                     }
                 }
             }
+            // logger.warn("form-list row values\norig: ${JsonOutput.prettyPrint(JsonOutput.toJson(row))}\nout: ${JsonOutput.prettyPrint(JsonOutput.toJson(outRow))}")
         }
-        return rows
+        return outRows
     }
 
     // NOTE: this takes a fieldValues Map as a parameter to populate because a singe form field may have multiple values

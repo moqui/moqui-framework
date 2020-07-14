@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.screen
 
+import groovy.json.JsonOutput
 import groovy.transform.CompileStatic
 import org.codehaus.groovy.runtime.InvokerHelper
 import org.moqui.BaseArtifactException
@@ -894,7 +895,9 @@ class ScreenDefinition {
                     ScreenForm.FormInstance formInstance = form.getFormInstance()
                     if (formInstance.isList()) {
                         ScreenForm.FormListRenderInfo renderInfo = formInstance.makeFormListRenderInfo()
-                        Object listObj = renderInfo.getListObject(true)
+                        // old approach, raw data: Object listObj = renderInfo.getListObject(true)
+                        // new approach: transformed and auto values filled in based on field defs
+                        ArrayList<Map<String, Object>> listObj = sri.getFormListRowValues(renderInfo)
 
                         HttpServletResponse response = wf.response
                         String listName = formInstance.formNode.attribute("list")
@@ -907,6 +910,7 @@ class ScreenDefinition {
                             response.addIntHeader('X-Page-Range-High', context.get(listName.concat("PageRangeHigh")) as int)
                         }
 
+                        logger.info("form ${partName} actions result:\n${JsonOutput.prettyPrint(JsonOutput.toJson(listObj))}")
                         wf.sendJsonResponse(listObj)
                     }
                     // TODO: else support form-single data prep once something is added
