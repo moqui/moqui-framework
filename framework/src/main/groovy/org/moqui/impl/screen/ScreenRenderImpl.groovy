@@ -2167,13 +2167,12 @@ class ScreenRenderImpl implements ScreenRender {
 
                 String image = sui.menuImage
                 String imageType = sui.menuImageType
-                if (image != null && image.length() > 0 && (imageType == null || imageType.length() == 0 || "url-screen".equals(imageType)))
+                if (image != null && !image.isEmpty() && (imageType == null || imageType.isEmpty() || "url-screen".equals(imageType)))
                     image = buildUrl(image).path
 
                 boolean active = (nextItem == subscreensItem.name)
                 Map itemMap = [name:subscreensItem.name, title:ec.resource.expand(subscreensItem.menuTitle, ""),
-                               path:screenPath, pathWithParams:pathWithParams, image:image]
-                if ("icon".equals(imageType)) itemMap.imageType = "icon"
+                               path:screenPath, pathWithParams:pathWithParams, image:image, imageType:imageType]
                 if (active) itemMap.active = true
                 if (screenUrlInstance.disableLink) itemMap.disableLink = true
                 subscreensList.add(itemMap)
@@ -2185,8 +2184,15 @@ class ScreenRenderImpl implements ScreenRender {
             String curPathWithParams = curScreenPath
             String curParmString = curUrlInstance.getParameterString()
             if (!curParmString.isEmpty()) curPathWithParams = curPathWithParams + '?' + curParmString
+
+            ScreenUrlInfo sui = curUrlInstance.sui
+            String image = sui.menuImage
+            String imageType = sui.menuImageType
+            if (image != null && !image.isEmpty() && (imageType == null || imageType.isEmpty() || "url-screen".equals(imageType)))
+                image = buildUrl(image).path
+
             menuDataList.add([name:pathItem, title:curScreen.getDefaultMenuName(), subscreens:subscreensList, path:curScreenPath,
-                    pathWithParams:curPathWithParams, hasTabMenu:curScreen.hasTabMenu(), renderModes:curScreen.renderModes])
+                    pathWithParams:curPathWithParams, hasTabMenu:curScreen.hasTabMenu(), renderModes:curScreen.renderModes, image:image, imageType:imageType])
             // not needed: screenStatic:curScreen.isServerStatic(renderMode)
         }
 
@@ -2199,7 +2205,7 @@ class ScreenRenderImpl implements ScreenRender {
 
         String lastImage = fullUrlInfo.menuImage
         String lastImageType = fullUrlInfo.menuImageType
-        if (lastImage != null && lastImage.length() > 0 && (lastImageType == null || lastImageType.length() == 0 || "url-screen".equals(lastImageType)))
+        if (lastImage != null && !lastImage.isEmpty() && (lastImageType == null || lastImageType.isEmpty() || "url-screen".equals(lastImageType)))
             lastImage = buildUrl(lastImage).url
         String lastTitle = fullUrlInfo.targetScreen.getDefaultMenuName()
         if (lastTitle.contains('${')) lastTitle = ec.resourceFacade.expand(lastTitle, "")
@@ -2209,9 +2215,8 @@ class ScreenRenderImpl implements ScreenRender {
             int extraPathListSize = extraPathList.size()
             for (int i = 0; i < extraPathListSize; i++) extraPathList.set(i, StringUtilities.urlEncodeIfNeeded((String) extraPathList.get(i)))
         }
-        Map lastMap = [name:lastPathItem, title:lastTitle, path:lastPath, pathWithParams:currentPath.toString(), image:lastImage,
+        Map lastMap = [name:lastPathItem, title:lastTitle, path:lastPath, pathWithParams:currentPath.toString(), image:lastImage, imageType:lastImageType,
                 extraPathList:extraPathList, screenDocList:screenDocList, renderModes:fullUrlInfo.targetScreen.renderModes]
-        if ("icon".equals(lastImageType)) lastMap.imageType = "icon"
         menuDataList.add(lastMap)
         // not needed: screenStatic:fullUrlInfo.targetScreen.isServerStatic(renderMode)
 
