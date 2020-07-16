@@ -125,7 +125,13 @@ task downloadElasticSearch { doLast {
         logger.lifecycle("Found ElasticSearch archive at ${zipFile.getPath()}, using that instead of downloading")
     }
     // the eachFile closure removes the first path from each file, moving everything up a directory, which also requires delete of the extra dirs
-    copy { from distType == "zip"? zipTree(zipFile) : tarTree(zipFile); into targetDir; eachFile { it.setPath((it.getRelativePath().getSegments() as List).tail().join("/")); return it } }
+    copy { from distType == "zip"? zipTree(zipFile) : tarTree(zipFile); into targetDir; eachFile {
+        def pathList = it.getRelativePath().getSegments() as List
+        if (pathList[0] == ".") pathList = pathList.tail()
+        it.setPath(pathList.tail().join("/"))
+        return it
+    } }
+
     File extraDir = file(esExtraDirPath)
     if (extraDir.exists()) delete extraDir
 
