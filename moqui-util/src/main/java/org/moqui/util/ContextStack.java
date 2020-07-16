@@ -141,8 +141,9 @@ public class ContextStack implements Map<String, Object> {
         newStack.stackArray = new Map[stackArray.length];
         System.arraycopy(stackArray, 0, newStack.stackArray, 0, stackIndex + 1);
         newStack.stackIndex = stackIndex;
+        
+        if (sharedMap != null) newStack.sharedMap = new HashMap<>(sharedMap);
 
-        newStack.sharedMap = new HashMap<>(sharedMap);
         if (contextStack != null) {
             newStack.contextStack = new LinkedList<>();
             for (ContextInfo ci : contextStack) newStack.contextStack.add(ci.cloneInfo());
