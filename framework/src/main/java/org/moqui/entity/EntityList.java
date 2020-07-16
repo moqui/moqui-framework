@@ -79,6 +79,9 @@ public interface EntityList extends List<EntityValue>, Iterable<EntityValue>, Cl
 
     /** Find the first value in this EntityList where the closure evaluates to true. */
     EntityValue find(Closure<Boolean> closure);
+    EntityValue findByAnd(Map<String, Object> fields);
+    EntityValue findByAnd(Object... namesAndValues);
+
     /** Different from filter* method semantics, does not modify this EntityList. Returns a new EntityList with just the
      * values where the closure evaluates to true. */
     EntityList findAll(Closure<Boolean> closure);
