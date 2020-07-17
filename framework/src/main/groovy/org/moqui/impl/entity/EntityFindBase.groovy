@@ -1428,7 +1428,9 @@ abstract class EntityFindBase implements EntityFind {
         if (ed.entityInfo.createOnly) throw new EntityException("Entity ${ed.getFullEntityName()} is create-only (immutable), cannot be deleted.")
 
         // if there are no EECAs for the entity OR there is a TransactionCache in place just call ev.delete() on each
-        boolean useEvDelete = txCache != null || efi.hasEecaRules(ed.getFullEntityName())
+        // NOTE DEJ 20200716 always use EV delete, not all JDBC drivers support ResultSet.deleteRow()... like MySQL Connector/J 8.0.20
+        // boolean useEvDelete = txCache != null || efi.hasEecaRules(ed.getFullEntityName())
+        boolean useEvDelete = true
         this.useCache(false)
         long totalDeleted = 0
         if (useEvDelete) {
