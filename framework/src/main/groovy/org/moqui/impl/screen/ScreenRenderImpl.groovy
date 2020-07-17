@@ -1609,6 +1609,21 @@ class ScreenRenderImpl implements ScreenRender {
     }
 
     ArrayList<Map<String, Object>> getFormListRowValues(ScreenForm.FormListRenderInfo renderInfo) {
+        // get row data, aggregated if needed and row-actions run
+        ArrayList<Map<String, Object>> listObject = renderInfo.getListObject(true)
+        return transformFormListRowList(renderInfo, listObject)
+    }
+    ArrayList<Map<String, Object>> transformFormListRowList(ScreenForm.FormListRenderInfo renderInfo, ArrayList<Map<String, Object>> listObject) {
+        // convert raw data to formatted strings, fill in auxiliary values, etc
+        int rowsSize = listObject.size()
+        ArrayList<Map<String, Object>> outRows = new ArrayList<>(rowsSize)
+        for (int ri = 0; ri < rowsSize; ri++) {
+            Map<String, Object> row = (Map<String, Object>) listObject.get(ri)
+            outRows.add(transformFormListRow(renderInfo, row))
+        }
+        return outRows
+    }
+    Map<String, Object> transformFormListRow(ScreenForm.FormListRenderInfo renderInfo, Map<String, Object> row) {
         ArrayList<MNode> fieldNodeList = renderInfo.getFormNode().children("field")
         int fieldNodeListSize = fieldNodeList.size()
         Set<String> displayedFields = renderInfo.getDisplayedFields()
@@ -1616,35 +1631,27 @@ class ScreenRenderImpl implements ScreenRender {
         // logger.warn("form ${renderInfo.formNode.attribute('name')} displayed ${displayedFields} hidden ${hiddenFields}")
         ContextStack cs = ec.contextStack
 
-        // get row data, aggregated if needed and row-actions run
-        ArrayList<Map<String, Object>> rows = renderInfo.getListObject(true)
-        // convert raw data to formatted strings, fill in auxiliary values, etc
-        int rowsSize = rows.size()
-        ArrayList<Map<String, Object>> outRows = new ArrayList<>(rowsSize)
-        for (int ri = 0; ri < rowsSize; ri++) {
-            Map<String, Object> row = (Map<String, Object>) rows.get(ri)
-            // TODO: row Map by default has a "${listName}_entry" entry for internal processing, remove here or perhaps only before converting to JSON?
-            Map<String, Object> outRow = new LinkedHashMap<>(row)
-            outRows.add(outRow)
-            for (int fni = 0; fni < fieldNodeListSize; fni++) {
-                MNode fieldNode = (MNode) fieldNodeList.get(fni)
-                String fieldName = fieldNode.attribute("name")
-                // logger.warn("form ${renderInfo.formNode.attribute( 'name')} field ${fieldName} raw val ${row.get(fieldName)}")
-                if (displayedFields.contains(fieldName) || hiddenFields.contains(fieldName)) {
-                    // field values come from context so push current row, like SRI.startFormListRow() but slightly different approach with 2nd push to prevent potential writes
-                    cs.push(row)
-                    cs.push()
-                    try {
-                        addFormFieldValue(fieldNode, outRow, false)
-                    } finally {
-                        cs.pop()
-                        cs.pop()
-                    }
+        // NOTE: not using copy constructor (new LinkedHashMap<>(row)), only want relevant output fields used for client rendering and client managed form fields
+        //  this avoids _entry, _has_next, _index auto added fields, per row service output, and much more
+        Map<String, Object> outRow = new LinkedHashMap<>()
+        for (int fni = 0; fni < fieldNodeListSize; fni++) {
+            MNode fieldNode = (MNode) fieldNodeList.get(fni)
+            String fieldName = fieldNode.attribute("name")
+            // logger.warn("form ${renderInfo.formNode.attribute( 'name')} field ${fieldName} raw val ${row.get(fieldName)}")
+            if (displayedFields.contains(fieldName) || hiddenFields.contains(fieldName)) {
+                // field values come from context so push current row, like SRI.startFormListRow() but slightly different approach with 2nd push to prevent potential writes
+                cs.push(row)
+                cs.push()
+                try {
+                    addFormFieldValue(fieldNode, outRow, false)
+                } finally {
+                    cs.pop()
+                    cs.pop()
                 }
             }
-            // logger.warn("form-list row values\norig: ${JsonOutput.prettyPrint(JsonOutput.toJson(row))}\nout: ${JsonOutput.prettyPrint(JsonOutput.toJson(outRow))}")
         }
-        return outRows
+        // logger.warn("form-list row values\norig: ${JsonOutput.prettyPrint(JsonOutput.toJson(row))}\nout: ${JsonOutput.prettyPrint(JsonOutput.toJson(outRow))}")
+        return outRow
     }
 
     // NOTE: this takes a fieldValues Map as a parameter to populate because a singe form field may have multiple values
@@ -1931,6 +1938,53 @@ class ScreenRenderImpl implements ScreenRender {
 
         // logger.warn("term ${term} output ${output} transValue ${transValue}")
         return transValue
+    }
+
+    Map<String, Object> makeFormListSingleMap(ScreenForm.FormListRenderInfo renderInfo, Map<String, Object> listEntry, UrlInstance formTransitionUrl) {
+        MNode formNode = renderInfo.getFormNode()
+        Map<String, Object> outMap = new LinkedHashMap<>()
+
+        // add url parameter map pass through parameters first, others override
+        outMap.putAll(formTransitionUrl.getParameterMap())
+        outMap.putAll(getFormHiddenParameters(formNode))
+
+        // listEntry fields before boilerplate fields below
+        Map<String, Object> row = transformFormListRow(renderInfo, listEntry)
+        outMap.putAll(row)
+
+        outMap.put("moquiFormName", formNode.attribute("name"))
+        outMap.put("pageIndex", ec.contextStack.getByString("pageIndex") ?: "0")
+        String orderByField = ec.contextStack.getByString("orderByField")
+        if (orderByField) outMap.put("orderByField", orderByField)
+
+        return outMap
+    }
+    Map<String, Object> makeFormListMultiMap(ScreenForm.FormListRenderInfo renderInfo, ArrayList<Map<String, Object>> listObject, UrlInstance formTransitionUrl) {
+        MNode formNode = renderInfo.getFormNode()
+        Map<String, Object> outMap = new LinkedHashMap<>()
+
+        // add url parameter map pass through parameters first, others override
+        outMap.putAll(formTransitionUrl.getParameterMap())
+        outMap.putAll(getFormHiddenParameters(formNode))
+
+        // transform listObject rows to one big Map with _${rowNum} field name suffix
+        int listSize = listObject.size()
+        for (int i = 0; i < listSize; i++) {
+            Map<String, Object> listEntry = (Map<String, Object>) listObject.get(i)
+            Map<String, Object> row = transformFormListRow(renderInfo, listEntry)
+            for (Map.Entry<String, Object> mapEntry in row.entrySet()) {
+                outMap.put(mapEntry.getKey() + "_" + i, mapEntry.getValue())
+            }
+        }
+
+        outMap.put("moquiFormName", formNode.attribute("name"))
+        outMap.put("pageIndex", ec.contextStack.getByString("pageIndex") ?: "0")
+        String orderByField = ec.contextStack.getByString("orderByField")
+        if (orderByField) outMap.put("orderByField", orderByField)
+
+        outMap.put("_isMulti", "true")
+
+        return outMap
     }
 
     Map<String, String> getFormHiddenParameters(MNode formNode) {
