@@ -325,7 +325,8 @@ public class LiteStringMap<V> implements Map<String, V>, Externalizable, Compara
         mapHash = 0;
         // now that we know the size read each key/value pair
         for (int i = 0; i < size; i++) {
-            keyArray[i] = in.readUTF();
+            // intern Strings, from deserialize they will not be interned
+            keyArray[i] = internString(in.readUTF());
             valueArray[i] = (V) in.readObject();
         }
     }
