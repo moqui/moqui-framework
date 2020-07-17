@@ -88,6 +88,8 @@
     <component name="moqui-graphql" group="shendepu" version="" branch="master"/><!-- no releases -->
     <component name="moqui-react-ssr" group="shendepu" version="" branch="master"/><!-- no releases -->
     <component name="moqui-zh_CN-addon" group="chunlinyao" version="" branch="master"/><!-- no releases -->
+    <!-- moqui-fop replacement use alibaba easyexcel for excel output -->
+    <component name="moqui-easyexcel" group="chunlinyao" version="" branch="master"/><!-- no releases -->
     <component name="OFBizToMantle" group="jonesde" version="" branch="master"/><!-- no releases -->
     <component name="ServiceJobMonitor" group="tailorsoft" version="" branch="master"/><!-- no releases -->
 
