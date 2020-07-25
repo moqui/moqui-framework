@@ -1702,15 +1702,15 @@ class ScreenRenderImpl implements ScreenRender {
                 valuePlainString = ec.resourceFacade.expandNoL10n(widgetNode.attribute("no-current-selected-key"), null)
             if (valuePlainString != null && !valuePlainString.isEmpty() && valuePlainString.charAt(0) == ('[' as char))
                 valuePlainString = valuePlainString.substring(1, valuePlainString.length() - 1).replaceAll(" ", "")
-            String[] currentValueArr = valuePlainString != null ? valuePlainString.split(",") : null
+            String[] currentValueArr = valuePlainString != null && !valuePlainString.isEmpty() ? valuePlainString.split(",") : null
 
             if ("drop-down".equals(widgetName)) {
                 boolean allowMultiple = "true".equals(ec.resourceFacade.expandNoL10n(widgetNode.attribute("allow-multiple"), null))
                 if (allowMultiple) {
-                    fieldValues.put(fieldName, new ArrayList(Arrays.asList(currentValueArr)))
+                    fieldValues.put(fieldName, currentValueArr != null ? new ArrayList(Arrays.asList(currentValueArr)) : null)
                     fieldValues.put(fieldName + "_op", "in")
                 } else {
-                    fieldValues.put(fieldName, currentValueArr[0])
+                    fieldValues.put(fieldName, currentValueArr != null && currentValueArr.length > 0 ? currentValueArr[0] : null)
                 }
                 if (ec.resourceFacade.expandNoL10n(widgetNode.attribute("show-not"), "") == "true") {
                     fieldValues.put(fieldName + "_not", ec.contextStack.getByString(fieldName + "_not") ?: "N")
@@ -1724,7 +1724,8 @@ class ScreenRenderImpl implements ScreenRender {
                     if (fieldOptionKeys.size() == 1) fieldValues.put(fieldName, fieldOptionKeys.first())
                     else fieldValues.put(fieldName, new ArrayList(fieldOptionKeys))
                 } else {
-                    if (currentValueArr.length == 1) fieldValues.put(fieldName, currentValueArr[0])
+                    if (currentValueArr == null || currentValueArr.length == 0) fieldValues.put(fieldName, null)
+                    else if (currentValueArr.length == 1) fieldValues.put(fieldName, currentValueArr[0])
                     else fieldValues.put(fieldName, new ArrayList(Arrays.asList(currentValueArr)))
                 }
             } else if ("date-find".equals(widgetName)) {
