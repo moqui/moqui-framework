@@ -220,6 +220,13 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
     public void setSystemExpandAttributes(boolean b) { systemExpandAttributes = b; }
 
     public MNode getParent() { return parentNode; }
+
+    public boolean hasAncestor(String nodeName) {
+        if (parentNode == null) return false;
+        if (nodeName == null || nodeName.isEmpty() || nodeName.equals(parentNode.nodeName)) return true;
+        return parentNode.hasAncestor(nodeName);
+    }
+
     public ArrayList<MNode> getChildren() {
         if (childList == null) childList = new ArrayList<>();
         return childList;
