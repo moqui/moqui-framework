@@ -177,7 +177,7 @@ public class ExecutionContextImpl implements ExecutionContext {
         // now that we have the webFacade in place we can do init UserFacade
         userFacade.initFromHttpRequest(request, response);
         // for convenience (and more consistent code in screen actions, services, etc) add all requestParameters to the context
-        contextStack.putAll(webFacade.getRequestParameters());
+        contextStack.putAll(webFacadeImpl.getRequestParameters());
         // this is the beginning of a request, so trigger before-request actions
         wfi.runBeforeRequestActions();
 

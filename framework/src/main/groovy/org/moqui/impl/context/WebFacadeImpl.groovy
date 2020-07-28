@@ -86,8 +86,8 @@ class WebFacadeImpl implements WebFacade {
         this.request = request
         this.response = response
 
-        // NOTE: the Visit is not setup here but rather in the MoquiEventListener (for init and destroy)
-        request.setAttribute("ec", eci)
+        // NOTE: the Visit is not setup here but rather in the MoquiSessionListener (for init and destroy)
+        // don't set 'ec' in request attributes, not serializable: request.setAttribute("ec", eci)
 
         // get any parameters saved to the session from the last request, and clear that session attribute if there
         savedParameters = (Map<String, Object>) request.session.getAttribute("moqui.saved.parameters")
