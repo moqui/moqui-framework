@@ -1349,13 +1349,13 @@ class ScreenForm {
                 if (parameterNode.hasChild("credit-card")) vcs.add("creditcard")
 
                 String type = parameterNode.attribute('type')
-                if (type && (type.endsWith("BigDecimal") || type.endsWith("BigInteger") || type.endsWith("Long") ||
+                if (type !=null && (type.endsWith("BigDecimal") || type.endsWith("BigInteger") || type.endsWith("Long") ||
                         type.endsWith("Integer") || type.endsWith("Double") || type.endsWith("Float") ||
                         type.endsWith("Number"))) vcs.add("number")
             } else if (validateNode.name == "field") {
                 MNode fieldNode = validateNode
                 String type = fieldNode.attribute('type')
-                if (type && (type.startsWith("number-") || type.startsWith("currency-"))) vcs.add("number")
+                if (type != null && (type.startsWith("number-") || type.startsWith("currency-"))) vcs.add("number")
                 // bad idea, for create forms with optional PK messes it up: if (fieldNode."@is-pk" == "true") vcs.add("required")
             }
 
@@ -1370,6 +1370,88 @@ class ScreenForm {
                 return [regexp:matchesNode.attribute('regexp'), message:matchesNode.attribute('message')]
             }
             return null
+        }
+
+        static String MSG_REQUIRED = "Please enter a value"
+        static String MSG_NUMBER = "Please enter a valid number"
+        static String MSG_NUMBER_INT = "Please enter a valid whole number"
+        static String MSG_DIGITS = "Please enter only numbers (digits)"
+        static String MSG_LETTERS = "Please enter only letters"
+        static String MSG_EMAIL = "Please enter a valid email address"
+        static String MSG_URL = "Please enter a valid URL"
+        ArrayList<Map<String, String>> getFieldValidationJsRules(MNode subFieldNode) {
+            MNode validateNode = getFieldValidateNode(subFieldNode)
+            if (validateNode == null) return null
+
+            ExecutionContextImpl eci = ecfi.getEci()
+            ArrayList<Map<String, String>> ruleList = new ArrayList<>(5)
+            if (validateNode.name == "parameter") {
+                if ("true".equals(validateNode.attribute('required')))
+                    ruleList.add([expr:"!!value", message:eci.l10nFacade.localize(MSG_REQUIRED)])
+
+                boolean foundNumber = false
+                ArrayList<MNode> children = validateNode.getChildren()
+                int childrenSize = children.size()
+                for (int i = 0; i < childrenSize; i++) {
+                    MNode child = (MNode) children.get(i)
+                    if ("number-integer".equals(child.getName())) {
+                        if (!foundNumber) {
+                            ruleList.add([expr:'/^-{0,1}\\d*$/.test(value)', message:eci.l10nFacade.localize(MSG_NUMBER_INT)])
+                            foundNumber = true
+                        }
+                    } else if ("number-decimal".equals(child.getName())) {
+                        if (!foundNumber) {
+                            ruleList.add([expr:"+value === +value", message:eci.l10nFacade.localize(MSG_NUMBER)])
+                            foundNumber = true
+                        }
+                    } else if ("text-digits".equals(child.getName())) {
+                        if (!foundNumber) {
+                            ruleList.add([expr:'/^\\d*$/.test(value)', message:eci.l10nFacade.localize(MSG_DIGITS)])
+                            foundNumber = true
+                        }
+                    } else if ("text-letters".equals(child.getName())) {
+                        // TODO: how to handle UTF-8 letters?
+                        ruleList.add([expr:'/^[a-zA-Z]*$/.test(value)', message:eci.l10nFacade.localize(MSG_LETTERS)])
+                    } else if ("text-email".equals(child.getName())) {
+                        // from https://emailregex.com/ - could be looser/simpler for this purpose
+                        ruleList.add([expr:'/^(([^<>()\\[\\]\\\\.,;:\\s@"]+(\\.[^<>()\\[\\]\\\\.,;:\\s@"]+)*)|(".+"))@((\\[[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}])|(([a-zA-Z\\-0-9]+\\.)+[a-zA-Z]{2,}))$/.test(value)',
+                                message:eci.l10nFacade.localize(MSG_EMAIL)])
+                    } else if ("text-url".equals(child.getName())) {
+                        // from https://urlregex.com/ - could be looser/simpler for this purpose
+                        ruleList.add([expr:'/((([A-Za-z]{3,9}:(?:\\/\\/)?)(?:[\\-;:&=\\+\\$,\\w]+@)?[A-Za-z0-9\\.\\-]+|(?:www\\.|[\\-;:&=\\+\\$,\\w]+@)[A-Za-z0-9\\.\\-]+)((?:\\/[\\+~%\\/\\.\\w\\-_]*)?\\??(?:[\\-\\+=&;%@\\.\\w_]*)#?(?:[\\.\\!\\/\\\\\\w]*))?)/.test(value)',
+                                message:eci.l10nFacade.localize(MSG_URL)])
+                    } else if ("matches".equals(child.getName())) {
+                        // from https://emailregex.com/ - could be looser/simpler for this purpose
+                        ruleList.add([expr:'/' + child.attribute("regexp") + '/.test(value)',
+                                message:eci.l10nFacade.localize(child.attribute("message"))])
+                    }
+                }
+
+                // TODO: val-or, val-and, val-not
+                // TODO: number-range, text-letters, time-range
+                // TODO: credit-card with types?
+
+                // fallback to type attribute for numbers
+                String type = validateNode.attribute('type')
+                if (!foundNumber && type != null) {
+                    if (type.endsWith("BigInteger") || type.endsWith("Long") || type.endsWith("Integer")) {
+                        ruleList.add([expr:'/^-{0,1}\\d*$/.test(value)', message:eci.l10nFacade.localize(MSG_NUMBER_INT)])
+                    } else if (type.endsWith("BigDecimal") || type.endsWith("Double") || type.endsWith("Float") || type.endsWith("Number")) {
+                        ruleList.add([expr:"+value === +value", message:eci.l10nFacade.localize(MSG_NUMBER)])
+                    }
+                }
+            } else if (validateNode.name == "field") {
+                String type = validateNode.attribute('type')
+                if (type != null && (type.startsWith("number-") || type.startsWith("currency-"))) {
+                    if (type.endsWith("integer")) {
+                        ruleList.add([expr:'/^-{0,1}\\d+$/.test(value)', message:eci.l10nFacade.localize(MSG_NUMBER_INT)])
+                    } else {
+                        ruleList.add([expr:"+value === +value", message:eci.l10nFacade.localize(MSG_NUMBER)])
+                    }
+                }
+                // bad idea, for create forms with optional PK messes it up: if (fieldNode."@is-pk" == "true") vcs.add("required")
+            }
+            return ruleList.size() > 0 ? ruleList : null
         }
 
         ArrayList<MNode> getFieldLayoutNonReferencedFieldList() {
