@@ -421,7 +421,7 @@ public class WebUtilities {
         public AttributeContainerMap(AttributeContainer container) { cont = container; }
 
         public int size() { return cont.getAttributeNameList().size(); }
-        public boolean isEmpty() { return cont.getAttributeNames().hasMoreElements(); }
+        public boolean isEmpty() { return !cont.getAttributeNames().hasMoreElements(); }
 
         public boolean containsKey(Object o) {
             if (keysToIgnore.contains(o)) return false;
