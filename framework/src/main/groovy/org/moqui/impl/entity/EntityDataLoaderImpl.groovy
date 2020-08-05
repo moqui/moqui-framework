@@ -281,7 +281,13 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             }
 
             // load each file in its own transaction
-            for (String location in this.locationList) loadSingleFile(location, exh, ech, ejh)
+            for (String location in this.locationList) {
+                try {
+                    loadSingleFile(location, exh, ech, ejh)
+                } catch (Throwable t) {
+                    logger.error("Skipping to next file after error: ${t.toString()}")
+                }
+            }
         })
 
         if (reenableEeca) eci.artifactExecutionFacade.enableEntityEca()

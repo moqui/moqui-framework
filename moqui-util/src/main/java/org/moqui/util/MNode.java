@@ -42,7 +42,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 @SuppressWarnings("unused")
 public class MNode implements TemplateNodeModel, TemplateSequenceModel, TemplateHashModelEx, AdapterTemplateModel, TemplateScalarModel {
     protected final static Logger logger = LoggerFactory.getLogger(MNode.class);
-    private static final Version FTL_VERSION = Configuration.VERSION_2_3_25;
+    private static final Version FTL_VERSION = Configuration.VERSION_2_3_30;
 
     private final static Map<String, MNode> parsedNodeCache = new HashMap<>();
     public static void clearParsedNodeCache() { parsedNodeCache.clear(); }
@@ -64,7 +64,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
     public static MNode parse(String location, InputStream is) throws BaseException {
         if (is == null) return null;
         try {
-            return parse(location, new InputSource(is));
+            return parse(location, new InputSource(new InputStreamReader(is, UTF_8)));
         } finally {
             try { is.close(); }
             catch (IOException e) { logger.error("Error closing XML stream from " + location, e); }
@@ -220,6 +220,13 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
     public void setSystemExpandAttributes(boolean b) { systemExpandAttributes = b; }
 
     public MNode getParent() { return parentNode; }
+
+    public boolean hasAncestor(String nodeName) {
+        if (parentNode == null) return false;
+        if (nodeName == null || nodeName.isEmpty() || nodeName.equals(parentNode.nodeName)) return true;
+        return parentNode.hasAncestor(nodeName);
+    }
+
     public ArrayList<MNode> getChildren() {
         if (childList == null) childList = new ArrayList<>();
         return childList;
