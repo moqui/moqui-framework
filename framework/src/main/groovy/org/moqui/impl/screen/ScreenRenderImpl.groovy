@@ -455,6 +455,9 @@ class ScreenRenderImpl implements ScreenRender {
             }
 
             if ("none".equals(ri.type)) {
+                // for response type none also save parameters if configured to do so, and save errors if there are any
+                if (ri.saveParameters) wfi.saveRequestParametersToSession()
+                if (ec.message.hasError()) wfi.saveErrorParametersToSession()
                 if (logger.isTraceEnabled()) logger.trace("Transition ${screenUrlInfo.getFullPathNameList().join("/")} in ${System.currentTimeMillis() - renderStartTime}ms, type none response")
                 return
             }
