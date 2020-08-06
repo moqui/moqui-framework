@@ -1203,20 +1203,26 @@ class WebFacadeImpl implements WebFacade {
 
     /** Save passed parameters Map to a Map in the moqui.saved.parameters session attribute */
     void saveParametersToSession(Map parameters) {
+        if (parameters == null || parameters.size() == 0) return
         Map parms = new HashMap()
+        // merge existing moqui.saved.parameters if there are any, valid for current request only as WebFacadeImpl() constructors removes this session attribute if has value
         Map currentSavedParameters = (Map) request.session.getAttribute("moqui.saved.parameters")
         if (currentSavedParameters) parms.putAll(currentSavedParameters)
-        if (parameters) parms.putAll(parameters)
+        parms.putAll(parameters)
+        if (!"production".equals(System.getProperty("instance_purpose")))
+            WebUtilities.testSerialization("moqui.saved.parameters", parms)
         session.setAttribute("moqui.saved.parameters", parms)
     }
     /** Save request parameters and attributes to a Map in the moqui.saved.parameters session attribute */
     void saveRequestParametersToSession() {
         Map parms = new HashMap()
+        // merge existing moqui.saved.parameters if there are any, valid for current request only as WebFacadeImpl() constructors removes this session attribute if has value
         Map currentSavedParameters = (Map) request.session.getAttribute("moqui.saved.parameters")
         if (currentSavedParameters) parms.putAll(currentSavedParameters)
         if (requestParameters) parms.putAll(requestParameters)
         if (requestAttributes) parms.putAll(requestAttributes)
-        WebUtilities.testSerialization("moqui.saved.parameters", parms)
+        if (!"production".equals(System.getProperty("instance_purpose")))
+            WebUtilities.testSerialization("moqui.saved.parameters", parms)
         session.setAttribute("moqui.saved.parameters", parms)
     }
 
@@ -1225,7 +1231,8 @@ class WebFacadeImpl implements WebFacade {
         Map parms = new HashMap()
         if (requestParameters) parms.putAll(requestParameters)
         if (requestAttributes) parms.putAll(requestAttributes)
-        WebUtilities.testSerialization("moqui.saved.parameters", parms)
+        if (!"production".equals(System.getProperty("instance_purpose")))
+            WebUtilities.testSerialization("moqui.error.parameters", parms)
         session.setAttribute("moqui.error.parameters", parms)
     }
 
