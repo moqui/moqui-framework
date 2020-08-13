@@ -132,6 +132,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="restrictView" type="text-indicator"/>
         <field name="restrictUpdate" type="text-indicator"/>
         <field name="allowAnyHtml" type="text-indicator"/>
+        <field name="screenThemeId" type="id"/>
+        <relationship type="one" related="moqui.screen.ScreenTheme" short-alias="screenTheme"/>
         <seed-data>
             <moqui.resource.DbResource resourceId="WIKI_SPACE_ROOT" parentResourceId="" filename="WikiSpace" isFile="N"/>
         </seed-data>
