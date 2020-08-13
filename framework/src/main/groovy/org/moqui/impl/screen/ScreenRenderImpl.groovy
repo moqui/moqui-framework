@@ -2117,11 +2117,18 @@ class ScreenRenderImpl implements ScreenRender {
     }
 
     ArrayList<String> getThemeValues(String resourceTypeEnumId) {
-        ArrayList<String> cachedList = (ArrayList<String>) curThemeValuesByType.get(resourceTypeEnumId)
-        if (cachedList != null) return cachedList
+        return getThemeValues(resourceTypeEnumId, null)
+    }
+    ArrayList<String> getThemeValues(String resourceTypeEnumId, String screenThemeId) {
+        if (screenThemeId == null || screenThemeId.isEmpty()) {
+            screenThemeId = getCurrentThemeId()
+
+            ArrayList<String> cachedList = (ArrayList<String>) curThemeValuesByType.get(resourceTypeEnumId)
+            if (cachedList != null) return cachedList
+        }
 
         EntityList strList = sfi.ecfi.entityFacade.find("moqui.screen.ScreenThemeResource")
-                .condition("screenThemeId", getCurrentThemeId()).condition("resourceTypeEnumId", resourceTypeEnumId)
+                .condition("screenThemeId", screenThemeId).condition("resourceTypeEnumId", resourceTypeEnumId)
                 .orderBy("sequenceNum").useCache(true).disableAuthz().list()
         int strListSize = strList.size()
         ArrayList<String> values = new ArrayList<>(strListSize)
@@ -2131,7 +2138,9 @@ class ScreenRenderImpl implements ScreenRender {
             if (resourceValue != null && !resourceValue.isEmpty()) values.add(resourceValue)
         }
 
-        curThemeValuesByType.put(resourceTypeEnumId, values)
+        if (screenThemeId == null || screenThemeId.isEmpty()) {
+            curThemeValuesByType.put(resourceTypeEnumId, values)
+        }
         return values
     }
     // NOTE: this is called a LOT during screen renders, for links/buttons/etc
