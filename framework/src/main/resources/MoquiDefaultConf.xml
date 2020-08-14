@@ -345,6 +345,14 @@
                 macro-template-location="template/screen-macro/DefaultScreenMacros.plain.ftl"/>
         <screen-text-output type="vue" mime-type="text/html" always-standalone="true"
                 macro-template-location="template/screen-macro/DefaultScreenMacros.plain.ftl"/>
+
+        <!-- qvt is a custom extension for Quasar & Vue JS component templates (extended HTML) -->
+        <screen-text-output type="qvt" mime-type="text/html" always-standalone="true"
+                macro-template-location="template/screen-macro/DefaultScreenMacros.qvt.ftl"/>
+        <screen-text-output type="qjs" mime-type="application/javascript" always-standalone="true"
+                macro-template-location="template/screen-macro/DefaultScreenMacros.plain.ftl"/>
+        <screen-text-output type="qvue" mime-type="text/html" always-standalone="true"
+                macro-template-location="template/screen-macro/DefaultScreenMacros.plain.ftl"/>
     </screen-facade>
 
     <service-facade distributed-factory="" scheduled-job-check-time="${scheduled-job-check-time}">
