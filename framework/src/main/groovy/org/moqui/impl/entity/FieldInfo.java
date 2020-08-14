@@ -437,6 +437,10 @@ public class FieldInfo {
         if (localTypeValue == 11 || localTypeValue == 12) {
             useBinaryTypeForBlob = ("true".equals(efi.getDatabaseNode(ed.getEntityGroupName()).attribute("use-binary-type-for-blob")));
         }
+        // if a count function used set as Long (type 6)
+        String function = fieldNode.attribute("function");
+        if (function != null && function.startsWith("count")) localTypeValue = 6;
+
         try {
             setPreparedStatementValue(ps, index, value, localTypeValue, useBinaryTypeForBlob, efi);
         } catch (EntityException e) {
