@@ -2122,6 +2122,15 @@ class ScreenForm {
     }
 
     static String processFormSavedFind(ExecutionContextImpl ec) {
+        // disable authz to allow saved finds for users with view only authz
+        ec.artifactExecutionFacade.disableAuthz()
+        try {
+            return processFormSavedFindInternal(ec)
+        } finally {
+            ec.artifactExecutionFacade.enableAuthz()
+        }
+    }
+    static String processFormSavedFindInternal(ExecutionContextImpl ec) {
         String userId = ec.userFacade.userId
         ContextStack cs = ec.contextStack
 
