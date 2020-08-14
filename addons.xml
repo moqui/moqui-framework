@@ -55,9 +55,6 @@
 
     <component name="moqui-atomikos" group="moqui" version="1.0.0" branch="master"/><!-- not actively maintained -->
 
-    <!-- Quasar based alternative to vapps/vuet - NOTE: this component is temporary, once matured it will be merged into moqui-runtime -->
-    <component name="moqui-quasar" group="moqui" version="" branch="master"/>
-
     <!-- Mantle Business Artifact and Integration Components -->
     <component name="mantle-udm" group="moqui" version="2.1.2" branch="master"/>
     <component name="mantle-usl" group="moqui" version="2.1.2" branch="master"/>
