@@ -2120,9 +2120,9 @@ class ScreenRenderImpl implements ScreenRender {
         return getThemeValues(resourceTypeEnumId, null)
     }
     ArrayList<String> getThemeValues(String resourceTypeEnumId, String screenThemeId) {
-        if (screenThemeId == null || screenThemeId.isEmpty()) {
+        boolean currentTheme = screenThemeId == null || screenThemeId.isEmpty() || "null".equals(screenThemeId)
+        if (currentTheme) {
             screenThemeId = getCurrentThemeId()
-
             ArrayList<String> cachedList = (ArrayList<String>) curThemeValuesByType.get(resourceTypeEnumId)
             if (cachedList != null) return cachedList
         }
@@ -2138,9 +2138,7 @@ class ScreenRenderImpl implements ScreenRender {
             if (resourceValue != null && !resourceValue.isEmpty()) values.add(resourceValue)
         }
 
-        if (screenThemeId == null || screenThemeId.isEmpty()) {
-            curThemeValuesByType.put(resourceTypeEnumId, values)
-        }
+        if (currentTheme) curThemeValuesByType.put(resourceTypeEnumId, values)
         return values
     }
     // NOTE: this is called a LOT during screen renders, for links/buttons/etc
