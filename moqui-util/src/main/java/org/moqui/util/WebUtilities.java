@@ -31,6 +31,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.io.UnsupportedEncodingException;
+import java.math.BigDecimal;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -139,7 +140,8 @@ public class WebUtilities {
         return reqParmMap;
     }
 
-    public static String encodeHtmlJsSafe(String original) {
+    /** Sort of like JSON but output in JS syntax for HTML attributes like in a Vue Template */
+    public static String encodeHtmlJsSafe(CharSequence original) {
         if (original == null) return "";
         StringBuilder newValue = new StringBuilder(original);
         for (int i = 0; i < newValue.length(); i++) {
@@ -163,34 +165,64 @@ public class WebUtilities {
         }
         return newValue.toString();
     }
-    /** Sort of like JSON but output in JS syntax for HTML attributes like in a Vue Template */
-    public static String fieldValuesEncodeHtmlJsSafe(Map<String, Object> fieldValues) {
+    public static String encodeHtmlJsSafeObject(Object value) {
+        if (value == null) {
+            return "null";
+        } else if (value instanceof Collection) {
+            return encodeHtmlJsSafeCollection((Collection) value);
+        } else if (value instanceof Map) {
+            return encodeHtmlJsSafeMap((Map) value);
+        } else if (value instanceof Number) {
+            if (value instanceof BigDecimal) return ((BigDecimal) value).toPlainString();
+            else return value.toString();
+        } else if (value instanceof Boolean) {
+            Boolean boolVal = (Boolean) value;
+            return boolVal ? "true" : "false";
+        } else {
+            return "'" + encodeHtmlJsSafe(value.toString()) + "'";
+        }
+    }
+    public static String encodeHtmlJsSafeMap(Map fieldValues) {
+        if (fieldValues == null) return "null";
         StringBuilder out = new StringBuilder().append("{");
         boolean isFirst = true;
-        for (Map.Entry<String, Object> entry : fieldValues.entrySet()) {
+        for (Object entryObj : fieldValues.entrySet()) {
+            Map.Entry entry = (Map.Entry) entryObj;
+            Object key = entry.getKey();
+            if (key == null) continue;
             if (isFirst) { isFirst = false; } else { out.append(","); }
-            out.append("'").append(encodeHtmlJsSafe(entry.getKey())).append("':");
+            out.append("'").append(encodeHtmlJsSafe(key.toString())).append("':");
             Object value = entry.getValue();
-            if (value == null) {
-                out.append("null");
-            } else if (value instanceof ArrayList) {
-                ArrayList curList = (ArrayList) value;
-                int curListSize = curList.size();
-                out.append("[");
-                for (int vi = 0; vi < curListSize; vi++) {
-                    Object listVal = curList.get(vi);
-                    if (listVal == null) continue;
-                    out.append("'").append(encodeHtmlJsSafe(listVal.toString())).append("'");
-                    if ((vi + 1) < curListSize) out.append(",");
-                }
-                out.append("]");
-            } else {
-                out.append("'").append(encodeHtmlJsSafe(value.toString())).append("'");
-            }
+            out.append(encodeHtmlJsSafeObject(value));
         }
         out.append("}");
         return out.toString();
     }
+    public static String encodeHtmlJsSafeCollection(Collection value) {
+        if (value == null) return "null";
+        StringBuilder out = new StringBuilder();
+        out.append("[");
+        if (value instanceof RandomAccess) {
+            List curList = (List) value;
+            int curListSize = curList.size();
+            for (int vi = 0; vi < curListSize; vi++) {
+                Object listVal = curList.get(vi);
+                out.append(encodeHtmlJsSafeObject(listVal));
+                if ((vi + 1) < curListSize) out.append(",");
+            }
+        } else {
+            Iterator colIter = value.iterator();
+            while (colIter.hasNext()) {
+                Object colVal = colIter.next();
+                out.append(encodeHtmlJsSafeObject(colVal));
+                if (colIter.hasNext()) out.append(",");
+            }
+        }
+        out.append("]");
+        return out.toString();
+    }
+    // for backward compatibility:
+    public static String fieldValuesEncodeHtmlJsSafe(Map fieldValues) { return encodeHtmlJsSafeMap(fieldValues); }
 
     public static String encodeHtml(String original) {
         if (original == null) return "";
