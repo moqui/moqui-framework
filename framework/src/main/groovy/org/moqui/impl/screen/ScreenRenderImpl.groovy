@@ -1724,11 +1724,9 @@ class ScreenRenderImpl implements ScreenRender {
                 if ("true".equals(ec.resourceFacade.expandNoL10n(widgetNode.attribute("all-checked"), null))) {
                     // get all options and add ArrayList
                     Set<String> fieldOptionKeys = getFieldOptions(widgetNode).keySet()
-                    if (fieldOptionKeys.size() == 1) fieldValues.put(fieldName, fieldOptionKeys.first())
-                    else fieldValues.put(fieldName, new ArrayList(fieldOptionKeys))
+                    fieldValues.put(fieldName, new ArrayList(fieldOptionKeys))
                 } else {
-                    if (currentValueArr == null || currentValueArr.length == 0) fieldValues.put(fieldName, null)
-                    else if (currentValueArr.length == 1) fieldValues.put(fieldName, currentValueArr[0])
+                    if (currentValueArr == null || currentValueArr.length == 0) fieldValues.put(fieldName, new ArrayList())
                     else fieldValues.put(fieldName, new ArrayList(Arrays.asList(currentValueArr)))
                 }
             } else if ("date-find".equals(widgetName)) {
