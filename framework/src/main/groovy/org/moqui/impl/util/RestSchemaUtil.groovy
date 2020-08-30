@@ -219,7 +219,7 @@ class RestSchemaUtil {
             for (String pkName in pkNameList) idSb.append('/{').append(pkName).append('}')
             String idString = idSb.toString()
 
-            List linkList
+            List<Map> linkList
             if (linkPrefix) {
                 linkList = [
                     [rel:'self', method:'GET', href:"${linkPrefix}/${refName}${idString}", title:"Get single ${prettyName}",
@@ -235,7 +235,7 @@ class RestSchemaUtil {
                         schema:['$ref':"#/definitions/${name}"]],
                     [rel:'destroy', method:'DELETE', href:"${linkPrefix}/${refName}${idString}", title:"Delete ${prettyName}",
                         schema:['$ref':"#/definitions/${name}"]]
-                ]
+                ] as List<Map>
             } else {
                 linkList = []
             }
@@ -390,13 +390,13 @@ class RestSchemaUtil {
                                 format:(fieldTypeJsonFormatMap.get(fi.type) ?: ""),
                                 description:fi.fieldNode.first("description")?.text])
         }
-        Map listResponses = ["200":[description:'Success', schema:[type:"array", items:['$ref':"#/definitions/${refDefName}".toString()]]]]
+        Map listResponses = ["200":[description:'Success', schema:[type:"array", items:['$ref':"#/definitions/${refDefName}".toString()]]]] as Map<String, Object>
         listResponses.putAll(responses)
         entityResourceMap.put("get", [summary:("Get ${ed.getFullEntityName()}".toString()), description:entityDescription,
                 parameters:listParameters, security:[[basicAuth:[]]], responses:listResponses])
 
         // post - create
-        Map createResponses = ["200":[description:'Success', schema:['$ref':"#/definitions/${refDefNamePk}".toString()]]]
+        Map createResponses = ["200":[description:'Success', schema:['$ref':"#/definitions/${refDefNamePk}".toString()]]] as Map<String, Object>
         createResponses.putAll(responses)
         entityResourceMap.put("post", [summary:("Create ${ed.getFullEntityName()}".toString()), description:entityDescription,
                 parameters:[name:'body', in:'body', required:true, schema:['$ref':"#/definitions/${refDefName}".toString()]],
@@ -417,7 +417,7 @@ class RestSchemaUtil {
         ((Map) swaggerMap.paths).put(entityIdPath, entityIdResourceMap)
 
         // under id: get - one
-        Map oneResponses = ["200":[name:'body', in:'body', required:false, schema:['$ref':"#/definitions/${refDefName}".toString()]]]
+        Map oneResponses = ["200":[name:'body', in:'body', required:false, schema:['$ref':"#/definitions/${refDefName}".toString()]]] as Map<String, Object>
         oneResponses.putAll(responses)
         entityIdResourceMap.put("get", [summary:("Create ${ed.getFullEntityName()}".toString()),
                 description:entityDescription, security:[[basicAuth:[]], [api_key:[]]], parameters:parameters, responses:oneResponses])

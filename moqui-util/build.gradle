@@ -15,7 +15,7 @@
 tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:unchecked" }
 tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:deprecation" }
 
-version = '3.0.0-rc4'
+version = '3.0.0-rc5'
 
 apply plugin: 'java'
 // to run gradle-versions-plugin use "gradle dependencyUpdates"
@@ -62,7 +62,7 @@ dependencies {
     compile 'org.codehaus.groovy:groovy:2.5.12' // Apache 2.0
     compile 'org.codehaus.groovy:groovy-json:2.5.12' // Apache 2.0
     // Jetty HTTP Client
-    compile 'org.eclipse.jetty:jetty-client:9.4.30.v20200611' // Apache 2.0
+    compile 'org.eclipse.jetty:jetty-client:9.4.31.v20200723' // Apache 2.0
     // javax.activation - required for Java 11
     compile 'com.sun.activation:javax.activation:1.2.0' // CDDL 1.1
 }
