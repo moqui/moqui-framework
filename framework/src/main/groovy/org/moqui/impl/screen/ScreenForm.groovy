@@ -1322,12 +1322,12 @@ class ScreenForm {
             String validateEntity = subFieldNode.attribute('validate-entity')
             if (validateService) {
                 ServiceDefinition sd = ecfi.serviceFacade.getServiceDefinition(validateService)
-                if (sd == null) throw new BaseArtifactException("Invalid validate-service name [${validateService}] in field [${fieldName}] of form [${location}]")
+                if (sd == null) throw new BaseArtifactException("Invalid validate-service name [${validateService}] in field [${fieldName}] of form [${screenForm.location}]")
                 MNode parameterNode = sd.getInParameter((String) subFieldNode.attribute('validate-parameter') ?: fieldName)
                 return parameterNode
             } else if (validateEntity) {
                 EntityDefinition ed = ecfi.entityFacade.getEntityDefinition(validateEntity)
-                if (ed == null) throw new BaseArtifactException("Invalid validate-entity name [${validateEntity}] in field [${fieldName}] of form [${location}]")
+                if (ed == null) throw new BaseArtifactException("Invalid validate-entity name [${validateEntity}] in field [${fieldName}] of form [${screenForm.location}]")
                 MNode efNode = ed.getFieldNode((String) subFieldNode.attribute('validate-field') ?: fieldName)
                 return efNode
             }
@@ -2017,7 +2017,7 @@ class ScreenForm {
 
             // now we have all fixed widths, calculate and set percent widths
             int widthForPercentCols = lineWidth - fixedColsWidth
-            if (widthForPercentCols < 0) throw new BaseArtifactException("In form ${formName} fixed width columns exceeded total line characters ${originalLineWidth} by ${-widthForPercentCols} characters")
+            if (widthForPercentCols < 0) throw new BaseArtifactException("In form ${screenForm.formName} fixed width columns exceeded total line characters ${originalLineWidth} by ${-widthForPercentCols} characters")
             int percentColsCount = numCols - fixedColsCount
 
             // scale column percents to 100, fill in missing
