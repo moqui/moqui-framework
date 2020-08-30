@@ -27,7 +27,7 @@ import java.util.*;
  */
 public class LiteStringMap<V> implements Map<String, V>, Externalizable, Comparable<Map<String,? extends V>>, Cloneable {
     // NOTE: for over the wire compatibility do not change this unless writeExternal() and readExternal() are changed OR the non-transient fields change from only keyArray, valueArray, and lastIndex
-    private static final long serialVersionUID = -5846214179631630980L;
+    private static final long serialVersionUID = 688763341199951234L;
     private static final int DEFAULT_CAPACITY = 8;
 
     // NOTE: from basic profiling HashMap.get() runs in just over half the time (0.13 microseconds) of String.intern() (0.24 microseconds) over ~500k runs with OpenJDK 8
@@ -47,15 +47,18 @@ public class LiteStringMap<V> implements Map<String, V>, Externalizable, Compara
     private V[] valueArray;
     private int lastIndex = -1;
     private transient int mapHash = 0;
+    private transient boolean useManualIndex = false;
 
     public LiteStringMap() { init(DEFAULT_CAPACITY); }
     public LiteStringMap(int initialCapacity) { init(initialCapacity); }
     public LiteStringMap(Map<String, V> cloneMap) {
         init(cloneMap.size());
+        if (cloneMap instanceof LiteStringMap && ((LiteStringMap<V>) cloneMap).useManualIndex) useManualIndex = true;
         putAll(cloneMap);
     }
     public LiteStringMap(Map<String, V> cloneMap, Set<String> skipKeys) {
         init(cloneMap.size());
+        if (cloneMap instanceof LiteStringMap && ((LiteStringMap<V>) cloneMap).useManualIndex) useManualIndex = true;
         putAll(cloneMap, skipKeys);
     }
 
@@ -64,12 +67,15 @@ public class LiteStringMap<V> implements Map<String, V>, Externalizable, Compara
         keyArray = new String[capacity];
         valueArray = (V[]) new Object[capacity];
     }
-    private void growArrays() {
+    private void growArrays(Integer minLength) {
         int newLength = keyArray.length * 2;
+        if (minLength != null && newLength < minLength) newLength = minLength;
         // System.out.println("=============================\n============= grow to " + newLength);
         keyArray = Arrays.copyOf(keyArray, newLength);
         valueArray = Arrays.copyOf(valueArray, newLength);
     }
+
+    public LiteStringMap<V> useManualIndex() { useManualIndex = true; return this; }
 
     public int findIndex(String keyOrig) {
         if (keyOrig == null) return -1;
@@ -113,6 +119,13 @@ public class LiteStringMap<V> implements Map<String, V>, Externalizable, Compara
     public boolean containsKeyIString(String key) {
         return findIndexIString(key) != -1;
     }
+    /** For this method the String key must be non-null and interned (returned value from String.intern()) */
+    public boolean containsKeyIString(String key, int index) {
+        String idxKey = keyArray[index];
+        if (idxKey == null) return false;
+        if (idxKey != key) throw new IllegalArgumentException("Index " + index + " has key " + keyArray[index] + ", cannot check contains with key " + key);
+        return true;
+    }
 
     @Override
     public boolean containsValue(Object value) {
@@ -144,6 +157,13 @@ public class LiteStringMap<V> implements Map<String, V>, Externalizable, Compara
         if (keyIndex == -1) return null;
         return valueArray[keyIndex];
     }
+    /** For this method the String key must be non-null and interned (returned value from String.intern()) */
+    public V getByIString(String key, int index) {
+        String idxKey = keyArray[index];
+        if (idxKey == null) return null;
+        if (idxKey != key) throw new IllegalArgumentException("Index " + index + " has key " + keyArray[index] + ", cannot get with key " + key);
+        return valueArray[index];
+    }
 
     /* ========= Start Mutate Methods ========= */
 
@@ -154,10 +174,11 @@ public class LiteStringMap<V> implements Map<String, V>, Externalizable, Compara
     }
     /** For this method the String key must be non-null and interned (returned value from String.intern()) */
     public V putByIString(String key, V value) {
+        // if ("pseudoId".equals(key)) { System.out.println("========= put no index " + key + ": " + value); new Exception("location").printStackTrace(); }
         int keyIndex = findIndexIString(key);
         if (keyIndex == -1) {
             lastIndex++;
-            if (lastIndex >= keyArray.length) growArrays();
+            if (lastIndex >= keyArray.length) growArrays(null);
             keyArray[lastIndex] = key;
             valueArray[lastIndex] = value;
             mapHash = 0;
@@ -165,6 +186,26 @@ public class LiteStringMap<V> implements Map<String, V>, Externalizable, Compara
         } else {
             V oldValue = valueArray[keyIndex];
             valueArray[keyIndex] = value;
+            mapHash = 0;
+            return oldValue;
+        }
+    }
+    /** For this method the String key must be non-null and interned (returned value from String.intern()) */
+    public V putByIString(String key, V value, int index) {
+        // if ("pseudoId".equals(key)) { System.out.println("========= put index " + index + " key " + key + ": " + value); new Exception("location").printStackTrace(); }
+        useManualIndex = true;
+        if (index >= keyArray.length) growArrays(index);
+        if (index > lastIndex) lastIndex = index;
+        if (keyArray[index] == null) {
+            keyArray[index] = key;
+            valueArray[index] = value;
+            mapHash = 0;
+            return null;
+        } else {
+            // identity compare for interned String
+            if (key != keyArray[index]) throw new IllegalArgumentException("Index " + index + " already has key " + keyArray[index] + ", cannot use with key " + key);
+            V oldValue = valueArray[index];
+            valueArray[index] = value;
             mapHash = 0;
             return oldValue;
         }
@@ -177,21 +218,30 @@ public class LiteStringMap<V> implements Map<String, V>, Externalizable, Compara
         if (keyIndex == -1) {
             return null;
         } else {
-            V oldValue = valueArray[keyIndex];
-            // shift all later values up one position
-            for (int i = keyIndex; i < lastIndex; i++) {
-                keyArray[i] = keyArray[i+1];
-                valueArray[i] = valueArray[i+1];
+            if (useManualIndex) {
+                // with manual indexes don't shift entries, will cause manually specified indexes to be wrong
+                V oldValue = valueArray[keyIndex];
+                keyArray[keyIndex] = null;
+                valueArray[keyIndex] = null;
+                mapHash = 0;
+                return oldValue;
+            } else {
+                V oldValue = valueArray[keyIndex];
+                // shift all later values up one position
+                for (int i = keyIndex; i < lastIndex; i++) {
+                    keyArray[i] = keyArray[i+1];
+                    valueArray[i] = valueArray[i+1];
+                }
+                // null the last values to avoid memory leak
+                keyArray[lastIndex] = null;
+                valueArray[lastIndex] = null;
+                // decrement last index
+                lastIndex--;
+                // reset hash
+                mapHash = 0;
+                // done
+                return oldValue;
             }
-            // null the last values to avoid memory leak
-            keyArray[lastIndex] = null;
-            valueArray[lastIndex] = null;
-            // decrement last index
-            lastIndex--;
-            // reset hash
-            mapHash = 0;
-            // done
-            return oldValue;
         }
     }
 
@@ -203,9 +253,16 @@ public class LiteStringMap<V> implements Map<String, V>, Externalizable, Compara
         boolean initialEmpty = lastIndex == -1;
         if (map instanceof LiteStringMap) {
             LiteStringMap<V> lsm = (LiteStringMap<V>) map;
+            if (useManualIndex) {
+                this.lastIndex = lsm.lastIndex;
+                if (keyArray.length <= lsm.lastIndex) growArrays(lsm.lastIndex);
+            }
             for (int i = 0; i <= lsm.lastIndex; i++) {
                 if (skipKeys != null && skipKeys.contains(lsm.keyArray[i])) continue;
-                if (initialEmpty) {
+                if (useManualIndex) {
+                    keyArray[i] = lsm.keyArray[i];
+                    valueArray[i] = lsm.valueArray[i];
+                } else if (initialEmpty) {
                     putNoFind(lsm.keyArray[i], lsm.valueArray[i]);
                 } else {
                     putByIString(lsm.keyArray[i], lsm.valueArray[i]);
@@ -228,7 +285,7 @@ public class LiteStringMap<V> implements Map<String, V>, Externalizable, Compara
     /** For this method the String key must be non-null and interned (returned value from String.intern()) */
     private void putNoFind(String key, V value) {
         lastIndex++;
-        if (lastIndex >= keyArray.length) growArrays();
+        if (lastIndex >= keyArray.length) growArrays(null);
         keyArray[lastIndex] = key;
         valueArray[lastIndex] = value;
         mapHash = 0;
@@ -308,7 +365,7 @@ public class LiteStringMap<V> implements Map<String, V>, Externalizable, Compara
         out.writeInt(size);
         // after writing size write each key/value pair
         for (int i = 0; i < size; i++) {
-            out.writeUTF(keyArray[i]);
+            out.writeObject(keyArray[i]);
             out.writeObject(valueArray[i]);
         }
     }
@@ -326,7 +383,8 @@ public class LiteStringMap<V> implements Map<String, V>, Externalizable, Compara
         // now that we know the size read each key/value pair
         for (int i = 0; i < size; i++) {
             // intern Strings, from deserialize they will not be interned
-            keyArray[i] = internString(in.readUTF());
+            String key = (String) in.readObject();
+            keyArray[i] = key != null ? internString(key) : null;
             valueArray[i] = (V) in.readObject();
         }
     }
@@ -501,7 +559,10 @@ public class LiteStringMap<V> implements Map<String, V>, Externalizable, Compara
         }
         @Override public Iterator<Entry<String, V>> iterator() {
             ArrayList<Entry<String, V>> entryList = new ArrayList<>(lsm.lastIndex + 1);
-            for (int i = 0; i <= lsm.lastIndex; i++) { entryList.add(new EntryWrapper<V>(lsm, i)); }
+            for (int i = 0; i <= lsm.lastIndex; i++) {
+                if (lsm.getKey(i) == null) continue;
+                entryList.add(new EntryWrapper<V>(lsm, i));
+            }
             return entryList.iterator();
         }
 

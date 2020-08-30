@@ -139,7 +139,12 @@ class EntityCrud extends Specification {
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream()
         ObjectOutputStream oos = new ObjectOutputStream(baos)
-        oos.writeObject(origVal)
+        try {
+            oos.writeObject(origVal)
+        } catch (Throwable t) {
+            t.println()
+            t.printStackTrace()
+        }
         oos.flush()
 
         ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray())

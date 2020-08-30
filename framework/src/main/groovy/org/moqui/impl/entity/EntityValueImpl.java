@@ -36,19 +36,18 @@ public class EntityValueImpl extends EntityValueBase {
     @Override
     public EntityValue cloneValue() {
         EntityValueImpl newObj = new EntityValueImpl(getEntityDefinition(), getEntityFacadeImpl());
-        newObj.getValueMap().putAll(getValueMap());
-        Map<String, Object> dbValueMap = getDbValueMap();
-        if (dbValueMap != null) newObj.setDbValueMap(dbValueMap);
-        // don't set mutable (default to mutable even if original was not) or modified (start out not modified)
+        newObj.valueMapInternal.putAll(this.valueMapInternal);
+        if (this.dbValueMap != null) newObj.setDbValueMap(this.dbValueMap);
+        // don't set immutable (default to mutable even if original was not) or modified (start out not modified)
         return newObj;
     }
 
     @Override
     public EntityValue cloneDbValue(boolean getOld) {
         EntityValueImpl newObj = new EntityValueImpl(getEntityDefinition(), getEntityFacadeImpl());
-        newObj.getValueMap().putAll(getValueMap());
-        for (String fieldName : getEntityDefinition().getAllFieldNames())
-            newObj.put(fieldName, getOld ? getOldDbValue(fieldName) : getOriginalDbValue(fieldName));
+        newObj.valueMapInternal.putAll(this.valueMapInternal);
+        for (FieldInfo fieldInfo : getEntityDefinition().entityInfo.allFieldInfoArray)
+            newObj.putKnownField(fieldInfo, getOld ? getOldDbValue(fieldInfo.name) : getOriginalDbValue(fieldInfo.name));
         newObj.setSyncedWithDb();
         return newObj;
     }
@@ -64,12 +63,11 @@ public class EntityValueImpl extends EntityValueBase {
         } else {
             EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi);
             StringBuilder sql = eqb.sqlTopLevel;
-            sql.append("INSERT INTO ").append(ed.getFullTableName());
-
-            sql.append(" (");
-            StringBuilder values = new StringBuilder();
+            sql.append("INSERT INTO ").append(ed.getFullTableName()).append(" (");
 
             int size = fieldInfoArray.length;
+            StringBuilder values = new StringBuilder(size*3);
+
             for (int i = 0; i < size; i++) {
                 FieldInfo fieldInfo = fieldInfoArray[i];
                 if (fieldInfo == null) break;
@@ -93,7 +91,7 @@ public class EntityValueImpl extends EntityValueBase {
                 for (int i = 0; i < size; i++) {
                     FieldInfo fieldInfo = fieldInfoArray[i];
                     if (fieldInfo == null) break;
-                    eqb.setPreparedStatementValue(i + 1, valueMapInternal.getByIString(fieldInfo.name), fieldInfo);
+                    eqb.setPreparedStatementValue(i + 1, valueMapInternal.getByIString(fieldInfo.name, fieldInfo.index), fieldInfo);
                 }
 
                 // if (ed.entityName == "Subscription") logger.warn("Create ${this.toString()} tx ${efi.getEcfi().transaction.getTransactionManager().getTransaction()} con ${eqb.connection}")
@@ -132,7 +130,7 @@ public class EntityValueImpl extends EntityValueBase {
                 if (fieldInfo == null) break;
                 if (i > 0) sql.append(", ");
                 sql.append(fieldInfo.getFullColumnName()).append("=?");
-                parameters.add(new EntityConditionParameter(fieldInfo, valueMapInternal.getByIString(fieldInfo.name), eqb));
+                parameters.add(new EntityConditionParameter(fieldInfo, valueMapInternal.getByIString(fieldInfo.name, fieldInfo.index), eqb));
             }
 
             eqb.addWhereClause(pkFieldArray, valueMapInternal);
@@ -229,7 +227,7 @@ public class EntityValueImpl extends EntityValueBase {
             FieldInfo fi = pkFieldArray[i];
             if (i > 0) sql.append(" AND ");
             sql.append(fi.getFullColumnName()).append("=?");
-            parameters.add(new EntityConditionParameter(fi, valueMapInternal.getByIString(fi.name), eqb));
+            parameters.add(new EntityConditionParameter(fi, valueMapInternal.getByIString(fi.name, fi.index), eqb));
         }
 
         boolean retVal = false;
