@@ -233,7 +233,7 @@ public class EntityQueryBuilder {
             if (fieldInfo == null) break;
             if (i > 0) sqlTopLevel.append(" AND ");
             sqlTopLevel.append(fieldInfo.getFullColumnName()).append("=?");
-            parameters.add(new EntityJavaUtil.EntityConditionParameter(fieldInfo, valueMapInternal.getByIString(fieldInfo.name), this));
+            parameters.add(new EntityJavaUtil.EntityConditionParameter(fieldInfo, valueMapInternal.getByIString(fieldInfo.name, fieldInfo.index), this));
         }
     }
 }

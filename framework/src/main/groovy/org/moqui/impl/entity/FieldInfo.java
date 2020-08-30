@@ -39,6 +39,7 @@ public class FieldInfo {
 
     public final EntityDefinition ed;
     public final MNode fieldNode;
+    public final int index;
     public final String entityName;
     public final String name;
     public final String aliasFieldName;
@@ -63,9 +64,10 @@ public class FieldInfo {
     public final boolean hasAggregateFunction;
     final Set<String> entityAliasUsedSet = new HashSet<>();
 
-    public FieldInfo(EntityDefinition ed, MNode fieldNode) {
+    public FieldInfo(EntityDefinition ed, MNode fieldNode, int index) {
         this.ed = ed;
         this.fieldNode = fieldNode;
+        this.index = index;
         entityName = ed.getFullEntityName();
 
         Map<String, String> fnAttrs = fieldNode.getAttributes();
@@ -398,7 +400,7 @@ public class FieldInfo {
             }
         }
 
-        valueMap.putByIString(name, value);
+        valueMap.putByIString(this.name, value, this.index);
     }
 
     private static final boolean checkPreparedStatementValueType = false;

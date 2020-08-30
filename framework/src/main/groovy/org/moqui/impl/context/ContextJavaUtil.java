@@ -192,20 +192,20 @@ public class ContextJavaUtil {
 
         EntityValue makeAhbValue(ExecutionContextFactoryImpl ecfi, Timestamp binEndDateTime) {
             EntityValueBase ahb = (EntityValueBase) ecfi.entityFacade.makeValue("moqui.server.ArtifactHitBin");
-            ahb.putNoCheck("artifactType", statsInfo.artifactTypeEnum.name());
-            ahb.putNoCheck("artifactSubType", statsInfo.artifactSubType);
-            ahb.putNoCheck("artifactName", statsInfo.artifactName);
-            ahb.putNoCheck("binStartDateTime", new Timestamp(startTime));
-            ahb.putNoCheck("binEndDateTime", binEndDateTime);
-            ahb.putNoCheck("hitCount", hitCount);
+            ahb.put("artifactType", statsInfo.artifactTypeEnum.name());
+            ahb.put("artifactSubType", statsInfo.artifactSubType);
+            ahb.put("artifactName", statsInfo.artifactName);
+            ahb.put("binStartDateTime", new Timestamp(startTime));
+            ahb.put("binEndDateTime", binEndDateTime);
+            ahb.put("hitCount", hitCount);
             // NOTE: use 6 digit precision for nanos in millisecond unit
-            ahb.putNoCheck("totalTimeMillis", new BigDecimal(totalTimeMillis).setScale(6, RoundingMode.HALF_UP));
-            ahb.putNoCheck("totalSquaredTime", new BigDecimal(totalSquaredTime).setScale(6, RoundingMode.HALF_UP));
-            ahb.putNoCheck("minTimeMillis", new BigDecimal(minTimeMillis).setScale(6, RoundingMode.HALF_UP));
-            ahb.putNoCheck("maxTimeMillis", new BigDecimal(maxTimeMillis).setScale(6, RoundingMode.HALF_UP));
-            ahb.putNoCheck("slowHitCount", slowHitCount);
-            ahb.putNoCheck("serverIpAddress", ecfi.localhostAddress != null ? ecfi.localhostAddress.getHostAddress() : "127.0.0.1");
-            ahb.putNoCheck("serverHostName", ecfi.localhostAddress != null ? ecfi.localhostAddress.getHostName() : "localhost");
+            ahb.put("totalTimeMillis", new BigDecimal(totalTimeMillis).setScale(6, RoundingMode.HALF_UP));
+            ahb.put("totalSquaredTime", new BigDecimal(totalSquaredTime).setScale(6, RoundingMode.HALF_UP));
+            ahb.put("minTimeMillis", new BigDecimal(minTimeMillis).setScale(6, RoundingMode.HALF_UP));
+            ahb.put("maxTimeMillis", new BigDecimal(maxTimeMillis).setScale(6, RoundingMode.HALF_UP));
+            ahb.put("slowHitCount", slowHitCount);
+            ahb.put("serverIpAddress", ecfi.localhostAddress != null ? ecfi.localhostAddress.getHostAddress() : "127.0.0.1");
+            ahb.put("serverHostName", ecfi.localhostAddress != null ? ecfi.localhostAddress.getHostName() : "localhost");
             return ahb;
 
         }
@@ -251,14 +251,14 @@ public class ContextJavaUtil {
         }
         EntityValue makeAhiValue(ExecutionContextFactoryImpl ecfi) {
             EntityValueBase ahp = (EntityValueBase) ecfi.entityFacade.makeValue("moqui.server.ArtifactHit");
-            ahp.putNoCheck("visitId", visitId);
-            ahp.putNoCheck("userId", userId);
-            ahp.putNoCheck("isSlowHit", isSlowHit ? 'Y' : 'N');
-            ahp.putNoCheck("artifactType", artifactTypeEnum.name());
-            ahp.putNoCheck("artifactSubType", artifactSubType);
-            ahp.putNoCheck("artifactName", artifactName);
-            ahp.putNoCheck("startDateTime", new Timestamp(startTime));
-            ahp.putNoCheck("runningTimeMillis", new BigDecimal(runningTimeMillis).setScale(6, RoundingMode.HALF_UP));
+            ahp.put("visitId", visitId);
+            ahp.put("userId", userId);
+            ahp.put("isSlowHit", isSlowHit ? 'Y' : 'N');
+            ahp.put("artifactType", artifactTypeEnum.name());
+            ahp.put("artifactSubType", artifactSubType);
+            ahp.put("artifactName", artifactName);
+            ahp.put("startDateTime", new Timestamp(startTime));
+            ahp.put("runningTimeMillis", new BigDecimal(runningTimeMillis).setScale(6, RoundingMode.HALF_UP));
 
             if (parameters != null && parameters.size() > 0) {
                 StringBuilder ps = new StringBuilder();
@@ -271,20 +271,20 @@ public class ContextJavaUtil {
                     ps.append(key).append("=").append(value);
                 }
                 if (ps.length() > 255) ps.delete(255, ps.length());
-                ahp.putNoCheck("parameterString", ps.toString());
+                ahp.put("parameterString", ps.toString());
             }
-            if (outputSize != null) ahp.putNoCheck("outputSize", outputSize);
+            if (outputSize != null) ahp.put("outputSize", outputSize);
             if (errorMessage != null) {
-                ahp.putNoCheck("wasError", "Y");
-                ahp.putNoCheck("errorMessage", errorMessage);
+                ahp.put("wasError", "Y");
+                ahp.put("errorMessage", errorMessage);
             } else {
-                ahp.putNoCheck("wasError", "N");
+                ahp.put("wasError", "N");
             }
-            if (requestUrl != null && requestUrl.length() > 0) ahp.putNoCheck("requestUrl", requestUrl);
-            if (referrerUrl != null && referrerUrl.length() > 0) ahp.putNoCheck("referrerUrl", referrerUrl);
+            if (requestUrl != null && requestUrl.length() > 0) ahp.put("requestUrl", requestUrl);
+            if (referrerUrl != null && referrerUrl.length() > 0) ahp.put("referrerUrl", referrerUrl);
 
-            ahp.putNoCheck("serverIpAddress", ecfi.localhostAddress != null ? ecfi.localhostAddress.getHostAddress() : "127.0.0.1");
-            ahp.putNoCheck("serverHostName", ecfi.localhostAddress != null ? ecfi.localhostAddress.getHostName() : "localhost");
+            ahp.put("serverIpAddress", ecfi.localhostAddress != null ? ecfi.localhostAddress.getHostAddress() : "127.0.0.1");
+            ahp.put("serverHostName", ecfi.localhostAddress != null ? ecfi.localhostAddress.getHostName() : "localhost");
 
             return ahp;
         }

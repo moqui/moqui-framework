@@ -39,7 +39,6 @@ import java.util.*;
 public class EntityJavaUtil {
     protected final static Logger logger = LoggerFactory.getLogger(EntityJavaUtil.class);
     protected final static boolean isTraceEnabled = logger.isTraceEnabled();
-    private static final String PLACEHOLDER = "PLHLDR";
 
     private static final int saltBytes = 8;
     static String enDeCrypt(String value, boolean encrypt, EntityFacadeImpl efi) {
@@ -367,7 +366,7 @@ public class EntityJavaUtil {
 
             boolean hasNamePrefix = namePrefix != null && namePrefix.length() > 0;
             boolean srcIsEntityValueBase = src instanceof EntityValueBase;
-            EntityValueBase evb = srcIsEntityValueBase ? (EntityValueBase) src : null;
+            EntityValueBase srcEvb = srcIsEntityValueBase ? (EntityValueBase) src : null;
             FieldInfo[] fieldInfoArray = pks == null ? allFieldInfoArray :
                     (pks == Boolean.TRUE ? pkFieldInfoArray : nonPkFieldInfoArray);
             // use integer iterator, saves quite a bit of time, improves time for this method by about 20% with this alone
@@ -382,10 +381,16 @@ public class EntityJavaUtil {
                     srcName = fieldName;
                 }
 
-                Object value = srcIsEntityValueBase? evb.getValueMap().getOrDefault(srcName, PLACEHOLDER) : src.getOrDefault(srcName, PLACEHOLDER);
-                boolean srcNotContains = false;
-                if (value == PLACEHOLDER) { srcNotContains = true; value = null; }
-                if (value != null || !srcNotContains) {
+                Object value;
+                boolean srcContains;
+                if (srcIsEntityValueBase) {
+                    value = hasNamePrefix ? srcEvb.valueMapInternal.get(srcName) : srcEvb.valueMapInternal.getByIString(fi.name, fi.index);
+                    srcContains = value != null || (hasNamePrefix ? srcEvb.valueMapInternal.containsKey(srcName) : srcEvb.valueMapInternal.containsKeyIString(fi.name, fi.index));
+                } else {
+                    value = src.get(srcName);
+                    srcContains = value != null || src.containsKey(srcName);
+                }
+                if (srcContains) {
                     boolean isCharSequence = false;
                     boolean isEmpty = false;
                     if (value == null) {
@@ -399,22 +404,22 @@ public class EntityJavaUtil {
                         if (isCharSequence) {
                             try {
                                 Object converted = fi.convertFromString(value.toString(), eci.l10nFacade);
-                                if (destIsEntityValueBase) destEvb.putNoCheck(fieldName, converted);
+                                if (destIsEntityValueBase) destEvb.putKnownField(fi, converted);
                                 else dest.put(fieldName, converted);
                             } catch (BaseException be) {
                                 eci.messageFacade.addValidationError(null, fieldName, null, be.getMessage(), be);
                             }
                         } else {
-                            if (destIsEntityValueBase) destEvb.putNoCheck(fieldName, value);
+                            if (destIsEntityValueBase) destEvb.putKnownField(fi, value);
                             else dest.put(fieldName, value);
                         }
-                    } else if (setIfEmpty && !srcNotContains) {
+                    } else if (setIfEmpty) {
                         // treat empty String as null, otherwise set as whatever null or empty type it is
                         if (value != null && isCharSequence) {
-                            if (destIsEntityValueBase) destEvb.putNoCheck(fieldName, null);
+                            if (destIsEntityValueBase) destEvb.putKnownField(fi, null);
                             else dest.put(fieldName, null);
                         } else {
-                            if (destIsEntityValueBase) destEvb.putNoCheck(fieldName, value);
+                            if (destIsEntityValueBase) destEvb.putKnownField(fi, value);
                             else dest.put(fieldName, value);
                         }
                     }
@@ -428,7 +433,7 @@ public class EntityJavaUtil {
 
             ExecutionContextImpl eci = efi.ecfi.getEci();
             boolean srcIsEntityValueBase = src instanceof EntityValueBase;
-            EntityValueBase evb = srcIsEntityValueBase ? (EntityValueBase) src : null;
+            EntityValueBase srcEvb = srcIsEntityValueBase ? (EntityValueBase) src : null;
             FieldInfo[] fieldInfoArray = pks == null ? allFieldInfoArray :
                     (pks == Boolean.TRUE ? pkFieldInfoArray : nonPkFieldInfoArray);
             // use integer iterator, saves quite a bit of time, improves time for this method by about 20% with this alone
@@ -437,10 +442,16 @@ public class EntityJavaUtil {
                 FieldInfo fi = fieldInfoArray[i];
                 String fieldName = fi.name;
 
-                Object value = srcIsEntityValueBase ? evb.getValueMap().getOrDefault(fieldName, PLACEHOLDER) : src.getOrDefault(fieldName, PLACEHOLDER);
-                boolean srcNotContains = false;
-                if (value == PLACEHOLDER) { srcNotContains = true; value = null; }
-                if (value != null || !srcNotContains) {
+                Object value;
+                boolean srcContains;
+                if (srcIsEntityValueBase) {
+                    value = srcEvb.valueMapInternal.getByIString(fi.name, fi.index);
+                    srcContains = value != null || srcEvb.valueMapInternal.containsKeyIString(fi.name, fi.index);
+                } else {
+                    value = src.get(fieldName);
+                    srcContains = value != null || src.containsKey(fieldName);
+                }
+                if (srcContains) {
                     boolean isCharSequence = false;
                     boolean isEmpty = false;
                     if (value == null) {
@@ -454,16 +465,16 @@ public class EntityJavaUtil {
                         if (isCharSequence) {
                             try {
                                 Object converted = fi.convertFromString(value.toString(), eci.l10nFacade);
-                                dest.putNoCheck(fieldName, converted);
+                                dest.putKnownField(fi, converted);
                             } catch (BaseException be) {
                                 eci.messageFacade.addValidationError(null, fieldName, null, be.getMessage(), be);
                             }
                         } else {
-                            dest.putNoCheck(fieldName, value);
+                            dest.putKnownField(fi, value);
                         }
-                    } else if (!srcNotContains) {
+                    } else {
                         // treat empty String as null, otherwise set as whatever null or empty type it is
-                        dest.putNoCheck(fieldName, null);
+                        dest.putKnownField(fi, null);
                     }
                 }
             }

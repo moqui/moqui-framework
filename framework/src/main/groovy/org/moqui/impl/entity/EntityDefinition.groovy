@@ -204,6 +204,8 @@ class EntityDefinition {
                 ArrayList<MNode> aliasByField = fieldInfoByEntity.get(fieldName)
                 aliasByField.add(aliasNode)
             }
+
+            int curIndex = 0;
             for (MNode aliasNode in internalEntityNode.children("alias")) {
                 if (aliasNode.attribute("pq-expression")) {
                     if (pqExpressionNodeMap == null) pqExpressionNodeMap = new HashMap<>()
@@ -212,8 +214,9 @@ class EntityDefinition {
                     continue
                 }
 
-                FieldInfo fi = new FieldInfo(this, aliasNode)
+                FieldInfo fi = new FieldInfo(this, aliasNode, curIndex)
                 addFieldInfo(fi)
+                curIndex++
             }
 
             entityConditionNode = internalEntityNode.first("entity-condition")
@@ -225,8 +228,10 @@ class EntityDefinition {
                 internalEntityNode.append("field", [name:"lastUpdatedStamp", type:"date-time"])
             }
 
-            for (MNode fieldNode in internalEntityNode.children("field")) {
-                FieldInfo fi = new FieldInfo(this, fieldNode)
+            ArrayList<MNode> fieldNodeList = internalEntityNode.children("field")
+            for (int i = 0; i < fieldNodeList.size(); i++) {
+                MNode fieldNode = (MNode) fieldNodeList.get(i)
+                FieldInfo fi = new FieldInfo(this, fieldNode, i)
                 addFieldInfo(fi)
             }
 
@@ -543,19 +548,20 @@ class EntityDefinition {
         return true
     }
     LiteStringMap<Object> getPrimaryKeys(Map<String, Object> fields) {
+        // NOTE: for pks Map don't use manual indexes, want compact with no extra entries and causes issues
         LiteStringMap<Object> pks = new LiteStringMap<>()
         FieldInfo[] pkFieldInfos = this.entityInfo.pkFieldInfoArray
 
         if (fields instanceof LiteStringMap) {
             LiteStringMap<Object> fieldsLsm = (LiteStringMap<Object>) fields
             for (int i = 0; i < pkFieldInfos.length; i++) {
-                String fieldName = pkFieldInfos[i].name
-                pks.putByIString(fieldName, fieldsLsm.getByIString(fieldName))
+                FieldInfo fi = pkFieldInfos[i]
+                pks.putByIString(fi.name, fieldsLsm.getByIString(fi.name))
             }
         } else {
             for (int i = 0; i < pkFieldInfos.length; i++) {
-                String fieldName = pkFieldInfos[i].name
-                pks.putByIString(fieldName, fields.get(fieldName))
+                FieldInfo fi = pkFieldInfos[i]
+                pks.putByIString(fi.name, fields.get(fi.name))
             }
         }
 
