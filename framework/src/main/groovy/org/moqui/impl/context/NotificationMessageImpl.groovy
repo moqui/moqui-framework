@@ -113,6 +113,18 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
             notifyUserIds.add((String) allNotificationUser.userId)
         }
 
+        // check each user to see if account terminated (UserAccount.terminateDate != null && < now)
+        long nowTime = System.currentTimeMillis()
+        EntityList notifyUserAccountList = ef.find("moqui.security.UserAccount")
+                .condition("userId", "in", notifyUserIds)
+                .selectField("userId").selectField("terminateDate").disableAuthz().list()
+        int notifyUaSize = notifyUserAccountList.size()
+        for (int i = 0; i < notifyUaSize; i++) {
+            EntityValue userAccount = (EntityValue) notifyUserAccountList.get(i)
+            Timestamp terminateDate = (Timestamp) userAccount.getNoCheckSimple("terminateDate")
+            if (terminateDate != (Timestamp) null && nowTime > terminateDate.getTime()) notifyUserIds.remove(userAccount.get("userId"))
+        }
+
         return notifyUserIds
     }
     private boolean checkUserNotify(String userId, EntityFacade ef) {
