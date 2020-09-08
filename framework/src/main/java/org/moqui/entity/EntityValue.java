@@ -21,6 +21,7 @@ import javax.sql.rowset.serial.SerialBlob;
 import java.io.Externalizable;
 import java.io.Writer;
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
