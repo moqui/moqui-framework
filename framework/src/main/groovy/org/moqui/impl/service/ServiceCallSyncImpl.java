@@ -397,7 +397,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
             }
 
             try {
-                if (userLoggedIn) eci.getUser().logoutUser();
+                if (userLoggedIn) eci.userFacade.logoutLocal();
             } catch (Throwable t) {
                 logger.error("Error logging out user after call to service " + serviceName, t);
             }
