@@ -349,7 +349,7 @@ public class RestClient {
             // not needed, set by call to request.content() with passed contentType: request.header(HttpHeader.CONTENT_TYPE, contentType);
         }
 
-        request.accept(acceptContentType == null? contentType: acceptContentType);
+        request.accept(acceptContentType != null && !acceptContentType.isEmpty() ? acceptContentType : contentType);
 
         if (logger.isTraceEnabled())
             logger.trace("RestClient request " + request.getMethod() + " " + request.getURI() + " Headers: " + request.getHeaders());
