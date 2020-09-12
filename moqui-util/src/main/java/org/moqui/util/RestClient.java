@@ -88,6 +88,7 @@ public class RestClient {
     private String uriString = null;
     private Method method = Method.GET;
     private String contentType = "application/json";
+    private String acceptContentType = null;
     private Charset charset = StandardCharsets.UTF_8;
     private String bodyText = null;
     private MultiPartContentProvider multiPart = null;
@@ -131,6 +132,11 @@ public class RestClient {
     /** Defaults to 'application/json', could also be 'text/xml', etc */
     public RestClient contentType(String contentType) {
         this.contentType = contentType;
+        return this;
+    }
+
+    public RestClient acceptContentType(String acceptContentType) {
+        this.acceptContentType = acceptContentType;
         return this;
     }
 
@@ -343,7 +349,7 @@ public class RestClient {
             // not needed, set by call to request.content() with passed contentType: request.header(HttpHeader.CONTENT_TYPE, contentType);
         }
 
-        request.accept(contentType);
+        request.accept(acceptContentType == null? contentType: acceptContentType);
 
         if (logger.isTraceEnabled())
             logger.trace("RestClient request " + request.getMethod() + " " + request.getURI() + " Headers: " + request.getHeaders());
