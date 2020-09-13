@@ -599,7 +599,7 @@ class TransactionFacadeImpl implements TransactionFacade {
     }
 
     @Override
-    void initTransactionCache() {
+    void initTransactionCache(boolean readOnly) {
         if (!useTransactionCache) return
         TxStackInfo txStackInfo = getTxStackInfo()
         if (txStackInfo.txCache == null) {
@@ -614,7 +614,7 @@ class TransactionFacadeImpl implements TransactionFacade {
 
             if (tm == null || tm.getStatus() != Status.STATUS_ACTIVE) throw new XAException("Cannot enlist: no transaction manager or transaction not active")
 
-            TransactionCache txCache = new TransactionCache(this.ecfi, false)
+            TransactionCache txCache = new TransactionCache(this.ecfi, readOnly)
             txStackInfo.txCache = txCache
             registerSynchronization(txCache)
         } else if (txStackInfo.txCache.isReadOnly()) {

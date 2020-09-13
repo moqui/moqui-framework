@@ -194,6 +194,8 @@ class TransactionCache implements Synchronization {
             }
         }
 
+        knownLocked.add(key)
+
         return !readOnly
     }
     boolean delete(EntityValueBase evb) {
@@ -234,6 +236,8 @@ class TransactionCache implements Synchronization {
                 }
             }
         }
+
+        knownLocked.add(key)
 
         return !readOnly
     }
@@ -355,8 +359,10 @@ class TransactionCache implements Synchronization {
                         }
                     }
 
-                    listPut(ed, whereCondition, createdValueList)
-                    cacheList = createdValueList.deepCloneList()
+                    if (createdValueList.size() > 0) {
+                        listPut(ed, whereCondition, createdValueList)
+                        cacheList = createdValueList.deepCloneList()
+                    }
                 }
             }
         }

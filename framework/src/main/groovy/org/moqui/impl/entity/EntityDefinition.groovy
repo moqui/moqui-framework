@@ -549,8 +549,8 @@ class EntityDefinition {
     }
     LiteStringMap<Object> getPrimaryKeys(Map<String, Object> fields) {
         // NOTE: for pks Map don't use manual indexes, want compact with no extra entries and causes issues
-        LiteStringMap<Object> pks = new LiteStringMap<>()
         FieldInfo[] pkFieldInfos = this.entityInfo.pkFieldInfoArray
+        LiteStringMap<Object> pks = new LiteStringMap<>(pkFieldInfos.length)
 
         if (fields instanceof LiteStringMap) {
             LiteStringMap<Object> fieldsLsm = (LiteStringMap<Object>) fields
