@@ -64,7 +64,6 @@ public abstract class EntityValueBase implements EntityValue {
 
     protected transient LiteStringMap<Object> dbValueMap = null;
     protected transient LiteStringMap<Object> oldDbValueMap = null;
-    protected transient LiteStringMap<Object> internalPkMap = null;
     private transient Map<String, Map<String, String>> localizedByLocaleByField = null;
 
     private transient boolean modified = false;
@@ -389,9 +388,23 @@ public abstract class EntityValueBase implements EntityValue {
 
     @Override public boolean containsPrimaryKey() { return this.getEntityDefinition().containsPrimaryKey(valueMapInternal); }
     @Override public Map<String, Object> getPrimaryKeys() {
+        /* don't use cached internalPkMap, would have to make sure to capture all set, put, setFields, setFieldsEv, etc to invalidate otherwise may be stale
+         * is just as fast to recreate by index gets on valueMapInternal vs cloning the cached LiteStringMap
+        protected transient LiteStringMap<Object> internalPkMap = null;
         if (internalPkMap != null) return new LiteStringMap<Object>(internalPkMap);
         internalPkMap = getEntityDefinition().getPrimaryKeys(this.valueMapInternal);
         return new LiteStringMap<Object>(internalPkMap);
+         */
+
+        FieldInfo[] pkFieldInfos = getEntityDefinition().entityInfo.pkFieldInfoArray;
+        LiteStringMap<Object> pks = new LiteStringMap<>(pkFieldInfos.length);
+
+        for (int i = 0; i < pkFieldInfos.length; i++) {
+            FieldInfo fi = pkFieldInfos[i];
+            pks.putByIString(fi.name, this.valueMapInternal.getByIString(fi.name, fi.index));
+        }
+
+        return pks;
     }
 
     public boolean primaryKeyMatches(EntityValueBase evb) {
