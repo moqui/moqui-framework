@@ -297,7 +297,8 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
             if (sd.noTxCache) {
                 tf.flushAndDisableTransactionCache();
             } else {
-                if (useTransactionCache != null ? useTransactionCache : sd.txUseCache) tf.initTransactionCache();
+                if (useTransactionCache != null ? useTransactionCache : sd.txUseCache) tf.initTransactionCache(false);
+                // alternative to use read only TX cache by default, not functional yet: tf.initTransactionCache(!(useTransactionCache != null ? useTransactionCache : sd.txUseCache));
             }
 
             try {
@@ -573,7 +574,10 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         try {
             if (pauseResumeIfNeeded && tf.isTransactionInPlace()) suspendedTransaction = tf.suspend();
             boolean beganTransaction = beginTransactionIfNeeded && tf.begin(null);
-            if (useTransactionCache != null && useTransactionCache) tf.initTransactionCache();
+
+            if (useTransactionCache != null && useTransactionCache) tf.initTransactionCache(false);
+            // alternative to use read only TX cache by default, not functional yet: tf.initTransactionCache(useTransactionCache == null || !useTransactionCache);
+
             try {
                 if (hasSecaRules) ServiceFacadeImpl.runSecaRules(serviceNameNoHash, currentParameters, null, "pre-service", secaRules, eci);
 

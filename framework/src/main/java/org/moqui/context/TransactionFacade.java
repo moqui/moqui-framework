@@ -119,7 +119,7 @@ public interface TransactionFacade {
     Synchronization getActiveSynchronization(String syncName);
     void putAndEnlistActiveSynchronization(String syncName, Synchronization sync);
 
-    void initTransactionCache();
+    void initTransactionCache(boolean readOnly);
     boolean isTransactionCacheActive();
     void flushAndDisableTransactionCache();
 }
