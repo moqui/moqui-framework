@@ -872,10 +872,15 @@ Map getVersionDetailMap(File gitDir) {
         def trackingRemote = curGrgit.remote.list().find({ it.name == remoteName })
         if (trackingRemote != null) trackingUrl = trackingRemote.url
     }
-    String headId = curGrgit.head()?.id
-    // tags come in order of oldest first so want to find last in case multiple tags refer to HEAD commit
-    def headTag = curGrgit.tag.list().reverse().find({ it.commit.id == headId })
-    return [branch:curGrgit.branch.current()?.name, tracking:trackingName, url:trackingUrl, head:headId?.take(10), tag:headTag?.name]
+    try {
+        String headId = curGrgit.head()?.id
+        // tags come in order of oldest first so want to find last in case multiple tags refer to HEAD commit
+        def headTag = curGrgit.tag.list().reverse().find({ it.commit.id == headId })
+        return [branch:curGrgit.branch.current()?.name, tracking:trackingName, url:trackingUrl, head:headId?.take(10), tag:headTag?.name]
+    } catch (Throwable t) {
+        logger.lifecycle("Error getting git info for directory ${gitDir?.path}", t)
+        return null
+    }
 }
 def cleanVersionDetailFiles() {
     def runtimeVersionFile = file("runtime/version.json")
