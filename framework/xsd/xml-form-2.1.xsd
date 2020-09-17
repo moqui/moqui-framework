@@ -450,6 +450,7 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:attribute name="entity-key-name" type="xs:string"/>
         <xs:attribute name="entity-use-cache" default="true" type="boolean"/>
     </xs:complexType></xs:element>
+
     <xs:element name="image" substitutionGroup="StandaloneFields"><xs:complexType>
         <xs:sequence>
             <xs:element minOccurs="0" maxOccurs="unbounded" ref="parameter"/>
@@ -468,6 +469,7 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:attribute name="condition" type="xs:string"><xs:annotation><xs:documentation>
             If specified and evaluates to false image is not rendered.</xs:documentation></xs:annotation></xs:attribute>
     </xs:complexType></xs:element>
+
     <xs:element name="label" substitutionGroup="StandaloneFields"><xs:complexType>
         <xs:attribute name="text" type="xs:string" use="required"/>
         <xs:attribute name="text-map" type="xs:string">
@@ -504,6 +506,7 @@ along with this software (see the LICENSE.md file). If not, see
         </xs:documentation></xs:annotation></xs:attribute>
         <xs:attribute name="tooltip" type="xs:string"/>
     </xs:complexType></xs:element>
+
     <xs:element name="editable" substitutionGroup="StandaloneFields"><xs:complexType>
         <xs:sequence>
             <xs:element minOccurs="0" maxOccurs="unbounded" ref="parameter"/>
