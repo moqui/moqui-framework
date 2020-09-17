@@ -856,11 +856,14 @@ def makeVersionDetailFiles() {
         file('runtime/version.json').write(groovy.json.JsonOutput.toJson(topVersionMap), "UTF-8")
     }
     for (File compDir in file('runtime/component').listFiles().findAll { it.isDirectory() && it.listFiles().find { it.name == '.git' } }) {
-        file(compDir.path + '/version.json').write(groovy.json.JsonOutput.toJson(getVersionDetailMap(compDir)), "UTF-8")
+        def versionMap = getVersionDetailMap(compDir)
+        if (versionMap == null) continue
+        file(compDir.path + '/version.json').write(groovy.json.JsonOutput.toJson(versionMap), "UTF-8")
     }
 }
 Map getVersionDetailMap(File gitDir) {
     def curGrgit = Grgit.open(dir: gitDir)
+    if (curGrgit == null) return null
     String trackingName = curGrgit.branch.current()?.trackingBranch?.name
     String trackingUrl = ""
     int trackingNameSlash = trackingName ? trackingName.indexOf('/') : -1
