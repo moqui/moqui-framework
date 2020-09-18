@@ -177,8 +177,8 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="formConfigId"/></relationship>
         <seed-data>
             <moqui.basic.EnumerationType description="Form Config Type" enumTypeId="FormConfigType"/>
-            <moqui.basic.Enumeration description="Desktop" enumId="FctDesktop" enumTypeId="FormConfigType"/>
-            <moqui.basic.Enumeration description="Mobile" enumId="FctMobile" enumTypeId="FormConfigType"/>
+            <moqui.basic.Enumeration description="Desktop" enumCode="desktop" enumId="FctDesktop" enumTypeId="FormConfigType"/>
+            <moqui.basic.Enumeration description="Mobile" enumCode="mobile" enumId="FctMobile" enumTypeId="FormConfigType"/>
         </seed-data>
     </entity>
     <entity entity-name="FormConfigField" package="moqui.screen.form" use="configuration">
