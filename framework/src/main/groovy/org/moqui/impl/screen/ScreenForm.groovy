@@ -972,6 +972,15 @@ class ScreenForm {
             baseFormNode.remove("form-list-column")
             for (MNode flcNode in overrideFormNode.children("form-list-column")) baseFormNode.append(flcNode.deepCopy(null))
         }
+        if (overrideFormNode.hasChild("columns")) {
+            // each columns element by @type attribute overrides corresponding type
+            for (MNode columnsNode in overrideFormNode.children("columns")) {
+                String type = columnsNode.attribute("type")
+                // remove base node children with matching type value
+                baseFormNode.remove({ MNode it -> "columns".equals(it.name) && it.attribute("type") == type })
+                baseFormNode.append(columnsNode.deepCopy(null))
+            }
+        }
     }
 
     protected static void mergeFieldNode(MNode baseFormNode, MNode overrideFieldNode, boolean deepCopy) {
@@ -1168,7 +1177,7 @@ class ScreenForm {
         private ArrayList<MNode> hiddenFirstRowFieldList = (ArrayList<MNode>) null
         private ArrayList<MNode> hiddenSecondRowFieldList = (ArrayList<MNode>) null
         private ArrayList<MNode> hiddenLastRowFieldList = (ArrayList<MNode>) null
-        private ArrayList<ArrayList<MNode>> formListColInfoList = (ArrayList<ArrayList<MNode>>) null
+        private HashMap<String, ArrayList<ArrayList<MNode>>> formListColInfoListMap = (HashMap<String, ArrayList<ArrayList<MNode>>>) null
         private boolean hasFieldHideAttrs = false
 
         boolean hasAggregate = false
@@ -1303,7 +1312,17 @@ class ScreenForm {
             if (hasLastRow && formNode.attribute("transition-last-row")) isFormLastRowFormVal = true
 
             // also populate fieldsInFormListColumns
-            if (isListForm) formListColInfoList = makeFormListColumnInfo()
+            if (isListForm) {
+                formListColInfoListMap = new HashMap<>()
+                // iterate through columns elements and populate for each type
+                for (MNode columnsNode in formNode.children("columns")) {
+                    String type = columnsNode.attribute("type")
+                    if (type != null && !type.isEmpty()) formListColInfoListMap.put(type, makeFormListColumnInfo(type))
+                }
+
+                // always populate for null (default) type
+                formListColInfoListMap.put(null, makeFormListColumnInfo(null))
+            }
         }
 
         MNode getFormNode() { formNode }
@@ -1494,7 +1513,7 @@ class ScreenForm {
         ArrayList<MNode> getListHiddenFieldList() { return hiddenFieldList }
         ArrayList<String> getListHiddenFieldNameList() { return hiddenFieldNameList }
         Set<String> getListHiddenFieldNameSet() { return hiddenFieldNameSet }
-        boolean hasFormListColumns() { return formNode.children("form-list-column").size() > 0 }
+        boolean hasFormListColumns() { return formNode.hasChild("form-list-column") || formNode.hasChild("columns") }
 
         String getUserActiveFormConfigId(ExecutionContext ec) {
             EntityValue fcu = ecfi.entityFacade.fastFindOne("moqui.screen.form.FormConfigUser", true, false, screenForm.location, ec.user.userId)
@@ -1532,12 +1551,46 @@ class ScreenForm {
                 // don't remember the results of this, is per-user so good only once (FormInstance is NOT per user!)
                 return makeDbFormListColumnInfo(formConfigId, eci)
             }
-            return formListColInfoList
+            String columnsType = ecfi.getEci().contextStack.getByString("_columnsType")
+            if (columnsType != null && columnsType.isEmpty()) columnsType == null
+            if (formListColInfoListMap.containsKey(columnsType)) {
+                return formListColInfoListMap.get(columnsType)
+            } else {
+                return formListColInfoListMap.get(null)
+            }
         }
         /** convert form-list-column elements into a list, if there are no form-list-column elements uses fields limiting
          *    by logic about what actually gets rendered (so result can be used for display regardless of form def) */
-        private ArrayList<ArrayList<MNode>> makeFormListColumnInfo() {
-            ArrayList<MNode> formListColumnList = formNode.children("form-list-column")
+        private ArrayList<ArrayList<MNode>> makeFormListColumnInfo(String columnsType) {
+            ArrayList<MNode> formListColumnList = (ArrayList<MNode>) null
+
+            ArrayList<MNode> columnsNodeList = formNode.children("columns")
+            int columnsNodesSize = columnsNodeList.size()
+            // look for matching columns by specified type first
+            if (columnsType != null && !columnsType.isEmpty()) {
+                for (int i = 0; i < columnsNodesSize; i++) {
+                    MNode columnsNode = (MNode) columnsNodeList.get(i)
+                    if (columnsType.equals(columnsNode.attribute("type"))) {
+                        formListColumnList = columnsNode.children("column")
+                        break
+                    }
+                }
+            }
+            // if nothing found (or no columnsType) look for columns with no type
+            if (formListColumnList == null) {
+                for (int i = 0; i < columnsNodesSize; i++) {
+                    MNode columnsNode = (MNode) columnsNodeList.get(i)
+                    String type = columnsNode.attribute("type")
+                    if (type == null || type.isEmpty()) {
+                        formListColumnList = columnsNode.children("column")
+                        break
+                    }
+                }
+            }
+
+            // default to old form-list-column elements
+            if (formListColumnList == null) formListColumnList = formNode.children("form-list-column")
+
             int flcListSize = formListColumnList != null ? formListColumnList.size() : 0
 
             ArrayList<ArrayList<MNode>> colInfoList = new ArrayList<>()

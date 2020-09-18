@@ -159,7 +159,30 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element minOccurs="0" ref="auto-fields-entity"/>
                 <xs:element minOccurs="0" name="field" type="form-field-list"/>
             </xs:choice>
-            <xs:element minOccurs="0" maxOccurs="unbounded" ref="form-list-column"/>
+            <xs:element name="form-list-column" minOccurs="0" maxOccurs="unbounded"><xs:annotation>
+                <xs:documentation>Fields in this set will be in the same column in the list form table.</xs:documentation>
+            </xs:annotation><xs:complexType>
+                <xs:sequence><xs:element maxOccurs="unbounded" ref="field-ref"/></xs:sequence>
+            </xs:complexType></xs:element>
+
+            <xs:element name="columns" minOccurs="0" maxOccurs="unbounded"><xs:annotation>
+                <xs:documentation>Configuration for default columns and fields in each</xs:documentation>
+            </xs:annotation><xs:complexType>
+                <xs:sequence>
+                    <xs:element name="column" minOccurs="0" maxOccurs="unbounded"><xs:annotation>
+                        <xs:documentation>Fields in this set will be in the same column in the list form table (alternative to old form-list-column element).</xs:documentation>
+                    </xs:annotation><xs:complexType>
+                        <xs:sequence><xs:element maxOccurs="unbounded" ref="field-ref"/></xs:sequence>
+                    </xs:complexType></xs:element>
+                </xs:sequence>
+                <xs:attribute name="type" type="xs:string"><xs:annotation><xs:documentation>
+                    Used to distinguish multiple columns configurations, can be anything used in the '_columnsType' parameter (or context field).
+                    If type not specified used as a default for any _columnsType value not specified in another columns elements.
+                    Initially 'desktop' and 'mobile' are supported.
+                    Corresponds to FormConfig.configTypeEnumId for per-user and other saved form configurations.
+                </xs:documentation></xs:annotation></xs:attribute>
+            </xs:complexType></xs:element>
+
         </xs:sequence>
         <xs:attribute name="name" type="name-upper" use="required">
             <xs:annotation><xs:documentation>The name of the form. Used to reference the form along with the XML Screen
@@ -366,11 +389,6 @@ along with this software (see the LICENSE.md file). If not, see
     </xs:annotation><xs:complexType>
         <xs:sequence><xs:element minOccurs="0" maxOccurs="unbounded" ref="field-ref"/></xs:sequence>
         <xs:attribute name="title" type="xs:string"/>
-    </xs:complexType></xs:element>
-    <xs:element name="form-list-column"><xs:annotation>
-        <xs:documentation>Fields in this set will be in the same column in the list form table.</xs:documentation>
-    </xs:annotation><xs:complexType>
-        <xs:sequence><xs:element minOccurs="0" maxOccurs="unbounded" ref="field-ref"/></xs:sequence>
     </xs:complexType></xs:element>
     <xs:element name="field-ref"><xs:complexType>
         <xs:attribute name="name" type="name-parameter" use="required"/></xs:complexType></xs:element>
