@@ -166,12 +166,20 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="formConfigId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
         <field name="formLocation" type="text-medium"/>
+        <field name="configTypeEnumId" type="id"/>
+        <relationship type="one" title="FormConfigType" related="moqui.basic.Enumeration">
+            <key-map field-name="configTypeEnumId"/></relationship>
         <relationship type="many" related="moqui.screen.form.FormConfigField" short-alias="fields">
             <key-map field-name="formConfigId"/></relationship>
         <relationship type="many" related="moqui.screen.form.FormConfigUser" short-alias="users">
             <key-map field-name="formConfigId"/></relationship>
         <relationship type="many" related="moqui.screen.form.FormConfigUserGroup" short-alias="userGroups">
             <key-map field-name="formConfigId"/></relationship>
+        <seed-data>
+            <moqui.basic.EnumerationType description="Form Config Type" enumTypeId="FormConfigType"/>
+            <moqui.basic.Enumeration description="Desktop" enumId="FctDesktop" enumTypeId="FormConfigType"/>
+            <moqui.basic.Enumeration description="Mobile" enumId="FctMobile" enumTypeId="FormConfigType"/>
+        </seed-data>
     </entity>
     <entity entity-name="FormConfigField" package="moqui.screen.form" use="configuration">
         <field name="formConfigId" type="id" is-pk="true"/>
