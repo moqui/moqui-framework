@@ -839,7 +839,7 @@ along with this software (see the LICENSE.md file). If not, see
     </xs:complexType></xs:element>
     
     <!-- ============== Text Specific Elements =============== -->
-    <xs:element name="text"><xs:complexType>
+    <xs:element name="text" substitutionGroup="AllWidgets"><xs:complexType>
         <xs:simpleContent>
             <xs:extension base="xs:string">
                 <xs:attribute name="type" type="xs:string" default="any">
