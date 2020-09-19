@@ -176,8 +176,8 @@ along with this software (see the LICENSE.md file). If not, see
                     </xs:complexType></xs:element>
                 </xs:sequence>
                 <xs:attribute name="type" type="xs:string"><xs:annotation><xs:documentation>
-                    Used to distinguish multiple columns configurations, can be anything used in the '_columnsType' parameter (or context field).
-                    If type not specified used as a default for any _columnsType value not specified in another columns elements.
+                    Used to distinguish multiple columns configurations, can be anything used in the '_uiType' parameter (or context field).
+                    If type not specified used as a default for any _uiType value not specified in another columns elements.
                     Initially 'desktop' and 'mobile' are supported.
                     Corresponds to FormConfig.configTypeEnumId for per-user and other saved form configurations.
                 </xs:documentation></xs:annotation></xs:attribute>

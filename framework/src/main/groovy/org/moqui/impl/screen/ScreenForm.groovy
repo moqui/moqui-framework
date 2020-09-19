@@ -1516,7 +1516,25 @@ class ScreenForm {
         boolean hasFormListColumns() { return formNode.hasChild("form-list-column") || formNode.hasChild("columns") }
 
         String getUserActiveFormConfigId(ExecutionContext ec) {
-            EntityValue fcu = ecfi.entityFacade.fastFindOne("moqui.screen.form.FormConfigUser", true, false, screenForm.location, ec.user.userId)
+            String columnsType = ecfi.getEci().contextStack.getByString("_uiType")
+            if (columnsType != null && columnsType.isEmpty()) columnsType = null
+            if (columnsType != null) {
+                // look up Enumeration record by enumCode (_uiType value) and enumTypeId to get enumId
+                String configTypeEnumId = ecfi.entityFacade.find("moqui.basic.Enumeration")
+                        .condition("enumTypeId", "FormConfigType").condition("enumCode", columnsType)
+                        .useCache(true).one()?.get("enumId")
+                if (configTypeEnumId != null) {
+                    EntityValue fcut = ecfi.entityFacade.fastFindOne("moqui.screen.form.FormConfigUserType", true,
+                            false, screenForm.location, ec.user.userId, configTypeEnumId)
+                    if (fcut != null) return (String) fcut.getNoCheckSimple("formConfigId")
+                }
+                // if a columnsType is specified and there is no matching saved FormConfig then don't default to saved general config,
+                //     defer to screen def columns config by type or screen def default columns config, so return null
+                return null
+            }
+
+            EntityValue fcu = ecfi.entityFacade.fastFindOne("moqui.screen.form.FormConfigUser", true,
+                    false, screenForm.location, ec.user.userId)
             if (fcu != null) return (String) fcu.getNoCheckSimple("formConfigId")
 
             // Maybe not do this at all and let it be a future thing where the user selects an active one from options available through groups
@@ -1551,7 +1569,7 @@ class ScreenForm {
                 // don't remember the results of this, is per-user so good only once (FormInstance is NOT per user!)
                 return makeDbFormListColumnInfo(formConfigId, eci)
             }
-            String columnsType = ecfi.getEci().contextStack.getByString("_columnsType")
+            String columnsType = ecfi.getEci().contextStack.getByString("_uiType")
             if (columnsType != null && columnsType.isEmpty()) columnsType == null
             if (formListColInfoListMap.containsKey(columnsType)) {
                 return formListColInfoListMap.get(columnsType)
@@ -2370,20 +2388,47 @@ class ScreenForm {
         String formLocation = cs.get("formLocation")
         if (!formLocation) { ec.messageFacade.addError("No form location specified, cannot save form configuration"); return; }
 
-        // see if there is an existing FormConfig record
+        // get formConfigId
         String formConfigId = cs.get("formConfigId")
-        if (!formConfigId) {
-            EntityValue fcu = ec.entity.find("moqui.screen.form.FormConfigUser")
-                    .condition("userId", userId).condition("formLocation", formLocation).useCache(false).one()
-            formConfigId = fcu != null ? fcu.formConfigId : null
+        // get configTypeEnumId
+        String configTypeEnumId = ec.contextStack.getByString("configTypeEnumId")
+        if (configTypeEnumId != null && configTypeEnumId.isEmpty()) configTypeEnumId = null
+        if (configTypeEnumId == null) {
+            String columnsType = ec.contextStack.getByString("_uiType")
+            if (columnsType != null && columnsType.isEmpty()) columnsType = null
+            if (columnsType != null) {
+                // look up Enumeration record by enumCode (_uiType value) and enumTypeId to get enumId
+                configTypeEnumId = ec.entityFacade.find("moqui.basic.Enumeration")
+                        .condition("enumTypeId", "FormConfigType").condition("enumCode", columnsType)
+                        .useCache(true).one()?.get("enumId")
+            }
+        }
+        // logger.warn("formConfigId ${formConfigId} configTypeEnumId ${configTypeEnumId}")
+
+        // see if there is an existing FormConfig record
+        if (formConfigId == null || formConfigId.isEmpty()) {
+            // if configTypeEnumId then use with FormConfigUserType, else use FormConfigUser to defer to screen def columns
+            //     config by type or screen def default columns config
+            if (configTypeEnumId != null) {
+                EntityValue fcut = ec.entityFacade.fastFindOne("moqui.screen.form.FormConfigUserType", true,
+                        false, formLocation, userId, configTypeEnumId)
+                formConfigId = (String) fcut?.getNoCheckSimple("formConfigId")
+            } else {
+                EntityValue fcu = ec.entity.find("moqui.screen.form.FormConfigUser")
+                        .condition("userId", userId).condition("formLocation", formLocation).useCache(false).one()
+                formConfigId = (String) fcu?.getNoCheckSimple("formConfigId")
+            }
         }
         String userCurrentFormConfigId = formConfigId
 
         // if FormConfig associated with this user but no other users or groups delete its FormConfigField
         //     records and remember its ID for create FormConfigField
         if (formConfigId) {
-            long userCount = ec.entity.find("moqui.screen.form.FormConfigUser")
-                    .condition("formConfigId", formConfigId).useCache(false).count()
+            long userCount = configTypeEnumId != null ?
+                    ec.entity.find("moqui.screen.form.FormConfigUserType").condition("formConfigId", formConfigId)
+                            .condition("configTypeEnumId", configTypeEnumId).useCache(false).count() :
+                    ec.entity.find("moqui.screen.form.FormConfigUser").condition("formConfigId", formConfigId)
+                            .useCache(false).count()
             if (userCount > 1) {
                 formConfigId = null
             } else {
@@ -2403,10 +2448,13 @@ class ScreenForm {
             if (formConfigId) {
                 // no other users on this form, and now being reset, so delete FormConfig
                 ec.entity.find("moqui.screen.form.FormConfigUser").condition("formConfigId", formConfigId).deleteAll()
+                ec.entity.find("moqui.screen.form.FormConfigUserType").condition("formConfigId", formConfigId).deleteAll()
                 ec.entity.find("moqui.screen.form.FormConfig").condition("formConfigId", formConfigId).deleteAll()
             } else if (userCurrentFormConfigId) {
                 // there is a FormConfig but other users are using it, so just remove this user
                 ec.entity.find("moqui.screen.form.FormConfigUser").condition("formConfigId", userCurrentFormConfigId)
+                        .condition("userId", userId).deleteAll()
+                ec.entity.find("moqui.screen.form.FormConfigUserType").condition("formConfigId", userCurrentFormConfigId)
                         .condition("userId", userId).deleteAll()
             }
             // to reset columns don't save new ones, just return after clearing out existing records
@@ -2419,8 +2467,13 @@ class ScreenForm {
             Map createResult = ec.service.sync().name("create#moqui.screen.form.FormConfig")
                     .parameters([userId:userId, formLocation:formLocation, description:"For user ${userId}"]).call()
             formConfigId = createResult.formConfigId
-            ec.service.sync().name("create#moqui.screen.form.FormConfigUser")
-                    .parameters([formConfigId:formConfigId, userId:userId, formLocation:formLocation]).call()
+            if (configTypeEnumId != null) {
+                ec.service.sync().name("create#moqui.screen.form.FormConfigUserType")
+                        .parameters([formConfigId:formConfigId, userId:userId, formLocation:formLocation, configTypeEnumId:configTypeEnumId]).call()
+            } else {
+                ec.service.sync().name("create#moqui.screen.form.FormConfigUser")
+                        .parameters([formConfigId:formConfigId, userId:userId, formLocation:formLocation]).call()
+            }
         }
 
         // save changes to DB
