@@ -198,6 +198,19 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one-nofk" related="moqui.security.UserAccount" short-alias="userAccount"/>
         <relationship type="one" related="moqui.screen.form.FormConfig" short-alias="formConfig"/>
     </entity>
+    <entity entity-name="FormConfigUserType" package="moqui.screen.form" use="configuration">
+        <!-- NOTE: the combination of FormConfigUser and FormConfigUserType is far from ideal in terms of modeling but has 2 key
+            benefits: avoid deprecating and migrating data from FormConfigUser, handle the default FormConfig with no (null) type without workaround -->
+        <description>Structured to have a single FormConfig per form and user.</description>
+        <field name="formLocation" type="text-medium" is-pk="true"/>
+        <field name="userId" type="id" is-pk="true"/>
+        <field name="configTypeEnumId" type="id" is-pk="true"/>
+        <field name="formConfigId" type="id"/>
+        <relationship type="one-nofk" related="moqui.security.UserAccount" short-alias="userAccount"/>
+        <relationship type="one" title="FormConfigType" related="moqui.basic.Enumeration">
+            <key-map field-name="configTypeEnumId"/></relationship>
+        <relationship type="one" related="moqui.screen.form.FormConfig" short-alias="formConfig"/>
+    </entity>
     <entity entity-name="FormConfigUserGroup" package="moqui.screen.form" use="configuration">
         <field name="formConfigId" type="id" is-pk="true"/>
         <field name="userGroupId" type="id" is-pk="true"/>
