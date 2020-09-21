@@ -159,6 +159,7 @@ public class LiteStringMap<V> implements Map<String, V>, Externalizable, Compara
     }
     /** For this method the String key must be non-null and interned (returned value from String.intern()) */
     public V getByIString(String key, int index) {
+        if (index >= keyArray.length) return null;
         String idxKey = keyArray[index];
         if (idxKey == null) return null;
         if (idxKey != key) throw new IllegalArgumentException("Index " + index + " has key " + keyArray[index] + ", cannot get with key " + key);
