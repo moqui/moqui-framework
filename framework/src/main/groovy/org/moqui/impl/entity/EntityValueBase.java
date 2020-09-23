@@ -93,8 +93,15 @@ public abstract class EntityValueBase implements EntityValue {
     @SuppressWarnings("unchecked")
     @Override public void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
         entityName = objectInput.readUTF();
-        LiteStringMap<Object> lsm = (LiteStringMap<Object>) objectInput.readObject();
+        LiteStringMap<Object> lsm;
+        try {
+            lsm = (LiteStringMap<Object>) objectInput.readObject();
+        } catch (Throwable t) {
+            logger.error("Error deserializing fields Map for entity " + entityName, t);
+            throw t;
+        }
         FieldInfo[] fieldInfos = getEntityDefinition().entityInfo.allFieldInfoArray;
+        valueMapInternal.ensureCapacity(fieldInfos.length);
         for (int i = 0; i < fieldInfos.length; i++) {
             FieldInfo fieldInfo = fieldInfos[i];
             int oldIndex = lsm.findIndexIString(fieldInfo.name);
