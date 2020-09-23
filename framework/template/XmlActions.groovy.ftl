@@ -305,6 +305,19 @@ ${.node}
 
 </#macro>
 
+<#macro try>  try {
+    <#recurse .node/>
+    }<#if .node["catch"]?has_content><#list .node["catch"] as catch> catch (<#if catch.@class?has_content>${catch.@class}<#else>Throwable</#if><#if catch.@field?has_content> ${catch.@field}<#else> e</#if>) {
+    <#recurse catch/>
+    }</#list>
+    <#if .node["finally"]?has_content> finally {
+        <#recurse .node["finally"][0]/>
+        }</#if></#if>
+</#macro>
+
+<#macro catch><#-- do nothing when visiting, only used explicitly inline --></#macro>
+<#macro finally><#-- do nothing when visiting, only used explicitly inline --></#macro>
+
 <#-- =================== if/when sub-elements =================== -->
 
 <#macro condition><#-- do nothing when visiting, only used explicitly inline --></#macro>
