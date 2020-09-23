@@ -75,6 +75,14 @@ public class LiteStringMap<V> implements Map<String, V>, Externalizable, Compara
         valueArray = Arrays.copyOf(valueArray, newLength);
     }
 
+
+    public LiteStringMap<V> ensureCapacity(int capacity) {
+        if (keyArray.length < capacity) {
+            keyArray = Arrays.copyOf(keyArray, capacity);
+            valueArray = Arrays.copyOf(valueArray, capacity);
+        }
+        return this;
+    }
     public LiteStringMap<V> useManualIndex() { useManualIndex = true; return this; }
 
     public int findIndex(String keyOrig) {
@@ -195,7 +203,7 @@ public class LiteStringMap<V> implements Map<String, V>, Externalizable, Compara
     public V putByIString(String key, V value, int index) {
         // if ("pseudoId".equals(key)) { System.out.println("========= put index " + index + " key " + key + ": " + value); new Exception("location").printStackTrace(); }
         useManualIndex = true;
-        if (index >= keyArray.length) growArrays(index);
+        if (index >= keyArray.length) growArrays(index + 1);
         if (index > lastIndex) lastIndex = index;
         if (keyArray[index] == null) {
             keyArray[index] = key;
