@@ -71,7 +71,7 @@ class ElasticRequestLogFilter implements Filter {
         }
 
         RequestLogQueueFlush rlqf = new RequestLogQueueFlush(this)
-        ecfi.scheduledExecutor.scheduleAtFixedRate(rlqf, 15, 5, TimeUnit.SECONDS)
+        ecfi.scheduleAtFixedRate(rlqf, 15, 5)
     }
 
     // TODO: add geoip (see https://www.elastic.co/guide/en/logstash/current/plugins-filters-geoip.html)

@@ -44,10 +44,10 @@ class ServiceFacadeImpl implements ServiceFacade {
     protected final ReentrantLock locationLoadLock = new ReentrantLock()
 
     protected Map<String, ArrayList<ServiceEcaRule>> secaRulesByServiceName = new HashMap<>()
-    protected final List<EmailEcaRule> emecaRuleList = new ArrayList()
+    protected final List<EmailEcaRule> emecaRuleList = new ArrayList<>()
     public final RestApi restApi
 
-    protected final Map<String, ServiceRunner> serviceRunners = new HashMap()
+    protected final Map<String, ServiceRunner> serviceRunners = new HashMap<>()
 
     private ScheduledJobRunner jobRunner = null
 
@@ -102,7 +102,7 @@ class ServiceFacadeImpl implements ServiceFacade {
         if (jobRunnerRate > 0L) {
             jobRunner = new ScheduledJobRunner(ecfi)
             // wait 120 seconds before first run to make sure all is loaded and we're past an initial activity burst
-            ecfi.scheduledExecutor.scheduleAtFixedRate(jobRunner, 120, jobRunnerRate, TimeUnit.SECONDS)
+            ecfi.scheduleAtFixedRate(jobRunner, 120, jobRunnerRate)
         } else {
             jobRunner = null
         }
