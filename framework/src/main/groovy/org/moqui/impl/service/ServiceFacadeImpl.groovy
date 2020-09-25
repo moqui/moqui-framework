@@ -109,6 +109,11 @@ class ServiceFacadeImpl implements ServiceFacade {
 
     }
 
+    void setDistributedExecutorService(ExecutorService executorService) {
+        logger.info("Setting DistributedExecutorService to ${executorService.class.name}, was ${this.distributedExecutorService?.class?.name}")
+        this.distributedExecutorService = executorService
+    }
+
     void warmCache()  {
         logger.info("Warming cache for all service definitions")
         long startTime = System.currentTimeMillis()
