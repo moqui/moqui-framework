@@ -481,8 +481,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         this.scheduledRunnableList.add(new ScheduledRunnableInfo(command, periodSeconds))
     }
     void scheduledReInit() {
-        this.scheduledExecutor.awaitTermination()
-
         for (ScheduledRunnableInfo runnableInfo in this.scheduledRunnableList) {
             String commandClass = runnableInfo.command.class.name
             logger.warn("Removing scheduled runnable ${commandClass}")
@@ -581,6 +579,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         entityFacade.postFacadeInit()
         serviceFacade.postFacadeInit()
 
+        // Warm cache on start if configured to do so
+        if (confXmlRoot.first("cache-list").attribute("warm-on-start") != "false") warmCache()
+
         // Run init() in ToolFactory implementations from tools.tool-factory elements
         for (ToolFactory tf in toolFactoryMap.values()) {
             logger.info("Initializing ToolFactory: ${tf.getName()}")
@@ -604,9 +605,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // schedule DeferredHitInfoFlush (every 5 seconds, after 10 second init delay)
         DeferredHitInfoFlush dhif = new DeferredHitInfoFlush(this)
         this.scheduleAtFixedRate(dhif, 10, 5)
-
-        // Warm cache on start if configured to do so
-        if (confXmlRoot.first("cache-list").attribute("warm-on-start") != "false") warmCache()
 
         // all config loaded, save memory by clearing the parsed MNode cache, especially for production mode
         MNode.clearParsedNodeCache()
