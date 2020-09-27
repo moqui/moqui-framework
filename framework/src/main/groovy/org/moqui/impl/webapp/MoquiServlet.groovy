@@ -18,6 +18,7 @@ import org.moqui.context.ArtifactTarpitException
 import org.moqui.context.AuthenticationRequiredException
 import org.moqui.context.ArtifactAuthorizationException
 import org.moqui.context.NotificationMessage
+import org.moqui.context.WebMediaTypeException
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.screen.ScreenRenderImpl
@@ -167,6 +168,9 @@ class MoquiServlet extends HttpServlet {
             if (e.getRetryAfterSeconds()) response.addIntHeader("Retry-After", e.getRetryAfterSeconds())
             // NOTE: there is no constant on HttpServletResponse for 429; see RFC 6585 for details
             sendErrorResponse(request, response, 429, "too-many", null, e, ecfi, webappName, sri)
+        } catch (WebMediaTypeException e) {
+            logger.warn("Web Unsupported Media Type: " + e.message)
+            sendErrorResponse(request, response, HttpServletResponse.SC_UNSUPPORTED_MEDIA_TYPE, "media-type", e.message, e, ecfi, webappName, sri)
         } catch (Throwable t) {
             if (ec.message.hasError()) {
                 String errorsString = ec.message.errorsString
