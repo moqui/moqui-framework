@@ -668,7 +668,7 @@ class ScreenDefinition {
         protected XmlAction serviceActions = null
         protected String singleServiceName = null
 
-        protected Map<String, ParameterItem> parameterByName = new HashMap()
+        protected Map<String, ParameterItem> parameterByName = new HashMap<>()
         protected List<String> pathParameterList = null
 
         protected List<ResponseItem> conditionalResponseList = new ArrayList<ResponseItem>()
@@ -951,7 +951,8 @@ class ScreenDefinition {
             ScreenForm.saveFormConfig(sri.ec)
             ScreenUrlInfo.UrlInstance redirectUrl = sri.buildUrl(sri.rootScreenDef, sri.screenUrlInfo.preTransitionPathNameList, ".")
             redirectUrl.addParameters(sri.getCurrentScreenUrl().getParameterMap()).removeParameter("columnsTree")
-                    .removeParameter("formLocation").removeParameter("ResetColumns").removeParameter("SaveColumns")
+                    .removeParameter("formLocation").removeParameter("ResetColumns")
+                    .removeParameter("SaveColumns").removeParameter("_uiType")
 
             if (!sri.sendJsonRedirect(redirectUrl, null)) sri.response.sendRedirect(redirectUrl.getUrlWithParams())
             return defaultResponse
