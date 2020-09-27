@@ -23,6 +23,8 @@
     <default-property name="webapp_allow_origins" value=""/>
     <default-property name="webapp_handle_cors" value="true"/>
     <default-property name="webapp_status_ips" value="127.0.0.1"/>
+    <default-property name="webapp_require_session_token" value="true"/>
+    <default-property name="webapp_upload_executable_allow" value="false"/>
 
     <!-- Properties for the primary (transactional group) datasource -->
     <default-property name="entity_ds_db_conf" value="h2"/>
@@ -148,10 +150,11 @@
 
     <webapp-list>
         <!-- The webapp.@name is looked up based on the value of the 'moqui-name' context-param in the web.xml file -->
-        <webapp name="webroot" http-port="${webapp_http_port}" http-host="${webapp_http_host}" https-port="${webapp_https_port}"
-                https-host="${webapp_http_host}" https-enabled="${webapp_https_enabled}"
+        <webapp name="webroot" http-port="${webapp_http_port}" http-host="${webapp_http_host}"
+                https-port="${webapp_https_port}" https-host="${webapp_http_host}" https-enabled="${webapp_https_enabled}"
                 handle-cors="${webapp_handle_cors}" allow-origins="${webapp_allow_origins}"
-                require-session-token="true" websocket-timeout="600000">
+                require-session-token="${webapp_require_session_token}" upload-executable-allow="${webapp_upload_executable_allow}"
+                websocket-timeout="600000">
             <!-- root and error screens for OOTB runtime directory (moqui/moqui-runtime repository) -->
             <root-screen host=".*" location="component://webroot/screen/webroot.xml"/>
             <error-screen error="unauthorized" screen-path="error/Unauthorized"/>

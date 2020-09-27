@@ -279,6 +279,7 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- Needed? Not yet implemented: <xs:attribute name="cookie-domain" type="xs:string"/> -->
             <xs:attribute name="websocket-timeout" type="xs:integer"><xs:annotation><xs:documentation>
                 The default WebSocket session max idle timeout for the whole server.</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="upload-executable-allow" type="boolean-expandable" default="false"/>
         </xs:complexType>
     </xs:element>
 
