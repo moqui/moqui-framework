@@ -902,6 +902,15 @@ class EntityFacadeImpl implements EntityFacade {
         int numFiles = 0
         HashMap<String, EntityEcaRule> ruleByIdMap = new HashMap<>()
         LinkedList<EntityEcaRule> ruleNoIdList = new LinkedList<>()
+
+        List<ResourceReference> allEntityFileLocations = getAllEntityFileLocations()
+        for (ResourceReference rr in allEntityFileLocations) {
+            if (!rr.fileName.endsWith(".eecas.xml")) continue
+            numLoaded += loadEecaRulesFile(rr, ruleByIdMap, ruleNoIdList)
+            numFiles++
+        }
+
+        /*
         // search for the service def XML file in the components
         for (String location in this.ecfi.getComponentBaseLocations().values()) {
             ResourceReference entityDirRr = this.ecfi.resourceFacade.getLocationReference(location + "/entity")
@@ -912,12 +921,13 @@ class EntityFacadeImpl implements EntityFacade {
                     if (!rr.fileName.endsWith(".eecas.xml")) continue
                     numLoaded += loadEecaRulesFile(rr, ruleByIdMap, ruleNoIdList)
                     numFiles++
-
                 }
             } else {
                 logger.warn("Can't load EECA rules from component at [${entityDirRr.location}] because it doesn't support exists/directory/etc")
             }
         }
+        */
+
         if (logger.infoEnabled) logger.info("Loaded ${numLoaded} Entity ECA rules from ${numFiles} .eecas.xml files, ${ruleNoIdList.size()} rules have no id, ${ruleNoIdList.size() + ruleByIdMap.size()} EECA rules active")
 
         HashMap<String, ArrayList<EntityEcaRule>> ruleMap = new HashMap<>()
