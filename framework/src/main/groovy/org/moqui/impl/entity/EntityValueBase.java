@@ -1592,10 +1592,9 @@ public abstract class EntityValueBase implements EntityValue {
         try {
             // run EECA before rules
             efi.runEecaRules(entityName, this, "delete", true);
-            // this needs to be called before the actual update so we know which fields are modified
-            // NOTE: consider not doing this on delete, DataDocuments are not great for representing absence of records
-            // NOTE2: this might be useful, but is a bit of a pain and utility is dubious, leave out for now
-            // efi.getEntityDataFeed().dataFeedCheckAndRegister(this, true, valueMap, null)
+
+            // check DataDocuments to update (if not primary entity) or delete (if primary entity)
+            efi.getEntityDataFeed().dataFeedCheckDelete(this);
 
             // if there is not a txCache or the txCache doesn't handle the delete, call the abstract method to delete the main record
             TransactionCache curTxCache = getTxCache(ecfi);
