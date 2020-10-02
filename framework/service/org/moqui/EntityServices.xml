@@ -16,8 +16,8 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="receive" noun="DataFeed" type="interface" no-remember-parameters="true">
         <description>Services named in the DataFeed.feedReceiveServiceName field should implement this interface.</description>
         <in-parameters>
-            <parameter name="dataFeedId" required="true"/>
-            <parameter name="feedStamp" type="Timestamp" required="true"/>
+            <parameter name="dataFeedId"/>
+            <parameter name="feedStamp" type="Timestamp"/>
             <parameter name="documentList" type="List" required="true">
                 <parameter name="document" type="Map">
                     <parameter name="_id" required="true"><description>The combined PK field values of the primary
@@ -31,6 +31,17 @@ along with this software (see the LICENSE.md file). If not, see
             </parameter>
         </in-parameters>
     </service>
+    <service verb="receive" noun="DataFeedDelete" type="interface">
+        <in-parameters>
+            <parameter name="dataFeedId"/>
+            <parameter name="feedStamp" type="Timestamp"/>
+            <parameter name="dataDocumentId" required="true"/>
+            <parameter name="documentId" required="true"><description>The combined PK field values of the primary
+                entity in the DataDocument. If there is more than one PK field the values are separated with a
+                double-colon ("::").</description></parameter>
+        </in-parameters>
+    </service>
+
     <service verb="add" noun="ManualDocumentData" type="interface" no-remember-parameters="true">
         <description>Services named in the DataDocument.manualDataServiceName field should implement this interface.</description>
         <in-parameters>

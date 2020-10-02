@@ -310,7 +310,11 @@ class ElasticFacadeImpl implements ElasticFacade {
             if (index == null || index.isEmpty()) throw new IllegalArgumentException("In delete document the index name may not be empty")
             if (_id == null || _id.isEmpty()) throw new IllegalArgumentException("In delete document the _id may not be empty")
             RestClient.RestResponse response = makeRestClient(Method.DELETE, index + "/_doc/" + _id, null).call()
-            checkResponse(response, "Delete document ${_id}", index)
+            if (response.statusCode == 404) {
+                logger.warn("In delete document not found in index ${index} with ID ${_id}")
+            } else {
+                checkResponse(response, "Delete document ${_id}", index)
+            }
         }
 
         @Override
@@ -621,7 +625,7 @@ class ElasticFacadeImpl implements ElasticFacade {
 
         String requestUri = response.getClient().getUriString()
         String requestBody = response.getClient().getBodyText()
-        if (requestBody.length() > 2000) requestBody = requestBody.substring(0, 2000)
+        if (requestBody != null && requestBody.length() > 2000) requestBody = requestBody.substring(0, 2000)
         logger.error("ElasticSearch ${msg}${responseText ? '\nResponse: ' + responseText : ''}${requestUri ? '\nURI: ' + requestUri : ''}${requestBody ? '\nRequest: ' + requestBody : ''}")
 
         throw new BaseException(msg)
