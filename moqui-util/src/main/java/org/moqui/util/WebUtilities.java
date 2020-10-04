@@ -27,10 +27,7 @@ import javax.servlet.ServletContext;
 import javax.servlet.ServletRequest;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectOutputStream;
-import java.io.UnsupportedEncodingException;
+import java.io.*;
 import java.math.BigDecimal;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -283,6 +280,44 @@ public class WebUtilities {
         }
         return anyMatches;
     }
+
+    public static byte[] windowsPex = {(byte) 0x4d, (byte) 0x5a};
+    public static byte[] linuxElf = {(byte) 0x7f, (byte) 0x45, (byte) 0x4c, (byte) 0x46};
+    public static byte[] javaClass = {(byte) 0xca, (byte) 0xfe, (byte) 0xba, (byte) 0xbe};
+    public static byte[] macOs = {(byte) 0xfe, (byte) 0xed, (byte) 0xfa, (byte) 0xce};
+    public static byte[][] allOsExecutables = {windowsPex, linuxElf, javaClass, macOs};
+
+    /** Uses InputStream.mark() and reset(), check markSupported() before calling to avoid errors.
+     * Looks for byte patterns for Windows Portable Executable (4d5a), Linux ELF (7f454c46), Java class (cafebabe), macOS (feedface)
+     */
+    public static boolean isExecutable(InputStream is) throws IOException {
+        byte[] bytes = new byte[4];
+        is.mark(8);
+        is.read(bytes, 0, 4);
+        is.reset();
+        return isExecutable(bytes);
+    }
+    /** Looks for byte patterns for Windows Portable Executable (4d5a), Linux ELF (7f454c46), Java class (cafebabe), macOS (feedface) */
+    public static boolean isExecutable(byte[] bytes) {
+        boolean foundPattern = false;
+        for (int i = 0; i < allOsExecutables.length; i++) {
+            byte[] execPattern = allOsExecutables[i];
+            boolean execMatches = true;
+            for (int j = 0; j < execPattern.length; j++) {
+                if (bytes[j] != execPattern[j]) {
+                    execMatches = false;
+                    break;
+                }
+            }
+            if (execMatches) {
+                foundPattern = true;
+                break;
+            }
+        }
+
+        return foundPattern;
+    }
+
 
     public static String simpleHttpStringRequest(String location, String requestBody, String contentType) {
         if (contentType == null || contentType.isEmpty()) contentType = "text/plain";

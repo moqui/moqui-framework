@@ -212,7 +212,9 @@ along with this software (see the LICENSE.md file). If not, see
             exist (for servers where ES data not persisted between restarts)</description></field>
         <field name="feedName" type="text-medium"/>
         <field name="feedReceiveServiceName" type="text-medium"><description>The service named here should implement the
-            org.moqui.EntityServices.receive#DataFeed interface.</description></field>
+            org.moqui.EntityServices.receive#DataFeed interface; defaults in some cases to 'org.moqui.search.SearchServices.index#DataDocuments'</description></field>
+        <field name="feedDeleteServiceName" type="text-medium"><description>The service named here should implement the
+            org.moqui.EntityServices.receive#DataFeedDelete interface; defaults in some cases to 'org.moqui.search.SearchServices.delete#DataDocument'</description></field>
         <field name="lastFeedStamp" type="date-time"><description>Used only for periodic feeds.</description></field>
         <relationship type="one" title="DataFeedType" related="moqui.basic.Enumeration" short-alias="type">
             <key-map field-name="dataFeedTypeEnumId"/></relationship>

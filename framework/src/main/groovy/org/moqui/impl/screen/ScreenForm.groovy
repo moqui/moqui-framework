@@ -1089,8 +1089,10 @@ class ScreenForm {
                     }
                 }
             } else if ("option".equals(childNode.name)) {
-                String key = ec.resource.expandNoL10n(childNode.attribute('key'), null)
-                String text = ec.resource.expand(childNode.attribute('text'), null)
+                String key = childNode.attribute('key')
+                if (key != null && key.contains('${')) key = ec.resource.expandNoL10n(key, null)
+                String text = childNode.attribute('text')
+                if (text != null && text.contains('${')) text = ec.resource.expand(text, null)
                 options.put(key, text ?: ec.l10n.localize(key))
             }
         }
@@ -1398,6 +1400,8 @@ class ScreenForm {
         static String MSG_LETTERS = "Please enter only letters"
         static String MSG_EMAIL = "Please enter a valid email address"
         static String MSG_URL = "Please enter a valid URL"
+        static String VALIDATE_NUMBER = '!value||$root.moqui.isStringNumber(value)'
+        static String VALIDATE_NUMBER_INT = '!value||$root.moqui.isStringInteger(value)'
         ArrayList<Map<String, String>> getFieldValidationJsRules(MNode subFieldNode) {
             MNode validateNode = getFieldValidateNode(subFieldNode)
             if (validateNode == null) return null
@@ -1415,12 +1419,12 @@ class ScreenForm {
                     MNode child = (MNode) children.get(i)
                     if ("number-integer".equals(child.getName())) {
                         if (!foundNumber) {
-                            ruleList.add([expr:'!value || /^-{0,1}\\d*$/.test(value)', message:eci.l10nFacade.localize(MSG_NUMBER_INT)])
+                            ruleList.add([expr:VALIDATE_NUMBER_INT, message:eci.l10nFacade.localize(MSG_NUMBER_INT)])
                             foundNumber = true
                         }
                     } else if ("number-decimal".equals(child.getName())) {
                         if (!foundNumber) {
-                            ruleList.add([expr:"!value || +value === +value", message:eci.l10nFacade.localize(MSG_NUMBER)])
+                            ruleList.add([expr:VALIDATE_NUMBER, message:eci.l10nFacade.localize(MSG_NUMBER)])
                             foundNumber = true
                         }
                     } else if ("text-digits".equals(child.getName())) {
@@ -1454,18 +1458,18 @@ class ScreenForm {
                 String type = validateNode.attribute('type')
                 if (!foundNumber && type != null) {
                     if (type.endsWith("BigInteger") || type.endsWith("Long") || type.endsWith("Integer")) {
-                        ruleList.add([expr:'!value || /^-{0,1}\\d*$/.test(value)', message:eci.l10nFacade.localize(MSG_NUMBER_INT)])
+                        ruleList.add([expr:VALIDATE_NUMBER_INT, message:eci.l10nFacade.localize(MSG_NUMBER_INT)])
                     } else if (type.endsWith("BigDecimal") || type.endsWith("Double") || type.endsWith("Float") || type.endsWith("Number")) {
-                        ruleList.add([expr:"!value || +value === +value", message:eci.l10nFacade.localize(MSG_NUMBER)])
+                        ruleList.add([expr:VALIDATE_NUMBER, message:eci.l10nFacade.localize(MSG_NUMBER)])
                     }
                 }
             } else if (validateNode.name == "field") {
                 String type = validateNode.attribute('type')
                 if (type != null && (type.startsWith("number-") || type.startsWith("currency-"))) {
                     if (type.endsWith("integer")) {
-                        ruleList.add([expr:'!value || /^-{0,1}\\d+$/.test(value)', message:eci.l10nFacade.localize(MSG_NUMBER_INT)])
+                        ruleList.add([expr:VALIDATE_NUMBER_INT, message:eci.l10nFacade.localize(MSG_NUMBER_INT)])
                     } else {
-                        ruleList.add([expr:"!value || +value === +value", message:eci.l10nFacade.localize(MSG_NUMBER)])
+                        ruleList.add([expr:VALIDATE_NUMBER, message:eci.l10nFacade.localize(MSG_NUMBER)])
                     }
                 }
                 // bad idea, for create forms with optional PK messes it up: if (fieldNode."@is-pk" == "true") vcs.add("required")
