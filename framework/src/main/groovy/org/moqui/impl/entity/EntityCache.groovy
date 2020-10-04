@@ -88,7 +88,12 @@ class EntityCache {
 
         @Override void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
             isCreate = objectInput.readBoolean()
-            evb = (EntityValueBase) objectInput.readObject()
+            try {
+                evb = (EntityValueBase) objectInput.readObject()
+            } catch (Throwable t) {
+                logger.error("Error deserializing EntityValueBase for EntityCacheInvalidate, isCreate " + isCreate, t)
+                throw t
+            }
         }
     }
 
@@ -447,7 +452,7 @@ class EntityCache {
                 // remember that this member entity has been used in a cached view entity
                 List<String> cachedViewEntityNames = cachedListViewEntitiesByMember.get(memberEntityName)
                 if (cachedViewEntityNames == null) {
-                    cachedViewEntityNames = (List<String>) Collections.synchronizedList(new ArrayList<>())
+                    cachedViewEntityNames = Collections.synchronizedList(new ArrayList<>()) as List<String>
                     cachedListViewEntitiesByMember.put(memberEntityName, cachedViewEntityNames)
                     cachedViewEntityNames.add(entityName)
                     // logger.info("Added ${entityName} as a cached view-entity for member ${memberEntityName}")

@@ -23,6 +23,7 @@ import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import groovy.lang.GString;
+import org.jetbrains.annotations.NotNull;
 import org.moqui.context.ArtifactExecutionInfo;
 import org.moqui.entity.EntityFind;
 import org.moqui.entity.EntityList;
@@ -536,6 +537,71 @@ public class ContextJavaUtil {
             }
 
             super.afterExecute(runnable, throwable);
+        }
+    }
+
+    static class ScheduledThreadFactory implements ThreadFactory {
+        private final ThreadGroup workerGroup = new ThreadGroup("MoquiScheduled");
+        private final AtomicInteger threadNumber = new AtomicInteger(1);
+        public Thread newThread(Runnable r) { return new Thread(workerGroup, r, "MoquiScheduled-" + threadNumber.getAndIncrement()); }
+    }
+    static class CustomScheduledTask<V> implements RunnableScheduledFuture<V> {
+        public final Runnable runnable;
+        public final Callable<V> callable;
+        public final RunnableScheduledFuture<V> future;
+
+        CustomScheduledTask(Runnable runnable, RunnableScheduledFuture<V> future) {
+            this.runnable = runnable;
+            this.callable = null;
+            this.future = future;
+        }
+        CustomScheduledTask(Callable<V> callable, RunnableScheduledFuture<V> future) {
+            this.runnable = null;
+            this.callable = callable;
+            this.future = future;
+        }
+
+        @Override public boolean isPeriodic() { return future.isPeriodic(); }
+        @Override public long getDelay(@NotNull TimeUnit timeUnit) { return future.getDelay(timeUnit); }
+        @Override public int compareTo(@NotNull Delayed delayed) { return future.compareTo(delayed); }
+
+        @Override public void run() {
+            try {
+                // logger.info("Running scheduled task " + toString());
+                future.run();
+            } catch (Throwable t) {
+                logger.error("CustomScheduledTask uncaught Throwable in run(), catching and suppressing so task does not get unscheduled", t);
+            }
+        }
+        @Override public boolean cancel(boolean b) { return future.cancel(b); }
+        @Override public boolean isCancelled() { return future.isCancelled(); }
+        @Override public boolean isDone() { return future.isDone(); }
+
+        @Override public V get() throws InterruptedException, ExecutionException { return future.get(); }
+        @Override public V get(long l, @NotNull TimeUnit timeUnit) throws InterruptedException, ExecutionException, TimeoutException {
+            return get(l, timeUnit); }
+
+        @Override public String toString() {
+            return "CustomScheduledTask " + (runnable != null ? runnable.getClass().getName() : (callable != null ? callable.getClass().getName() : "[no Runnable or Callable!]"));
+        }
+    }
+    static class CustomScheduledExecutor extends ScheduledThreadPoolExecutor {
+        public CustomScheduledExecutor(int coreThreads) {
+            super(coreThreads, new ScheduledThreadFactory());
+        }
+        protected <V> RunnableScheduledFuture<V> decorateTask(Runnable r, RunnableScheduledFuture<V> task) {
+            return new CustomScheduledTask<V>(r, task);
+        }
+        protected <V> RunnableScheduledFuture<V> decorateTask(Callable<V> c, RunnableScheduledFuture<V> task) {
+            return new CustomScheduledTask<V>(c, task);
+        }
+    }
+    static class ScheduledRunnableInfo {
+        public final Runnable command;
+        public final long period;
+        // NOTE: tracking initial ScheduledFuture is useless as it gets replaced with each run: public final ScheduledFuture scheduledFuture;
+        ScheduledRunnableInfo(Runnable command, long period) {
+            this.command = command; this.period = period;
         }
     }
 }

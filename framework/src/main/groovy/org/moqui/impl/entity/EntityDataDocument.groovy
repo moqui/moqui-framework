@@ -28,6 +28,7 @@ import org.moqui.impl.entity.condition.FieldValueCondition
 import org.moqui.util.CollectionUtilities
 import org.moqui.util.LiteStringMap
 import org.moqui.util.MNode
+import org.moqui.util.ObjectUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -183,23 +184,27 @@ class EntityDataDocument {
         }
 
         String makeDocId(EntityValue ev) {
-            if (primaryPkFieldNamesSize == 1) {
-                // optimization for common simple case
-                String pkFieldName = (String) primaryPkFieldNames.get(0)
+            return makeDocId(ev, primaryPkFieldNames)
+        }
+    }
+
+    static String makeDocId(EntityValue ev, ArrayList<String> primaryPkFieldNames) {
+        int primaryPkFieldNamesSize = primaryPkFieldNames.size()
+        if (primaryPkFieldNamesSize == 1) {
+            // optimization for common simple case
+            String pkFieldName = (String) primaryPkFieldNames.get(0)
+            Object pkFieldValue = ev.getNoCheckSimple(pkFieldName)
+            return ObjectUtilities.toPlainString(pkFieldValue)
+        } else {
+            StringBuffer pkCombinedSb = new StringBuffer()
+            for (int pki = 0; pki < primaryPkFieldNamesSize; pki++) {
+                String pkFieldName = (String) primaryPkFieldNames.get(pki)
+                // don't do this, always use full PK even if not all aliased in doc, probably a bad DataDocument definition: if (!fieldAliasPathMap.containsKey(pkFieldName)) continue
+                if (pkCombinedSb.length() > 0) pkCombinedSb.append("::")
                 Object pkFieldValue = ev.getNoCheckSimple(pkFieldName)
-                return pkFieldValue.toString()
-            } else {
-                StringBuffer pkCombinedSb = new StringBuffer()
-                for (int pki = 0; pki < primaryPkFieldNamesSize; pki++) {
-                    String pkFieldName = (String) primaryPkFieldNames.get(pki)
-                    if (!fieldAliasPathMap.containsKey(pkFieldName)) continue
-                    if (pkCombinedSb.length() > 0) pkCombinedSb.append("::")
-                    Object pkFieldValue = ev.getNoCheckSimple(pkFieldName)
-                    if (pkFieldValue instanceof Timestamp) pkFieldValue = ((Timestamp) pkFieldValue).getTime()
-                    pkCombinedSb.append(pkFieldValue.toString())
-                }
-                return pkCombinedSb.toString()
+                pkCombinedSb.append(ObjectUtilities.toPlainString(pkFieldValue))
             }
+            return pkCombinedSb.toString()
         }
     }
 

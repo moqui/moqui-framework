@@ -40,6 +40,8 @@ import org.moqui.resource.UrlResourceReference
 import org.moqui.impl.context.ContextJavaUtil.ArtifactBinInfo
 import org.moqui.impl.context.ContextJavaUtil.ArtifactStatsInfo
 import org.moqui.impl.context.ContextJavaUtil.ArtifactHitInfo
+import org.moqui.impl.context.ContextJavaUtil.CustomScheduledExecutor
+import org.moqui.impl.context.ContextJavaUtil.ScheduledRunnableInfo
 import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.impl.screen.ScreenFacadeImpl
 import org.moqui.impl.service.ServiceFacadeImpl
@@ -66,6 +68,7 @@ import java.sql.Timestamp
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.ScheduledThreadPoolExecutor
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
@@ -143,8 +146,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     /** The main worker pool for services, running async closures and runnables, etc */
     @SuppressWarnings("GrFinalVariableAccess") public final ThreadPoolExecutor workerPool
     /** An executor for the scheduled job runner */
-    // TODO: make the scheduled thread pool size configurable
-    public final ScheduledThreadPoolExecutor scheduledExecutor = new ScheduledThreadPoolExecutor(16)
+    @SuppressWarnings("GrFinalVariableAccess") public final CustomScheduledExecutor scheduledExecutor
+    public final ArrayList<ScheduledRunnableInfo> scheduledRunnableList = new ArrayList<>()
 
     /**
      * This constructor gets runtime directory and conf file location from a properties file on the classpath so that
@@ -206,6 +209,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         reconfigureLog4j()
         workerPool = makeWorkerPool()
+        scheduledExecutor = makeScheduledExecutor()
+
         preFacadeInit()
 
         // this init order is important as some facades will use others
@@ -262,6 +267,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         reconfigureLog4j()
         workerPool = makeWorkerPool()
+        scheduledExecutor = makeScheduledExecutor()
+
         preFacadeInit()
 
         // this init order is important as some facades will use others
@@ -462,6 +469,38 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         return afterSize == 0
     }
 
+    private CustomScheduledExecutor makeScheduledExecutor() {
+        // TODO: make the scheduled thread pool core and max sizes configurable? so far only used for a small number of scheduled Runnables
+        CustomScheduledExecutor executor = new CustomScheduledExecutor(2)
+        executor.setMaximumPoolSize(8)
+        return executor
+    }
+    void scheduleAtFixedRate(Runnable command, long initialDelaySeconds, long periodSeconds) {
+        // NOTE: actually returns an inaccessible class: ScheduledThreadPoolExecutor$ScheduledFutureTask
+        ScheduledFuture scheduledFuture = this.scheduledExecutor.scheduleAtFixedRate(command, initialDelaySeconds, periodSeconds, TimeUnit.SECONDS)
+        this.scheduledRunnableList.add(new ScheduledRunnableInfo(command, periodSeconds))
+    }
+    void scheduledReInit() {
+        for (ScheduledRunnableInfo runnableInfo in this.scheduledRunnableList) {
+            String commandClass = runnableInfo.command.class.name
+            logger.warn("Removing scheduled runnable ${commandClass}")
+            BlockingQueue<Runnable> queue = this.scheduledExecutor.getQueue()
+            for (Runnable qr in queue) {
+                if (qr instanceof ContextJavaUtil.CustomScheduledTask) {
+                    ContextJavaUtil.CustomScheduledTask task = (ContextJavaUtil.CustomScheduledTask) qr
+                    if (task.runnable != null && task.runnable.class.name == commandClass) {
+                        logger.warn("Removing scheduled runnable ${commandClass} - found matching task, removing")
+                        boolean removed = scheduledExecutor.remove(task)
+                        logger.warn("Removed scheduled runnable ${commandClass}, was present? ${removed}")
+                    }
+                }
+            }
+
+            logger.warn("Adding scheduled runnable ${commandClass} period ${runnableInfo.period}s")
+            this.scheduledExecutor.scheduleAtFixedRate(runnableInfo.command, 0, runnableInfo.period, TimeUnit.SECONDS)
+        }
+    }
+
     private void preFacadeInit() {
         // save the current configuration in a file for debugging/reference
         File confSaveFile = new File(runtimePath + "/log/MoquiActualConf.xml")
@@ -540,6 +579,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         entityFacade.postFacadeInit()
         serviceFacade.postFacadeInit()
 
+        // Warm cache on start if configured to do so
+        if (confXmlRoot.first("cache-list").attribute("warm-on-start") != "false") warmCache()
+
         // Run init() in ToolFactory implementations from tools.tool-factory elements
         for (ToolFactory tf in toolFactoryMap.values()) {
             logger.info("Initializing ToolFactory: ${tf.getName()}")
@@ -562,10 +604,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         // schedule DeferredHitInfoFlush (every 5 seconds, after 10 second init delay)
         DeferredHitInfoFlush dhif = new DeferredHitInfoFlush(this)
-        scheduledExecutor.scheduleAtFixedRate(dhif, 10, 5, TimeUnit.SECONDS)
-
-        // Warm cache on start if configured to do so
-        if (confXmlRoot.first("cache-list").attribute("warm-on-start") != "false") warmCache()
+        this.scheduleAtFixedRate(dhif, 10, 5)
 
         // all config loaded, save memory by clearing the parsed MNode cache, especially for production mode
         MNode.clearParsedNodeCache()

@@ -70,6 +70,13 @@ class ScheduledJobRunner implements Runnable {
 
     @Override
     synchronized void run() {
+        try {
+            runInternal()
+        } catch (Throwable t) {
+            logger.error("Uncaught Throwable in ScheduledJobRunner, catching and suppressing to avoid removal from scheduler", t)
+        }
+    }
+    void runInternal() {
         ZonedDateTime now = ZonedDateTime.now()
         long nowMillis = now.toInstant().toEpochMilli()
         Timestamp nowTimestamp = new Timestamp(nowMillis)

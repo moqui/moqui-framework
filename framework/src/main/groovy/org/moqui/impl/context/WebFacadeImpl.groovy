@@ -18,6 +18,7 @@ import groovy.transform.CompileStatic
 
 import org.apache.commons.fileupload.FileItem
 import org.apache.commons.fileupload.FileItemFactory
+import org.apache.commons.fileupload.FileItemHeaders
 import org.apache.commons.fileupload.disk.DiskFileItemFactory
 import org.apache.commons.fileupload.servlet.ServletFileUpload
 import org.moqui.context.*
@@ -26,6 +27,7 @@ import org.moqui.entity.EntityNotFoundException
 import org.moqui.entity.EntityValue
 import org.moqui.entity.EntityValueNotFoundException
 import org.moqui.impl.util.SimpleSigner
+import org.moqui.util.MNode
 import org.moqui.util.WebUtilities
 import org.moqui.impl.context.ExecutionContextFactoryImpl.WebappInfo
 import org.moqui.impl.screen.ScreenDefinition
@@ -85,6 +87,9 @@ class WebFacadeImpl implements WebFacade {
         this.webappMoquiName = webappMoquiName
         this.request = request
         this.response = response
+
+        MNode webappNode = eci.ecfi.getWebappNode(webappMoquiName)
+        boolean uploadExecutableAllow = "true".equals(webappNode.attribute("upload-executable-allow"))
 
         // NOTE: the Visit is not setup here but rather in the MoquiSessionListener (for init and destroy)
         // don't set 'ec' in request attributes, not serializable: request.setAttribute("ec", eci)
@@ -155,10 +160,22 @@ class WebFacadeImpl implements WebFacade {
             List<FileItem> fileUploadList = []
             multiPartParameters.put("_fileUploadList", fileUploadList)
 
-            for (FileItem item in items) {
-                if (item.isFormField()) {
-                    addValueToMultipartParameterMap(item.getFieldName(), item.getString("UTF-8"))
+            for (FileItem curItem in items) {
+                if (curItem.isFormField()) {
+                    addValueToMultipartParameterMap(curItem.getFieldName(), curItem.getString("UTF-8"))
                 } else {
+                    FileItem item = curItem
+                    if (!uploadExecutableAllow) {
+                        if (!item.isInMemory()) {
+                            item = new FileItemWrapper(item)
+                        }
+                        InputStream itemIs = item.getInputStream()
+                        if (WebUtilities.isExecutable(itemIs)) {
+                            logger.warn("Found executable upload file ${item.getName()}")
+                            throw new WebMediaTypeException("Executable file ${item.getName()} upload not allowed")
+                        }
+                    }
+
                     // put the FileItem itself in the Map to be used by the application code
                     addValueToMultipartParameterMap(item.getFieldName(), item)
                     fileUploadList.add(item)
@@ -1277,5 +1294,35 @@ class WebFacadeImpl implements WebFacade {
         //FileCleaningTracker fileCleaningTracker = FileCleanerCleanup.getFileCleaningTracker(request.getServletContext())
         //factory.setFileCleaningTracker(fileCleaningTracker)
         return factory
+    }
+    /** Wrapper for Apache Commons FileUpload FileItem to support restrictions on uploads, etc */
+    static class FileItemWrapper implements FileItem {
+        private FileItem fileItem
+        private BufferedInputStream internalInputStream = (BufferedInputStream) null
+        FileItemWrapper(FileItem item) { fileItem = item }
+
+        @Override InputStream getInputStream() throws IOException {
+            if (internalInputStream != null) return internalInputStream
+            internalInputStream = new BufferedInputStream(fileItem.getInputStream())
+            return internalInputStream
+        }
+
+        @Override String getContentType() { return fileItem.getContentType() }
+        @Override String getName() { return fileItem.getName() }
+        @Override boolean isInMemory() { return fileItem.isInMemory() }
+        @Override long getSize() { return fileItem.getSize() }
+        @Override byte[] get() { return fileItem.get() }
+        @Override String getString(String encoding) throws UnsupportedEncodingException { return getString(encoding) }
+        @Override String getString() { return fileItem.getString() }
+        @Override void write(File file) throws Exception { fileItem.write(file) }
+        @Override void delete() { fileItem.delete() }
+        @Override String getFieldName() { return fileItem.getFieldName() }
+        @Override void setFieldName(String name) { fileItem.setFieldName(name) }
+        @Override boolean isFormField() { return fileItem.isFormField() }
+        @Override void setFormField(boolean state) { fileItem.setFormField(state) }
+        @Override OutputStream getOutputStream() throws IOException { return fileItem.getOutputStream() }
+        @Override FileItemHeaders getHeaders() { return fileItem.getHeaders() }
+        @Override void setHeaders(FileItemHeaders headers) { fileItem.setHeaders(headers) }
+        FileItem unwrap() { return fileItem }
     }
 }

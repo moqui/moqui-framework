@@ -102,6 +102,7 @@ public class RestClient {
     private int timeoutSeconds = 30;
     private boolean timeoutRetry = false;
     private RequestFactory overrideRequestFactory = null;
+    private boolean isolate = false;
 
     public RestClient() { }
 
@@ -257,6 +258,8 @@ public class RestClient {
 
     /** Use a specific RequestFactory for pooling, keep alive, etc */
     public RestClient withRequestFactory(RequestFactory requestFactory) { overrideRequestFactory = requestFactory; return this; }
+    /** If true isolate the request from all other requests by using a new HttpClient instance per request (no cookies, keep alive, etc; each request isolated from others) */
+    public RestClient isolate(boolean isolate) { this.isolate = isolate; return this; }
 
     /** Do the HTTP request and get the response */
     public RestResponse call() {
@@ -300,8 +303,9 @@ public class RestClient {
     }
     protected RestResponse callInternal() throws TimeoutException {
         if (uriString == null || uriString.isEmpty()) throw new IllegalStateException("No URI set in RestClient");
+        RequestFactory tempFactory = this.isolate ? new SimpleRequestFactory() : null;
         try {
-            Request request = makeRequest(overrideRequestFactory != null ? overrideRequestFactory : getDefaultRequestFactory());
+            Request request = makeRequest(tempFactory != null ? tempFactory : (overrideRequestFactory != null ? overrideRequestFactory : getDefaultRequestFactory()));
             // use a FutureResponseListener so we can set the timeout and max response size (old: response = request.send(); )
             FutureResponseListener listener = new FutureResponseListener(request, maxResponseSize);
             try {
@@ -317,7 +321,9 @@ public class RestClient {
                 throw e;
             }
         } catch (Exception e) {
-            throw new BaseException("Error calling HTTP request", e);
+            throw new BaseException("Error calling HTTP request to " + uriString, e);
+        } finally {
+            if (tempFactory != null) tempFactory.destroy();
         }
     }
 
@@ -579,6 +585,7 @@ public class RestClient {
     }
     public static class RestClientFuture implements Future<RestResponse> {
         RestClient rci;
+        RequestFactory tempRequestFactory = null;
         FutureResponseListener listener;
         volatile float curWaitSeconds;
         volatile int retryCount = 0;
@@ -595,16 +602,20 @@ public class RestClient {
         }
 
         void newRequest() {
+            if (tempRequestFactory != null) tempRequestFactory.destroy();
+            tempRequestFactory = rci.isolate ? new SimpleRequestFactory() : null;
+
             // NOTE: RestClientFuture methods call httpClient.stop() so not handled here
             try {
-                Request request = rci.makeRequest(rci.overrideRequestFactory != null ? rci.overrideRequestFactory : getDefaultRequestFactory());
+                Request request = rci.makeRequest(tempRequestFactory != null ? tempRequestFactory :
+                        (rci.overrideRequestFactory != null ? rci.overrideRequestFactory : getDefaultRequestFactory()));
                 // use a CompleteListener to retry in background
                 request.onComplete(new RetryListener(this));
                 // use a FutureResponseListener so we can set the timeout and max response size (old: response = request.send(); )
                 listener = new FutureResponseListener(request, rci.maxResponseSize);
                 request.send(listener);
             } catch (Exception e) {
-                throw new BaseException("Error calling REST request", e);
+                throw new BaseException("Error calling REST request to " + rci.uriString, e);
             }
         }
 
@@ -614,8 +625,15 @@ public class RestClient {
         @Override public boolean cancel(boolean mayInterruptIfRunning) {
             retryLock.lock();
             try {
-                cancelled = true;
-                return listener.cancel(mayInterruptIfRunning);
+                try {
+                    cancelled = true;
+                    return listener.cancel(mayInterruptIfRunning);
+                } finally {
+                    if (tempRequestFactory != null) {
+                        tempRequestFactory.destroy();
+                        tempRequestFactory = null;
+                    }
+                }
             } finally { retryLock.unlock(); }
         }
 
@@ -634,8 +652,15 @@ public class RestClient {
                 // lock before new request to make sure not in the middle of retry
                 retryLock.lock();
                 try {
-                    lastResponse = listener.get(timeout, unit);
-                    if (lastResponse.getStatus() != TOO_MANY) break;
+                    try {
+                        lastResponse = listener.get(timeout, unit);
+                        if (lastResponse.getStatus() != TOO_MANY) break;
+                    } finally {
+                        if (tempRequestFactory != null) {
+                            tempRequestFactory.destroy();
+                            tempRequestFactory = null;
+                        }
+                    }
                 } finally { retryLock.unlock(); }
             } while (!cancelled && retryCount < rci.maxRetries);
 
@@ -647,6 +672,7 @@ public class RestClient {
         Request makeRequest(String uriString);
         void destroy();
     }
+    /** The default RequestFactory, uses mostly Jetty HttpClient defaults and retains HttpClient instance between requests. */
     public static class SimpleRequestFactory implements RequestFactory {
         private final HttpClient httpClient;
 
@@ -659,6 +685,8 @@ public class RestClient {
             sslContextFactory.setEndpointIdentificationAlgorithm(null);
             httpClient = new HttpClient(sslContextFactory);
             if (disableCookieManagement) httpClient.setCookieStore(new HttpCookieStore.Empty());
+            // use a default idle timeout of 15 seconds, should be lower than server idle timeouts which will vary by server but 30 seconds seems to be common
+            httpClient.setIdleTimeout(15000);
             try { httpClient.start(); } catch (Exception e) { throw new BaseException("Error starting HTTP client", e); }
         }
 
@@ -682,6 +710,7 @@ public class RestClient {
             super.finalize();
         }
     }
+    /** RequestFactory with explicit pooling parameters and options specific to the Jetty HttpClient */
     public static class PooledRequestFactory implements RequestFactory {
         private HttpClient httpClient;
         private final String shortName;
