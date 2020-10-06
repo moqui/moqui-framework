@@ -313,6 +313,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="fieldTypeEnumId" type="id"><description>Field type for presentation, validation;
             always stored as plain text FormResponseAnswer</description></field>
         <field name="layoutSequenceNum" type="number-integer"/>
+        <field name="isRequired" type="text-indicator"/>
 
         <field name="printPageNumber" type="number-integer"><description>Defaults to 1, ie one page/section for all fields if nothing higher than 1 is specified.</description></field>
         <field name="printTop" type="text-short"/>
