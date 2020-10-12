@@ -218,7 +218,7 @@ public class EntityValueImpl extends EntityValueBase {
         StringBuilder sql = eqb.sqlTopLevel;
         sql.append("SELECT ");
         // NOTE: cast here is needed to resolve compile warning, even if there may be a IDE warning
-        eqb.makeSqlSelectFields(allFieldArray, null, false);
+        eqb.makeSqlSelectFields(allFieldArray, null, efi.getDatabaseNode(getEntityDefinition().groupName).attribute("add-unique-as").equals("true"));
 
         sql.append(" FROM ").append(ed.getFullTableName()).append(" WHERE ");
 
