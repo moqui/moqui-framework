@@ -56,7 +56,7 @@ public class EntityFindImpl extends EntityFindBase {
         efb.isFineOne();
 
         // SELECT fields
-        efb.makeSqlSelectFields(fieldInfoArray, fieldOptionsArray, efi.getDatabaseNode(entityDef.groupName).attribute("add-unique-as").equals("true"));
+        efb.makeSqlSelectFields(fieldInfoArray, fieldOptionsArray, "true".equals(efi.getDatabaseNode(ed.groupName).attribute("add-unique-as")));
         // FROM Clause
         efb.makeSqlFromClause();
         // WHERE clause only for one/pk query
@@ -117,7 +117,7 @@ public class EntityFindImpl extends EntityFindBase {
         if (getDistinct()) efb.makeDistinct();
 
         // select fields
-        efb.makeSqlSelectFields(fieldInfoArray, fieldOptionsArray, efi.getDatabaseNode(this.entityDef.groupName).attribute("add-unique-as").equals("true"));
+        efb.makeSqlSelectFields(fieldInfoArray, fieldOptionsArray, "true".equals(efi.getDatabaseNode(ed.groupName).attribute("add-unique-as")));
         // FROM Clause
         efb.makeSqlFromClause();
         // WHERE clause
