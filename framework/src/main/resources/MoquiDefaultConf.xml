@@ -38,6 +38,7 @@
     <default-property name="entity_ds_crypt_pass" value="MoquiDefaultPassword:CHANGEME"/>
     <default-property name="entity_add_missing_runtime" value="false"/>
     <default-property name="entity_add_missing_startup" value="true"/>
+    <default-property name="entity_lock_track" value="true"/>
     <default-property name="entity_empty_db_load" value="seed,seed-initial,install"/>
 
     <!-- Properties for a database clone; note that without overriding the transactional#clone1 datasource the default works only
@@ -270,7 +271,7 @@
         <login max-failures="3" disable-minutes="5" history-store="true" history-incorrect-password="false"/>
     </user-facade>
 
-    <transaction-facade use-transaction-cache="true">
+    <transaction-facade use-transaction-cache="true" use-connection-stash="true" use-lock-track="${entity_lock_track}">
         <!-- Use this for the internal transaction manager (not through JNDI) -->
         <transaction-internal class="org.moqui.impl.context.TransactionInternalBitronix"/>
 

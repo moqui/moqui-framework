@@ -13,6 +13,7 @@
  */
 package org.moqui.context;
 
+import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 
@@ -41,6 +42,9 @@ public interface ArtifactExecutionFacade {
      * @return Actual ArtifactExecutionInfo stack/deque object
      */
     Deque<ArtifactExecutionInfo> getStack();
+    /** Like getStack() but as an ArrayList for more frequent use, less memory overhead, and faster to iterate by index;
+     * NOTE that this is cached and updated on push() and pop(), do not modify or other references to it will have incorrect data */
+    ArrayList<ArtifactExecutionInfo> getStackArray();
 
     List<ArtifactExecutionInfo> getHistory();
     String printHistory();

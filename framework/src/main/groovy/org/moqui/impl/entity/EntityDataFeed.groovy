@@ -806,8 +806,7 @@ class EntityDataFeed {
                 return
             }
 
-            EntityDefinition deleteEd = ecfi.entityFacade.getEntityDefinition(entityName)
-            String documentId = EntityDataDocument.makeDocId(deleteEv, deleteEd.getPkFieldNames())
+            String documentId = deleteEv.getPrimaryKeysString()
 
             int entityInfoListSize = entityInfoList != null ? entityInfoList.size() : 0
             for (int ii = 0; ii < entityInfoListSize; ii++) {

@@ -196,7 +196,7 @@ class EntityDataDocument {
             Object pkFieldValue = ev.getNoCheckSimple(pkFieldName)
             return ObjectUtilities.toPlainString(pkFieldValue)
         } else {
-            StringBuffer pkCombinedSb = new StringBuffer()
+            StringBuilder pkCombinedSb = new StringBuilder()
             for (int pki = 0; pki < primaryPkFieldNamesSize; pki++) {
                 String pkFieldName = (String) primaryPkFieldNames.get(pki)
                 // don't do this, always use full PK even if not all aliased in doc, probably a bad DataDocument definition: if (!fieldAliasPathMap.containsKey(pkFieldName)) continue
@@ -410,10 +410,10 @@ class EntityDataDocument {
             // add special entries
             docMap = new LiteStringMap<Object>()
             docMap.put("_type", ddi.dataDocumentId)
-            if (docId) docMap.put("_id", docId)
+            if (docId != null && !docId.isEmpty()) docMap.put("_id", docId)
             docMap.put('_timestamp', docTsString)
             String _index = ddi.dataDocument.indexName
-            if (_index) docMap.put('_index', _index.toLowerCase())
+            if (_index != null && !_index.isEmpty()) docMap.put('_index', _index.toLowerCase())
             docMap.put('_entity', ddi.primaryEd.getShortOrFullEntityName())
 
             // add Map for primary entity

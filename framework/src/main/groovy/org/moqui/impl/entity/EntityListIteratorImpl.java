@@ -78,7 +78,7 @@ public class EntityListIteratorImpl implements EntityListIterator {
         }
 
         // capture the current artifact stack for finalize not closed debugging, has minimal performance impact (still ~0.0038ms per call compared to numbers below)
-        artifactStack = new ArrayList<>(efi.ecfi.getEci().artifactExecutionFacade.getStack());
+        artifactStack = efi.ecfi.getEci().artifactExecutionFacade.getStackArray();
 
         /* uncomment only if needed temporarily: huge performance impact, ~0.036ms per call with, ~0.0037ms without (~10x difference!)
         StackTraceElement[] tempStack = Thread.currentThread().getStackTrace();

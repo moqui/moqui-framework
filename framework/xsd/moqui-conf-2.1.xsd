@@ -400,6 +400,9 @@ along with this software (see the LICENSE.md file). If not, see
             </xs:sequence>
             <xs:attribute name="use-transaction-cache" default="true" type="boolean"/>
             <xs:attribute name="use-connection-stash" default="true" type="boolean"/>
+            <xs:attribute name="use-lock-track" default="false" type="boolean-expandable">
+                <xs:annotation><xs:documentation>If true track locks from create, update, and delete plus FK locks and find for-update,
+                    use that data to warn about possible lock conflicts</xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="transaction-jndi">
@@ -581,7 +584,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="load-entity"/>
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="load-data"/>
             </xs:sequence>
-            <xs:attribute name="entity-eca-enabled" default="true" type="boolean"/>
+            <xs:attribute name="entity-eca-enabled" default="true" type="boolean-expandable"/>
             <xs:attribute name="distributed-cache-invalidate" default="false" type="boolean">
                 <xs:annotation><xs:documentation>Enable distributed cache invalidate by distributed Topic</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="dci-topic-factory" type="xs:string">
@@ -594,7 +597,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="crypt-salt" type="xs:string"/>
             <xs:attribute name="crypt-iter" type="xs:string"/>
             <xs:attribute name="crypt-algo" type="xs:string"/>
-            <xs:attribute name="query-stats" default="false" type="boolean"/>
+            <xs:attribute name="query-stats" default="false" type="boolean-expandable"/>
         </xs:complexType>
     </xs:element>
 
