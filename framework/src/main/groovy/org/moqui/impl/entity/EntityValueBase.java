@@ -413,6 +413,22 @@ public abstract class EntityValueBase implements EntityValue {
 
         return pks;
     }
+    @Override public String getPrimaryKeysString() {
+        FieldInfo[] pkFieldInfoArray = getEntityDefinition().entityInfo.pkFieldInfoArray;
+        if (pkFieldInfoArray.length == 1) {
+            FieldInfo fi = pkFieldInfoArray[0];
+            return ObjectUtilities.toPlainString(this.valueMapInternal.getByIString(fi.name, fi.index));
+        } else {
+            StringBuilder pkCombinedSb = new StringBuilder();
+            for (int pki = 0; pki < pkFieldInfoArray.length; pki++) {
+                FieldInfo fi = pkFieldInfoArray[pki];
+                // NOTE: separator of '::' matches separator used for combined PK String in EntityDataDocument.makeDocId()
+                if (pkCombinedSb.length() > 0) pkCombinedSb.append("::");
+                pkCombinedSb.append(ObjectUtilities.toPlainString(this.valueMapInternal.getByIString(fi.name, fi.index)));
+            }
+            return pkCombinedSb.toString();
+        }
+    }
 
     public boolean primaryKeyMatches(EntityValueBase evb) {
         if (evb == null) return false;

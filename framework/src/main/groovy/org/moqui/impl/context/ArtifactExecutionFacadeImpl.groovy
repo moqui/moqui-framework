@@ -43,8 +43,9 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
     protected final static Logger logger = LoggerFactory.getLogger(ArtifactExecutionFacadeImpl.class)
 
     protected ExecutionContextImpl eci
-    protected LinkedList<ArtifactExecutionInfoImpl> artifactExecutionInfoStack = new LinkedList<ArtifactExecutionInfoImpl>()
-    protected LinkedList<ArtifactExecutionInfoImpl> artifactExecutionInfoHistory = new LinkedList<ArtifactExecutionInfoImpl>()
+    private LinkedList<ArtifactExecutionInfoImpl> artifactExecutionInfoStack = new LinkedList<ArtifactExecutionInfoImpl>()
+    private LinkedList<ArtifactExecutionInfoImpl> artifactExecutionInfoHistory = new LinkedList<ArtifactExecutionInfoImpl>()
+    private ArrayList<ArtifactExecutionInfo> aeiStackCache = (ArrayList<ArtifactExecutionInfo>) null
 
     // this is used by ScreenUrlInfo.isPermitted() which is called a lot, but that is transient so put here to have one per EC instance
     protected Map<String, Boolean> screenPermittedCache = null
@@ -104,6 +105,7 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
 
         // NOTE: if needed the isPermitted method will set additional info in aeii
         this.artifactExecutionInfoStack.addFirst(aeii)
+        this.aeiStackCache = (ArrayList<ArtifactExecutionInfo>) null
     }
 
 
@@ -111,6 +113,8 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
     ArtifactExecutionInfo pop(ArtifactExecutionInfo aei) {
         try {
             ArtifactExecutionInfoImpl lastAeii = (ArtifactExecutionInfoImpl) artifactExecutionInfoStack.removeFirst()
+            this.aeiStackCache = (ArrayList<ArtifactExecutionInfo>) null
+
             // removed this for performance reasons, generally just checking the name is adequate
             // || aei.typeEnumId != lastAeii.typeEnumId || aei.actionEnumId != lastAeii.actionEnumId
             if (aei != null && !lastAeii.nameInternal.equals(aei.getName())) {
@@ -134,9 +138,13 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
 
     @Override
     Deque<ArtifactExecutionInfo> getStack() {
-        Deque<ArtifactExecutionInfo> newStackDeque = new LinkedList<>()
-        newStackDeque.addAll(this.artifactExecutionInfoStack)
-        return newStackDeque
+        return new LinkedList<ArtifactExecutionInfo>(this.artifactExecutionInfoStack)
+    }
+    @Override
+    ArrayList<ArtifactExecutionInfo> getStackArray() {
+        if (aeiStackCache != null) return aeiStackCache
+        aeiStackCache = new ArrayList<ArtifactExecutionInfo>(this.artifactExecutionInfoStack)
+        return aeiStackCache
     }
     String getStackNameString() {
         StringBuilder sb = new StringBuilder()

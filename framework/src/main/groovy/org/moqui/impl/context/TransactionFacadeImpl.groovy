@@ -19,6 +19,7 @@ import org.moqui.context.TransactionException
 import org.moqui.context.TransactionFacade
 import org.moqui.context.TransactionInternal
 import org.moqui.impl.context.ContextJavaUtil.ConnectionWrapper
+import org.moqui.impl.context.ContextJavaUtil.EntityRecordLock
 import org.moqui.impl.context.ContextJavaUtil.RollbackInfo
 import org.moqui.impl.context.ContextJavaUtil.TxStackInfo
 import org.moqui.util.MNode
@@ -48,14 +49,20 @@ class TransactionFacadeImpl implements TransactionFacade {
 
     protected boolean useTransactionCache = true
     protected boolean useConnectionStash = true
+    protected boolean useLockTrack = false
 
     private ThreadLocal<TxStackInfo> txStackInfoCurThread = new ThreadLocal<TxStackInfo>()
     private ThreadLocal<LinkedList<TxStackInfo>> txStackInfoListThread = new ThreadLocal<LinkedList<TxStackInfo>>()
+
+    HashMap<String, ArrayList<EntityRecordLock>> recordLockByEntityPk = new HashMap<>()
 
     TransactionFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
 
         MNode transactionFacadeNode = ecfi.getConfXmlRoot().first("transaction-facade")
+        transactionFacadeNode.setSystemExpandAttributes(true)
+        useLockTrack = "true".equals(transactionFacadeNode.attribute("use-lock-track"))
+
         if (transactionFacadeNode.hasChild("transaction-jndi")) {
             this.populateTransactionObjectsJndi()
         } else if (transactionFacadeNode.hasChild("transaction-internal")) {
@@ -679,6 +686,17 @@ class TransactionFacadeImpl implements TransactionFacade {
         txStackInfo.txConByGroup.put(conKey, newCw)
         return newCw
     }
+
+    /* ================== */
+    /* Lock Track Methods */
+    /* ================== */
+
+    void registerRecordLock(EntityRecordLock erl) {
+        if (!useLockTrack) return
+        // TODO check for existing locks in this.recordLockByEntityPk, log warning if others found
+        // TODO add new lock to this.recordLockByEntityPk, and TxStackInfo.recordLockList
+    }
+
 
 
     // ========== Initialize/Populate Methods ==========

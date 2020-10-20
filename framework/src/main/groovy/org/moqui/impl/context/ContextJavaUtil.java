@@ -313,15 +313,15 @@ public class ContextJavaUtil {
         public Transaction suspendedTx = null;
         public Exception suspendedTxLocation = null;
 
-        Map<String, XAResource> activeXaResourceMap = new LinkedHashMap<>();
-        Map<String, Synchronization> activeSynchronizationMap = new LinkedHashMap<>();
+        Map<String, XAResource> activeXaResourceMap = new HashMap<>();
+        Map<String, Synchronization> activeSynchronizationMap = new HashMap<>();
         Map<String, ConnectionWrapper> txConByGroup = new HashMap<>();
         public TransactionCache txCache = null;
+        ArrayList<EntityRecordLock> recordLockList = new ArrayList<>();
 
         public Map<String, XAResource> getActiveXaResourceMap() { return activeXaResourceMap; }
         public Map<String, Synchronization> getActiveSynchronizationMap() { return activeSynchronizationMap; }
         public Map<String, ConnectionWrapper> getTxConByGroup() { return txConByGroup; }
-
 
         public void clearCurrent() {
             rollbackOnlyInfo = null;
@@ -332,6 +332,8 @@ public class ContextJavaUtil {
             txCache = null;
             // this should already be done, but make sure
             closeTxConnections();
+
+            // TODO lock track: remove all EntityRecordLock in recordLockList from TransactionFacadeImpl.recordLockByEntityPk
         }
 
         public void closeTxConnections() {
@@ -343,6 +345,25 @@ public class ContextJavaUtil {
                 }
             }
             txConByGroup.clear();
+        }
+    }
+    static class EntityRecordLock {
+        // TODO enum for operation: create, update, delete, find-for-update
+        // TODO: any way to get transaction ID? would have to be Bitronix specific as not in JTA API
+        String entityName, pkString, entityPk, threadId;
+        Deque<ArtifactExecutionInfo> artifactStack;
+        long lockTime, txBeginTime;
+        public EntityRecordLock(String entityName, String pkString, String threadId, Deque<ArtifactExecutionInfo> artifactStack,
+                                long lockTime, long txBeginTime) {
+            this.entityName = entityName;
+            this.pkString = pkString;
+            // NOTE: used primary as a key, for efficiency don't use separator between entityName and pkString
+            this.entityPk = entityName.concat(pkString);
+
+            this.threadId = threadId;
+            this.artifactStack = artifactStack;
+            this.lockTime = lockTime;
+            this.txBeginTime = txBeginTime;
         }
     }
 
