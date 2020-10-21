@@ -78,13 +78,19 @@ public interface MessageFacade {
      */
     String getErrorsString();
 
+    /** Clear all messages: general/internal from addMessage() and public from addPublic(), then calls clearErrors() for
+     * errors from addError(), and validation errors from addValidationError() */
     void clearAll();
+    /** Clear error messages including errors from addError(), and validation errors from addValidationError();
+     * before clearing adds these error messages to the general/internal messages list (same as addMessage()) so the
+     * messages are not lost and make it back to the user (if applicable) */
     void clearErrors();
-    void copyMessages(MessageFacade mf);
 
-    /** Save current errors on a stack and clear them */
+    /** Copy all messages from this instance of MessageFacade to another, mostly for internal framework use */
+    void copyMessages(MessageFacade mf);
+    /** Save current errors on a stack and clear them, mostly for internal framework use */
     void pushErrors();
-    /** Remove last pushed errors from the stack and add them to current errors */
+    /** Remove last pushed errors from the stack and add them to current errors, mostly for internal framework use */
     void popErrors();
 
     class MessageInfo implements Serializable {
