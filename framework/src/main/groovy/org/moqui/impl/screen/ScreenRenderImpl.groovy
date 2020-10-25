@@ -1563,9 +1563,10 @@ class ScreenRenderImpl implements ScreenRender {
         Map<String, Object> fieldValues = new LinkedHashMap<>()
 
         if ("true".equals(formNode.attribute("pass-through-parameters"))) {
-            UrlInstance currentFindUrl = getScreenUrlInstance().cloneUrlInstance().removeParameter("pageIndex")
+            UrlInstance currentFindUrl = getScreenUrlInstance().cloneUrlInstance()
                     .removeParameter("moquiFormName").removeParameter("moquiSessionToken")
                     .removeParameter("lastStandalone").removeParameter("formListFindId")
+                    .removeParameter("moquiRequestStartTime").removeParameter("webrootTT")
             fieldValues.putAll(currentFindUrl.getParameterMap())
         }
 
