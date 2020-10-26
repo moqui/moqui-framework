@@ -771,19 +771,21 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                                 valueHandler.handlePlainMap(currentEntityDef.getFullEntityName(), valueMap)
                                 valuesRead++
                             }
-                            currentEntityDef = (EntityDefinition) null
                         } catch (EntityException e) {
                             throw new SAXException("Error storing entity [${currentEntityDef.getFullEntityName()}] value (line ${locator?.lineNumber}): " + e.toString(), e)
+                        } finally {
+                            currentEntityDef = (EntityDefinition) null
                         }
                     } else {
                         try {
                             ServiceCallSync currentScs = edli.sfi.sync().name(entityOperation, currentEntityDef.getFullEntityName()).parameters(valueMap)
                             valueHandler.handleService(currentScs)
                             valuesRead++
-                            currentEntityDef = (EntityDefinition) null
-                            entityOperation = (String) null
                         } catch (Exception e) {
                             throw new SAXException("Error running service [${currentServiceDef.serviceName}] (line ${locator?.lineNumber}): " + e.toString(), e)
+                        } finally {
+                            currentEntityDef = (EntityDefinition) null
+                            entityOperation = (String) null
                         }
                     }
                 } else if (currentServiceDef != null) {
@@ -791,9 +793,10 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                         ServiceCallSync currentScs = edli.sfi.sync().name(currentServiceDef.serviceName).parameters(valueMap)
                         valueHandler.handleService(currentScs)
                         valuesRead++
-                        currentServiceDef = (ServiceDefinition) null
                     } catch (Exception e) {
                         throw new SAXException("Error running service [${currentServiceDef.serviceName}] (line ${locator?.lineNumber}): " + e.toString(), e)
+                    } finally {
+                        currentServiceDef = (ServiceDefinition) null
                     }
                 }
             }
