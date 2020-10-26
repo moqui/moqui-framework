@@ -991,6 +991,12 @@ along with this software (see the LICENSE.md file). If not, see
                 For a simple mask use '9' for digits, 'a' for letters, and '*' for digits or letters.
                 This may also be an alias for a predefined mask.</xs:documentation></xs:annotation>
         </xs:attribute>
+        <xs:attribute name="input-type" type="xs:string">
+            <xs:annotation><xs:documentation>Can be any valid HTML input type, but use with caution as some types don't make sense
+                for use with text-line and all except 'text' result in native browser behavior that varies by browser and is
+                sometimes unexpected and problematic. If not specified defaults to 'email' or 'url' when applicable based on
+                validations configured (in target service in parameters) or 'text' otherwise.</xs:documentation></xs:annotation>
+        </xs:attribute>
 
         <xs:attribute name="ac-transition" type="xs:string">
             <xs:annotation><xs:documentation>If specified the text-line will have auto-complete added to it with
