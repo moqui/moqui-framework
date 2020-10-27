@@ -381,6 +381,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="max-include-equals" type="boolean" default="false">
                 <xs:annotation><xs:documentation>Should the range include equal to the max number? Defaults to false (exclusive).</xs:documentation></xs:annotation>
             </xs:attribute>
+            <xs:attribute name="message" type="xs:string"/>
         </xs:complexType>
     </xs:element>
     <xs:element name="number-integer" substitutionGroup="ParameterValidations"/>

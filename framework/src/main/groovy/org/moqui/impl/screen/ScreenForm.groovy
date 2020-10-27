@@ -1444,14 +1444,28 @@ class ScreenForm {
                         ruleList.add([expr:'!value || /((([A-Za-z]{3,9}:(?:\\/\\/)?)(?:[\\-;:&=\\+\\$,\\w]+@)?[A-Za-z0-9\\.\\-]+|(?:www\\.|[\\-;:&=\\+\\$,\\w]+@)[A-Za-z0-9\\.\\-]+)((?:\\/[\\+~%\\/\\.\\w\\-_]*)?\\??(?:[\\-\\+=&;%@\\.\\w_]*)#?(?:[\\.\\!\\/\\\\\\w]*))?)/.test(value)',
                                 message:eci.l10nFacade.localize(MSG_URL)])
                     } else if ("matches".equals(child.getName())) {
-                        // from https://emailregex.com/ - could be looser/simpler for this purpose
                         ruleList.add([expr:'!value || /' + child.attribute("regexp") + '/.test(value)',
                                 message:eci.l10nFacade.localize(child.attribute("message"))])
+                    } else if ("number-range".equals(child.getName())) {
+                        String minStr = child.attribute("min")
+                        String maxStr = child.attribute("max")
+                        boolean minEquals = !"false".equals(child.attribute("min-include-equals"))
+                        boolean maxEquals = "true".equals(child.attribute("max-include-equals"))
+                        String message = child.attribute("message")
+                        if (message == null || message.isEmpty()) {
+                            if (minStr && maxStr) message = "Enter a number between ${minStr} and ${maxStr}"
+                            else if (minStr) message = "Enter a number greater than ${minStr}"
+                            else if (maxStr) message = "Enter a number less than ${maxStr}"
+                        }
+                        String compareStr = "";
+                        if (minStr) compareStr += ' && $root.moqui.parseNumber(value) ' + (minEquals ? '>= ' : '> ') + minStr
+                        if (maxStr) compareStr += ' && $root.moqui.parseNumber(value) ' + (maxEquals ? '<= ' : '< ') + maxStr
+                        ruleList.add([expr:'!value || (!Number.isNaN($root.moqui.parseNumber(value))' + compareStr + ')', message:message])
                     }
                 }
 
                 // TODO: val-or, val-and, val-not
-                // TODO: number-range, text-letters, time-range
+                // TODO: text-letters, time-range
                 // TODO: credit-card with types?
 
                 // fallback to type attribute for numbers
