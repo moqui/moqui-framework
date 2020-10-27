@@ -598,21 +598,25 @@ public class ServiceDefinition {
             return true;
         } else if ("number-range".equals(validateName)) {
             BigDecimal bdVal = new BigDecimal(pv.toString());
+            String message = valNode.attribute("message");
+
             String minStr = valNode.attribute("min");
             if (minStr != null && !minStr.isEmpty()) {
                 BigDecimal min = new BigDecimal(minStr);
                 if ("false".equals(valNode.attribute("min-include-equals"))) {
                     if (bdVal.compareTo(min) <= 0) {
                         Map<String, Object> map = new HashMap<>(2); map.put("pv", pv); map.put("min", min);
+                        if (message == null || message.isEmpty()) message = "Value entered (${pv}) is less than or equal to ${min}, must be greater than.";
                         eci.getMessage().addValidationError(null, parameterName, serviceName,
-                                eci.getResource().expand("Value entered (${pv}) is less than or equal to ${min} must be greater than.", "", map), null);
+                                eci.getResource().expand(message, "", map), null);
                         return false;
                     }
                 } else {
                     if (bdVal.compareTo(min) < 0) {
                         Map<String, Object> map = new HashMap<>(2); map.put("pv", pv); map.put("min", min);
+                        if (message == null || message.isEmpty()) message = "Value entered (${pv}) is less than ${min} and must be greater than or equal to.";
                         eci.getMessage().addValidationError(null, parameterName, serviceName,
-                                eci.getResource().expand("Value entered (${pv}) is less than ${min} and must be greater than or equal to.", "", map), null);
+                                eci.getResource().expand(message, "", map), null);
                         return false;
                     }
                 }
@@ -624,14 +628,18 @@ public class ServiceDefinition {
                 if ("true".equals(valNode.attribute("max-include-equals"))) {
                     if (bdVal.compareTo(max) > 0) {
                         Map<String, Object> map = new HashMap<>(2); map.put("pv", pv); map.put("max", max);
-                        eci.getMessage().addValidationError(null, parameterName, serviceName, eci.getResource().expand("Value entered (${pv}) is greater than ${max} and must be less than or equal to.", "", map), null);
+                        if (message == null || message.isEmpty()) message = "Value entered (${pv}) is greater than ${max} and must be less than or equal to.";
+                        eci.getMessage().addValidationError(null, parameterName, serviceName,
+                                eci.getResource().expand(message, "", map), null);
                         return false;
                     }
 
                 } else {
                     if (bdVal.compareTo(max) >= 0) {
                         Map<String, Object> map = new HashMap<>(2); map.put("pv", pv); map.put("max", max);
-                        eci.getMessage().addValidationError(null, parameterName, serviceName, eci.getResource().expand("Value entered (${pv}) is greater than or equal to ${max} and must be less than.", "", map), null);
+                        if (message == null || message.isEmpty()) message = "Value entered (${pv}) is greater than or equal to ${max} and must be less than.";
+                        eci.getMessage().addValidationError(null, parameterName, serviceName,
+                                eci.getResource().expand(message, "", map), null);
                         return false;
                     }
                 }
