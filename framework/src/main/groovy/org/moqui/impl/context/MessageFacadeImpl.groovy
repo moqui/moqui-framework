@@ -150,6 +150,7 @@ class MessageFacadeImpl implements MessageFacade {
     }
     @Override
     void clearErrors() {
+        if (messageList == null) messageList = new ArrayList<>()
         if (errorList != null) {
             for (int i = 0; i < errorList.size(); i++) {
                 String errMsg = (String) errorList.get(i)
