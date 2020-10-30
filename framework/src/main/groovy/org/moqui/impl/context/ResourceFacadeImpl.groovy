@@ -512,8 +512,9 @@ class ResourceFacadeImpl implements ResourceFacade {
             eci = ecfi.getEci()
             inputString = eci.l10nFacade.localize(inputString)
         }
-        // if no $ then it's a plain String, just return it
-        if (!inputString.contains('$')) return inputString
+        // if no $ or $ is the last character then it's a plain String, just return it
+        int lastDollarSignIdx = inputString.lastIndexOf('$')
+        if (lastDollarSignIdx == -1 || lastDollarSignIdx == (inputString.length()-1)) return inputString
 
         if (eci == null) eci = ecfi.getEci()
         boolean doPushPop = additionalContext != null && additionalContext.size() > 0
