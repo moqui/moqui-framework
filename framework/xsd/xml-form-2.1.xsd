@@ -997,6 +997,9 @@ along with this software (see the LICENSE.md file). If not, see
                 sometimes unexpected and problematic. If not specified defaults to 'email' or 'url' when applicable based on
                 validations configured (in target service in parameters) or 'text' otherwise.</xs:documentation></xs:annotation>
         </xs:attribute>
+        <xs:attribute name="prefix" type="xs:string">
+            <xs:annotation><xs:documentation>Text displayed to the left of the input box, expanded and localized</xs:documentation></xs:annotation>
+        </xs:attribute>
 
         <xs:attribute name="ac-transition" type="xs:string">
             <xs:annotation><xs:documentation>If specified the text-line will have auto-complete added to it with
