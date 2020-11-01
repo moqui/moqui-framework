@@ -143,7 +143,13 @@ public class EntityValueImpl extends EntityValueBase {
                 FieldInfo fieldInfo = nonPkFieldArray[i];
                 if (fieldInfo == null) break;
                 if (i > 0) sql.append(", ");
-                sql.append(fieldInfo.getFullColumnName()).append("=?");
+
+                // treat JSON-like columns differently
+                String fieldName = fieldInfo.getFullColumnName();
+                String valueCast = "=?";
+                if (fieldInfo.type.toLowerCase().contains("json")) valueCast = "=to_json(?::json)";
+                sql.append(fieldName).append(valueCast);
+
                 parameters.add(new EntityConditionParameter(fieldInfo, valueMapInternal.get(fieldInfo.name), eqb));
             }
 
