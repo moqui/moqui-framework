@@ -161,11 +161,10 @@ class WebFacadeImpl implements WebFacade {
             List<FileItem> fileUploadList = []
             multiPartParameters.put("_fileUploadList", fileUploadList)
 
-            for (FileItem curItem in items) {
-                if (curItem.isFormField()) {
-                    addValueToMultipartParameterMap(curItem.getFieldName(), curItem.getString("UTF-8"))
+            for (FileItem item in items) {
+                if (item.isFormField()) {
+                    addValueToMultipartParameterMap(item.getFieldName(), item.getString("UTF-8"))
                 } else {
-                    FileItem item = curItem
                     if (!uploadExecutableAllow) {
                         if (WebUtilities.isExecutable(IOUtils.buffer(item.getInputStream()))) {
                             logger.warn("Found executable upload file ${item.getName()}")
