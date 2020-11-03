@@ -48,6 +48,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class ContextJavaUtil {
     protected final static Logger logger = LoggerFactory.getLogger(ContextJavaUtil.class);
@@ -305,7 +306,10 @@ public class ContextJavaUtil {
         }
     }
 
+    static final AtomicLong moquiTxIdLast = new AtomicLong(0L);
     static class TxStackInfo {
+        private TransactionFacadeImpl transactionFacade;
+        public final long moquiTxId = moquiTxIdLast.incrementAndGet();
         public Exception transactionBegin = null;
         public Long transactionBeginStartTime = null;
         public RollbackInfo rollbackOnlyInfo = null;
@@ -323,6 +327,8 @@ public class ContextJavaUtil {
         public Map<String, Synchronization> getActiveSynchronizationMap() { return activeSynchronizationMap; }
         public Map<String, ConnectionWrapper> getTxConByGroup() { return txConByGroup; }
 
+        public TxStackInfo(TransactionFacadeImpl tfi) { transactionFacade = tfi; }
+
         public void clearCurrent() {
             rollbackOnlyInfo = null;
             transactionBegin = null;
@@ -333,7 +339,14 @@ public class ContextJavaUtil {
             // this should already be done, but make sure
             closeTxConnections();
 
-            // TODO lock track: remove all EntityRecordLock in recordLockList from TransactionFacadeImpl.recordLockByEntityPk
+            // lock track: remove all EntityRecordLock in recordLockList from TransactionFacadeImpl.recordLockByEntityPk
+            int recordLockListSize = recordLockList.size();
+            // if (recordLockListSize > 0) logger.warn("TOREMOVE TxStackInfo EntityRecordLock clearing " + recordLockListSize + " locks");
+            for (int i = 0; i < recordLockListSize; i++) {
+                EntityRecordLock erl = recordLockList.get(i);
+                erl.clear(transactionFacade.recordLockByEntityPk);
+            }
+            recordLockList.clear();
         }
 
         public void closeTxConnections() {
@@ -347,23 +360,92 @@ public class ContextJavaUtil {
             txConByGroup.clear();
         }
     }
-    static class EntityRecordLock {
-        // TODO enum for operation: create, update, delete, find-for-update
-        // TODO: any way to get transaction ID? would have to be Bitronix specific as not in JTA API
-        String entityName, pkString, entityPk, threadId;
-        Deque<ArtifactExecutionInfo> artifactStack;
-        long lockTime, txBeginTime;
-        public EntityRecordLock(String entityName, String pkString, String threadId, Deque<ArtifactExecutionInfo> artifactStack,
-                                long lockTime, long txBeginTime) {
+    public static class EntityRecordLock {
+        // TODO enum for operation? create, update, delete, find-for-update
+        String entityName, pkString, entityPlusPk, threadName;
+        String mutateEntityName, mutatePkString;
+        ArrayList<ArtifactExecutionInfo> artifactStack;
+        long lockTime = -1, txBeginTime = -1, moquiTxId = -1;
+        public EntityRecordLock(String entityName, String pkString, ArrayList<ArtifactExecutionInfo> artifactStack) {
             this.entityName = entityName;
             this.pkString = pkString;
             // NOTE: used primary as a key, for efficiency don't use separator between entityName and pkString
-            this.entityPk = entityName.concat(pkString);
-
-            this.threadId = threadId;
+            entityPlusPk = entityName.concat(pkString);
+            threadName = Thread.currentThread().getName();
             this.artifactStack = artifactStack;
-            this.lockTime = lockTime;
-            this.txBeginTime = txBeginTime;
+            lockTime = System.currentTimeMillis();
+        }
+
+        EntityRecordLock mutator(String mutateEntityName, String mutatePkString) {
+            this.mutateEntityName = mutateEntityName;
+            this.mutatePkString = mutatePkString;
+            return this;
+        }
+
+        void register(ConcurrentHashMap<String, ArrayList<EntityRecordLock>> recordLockByEntityPk, TxStackInfo txStackInfo) {
+            if (txStackInfo != null) {
+                moquiTxId = txStackInfo.moquiTxId;
+                txBeginTime = txStackInfo.transactionBeginStartTime != null ? txStackInfo.transactionBeginStartTime : -1;
+            }
+
+            ArrayList<EntityRecordLock> curErlList = recordLockByEntityPk.computeIfAbsent(entityPlusPk, k -> new ArrayList<>());
+            synchronized (curErlList) {
+                // is this another lock in the same transaction?
+                if (curErlList.size() > 0) {
+                    for (int i = 0; i < curErlList.size(); i++) {
+                        EntityRecordLock otherErl = curErlList.get(i);
+                        if (otherErl.moquiTxId == moquiTxId) {
+                            // found a match, just return and do nothing
+                            return;
+                        }
+                    }
+                }
+
+                // check for existing locks in this.recordLockByEntityPk, log warning if others found
+                if (curErlList.size() > 0) {
+                    StringBuilder msgBuilder = new StringBuilder().append("Potential lock conflict entity ").append(entityName)
+                            .append(" pk ").append(pkString).append(" thread ").append(threadName)
+                            .append(" moqui tx ").append(moquiTxId).append(" began ").append(new Timestamp(txBeginTime));
+                    if (mutateEntityName != null) msgBuilder.append(" from mutate of entity ").append(mutateEntityName).append(" pk ").append(mutatePkString);
+                    msgBuilder.append(" at: ");
+                    if (artifactStack != null) for (int mi = 0; mi < artifactStack.size(); mi++)
+                        msgBuilder.append("\n== ").append(artifactStack.get(mi).toBasicString());
+                    for (int i = 0; i < curErlList.size(); i++) {
+                        EntityRecordLock otherErl = curErlList.get(i);
+                        msgBuilder.append("\nOther Lock ").append(i).append(" thread ").append(otherErl.threadName)
+                                .append(" moqui tx ").append(otherErl.moquiTxId).append(" began ").append(new Timestamp(txBeginTime)).append(" at: ");
+                        if (otherErl.artifactStack != null) for (int mi = 0; mi < otherErl.artifactStack.size(); mi++)
+                            msgBuilder.append("\n== ").append(otherErl.artifactStack.get(mi).toBasicString());
+                    }
+                    logger.warn(msgBuilder.toString());
+                }
+
+                // add new lock to this.recordLockByEntityPk, and TxStackInfo.recordLockList
+                if (txStackInfo != null) {
+                    curErlList.add(this);
+                    txStackInfo.recordLockList.add(this);
+                } else {
+                    logger.warn("In EntityRecordLock register no TxStackInfo so not registering lock because won't be able to clear for entity " + entityName + " pk " + pkString + " thread " + threadName);
+                }
+            }
+        }
+        void clear(ConcurrentHashMap<String, ArrayList<EntityRecordLock>> recordLockByEntityPk) {
+            ArrayList<EntityRecordLock> curErlList = recordLockByEntityPk.get(entityPlusPk);
+            if (curErlList == null) {
+                logger.warn("In EntityRecordLock clear no locks found for " + entityPlusPk);
+                return;
+            }
+            synchronized (curErlList) {
+                boolean haveRemoved = false;
+                for (int i = 0; i < curErlList.size(); i++) {
+                    EntityRecordLock otherErl = curErlList.get(i);
+                    if (moquiTxId == otherErl.moquiTxId) {
+                        curErlList.remove(i);
+                        haveRemoved = true;
+                    }
+                }
+                if (!haveRemoved) logger.warn("In EntityRecordLock clear no locks found for " + entityPlusPk);
+            }
         }
     }
 

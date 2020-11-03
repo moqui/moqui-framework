@@ -567,6 +567,26 @@ class EntityDefinition {
 
         return pks
     }
+    String getPrimaryKeysString(Map<String, Object> fieldValues) {
+        if (fieldValues == null) {
+            logger.warn("EntityDefinition.getPrimaryKeysString() fieldValues is null", new Exception("location"))
+            return null
+        }
+        FieldInfo[] pkFieldInfoArray = entityInfo.pkFieldInfoArray
+        if (pkFieldInfoArray.length == 1) {
+            FieldInfo fi = pkFieldInfoArray[0]
+            return ObjectUtilities.toPlainString(fieldValues.get(fi.name))
+        } else {
+            StringBuilder pkCombinedSb = new StringBuilder();
+            for (int pki = 0; pki < pkFieldInfoArray.length; pki++) {
+                FieldInfo fi = pkFieldInfoArray[pki]
+                // NOTE: separator of '::' matches separator used for combined PK String in EntityValueBase.getPrimaryKeysString() and EntityDataDocument.makeDocId()
+                if (pkCombinedSb.length() > 0) pkCombinedSb.append("::")
+                pkCombinedSb.append(ObjectUtilities.toPlainString(fieldValues.get(fi.name)))
+            }
+            return pkCombinedSb.toString()
+        }
+    }
 
     ArrayList<String> getFieldNames(boolean includePk, boolean includeNonPk) {
         ArrayList<String> baseList
