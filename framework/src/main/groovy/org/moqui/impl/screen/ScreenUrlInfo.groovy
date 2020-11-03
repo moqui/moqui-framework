@@ -264,7 +264,7 @@ class ScreenUrlInfo {
             // logger.warn("======== Not caching isPermitted, username=${username}, fullPathNameList=${fullPathNameList}")
         }
 
-        LinkedList<ArtifactExecutionInfoImpl> artifactExecutionInfoStack = new LinkedList<ArtifactExecutionInfoImpl>()
+        ArrayDeque<ArtifactExecutionInfoImpl> artifactExecutionInfoStack = new ArrayDeque<ArtifactExecutionInfoImpl>()
 
         int screenPathDefListSize = screenPathDefList.size()
         for (int i = 0; i < screenPathDefListSize; i++) {

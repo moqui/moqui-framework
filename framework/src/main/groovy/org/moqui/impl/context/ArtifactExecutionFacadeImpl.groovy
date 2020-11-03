@@ -43,8 +43,8 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
     protected final static Logger logger = LoggerFactory.getLogger(ArtifactExecutionFacadeImpl.class)
 
     protected ExecutionContextImpl eci
-    private LinkedList<ArtifactExecutionInfoImpl> artifactExecutionInfoStack = new LinkedList<ArtifactExecutionInfoImpl>()
-    private LinkedList<ArtifactExecutionInfoImpl> artifactExecutionInfoHistory = new LinkedList<ArtifactExecutionInfoImpl>()
+    private ArrayDeque<ArtifactExecutionInfoImpl> artifactExecutionInfoStack = new ArrayDeque<ArtifactExecutionInfoImpl>(10)
+    private ArrayList<ArtifactExecutionInfoImpl> artifactExecutionInfoHistory = new ArrayList<ArtifactExecutionInfoImpl>(50)
     private ArrayList<ArtifactExecutionInfo> aeiStackCache = (ArrayList<ArtifactExecutionInfo>) null
 
     // this is used by ScreenUrlInfo.isPermitted() which is called a lot, but that is transient so put here to have one per EC instance
@@ -138,7 +138,7 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
 
     @Override
     Deque<ArtifactExecutionInfo> getStack() {
-        return new LinkedList<ArtifactExecutionInfo>(this.artifactExecutionInfoStack)
+        return new ArrayDeque<ArtifactExecutionInfo>(this.artifactExecutionInfoStack)
     }
     @Override
     ArrayList<ArtifactExecutionInfo> getStackArray() {
@@ -257,7 +257,7 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
     }
 
     boolean isPermitted(ArtifactExecutionInfoImpl aeii, ArtifactExecutionInfoImpl lastAeii, boolean requiresAuthz, boolean countTarpit,
-                        boolean isAccess, LinkedList<ArtifactExecutionInfoImpl> currentStack) {
+                        boolean isAccess, ArrayDeque<ArtifactExecutionInfoImpl> currentStack) {
         ArtifactExecutionInfo.ArtifactType artifactTypeEnum = aeii.internalTypeEnum
         boolean isEntity = ArtifactExecutionInfo.AT_ENTITY.is(artifactTypeEnum)
         // right off record whether authz is required and is access
