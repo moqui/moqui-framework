@@ -23,6 +23,7 @@ import org.moqui.entity.EntityFind;
 import org.moqui.entity.EntityList;
 import org.moqui.entity.EntityValue;
 import org.moqui.impl.context.*;
+import org.moqui.impl.context.ContextJavaUtil.EntityRecordLock;
 import org.moqui.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -72,9 +73,7 @@ public abstract class EntityValueBase implements EntityValue {
     private static final String indentString = "    ";
 
     /** Default constructor for deserialization ONLY. */
-    public EntityValueBase() {
-        valueMapInternal = new LiteStringMap<>().useManualIndex();
-    }
+    public EntityValueBase() { valueMapInternal = new LiteStringMap<>().useManualIndex(); }
 
     public EntityValueBase(EntityDefinition ed, EntityFacadeImpl efip) {
         efiTransient = efip;
@@ -422,7 +421,7 @@ public abstract class EntityValueBase implements EntityValue {
             StringBuilder pkCombinedSb = new StringBuilder();
             for (int pki = 0; pki < pkFieldInfoArray.length; pki++) {
                 FieldInfo fi = pkFieldInfoArray[pki];
-                // NOTE: separator of '::' matches separator used for combined PK String in EntityDataDocument.makeDocId()
+                // NOTE: separator of '::' matches separator used for combined PK String in EntityDefinition.getPrimaryKeysString() and EntityDataDocument.makeDocId()
                 if (pkCombinedSb.length() > 0) pkCombinedSb.append("::");
                 pkCombinedSb.append(ObjectUtilities.toPlainString(this.valueMapInternal.getByIString(fi.name, fi.index)));
             }
@@ -1358,6 +1357,57 @@ public abstract class EntityValueBase implements EntityValue {
         return errorMessage;
     }
 
+    private void registerMutateLock() {
+        final EntityFacadeImpl efi = getEntityFacadeImpl();
+        final TransactionFacadeImpl tfi = efi.ecfi.transactionFacade;
+        if (!tfi.getUseLockTrack()) return;
+
+        final EntityDefinition ed = getEntityDefinition();
+        final ArtifactExecutionFacadeImpl aefi = efi.ecfi.getEci().artifactExecutionFacade;
+
+        ArrayList<ArtifactExecutionInfo> stackArray = aefi.getStackArray();
+
+        // add EntityRecordLock for this record
+        tfi.registerRecordLock(new EntityRecordLock(ed.getFullEntityName(), this.getPrimaryKeysString(), stackArray));
+
+        // add EntityRecordLock for each type one (with FK) relationship where FK fields not null
+        ArrayList<EntityJavaUtil.RelationshipInfo> relInfoList = ed.getRelationshipsInfo(false);
+        int relInfoListSize = relInfoList.size();
+        for (int ri = 0; ri < relInfoListSize; ri++) {
+            EntityJavaUtil.RelationshipInfo relInfo = relInfoList.get(ri);
+            if (!relInfo.isFk) continue;
+
+            String pkString = null;
+            int keyFieldSize = relInfo.keyFieldList.size();
+            if (keyFieldSize == 1) {
+                String keyFieldName = relInfo.keyFieldList.get(0);
+                FieldInfo fieldInfo = ed.getFieldInfo(keyFieldName);
+                Object keyValue = this.getKnownField(fieldInfo);
+                if (keyValue != null) pkString = ObjectUtilities.toPlainString(keyValue);
+            } else {
+                boolean hasAllValues = true;
+                Map<String, Object> relFieldValues = new HashMap<>();
+                for (int ki = 0; ki < keyFieldSize; ki++) {
+                    String keyFieldName = relInfo.keyFieldList.get(ki);
+                    FieldInfo fieldInfo = ed.getFieldInfo(keyFieldName);
+                    Object keyValue = this.getKnownField(fieldInfo);
+                    if (keyValue == null) {
+                        hasAllValues = false;
+                        break;
+                    } else {
+                        // use relInfo.keyMap to get the field name of the PK field on the related entity
+                        relFieldValues.put(relInfo.keyMap.get(keyFieldName), keyValue);
+                    }
+                }
+                if (hasAllValues) pkString = relInfo.relatedEd.getPrimaryKeysString(relFieldValues);
+            }
+
+            if (pkString != null) {
+                tfi.registerRecordLock(new EntityRecordLock(relInfo.relatedEd.getFullEntityName(), pkString, stackArray));
+            }
+        }
+    }
+
     @Override
     public EntityValue create() {
         final EntityDefinition ed = getEntityDefinition();
@@ -1390,7 +1440,11 @@ public abstract class EntityValueBase implements EntityValue {
 
             // if there is not a txCache or the txCache doesn't handle the create, call the abstract method to create the main record
             TransactionCache curTxCache = getTxCache(ecfi);
-            if (curTxCache == null || !curTxCache.create(this)) this.basicCreate(null);
+            if (curTxCache == null || !curTxCache.create(this)) {
+                // NOTE: calls basicCreate() instead of createExtended() directly so don't register lock here
+
+                this.basicCreate(null);
+            }
 
             // NOTE: cache clear is the same for create, update, delete; even on create need to clear one cache because it
             // might have a null value for a previous query attempt
@@ -1424,6 +1478,10 @@ public abstract class EntityValueBase implements EntityValue {
                 fieldArrayIndex++;
             }
         }
+
+        // if enabled register locks before operation
+        registerMutateLock();
+
         createExtended(fieldArray, con);
     }
 
@@ -1536,6 +1594,10 @@ public abstract class EntityValueBase implements EntityValue {
             // if there is not a txCache or the txCache doesn't handle the update, call the abstract method to update the main record
             if (curTxCache == null || !curTxCache.update(this)) {
                 // no TX cache update, etc: ready to do actual update
+
+                // if enabled register locks before operation
+                registerMutateLock();
+
                 updateExtended(pkFieldArray, nonPkFieldArray, null);
                 // if ("OrderHeader".equals(ed.getEntityName()) && "55500".equals(valueMapInternal.get("orderId"))) logger.warn("Called updateExtended order " + this.valueMapInternal.toString());
             }
@@ -1580,6 +1642,9 @@ public abstract class EntityValueBase implements EntityValue {
             }
         }
 
+        // if enabled register locks before operation
+        registerMutateLock();
+
         updateExtended(pkFieldArray, nonPkFieldArray, con);
     }
 
@@ -1614,7 +1679,12 @@ public abstract class EntityValueBase implements EntityValue {
 
             // if there is not a txCache or the txCache doesn't handle the delete, call the abstract method to delete the main record
             TransactionCache curTxCache = getTxCache(ecfi);
-            if (curTxCache == null || !curTxCache.delete(this)) this.deleteExtended(null);
+            if (curTxCache == null || !curTxCache.delete(this)) {
+                // if enabled register locks before operation
+                registerMutateLock();
+
+                this.deleteExtended(null);
+            }
 
             // clear the entity cache
             efi.getEntityCache().clearCacheForValue(this, false);
