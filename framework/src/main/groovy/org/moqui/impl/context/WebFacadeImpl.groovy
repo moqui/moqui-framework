@@ -769,7 +769,7 @@ class WebFacadeImpl implements WebFacade {
     }
 
     @Override void sendResourceResponse(String location) { sendResourceResponseInternal(location, false, eci, response) }
-    void sendResourceResponse(String location, boolean inline) { sendResourceResponseInternal(location, inline, eci, response) }
+    @Override void sendResourceResponse(String location, boolean inline) { sendResourceResponseInternal(location, inline, eci, response) }
     static void sendResourceResponseInternal(String location, boolean inline, ExecutionContextImpl eci, HttpServletResponse response) {
         ResourceReference rr = eci.resource.getLocationReference(location)
         if (rr == null || (rr.supportsExists() && !rr.getExists())) {
