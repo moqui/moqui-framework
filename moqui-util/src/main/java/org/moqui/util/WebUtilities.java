@@ -18,6 +18,7 @@ import org.eclipse.jetty.client.api.ContentResponse;
 import org.eclipse.jetty.client.api.Request;
 import org.eclipse.jetty.client.util.StringContentProvider;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
+import org.apache.commons.fileupload.FileItem;
 import org.moqui.BaseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -287,14 +288,12 @@ public class WebUtilities {
     public static byte[] macOs = {(byte) 0xfe, (byte) 0xed, (byte) 0xfa, (byte) 0xce};
     public static byte[][] allOsExecutables = {windowsPex, linuxElf, javaClass, macOs};
 
-    /** Uses InputStream.mark() and reset(), check markSupported() before calling to avoid errors.
-     * Looks for byte patterns for Windows Portable Executable (4d5a), Linux ELF (7f454c46), Java class (cafebabe), macOS (feedface)
-     */
-    public static boolean isExecutable(InputStream is) throws IOException {
+    /** Looks for byte patterns for Windows Portable Executable (4d5a), Linux ELF (7f454c46), Java class (cafebabe), macOS (feedface) */
+    public static boolean isExecutable(FileItem item) throws IOException {
+        InputStream is = item.getInputStream();
         byte[] bytes = new byte[4];
-        is.mark(8);
         is.read(bytes, 0, 4);
-        is.reset();
+        is.close();
         return isExecutable(bytes);
     }
     /** Looks for byte patterns for Windows Portable Executable (4d5a), Linux ELF (7f454c46), Java class (cafebabe), macOS (feedface) */
