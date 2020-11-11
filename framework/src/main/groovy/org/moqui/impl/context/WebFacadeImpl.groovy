@@ -18,10 +18,8 @@ import groovy.transform.CompileStatic
 
 import org.apache.commons.fileupload.FileItem
 import org.apache.commons.fileupload.FileItemFactory
-import org.apache.commons.fileupload.FileItemHeaders
 import org.apache.commons.fileupload.disk.DiskFileItemFactory
 import org.apache.commons.fileupload.servlet.ServletFileUpload
-import org.apache.commons.io.IOUtils
 import org.moqui.context.*
 import org.moqui.context.MessageFacade.MessageInfo
 import org.moqui.entity.EntityNotFoundException
@@ -166,7 +164,7 @@ class WebFacadeImpl implements WebFacade {
                     addValueToMultipartParameterMap(item.getFieldName(), item.getString("UTF-8"))
                 } else {
                     if (!uploadExecutableAllow) {
-                        if (WebUtilities.isExecutable(IOUtils.buffer(item.getInputStream()))) {
+                        if (WebUtilities.isExecutable(item)) {
                             logger.warn("Found executable upload file ${item.getName()}")
                             throw new WebMediaTypeException("Executable file ${item.getName()} upload not allowed")
                         }
