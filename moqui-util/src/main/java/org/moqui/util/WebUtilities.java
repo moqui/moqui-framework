@@ -290,9 +290,8 @@ public class WebUtilities {
 
     /** Looks for byte patterns for Windows Portable Executable (4d5a), Linux ELF (7f454c46), Java class (cafebabe), macOS (feedface) */
     public static boolean isExecutable(FileItem item) throws IOException {
-        BufferedInputStream is = new BufferedInputStream(item.getInputStream());
+        InputStream is = item.getInputStream();
         byte[] bytes = new byte[4];
-        is.mark(8);
         is.read(bytes, 0, 4);
         is.close();
         return isExecutable(bytes);
