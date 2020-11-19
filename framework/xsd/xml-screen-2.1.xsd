@@ -724,6 +724,8 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:sequence><xs:element minOccurs="0" maxOccurs="unbounded" ref="parameter"/></xs:sequence>
         <xs:attribute name="id" type="xs:string" use="required"/>
         <xs:attribute name="button-text" type="xs:string" use="required"/>
+        <xs:attribute name="button-style" type="xs:string"/>
+        <xs:attribute name="title" type="xs:string"/>
         <xs:attribute name="width" type="xs:string" default="760"/>
         <xs:attribute name="height" type="xs:string" default="600"/>
         <xs:attribute name="transition" type="xs:string" use="required"/>
