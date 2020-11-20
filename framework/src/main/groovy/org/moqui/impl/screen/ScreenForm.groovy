@@ -153,7 +153,11 @@ class ScreenForm {
             mergeFormNodes(newFormNode, formNode, true, true)
         }
 
-        for (MNode formSubNode in baseFormNode.children) {
+        LinkedHashMap<String, ArrayList<String>> fieldColumnInfo = "form-list".equals(baseFormNode.name) ? new LinkedHashMap<String, ArrayList<String>>() : null
+
+        ArrayList<MNode> childNodeList = baseFormNode.getChildren()
+        for (int cni = 0; cni < childNodeList.size(); cni++) {
+            MNode formSubNode = (MNode) childNodeList.get(cni)
             if (formSubNode.name == "field") {
                 MNode nodeCopy = formSubNode.deepCopy(null)
                 expandFieldNode(newFormNode, nodeCopy)
@@ -183,7 +187,7 @@ class ScreenForm {
                 if (ecfi.serviceFacade.isEntityAutoPattern(serviceName)) {
                     EntityDefinition ed = ecfi.entityFacade.getEntityDefinition(ServiceDefinition.getNounFromName(serviceName))
                     if (ed != null) {
-                        addEntityFields(ed, "all", formSubNode.attribute("field-type")?:"edit", null, newFormNode)
+                        addEntityFields(ed, "all", formSubNode.attribute("field-type")?:"edit", null, newFormNode, fieldColumnInfo)
                         continue
                     }
                 }
@@ -206,11 +210,11 @@ class ScreenForm {
                         MNode excludeNode = (MNode) excludeList.get(i)
                         excludes.add(excludeNode.attribute("field-name"))
                     }
-                    addEntityFields(ed, formSubNode.attribute("include")?:"all", formSubNode.attribute("field-type")?:"find-display",
-                            excludes, newFormNode)
-                    continue
+                    addEntityFields(ed, formSubNode.attribute("include")?:"all",
+                            formSubNode.attribute("field-type")?:"find-display", excludes, newFormNode, fieldColumnInfo)
+                } else {
+                    throw new BaseArtifactException("Cound not find entity [${entityName}] referred to in auto-fields-entity of form [${newFormNode.attribute("name")}] of screen [${sd.location}]")
                 }
-                throw new BaseArtifactException("Cound not find entity [${entityName}] referred to in auto-fields-entity of form [${newFormNode.attribute("name")}] of screen [${sd.location}]")
             }
         }
 
@@ -231,6 +235,13 @@ class ScreenForm {
                 if (!fieldLayoutNode.depthFirst({ MNode it -> it.name == "field-ref" && it.attribute("name") == fieldNode.attribute("name") })
                         && fieldNode.depthFirst({ MNode it -> it.name == "hidden" }))
                     addFieldToFieldLayout(newFormNode, fieldNode)
+            }
+        }
+
+        // for form-list auto add entity columns
+        if (fieldColumnInfo != null && fieldColumnInfo.size() > 0) {
+            for (Map.Entry<String, ArrayList<String>> curInfo in fieldColumnInfo.entrySet()) {
+                addAutoEntityColumns(newFormNode, baseFormNode, curInfo.getKey(), curInfo.getValue())
             }
         }
 
@@ -576,8 +587,13 @@ class ScreenForm {
         }
     }
 
-    void addEntityFields(EntityDefinition ed, String include, String fieldType, Set<String> excludes, MNode baseFormNode) {
-        for (String fieldName in ed.getFieldNames("all".equals(include) || "pk".equals(include), "all".equals(include) || "nonpk".equals(include))) {
+    void addEntityFields(EntityDefinition ed, String include, String fieldType, Set<String> excludes, MNode baseFormNode, LinkedHashMap<String, ArrayList<String>> fieldColumnInfo) {
+        ArrayList<String> fieldNames = ed.getFieldNames("all".equals(include) || "pk".equals(include), "all".equals(include) || "nonpk".equals(include))
+        int fieldNamesSize = fieldNames.size()
+
+        ArrayList<String> displayFieldNames = new ArrayList<>(fieldNamesSize)
+        for (int i = 0; i < fieldNamesSize; i++) {
+            String fieldName = (String) fieldNames.get(i)
             if ((excludes != null && excludes.contains(fieldName)) || "lastUpdatedStamp".equals(fieldName)) continue
 
             FieldInfo fi = ed.getFieldInfo(fieldName)
@@ -589,10 +605,13 @@ class ScreenForm {
                 if (defaultDisplay != null && !defaultDisplay.isEmpty()) displayField = "true".equals(defaultDisplay)
                 if (displayField == null && efType in ['text-long', 'text-very-long', 'binary-very-long']) {
                     // allow find by and display text-long even if not the default, but in form-list never do anything with text-very-long or binary-very-long
-                    if ("text-long".equals(efType)) { displayField = false } else { continue }
+                    // DEJ 20201120 changed set displayField to true instead of false so is display, change to false to not display
+                    if ("text-long".equals(efType)) { displayField = true } else { continue }
                 }
                 makeDefaultField = displayField == null || displayField.booleanValue()
             }
+
+            displayFieldNames.add(fieldName)
 
             MNode newFieldNode = new MNode("field", [name:fieldName])
             MNode subFieldNode = makeDefaultField ? newFieldNode.append("default-field", ["validate-entity":ed.getFullEntityName(), "validate-field":fieldName]) : null
@@ -620,7 +639,79 @@ class ScreenForm {
             }
         }
 
+        if (fieldColumnInfo != null) fieldColumnInfo.put(ed.getFullEntityName(), displayFieldNames)
+
         // logger.info("TOREMOVE: after addEntityFields formNode is: ${baseFormNode}")
+    }
+
+    void addAutoEntityColumns(MNode newFormNode, MNode initFieldsFormNode, String entityName, ArrayList<String> displayFieldNames) {
+        EntityDefinition ed = ecfi.entityFacade.getEntityDefinition(entityName)
+        // if more than 6 fields auto stack in columns
+        int displayFieldNamesSize = displayFieldNames.size()
+        int fieldsPerCol = (displayFieldNamesSize / 6.0).setScale(0, BigDecimal.ROUND_HALF_UP).intValue()
+
+        ArrayList<String> idDateFields = new ArrayList<>()
+        ArrayList<String> numberFields = new ArrayList<>()
+        ArrayList<String> shortFields = new ArrayList<>()
+        ArrayList<String> longFields = new ArrayList<>()
+
+        for (int i = 0; i < displayFieldNamesSize; i++) {
+            String fieldName = (String) displayFieldNames.get(i)
+            FieldInfo fi = ed.getFieldInfo(fieldName)
+            String efType = fi.type ?: "text-long"
+            if (efType.startsWith("id") || efType.startsWith("date") || efType.equals("time")) {
+                idDateFields.add(fieldName)
+            } else if (efType.startsWith("number") || efType.startsWith("currency") || efType.equals("text-indicator")) {
+                numberFields.add(fieldName)
+            } else if ("text-short".equals(efType) || "text-medium".equals(efType)) {
+                shortFields.add(fieldName)
+            } else {
+                longFields.add(fieldName)
+            }
+        }
+
+        ArrayList<String> sortedFields = new ArrayList<>(displayFieldNamesSize)
+        sortedFields.addAll(idDateFields); sortedFields.addAll(numberFields)
+        sortedFields.addAll(shortFields); sortedFields.addAll(longFields)
+
+        MNode columnsNode = newFormNode.first("columns")
+        if (columnsNode == null) {
+            columnsNode = newFormNode.append("columns", null)
+            if (initFieldsFormNode != null) {
+                ArrayList<MNode> fieldNodeList = initFieldsFormNode.children("field")
+                for (int i = 0; i < fieldNodeList.size(); i++) {
+                    MNode fieldNode = (MNode) fieldNodeList.get(i)
+                    ArrayList<MNode> defCondChildList = new ArrayList(fieldNode.children("default-field"))
+                    defCondChildList.addAll(fieldNode.children("conditional-field"))
+                    HashSet<String> fieldsUsed = new HashSet<>()
+                    for (int dci = 0; dci < defCondChildList.size(); dci++) {
+                        MNode defCondChild = (MNode) defCondChildList.get(dci)
+                        String fieldName = fieldNode.attribute("name")
+                        if (fieldsUsed.contains(fieldName)) continue
+                        if (defCondChild.children.size() == 1 && (defCondChild.hasChild("hidden") || defCondChild.hasChild("ignored"))) continue
+
+                        MNode columnNode = columnsNode.append("column", null)
+                        columnNode.append("field-ref", [name:fieldName])
+                        fieldsUsed.add(fieldName)
+                    }
+                }
+            }
+        }
+
+        ArrayList<String> curColumnList = new ArrayList<>(fieldsPerCol)
+        for (int i = 0; i < displayFieldNamesSize; i++) {
+            String fieldName = (String) sortedFields.get(i)
+            curColumnList.add(fieldName)
+
+            if (curColumnList.size() == fieldsPerCol || (i + 1 == displayFieldNamesSize)) {
+                MNode columnNode = columnsNode.append("column", null)
+                for (int ci = 0; ci < curColumnList.size(); ci++) {
+                    String curFieldName = (String) curColumnList.get(ci)
+                    columnNode.append("field-ref", [name:curFieldName])
+                }
+                curColumnList.clear()
+            }
+        }
     }
 
     void addAutoEntityField(EntityDefinition ed, String fieldName, String fieldType, MNode newFieldNode, MNode subFieldNode, MNode baseFormNode) {
@@ -675,13 +766,13 @@ class ScreenForm {
             if (efType.startsWith("date") || efType.startsWith("time")) {
                 MNode dateTimeNode = subFieldNode.append("date-time", [type:efType])
                 if (fieldName == "fromDate") dateTimeNode.attributes.put("default-value", "\${ec.l10n.format(ec.user.nowTimestamp, 'yyyy-MM-dd HH:mm')}")
-            } else if (efType == "text-long" || efType == "text-very-long") {
+            } else if ("text-long".equals(efType) || "text-very-long".equals(efType)) {
                 subFieldNode.append("text-area", null)
-            } else if (efType == "text-indicator") {
+            } else if ("text-indicator".equals(efType)) {
                 MNode dropDownNode = subFieldNode.append("drop-down", ["allow-empty":"true"])
                 dropDownNode.append("option", ["key":"Y"])
                 dropDownNode.append("option", ["key":"N"])
-            } else if (efType == "binary-very-long") {
+            } else if ("binary-very-long".equals(efType)) {
                 // would be nice to have something better for this, like a download somehow
                 subFieldNode.append("display", null)
             } else {
@@ -742,9 +833,9 @@ class ScreenForm {
                 newFieldNode.append("header-field", ["show-order-by":"case-insensitive"])
             MNode headerFieldNode = newFieldNode.hasChild("header-field") ?
                 newFieldNode.first("header-field") : newFieldNode.append("header-field", null)
-            if (efType == "date" || efType == "time") {
+            if ("date".equals(efType) || "time".equals(efType)) {
                 headerFieldNode.append("date-find", [type:efType])
-            } else if (efType == "date-time") {
+            } else if ("date-time".equals(efType)) {
                 headerFieldNode.append("date-period", [time:"true"])
             } else if (efType.startsWith("number-") || efType.startsWith("currency-")) {
                 headerFieldNode.append("range-find", [size:'10'])
