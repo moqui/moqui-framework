@@ -297,8 +297,10 @@ public class ContextStack implements Map<String, Object> {
     public String toString() {
         StringBuilder fullMapString = new StringBuilder();
         for (int i = 0; i <= stackIndex; i++) {
+            Map<String, Object> curMap = stackArray[i];
+            if (curMap == null) continue;
             fullMapString.append("========== Start stack level ").append(i).append("\n");
-            for (Map.Entry<String, Object> curEntry: stackArray[i].entrySet()) {
+            for (Map.Entry<String, Object> curEntry: curMap.entrySet()) {
                 fullMapString.append("==>[");
                 fullMapString.append(curEntry.getKey());
                 fullMapString.append("]:");
