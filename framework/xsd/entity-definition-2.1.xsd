@@ -548,6 +548,10 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute type="xs:string" name="valid-date">
                 <xs:annotation><xs:documentation>The name of a field in the context to compare each value to. Defaults to now.</xs:documentation></xs:annotation>
             </xs:attribute>
+            <xs:attribute name="entity-alias" type="name-plain"><xs:annotation><xs:documentation>
+                The member-entity alias for the from and thru field names, if entity-condition under a member-entity (for join conditions)
+                defaults to current member-entity alias. If no entity alias specified field names are treated as view-entity aliased fields.
+            </xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute type="xs:string" name="from-field-name" default="fromDate">
                 <xs:annotation><xs:documentation>The name of the entity field to use as the from/beginning effective date. Defaults to fromDate.</xs:documentation></xs:annotation>
             </xs:attribute>
@@ -558,10 +562,16 @@ along with this software (see the LICENSE.md file). If not, see
     </xs:element>
     <xs:element name="econdition">
         <xs:complexType>
-            <xs:attribute name="entity-alias" type="name-plain"/>
+            <xs:attribute name="entity-alias" type="name-plain"><xs:annotation><xs:documentation>
+                The member-entity alias for field-name, if entity-condition under a member-entity (for join conditions) defaults to
+                current member-entity alias. If no entity alias specified field names are treated as view-entity aliased fields.
+            </xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="field-name" type="name-field" use="required"/>
             <xs:attribute name="operator" default="equals" type="operator-entity"/>
-            <xs:attribute name="to-entity-alias" type="name-plain"/>
+            <xs:attribute name="to-entity-alias" type="name-plain"><xs:annotation><xs:documentation>
+                The member-entity alias for to-field-name, if entity-condition under a member-entity (for join conditions) defaults to
+                current member-entity alias. If no entity alias specified field names are treated as view-entity aliased fields.
+            </xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="to-field-name" type="name-field"/>
             <xs:attribute name="value" type="xs:string"/>
             <xs:attribute name="ignore-case" default="false" type="boolean"/>
