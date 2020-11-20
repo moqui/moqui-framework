@@ -266,13 +266,16 @@ public class ContextJavaUtil {
                 StringBuilder ps = new StringBuilder();
                 for (Map.Entry<String, Object> pme: parameters.entrySet()) {
                     Object value = pme.getValue();
-                    if (ObjectUtilities.isEmpty(value)) continue;
+                    if (value == null || ObjectUtilities.isEmpty(value) || value instanceof Map || value instanceof Collection) continue;
                     String key = pme.getKey();
                     if (key != null && key.contains("password")) continue;
-                    if (ps.length() > 0) ps.append(",");
-                    ps.append(key).append("=").append(value);
+                    if (ps.length() > 0) ps.append(", ");
+                    String valString = value.toString();
+                    if (valString.length() > 80) valString = valString.substring(0, 80);
+                    ps.append(key).append("=").append(valString);
                 }
-                if (ps.length() > 255) ps.delete(255, ps.length());
+                // is text-long, could be up to 4000, probably don't want that much for data size
+                if (ps.length() > 1000) ps.delete(1000, ps.length());
                 ahp.put("parameterString", ps.toString());
             }
             if (outputSize != null) ahp.put("outputSize", outputSize);
