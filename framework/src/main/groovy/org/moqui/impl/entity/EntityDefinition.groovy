@@ -1029,6 +1029,8 @@ class EntityDefinition {
     protected EntityConditionImplBase makeViewListCondition(MNode conditionsParent, MNode joinMemberEntityNode) {
         if (conditionsParent == null) return null
         ExecutionContextImpl eci = efi.ecfi.getEci()
+        EntityDefinition joinEntityDef = joinMemberEntityNode != null ? this.efi.getEntityDefinition(joinMemberEntityNode.attribute("entity-name")) : null
+
         List<EntityCondition> condList = new ArrayList()
         for (MNode dateFilter in conditionsParent.children("date-filter")) {
             ConditionField fromField, thruField
@@ -1039,7 +1041,7 @@ class EntityDefinition {
             if (validDate == (Timestamp) null) validDate = efi.ecfi.getEci().userFacade.getNowTimestamp()
 
             String entityAliasAttr = dateFilter.attribute("entity-alias")
-            if (joinMemberEntityNode != null && (entityAliasAttr == null || entityAliasAttr.isEmpty()))
+            if (joinEntityDef != null && (entityAliasAttr == null || entityAliasAttr.isEmpty()) && joinEntityDef.isField(fromFieldName))
                 entityAliasAttr = joinMemberEntityNode.attribute("entity-alias")
 
             if (entityAliasAttr != null && !entityAliasAttr.isEmpty()) {
@@ -1060,34 +1062,37 @@ class EntityDefinition {
             condList.add(new DateCondition(fromField, thruField, validDate))
         }
         for (MNode econdition in conditionsParent.children("econdition")) {
-            EntityConditionImplBase cond
+            String fieldNameAttr = econdition.attribute("field-name")
             ConditionField field
+            EntityConditionImplBase cond
             EntityDefinition condEd
 
             String entityAliasAttr = econdition.attribute("entity-alias")
-            if (joinMemberEntityNode != null && (entityAliasAttr == null || entityAliasAttr.isEmpty()))
+            if (joinEntityDef != null && (entityAliasAttr == null || entityAliasAttr.isEmpty()) && joinEntityDef.isField(fieldNameAttr))
                 entityAliasAttr = joinMemberEntityNode.attribute("entity-alias")
 
             if (entityAliasAttr != null && !entityAliasAttr.isEmpty()) {
-                MNode memberEntity = memberEntityAliasMap.get(entityAliasAttr)
+                MNode memberEntity = (MNode) memberEntityAliasMap.get(entityAliasAttr)
                 if (memberEntity == null) throw new EntityException("The entity-alias [${entityAliasAttr}] was not found in view-entity [${entityInfo.internalEntityName}]")
                 EntityDefinition aliasEntityDef = this.efi.getEntityDefinition(memberEntity.attribute("entity-name"))
-                field = new ConditionAlias(entityAliasAttr, econdition.attribute("field-name"), aliasEntityDef)
+                field = new ConditionAlias(entityAliasAttr, fieldNameAttr, aliasEntityDef)
                 condEd = aliasEntityDef
             } else {
-                FieldInfo fi = getFieldInfo(econdition.attribute("field-name"))
-                if (fi == null) throw new EntityException("Field ${econdition.attribute("field-name")} not found in entity ${fullEntityName}")
+                FieldInfo fi = getFieldInfo(fieldNameAttr)
+                if (fi == null) throw new EntityException("Field ${fieldNameAttr} not found in entity ${fullEntityName}")
                 field = fi.conditionField
                 condEd = this
             }
+
             String toFieldNameAttr = econdition.attribute("to-field-name")
             if (toFieldNameAttr != null) {
                 String toEntityAliasAttr = econdition.attribute("to-entity-alias")
-                if (joinMemberEntityNode != null && (toEntityAliasAttr == null || toEntityAliasAttr.isEmpty()))
+                if (joinEntityDef != null && (toEntityAliasAttr == null || toEntityAliasAttr.isEmpty()) && joinEntityDef.isField(toFieldNameAttr))
                     toEntityAliasAttr = joinMemberEntityNode.attribute("entity-alias")
+
                 ConditionField toField
                 if (toEntityAliasAttr != null && !toEntityAliasAttr.isEmpty()) {
-                    MNode memberEntity = memberEntityAliasMap.get(toEntityAliasAttr)
+                    MNode memberEntity = (MNode) memberEntityAliasMap.get(toEntityAliasAttr)
                     if (memberEntity == null) throw new EntityException("The entity-alias [${toEntityAliasAttr}] was not found in view-entity [${entityInfo.internalEntityName}]")
                     EntityDefinition aliasEntityDef = this.efi.getEntityDefinition(memberEntity.attribute("entity-name"))
                     toField = new ConditionAlias(toEntityAliasAttr, toFieldNameAttr, aliasEntityDef)
