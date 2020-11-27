@@ -1586,6 +1586,9 @@ class ScreenRenderImpl implements ScreenRender {
     Map<String, Object> getFormListHeaderValues(MNode formNode) {
         Map<String, Object> fieldValues = new LinkedHashMap<>()
 
+        // add hidden-parameters values
+        fieldValues.putAll(getFormHiddenParameters(formNode))
+
         ArrayList<MNode> allFieldNodes = formNode.children("field")
         int afnSize = allFieldNodes.size()
         for (int i = 0; i < afnSize; i++) {
