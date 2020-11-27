@@ -496,7 +496,7 @@ public class EntityJavaUtil {
 
     public static class RelationshipInfo {
         public final String type;
-        public final boolean isTypeOne;
+        public final boolean isTypeOne, isFk;
         public final String title;
         public final String relatedEntityName;
         final EntityDefinition fromEd;
@@ -506,17 +506,16 @@ public class EntityJavaUtil {
         public final String relationshipName;
         public final String shortAlias;
         public final String prettyName;
-        public final Map<String, String> keyMap;
-        public final Map<String, String> keyValueMap;
-        public final boolean dependent;
-        public final boolean mutable;
-        public final boolean isAutoReverse;
+        public final Map<String, String> keyMap, keyValueMap;
+        public final ArrayList<String> keyFieldList, keyFieldValueList;
+        public final boolean dependent, mutable, isAutoReverse;
 
         RelationshipInfo(MNode relNode, EntityDefinition fromEd, EntityFacadeImpl efi) {
             this.relNode = relNode;
             this.fromEd = fromEd;
             type = relNode.attribute("type");
             isTypeOne = type.startsWith("one");
+            isFk = "one".equals(type);
             isAutoReverse = "true".equals(relNode.attribute("is-auto-reverse"));
 
             String titleAttr = relNode.attribute("title");
@@ -532,7 +531,9 @@ public class EntityJavaUtil {
             shortAlias =  shortAliasAttr != null && !shortAliasAttr.isEmpty() ? shortAliasAttr : null;
             prettyName = relatedEd.getPrettyName(title, fromEd.entityInfo.internalEntityName);
             keyMap = EntityDefinition.getRelationshipExpandedKeyMapInternal(relNode, relatedEd);
+            keyFieldList = new ArrayList<>(keyMap.keySet());
             keyValueMap = EntityDefinition.getRelationshipKeyValueMapInternal(relNode);
+            keyFieldValueList = keyValueMap != null ? new ArrayList<>(keyValueMap.keySet()) : null;
             dependent = hasReverse();
             String mutableAttr = relNode.attribute("mutable");
             if (mutableAttr != null && !mutableAttr.isEmpty()) {

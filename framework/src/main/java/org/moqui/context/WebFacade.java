@@ -75,7 +75,14 @@ public interface WebFacade {
     void sendJsonError(int statusCode, String message, Throwable origThrowable);
     void sendTextResponse(String text);
     void sendTextResponse(String text, String contentType, String filename);
+
+    /** Send content of specified resource location to client via HttpResponse. Always uses attachment Content-Disposition to tell browser to download. */
     void sendResourceResponse(String location);
+    /** Send content of specified resource location to client via HttpResponse.
+     * @param location Resource location
+     * @param inline If true use inline Content-Disposition to tell browser to display, otherwise use attachment to tell browser to download.
+     */
+    void sendResourceResponse(String location, boolean inline);
     void sendError(int errorCode, String message, Throwable origThrowable);
 
     void handleJsonRpcServiceCall();

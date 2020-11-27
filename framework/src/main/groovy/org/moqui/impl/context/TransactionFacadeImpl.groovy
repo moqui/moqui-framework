@@ -34,6 +34,7 @@ import javax.transaction.*
 import javax.transaction.xa.XAException
 import javax.transaction.xa.XAResource
 import java.sql.*
+import java.util.concurrent.ConcurrentHashMap
 
 @CompileStatic
 class TransactionFacadeImpl implements TransactionFacade {
@@ -54,7 +55,7 @@ class TransactionFacadeImpl implements TransactionFacade {
     private ThreadLocal<TxStackInfo> txStackInfoCurThread = new ThreadLocal<TxStackInfo>()
     private ThreadLocal<LinkedList<TxStackInfo>> txStackInfoListThread = new ThreadLocal<LinkedList<TxStackInfo>>()
 
-    HashMap<String, ArrayList<EntityRecordLock>> recordLockByEntityPk = new HashMap<>()
+    protected final ConcurrentHashMap<String, ArrayList<EntityRecordLock>> recordLockByEntityPk = new ConcurrentHashMap<>()
 
     TransactionFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
@@ -124,6 +125,8 @@ class TransactionFacadeImpl implements TransactionFacade {
         txStackInfoListThread.remove()
     }
 
+    boolean getUseLockTrack() { return useLockTrack }
+
     TransactionInternal getTransactionInternal() { return transactionInternal }
     TransactionManager getTransactionManager() { return tm }
     UserTransaction getUserTransaction() { return ut }
@@ -139,7 +142,7 @@ class TransactionFacadeImpl implements TransactionFacade {
         if (list == null) {
             list = new LinkedList<TxStackInfo>()
             txStackInfoListThread.set(list)
-            TxStackInfo txStackInfo = new TxStackInfo()
+            TxStackInfo txStackInfo = new TxStackInfo(this)
             list.add(txStackInfo)
             txStackInfoCurThread.set(txStackInfo)
         }
@@ -154,7 +157,7 @@ class TransactionFacadeImpl implements TransactionFacade {
         return txStackInfo
     }
     protected void pushTxStackInfo(Transaction tx, Exception txLocation) {
-        TxStackInfo txStackInfo = new TxStackInfo()
+        TxStackInfo txStackInfo = new TxStackInfo(this)
         txStackInfo.suspendedTx = tx
         txStackInfo.suspendedTxLocation = txLocation
         getTxStackInfoList().addFirst(txStackInfo)
@@ -693,10 +696,8 @@ class TransactionFacadeImpl implements TransactionFacade {
 
     void registerRecordLock(EntityRecordLock erl) {
         if (!useLockTrack) return
-        // TODO check for existing locks in this.recordLockByEntityPk, log warning if others found
-        // TODO add new lock to this.recordLockByEntityPk, and TxStackInfo.recordLockList
+        erl.register(recordLockByEntityPk, getTxStackInfo())
     }
-
 
 
     // ========== Initialize/Populate Methods ==========
