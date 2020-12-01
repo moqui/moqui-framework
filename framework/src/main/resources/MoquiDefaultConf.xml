@@ -232,6 +232,9 @@
             see https://content-security-policy.com/
             consider "child-src 'self';", leaving out as default because 3rd party hosts needed for payment processing hosted forms, etc
             consider "connect-src 'self';" Applies to XMLHttpRequest (AJAX), WebSocket or EventSource
+            CSP more secure, should work for back office (internal) but may not for ecommerce or custom apps depending on external resources used and their domain names:
+                see https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy/default-src
+                value="frame-ancestors 'none'; form-action 'self'; default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;"
             -->
             <response-header type="screen-render" name="Content-Security-Policy" value="frame-ancestors 'none'; form-action 'self';"/>
             <response-header type="screen-render" name="X-Frame-Options" value="sameorigin"/>

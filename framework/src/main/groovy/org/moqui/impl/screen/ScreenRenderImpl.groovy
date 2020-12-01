@@ -289,6 +289,7 @@ class ScreenRenderImpl implements ScreenRender {
         WebFacade web = ec.getWeb()
         if ((lastStandalone == null || lastStandalone.isEmpty()) && web != null)
             lastStandalone = (String) web.requestParameters.lastStandalone
+        ExecutionContextFactoryImpl.WebappInfo webappInfo = ec.ecfi.getWebappInfo(webappName)
 
         screenUrlInfo = ScreenUrlInfo.getScreenUrlInfo(this, rootScreenDef, originalScreenPathNameList, null,
                 ScreenUrlInfo.parseLastStandalone(lastStandalone, 0))
@@ -372,7 +373,6 @@ class ScreenRenderImpl implements ScreenRender {
             // if this transition has actions and request was not secure or any parameters were not in the body
             // return an error, helps prevent CSRF/XSRF attacks
             if (request != null && targetTransition.hasActionsOrSingleService()) {
-                ExecutionContextFactoryImpl.WebappInfo webappInfo = ec.ecfi.getWebappInfo(webappName)
                 String queryString = request.getQueryString()
 
                 // NOTE: We decode path parameter ourselves, so use getRequestURI instead of getPathInfo
@@ -452,6 +452,10 @@ class ScreenRenderImpl implements ScreenRender {
                 StringBuilder screenPath = new StringBuilder()
                 for (String pn in screenUrlInfo.fullPathNameList) screenPath.append("/").append(pn)
                 ((WebFacadeImpl) web).saveScreenLastInfo(screenPath.toString(), null)
+            }
+
+            if (this.response != null && webappInfo != null) {
+                webappInfo.addHeaders("screen-transition", this.response)
             }
 
             if ("none".equals(ri.type)) {
@@ -584,7 +588,6 @@ class ScreenRenderImpl implements ScreenRender {
             boolean isBinary = tr == null && ResourceReference.isBinaryContentType(fileContentType)
             // if (isTraceEnabled) logger.trace("Content type for screen sub-content filename [${fileName}] is [${fileContentType}], default [${this.outputContentType}], is binary? ${isBinary}")
 
-            ExecutionContextFactoryImpl.WebappInfo webappInfo = ec.ecfi.getWebappInfo(webappName)
             if (isBinary) {
                 if (response != null) {
                     this.outputContentType = fileContentType
