@@ -407,5 +407,8 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
             nameIsPattern = "Y".equals(aacvMap.get("nameIsPattern"));
             inheritAuthz = "Y".equals(aacvMap.get("inheritAuthz"));
         }
+        @Override public String toString() {
+            return "[userGroupId:" + userGroupId + ", artifactAuthzId:" + artifactAuthzId + ", artifactGroupId:" + artifactGroupId + ", artifactName:" + artifactName + ", artifactType:" + artifactType + ", authzAction:" + authzAction + ", authzType:" + authzType + ", nameIsPattern:" + nameIsPattern + ", inheritAuthz:" + inheritAuthz + "]";
+        }
     }
 }
