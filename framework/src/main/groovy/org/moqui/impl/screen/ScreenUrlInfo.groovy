@@ -290,6 +290,19 @@ class ScreenUrlInfo {
             artifactExecutionInfoStack.addFirst(aeii)
         }
 
+        // see if the transition is permitted
+        if (transitionItem != null) {
+            ScreenDefinition lastScreenDef = (ScreenDefinition) screenPathDefList.get(screenPathDefList.size() - 1)
+            ArtifactExecutionInfoImpl aeii = new ArtifactExecutionInfoImpl("${lastScreenDef.location}/${transitionItem.name}",
+                    ArtifactExecutionInfo.AT_XML_SCREEN_TRANS, ArtifactExecutionInfo.AUTHZA_VIEW, null)
+            ArtifactExecutionInfoImpl lastAeii = (ArtifactExecutionInfoImpl) artifactExecutionInfoStack.peekFirst()
+            if (!aefi.isPermitted(aeii, lastAeii, true, false, false, artifactExecutionInfoStack)) {
+                // logger.warn("TOREMOVE user ${username} is NOT allowed to view screen at path ${this.fullPathNameList} because of screen at ${screenDef.location}")
+                if (permittedCacheKey != null) aefi.screenPermittedCache.put(permittedCacheKey, false)
+                return false
+            }
+        }
+
         // if there is a transition with a single service go a little further and see if we have permission to call it
         String serviceName = transitionItem?.singleServiceName
         if (transitionItem != null && !transitionItem.isReadOnly() && serviceName != null && !serviceName.isEmpty()) {

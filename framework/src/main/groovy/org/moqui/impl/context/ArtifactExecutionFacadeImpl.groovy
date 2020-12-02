@@ -323,8 +323,8 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                 }
             }
 
-            // if ("AT_XML_SCREEN" == aeii.typeEnumId && aeii.getName().contains("FOO"))
-            //     logger.warn("TOREMOVE for aeii [${aeii}] artifact isPermitted aacvList: ${aacvList}; aacvCond: ${aacvCond}")
+            // if ((ArtifactExecutionInfo.AT_XML_SCREEN.is(artifactTypeEnum) || ArtifactExecutionInfo.AT_XML_SCREEN_TRANS.is(artifactTypeEnum)) && aeii.getName().contains("recordChange"))
+            //     logger.warn("TOREMOVE for aeii [${aeii}] artifact isPermitted\naacvList: ${aacvList}\norigAacvList: ${origAacvList.join("\n")}")
 
             int aacvListSize = aacvList.size()
             for (int i = 0; i < aacvListSize; i++) {
