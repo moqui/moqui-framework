@@ -29,11 +29,13 @@ import org.slf4j.LoggerFactory;
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
 import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.PBEParameterSpec;
 import javax.xml.bind.DatatypeConverter;
 
 import java.math.BigDecimal;
+import java.security.SecureRandom;
 import java.util.*;
 
 public class EntityJavaUtil {
@@ -43,11 +45,36 @@ public class EntityJavaUtil {
     private static final int saltBytes = 8;
     static String enDeCrypt(String value, boolean encrypt, EntityFacadeImpl efi) {
         MNode entityFacadeNode = efi.ecfi.getConfXmlRoot().first("entity-facade");
-        String pwStr = entityFacadeNode.attribute("crypt-pass");
+        if (encrypt) {
+            return enDeCrypt(value, true, entityFacadeNode);
+        } else {
+            // decrypt a bit different, use entity-facade as config node and then decrypt-alt until success, or fail with original error
+            try {
+                return enDeCrypt(value, false, entityFacadeNode);
+            } catch (Exception e) {
+                ArrayList<MNode> decryptAltNodes = entityFacadeNode.children("decrypt-alt");
+                for (int i = 0; i < decryptAltNodes.size(); i++) {
+                    MNode decryptAltNode = decryptAltNodes.get(i);
+                    decryptAltNode.setSystemExpandAttributes(true);
+                    try {
+                        return enDeCrypt(value, false, decryptAltNode);
+                    } catch (Exception inner) {
+                        // do nothing, ignore exception
+                        logger.warn("Error in decrypt-alt " + i, inner);
+                    }
+                }
+                // if we got here no luck, throw original exception
+                throw e;
+            }
+        }
+    }
+
+    static String enDeCrypt(String value, boolean encrypt, MNode configNode) {
+        String pwStr = configNode.attribute("crypt-pass");
         if (pwStr == null || pwStr.length() == 0)
             throw new EntityException("No entity-facade.@crypt-pass setting found, NOT doing encryption");
 
-        String saltStr = entityFacadeNode.attribute("crypt-salt");
+        String saltStr = configNode.attribute("crypt-salt");
         byte[] salt = (saltStr != null && saltStr.length() > 0 ? saltStr : "default1").getBytes();
         if (salt.length > saltBytes) {
             byte[] trimmed = new byte[saltBytes];
@@ -62,36 +89,58 @@ public class EntityJavaUtil {
             }
             salt = newSalt;
         }
-        String iterStr = entityFacadeNode.attribute("crypt-iter");
+
+        String iterStr = configNode.attribute("crypt-iter");
         int count = iterStr != null && iterStr.length() > 0 ? Integer.valueOf(iterStr) : 10;
         char[] pass = pwStr.toCharArray();
 
+        String algo = configNode.attribute("crypt-algo");
+        if (algo == null || algo.length() == 0) algo = "PBEWithHmacSHA256AndAES_128";
 
-        String algo = entityFacadeNode.attribute("crypt-algo");
-        if (algo == null || algo.length() == 0) algo = "PBEWithMD5AndDES";
+        // logger.info("TOREMOVE salt [" + salt + "] count [" + count + "] pass [${pass}] algo [" + algo + "][" + configNode.attribute("crypt-algo") + "]");
 
-        // logger.info("TOREMOVE salt [${salt}] count [${count}] pass [${pass}] algo [${algo}]")
-        PBEParameterSpec pbeParamSpec = new PBEParameterSpec(salt, count);
-        PBEKeySpec pbeKeySpec = new PBEKeySpec(pass);
         try {
+            Cipher pbeCipher = Cipher.getInstance(algo);
+
+            byte[] inBytes;
+            byte[] initVectorBytes = null;
+            if (encrypt) {
+                inBytes = value.getBytes();
+                initVectorBytes = new byte[pbeCipher.getBlockSize()];
+                new SecureRandom().nextBytes(initVectorBytes);
+            } else {
+                // if contains ':' is the new format: split IV and value then decode using Base64, otherwise decode value as hex
+                // NOTE: URL Base64 is letters, digits, '-', '_'
+                int colonIdx = value.indexOf(":");
+                if (colonIdx >= 0) {
+                    // base64 decode each part (0:IV, 1:encrypted)
+                    initVectorBytes = Base64.getUrlDecoder().decode(value.substring(0, colonIdx));
+                    inBytes = Base64.getUrlDecoder().decode(value.substring(colonIdx + 1));
+                } else {
+                    inBytes = DatatypeConverter.parseHexBinary(value);
+                }
+            }
+
+            PBEParameterSpec pbeParamSpec = initVectorBytes == null ? new PBEParameterSpec(salt, count) :
+                    new PBEParameterSpec(salt, count, new IvParameterSpec(initVectorBytes));
+            PBEKeySpec pbeKeySpec = new PBEKeySpec(pass);
+
             SecretKeyFactory keyFac = SecretKeyFactory.getInstance(algo);
             SecretKey pbeKey = keyFac.generateSecret(pbeKeySpec);
 
-            Cipher pbeCipher = Cipher.getInstance(algo);
-            int mode = encrypt ? Cipher.ENCRYPT_MODE : Cipher.DECRYPT_MODE;
-            pbeCipher.init(mode, pbeKey, pbeParamSpec);
+            pbeCipher.init(encrypt ? Cipher.ENCRYPT_MODE : Cipher.DECRYPT_MODE, pbeKey, pbeParamSpec);
 
-            byte[] inBytes;
-            if (encrypt) {
-                inBytes = value.getBytes();
-            } else {
-                inBytes = DatatypeConverter.parseHexBinary(value);
-            }
             byte[] outBytes = pbeCipher.doFinal(inBytes);
-            return encrypt ? DatatypeConverter.printHexBinary(outBytes) : new String(outBytes);
+            // change to Base64 encode always (2/3 size with 6 bits/char base64 vs 4 bits/char hex), always include IV + ':' + encrypted value
+            if (encrypt) {
+                // old hex approach, now supported for decrypt only: return DatatypeConverter.printHexBinary(outBytes);
+                return Base64.getUrlEncoder().encodeToString(initVectorBytes) + ':' + Base64.getUrlEncoder().encodeToString(outBytes);
+            } else {
+                return new String(outBytes);
+            }
         } catch (Exception e) {
             // logger.warn("crypt-pass " + pwStr + " salt " + saltStr + " algo " + algo + " count " + count);
-            throw new EntityException("Encryption error", e);
+            throw new EntityException("Encryption error with algo " + algo, e);
         }
     }
 
