@@ -69,6 +69,7 @@ public class EntityJavaUtil {
         }
     }
 
+    static final String CONSTANT_IV = "WeNeedAtLeast32CharactersFor256BitBlockSizeToHaveAConstantIVForQueryByEncryptedValue";
     static String enDeCrypt(String value, boolean encrypt, MNode configNode) {
         String pwStr = configNode.attribute("crypt-pass");
         if (pwStr == null || pwStr.length() == 0)
@@ -103,18 +104,21 @@ public class EntityJavaUtil {
             Cipher pbeCipher = Cipher.getInstance(algo);
 
             byte[] inBytes;
-            byte[] initVectorBytes = null;
+            byte[] initVectorBytes = CONSTANT_IV.substring(0, pbeCipher.getBlockSize()).getBytes();
+            byte[] defaultInitVectorBytes = initVectorBytes;
             if (encrypt) {
                 inBytes = value.getBytes();
+                /* more secure for larger multi-block values, but makes find by encrypted value impossible, maybe optionally enable with another field.@encrypt attribute if ever needed
                 initVectorBytes = new byte[pbeCipher.getBlockSize()];
                 new SecureRandom().nextBytes(initVectorBytes);
+                 */
             } else {
                 // if contains ':' is the new format: split IV and value then decode using Base64, otherwise decode value as hex
                 // NOTE: URL Base64 is letters, digits, '-', '_'
                 int colonIdx = value.indexOf(":");
                 if (colonIdx >= 0) {
-                    // base64 decode each part (0:IV, 1:encrypted)
-                    initVectorBytes = Base64.getUrlDecoder().decode(value.substring(0, colonIdx));
+                    // base64 decode each part as ${IV}:${encrypted}
+                    if (colonIdx > 0) initVectorBytes = Base64.getUrlDecoder().decode(value.substring(0, colonIdx));
                     inBytes = Base64.getUrlDecoder().decode(value.substring(colonIdx + 1));
                 } else {
                     inBytes = DatatypeConverter.parseHexBinary(value);
@@ -134,7 +138,11 @@ public class EntityJavaUtil {
             // change to Base64 encode always (2/3 size with 6 bits/char base64 vs 4 bits/char hex), always include IV + ':' + encrypted value
             if (encrypt) {
                 // old hex approach, now supported for decrypt only: return DatatypeConverter.printHexBinary(outBytes);
-                return Base64.getUrlEncoder().encodeToString(initVectorBytes) + ':' + Base64.getUrlEncoder().encodeToString(outBytes);
+                if (defaultInitVectorBytes == initVectorBytes) {
+                    return ":" + Base64.getUrlEncoder().encodeToString(outBytes);
+                } else {
+                    return Base64.getUrlEncoder().encodeToString(initVectorBytes) + ':' + Base64.getUrlEncoder().encodeToString(outBytes);
+                }
             } else {
                 return new String(outBytes);
             }
