@@ -126,7 +126,16 @@ class ElasticRequestLogFilter implements Filter {
 
         String clientIpAddress = request.getRemoteAddr()
         String forwardedFor = request.getHeader("X-Forwarded-For")
-        if (forwardedFor != null && !forwardedFor.isEmpty()) clientIpAddress = forwardedFor.split(",")[0].trim()
+        if (forwardedFor != null && !forwardedFor.isEmpty()) clientIpAddress = forwardedFor.split(",")[0]
+
+        if (clientIpAddress != null) {
+            clientIpAddress = clientIpAddress.trim()
+            if (clientIpAddress.charAt(0) == (char) '[') clientIpAddress = clientIpAddress.substring(1)
+            if (clientIpAddress.charAt(clientIpAddress.length() - 1) == (char) ']') clientIpAddress = clientIpAddress.substring(0, clientIpAddress.length() - 1)
+            clientIpAddress = clientIpAddress.trim()
+        }
+
+        // IPv6 addresses have square braces but ElasticSearch doesn't like them, so if there are any get rid of them
 
         float httpVersion = 0.0
         String protocol = request.getProtocol().trim()

@@ -254,6 +254,7 @@ along with this software (see the LICENSE.md file). If not, see
                         <xs:enumeration value="screen-render"/>
                         <xs:enumeration value="screen-secure"/>
                         <xs:enumeration value="screen-server-static"/>
+                        <xs:enumeration value="screen-transition"/>
                         <xs:enumeration value="cors-actual"/>
                         <xs:enumeration value="cors-preflight"/>
                     </xs:restriction></xs:simpleType></xs:attribute>
@@ -577,6 +578,13 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:element name="entity-facade">
         <xs:complexType>
             <xs:sequence>
+                <xs:element name="decrypt-alt" minOccurs="0" maxOccurs="unbounded"><xs:complexType>
+                    <xs:annotation><xs:documentation>Alternate settings for decryption only; useful for migrating keys, supporting data imported from other systems, etc</xs:documentation></xs:annotation>
+                    <xs:attribute name="crypt-pass" type="xs:string"/>
+                    <xs:attribute name="crypt-salt" type="xs:string"/>
+                    <xs:attribute name="crypt-iter" type="xs:string"/>
+                    <xs:attribute name="crypt-algo" type="xs:string"/>
+                </xs:complexType></xs:element>
                 <xs:element minOccurs="0" ref="server-jndi">
                     <xs:annotation><xs:documentation>If not present the default JNDI server will be used.</xs:documentation></xs:annotation>
                 </xs:element>
