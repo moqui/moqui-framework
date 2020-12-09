@@ -252,7 +252,7 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="InstanceImageTypeEnv" package="moqui.server.instance" use="configuration">
         <field name="imageTypeId" type="id" is-pk="true"/>
         <field name="envName" type="text-medium" is-pk="true"/>
-        <field name="envValue" type="text-medium"/>
+        <field name="envValue" type="text-medium" encrypt="true"/>
         <relationship type="one" related="moqui.server.instance.InstanceImageType"/>
     </entity>
     <entity entity-name="InstanceImageTypeLink" package="moqui.server.instance" use="configuration">
@@ -349,7 +349,7 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="AppInstanceEnv" package="moqui.server.instance" use="configuration">
         <field name="appInstanceId" type="id" is-pk="true"/>
         <field name="envName" type="text-medium" is-pk="true"/>
-        <field name="envValue" type="text-medium"/>
+        <field name="envValue" type="text-medium" encrypt="true"/>
         <relationship type="one" related="moqui.server.instance.AppInstance"/>
     </entity>
     <entity entity-name="AppInstanceLink" package="moqui.server.instance" use="configuration">
