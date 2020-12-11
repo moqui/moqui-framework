@@ -903,13 +903,17 @@ along with this software (see the LICENSE.md file). If not, see
             </xs:choice>
             <xs:element minOccurs="0" ref="dynamic-options"/>
         </xs:sequence>
-        <xs:attribute name="allow-empty" type="xs:string" default="false"/>
-        <xs:attribute name="allow-multiple" type="xs:string" default="false"/>
+        <xs:attribute name="allow-empty" type="boolean-expandable" default="false"/>
+        <xs:attribute name="allow-multiple" type="boolean-expandable" default="false"/>
         <xs:attribute name="size" type="xs:integer" default="1"/>
         <xs:attribute name="current" default="selected"><xs:simpleType><xs:restriction base="xs:token">
             <xs:enumeration value="first-in-list"/><xs:enumeration value="selected"/></xs:restriction></xs:simpleType></xs:attribute>
         <xs:attribute name="no-current-selected-key" type="xs:string">
             <xs:annotation><xs:documentation>The key to mark as selected when there is no current entry value.</xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="required-manual-select" type="boolean">
+            <xs:annotation><xs:documentation>If true and allow-empty is not true (required, no empty option) don't auto-select the first option,
+                require user to manually select unless there is only 1 option (qvt only as of 2020-12-10)</xs:documentation></xs:annotation>
         </xs:attribute>
         <xs:attribute name="current-description" type="xs:string"/>
         <!-- currently not supported (allow text entry or select option): <xs:attribute name="combo-box" type="boolean" default="false"/> -->
