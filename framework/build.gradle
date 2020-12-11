@@ -17,7 +17,7 @@ tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:deprecation" }
 tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:unchecked" }
 tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:deprecation" }
 
-version = '3.0.0-rc6'
+version = '3.0.0-rc7'
 
 apply plugin: 'groovy'
 apply plugin: 'war'
