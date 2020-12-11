@@ -342,9 +342,9 @@ class RestSchemaUtil {
 
         // under IDs for single record operations
         List<String> pkNameList = ed.getPkFieldNames()
-        Map recordMap = ramlMap
+        Map<String, Object> recordMap = ramlMap
         for (String pkName in pkNameList) {
-            Map childMap = [:]
+            Map<String, Object> childMap = [:]
             recordMap.put('/{' + pkName + '}', childMap)
             recordMap = childMap
         }
