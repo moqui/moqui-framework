@@ -968,7 +968,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                     continue
                 }
 
-                Map value = [:]
+                Map<String, Object> value = [:]
                 if (edli.defaultValues) value.putAll(edli.defaultValues)
                 value.putAll((Map) valueObj)
 
