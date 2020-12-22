@@ -75,6 +75,7 @@
     <component name="SimpleScreens" group="moqui" version="2.1.2" branch="master"/>
     <component name="HiveMind" group="moqui" version="1.4.2" branch="master"/>
     <component name="PopCommerce" group="moqui" version="2.1.2" branch="master"/>
+    <component name="MarbleERP" group="moqui" version="" branch="master"/><!-- no releases yet -->
     <component name="PopRestStore" group="moqui" version="1.0.1" branch="master"/>
     <component name="moqui-org" group="moqui" version="" branch="master"/><!-- no releases -->
 
