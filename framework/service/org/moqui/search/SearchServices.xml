@@ -330,6 +330,10 @@ along with this software (see the LICENSE.md file). If not, see
             if (dataDocumentId) index = ((String) dataDocumentId).split(",").collect({ ElasticFacadeImpl.ddIdToEsIndex(it) }).join(",")
 
             def elasticClient = ec.factory.elastic.getClient((String) clusterName)
+            if (elasticClient == null) {
+                ec.message.addMessage("No Elastic Client found for cluster name ${clusterName}, not deleting document ${documentId}", "danger")
+                return
+            }
             elasticClient.delete(index, (String) documentId)
         ]]></script></actions>
     </service>
