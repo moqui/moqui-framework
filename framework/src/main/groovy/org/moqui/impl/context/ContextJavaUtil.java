@@ -248,7 +248,7 @@ public class ContextJavaUtil {
             if (wfi != null) {
                 String fullUrl = wfi.getRequestUrl();
                 requestUrl = (fullUrl.length() > 255) ? fullUrl.substring(0, 255) : fullUrl;
-                referrerUrl = wfi.getRequest().getHeader("Referrer");
+                referrerUrl = wfi.getRequest().getHeader("Referer");
             }
         }
         EntityValue makeAhiValue(ExecutionContextFactoryImpl ecfi) {

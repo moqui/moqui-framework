@@ -237,7 +237,7 @@ class UserFacadeImpl implements UserFacade {
                 Map<String, Object> parameters = new HashMap<String, Object>([sessionId:session.id, webappName:webappId,
                         fromDate:new Timestamp(session.getCreationTime()),
                         initialLocale:getLocale().toString(), initialRequest:fullUrl,
-                        initialReferrer:request.getHeader("Referrer")?:"",
+                        initialReferrer:request.getHeader("Referer")?:"",
                         initialUserAgent:curUserAgent,
                         clientHostName:request.getRemoteHost(), clientUser:request.getRemoteUser()])
 
