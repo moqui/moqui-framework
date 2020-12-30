@@ -156,7 +156,7 @@ class ElasticRequestLogFilter implements Filter {
                 request_method:request.getMethod(), request_scheme:request.getScheme(), request_host:request.getServerName(),
                 request_path:request.getRequestURI(), request_query:request.getQueryString(), http_version:httpVersion,
                 response:response.getStatus(), time_initial_ms:initialTime, time_final_ms:finalTime, bytes:written,
-                referrer:request.getHeader("Referrer"), agent:request.getHeader("User-Agent"),
+                referrer:request.getHeader("Referer"), agent:request.getHeader("User-Agent"),
                 session:session?.getId(), visitor_id:session?.getAttribute("moqui.visitorId")]
         requestLogQueue.add(reqMap)
         // logger.info("${request.getMethod()} ${request.getRequestURI()} - ${response.getStatus()} ${finalTime}ms ${written}b asyncs ${request.isAsyncStarted()}\n${reqMap}")
