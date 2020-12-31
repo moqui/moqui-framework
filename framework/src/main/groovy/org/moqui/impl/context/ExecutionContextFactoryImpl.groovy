@@ -944,9 +944,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         MNode loginKeyNode = confXmlRoot.first("user-facade").first("login-key")
         return loginKeyNode.attribute("encrypt-hash-type") ?: "SHA-256"
     }
-    int getLoginKeyExpireHours() {
+    float getLoginKeyExpireHours() {
         MNode loginKeyNode = confXmlRoot.first("user-facade").first("login-key")
-        return (loginKeyNode.attribute("expire-hours") ?: "144") as int
+        return (loginKeyNode.attribute("expire-hours") ?: "144") as float
     }
 
     // ====================================================

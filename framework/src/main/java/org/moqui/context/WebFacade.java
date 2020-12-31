@@ -53,7 +53,7 @@ public interface WebFacade {
 
     HttpSession getSession();
     Map<String, Object> getSessionAttributes();
-    /** Get the token to include in all POST requests with the name moquiSessionToken (in the session as 'moqui.session.token') */
+    /** Get the token to include in all POST requests with the name moquiSessionToken or the X-CSRF-Token request header (in the session as 'moqui.session.token') */
     String getSessionToken();
 
     ServletContext getServletContext();
