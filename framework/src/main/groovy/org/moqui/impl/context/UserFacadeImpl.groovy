@@ -756,6 +756,9 @@ class UserFacadeImpl implements UserFacade {
         return internalLoginUser(userAccount.getString("username"))
     }
     @Override String getLoginKey() {
+        return getLoginKey(eci.ecfi.getLoginKeyExpireHours())
+    }
+    @Override String getLoginKey(float expireHours) {
         String userId = getUserId()
         if (!userId) throw new AuthenticationRequiredException("No active user, cannot get login key")
 
@@ -764,9 +767,8 @@ class UserFacadeImpl implements UserFacade {
 
         // save hashed in UserLoginKey, calc expire and set from/thru dates
         String hashedKey = eci.ecfi.getSimpleHash(loginKey, "", eci.ecfi.getLoginKeyHashType(), false)
-        int expireHours = eci.ecfi.getLoginKeyExpireHours()
         Timestamp fromDate = getNowTimestamp()
-        long thruTime = fromDate.getTime() + (expireHours * 60*60*1000)
+        long thruTime = Math.round(fromDate.getTime() + (expireHours * 60*60*1000))
         eci.serviceFacade.sync().name("create", "moqui.security.UserLoginKey")
                 .parameters([loginKey:hashedKey, userId:userId, fromDate:fromDate, thruDate:new Timestamp(thruTime)])
                 .disableAuthz().requireNewTransaction(true).call()
