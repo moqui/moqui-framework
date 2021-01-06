@@ -231,7 +231,7 @@ class ElasticFacadeImpl implements ElasticFacade {
 
         @Override
         boolean indexExists(String index) {
-            if (index == null || index.isEmpty()) throw new IllegalArgumentException("Index name may not be empty")
+            if (index == null || index.trim().isEmpty()) throw new IllegalArgumentException("Index name may not be empty")
             RestClient.RestResponse response = makeRestClient(Method.HEAD, index, null).call()
             return response.statusCode == 200
         }
@@ -289,7 +289,7 @@ class ElasticFacadeImpl implements ElasticFacade {
 
         @Override
         void index(String index, String _id, Map document) {
-            if (index == null || index.isEmpty()) throw new IllegalArgumentException("In index document the index name may not be empty")
+            if (index == null || index.trim().isEmpty()) throw new IllegalArgumentException("In index document the index name may not be empty")
             if (_id == null || _id.isEmpty()) throw new IllegalArgumentException("In index document the _id may not be empty")
             RestClient.RestResponse response = makeRestClient(Method.PUT, index + "/_doc/" + _id, null)
                     .text(objectToJson(document)).call()
@@ -298,7 +298,7 @@ class ElasticFacadeImpl implements ElasticFacade {
 
         @Override
         void update(String index, String _id, Map documentFragment) {
-            if (index == null || index.isEmpty()) throw new IllegalArgumentException("In update document the index name may not be empty")
+            if (index == null || index.trim().isEmpty()) throw new IllegalArgumentException("In update document the index name may not be empty")
             if (_id == null || _id.isEmpty()) throw new IllegalArgumentException("In update document the _id may not be empty")
             RestClient.RestResponse response = makeRestClient(Method.POST, index + "/_update/" + _id, null)
                     .text(objectToJson([doc:documentFragment])).call()
@@ -307,7 +307,7 @@ class ElasticFacadeImpl implements ElasticFacade {
 
         @Override
         void delete(String index, String _id) {
-            if (index == null || index.isEmpty()) throw new IllegalArgumentException("In delete document the index name may not be empty")
+            if (index == null || index.trim().isEmpty()) throw new IllegalArgumentException("In delete document the index name may not be empty")
             if (_id == null || _id.isEmpty()) throw new IllegalArgumentException("In delete document the _id may not be empty")
             RestClient.RestResponse response = makeRestClient(Method.DELETE, index + "/_doc/" + _id, null).call()
             if (response.statusCode == 404) {
@@ -319,7 +319,7 @@ class ElasticFacadeImpl implements ElasticFacade {
 
         @Override
         Integer deleteByQuery(String index, Map queryMap) {
-            if (index == null || index.isEmpty()) throw new IllegalArgumentException("In delete by query the index name may not be empty")
+            if (index == null || index.trim().isEmpty()) throw new IllegalArgumentException("In delete by query the index name may not be empty")
             RestClient.RestResponse response = makeRestClient(Method.POST, index + "/_delete_by_query", null)
                     .text(objectToJson([query:queryMap])).call()
             checkResponse(response, "Delete by query", index)
@@ -342,7 +342,7 @@ class ElasticFacadeImpl implements ElasticFacade {
                 jacksonMapper.writeValue(bodyWriter, entry)
                 bodyWriter.append((char) '\n')
             }
-            String path = index != null && !index.isEmpty() ? index + "/_bulk" : "_bulk"
+            String path = index != null && !index.trim().isEmpty() ? index + "/_bulk" : "_bulk"
             RestClient restClient = makeRestClient(Method.POST, path, null).contentType("application/x-ndjson")
             restClient.timeout(600)
             restClient.text(bodyWriter.toString())
@@ -383,7 +383,7 @@ class ElasticFacadeImpl implements ElasticFacade {
 
         @Override
         Map get(String index, String _id) {
-            if (index == null || index.isEmpty()) throw new IllegalArgumentException("In get document the index name may not be empty")
+            if (index == null || index.trim().isEmpty()) throw new IllegalArgumentException("In get document the index name may not be empty")
             if (_id == null || _id.isEmpty()) throw new IllegalArgumentException("In get document the _id may not be empty")
             String path = index + "/_doc/" + _id
             if (esVersionUnder7) {
@@ -403,7 +403,7 @@ class ElasticFacadeImpl implements ElasticFacade {
         @Override
         List<Map> get(String index, List<String> _idList) {
             if (_idList == null || _idList.size() == 0) return []
-            if (index == null || index.isEmpty()) throw new IllegalArgumentException("In get documents the index name may not be empty")
+            if (index == null || index.trim().isEmpty()) throw new IllegalArgumentException("In get documents the index name may not be empty")
             RestClient.RestResponse response = makeRestClient(Method.GET, index + "/_mget", null)
                     .text(objectToJson([ids:_idList])).call()
             checkResponse(response, "Get document multi", index)
@@ -413,7 +413,7 @@ class ElasticFacadeImpl implements ElasticFacade {
 
         @Override
         Map search(String index, Map searchMap) {
-            String path = index != null && !index.isEmpty() ? index + "/_search" : "_search"
+            String path = index != null && !index.trim().isEmpty() ? index + "/_search" : "_search"
             // logger.warn("Search ${index}\n${objectToJson(searchMap)}")
             RestClient.RestResponse response = makeRestClient(Method.GET, path, null).maxResponseSize(MAX_RESPONSE_SIZE_SEARCH)
                     .text(objectToJson(searchMap)).call()
@@ -428,7 +428,7 @@ class ElasticFacadeImpl implements ElasticFacade {
         }
         @Override
         Map validateQuery(String index, Map queryMap, boolean explain) {
-            String path = index != null && !index.isEmpty() ? index + "/_validate/query" : "_validate/query"
+            String path = index != null && !index.trim().isEmpty() ? index + "/_validate/query" : "_validate/query"
             String queryJson = objectToJson([query:queryMap])
             RestClient.RestResponse response = makeRestClient(Method.GET, path, explain ? [explain:'true'] : null)
                     .text(queryJson).call()
