@@ -83,7 +83,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected final static boolean isTraceEnabled = logger.isTraceEnabled()
     
     private AtomicBoolean destroyed = new AtomicBoolean(false)
-    
+
+    public final long initStartTime
+    public final String initStartHex
     protected String runtimePath
     @SuppressWarnings("GrFinalVariableAccess") protected final String runtimeConfPath
     @SuppressWarnings("GrFinalVariableAccess") protected final MNode confXmlRoot
@@ -155,7 +157,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
      * or by init methods in a servlet or context filter or OSGi component or Spring component or whatever.
      */
     ExecutionContextFactoryImpl() {
-        long initStartTime = System.currentTimeMillis()
+        initStartTime = System.currentTimeMillis()
+        // 1609900441000 (decimal 13 chars) = 176D58B3DA8 (hex 11 chars) take 7 means leave off 4 hex chars which is 65536ms which is ~1 minute (ie server start time round floor to ~1 min)
+        initStartHex = Long.toHexString(initStartTime).take(7)
 
         // get the MoquiInit.properties file
         Properties moquiInitProperties = new Properties()
@@ -241,7 +245,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     /** This constructor takes the runtime directory path and conf file path directly. */
     ExecutionContextFactoryImpl(String runtimePathParm, String confPathParm) {
-        long initStartTime = System.currentTimeMillis()
+        initStartTime = System.currentTimeMillis()
+        // 1609900441000 (decimal 13 chars) = 176D58B3DA8 (hex 11 chars) take 7 means leave off 4 hex chars which is 65536ms which is ~1 minute (ie server start time round floor to ~1 min)
+        initStartHex = Long.toHexString(initStartTime).take(7)
 
         // setup the runtimeFile
         File runtimeFile = new File(runtimePathParm)

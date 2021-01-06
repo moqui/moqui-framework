@@ -469,6 +469,10 @@ class WebFacadeImpl implements WebFacade {
     }
 
     @Override String getRequestBodyText() { return requestBodyText }
+    @Override String getResourceDistinctValue() {
+        return eci.ecfi.initStartHex
+    }
+
     @Override HttpServletResponse getResponse() { return response }
 
     @Override HttpSession getSession() { return request.getSession() }

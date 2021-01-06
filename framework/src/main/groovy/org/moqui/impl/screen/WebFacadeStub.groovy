@@ -112,6 +112,7 @@ class WebFacadeStub implements WebFacade {
     @Override String getPathInfo() { return httpServletRequest.getPathInfo() }
     @Override ArrayList<String> getPathInfoList() { return WebFacadeImpl.getPathInfoList(request) }
     @Override String getRequestBodyText() { return null }
+    @Override String getResourceDistinctValue() { return ecfi.initStartHex }
 
     @Override HttpServletResponse getResponse() { return httpServletResponse }
     @Override HttpSession getSession() { return httpSession }
