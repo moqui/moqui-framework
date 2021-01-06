@@ -303,6 +303,24 @@ class ScreenRenderImpl implements ScreenRender {
         // NOTE: this should allow override of parameters along with a formListFindId while defaulting to configured ones,
         //     but is far from ideal in detecting whether configured parms should be used
         String formListFindId = ec.contextStack.getByString("formListFindId")
+        if ((formListFindId == null || formListFindId.isEmpty()) && screenUrlInfo.targetScreen != null) {
+            // get user's default saved find if there is one
+            String userId = ec.userFacade.getUserId()
+            if (userId != null) {
+                EntityValue formListFindUserDefault = ec.entityFacade.find("moqui.screen.form.FormListFindUserDefault")
+                        .condition("userId", userId).condition("screenLocation", screenUrlInfo.targetScreen.location)
+                        .disableAuthz().useCache(true).one()
+                if (formListFindUserDefault != null) {
+                    formListFindId = (String) formListFindUserDefault.get("formListFindId")
+                    ec.contextStack.put("formListFindId", formListFindId)
+                }
+            }
+        }
+        if ("_clear".equals(formListFindId)) {
+            formListFindId = null
+            ec.contextStack.put("formListFindId", null)
+            if (web != null) web.requestParameters.put("formListFindId", "")
+        }
         if (formListFindId != null && !formListFindId.isEmpty()) {
             Set<String> targetScreenParmNames = screenUrlInfo.targetScreen?.getParameterMap()?.keySet()
             Map<String, String> flfParameters = ScreenForm.makeFormListFindParameters(formListFindId, ec)

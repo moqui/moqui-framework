@@ -1658,13 +1658,13 @@ class ScreenForm {
             return null
         }
         EntityValue getActiveFormListFind(ExecutionContextImpl ec) {
-            if (ec.web == null) return null
-            String formListFindId = ec.web.requestParameters.get("formListFindId")
-            if (!formListFindId) return null
+            String formListFindId = (String) ec.contextStack.get("formListFindId")
+            if (formListFindId == null || formListFindId.isEmpty()) return null
+
             EntityValue formListFind = ec.entityFacade.fastFindOne("moqui.screen.form.FormListFind", true, false, formListFindId)
             // see if this applies to this form-list, may be multiple on the screen
             String fullLocation = screenForm.getSavedFindFullLocation()
-            if (formListFind != null && fullLocation != formListFind.getNoCheckSimple("formLocation")) formListFind = null
+            if (formListFind != null && fullLocation != formListFind.get("formLocation")) formListFind = null
             return formListFind
         }
 
@@ -1882,6 +1882,7 @@ class ScreenForm {
             this.formInstance = formInstance
             screenForm = formInstance.screenForm
             ecfi = formInstance.ecfi
+
             // NOTE: this can be different for each form rendering depending on user settings
             allColInfo = formInstance.getFormListColumnInfo()
             if (formInstance.hasFieldHideAttrs) {
@@ -1951,8 +1952,8 @@ class ScreenForm {
         boolean hasFirstRow() { return formInstance.hasFirstRow }
         boolean hasSecondRow() { return formInstance.hasSecondRow }
         boolean hasLastRow() { return formInstance.hasLastRow }
-        String getFormLocation() { return formInstance.screenForm.location }
-        String getSavedFindFullLocation() { return formInstance.screenForm.getSavedFindFullLocation() }
+        String getFormLocation() { return screenForm.location }
+        String getSavedFindFullLocation() { return screenForm.getSavedFindFullLocation() }
 
         FormInstance getFormInstance() { return formInstance }
         ScreenForm getScreenForm() { return screenForm }
