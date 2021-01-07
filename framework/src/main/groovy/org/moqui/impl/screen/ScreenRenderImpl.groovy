@@ -1698,7 +1698,12 @@ class ScreenRenderImpl implements ScreenRender {
                     logger.warn("Screen ${activeScreenDef.getScreenName()} field ${fieldName} conditional-field has no condition, skipping")
                     continue
                 }
-                if (ec.resourceFacade.condition(condition, null)) activeSubNode = condFieldNode
+                // logger.warn("condition ${condition}, eval: ${ec.resourceFacade.condition(condition, null)}")
+                if (ec.resourceFacade.condition(condition, null)) {
+                    activeSubNode = condFieldNode
+                    // use first conditional-field with passing condition
+                    break
+                }
             }
             if (activeSubNode == null) activeSubNode = fieldNode.first("default-field")
         }
