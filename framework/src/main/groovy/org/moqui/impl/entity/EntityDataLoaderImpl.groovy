@@ -65,6 +65,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
     boolean useTryInsert = false
     boolean onlyCreate = false
     boolean dummyFks = false
+    boolean messageNoActionFiles = true
     boolean disableEeca = false
     boolean disableAuditLog = false
     boolean disableFkCreate = false
@@ -103,6 +104,8 @@ class EntityDataLoaderImpl implements EntityDataLoader {
     @Override EntityDataLoader useTryInsert(boolean useTryInsert) { this.useTryInsert = useTryInsert; return this }
     @Override EntityDataLoader onlyCreate(boolean onlyCreate) { this.onlyCreate = onlyCreate; return this }
     @Override EntityDataLoader dummyFks(boolean dummyFks) { this.dummyFks = dummyFks; return this }
+    @Override EntityDataLoader messageNoActionFiles(boolean message) { this.messageNoActionFiles = message; return this }
+
     @Override EntityDataLoader disableEntityEca(boolean disable) { disableEeca = disable; return this }
     @Override EntityDataLoader disableAuditLog(boolean disable) { disableAuditLog = disable; return this }
     @Override EntityDataLoader disableFkCreate(boolean disable) { disableFkCreate = disable; return this }
@@ -310,21 +313,27 @@ class EntityDataLoaderImpl implements EntityDataLoader {
 
                 inputStream = efi.ecfi.resourceFacade.getLocationStream(location)
 
+                long recordsLoaded = 0
+                int messagesBefore = exh.valueHandler.messageList != null ? exh.valueHandler.messageList.size() : 0
+
                 if (location.endsWith(".xml")) {
                     long beforeRecords = exh.valuesRead ?: 0
                     exh.setLocation(location)
                     SAXParser parser = SAXParserFactory.newInstance().newSAXParser()
                     parser.parse(inputStream, exh)
-                    logger.info("Loaded ${(exh.valuesRead?:0) - beforeRecords} records from ${location} in ${((System.currentTimeMillis() - beforeTime)/1000)}s")
+                    recordsLoaded = (exh.valuesRead?:0) - beforeRecords
+                    logger.info("Loaded ${recordsLoaded} records from ${location} in ${((System.currentTimeMillis() - beforeTime)/1000)}s")
                 } else if (location.endsWith(".csv")) {
                     long beforeRecords = ech.valuesRead ?: 0
                     if (ech.loadFile(location, inputStream)) {
-                        logger.info("Loaded ${(ech.valuesRead?:0) - beforeRecords} records from ${location} in ${((System.currentTimeMillis() - beforeTime)/1000)}s")
+                        recordsLoaded = (ech.valuesRead?:0) - beforeRecords
+                        logger.info("Loaded ${recordsLoaded} records from ${location} in ${((System.currentTimeMillis() - beforeTime)/1000)}s")
                     }
                 } else if (location.endsWith(".json")) {
                     long beforeRecords = ejh.valuesRead ?: 0
                     if (ejh.loadFile(location, inputStream)) {
-                        logger.info("Loaded ${(ejh.valuesRead?:0) - beforeRecords} records from ${location} in ${((System.currentTimeMillis() - beforeTime)/1000)}s")
+                        recordsLoaded = (ejh.valuesRead?:0) - beforeRecords
+                        logger.info("Loaded ${recordsLoaded} records from ${location} in ${((System.currentTimeMillis() - beforeTime)/1000)}s")
                     }
                 } else if (location.endsWith(".zip")) {
                     NoCloseZipStream zis = new NoCloseZipStream(inputStream)
@@ -340,7 +349,9 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                                 SAXParser parser = SAXParserFactory.newInstance().newSAXParser()
                                 parser.parse(zis, exh)
 
-                                logger.info("Loaded ${(exh.valuesRead?:0) - beforeRecords} records from ${entryFile} in zip file ${location} in ${((System.currentTimeMillis() - beforeTime)/1000)}s")
+                                long curFileLoaded = (exh.valuesRead?:0) - beforeRecords
+                                recordsLoaded += curFileLoaded
+                                logger.info("Loaded ${curFileLoaded} records from ${entryFile} in zip file ${location} in ${((System.currentTimeMillis() - beforeTime)/1000)}s")
                             } else {
                                 logger.warn("Found file ${entryFile} in zip file ${location} that is not a .xml file, ignoring")
                             }
@@ -352,10 +363,14 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                         }
                     }
                 }
+
+                int messagesAdded = (exh.valueHandler.messageList != null ? exh.valueHandler.messageList.size() : 0) - messagesBefore
                 if (exh.valueHandler instanceof CheckValueHandler) {
-                    exh.valueHandler.messageList.add("-- Checked data in " + location)
+                    if (messageNoActionFiles || messagesAdded > 0)
+                        exh.valueHandler.messageList.add("-- Checked data (${recordsLoaded} records) in ${location}".toString())
                 } else if (exh.valueHandler?.messageList != null) {
-                    exh.valueHandler.messageList.add("-- Loaded data from " + location)
+                    if (messageNoActionFiles || recordsLoaded > 0)
+                        exh.valueHandler.messageList.add("-- Loaded data (${recordsLoaded} records) from ${location}".toString())
                 }
             } catch (TypeToSkipException e) {
                 // nothing to do, this just stops the parsing when we know the file is not in the types we want
