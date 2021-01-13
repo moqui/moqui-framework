@@ -2235,10 +2235,16 @@ class ScreenRenderImpl implements ScreenRender {
             curScreen = ec.screenFacade.getScreenDefinition(curSsi.location)
 
             List<Map> subscreensList = new LinkedList<>()
-            ArrayList<SubscreensItem> menuItems = curScreen.getMenuSubscreensItems()
+            ArrayList<SubscreensItem> menuItems = curScreen.getSubscreensItemsSorted()
             int menuItemsSize = menuItems.size()
             for (int j = 0; j < menuItemsSize; j++) {
                 SubscreensItem subscreensItem = (SubscreensItem) menuItems.get(j)
+
+                // include active subscreen even if not normally in menu
+                if (!subscreensItem.menuInclude && subscreensItem.name != nextItem) continue
+                // valid in current context? (user group, etc)
+                if (!subscreensItem.isValidInCurrentContext()) continue
+
                 String screenPath = new StringBuilder(currentPath).append('/').append(StringUtilities.urlEncodeIfNeeded(subscreensItem.name)).toString()
                 UrlInstance screenUrlInstance = buildUrl(screenPath)
                 ScreenUrlInfo sui = screenUrlInstance.sui
@@ -2304,12 +2310,36 @@ class ScreenRenderImpl implements ScreenRender {
         if (lastTitle.contains('${')) lastTitle = ec.resourceFacade.expand(lastTitle, "")
         List<Map<String, Object>> screenDocList = fullUrlInfo.targetScreen.getScreenDocumentInfoList()
 
+        // look for form-list with saved find on target screen, if so look for saved finds available to user to display in menu
+        List<Map> savedFindsList = new LinkedList<>()
+        ScreenDefinition targetScreen = fullUrlInfo.getTargetScreen()
+        ArrayList<ScreenForm> formList = targetScreen.getAllForms()
+        for (int i = 0; i < formList.size(); i++) {
+            ScreenForm screenForm = (ScreenForm) formList.get(i)
+            if (screenForm.isFormList && "true".equals(screenForm.internalFormNode.attribute("saved-finds"))) {
+                // is a saved find active (or has default)?
+                String formListFindId = ec.contextStack.getByString("formListFindId")
+                if (formListFindId == null || formListFindId.isEmpty()) formListFindId = screenForm.getUserDefaultFormListFindId(ec)
+
+                // add data for saved finds
+                List<Map<String, Object>> userFlfList = screenForm.getUserFormListFinds(ec)
+                for (Map<String, Object> userFlf in userFlfList) {
+                    EntityValue formListFind = (EntityValue) userFlf.formListFind
+                    Map itemMap = [name:formListFind.formListFindId, title:formListFind.description, image:lastImage, imageType:lastImageType,
+                            path:lastPath, pathWithParams:(lastPath + "?formListFindId=" + formListFind.formListFindId)]
+                    if (formListFindId != null && formListFindId.equals(formListFind.formListFindId)) itemMap.active = true
+                    savedFindsList.add(itemMap)
+                }
+            }
+        }
+
         if (extraPathList != null) {
             int extraPathListSize = extraPathList.size()
             for (int i = 0; i < extraPathListSize; i++) extraPathList.set(i, StringUtilities.urlEncodeIfNeeded((String) extraPathList.get(i)))
         }
-        Map lastMap = [name:lastPathItem, title:lastTitle, path:lastPath, pathWithParams:currentPath.toString(), image:lastImage, imageType:lastImageType,
-                extraPathList:extraPathList, screenDocList:screenDocList, renderModes:fullUrlInfo.targetScreen.renderModes]
+        Map lastMap = [name:lastPathItem, title:lastTitle, path:lastPath, pathWithParams:currentPath.toString(),
+                image:lastImage, imageType:lastImageType, extraPathList:extraPathList, screenDocList:screenDocList,
+                renderModes:fullUrlInfo.targetScreen.renderModes, savedFinds:savedFindsList]
         menuDataList.add(lastMap)
         // not needed: screenStatic:fullUrlInfo.targetScreen.isServerStatic(renderMode)
 
