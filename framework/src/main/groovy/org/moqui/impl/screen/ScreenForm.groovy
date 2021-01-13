@@ -50,8 +50,7 @@ class ScreenForm {
     protected MNode internalFormNode
     protected FormInstance internalFormInstance
     protected String location, formName, fullFormName
-    protected boolean hasDbExtensions = false
-    protected boolean isDynamic = false
+    protected boolean hasDbExtensions = false, isDynamic = false, isFormList = false
     protected String extendsScreenLocation = null
 
     protected MNode entityFindNode = null
@@ -66,6 +65,7 @@ class ScreenForm {
 
         // is this a dynamic form?
         isDynamic = (baseFormNode.attribute("dynamic") == "true")
+        isFormList = "form-list".equals(baseFormNode.name)
 
         // does this form have DbForm extensions?
         boolean alreadyDisabled = ecfi.getExecutionContext().getArtifactExecution().disableAuthz()
@@ -92,27 +92,6 @@ class ScreenForm {
         return "true".equals(cs.getByString("formDisplayOnly")) || "true".equals(cs.getByString("formDisplayOnly_${formName}"))
     }
     boolean hasDataPrep() { return entityFindNode != null }
-
-    String getSavedFindFullLocation() {
-        String fullLocation = location
-        if (isDynamic) {
-            String locationExtension = ecfi.getEci().contextStack.getByString("formLocationExtension")
-            if (!locationExtension) {
-                // try getting service name from auto-fields-service
-                MNode autoFieldsServiceNode = internalFormNode.first("auto-fields-service")
-                if (autoFieldsServiceNode != null)
-                    locationExtension = ecfi.resourceFacade.expandNoL10n(autoFieldsServiceNode.attribute("service-name"), null)
-            }
-            if (!locationExtension) {
-                // try getting entity name from auto-fields-entity
-                MNode autoFieldsServiceNode = internalFormNode.first("auto-fields-entity")
-                if (autoFieldsServiceNode != null)
-                    locationExtension = ecfi.resourceFacade.expandNoL10n(autoFieldsServiceNode.attribute("entity-name"), null)
-            }
-            if (locationExtension) fullLocation = fullLocation + '#' + locationExtension
-        }
-        return fullLocation
-    }
 
     void initForm(MNode baseFormNode, MNode newFormNode) {
         // if there is an extends, put that in first (everything else overrides it)
@@ -283,6 +262,62 @@ class ScreenForm {
                 }
             }
         }
+    }
+
+    String getSavedFindFullLocation() {
+        String fullLocation = location
+        if (isDynamic) {
+            String locationExtension = ecfi.getEci().contextStack.getByString("formLocationExtension")
+            if (!locationExtension) {
+                // try getting service name from auto-fields-service
+                MNode autoFieldsServiceNode = internalFormNode.first("auto-fields-service")
+                if (autoFieldsServiceNode != null)
+                    locationExtension = ecfi.resourceFacade.expandNoL10n(autoFieldsServiceNode.attribute("service-name"), null)
+            }
+            if (!locationExtension) {
+                // try getting entity name from auto-fields-entity
+                MNode autoFieldsServiceNode = internalFormNode.first("auto-fields-entity")
+                if (autoFieldsServiceNode != null)
+                    locationExtension = ecfi.resourceFacade.expandNoL10n(autoFieldsServiceNode.attribute("entity-name"), null)
+            }
+            if (locationExtension) fullLocation = fullLocation + '#' + locationExtension
+        }
+        return fullLocation
+    }
+    List<Map<String, Object>> getUserFormListFinds(ExecutionContextImpl ec) {
+        EntityList flfuList = ec.entity.find("moqui.screen.form.FormListFindUserView")
+                .condition("userId", ec.user.userId)
+                .condition("formLocation", getSavedFindFullLocation()).useCache(true).list()
+        EntityList flfugList = ec.entity.find("moqui.screen.form.FormListFindUserGroupView")
+                .condition("userGroupId", EntityCondition.IN, ec.user.userGroupIdSet)
+                .condition("formLocation", getSavedFindFullLocation()).useCache(true).list()
+        Set<String> userOnlyFlfIdSet = new HashSet<>()
+        Set<String> formListFindIdSet = new HashSet<>()
+        for (EntityValue ev in flfuList) {
+            userOnlyFlfIdSet.add((String) ev.formListFindId)
+            formListFindIdSet.add((String) ev.formListFindId)
+        }
+        for (EntityValue ev in flfugList) formListFindIdSet.add((String) ev.formListFindId)
+
+
+        // get info for each formListFindId
+        List<Map<String, Object>> flfInfoList = new LinkedList<>()
+        for (String formListFindId in formListFindIdSet)
+            flfInfoList.add(getFormListFindInfo(formListFindId, ec, userOnlyFlfIdSet))
+
+        // sort by description
+        CollectionUtilities.orderMapList(flfInfoList, ["description"])
+
+        return flfInfoList
+    }
+    String getUserDefaultFormListFindId(ExecutionContextImpl ec) {
+        String userId = ec.user.userId
+        if (userId == null) return null
+        EntityValue formListFindUserDefault = ec.entityFacade.find("moqui.screen.form.FormListFindUserDefault")
+                .condition("userId", userId).condition("screenLocation", sd?.location)
+                .disableAuthz().useCache(true).one()
+        if (formListFindUserDefault == null) return null
+        return formListFindUserDefault.get("formListFindId")
     }
 
     List<MNode> getDbFormNodeList() {
@@ -1954,6 +1989,8 @@ class ScreenForm {
         boolean hasLastRow() { return formInstance.hasLastRow }
         String getFormLocation() { return screenForm.location }
         String getSavedFindFullLocation() { return screenForm.getSavedFindFullLocation() }
+        List<Map<String, Object>> getUserFormListFinds(ExecutionContextImpl ec) { return screenForm.getUserFormListFinds(ec) }
+        String getUserDefaultFormListFindId(ExecutionContextImpl ec) { return screenForm.getUserDefaultFormListFindId(ec) }
 
         FormInstance getFormInstance() { return formInstance }
         ScreenForm getScreenForm() { return screenForm }
@@ -2075,41 +2112,6 @@ class ScreenForm {
             return aggList
         }
 
-        List<Map<String, Object>> getUserFormListFinds(ExecutionContextImpl ec) {
-            EntityList flfuList = ec.entity.find("moqui.screen.form.FormListFindUserView")
-                    .condition("userId", ec.user.userId)
-                    .condition("formLocation", getSavedFindFullLocation()).useCache(true).list()
-            EntityList flfugList = ec.entity.find("moqui.screen.form.FormListFindUserGroupView")
-                    .condition("userGroupId", EntityCondition.IN, ec.user.userGroupIdSet)
-                    .condition("formLocation", getSavedFindFullLocation()).useCache(true).list()
-            Set<String> userOnlyFlfIdSet = new HashSet<>()
-            Set<String> formListFindIdSet = new HashSet<>()
-            for (EntityValue ev in flfuList) {
-                userOnlyFlfIdSet.add((String) ev.formListFindId)
-                formListFindIdSet.add((String) ev.formListFindId)
-            }
-            for (EntityValue ev in flfugList) formListFindIdSet.add((String) ev.formListFindId)
-
-
-            // get info for each formListFindId
-            List<Map<String, Object>> flfInfoList = new LinkedList<>()
-            for (String formListFindId in formListFindIdSet)
-                flfInfoList.add(getFormListFindInfo(formListFindId, ec, userOnlyFlfIdSet))
-
-            // sort by description
-            CollectionUtilities.orderMapList(flfInfoList, ["description"])
-
-            return flfInfoList
-        }
-        String getUserDefaultFormListFindId(ExecutionContextImpl ec) {
-            String userId = ec.user.userId
-            if (userId == null) return null
-            EntityValue formListFindUserDefault = ec.entityFacade.find("moqui.screen.form.FormListFindUserDefault")
-                    .condition("userId", userId).condition("screenLocation", screenForm?.sd?.location)
-                    .disableAuthz().useCache(true).one()
-            if (formListFindUserDefault == null) return null
-            return formListFindUserDefault.get("formListFindId")
-        }
         String getOrderByActualJsString(String originalOrderBy) {
             if (originalOrderBy == null || originalOrderBy.length() == 0) return "";
             // strip square braces if there are any
