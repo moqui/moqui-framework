@@ -352,6 +352,20 @@ class ScreenRenderImpl implements ScreenRender {
 
             // add URL parameters, if there were any in the URL (in path info or after ?)
             screenUrlInstance.addParameters(web.requestParameters)
+
+            // check for pageSize parameter, if set save in current user's preference, if not look up from user pref
+            if (ec.userFacade.userId != null) {
+                String pageSize = web.requestParameters.get("pageSize")
+                if (pageSize != null && pageSize.isInteger()) {
+                    ec.userFacade.setPreference("screen.user.page.size", pageSize)
+                } else {
+                    String userPageSize = ec.userFacade.getPreference("screen.user.page.size")
+                    if (userPageSize != null && userPageSize.isInteger()) {
+                        web.requestParameters.put("pageSize", userPageSize)
+                        ec.contextStack.put("pageSize", userPageSize)
+                    }
+                }
+            }
         }
 
         // check webapp settings for each screen in the path
