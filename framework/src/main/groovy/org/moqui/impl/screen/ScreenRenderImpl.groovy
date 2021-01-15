@@ -356,12 +356,13 @@ class ScreenRenderImpl implements ScreenRender {
             // check for pageSize parameter, if set save in current user's preference, if not look up from user pref
             if (ec.userFacade.userId != null) {
                 String pageSize = web.requestParameters.get("pageSize")
+                String userPageSize = ec.userFacade.getPreference("screen.user.page.size")
                 if (pageSize != null && pageSize.isInteger()) {
-                    ec.userFacade.setPreference("screen.user.page.size", pageSize)
+                    if (!pageSize.equals(userPageSize))
+                        ec.userFacade.setPreference("screen.user.page.size", pageSize)
                 } else {
-                    String userPageSize = ec.userFacade.getPreference("screen.user.page.size")
                     if (userPageSize != null && userPageSize.isInteger()) {
-                        web.requestParameters.put("pageSize", userPageSize)
+                        // don't add to parameters, just set internally: web.requestParameters.put("pageSize", userPageSize)
                         ec.contextStack.put("pageSize", userPageSize)
                     }
                 }
