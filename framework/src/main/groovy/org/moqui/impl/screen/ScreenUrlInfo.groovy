@@ -17,6 +17,7 @@ import groovy.transform.CompileStatic
 import org.moqui.BaseArtifactException
 import org.moqui.BaseException
 import org.moqui.context.ArtifactExecutionInfo
+import org.moqui.context.ArtifactExecutionInfo.AuthzAction
 import org.moqui.context.ExecutionContext
 import org.moqui.resource.ResourceReference
 import org.moqui.entity.EntityList
@@ -249,6 +250,9 @@ class ScreenUrlInfo {
     }
 
     boolean isPermitted(ExecutionContext ec, TransitionItem transitionItem) {
+        return isPermitted(ec, transitionItem, ArtifactExecutionInfo.AUTHZA_VIEW)
+    }
+    boolean isPermitted(ExecutionContext ec, TransitionItem transitionItem, AuthzAction actionEnum) {
         ArtifactExecutionFacadeImpl aefi = (ArtifactExecutionFacadeImpl) ec.getArtifactExecution()
         String userId = ec.getUser().getUserId()
 
@@ -268,9 +272,10 @@ class ScreenUrlInfo {
 
         int screenPathDefListSize = screenPathDefList.size()
         for (int i = 0; i < screenPathDefListSize; i++) {
+            AuthzAction curActionEnum = (i == (screenPathDefListSize - 1)) ? actionEnum : ArtifactExecutionInfo.AUTHZA_VIEW
             ScreenDefinition screenDef = (ScreenDefinition) screenPathDefList.get(i)
             ArtifactExecutionInfoImpl aeii = new ArtifactExecutionInfoImpl(screenDef.getLocation(),
-                    ArtifactExecutionInfo.AT_XML_SCREEN, ArtifactExecutionInfo.AUTHZA_VIEW, null)
+                    ArtifactExecutionInfo.AT_XML_SCREEN, curActionEnum, null)
 
             ArtifactExecutionInfoImpl lastAeii = (ArtifactExecutionInfoImpl) artifactExecutionInfoStack.peekFirst()
 
