@@ -2127,7 +2127,7 @@ class ScreenForm {
                 MNode headerFieldNode = curFieldNode.first("header-field")
                 if (headerFieldNode == null) continue
                 String showOrderBy = headerFieldNode.attribute("show-order-by")
-                sb.append("'").append(foo.descending ? "-" : "+")
+                sb.append("'").append(foo.descending ? "-" : "")
                 if ("case-insensitive".equals(showOrderBy)) sb.append("^")
                 sb.append(foo.getFieldName()).append("'")
             }
