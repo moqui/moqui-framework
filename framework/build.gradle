@@ -89,7 +89,7 @@ dependencies {
     // ========== Libraries from jcenter ==========
 
     // Apache Commons
-    runtime 'commons-codec:commons-codec:1.14'
+    runtime 'commons-codec:commons-codec:1.15'
     compile 'org.apache.commons:commons-csv:1.8' // Apache 2.0
     // NOTE: commons-email depends on com.sun.mail:javax.mail, included below
     compile module('org.apache.commons:commons-email:1.5') // Apache 2.0
@@ -98,7 +98,7 @@ dependencies {
     compile 'commons-collections:commons-collections:3.2.2' // Apache 2.0
     compile 'commons-digester:commons-digester:2.1' // Apache 2.0
     compile 'commons-fileupload:commons-fileupload:1.4' // Apache 2.0
-    compile 'commons-io:commons-io:2.7' // Apache 2.0
+    compile 'commons-io:commons-io:2.8.0' // Apache 2.0
     compile 'commons-logging:commons-logging:1.2' // Apache 2.0
     compile 'commons-validator:commons-validator:1.7' // Apache 2.0
 
@@ -133,7 +133,7 @@ dependencies {
     compile 'com.h2database:h2:1.4.200' // MPL 2.0, EPL 1.0
 
     // Jackson Databind (JSON, etc)
-    compile 'com.fasterxml.jackson.core:jackson-databind:2.11.2'
+    compile 'com.fasterxml.jackson.core:jackson-databind:2.12.1'
 
     // Jetty HTTP Client and Proxy Servlet
     compile 'org.eclipse.jetty:jetty-client:9.4.35.v20201120' // Apache 2.0
@@ -145,14 +145,14 @@ dependencies {
     compile module('com.sun.mail:javax.mail:1.6.2') // CDDL
 
     // Joda Time (used by elasticsearch, aws)
-    compile 'joda-time:joda-time:2.10.6' // Apache 2.0
+    compile 'joda-time:joda-time:2.10.9' // Apache 2.0
 
     // JSoup (HTML parser, cleaner)
     compile 'org.jsoup:jsoup:1.13.1' // MIT
 
     // Apache Shiro
-    compile module('org.apache.shiro:shiro-core:1.6.0') // Apache 2.0
-    compile module('org.apache.shiro:shiro-web:1.6.0') // Apache 2.0
+    compile module('org.apache.shiro:shiro-core:1.7.0') // Apache 2.0
+    compile module('org.apache.shiro:shiro-web:1.7.0') // Apache 2.0
 
     // SLF4J, Log4j 2 (note Log4j 2 is used by various libraries, best not to replace it even if mostly possible with SLF4J)
     compile 'org.slf4j:slf4j-api:1.7.30'
@@ -165,7 +165,7 @@ dependencies {
     compile module('org.subethamail:subethasmtp:3.1.7')
 
     // Snake YAML
-    compile 'org.yaml:snakeyaml:1.26' // Apache 2.0
+    compile 'org.yaml:snakeyaml:1.27' // Apache 2.0
 
     // Apache Jackrabbit - uncomment here or include elsewhere when Jackrabbit repository configurations are used
     // compile 'org.apache.jackrabbit:jackrabbit-jcr-rmi:2.12.1' // Apache 2.0
