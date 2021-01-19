@@ -337,7 +337,6 @@ task addRuntime {
             from fileTree(dir: '.', include: moquiRuntime+'/**',
                     excludes: [
                             moquiRuntime+'/component/**/src/test/*',
-                            moquiRuntime+'/component/**/_tools/*',
                             moquiRuntime+'/component/**/tools/*',
                             '**/*.jar',
                             '**/build',
