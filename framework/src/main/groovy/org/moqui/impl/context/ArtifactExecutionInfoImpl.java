@@ -55,6 +55,7 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     public boolean trackArtifactHit = true;
     private boolean internalAuthzWasGranted = false;
     public ArtifactAuthzCheck internalAacv = null;
+    public Long moquiTxId = null;
 
     //protected Exception createdLocation = null
     private ArtifactExecutionInfoImpl parentAeii = (ArtifactExecutionInfoImpl) null;
@@ -123,6 +124,9 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     @Override
     public boolean getAuthorizationWasGranted() { return internalAuthzWasGranted; }
     void setAuthorizationWasGranted(boolean value) { internalAuthzWasGranted = value ? Boolean.TRUE : Boolean.FALSE; }
+
+    public Long getMoquiTxId() { return moquiTxId; }
+    void setMoquiTxId(Long txId) { moquiTxId = txId; }
 
     ArtifactAuthzCheck getAacv() { return internalAacv; }
 
@@ -369,13 +373,14 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
                 "', required: " + internalAuthzWasRequired + ", granted:" + internalAuthzWasGranted +
                 ", user:'" + internalAuthorizedUserId + "', authz:'" + internalAuthorizedAuthzType +
                 "', authAction:'" + internalAuthorizedActionEnum + "', inheritable:" + internalAuthorizationInheritable +
-                ", runningTime:" + getRunningTime() + "]";
+                ", runningTime:" + getRunningTime() + "', txId:" + moquiTxId + "]";
     }
     @Override public String toBasicString() {
         StringBuilder builder = new StringBuilder().append(internalTypeEnum.toString()).append(':').append(nameInternal)
-                .append('(').append(internalActionEnum.toString());
+                .append(" (").append(internalActionEnum.toString());
         if (actionDetail != null && !actionDetail.isEmpty()) builder.append(':').append(actionDetail);
         builder.append(") ").append(System.currentTimeMillis() - startTimeMillis).append("ms");
+        if (moquiTxId != null) builder.append(" TX ").append(moquiTxId);
         return builder.toString();
     }
 
