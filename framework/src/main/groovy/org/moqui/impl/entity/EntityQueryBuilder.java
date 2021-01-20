@@ -47,14 +47,16 @@ public class EntityQueryBuilder implements Runnable {
     private boolean externalConnection = false;
     private boolean isFindOne = false;
 
-    // TODO make this configurable, in Conf XML and env var, default to false
     boolean execWithTimeout = false;
-    // TODO get cur tx timeout, this constant just for testing
-    long execTimeout = 15;
+    // cur tx timeout set in constructor
+    long execTimeout = 60000;
 
     public EntityQueryBuilder(EntityDefinition entityDefinition, EntityFacadeImpl efi) {
         this.mainEntityDefinition = entityDefinition;
         this.efi = efi;
+
+        execWithTimeout = efi.ecfi.transactionFacade.getUseStatementTimeout();
+        if (execWithTimeout) this.execTimeout = efi.ecfi.transactionFacade.getTxTimeoutRemainingMillis();
     }
 
     public EntityDefinition getMainEd() { return mainEntityDefinition; }
@@ -127,6 +129,7 @@ public class EntityQueryBuilder implements Runnable {
             Thread execThread = new Thread(this);
             execThread.start();
             try {
+                // if (execTimeout != 60000L) logger.info("statement with timeout " + execTimeout);
                 execThread.join(execTimeout);
             } catch (Exception e) {
                 uncaughtThrowable = e;
