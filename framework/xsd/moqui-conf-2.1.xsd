@@ -404,6 +404,9 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="use-lock-track" default="false" type="boolean-expandable">
                 <xs:annotation><xs:documentation>If true track locks from create, update, and delete plus FK locks and find for-update,
                     use that data to warn about possible lock conflicts</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="use-statement-timeout" default="false" type="boolean-expandable">
+                <xs:annotation><xs:documentation>If true runs all JDBC statements in a separate Thread in order to enforce a timeout,
+                    this has significant overhead but protects against long held locks, etc</xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="transaction-jndi">
