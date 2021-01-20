@@ -316,6 +316,7 @@ public class ContextJavaUtil {
         public final long moquiTxId = moquiTxIdLast.incrementAndGet();
         public Exception transactionBegin = null;
         public Long transactionBeginStartTime = null;
+        public int transactionTimeout = 60;
         public RollbackInfo rollbackOnlyInfo = null;
 
         public Transaction suspendedTx = null;
@@ -337,6 +338,7 @@ public class ContextJavaUtil {
             rollbackOnlyInfo = null;
             transactionBegin = null;
             transactionBeginStartTime = null;
+            transactionTimeout = 60;
             activeXaResourceMap.clear();
             activeSynchronizationMap.clear();
             txCache = null;
