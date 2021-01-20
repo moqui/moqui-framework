@@ -103,6 +103,9 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
             throw e
         }
 
+        // set the moquiTxId for all that make it onto the stack
+        aeii.setMoquiTxId(eci.transactionFacade.getTxStackInfo().moquiTxId)
+
         // NOTE: if needed the isPermitted method will set additional info in aeii
         this.artifactExecutionInfoStack.addFirst(aeii)
         this.aeiStackCache = (ArrayList<ArtifactExecutionInfo>) null
