@@ -23,6 +23,7 @@ import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import groovy.lang.GString;
+import org.codehaus.groovy.runtime.StringGroovyMethods;
 import org.jetbrains.annotations.NotNull;
 import org.moqui.context.ArtifactExecutionInfo;
 import org.moqui.entity.EntityFind;
@@ -411,14 +412,18 @@ public class ContextJavaUtil {
                             .append(" moqui tx ").append(moquiTxId).append(" began ").append(new Timestamp(txBeginTime));
                     if (mutateEntityName != null) msgBuilder.append(" from mutate of entity ").append(mutateEntityName).append(" pk ").append(mutatePkString);
                     msgBuilder.append(" at: ");
-                    if (artifactStack != null) for (int mi = 0; mi < artifactStack.size(); mi++)
-                        msgBuilder.append("\n== ").append(artifactStack.get(mi).toBasicString());
+                    if (artifactStack != null) for (int mi = 0; mi < artifactStack.size(); mi++) {
+                        msgBuilder.append("\n").append(StringGroovyMethods.padLeft((CharSequence) Integer.toString(mi), 2, "0"))
+                                .append(": ").append(artifactStack.get(mi).toBasicString());
+                    }
                     for (int i = 0; i < curErlList.size(); i++) {
                         EntityRecordLock otherErl = curErlList.get(i);
-                        msgBuilder.append("\nOther Lock ").append(i).append(" thread ").append(otherErl.threadName)
-                                .append(" moqui tx ").append(otherErl.moquiTxId).append(" began ").append(new Timestamp(txBeginTime)).append(" at: ");
-                        if (otherErl.artifactStack != null) for (int mi = 0; mi < otherErl.artifactStack.size(); mi++)
-                            msgBuilder.append("\n== ").append(otherErl.artifactStack.get(mi).toBasicString());
+                        msgBuilder.append("\n== OTHER LOCK ").append(i).append(" thread ").append(otherErl.threadName)
+                                .append(" moqui tx ").append(otherErl.moquiTxId).append(" began ").append(new Timestamp(otherErl.txBeginTime)).append(" at: ");
+                        if (otherErl.artifactStack != null) for (int mi = 0; mi < otherErl.artifactStack.size(); mi++) {
+                            msgBuilder.append("\n").append(StringGroovyMethods.padLeft((CharSequence) Integer.toString(mi), 2, "0"))
+                                    .append(": ").append(otherErl.artifactStack.get(mi).toBasicString());
+                        }
                     }
                     logger.warn(msgBuilder.toString());
                 }
