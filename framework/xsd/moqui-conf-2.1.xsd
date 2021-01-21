@@ -571,6 +571,11 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:attribute name="url" type="xs:string" use="required"/>
                 <xs:attribute name="user" type="xs:string"/>
                 <xs:attribute name="password" type="xs:string"/>
+                <xs:attribute name="index-prefix" type="xs:string"><xs:annotation><xs:documentation>
+                    Prefix added to all ES index names just before requests
+                    Must follow ES index name requirements (lower case, etc)
+                    No separator character is added, recommend ending with underscore (_)
+                </xs:documentation></xs:annotation></xs:attribute>
                 <xs:attribute name="pool-max" type="xs:positiveInteger"/>
                 <xs:attribute name="queue-size" type="xs:positiveInteger"/>
             </xs:complexType></xs:element>
