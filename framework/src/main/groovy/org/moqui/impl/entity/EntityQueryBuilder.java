@@ -25,7 +25,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Map;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 public class EntityQueryBuilder implements Runnable {
     protected static final Logger logger = LoggerFactory.getLogger(EntityQueryBuilder.class);
@@ -96,6 +97,7 @@ public class EntityQueryBuilder implements Runnable {
     Throwable uncaughtThrowable = null;
     Boolean execQuery = null;
     int rowsUpdated = -1;
+
     public void run() {
         if (execQuery == null) {
             logger.warn("Called run() with no execQuery flag set, ignoring", new Exception("run call location"));
@@ -125,12 +127,10 @@ public class EntityQueryBuilder implements Runnable {
 
         execQuery = true;
         if (execWithTimeout) {
-            // TODO: try exec thread pool with Runnable, new Thread() is really slow dropping overall entity find one time from ~300k ops/sec to ~9k ops/sec (on local H2)
-            Thread execThread = new Thread(this);
-            execThread.start();
             try {
+                Future<?> execFuture = efi.statementExecutor.submit(this);
                 // if (execTimeout != 60000L) logger.info("statement with timeout " + execTimeout);
-                execThread.join(execTimeout);
+                execFuture.get(execTimeout, TimeUnit.MILLISECONDS);
             } catch (Exception e) {
                 uncaughtThrowable = e;
             }
@@ -164,10 +164,9 @@ public class EntityQueryBuilder implements Runnable {
 
         execQuery = false;
         if (execWithTimeout) {
-            Thread execThread = new Thread(this);
-            execThread.start();
             try {
-                execThread.join(execTimeout);
+                Future<?> execFuture = efi.statementExecutor.submit(this);
+                execFuture.get(execTimeout, TimeUnit.MILLISECONDS);
             } catch (Exception e) {
                 uncaughtThrowable = e;
             }
