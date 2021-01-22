@@ -80,6 +80,10 @@ public interface EntityDataLoader {
      */
     EntityDataLoader dummyFks(boolean dummyFks);
 
+    /** Files with no actions (or no messages for check) are logged in the check and load message list by default,
+     * set to false to not add messages for them */
+    EntityDataLoader messageNoActionFiles(boolean messageNoActionFiles);
+
     /** Set to true to disable Entity Facade ECA rules (for this import only, does not affect other things happening
      * in the system).
      * @return Reference to this for convenience.

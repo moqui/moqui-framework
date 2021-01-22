@@ -26,6 +26,7 @@ import org.moqui.entity.EntityNotFoundException
 import org.moqui.entity.EntityValue
 import org.moqui.entity.EntityValueNotFoundException
 import org.moqui.impl.util.SimpleSigner
+import org.moqui.util.MNode
 import org.moqui.util.WebUtilities
 import org.moqui.impl.context.ExecutionContextFactoryImpl.WebappInfo
 import org.moqui.impl.screen.ScreenDefinition
@@ -86,8 +87,11 @@ class WebFacadeImpl implements WebFacade {
         this.request = request
         this.response = response
 
-        // NOTE: the Visit is not setup here but rather in the MoquiEventListener (for init and destroy)
-        request.setAttribute("ec", eci)
+        MNode webappNode = eci.ecfi.getWebappNode(webappMoquiName)
+        boolean uploadExecutableAllow = "true".equals(webappNode.attribute("upload-executable-allow"))
+
+        // NOTE: the Visit is not setup here but rather in the MoquiSessionListener (for init and destroy)
+        // don't set 'ec' in request attributes, not serializable: request.setAttribute("ec", eci)
 
         // get any parameters saved to the session from the last request, and clear that session attribute if there
         savedParameters = (Map<String, Object>) request.session.getAttribute("moqui.saved.parameters")
@@ -159,6 +163,13 @@ class WebFacadeImpl implements WebFacade {
                 if (item.isFormField()) {
                     addValueToMultipartParameterMap(item.getFieldName(), item.getString("UTF-8"))
                 } else {
+                    if (!uploadExecutableAllow) {
+                        if (WebUtilities.isExecutable(item)) {
+                            logger.warn("Found executable upload file ${item.getName()}")
+                            throw new WebMediaTypeException("Executable file ${item.getName()} upload not allowed")
+                        }
+                    }
+
                     // put the FileItem itself in the Map to be used by the application code
                     addValueToMultipartParameterMap(item.getFieldName(), item)
                     fileUploadList.add(item)
@@ -458,6 +469,10 @@ class WebFacadeImpl implements WebFacade {
     }
 
     @Override String getRequestBodyText() { return requestBodyText }
+    @Override String getResourceDistinctValue() {
+        return eci.ecfi.initStartHex
+    }
+
     @Override HttpServletResponse getResponse() { return response }
 
     @Override HttpSession getSession() { return request.getSession() }
@@ -685,9 +700,14 @@ class WebFacadeImpl implements WebFacade {
         }
     }
 
-    void sendJsonError(int statusCode, String errorMessages) {
+    @Override
+    void sendJsonError(int statusCode, String message, Throwable origThrowable) {
+        sendJsonErrorInternal(statusCode, message, origThrowable, response)
+    }
+    static void sendJsonErrorInternal(int statusCode, String message, Throwable origThrowable, HttpServletResponse response) {
+        if ((message == null || message.isEmpty()) && origThrowable != null) message = origThrowable.message
         // NOTE: uses same field name as sendJsonResponseInternal
-        String jsonStr = ContextJavaUtil.jacksonMapper.writeValueAsString([errorCode:statusCode, errors:errorMessages])
+        String jsonStr = ContextJavaUtil.jacksonMapper.writeValueAsString([errorCode:statusCode, errors:message])
         response.setContentType("application/json")
         // NOTE: String.length not correct for byte length
         String charset = response.getCharacterEncoding() ?: "UTF-8"
@@ -747,7 +767,7 @@ class WebFacadeImpl implements WebFacade {
     }
 
     @Override void sendResourceResponse(String location) { sendResourceResponseInternal(location, false, eci, response) }
-    void sendResourceResponse(String location, boolean inline) { sendResourceResponseInternal(location, inline, eci, response) }
+    @Override void sendResourceResponse(String location, boolean inline) { sendResourceResponseInternal(location, inline, eci, response) }
     static void sendResourceResponseInternal(String location, boolean inline, ExecutionContextImpl eci, HttpServletResponse response) {
         ResourceReference rr = eci.resource.getLocationReference(location)
         if (rr == null || (rr.supportsExists() && !rr.getExists())) {
@@ -853,7 +873,7 @@ class WebFacadeImpl implements WebFacade {
 
         // check for parsing error, send a 400 response
         if (parmStack._requestBodyJsonParseError) {
-            sendJsonError(HttpServletResponse.SC_BAD_REQUEST, (String) parmStack._requestBodyJsonParseError)
+            sendJsonError(HttpServletResponse.SC_BAD_REQUEST, (String) parmStack._requestBodyJsonParseError, null)
             return
         }
 
@@ -862,7 +882,7 @@ class WebFacadeImpl implements WebFacade {
             // if there was a login error there will be a MessageFacade error message
             String errorMessage = eci.message.errorsString
             if (!errorMessage) errorMessage = "Authentication required for entity REST operations"
-            sendJsonError(HttpServletResponse.SC_UNAUTHORIZED, errorMessage)
+            sendJsonError(HttpServletResponse.SC_UNAUTHORIZED, errorMessage, null)
             return
         }
 
@@ -884,7 +904,7 @@ class WebFacadeImpl implements WebFacade {
                     if (!(bodyListObj instanceof Map)) {
                         String errMsg = "If request body JSON is a list/array it must contain only object/map values, found non-map entry of type ${bodyListObj.getClass().getName()} with value: ${bodyListObj}"
                         logger.warn(errMsg)
-                        sendJsonError(HttpServletResponse.SC_BAD_REQUEST, errMsg)
+                        sendJsonError(HttpServletResponse.SC_BAD_REQUEST, errMsg, null)
                         return
                     }
                     // logger.warn("========== REST ${method} ${request.getPathInfo()} ${extraPathNameList}; body list object: ${bodyListObj}")
@@ -895,12 +915,16 @@ class WebFacadeImpl implements WebFacade {
                     parmStack.pop()
                 }
                 response.addIntHeader('X-Run-Time-ms', (System.currentTimeMillis() - startTime) as int)
-                response.addHeader("moquiSessionToken", getSessionToken())
+                String sessionToken = getSessionToken()
+                response.addHeader("moquiSessionToken", sessionToken)
+                response.addHeader("X-CSRF-Token", sessionToken)
                 sendJsonResponse(responseList)
             } else {
                 Object responseObj = eci.entityFacade.rest(method, extraPathNameList, parmStack, masterNameInPath)
                 response.addIntHeader('X-Run-Time-ms', (System.currentTimeMillis() - startTime) as int)
-                response.addHeader("moquiSessionToken", getSessionToken())
+                String sessionToken = getSessionToken()
+                response.addHeader("moquiSessionToken", sessionToken)
+                response.addHeader("X-CSRF-Token", sessionToken)
 
                 if (parmStack.xTotalCount != null) response.addIntHeader('X-Total-Count', parmStack.xTotalCount as int)
                 if (parmStack.xPageIndex != null) response.addIntHeader('X-Page-Index', parmStack.xPageIndex as int)
@@ -916,20 +940,20 @@ class WebFacadeImpl implements WebFacade {
         } catch (ArtifactAuthorizationException e) {
             // SC_UNAUTHORIZED 401 used when authc/login fails, use SC_FORBIDDEN 403 for authz failures
             logger.warn("REST Access Forbidden (403 no authz): " + e.message)
-            sendJsonError(HttpServletResponse.SC_FORBIDDEN, e.message)
+            sendJsonError(HttpServletResponse.SC_FORBIDDEN, null, e)
         } catch (ArtifactTarpitException e) {
             logger.warn("REST Too Many Requests (429 tarpit): " + e.message)
             if (e.getRetryAfterSeconds()) response.addIntHeader("Retry-After", e.getRetryAfterSeconds())
             // NOTE: there is no constant on HttpServletResponse for 429; see RFC 6585 for details
-            sendJsonError(429, e.message)
+            sendJsonError(429, null, e)
         } catch (EntityNotFoundException e) {
-            logger.warn((String) "REST Entity Not Found (404): " + e.getMessage(), e)
+            logger.warn((String) "REST Entity Not Found (404): " + e.message, e)
             // send 404 Not Found for entities that don't exist (along with records that don't exist)
-            sendJsonError(HttpServletResponse.SC_NOT_FOUND, e.message)
+            sendJsonError(HttpServletResponse.SC_NOT_FOUND, null, e)
         } catch (EntityValueNotFoundException e) {
-            logger.warn("REST Entity Value Not Found (404): " + e.getMessage())
+            logger.warn("REST Entity Value Not Found (404): " + e.message)
             // record doesn't exist, send 404 Not Found
-            sendJsonError(HttpServletResponse.SC_NOT_FOUND, e.message)
+            sendJsonError(HttpServletResponse.SC_NOT_FOUND, null, e)
         } catch (Throwable t) {
             String errorMessage = t.toString()
             if (eci.message.hasError()) {
@@ -938,7 +962,7 @@ class WebFacadeImpl implements WebFacade {
                 errorMessage = errorMessage + ' ' + errorsString
             }
             logger.warn((String) "General error in entity REST: " + t.toString(), t)
-            sendJsonError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, errorMessage)
+            sendJsonError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, errorMessage, null)
         }
     }
 
@@ -946,24 +970,24 @@ class WebFacadeImpl implements WebFacade {
     void handleServiceRestCall(List<String> extraPathNameList) {
         ContextStack parmStack = (ContextStack) getParameters()
 
-        logger.info("Service REST for ${request.getMethod()} to ${request.getPathInfo()} headers ${request.headerNames.collect()} parameters ${getRequestParameters()}")
+        logger.info("Service REST for ${request.getMethod()} to ${request.getPathInfo()} headers ${request.headerNames.collect()} parameters ${getRequestParameters().keySet()}")
 
         // check for login, etc error messages
         if (eci.message.hasError()) {
             String errorsString = eci.message.errorsString
             if ("true".equals(request.getAttribute("moqui.login.error"))) {
                 logger.warn((String) "Login error in Service REST API: " + errorsString)
-                sendJsonError(HttpServletResponse.SC_UNAUTHORIZED, errorsString)
+                sendJsonError(HttpServletResponse.SC_UNAUTHORIZED, errorsString, null)
             } else {
                 logger.warn((String) "General error in Service REST API: " + errorsString)
-                sendJsonError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, errorsString)
+                sendJsonError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, errorsString, null)
             }
             return
         }
 
         // check for parsing error, send a 400 response
         if (parmStack._requestBodyJsonParseError) {
-            sendJsonError(HttpServletResponse.SC_BAD_REQUEST, (String) parmStack._requestBodyJsonParseError)
+            sendJsonError(HttpServletResponse.SC_BAD_REQUEST, (String) parmStack._requestBodyJsonParseError, null)
             return
         }
 
@@ -978,7 +1002,7 @@ class WebFacadeImpl implements WebFacade {
                     if (!(bodyListObj instanceof Map)) {
                         String errMsg = "If request body JSON is a list/array it must contain only object/map values, found non-map entry of type ${bodyListObj.getClass().getName()} with value: ${bodyListObj}"
                         logger.warn(errMsg)
-                        sendJsonError(HttpServletResponse.SC_BAD_REQUEST, errMsg)
+                        sendJsonError(HttpServletResponse.SC_BAD_REQUEST, errMsg, null)
                         return
                     }
                     // logger.warn("========== REST ${request.getMethod()} ${request.getPathInfo()} ${extraPathNameList}; body list object: ${bodyListObj}")
@@ -993,13 +1017,15 @@ class WebFacadeImpl implements WebFacade {
                     parmStack.pop()
                 }
                 response.addIntHeader('X-Run-Time-ms', (System.currentTimeMillis() - startTime) as int)
-                response.addHeader("moquiSessionToken", getSessionToken())
+                String sessionToken = getSessionToken()
+                response.addHeader("moquiSessionToken", sessionToken)
+                response.addHeader("X-CSRF-Token", sessionToken)
 
                 if (eci.message.hasError()) {
                     // if error return that
                     String errorsString = eci.message.errorsString
                     logger.warn((String) "General error in Service REST API: " + errorsString)
-                    sendJsonError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, errorsString)
+                    sendJsonError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, errorsString, null)
                 } else {
                     // otherwise send response
                     sendJsonResponse(responseList)
@@ -1009,14 +1035,16 @@ class WebFacadeImpl implements WebFacade {
                 RestApi.RestResult restResult = eci.serviceFacade.restApi.run(extraPathNameList, eci)
                 eci.contextStack.pop()
                 response.addIntHeader('X-Run-Time-ms', (System.currentTimeMillis() - startTime) as int)
-                response.addHeader("moquiSessionToken", getSessionToken())
+                String sessionToken = getSessionToken()
+                response.addHeader("moquiSessionToken", sessionToken)
+                response.addHeader("X-CSRF-Token", sessionToken)
                 restResult.setHeaders(response)
 
                 if (eci.message.hasError()) {
                     // if error return that
                     String errorsString = eci.message.errorsString
                     logger.warn((String) "Error message from Service REST API (400): " + errorsString)
-                    sendJsonError(HttpServletResponse.SC_BAD_REQUEST, errorsString)
+                    sendJsonError(HttpServletResponse.SC_BAD_REQUEST, errorsString, null)
                 } else {
                     // NOTE: This will always respond with 200 OK, consider using 201 Created (for successful POST, create PUT)
                     //     and 204 No Content (for DELETE and other when no content is returned)
@@ -1025,27 +1053,27 @@ class WebFacadeImpl implements WebFacade {
             }
         } catch (AuthenticationRequiredException e) {
             logger.warn("REST Unauthorized (401 no authc): " + e.message)
-            sendJsonError(HttpServletResponse.SC_UNAUTHORIZED, e.message)
+            sendJsonError(HttpServletResponse.SC_UNAUTHORIZED, null, e)
         } catch (ArtifactAuthorizationException e) {
             // SC_UNAUTHORIZED 401 used when authc/login fails, use SC_FORBIDDEN 403 for authz failures
             logger.warn("REST Access Forbidden (403 no authz): " + e.message)
-            sendJsonError(HttpServletResponse.SC_FORBIDDEN, e.message)
+            sendJsonError(HttpServletResponse.SC_FORBIDDEN, null, e)
         } catch (ArtifactTarpitException e) {
             logger.warn("REST Too Many Requests (429 tarpit): " + e.message)
             if (e.getRetryAfterSeconds()) response.addIntHeader("Retry-After", e.getRetryAfterSeconds())
             // NOTE: there is no constant on HttpServletResponse for 429; see RFC 6585 for details
-            sendJsonError(429, e.message)
+            sendJsonError(429, null, e)
         } catch (RestApi.ResourceNotFoundException e) {
-            logger.warn((String) "REST Resource Not Found (404): " + e.getMessage())
+            logger.warn((String) "REST Resource Not Found (404): " + e.message)
             // send 404 Not Found for resources/paths that don't exist (along with records that don't exist)
-            sendJsonError(HttpServletResponse.SC_NOT_FOUND, e.message)
+            sendJsonError(HttpServletResponse.SC_NOT_FOUND, null, e)
         } catch (RestApi.MethodNotSupportedException e) {
-            logger.warn((String) "REST Method Not Supported (405): " + e.getMessage())
-            sendJsonError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, e.message)
+            logger.warn((String) "REST Method Not Supported (405): " + e.message)
+            sendJsonError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, null, e)
         } catch (EntityValueNotFoundException e) {
-            logger.warn("REST Entity Value Not Found (404): " + e.getMessage())
+            logger.warn("REST Entity Value Not Found (404): " + e.message)
             // record doesn't exist, send 404 Not Found
-            sendJsonError(HttpServletResponse.SC_NOT_FOUND, e.message)
+            sendJsonError(HttpServletResponse.SC_NOT_FOUND, null, e)
         } catch (Throwable t) {
             String errorMessage = t.toString()
             if (eci.message.hasError()) {
@@ -1054,7 +1082,7 @@ class WebFacadeImpl implements WebFacade {
                 errorMessage = errorMessage + ' ' + errorsString
             }
             logger.warn((String) "Error thrown in Service REST API (500): " + t.toString(), t)
-            sendJsonError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, errorMessage)
+            sendJsonError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, errorMessage, null)
         }
     }
 
@@ -1164,6 +1192,8 @@ class WebFacadeImpl implements WebFacade {
     void saveScreenLastInfo(String screenPath, Map parameters) {
         session.setAttribute("moqui.screen.last.path", screenPath ?: getPathInfo())
         parameters = parameters ?: new HashMap(getRequestParameters())
+        // logger.warn("saveScreenLastInfo parameters: ${parameters}")
+        // logger.warn("saveScreenLastInfo getRequestParameters(): ${getRequestParameters().toString()}")
         WebUtilities.testSerialization("moqui.screen.last.parameters", parameters)
         session.setAttribute("moqui.screen.last.parameters", parameters)
     }
@@ -1198,20 +1228,26 @@ class WebFacadeImpl implements WebFacade {
 
     /** Save passed parameters Map to a Map in the moqui.saved.parameters session attribute */
     void saveParametersToSession(Map parameters) {
+        if (parameters == null || parameters.size() == 0) return
         Map parms = new HashMap()
+        // merge existing moqui.saved.parameters if there are any, valid for current request only as WebFacadeImpl() constructors removes this session attribute if has value
         Map currentSavedParameters = (Map) request.session.getAttribute("moqui.saved.parameters")
         if (currentSavedParameters) parms.putAll(currentSavedParameters)
-        if (parameters) parms.putAll(parameters)
+        parms.putAll(parameters)
+        if (!"production".equals(System.getProperty("instance_purpose")))
+            WebUtilities.testSerialization("moqui.saved.parameters", parms)
         session.setAttribute("moqui.saved.parameters", parms)
     }
     /** Save request parameters and attributes to a Map in the moqui.saved.parameters session attribute */
     void saveRequestParametersToSession() {
         Map parms = new HashMap()
+        // merge existing moqui.saved.parameters if there are any, valid for current request only as WebFacadeImpl() constructors removes this session attribute if has value
         Map currentSavedParameters = (Map) request.session.getAttribute("moqui.saved.parameters")
         if (currentSavedParameters) parms.putAll(currentSavedParameters)
         if (requestParameters) parms.putAll(requestParameters)
-        if (requestAttributes) parms.putAll(requestAttributes)
-        WebUtilities.testSerialization("moqui.saved.parameters", parms)
+        // don't include attributes, end up with internal stuff in URL parameters: if (requestAttributes) parms.putAll(requestAttributes)
+        if (!"production".equals(System.getProperty("instance_purpose")))
+            WebUtilities.testSerialization("moqui.saved.parameters", parms)
         session.setAttribute("moqui.saved.parameters", parms)
     }
 
@@ -1219,8 +1255,9 @@ class WebFacadeImpl implements WebFacade {
     void saveErrorParametersToSession() {
         Map parms = new HashMap()
         if (requestParameters) parms.putAll(requestParameters)
-        if (requestAttributes) parms.putAll(requestAttributes)
-        WebUtilities.testSerialization("moqui.saved.parameters", parms)
+        // don't include attributes, end up with internal stuff in URL parameters: if (requestAttributes) parms.putAll(requestAttributes)
+        if (!"production".equals(System.getProperty("instance_purpose")))
+            WebUtilities.testSerialization("moqui.error.parameters", parms)
         session.setAttribute("moqui.error.parameters", parms)
     }
 

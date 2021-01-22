@@ -159,7 +159,30 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element minOccurs="0" ref="auto-fields-entity"/>
                 <xs:element minOccurs="0" name="field" type="form-field-list"/>
             </xs:choice>
-            <xs:element minOccurs="0" maxOccurs="unbounded" ref="form-list-column"/>
+            <xs:element name="form-list-column" minOccurs="0" maxOccurs="unbounded"><xs:annotation>
+                <xs:documentation>Fields in this set will be in the same column in the list form table.</xs:documentation>
+            </xs:annotation><xs:complexType>
+                <xs:sequence><xs:element maxOccurs="unbounded" ref="field-ref"/></xs:sequence>
+            </xs:complexType></xs:element>
+
+            <xs:element name="columns" minOccurs="0" maxOccurs="unbounded"><xs:annotation>
+                <xs:documentation>Configuration for default columns and fields in each</xs:documentation>
+            </xs:annotation><xs:complexType>
+                <xs:sequence>
+                    <xs:element name="column" minOccurs="0" maxOccurs="unbounded"><xs:annotation>
+                        <xs:documentation>Fields in this set will be in the same column in the list form table (alternative to old form-list-column element).</xs:documentation>
+                    </xs:annotation><xs:complexType>
+                        <xs:sequence><xs:element maxOccurs="unbounded" ref="field-ref"/></xs:sequence>
+                    </xs:complexType></xs:element>
+                </xs:sequence>
+                <xs:attribute name="type" type="xs:string"><xs:annotation><xs:documentation>
+                    Used to distinguish multiple columns configurations, can be anything used in the '_uiType' parameter (or context field).
+                    If type not specified used as a default for any _uiType value not specified in another columns elements.
+                    Initially 'desktop' and 'mobile' are supported.
+                    Corresponds to FormConfig.configTypeEnumId for per-user and other saved form configurations.
+                </xs:documentation></xs:annotation></xs:attribute>
+            </xs:complexType></xs:element>
+
         </xs:sequence>
         <xs:attribute name="name" type="name-upper" use="required">
             <xs:annotation><xs:documentation>The name of the form. Used to reference the form along with the XML Screen
@@ -367,11 +390,6 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:sequence><xs:element minOccurs="0" maxOccurs="unbounded" ref="field-ref"/></xs:sequence>
         <xs:attribute name="title" type="xs:string"/>
     </xs:complexType></xs:element>
-    <xs:element name="form-list-column"><xs:annotation>
-        <xs:documentation>Fields in this set will be in the same column in the list form table.</xs:documentation>
-    </xs:annotation><xs:complexType>
-        <xs:sequence><xs:element minOccurs="0" maxOccurs="unbounded" ref="field-ref"/></xs:sequence>
-    </xs:complexType></xs:element>
     <xs:element name="field-ref"><xs:complexType>
         <xs:attribute name="name" type="name-parameter" use="required"/></xs:complexType></xs:element>
     <xs:element name="fields-not-referenced">
@@ -450,6 +468,7 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:attribute name="entity-key-name" type="xs:string"/>
         <xs:attribute name="entity-use-cache" default="true" type="boolean"/>
     </xs:complexType></xs:element>
+
     <xs:element name="image" substitutionGroup="StandaloneFields"><xs:complexType>
         <xs:sequence>
             <xs:element minOccurs="0" maxOccurs="unbounded" ref="parameter"/>
@@ -468,6 +487,7 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:attribute name="condition" type="xs:string"><xs:annotation><xs:documentation>
             If specified and evaluates to false image is not rendered.</xs:documentation></xs:annotation></xs:attribute>
     </xs:complexType></xs:element>
+
     <xs:element name="label" substitutionGroup="StandaloneFields"><xs:complexType>
         <xs:attribute name="text" type="xs:string" use="required"/>
         <xs:attribute name="text-map" type="xs:string">
@@ -504,6 +524,7 @@ along with this software (see the LICENSE.md file). If not, see
         </xs:documentation></xs:annotation></xs:attribute>
         <xs:attribute name="tooltip" type="xs:string"/>
     </xs:complexType></xs:element>
+
     <xs:element name="editable" substitutionGroup="StandaloneFields"><xs:complexType>
         <xs:sequence>
             <xs:element minOccurs="0" maxOccurs="unbounded" ref="parameter"/>
@@ -882,13 +903,17 @@ along with this software (see the LICENSE.md file). If not, see
             </xs:choice>
             <xs:element minOccurs="0" ref="dynamic-options"/>
         </xs:sequence>
-        <xs:attribute name="allow-empty" type="xs:string" default="false"/>
-        <xs:attribute name="allow-multiple" type="xs:string" default="false"/>
+        <xs:attribute name="allow-empty" type="boolean-expandable" default="false"/>
+        <xs:attribute name="allow-multiple" type="boolean-expandable" default="false"/>
         <xs:attribute name="size" type="xs:integer" default="1"/>
         <xs:attribute name="current" default="selected"><xs:simpleType><xs:restriction base="xs:token">
             <xs:enumeration value="first-in-list"/><xs:enumeration value="selected"/></xs:restriction></xs:simpleType></xs:attribute>
         <xs:attribute name="no-current-selected-key" type="xs:string">
             <xs:annotation><xs:documentation>The key to mark as selected when there is no current entry value.</xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="required-manual-select" type="boolean">
+            <xs:annotation><xs:documentation>If true and allow-empty is not true (required, no empty option) don't auto-select the first option,
+                require user to manually select unless there is only 1 option (qvt only as of 2020-12-10)</xs:documentation></xs:annotation>
         </xs:attribute>
         <xs:attribute name="current-description" type="xs:string"/>
         <!-- currently not supported (allow text entry or select option): <xs:attribute name="combo-box" type="boolean" default="false"/> -->
@@ -899,6 +924,8 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:attribute name="size" type="xs:positiveInteger" default="30"/>
         <xs:attribute name="maxlength" type="xs:positiveInteger"/>
         <xs:attribute name="default-value" type="xs:string"/>
+        <xs:attribute name="multiple" type="xs:string" default="false"/>
+        <xs:attribute name="accept" type="xs:string" />
     </xs:complexType></xs:element>
     <xs:element name="hidden" substitutionGroup="SubFields"><xs:complexType>
         <xs:attribute name="default-value" type="xs:string"/>
@@ -969,6 +996,15 @@ along with this software (see the LICENSE.md file). If not, see
                 For a simple mask use '9' for digits, 'a' for letters, and '*' for digits or letters.
                 This may also be an alias for a predefined mask.</xs:documentation></xs:annotation>
         </xs:attribute>
+        <xs:attribute name="input-type" type="xs:string">
+            <xs:annotation><xs:documentation>Can be any valid HTML input type, but use with caution as some types don't make sense
+                for use with text-line and all except 'text' result in native browser behavior that varies by browser and is
+                sometimes unexpected and problematic. If not specified defaults to 'email' or 'url' when applicable based on
+                validations configured (in target service in parameters) or 'text' otherwise.</xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="prefix" type="xs:string">
+            <xs:annotation><xs:documentation>Text displayed to the left of the input box, expanded and localized</xs:documentation></xs:annotation>
+        </xs:attribute>
 
         <xs:attribute name="ac-transition" type="xs:string">
             <xs:annotation><xs:documentation>If specified the text-line will have auto-complete added to it with
@@ -1000,6 +1036,14 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:attribute name="maxlength" type="xs:positiveInteger"/>
         <xs:attribute name="default-value" type="xs:string"/>
         <xs:attribute name="read-only" default="false" type="boolean"/>
+        <xs:attribute name="editor-type" type="xs:string">
+            <xs:annotation><xs:documentation>Use a WYSIWYG editor, can be an expanded string expression (with ${}),
+                such as 'html' or 'md', support depends on what the active text-area macro does.</xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="editor-theme" type="xs:string">
+            <xs:annotation><xs:documentation>If applicable for the editor-type a screenThemeId for the CSS
+                (resourceTypeEnumId=STRT_STYLESHEET) files to use for the editor context, defaults to active screen theme.</xs:documentation></xs:annotation>
+        </xs:attribute>
     </xs:complexType></xs:element>
     <xs:element name="text-find" substitutionGroup="SubFields"><xs:complexType>
         <xs:attribute name="size" type="xs:positiveInteger" default="30"/>

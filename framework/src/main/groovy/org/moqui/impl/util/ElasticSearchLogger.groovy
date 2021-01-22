@@ -71,7 +71,7 @@ class ElasticSearchLogger {
 
         LogMessageQueueFlush lmqf = new LogMessageQueueFlush(this)
         // running every 3 seconds (was originally 1), might be good to have configurable as a higher value better for less busy servers, lower for busier
-        ecfi.scheduledExecutor.scheduleAtFixedRate(lmqf, 10, 3, TimeUnit.SECONDS)
+        ecfi.scheduleAtFixedRate(lmqf, 10, 3)
 
         subscriber = new ElasticSearchSubscriber(this)
         ecfi.registerLogEventSubscriber(subscriber)

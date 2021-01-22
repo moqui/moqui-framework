@@ -32,6 +32,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
     private boolean ignorePreviousError = false;
     private boolean softValidate = false;
     private boolean multi = false;
+    private boolean rememberParameters = true;
     protected boolean disableAuthz = false;
 
     public ServiceCallSyncImpl(ServiceFacadeImpl sfi) { super(sfi); }
@@ -52,6 +53,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
     @Override public ServiceCallSync softValidate(boolean sv) { this.softValidate = sv; return this; }
     @Override public ServiceCallSync multi(boolean mlt) { this.multi = mlt; return this; }
     @Override public ServiceCallSync disableAuthz() { disableAuthz = true; return this; }
+    @Override public ServiceCallSync noRememberParameters() { rememberParameters = false; return this; }
 
     @Override
     public Map<String, Object> call() {
@@ -240,8 +242,8 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         //     the service on the stack)
         ArtifactExecutionInfo.AuthzAction authzAction = sd != null ? sd.authzAction : ServiceDefinition.verbAuthzActionEnumMap.get(verb);
         if (authzAction == null) authzAction = ArtifactExecutionInfo.AUTHZA_ALL;
-        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(serviceName, ArtifactExecutionInfo.AT_SERVICE,
-                authzAction, serviceType).setParameters(currentParameters);
+        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(serviceName, ArtifactExecutionInfo.AT_SERVICE, authzAction, serviceType);
+        if (rememberParameters && !sd.noRememberParameters) aei.setParameters(currentParameters);
         eci.artifactExecutionFacade.pushInternal(aei, (sd != null && "true".equals(sd.authenticate)), true);
 
         // if error in auth or for other reasons, return now with no results
@@ -295,7 +297,8 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
             if (sd.noTxCache) {
                 tf.flushAndDisableTransactionCache();
             } else {
-                if (useTransactionCache != null ? useTransactionCache : sd.txUseCache) tf.initTransactionCache();
+                if (useTransactionCache != null ? useTransactionCache : sd.txUseCache) tf.initTransactionCache(false);
+                // alternative to use read only TX cache by default, not functional yet: tf.initTransactionCache(!(useTransactionCache != null ? useTransactionCache : sd.txUseCache));
             }
 
             try {
@@ -395,7 +398,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
             }
 
             try {
-                if (userLoggedIn) eci.getUser().logoutUser();
+                if (userLoggedIn) eci.userFacade.logoutLocal();
             } catch (Throwable t) {
                 logger.error("Error logging out user after call to service " + serviceName, t);
             }
@@ -571,7 +574,10 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         try {
             if (pauseResumeIfNeeded && tf.isTransactionInPlace()) suspendedTransaction = tf.suspend();
             boolean beganTransaction = beginTransactionIfNeeded && tf.begin(null);
-            if (useTransactionCache != null && useTransactionCache) tf.initTransactionCache();
+
+            if (useTransactionCache != null && useTransactionCache) tf.initTransactionCache(false);
+            // alternative to use read only TX cache by default, not functional yet: tf.initTransactionCache(useTransactionCache == null || !useTransactionCache);
+
             try {
                 if (hasSecaRules) ServiceFacadeImpl.runSecaRules(serviceNameNoHash, currentParameters, null, "pre-service", secaRules, eci);
 

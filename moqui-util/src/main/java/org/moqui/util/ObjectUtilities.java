@@ -229,9 +229,9 @@ public class ObjectUtilities {
 
     public static String toPlainString(Object obj) {
         if (obj == null) return "";
-        Class objClass = obj.getClass();
         // Common case, check first
-        if (objClass == String.class) return (String) obj;
+        if (obj instanceof CharSequence) return obj.toString();
+        Class objClass = obj.getClass();
         // BigDecimal toString() uses scientific notation, annoying, so use toPlainString()
         if (objClass == BigDecimal.class) return ((BigDecimal) obj).toPlainString();
         // handle the special case of timestamps used for primary keys, make sure we avoid TZ, etc problems

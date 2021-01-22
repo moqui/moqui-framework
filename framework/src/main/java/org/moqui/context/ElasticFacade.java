@@ -84,11 +84,11 @@ public interface ElasticFacade {
         Map validateQuery(String index, Map queryMap, boolean explain);
 
         /** Basic REST endpoint synchronous call */
-        RestClient.RestResponse call(RestClient.Method method, String path, Map<String, String> parameters, Object bodyJsonObject);
+        RestClient.RestResponse call(RestClient.Method method, String index, String path, Map<String, String> parameters, Object bodyJsonObject);
         /** Basic REST endpoint future (asynchronous) call */
-        Future<RestClient.RestResponse> callFuture(RestClient.Method method, String path, Map<String, String> parameters, Object bodyJsonObject);
+        Future<RestClient.RestResponse> callFuture(RestClient.Method method, String index, String path, Map<String, String> parameters, Object bodyJsonObject);
         /** Make a RestClient with configured protocol/host/port and user/password if configured, RequestFactory for this ElasticClient, and the given parameters */
-        RestClient makeRestClient(RestClient.Method method, String path, Map<String, String> parameters);
+        RestClient makeRestClient(RestClient.Method method, String index, String path, Map<String, String> parameters);
 
         /** Check and if needed create ElasticSearch indexes for all DataDocument records with given indexName */
         void checkCreateDataDocumentIndexes(String indexName);

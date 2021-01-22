@@ -219,7 +219,7 @@ class RestSchemaUtil {
             for (String pkName in pkNameList) idSb.append('/{').append(pkName).append('}')
             String idString = idSb.toString()
 
-            List linkList
+            List<Map> linkList
             if (linkPrefix) {
                 linkList = [
                     [rel:'self', method:'GET', href:"${linkPrefix}/${refName}${idString}", title:"Get single ${prettyName}",
@@ -235,7 +235,7 @@ class RestSchemaUtil {
                         schema:['$ref':"#/definitions/${name}"]],
                     [rel:'destroy', method:'DELETE', href:"${linkPrefix}/${refName}${idString}", title:"Delete ${prettyName}",
                         schema:['$ref':"#/definitions/${name}"]]
-                ]
+                ] as List<Map>
             } else {
                 linkList = []
             }
@@ -342,9 +342,9 @@ class RestSchemaUtil {
 
         // under IDs for single record operations
         List<String> pkNameList = ed.getPkFieldNames()
-        Map recordMap = ramlMap
+        Map<String, Object> recordMap = ramlMap
         for (String pkName in pkNameList) {
-            Map childMap = [:]
+            Map<String, Object> childMap = [:]
             recordMap.put('/{' + pkName + '}', childMap)
             recordMap = childMap
         }
@@ -390,13 +390,13 @@ class RestSchemaUtil {
                                 format:(fieldTypeJsonFormatMap.get(fi.type) ?: ""),
                                 description:fi.fieldNode.first("description")?.text])
         }
-        Map listResponses = ["200":[description:'Success', schema:[type:"array", items:['$ref':"#/definitions/${refDefName}".toString()]]]]
+        Map listResponses = ["200":[description:'Success', schema:[type:"array", items:['$ref':"#/definitions/${refDefName}".toString()]]]] as Map<String, Object>
         listResponses.putAll(responses)
         entityResourceMap.put("get", [summary:("Get ${ed.getFullEntityName()}".toString()), description:entityDescription,
                 parameters:listParameters, security:[[basicAuth:[]]], responses:listResponses])
 
         // post - create
-        Map createResponses = ["200":[description:'Success', schema:['$ref':"#/definitions/${refDefNamePk}".toString()]]]
+        Map createResponses = ["200":[description:'Success', schema:['$ref':"#/definitions/${refDefNamePk}".toString()]]] as Map<String, Object>
         createResponses.putAll(responses)
         entityResourceMap.put("post", [summary:("Create ${ed.getFullEntityName()}".toString()), description:entityDescription,
                 parameters:[name:'body', in:'body', required:true, schema:['$ref':"#/definitions/${refDefName}".toString()]],
@@ -417,7 +417,7 @@ class RestSchemaUtil {
         ((Map) swaggerMap.paths).put(entityIdPath, entityIdResourceMap)
 
         // under id: get - one
-        Map oneResponses = ["200":[name:'body', in:'body', required:false, schema:['$ref':"#/definitions/${refDefName}".toString()]]]
+        Map oneResponses = ["200":[name:'body', in:'body', required:false, schema:['$ref':"#/definitions/${refDefName}".toString()]]] as Map<String, Object>
         oneResponses.putAll(responses)
         entityIdResourceMap.put("get", [summary:("Create ${ed.getFullEntityName()}".toString()),
                 description:entityDescription, security:[[basicAuth:[]], [api_key:[]]], parameters:parameters, responses:oneResponses])
@@ -574,7 +574,7 @@ class RestSchemaUtil {
             // if there was a login error there will be a MessageFacade error message
             String errorMessage = eci.message.errorsString
             if (!errorMessage) errorMessage = "Authentication required for entity REST schema"
-            eci.webImpl.sendJsonError(HttpServletResponse.SC_UNAUTHORIZED, errorMessage)
+            eci.webImpl.sendJsonError(HttpServletResponse.SC_UNAUTHORIZED, errorMessage, null)
             return
         }
 
@@ -635,7 +635,7 @@ class RestSchemaUtil {
             try {
                 EntityDefinition ed = efi.getEntityDefinition(entityName)
                 if (ed == null) {
-                    eci.webImpl.sendJsonError(HttpServletResponse.SC_BAD_REQUEST, "No entity found with name or alias [${entityName}]")
+                    eci.webImpl.sendJsonError(HttpServletResponse.SC_BAD_REQUEST, "No entity found with name or alias [${entityName}]", null)
                     return
                 }
 
@@ -650,7 +650,7 @@ class RestSchemaUtil {
                 eci.webImpl.sendTextResponse(jsonStr, "application/schema+json", "${entityName}.schema.json")
             } catch (EntityNotFoundException e) {
                 if (logger.isTraceEnabled()) logger.trace("In entity REST schema entity not found: " + e.toString())
-                eci.webImpl.sendJsonError(HttpServletResponse.SC_BAD_REQUEST, "No entity found with name or alias [${entityName}]")
+                eci.webImpl.sendJsonError(HttpServletResponse.SC_BAD_REQUEST, "No entity found with name or alias [${entityName}]", null)
             }
         }
     }
@@ -661,7 +661,7 @@ class RestSchemaUtil {
             // if there was a login error there will be a MessageFacade error message
             String errorMessage = eci.message.errorsString
             if (!errorMessage) errorMessage = "Authentication required for entity REST schema"
-            eci.webImpl.sendJsonError(HttpServletResponse.SC_UNAUTHORIZED, errorMessage)
+            eci.webImpl.sendJsonError(HttpServletResponse.SC_UNAUTHORIZED, errorMessage, null)
             return
         }
 
@@ -732,7 +732,7 @@ class RestSchemaUtil {
 
     static void handleEntityRestSwagger(ExecutionContextImpl eci, List<String> extraPathNameList, String basePath, boolean getMaster) {
         if (extraPathNameList.size() == 0) {
-            eci.webImpl.sendJsonError(HttpServletResponse.SC_BAD_REQUEST, "No entity name specified in path (for all entities use 'all')")
+            eci.webImpl.sendJsonError(HttpServletResponse.SC_BAD_REQUEST, "No entity name specified in path (for all entities use 'all')", null)
             return
         }
 
@@ -815,13 +815,13 @@ class RestSchemaUtil {
 
             eci.webImpl.sendTextResponse(yamlString, "application/yaml", "${filename}.swagger.yaml")
         } else {
-            eci.webImpl.sendJsonError(HttpServletResponse.SC_BAD_REQUEST, "Output type ${outputType} not supported")
+            eci.webImpl.sendJsonError(HttpServletResponse.SC_BAD_REQUEST, "Output type ${outputType} not supported", null)
         }
     }
 
     static void handleServiceRestSwagger(ExecutionContextImpl eci, List<String> extraPathNameList, String basePath) {
         if (extraPathNameList.size() == 0) {
-            eci.webImpl.sendJsonError(HttpServletResponse.SC_BAD_REQUEST, "No root resource name specified in path")
+            eci.webImpl.sendJsonError(HttpServletResponse.SC_BAD_REQUEST, "No root resource name specified in path", null)
             return
         }
 
@@ -859,13 +859,13 @@ class RestSchemaUtil {
 
             eci.webImpl.sendTextResponse(yamlString, "application/yaml", "${filenameBase}swagger.yaml")
         } else {
-            eci.webImpl.sendJsonError(HttpServletResponse.SC_BAD_REQUEST, "Output type ${outputType} not supported")
+            eci.webImpl.sendJsonError(HttpServletResponse.SC_BAD_REQUEST, "Output type ${outputType} not supported", null)
         }
     }
 
     static void handleServiceRestRaml(ExecutionContextImpl eci, List<String> extraPathNameList, String linkPrefix) {
         if (extraPathNameList.size() == 0) {
-            eci.webImpl.sendJsonError(HttpServletResponse.SC_BAD_REQUEST, "No root resource name specified in path")
+            eci.webImpl.sendJsonError(HttpServletResponse.SC_BAD_REQUEST, "No root resource name specified in path", null)
             return
         }
         String rootResourceName = extraPathNameList.get(0)

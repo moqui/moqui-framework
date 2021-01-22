@@ -111,9 +111,8 @@ class EntityDataFeed {
      */
 
     void dataFeedCheckAndRegister(EntityValue ev, boolean isUpdate, Map valueMap, Map oldValues) {
-        boolean shouldLogDetail = false // ev.getEntityName().startsWith("WikiPage")
-        // logger.warn("============== DataFeed checking entity isModified=${ev.isModified()} [${ev.getEntityName()}] value: ${ev}")
-        // String debugEntityName = "Request"
+        boolean shouldLogDetail = false
+        // if (ev.getEntityName().startsWith("WikiPage")) logger.warn("============== DataFeed checking entity isModified=${ev.isModified()} [${ev.getEntityName()}] value: ${ev}")
         if (shouldLogDetail) logger.warn("======= dataFeedCheckAndRegister update? ${isUpdate} mod? ${ev.isModified()}\nev: ${ev}\noldValues=${oldValues}")
 
         // if the value isn't modified don't register for DataFeed at all
@@ -176,15 +175,60 @@ class EntityDataFeed {
                 if (!matchedConditions) continue
 
                 // if we get here field(s) were modified and condition(s) passed
-                dataDocumentIdSet.add((String) entityInfo.dataDocumentId)
+                dataDocumentIdSet.add(entityInfo.dataDocumentId)
             }
 
-            if (dataDocumentIdSet) {
+            if (!dataDocumentIdSet.isEmpty()) {
                 // logger.warn("============== DataFeed registering entity value [${ev.getEntityName()}] value: ${ev.getPrimaryKeys()}")
                 // NOTE: comment out this line to disable real-time push DataFeed in one simple place:
                 getDataFeedSynchronization().addValueToFeed(ev, dataDocumentIdSet)
             } else if (shouldLogDetail) {
                 logger.warn("Not registering ${ev.getEntityName()} PK ${ev.getPrimaryKeys()}, dataDocumentIdSet is empty")
+            }
+        }
+    }
+    void dataFeedCheckDelete(EntityValue ev) {
+        String entityName = ev.getEntityName()
+        if (entityName == null || entityName.isEmpty()) {
+            logger.error("Tried to do data feed delete with no entity name for ev: ${ev.toString()}")
+            return
+        }
+        if (!ev.containsPrimaryKey()) {
+            logger.error("Tried to do data feed delete with missing PK field values, ev: ${ev.toString()}")
+            return
+        }
+
+        // is this entity in any feeds?
+        ArrayList<DocumentEntityInfo> entityInfoList
+        try {
+            entityInfoList = getDataFeedEntityInfoList(ev.getEntityName())
+        } catch (Throwable t) {
+            logger.error("Error getting DataFeed entity info, not registering delete for entity ${ev.getEntityName()}", t)
+            return
+        }
+
+        if (entityInfoList.size() > 0) {
+            // for each DataDocument if is the primary entity then delete, otherwise update (regenerate)
+            Set<String> updateDocumentIdSet = new HashSet<String>()
+            Set<String> deleteDocumentIdSet = new HashSet<String>()
+            for (DocumentEntityInfo entityInfo in entityInfoList) {
+                if (entityName.equals(entityInfo.primaryEntityName)) {
+                    // need to delete the DataDocument
+                    deleteDocumentIdSet.add(entityInfo.dataDocumentId)
+                } else {
+                    // need to update the DataDocument
+                    updateDocumentIdSet.add(entityInfo.dataDocumentId)
+                }
+            }
+
+            DataFeedSynchronization dfs = getDataFeedSynchronization()
+            if (!updateDocumentIdSet.isEmpty()) {
+                // logger.warn("============== DataFeed registering UPDATE entity value [${ev.getEntityName()}] value: ${ev.getPrimaryKeys()}")
+                dfs.addValueToFeed(ev, updateDocumentIdSet)
+            }
+            if (!deleteDocumentIdSet.isEmpty()) {
+                // logger.warn("============== DataFeed registering DELETE entity value [${ev.getEntityName()}] value: ${ev.getPrimaryKeys()}")
+                dfs.addDeleteToFeed(ev)
             }
         }
     }
@@ -344,6 +388,7 @@ class EntityDataFeed {
                     String relEntityName = relInfo.relatedEntityName
                     EntityDefinition relEd = relInfo.relatedEd
 
+                    // TODO: handle entity used multiple times on different paths, perhaps with List<DocumentEntityInfo> in Map
                     // add entry for the related entity
                     if (!entityInfoMap.containsKey(relEntityName)) entityInfoMap.put(relEntityName,
                             new DocumentEntityInfo(relEntityName, dataDocumentId, primaryEntityName,
@@ -419,6 +464,7 @@ class EntityDataFeed {
         protected Transaction tx = null
 
         protected EntityList feedValues
+        protected EntityList deleteValues
         protected Set<String> allDataDocumentIds = new HashSet<String>()
 
         DataFeedSynchronization(EntityDataFeed edf) {
@@ -426,6 +472,7 @@ class EntityDataFeed {
             this.edf = edf
             ecfi = edf.getEfi().ecfi
             feedValues = new EntityListImpl(edf.getEfi())
+            deleteValues = new EntityListImpl(edf.getEfi())
         }
 
         void enlist() {
@@ -449,6 +496,10 @@ class EntityDataFeed {
             allDataDocumentIds.addAll(dataDocumentIdSet)
         }
 
+        void addDeleteToFeed(EntityValue ev) {
+            deleteValues.add(ev)
+        }
+
         @Override
         void beforeCompletion() { }
 
@@ -456,7 +507,7 @@ class EntityDataFeed {
         void afterCompletion(int status) {
             if (status == Status.STATUS_COMMITTED) {
                 // send feed in new thread and tx
-                FeedRunnable runnable = new FeedRunnable(ecfi, edf, feedValues, allDataDocumentIds)
+                FeedRunnable runnable = new FeedRunnable(ecfi, edf, feedValues, allDataDocumentIds, deleteValues)
                 try {
                     ecfi.workerPool.execute(runnable)
                 } catch (RejectedExecutionException e) {
@@ -470,34 +521,46 @@ class EntityDataFeed {
     static class FeedRunnable implements Runnable {
         private ExecutionContextFactoryImpl ecfi
         private EntityDataFeed edf
-        private EntityList feedValues
+        private EntityList feedValues, deleteValues
         private Set<String> allDataDocumentIds
-        FeedRunnable(ExecutionContextFactoryImpl ecfi, EntityDataFeed edf, EntityList feedValues, Set<String> allDataDocumentIds) {
+        FeedRunnable(ExecutionContextFactoryImpl ecfi, EntityDataFeed edf, EntityList feedValues, Set<String> allDataDocumentIds, EntityList deleteValues) {
             this.ecfi = ecfi
             this.edf = edf
             this.allDataDocumentIds = allDataDocumentIds
             this.feedValues = feedValues
+            this.deleteValues = deleteValues
         }
 
         @Override
         void run() {
-            if (logger.isTraceEnabled()) logger.trace("Doing DataFeed with allDataDocumentIds: ${allDataDocumentIds}, feedValues: ${feedValues}")
-            // iterate through dataDocumentIdSet
-            for (String dataDocumentId in allDataDocumentIds) {
-                try {
-                    feedDataDocument(dataDocumentId)
-                } catch (Throwable t) {
-                    logger.error("Error running Real-time DataFeed", t)
+            Timestamp feedStamp = new Timestamp(System.currentTimeMillis())
+            ExecutionContextImpl threadEci = ecfi.getEci()
+            try {
+                if (logger.isTraceEnabled()) logger.trace("Doing DataFeed with allDataDocumentIds: ${allDataDocumentIds}, feedValues: ${feedValues}")
+                // iterate through dataDocumentIdSet and generate/update for each
+                for (String dataDocumentId in allDataDocumentIds) {
+                    try {
+                        feedDataDocument(dataDocumentId, feedStamp, threadEci)
+                    } catch (Throwable t) {
+                        logger.error("Error running Real-time DataFeed", t)
+                    }
                 }
+                // iterate through deleteValues, handle differently from updates as these are primary entities for relevant DataDocuments only
+                if (deleteValues != null && deleteValues.size() > 0) {
+                    for (int di = 0; di < deleteValues.size(); di++) {
+                        EntityValue deleteEv = (EntityValue) deleteValues.get(di)
+                        deleteDataDocuments(deleteEv, feedStamp, threadEci)
+                    }
+                }
+            } finally {
+                if (threadEci != null) threadEci.destroy()
             }
         }
 
-        private void feedDataDocument(String dataDocumentId) {
-            ExecutionContextImpl threadEci = ecfi.getEci()
+        private void feedDataDocument(String dataDocumentId, Timestamp feedStamp, ExecutionContextImpl threadEci) {
             boolean beganTransaction = ecfi.transactionFacade.begin(1800)
             try {
                 EntityFacadeImpl efi = ecfi.entityFacade
-                Timestamp feedStamp = new Timestamp(System.currentTimeMillis())
                 // assemble data and call DataFeed services
 
                 EntityValue dataDocument = null
@@ -700,10 +763,17 @@ class EntityDataFeed {
                             for (EntityValue dataFeedAndDocument in dataFeedAndDocumentList) {
                                 // NOTE: this is a sync call so authz disabled is preserved; it is in its own thread
                                 //     so user/etc are not inherited here
-                                ecfi.serviceFacade.sync().name((String) dataFeedAndDocument.feedReceiveServiceName)
-                                        .parameters([dataFeedId:dataFeedAndDocument.dataFeedId, feedStamp:feedStamp,
-                                                documentList:documents]).call()
-                                if (threadEci.messageFacade.hasError()) break
+                                String serviceName = (String) dataFeedAndDocument.feedReceiveServiceName ?: 'org.moqui.search.SearchServices.index#DataDocuments'
+                                try {
+                                    ecfi.serviceFacade.sync().name(serviceName).parameters([dataFeedId:dataFeedAndDocument.dataFeedId,
+                                            feedStamp:feedStamp, documentList:documents]).call()
+                                    if (threadEci.messageFacade.hasError()) {
+                                        logger.error("Error calling DataFeed ${dataFeedAndDocument.dataFeedId} service ${serviceName}: ${threadEci.messageFacade.getErrorsString()}")
+                                        threadEci.messageFacade.clearErrors()
+                                    }
+                                } catch (Throwable t) {
+                                    logger.error("Error calling DataFeed ${dataFeedAndDocument.dataFeedId} service ${serviceName}", t)
+                                }
                             }
                         } else {
                             // this is pretty common, some operation done on a record that doesn't match the conditions for the feed
@@ -722,8 +792,60 @@ class EntityDataFeed {
                 // commit transaction if we started one and still there
                 if (beganTransaction && ecfi.transactionFacade.isTransactionInPlace())
                     ecfi.transactionFacade.commit()
-                // destroy the ECI created for this Runnable in this thread
-                if (threadEci != null) threadEci.destroy()
+            }
+        }
+
+        private void deleteDataDocuments(EntityValue deleteEv, Timestamp feedStamp, ExecutionContextImpl threadEci) {
+            String entityName = deleteEv.getEntityName()
+
+            ArrayList<DocumentEntityInfo> entityInfoList
+            try {
+                entityInfoList = edf.getDataFeedEntityInfoList(entityName)
+            } catch (Throwable t) {
+                logger.error("Error getting DataFeed info for delete for entity ${entityName}", t)
+                return
+            }
+
+            String documentId = deleteEv.getPrimaryKeysString()
+
+            int entityInfoListSize = entityInfoList != null ? entityInfoList.size() : 0
+            for (int ii = 0; ii < entityInfoListSize; ii++) {
+                DocumentEntityInfo documentEntityInfo = (DocumentEntityInfo) entityInfoList.get(ii)
+                if (!entityName.equals(documentEntityInfo.primaryEntityName)) continue
+
+                String dataDocumentId = documentEntityInfo.dataDocumentId
+                boolean alreadyDisabled = threadEci.artifactExecutionFacade.disableAuthz()
+                try {
+                    EntityList dataFeedAndDocumentList = ecfi.entityFacade.find("moqui.entity.feed.DataFeedAndDocument")
+                            .condition("dataFeedTypeEnumId", "DTFDTP_RT_PUSH")
+                            .condition("dataDocumentId", dataDocumentId).useCache(true).list()
+
+                    // track servicesCalled to avoid redundant calls, on deletes subsequent calls with same parameters likely to result in errors
+                    HashSet<String> servicesCalled = new HashSet<>()
+                    for (EntityValue dataFeedAndDocument in dataFeedAndDocumentList) {
+                        // NOTE: this is a sync call so authz disabled is preserved; it is in its own thread
+                        //     so user/etc are not inherited here
+                        String serviceName = (String) dataFeedAndDocument.feedDeleteServiceName ?: 'org.moqui.search.SearchServices.delete#DataDocument'
+                        try {
+                            if (servicesCalled.contains(serviceName)) continue
+                            ecfi.serviceFacade.sync().name(serviceName)
+                                    .parameters([dataFeedId:dataFeedAndDocument.dataFeedId, feedStamp:feedStamp,
+                                            dataDocumentId:dataDocumentId, documentId:documentId]).call()
+                            servicesCalled.add(serviceName)
+                            if (threadEci.messageFacade.hasError()) {
+                                logger.error("Error calling DataFeed ${dataFeedAndDocument.dataFeedId} delete service ${serviceName} for entity ${entityName} PK ${deleteEv.getPrimaryKeys()}: ${threadEci.messageFacade.getErrorsString()}")
+                                threadEci.messageFacade.clearErrors()
+                            }
+                        } catch (Throwable t) {
+                            logger.error("Error calling DataFeed ${dataFeedAndDocument.dataFeedId} delete service ${serviceName} for entity ${entityName} PK ${deleteEv.getPrimaryKeys()}", t)
+                        }
+                    }
+
+                } catch (Throwable t) {
+                    logger.error("Error processing DataFeed delete for entity ${entityName} PK ${deleteEv.getPrimaryKeys()}", t)
+                } finally {
+                    if (!alreadyDisabled) threadEci.artifactExecutionFacade.enableAuthz()
+                }
             }
         }
     }

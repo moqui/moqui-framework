@@ -73,6 +73,7 @@ public interface EntityValue extends Map<String, Object>, Externalizable, Compar
     boolean containsPrimaryKey();
 
     Map<String, Object> getPrimaryKeys();
+    String getPrimaryKeysString();
 
     /** Sets the named field to the passed value, even if the value is null
      * @param name The field name to set

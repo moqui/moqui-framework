@@ -487,6 +487,7 @@ class ResourceFacadeImpl implements ResourceFacade {
                 if (additionalContext instanceof EntityValueBase) cs.push(((EntityValueBase) additionalContext).getValueMap())
                 else cs.push(additionalContext)
                 // do another push so writes to the context don't modify the passed in Map
+                // TODO: is this really necessary? is very memory inefficient; these expressions are meant to evaluate to a value, not generally to set anything
                 cs.push()
             }
             return expressionInternal(expr, debugLocation, ec)
@@ -511,8 +512,9 @@ class ResourceFacadeImpl implements ResourceFacade {
             eci = ecfi.getEci()
             inputString = eci.l10nFacade.localize(inputString)
         }
-        // if no $ then it's a plain String, just return it
-        if (!inputString.contains('$')) return inputString
+        // if no $ or $ is the last character then it's a plain String, just return it
+        int lastDollarSignIdx = inputString.lastIndexOf('$')
+        if (lastDollarSignIdx == -1 || lastDollarSignIdx == (inputString.length()-1)) return inputString
 
         if (eci == null) eci = ecfi.getEci()
         boolean doPushPop = additionalContext != null && additionalContext.size() > 0

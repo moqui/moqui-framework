@@ -138,17 +138,20 @@ public class MoquiStart {
             initSystemProperties(moquiStartLoader, false, argMap);
             Process esProcess = argMap.containsKey("no-run-es") ? null : checkStartElasticSearch();
 
+            boolean successfullLoad = true;
             try {
                 System.out.println("Loading data with args " + argMap);
                 Class<?> c = moquiStartLoader.loadClass("org.moqui.Moqui");
                 Method m = c.getMethod("loadData", Map.class);
                 m.invoke(null, argMap);
-            } catch (Exception e) {
+            } catch (Throwable e) {
+                successfullLoad = false;
                 System.out.println("Error loading or running Moqui.loadData with args [" + argMap + "]: " + e.toString());
                 e.printStackTrace();
+            } finally {
+                checkStopElasticSearch(esProcess);
+                System.exit(successfullLoad ? 0 : 1);
             }
-            checkStopElasticSearch(esProcess);
-            System.exit(0);
         }
 
         // ===== Done trying specific commands, so load the embedded server

@@ -43,8 +43,9 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
     protected final static Logger logger = LoggerFactory.getLogger(ArtifactExecutionFacadeImpl.class)
 
     protected ExecutionContextImpl eci
-    protected LinkedList<ArtifactExecutionInfoImpl> artifactExecutionInfoStack = new LinkedList<ArtifactExecutionInfoImpl>()
-    protected LinkedList<ArtifactExecutionInfoImpl> artifactExecutionInfoHistory = new LinkedList<ArtifactExecutionInfoImpl>()
+    private ArrayDeque<ArtifactExecutionInfoImpl> artifactExecutionInfoStack = new ArrayDeque<ArtifactExecutionInfoImpl>(10)
+    private ArrayList<ArtifactExecutionInfoImpl> artifactExecutionInfoHistory = new ArrayList<ArtifactExecutionInfoImpl>(50)
+    private ArrayList<ArtifactExecutionInfo> aeiStackCache = (ArrayList<ArtifactExecutionInfo>) null
 
     // this is used by ScreenUrlInfo.isPermitted() which is called a lot, but that is transient so put here to have one per EC instance
     protected Map<String, Boolean> screenPermittedCache = null
@@ -102,8 +103,12 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
             throw e
         }
 
+        // set the moquiTxId for all that make it onto the stack
+        aeii.setMoquiTxId(eci.transactionFacade.getTxStackInfo().moquiTxId)
+
         // NOTE: if needed the isPermitted method will set additional info in aeii
         this.artifactExecutionInfoStack.addFirst(aeii)
+        this.aeiStackCache = (ArrayList<ArtifactExecutionInfo>) null
     }
 
 
@@ -111,6 +116,8 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
     ArtifactExecutionInfo pop(ArtifactExecutionInfo aei) {
         try {
             ArtifactExecutionInfoImpl lastAeii = (ArtifactExecutionInfoImpl) artifactExecutionInfoStack.removeFirst()
+            this.aeiStackCache = (ArrayList<ArtifactExecutionInfo>) null
+
             // removed this for performance reasons, generally just checking the name is adequate
             // || aei.typeEnumId != lastAeii.typeEnumId || aei.actionEnumId != lastAeii.actionEnumId
             if (aei != null && !lastAeii.nameInternal.equals(aei.getName())) {
@@ -134,9 +141,13 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
 
     @Override
     Deque<ArtifactExecutionInfo> getStack() {
-        Deque<ArtifactExecutionInfo> newStackDeque = new LinkedList<>()
-        newStackDeque.addAll(this.artifactExecutionInfoStack)
-        return newStackDeque
+        return new ArrayDeque<ArtifactExecutionInfo>(this.artifactExecutionInfoStack)
+    }
+    @Override
+    ArrayList<ArtifactExecutionInfo> getStackArray() {
+        if (aeiStackCache != null) return aeiStackCache
+        aeiStackCache = new ArrayList<ArtifactExecutionInfo>(this.artifactExecutionInfoStack)
+        return aeiStackCache
     }
     String getStackNameString() {
         StringBuilder sb = new StringBuilder()
@@ -249,7 +260,7 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
     }
 
     boolean isPermitted(ArtifactExecutionInfoImpl aeii, ArtifactExecutionInfoImpl lastAeii, boolean requiresAuthz, boolean countTarpit,
-                        boolean isAccess, LinkedList<ArtifactExecutionInfoImpl> currentStack) {
+                        boolean isAccess, ArrayDeque<ArtifactExecutionInfoImpl> currentStack) {
         ArtifactExecutionInfo.ArtifactType artifactTypeEnum = aeii.internalTypeEnum
         boolean isEntity = ArtifactExecutionInfo.AT_ENTITY.is(artifactTypeEnum)
         // right off record whether authz is required and is access
@@ -315,8 +326,8 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                 }
             }
 
-            // if ("AT_XML_SCREEN" == aeii.typeEnumId && aeii.getName().contains("FOO"))
-            //     logger.warn("TOREMOVE for aeii [${aeii}] artifact isPermitted aacvList: ${aacvList}; aacvCond: ${aacvCond}")
+            // if ((ArtifactExecutionInfo.AT_XML_SCREEN.is(artifactTypeEnum) || ArtifactExecutionInfo.AT_XML_SCREEN_TRANS.is(artifactTypeEnum)) && aeii.getName().contains("recordChange"))
+            //     logger.warn("TOREMOVE for aeii [${aeii}] artifact isPermitted\naacvList: ${aacvList}\norigAacvList: ${origAacvList.join("\n")}")
 
             int aacvListSize = aacvList.size()
             for (int i = 0; i < aacvListSize; i++) {

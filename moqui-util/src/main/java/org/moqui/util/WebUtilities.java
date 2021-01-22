@@ -18,6 +18,7 @@ import org.eclipse.jetty.client.api.ContentResponse;
 import org.eclipse.jetty.client.api.Request;
 import org.eclipse.jetty.client.util.StringContentProvider;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
+import org.apache.commons.fileupload.FileItem;
 import org.moqui.BaseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,10 +28,8 @@ import javax.servlet.ServletContext;
 import javax.servlet.ServletRequest;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectOutputStream;
-import java.io.UnsupportedEncodingException;
+import java.io.*;
+import java.math.BigDecimal;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -139,7 +138,8 @@ public class WebUtilities {
         return reqParmMap;
     }
 
-    public static String encodeHtmlJsSafe(String original) {
+    /** Sort of like JSON but output in JS syntax for HTML attributes like in a Vue Template */
+    public static String encodeHtmlJsSafe(CharSequence original) {
         if (original == null) return "";
         StringBuilder newValue = new StringBuilder(original);
         for (int i = 0; i < newValue.length(); i++) {
@@ -150,6 +150,8 @@ public class WebUtilities {
                 case '&': newValue.replace(i, i + 1, "&amp;"); i += 4; break;
                 case '<': newValue.replace(i, i + 1, "&lt;"); i += 3; break;
                 case '>': newValue.replace(i, i + 1, "&gt;"); i += 3; break;
+                case '\n': newValue.replace(i, i + 1, "\\n"); i += 1; break;
+                case '\r': newValue.replace(i, i + 1, "\\r"); i += 1; break;
                 case 0x5: newValue.replace(i, i + 1, "..."); i += 2; break;
                 case 0x12: newValue.replace(i, i + 1, "&apos;"); i += 5; break;
                 case 0x13: newValue.replace(i, i + 1, "&quot;"); i += 5; break;
@@ -161,6 +163,65 @@ public class WebUtilities {
         }
         return newValue.toString();
     }
+    public static String encodeHtmlJsSafeObject(Object value) {
+        if (value == null) {
+            return "null";
+        } else if (value instanceof Collection) {
+            return encodeHtmlJsSafeCollection((Collection) value);
+        } else if (value instanceof Map) {
+            return encodeHtmlJsSafeMap((Map) value);
+        } else if (value instanceof Number) {
+            if (value instanceof BigDecimal) return ((BigDecimal) value).toPlainString();
+            else return value.toString();
+        } else if (value instanceof Boolean) {
+            Boolean boolVal = (Boolean) value;
+            return boolVal ? "true" : "false";
+        } else {
+            return "'" + encodeHtmlJsSafe(value.toString()) + "'";
+        }
+    }
+    public static String encodeHtmlJsSafeMap(Map fieldValues) {
+        if (fieldValues == null) return "null";
+        StringBuilder out = new StringBuilder().append("{");
+        boolean isFirst = true;
+        for (Object entryObj : fieldValues.entrySet()) {
+            Map.Entry entry = (Map.Entry) entryObj;
+            Object key = entry.getKey();
+            if (key == null) continue;
+            if (isFirst) { isFirst = false; } else { out.append(","); }
+            out.append("'").append(encodeHtmlJsSafe(key.toString())).append("':");
+            Object value = entry.getValue();
+            out.append(encodeHtmlJsSafeObject(value));
+        }
+        out.append("}");
+        return out.toString();
+    }
+    public static String encodeHtmlJsSafeCollection(Collection value) {
+        if (value == null) return "null";
+        StringBuilder out = new StringBuilder();
+        out.append("[");
+        if (value instanceof RandomAccess) {
+            List curList = (List) value;
+            int curListSize = curList.size();
+            for (int vi = 0; vi < curListSize; vi++) {
+                Object listVal = curList.get(vi);
+                out.append(encodeHtmlJsSafeObject(listVal));
+                if ((vi + 1) < curListSize) out.append(",");
+            }
+        } else {
+            Iterator colIter = value.iterator();
+            while (colIter.hasNext()) {
+                Object colVal = colIter.next();
+                out.append(encodeHtmlJsSafeObject(colVal));
+                if (colIter.hasNext()) out.append(",");
+            }
+        }
+        out.append("]");
+        return out.toString();
+    }
+    // for backward compatibility:
+    public static String fieldValuesEncodeHtmlJsSafe(Map fieldValues) { return encodeHtmlJsSafeMap(fieldValues); }
+
     public static String encodeHtml(String original) {
         if (original == null) return "";
         StringBuilder newValue = new StringBuilder(original);
@@ -220,6 +281,42 @@ public class WebUtilities {
         }
         return anyMatches;
     }
+
+    public static byte[] windowsPex = {(byte) 0x4d, (byte) 0x5a};
+    public static byte[] linuxElf = {(byte) 0x7f, (byte) 0x45, (byte) 0x4c, (byte) 0x46};
+    public static byte[] javaClass = {(byte) 0xca, (byte) 0xfe, (byte) 0xba, (byte) 0xbe};
+    public static byte[] macOs = {(byte) 0xfe, (byte) 0xed, (byte) 0xfa, (byte) 0xce};
+    public static byte[][] allOsExecutables = {windowsPex, linuxElf, javaClass, macOs};
+
+    /** Looks for byte patterns for Windows Portable Executable (4d5a), Linux ELF (7f454c46), Java class (cafebabe), macOS (feedface) */
+    public static boolean isExecutable(FileItem item) throws IOException {
+        InputStream is = item.getInputStream();
+        byte[] bytes = new byte[4];
+        is.read(bytes, 0, 4);
+        is.close();
+        return isExecutable(bytes);
+    }
+    /** Looks for byte patterns for Windows Portable Executable (4d5a), Linux ELF (7f454c46), Java class (cafebabe), macOS (feedface) */
+    public static boolean isExecutable(byte[] bytes) {
+        boolean foundPattern = false;
+        for (int i = 0; i < allOsExecutables.length; i++) {
+            byte[] execPattern = allOsExecutables[i];
+            boolean execMatches = true;
+            for (int j = 0; j < execPattern.length; j++) {
+                if (bytes[j] != execPattern[j]) {
+                    execMatches = false;
+                    break;
+                }
+            }
+            if (execMatches) {
+                foundPattern = true;
+                break;
+            }
+        }
+
+        return foundPattern;
+    }
+
 
     public static String simpleHttpStringRequest(String location, String requestBody, String contentType) {
         if (contentType == null || contentType.isEmpty()) contentType = "text/plain";
@@ -390,7 +487,7 @@ public class WebUtilities {
         public AttributeContainerMap(AttributeContainer container) { cont = container; }
 
         public int size() { return cont.getAttributeNameList().size(); }
-        public boolean isEmpty() { return cont.getAttributeNames().hasMoreElements(); }
+        public boolean isEmpty() { return !cont.getAttributeNames().hasMoreElements(); }
 
         public boolean containsKey(Object o) {
             if (keysToIgnore.contains(o)) return false;

@@ -125,7 +125,13 @@ task downloadElasticSearch { doLast {
         logger.lifecycle("Found ElasticSearch archive at ${zipFile.getPath()}, using that instead of downloading")
     }
     // the eachFile closure removes the first path from each file, moving everything up a directory, which also requires delete of the extra dirs
-    copy { from distType == "zip"? zipTree(zipFile) : tarTree(zipFile); into targetDir; eachFile { it.setPath((it.getRelativePath().getSegments() as List).tail().join("/")); return it } }
+    copy { from distType == "zip"? zipTree(zipFile) : tarTree(zipFile); into targetDir; eachFile {
+        def pathList = it.getRelativePath().getSegments() as List
+        if (pathList[0] == ".") pathList = pathList.tail()
+        it.setPath(pathList.tail().join("/"))
+        return it
+    } }
+
     File extraDir = file(esExtraDirPath)
     if (extraDir.exists()) delete extraDir
 
@@ -850,11 +856,14 @@ def makeVersionDetailFiles() {
         file('runtime/version.json').write(groovy.json.JsonOutput.toJson(topVersionMap), "UTF-8")
     }
     for (File compDir in file('runtime/component').listFiles().findAll { it.isDirectory() && it.listFiles().find { it.name == '.git' } }) {
-        file(compDir.path + '/version.json').write(groovy.json.JsonOutput.toJson(getVersionDetailMap(compDir)), "UTF-8")
+        def versionMap = getVersionDetailMap(compDir)
+        if (versionMap == null) continue
+        file(compDir.path + '/version.json').write(groovy.json.JsonOutput.toJson(versionMap), "UTF-8")
     }
 }
 Map getVersionDetailMap(File gitDir) {
     def curGrgit = Grgit.open(dir: gitDir)
+    if (curGrgit == null) return null
     String trackingName = curGrgit.branch.current()?.trackingBranch?.name
     String trackingUrl = ""
     int trackingNameSlash = trackingName ? trackingName.indexOf('/') : -1
@@ -863,10 +872,15 @@ Map getVersionDetailMap(File gitDir) {
         def trackingRemote = curGrgit.remote.list().find({ it.name == remoteName })
         if (trackingRemote != null) trackingUrl = trackingRemote.url
     }
-    String headId = curGrgit.head()?.id
-    // tags come in order of oldest first so want to find last in case multiple tags refer to HEAD commit
-    def headTag = curGrgit.tag.list().reverse().find({ it.commit.id == headId })
-    return [branch:curGrgit.branch.current()?.name, tracking:trackingName, url:trackingUrl, head:headId?.take(10), tag:headTag?.name]
+    try {
+        String headId = curGrgit.head()?.id
+        // tags come in order of oldest first so want to find last in case multiple tags refer to HEAD commit
+        def headTag = curGrgit.tag.list().reverse().find({ it.commit.id == headId })
+        return [branch:curGrgit.branch.current()?.name, tracking:trackingName, url:trackingUrl, head:headId?.take(10), tag:headTag?.name]
+    } catch (Throwable t) {
+        logger.lifecycle("Error getting git info for directory ${gitDir?.path}", t)
+        return null
+    }
 }
 def cleanVersionDetailFiles() {
     def runtimeVersionFile = file("runtime/version.json")

@@ -189,8 +189,10 @@ class DbResourceReference extends BaseResourceReference {
         if (currentVersionName != null && !currentVersionName.isEmpty()) {
             EntityValue currentDbrfHistory = ecf.entityFacade.find("moqui.resource.DbResourceFileHistory").condition("resourceId", resourceId)
                     .condition("versionName", currentVersionName).useCache(false).one()
-            currentDbrfHistory.set("fileData", dbrf.fileData)
-            currentDbrfHistory.update()
+            if (currentDbrfHistory != null) {
+                currentDbrfHistory.set("fileData", dbrf.fileData)
+                currentDbrfHistory.update()
+            }
         }
         ExecutionContextImpl eci = ecf.getEci()
         Map createOut = ecf.service.sync().name("create", "moqui.resource.DbResourceFileHistory")

@@ -75,6 +75,10 @@ public interface ServiceCallSync extends ServiceCall {
      */
     ServiceCallSync multi(boolean mlt);
 
+    /** Do not remember parameters in ArtifactExecutionFacade history and stack,
+     * important for service calls with large parameters that should be de-referenced for GC before ExecutionContext is destroyed. */
+    ServiceCallSync noRememberParameters();
+
     /** Disable authorization for the current thread during this service call. */
     ServiceCallSync disableAuthz();
 

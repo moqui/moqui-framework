@@ -95,6 +95,7 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
         String serviceName
         Map<String, Object> parameters
 
+        AsyncServiceInfo() { }
         AsyncServiceInfo(ExecutionContextImpl eci, String serviceName, Map<String, Object> parameters) {
             ecfi = eci.ecfi
             threadUsername = eci.userFacade.username
@@ -141,6 +142,7 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
     }
 
     static class AsyncServiceRunnable extends AsyncServiceInfo implements Runnable, Externalizable {
+        AsyncServiceRunnable() { super() }
         AsyncServiceRunnable(ExecutionContextImpl eci, String serviceName, Map<String, Object> parameters) {
             super(eci, serviceName, parameters)
         }
@@ -149,6 +151,7 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
 
 
     static class AsyncServiceCallable extends AsyncServiceInfo implements Callable<Map<String, Object>>, Externalizable {
+        AsyncServiceCallable() { super() }
         AsyncServiceCallable(ExecutionContextImpl eci, String serviceName, Map<String, Object> parameters) {
             super(eci, serviceName, parameters)
         }

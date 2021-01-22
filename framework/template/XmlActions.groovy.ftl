@@ -232,7 +232,10 @@ ${.node}
     <#if .node["@key"]?has_content>
     if (${.node["@list"]} instanceof Map) {
         ${.node["@entry"]}_index = 0
-        for (def ${.node["@entry"]}Entry in ${.node["@list"]}.entrySet()) {
+        def _${.node["@entry"]}Iterator = ${.node["@list"]}.entrySet().iterator()
+        while (_${.node["@entry"]}Iterator.hasNext()) {
+            def ${.node["@entry"]}Entry = _${.node["@entry"]}Iterator.next()
+            ${.node["@entry"]}_has_next = _${.node["@entry"]}Iterator.hasNext()
             ${.node["@entry"]} = ${.node["@entry"]}Entry.getValue()
             ${.node["@key"]} = ${.node["@entry"]}Entry.getKey()
             <#recurse/>
@@ -240,7 +243,10 @@ ${.node}
         }
     } else if (${.node["@list"]} instanceof Collection<Map.Entry>) {
         ${.node["@entry"]}_index = 0
-        for (def ${.node["@entry"]}Entry in ${.node["@list"]}) {
+        def _${.node["@entry"]}Iterator = ${.node["@list"]}.iterator()
+        while (_${.node["@entry"]}Iterator.hasNext()) {
+            def ${.node["@entry"]}Entry = _${.node["@entry"]}Iterator.next()
+            ${.node["@entry"]}_has_next = _${.node["@entry"]}Iterator.hasNext()
             ${.node["@entry"]} = ${.node["@entry"]}Entry.getValue()
             ${.node["@key"]} = ${.node["@entry"]}Entry.getKey()
             <#recurse/>

@@ -17,7 +17,7 @@
     <session-config>
         <!-- session timeout in minutes; note that this may be overridden with webapp.session-config.@timeout in the Moqui Conf XML file -->
         <session-timeout>60</session-timeout>
-        <cookie-config><http-only>true</http-only></cookie-config>
+        <cookie-config><http-only>true</http-only><comment>__SAME_SITE_LAX__</comment></cookie-config>
         <tracking-mode>COOKIE</tracking-mode>
     </session-config>
 </web-app>

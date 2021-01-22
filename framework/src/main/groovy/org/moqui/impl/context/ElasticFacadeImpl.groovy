@@ -32,6 +32,7 @@ import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityJavaUtil
 import org.moqui.impl.entity.FieldInfo
 import org.moqui.impl.util.ElasticSearchLogger
+import org.moqui.util.LiteStringMap
 import org.moqui.util.MNode
 import org.moqui.util.RestClient
 import org.moqui.util.RestClient.Method
@@ -43,7 +44,8 @@ import java.util.concurrent.Future
 
 @CompileStatic
 class ElasticFacadeImpl implements ElasticFacade {
-    protected final static Logger logger = LoggerFactory.getLogger(ElasticFacadeImpl.class)
+    private final static Logger logger = LoggerFactory.getLogger(ElasticFacadeImpl.class)
+    private final static Set<String> docSkipKeys = new HashSet<>(Arrays.asList("_index", "_type", "_id", "_timestamp"))
 
     // Max HTTP Response Size for Search - this may need to be configurable, set very high for now (appears that Jetty only grows the buffer as needed for response content)
     public static int MAX_RESPONSE_SIZE_SEARCH = 100 * 1024 * 1024
@@ -58,6 +60,7 @@ class ElasticFacadeImpl implements ElasticFacade {
         // Jackson custom serializers, etc
         SimpleModule module = new SimpleModule()
         module.addSerializer(GString.class, new ContextJavaUtil.GStringJsonSerializer())
+        module.addSerializer(LiteStringMap.class, new ContextJavaUtil.LiteStringMapJsonSerializer())
         // NOTE: using custom serializer for Timestamps because ElasticSearch 7+ does NOT allow negative longs for epoch_millis format... sigh
         //     .enable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
         module.addSerializer(Timestamp.class, new ContextJavaUtil.TimestampNoNegativeJsonSerializer())
@@ -157,7 +160,7 @@ class ElasticFacadeImpl implements ElasticFacade {
     static class ElasticClientImpl implements ElasticClient {
         private final ExecutionContextFactoryImpl ecfi
         private final MNode clusterNode
-        private final String clusterName, clusterUser, clusterPassword
+        private final String clusterName, clusterUser, clusterPassword, indexPrefix
         private final String clusterUrl, clusterProtocol, clusterHost
         private final int clusterPort
         private RestClient.PooledRequestFactory requestFactory
@@ -172,6 +175,7 @@ class ElasticFacadeImpl implements ElasticFacade {
             this.clusterName = clusterNode.attribute("name")
             this.clusterUser = clusterNode.attribute("user")
             this.clusterPassword = clusterNode.attribute("password")
+            this.indexPrefix = clusterNode.attribute("index-prefix")
             String urlTemp = clusterNode.attribute("url")
             if (urlTemp.endsWith("/")) urlTemp = urlTemp.substring(0, urlTemp.length() - 1)
             this.clusterUrl = urlTemp
@@ -221,43 +225,44 @@ class ElasticFacadeImpl implements ElasticFacade {
 
         @Override
         Map getServerInfo() {
-            RestClient.RestResponse response = makeRestClient(Method.GET, null, null).call()
+            RestClient.RestResponse response = makeRestClient(Method.GET, null, null, null).call()
             checkResponse(response, "Server info", null)
             return (Map) jsonToObject(response.text())
         }
 
         @Override
-        boolean indexExists(String index) {
-            if (index == null || index.isEmpty()) throw new IllegalArgumentException("Index name may not be empty")
-            RestClient.RestResponse response = makeRestClient(Method.HEAD, index, null).call()
+        boolean indexExists(final String index) {
+            if (index == null || index.isEmpty()) throw new IllegalArgumentException("Index name required")
+            RestClient.RestResponse response = makeRestClient(Method.HEAD, index, null, null).call()
             return response.statusCode == 200
         }
         @Override
-        boolean aliasExists(String alias) {
-            if (alias == null || alias.isEmpty()) throw new IllegalArgumentException("Alias may not be empty")
-            RestClient.RestResponse response = makeRestClient(Method.HEAD, "_alias/" + alias, null).call()
+        boolean aliasExists(final String origAlias) {
+            String alias = prefixIndexName(origAlias)
+            if (alias == null) throw new IllegalArgumentException("Alias required")
+            RestClient.RestResponse response = makeRestClient(Method.HEAD, null, "_alias/" + alias, null).call()
             return response.statusCode == 200
         }
 
         @Override
-        void createIndex(String index, Map docMapping, String alias) {
-            createIndex(index, null, docMapping, alias, null)
-        }
-        void createIndex(String index, String docType, Map docMapping, String alias) {
-            createIndex(index, docType, docMapping, alias, null)
-        }
-        void createIndex(String index, String docType, Map docMapping, String alias, Map settings) {
-            RestClient restClient = makeRestClient(Method.PUT, index, null)
-            if (docMapping || alias) {
+        void createIndex(String index, Map docMapping, String origAlias) { createIndex(index, null, docMapping, origAlias, null) }
+        void createIndex(String index, String docType, Map docMapping, String origAlias) { createIndex(index, docType, docMapping, origAlias, null) }
+        void createIndex(String index, String docType, Map docMapping, String origAlias, Map settings) {
+            if (index == null || index.isEmpty()) throw new IllegalArgumentException("Index name required")
+            RestClient restClient = makeRestClient(Method.PUT, index, null, null)
+            if (docMapping || origAlias) {
                 Map requestMap = new HashMap()
                 if (docMapping) {
                     if (esVersionUnder7) requestMap.put("mappings", [(docType?:'_doc'):docMapping])
                     else requestMap.put("mappings", docMapping)
                 }
-                if (settings) {
+                if (settings != null && settings.size() > 0) {
                     requestMap.put('settings', settings)
                 }
-                if (alias) requestMap.put("aliases", [(alias):[:]])
+                if (origAlias != null && !origAlias.isEmpty()) {
+                    String alias = prefixIndexName(origAlias)
+                    requestMap.put("aliases", [(alias):[:]])
+                }
                 restClient.text(objectToJson(requestMap))
             }
             // NOTE: this is for ES 7.0+ only, before that mapping needed to be named
@@ -265,21 +270,19 @@ class ElasticFacadeImpl implements ElasticFacade {
             checkResponse(response, "Create index", index)
         }
         @Override
-        void putMapping(String index, Map docMapping) {
-            putMapping(index, null, docMapping)
-        }
+        void putMapping(String index, Map docMapping) { putMapping(index, null, docMapping) }
         void putMapping(String index, String docType, Map docMapping) {
             if (!docMapping) throw new IllegalArgumentException("Mapping may not be empty for put mapping")
             // NOTE: this is for ES 7.0+ only, before that mapping needed to be named in the path
-            String path = esVersionUnder7 ? index + "/_mapping/" + (docType?:'_doc') : index + "/_mapping"
-            RestClient restClient = makeRestClient(Method.PUT, path, null)
+            String path = esVersionUnder7 ? "_mapping/" + (docType?:'_doc') : "_mapping"
+            RestClient restClient = makeRestClient(Method.PUT, index, path, null)
             restClient.text(objectToJson(docMapping))
             RestClient.RestResponse response = restClient.call()
             checkResponse(response, "Put mapping", index)
         }
         @Override
         void deleteIndex(String index) {
-            RestClient restClient = makeRestClient(Method.DELETE, index, null)
+            RestClient restClient = makeRestClient(Method.DELETE, index, null, null)
             RestClient.RestResponse response = restClient.call()
             checkResponse(response, "Delete index", index)
         }
@@ -288,7 +291,7 @@ class ElasticFacadeImpl implements ElasticFacade {
         void index(String index, String _id, Map document) {
             if (index == null || index.isEmpty()) throw new IllegalArgumentException("In index document the index name may not be empty")
             if (_id == null || _id.isEmpty()) throw new IllegalArgumentException("In index document the _id may not be empty")
-            RestClient.RestResponse response = makeRestClient(Method.PUT, index + "/_doc/" + _id, null)
+            RestClient.RestResponse response = makeRestClient(Method.PUT, index, "_doc/" + _id, null)
                     .text(objectToJson(document)).call()
             checkResponse(response, "Index document ${_id}", index)
         }
@@ -297,7 +300,7 @@ class ElasticFacadeImpl implements ElasticFacade {
         void update(String index, String _id, Map documentFragment) {
             if (index == null || index.isEmpty()) throw new IllegalArgumentException("In update document the index name may not be empty")
             if (_id == null || _id.isEmpty()) throw new IllegalArgumentException("In update document the _id may not be empty")
-            RestClient.RestResponse response = makeRestClient(Method.POST, index + "/_update/" + _id, null)
+            RestClient.RestResponse response = makeRestClient(Method.POST, index, "_update/" + _id, null)
                     .text(objectToJson([doc:documentFragment])).call()
             checkResponse(response, "Update document ${_id}", index)
         }
@@ -306,14 +309,18 @@ class ElasticFacadeImpl implements ElasticFacade {
         void delete(String index, String _id) {
             if (index == null || index.isEmpty()) throw new IllegalArgumentException("In delete document the index name may not be empty")
             if (_id == null || _id.isEmpty()) throw new IllegalArgumentException("In delete document the _id may not be empty")
-            RestClient.RestResponse response = makeRestClient(Method.DELETE, index + "/_doc/" + _id, null).call()
-            checkResponse(response, "Delete document ${_id}", index)
+            RestClient.RestResponse response = makeRestClient(Method.DELETE, index, "_doc/" + _id, null).call()
+            if (response.statusCode == 404) {
+                logger.warn("In delete document not found in index ${index} with ID ${_id}")
+            } else {
+                checkResponse(response, "Delete document ${_id}", index)
+            }
         }
 
         @Override
         Integer deleteByQuery(String index, Map queryMap) {
             if (index == null || index.isEmpty()) throw new IllegalArgumentException("In delete by query the index name may not be empty")
-            RestClient.RestResponse response = makeRestClient(Method.POST, index + "/_delete_by_query", null)
+            RestClient.RestResponse response = makeRestClient(Method.POST, index, "_delete_by_query", null)
                     .text(objectToJson([query:queryMap])).call()
             checkResponse(response, "Delete by query", index)
             Map responseMap = (Map) jsonToObject(response.text())
@@ -328,15 +335,23 @@ class ElasticFacadeImpl implements ElasticFacade {
             checkResponse(response, "Bulk operations", index)
         }
         RestClient.RestResponse bulkResponse(String index, List<Map> actionSourceList) {
+            // NOTE: don't use logger in this method, with ElasticSearchLogger in place results in infinite log feedback
             if (actionSourceList == null || actionSourceList.size() == 0) return null
 
             StringWriter bodyWriter = new StringWriter(actionSourceList.size() * 100)
             for (Map entry in actionSourceList) {
+                // look for _index fields in each Map, if found prefix
+                if (entry.size() == 1) {
+                    Map actionMap = entry.values().first()
+                    Object _indexVal = actionMap.get("_index")
+                    if (_indexVal != null && _indexVal instanceof String) actionMap.put("_index", prefixIndexName((String) _indexVal))
+                }
+                // System.out.println("bulk entry ${entry}")
+                // now done mucking around with the data, write it
                 jacksonMapper.writeValue(bodyWriter, entry)
                 bodyWriter.append((char) '\n')
             }
-            String path = index != null && !index.isEmpty() ? index + "/_bulk" : "_bulk"
-            RestClient restClient = makeRestClient(Method.POST, path, null).contentType("application/x-ndjson")
+            RestClient restClient = makeRestClient(Method.POST, index, "_bulk", null).contentType("application/x-ndjson")
             restClient.timeout(600)
             restClient.text(bodyWriter.toString())
             // System.out.println("Bulk:\n${bodyWriter.toString()}")
@@ -347,9 +362,7 @@ class ElasticFacadeImpl implements ElasticFacade {
         }
 
         @Override
-        void bulkIndex(String index, String idField, List<Map> documentList) {
-            bulkIndex(index, null, idField, documentList)
-        }
+        void bulkIndex(String index, String idField, List<Map> documentList) { bulkIndex(index, null, idField, documentList) }
         void bulkIndex(String index, String docType, String idField, List<Map> documentList) {
             List<Map> actionSourceList = new ArrayList<>(documentList.size() * 2)
             boolean hasId = idField != null && !idField.isEmpty()
@@ -375,29 +388,27 @@ class ElasticFacadeImpl implements ElasticFacade {
         }
 
         @Override
-        Map get(String index, String _id) {
+        Map get(final String index, String _id) {
             if (index == null || index.isEmpty()) throw new IllegalArgumentException("In get document the index name may not be empty")
             if (_id == null || _id.isEmpty()) throw new IllegalArgumentException("In get document the _id may not be empty")
-            String path = index + "/_doc/" + _id
+            String path = "_doc/" + _id
             if (esVersionUnder7) {
                 // need actual doc type, this is a hack that will only work with old moqui-elasticsearch DataDocument based index name, otherwise need another parameter so API changes
                 // NOTE: this is for partial backwards compatibility for specific scenarios, remove after moqui-elasticsearch deprecate
-                path = index + "/" + esIndexToDdId(index) + "/" + _id
+                path = esIndexToDdId(index) + "/" + _id
             }
-            RestClient.RestResponse response = makeRestClient(Method.GET, path, null).call()
+            RestClient.RestResponse response = makeRestClient(Method.GET, index, path, null).call()
             checkResponse(response, "Get document ${_id}", index)
             return (Map) jsonToObject(response.text())
         }
         @Override
-        Map getSource(String index, String _id) {
-            return (Map) get(index, _id)?._source
-        }
+        Map getSource(String index, String _id) { return (Map) get(index, _id)?._source }
 
         @Override
         List<Map> get(String index, List<String> _idList) {
             if (_idList == null || _idList.size() == 0) return []
             if (index == null || index.isEmpty()) throw new IllegalArgumentException("In get documents the index name may not be empty")
-            RestClient.RestResponse response = makeRestClient(Method.GET, index + "/_mget", null)
+            RestClient.RestResponse response = makeRestClient(Method.GET, index, "_mget", null)
                     .text(objectToJson([ids:_idList])).call()
             checkResponse(response, "Get document multi", index)
             Map bodyMap = (Map) jsonToObject(response.text())
@@ -406,24 +417,31 @@ class ElasticFacadeImpl implements ElasticFacade {
 
         @Override
         Map search(String index, Map searchMap) {
-            String path = index != null && !index.isEmpty() ? index + "/_search" : "_search"
             // logger.warn("Search ${index}\n${objectToJson(searchMap)}")
-            RestClient.RestResponse response = makeRestClient(Method.GET, path, null).maxResponseSize(MAX_RESPONSE_SIZE_SEARCH)
+            RestClient.RestResponse response = makeRestClient(Method.GET, index, "_search", null).maxResponseSize(MAX_RESPONSE_SIZE_SEARCH)
                     .text(objectToJson(searchMap)).call()
             // System.out.println("Search Response: ${response.statusCode} ${response.reasonPhrase}\n${response.text()}")
             checkResponse(response, "Search", index)
-            return (Map) jsonToObject(response.text())
+            Map resultMap = (Map) jsonToObject(response.text())
+            // go through each hit (in resultMap.hits.hits) and replace _index value from ES
+            List<Map> hitsList = (List<Map>) ((Map) resultMap.hits).hits
+            for (Map hit in hitsList) {
+                Object _indexVal = hit.get("_index")
+                if (_indexVal != null && _indexVal instanceof String) hit.put("_index", unprefixIndexName((String) _indexVal))
+                // logger.warn("search hit ${hit}")
+            }
+            // now done mucking around with the data, return it
+            return resultMap
         }
         @Override
-        List<Map> searchHits(String index, Map searchMap) {
-            Map resultMap = search(index, searchMap)
+        List<Map> searchHits(String origIndex, Map searchMap) {
+            Map resultMap = search(origIndex, searchMap)
             return (List) ((Map) resultMap.hits).hits
         }
         @Override
         Map validateQuery(String index, Map queryMap, boolean explain) {
-            String path = index != null && !index.isEmpty() ? index + "/_validate/query" : "_validate/query"
             String queryJson = objectToJson([query:queryMap])
-            RestClient.RestResponse response = makeRestClient(Method.GET, path, explain ? [explain:'true'] : null)
+            RestClient.RestResponse response = makeRestClient(Method.GET, index, "_validate/query", explain ? [explain:'true'] : null)
                     .text(queryJson).call()
             checkResponse(response, "Validate Query", index)
             String responseText = response.text()
@@ -436,24 +454,28 @@ class ElasticFacadeImpl implements ElasticFacade {
         }
 
         @Override
-        RestClient.RestResponse call(Method method, String path, Map<String, String> parameters, Object bodyJsonObject) {
-            RestClient restClient = makeRestClient(method, path, parameters).text(objectToJson(bodyJsonObject))
+        RestClient.RestResponse call(Method method, String index, String path, Map<String, String> parameters, Object bodyJsonObject) {
+            RestClient restClient = makeRestClient(method, index, path, parameters).text(objectToJson(bodyJsonObject))
             return restClient.call()
         }
 
         @Override
-        Future<RestClient.RestResponse> callFuture(Method method, String path, Map<String, String> parameters, Object bodyJsonObject) {
-            RestClient restClient = makeRestClient(method, path, parameters).text(objectToJson(bodyJsonObject))
+        Future<RestClient.RestResponse> callFuture(Method method, String index, String path, Map<String, String> parameters, Object bodyJsonObject) {
+            RestClient restClient = makeRestClient(method, index, path, parameters).text(objectToJson(bodyJsonObject))
             return restClient.callFuture()
         }
 
         @Override
-        RestClient makeRestClient(Method method, String path, Map<String, String> parameters) {
+        RestClient makeRestClient(Method method, String index, String path, Map<String, String> parameters) {
+            // NOTE: don't use logger in this method, with ElasticSearchLogger in place results in infinite log feedback
+            String serverIndex = prefixIndexName(index)
+            // System.out.println("=== ES call index ${serverIndex} path ${path} parameters ${parameters}")
             RestClient restClient = new RestClient().withRequestFactory(requestFactory).method(method)
                     .contentType("application/json").timeout(DEFAULT_REQUEST_TIMEOUT)
-            restClient.uri().protocol(clusterProtocol).host(clusterHost).port(clusterPort).path(path).parameters(parameters).build()
+            restClient.uri().protocol(clusterProtocol).host(clusterHost).port(clusterPort)
+                    .path(serverIndex).path(path).parameters(parameters).build()
             // see https://www.elastic.co/guide/en/elasticsearch/reference/7.4/http-clients.html
-            if (clusterUser) restClient.basicAuth(clusterUser, clusterPassword)
+            if (clusterUser != null && !clusterUser.isEmpty()) restClient.basicAuth(clusterUser, clusterPassword)
             return restClient
         }
 
@@ -538,8 +560,8 @@ class ElasticFacadeImpl implements ElasticFacade {
                 // String _timestamp = document._timestamp
                 // As of ES 2.0 _index, _type, _id, and _timestamp shouldn't be in document to be indexed
                 // clone document before removing fields so they are present for other code using the same data
-                document = new LinkedHashMap(document)
-                document.remove('_index'); document.remove('_type'); document.remove('_id'); document.remove('_timestamp')
+                document = new LiteStringMap(document, docSkipKeys)
+                // no longer needed with docSkipKeys: document.remove('_index'); document.remove('_type'); document.remove('_id'); document.remove('_timestamp')
 
                 // as of ES 6.0, and required for 7 series, one index per doc type so one per dataDocumentId, cleaned up to be valid ES index name (all lower case, etc)
                 esIndexName = ddIdToEsIndex(_type)
@@ -595,6 +617,19 @@ class ElasticFacadeImpl implements ElasticFacade {
 
         @Override String objectToJson(Object jsonObject) { return ElasticFacadeImpl.objectToJson(jsonObject) }
         @Override Object jsonToObject(String jsonString) { return ElasticFacadeImpl.jsonToObject(jsonString) }
+
+        String prefixIndexName(String index) {
+            if (index == null) return null
+            index = index.trim()
+            if (index.isEmpty()) return null
+            return indexPrefix != null && !index.startsWith(indexPrefix) ? indexPrefix.concat(index) : index
+        }
+        String unprefixIndexName(String index) {
+            if (index == null) return null
+            index = index.trim()
+            if (index.isEmpty()) return null
+            return indexPrefix != null && index.startsWith(indexPrefix) ? index.substring(indexPrefix.length()) : index
+        }
     }
 
     // ============== Utility Methods ==============
@@ -618,7 +653,7 @@ class ElasticFacadeImpl implements ElasticFacade {
 
         String requestUri = response.getClient().getUriString()
         String requestBody = response.getClient().getBodyText()
-        if (requestBody.length() > 2000) requestBody = requestBody.substring(0, 2000)
+        if (requestBody != null && requestBody.length() > 2000) requestBody = requestBody.substring(0, 2000)
         logger.error("ElasticSearch ${msg}${responseText ? '\nResponse: ' + responseText : ''}${requestUri ? '\nURI: ' + requestUri : ''}${requestBody ? '\nRequest: ' + requestBody : ''}")
 
         throw new BaseException(msg)
