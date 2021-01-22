@@ -6,6 +6,9 @@ MAINTAINER Moqui Framework <moqui@googlegroups.com>
 
 WORKDIR /opt/moqui
 
+# install netcat
+RUN apt-get update && apt-get install netcat-openbsd -y
+
 # for running from the war directly, preffered approach unzips war in advance (see docker-build.sh that does this)
 #COPY moqui.war .
 # copy files from unzipped moqui.war file
@@ -13,7 +16,7 @@ COPY WEB-INF WEB-INF
 COPY META-INF META-INF
 COPY *.class ./
 COPY execlib execlib
-COPY wait-for-postgres.sh /
+COPY wait-for-postgres.sh .
 
 # always want the runtime directory
 COPY runtime runtime
@@ -22,6 +25,11 @@ COPY runtime runtime
 VOLUME ["/opt/moqui/runtime/conf", "/opt/moqui/runtime/lib", "/opt/moqui/runtime/classes", "/opt/moqui/runtime/ecomponent"]
 # exposed as volumes to persist data outside the container, recommended
 VOLUME ["/opt/moqui/runtime/log", "/opt/moqui/runtime/txlog", "/opt/moqui/runtime/sessions", "/opt/moqui/runtime/db", "/opt/moqui/runtime/elasticsearch"]
+
+# exposed for DWH
+# RUN mkdir -p /home/dwh
+# RUN mkdir -p /tmp/issk_dwh
+VOLUME ["/home/dwh", "/tmp/issk_dwh"]
 
 # Main Servlet Container Port
 EXPOSE 80
@@ -34,6 +42,6 @@ EXPOSE 80
 
 # this is to run from the war file directly, preferred approach unzips war file in advance
 # ENTRYPOINT ["java", "-jar", "moqui.war"]
-ENTRYPOINT ["java", "-cp", ".", "MoquiStart", "port=80"]
+# ENTRYPOINT ["java", "-cp", ".", "MoquiStart", "port=80"]
 # specify this as a default parameter if none are specified with docker exec/run, ie run production by default
-CMD ["conf=conf/MoquiTestConf.xml"]
+# CMD ["conf=conf/MoquiTestConf.xml"]
