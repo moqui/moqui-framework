@@ -2288,6 +2288,7 @@ class ScreenRenderImpl implements ScreenRender {
                 Map itemMap = [name:subscreensItem.name, title:ec.resource.expand(subscreensItem.menuTitle, ""),
                                path:screenPath, pathWithParams:pathWithParams, image:image, imageType:imageType]
                 if (active) itemMap.active = true
+                if (subscreensItem.menuInclude) itemMap.menuInclude = true
                 if (screenUrlInstance.disableLink) itemMap.disableLink = true
                 subscreensList.add(itemMap)
                 // not needed: screenStatic:sui.targetScreen.isServerStatic(renderMode)
