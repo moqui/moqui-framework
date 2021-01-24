@@ -28,8 +28,7 @@ VOLUME ["/opt/moqui/runtime/log", "/opt/moqui/runtime/txlog", "/opt/moqui/runtim
 
 # exposed for DWH
 # RUN mkdir -p /home/dwh
-# RUN mkdir -p /tmp/issk_dwh
-VOLUME ["/home/dwh", "/tmp/issk_dwh"]
+VOLUME ["/home/dwh"]
 
 # Main Servlet Container Port
 EXPOSE 80
