@@ -25,9 +25,10 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Map;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
-public class EntityQueryBuilder {
+public class EntityQueryBuilder implements Runnable {
     protected static final Logger logger = LoggerFactory.getLogger(EntityQueryBuilder.class);
     static final boolean isDebugEnabled = logger.isDebugEnabled();
 
@@ -47,9 +48,16 @@ public class EntityQueryBuilder {
     private boolean externalConnection = false;
     private boolean isFindOne = false;
 
+    boolean execWithTimeout = false;
+    // cur tx timeout set in constructor
+    long execTimeout = 60000;
+
     public EntityQueryBuilder(EntityDefinition entityDefinition, EntityFacadeImpl efi) {
         this.mainEntityDefinition = entityDefinition;
         this.efi = efi;
+
+        execWithTimeout = efi.ecfi.transactionFacade.getUseStatementTimeout();
+        if (execWithTimeout) this.execTimeout = efi.ecfi.transactionFacade.getTxTimeoutRemainingMillis();
     }
 
     public EntityDefinition getMainEd() { return mainEntityDefinition; }
@@ -64,7 +72,7 @@ public class EntityQueryBuilder {
         externalConnection = true;
     }
 
-    public void isFineOne() { isFindOne = true; }
+    public void isFindOne() { isFindOne = true; }
 
     protected static void handleSqlException(Exception e, String sql) {
         throw new EntityException("SQL Exception with statement:" + sql + "; " + e.toString(), e);
@@ -85,25 +93,66 @@ public class EntityQueryBuilder {
         return ps;
     }
 
+    // ======== execute methods + Runnable
+    Throwable uncaughtThrowable = null;
+    Boolean execQuery = null;
+    int rowsUpdated = -1;
+
+    public void run() {
+        if (execQuery == null) {
+            logger.warn("Called run() with no execQuery flag set, ignoring", new Exception("run call location"));
+            return;
+        }
+        try {
+            final long timeBefore = isDebugEnabled ? System.currentTimeMillis() : 0L;
+            if (execQuery) {
+                rs = ps.executeQuery();
+                if (isDebugEnabled) logger.debug("Executed query with SQL [" + finalSql + "] and parameters [" + parameters +
+                        "] in [" + ((System.currentTimeMillis() - timeBefore) / 1000) + "] seconds");
+            } else {
+                rowsUpdated = ps.executeUpdate();
+                if (isDebugEnabled) logger.debug("Executed update with SQL [" + finalSql + "] and parameters [" + parameters +
+                        "] in [" + ((System.currentTimeMillis() - timeBefore) / 1000) + "] seconds changing [" + rowsUpdated + "] rows");
+            }
+        } catch (Throwable t) {
+            uncaughtThrowable = t;
+        }
+    }
+
     ResultSet executeQuery() throws SQLException {
         if (ps == null) throw new IllegalStateException("Cannot Execute Query, no PreparedStatement in place");
         boolean isError = false;
         boolean queryStats = !isFindOne && efi.getQueryStats();
         long beforeQuery = queryStats ? System.nanoTime() : 0;
+
+        execQuery = true;
+        if (execWithTimeout) {
+            try {
+                Future<?> execFuture = efi.statementExecutor.submit(this);
+                // if (execTimeout != 60000L) logger.info("statement with timeout " + execTimeout);
+                execFuture.get(execTimeout, TimeUnit.MILLISECONDS);
+            } catch (Exception e) {
+                uncaughtThrowable = e;
+            }
+        } else {
+            run();
+        }
+        if (rs == null && uncaughtThrowable == null)
+            uncaughtThrowable = new SQLException("JDBC query timed out after " + execTimeout + "ms for SQL " + finalSql);
         try {
-            final long timeBefore = isDebugEnabled ? System.currentTimeMillis() : 0L;
-            rs = ps.executeQuery();
-            if (isDebugEnabled) logger.debug("Executed query with SQL [" + finalSql +
-                    "] and parameters [" + parameters + "] in [" +
-                    ((System.currentTimeMillis() - timeBefore) / 1000) + "] seconds");
-            return rs;
-        } catch (SQLException sqle) {
-            isError = true;
-            logger.warn("Error in JDBC query for SQL " + finalSql);
-            throw sqle;
+            if (uncaughtThrowable != null) {
+                isError = true;
+                if (uncaughtThrowable instanceof SQLException) {
+                    throw (SQLException) uncaughtThrowable;
+                } else {
+                    throw new SQLException("Error in JDBC query for SQL " + finalSql, uncaughtThrowable);
+                }
+            }
         } finally {
             if (queryStats) efi.saveQueryStats(mainEntityDefinition, finalSql, System.nanoTime() - beforeQuery, isError);
         }
+
+        return rs;
     }
 
     int executeUpdate() throws SQLException {
@@ -112,21 +161,34 @@ public class EntityQueryBuilder {
         // boolean isError = false;
         // boolean queryStats = efi.getQueryStats();
         // long beforeQuery = queryStats ? System.nanoTime() : 0;
-        try {
-            final long timeBefore = isDebugEnabled ? System.currentTimeMillis() : 0L;
-            final int rows = ps.executeUpdate();
-            if (isDebugEnabled) logger.debug("Executed update with SQL [" + finalSql +
-                    "] and parameters [" + parameters + "] in [" +
-                    ((System.currentTimeMillis() - timeBefore) / 1000) + "] seconds changing [" +
-                    rows + "] rows");
-            return rows;
-        } catch (SQLException sqle) {
-            // isError = true;
-            logger.warn("Error in JDBC update for SQL " + finalSql);
-            throw sqle;
+
+        execQuery = false;
+        if (execWithTimeout) {
+            try {
+                Future<?> execFuture = efi.statementExecutor.submit(this);
+                execFuture.get(execTimeout, TimeUnit.MILLISECONDS);
+            } catch (Exception e) {
+                uncaughtThrowable = e;
+            }
+        } else {
+            run();
+        }
+        if (rowsUpdated == -1 && uncaughtThrowable == null)
+            uncaughtThrowable = new SQLException("JDBC update timed out after " + execTimeout + "ms for SQL " + finalSql);
+        // try {
+            if (uncaughtThrowable != null) {
+                // isError = true;
+                if (uncaughtThrowable instanceof SQLException) {
+                    throw (SQLException) uncaughtThrowable;
+                } else {
+                    throw new SQLException("Error in JDBC update for SQL " + finalSql, uncaughtThrowable);
+                }
+            }
         // } finally {
             // if (queryStats) efi.saveQueryStats(mainEntityDefinition, finalSql, System.nanoTime() - beforeQuery, isError);
-        }
+        // }
+
+        return rowsUpdated;
     }
 
     /** NOTE: this should be called in a finally clause to make sure things are closed */

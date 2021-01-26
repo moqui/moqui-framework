@@ -47,8 +47,14 @@ import javax.sql.XAConnection
 import javax.sql.XADataSource
 import java.math.RoundingMode
 import java.sql.*
+import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.BlockingQueue
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ThreadFactory
 import java.util.concurrent.ThreadLocalRandom
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.Lock
 import java.util.concurrent.locks.ReentrantLock
 
@@ -94,6 +100,14 @@ class EntityFacadeImpl implements EntityFacade {
     protected final EntityDataDocument entityDataDocument
 
     protected final EntityListImpl emptyList
+
+    private static class ExecThreadFactory implements ThreadFactory {
+        private final ThreadGroup workerGroup = new ThreadGroup("MoquiEntityExec")
+        private final AtomicInteger threadNumber = new AtomicInteger(1)
+        Thread newThread(Runnable r) { return new Thread(workerGroup, r, "MoquiEntityExec-" + threadNumber.getAndIncrement()) }
+    }
+    protected BlockingQueue<Runnable> statementWorkQueue = new ArrayBlockingQueue<>(1024);
+    protected ThreadPoolExecutor statementExecutor = new ThreadPoolExecutor(5, 100, 60, TimeUnit.SECONDS, statementWorkQueue, new ExecThreadFactory());
 
     EntityFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
@@ -155,6 +169,20 @@ class EntityFacadeImpl implements EntityFacade {
 
         // EECA rule tables
         loadEecaRulesAll()
+    }
+
+    void destroy() {
+        Set<String> groupNames = this.datasourceFactoryByGroupMap.keySet()
+        for (String groupName in groupNames) {
+            EntityDatasourceFactory edf = this.datasourceFactoryByGroupMap.get(groupName)
+            this.datasourceFactoryByGroupMap.put(groupName, null)
+            edf.destroy()
+        }
+
+        if (statementExecutor != null) {
+            statementExecutor.shutdown()
+            statementExecutor.awaitTermination(5, TimeUnit.SECONDS)
+        }
     }
 
     EntityCache getEntityCache() { return entityCache }
@@ -981,15 +1009,6 @@ class EntityFacadeImpl implements EntityFacade {
         }
     }
 
-    void destroy() {
-        Set<String> groupNames = this.datasourceFactoryByGroupMap.keySet()
-        for (String groupName in groupNames) {
-            EntityDatasourceFactory edf = this.datasourceFactoryByGroupMap.get(groupName)
-            this.datasourceFactoryByGroupMap.put(groupName, null)
-            edf.destroy()
-        }
-    }
-
     // used in tools screen
     void checkAllEntityTables(String groupName) {
         // TODO: load framework entities first, then component/mantle/etc entities for better FKs on first pass
@@ -1423,7 +1442,7 @@ class EntityFacadeImpl implements EntityFacade {
             String inputFieldsMapName = sfiNode.attribute("input-fields-map")
 
             Map<String, Object> inf = inputFieldsMapName ? (Map<String, Object>) ecfi.resourceFacade.expression(inputFieldsMapName, "") : ecfi.getEci().context
-            ef.searchFormMap(inf, defaultParametersNode?.attributes as Map<String, Object>, sfiNode.attribute("skip-fields"), sfiNode.attribute("default-order-by"), paginate)
+            ef.searchFormMap(inf, defaultParametersNode?.attributes?.collectEntries {[it.key, ecfi.resourceFacade.expandNoL10n(it.value, "")]} as Map<String, Object>, sfiNode.attribute("skip-fields"), sfiNode.attribute("default-order-by"), paginate)
         }
 
         // logger.warn("=== shouldCache ${this.entityName} ${shouldCache()}, limit=${this.limit}, offset=${this.offset}, useCache=${this.useCache}, getEntityDef().getUseCache()=${this.getEntityDef().getUseCache()}")

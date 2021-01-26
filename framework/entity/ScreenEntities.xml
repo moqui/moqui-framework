@@ -260,6 +260,15 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" related="moqui.screen.form.FormListFind" short-alias="formListFind"/>
         <relationship type="one-nofk" related="moqui.security.UserAccount" short-alias="userAccount"/>
     </entity>
+    <entity entity-name="FormListFindUserDefault" package="moqui.screen.form" use="configuration">
+        <description>Per-User default FormListFind by screen location and not form location because must be handled
+            very early in screen rendering so parameters are available to actions, etc</description>
+        <field name="screenLocation" type="text-medium" is-pk="true"/>
+        <field name="userId" type="id" is-pk="true"/>
+        <field name="formListFindId" type="id"/>
+        <relationship type="one-nofk" related="moqui.security.UserAccount" short-alias="userAccount"/>
+        <relationship type="one" related="moqui.screen.form.FormListFind" short-alias="formListFind"/>
+    </entity>
     <view-entity entity-name="FormListFindUserView" package="moqui.screen.form">
         <member-entity entity-alias="FLF" entity-name="moqui.screen.form.FormListFind"/>
         <member-entity entity-alias="FLFU" entity-name="moqui.screen.form.FormListFindUser" join-from-alias="FLF">

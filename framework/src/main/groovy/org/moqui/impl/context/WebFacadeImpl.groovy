@@ -469,6 +469,10 @@ class WebFacadeImpl implements WebFacade {
     }
 
     @Override String getRequestBodyText() { return requestBodyText }
+    @Override String getResourceDistinctValue() {
+        return eci.ecfi.initStartHex
+    }
+
     @Override HttpServletResponse getResponse() { return response }
 
     @Override HttpSession getSession() { return request.getSession() }
@@ -911,12 +915,16 @@ class WebFacadeImpl implements WebFacade {
                     parmStack.pop()
                 }
                 response.addIntHeader('X-Run-Time-ms', (System.currentTimeMillis() - startTime) as int)
-                response.addHeader("moquiSessionToken", getSessionToken())
+                String sessionToken = getSessionToken()
+                response.addHeader("moquiSessionToken", sessionToken)
+                response.addHeader("X-CSRF-Token", sessionToken)
                 sendJsonResponse(responseList)
             } else {
                 Object responseObj = eci.entityFacade.rest(method, extraPathNameList, parmStack, masterNameInPath)
                 response.addIntHeader('X-Run-Time-ms', (System.currentTimeMillis() - startTime) as int)
-                response.addHeader("moquiSessionToken", getSessionToken())
+                String sessionToken = getSessionToken()
+                response.addHeader("moquiSessionToken", sessionToken)
+                response.addHeader("X-CSRF-Token", sessionToken)
 
                 if (parmStack.xTotalCount != null) response.addIntHeader('X-Total-Count', parmStack.xTotalCount as int)
                 if (parmStack.xPageIndex != null) response.addIntHeader('X-Page-Index', parmStack.xPageIndex as int)
@@ -1009,7 +1017,9 @@ class WebFacadeImpl implements WebFacade {
                     parmStack.pop()
                 }
                 response.addIntHeader('X-Run-Time-ms', (System.currentTimeMillis() - startTime) as int)
-                response.addHeader("moquiSessionToken", getSessionToken())
+                String sessionToken = getSessionToken()
+                response.addHeader("moquiSessionToken", sessionToken)
+                response.addHeader("X-CSRF-Token", sessionToken)
 
                 if (eci.message.hasError()) {
                     // if error return that
@@ -1025,7 +1035,9 @@ class WebFacadeImpl implements WebFacade {
                 RestApi.RestResult restResult = eci.serviceFacade.restApi.run(extraPathNameList, eci)
                 eci.contextStack.pop()
                 response.addIntHeader('X-Run-Time-ms', (System.currentTimeMillis() - startTime) as int)
-                response.addHeader("moquiSessionToken", getSessionToken())
+                String sessionToken = getSessionToken()
+                response.addHeader("moquiSessionToken", sessionToken)
+                response.addHeader("X-CSRF-Token", sessionToken)
                 restResult.setHeaders(response)
 
                 if (eci.message.hasError()) {

@@ -48,12 +48,14 @@ public interface WebFacade {
     ArrayList<String> getPathInfoList();
     /** If Content-Type request header is a text type and body length is greater than zero you can get the full body text here */
     String getRequestBodyText();
+    /** Returns a String to append to a URL to make it distinct to force browser reload */
+    String getResourceDistinctValue();
 
     HttpServletResponse getResponse();
 
     HttpSession getSession();
     Map<String, Object> getSessionAttributes();
-    /** Get the token to include in all POST requests with the name moquiSessionToken (in the session as 'moqui.session.token') */
+    /** Get the token to include in all POST requests with the name moquiSessionToken or the X-CSRF-Token request header (in the session as 'moqui.session.token') */
     String getSessionToken();
 
     ServletContext getServletContext();

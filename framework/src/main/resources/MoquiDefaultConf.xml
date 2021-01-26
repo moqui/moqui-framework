@@ -40,6 +40,7 @@
     <default-property name="entity_add_missing_runtime" value="false"/>
     <default-property name="entity_add_missing_startup" value="true"/>
     <default-property name="entity_lock_track" value="false"/>
+    <default-property name="entity_statement_timeout" value="false"/>
     <default-property name="entity_empty_db_load" value="seed,seed-initial,install"/>
 
     <!-- Properties for a database clone; note that without overriding the transactional#clone1 datasource the default works only
@@ -60,6 +61,7 @@
     <default-property name="elasticsearch_url" value="http://127.0.0.1:9200"/>
     <default-property name="elasticsearch_user" value=""/>
     <default-property name="elasticsearch_password" value=""/>
+    <default-property name="elasticsearch_index_prefix" value=""/>
     <!-- Kibana Proxy Servlet settings -->
     <default-property name="kibana_host" value="127.0.0.1"/>
     <default-property name="kibana_port" value="5601"/>
@@ -275,7 +277,7 @@
         <login max-failures="3" disable-minutes="5" history-store="true" history-incorrect-password="false"/>
     </user-facade>
 
-    <transaction-facade use-transaction-cache="true" use-connection-stash="true" use-lock-track="${entity_lock_track}">
+    <transaction-facade use-transaction-cache="true" use-connection-stash="true" use-lock-track="${entity_lock_track}" use-statement-timeout="${entity_statement_timeout}">
         <!-- Use this for the internal transaction manager (not through JNDI) -->
         <transaction-internal class="org.moqui.impl.context.TransactionInternalBitronix"/>
 
@@ -396,7 +398,7 @@
     <elastic-facade>
         <!-- NOTE: elasticsearch_host1 used from moqui-elasticsearch with elasticsearch_mode=rest for compatibility until moqui-elasticsearch deprecated -->
         <cluster name="default" url="${elasticsearch_host1 ?: elasticsearch_url}" user="${elasticsearch_user}" password="${elasticsearch_password}"
-                pool-max="64" queue-size="1024"/>
+                index-prefix="${elasticsearch_index_prefix}" pool-max="64" queue-size="1024"/>
     </elastic-facade>
 
     <entity-facade default-group-name="transactional" entity-eca-enabled="true" sequenced-id-prefix=""

@@ -53,7 +53,7 @@ public class EntityFindImpl extends EntityFindBase {
 
         EntityFindBuilder efb = new EntityFindBuilder(ed, this, whereCondition, fieldInfoArray);
         // flag as a find one, small changes to internal behavior to reduce overhead
-        efb.isFineOne();
+        efb.isFindOne();
 
         // SELECT fields
         efb.makeSqlSelectFields(fieldInfoArray, fieldOptionsArray, "true".equals(efi.getDatabaseNode(ed.groupName).attribute("add-unique-as")));
