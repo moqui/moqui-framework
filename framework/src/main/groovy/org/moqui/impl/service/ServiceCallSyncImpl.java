@@ -77,8 +77,6 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
                 try {
                     Map<String, Object> result = new HashMap<>();
                     for (int i = 0; ; i++) {
-                        if (("true".equals(parameters.get("_useRowSubmit")) || "true".equals(parameters.get("_useRowSubmit_" + i)))
-                                && !"true".equals(parameters.get("_rowSubmit_" + i))) continue;
                         Map<String, Object> currentParms = new HashMap<>();
                         for (int paramIndex = 0; paramIndex < inParameterNamesSize; paramIndex++) {
                             String ipn = inParameterNames.get(paramIndex);
@@ -88,6 +86,10 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
 
                         // if the map stayed empty we have no parms, so we're done
                         if (currentParms.size() == 0) break;
+
+                        if (("true".equals(parameters.get("_useRowSubmit")) || "true".equals(parameters.get("_useRowSubmit_" + i)))
+                                && !"true".equals(parameters.get("_rowSubmit_" + i))) continue;
+
                         // now that we have checked the per-row parameters, add in others available
                         for (int paramIndex = 0; paramIndex < inParameterNamesSize; paramIndex++) {
                             String ipn = inParameterNames.get(paramIndex);
