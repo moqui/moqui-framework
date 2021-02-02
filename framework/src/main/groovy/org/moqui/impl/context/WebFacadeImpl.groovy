@@ -492,10 +492,14 @@ class WebFacadeImpl implements WebFacade {
             // logger.warn("Copying attr ${attrEntry.getKey()}:${attrEntry.getValue()}")
         }
         // force a new moqui.session.token
-        session.setAttribute("moqui.session.token", StringUtilities.getRandomString(20))
+        newSession.setAttribute("moqui.session.token", StringUtilities.getRandomString(20))
         request.setAttribute("moqui.session.token.created", "true")
         // remake sessionAttributes to use newSession
         sessionAttributes = new WebUtilities.AttributeContainerMap(new WebUtilities.HttpSessionContainer(newSession))
+
+        // UserFacadeImpl keeps a session reference, update it
+        if (eci.userFacade != null) eci.userFacade.session = newSession
+
         // done
         return newSession
     }
