@@ -168,6 +168,10 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:attribute name="id-field" type="xs:string" use="required">
                     <xs:annotation><xs:documentation>Form field name for the ID field to include in row-selection action
                         requests following the multi-submit pattern (_{rowNumber} suffix)</xs:documentation></xs:annotation></xs:attribute>
+                <xs:attribute name="parameter" type="xs:string">
+                    <xs:annotation><xs:documentation>If specified use instead of the id-field value for the parameter name</xs:documentation></xs:annotation></xs:attribute>
+                <xs:attribute name="list-mode" type="boolean" default="false">
+                    <xs:annotation><xs:documentation>If true pass values as a comma-separated list in a single parameter instead of a list of parameters with underscore suffixes, also does not set _isMulti=true parameter</xs:documentation></xs:annotation></xs:attribute>
             </xs:complexType></xs:element>
 
             <xs:element minOccurs="0" name="hidden-parameters"><xs:complexType>

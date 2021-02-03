@@ -1077,6 +1077,13 @@ class ScreenForm {
             MNode baseRowActionsNode = baseFormNode.first("row-actions")
             for (MNode actionNode in overrideFormNode.first("row-actions").children) baseRowActionsNode.append(actionNode)
         }
+        if (overrideFormNode.hasChild("row-selection")) {
+            if (!baseFormNode.hasChild("row-selection")) baseFormNode.append("row-selection", null)
+            MNode baseRowSelNode = baseFormNode.first("row-selection")
+            MNode overrideRowSelNode = overrideFormNode.first("row-selection")
+            baseRowSelNode.attributes.putAll(overrideRowSelNode.attributes)
+            for (MNode actionNode in overrideRowSelNode.children) baseRowSelNode.append(actionNode)
+        }
         if (overrideFormNode.hasChild("hidden-parameters")) {
             int hpIndex = baseFormNode.firstIndex("hidden-parameters")
             if (hpIndex >= 0) baseFormNode.replace(hpIndex, overrideFormNode.first("hidden-parameters"))
@@ -1454,6 +1461,7 @@ class ScreenForm {
         }
 
         MNode getFormNode() { formNode }
+        MNode getRowSelectionNode() { formNode.first("row-selection") }
         MNode getFieldNode(String fieldName) { fieldNodeMap.get(fieldName) }
         String getFormLocation() { screenForm.location }
         String getSavedFindFullLocation() { screenForm.getSavedFindFullLocation() }

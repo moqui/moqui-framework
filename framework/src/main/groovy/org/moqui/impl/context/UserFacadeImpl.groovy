@@ -635,7 +635,7 @@ class UserFacadeImpl implements UserFacade {
 
         UsernamePasswordToken token = new UsernamePasswordToken(username, password, true)
         // if there is a web session invalidate it so there is a new session for the login (prevent Session Fixation attacks)
-        if (eci.getWebImpl() != null) session = eci.getWebImpl().makeNewSession()
+        if (eci.getWebImpl() != null) eci.getWebImpl().makeNewSession()
 
         Subject loginSubject = makeEmptySubject()
         try {
