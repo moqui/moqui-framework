@@ -161,8 +161,10 @@ along with this software (see the LICENSE.md file). If not, see
                                 <xs:element ref="form-single"/>
                             </xs:choice>
                         </xs:sequence>
+                        <!-- consider these in the future, not needed now (and more flexible to use conditional-field in the form-single)
                         <xs:attribute name="disable-condition" type="xs:string"/>
                         <xs:attribute name="disable-message" type="xs:string"/>
+                        -->
                     </xs:complexType></xs:element>
                 </xs:sequence>
                 <xs:attribute name="id-field" type="xs:string" use="required">
