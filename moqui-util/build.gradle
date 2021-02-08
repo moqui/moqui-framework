@@ -24,8 +24,8 @@ apply plugin: 'com.github.ben-manes.versions'
 // apply plugin: 'net.ltgt.errorprone'
 buildscript {
     repositories {
-        jcenter()
-        // uncomment to add the Error Prone compiler: maven { url "https://plugins.gradle.org/m2/" }
+        mavenCentral()
+        maven { url "https://plugins.gradle.org/m2/" }
     }
     dependencies {
         classpath 'com.github.ben-manes:gradle-versions-plugin:0.28.0'
@@ -41,8 +41,7 @@ dependencyUpdates.resolutionStrategy = { componentSelection { rules -> rules.all
 repositories {
     // only needed for jar files in framework/lib, ie not available from jcenter, mainly for testing unreleased jars
     // flatDir name: 'localLib', dirs: projectDir.getParentFile().absolutePath + '/framework/lib'
-    // use jcenter as the primary mvn repo: http://jcenter.bintray.com
-    jcenter()
+    mavenCentral()
 }
 
 sourceCompatibility = '1.8'
