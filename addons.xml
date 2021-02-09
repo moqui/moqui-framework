@@ -35,7 +35,7 @@
     </repository>
 
     <!-- Where to get runtime directory if not present -->
-    <!-- TODO: change the group back to moqui (test5)-->
+    <!-- TODO: change the group back to moqui-->
     <runtime name="moqui-runtime" group="acetousk" version="2.1.3" branch="master"/>
 
     <!-- Example Component -->
