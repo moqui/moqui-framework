@@ -210,6 +210,8 @@ class ScreenRenderImpl implements ScreenRender {
                 response.setStatus(HttpServletResponse.SC_RESET_CONTENT)
             } else {
                 if (logger.isInfoEnabled()) logger.info("Redirecting to ${redirectUrl} instead of rendering ${this.getScreenUrlInfo().getFullPathNameList()}")
+                // add Cache-Control: no-store header since this is often in actions after screen render has started and a Cache-Control header has been set, so replace it here
+                response.setHeader("Cache-Control", "no-store")
                 response.sendRedirect(redirectUrl)
             }
             dontDoRender = true
