@@ -128,6 +128,9 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:attribute name="pass-through-parameters" type="boolean" default="false">
             <xs:annotation><xs:documentation>Add hidden input elements for all parameters (for companion form-list find options, etc)</xs:documentation></xs:annotation>
         </xs:attribute>
+        <xs:attribute name="exclude-empty-fields" type="boolean" default="false">
+            <xs:annotation><xs:documentation>If true exclude empty fields when the form is submitted instead of including (as zero length string); NOTE: currently only supported in qvt and vuet render modes</xs:documentation></xs:annotation>
+        </xs:attribute>
     </xs:complexType></xs:element>
 
     <xs:element name="form-list" substitutionGroup="AllWidgets"><xs:annotation>
@@ -144,7 +147,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:element minOccurs="0" ref="entity-find"/>
             <xs:element minOccurs="0" ref="row-actions"/>
             <xs:element minOccurs="0" name="row-selection"><xs:complexType>
-                <xs:annotation><xs:documentation></xs:documentation></xs:annotation>
+                <xs:annotation><xs:documentation>Configuration for selected row action forms. NOTE: currently only supported in 'qvt' render mode</xs:documentation></xs:annotation>
                 <xs:sequence>
                     <xs:element name="action" maxOccurs="unbounded"><xs:complexType>
                         <xs:sequence>
