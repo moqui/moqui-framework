@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.context
 
+import com.fasterxml.jackson.core.io.JsonStringEncoder
 import com.fasterxml.jackson.databind.JsonNode
 import groovy.transform.CompileStatic
 
@@ -441,7 +442,8 @@ class WebFacadeImpl implements WebFacade {
         return withPort ? hostName + ":" + port : hostName
     }
 
-    @Override String getPathInfo() {
+    @Override String getPathInfo() { return getPathInfo(request) }
+    static String getPathInfo(HttpServletRequest request) {
         ArrayList<String> pathList = getPathInfoList(request)
         // as per spec if no extra path info return null
         if (pathList == null) return null
@@ -840,38 +842,66 @@ class WebFacadeImpl implements WebFacade {
             429:"Too Many Requests", 500:"Internal Server Error"]
     @Override
     void sendError(int errorCode, String message, Throwable origThrowable) {
+        sendError(errorCode, message, origThrowable, request, response)
+    }
+
+    static void sendError(int errorCode, String message, Throwable origThrowable, HttpServletRequest request, HttpServletResponse response) {
         if ((message == null || message.isEmpty()) && origThrowable != null) message = origThrowable.message
+        String errorCodeName = errorCodeNames.get(errorCode) ?: ""
+        if (message == null || message.isEmpty()) message = errorCodeName
 
         String acceptHeader = request.getHeader("Accept")
-        if (acceptHeader == null || acceptHeader.isEmpty() || acceptHeader.contains("text/html") ||
-                acceptHeader.contains("text/*") || acceptHeader.contains("*/*")) {
+        if (acceptHeader == null) acceptHeader = ""
+
+        if (acceptHeader.contains("text/html")) {
+            // logger.warn("sendError html ${errorCode} ${message}")
             response.setStatus(errorCode)
             response.setContentType("text/html")
             response.setCharacterEncoding("UTF-8")
-            String errorCodeName = errorCodeNames.get(errorCode) ?: ""
 
             Writer writer = response.getWriter()
             writer.write('<html><head><meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>')
-            writer.write("<title>Error ${errorCode} ${errorCodeName}</title>\n")
+            writer.write("<title>Error ${errorCode} ${errorCodeName}</title>")
             writer.write("</head><body>\n")
-            writer.write("<h2>Error ${errorCode} ${errorCodeName}</h2>")
-            writer.write("<p>Problem accessing ${WebUtilities.encodeHtml(getPathInfo())}</p>\n")
+            writer.write("<h2>Error ${errorCode} ${errorCodeName}</h2>\n")
+            writer.write("<p>Problem accessing ${WebUtilities.encodeHtml(getPathInfo(request))}</p>\n")
             if (message != null && !message.isEmpty()) writer.write("<p>Reason: ${WebUtilities.encodeHtml(message)}</p>\n")
             writer.write("</body></html>\n")
+            writer.flush()
 
             // NOTE: maybe include throwable info, do we ever want that?
+        } else if (acceptHeader.contains("application/json") || acceptHeader.contains("text/json")) {
+            // logger.warn("sendError json ${errorCode} ${message}")
+            response.setStatus(errorCode)
+            response.setContentType("application/json")
+            response.setCharacterEncoding("UTF-8")
 
-            /* nothing special for JSON for now
-            } else if (acceptHeader.contains("application/json") || acceptHeader.contains("text/json")) {
-                response.setContentType("application/json")
-                response.setCharacterEncoding("UTF-8")
-            */
+            JsonStringEncoder jsonEncoder = JsonStringEncoder.getInstance()
+
+            Writer writer = response.getWriter()
+            writer.write("{'message':'")
+            writer.write(jsonEncoder.quoteAsString(message))
+            writer.write("','errorName':'")
+            writer.write(errorCodeName)
+            writer.write("','error':")
+            writer.write(Integer.toString(errorCode))
+            writer.write(",'path':'")
+            writer.write(jsonEncoder.quoteAsString(getPathInfo(request)))
+            writer.write("'}")
+            writer.flush()
         } else {
-            if (message != null && !message.isEmpty()) {
-                response.sendError(errorCode, message)
-            } else {
-                response.sendError(errorCode)
-            }
+            // logger.warn("sendError default ${errorCode} ${message}")
+            response.setStatus(errorCode)
+            response.setContentType("text/plain")
+            response.setCharacterEncoding("UTF-8")
+
+            Writer writer = response.getWriter()
+            writer.write(Integer.toString(errorCode))
+            writer.write(" ")
+            writer.write(message)
+            writer.write(" ")
+            writer.write(getPathInfo(request))
+            writer.flush()
         }
     }
 
