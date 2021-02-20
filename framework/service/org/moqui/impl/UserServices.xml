@@ -442,7 +442,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="singleUseCodes" type="List"/>
         </out-parameters>
         <actions>
-            <if condition="numberOfCodes &gt; 20"><return error="true" message="Cannot create more than 20 codes at a time"/></if>
+            <if condition="numberOfCodes &gt; 21"><return error="true" message="Cannot create more than 21 codes at a time"/></if>
             <service-call name="org.moqui.impl.UserServices.delete#UserAuthcFactor" in-map="[userId:userId,factorTypeEnumId:factorTypeEnumId,fromFactorId:fromFactorId]" />
             <set field="singleUseCodes" from="[]"/>
 
@@ -458,7 +458,7 @@ along with this software (see the LICENSE.md file). If not, see
                 }</script>
 
             <!--            <message type="success">Successfully created ${numberOfCodes} Single Use Code(s)!</message>-->
-            <if condition="fromFactorId==null"><message type="info">Please write down the code(s) at the top of the screen now. They will not be recoverable after moving to another page.</message></if>
+            <if condition="fromFactorId==null"><message type="info">Please write down the codes at the top of the screen now. They will not be recoverable after moving to another page.</message></if>
         </actions>
     </service>
 
@@ -476,6 +476,8 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="factorId"/>
         </out-parameters>
         <actions>
+            <set field="userEmail" from="factorOption"/>
+
             <!-- TODO: is there a better way to do this -->
             <entity-find-count entity-name="moqui.security.UserAuthcFactor" count-field="uafListCnt">
                 <econdition field-name="userId" value="${userId}"/>
@@ -493,12 +495,17 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="org.moqui.impl.UserServices.create#UserAuthcFactorSingleUse" in-map="[userId:userId,fromFactorId:fromFactorId,thruDate:thruDate,numberOfCodes:'1']" out-map="code"/>
 
             <set field="singleUseCode" from="code.singleUseCodes[0]"/>
-            <message type="info">code is ${singleUseCode}</message>
+            <set field="thruDateString" from="thruDate.toString()"/>
 
-            <!-- TODO: Send Email with singleUseCode -->
+            <!-- send an email with the single use code -->
+            <service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" async="true">
+                <field-map field-name="emailTemplateId" value="SINGLE_USE_CODE"/>
+                <field-map field-name="toAddresses" from="userEmail"/>
+                <field-map field-name="bodyParameters" from="[singleUseCode:singleUseCode,thruDateString:thruDateString]"/>
+            </service-call>
 
+            <message type="success">Successfully added email authentication for ${factorOption}. Use the code sent via email to authenticate.</message>
         </actions>
     </service>
-
 
 </services>
