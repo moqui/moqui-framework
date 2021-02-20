@@ -355,4 +355,150 @@ along with this software (see the LICENSE.md file). If not, see
     </service>
 
 
+    <!-- ================================================= -->
+    <!-- ====== User Authentication Factor Services ====== -->
+    <!-- ================================================= -->
+
+
+    <service verb="delete" noun="UserAuthcFactor" authenticate="anonymous-all">
+        <description>After adding a new code, this will set the unused codes to not being able to be seen by the user.</description>
+        <in-parameters>
+            <parameter name="userId"/>
+            <parameter name="factorTypeEnumId"/>
+            <parameter name="fromFactorId"/>
+            <parameter name="factorId"/>
+        </in-parameters>
+        <actions>
+            <if condition="factorId!=null"><then>
+<!--                <message type="info">null</message>-->
+                <entity-find entity-name="moqui.security.UserAuthcFactor" list="uafList">
+                    <econditions combine="or">
+                        <econdition field-name="fromFactorId" value="${factorId}"/>
+                        <econdition field-name="factorId" value="${factorId}"/></econditions>
+                    <econditions combine="or">
+                        <econdition field-name="thruDate" operator="is-null"/>
+                        <econdition field-name="thruDate" operator="greater" from="ec.user.nowTimestamp"/></econditions></entity-find>
+            </then><else-if condition="factorTypeEnumId == 'UafSingleUse'">
+                <if condition="fromFactorId==null"><then>
+<!--                    <message type="info">single use null</message>-->
+                    <entity-find entity-name="moqui.security.UserAuthcFactor" list="uafList">
+                        <econdition field-name="userId" value="${userId}"/>
+                        <econdition field-name="factorTypeEnumId" value="${factorTypeEnumId}"/>
+                        <econdition field-name="fromFactorId" operator="is-null"/>
+                        <econditions combine="or">
+                            <econdition field-name="thruDate" operator="is-null"/>
+                            <econdition field-name="thruDate" operator="greater" from="ec.user.nowTimestamp"/></econditions>
+                    </entity-find></then>
+                    <else>
+<!--                        <message type="info">single use not null</message>-->
+                        <entity-find entity-name="moqui.security.UserAuthcFactor" list="uafList">
+                            <econdition field-name="userId" value="${userId}"/>
+                            <econdition field-name="factorTypeEnumId" value="UafSingleUse"/>
+                            <econdition field-name="fromFactorId" value="${fromFactorId}"/>
+                            <econdition field-name="thruDate" operator="greater" from="ec.user.nowTimestamp"/>
+                        </entity-find>
+                    </else>
+                </if>
+            </else-if></if>
+
+            <iterate list="uafList" entry="uafCheck">
+                <service-call name="update#moqui.security.UserAuthcFactor" in-map="[factorId:uafCheck.factorId, thruDate:ec.user.nowTimestamp]"/>
+            </iterate>
+
+        </actions>
+    </service>
+
+    <service verb="create" noun="UserAuthcFactorTotp" authenticate="anonymous-all">
+        <description>Create an Authenticator App Factor.</description>
+        <in-parameters>
+            <parameter name="userId" required="true"><description>User to enable Single Use Factor Method</description></parameter>
+            <parameter name="fromFactorId"/>
+            <parameter name="factorTypeEnumId" default-value="UafTotp"/>
+            <parameter name="fromDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <parameter name="thruDate" type="Timestamp" default="ec.user.nowTimestamp + 365"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="factorId"/>
+        </out-parameters>
+        <actions>
+            <script>dev.samstevens.totp.secret.DefaultSecretGenerator gen = new dev.samstevens.totp.secret.DefaultSecretGenerator()
+                factorOption = gen.generate()</script>
+            <service-call name="create#moqui.security.UserAuthcFactor" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+
+    <service verb="create" noun="UserAuthcFactorSingleUse" authenticate="anonymous-all">
+        <description>Create a single use authentication factor.</description>
+        <in-parameters>
+            <parameter name="userId" required="true"><description>User to enable Single Use Factor Method</description></parameter>
+            <parameter name="fromFactorId" default="null"/>
+            <parameter name="factorTypeEnumId" default-value="UafSingleUse"/>
+            <parameter name="fromDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <parameter name="thruDate" type="Timestamp" default="ec.user.nowTimestamp + (365*5)"/>
+            <parameter name="numberOfCodes" type="Integer" default="1"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="factorId"/>
+            <parameter name="singleUseCodes" type="List"/>
+        </out-parameters>
+        <actions>
+            <if condition="numberOfCodes &gt; 20"><return error="true" message="Cannot create more than 20 codes at a time"/></if>
+            <service-call name="org.moqui.impl.UserServices.delete#UserAuthcFactor" in-map="[userId:userId,factorTypeEnumId:factorTypeEnumId,fromFactorId:fromFactorId]" />
+            <set field="singleUseCodes" from="[]"/>
+
+            <script>import dev.samstevens.totp.recovery.RecoveryCodeGenerator
+                RecoveryCodeGenerator codes = new RecoveryCodeGenerator();
+                singleUseCodes = codes.generateCodes(numberOfCodes)
+                for(code in singleUseCodes){
+                factorId = (null);
+                factorOption = ec.ecfi.getSimpleHash(code, 'SaltySalt')
+                def call_service_result = ec.service.sync().name("create#moqui.security.UserAuthcFactor").parameters(context).call()
+                if (context != null) { if (call_service_result) context.putAll(call_service_result) } else { context = call_service_result }
+                if (ec.message.hasError()) return
+                }</script>
+
+            <!--            <message type="success">Successfully created ${numberOfCodes} Single Use Code(s)!</message>-->
+            <if condition="fromFactorId==null"><message type="info">Please write down the code(s) at the top of the screen now. They will not be recoverable after moving to another page.</message></if>
+        </actions>
+    </service>
+
+    <service verb="create" noun="UserAuthcFactorEmail" authenticate="anonymous-all">
+        <description>Create a single use email factor.</description>
+        <in-parameters>
+            <parameter name="userId" required="true"><description>User to enable Email Factor Method</description></parameter>
+            <parameter name="fromFactorId"/>
+            <parameter name="factorTypeEnumId" default-value="UafEmail"/>
+            <parameter name="fromDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <parameter name="thruDate" type="Timestamp" default="ec.user.nowTimestamp + 1"/>
+            <parameter name="factorOption" required="true" default=""><text-email/></parameter>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="factorId"/>
+        </out-parameters>
+        <actions>
+            <!-- TODO: is there a better way to do this -->
+            <entity-find-count entity-name="moqui.security.UserAuthcFactor" count-field="uafListCnt">
+                <econdition field-name="userId" value="${userId}"/>
+                <econdition field-name="factorTypeEnumId" value="UafEmail"/>
+                <econdition field-name="factorOption" value="${factorOption}"/>
+                <econdition field-name="thruDate" operator="greater" from="ec.user.nowTimestamp"/>
+            </entity-find-count>
+            <if condition="uafListCnt == 0">
+                <service-call name="create#moqui.security.UserAuthcFactor" in-map="context" out-map="context"/>
+                <set field="fromFactorId" from="factorId"/><set field="factorId" value=""/></if>
+            <if condition="uafListCnt == 1">
+                <entity-find-one entity-name="moqui.security.UserAuthcFactor" value-field="uafEmailField"><field-map field-name="factorOption" value="${factorOption}"/></entity-find-one>
+                <set field="fromFactorId" from="uafEmailField.factorId"/></if>
+
+            <service-call name="org.moqui.impl.UserServices.create#UserAuthcFactorSingleUse" in-map="[userId:userId,fromFactorId:fromFactorId,thruDate:thruDate,numberOfCodes:'1']" out-map="code"/>
+
+            <set field="singleUseCode" from="code.singleUseCodes[0]"/>
+            <message type="info">code is ${singleUseCode}</message>
+
+            <!-- TODO: Send Email with singleUseCode -->
+
+        </actions>
+    </service>
+
+
 </services>
