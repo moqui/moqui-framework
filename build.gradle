@@ -252,7 +252,10 @@ task runNewPort(type: JavaExec) {
     // NOTE: this is a hack, using -jar instead of a class name, and then the first argument is the name of the jar file
     main = '-jar';
     def argList = [warName]
-    argList.add("port=8081")
+    if (project.properties.containsKey('newPort')) {
+        logger.debug("Set to run on port: ${newPort}")
+        argList.add("port=${newPort}")
+    }
     args = argList
 }
 
