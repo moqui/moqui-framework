@@ -21,6 +21,8 @@ import org.slf4j.Logger
  * stupid but necessary for certain things.
  */
 class ViUtilities {
+    protected static int maxLimit = 500
+
     static final String removeNonumericCharacters(String inputValue) {
         return inputValue.replaceAll("[^\\d]", "")
     }
@@ -29,19 +31,14 @@ class ViUtilities {
         return inputValue.replaceAll(",", ".")
     }
 
-    static String calcPagedQuery(String query, Integer pageIndex, Integer pageSize, Integer limit)
+    static String calcPagedQuery(String query, Integer pageIndex, Integer pageSize)
     {
         String resQuery = query
         pageIndex = Math.max(0, pageIndex - 1)
 
-        // limit
-        if (limit > 0 && pageSize == 0)
-        {
-            resQuery = "${resQuery} limit ${limit}"
-        } else if (pageSize > 0)
-        {
-            resQuery = "${resQuery} limit ${pageSize}"
-        }
+        // limit by pageSize
+        int limit = pageSize==0? maxLimit : pageSize
+        resQuery = "${resQuery} limit ${limit}"
 
         // offset
         if (pageIndex > 0)
@@ -109,15 +106,15 @@ class ViUtilities {
             Logger logger,
             String query,
             Integer pageIndex = 1,
-            Integer pageSize = 20,
-            Integer limit = 500)
+            Integer pageSize = 20)
     {
-        String queryMod = calcPagedQuery(query, pageIndex, pageSize, limit)
+        String queryMod = calcPagedQuery(query, pageIndex, pageSize)
         JsonSlurper slurper = new JsonSlurper()
         def rs = null
         def stmt = null
         def columns = new ArrayList<String>()
         def records = new ArrayList<ArrayList>()
+        int limit = pageSize==0? maxLimit : pageSize
 
         if (queryMod.toUpperCase().startsWith("SELECT")) {
             stmt = conn.createStatement()
