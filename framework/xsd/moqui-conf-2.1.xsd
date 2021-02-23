@@ -254,6 +254,7 @@ along with this software (see the LICENSE.md file). If not, see
                         <xs:enumeration value="screen-render"/>
                         <xs:enumeration value="screen-secure"/>
                         <xs:enumeration value="screen-server-static"/>
+                        <xs:enumeration value="screen-transition"/>
                         <xs:enumeration value="cors-actual"/>
                         <xs:enumeration value="cors-preflight"/>
                     </xs:restriction></xs:simpleType></xs:attribute>
@@ -279,6 +280,7 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- Needed? Not yet implemented: <xs:attribute name="cookie-domain" type="xs:string"/> -->
             <xs:attribute name="websocket-timeout" type="xs:integer"><xs:annotation><xs:documentation>
                 The default WebSocket session max idle timeout for the whole server.</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="upload-executable-allow" type="boolean-expandable" default="false"/>
         </xs:complexType>
     </xs:element>
 
@@ -399,6 +401,12 @@ along with this software (see the LICENSE.md file). If not, see
             </xs:sequence>
             <xs:attribute name="use-transaction-cache" default="true" type="boolean"/>
             <xs:attribute name="use-connection-stash" default="true" type="boolean"/>
+            <xs:attribute name="use-lock-track" default="false" type="boolean-expandable">
+                <xs:annotation><xs:documentation>If true track locks from create, update, and delete plus FK locks and find for-update,
+                    use that data to warn about possible lock conflicts</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="use-statement-timeout" default="false" type="boolean-expandable">
+                <xs:annotation><xs:documentation>If true runs all JDBC statements in a separate Thread in order to enforce a timeout,
+                    this has significant overhead but protects against long held locks, etc</xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="transaction-jndi">
@@ -563,6 +571,11 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:attribute name="url" type="xs:string" use="required"/>
                 <xs:attribute name="user" type="xs:string"/>
                 <xs:attribute name="password" type="xs:string"/>
+                <xs:attribute name="index-prefix" type="xs:string"><xs:annotation><xs:documentation>
+                    Prefix added to all ES index names just before requests
+                    Must follow ES index name requirements (lower case, etc)
+                    No separator character is added, recommend ending with underscore (_)
+                </xs:documentation></xs:annotation></xs:attribute>
                 <xs:attribute name="pool-max" type="xs:positiveInteger"/>
                 <xs:attribute name="queue-size" type="xs:positiveInteger"/>
             </xs:complexType></xs:element>
@@ -573,6 +586,13 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:element name="entity-facade">
         <xs:complexType>
             <xs:sequence>
+                <xs:element name="decrypt-alt" minOccurs="0" maxOccurs="unbounded"><xs:complexType>
+                    <xs:annotation><xs:documentation>Alternate settings for decryption only; useful for migrating keys, supporting data imported from other systems, etc</xs:documentation></xs:annotation>
+                    <xs:attribute name="crypt-pass" type="xs:string"/>
+                    <xs:attribute name="crypt-salt" type="xs:string"/>
+                    <xs:attribute name="crypt-iter" type="xs:string"/>
+                    <xs:attribute name="crypt-algo" type="xs:string"/>
+                </xs:complexType></xs:element>
                 <xs:element minOccurs="0" ref="server-jndi">
                     <xs:annotation><xs:documentation>If not present the default JNDI server will be used.</xs:documentation></xs:annotation>
                 </xs:element>
@@ -580,7 +600,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="load-entity"/>
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="load-data"/>
             </xs:sequence>
-            <xs:attribute name="entity-eca-enabled" default="true" type="boolean"/>
+            <xs:attribute name="entity-eca-enabled" default="true" type="boolean-expandable"/>
             <xs:attribute name="distributed-cache-invalidate" default="false" type="boolean">
                 <xs:annotation><xs:documentation>Enable distributed cache invalidate by distributed Topic</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="dci-topic-factory" type="xs:string">
@@ -593,7 +613,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="crypt-salt" type="xs:string"/>
             <xs:attribute name="crypt-iter" type="xs:string"/>
             <xs:attribute name="crypt-algo" type="xs:string"/>
-            <xs:attribute name="query-stats" default="false" type="boolean"/>
+            <xs:attribute name="query-stats" default="false" type="boolean-expandable"/>
         </xs:complexType>
     </xs:element>
 
@@ -773,6 +793,7 @@ along with this software (see the LICENSE.md file). If not, see
                     </xs:annotation></xs:enumeration>
                 </xs:restriction></xs:simpleType>
             </xs:attribute>
+            <xs:attribute name="add-unique-as" default="false" type="boolean"/>
             <xs:attribute name="always-use-constraint-keyword" default="false" type="boolean"/>
             <xs:attribute name="use-schema-for-all" default="false" type="boolean">
                 <xs:annotation><xs:documentation>Set to true to include the schema name for primary keys, foreign keys, and indexes.</xs:documentation></xs:annotation>

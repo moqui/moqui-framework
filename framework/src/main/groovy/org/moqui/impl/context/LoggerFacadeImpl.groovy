@@ -59,6 +59,12 @@ class LoggerFacadeImpl implements LoggerFacade {
     void warn(String message) { log(WARN_INT, message, null) }
     void error(String message) { log(ERROR_INT, message, null) }
 
+    void trace(String message, Throwable thrown) { log(TRACE_INT, message, thrown) }
+    void debug(String message, Throwable thrown) { log(DEBUG_INT, message, thrown) }
+    void info(String message, Throwable thrown) { log(INFO_INT, message, thrown) }
+    void warn(String message, Throwable thrown) { log(WARN_INT, message, thrown) }
+    void error(String message, Throwable thrown) { log(ERROR_INT, message, thrown) }
+
     @Override
     boolean logEnabled(int level) {
         switch (level) {

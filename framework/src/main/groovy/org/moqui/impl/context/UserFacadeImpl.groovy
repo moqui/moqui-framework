@@ -218,7 +218,10 @@ class UserFacadeImpl implements UserFacade {
                     visitorCookie.setMaxAge(60 * 60 * 24 * 365)
                     visitorCookie.setPath("/")
                     visitorCookie.setHttpOnly(true)
+                    if (request.isSecure()) visitorCookie.setSecure(true)
                     response.addCookie(visitorCookie)
+
+                    session.setAttribute("moqui.visitorId", cookieVisitorId)
                 }
             }
             visitorIdInternal = cookieVisitorId
@@ -234,7 +237,7 @@ class UserFacadeImpl implements UserFacade {
                 Map<String, Object> parameters = new HashMap<String, Object>([sessionId:session.id, webappName:webappId,
                         fromDate:new Timestamp(session.getCreationTime()),
                         initialLocale:getLocale().toString(), initialRequest:fullUrl,
-                        initialReferrer:request.getHeader("Referrer")?:"",
+                        initialReferrer:request.getHeader("Referer")?:"",
                         initialUserAgent:curUserAgent,
                         clientHostName:request.getRemoteHost(), clientUser:request.getRemoteUser()])
 
@@ -632,7 +635,7 @@ class UserFacadeImpl implements UserFacade {
 
         UsernamePasswordToken token = new UsernamePasswordToken(username, password, true)
         // if there is a web session invalidate it so there is a new session for the login (prevent Session Fixation attacks)
-        if (eci.getWebImpl() != null) session = eci.getWebImpl().makeNewSession()
+        if (eci.getWebImpl() != null) eci.getWebImpl().makeNewSession()
 
         Subject loginSubject = makeEmptySubject()
         try {
@@ -695,14 +698,16 @@ class UserFacadeImpl implements UserFacade {
         return true
     }
 
-    @Override void logoutUser() {
+    void logoutLocal() {
         // before logout trigger the before-logout actions
         if (eci.getWebImpl() != null) eci.getWebImpl().runBeforeLogoutActions()
 
-        String userId = getUserId()
-
         // pop from user stack, also calls Shiro logout()
         popUser()
+    }
+
+    @Override void logoutUser() {
+        logoutLocal()
 
         // if there is a request and session invalidate and get new
         if (request != null) {
@@ -711,8 +716,10 @@ class UserFacadeImpl implements UserFacade {
             session = request.getSession()
         }
 
+        String userId = getUserId()
         // if userId set hasLoggedOut
         if (userId != null && !userId.isEmpty()) {
+            logger.info("Setting hasLoggedOut for user ${userId}")
             eci.serviceFacade.sync().name("update", "moqui.security.UserAccount")
                     .parameters([userId:userId, hasLoggedOut:"Y"]).disableAuthz().call()
         }
@@ -737,7 +744,8 @@ class UserFacadeImpl implements UserFacade {
 
         // check expire date
         Timestamp nowDate = getNowTimestamp()
-        if (nowDate > userLoginKey.getTimestamp("thruDate")) {
+        Timestamp thruDate = userLoginKey.getTimestamp("thruDate")
+        if (thruDate != (Timestamp) null && nowDate > thruDate) {
             eci.message.addError(eci.l10n.localize("Login key expired"))
             return false
         }
@@ -748,6 +756,9 @@ class UserFacadeImpl implements UserFacade {
         return internalLoginUser(userAccount.getString("username"))
     }
     @Override String getLoginKey() {
+        return getLoginKey(eci.ecfi.getLoginKeyExpireHours())
+    }
+    @Override String getLoginKey(float expireHours) {
         String userId = getUserId()
         if (!userId) throw new AuthenticationRequiredException("No active user, cannot get login key")
 
@@ -756,9 +767,8 @@ class UserFacadeImpl implements UserFacade {
 
         // save hashed in UserLoginKey, calc expire and set from/thru dates
         String hashedKey = eci.ecfi.getSimpleHash(loginKey, "", eci.ecfi.getLoginKeyHashType(), false)
-        int expireHours = eci.ecfi.getLoginKeyExpireHours()
         Timestamp fromDate = getNowTimestamp()
-        long thruTime = fromDate.getTime() + (expireHours * 60*60*1000)
+        long thruTime = fromDate.getTime() + Math.round(expireHours * 60*60*1000)
         eci.serviceFacade.sync().name("create", "moqui.security.UserLoginKey")
                 .parameters([loginKey:hashedKey, userId:userId, fromDate:fromDate, thruDate:new Timestamp(thruTime)])
                 .disableAuthz().requireNewTransaction(true).call()

@@ -18,8 +18,10 @@ import org.moqui.context.ArtifactTarpitException
 import org.moqui.context.AuthenticationRequiredException
 import org.moqui.context.ArtifactAuthorizationException
 import org.moqui.context.NotificationMessage
+import org.moqui.context.WebMediaTypeException
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
+import org.moqui.impl.context.WebFacadeImpl
 import org.moqui.impl.screen.ScreenRenderImpl
 import org.moqui.util.MNode
 import org.slf4j.Logger
@@ -88,7 +90,8 @@ class MoquiServlet extends HttpServlet {
                 } else {
                     logger.warn("Returning 401, Origin ${originHeader} not allowed for configuration ${allowOriginSet} or server name ${serverName} or request host ${hostName}")
                     // Origin not allowed, send 401 response
-                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Origin not allowed")
+                    // response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Origin not allowed")
+                    WebFacadeImpl.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Origin not allowed", null, request, response)
                     return
                 }
             }
@@ -167,6 +170,9 @@ class MoquiServlet extends HttpServlet {
             if (e.getRetryAfterSeconds()) response.addIntHeader("Retry-After", e.getRetryAfterSeconds())
             // NOTE: there is no constant on HttpServletResponse for 429; see RFC 6585 for details
             sendErrorResponse(request, response, 429, "too-many", null, e, ecfi, webappName, sri)
+        } catch (WebMediaTypeException e) {
+            logger.warn("Web Unsupported Media Type: " + e.message)
+            sendErrorResponse(request, response, HttpServletResponse.SC_UNSUPPORTED_MEDIA_TYPE, "media-type", e.message, e, ecfi, webappName, sri)
         } catch (Throwable t) {
             if (ec.message.hasError()) {
                 String errorsString = ec.message.errorsString
@@ -258,11 +264,7 @@ class MoquiServlet extends HttpServlet {
                 response.sendError(errorCode, message)
             }
         } else {
-            if (ec.web != null) {
-                ec.web.sendError(errorCode, message, origThrowable)
-            } else {
-                response.sendError(errorCode, message)
-            }
+            WebFacadeImpl.sendError(errorCode, message, origThrowable, request, response)
         }
     }
 

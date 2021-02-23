@@ -13,6 +13,9 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
+    <service verb="noop" authenticate="anonymous-all" validate="false">
+        <actions><!-- do nothing, it's a noop service --></actions>
+    </service>
 
     <!-- ========== Geo Services ========== -->
     <service verb="get" noun="GeoRegionsForDropDown" allow-remote="true">
@@ -20,11 +23,18 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="geoId"/>
             <parameter name="geoAssocTypeEnumId" default-value="GAT_REGIONS"/>
             <parameter name="geoTypeEnumId"/>
+            <parameter name="term"><description>For current Find Options will be only geoId to include in output</description></parameter>
         </in-parameters>
         <out-parameters><parameter name="resultList" type="List"><parameter name="result" type="Map"/></parameter></out-parameters>
         <actions>
             <set field="resultList" from="[]"/>
-            <if condition="geoId">
+            <if condition="term">
+                <entity-find-one entity-name="moqui.basic.Geo" value-field="termGeo">
+                    <field-map field-name="geoId" from="term"/></entity-find-one>
+                <if condition="termGeo != null"><script>resultList.add([geoId:termGeo.geoId, label:(termGeo.geoCodeAlpha2 ? termGeo.geoCodeAlpha2 + ' - ' : '') + termGeo.geoName,
+                        geoName:termGeo.geoName, geoCodeAlpha2:termGeo.geoCodeAlpha2])</script></if>
+            </if>
+            <if condition="geoId &amp;&amp; !resultList">
                 <entity-find entity-name="moqui.basic.GeoAssocAndToDetail" list="geoList">
                     <econdition field-name="geoId"/><econdition field-name="geoAssocTypeEnumId"/>
                     <econdition field-name="geoTypeEnumId" ignore-if-empty="true"/>

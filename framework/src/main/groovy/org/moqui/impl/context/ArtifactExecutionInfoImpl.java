@@ -55,6 +55,7 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     public boolean trackArtifactHit = true;
     private boolean internalAuthzWasGranted = false;
     public ArtifactAuthzCheck internalAacv = null;
+    public Long moquiTxId = null;
 
     //protected Exception createdLocation = null
     private ArtifactExecutionInfoImpl parentAeii = (ArtifactExecutionInfoImpl) null;
@@ -123,6 +124,9 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     @Override
     public boolean getAuthorizationWasGranted() { return internalAuthzWasGranted; }
     void setAuthorizationWasGranted(boolean value) { internalAuthzWasGranted = value ? Boolean.TRUE : Boolean.FALSE; }
+
+    public Long getMoquiTxId() { return moquiTxId; }
+    void setMoquiTxId(Long txId) { moquiTxId = txId; }
 
     ArtifactAuthzCheck getAacv() { return internalAacv; }
 
@@ -365,12 +369,19 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     }
 
     @Override public String toString() {
-        return "[name:'" + nameInternal + "', type:'" + internalTypeEnum + "', action:'" + internalActionEnum + "', required: " + internalAuthzWasRequired + ", granted:" + internalAuthzWasGranted + ", user:'" + internalAuthorizedUserId + "', authz:'" + internalAuthorizedAuthzType + "', authAction:'" + internalAuthorizedActionEnum + "', inheritable:" + internalAuthorizationInheritable + ", runningTime:" + getRunningTime() + "]";
+        return "[name:'" + nameInternal + "', type:'" + internalTypeEnum + "', action:'" + internalActionEnum +
+                "', required: " + internalAuthzWasRequired + ", granted:" + internalAuthzWasGranted +
+                ", user:'" + internalAuthorizedUserId + "', authz:'" + internalAuthorizedAuthzType +
+                "', authAction:'" + internalAuthorizedActionEnum + "', inheritable:" + internalAuthorizationInheritable +
+                ", runningTime:" + getRunningTime() + "', txId:" + moquiTxId + "]";
     }
     @Override public String toBasicString() {
-        String actionStr = internalActionEnum.toString();
-        if (actionDetail != null && !actionDetail.isEmpty()) actionStr = actionStr + ':' + actionDetail;
-        return internalTypeEnum.toString() + ':' + nameInternal + '(' + actionStr + ')';
+        StringBuilder builder = new StringBuilder().append(internalTypeEnum.toString()).append(':').append(nameInternal)
+                .append(" (").append(internalActionEnum.toString());
+        if (actionDetail != null && !actionDetail.isEmpty()) builder.append(':').append(actionDetail);
+        builder.append(") ").append(System.currentTimeMillis() - startTimeMillis).append("ms");
+        if (moquiTxId != null) builder.append(" TX ").append(moquiTxId);
+        return builder.toString();
     }
 
 
@@ -400,6 +411,9 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
 
             nameIsPattern = "Y".equals(aacvMap.get("nameIsPattern"));
             inheritAuthz = "Y".equals(aacvMap.get("inheritAuthz"));
+        }
+        @Override public String toString() {
+            return "[userGroupId:" + userGroupId + ", artifactAuthzId:" + artifactAuthzId + ", artifactGroupId:" + artifactGroupId + ", artifactName:" + artifactName + ", artifactType:" + artifactType + ", authzAction:" + authzAction + ", authzType:" + authzType + ", nameIsPattern:" + nameIsPattern + ", inheritAuthz:" + inheritAuthz + "]";
         }
     }
 }

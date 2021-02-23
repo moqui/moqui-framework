@@ -23,6 +23,8 @@
     <default-property name="webapp_allow_origins" value=""/>
     <default-property name="webapp_handle_cors" value="true"/>
     <default-property name="webapp_status_ips" value="127.0.0.1"/>
+    <default-property name="webapp_require_session_token" value="true"/>
+    <default-property name="webapp_upload_executable_allow" value="false"/>
 
     <!-- Properties for the primary (transactional group) datasource -->
     <default-property name="entity_ds_db_conf" value="h2"/>
@@ -34,8 +36,11 @@
     <default-property name="entity_ds_user" value="sa"/>
     <default-property name="entity_ds_password" value="sa"/>
     <default-property name="entity_ds_crypt_pass" value="MoquiDefaultPassword:CHANGEME"/>
+    <default-property name="entity_ds_crypt_pass_old" value="MoquiDefaultPassword:CHANGEME"/>
     <default-property name="entity_add_missing_runtime" value="false"/>
     <default-property name="entity_add_missing_startup" value="true"/>
+    <default-property name="entity_lock_track" value="false"/>
+    <default-property name="entity_statement_timeout" value="false"/>
     <default-property name="entity_empty_db_load" value="seed,seed-initial,install"/>
 
     <!-- Properties for a database clone; note that without overriding the transactional#clone1 datasource the default works only
@@ -56,6 +61,7 @@
     <default-property name="elasticsearch_url" value="http://127.0.0.1:9200"/>
     <default-property name="elasticsearch_user" value=""/>
     <default-property name="elasticsearch_password" value=""/>
+    <default-property name="elasticsearch_index_prefix" value=""/>
     <!-- Kibana Proxy Servlet settings -->
     <default-property name="kibana_host" value="127.0.0.1"/>
     <default-property name="kibana_port" value="5601"/>
@@ -148,10 +154,11 @@
 
     <webapp-list>
         <!-- The webapp.@name is looked up based on the value of the 'moqui-name' context-param in the web.xml file -->
-        <webapp name="webroot" http-port="${webapp_http_port}" http-host="${webapp_http_host}" https-port="${webapp_https_port}"
-                https-host="${webapp_http_host}" https-enabled="${webapp_https_enabled}"
+        <webapp name="webroot" http-port="${webapp_http_port}" http-host="${webapp_http_host}"
+                https-port="${webapp_https_port}" https-host="${webapp_http_host}" https-enabled="${webapp_https_enabled}"
                 handle-cors="${webapp_handle_cors}" allow-origins="${webapp_allow_origins}"
-                require-session-token="true" websocket-timeout="600000">
+                require-session-token="${webapp_require_session_token}" upload-executable-allow="${webapp_upload_executable_allow}"
+                websocket-timeout="600000">
             <!-- root and error screens for OOTB runtime directory (moqui/moqui-runtime repository) -->
             <root-screen host=".*" location="component://webroot/screen/webroot.xml"/>
             <error-screen error="unauthorized" screen-path="error/Unauthorized"/>
@@ -228,9 +235,16 @@
             see https://content-security-policy.com/
             consider "child-src 'self';", leaving out as default because 3rd party hosts needed for payment processing hosted forms, etc
             consider "connect-src 'self';" Applies to XMLHttpRequest (AJAX), WebSocket or EventSource
+            CSP more secure, should work for back office (internal) but may not for ecommerce or custom apps depending on external resources used and their domain names:
+                see https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy/default-src
+                value="frame-ancestors 'none'; form-action 'self'; default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;"
             -->
             <response-header type="screen-render" name="Content-Security-Policy" value="frame-ancestors 'none'; form-action 'self';"/>
-            <response-header type="screen-render" name="X-Frame-Options" value="deny"/>
+            <response-header type="screen-render" name="X-Frame-Options" value="sameorigin"/>
+            <!-- X-XSS-Protection: this is largely useless with the Content-Security-Policy but here because some web security scanners look for it -->
+            <response-header type="screen-render" name="X-XSS-Protection" value="1; mode=block"/>
+            <!-- X-Content-Type-Options: this could cause problems as much as help but here because some web security scanners look for it -->
+            <response-header type="screen-render" name="X-Content-Type-Options" value="nosniff"/>
             <!-- CORS actual and preflight headers -->
             <!-- NOTE: Access-Control-Allow-Origin is set dynamically by MoquiServlet if Origin request header value is in the value of the webapp.@allow-origins attribute -->
             <!-- Access-Control-Allow-Credentials - always true so cookies, authc, etc always allowed -->
@@ -263,7 +277,7 @@
         <login max-failures="3" disable-minutes="5" history-store="true" history-incorrect-password="false"/>
     </user-facade>
 
-    <transaction-facade use-transaction-cache="true">
+    <transaction-facade use-transaction-cache="true" use-connection-stash="true" use-lock-track="${entity_lock_track}" use-statement-timeout="${entity_statement_timeout}">
         <!-- Use this for the internal transaction manager (not through JNDI) -->
         <transaction-internal class="org.moqui.impl.context.TransactionInternalBitronix"/>
 
@@ -324,21 +338,31 @@
 
     <screen-facade boundary-comments="false" default-autocomplete-rows="20" default-paginate-rows="20">
         <screen-text-output type="csv" mime-type="text/csv" always-standalone="true"
-                            macro-template-location="template/screen-macro/DefaultScreenMacros.csv.ftl"/>
+                macro-template-location="template/screen-macro/DefaultScreenMacros.csv.ftl"/>
         <screen-text-output type="html" mime-type="text/html"
-                            macro-template-location="template/screen-macro/DefaultScreenMacros.html.ftl"/>
-        <screen-text-output type="js" mime-type="application/javascript"
-                            macro-template-location="template/screen-macro/DefaultScreenMacros.text.ftl"/>
+                macro-template-location="template/screen-macro/DefaultScreenMacros.html.ftl"/>
         <screen-text-output type="text" mime-type="text/plain"
-                            macro-template-location="template/screen-macro/DefaultScreenMacros.text.ftl"/>
+                macro-template-location="template/screen-macro/DefaultScreenMacros.text.ftl"/>
         <screen-text-output type="xml" mime-type="text/xml"
-                            macro-template-location="template/screen-macro/DefaultScreenMacros.xml.ftl"/>
+                macro-template-location="template/screen-macro/DefaultScreenMacros.xml.ftl"/>
         <screen-text-output type="xsl-fo" mime-type="text/xml" always-standalone="true"
-                            macro-template-location="template/screen-macro/DefaultScreenMacros.xsl-fo.ftl"/>
+                macro-template-location="template/screen-macro/DefaultScreenMacros.xsl-fo.ftl"/>
+
         <!-- vuet is a custom extension for Vue JS component templates (extended HTML) -->
         <screen-text-output type="vuet" mime-type="text/html" always-standalone="true"
-                            macro-template-location="template/screen-macro/DefaultScreenMacros.vuet.ftl"/>
+                macro-template-location="template/screen-macro/DefaultScreenMacros.vuet.ftl"/>
+        <screen-text-output type="js" mime-type="application/javascript" always-standalone="true"
+                macro-template-location="template/screen-macro/DefaultScreenMacros.plain.ftl"/>
+        <screen-text-output type="vue" mime-type="text/html" always-standalone="true"
+                macro-template-location="template/screen-macro/DefaultScreenMacros.plain.ftl"/>
 
+        <!-- qvt is a custom extension for Quasar & Vue JS component templates (extended HTML) -->
+        <screen-text-output type="qvt" mime-type="text/html" always-standalone="true"
+                macro-template-location="template/screen-macro/DefaultScreenMacros.qvt.ftl"/>
+        <screen-text-output type="qjs" mime-type="application/javascript" always-standalone="true"
+                macro-template-location="template/screen-macro/DefaultScreenMacros.plain.ftl"/>
+        <screen-text-output type="qvue" mime-type="text/html" always-standalone="true"
+                macro-template-location="template/screen-macro/DefaultScreenMacros.plain.ftl"/>
     </screen-facade>
 
     <service-facade distributed-factory="" scheduled-job-check-time="${scheduled-job-check-time}">
@@ -374,13 +398,20 @@
     <elastic-facade>
         <!-- NOTE: elasticsearch_host1 used from moqui-elasticsearch with elasticsearch_mode=rest for compatibility until moqui-elasticsearch deprecated -->
         <cluster name="default" url="${elasticsearch_host1 ?: elasticsearch_url}" user="${elasticsearch_user}" password="${elasticsearch_password}"
-                pool-max="64" queue-size="1024"/>
+                index-prefix="${elasticsearch_index_prefix}" pool-max="64" queue-size="1024"/>
     </elastic-facade>
 
     <entity-facade default-group-name="transactional" entity-eca-enabled="true" sequenced-id-prefix=""
             distributed-cache-invalidate="false" dci-topic-factory="" query-stats="false"
             database-locale="${default_locale}" database-time-zone="${database_time_zone ?: default_time_zone}"
-            crypt-salt="SkcorIuqom" crypt-iter="10" crypt-algo="PBEWithMD5AndDES" crypt-pass="${entity_ds_crypt_pass}">
+            crypt-salt="20201202" crypt-iter="10" crypt-algo="PBEWithHmacSHA256AndAES_128" crypt-pass="${entity_ds_crypt_pass}">
+
+        <!-- alternate decrypt using original algo (PBEWithMD5AndDES), etc for decrypting old values, all new values will encrypt using the 4 attributes on entity-facade element -->
+        <decrypt-alt crypt-salt="SkcorIuqom" crypt-iter="10" crypt-algo="PBEWithMD5AndDES" crypt-pass="${entity_ds_crypt_pass}"/>
+        <!-- alternate decrypts for crypt pass migration with both DES and AES -->
+        <decrypt-alt crypt-salt="SkcorIuqom" crypt-iter="10" crypt-algo="PBEWithMD5AndDES" crypt-pass="${entity_ds_crypt_pass_old}"/>
+        <decrypt-alt crypt-salt="20201202" crypt-iter="10" crypt-algo="PBEWithHmacSHA256AndAES_128" crypt-pass="${entity_ds_crypt_pass_old}"/>
+
         <!-- The entity-facade.@default-group-name=transactional, so if other entity groups do not have a data source
             the transactional group's datasource will be used. -->
 
@@ -461,6 +492,7 @@
         <load-entity location="classpath://entity/OlapEntities.xml"/>
         <load-entity location="classpath://entity/ResourceEntities.xml"/>
         <load-entity location="classpath://entity/ScreenEntities.xml"/>
+        <load-entity location="classpath://entity/Screen.eecas.xml"/>
         <load-entity location="classpath://entity/SecurityEntities.xml"/>
         <load-entity location="classpath://entity/ServerEntities.xml"/>
         <load-entity location="classpath://entity/ServiceEntities.xml"/>
@@ -472,7 +504,7 @@
         <load-data location="classpath://data/GeoCountryData.xml"/>
         <load-data location="classpath://data/SecurityTypeData.xml"/>
         <load-data location="classpath://data/UnitData.xml"/>
-        <load-data location="classpath://data/MoquiInstallData.xml"/>
+        <load-data location="classpath://data/MoquiSetupData.xml"/>
     </entity-facade>
     <database-list>
         <dictionary-type type="id" java-type="java.lang.String" default-sql-type="VARCHAR(40)"/>
@@ -492,6 +524,7 @@
         <dictionary-type type="text-indicator" java-type="java.lang.String" default-sql-type="CHAR(1)"/>
         <dictionary-type type="text-short" java-type="java.lang.String" default-sql-type="VARCHAR(63)"/>
         <dictionary-type type="text-medium" java-type="java.lang.String" default-sql-type="VARCHAR(255)"/>
+        <dictionary-type type="text-intermediate" java-type="java.lang.String" default-sql-type="VARCHAR(1023)"/>
         <!-- text-long was 32000, but changed to 4095 because MySQL max size is 21K or so for a VARCHAR, and 64K for a
             row (not including text-very-long), and it seems that the limit is bytes, not characters, so 4K characters
             is 12K bytes... just like the old annoying column size which is now in characters, but the row size still
@@ -574,7 +607,7 @@
             <inline-jdbc jdbc-uri="jdbc:h2:${moqui_runtime}/db/h2/moqui;lock_timeout=30000" jdbc-username="sa" jdbc-password="sa"/>
         </datasource>
         -->
-        <database name="h2" use-pk-constraint-names="false" use-indexes-unique="true" default-isolation-level="ReadCommitted"
+        <database name="h2" use-pk-constraint-names="false" use-indexes-unique="true" add-unique-as="true" default-isolation-level="ReadCommitted"
                 default-jdbc-driver="org.h2.Driver" default-xa-ds-class="org.h2.jdbcx.JdbcDataSource"
                 default-start-server-args="-tcpPort 9092 -ifExists -baseDir ${moqui_runtime}/db/h2">
             <inline-jdbc><xa-properties url="${entity_ds_url}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
@@ -596,6 +629,7 @@
             <database-type type="text-indicator" sql-type="CHAR"/>
             <database-type type="text-short" sql-type="VARCHAR"/>
             <database-type type="text-medium" sql-type="VARCHAR"/>
+            <database-type type="text-intermediate" sql-type="VARCHAR"/>
             <database-type type="text-long" sql-type="VARCHAR"/>
             <database-type type="text-very-long" sql-type="VARCHAR"/>
 
@@ -634,6 +668,7 @@
             <database-type type="text-indicator" sql-type="CHAR(1)"/>
             <database-type type="text-short" sql-type="NVARCHAR(63)"/>
             <database-type type="text-medium" sql-type="NVARCHAR(255)"/>
+            <database-type type="text-intermediate" sql-type="NVARCHAR(1023)"/>
             <database-type type="text-long" sql-type="NVARCHAR(4000)"/>
             <database-type type="text-very-long" sql-type="TEXT"/>
 
@@ -682,8 +717,8 @@
             <database-type type="binary-very-long" sql-type="LONGBLOB"/>
 
             <!-- default max connections for MySQL is 151 -->
-            <inline-jdbc pool-maxsize="140"><xa-properties pinGlobalTxToPhysicalConnection="true" autoReconnectForPools="true"
-                    useUnicode="true" encoding="UTF-8" serverName="${entity_ds_host}" port="${entity_ds_port?:'3306'}"
+            <inline-jdbc pool-maxsize="140"><xa-properties serverName="${entity_ds_host}" port="${entity_ds_port?:'3306'}"
+                    pinGlobalTxToPhysicalConnection="true" autoReconnectForPools="true" useUnicode="true" encoding="UTF-8" useCursorFetch="true"
                     databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
         </database>
         <database name="mysql8" lb-name="mysql" join-style="ansi-no-parenthesis" offset-style="limit" from-lateral-style="lateral"
@@ -715,8 +750,8 @@
             <database-type type="binary-very-long" sql-type="LONGBLOB"/>
 
             <!-- default max connections for MySQL is 151 -->
-            <inline-jdbc pool-maxsize="140"><xa-properties pinGlobalTxToPhysicalConnection="true" autoReconnectForPools="true"
-                    serverName="${entity_ds_host}" port="${entity_ds_port?:'3306'}"
+            <inline-jdbc pool-maxsize="140"><xa-properties serverName="${entity_ds_host}" port="${entity_ds_port?:'3306'}"
+                    pinGlobalTxToPhysicalConnection="true" autoReconnectForPools="true" useCursorFetch="true"
                     serverTimezone="${database_time_zone ?: default_time_zone}" useSSL="false" allowPublicKeyRetrieval="true"
                     databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
         </database>
@@ -729,7 +764,7 @@
             <inline-jdbc jdbc-uri="jdbc:oracle:thin:@127.0.0.1:1521:moqui" jdbc-username="moqui" jdbc-password="moqui"/>
         </datasource>
         -->
-        <database name="oracle" join-style="ansi" from-lateral-style="apply" default-isolation-level="ReadCommitted"
+        <database name="oracle" add-unique-as="true" join-style="ansi" from-lateral-style="apply" default-isolation-level="ReadCommitted"
                 default-test-query="SELECT 1 FROM DUAL" default-jdbc-driver="oracle.jdbc.driver.OracleDriver"
                 default-xa-ds-class="oracle.jdbc.xa.client.OracleXADataSource"
                 default-startup-add-missing="true" default-runtime-add-missing="false">
@@ -747,6 +782,7 @@
 
             <database-type type="text-short" sql-type="VARCHAR2(63)"/>
             <database-type type="text-medium" sql-type="VARCHAR2(255)"/>
+            <database-type type="text-intermediate" sql-type="VARCHAR2(1023)"/>
             <database-type type="text-long" sql-type="VARCHAR2(4000)"/>
 
             <inline-jdbc><xa-properties user="${entity_ds_user}" password="${entity_ds_password}"
@@ -777,6 +813,7 @@
             <database-type type="number-float" sql-type="FLOAT8"/>
 
             <database-type type="text-medium" sql-type="TEXT"/>
+            <database-type type="text-intermediate" sql-type="TEXT"/>
             <database-type type="text-long" sql-type="TEXT"/>
             <database-type type="text-very-long" sql-type="TEXT"/>
 

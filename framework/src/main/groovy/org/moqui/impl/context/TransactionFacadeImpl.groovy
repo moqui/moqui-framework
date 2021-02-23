@@ -19,6 +19,7 @@ import org.moqui.context.TransactionException
 import org.moqui.context.TransactionFacade
 import org.moqui.context.TransactionInternal
 import org.moqui.impl.context.ContextJavaUtil.ConnectionWrapper
+import org.moqui.impl.context.ContextJavaUtil.EntityRecordLock
 import org.moqui.impl.context.ContextJavaUtil.RollbackInfo
 import org.moqui.impl.context.ContextJavaUtil.TxStackInfo
 import org.moqui.util.MNode
@@ -33,6 +34,7 @@ import javax.transaction.*
 import javax.transaction.xa.XAException
 import javax.transaction.xa.XAResource
 import java.sql.*
+import java.util.concurrent.ConcurrentHashMap
 
 @CompileStatic
 class TransactionFacadeImpl implements TransactionFacade {
@@ -48,14 +50,22 @@ class TransactionFacadeImpl implements TransactionFacade {
 
     protected boolean useTransactionCache = true
     protected boolean useConnectionStash = true
+    protected boolean useLockTrack = false
+    protected boolean useStatementTimeout = false
 
     private ThreadLocal<TxStackInfo> txStackInfoCurThread = new ThreadLocal<TxStackInfo>()
     private ThreadLocal<LinkedList<TxStackInfo>> txStackInfoListThread = new ThreadLocal<LinkedList<TxStackInfo>>()
+
+    protected final ConcurrentHashMap<String, ArrayList<EntityRecordLock>> recordLockByEntityPk = new ConcurrentHashMap<>()
 
     TransactionFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
 
         MNode transactionFacadeNode = ecfi.getConfXmlRoot().first("transaction-facade")
+        transactionFacadeNode.setSystemExpandAttributes(true)
+        useLockTrack = "true".equals(transactionFacadeNode.attribute("use-lock-track"))
+        useStatementTimeout = "true".equals(transactionFacadeNode.attribute("use-statement-timeout"))
+
         if (transactionFacadeNode.hasChild("transaction-jndi")) {
             this.populateTransactionObjectsJndi()
         } else if (transactionFacadeNode.hasChild("transaction-internal")) {
@@ -117,6 +127,9 @@ class TransactionFacadeImpl implements TransactionFacade {
         txStackInfoListThread.remove()
     }
 
+    boolean getUseLockTrack() { return useLockTrack }
+    boolean getUseStatementTimeout() { return useStatementTimeout }
+
     TransactionInternal getTransactionInternal() { return transactionInternal }
     TransactionManager getTransactionManager() { return tm }
     UserTransaction getUserTransaction() { return ut }
@@ -132,7 +145,7 @@ class TransactionFacadeImpl implements TransactionFacade {
         if (list == null) {
             list = new LinkedList<TxStackInfo>()
             txStackInfoListThread.set(list)
-            TxStackInfo txStackInfo = new TxStackInfo()
+            TxStackInfo txStackInfo = new TxStackInfo(this)
             list.add(txStackInfo)
             txStackInfoCurThread.set(txStackInfo)
         }
@@ -147,7 +160,7 @@ class TransactionFacadeImpl implements TransactionFacade {
         return txStackInfo
     }
     protected void pushTxStackInfo(Transaction tx, Exception txLocation) {
-        TxStackInfo txStackInfo = new TxStackInfo()
+        TxStackInfo txStackInfo = new TxStackInfo(this)
         txStackInfo.suspendedTx = tx
         txStackInfo.suspendedTxLocation = txLocation
         getTxStackInfoList().addFirst(txStackInfo)
@@ -309,6 +322,14 @@ class TransactionFacadeImpl implements TransactionFacade {
         return curStatus == Status.STATUS_ACTIVE || curStatus == Status.STATUS_NO_TRANSACTION
     }
 
+    int getTransactionTimeout() { return getTxStackInfo().transactionTimeout }
+    long getTxTimeoutRemainingMillis() {
+        TxStackInfo txStackInfo = getTxStackInfo()
+        long txTimeoutMs = txStackInfo.transactionTimeout * 1000L
+        long txSinceBeginMs = txStackInfo.transactionBeginStartTime != null ? System.currentTimeMillis() - txStackInfo.transactionBeginStartTime : 0L
+        return txSinceBeginMs > 0 ? txTimeoutMs - txSinceBeginMs : txTimeoutMs
+    }
+
     @Override
     boolean begin(Integer timeout) {
         int currentStatus = ut.getStatus()
@@ -340,6 +361,7 @@ class TransactionFacadeImpl implements TransactionFacade {
             TxStackInfo txStackInfo = getTxStackInfo()
             txStackInfo.transactionBegin = new Exception("Tx Begin Placeholder")
             txStackInfo.transactionBeginStartTime = System.currentTimeMillis()
+            if (timeout != null) txStackInfo.transactionTimeout = timeout
             // logger.warn("================ begin TX, getActiveSynchronizationStack()=${getActiveSynchronizationStack()}")
 
             if (txStackInfo.txCache != null) logger.warn("Begin TX, tx cache is not null!")
@@ -599,7 +621,7 @@ class TransactionFacadeImpl implements TransactionFacade {
     }
 
     @Override
-    void initTransactionCache() {
+    void initTransactionCache(boolean readOnly) {
         if (!useTransactionCache) return
         TxStackInfo txStackInfo = getTxStackInfo()
         if (txStackInfo.txCache == null) {
@@ -614,7 +636,7 @@ class TransactionFacadeImpl implements TransactionFacade {
 
             if (tm == null || tm.getStatus() != Status.STATUS_ACTIVE) throw new XAException("Cannot enlist: no transaction manager or transaction not active")
 
-            TransactionCache txCache = new TransactionCache(this.ecfi, false)
+            TransactionCache txCache = new TransactionCache(this.ecfi, readOnly)
             txStackInfo.txCache = txCache
             registerSynchronization(txCache)
         } else if (txStackInfo.txCache.isReadOnly()) {
@@ -678,6 +700,15 @@ class TransactionFacadeImpl implements TransactionFacade {
         ConnectionWrapper newCw = new ConnectionWrapper(con, this, groupName)
         txStackInfo.txConByGroup.put(conKey, newCw)
         return newCw
+    }
+
+    /* ================== */
+    /* Lock Track Methods */
+    /* ================== */
+
+    void registerRecordLock(EntityRecordLock erl) {
+        if (!useLockTrack) return
+        erl.register(recordLockByEntityPk, getTxStackInfo())
     }
 
 

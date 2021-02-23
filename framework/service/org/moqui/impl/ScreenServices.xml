@@ -22,33 +22,20 @@ along with this software (see the LICENSE.md file). If not, see
                 <date-filter/></entity-find>
             <iterate list="screenScheduledList" entry="screenScheduled">
                 <if condition="!screenScheduled.cronExpression">
-                    <log level="error" message="ScreenScheduled ${screenScheduled.screenScheduledId} has no cronExpression, not running"/>
+                    <log level="warn" message="ScreenScheduled ${screenScheduled.screenScheduledId} has no cronExpression, not running"/>
                     <continue/>
                 </if>
 
                 <!-- check cronExpression vs lastRunTime to see if we need to run -->
-                <entity-find-one entity-name="moqui.screen.ScreenScheduledLock" value-field="screenScheduledLock" for-update="true">
+                <entity-find-one entity-name="moqui.screen.ScreenScheduledLock" value-field="screenScheduledLock">
                     <field-map field-name="screenScheduledId" from="screenScheduled.screenScheduledId"/></entity-find-one>
-                <script><![CDATA[
-                    if (screenScheduledLock != null && screenScheduledLock.lastRunTime != null) {
-                        try {
-                            def now = java.time.ZonedDateTime.now()
-                            def lastRunDt = java.time.ZonedDateTime.ofInstant(java.time.Instant.ofEpochMilli(screenScheduledLock.lastRunTime.getTime()), now.getZone())
-                            def executionTime = org.moqui.impl.service.ScheduledJobRunner.getExecutionTime((String) screenScheduled.cronExpression)
-                            def lastSchedule = executionTime.lastExecution(now).get()
-                            if (lastSchedule != null && lastRunDt != null) {
-                                // if the time it should have run last is before the time it ran last don't run it
-                                if (lastSchedule.isBefore(lastRunDt)) continue
-                            }
-                        } catch (Throwable t) {
-                            ec.logger.log(200, "Error processing cronExpression and lastRunTime for ScreenScheduled ${screenScheduled.screenScheduledId}, skipping", t)
-                            continue
-                        }
-                    }
-                ]]></script>
+                <set field="shouldRun" from="org.moqui.impl.service.ScheduledJobRunner.isLastRunBeforeLastSchedule(
+                        screenScheduled.cronExpression, screenScheduledLock?.lastRunTime, 'ScreenScheduled ' + screenScheduled.screenScheduledId, null)"/>
 
-                <service-call name="org.moqui.impl.ScreenServices.render#ScheduledScreen"
-                        in-map="[screenScheduledId:screenScheduled.screenScheduledId]" async="distribute"/>
+                <if condition="shouldRun">
+                    <service-call name="org.moqui.impl.ScreenServices.render#ScheduledScreen"
+                            in-map="[screenScheduledId:screenScheduled.screenScheduledId]" async="distribute"/>
+                </if>
             </iterate>
         </actions>
     </service>
@@ -57,7 +44,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="screenScheduledId" required="true"/>
         </in-parameters>
         <actions>
-            <entity-find-one entity-name="moqui.screen.ScreenScheduled" value-field="screenScheduled"/>
+            <entity-find-one entity-name="moqui.screen.ScreenScheduled" value-field="screenScheduled" cache="true"/>
             <set field="screenPath" from="screenScheduled.screenPath"/>
             <set field="renderMode" from="screenScheduled.renderMode ?: 'csv'"/>
             <set field="formListFindId" from="screenScheduled.formListFindId"/>
@@ -84,6 +71,11 @@ along with this software (see the LICENSE.md file). If not, see
                 <service-call name="create#moqui.screen.ScreenScheduledLock"
                         in-map="[screenScheduledId:screenScheduledId, lastRunTime:ec.user.nowTimestamp]"/>
             </if>
+
+            <!-- check again to make sure should run, now that all is locked -->
+            <set field="shouldRun" from="org.moqui.impl.service.ScheduledJobRunner.isLastRunBeforeLastSchedule(
+                    screenScheduled.cronExpression, screenScheduledLock?.lastRunTime, 'ScreenScheduled ' + screenScheduled.screenScheduledId, null)"/>
+            <if condition="!shouldRun"><return type="warning" message="ScreenScheduled ${screenScheduled.screenScheduledId} is not yet scheduled to run since last run time ${screenScheduledLock?.lastRunTime}"/></if>
 
             <!-- render screen -->
             <script><![CDATA[

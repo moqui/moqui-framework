@@ -114,6 +114,9 @@ public class Moqui {
      * @param argMap Arguments, generally from command line, to configure this data load.
      */
     public static void loadData(Map<String, String> argMap) {
+        if (argMap.containsKey("raw") || argMap.containsKey("no-fk-create"))
+            System.setProperty("entity_disable_fk_create", "true");
+
         // make sure we have a factory, even if moqui.init.static != true
         if (activeExecutionContextFactory == null)
             activeExecutionContextFactory = executionContextFactoryLoader.iterator().next();
@@ -129,16 +132,19 @@ public class Moqui {
 
         // set the data load parameters
         EntityDataLoader edl = ec.getEntity().makeDataLoader();
-        if (argMap.containsKey("types"))
-            edl.dataTypes(new HashSet<>(Arrays.asList(argMap.get("types").split(","))));
-        if (argMap.containsKey("components"))
-            edl.componentNameList(Arrays.asList(argMap.get("components").split(",")));
+        if (argMap.containsKey("types")) {
+            String types = argMap.get("types");
+            if (!"all".equals(types)) edl.dataTypes(new HashSet<>(Arrays.asList(types.split(","))));
+        }
+        if (argMap.containsKey("components")) edl.componentNameList(Arrays.asList(argMap.get("components").split(",")));
         if (argMap.containsKey("location")) edl.location(argMap.get("location"));
         if (argMap.containsKey("timeout")) edl.transactionTimeout(Integer.valueOf(argMap.get("timeout")));
-        if (argMap.containsKey("raw") || argMap.containsKey("dummy-fks")) edl.dummyFks(true);
+        if (argMap.containsKey("dummy-fks")) edl.dummyFks(true);
+        if (argMap.containsKey("raw") || argMap.containsKey("no-fk-create")) edl.disableFkCreate(true);
         if (argMap.containsKey("raw") || argMap.containsKey("use-try-insert")) edl.useTryInsert(true);
         if (argMap.containsKey("raw") || argMap.containsKey("disable-eeca")) edl.disableEntityEca(true);
         if (argMap.containsKey("raw") || argMap.containsKey("disable-audit-log")) edl.disableAuditLog(true);
+        if (argMap.containsKey("raw") || argMap.containsKey("disable-data-feed")) edl.disableDataFeed(true);
 
         // do the data load
         try {

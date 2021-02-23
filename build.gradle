@@ -13,7 +13,10 @@
  */
 
 buildscript {
-    repositories { jcenter() }
+    repositories {
+        mavenCentral()
+        maven { url "https://plugins.gradle.org/m2/" }
+    }
     dependencies { classpath 'org.ajoberstar:grgit:2.2.1' }
 }
 // Not needed for explicit use, causes problems when not from git repo: plugins { id 'org.ajoberstar.grgit' version 'x.y.z' }
@@ -98,14 +101,26 @@ def cleanElasticSearch(String esDir) {
         if (file(esDir+'/logs').exists()) delete files(file(esDir+'/logs').listFiles())
     }
 }
-task downloadElasticSearchLinux { doLast {
-    // TODO: consider conditional download and start/stop commands for Windows, MacOS
-    String esUrl = "https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-oss-${elasticSearchVersion}-no-jdk-linux-x86_64.tar.gz"
+task downloadElasticSearch { doLast {
+    String suffix
+    String distType
+    String osName = System.getProperty("os.name").toLowerCase();
+    if (osName.startsWith("windows")) {
+        suffix = "windows-x86_64.zip"
+        distType = "zip"
+    } else if (osName.startsWith("mac")) {
+        suffix = "darwin-x86_64.tar.gz"
+        distType = "tar.gz"
+    } else {
+        suffix = "linux-x86_64.tar.gz"
+        distType = "tar.gz"
+    }
+    String esUrl = "https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-oss-${elasticSearchVersion}-no-jdk-${suffix}"
     String targetDirPath = moquiRuntime + '/elasticsearch'
     String esExtraDirPath = targetDirPath + '/elasticsearch-' + elasticSearchVersion
     File targetDir = file(targetDirPath)
     if (targetDir.exists()) { logger.lifecycle("Found directory at ${targetDirPath}, deleting"); delete targetDir }
-    File zipFile = file("${targetDirPath}-${elasticSearchVersion}.tar.gz")
+    File zipFile = file("${targetDirPath}-${elasticSearchVersion}.${distType}")
     if (!zipFile.exists()) {
         logger.lifecycle("Downloading ElasticSearch from ${esUrl}")
         ant.get(src: esUrl, dest: zipFile)
@@ -113,7 +128,13 @@ task downloadElasticSearchLinux { doLast {
         logger.lifecycle("Found ElasticSearch archive at ${zipFile.getPath()}, using that instead of downloading")
     }
     // the eachFile closure removes the first path from each file, moving everything up a directory, which also requires delete of the extra dirs
-    copy { from tarTree(zipFile); into targetDir; eachFile { it.setPath((it.getRelativePath().getSegments() as List).tail().join("/")); return it } }
+    copy { from distType == "zip"? zipTree(zipFile) : tarTree(zipFile); into targetDir; eachFile {
+        def pathList = it.getRelativePath().getSegments() as List
+        if (pathList[0] == ".") pathList = pathList.tail()
+        it.setPath(pathList.tail().join("/"))
+        return it
+    } }
+
     File extraDir = file(esExtraDirPath)
     if (extraDir.exists()) delete extraDir
 
@@ -455,22 +476,27 @@ task runProduction(type: JavaExec) {
 task load(type: JavaExec) {
     description "Run Moqui to load data; to specify data types use something like: gradle load -Ptypes=seed,seed-initial,install"
     dependsOn checkRuntime, allBuildTasks
-    workingDir = '.'; jvmArgs = ['-server']
     systemProperties = ['moqui.conf':moquiConfDev, 'moqui.runtime':moquiRuntime]
-    main = '-jar'
-    def argList = [warName, 'load']
-    if (project.properties.containsKey('types')) argList.add("types=${types}")
-    args = argList
+    workingDir = '.'; jvmArgs = ['-server']; main = '-jar'
+    args = [warName, 'load', (project.properties.containsKey('types') ? "types=${types}" : "types=all")]
+}
+task loadSeed(type: JavaExec) {
+    dependsOn checkRuntime, allBuildTasks
+    systemProperties = ['moqui.conf':moquiConfProduction, 'moqui.runtime':moquiRuntime]
+    workingDir = '.'; jvmArgs = ['-server']; main = '-jar'
+    args = [warName, 'load', (project.properties.containsKey('types') ? "types=${types}" : "types=seed")]
+}
+task loadSeedInitial(type: JavaExec) {
+    dependsOn checkRuntime, allBuildTasks
+    systemProperties = ['moqui.conf':moquiConfProduction, 'moqui.runtime':moquiRuntime]
+    workingDir = '.'; jvmArgs = ['-server']; main = '-jar'
+    args = [warName, 'load', (project.properties.containsKey('types') ? "types=${types}" : "types=seed,seed-initial")]
 }
 task loadProduction(type: JavaExec) {
     dependsOn checkRuntime, allBuildTasks
-    workingDir = '.'; jvmArgs = ['-server']
     systemProperties = ['moqui.conf':moquiConfProduction, 'moqui.runtime':moquiRuntime]
-    main = '-jar'
-    def argList = [warName, 'load']
-    if (project.properties.containsKey('types')) argList.add("types=${types}")
-    else argList.add("types=seed,seed-initial,install")
-    args = argList
+    workingDir = '.'; jvmArgs = ['-server']; main = '-jar'
+    args = [warName, 'load', (project.properties.containsKey('types') ? "types=${types}" : "types=seed,seed-initial,install")]
 }
 
 task saveDb { doLast {
@@ -578,7 +604,7 @@ task plusRuntimeWarTemp {
         copy { from file('MoquiInit.properties') into 'wartemp/WEB-INF/classes' }
         // add Procfile to root
         copy { from file('Procfile') into 'wartemp' }
-        // special case: copy elasticsearch plugin/module jars
+        // special case: copy elasticsearch plugin/module jars (needed for ES installed in runtime/elasticsearch
         copy { from fileTree(dir: '.', include: moquiRuntime+'/elasticsearch/**/*.jar') into wartempFile }
         // special case: copy jackrabbit standalone jar (if exists)
         copy { from fileTree(dir: moquiRuntime + '/jackrabbit', include: 'jackrabbit-standalone-*.jar').files; into 'wartemp/' + moquiRuntime + '/jackrabbit' }
@@ -833,11 +859,14 @@ def makeVersionDetailFiles() {
         file('runtime/version.json').write(groovy.json.JsonOutput.toJson(topVersionMap), "UTF-8")
     }
     for (File compDir in file('runtime/component').listFiles().findAll { it.isDirectory() && it.listFiles().find { it.name == '.git' } }) {
-        file(compDir.path + '/version.json').write(groovy.json.JsonOutput.toJson(getVersionDetailMap(compDir)), "UTF-8")
+        def versionMap = getVersionDetailMap(compDir)
+        if (versionMap == null) continue
+        file(compDir.path + '/version.json').write(groovy.json.JsonOutput.toJson(versionMap), "UTF-8")
     }
 }
 Map getVersionDetailMap(File gitDir) {
     def curGrgit = Grgit.open(dir: gitDir)
+    if (curGrgit == null) return null
     String trackingName = curGrgit.branch.current()?.trackingBranch?.name
     String trackingUrl = ""
     int trackingNameSlash = trackingName ? trackingName.indexOf('/') : -1
@@ -846,10 +875,15 @@ Map getVersionDetailMap(File gitDir) {
         def trackingRemote = curGrgit.remote.list().find({ it.name == remoteName })
         if (trackingRemote != null) trackingUrl = trackingRemote.url
     }
-    String headId = curGrgit.head()?.id
-    // tags come in order of oldest first so want to find last in case multiple tags refer to HEAD commit
-    def headTag = curGrgit.tag.list().reverse().find({ it.commit.id == headId })
-    return [branch:curGrgit.branch.current()?.name, tracking:trackingName, url:trackingUrl, head:headId?.take(10), tag:headTag?.name]
+    try {
+        String headId = curGrgit.head()?.id
+        // tags come in order of oldest first so want to find last in case multiple tags refer to HEAD commit
+        def headTag = curGrgit.tag.list().reverse().find({ it.commit.id == headId })
+        return [branch:curGrgit.branch.current()?.name, tracking:trackingName, url:trackingUrl, head:headId?.take(10), tag:headTag?.name]
+    } catch (Throwable t) {
+        logger.lifecycle("Error getting git info for directory ${gitDir?.path}", t)
+        return null
+    }
 }
 def cleanVersionDetailFiles() {
     def runtimeVersionFile = file("runtime/version.json")

@@ -29,15 +29,12 @@ public class ContextBinding extends Binding {
         //if (result == null && !variables.containsKey(name)) {
         //    throw new MissingPropertyException(name, this.getClass());
         //}
-        return contextStack.combinedMap.get(name);
+        return contextStack.getByString(name);
     }
 
     @Override
     public void setVariable(String name, Object value) {
-        if ("context".equals(name)) throw new IllegalArgumentException("Cannot set variable 'context', reserved key");
-        contextStack.combinedMap.put(name, value);
-        contextStack.topMap.put(name, value);
-        // contextStack.put(name, value);
+        contextStack.put(name, value);
     }
 
     @Override

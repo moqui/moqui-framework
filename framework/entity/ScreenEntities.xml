@@ -144,6 +144,7 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Header Title" enumId="STRT_HEADER_TITLE" enumTypeId="ScreenThemeResourceType"/>
             <moqui.basic.Enumeration description="Header Navbar Item" enumId="STRT_HEADER_NAVBAR_ITEM" enumTypeId="ScreenThemeResourceType"/>
             <moqui.basic.Enumeration description="Header Navbar Component" enumId="STRT_HEADER_NAVBAR_COMP" enumTypeId="ScreenThemeResourceType"/>
+            <moqui.basic.Enumeration description="Header Account Component" enumId="STRT_HEADER_ACCOUNT_COMP" enumTypeId="ScreenThemeResourceType"/>
             <moqui.basic.Enumeration description="Footer Item" enumId="STRT_FOOTER_ITEM" enumTypeId="ScreenThemeResourceType"/>
             <moqui.basic.Enumeration description="HTML Body CSS Class" enumId="STRT_BODY_CLASS" enumTypeId="ScreenThemeResourceType"/>
             <moqui.basic.Enumeration description="Theme Preview Screenshot" enumId="STRT_SCREENSHOT" enumTypeId="ScreenThemeResourceType"/>
@@ -166,12 +167,20 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="formConfigId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
         <field name="formLocation" type="text-medium"/>
+        <field name="configTypeEnumId" type="id"/>
+        <relationship type="one" title="FormConfigType" related="moqui.basic.Enumeration">
+            <key-map field-name="configTypeEnumId"/></relationship>
         <relationship type="many" related="moqui.screen.form.FormConfigField" short-alias="fields">
             <key-map field-name="formConfigId"/></relationship>
         <relationship type="many" related="moqui.screen.form.FormConfigUser" short-alias="users">
             <key-map field-name="formConfigId"/></relationship>
         <relationship type="many" related="moqui.screen.form.FormConfigUserGroup" short-alias="userGroups">
             <key-map field-name="formConfigId"/></relationship>
+        <seed-data>
+            <moqui.basic.EnumerationType description="Form Config Type" enumTypeId="FormConfigType"/>
+            <moqui.basic.Enumeration description="Desktop" enumCode="desktop" enumId="FctDesktop" enumTypeId="FormConfigType"/>
+            <moqui.basic.Enumeration description="Mobile" enumCode="mobile" enumId="FctMobile" enumTypeId="FormConfigType"/>
+        </seed-data>
     </entity>
     <entity entity-name="FormConfigField" package="moqui.screen.form" use="configuration">
         <field name="formConfigId" type="id" is-pk="true"/>
@@ -188,6 +197,19 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="userId" type="id" is-pk="true"/>
         <field name="formConfigId" type="id"/>
         <relationship type="one-nofk" related="moqui.security.UserAccount" short-alias="userAccount"/>
+        <relationship type="one" related="moqui.screen.form.FormConfig" short-alias="formConfig"/>
+    </entity>
+    <entity entity-name="FormConfigUserType" package="moqui.screen.form" use="configuration">
+        <!-- NOTE: the combination of FormConfigUser and FormConfigUserType is far from ideal in terms of modeling but has 2 key
+            benefits: avoid deprecating and migrating data from FormConfigUser, handle the default FormConfig with no (null) type without workaround -->
+        <description>Structured to have a single FormConfig per form and user.</description>
+        <field name="formLocation" type="text-medium" is-pk="true"/>
+        <field name="userId" type="id" is-pk="true"/>
+        <field name="configTypeEnumId" type="id" is-pk="true"/>
+        <field name="formConfigId" type="id"/>
+        <relationship type="one-nofk" related="moqui.security.UserAccount" short-alias="userAccount"/>
+        <relationship type="one" title="FormConfigType" related="moqui.basic.Enumeration">
+            <key-map field-name="configTypeEnumId"/></relationship>
         <relationship type="one" related="moqui.screen.form.FormConfig" short-alias="formConfig"/>
     </entity>
     <entity entity-name="FormConfigUserGroup" package="moqui.screen.form" use="configuration">
@@ -237,6 +259,15 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="userId" type="id" is-pk="true"/>
         <relationship type="one" related="moqui.screen.form.FormListFind" short-alias="formListFind"/>
         <relationship type="one-nofk" related="moqui.security.UserAccount" short-alias="userAccount"/>
+    </entity>
+    <entity entity-name="FormListFindUserDefault" package="moqui.screen.form" use="configuration">
+        <description>Per-User default FormListFind by screen location and not form location because must be handled
+            very early in screen rendering so parameters are available to actions, etc</description>
+        <field name="screenLocation" type="text-medium" is-pk="true"/>
+        <field name="userId" type="id" is-pk="true"/>
+        <field name="formListFindId" type="id"/>
+        <relationship type="one-nofk" related="moqui.security.UserAccount" short-alias="userAccount"/>
+        <relationship type="one" related="moqui.screen.form.FormListFind" short-alias="formListFind"/>
     </entity>
     <view-entity entity-name="FormListFindUserView" package="moqui.screen.form">
         <member-entity entity-alias="FLF" entity-name="moqui.screen.form.FormListFind"/>
@@ -292,6 +323,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="fieldTypeEnumId" type="id"><description>Field type for presentation, validation;
             always stored as plain text FormResponseAnswer</description></field>
         <field name="layoutSequenceNum" type="number-integer"/>
+        <field name="isRequired" type="text-indicator"/>
 
         <field name="printPageNumber" type="number-integer"><description>Defaults to 1, ie one page/section for all fields if nothing higher than 1 is specified.</description></field>
         <field name="printTop" type="text-short"/>

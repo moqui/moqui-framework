@@ -129,7 +129,10 @@ ${.node}
     <#assign listName = .node["@list"]>
     <#assign doPaginate = .node["search-form-inputs"]?has_content && !(.node["search-form-inputs"][0]["@paginate"]?if_exists == "false")>
     ${listName}_xafind = ec.entity.find("${.node["@entity-name"]}")<#if .node["@cache"]?has_content>.useCache(${.node["@cache"]})</#if><#if .node["@for-update"]?has_content>.forUpdate(${.node["@for-update"]})</#if><#if .node["@distinct"]?has_content>.distinct(${.node["@distinct"]})</#if><#if .node["@use-clone"]?has_content>.useClone(${.node["@use-clone"]})</#if><#if .node["@offset"]?has_content>.offset(${.node["@offset"]})</#if><#if .node["@limit"]?has_content>.limit(${.node["@limit"]})</#if><#list .node["select-field"] as sf>.selectField("${sf["@field-name"]}")</#list><#list .node["order-by"] as ob>.orderBy("${ob["@field-name"]}")</#list>
-            <#if !useCache><#list .node["date-filter"] as df>.condition(<#visit df/>)</#list></#if><#list .node["econdition"] as ecn>.condition(<#visit ecn/>)</#list><#list .node["econditions"] as ecs>.condition(<#visit ecs/>)</#list><#list .node["econdition-object"] as eco>.condition(<#visit eco/>)</#list>
+            <#if !useCache><#list .node["date-filter"] as df>.condition(<#visit df/>)</#list></#if><#list .node["econdition"] as ecn>.condition(<#visit ecn/>)</#list><#list .node["econditions"] as ecs>.condition(<#visit ecs/>)</#list>
+    <#list .node["econdition-object"] as eco><#if eco["@field"]?has_content>
+        if (${eco["@field"]} != null) { ${listName}_xafind.condition(${eco["@field"]}) }
+    </#if></#list>
     <#-- do having-econditions first, if present will disable cached query, used in search-form-inputs -->
     <#if .node["having-econditions"]?has_content>${listName}_xafind<#list .node["having-econditions"][0]?children as havingCond>.havingCondition(<#visit havingCond/>)</#list>
     </#if>
@@ -140,7 +143,7 @@ ${.node}
         <#else>
         Map efSfiDefParms = null
         </#if>
-        <#if sfiNode["@require-parameters"]?has_content>${listName}_xafind.requireSearchFormParameters(ec.resource.expand(${sfiNode["@require-parameters"]}, "") == "true")</#if>
+        <#if sfiNode["@require-parameters"]?has_content>${listName}_xafind.requireSearchFormParameters(ec.resource.expand('''${sfiNode["@require-parameters"]}''', "") == "true")</#if>
         ${listName}_xafind.searchFormMap(${sfiNode["@input-fields-map"]!"ec.context"}, efSfiDefParms, "${sfiNode["@skip-fields"]!("")}", "${sfiNode["@default-order-by"]!("")}", ${sfiNode["@paginate"]!("true")})
     }
     </#if>
@@ -229,7 +232,10 @@ ${.node}
     <#if .node["@key"]?has_content>
     if (${.node["@list"]} instanceof Map) {
         ${.node["@entry"]}_index = 0
-        for (def ${.node["@entry"]}Entry in ${.node["@list"]}.entrySet()) {
+        def _${.node["@entry"]}Iterator = ${.node["@list"]}.entrySet().iterator()
+        while (_${.node["@entry"]}Iterator.hasNext()) {
+            def ${.node["@entry"]}Entry = _${.node["@entry"]}Iterator.next()
+            ${.node["@entry"]}_has_next = _${.node["@entry"]}Iterator.hasNext()
             ${.node["@entry"]} = ${.node["@entry"]}Entry.getValue()
             ${.node["@key"]} = ${.node["@entry"]}Entry.getKey()
             <#recurse/>
@@ -237,7 +243,10 @@ ${.node}
         }
     } else if (${.node["@list"]} instanceof Collection<Map.Entry>) {
         ${.node["@entry"]}_index = 0
-        for (def ${.node["@entry"]}Entry in ${.node["@list"]}) {
+        def _${.node["@entry"]}Iterator = ${.node["@list"]}.iterator()
+        while (_${.node["@entry"]}Iterator.hasNext()) {
+            def ${.node["@entry"]}Entry = _${.node["@entry"]}Iterator.next()
+            ${.node["@entry"]}_has_next = _${.node["@entry"]}Iterator.hasNext()
             ${.node["@entry"]} = ${.node["@entry"]}Entry.getValue()
             ${.node["@key"]} = ${.node["@entry"]}Entry.getKey()
             <#recurse/>

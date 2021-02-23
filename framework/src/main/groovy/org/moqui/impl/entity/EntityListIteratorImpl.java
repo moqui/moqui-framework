@@ -19,6 +19,7 @@ import org.moqui.entity.*;
 import org.moqui.impl.context.TransactionCache;
 import org.moqui.impl.entity.EntityJavaUtil.FindAugmentInfo;
 import org.moqui.util.CollectionUtilities;
+import org.moqui.util.LiteStringMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,7 +28,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Map;
 
 public class EntityListIteratorImpl implements EntityListIterator {
     protected static final Logger logger = LoggerFactory.getLogger(EntityListIteratorImpl.class);
@@ -77,7 +78,7 @@ public class EntityListIteratorImpl implements EntityListIterator {
         }
 
         // capture the current artifact stack for finalize not closed debugging, has minimal performance impact (still ~0.0038ms per call compared to numbers below)
-        artifactStack = new ArrayList<>(efi.ecfi.getEci().artifactExecutionFacade.getStack());
+        artifactStack = efi.ecfi.getEci().artifactExecutionFacade.getStackArray();
 
         /* uncomment only if needed temporarily: huge performance impact, ~0.036ms per call with, ~0.0037ms without (~10x difference!)
         StackTraceElement[] tempStack = Thread.currentThread().getStackTrace();
@@ -143,10 +144,10 @@ public class EntityListIteratorImpl implements EntityListIterator {
     @Override public EntityValue currentEntityValue() { return currentEntityValueBase(); }
     public EntityValueBase currentEntityValueBase() {
         EntityValueImpl newEntityValue = new EntityValueImpl(entityDefinition, efi);
-        HashMap<String, Object> valueMap = newEntityValue.getValueMap();
         if (txcListIndex >= 0) {
             return findAugmentInfo.valueList.get(txcListIndex);
         } else {
+            LiteStringMap<Object> valueMap = newEntityValue.valueMapInternal;
             for (int i = 0; i < fieldInfoListSize; i++) {
                 FieldInfo fi = fieldInfoArray[i];
                 if (fi == null) break;

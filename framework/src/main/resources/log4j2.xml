@@ -8,6 +8,9 @@ https://logging.apache.org/log4j/2.x/manual/layouts.html#PatternLayout
         <!-- the ${sys:moqui.runtime} expansion fails under Tomcat/etc as moqui.runtime isn't set before Log4J2
             initializes (like with MoquiStart.java), so specify a default property here -->
         <Property name="moqui.runtime">moqui_logs</Property>
+        <Property name="moqui.logger.level.xml_action">info</Property>
+        <Property name="moqui.logger.level.entity_find">info</Property>
+        <Property name="moqui.logger.level.entity_query">info</Property>
     </Properties>
     <Appenders>
         <RollingFile name="LogFile" fileName="${sys:moqui.runtime}/log/moqui.log"
@@ -52,12 +55,12 @@ https://logging.apache.org/log4j/2.x/manual/layouts.html#PatternLayout
         <Logger name="bitronix" level="warn"/>
         <Logger name="cz.vutbr" level="warn"/><!-- cssbox -->
 
-        <!-- show Groovy generated from XML Actions:
-        <Logger name="org.moqui.impl.actions.XmlAction" level="debug"/> -->
-        <!-- show SQL generated for finds:
-        <Logger name="org.moqui.impl.entity.EntityFindBuilder" level="debug"/> -->
-        <!-- show SQL generated for crud ops:
-        <Logger name="org.moqui.impl.entity.EntityQueryBuilder" level="debug"/> -->
+        <!-- show Groovy generated from XML Actions: -->
+        <Logger name="org.moqui.impl.actions.XmlAction" level="${sys:moqui.logger.level.xml_action}"/>
+        <!-- show SQL generated for finds: -->
+        <Logger name="org.moqui.impl.entity.EntityFindBuilder" level="${sys:moqui.logger.level.entity_find}"/>
+        <!-- show SQL generated for crud ops: -->
+        <Logger name="org.moqui.impl.entity.EntityQueryBuilder" level="${sys:moqui.logger.level.entity_query}"/>
 
         <Logger name="org.moqui" level="info"/>
 

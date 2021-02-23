@@ -14,9 +14,11 @@
 package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
+import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.entity.EntityJavaUtil.RelationshipInfo
 import org.moqui.util.CollectionUtilities
 import org.moqui.util.MNode
+import org.moqui.util.SystemBinding
 
 import java.sql.Connection
 import java.sql.Statement
@@ -47,6 +49,12 @@ class EntityDbMeta {
     protected EntityFacadeImpl efi
 
     EntityDbMeta(EntityFacadeImpl efi) { this.efi = efi }
+
+    static boolean shouldCreateFks(ExecutionContextFactoryImpl ecfi) {
+        if (ecfi.getEci().artifactExecutionFacade.entityFkCreateDisabled()) return false
+        if ("true".equals(SystemBinding.getPropOrEnv("entity_disable_fk_create"))) return false
+        return true
+    }
 
     boolean checkTableRuntime(EntityDefinition ed) {
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
@@ -189,7 +197,7 @@ class EntityDbMeta {
                             tablesAdded++
 
                             // create explicit and foreign key auto indexes
-                            createIndexes(ed, con)
+                            createIndexes(ed, false, con)
                             // create foreign keys to all other tables that exist
                             createForeignKeys(ed, false, existingTableNames, con)
                         }
@@ -210,7 +218,7 @@ class EntityDbMeta {
         }
 
         // do second pass to make sure all FKs created
-        if (tablesAdded > 0) {
+        if (tablesAdded > 0 && shouldCreateFks(efi.ecfi)) {
             logger.info("Tables were created, checking FKs for all entities in group ${groupName}")
 
             beganTx = useTxForMetaData ? efi.ecfi.transactionFacade.begin(300) : false
@@ -247,7 +255,7 @@ class EntityDbMeta {
                     }
 
                     if (fkInfoByFkTable.size() == 0) {
-                        logger.warn("Bulk find imported keys got no results for group ${groupName}, getting per table (slower!)")
+                        logger.warn("Bulk find imported keys got no results for group ${groupName}, getting per table (slower)")
                         for (String entityName in groupEntityNames) {
                             EntityDefinition ed = efi.getEntityDefinition(entityName)
                             if (ed.isViewEntity) continue
@@ -398,7 +406,7 @@ class EntityDbMeta {
         if (doCreate) {
             createTable(ed, null)
             // create explicit and foreign key auto indexes
-            createIndexes(ed, null)
+            createIndexes(ed, false, null)
             // create foreign keys to all other tables that exist
             createForeignKeys(ed, false, null, null)
         } else {
@@ -643,7 +651,7 @@ class EntityDbMeta {
         if (logger.infoEnabled) logger.info("Added column ${colName} to table ${ed.tableName} for field ${fi.name} of entity ${ed.getFullEntityName()} in group ${groupName}")
     }
 
-    void createIndexes(EntityDefinition ed, Connection sharedCon) {
+    int createIndexes(EntityDefinition ed, boolean checkIdxExists, Connection sharedCon) {
         if (ed == null) throw new IllegalArgumentException("No EntityDefinition specified, cannot create indexes")
         if (ed.isViewEntity) throw new IllegalArgumentException("Cannot create indexes for a view entity")
 
@@ -655,7 +663,16 @@ class EntityDbMeta {
         int constraintNameClipLength = (databaseNode.attribute("constraint-name-clip-length")?:"30") as int
 
         // first do index elements
+        int created = 0
         for (MNode indexNode in ed.entityNode.children("index")) {
+            String indexName = indexNode.attribute('name')
+            if (checkIdxExists) {
+                Boolean idxExists = indexExists(ed, indexName, indexNode.children("index-field").collect {it.attribute('name')})
+                if (idxExists != null && idxExists) {
+                    if (logger.traceEnabled) logger.trace("Not creating index ${indexName} for entity ${ed.getFullEntityName()} because it already exists.")
+                    continue
+                }
+            }
             StringBuilder sql = new StringBuilder("CREATE ")
             if (databaseNode.attribute("use-indexes-unique") != "false" && indexNode.attribute("unique") == "true") {
                 sql.append("UNIQUE ")
@@ -674,6 +691,7 @@ class EntityDbMeta {
             sql.append(")")
 
             runSqlUpdate(sql, groupName, sharedCon)
+            created ++
         }
 
         // do fk auto indexes
@@ -682,6 +700,13 @@ class EntityDbMeta {
             if (relInfo.type != "one") continue
 
             String indexName = makeFkIndexName(ed, relInfo, constraintNameClipLength)
+            if (checkIdxExists) {
+                Boolean idxExists = indexExists(ed, indexName, relInfo.keyMap.keySet())
+                if (idxExists != null && idxExists) {
+                    if (logger.traceEnabled) logger.trace("Not creating index ${indexName} for entity ${ed.getFullEntityName()} because it already exists.")
+                    continue
+                }
+            }
             StringBuilder sql = new StringBuilder("CREATE INDEX ")
             if (databaseNode.attribute("use-schema-for-all") == "true") sql.append(ed.getSchemaName() ? ed.getSchemaName() + "." : "")
             sql.append(indexName).append(" ON ").append(ed.getFullTableName())
@@ -697,7 +722,9 @@ class EntityDbMeta {
 
             // logger.warn("====== create relationship index [${indexName}] for entity [${ed.getFullEntityName()}]")
             runSqlUpdate(sql, groupName, sharedCon)
+            created ++
         }
+        return created
     }
 
     static String makeFkIndexName(EntityDefinition ed, RelationshipInfo relInfo, int constraintNameClipLength) {
@@ -741,6 +768,18 @@ class EntityDbMeta {
         return indexName.toString()
     }
 
+    int createIndexesForExistingTables() {
+        int created = 0
+        for (String en in efi.getAllEntityNames()) {
+            EntityDefinition ed = efi.getEntityDefinition(en)
+            if (ed.isViewEntity) continue
+            if (tableExists(ed)) {
+                int result = createIndexes(ed, true, null)
+                created += result
+            }
+        }
+        return created
+    }
     /** Loop through all known entities and for each that has an existing table check each foreign key to see if it
      * exists in the database, and if it doesn't but the related table does exist then add the foreign key. */
     int createForeignKeysForExistingTables() {
@@ -768,7 +807,57 @@ class EntityDbMeta {
         }
         return dropped
     }
+    Boolean indexExists(EntityDefinition ed, String indexName, Collection<String> indexFields) {
+        String groupName = ed.getEntityGroupName()
+        Connection con = null
+        ResultSet ikSet1 = null
+        ResultSet ikSet2 = null
+        try {
+            con = efi.getConnection(groupName)
+            DatabaseMetaData dbData = con.getMetaData()
+            Set<String> fieldNames = new HashSet(indexFields)
 
+            ikSet1 = dbData.getIndexInfo(null, ed.getSchemaName(), ed.getTableName(), false, true)
+            while (ikSet1.next()) {
+                String idxName = ikSet1.getString("INDEX_NAME")
+                if (idxName != indexName && idxName != indexName.toLowerCase()) continue
+                String idxCol = ikSet1.getString("COLUMN_NAME")
+                for (String fn in fieldNames) {
+                    String fnColName = ed.getColumnName(fn)
+                    if (fnColName == idxCol || fnColName.toLowerCase() == idxCol) {
+                        fieldNames.remove(fn)
+                        break
+                    }
+                }
+            }
+            if (fieldNames.size() > 0) {
+                // try with lower case table name
+                ikSet2 = dbData.getIndexInfo(null, ed.getSchemaName(), ed.getTableName().toLowerCase(), false, true)
+                while (ikSet2.next()) {
+                    String idxName = ikSet2.getString("INDEX_NAME")
+                    if (idxName != indexName && idxName != indexName.toLowerCase()) continue
+                    String idxCol = ikSet2.getString("COLUMN_NAME")
+                    for (String fn in fieldNames) {
+                        String fnColName = ed.getColumnName(fn)
+                        if (fnColName ==  idxCol || fnColName.toLowerCase() ==  idxCol) {
+                            fieldNames.remove(fn)
+                            break
+                        }
+                    }
+                }
+            }
+
+            // if we found all of the index-field field-names then fieldNames will be empty, and we have a full index
+            return (fieldNames.size() == 0)
+        } catch (Exception e) {
+            logger.error("Exception checking to see if index exists for table ${ed.getTableName()}", e)
+            return null
+        } finally {
+            if (ikSet1 != null && !ikSet1.isClosed()) ikSet1.close()
+            if (ikSet2 != null && !ikSet2.isClosed()) ikSet2.close()
+            if (con != null) con.close()
+        }
+    }
 
     Boolean foreignKeyExists(EntityDefinition ed, RelationshipInfo relInfo) {
         String groupName = ed.getEntityGroupName()
@@ -907,7 +996,7 @@ class EntityDbMeta {
         if (ed == null) throw new IllegalArgumentException("No EntityDefinition specified, cannot create foreign keys")
         if (ed.isViewEntity) throw new IllegalArgumentException("Cannot create foreign keys for a view entity")
 
-        if (ed.getEfi().ecfi.getEci().artifactExecutionFacade.entityFkCreateDisabled()) return 0
+        if (!shouldCreateFks(ed.getEfi().ecfi)) return 0
 
         // NOTE: in order to get all FKs in place by the time they are used we will probably need to check all incoming
         //     FKs as well as outgoing because of entity use order, tables not rechecked after first hit, etc

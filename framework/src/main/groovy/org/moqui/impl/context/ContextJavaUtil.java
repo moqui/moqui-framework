@@ -23,6 +23,8 @@ import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import groovy.lang.GString;
+import org.codehaus.groovy.runtime.StringGroovyMethods;
+import org.jetbrains.annotations.NotNull;
 import org.moqui.context.ArtifactExecutionInfo;
 import org.moqui.entity.EntityFind;
 import org.moqui.entity.EntityList;
@@ -30,6 +32,7 @@ import org.moqui.entity.EntityValue;
 import org.moqui.impl.entity.EntityValueBase;
 import org.moqui.impl.screen.ScreenRenderImpl;
 import org.moqui.util.ContextStack;
+import org.moqui.util.LiteStringMap;
 import org.moqui.util.ObjectUtilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,6 +49,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class ContextJavaUtil {
     protected final static Logger logger = LoggerFactory.getLogger(ContextJavaUtil.class);
@@ -191,20 +195,20 @@ public class ContextJavaUtil {
 
         EntityValue makeAhbValue(ExecutionContextFactoryImpl ecfi, Timestamp binEndDateTime) {
             EntityValueBase ahb = (EntityValueBase) ecfi.entityFacade.makeValue("moqui.server.ArtifactHitBin");
-            ahb.putNoCheck("artifactType", statsInfo.artifactTypeEnum.name());
-            ahb.putNoCheck("artifactSubType", statsInfo.artifactSubType);
-            ahb.putNoCheck("artifactName", statsInfo.artifactName);
-            ahb.putNoCheck("binStartDateTime", new Timestamp(startTime));
-            ahb.putNoCheck("binEndDateTime", binEndDateTime);
-            ahb.putNoCheck("hitCount", hitCount);
+            ahb.put("artifactType", statsInfo.artifactTypeEnum.name());
+            ahb.put("artifactSubType", statsInfo.artifactSubType);
+            ahb.put("artifactName", statsInfo.artifactName);
+            ahb.put("binStartDateTime", new Timestamp(startTime));
+            ahb.put("binEndDateTime", binEndDateTime);
+            ahb.put("hitCount", hitCount);
             // NOTE: use 6 digit precision for nanos in millisecond unit
-            ahb.putNoCheck("totalTimeMillis", new BigDecimal(totalTimeMillis).setScale(6, RoundingMode.HALF_UP));
-            ahb.putNoCheck("totalSquaredTime", new BigDecimal(totalSquaredTime).setScale(6, RoundingMode.HALF_UP));
-            ahb.putNoCheck("minTimeMillis", new BigDecimal(minTimeMillis).setScale(6, RoundingMode.HALF_UP));
-            ahb.putNoCheck("maxTimeMillis", new BigDecimal(maxTimeMillis).setScale(6, RoundingMode.HALF_UP));
-            ahb.putNoCheck("slowHitCount", slowHitCount);
-            ahb.putNoCheck("serverIpAddress", ecfi.localhostAddress != null ? ecfi.localhostAddress.getHostAddress() : "127.0.0.1");
-            ahb.putNoCheck("serverHostName", ecfi.localhostAddress != null ? ecfi.localhostAddress.getHostName() : "localhost");
+            ahb.put("totalTimeMillis", new BigDecimal(totalTimeMillis).setScale(6, RoundingMode.HALF_UP));
+            ahb.put("totalSquaredTime", new BigDecimal(totalSquaredTime).setScale(6, RoundingMode.HALF_UP));
+            ahb.put("minTimeMillis", new BigDecimal(minTimeMillis).setScale(6, RoundingMode.HALF_UP));
+            ahb.put("maxTimeMillis", new BigDecimal(maxTimeMillis).setScale(6, RoundingMode.HALF_UP));
+            ahb.put("slowHitCount", slowHitCount);
+            ahb.put("serverIpAddress", ecfi.localhostAddress != null ? ecfi.localhostAddress.getHostAddress() : "127.0.0.1");
+            ahb.put("serverHostName", ecfi.localhostAddress != null ? ecfi.localhostAddress.getHostName() : "localhost");
             return ahb;
 
         }
@@ -245,45 +249,48 @@ public class ContextJavaUtil {
             if (wfi != null) {
                 String fullUrl = wfi.getRequestUrl();
                 requestUrl = (fullUrl.length() > 255) ? fullUrl.substring(0, 255) : fullUrl;
-                referrerUrl = wfi.getRequest().getHeader("Referrer");
+                referrerUrl = wfi.getRequest().getHeader("Referer");
             }
         }
         EntityValue makeAhiValue(ExecutionContextFactoryImpl ecfi) {
             EntityValueBase ahp = (EntityValueBase) ecfi.entityFacade.makeValue("moqui.server.ArtifactHit");
-            ahp.putNoCheck("visitId", visitId);
-            ahp.putNoCheck("userId", userId);
-            ahp.putNoCheck("isSlowHit", isSlowHit ? 'Y' : 'N');
-            ahp.putNoCheck("artifactType", artifactTypeEnum.name());
-            ahp.putNoCheck("artifactSubType", artifactSubType);
-            ahp.putNoCheck("artifactName", artifactName);
-            ahp.putNoCheck("startDateTime", new Timestamp(startTime));
-            ahp.putNoCheck("runningTimeMillis", new BigDecimal(runningTimeMillis).setScale(6, RoundingMode.HALF_UP));
+            ahp.put("visitId", visitId);
+            ahp.put("userId", userId);
+            ahp.put("isSlowHit", isSlowHit ? 'Y' : 'N');
+            ahp.put("artifactType", artifactTypeEnum.name());
+            ahp.put("artifactSubType", artifactSubType);
+            ahp.put("artifactName", artifactName);
+            ahp.put("startDateTime", new Timestamp(startTime));
+            ahp.put("runningTimeMillis", new BigDecimal(runningTimeMillis).setScale(6, RoundingMode.HALF_UP));
 
             if (parameters != null && parameters.size() > 0) {
                 StringBuilder ps = new StringBuilder();
                 for (Map.Entry<String, Object> pme: parameters.entrySet()) {
                     Object value = pme.getValue();
-                    if (ObjectUtilities.isEmpty(value)) continue;
+                    if (value == null || ObjectUtilities.isEmpty(value) || value instanceof Map || value instanceof Collection) continue;
                     String key = pme.getKey();
                     if (key != null && key.contains("password")) continue;
-                    if (ps.length() > 0) ps.append(",");
-                    ps.append(key).append("=").append(value);
+                    if (ps.length() > 0) ps.append(", ");
+                    String valString = value.toString();
+                    if (valString.length() > 80) valString = valString.substring(0, 80);
+                    ps.append(key).append("=").append(valString);
                 }
-                if (ps.length() > 255) ps.delete(255, ps.length());
-                ahp.putNoCheck("parameterString", ps.toString());
+                // is text-long, could be up to 4000, probably don't want that much for data size
+                if (ps.length() > 1000) ps.delete(1000, ps.length());
+                ahp.put("parameterString", ps.toString());
             }
-            if (outputSize != null) ahp.putNoCheck("outputSize", outputSize);
+            if (outputSize != null) ahp.put("outputSize", outputSize);
             if (errorMessage != null) {
-                ahp.putNoCheck("wasError", "Y");
-                ahp.putNoCheck("errorMessage", errorMessage);
+                ahp.put("wasError", "Y");
+                ahp.put("errorMessage", errorMessage);
             } else {
-                ahp.putNoCheck("wasError", "N");
+                ahp.put("wasError", "N");
             }
-            if (requestUrl != null && requestUrl.length() > 0) ahp.putNoCheck("requestUrl", requestUrl);
-            if (referrerUrl != null && referrerUrl.length() > 0) ahp.putNoCheck("referrerUrl", referrerUrl);
+            if (requestUrl != null && requestUrl.length() > 0) ahp.put("requestUrl", requestUrl);
+            if (referrerUrl != null && referrerUrl.length() > 0) ahp.put("referrerUrl", referrerUrl);
 
-            ahp.putNoCheck("serverIpAddress", ecfi.localhostAddress != null ? ecfi.localhostAddress.getHostAddress() : "127.0.0.1");
-            ahp.putNoCheck("serverHostName", ecfi.localhostAddress != null ? ecfi.localhostAddress.getHostName() : "localhost");
+            ahp.put("serverIpAddress", ecfi.localhostAddress != null ? ecfi.localhostAddress.getHostAddress() : "127.0.0.1");
+            ahp.put("serverHostName", ecfi.localhostAddress != null ? ecfi.localhostAddress.getHostName() : "localhost");
 
             return ahp;
         }
@@ -303,33 +310,49 @@ public class ContextJavaUtil {
         }
     }
 
+    static final AtomicLong moquiTxIdLast = new AtomicLong(0L);
     static class TxStackInfo {
+        private TransactionFacadeImpl transactionFacade;
+        public final long moquiTxId = moquiTxIdLast.incrementAndGet();
         public Exception transactionBegin = null;
         public Long transactionBeginStartTime = null;
+        public int transactionTimeout = 60;
         public RollbackInfo rollbackOnlyInfo = null;
 
         public Transaction suspendedTx = null;
         public Exception suspendedTxLocation = null;
 
-        Map<String, XAResource> activeXaResourceMap = new LinkedHashMap<>();
-        Map<String, Synchronization> activeSynchronizationMap = new LinkedHashMap<>();
+        Map<String, XAResource> activeXaResourceMap = new HashMap<>();
+        Map<String, Synchronization> activeSynchronizationMap = new HashMap<>();
         Map<String, ConnectionWrapper> txConByGroup = new HashMap<>();
         public TransactionCache txCache = null;
+        ArrayList<EntityRecordLock> recordLockList = new ArrayList<>();
 
         public Map<String, XAResource> getActiveXaResourceMap() { return activeXaResourceMap; }
         public Map<String, Synchronization> getActiveSynchronizationMap() { return activeSynchronizationMap; }
         public Map<String, ConnectionWrapper> getTxConByGroup() { return txConByGroup; }
 
+        public TxStackInfo(TransactionFacadeImpl tfi) { transactionFacade = tfi; }
 
         public void clearCurrent() {
             rollbackOnlyInfo = null;
             transactionBegin = null;
             transactionBeginStartTime = null;
+            transactionTimeout = 60;
             activeXaResourceMap.clear();
             activeSynchronizationMap.clear();
             txCache = null;
             // this should already be done, but make sure
             closeTxConnections();
+
+            // lock track: remove all EntityRecordLock in recordLockList from TransactionFacadeImpl.recordLockByEntityPk
+            int recordLockListSize = recordLockList.size();
+            // if (recordLockListSize > 0) logger.warn("TOREMOVE TxStackInfo EntityRecordLock clearing " + recordLockListSize + " locks");
+            for (int i = 0; i < recordLockListSize; i++) {
+                EntityRecordLock erl = recordLockList.get(i);
+                erl.clear(transactionFacade.recordLockByEntityPk);
+            }
+            recordLockList.clear();
         }
 
         public void closeTxConnections() {
@@ -341,6 +364,98 @@ public class ContextJavaUtil {
                 }
             }
             txConByGroup.clear();
+        }
+    }
+    public static class EntityRecordLock {
+        // TODO enum for operation? create, update, delete, find-for-update
+        String entityName, pkString, entityPlusPk, threadName;
+        String mutateEntityName, mutatePkString;
+        ArrayList<ArtifactExecutionInfo> artifactStack;
+        long lockTime = -1, txBeginTime = -1, moquiTxId = -1;
+        public EntityRecordLock(String entityName, String pkString, ArrayList<ArtifactExecutionInfo> artifactStack) {
+            this.entityName = entityName;
+            this.pkString = pkString;
+            // NOTE: used primary as a key, for efficiency don't use separator between entityName and pkString
+            entityPlusPk = entityName.concat(pkString);
+            threadName = Thread.currentThread().getName();
+            this.artifactStack = artifactStack;
+            lockTime = System.currentTimeMillis();
+        }
+
+        EntityRecordLock mutator(String mutateEntityName, String mutatePkString) {
+            this.mutateEntityName = mutateEntityName;
+            this.mutatePkString = mutatePkString;
+            return this;
+        }
+
+        void register(ConcurrentHashMap<String, ArrayList<EntityRecordLock>> recordLockByEntityPk, TxStackInfo txStackInfo) {
+            if (txStackInfo != null) {
+                moquiTxId = txStackInfo.moquiTxId;
+                txBeginTime = txStackInfo.transactionBeginStartTime != null ? txStackInfo.transactionBeginStartTime : -1;
+            }
+
+            ArrayList<EntityRecordLock> curErlList = recordLockByEntityPk.computeIfAbsent(entityPlusPk, k -> new ArrayList<>());
+            synchronized (curErlList) {
+                // is this another lock in the same transaction?
+                if (curErlList.size() > 0) {
+                    for (int i = 0; i < curErlList.size(); i++) {
+                        EntityRecordLock otherErl = curErlList.get(i);
+                        if (otherErl.moquiTxId == moquiTxId) {
+                            // found a match, just return and do nothing
+                            return;
+                        }
+                    }
+                }
+
+                // check for existing locks in this.recordLockByEntityPk, log warning if others found
+                if (curErlList.size() > 0) {
+                    StringBuilder msgBuilder = new StringBuilder().append("Potential lock conflict entity ").append(entityName)
+                            .append(" pk ").append(pkString).append(" thread ").append(threadName)
+                            .append(" TX ").append(moquiTxId).append(" began ").append(new Timestamp(txBeginTime));
+                    if (mutateEntityName != null) msgBuilder.append(" from mutate of entity ").append(mutateEntityName).append(" pk ").append(mutatePkString);
+                    msgBuilder.append(" at: ");
+                    if (artifactStack != null) for (int mi = 0; mi < artifactStack.size(); mi++) {
+                        msgBuilder.append("\n").append(StringGroovyMethods.padLeft((CharSequence) Integer.toString(mi), 2, "0"))
+                                .append(": ").append(artifactStack.get(mi).toBasicString());
+                    }
+                    for (int i = 0; i < curErlList.size(); i++) {
+                        EntityRecordLock otherErl = curErlList.get(i);
+                        msgBuilder.append("\n== OTHER LOCK ").append(i).append(" thread ").append(otherErl.threadName)
+                                .append(" TX ").append(otherErl.moquiTxId).append(" began ").append(new Timestamp(otherErl.txBeginTime)).append(" at: ");
+                        if (otherErl.artifactStack != null) for (int mi = 0; mi < otherErl.artifactStack.size(); mi++) {
+                            msgBuilder.append("\n").append(StringGroovyMethods.padLeft((CharSequence) Integer.toString(mi), 2, "0"))
+                                    .append(": ").append(otherErl.artifactStack.get(mi).toBasicString());
+                        }
+                    }
+                    logger.warn(msgBuilder.toString());
+                }
+
+                // add new lock to this.recordLockByEntityPk, and TxStackInfo.recordLockList
+                if (txStackInfo != null) {
+                    curErlList.add(this);
+                    txStackInfo.recordLockList.add(this);
+                } else {
+                    logger.warn("In EntityRecordLock register no TxStackInfo so not registering lock because won't be able to clear for entity " + entityName + " pk " + pkString + " thread " + threadName);
+                }
+            }
+        }
+        void clear(ConcurrentHashMap<String, ArrayList<EntityRecordLock>> recordLockByEntityPk) {
+            ArrayList<EntityRecordLock> curErlList = recordLockByEntityPk.get(entityPlusPk);
+            if (curErlList == null) {
+                logger.warn("In EntityRecordLock clear no locks found for " + entityPlusPk);
+                return;
+            }
+            synchronized (curErlList) {
+                boolean haveRemoved = false;
+                for (int i = 0; i < curErlList.size(); i++) {
+                    EntityRecordLock otherErl = curErlList.get(i);
+                    if (moquiTxId == otherErl.moquiTxId) {
+                        curErlList.remove(i);
+                        haveRemoved = true;
+                    }
+                }
+                if (!haveRemoved) logger.warn("In EntityRecordLock clear no locks found for " + entityPlusPk);
+            }
         }
     }
 
@@ -470,6 +585,7 @@ public class ContextJavaUtil {
         // Jackson custom serializers, etc
         SimpleModule module = new SimpleModule();
         module.addSerializer(GString.class, new ContextJavaUtil.GStringJsonSerializer());
+        module.addSerializer(LiteStringMap.class, new ContextJavaUtil.LiteStringMapJsonSerializer());
         jacksonMapper.registerModule(module);
     }
     static class GStringJsonSerializer extends StdSerializer<GString> {
@@ -491,6 +607,20 @@ public class ContextJavaUtil {
                     gen.writeNumber(time);
                 }
             }
+        }
+    }
+    static class LiteStringMapJsonSerializer extends StdSerializer<LiteStringMap> {
+        LiteStringMapJsonSerializer() { super(LiteStringMap.class); }
+        @Override public void serialize(LiteStringMap lsm, JsonGenerator gen, SerializerProvider serializers)
+                throws IOException, JsonProcessingException {
+            gen.writeStartObject();
+            if (lsm != null) {
+                int size = lsm.size();
+                for (int i = 0; i < size; i++) {
+                    gen.writeObjectField(lsm.getKey(i), lsm.getValue(i));
+                }
+            }
+            gen.writeEndObject();
         }
     }
 
@@ -520,6 +650,71 @@ public class ContextJavaUtil {
             }
 
             super.afterExecute(runnable, throwable);
+        }
+    }
+
+    static class ScheduledThreadFactory implements ThreadFactory {
+        private final ThreadGroup workerGroup = new ThreadGroup("MoquiScheduled");
+        private final AtomicInteger threadNumber = new AtomicInteger(1);
+        public Thread newThread(Runnable r) { return new Thread(workerGroup, r, "MoquiScheduled-" + threadNumber.getAndIncrement()); }
+    }
+    static class CustomScheduledTask<V> implements RunnableScheduledFuture<V> {
+        public final Runnable runnable;
+        public final Callable<V> callable;
+        public final RunnableScheduledFuture<V> future;
+
+        CustomScheduledTask(Runnable runnable, RunnableScheduledFuture<V> future) {
+            this.runnable = runnable;
+            this.callable = null;
+            this.future = future;
+        }
+        CustomScheduledTask(Callable<V> callable, RunnableScheduledFuture<V> future) {
+            this.runnable = null;
+            this.callable = callable;
+            this.future = future;
+        }
+
+        @Override public boolean isPeriodic() { return future.isPeriodic(); }
+        @Override public long getDelay(@NotNull TimeUnit timeUnit) { return future.getDelay(timeUnit); }
+        @Override public int compareTo(@NotNull Delayed delayed) { return future.compareTo(delayed); }
+
+        @Override public void run() {
+            try {
+                // logger.info("Running scheduled task " + toString());
+                future.run();
+            } catch (Throwable t) {
+                logger.error("CustomScheduledTask uncaught Throwable in run(), catching and suppressing so task does not get unscheduled", t);
+            }
+        }
+        @Override public boolean cancel(boolean b) { return future.cancel(b); }
+        @Override public boolean isCancelled() { return future.isCancelled(); }
+        @Override public boolean isDone() { return future.isDone(); }
+
+        @Override public V get() throws InterruptedException, ExecutionException { return future.get(); }
+        @Override public V get(long l, @NotNull TimeUnit timeUnit) throws InterruptedException, ExecutionException, TimeoutException {
+            return get(l, timeUnit); }
+
+        @Override public String toString() {
+            return "CustomScheduledTask " + (runnable != null ? runnable.getClass().getName() : (callable != null ? callable.getClass().getName() : "[no Runnable or Callable!]"));
+        }
+    }
+    static class CustomScheduledExecutor extends ScheduledThreadPoolExecutor {
+        public CustomScheduledExecutor(int coreThreads) {
+            super(coreThreads, new ScheduledThreadFactory());
+        }
+        protected <V> RunnableScheduledFuture<V> decorateTask(Runnable r, RunnableScheduledFuture<V> task) {
+            return new CustomScheduledTask<V>(r, task);
+        }
+        protected <V> RunnableScheduledFuture<V> decorateTask(Callable<V> c, RunnableScheduledFuture<V> task) {
+            return new CustomScheduledTask<V>(c, task);
+        }
+    }
+    static class ScheduledRunnableInfo {
+        public final Runnable command;
+        public final long period;
+        // NOTE: tracking initial ScheduledFuture is useless as it gets replaced with each run: public final ScheduledFuture scheduledFuture;
+        ScheduledRunnableInfo(Runnable command, long period) {
+            this.command = command; this.period = period;
         }
     }
 }
