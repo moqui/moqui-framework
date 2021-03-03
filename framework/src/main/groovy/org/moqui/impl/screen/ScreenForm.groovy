@@ -217,8 +217,8 @@ class ScreenForm {
             }
         }
 
-        // for form-list auto add entity columns
-        if (fieldColumnInfo != null && fieldColumnInfo.size() > 0) {
+        // for form-list auto add entity columns if no explicit field-layout or columns definition is present
+        if (!baseFormNode.first("field-layout") && !baseFormNode.first("columns") && fieldColumnInfo != null && fieldColumnInfo.size() > 0) {
             for (Map.Entry<String, ArrayList<String>> curInfo in fieldColumnInfo.entrySet()) {
                 addAutoEntityColumns(newFormNode, baseFormNode, curInfo.getKey(), curInfo.getValue())
             }
