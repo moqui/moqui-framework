@@ -642,6 +642,8 @@ class UserFacadeImpl implements UserFacade {
             // do the actual login through Shiro
             loginSubject.login(token)
 
+            //TODO: put the mfa stuff here (I think)
+
             // do this first so that the rest will be done as this user
             // just in case there is already a user authenticated push onto a stack to remember
             pushUserSubject(loginSubject)
