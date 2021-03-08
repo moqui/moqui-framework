@@ -21,6 +21,10 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.email.EmailTemplate emailTemplateId="SINGLE_USE_CODE" description="Send single use code" emailServerId="SYSTEM"
             emailTypeEnumId="EMT_SINGLE_USE_CODE" bodyScreenLocation="classpath://screen/SingleUseCode.xml" webappName="webroot"
             fromAddress="" ccAddresses="" bccAddresses="" subject="Single Use Code" sendPartial="Y"/>
+    <!-- EmailTemplate for Add Email Authentication -->
+    <moqui.basic.email.EmailTemplate emailTemplateId="ADDED_EMAIL_AUTHENTICATION" description="Added Email Authentication" emailServerId="SYSTEM"
+                                     emailTypeEnumId="EMT_ADDED_EMAIL_AUTHENTICATION" bodyScreenLocation="classpath://screen/AddedEmailAuthentication.xml" webappName="webroot"
+                                     fromAddress="" ccAddresses="" bccAddresses="" subject="Added Email Authentication" sendPartial="Y"/>
     <!-- EmailTemplate for general notifications -->
     <moqui.basic.email.EmailTemplate emailTemplateId="NOTIFICATION" description="Default Notification" emailServerId="SYSTEM"
             emailTypeEnumId="EMT_NOTIFICATION" bodyScreenLocation="classpath://screen/NotificationEmail.xml" webappName="webroot"
