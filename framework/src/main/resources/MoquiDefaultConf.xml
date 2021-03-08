@@ -130,15 +130,15 @@
         <cache name="resource.javascript.location" value-type="java.lang.Class"/>
 
         <!-- These caches must be local caches (use additional methods on MCache not in javax.cache.Cache) -->
-        <cache name="resource.ftl.location" value-type="freemarker.template.Template" type="local"/>
-        <cache name="resource.gstring.location" value-type="groovy.text.Template" type="local"/>
-        <cache name="resource.wiki.location" value-type="String" type="local"/>
-        <cache name="resource.markdown.location" value-type="String" type="local"/>
-        <cache name="resource.text.location" value-type="String" type="local"/>
+        <cache name="resource.ftl.location" value-type="freemarker.template.Template" type="local" max-elements="10000"/>
+        <cache name="resource.gstring.location" value-type="groovy.text.Template" type="local" max-elements="10000"/>
+        <cache name="resource.wiki.location" value-type="String" type="local" max-elements="10000" expire-time-live="3600"/>
+        <cache name="resource.markdown.location" value-type="String" type="local" max-elements="10000" expire-time-live="3600"/>
+        <cache name="resource.text.location" value-type="String" type="local" max-elements="10000" expire-time-live="3600"/>
 
         <cache name="resource.reference.location" value-type="org.moqui.resource.ResourceReference"/>
 
-        <cache name="l10n.message" expire-time-idle="3600" max-elements="50000" value-type="String"/>
+        <cache name="l10n.message" expire-time-live="3600" max-elements="50000" value-type="String"/>
 
         <!-- this is a count of all artifact hits, expire once idle for over 15 minutes -->
         <cache name="artifact.tarpit.hits" expire-time-idle="900" max-elements="10000" value-type="ArrayList"/>
@@ -365,7 +365,7 @@
                 macro-template-location="template/screen-macro/DefaultScreenMacros.plain.ftl"/>
     </screen-facade>
 
-    <service-facade distributed-factory="" scheduled-job-check-time="${scheduled-job-check-time}">
+    <service-facade distributed-factory="" scheduled-job-check-time="${scheduled_job_check_time}">
         <service-location name="main-json" location="http://localhost:8080/rpc/json"/>
 
         <!-- runner-class needs to implement the org.moqui.impl.service.ServiceRunner interface -->
