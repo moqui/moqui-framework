@@ -14,6 +14,7 @@
 package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
+import org.apache.shiro.authc.IncorrectCredentialsException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.AuthenticationRequiredException
 import org.moqui.entity.EntityCondition
@@ -639,8 +640,17 @@ class UserFacadeImpl implements UserFacade {
 
         Subject loginSubject = makeEmptySubject()
         try {
-            // do the actual login through Shiro
-            loginSubject.login(token)
+            try{
+                // do the actual login through Shiro
+                loginSubject.login(token)
+            } catch(AuthenticationException ae){
+                if(ae.message.startsWith("Please authenticate")){
+                    eci.getWeb().getSessionAttributes().put("userNeedsAuthentication", "true")
+                    return false
+                }else if(ae.message.startsWith("Password incorrect for username")){
+                    throw new IncorrectCredentialsException(ae.message)
+                }
+            }
 
             //TODO: put the mfa stuff here (I think)
 
