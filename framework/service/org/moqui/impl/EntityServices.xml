@@ -374,14 +374,26 @@ along with this software (see the LICENSE.md file). If not, see
             try {
                 EntityValue curValue
                 while ((curValue = recordIterator.next()) != null) {
+                    boolean foundFail = false
+                    boolean foundNonNull = false
                     for (int i = 0; i < encryptFieldNamesSize; i++) {
                         def fieldName = encryptFieldNames.get(i)
-                        // rewrite field value to decrypt and re-encrypt
-                        curValue.set(fieldName, curValue.get(fieldName))
+                        def fieldValue = curValue.get(fieldName)
+                        if (fieldValue == null) continue
+
+                        if (org.moqui.impl.entity.FieldInfo.decryptFailedMagicString.equals(fieldValue)) {
+                            ec.logger.error("rewrite#EntityEncryptedFields decrypt failed for ${entityName} pk ${curValue.getPrimaryKeysString()} field ${fieldName}, skipping record")
+                            foundFail = true
+                            break
+                        }
+                        foundNonNull = true
+                        curValue.touchField(fieldName)
                     }
-                    // ec.logger.info("Rewriting encrypted fields for entity ${entityName} PK ${curValue.getPrimaryKeysString()}")
-                    curValue.update()
-                    recordsUpdated += 1L
+                    if (foundNonNull && !foundFail) {
+                        // ec.logger.info("Rewriting encrypted fields for entity ${entityName} PK ${curValue.getPrimaryKeysString()}")
+                        curValue.update()
+                        recordsUpdated += 1L
+                    }
                 }
             } finally {
                 recordIterator.close()
