@@ -60,7 +60,7 @@ public class EntityJavaUtil {
                         return enDeCrypt(value, false, decryptAltNode);
                     } catch (Exception inner) {
                         // do nothing, ignore exception
-                        logger.warn("Error in decrypt-alt " + i, inner);
+                        logger.warn("Error in decrypt-alt " + i);
                     }
                 }
                 // if we got here no luck, throw original exception
