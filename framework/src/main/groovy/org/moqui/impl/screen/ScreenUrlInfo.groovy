@@ -610,7 +610,7 @@ class ScreenUrlInfo {
             if (curSd.screenNode?.attribute('begin-transaction') == "true") this.beginTransaction = true
             String curTxTimeoutAttr = curSd.screenNode?.attribute("transaction-timeout")
             if (curTxTimeoutAttr) {
-                Integer curTransactionTimeout = Integer.parseInt(txTimeoutAttr)
+                Integer curTransactionTimeout = Integer.parseInt(curTxTimeoutAttr)
                 if (transactionTimeout == null || curTransactionTimeout > transactionTimeout)
                     transactionTimeout = curTransactionTimeout
             }
@@ -711,7 +711,7 @@ class ScreenUrlInfo {
             if (curSd.screenNode?.attribute('begin-transaction') == "true") this.beginTransaction = true
             String curTxTimeoutAttr = curSd.screenNode?.attribute("transaction-timeout")
             if (curTxTimeoutAttr) {
-                Integer curTransactionTimeout = Integer.parseInt(txTimeoutAttr)
+                Integer curTransactionTimeout = Integer.parseInt(curTxTimeoutAttr)
                 if (transactionTimeout == null || curTransactionTimeout > transactionTimeout)
                     transactionTimeout = curTransactionTimeout
             }
