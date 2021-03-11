@@ -37,6 +37,8 @@ public interface EntityValue extends Map<String, Object>, Externalizable, Compar
     boolean isModified();
     /** Returns true if the field has been modified */
     boolean isFieldModified(String name);
+    /** Treat field as modified for update() even if not to force a resend to the DB */
+    EntityValue touchField(String name);
     /** Returns true if a value for the field is set, even if it is null */
     boolean isFieldSet(String name);
     /** Returns true if the name is a valid field name for the entity this is a value of,
