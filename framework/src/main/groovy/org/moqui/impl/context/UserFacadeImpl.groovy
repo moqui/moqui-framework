@@ -642,8 +642,17 @@ class UserFacadeImpl implements UserFacade {
 
         Subject loginSubject = makeEmptySubject()
         try {
-            // do the actual login through Shiro
-            loginSubject.login(token)
+            try{
+                // do the actual login through Shiro
+                loginSubject.login(token)
+            } catch(AuthenticationException ae){
+                if(ae.message.startsWith("Please authenticate")){
+                    eci.getWeb().getSessionAttributes().put("userNeedsAuthentication", "true")
+                    return false
+                }else if(ae.message.startsWith("Password incorrect for username")){
+                    throw new IncorrectCredentialsException(ae.message)
+                }
+            }
 
             if (eci.web != null) {
                 // this ensures that after correctly logging in, a previously attempted login user's "Second Factor" screen isn't displayed
