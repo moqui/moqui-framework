@@ -24,6 +24,7 @@ import org.apache.shiro.subject.PrincipalCollection
 import org.apache.shiro.util.SimpleByteSource
 import org.moqui.BaseArtifactException
 import org.moqui.Moqui
+import org.moqui.context.AuthenticationRequiredException
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
@@ -267,6 +268,11 @@ class MoquiShiroRealm implements Realm, Authorizer {
                     ecfi.serviceFacade.sync().name("org.moqui.impl.UserServices.increment#UserAccountFailedLogins")
                             .parameters((Map<String, Object>) [userId:newUserAccount.userId]).requireNewTransaction(true).call()
                     throw new IncorrectCredentialsException(ecfi.resource.expand('Password incorrect for username ${username}','',[username:username]))
+                }else{
+                    Map<String, Object> doesUserNeedAuthc = ecfi.serviceFacade.sync().name("mantle.party.PartyServices.does#UserNeedAuthc")
+                            .parameters((Map<String, Object>) [userId:newUserAccount.userId]).call()
+                    if(doesUserNeedAuthc.doesUserNeedAuthc){
+                        throw new AuthenticationException(ecfi.resource.expand('Please authenticate ${username} before logging in','',[username:username]))}
                 }
             }
 
