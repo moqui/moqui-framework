@@ -1226,7 +1226,7 @@ class ScreenForm {
                 String key = childNode.attribute('key')
                 if (key != null && key.contains('${')) key = ec.resource.expandNoL10n(key, null)
                 String text = childNode.attribute('text')
-                if (text != null && text.contains('${')) text = ec.resource.expand(text, null)
+                if (text != null) text = ec.resource.expand(text, null)
                 options.put(key, text ?: ec.l10n.localize(key))
             }
         }
