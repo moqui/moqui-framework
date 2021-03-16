@@ -101,6 +101,7 @@ class UserFacadeImpl implements UserFacade {
 
         String preUsername = getUsername()
         Subject webSubject = makeEmptySubject()
+        logger.info("login " + webSubject.authenticated)
         if (webSubject.authenticated) {
             String sesUsername = (String) webSubject.getPrincipal()
             if (preUsername != null && !preUsername.isEmpty()) {
@@ -126,8 +127,15 @@ class UserFacadeImpl implements UserFacade {
                 if (oldSession != null) oldSession.invalidate()
                 this.session = request.getSession()
             } else {
+                logger.info("login.authenticated " + webSubject.isPermitted().toString())
+                if(eci.web.sessionAttributes.needAuthcFactor == "true"){
+                    logger.info("needs user factor 'true' ")
+                } else if(eci.web.sessionAttributes.needAuthcFactor == true){
+                    logger.info("needs user factor true ")
+                }
+
                 // effectively login the user for framework (already logged in for session through Shiro)
-                pushUserSubject(webSubject)
+//                pushUserSubject(webSubject)
                 if (logger.traceEnabled) logger.trace("For new request found user [${getUsername()}] in the session")
             }
         } else {
@@ -263,6 +271,8 @@ class UserFacadeImpl implements UserFacade {
     void initFromHandshakeRequest(HandshakeRequest request) {
         this.session = (HttpSession) request.getHttpSession()
 
+        logger.info("used init handshake request")
+
         // get client IP address, handle proxy original address if exists
         String forwardedFor = request.getHeaders().get("X-Forwarded-For")?.first()
         if (forwardedFor != null && !forwardedFor.isEmpty()) { clientIpInternal = forwardedFor.split(",")[0].trim() }
@@ -272,6 +282,7 @@ class UserFacadeImpl implements UserFacade {
         // login user from value in session
         Subject webSubject = makeEmptySubject()
         if (webSubject.authenticated) {
+            logger.info("used init init handshake login")
             // effectively login the user
             pushUserSubject(webSubject)
             if (logger.traceEnabled) logger.trace("For new request found user [${username}] in the session")
@@ -316,6 +327,7 @@ class UserFacadeImpl implements UserFacade {
     }
     void initFromHttpSession(HttpSession session) {
         this.session = session
+        logger.info("used init http session")
         Subject webSubject = makeEmptySubject()
         if (webSubject.authenticated) {
             // effectively login the user
@@ -640,17 +652,8 @@ class UserFacadeImpl implements UserFacade {
 
         Subject loginSubject = makeEmptySubject()
         try {
-            try{
-                // do the actual login through Shiro
-                loginSubject.login(token)
-            } catch(AuthenticationException ae){
-                if(ae.message.startsWith("Please authenticate")){
-                    eci.getWeb().getSessionAttributes().put("userNeedsAuthentication", "true")
-                    return false
-                }else if(ae.message.startsWith("Password incorrect for username")){
-                    throw new IncorrectCredentialsException(ae.message)
-                }
-            }
+            // do the actual login through Shiro
+            loginSubject.login(token)
 
             //TODO: put the mfa stuff here (I think)
 
@@ -659,6 +662,7 @@ class UserFacadeImpl implements UserFacade {
             pushUserSubject(loginSubject)
 
             // after successful login trigger the after-login actions
+            //TODO: not sure why this is a thing (do I need to put this in the second catch?)
             if (eci.getWebImpl() != null) {
                 eci.getWebImpl().runAfterLoginActions()
                 eci.getWebImpl().getRequest().setAttribute("moqui.request.authenticated", "true")
@@ -667,7 +671,12 @@ class UserFacadeImpl implements UserFacade {
             // others to consider handling differently (these all inherit from AuthenticationException):
             //     UnknownAccountException, IncorrectCredentialsException, ExpiredCredentialsException,
             //     CredentialsException, LockedAccountException, DisabledAccountException, ExcessiveAttemptsException
-            eci.messageFacade.addError(ae.message)
+            if(ae.message.startsWith("Password incorrect for username")){
+                eci.messageFacade.addError(ae.message)
+            }else if(ae.message.startsWith("Please authenticate")){
+                eci.messageFacade.addMessage("needs authc factor")
+                eci.web.sessionAttributes.put("needAuthcFactor", "true")
+            }
             return false
         }
 
