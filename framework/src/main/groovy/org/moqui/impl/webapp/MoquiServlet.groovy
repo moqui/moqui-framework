@@ -72,6 +72,7 @@ class MoquiServlet extends HttpServlet {
         if (originHeader != null && !originHeader.isEmpty() && webappInfo != null &&
                 !"false".equals(webappInfo.webappNode.attribute("handle-cors"))) {
 
+            originHeader = originHeader.toLowerCase()
             // generate Access-Control-Allow-Origin based on Origin, if allowed
             Set<String> allowOriginSet = webappInfo.allowOriginSet
             int originSepIdx = originHeader.indexOf("://")
@@ -88,11 +89,19 @@ class MoquiServlet extends HttpServlet {
                 if (allowOriginSet.contains(originHeader) || allowOriginSet.contains(originDomain)) {
                     response.setHeader("Access-Control-Allow-Origin", originHeader)
                 } else {
-                    logger.warn("Returning 401, Origin ${originHeader} not allowed for configuration ${allowOriginSet} or server name ${serverName} or request host ${hostName}")
-                    // Origin not allowed, send 401 response
-                    // response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Origin not allowed")
-                    WebFacadeImpl.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Origin not allowed", null, request, response)
-                    return
+                    // see if any configured domain is a suffix of the origin specified in the request
+                    boolean foundMatch = false
+                    for (String allowOrigin in allowOriginSet)
+                        if (originDomain.endsWith(allowOrigin) || originHeader.endsWith(allowOrigin)) foundMatch = true
+                    if (foundMatch) {
+                        response.setHeader("Access-Control-Allow-Origin", originHeader)
+                    } else {
+                        logger.warn("Returning 401, Origin ${originHeader} not allowed for configuration ${allowOriginSet} or server name ${serverName} or request host ${hostName}")
+                        // Origin not allowed, send 401 response
+                        // response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Origin not allowed")
+                        WebFacadeImpl.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Origin not allowed", null, request, response)
+                        return
+                    }
                 }
             }
 
