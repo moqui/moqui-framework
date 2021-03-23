@@ -1765,7 +1765,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             requireSessionToken = !"false".equals(webappNode.attribute("require-session-token"))
 
             String allowOrigins = webappNode.attribute("allow-origins")
-            if (allowOrigins) for (String origin in allowOrigins.split(",")) allowOriginSet.add(origin.trim())
+            if (allowOrigins) for (String origin in allowOrigins.split(",")) allowOriginSet.add(origin.trim().toLowerCase())
 
             logger.info("Initializing webapp ${webappName} http://${httpHost}:${httpPort} https://${httpsHost}:${httpsPort} https enabled? ${httpsEnabled}")
 
