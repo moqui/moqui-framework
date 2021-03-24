@@ -91,8 +91,10 @@ class MoquiServlet extends HttpServlet {
                 } else {
                     // see if any configured domain is a suffix of the origin specified in the request
                     boolean foundMatch = false
-                    for (String allowOrigin in allowOriginSet)
-                        if (originDomain.endsWith(allowOrigin) || originHeader.endsWith(allowOrigin)) foundMatch = true
+                    for (String allowOrigin in allowOriginSet) if (originDomain.endsWith(allowOrigin) || originHeader.endsWith(allowOrigin)) {
+                        foundMatch = true
+                        break
+                    }
                     if (foundMatch) {
                         response.setHeader("Access-Control-Allow-Origin", originHeader)
                     } else {
