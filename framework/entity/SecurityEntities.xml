@@ -460,6 +460,17 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="screenThemeTypeEnumId"/></relationship>
         <relationship type="one" related="moqui.screen.ScreenTheme"/>
     </entity>
+    <entity entity-name="UserGroupScreenTheme" package="moqui.security" use="configuration" cache="true">
+        <field name="userGroupId" type="id" is-pk="true"/>
+        <field name="screenThemeTypeEnumId" type="id" is-pk="true"/>
+        <field name="screenThemeId" type="id"/>
+        <field name="sequenceNum" type="number-integer"/>
+        <relationship type="one-nofk" related="moqui.security.UserGroup" short-alias="group">
+            <description>No FK in order to allow externally authenticated users.</description></relationship>
+        <relationship type="one" title="ScreenThemeType" related="moqui.basic.Enumeration">
+            <key-map field-name="screenThemeTypeEnumId"/></relationship>
+        <relationship type="one" related="moqui.screen.ScreenTheme"/>
+    </entity>
 
     <!-- ========== User Notifications ========== -->
 
