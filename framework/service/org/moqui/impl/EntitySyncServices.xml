@@ -39,7 +39,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- make sure delayBufferMillis have passed since lastSuccessfulSyncTime -->
             <if condition="entitySync.lastSuccessfulSyncTime &amp;&amp;
-                    entitySync.lastSuccessfulSyncTime.getTime() &gt; (System.currentTimeMillis() - (entitySync.delayBufferMillis ?: 300000))">
+                    (entitySync.lastSuccessfulSyncTime.getTime() + (entitySync.syncSplitMillis ?: 1000)) &gt; (System.currentTimeMillis() - (entitySync.delayBufferMillis ?: 300000))">
                 <return/></if>
 
             <!-- validations done, save that we're running and get started! -->
@@ -73,7 +73,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- if not yet up to delayBufferMillis trigger another async run -->
             <if condition="entitySync.lastSuccessfulSyncTime &amp;&amp;
-                    entitySync.lastSuccessfulSyncTime.getTime() &lt; (System.currentTimeMillis() - (entitySync.delayBufferMillis ?: 300000))">
+                    (entitySync.lastSuccessfulSyncTime.getTime() + (entitySync.syncSplitMillis ?: 1000)) &lt; (System.currentTimeMillis() - (entitySync.delayBufferMillis ?: 300000))">
                 <service-call name="org.moqui.impl.EntitySyncServices.run#EntitySync"
                         in-map="[entitySyncId:entitySyncId]" async="true"/>
             </if>
@@ -249,6 +249,11 @@ along with this software (see the LICENSE.md file). If not, see
                     // increment the split times
                     splitFromLong = splitThruLong
                     splitThruLong = splitFromLong + syncSplitMillis
+                }
+
+                if(splitThruLong > maxSyncLong){
+                    splitFromLong = splitFromLong - syncSplitMillis
+                    splitThruLong = splitThruLong - syncSplitMillis
                 }
 
                 entityWriter.append("</entity-facade-xml>")
