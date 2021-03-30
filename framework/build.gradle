@@ -156,6 +156,12 @@ dependencies {
     compile module('org.apache.shiro:shiro-core:1.4.0') // Apache 2.0
     compile module('org.apache.shiro:shiro-web:1.4.0') // Apache 2.0
 
+    // https://mvnrepository.com/artifact/org.apache.shiro/shiro-ehcache
+    compile group: 'org.apache.shiro', name: 'shiro-ehcache', version: '1.4.0'
+
+    // https://mvnrepository.com/artifact/org.apache.directory.api/api-ldap-client-api
+    compile group: 'org.apache.directory.api', name: 'api-ldap-client-api', version: '2.0.0.AM2'
+
     // SLF4J, Log4j 2 (note Log4j 2 is used by various libraries, best not to replace it even if mostly possible with SLF4J)
     compile 'org.slf4j:slf4j-api:1.7.26'
     // Log4J version note: limited by embedded ElasticSearch through 6.2.4 still uses Log4J 2.9.1

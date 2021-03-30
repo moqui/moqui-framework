@@ -305,6 +305,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element minOccurs="0" ref="password"/>
                 <xs:element minOccurs="0" ref="login-key"/>
                 <xs:element minOccurs="0" ref="login"/>
+                <xs:element minOccurs="0" ref="ldap-params"/>
             </xs:sequence>
         </xs:complexType>
     </xs:element>
@@ -361,6 +362,19 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:annotation><xs:documentation>Store records of login attempts?</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="history-incorrect-password" type="boolean" default="true">
                 <xs:annotation><xs:documentation>Store incorrect passwords in login attempt history?</xs:documentation></xs:annotation></xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="ldap-params">
+        <xs:complexType>
+            <xs:attribute name="shiro-file-name" type="xs:string" default="shiro.ini">
+                <xs:annotation><xs:documentation>Name of the shiro ini file to be used.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="ldap-path" type="xs:string"/>
+            <xs:attribute name="system-user" type="xs:string"/>
+            <xs:attribute name="system-user-password" type="xs:string"/>
+            <xs:attribute name="user-dn-template" type="xs:string"/>
+            <xs:attribute name="search-base-query-filter" type="xs:string"/>
+            <xs:attribute name="search-user-query-filter" type="xs:string"/>
         </xs:complexType>
     </xs:element>
     <!-- Future security settings:

@@ -185,6 +185,7 @@
                   history-limit="5" change-weeks="104" email-require-change="false" email-expire-hours="48"/>
         <login-key encrypt-hash-type="SHA-256" expire-hours="144"/><!-- default expire 6 days, 144 hours -->
         <login max-failures="3" disable-minutes="5" history-store="true" history-incorrect-password="false"/>
+        <ldap-params shiro-file-name="shiro.ini"/>
     </user-facade>
 
     <transaction-facade use-transaction-cache="true">

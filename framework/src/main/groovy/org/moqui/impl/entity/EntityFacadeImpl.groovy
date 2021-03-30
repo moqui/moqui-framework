@@ -592,7 +592,7 @@ class EntityFacadeImpl implements EntityFacade {
             entityName = tokenizedEntityName[0]
             entityNameToSearch = entityName + "_" + entitySuffix
 
-            logger.info("Special entity being loaded ${entityName} with suffix ${entitySuffix}.")
+            // logger.debug("Special entity being loaded ${entityName} with suffix ${entitySuffix}.")
         }
 
         EntityDefinition ed = (EntityDefinition) entityDefinitionCache.get(entityNameToSearch)
