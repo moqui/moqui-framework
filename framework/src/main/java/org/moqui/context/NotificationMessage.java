@@ -72,11 +72,17 @@ public interface NotificationMessage extends java.io.Serializable {
     NotificationMessage alertNoAutoHide(boolean noAutoHide);
     boolean isAlertNoAutoHide();
 
+    NotificationMessage persistOnSend(Boolean persist);
+    boolean isPersistOnSend();
+
     NotificationMessage emailTemplateId(String id);
     String getEmailTemplateId();
 
-    NotificationMessage persistOnSend(boolean persist);
-    boolean isPersistOnSend();
+    NotificationMessage emailMessageSave(Boolean save);
+    boolean isEmailMessageSave();
+
+    /** Call after send() to get emailMessageId values (if emailMessageSave is true) */
+    Map<String, String> getEmailMessageIdByUserId();
 
     /** Send this Notification Message.
      * @param persist If true this is persisted and message received is tracked. If false this is sent to active topic

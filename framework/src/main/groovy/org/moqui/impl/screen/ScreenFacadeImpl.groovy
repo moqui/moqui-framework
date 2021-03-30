@@ -378,8 +378,8 @@ class ScreenFacadeImpl implements ScreenFacade {
         SubscreensItem ssi
         ScreenInfo parentInfo
         ScreenInfo rootInfo
-        Map<String, ScreenInfo> subscreenInfoByName = new TreeMap()
-        Map<String, TransitionInfo> transitionInfoByName = new TreeMap()
+        Map<String, ScreenInfo> subscreenInfoByName = new TreeMap<String, ScreenInfo>()
+        Map<String, TransitionInfo> transitionInfoByName = new TreeMap<String, TransitionInfo>()
         int level
         String name
         ArrayList<String> screenPath = new ArrayList<>()
@@ -427,7 +427,8 @@ class ScreenFacadeImpl implements ScreenFacade {
             if (rootInfo == null) rootInfo = this
 
             // get info for all subscreens
-            for (Map.Entry<String, SubscreensItem> ssEntry in sd.subscreensByName.entrySet()) {
+            ArrayList ssItemEntryList = new ArrayList<Map.Entry<String, SubscreensItem>>(sd.subscreensByName.entrySet())
+            for (Map.Entry<String, SubscreensItem> ssEntry in ssItemEntryList) {
                 SubscreensItem curSsi = ssEntry.getValue()
                 List<String> childPath = new ArrayList(screenPath)
                 childPath.add(curSsi.getName())
@@ -473,7 +474,9 @@ class ScreenFacadeImpl implements ScreenFacade {
         }
 
         void addChildrenToList(List<ScreenInfo> infoList, int maxLevel) {
-            for (ScreenInfo si in subscreenInfoByName.values()) {
+            ArrayList ssInfoList = new ArrayList<ScreenInfo>(subscreenInfoByName.values())
+            ssInfoList.sort({ a, b -> a.ssi?.menuIndex <=> b.ssi?.menuIndex })
+            for (ScreenInfo si in ssInfoList) {
                 infoList.add(si)
                 if (maxLevel > level) si.addChildrenToList(infoList, maxLevel)
             }

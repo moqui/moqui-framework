@@ -30,6 +30,7 @@ import java.net.URLEncoder;
 import java.security.SecureRandom;
 import java.text.ParseException;
 import java.util.*;
+import java.util.regex.Pattern;
 
 /**
  * These are utilities that should exist elsewhere, but I can't find a good simple library for them, and they are
@@ -355,6 +356,7 @@ public class StringUtilities {
     }
 
     public static String escapeElasticQueryString(CharSequence queryString) {
+        if (queryString == null || queryString.length() == 0) return "";
         int length = queryString.length();
         StringBuilder sb = new StringBuilder(length * 2);
         for (int i = 0; i < length; i++) {
@@ -363,6 +365,37 @@ public class StringUtilities {
             sb.append(c);
         }
         return sb.toString();
+    }
+    public static Pattern elasticSearchChars = Pattern.compile("[^*:\\\\?_~\\/\\.\\[\\]\\{\\}+?*><=\"^-]*");
+    public static Set<String> elasticSearchWords = new HashSet<>(Arrays.asList("AND", "OR", "NOT"));
+    public static String elasticQueryAutoWildcard(CharSequence query, boolean allFieldPrefix) {
+        // TODO: would be nice to somehow parse the query string, matching parentheses and quotes, and add *: for the field if none for each term
+        if (query == null) return "*";
+        String queryString = query.toString().trim();
+        int length = queryString.length();
+        if (length == 0) return "*";
+
+        StringBuilder sb = new StringBuilder(length * 2);
+        String[] querySplit = queryString.split(" ");
+
+        for (int i = 0; i < querySplit.length; i++) {
+            String term = querySplit[i].trim();
+            if (term.length() == 0) continue;
+            boolean isEsWord = elasticSearchWords.contains(term);
+            boolean noEsChars = !isEsWord && elasticSearchChars.matcher(term).matches();
+            if (sb.length() > 0) sb.append(' ');
+            if (!isEsWord && allFieldPrefix && noEsChars) sb.append("*:");
+            sb.append(term);
+            if (!isEsWord && noEsChars) sb.append('*');
+        }
+        return sb.toString();
+
+        /* based on old code:
+        if (term) { termSb.append((term.split(' ') as List).collect({ it.matches(/[^*:\\?_~\/\.\[\]\{\}+?*><="^-]* /) ? (it + '*') : it }).join(' ')) } else { termSb.append('*') }
+
+        <if condition="queryString &amp;&amp; isAlphaNumeric(queryString, ' *?')">
+            <set field="queryString" from="queryString.split(' ').collect({ (!it || it in ['AND', 'OR', 'NOT']) ? it : '*:' + (it.contains('*') || it.contains('?') ? it : it + '*') }).join(' ')"/></if>
+         */
     }
 
     public static String paddedNumber(long number, Integer desiredLength) {

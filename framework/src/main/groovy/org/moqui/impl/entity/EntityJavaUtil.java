@@ -29,26 +29,53 @@ import org.slf4j.LoggerFactory;
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
 import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.PBEParameterSpec;
 import javax.xml.bind.DatatypeConverter;
 
 import java.math.BigDecimal;
+import java.security.SecureRandom;
 import java.util.*;
 
 public class EntityJavaUtil {
     protected final static Logger logger = LoggerFactory.getLogger(EntityJavaUtil.class);
     protected final static boolean isTraceEnabled = logger.isTraceEnabled();
-    private static final String PLACEHOLDER = "PLHLDR";
 
     private static final int saltBytes = 8;
     static String enDeCrypt(String value, boolean encrypt, EntityFacadeImpl efi) {
         MNode entityFacadeNode = efi.ecfi.getConfXmlRoot().first("entity-facade");
-        String pwStr = entityFacadeNode.attribute("crypt-pass");
+        if (encrypt) {
+            return enDeCrypt(value, true, entityFacadeNode);
+        } else {
+            // decrypt a bit different, use entity-facade as config node and then decrypt-alt until success, or fail with original error
+            try {
+                return enDeCrypt(value, false, entityFacadeNode);
+            } catch (Exception e) {
+                ArrayList<MNode> decryptAltNodes = entityFacadeNode.children("decrypt-alt");
+                for (int i = 0; i < decryptAltNodes.size(); i++) {
+                    MNode decryptAltNode = decryptAltNodes.get(i);
+                    decryptAltNode.setSystemExpandAttributes(true);
+                    try {
+                        return enDeCrypt(value, false, decryptAltNode);
+                    } catch (Exception inner) {
+                        // do nothing, ignore exception
+                        logger.warn("Error in decrypt-alt " + i);
+                    }
+                }
+                // if we got here no luck, throw original exception
+                throw e;
+            }
+        }
+    }
+
+    static final String CONSTANT_IV = "WeNeedAtLeast32CharactersFor256BitBlockSizeToHaveAConstantIVForQueryByEncryptedValue";
+    static String enDeCrypt(String value, boolean encrypt, MNode configNode) {
+        String pwStr = configNode.attribute("crypt-pass");
         if (pwStr == null || pwStr.length() == 0)
             throw new EntityException("No entity-facade.@crypt-pass setting found, NOT doing encryption");
 
-        String saltStr = entityFacadeNode.attribute("crypt-salt");
+        String saltStr = configNode.attribute("crypt-salt");
         byte[] salt = (saltStr != null && saltStr.length() > 0 ? saltStr : "default1").getBytes();
         if (salt.length > saltBytes) {
             byte[] trimmed = new byte[saltBytes];
@@ -63,36 +90,65 @@ public class EntityJavaUtil {
             }
             salt = newSalt;
         }
-        String iterStr = entityFacadeNode.attribute("crypt-iter");
+
+        String iterStr = configNode.attribute("crypt-iter");
         int count = iterStr != null && iterStr.length() > 0 ? Integer.valueOf(iterStr) : 10;
         char[] pass = pwStr.toCharArray();
 
+        String algo = configNode.attribute("crypt-algo");
+        if (algo == null || algo.length() == 0) algo = "PBEWithHmacSHA256AndAES_128";
 
-        String algo = entityFacadeNode.attribute("crypt-algo");
-        if (algo == null || algo.length() == 0) algo = "PBEWithMD5AndDES";
+        // logger.info("TOREMOVE salt [" + salt + "] count [" + count + "] pass [${pass}] algo [" + algo + "][" + configNode.attribute("crypt-algo") + "]");
 
-        // logger.info("TOREMOVE salt [${salt}] count [${count}] pass [${pass}] algo [${algo}]")
-        PBEParameterSpec pbeParamSpec = new PBEParameterSpec(salt, count);
-        PBEKeySpec pbeKeySpec = new PBEKeySpec(pass);
         try {
+            Cipher pbeCipher = Cipher.getInstance(algo);
+
+            byte[] inBytes;
+            byte[] initVectorBytes = CONSTANT_IV.substring(0, pbeCipher.getBlockSize()).getBytes();
+            byte[] defaultInitVectorBytes = initVectorBytes;
+            if (encrypt) {
+                inBytes = value.getBytes();
+                /* more secure for larger multi-block values, but makes find by encrypted value impossible, maybe optionally enable with another field.@encrypt attribute if ever needed
+                initVectorBytes = new byte[pbeCipher.getBlockSize()];
+                new SecureRandom().nextBytes(initVectorBytes);
+                 */
+            } else {
+                // if contains ':' is the new format: split IV and value then decode using Base64, otherwise decode value as hex
+                // NOTE: URL Base64 is letters, digits, '-', '_'
+                int colonIdx = value.indexOf(":");
+                if (colonIdx >= 0) {
+                    // base64 decode each part as ${IV}:${encrypted}
+                    if (colonIdx > 0) initVectorBytes = Base64.getUrlDecoder().decode(value.substring(0, colonIdx));
+                    inBytes = Base64.getUrlDecoder().decode(value.substring(colonIdx + 1));
+                } else {
+                    inBytes = DatatypeConverter.parseHexBinary(value);
+                }
+            }
+
+            PBEParameterSpec pbeParamSpec = initVectorBytes == null ? new PBEParameterSpec(salt, count) :
+                    new PBEParameterSpec(salt, count, new IvParameterSpec(initVectorBytes));
+            PBEKeySpec pbeKeySpec = new PBEKeySpec(pass);
+
             SecretKeyFactory keyFac = SecretKeyFactory.getInstance(algo);
             SecretKey pbeKey = keyFac.generateSecret(pbeKeySpec);
 
-            Cipher pbeCipher = Cipher.getInstance(algo);
-            int mode = encrypt ? Cipher.ENCRYPT_MODE : Cipher.DECRYPT_MODE;
-            pbeCipher.init(mode, pbeKey, pbeParamSpec);
+            pbeCipher.init(encrypt ? Cipher.ENCRYPT_MODE : Cipher.DECRYPT_MODE, pbeKey, pbeParamSpec);
 
-            byte[] inBytes;
-            if (encrypt) {
-                inBytes = value.getBytes();
-            } else {
-                inBytes = DatatypeConverter.parseHexBinary(value);
-            }
             byte[] outBytes = pbeCipher.doFinal(inBytes);
-            return encrypt ? DatatypeConverter.printHexBinary(outBytes) : new String(outBytes);
+            // change to Base64 encode always (2/3 size with 6 bits/char base64 vs 4 bits/char hex), always include IV + ':' + encrypted value
+            if (encrypt) {
+                // old hex approach, now supported for decrypt only: return DatatypeConverter.printHexBinary(outBytes);
+                if (defaultInitVectorBytes == initVectorBytes) {
+                    return ":" + Base64.getUrlEncoder().encodeToString(outBytes);
+                } else {
+                    return Base64.getUrlEncoder().encodeToString(initVectorBytes) + ':' + Base64.getUrlEncoder().encodeToString(outBytes);
+                }
+            } else {
+                return new String(outBytes);
+            }
         } catch (Exception e) {
             // logger.warn("crypt-pass " + pwStr + " salt " + saltStr + " algo " + algo + " count " + count);
-            throw new EntityException("Encryption error", e);
+            throw new EntityException("Encryption error with algo " + algo, e);
         }
     }
 
@@ -367,7 +423,7 @@ public class EntityJavaUtil {
 
             boolean hasNamePrefix = namePrefix != null && namePrefix.length() > 0;
             boolean srcIsEntityValueBase = src instanceof EntityValueBase;
-            EntityValueBase evb = srcIsEntityValueBase ? (EntityValueBase) src : null;
+            EntityValueBase srcEvb = srcIsEntityValueBase ? (EntityValueBase) src : null;
             FieldInfo[] fieldInfoArray = pks == null ? allFieldInfoArray :
                     (pks == Boolean.TRUE ? pkFieldInfoArray : nonPkFieldInfoArray);
             // use integer iterator, saves quite a bit of time, improves time for this method by about 20% with this alone
@@ -382,10 +438,16 @@ public class EntityJavaUtil {
                     srcName = fieldName;
                 }
 
-                Object value = srcIsEntityValueBase? evb.getValueMap().getOrDefault(srcName, PLACEHOLDER) : src.getOrDefault(srcName, PLACEHOLDER);
-                boolean srcNotContains = false;
-                if (value == PLACEHOLDER) { srcNotContains = true; value = null; }
-                if (value != null || !srcNotContains) {
+                Object value;
+                boolean srcContains;
+                if (srcIsEntityValueBase) {
+                    value = hasNamePrefix ? srcEvb.valueMapInternal.get(srcName) : srcEvb.valueMapInternal.getByIString(fi.name, fi.index);
+                    srcContains = value != null || (hasNamePrefix ? srcEvb.valueMapInternal.containsKey(srcName) : srcEvb.valueMapInternal.containsKeyIString(fi.name, fi.index));
+                } else {
+                    value = src.get(srcName);
+                    srcContains = value != null || src.containsKey(srcName);
+                }
+                if (srcContains) {
                     boolean isCharSequence = false;
                     boolean isEmpty = false;
                     if (value == null) {
@@ -399,22 +461,22 @@ public class EntityJavaUtil {
                         if (isCharSequence) {
                             try {
                                 Object converted = fi.convertFromString(value.toString(), eci.l10nFacade);
-                                if (destIsEntityValueBase) destEvb.putNoCheck(fieldName, converted);
+                                if (destIsEntityValueBase) destEvb.putKnownField(fi, converted);
                                 else dest.put(fieldName, converted);
                             } catch (BaseException be) {
                                 eci.messageFacade.addValidationError(null, fieldName, null, be.getMessage(), be);
                             }
                         } else {
-                            if (destIsEntityValueBase) destEvb.putNoCheck(fieldName, value);
+                            if (destIsEntityValueBase) destEvb.putKnownField(fi, value);
                             else dest.put(fieldName, value);
                         }
-                    } else if (setIfEmpty && !srcNotContains) {
+                    } else if (setIfEmpty) {
                         // treat empty String as null, otherwise set as whatever null or empty type it is
                         if (value != null && isCharSequence) {
-                            if (destIsEntityValueBase) destEvb.putNoCheck(fieldName, null);
+                            if (destIsEntityValueBase) destEvb.putKnownField(fi, null);
                             else dest.put(fieldName, null);
                         } else {
-                            if (destIsEntityValueBase) destEvb.putNoCheck(fieldName, value);
+                            if (destIsEntityValueBase) destEvb.putKnownField(fi, value);
                             else dest.put(fieldName, value);
                         }
                     }
@@ -428,7 +490,7 @@ public class EntityJavaUtil {
 
             ExecutionContextImpl eci = efi.ecfi.getEci();
             boolean srcIsEntityValueBase = src instanceof EntityValueBase;
-            EntityValueBase evb = srcIsEntityValueBase ? (EntityValueBase) src : null;
+            EntityValueBase srcEvb = srcIsEntityValueBase ? (EntityValueBase) src : null;
             FieldInfo[] fieldInfoArray = pks == null ? allFieldInfoArray :
                     (pks == Boolean.TRUE ? pkFieldInfoArray : nonPkFieldInfoArray);
             // use integer iterator, saves quite a bit of time, improves time for this method by about 20% with this alone
@@ -437,10 +499,16 @@ public class EntityJavaUtil {
                 FieldInfo fi = fieldInfoArray[i];
                 String fieldName = fi.name;
 
-                Object value = srcIsEntityValueBase ? evb.getValueMap().getOrDefault(fieldName, PLACEHOLDER) : src.getOrDefault(fieldName, PLACEHOLDER);
-                boolean srcNotContains = false;
-                if (value == PLACEHOLDER) { srcNotContains = true; value = null; }
-                if (value != null || !srcNotContains) {
+                Object value;
+                boolean srcContains;
+                if (srcIsEntityValueBase) {
+                    value = srcEvb.valueMapInternal.getByIString(fi.name, fi.index);
+                    srcContains = value != null || srcEvb.valueMapInternal.containsKeyIString(fi.name, fi.index);
+                } else {
+                    value = src.get(fieldName);
+                    srcContains = value != null || src.containsKey(fieldName);
+                }
+                if (srcContains) {
                     boolean isCharSequence = false;
                     boolean isEmpty = false;
                     if (value == null) {
@@ -454,16 +522,16 @@ public class EntityJavaUtil {
                         if (isCharSequence) {
                             try {
                                 Object converted = fi.convertFromString(value.toString(), eci.l10nFacade);
-                                dest.putNoCheck(fieldName, converted);
+                                dest.putKnownField(fi, converted);
                             } catch (BaseException be) {
                                 eci.messageFacade.addValidationError(null, fieldName, null, be.getMessage(), be);
                             }
                         } else {
-                            dest.putNoCheck(fieldName, value);
+                            dest.putKnownField(fi, value);
                         }
-                    } else if (!srcNotContains) {
+                    } else {
                         // treat empty String as null, otherwise set as whatever null or empty type it is
-                        dest.putNoCheck(fieldName, null);
+                        dest.putKnownField(fi, null);
                     }
                 }
             }
@@ -485,7 +553,7 @@ public class EntityJavaUtil {
 
     public static class RelationshipInfo {
         public final String type;
-        public final boolean isTypeOne;
+        public final boolean isTypeOne, isFk;
         public final String title;
         public final String relatedEntityName;
         final EntityDefinition fromEd;
@@ -495,17 +563,16 @@ public class EntityJavaUtil {
         public final String relationshipName;
         public final String shortAlias;
         public final String prettyName;
-        public final Map<String, String> keyMap;
-        public final Map<String, String> keyValueMap;
-        public final boolean dependent;
-        public final boolean mutable;
-        public final boolean isAutoReverse;
+        public final Map<String, String> keyMap, keyValueMap;
+        public final ArrayList<String> keyFieldList, keyFieldValueList;
+        public final boolean dependent, mutable, isAutoReverse;
 
         RelationshipInfo(MNode relNode, EntityDefinition fromEd, EntityFacadeImpl efi) {
             this.relNode = relNode;
             this.fromEd = fromEd;
             type = relNode.attribute("type");
             isTypeOne = type.startsWith("one");
+            isFk = "one".equals(type);
             isAutoReverse = "true".equals(relNode.attribute("is-auto-reverse"));
 
             String titleAttr = relNode.attribute("title");
@@ -521,7 +588,9 @@ public class EntityJavaUtil {
             shortAlias =  shortAliasAttr != null && !shortAliasAttr.isEmpty() ? shortAliasAttr : null;
             prettyName = relatedEd.getPrettyName(title, fromEd.entityInfo.internalEntityName);
             keyMap = EntityDefinition.getRelationshipExpandedKeyMapInternal(relNode, relatedEd);
+            keyFieldList = new ArrayList<>(keyMap.keySet());
             keyValueMap = EntityDefinition.getRelationshipKeyValueMapInternal(relNode);
+            keyFieldValueList = keyValueMap != null ? new ArrayList<>(keyValueMap.keySet()) : null;
             dependent = hasReverse();
             String mutableAttr = relNode.attribute("mutable");
             if (mutableAttr != null && !mutableAttr.isEmpty()) {

@@ -14,6 +14,7 @@
 package org.moqui.impl.screen
 
 import groovy.transform.CompileStatic
+import org.moqui.impl.context.ContextJavaUtil
 import org.moqui.util.ContextStack
 import org.moqui.context.ValidationError
 import org.moqui.context.WebFacade
@@ -111,6 +112,7 @@ class WebFacadeStub implements WebFacade {
     @Override String getPathInfo() { return httpServletRequest.getPathInfo() }
     @Override ArrayList<String> getPathInfoList() { return WebFacadeImpl.getPathInfoList(request) }
     @Override String getRequestBodyText() { return null }
+    @Override String getResourceDistinctValue() { return ecfi.initStartHex }
 
     @Override HttpServletResponse getResponse() { return httpServletResponse }
     @Override HttpSession getSession() { return httpSession }
@@ -158,6 +160,10 @@ class WebFacadeStub implements WebFacade {
         logger.info("WebFacadeStub sendJsonResponse ${jsonStr.length()} chars")
         */
     }
+    @Override
+    void sendJsonError(int statusCode, String message, Throwable origThrowable) {
+        WebFacadeImpl.sendJsonErrorInternal(statusCode, message, origThrowable, response)
+    }
 
     @Override void sendTextResponse(String text) { sendTextResponse(text, "text/plain", null) }
     @Override void sendTextResponse(String text, String contentType, String filename) {
@@ -166,8 +172,9 @@ class WebFacadeStub implements WebFacade {
         // logger.info("WebFacadeStub sendTextResponse (${text.length()} chars, content type ${contentType}, filename: ${filename})")
     }
 
-    @Override void sendResourceResponse(String location) {
-        WebFacadeImpl.sendResourceResponseInternal(location, false, ecfi.getEci(), httpServletResponse)
+    @Override void sendResourceResponse(String location) { sendResourceResponse(location, false) }
+    @Override void sendResourceResponse(String location, boolean inline) {
+        WebFacadeImpl.sendResourceResponseInternal(location, inline, ecfi.getEci(), httpServletResponse)
         /*
         ResourceReference rr = ecfi.getResource().getLocationReference(location)
         if (rr == null) throw new IllegalArgumentException("Resource not found at: ${location}")

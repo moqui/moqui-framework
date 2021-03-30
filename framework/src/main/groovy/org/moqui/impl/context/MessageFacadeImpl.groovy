@@ -30,13 +30,13 @@ class MessageFacadeImpl implements MessageFacade {
     private final static List<ValidationError> emptyValidationErrorList = Collections.unmodifiableList(new ArrayList<ValidationError>())
     private final static List<MessageInfo> emptyMessageInfoList = Collections.unmodifiableList(new ArrayList<MessageInfo>())
 
-    private ArrayList<MessageInfo> messageList = null
-    private ArrayList<String> errorList = null
-    private ArrayList<ValidationError> validationErrorList = null
-    private ArrayList<MessageInfo> publicMessageList = null
+    private ArrayList<MessageInfo> messageList = (ArrayList<MessageInfo>) null
+    private ArrayList<MessageInfo> publicMessageList = (ArrayList<MessageInfo>) null
+    private ArrayList<String> errorList = (ArrayList<String>) null
+    private ArrayList<ValidationError> validationErrorList = (ArrayList<ValidationError>) null
     private boolean hasErrors = false
 
-    private LinkedList<SavedErrors> savedErrorsStack = null
+    private LinkedList<SavedErrors> savedErrorsStack = (LinkedList<SavedErrors>) null
 
     MessageFacadeImpl() { }
 
@@ -150,8 +150,21 @@ class MessageFacadeImpl implements MessageFacade {
     }
     @Override
     void clearErrors() {
-        if (errorList != null) errorList.clear()
-        if (validationErrorList != null) validationErrorList.clear()
+        if (messageList == null) messageList = new ArrayList<>()
+        if (errorList != null) {
+            for (int i = 0; i < errorList.size(); i++) {
+                String errMsg = (String) errorList.get(i)
+                messageList.add(new MessageInfo(errMsg, NotificationType.danger))
+            }
+            errorList.clear()
+        }
+        if (validationErrorList != null) {
+            for (int i = 0; i < validationErrorList.size(); i++) {
+                ValidationError error = (ValidationError) validationErrorList.get(i)
+                messageList.add(new MessageInfo(error.toStringPretty(), NotificationType.danger))
+            }
+            validationErrorList.clear()
+        }
         hasErrors = false
     }
 

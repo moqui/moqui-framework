@@ -245,7 +245,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="userId" type="id" is-pk="true"/>
         <field name="username" type="text-medium" enable-audit-log="true">
             <description>The username used along with the password to login</description></field>
-        <field name="userFullName" type="text-medium"><description>User's first, middle, last, etc name</description></field>
+        <field name="userFullName" type="text-medium" enable-audit-log="update">
+            <description>User's first, middle, last, etc name</description></field>
         <field name="currentPassword" type="text-medium">
             <description>NOTE: not an encrypted field because one way hash encryption used for it</description></field>
         <field name="resetPassword" type="text-medium">
@@ -259,15 +260,17 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="publicKey" type="text-long"><description>RSA public key for key based authentication</description></field>
         <field name="hasLoggedOut" type="text-indicator"><description>Set to Y when user logs out and to N when user logs in.
             If user is session authenticated on request and this is Y then treat as if user not authenticated.</description></field>
-        <field name="disabled" type="text-indicator"/>
+        <field name="disabled" type="text-indicator" default="'N'" enable-audit-log="update"/>
         <field name="disabledDateTime" type="date-time"/>
+        <field name="terminateDate" type="date-time" enable-audit-log="true">
+            <description>If set then user may not login after this date, and no notifications will be sent after this date.</description></field>
         <field name="successiveFailedLogins" type="number-integer"/>
         <field name="requirePasswordChange" type="text-indicator"/>
         <field name="currencyUomId" type="id"/>
         <field name="locale" type="text-short"/>
         <field name="timeZone" type="text-short"/>
         <field name="externalUserId" type="text-medium"/>
-        <field name="emailAddress" type="text-medium">
+        <field name="emailAddress" type="text-medium" enable-audit-log="update">
             <description>The email address to use for forgot password emails and other system messages.</description></field>
         <field name="ipAllowed" type="text-medium">
             <description>If specified only allow login from matching IP4 address. Comma separated patterns where each pattern has 4
@@ -277,8 +280,15 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="currencyUomId"/></relationship>
         <relationship type="many" related="moqui.security.UserGroupMember" short-alias="groups">
             <key-map field-name="userId"/></relationship>
+        <relationship type="many" related="moqui.security.UserLoginKey" short-alias="loginKeys">
+            <key-map field-name="userId"/></relationship>
+        <relationship type="many" related="moqui.security.UserLoginHistory" short-alias="loginHistories">
+            <key-map field-name="userId"/></relationship>
         <relationship type="many" related="moqui.security.UserPreference" short-alias="preferences">
             <key-map field-name="userId"/></relationship>
+        <relationship type="many" related="moqui.security.user.NotificationTopicUser" short-alias="notificationTopics">
+            <key-map field-name="userId"/></relationship>
+
         <!-- NOTE: both username and emailAddress must be unique -->
         <index name="USERACCT_USERNAME" unique="true"><index-field name="username"/></index>
         <index name="USERACCT_EMAILADDR" unique="true"><index-field name="emailAddress"/></index>
@@ -286,6 +296,18 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.security.UserAccount userId="_NA_" username="_NA_" userFullName="Not Applicable" currentPassword="" disabled="Y"/>
         </seed-data>
     </entity>
+    <view-entity entity-name="UserAccountAndGroup" package="moqui.security">
+        <member-entity entity-alias="UAC" entity-name="moqui.security.UserAccount"/>
+        <member-relationship entity-alias="UGM" join-from-alias="UAC" relationship="groups" join-optional="true"/>
+        <member-relationship entity-alias="ULH" join-from-alias="UAC" relationship="loginHistories" join-optional="true"/>
+        <member-relationship entity-alias="NTU" join-from-alias="UAC" relationship="notificationTopics" join-optional="true"/>
+        <alias-all entity-alias="UAC"/>
+        <alias-all entity-alias="UGM"/>
+        <alias name="loginFromDate" entity-alias="ULH" field="fromDate"/>
+        <alias name="topic" entity-alias="NTU"/>
+        <alias name="receiveNotifications" entity-alias="NTU"/>
+        <alias name="emailNotifications" entity-alias="NTU"/>
+    </view-entity>
 
     <entity entity-name="UserGroup" package="moqui.security" use="configuration" short-alias="userGroups">
         <field name="userGroupId" type="id" is-pk="true"/>
@@ -418,6 +440,17 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="screenThemeTypeEnumId"/></relationship>
         <relationship type="one" related="moqui.screen.ScreenTheme"/>
     </entity>
+    <entity entity-name="UserGroupScreenTheme" package="moqui.security" use="configuration" cache="true">
+        <field name="userGroupId" type="id" is-pk="true"/>
+        <field name="screenThemeTypeEnumId" type="id" is-pk="true"/>
+        <field name="screenThemeId" type="id"/>
+        <field name="sequenceNum" type="number-integer"/>
+        <relationship type="one-nofk" related="moqui.security.UserGroup" short-alias="group">
+            <description>No FK in order to allow externally authenticated users.</description></relationship>
+        <relationship type="one" title="ScreenThemeType" related="moqui.basic.Enumeration">
+            <key-map field-name="screenThemeTypeEnumId"/></relationship>
+        <relationship type="one" related="moqui.screen.ScreenTheme"/>
+    </entity>
 
     <!-- ========== User Notifications ========== -->
 
@@ -432,9 +465,10 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="alertNoAutoHide" type="text-indicator"/>
         <field name="persistOnSend" type="text-indicator"/>
         <field name="isPrivate" type="text-indicator"><description>If Y user must be associated to see it or receive notifications.</description></field>
-        <field name="receiveNotifications" type="text-indicator"><description>If Y all applicable users will be sent
-            notification messages. If N users must subscribe (NotificationTopicUser) to receive messages.</description></field>
+        <field name="receiveNotifications" type="text-indicator"><description>For each User if there is no NotificationTopicUser.receiveNotifications value then use this as the default, this defaults to N.</description></field>
+        <field name="emailNotifications" type="text-indicator"><description>For each User if there is no NotificationTopicUser.emailNotifications value then use this as the default, this defaults to N.</description></field>
         <field name="emailTemplateId" type="id"><description>If is specified use this template to send a notification email to each user with emailNotifications=Y</description></field>
+        <field name="emailMessageSave" type="text-indicator"/>
         <relationship type="one" related="moqui.basic.email.EmailTemplate"/>
     </entity>
     <entity entity-name="NotificationTopicUser" package="moqui.security.user" use="configuration" cache="true">
@@ -467,10 +501,10 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="userId" type="id" is-pk="true"/>
         <field name="sentDate" type="date-time"/>
         <field name="viewedDate" type="date-time"/>
-        <!-- not saving EmailMessage for now: <field name="emailMessageId" type="id"/> -->
+        <field name="emailMessageId" type="id"/>
         <relationship type="one" related="moqui.security.user.NotificationMessage" short-alias="notification"/>
         <relationship type="one-nofk" related="moqui.security.UserAccount" short-alias="user"/>
-        <!-- not saving EmailMessage for now: <relationship type="one" related="moqui.basic.email.EmailMessage" short-alias="emailMessage"/> -->
+        <relationship type="one" related="moqui.basic.email.EmailMessage" short-alias="emailMessage"/>
         <index name="NOTMSGUSR_UID_VD" unique="false"><index-field name="userId"/><index-field name="viewedDate"/></index>
     </entity>
     <view-entity entity-name="NotificationMessageByUser" package="moqui.security.user" cache="never">

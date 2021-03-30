@@ -17,7 +17,7 @@ tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:deprecation" }
 tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:unchecked" }
 tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:deprecation" }
 
-version = '3.0.0-rc2'
+version = '3.0.0-rc8'
 
 apply plugin: 'groovy'
 apply plugin: 'war'
@@ -27,11 +27,11 @@ apply plugin: 'com.github.ben-manes.versions'
 // apply plugin: 'net.ltgt.errorprone'
 buildscript {
     repositories {
-        jcenter()
-        // uncomment to add the Error Prone compiler: maven { url "https://plugins.gradle.org/m2/" }
+        mavenCentral()
+        maven { url "https://plugins.gradle.org/m2/" }
     }
     dependencies {
-        classpath 'com.github.ben-manes:gradle-versions-plugin:0.27.0'
+        classpath 'com.github.ben-manes:gradle-versions-plugin:0.28.0'
         // uncomment to add the Error Prone compiler: classpath 'net.ltgt.gradle:gradle-errorprone-plugin:0.0.8'
     }
 }
@@ -43,7 +43,7 @@ dependencyUpdates.resolutionStrategy = { componentSelection { rules -> rules.all
 // NOTE: packages should match group, name, version found at https://bintray.com/bintray/jcenter
 repositories {
     flatDir name: 'localLib', dirs: projectDir.absolutePath + '/lib'
-    jcenter() // http://jcenter.bintray.com
+    mavenCentral()
 }
 
 sourceCompatibility = '1.8'
@@ -68,11 +68,13 @@ dependencies {
     compile project(':moqui-util')
 
     // Groovy
-    compile 'org.codehaus.groovy:groovy:2.5.8' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-dateutil:2.5.8' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-json:2.5.8' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-templates:2.5.8' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-xml:2.5.8' // Apache 2.0
+    // NOTE: update attempt to 3.0.2 has issues with slow build (just slow stub generation? seems others are seeing that too)
+    //     and updated Spock required (tried 2.0-M2-groovy-3.0, not final release and tests didn't work)
+    compile 'org.codehaus.groovy:groovy:2.5.14' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-dateutil:2.5.14' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-json:2.5.14' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-templates:2.5.14' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-xml:2.5.14' // Apache 2.0
     // jansi is needed for groovydoc only, so in providedCompile (not included in war)
     compileOnly 'org.fusesource.jansi:jansi:1.18'
     // Findbugs need only during compile (used by freemarker and various moqui classes)
@@ -82,34 +84,34 @@ dependencies {
 
     // Bitronix Transaction Manager (the default internal tx mgr; custom build from source as 3.0.0 not yet released)
     compile 'org.codehaus.btm:btm:3.0.0-SNAPSHOT' // Apache 2.0
-    runtime 'org.javassist:javassist:3.26.0-GA' // Apache 2.0
+    runtime 'org.javassist:javassist:3.27.0-GA' // Apache 2.0
 
     // ========== Libraries from jcenter ==========
 
     // Apache Commons
-    runtime 'commons-codec:commons-codec:1.13'
-    compile 'org.apache.commons:commons-csv:1.7' // Apache 2.0
+    runtime 'commons-codec:commons-codec:1.15'
+    compile 'org.apache.commons:commons-csv:1.8' // Apache 2.0
     // NOTE: commons-email depends on com.sun.mail:javax.mail, included below
     compile module('org.apache.commons:commons-email:1.5') // Apache 2.0
-    compile 'org.apache.commons:commons-lang3:3.9' // Apache 2.0; used by cron-utils
+    compile 'org.apache.commons:commons-lang3:3.11' // Apache 2.0; used by cron-utils
     compile 'commons-beanutils:commons-beanutils:1.9.4' // Apache 2.0
     compile 'commons-collections:commons-collections:3.2.2' // Apache 2.0
     compile 'commons-digester:commons-digester:2.1' // Apache 2.0
     compile 'commons-fileupload:commons-fileupload:1.4' // Apache 2.0
-    compile 'commons-io:commons-io:2.6' // Apache 2.0
+    compile 'commons-io:commons-io:2.8.0' // Apache 2.0
     compile 'commons-logging:commons-logging:1.2' // Apache 2.0
-    compile 'commons-validator:commons-validator:1.6' // Apache 2.0
+    compile 'commons-validator:commons-validator:1.7' // Apache 2.0
 
     // Cron Utils
-    compile 'com.cronutils:cron-utils:9.0.2' // Apache 2.0
+    compile 'com.cronutils:cron-utils:9.1.3' // Apache 2.0
 
     // Flexmark (markdown)
-    compile 'com.vladsch.flexmark:flexmark:0.50.46'
-    compile 'com.vladsch.flexmark:flexmark-ext-tables:0.50.46'
-    compile 'com.vladsch.flexmark:flexmark-ext-toc:0.50.46'
+    compile 'com.vladsch.flexmark:flexmark:0.62.2'
+    compile 'com.vladsch.flexmark:flexmark-ext-tables:0.62.2'
+    compile 'com.vladsch.flexmark:flexmark-ext-toc:0.62.2'
 
     // Freemarker
-    compile 'org.freemarker:freemarker:2.3.29' // Apache 2.0
+    compile 'org.freemarker:freemarker:2.3.30' // Apache 2.0
 
     // Java Specifications
     compile 'javax.transaction:jta:1.1'
@@ -131,11 +133,11 @@ dependencies {
     compile 'com.h2database:h2:1.4.200' // MPL 2.0, EPL 1.0
 
     // Jackson Databind (JSON, etc)
-    compile 'com.fasterxml.jackson.core:jackson-databind:2.10.1'
+    compile 'com.fasterxml.jackson.core:jackson-databind:2.12.1'
 
     // Jetty HTTP Client and Proxy Servlet
-    compile 'org.eclipse.jetty:jetty-client:9.4.24.v20191120' // Apache 2.0
-    compile 'org.eclipse.jetty:jetty-proxy:9.4.24.v20191120' // Apache 2.0
+    compile 'org.eclipse.jetty:jetty-client:9.4.35.v20201120' // Apache 2.0
+    compile 'org.eclipse.jetty:jetty-proxy:9.4.35.v20201120' // Apache 2.0
     // NOTE: update after version 9.4.18.v20190429 results in 'IllegalArgumentException: URI is not hierarchical' error, have workarounds for now catching exception in MClassLoader.getResources()
 
     // javax.mail
@@ -143,27 +145,27 @@ dependencies {
     compile module('com.sun.mail:javax.mail:1.6.2') // CDDL
 
     // Joda Time (used by elasticsearch, aws)
-    compile 'joda-time:joda-time:2.10.5' // Apache 2.0
+    compile 'joda-time:joda-time:2.10.9' // Apache 2.0
 
     // JSoup (HTML parser, cleaner)
-    compile 'org.jsoup:jsoup:1.12.1' // MIT
+    compile 'org.jsoup:jsoup:1.13.1' // MIT
 
     // Apache Shiro
-    compile module('org.apache.shiro:shiro-core:1.4.2') // Apache 2.0
-    compile module('org.apache.shiro:shiro-web:1.4.2') // Apache 2.0
+    compile module('org.apache.shiro:shiro-core:1.7.0') // Apache 2.0
+    compile module('org.apache.shiro:shiro-web:1.7.0') // Apache 2.0
 
     // SLF4J, Log4j 2 (note Log4j 2 is used by various libraries, best not to replace it even if mostly possible with SLF4J)
     compile 'org.slf4j:slf4j-api:1.7.30'
-    compile 'org.apache.logging.log4j:log4j-core:2.13.0'
-    compile 'org.apache.logging.log4j:log4j-api:2.13.0'
-    runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.13.0'
-    runtime 'org.apache.logging.log4j:log4j-jcl:2.13.0'
+    compile 'org.apache.logging.log4j:log4j-core:2.14.0'
+    compile 'org.apache.logging.log4j:log4j-api:2.14.0'
+    runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.14.0'
+    runtime 'org.apache.logging.log4j:log4j-jcl:2.14.0'
 
     // SubEtha SMTP (module as depends on old javax.mail location; also uses SLF4J, activation included elsewhere)
     compile module('org.subethamail:subethasmtp:3.1.7')
 
     // Snake YAML
-    compile 'org.yaml:snakeyaml:1.25' // Apache 2.0
+    compile 'org.yaml:snakeyaml:1.27' // Apache 2.0
 
     // Apache Jackrabbit - uncomment here or include elsewhere when Jackrabbit repository configurations are used
     // compile 'org.apache.jackrabbit:jackrabbit-jcr-rmi:2.12.1' // Apache 2.0
@@ -178,22 +180,22 @@ dependencies {
     // ========== test dependencies ==========
     // spock-core depends on groovy-all but we are including selected groovy modules, so don't get its dependencies
     testCompile module('org.spockframework:spock-core:1.3-groovy-2.5') // Apache 2.0
-    testCompile 'junit:junit:4.12' // Apache 2.0
+    testCompile 'junit:junit:4.13.1' // Apache 2.0
     testCompile 'org.hamcrest:hamcrest-core:2.2' // BSD 3-Clause
 
     // ========== executable war dependencies ==========
     // Jetty
     // NOTE: update to Jetty 9.4.25.v20191220 caused issue on response.getWriter().write(String): Internal error processing request: java.lang.IllegalStateException: s=OPEN,api=BLOCKED,sc=false,e=null
-    execWarRuntime 'org.eclipse.jetty:jetty-server:9.4.24.v20191120' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.4.24.v20191120' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.4.24.v20191120' // Apache 2.0
-    execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.4.24.v20191120') // Apache 2.0
-    execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.4.24.v20191120') { // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-server:9.4.35.v20201120' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.4.35.v20201120' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.4.35.v20201120' // Apache 2.0
+    execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.4.35.v20201120') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.4.35.v20201120') { // Apache 2.0
         exclude group: 'javax.websocket' } // we have the full websocket API, including the client one causes problems
     execWarRuntime 'javax.websocket:javax.websocket-api:1.0' // using 1.0, don't update to 1.1 until used in Jetty, Tomcat, etc
-    execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.4.24.v20191120') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.4.35.v20201120') // Apache 2.0
     // only include this if using Endpoint and MessageHandler annotations:
-    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:9.4.24.v20191120') // Apache 2.0
+    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:9.4.35.v20201120') // Apache 2.0
 }
 
 // setup task dependencies to make sure the start sourceSets always get run

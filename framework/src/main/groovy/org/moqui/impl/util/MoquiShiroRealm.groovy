@@ -98,18 +98,24 @@ class MoquiShiroRealm implements Realm, Authorizer {
                 Timestamp reEnableTime = new Timestamp(newUserAccount.getTimestamp("disabledDateTime").getTime() + (disabledMinutes.intValue()*60I*1000I))
                 if (reEnableTime > eci.user.nowTimestamp) {
                     // only blow up if the re-enable time is not passed
-                    eci.service.sync().name("org.moqui.impl.UserServices.incrementUserAccountFailedLogins")
+                    eci.service.sync().name("org.moqui.impl.UserServices.increment#UserAccountFailedLogins")
                             .parameter("userId", newUserAccount.userId).requireNewTransaction(true).call()
                     throw new ExcessiveAttemptsException(eci.resource.expand('Authenticate failed for user ${newUserAccount.username} because account is disabled and will not be re-enabled until ${reEnableTime} [DISTMP].',
                             '', [newUserAccount:newUserAccount, reEnableTime:reEnableTime]))
                 }
             } else {
                 // account permanently disabled
-                eci.service.sync().name("org.moqui.impl.UserServices.incrementUserAccountFailedLogins")
+                eci.service.sync().name("org.moqui.impl.UserServices.increment#UserAccountFailedLogins")
                         .parameters((Map<String, Object>) [userId:newUserAccount.userId]).requireNewTransaction(true).call()
                 throw new DisabledAccountException(eci.resource.expand('Authenticate failed for user ${newUserAccount.username} because account is disabled and is not schedule to be automatically re-enabled [DISPRM].',
                         '', [newUserAccount:newUserAccount]))
             }
+        }
+
+        Timestamp terminateDate = (Timestamp) newUserAccount.getNoCheckSimple("terminateDate")
+        if (terminateDate != (Timestamp) null && System.currentTimeMillis() > terminateDate.getTime()) {
+            throw new DisabledAccountException(eci.resource.expand('User account ${newUserAccount.username} was terminated at ${ec.l10n.format(newUserAccount.terminateDate, null)} [TERM].',
+                    '', [newUserAccount:newUserAccount]))
         }
 
         return newUserAccount

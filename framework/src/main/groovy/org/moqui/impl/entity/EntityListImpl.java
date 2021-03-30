@@ -124,7 +124,6 @@ public class EntityListImpl implements EntityList {
     @Override public EntityList filterByAnd(Map<String, Object> fields) { return filterByAnd(fields, true); }
     @Override public EntityList filterByAnd(Map<String, Object> fields, Boolean include) {
         if (fromCache) return this.cloneList().filterByAnd(fields, include);
-        if (include == null) include = true;
 
         // iterate fields once, then use indexes within big loop
         int fieldsSize = fields.size();
@@ -143,40 +142,69 @@ public class EntityListImpl implements EntityList {
             fieldIndex++;
         }
 
+        filterInternal(names, values, hasSetValue, include);
+        return this;
+    }
+    private void filterInternal(String[] names, Object[] values, boolean hasSetValue, Boolean include) {
+        if (include == null) include = true;
         int valueIndex = 0;
         while (valueIndex < valueList.size()) {
             EntityValue value = valueList.get(valueIndex);
-            boolean matches = true;
-            for (int i = 0; i < fieldsSize; i++) {
-                Object curValue = value.getNoCheckSimple(names[i]);
-                Object compValue = values[i];
-                if (curValue == null) {
-                    matches = compValue == null;
-                    if (!matches) { matches = false; break; }
-                } else {
-                    if (hasSetValue && compValue instanceof Set) {
-                        Set valSet = (Set) compValue;
-                        if (!valSet.contains(curValue)) { matches = false; break; }
-                    } else if (!curValue.equals(compValue)) {
-                        matches = false;
-                        break;
-                    }
-                }
-            }
+            boolean matches = valueMatches(value, names, values, hasSetValue);
             if ((matches && !include) || (!matches && include)) {
                 valueList.remove(valueIndex);
             } else {
                 valueIndex++;
             }
         }
-        return this;
     }
+    private boolean valueMatches(EntityValue value, String[] names, Object[] values, boolean hasSetValue) {
+        boolean matches = true;
+        int fieldsSize = names.length;
+        for (int i = 0; i < fieldsSize; i++) {
+            Object curValue = value.getNoCheckSimple(names[i]);
+            Object compValue = values[i];
+            if (curValue == null) {
+                matches = compValue == null;
+                if (!matches) { matches = false; break; }
+            } else {
+                if (hasSetValue && compValue instanceof Set) {
+                    Set valSet = (Set) compValue;
+                    if (!valSet.contains(curValue)) { matches = false; break; }
+                } else if (!curValue.equals(compValue)) {
+                    matches = false;
+                    break;
+                }
+            }
+        }
+        return matches;
+    }
+
     @Override public EntityList filterByAnd(Object... namesAndValues) {
         if (namesAndValues.length == 0) return this;
         if (namesAndValues.length % 2 != 0) throw new IllegalArgumentException("Must pass an even number of parameters for name/value pairs");
-        Map<String, Object> fields = new HashMap<>();
-        for (int i = 0; i < namesAndValues.length; i+=2) fields.put((String) namesAndValues[i], namesAndValues[i+1]);
-        return filterByAnd(fields);
+
+        if (fromCache) return this.cloneList().filterByAnd(namesAndValues);
+
+        int fieldsSize = namesAndValues.length / 2;
+        String[] names = new String[fieldsSize];
+        Object[] values = new Object[fieldsSize];
+        boolean hasSetValue = false;
+
+        for (int i = 0; i < fieldsSize; i++) {
+            int navIdx = i * 2;
+            names[i] = (String) namesAndValues[navIdx];
+
+            Object value = namesAndValues[navIdx+1];
+            if (value instanceof Collection) {
+                hasSetValue = true;
+                if (!(value instanceof Set)) value = new HashSet<Object>((Collection<? extends Object>) value);
+            }
+            values[i] = value;
+        }
+
+        filterInternal(names, values, hasSetValue, true);
+        return this;
     }
 
 
@@ -200,6 +228,61 @@ public class EntityListImpl implements EntityList {
         for (int i = 0; i < valueListSize; i++) {
             EntityValue value = valueList.get(i);
             boolean matches = closure.call(value);
+            if (matches) return value;
+        }
+        return null;
+    }
+    @Override public EntityValue findByAnd(Map<String, Object> fields) {
+        // iterate fields once, then use indexes within big loop
+        int fieldsSize = fields.size();
+        String[] names = new String[fieldsSize];
+        Object[] values = new Object[fieldsSize];
+        boolean hasSetValue = false;
+        int fieldIndex = 0;
+        for (Map.Entry<String, Object> entry : fields.entrySet()) {
+            names[fieldIndex] = entry.getKey();
+            Object val = entry.getValue();
+            values[fieldIndex] = val;
+            if (val instanceof Collection) {
+                hasSetValue = true;
+                if (!(val instanceof Set)) values[fieldIndex] = new HashSet<Object>((Collection<? extends Object>) val);
+            }
+            fieldIndex++;
+        }
+
+        int valueListSize = valueList.size();
+        for (int valueIndex = 0; valueIndex < valueListSize; valueIndex++) {
+            EntityValue value = valueList.get(valueIndex);
+            boolean matches = valueMatches(value, names, values, hasSetValue);
+            if (matches) return value;
+        }
+        return null;
+    }
+    @Override public EntityValue findByAnd(Object... namesAndValues) {
+        if (namesAndValues.length == 0) return getFirst();
+        if (namesAndValues.length % 2 != 0) throw new IllegalArgumentException("Must pass an even number of parameters for name/value pairs");
+
+        int fieldsSize = namesAndValues.length / 2;
+        String[] names = new String[fieldsSize];
+        Object[] values = new Object[fieldsSize];
+        boolean hasSetValue = false;
+
+        for (int i = 0; i < fieldsSize; i++) {
+            int navIdx = i * 2;
+            names[i] = (String) namesAndValues[navIdx];
+
+            Object value = namesAndValues[navIdx+1];
+            if (value instanceof Collection) {
+                hasSetValue = true;
+                if (!(value instanceof Set)) value = new HashSet<Object>((Collection<? extends Object>) value);
+            }
+            values[i] = value;
+        }
+
+        int valueListSize = valueList.size();
+        for (int valueIndex = 0; valueIndex < valueListSize; valueIndex++) {
+            EntityValue value = valueList.get(valueIndex);
+            boolean matches = valueMatches(value, names, values, hasSetValue);
             if (matches) return value;
         }
         return null;
@@ -476,6 +559,8 @@ public class EntityListImpl implements EntityList {
         @Override public EntityList filterByCondition(EntityCondition condition, Boolean include) { return this; }
         @Override public EntityList filter(Closure<Boolean> closure, Boolean include) { return this; }
         @Override public EntityValue find(Closure<Boolean> closure) { return null; }
+        @Override public EntityValue findByAnd(Map<String, Object> fields) { return null; }
+        @Override public EntityValue findByAnd(Object... namesAndValues) { return null; }
         @Override public EntityList findAll(Closure<Boolean> closure) { return this; }
         @Override public EntityList filterByLimit(Integer offset, Integer limit) { this.offset = offset; this.limit = limit; return this; }
         @Override public EntityList filterByLimit(String inputFieldsMapName, boolean alwaysPaginate) { return this; }
