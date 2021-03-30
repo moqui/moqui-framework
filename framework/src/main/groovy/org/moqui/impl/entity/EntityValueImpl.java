@@ -63,7 +63,11 @@ public class EntityValueImpl extends EntityValueBase {
         } else {
             EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi);
             StringBuilder sql = eqb.sqlTopLevel;
-            sql.append("INSERT INTO ").append(ed.getFullTableName()).append(" (");
+            sql.append("INSERT INTO ").append(ed.getFullTableName());
+
+            sql.append(" (");
+            StringBuilder values = new StringBuilder();
+            StringBuilder valuesForCast = new StringBuilder();
 
             int size = fieldInfoArray.length;
             StringBuilder values = new StringBuilder(size*3);
@@ -74,13 +78,23 @@ public class EntityValueImpl extends EntityValueBase {
                 if (i > 0) {
                     sql.append(", ");
                     values.append(", ");
+                    valuesForCast.append(", ");
                 }
 
                 sql.append(fieldInfo.getFullColumnName());
                 values.append("?");
+
+                // cycle through values and construct list of fields
+                // for those that are json, insert `cast` function
+                if (fieldInfo.type.toLowerCase().contains("json"))
+                {
+                    valuesForCast.append("to_json(?::json)");
+                } else {
+                    valuesForCast.append("?");
+                }
             }
 
-            sql.append(") VALUES (").append(values.toString()).append(")");
+            sql.append(") VALUES (").append(valuesForCast.toString()).append(")");
 
             try {
                 efi.getEntityDbMeta().checkTableRuntime(ed);
@@ -129,8 +143,19 @@ public class EntityValueImpl extends EntityValueBase {
                 FieldInfo fieldInfo = nonPkFieldArray[i];
                 if (fieldInfo == null) break;
                 if (i > 0) sql.append(", ");
+<<<<<<< HEAD
                 sql.append(fieldInfo.getFullColumnName()).append("=?");
                 parameters.add(new EntityConditionParameter(fieldInfo, valueMapInternal.getByIString(fieldInfo.name, fieldInfo.index), eqb));
+=======
+
+                // treat JSON-like columns differently
+                String fieldName = fieldInfo.getFullColumnName();
+                String valueCast = "=?";
+                if (fieldInfo.type.toLowerCase().contains("json")) valueCast = "=to_json(?::json)";
+                sql.append(fieldName).append(valueCast);
+
+                parameters.add(new EntityConditionParameter(fieldInfo, valueMapInternal.get(fieldInfo.name), eqb));
+>>>>>>> 6821b1e0c7700aa130f657754e4b4ca263376189
             }
 
             eqb.addWhereClause(pkFieldArray, valueMapInternal);

@@ -13,8 +13,8 @@ https://logging.apache.org/log4j/2.x/manual/layouts.html#PatternLayout
         <Property name="moqui.logger.level.entity_query">info</Property>
     </Properties>
     <Appenders>
-        <RollingFile name="LogFile" fileName="${sys:moqui.runtime}/log/moqui.log"
-                filePattern="${sys:moqui.runtime}/log/moqui%d{yyyy-MM-dd}-%i.log">
+        <RollingFile name="LogFile" fileName="${sys:moqui.runtime}/${sys:moqui.log.directory}/moqui.log"
+                filePattern="${sys:moqui.runtime}/${sys:moqui.log.directory}/moqui%d{yyyy-MM-dd}-%i.log">
             <PatternLayout pattern="--- %d{yyyy-MM-dd HH:mm:ss.SSS} [%15.15t] %-5p %50.50c %x%n %m%n"/>
             <Policies>
                 <TimeBasedTriggeringPolicy/>
@@ -22,8 +22,8 @@ https://logging.apache.org/log4j/2.x/manual/layouts.html#PatternLayout
             </Policies>
             <DefaultRolloverStrategy max="20"/>
         </RollingFile>
-        <RollingFile name="ErrorFile" fileName="${sys:moqui.runtime}/log/error.log"
-                filePattern="${sys:moqui.runtime}/log/error%d{yyyy-MM-dd}-%i.log">
+        <RollingFile name="ErrorFile" fileName="${sys:moqui.runtime}/${sys:moqui.log.directory}/error.log"
+                filePattern="${sys:moqui.runtime}/${sys:moqui.log.directory}/error%d{yyyy-MM-dd}-%i.log">
             <PatternLayout pattern="--- %d{yyyy-MM-dd HH:mm:ss.SSS} [%15.15t] %-5p %50.50c [%l] %x%n %m%n"/>
             <ThresholdFilter level="ERROR" onMatch="ACCEPT" onMismatch="DENY"/><!-- should get error and fatal -->
             <Policies>
@@ -40,7 +40,7 @@ https://logging.apache.org/log4j/2.x/manual/layouts.html#PatternLayout
             <AppenderRef ref="MoquiSubscribers"/>
         </Async>
         <Console name="STDOUT" target="SYSTEM_OUT">
-            <PatternLayout pattern="%highlight{%d{HH:mm:ss.SSS} %5p %12.12t %38.38c{1.9.1.}} %m%n"/>
+            <PatternLayout pattern="%highlight{%d{yyyy-MM-dd HH:mm:ss.SSS} %5p %12.12t %38.38c{1.9.1.}} %m%n"/>
         </Console>
     </Appenders>
     <Loggers>

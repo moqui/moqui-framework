@@ -24,6 +24,7 @@ import org.slf4j.LoggerFactory
 
 import javax.mail.*
 import javax.mail.internet.MimeMessage
+import javax.mail.internet.MimeUtility
 import java.sql.Timestamp
 
 @CompileStatic
@@ -35,6 +36,7 @@ class EmailEcaRule {
 
     protected XmlAction condition = null
     protected XmlAction actions = null
+    protected boolean storeAttachment = false
 
     EmailEcaRule(ExecutionContextFactoryImpl ecfi, MNode emecaNode, String location) {
         this.emecaNode = emecaNode
@@ -49,6 +51,9 @@ class EmailEcaRule {
         if (emecaNode.hasChild("actions")) {
             actions = new XmlAction(ecfi, emecaNode.first("actions"), location + ".actions")
         }
+
+        //store attachment attribute
+        storeAttachment = emecaNode.attribute("store-attachment").toBoolean()
     }
 
     // Node getEmecaNode() { return emecaNode }
@@ -56,6 +61,7 @@ class EmailEcaRule {
     void runIfMatches(MimeMessage message, String emailServerId, ExecutionContextImpl ec) {
 
         try {
+            // run the condition and if passes run the actions
             ec.context.push()
 
             ec.context.put("emailServerId", emailServerId)
@@ -81,7 +87,8 @@ class EmailEcaRule {
             fields.put("sentDate", message.getSentDate() ? new Timestamp(message.getSentDate().getTime()) : null)
             fields.put("receivedDate", message.getReceivedDate() ? new Timestamp(message.getReceivedDate().getTime()) : null)
 
-            ec.context.put("bodyPartList", makeBodyPartList(message))
+            List<Map> bodyPartList = makeBodyPartList(message)
+            ec.context.put("bodyPartList", bodyPartList)
 
             Map<String, Object> headers = [:]
             ec.context.put("headers", headers)
@@ -107,11 +114,40 @@ class EmailEcaRule {
             flags.recent = message.isSet(Flags.Flag.RECENT)
             flags.seen = message.isSet(Flags.Flag.SEEN)
 
-            // run the condition and if passes run the actions
             boolean conditionPassed = true
             if (condition) conditionPassed = condition.checkCondition(ec)
-            // logger.info("======== EMECA ${emecaNode.attribute("rule-name")} conditionPassed? ${conditionPassed} fields:\n${fields}\nflags: ${flags}\nheaders: ${headers}")
+            //logger.info("======== EMECA ${emecaNode.attribute("rule-name")} conditionPassed? ${conditionPassed} fields:\n${fields}\nflags: ${flags}\nheaders: ${headers}")
+
+            //create message & attachments
             if (conditionPassed) {
+                //ec.logger.info("[TASK] create#EmailMessage")
+                Map outMap = ec.serviceFacade.sync().name("create#moqui.basic.email.EmailMessage")
+                        .parameters(
+                            [
+                                sentDate:fields.sentDate,
+                                receivedDate:fields.receivedDate,
+                                statusId:'ES_RECEIVED',
+                                subject:fields.subject,
+                                body:bodyPartList[0].contentText,
+                                fromAddress:MimeUtility.decodeText(fields.from.toString()),
+                                toAddresses:MimeUtility.decodeText(fields.toList?.toString()),
+                                ccAddresses:fields.ccList?.toString(),
+                                bccAddresses:fields.bccList?.toString(),
+                                messageId:message.getMessageID(),
+                                emailServerId:emailServerId
+                            ]
+                        )
+                        .disableAuthz().call()
+
+                //push email message id to context
+                ec.context.put("emailMessageId", outMap.emailMessageId.toString())
+
+                if (storeAttachment) {
+                    //extract content
+                    extractAttachment(message, ec, outMap.emailMessageId.toString())
+                }
+
+                //run actions
                 if (actions) actions.run(ec)
             }
         } finally {
@@ -122,7 +158,20 @@ class EmailEcaRule {
     static List<Map> makeBodyPartList(Part part) {
         List<Map> bodyPartList = []
         Object content = part.getContent()
-        Map bpMap = [contentType:part.getContentType(), filename:part.getFileName(), disposition:part.getDisposition()?.toLowerCase()]
+
+        String extractedFileName = null
+
+        try {
+            extractedFileName = part.getFileName()
+        } catch (Exception ex) {
+            return  bodyPartList
+        }
+
+        Map bpMap = [
+                contentType:part.getContentType(),
+                filename:extractedFileName,
+                disposition:part.getDisposition()?.toLowerCase()
+        ]
         if (content instanceof CharSequence) {
             bpMap.contentText = content.toString()
             bodyPartList.add(bpMap)
@@ -139,5 +188,93 @@ class EmailEcaRule {
             bodyPartList.add(bpMap)
         }
         return bodyPartList
+    }
+
+    void extractAttachment(Part part, ExecutionContextImpl ec, String emailMessageId) {
+        Object content = part.getContent()
+        if (content instanceof Multipart) {
+            Multipart mpContent = (Multipart) content
+            int count = mpContent.getCount()
+            for (int i = 0; i < count; i++) {
+                BodyPart bp = mpContent.getBodyPart(i)
+                extractAttachment(bp, ec, emailMessageId)
+            }
+        } else if (content instanceof InputStream) {
+            InputStream is = (InputStream) content
+            byte[] result = IOUtils.toByteArray(is)
+
+            //only PDF and JPG and PNG
+            def contentTypeSpec = part.getContentType().toLowerCase();
+            Boolean doRunExtraction = false;
+            String newFileName = null;
+            String newFileExtension = null;
+            String displayName = null;
+
+            FileNameGenerator fng = new FileNameGenerator(16)
+
+            try {
+                /*calculate filename*/
+                newFileName = fng.nextString()
+
+                /*decode from possible utf-8*/
+                String decodedFileName = MimeUtility.decodeText(part.getFileName())
+
+                /*assign filename a value*/
+                List<String> fileNameArr = decodedFileName.tokenize('.')
+
+                if (fileNameArr.size() >= 2) {
+                    if (contentTypeSpec.startsWith('application/pdf')) {
+                        doRunExtraction = true
+                        newFileExtension = 'pdf'
+                    } else if (contentTypeSpec.startsWith('image/jpeg')) {
+                        doRunExtraction = true
+                        newFileExtension = 'jpg'
+                    } else if (contentTypeSpec.startsWith('application/zip')) {
+                        doRunExtraction = true
+                        newFileExtension = 'zip'
+                    } else if (contentTypeSpec.startsWith('application/octet-stream')) {
+                        doRunExtraction = true
+                        newFileExtension = fileNameArr[1]
+                    } else if (contentTypeSpec.startsWith('image/png')) {
+                        doRunExtraction = true
+                        newFileExtension = 'png'
+                    } else if (contentTypeSpec.startsWith('application/vnd.ms-excel')) {
+                        doRunExtraction = true
+                        newFileExtension = 'xls'
+                    } else if (contentTypeSpec.startsWith('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
+                        doRunExtraction = true
+                        newFileExtension = 'xlsx'
+                    } else if (contentTypeSpec.startsWith('application/msword')) {
+                        doRunExtraction = true
+                        newFileExtension = 'doc'
+                    } else if (contentTypeSpec.startsWith('application/vnd.openxmlformats-officedocument.wordprocessingml.document')) {
+                        doRunExtraction = true
+                        newFileExtension = 'docx'
+                    }
+
+                    /*calculate display name correctly*/
+                    displayName = MimeUtility.decodeText(fileNameArr[0]).replaceAll(' ', '_').replaceAll("[^a-zA-Z0-9_]+","")
+
+                    //logger.info("displayName: ${displayName}, fileName: ${newFileName}, extension: ${newFileExtension}, type: ${contentTypeSpec}, doExtraction: ${doRunExtraction}")
+                } else {
+                    logger.warn("Unexpected result of processing file name, proceeding without it.")
+                }
+
+            } catch (Exception ex) {
+                logger.warn("Cannot extract file name, proceeding without it. ${ex.message}")
+            }
+
+            if (doRunExtraction) {
+                ec.serviceFacade.sync().name("EmailContentServices.create#ContentFromByte")
+                        .parameters(
+                            [
+                                    emailMessageId: emailMessageId,
+                                    contentFileByte: result,
+                                    filename: newFileName + '.' + newFileExtension,
+                                    displayName: displayName + "." + newFileExtension
+                            ]
+                ).disableAuthz().call()
+            }
+        }
     }
 }

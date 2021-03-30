@@ -140,6 +140,14 @@ public interface EntityFacade {
     Connection getConnection(String groupName) throws EntityException;
     Connection getConnection(String groupName, boolean useClone) throws EntityException;
 
+    /** Checks whether there is a connection set.
+     *
+     * @param groupName The name of entity group to get a connection for.
+     *     Corresponds to the entity.@group attribute and the moqui-conf datasource.@group-name attribute.
+     * @return Boolean
+     */
+    Boolean hasConnection(String groupName);
+
     // ======= Import/Export (XML, CSV, etc) Related Methods ========
 
     /** Make an object used to load XML or CSV entity data into the database or into an EntityList. The files come from

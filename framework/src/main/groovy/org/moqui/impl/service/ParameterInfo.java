@@ -159,7 +159,9 @@ public class ParameterInfo {
                 case DOUBLE:
                 case BIG_DECIMAL:
                 case BIG_INTEGER:
-                    BigDecimal bdVal = eci.l10nFacade.parseNumber(valueStr, format);
+                    //BigDecimal bdVal = eci.l10nFacade.parseNumber(valueStr, format);
+                    BigDecimal bdVal = eci.l10nFacade.parseNumber(valueStr, format, new Locale("en", "US"));
+
                     if (bdVal == null) {
                         eci.messageFacade.addValidationError(null, namePrefix + name, serviceName,
                                 MessageFormat.format(eci.getL10n().localize("Value entered ({0}) could not be converted to a {1}{2,choice,0#|1# using format [}{3}{2,choice,0#|1#]}"),valueStr,type,(format != null ? 1 : 0),(format == null ? "" : format)), null);

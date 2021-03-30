@@ -22,6 +22,8 @@ import org.moqui.util.MNode;
 import org.moqui.util.ObjectUtilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.google.gson.Gson;
+
 
 import javax.sql.rowset.serial.SerialBlob;
 import javax.sql.rowset.serial.SerialClob;
@@ -218,6 +220,7 @@ public class FieldInfo {
                     break;
             // better way for Collection (15)? maybe parse comma separated, but probably doesn't make sense in the first place
                 case 15: outValue = value; break;
+                case 16: outValue = value; break;
                 default: outValue = value; break;
             }
         } catch (IllegalArgumentException e) {
@@ -372,6 +375,7 @@ public class FieldInfo {
             case 13: value = new SerialClob(rs.getClob(index)); break;
             case 14:
             case 15: value = rs.getObject(index); break;
+            case 16: value = rs.getObject(index); break;
             }
         } catch (SQLException sqle) {
             logger.error("SQL Exception while getting value for field: " + name + " (" + index + ")", sqle);
@@ -577,6 +581,18 @@ public class FieldInfo {
                 case 14: if (value != null) { ps.setTimestamp(index, (Timestamp) value); } else { ps.setNull(index, Types.TIMESTAMP); } break;
                 // TODO: is this the best way to do collections and such?
                 case 15: if (value != null) { ps.setObject(index, value, Types.JAVA_OBJECT); } else { ps.setNull(index, Types.JAVA_OBJECT); } break;
+                case 16:
+                    if (value != null)
+                    {
+                        // convert hashmap into string (with doublequotes escaped)
+                        Gson gson = new Gson();
+                        String outMap = gson.toJson(value).toString();
+
+                        ps.setString(index, outMap);
+                    } else {
+                        ps.setNull(index, Types.JAVA_OBJECT);
+                    }
+                    break;
                 }
             }
         } catch (SQLException sqle) {

@@ -680,7 +680,18 @@ class EntityDbMeta {
             }
             sql.append("INDEX ")
             if (databaseNode.attribute("use-schema-for-all") == "true") sql.append(ed.getSchemaName() ? ed.getSchemaName() + "." : "")
-            sql.append(indexNode.attribute("name")).append(" ON ").append(ed.getFullTableName())
+
+            // index name, but use table name not to mix indexes on tables
+            // being created using one entity schema
+            if (indexNode.attribute("table-based-name") == "true")
+            {
+                sql.append("${ed.tableName}_${indexNode.attribute("name")}" )
+            } else {
+                sql.append(indexNode.attribute("name"))
+            }
+
+            // full table name
+            sql.append(" ON ").append(ed.getFullTableName())
 
             sql.append(" (")
             boolean isFirst = true

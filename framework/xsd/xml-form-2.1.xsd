@@ -608,7 +608,7 @@ along with this software (see the LICENSE.md file). If not, see
             names and values from in addition to the parameter sub-elements.</xs:documentation></xs:annotation></xs:attribute>
     </xs:complexType></xs:element>
 
-  <!-- ================== Input Fields ==================== -->
+    <!-- ================== Input Fields ==================== -->
     <xs:element name="SubFields" abstract="true"/>
 
     <xs:complexType name="form-field-base">
@@ -797,7 +797,7 @@ along with this software (see the LICENSE.md file). If not, see
     </xs:element>
     -->
 
-  <!-- ================== Field Sub-Elements ==================== -->
+    <!-- ================== Field Sub-Elements ==================== -->
     <xs:element name="auto-widget-service" substitutionGroup="SubFields"><xs:complexType>
         <xs:attribute name="service-name" type="name-full" use="required"/>
         <xs:attribute name="parameter-name" type="xs:string"/>
@@ -891,7 +891,7 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:attribute name="style" type="xs:string"/>
         <xs:attribute name="currency-unit-field" type="xs:string">
             <xs:annotation><xs:documentation>Specifies the currency uomId (ISO code) used to format the value.
-            Will only format as currency if this is specified.</xs:documentation></xs:annotation>
+                Will only format as currency if this is specified.</xs:documentation></xs:annotation>
         </xs:attribute>
         <xs:attribute name="format" type="xs:string">
             <xs:annotation><xs:documentation>Used to format the output of Number/Time/Date/Timestamp/etc objects.
@@ -1192,4 +1192,78 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:annotation><xs:documentation>If specified used as the parameter to pass instead of the field name.</xs:documentation></xs:annotation>
         </xs:attribute>
     </xs:complexType></xs:element>
+    <xs:element name="bootstrap-tagsinput" substitutionGroup="SubFields">
+        <xs:annotation><xs:documentation>This is just like display but looks up a description using the Entity Facade;
+            note that if also-hidden is true then it uses the key as the value, not the shown description.</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:attribute name="value" type="xs:string"/>
+            <xs:attribute name="size" type="xs:integer"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="bootstrap-tagsinput-typeahead" substitutionGroup="SubFields">
+        <xs:annotation><xs:documentation>This is just like display but looks up a description using the Entity Facade;
+            note that if also-hidden is true then it uses the key as the value, not the shown description.</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:attribute name="value" type="xs:string"/>
+            <xs:attribute name="size" type="xs:integer"/>
+            <xs:attribute name="fetch-transition-name" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="tags-display" substitutionGroup="SubFields">
+        <xs:annotation><xs:documentation>This is just like display but looks up a description using the Entity Facade;
+            note that if also-hidden is true then it uses the key as the value, not the shown description.</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:attribute name="limit-length" type="xs:positiveInteger"/>
+            <xs:attribute name="max-tags" type="xs:positiveInteger"/>
+            <xs:attribute name="default-more-sign" type="xs:string"/>
+            <xs:attribute name="default-longer-sign" type="xs:string"/>
+            <xs:attribute name="label-type" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="tags-display-for-arrays" substitutionGroup="SubFields">
+        <xs:annotation><xs:documentation>This is just like display but looks up a description using the Entity Facade;
+            note that if also-hidden is true then it uses the key as the value, not the shown description.</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:attribute name="limit-length" type="xs:positiveInteger"/>
+            <xs:attribute name="max-tags" type="xs:positiveInteger"/>
+            <xs:attribute name="default-more-sign" type="xs:string"/>
+            <xs:attribute name="default-longer-sign" type="xs:string"/>
+            <xs:attribute name="label-type" type="xs:string"/>
+            <xs:attribute name="list-name" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="file-tags-display" substitutionGroup="SubFields">
+        <xs:annotation><xs:documentation>This is just like display but looks up a description using the Entity Facade;
+            note that if also-hidden is true then it uses the key as the value, not the shown description.</xs:documentation></xs:annotation>
+    </xs:element>
+    <xs:element name="position-assignment-tags-display" substitutionGroup="SubFields">
+        <xs:annotation><xs:documentation>Nothing much to say.</xs:documentation></xs:annotation>
+    </xs:element>
+    <xs:element name="econ-docs-tags-display" substitutionGroup="SubFields">
+        <xs:annotation><xs:documentation>Economy docs display, customized.</xs:documentation></xs:annotation>
+    </xs:element>
+    <xs:element name="econ-general-docs-tags-display" substitutionGroup="SubFields">
+        <xs:annotation><xs:documentation>Economy general docs display, customized.</xs:documentation></xs:annotation>
+    </xs:element>
+    <xs:element name="company-id-tags-display" substitutionGroup="SubFields">
+        <xs:annotation><xs:documentation>This is just like display but looks up a description using the Entity Facade;
+            note that if also-hidden is true then it uses the key as the value, not the shown description.</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:attribute name="limit-length" type="xs:positiveInteger"/>
+            <xs:attribute name="max-tags" type="xs:positiveInteger"/>
+            <xs:attribute name="default-more-sign" type="xs:string"/>
+            <xs:attribute name="default-longer-sign" type="xs:string"/>
+            <xs:attribute name="label-type" type="xs:string"/>
+            <xs:attribute name="map-name" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="contact-info-display" substitutionGroup="SubFields">
+        <xs:annotation><xs:documentation>This is just like display but looks up a description using the Entity Facade;
+            note that if also-hidden is true then it uses the key as the value, not the shown description.</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:attribute name="max-tags" type="xs:positiveInteger"/>
+            <xs:attribute name="default-more-sign" type="xs:string"/>
+            <xs:attribute name="map-name" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
 </xs:schema>

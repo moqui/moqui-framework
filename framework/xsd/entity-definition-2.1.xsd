@@ -57,6 +57,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:enumeration value="text-long"/>
             <xs:enumeration value="text-very-long"/>
             <xs:enumeration value="binary-very-long"/>
+            <xs:enumeration value="jsonb"/>
         </xs:restriction>
     </xs:simpleType>
 
@@ -275,6 +276,7 @@ along with this software (see the LICENSE.md file). If not, see
             </xs:sequence>
             <xs:attribute name="name" type="xs:string" use="required"/>
             <xs:attribute name="unique" default="false" type="boolean"/>
+            <xs:attribute name="table-based-name" default="false" type="boolean"/>
         </xs:complexType>
     </xs:element>
     <xs:element name="index-field">

@@ -12,8 +12,8 @@
 
     <!-- Locale and Time Zone Properties -->
     <default-property name="default_locale" value="en_US"/>
-    <default-property name="default_time_zone" value="US/Pacific"/>
-    <default-property name="database_time_zone" value="US/Pacific"/>
+    <default-property name="default_time_zone" value="CET"/>
+    <default-property name="database_time_zone" value="CET"/>
 
     <!-- Web App Properties -->
     <default-property name="webapp_http_host" value=""/>
@@ -275,6 +275,7 @@
                   history-limit="5" change-weeks="104" email-require-change="false" email-expire-hours="48"/>
         <login-key encrypt-hash-type="SHA-256" expire-hours="144"/><!-- default expire 6 days, 144 hours -->
         <login max-failures="3" disable-minutes="5" history-store="true" history-incorrect-password="false"/>
+        <ldap-params shiro-file-name="shiro.ini"/>
     </user-facade>
 
     <transaction-facade use-transaction-cache="true" use-connection-stash="true" use-lock-track="${entity_lock_track}" use-statement-timeout="${entity_statement_timeout}">
@@ -307,6 +308,7 @@
 
         <resource-reference scheme="classpath" class="org.moqui.resource.ClasspathResourceReference"/>
         <resource-reference scheme="component" class="org.moqui.impl.context.reference.ComponentResourceReference"/>
+        <resource-reference scheme="rdf" class="org.moqui.resource.RuntimeDirectoryResourceReference"/>
         <resource-reference scheme="content" class="org.moqui.impl.context.reference.ContentResourceReference"/>
         <resource-reference scheme="dbresource" class="org.moqui.impl.context.reference.DbResourceReference"/>
 
@@ -818,6 +820,8 @@
             <database-type type="text-very-long" sql-type="TEXT"/>
 
             <database-type type="binary-very-long" sql-type="BYTEA"/>
+
+            <database-type type="jsonb" java-type="java.util.HashMap" sql-type="JSONB"/>
 
             <!-- default max connections for PostgreSQL is 100 -->
             <inline-jdbc pool-maxsize="90"><xa-properties serverName="${entity_ds_host}" portNumber="${entity_ds_port?:'5432'}"

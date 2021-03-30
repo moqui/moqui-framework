@@ -1,0 +1,29 @@
+# A Docker Compose application with OpenLDAP
+# credits to: https://marc.xn--wckerlin-0za.ch/computer/setup-openldap-server-in-docker
+
+version: "2"
+services:
+  openldap:
+    image: mwaeckerlin/openldap
+    restart: unless-stopped
+    ports:
+      - 389:389
+    environment:
+      - DOMAIN=dataquest.sk
+      - ORGANIZATION=dataquest s.r.o.
+      - PASSWORD=pw
+    networks:
+      - moqui_default
+
+  lam:
+    image: mwaeckerlin/lam
+    restart: unless-stopped
+    ports:
+      - 8080:80
+    networks:
+      - moqui_default
+
+networks:
+  moqui_default:
+    external:
+      name: moqui_default

@@ -21,6 +21,8 @@ import org.moqui.impl.context.ArtifactExecutionInfoImpl.ArtifactAuthzCheck
 import org.moqui.impl.entity.EntityValueBase
 import org.moqui.impl.screen.ScreenUrlInfo
 import org.moqui.impl.util.MoquiShiroRealm
+//import org.moqui.impl.util.MoquiLdapRealm
+import org.moqui.impl.util.ForceLoginToken
 import org.moqui.util.MNode
 import org.moqui.util.ObjectUtilities
 import org.moqui.util.StringUtilities
@@ -670,6 +672,7 @@ class UserFacadeImpl implements UserFacade {
             return false
         }
 
+        // UsernamePasswordToken token = new MoquiShiroRealm.ForceLoginToken(username, true, saveHistory)
         UsernamePasswordToken token = new MoquiShiroRealm.ForceLoginToken(username, true, saveHistory)
         Subject loginSubject = makeEmptySubject()
         try {

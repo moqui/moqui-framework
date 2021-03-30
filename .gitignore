@@ -1,9 +1,13 @@
 # separate addons file to add/override components
-myaddons.xml
+# myaddons.xml
+
+# temp or backup files
+*.old
 
 # gradle/build files
 build
 .gradle
+.shelf
 /framework/dependencies
 
 # build generated files
@@ -56,3 +60,6 @@ Desktop.ini
 
 # Linux auto files
 *~
+
+# Log files
+*.log
