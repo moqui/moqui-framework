@@ -72,6 +72,7 @@ public class ServiceDefinition {
     public final Integer txTimeout;
     public final boolean validate;
     public final boolean allowRemote;
+    public final boolean noRememberParameters;
 
     public final boolean hasSemaphore;
     public final String semaphore, semaphoreName, semaphoreParameter;
@@ -99,6 +100,8 @@ public class ServiceDefinition {
         MNode inParameters = new MNode("in-parameters", null);
         MNode outParameters = new MNode("out-parameters", null);
 
+        boolean noRememberParmsTemp = "true".equals(serviceNode.attribute("no-remember-parameters"));
+
         // handle implements elements
         if (serviceNode.hasChild("implements")) for (MNode implementsNode : serviceNode.children("implements")) {
             final String implServiceName = implementsNode.attribute("service");
@@ -107,6 +110,9 @@ public class ServiceDefinition {
             ServiceDefinition sd = sfi.getServiceDefinition(implServiceName);
             if (sd == null) throw new ServiceException("Service " + implServiceName +
                     " not found, specified in service.implements in service " + serviceName);
+
+            // while most attributes aren't passed through do pass through no-remember-parameters if true
+            if (sd.noRememberParameters) noRememberParmsTemp = true;
 
             // these are the first params to be set, so just deep copy them over
             MNode implInParms = sd.serviceNode.first("in-parameters");
@@ -127,6 +133,8 @@ public class ServiceDefinition {
                 }
             }
         }
+
+        noRememberParameters = noRememberParmsTemp;
 
         // expand auto-parameters and merge parameter in in-parameters and out-parameters
         // if noun is a valid entity name set it on parameters with valid field names on it
@@ -380,13 +388,18 @@ public class ServiceDefinition {
     @SuppressWarnings("unchecked")
     private Map<String, Object> nestedParameterClean(String namePrefix, Map<String, Object> parameters,
                                       ParameterInfo[] parameterInfoArray, ExecutionContextImpl eci) {
+        // a copy of the parameters Map to retain unknown entries to add at the end when NOT validating (pass through unknown parameters)
+        HashMap<String, Object> parametersCopy = validate ? null : new HashMap<>(parameters);
+        // the new Map that will be populated and returned
         HashMap<String, Object> newMap = new HashMap<>();
+
         for (int i = 0; i < parameterInfoArray.length; i++) {
             ParameterInfo parameterInfo = parameterInfoArray[i];
             String parameterName = parameterInfo.name;
 
             boolean hasParameter = parameters.containsKey(parameterName);
-            Object parameterValue = hasParameter ? parameters.remove(parameterName) : null;
+            Object parameterValue = hasParameter ? parameters.get(parameterName) : null;
+            if (hasParameter && parametersCopy != null) parametersCopy.remove(parameterName);
 
             boolean parameterIsEmpty;
             boolean isString = false;
@@ -540,8 +553,8 @@ public class ServiceDefinition {
         }
 
         // if we are not validating and there are parameters remaining, add them to the newMap
-        if (!validate && parameters.size() > 0) {
-            newMap.putAll(parameters);
+        if (!validate && parametersCopy != null && parametersCopy.size() > 0) {
+            newMap.putAll(parametersCopy);
         }
 
         return newMap;
@@ -585,21 +598,25 @@ public class ServiceDefinition {
             return true;
         } else if ("number-range".equals(validateName)) {
             BigDecimal bdVal = new BigDecimal(pv.toString());
+            String message = valNode.attribute("message");
+
             String minStr = valNode.attribute("min");
             if (minStr != null && !minStr.isEmpty()) {
                 BigDecimal min = new BigDecimal(minStr);
                 if ("false".equals(valNode.attribute("min-include-equals"))) {
                     if (bdVal.compareTo(min) <= 0) {
                         Map<String, Object> map = new HashMap<>(2); map.put("pv", pv); map.put("min", min);
+                        if (message == null || message.isEmpty()) message = "Value entered (${pv}) is less than or equal to ${min}, must be greater than.";
                         eci.getMessage().addValidationError(null, parameterName, serviceName,
-                                eci.getResource().expand("Value entered (${pv}) is less than or equal to ${min} must be greater than.", "", map), null);
+                                eci.getResource().expand(message, "", map), null);
                         return false;
                     }
                 } else {
                     if (bdVal.compareTo(min) < 0) {
                         Map<String, Object> map = new HashMap<>(2); map.put("pv", pv); map.put("min", min);
+                        if (message == null || message.isEmpty()) message = "Value entered (${pv}) is less than ${min} and must be greater than or equal to.";
                         eci.getMessage().addValidationError(null, parameterName, serviceName,
-                                eci.getResource().expand("Value entered (${pv}) is less than ${min} and must be greater than or equal to.", "", map), null);
+                                eci.getResource().expand(message, "", map), null);
                         return false;
                     }
                 }
@@ -611,14 +628,18 @@ public class ServiceDefinition {
                 if ("true".equals(valNode.attribute("max-include-equals"))) {
                     if (bdVal.compareTo(max) > 0) {
                         Map<String, Object> map = new HashMap<>(2); map.put("pv", pv); map.put("max", max);
-                        eci.getMessage().addValidationError(null, parameterName, serviceName, eci.getResource().expand("Value entered (${pv}) is greater than ${max} and must be less than or equal to.", "", map), null);
+                        if (message == null || message.isEmpty()) message = "Value entered (${pv}) is greater than ${max} and must be less than or equal to.";
+                        eci.getMessage().addValidationError(null, parameterName, serviceName,
+                                eci.getResource().expand(message, "", map), null);
                         return false;
                     }
 
                 } else {
                     if (bdVal.compareTo(max) >= 0) {
                         Map<String, Object> map = new HashMap<>(2); map.put("pv", pv); map.put("max", max);
-                        eci.getMessage().addValidationError(null, parameterName, serviceName, eci.getResource().expand("Value entered (${pv}) is greater than or equal to ${max} and must be less than.", "", map), null);
+                        if (message == null || message.isEmpty()) message = "Value entered (${pv}) is greater than or equal to ${max} and must be less than.";
+                        eci.getMessage().addValidationError(null, parameterName, serviceName,
+                                eci.getResource().expand(message, "", map), null);
                         return false;
                     }
                 }

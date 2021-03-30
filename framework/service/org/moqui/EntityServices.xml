@@ -13,11 +13,11 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
-    <service verb="receive" noun="DataFeed" type="interface">
+    <service verb="receive" noun="DataFeed" type="interface" no-remember-parameters="true">
         <description>Services named in the DataFeed.feedReceiveServiceName field should implement this interface.</description>
         <in-parameters>
-            <parameter name="dataFeedId" required="true"/>
-            <parameter name="feedStamp" type="Timestamp" required="true"/>
+            <parameter name="dataFeedId"/>
+            <parameter name="feedStamp" type="Timestamp"/>
             <parameter name="documentList" type="List" required="true">
                 <parameter name="document" type="Map">
                     <parameter name="_id" required="true"><description>The combined PK field values of the primary
@@ -31,7 +31,18 @@ along with this software (see the LICENSE.md file). If not, see
             </parameter>
         </in-parameters>
     </service>
-    <service verb="add" noun="ManualDocumentData" type="interface">
+    <service verb="receive" noun="DataFeedDelete" type="interface">
+        <in-parameters>
+            <parameter name="dataFeedId"/>
+            <parameter name="feedStamp" type="Timestamp"/>
+            <parameter name="dataDocumentId" required="true"/>
+            <parameter name="documentId" required="true"><description>The combined PK field values of the primary
+                entity in the DataDocument. If there is more than one PK field the values are separated with a
+                double-colon ("::").</description></parameter>
+        </in-parameters>
+    </service>
+
+    <service verb="add" noun="ManualDocumentData" type="interface" no-remember-parameters="true">
         <description>Services named in the DataDocument.manualDataServiceName field should implement this interface.</description>
         <in-parameters>
             <parameter name="dataDocumentId" type="String" required="true"/>
@@ -39,6 +50,16 @@ along with this software (see the LICENSE.md file). If not, see
         </in-parameters>
         <out-parameters>
             <parameter name="document" type="Map"><description>For details see document parameter in receive#DataFeed.</description></parameter>
+        </out-parameters>
+    </service>
+    <service verb="transform" noun="DocumentMapping" type="interface">
+        <description>Services named in the DataDocument.manualMappingServiceName field should implement this interface.</description>
+        <in-parameters>
+            <parameter name="mapping" type="Map"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="mapping" type="Map"/>
+            <parameter name="settings" type="Map"/>
         </out-parameters>
     </service>
 </services>

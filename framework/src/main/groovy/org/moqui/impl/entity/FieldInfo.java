@@ -17,6 +17,7 @@ import org.moqui.BaseArtifactException;
 import org.moqui.entity.EntityException;
 import org.moqui.impl.context.L10nFacadeImpl;
 import org.moqui.impl.entity.condition.ConditionField;
+import org.moqui.util.LiteStringMap;
 import org.moqui.util.MNode;
 import org.moqui.util.ObjectUtilities;
 import org.slf4j.Logger;
@@ -35,41 +36,33 @@ public class FieldInfo {
     protected final static boolean isTraceEnabled = logger.isTraceEnabled();
     public final static String[] aggFunctionArray = {"min", "max", "sum", "avg", "count", "count-distinct"};
     public final static Set<String> aggFunctions = new HashSet<>(Arrays.asList(aggFunctionArray));
+    public final static String decryptFailedMagicString = "_DECRYPT_FAILED_";
 
     public final EntityDefinition ed;
     public final MNode fieldNode;
-    public final String entityName;
-    public final String name;
-    public final String aliasFieldName;
+    public final int index;
+    public final String entityName, name, aliasFieldName;
     public final ConditionField conditionField;
-    public final String type;
-    public final String columnName;
+    public final String type, columnName;
     final String fullColumnNameInternal;
-    private final String expandColumnName;
-    public final String defaultStr;
-    public final String javaType;
-    final String enableAuditLog;
+    public final String expandColumnName, defaultStr, javaType, enableAuditLog;
     public final int typeValue;
-    private final boolean isTextVeryLong;
-    public final boolean isPk;
-    private final boolean encrypt;
-    final boolean isSimple;
-    final boolean enableLocalization;
-    final boolean createOnly;
-    final boolean isLastUpdatedStamp;
+    public final boolean isPk, isTextVeryLong, encrypt, isSimple, enableLocalization, createOnly, isLastUpdatedStamp;
     public final MNode memberEntityNode;
     public final MNode directMemberEntityNode;
     public final boolean hasAggregateFunction;
     final Set<String> entityAliasUsedSet = new HashSet<>();
 
-    public FieldInfo(EntityDefinition ed, MNode fieldNode) {
+    public FieldInfo(EntityDefinition ed, MNode fieldNode, int index) {
         this.ed = ed;
         this.fieldNode = fieldNode;
+        this.index = index;
         entityName = ed.getFullEntityName();
 
         Map<String, String> fnAttrs = fieldNode.getAttributes();
         String nameAttr = fnAttrs.get("name");
         if (nameAttr == null) throw new EntityException("No name attribute specified for field in entity " + entityName);
+        // NOTE: intern a must here for use with LiteStringMap, without this all sorts of bad behavior, not finding any fields sort of thing
         name = nameAttr.intern();
         conditionField = new ConditionField(this);
         String columnNameAttr = fnAttrs.get("column-name");
@@ -274,8 +267,7 @@ public class FieldInfo {
         return outValue;
     }
 
-    void getResultSetValue(ResultSet rs, int index, HashMap<String, Object> valueMap,
-                                  EntityFacadeImpl efi) throws EntityException {
+    void getResultSetValue(ResultSet rs, int index, LiteStringMap<Object> valueMap, EntityFacadeImpl efi) throws EntityException {
         if (typeValue == -1) throw new EntityException("No typeValue found for " + entityName + "." + name);
 
         Object value = null;
@@ -394,10 +386,15 @@ public class FieldInfo {
                 value = EntityJavaUtil.enDeCrypt(original, false, efi);
             } catch (Exception e) {
                 logger.error("Error decrypting field [" + name + "] of entity [" + entityName + "]", e);
+                // NOTE DEJ 20200310 instead of using encrypted value return very clear fake placeholder; this is a bad design
+                //     because it uses a magic value that can't change as other code may use it; an alternative might be to have
+                //     the EntityValue internally handle it with a Set of fields that failed to decrypt, but this doesn't carry
+                //     through to or from web and other clients
+                value = decryptFailedMagicString;
             }
         }
 
-        valueMap.put(name, value);
+        valueMap.putByIString(this.name, value, this.index);
     }
 
     private static final boolean checkPreparedStatementValueType = false;
@@ -428,6 +425,9 @@ public class FieldInfo {
             if (encrypt) {
                 if (localTypeValue != 1) throw new EntityException("The encrypt attribute was set to true on non-String field " + name + " of entity " + entityName);
                 String original = value.toString();
+                if (decryptFailedMagicString.equals(original)) {
+                    throw new EntityException("To prevent data loss, not allowing decrypt failed placeholder for field " + name + " of entity " + entityName);
+                }
                 value = EntityJavaUtil.enDeCrypt(original, true, efi);
             }
         }
@@ -436,6 +436,12 @@ public class FieldInfo {
         if (localTypeValue == 11 || localTypeValue == 12) {
             useBinaryTypeForBlob = ("true".equals(efi.getDatabaseNode(ed.getEntityGroupName()).attribute("use-binary-type-for-blob")));
         }
+        // if a count function used set as Long (type 6)
+        if (ed.isViewEntity) {
+            String function = fieldNode.attribute("function");
+            if (function != null && function.startsWith("count")) localTypeValue = 6;
+        }
+
         try {
             setPreparedStatementValue(ps, index, value, localTypeValue, useBinaryTypeForBlob, efi);
         } catch (EntityException e) {

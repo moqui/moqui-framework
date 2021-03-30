@@ -391,6 +391,8 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Pressure" enumId="UT_PRESSURE_MEASURE" enumTypeId="UomType"/>
             <moqui.basic.Enumeration description="Temperature" enumId="UT_TEMP_MEASURE" enumTypeId="UomType"/>
             <moqui.basic.Enumeration description="Other" enumId="UT_OTHER_MEASURE" enumTypeId="UomType"/>
+
+            <!-- see additional seed data in UnitData.xml -->
         </seed-data>
         <master>
             <detail relationship="type"/>
@@ -417,8 +419,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="conversionFactor" type="number-float"/>
         <field name="conversionOffset" type="number-decimal">
             <description>The factor is multiplied first, then the offset is added. When converting in the reverse
-                direction the offset is subtracted first, then divided by the factor.
-            </description>
+                direction the offset is subtracted first, then divided by the factor.</description>
         </field>
         <field name="purposeEnumId" type="id"/>
         <relationship type="one" related="moqui.basic.Uom" short-alias="uom"/>
@@ -428,6 +429,8 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="purposeEnumId" related="enumId"/></relationship>
         <seed-data>
             <moqui.basic.EnumerationType description="Uom Conversion Purpose" enumTypeId="UomConversionPurpose"/>
+
+            <!-- see additional seed data in UnitData.xml -->
         </seed-data>
     </entity>
     <view-entity entity-name="UomConversionAndToDetail" package="moqui.basic">
@@ -461,6 +464,38 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="uomId"/></member-entity>
         <alias-all entity-alias="UOM"/>
         <alias-all entity-alias="UGM"/>
+    </view-entity>
+    <entity entity-name="UomDimensionType" package="moqui.basic" use="configuration" cache="true">
+        <field name="uomDimensionTypeId" type="id" is-pk="true"/>
+        <field name="description" type="text-medium"/>
+        <field name="uomTypeEnumId" type="id"/>
+        <field name="defaultUomId" type="id"/>
+        <relationship type="one" title="UomType" related="moqui.basic.Enumeration" short-alias="uomType">
+            <key-map field-name="uomTypeEnumId"/></relationship>
+        <relationship type="one" title="Default" related="moqui.basic.Uom" short-alias="defaultUom">
+            <key-map field-name="defaultUomId"/></relationship>
+        <!-- see seed data in UnitData.xml -->
+    </entity>
+    <entity entity-name="UomDimTypeGroupMember" package="moqui.basic" use="configuration" cache="true">
+        <field name="uomDimTypeGroupEnumId" type="id" is-pk="true"/>
+        <field name="uomDimensionTypeId" type="id" is-pk="true"/>
+        <field name="sequenceNum" type="number-integer"/>
+        <relationship type="one" title="UomDimTypeGroup" related="moqui.basic.Enumeration" short-alias="group">
+            <key-map field-name="uomDimTypeGroupEnumId"/></relationship>
+        <relationship type="one" related="moqui.basic.UomDimensionType" short-alias="type"/>
+        <seed-data>
+            <moqui.basic.EnumerationType description="UOM Dimension Type Group" enumTypeId="UomDimTypeGroup"/>
+            <moqui.basic.Enumeration description="Product" enumId="UdtgProduct" enumTypeId="UomDimTypeGroup"/>
+            <moqui.basic.Enumeration description="Party" enumId="UdtgParty" enumTypeId="UomDimTypeGroup"/>
+            <moqui.basic.Enumeration description="Person" enumId="UdtgPerson" parentEnumId="UdtgParty" enumTypeId="UomDimTypeGroup"/>
+            <moqui.basic.Enumeration description="Organization" enumId="UdtgOrg" parentEnumId="UdtgParty" enumTypeId="UomDimTypeGroup"/>
+        </seed-data>
+    </entity>
+    <view-entity entity-name="UomDimensionTypeAndGroup" package="moqui.basic" cache="true">
+        <member-entity entity-alias="UDTGM" entity-name="moqui.basic.UomDimTypeGroupMember"/>
+        <member-relationship entity-alias="UDT" join-from-alias="UDTGM" relationship="type"/>
+        <alias-all entity-alias="UDTGM"/>
+        <alias-all entity-alias="UDT"/>
     </view-entity>
 
     <!-- ========================================================= -->

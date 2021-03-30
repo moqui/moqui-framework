@@ -32,6 +32,7 @@ import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.TransactionFacadeImpl
 import org.moqui.impl.entity.EntityJavaUtil.RelationshipInfo
 import org.moqui.util.CollectionUtilities
+import org.moqui.util.LiteStringMap
 import org.moqui.util.MNode
 import org.moqui.util.ObjectUtilities
 import org.moqui.util.StringUtilities
@@ -46,8 +47,14 @@ import javax.sql.XAConnection
 import javax.sql.XADataSource
 import java.math.RoundingMode
 import java.sql.*
+import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.BlockingQueue
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ThreadFactory
 import java.util.concurrent.ThreadLocalRandom
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.Lock
 import java.util.concurrent.locks.ReentrantLock
 
@@ -93,6 +100,14 @@ class EntityFacadeImpl implements EntityFacade {
     protected final EntityDataDocument entityDataDocument
 
     protected final EntityListImpl emptyList
+
+    private static class ExecThreadFactory implements ThreadFactory {
+        private final ThreadGroup workerGroup = new ThreadGroup("MoquiEntityExec")
+        private final AtomicInteger threadNumber = new AtomicInteger(1)
+        Thread newThread(Runnable r) { return new Thread(workerGroup, r, "MoquiEntityExec-" + threadNumber.getAndIncrement()) }
+    }
+    protected BlockingQueue<Runnable> statementWorkQueue = new ArrayBlockingQueue<>(1024);
+    protected ThreadPoolExecutor statementExecutor = new ThreadPoolExecutor(5, 100, 60, TimeUnit.SECONDS, statementWorkQueue, new ExecThreadFactory());
 
     EntityFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
@@ -154,6 +169,20 @@ class EntityFacadeImpl implements EntityFacade {
 
         // EECA rule tables
         loadEecaRulesAll()
+    }
+
+    void destroy() {
+        Set<String> groupNames = this.datasourceFactoryByGroupMap.keySet()
+        for (String groupName in groupNames) {
+            EntityDatasourceFactory edf = this.datasourceFactoryByGroupMap.get(groupName)
+            this.datasourceFactoryByGroupMap.put(groupName, null)
+            edf.destroy()
+        }
+
+        if (statementExecutor != null) {
+            statementExecutor.shutdown()
+            statementExecutor.awaitTermination(5, TimeUnit.SECONDS)
+        }
     }
 
     EntityCache getEntityCache() { return entityCache }
@@ -900,6 +929,15 @@ class EntityFacadeImpl implements EntityFacade {
         int numFiles = 0
         HashMap<String, EntityEcaRule> ruleByIdMap = new HashMap<>()
         LinkedList<EntityEcaRule> ruleNoIdList = new LinkedList<>()
+
+        List<ResourceReference> allEntityFileLocations = getAllEntityFileLocations()
+        for (ResourceReference rr in allEntityFileLocations) {
+            if (!rr.fileName.endsWith(".eecas.xml")) continue
+            numLoaded += loadEecaRulesFile(rr, ruleByIdMap, ruleNoIdList)
+            numFiles++
+        }
+
+        /*
         // search for the service def XML file in the components
         for (String location in this.ecfi.getComponentBaseLocations().values()) {
             ResourceReference entityDirRr = this.ecfi.resourceFacade.getLocationReference(location + "/entity")
@@ -910,12 +948,13 @@ class EntityFacadeImpl implements EntityFacade {
                     if (!rr.fileName.endsWith(".eecas.xml")) continue
                     numLoaded += loadEecaRulesFile(rr, ruleByIdMap, ruleNoIdList)
                     numFiles++
-
                 }
             } else {
                 logger.warn("Can't load EECA rules from component at [${entityDirRr.location}] because it doesn't support exists/directory/etc")
             }
         }
+        */
+
         if (logger.infoEnabled) logger.info("Loaded ${numLoaded} Entity ECA rules from ${numFiles} .eecas.xml files, ${ruleNoIdList.size()} rules have no id, ${ruleNoIdList.size() + ruleByIdMap.size()} EECA rules active")
 
         HashMap<String, ArrayList<EntityEcaRule>> ruleMap = new HashMap<>()
@@ -966,15 +1005,6 @@ class EntityFacadeImpl implements EntityFacade {
                 EntityEcaRule eer = (EntityEcaRule) lst.get(i)
                 eer.runIfMatches(entityName, fieldValues, operation, before, ecfi.getEci())
             }
-        }
-    }
-
-    void destroy() {
-        Set<String> groupNames = this.datasourceFactoryByGroupMap.keySet()
-        for (String groupName in groupNames) {
-            EntityDatasourceFactory edf = this.datasourceFactoryByGroupMap.get(groupName)
-            this.datasourceFactoryByGroupMap.put(groupName, null)
-            edf.destroy()
         }
     }
 
@@ -1411,7 +1441,7 @@ class EntityFacadeImpl implements EntityFacade {
             String inputFieldsMapName = sfiNode.attribute("input-fields-map")
 
             Map<String, Object> inf = inputFieldsMapName ? (Map<String, Object>) ecfi.resourceFacade.expression(inputFieldsMapName, "") : ecfi.getEci().context
-            ef.searchFormMap(inf, defaultParametersNode?.attributes as Map<String, Object>, sfiNode.attribute("skip-fields"), sfiNode.attribute("default-order-by"), paginate)
+            ef.searchFormMap(inf, defaultParametersNode?.attributes?.collectEntries {[it.key, ecfi.resourceFacade.expandNoL10n(it.value, "")]} as Map<String, Object>, sfiNode.attribute("skip-fields"), sfiNode.attribute("default-order-by"), paginate)
         }
 
         // logger.warn("=== shouldCache ${this.entityName} ${shouldCache()}, limit=${this.limit}, offset=${this.offset}, useCache=${this.useCache}, getEntityDef().getUseCache()=${this.getEntityDef().getUseCache()}")
@@ -1560,7 +1590,7 @@ class EntityFacadeImpl implements EntityFacade {
 
             if (rs.next()) {
                 newEntityValue = new EntityValueImpl(ed, this)
-                HashMap<String, Object> valueMap = newEntityValue.getValueMap()
+                LiteStringMap valueMap = newEntityValue.getValueMap()
                 int size = fieldInfoArray.length;
                 for (int i = 0; i < size; i++) {
                     FieldInfo fi = fieldInfoArray[i];
@@ -2183,7 +2213,7 @@ class EntityFacadeImpl implements EntityFacade {
     }
 
     protected static final Map<String, Integer> fieldTypeIntMap = [
-            "id":1, "id-long":1, "text-indicator":1, "text-short":1, "text-medium":1, "text-long":1, "text-very-long":1,
+            "id":1, "id-long":1, "text-indicator":1, "text-short":1, "text-medium":1, "text-intermediate":1, "text-long":1, "text-very-long":1,
             "date-time":2, "time":3, "date":4,
             "number-integer":6, "number-float":8,
             "number-decimal":9, "currency-amount":9, "currency-precise":9,
@@ -2191,7 +2221,7 @@ class EntityFacadeImpl implements EntityFacade {
     protected static final Map<String, String> fieldTypeJavaMap = [
             "id":"java.lang.String", "id-long":"java.lang.String",
             "text-indicator":"java.lang.String", "text-short":"java.lang.String", "text-medium":"java.lang.String",
-            "text-long":"java.lang.String", "text-very-long":"java.lang.String",
+            "text-intermediate":"java.lang.String", "text-long":"java.lang.String", "text-very-long":"java.lang.String",
             "date-time":"java.sql.Timestamp", "time":"java.sql.Time", "date":"java.sql.Date",
             "number-integer":"java.lang.Long", "number-float":"java.lang.Double",
             "number-decimal":"java.math.BigDecimal", "currency-amount":"java.math.BigDecimal", "currency-precise":"java.math.BigDecimal",

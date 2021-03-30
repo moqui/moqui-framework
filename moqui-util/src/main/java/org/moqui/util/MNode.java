@@ -42,7 +42,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 @SuppressWarnings("unused")
 public class MNode implements TemplateNodeModel, TemplateSequenceModel, TemplateHashModelEx, AdapterTemplateModel, TemplateScalarModel {
     protected final static Logger logger = LoggerFactory.getLogger(MNode.class);
-    private static final Version FTL_VERSION = Configuration.VERSION_2_3_25;
+    private static final Version FTL_VERSION = Configuration.VERSION_2_3_30;
 
     private final static Map<String, MNode> parsedNodeCache = new HashMap<>();
     public static void clearParsedNodeCache() { parsedNodeCache.clear(); }
@@ -64,7 +64,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
     public static MNode parse(String location, InputStream is) throws BaseException {
         if (is == null) return null;
         try {
-            return parse(location, new InputSource(is));
+            return parse(location, new InputSource(new InputStreamReader(is, UTF_8)));
         } finally {
             try { is.close(); }
             catch (IOException e) { logger.error("Error closing XML stream from " + location, e); }
@@ -135,10 +135,11 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
     /* ========== Fields ========== */
 
     private String nodeName;
-    private final Map<String, String> attributeMap = new LinkedHashMap<>();
+    // NOTE: start with small capacity, optimize for memory use vs put overhead to grow as mostly used for config kept long term
+    private final Map<String, String> attributeMap = new LinkedHashMap<>(4);
     private MNode parentNode = null;
     private ArrayList<MNode> childList = null;
-    private HashMap<String, ArrayList<MNode>> childrenByName = null;
+    private Map<String, ArrayList<MNode>> childrenByName = null;
     private String childText = null;
     private long lastModified = 0;
     private boolean systemExpandAttributes = false;
@@ -219,13 +220,20 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
     public void setSystemExpandAttributes(boolean b) { systemExpandAttributes = b; }
 
     public MNode getParent() { return parentNode; }
+
+    public boolean hasAncestor(String nodeName) {
+        if (parentNode == null) return false;
+        if (nodeName == null || nodeName.isEmpty() || nodeName.equals(parentNode.nodeName)) return true;
+        return parentNode.hasAncestor(nodeName);
+    }
+
     public ArrayList<MNode> getChildren() {
         if (childList == null) childList = new ArrayList<>();
         return childList;
     }
     public ArrayList<MNode> children(String name) {
-        if (childList == null) childList = new ArrayList<>();
-        if (childrenByName == null) childrenByName = new HashMap<>();
+        if (childList == null) childList = new ArrayList<>(4);
+        if (childrenByName == null) childrenByName = new HashMap<>(4);
         if (name == null) return childList;
         ArrayList<MNode> curList = childrenByName.get(name);
         if (curList != null) return curList;
@@ -296,11 +304,11 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
     public MNode child(int index) { return childList.get(index); }
 
     public Map<String, ArrayList<MNode>> getChildrenByName() {
-        Map<String, ArrayList<MNode>> allByName = new HashMap<>();
+        Map<String, ArrayList<MNode>> allByName = new HashMap<>(4);
         if (childList == null) return allByName;
         int childListSize = childList.size();
         if (childListSize == 0) return allByName;
-        if (childrenByName == null) childrenByName = new HashMap<>();
+        if (childrenByName == null) childrenByName = new HashMap<>(4);
 
         ArrayList<String> newChildNames = new ArrayList<>();
         for (int i = 0; i < childListSize; i++) {
@@ -333,7 +341,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
     /** Search all descendants for nodes matching any of the names, return a Map with a List for each name with nodes
      * found or empty List if no nodes found */
     public Map<String, ArrayList<MNode>> descendants(Set<String> names) {
-        Map<String, ArrayList<MNode>> nodes = new HashMap<>();
+        Map<String, ArrayList<MNode>> nodes = new HashMap<>(names.size());
         for (String name : names) nodes.put(name, new ArrayList<>());
         descendantsInternal(names, nodes);
         return nodes;

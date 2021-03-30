@@ -32,6 +32,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
     private boolean ignorePreviousError = false;
     private boolean softValidate = false;
     private boolean multi = false;
+    private boolean rememberParameters = true;
     protected boolean disableAuthz = false;
 
     public ServiceCallSyncImpl(ServiceFacadeImpl sfi) { super(sfi); }
@@ -52,6 +53,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
     @Override public ServiceCallSync softValidate(boolean sv) { this.softValidate = sv; return this; }
     @Override public ServiceCallSync multi(boolean mlt) { this.multi = mlt; return this; }
     @Override public ServiceCallSync disableAuthz() { disableAuthz = true; return this; }
+    @Override public ServiceCallSync noRememberParameters() { rememberParameters = false; return this; }
 
     @Override
     public Map<String, Object> call() {
@@ -75,8 +77,6 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
                 try {
                     Map<String, Object> result = new HashMap<>();
                     for (int i = 0; ; i++) {
-                        if (("true".equals(parameters.get("_useRowSubmit")) || "true".equals(parameters.get("_useRowSubmit_" + i)))
-                                && !"true".equals(parameters.get("_rowSubmit_" + i))) continue;
                         Map<String, Object> currentParms = new HashMap<>();
                         for (int paramIndex = 0; paramIndex < inParameterNamesSize; paramIndex++) {
                             String ipn = inParameterNames.get(paramIndex);
@@ -86,6 +86,10 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
 
                         // if the map stayed empty we have no parms, so we're done
                         if (currentParms.size() == 0) break;
+
+                        if (("true".equals(parameters.get("_useRowSubmit")) || "true".equals(parameters.get("_useRowSubmit_" + i)))
+                                && !"true".equals(parameters.get("_rowSubmit_" + i))) continue;
+
                         // now that we have checked the per-row parameters, add in others available
                         for (int paramIndex = 0; paramIndex < inParameterNamesSize; paramIndex++) {
                             String ipn = inParameterNames.get(paramIndex);
@@ -240,8 +244,8 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         //     the service on the stack)
         ArtifactExecutionInfo.AuthzAction authzAction = sd != null ? sd.authzAction : ServiceDefinition.verbAuthzActionEnumMap.get(verb);
         if (authzAction == null) authzAction = ArtifactExecutionInfo.AUTHZA_ALL;
-        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(serviceName, ArtifactExecutionInfo.AT_SERVICE,
-                authzAction, serviceType).setParameters(currentParameters);
+        ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(serviceName, ArtifactExecutionInfo.AT_SERVICE, authzAction, serviceType);
+        if (rememberParameters && !sd.noRememberParameters) aei.setParameters(currentParameters);
         eci.artifactExecutionFacade.pushInternal(aei, (sd != null && "true".equals(sd.authenticate)), true);
 
         // if error in auth or for other reasons, return now with no results
@@ -295,12 +299,23 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
             if (sd.noTxCache) {
                 tf.flushAndDisableTransactionCache();
             } else {
-                if (useTransactionCache != null ? useTransactionCache : sd.txUseCache) tf.initTransactionCache();
+                if (useTransactionCache != null ? useTransactionCache : sd.txUseCache) tf.initTransactionCache(false);
+                // alternative to use read only TX cache by default, not functional yet: tf.initTransactionCache(!(useTransactionCache != null ? useTransactionCache : sd.txUseCache));
             }
 
             try {
                 if (hasSecaRules) ServiceFacadeImpl.runSecaRules(serviceNameNoHash, currentParameters, null, "pre-service", secaRules, eci);
                 if (traceEnabled) logger.trace("Calling service " + serviceName + " pre-call input: " + currentParameters);
+
+                // if error(s) in pre-service or anything else before actual run then return now with no results
+                if (eci.messageFacade.hasError()) {
+                    StringBuilder errMsg = new StringBuilder("Found error(s) before running service " + serviceName + " so not running. Errors: " + eci.messageFacade.getErrorsString() + "; the artifact stack is:\n");
+                    for (ArtifactExecutionInfo stackItem : eci.artifactExecutionFacade.getStack())
+                        errMsg.append(stackItem.toString()).append("\n");
+                    logger.warn(errMsg.toString());
+                    if (ignorePreviousError) eci.messageFacade.popErrors();
+                    return null;
+                }
 
                 try {
                     // run the service through the ServiceRunner
@@ -385,7 +400,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
             }
 
             try {
-                if (userLoggedIn) eci.getUser().logoutUser();
+                if (userLoggedIn) eci.userFacade.logoutLocal();
             } catch (Throwable t) {
                 logger.error("Error logging out user after call to service " + serviceName, t);
             }
@@ -561,9 +576,22 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         try {
             if (pauseResumeIfNeeded && tf.isTransactionInPlace()) suspendedTransaction = tf.suspend();
             boolean beganTransaction = beginTransactionIfNeeded && tf.begin(null);
-            if (useTransactionCache != null && useTransactionCache) tf.initTransactionCache();
+
+            if (useTransactionCache != null && useTransactionCache) tf.initTransactionCache(false);
+            // alternative to use read only TX cache by default, not functional yet: tf.initTransactionCache(useTransactionCache == null || !useTransactionCache);
+
             try {
                 if (hasSecaRules) ServiceFacadeImpl.runSecaRules(serviceNameNoHash, currentParameters, null, "pre-service", secaRules, eci);
+
+                // if error(s) in pre-service or anything else before actual run then return now with no results
+                if (eci.messageFacade.hasError()) {
+                    StringBuilder errMsg = new StringBuilder("Found error(s) before running service " + serviceName + " so not running. Errors: " + eci.messageFacade.getErrorsString() + "; the artifact stack is:\n");
+                    for (ArtifactExecutionInfo stackItem : eci.artifactExecutionFacade.getStack())
+                        errMsg.append(stackItem.toString()).append("\n");
+                    logger.warn(errMsg.toString());
+                    if (ignorePreviousError) eci.messageFacade.popErrors();
+                    return null;
+                }
 
                 try {
                     EntityDefinition ed = eci.getEntityFacade().getEntityDefinition(noun);

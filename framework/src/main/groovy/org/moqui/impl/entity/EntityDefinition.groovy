@@ -18,6 +18,8 @@ import org.moqui.BaseArtifactException
 import org.moqui.entity.EntityFind
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.condition.ConditionAlias
+import org.moqui.impl.entity.condition.DateCondition
+import org.moqui.util.LiteStringMap
 import org.moqui.util.ObjectUtilities
 import org.moqui.util.StringUtilities
 
@@ -203,6 +205,8 @@ class EntityDefinition {
                 ArrayList<MNode> aliasByField = fieldInfoByEntity.get(fieldName)
                 aliasByField.add(aliasNode)
             }
+
+            int curIndex = 0;
             for (MNode aliasNode in internalEntityNode.children("alias")) {
                 if (aliasNode.attribute("pq-expression")) {
                     if (pqExpressionNodeMap == null) pqExpressionNodeMap = new HashMap<>()
@@ -211,8 +215,9 @@ class EntityDefinition {
                     continue
                 }
 
-                FieldInfo fi = new FieldInfo(this, aliasNode)
+                FieldInfo fi = new FieldInfo(this, aliasNode, curIndex)
                 addFieldInfo(fi)
+                curIndex++
             }
 
             entityConditionNode = internalEntityNode.first("entity-condition")
@@ -224,8 +229,10 @@ class EntityDefinition {
                 internalEntityNode.append("field", [name:"lastUpdatedStamp", type:"date-time"])
             }
 
-            for (MNode fieldNode in internalEntityNode.children("field")) {
-                FieldInfo fi = new FieldInfo(this, fieldNode)
+            ArrayList<MNode> fieldNodeList = internalEntityNode.children("field")
+            for (int i = 0; i < fieldNodeList.size(); i++) {
+                MNode fieldNode = (MNode) fieldNodeList.get(i)
+                FieldInfo fi = new FieldInfo(this, fieldNode, i)
                 addFieldInfo(fi)
             }
 
@@ -541,15 +548,45 @@ class EntityDefinition {
         }
         return true
     }
-    Map<String, Object> getPrimaryKeys(Map<String, Object> fields) {
-        Map<String, Object> pks = new HashMap()
-        ArrayList<String> fieldNameList = this.getPkFieldNames()
-        int size = fieldNameList.size()
-        for (int i = 0; i < size; i++) {
-            String fieldName = (String) fieldNameList.get(i)
-            pks.put(fieldName, fields.get(fieldName))
+    LiteStringMap<Object> getPrimaryKeys(Map<String, Object> fields) {
+        // NOTE: for pks Map don't use manual indexes, want compact with no extra entries and causes issues
+        FieldInfo[] pkFieldInfos = this.entityInfo.pkFieldInfoArray
+        LiteStringMap<Object> pks = new LiteStringMap<>(pkFieldInfos.length)
+
+        if (fields instanceof LiteStringMap) {
+            LiteStringMap<Object> fieldsLsm = (LiteStringMap<Object>) fields
+            for (int i = 0; i < pkFieldInfos.length; i++) {
+                FieldInfo fi = pkFieldInfos[i]
+                pks.putByIString(fi.name, fieldsLsm.getByIString(fi.name))
+            }
+        } else {
+            for (int i = 0; i < pkFieldInfos.length; i++) {
+                FieldInfo fi = pkFieldInfos[i]
+                pks.putByIString(fi.name, fields.get(fi.name))
+            }
         }
+
         return pks
+    }
+    String getPrimaryKeysString(Map<String, Object> fieldValues) {
+        if (fieldValues == null) {
+            logger.warn("EntityDefinition.getPrimaryKeysString() fieldValues is null", new Exception("location"))
+            return null
+        }
+        FieldInfo[] pkFieldInfoArray = entityInfo.pkFieldInfoArray
+        if (pkFieldInfoArray.length == 1) {
+            FieldInfo fi = pkFieldInfoArray[0]
+            return ObjectUtilities.toPlainString(fieldValues.get(fi.name))
+        } else {
+            StringBuilder pkCombinedSb = new StringBuilder();
+            for (int pki = 0; pki < pkFieldInfoArray.length; pki++) {
+                FieldInfo fi = pkFieldInfoArray[pki]
+                // NOTE: separator of '::' matches separator used for combined PK String in EntityValueBase.getPrimaryKeysString() and EntityDataDocument.makeDocId()
+                if (pkCombinedSb.length() > 0) pkCombinedSb.append("::")
+                pkCombinedSb.append(ObjectUtilities.toPlainString(fieldValues.get(fi.name)))
+            }
+            return pkCombinedSb.toString()
+        }
     }
 
     ArrayList<String> getFieldNames(boolean includePk, boolean includeNonPk) {
@@ -981,49 +1018,84 @@ class EntityDefinition {
     EntityConditionImplBase makeViewWhereCondition() {
         if (!isViewEntity || entityConditionNode == null) return (EntityConditionImplBase) null
         // add the view-entity.entity-condition.econdition(s)
-        return makeViewListCondition(entityConditionNode)
+        return makeViewListCondition(entityConditionNode, null)
     }
     EntityConditionImplBase makeViewHavingCondition() {
         if (!isViewEntity || entityHavingEconditions == null) return (EntityConditionImplBase) null
         // add the view-entity.entity-condition.having-econditions
-        return makeViewListCondition(entityHavingEconditions)
+        return makeViewListCondition(entityHavingEconditions, null)
     }
 
-    protected EntityConditionImplBase makeViewListCondition(MNode conditionsParent) {
+    protected EntityConditionImplBase makeViewListCondition(MNode conditionsParent, MNode joinMemberEntityNode) {
         if (conditionsParent == null) return null
         ExecutionContextImpl eci = efi.ecfi.getEci()
+        EntityDefinition joinEntityDef = joinMemberEntityNode != null ? this.efi.getEntityDefinition(joinMemberEntityNode.attribute("entity-name")) : null
+
         List<EntityCondition> condList = new ArrayList()
         for (MNode dateFilter in conditionsParent.children("date-filter")) {
-            // NOTE: this doesn't do context expansion of the valid-date as it doesn't make sense for an entity def to depend on something being in the context
-            condList.add((EntityConditionImplBase) this.efi.conditionFactory.makeConditionDate(
-                    dateFilter.attribute("from-field-name"), dateFilter.attribute("thru-field-name"),
-                    dateFilter.attribute("valid-date") ? efi.ecfi.resourceFacade.expand(dateFilter.attribute("valid-date"), "") as Timestamp : null))
+            ConditionField fromField, thruField
+            String fromFieldName = dateFilter.attribute("from-field-name") ?: "fromDate"
+            String thruFieldName = dateFilter.attribute("thru-field-name") ?: "thruDate"
+
+            Timestamp validDate = dateFilter.attribute("valid-date") ? efi.ecfi.resourceFacade.expand(dateFilter.attribute("valid-date"), "") as Timestamp : null
+            if (validDate == (Timestamp) null) validDate = efi.ecfi.getEci().userFacade.getNowTimestamp()
+
+            String entityAliasAttr = dateFilter.attribute("entity-alias")
+            if (joinEntityDef != null && (entityAliasAttr == null || entityAliasAttr.isEmpty()) && joinEntityDef.isField(fromFieldName))
+                entityAliasAttr = joinMemberEntityNode.attribute("entity-alias")
+
+            if (entityAliasAttr != null && !entityAliasAttr.isEmpty()) {
+                MNode memberEntity = (MNode) memberEntityAliasMap.get(entityAliasAttr)
+                if (memberEntity == null) throw new EntityException("The entity-alias [${entityAliasAttr}] was not found in view-entity [${entityInfo.internalEntityName}]")
+                EntityDefinition aliasEntityDef = this.efi.getEntityDefinition(memberEntity.attribute("entity-name"))
+                fromField = new ConditionAlias(entityAliasAttr, fromFieldName, aliasEntityDef)
+                thruField = new ConditionAlias(entityAliasAttr, thruFieldName, aliasEntityDef)
+            } else {
+                FieldInfo fromFi = getFieldInfo(fromFieldName)
+                FieldInfo thruFi = getFieldInfo(thruFieldName)
+                if (fromFi == null) throw new EntityException("Field ${fromFieldName} not found in entity ${fullEntityName}")
+                if (thruFi == null) throw new EntityException("Field ${thruFieldName} not found in entity ${fullEntityName}")
+                fromField = fromFi.conditionField
+                thruField = thruFi.conditionField
+            }
+
+            condList.add(new DateCondition(fromField, thruField, validDate))
         }
         for (MNode econdition in conditionsParent.children("econdition")) {
-            EntityConditionImplBase cond;
+            String fieldNameAttr = econdition.attribute("field-name")
             ConditionField field
-            EntityDefinition condEd;
+            EntityConditionImplBase cond
+            EntityDefinition condEd
+
             String entityAliasAttr = econdition.attribute("entity-alias")
-            if (entityAliasAttr) {
-                MNode memberEntity = memberEntityAliasMap.get(entityAliasAttr)
-                if (!memberEntity) throw new EntityException("The entity-alias [${entityAliasAttr}] was not found in view-entity [${entityInfo.internalEntityName}]")
+            if (joinEntityDef != null && (entityAliasAttr == null || entityAliasAttr.isEmpty()) && joinEntityDef.isField(fieldNameAttr))
+                entityAliasAttr = joinMemberEntityNode.attribute("entity-alias")
+
+            if (entityAliasAttr != null && !entityAliasAttr.isEmpty()) {
+                MNode memberEntity = (MNode) memberEntityAliasMap.get(entityAliasAttr)
+                if (memberEntity == null) throw new EntityException("The entity-alias [${entityAliasAttr}] was not found in view-entity [${entityInfo.internalEntityName}]")
                 EntityDefinition aliasEntityDef = this.efi.getEntityDefinition(memberEntity.attribute("entity-name"))
-                field = new ConditionAlias(entityAliasAttr, econdition.attribute("field-name"), aliasEntityDef)
-                condEd = aliasEntityDef;
+                field = new ConditionAlias(entityAliasAttr, fieldNameAttr, aliasEntityDef)
+                condEd = aliasEntityDef
             } else {
-                FieldInfo fi = getFieldInfo(econdition.attribute("field-name"))
-                if (fi == null) throw new EntityException("Field ${econdition.attribute("field-name")} not found in entity ${fullEntityName}")
+                FieldInfo fi = getFieldInfo(fieldNameAttr)
+                if (fi == null) throw new EntityException("Field ${fieldNameAttr} not found in entity ${fullEntityName}")
                 field = fi.conditionField
-                condEd = this;
+                condEd = this
             }
+
             String toFieldNameAttr = econdition.attribute("to-field-name")
             if (toFieldNameAttr != null) {
+                String toEntityAliasAttr = econdition.attribute("to-entity-alias")
+                if (joinEntityDef != null && (toEntityAliasAttr == null || toEntityAliasAttr.isEmpty()) && joinEntityDef.isField(toFieldNameAttr))
+                    toEntityAliasAttr = joinMemberEntityNode.attribute("entity-alias")
+
                 ConditionField toField
-                if (econdition.attribute("to-entity-alias")) {
-                    MNode memberEntity = memberEntityAliasMap.get(econdition.attribute("to-entity-alias"))
-                    if (!memberEntity) throw new EntityException("The entity-alias [${econdition.attribute("to-entity-alias")}] was not found in view-entity [${entityInfo.internalEntityName}]")
+                if (toEntityAliasAttr != null && !toEntityAliasAttr.isEmpty()) {
+                    MNode memberEntity = (MNode) memberEntityAliasMap.get(toEntityAliasAttr)
+                    if (memberEntity == null) throw new EntityException("The entity-alias [${toEntityAliasAttr}] was not found in view-entity [${entityInfo.internalEntityName}]")
                     EntityDefinition aliasEntityDef = this.efi.getEntityDefinition(memberEntity.attribute("entity-name"))
-                    toField = new ConditionAlias(econdition.attribute("to-entity-alias"), toFieldNameAttr, aliasEntityDef)
+                    toField = new ConditionAlias(toEntityAliasAttr, toFieldNameAttr, aliasEntityDef)
                 } else {
                     FieldInfo fi = getFieldInfo(toFieldNameAttr)
                     if (fi == null) throw new EntityException("Field ${toFieldNameAttr} not found in entity ${fullEntityName}")
@@ -1050,7 +1122,7 @@ class EntityDefinition {
             }
         }
         for (MNode econditions in conditionsParent.children("econditions")) {
-            EntityConditionImplBase cond = this.makeViewListCondition(econditions)
+            EntityConditionImplBase cond = this.makeViewListCondition(econditions, joinMemberEntityNode)
             if (cond) condList.add(cond)
         }
         if (condList == null || condList.size() == 0) return null

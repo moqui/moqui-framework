@@ -305,4 +305,99 @@ along with this software (see the LICENSE.md file). If not, see
             ]]></script>
         </actions>
     </service>
+
+    <!-- ================================================ -->
+    <!-- ========== Entity Re-Encrypt Services ========== -->
+    <!-- ================================================ -->
+
+    <service verb="rewrite" noun="EntityEncryptedFieldsAll" authenticate="false" transaction="ignore">
+        <in-parameters>
+            <parameter name="entityNameRegex"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="entitiesUpdated" type="Long"/>
+            <parameter name="recordsUpdated" type="Long"/>
+        </out-parameters>
+        <actions>
+            <set field="entityNamePattern" from="entityNameRegex ? java.util.regex.Pattern.compile(entityNameRegex, (java.util.regex.Pattern.CASE_INSENSITIVE | java.util.regex.Pattern.DOTALL)) : null"/>
+            <set field="entitiesUpdated" from="0L"/>
+            <set field="recordsUpdated" from="0L"/>
+            <iterate list="ec.entity.getAllEntityNames()" entry="entityName">
+                <if condition="entityNamePattern != null &amp;&amp; !entityNamePattern.matcher(entityName).matches()"><continue/></if>
+
+                <set field="entityDef" from="ec.entity.getEntityDefinition(entityName)"/>
+                <if condition="entityDef.isViewEntity"><continue/></if>
+                <if condition="entityDef.entityInfo.needsEncrypt">
+                    <log message="Starting encrypted fields rewrite for entity ${entityName}"/>
+                    <service-call name="org.moqui.impl.EntityServices.rewrite#EntityEncryptedFields" transaction="force-new"
+                            out-map="rewriteOut" out-map-add-to-existing="false" in-map="[entityName:entityName]"/>
+                    <log message="Finished encrypted fields rewrite for entity ${entityName}, updated ${rewriteOut.recordsUpdated} records"/>
+                    <set field="entitiesUpdated" from="entitiesUpdated + 1L"/>
+                    <set field="recordsUpdated" from="recordsUpdated + (rewriteOut.recordsUpdated ?: 0L)"/>
+                </if>
+            </iterate>
+        </actions>
+    </service>
+    <service verb="rewrite" noun="EntityEncryptedFields" authenticate="anonymous-all" transaction-timeout="900">
+        <in-parameters>
+            <parameter name="entityName" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="recordsUpdated" type="Long"/>
+        </out-parameters>
+        <actions><script><![CDATA[
+            import org.moqui.context.ExecutionContext
+            import org.moqui.entity.EntityCondition
+            import org.moqui.entity.EntityValue
+            import org.moqui.impl.entity.EntityDefinition
+            import java.sql.ResultSet
+
+            ExecutionContext ec = context.ec
+            EntityDefinition entityDef = ec.entity.getEntityDefinition(entityName)
+            def pkFieldNames = entityDef.getPkFieldNames()
+            def encryptFieldNames = entityDef.allFieldInfoList.findAll({ it.encrypt }).collect({ it.name })
+            def encryptFieldNamesSize = encryptFieldNames.size()
+
+            if (encryptFieldNamesSize == 0) {
+                ec.logger.warn("Not rewriting encrypted fields for entity ${entityName}, has no encrypted fields")
+                return
+            }
+
+            def condFactory = ec.entity.getConditionFactory()
+            def notNullCondList = new ArrayList(encryptFieldNames.size())
+            for (String fieldName in encryptFieldNames) notNullCondList.add(condFactory.makeCondition(fieldName, EntityCondition.IS_NOT_NULL, null))
+
+            recordsUpdated = 0L
+            def recordIterator = ec.entity.find(entityDef.fullEntityName).selectFields(pkFieldNames).selectFields(encryptFieldNames)
+                    .condition(condFactory.makeCondition(notNullCondList, EntityCondition.OR))
+                    .resultSetConcurrency(ResultSet.CONCUR_UPDATABLE).iterator()
+            try {
+                EntityValue curValue
+                while ((curValue = recordIterator.next()) != null) {
+                    boolean foundFail = false
+                    boolean foundNonNull = false
+                    for (int i = 0; i < encryptFieldNamesSize; i++) {
+                        def fieldName = encryptFieldNames.get(i)
+                        def fieldValue = curValue.get(fieldName)
+                        if (fieldValue == null) continue
+
+                        if (org.moqui.impl.entity.FieldInfo.decryptFailedMagicString.equals(fieldValue)) {
+                            ec.logger.error("rewrite#EntityEncryptedFields decrypt failed for ${entityName} pk ${curValue.getPrimaryKeysString()} field ${fieldName}, skipping record")
+                            foundFail = true
+                            break
+                        }
+                        foundNonNull = true
+                        curValue.touchField(fieldName)
+                    }
+                    if (foundNonNull && !foundFail) {
+                        // ec.logger.info("Rewriting encrypted fields for entity ${entityName} PK ${curValue.getPrimaryKeysString()}")
+                        curValue.update()
+                        recordsUpdated += 1L
+                    }
+                }
+            } finally {
+                recordIterator.close()
+            }
+        ]]></script></actions>
+    </service>
 </services>

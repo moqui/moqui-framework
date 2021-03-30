@@ -14,7 +14,7 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
 
-    <service verb="index" noun="DataDocuments" authenticate="false" transaction-timeout="3600">
+    <service verb="index" noun="DataDocuments" authenticate="false" no-remember-parameters="true" transaction-timeout="3600">
         <implements service="org.moqui.EntityServices.receive#DataFeed"/>
         <in-parameters>
             <parameter name="dataFeedId" required="false"/>
@@ -51,6 +51,7 @@ along with this software (see the LICENSE.md file). If not, see
         <description>Index all documents associated with the feed within the date range. Recommend calling through the IndexDataFeedDocuments service job.</description>
         <in-parameters>
             <parameter name="dataFeedId" required="true"/>
+            <parameter name="dataDocumentId"/>
             <parameter name="fromUpdateStamp" type="Timestamp"/>
             <parameter name="thruUpdateStamp" type="Timestamp"/>
             <parameter name="batchSize" type="Integer" default="1000"/>
@@ -60,9 +61,14 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <set field="startTime" from="System.currentTimeMillis()"/>
             <entity-find-one entity-name="moqui.entity.feed.DataFeed" value-field="df" cache="true"/>
-            <if condition="df == null"><return type="danger" message="No DataFeed found for ID ${dataFeedId}"/></if>
+            <if condition="df == null"><return error="true" message="No DataFeed found for ID ${dataFeedId}"/></if>
+
             <entity-find entity-name="moqui.entity.feed.DataFeedDocument" list="dfDocList" cache="true">
-                <econdition field-name="dataFeedId"/></entity-find>
+                <econdition field-name="dataFeedId"/>
+                <econdition field-name="dataDocumentId" ignore-if-empty="true"/>
+            </entity-find>
+
+            <if condition="!dfDocList"><return error="true" message="No DataDocuments found for DataFeed ID ${dataFeedId}${dataDocumentId ? ' and DataDocument ID ' + dataDocumentId : ''}"/></if>
 
             <set field="documentsIndexed" from="0"/>
             <script><![CDATA[
@@ -137,6 +143,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="highlightFields" type="List"><parameter name="highlightField"/></parameter>
             <parameter name="pageIndex" type="Integer" default="0"/>
             <parameter name="pageSize" type="Integer" default="20"/>
+            <parameter name="pageNoLimit" type="Boolean" default="false"/>
             <parameter name="flattenDocument" type="Boolean" default="true"/>
             <parameter name="clusterName" default-value="default"/>
         </in-parameters>
@@ -165,8 +172,9 @@ along with this software (see the LICENSE.md file). If not, see
                 return
             }
 
-            int fromOffset = pageIndex * pageSize
-            int sizeLimit = pageSize
+            int fromOffset = pageNoLimit ? 0 : pageIndex * pageSize
+            // TODO FUTURE: for this type of search ES limits size to 10k (default for index.max_result_window, can be changed per index), must use a scroll search to do more
+            int sizeLimit = pageNoLimit ? 10000 : pageSize
 
             documentList = []
             boolean hasHighlights = highlightFields != null && highlightFields.size() > 0
@@ -206,6 +214,7 @@ along with this software (see the LICENSE.md file). If not, see
                     }
                 }
             }
+            // ec.logger.warn("queryMap : ${groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(queryMap))}")
 
             if (hasHighlights) {
                 Map hlFieldMap = [:]
@@ -236,7 +245,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             // validate the query
             // TODO: consider pulling error message from ElasticSearch, but they are pretty ugly
-            Map validateRespMap = elasticClient.validateQuery(index, queryMap, false)
+            Map validateRespMap = elasticClient.validateQuery(index, queryMap, true)
             if (validateRespMap != null) {
                 ec.message.addMessage("Invalid search: ${queryString}", "danger")
                 documentListCount = 0
@@ -302,6 +311,33 @@ along with this software (see the LICENSE.md file). If not, see
     </service>
     -->
 
+    <service verb="delete" noun="DataDocument" authenticate="anonymous-all">
+        <implements service="org.moqui.EntityServices.receive#DataFeedDelete"/>
+        <in-parameters>
+            <parameter name="indexName"/>
+            <parameter name="dataDocumentId" required="false"><description>For DataFeed compatibility supports dataDocumentId that
+                if specified is converted to valid ElasticSearch index name instead of using indexName parameter</description></parameter>
+            <parameter name="documentId" required="true"/>
+            <parameter name="clusterName" default-value="default"/>
+        </in-parameters>
+        <actions><script><![CDATA[
+            import org.moqui.context.ExecutionContext
+            import org.moqui.impl.context.ElasticFacadeImpl
+            ExecutionContext ec = context.ec
+
+            // if documentType use instead of indexName to get only specific indexes (split on comma, ddIdToEsIndex, join with comma)
+            String index = indexName
+            if (dataDocumentId) index = ((String) dataDocumentId).split(",").collect({ ElasticFacadeImpl.ddIdToEsIndex(it) }).join(",")
+
+            def elasticClient = ec.factory.elastic.getClient((String) clusterName)
+            if (elasticClient == null) {
+                ec.message.addMessage("No Elastic Client found for cluster name ${clusterName}, not deleting document ${documentId}", "danger")
+                return
+            }
+            elasticClient.delete(index, (String) documentId)
+        ]]></script></actions>
+    </service>
+
     <service verb="delete" noun="Documents" authenticate="anonymous-all" transaction-timeout="1800">
         <!-- authenticate=anonymous-all as this is called in a service job, should be exposed through only trusted UI/etc -->
         <in-parameters>
@@ -349,6 +385,20 @@ along with this software (see the LICENSE.md file). If not, see
             String resultMsg = "Deleted ${deletedCount} documents from index ${indexName} with days to keep ${daysToKeep} and query ${queryString}".toString()
             ec.logger.info(resultMsg)
             ec.message.addMessage(resultMsg)
+        ]]></script></actions>
+    </service>
+
+    <service verb="delete" noun="ElasticIndex">
+        <in-parameters>
+            <parameter name="indexName" required="true"/>
+            <parameter name="clusterName" default-value="default"/>
+        </in-parameters>
+        <actions><script><![CDATA[
+            import org.moqui.context.ExecutionContext
+            ExecutionContext ec = context.ec
+
+            def elasticClient = ec.factory.elastic.getClient((String) clusterName)
+            elasticClient.deleteIndex((String) indexName)
         ]]></script></actions>
     </service>
 </services>

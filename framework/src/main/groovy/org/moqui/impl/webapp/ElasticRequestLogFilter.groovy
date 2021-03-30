@@ -24,6 +24,7 @@ import javax.servlet.*
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
 import javax.servlet.http.HttpServletResponseWrapper
+import javax.servlet.http.HttpSession
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.TimeUnit
 
@@ -70,7 +71,7 @@ class ElasticRequestLogFilter implements Filter {
         }
 
         RequestLogQueueFlush rlqf = new RequestLogQueueFlush(this)
-        ecfi.scheduledExecutor.scheduleAtFixedRate(rlqf, 15, 5, TimeUnit.SECONDS)
+        ecfi.scheduleAtFixedRate(rlqf, 15, 5)
     }
 
     // TODO: add geoip (see https://www.elastic.co/guide/en/logstash/current/plugins-filters-geoip.html)
@@ -82,7 +83,7 @@ class ElasticRequestLogFilter implements Filter {
             request_method:[type:'keyword'], request_scheme:[type:'keyword'], request_host:[type:'keyword'],
             request_path:[type:'text'], request_query:[type:'text'], http_version:[type:'half_float'], response:[type:'short'],
             time_initial_ms:[type:'integer'], time_final_ms:[type:'integer'], bytes:[type:'long'],
-            referrer:[type:'text'], agent:[type:'text']
+            referrer:[type:'text'], agent:[type:'text'], session:[type:'keyword'], visitor_id:[type:'keyword']
         ]
     ]
 
@@ -125,7 +126,16 @@ class ElasticRequestLogFilter implements Filter {
 
         String clientIpAddress = request.getRemoteAddr()
         String forwardedFor = request.getHeader("X-Forwarded-For")
-        if (forwardedFor != null && !forwardedFor.isEmpty()) clientIpAddress = forwardedFor.split(",")[0].trim()
+        if (forwardedFor != null && !forwardedFor.isEmpty()) clientIpAddress = forwardedFor.split(",")[0]
+
+        if (clientIpAddress != null) {
+            clientIpAddress = clientIpAddress.trim()
+            if (clientIpAddress.charAt(0) == (char) '[') clientIpAddress = clientIpAddress.substring(1)
+            if (clientIpAddress.charAt(clientIpAddress.length() - 1) == (char) ']') clientIpAddress = clientIpAddress.substring(0, clientIpAddress.length() - 1)
+            clientIpAddress = clientIpAddress.trim()
+        }
+
+        // IPv6 addresses have square braces but ElasticSearch doesn't like them, so if there are any get rid of them
 
         float httpVersion = 0.0
         String protocol = request.getProtocol().trim()
@@ -136,6 +146,8 @@ class ElasticRequestLogFilter implements Filter {
         long written = 0L
         if (response instanceof CountingHttpServletResponseWrapper) written = ((CountingHttpServletResponseWrapper) response).getWritten()
 
+        HttpSession session = request.getSession(false)
+
         // final time after streaming response (ie flush response)
         long finalTime = System.currentTimeMillis() - startTime
 
@@ -144,9 +156,10 @@ class ElasticRequestLogFilter implements Filter {
                 request_method:request.getMethod(), request_scheme:request.getScheme(), request_host:request.getServerName(),
                 request_path:request.getRequestURI(), request_query:request.getQueryString(), http_version:httpVersion,
                 response:response.getStatus(), time_initial_ms:initialTime, time_final_ms:finalTime, bytes:written,
-                referrer:request.getHeader("Referrer"), agent:request.getHeader("User-Agent")]
+                referrer:request.getHeader("Referer"), agent:request.getHeader("User-Agent"),
+                session:session?.getId(), visitor_id:session?.getAttribute("moqui.visitorId")]
         requestLogQueue.add(reqMap)
-        // logger.info("${request.getMethod()} ${request.getRequestURI()} - ${response.getStatus()} ${finalTime}ms ${written}b asyncs ${request.isAsyncStarted()}")
+        // logger.info("${request.getMethod()} ${request.getRequestURI()} - ${response.getStatus()} ${finalTime}ms ${written}b asyncs ${request.isAsyncStarted()}\n${reqMap}")
     }
 
     @Override void destroy() { }

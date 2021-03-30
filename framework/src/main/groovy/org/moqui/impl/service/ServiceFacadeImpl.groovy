@@ -44,10 +44,10 @@ class ServiceFacadeImpl implements ServiceFacade {
     protected final ReentrantLock locationLoadLock = new ReentrantLock()
 
     protected Map<String, ArrayList<ServiceEcaRule>> secaRulesByServiceName = new HashMap<>()
-    protected final List<EmailEcaRule> emecaRuleList = new ArrayList()
+    protected final List<EmailEcaRule> emecaRuleList = new ArrayList<>()
     public final RestApi restApi
 
-    protected final Map<String, ServiceRunner> serviceRunners = new HashMap()
+    protected final Map<String, ServiceRunner> serviceRunners = new HashMap<>()
 
     private ScheduledJobRunner jobRunner = null
 
@@ -100,13 +100,21 @@ class ServiceFacadeImpl implements ServiceFacade {
         // setup service job runner
         long jobRunnerRate = (serviceFacadeNode.attribute("scheduled-job-check-time") ?: "60") as long
         if (jobRunnerRate > 0L) {
+            // wait before first run to make sure all is loaded and we're past an initial activity burst
+            long initialDelay = 120L
+            logger.info("Starting Scheduled Service Job Runner, checking for jobs every ${jobRunnerRate} seconds after a ${initialDelay} second initial delay")
             jobRunner = new ScheduledJobRunner(ecfi)
-            // wait 120 seconds before first run to make sure all is loaded and we're past an initial activity burst
-            ecfi.scheduledExecutor.scheduleAtFixedRate(jobRunner, 120, jobRunnerRate, TimeUnit.SECONDS)
+            ecfi.scheduleAtFixedRate(jobRunner, initialDelay, jobRunnerRate)
         } else {
+            logger.warn("Not starting Scheduled Service Job Runner (config:${jobRunnerRate})")
             jobRunner = null
         }
 
+    }
+
+    void setDistributedExecutorService(ExecutorService executorService) {
+        logger.info("Setting DistributedExecutorService to ${executorService.class.name}, was ${this.distributedExecutorService?.class?.name}")
+        this.distributedExecutorService = executorService
     }
 
     void warmCache()  {
@@ -351,8 +359,8 @@ class ServiceFacadeImpl implements ServiceFacade {
     }
     protected void findServicesInFile(String baseLocation, ResourceReference entryRr, Set<String> sns) {
         MNode serviceRoot = MNode.parse(entryRr)
-        if ((serviceRoot.name) in ["secas", "emecas", "resource"]) return
-        if (serviceRoot.name != "services") {
+        if ((serviceRoot.getName()) in ["secas", "emecas", "resource"]) return
+        if (serviceRoot.getName() != "services") {
             logger.info("While finding service ignoring XML file [${entryRr.location}] in a services directory because the root element is ${serviceRoot.name} and not services")
             return
         }

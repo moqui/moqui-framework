@@ -216,7 +216,7 @@ class ElFinderConnector {
 
             responseMap.cwd = getLocationInfo(getLocation(target))
             responseMap.files = getFiles(target, tree)
-            responseMap.options = getOptions(unhash(target))
+            responseMap.options = getOptions(target)
         } else if (cmd == "tree") {
             if (!target) { responseMap.clear(); responseMap.error = "errOpen"; return }
 

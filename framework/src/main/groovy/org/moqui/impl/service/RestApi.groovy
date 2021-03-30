@@ -294,13 +294,13 @@ class RestApi {
 
             // add responses
             Map responses = ["401":[description:"Authentication required"], "403":[description:"Access Forbidden (no authz)"],
-                             "429":[description:"Too Many Requests (tarpit)"], "500":[description:"General Error"]]
+                             "429":[description:"Too Many Requests (tarpit)"], "500":[description:"General Error"]] as Map<String, Object>
             if (sd.getOutParameterNames().size() > 0) {
                 responses.put("200", [description:'Success', schema:['$ref':"#/definitions/${sd.serviceName}.Out".toString()]])
                 definitionsMap.put("${sd.serviceName}.Out".toString(), RestSchemaUtil.getJsonSchemaMapOut(sd))
             }
 
-            Map curMap = [:]
+            Map curMap = new LinkedHashMap<String, Object>()
             if (swaggerMap.tags && pathNode.fullPathList.size() > 1) curMap.put("tags", [pathNode.fullPathList[1]])
             curMap.putAll([summary:(serviceNode.attribute("displayName") ?: "${sd.verb} ${sd.noun}".toString()),
                            description:serviceNode.first("description")?.text,
@@ -432,7 +432,7 @@ class RestApi {
             // add responses
             Map responses = ["401":[description:"Authentication required"], "403":[description:"Access Forbidden (no authz)"],
                              "404":[description:"Value Not Found"], "429":[description:"Too Many Requests (tarpit)"],
-                             "500":[description:"General Error"]]
+                             "500":[description:"General Error"]] as Map<String, Object>
 
             boolean addEntityDef = true
             boolean addPkDef = false
@@ -477,7 +477,7 @@ class RestApi {
                 }
             }
 
-            Map curMap = [:]
+            Map curMap = new LinkedHashMap<String, Object>()
             String summary = "${operation} ${ed.entityInfo.internalEntityName}"
             if (masterName) summary = summary + " (master: " + masterName + ")"
             if (swaggerMap.tags && pathNode.fullPathList.size() > 1) curMap.put("tags", [pathNode.fullPathList[1]])

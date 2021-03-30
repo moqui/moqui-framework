@@ -12,7 +12,7 @@ You should have received a copy of the CC0 Public Domain Dedication
 along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
-<entity-facade-xml type="seed-initial">
+<entity-facade-xml type="seed">
     <!-- =============== Data Size =============== -->
     <moqui.basic.Uom abbreviation="b" description="Bit" uomId="DATA_b" uomTypeEnumId="UT_DATA_MEASURE"/>
     <moqui.basic.Uom abbreviation="Kb" description="Kilobit" uomId="DATA_Kb" uomTypeEnumId="UT_DATA_MEASURE"/>
@@ -439,4 +439,38 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.Uom abbreviation="ct" description="Count" uomId="OTH_ct" uomTypeEnumId="UT_OTHER_MEASURE"/>
     <moqui.basic.Uom abbreviation="ea" description="Each/Piece" uomId="OTH_ea" uomTypeEnumId="UT_OTHER_MEASURE"/>
     <moqui.basic.Uom abbreviation="pp" description="Per Person" uomId="OTH_pp" uomTypeEnumId="UT_OTHER_MEASURE"/>
+    <moqui.basic.Uom abbreviation="pct" description="Percent" uomId="OTH_pct" uomTypeEnumId="UT_OTHER_MEASURE"/>
+
+    <!-- =============== UOM Dimension Types and Type Groups =============== -->
+    <moqui.basic.UomDimensionType description="Quantity Included" uomDimensionTypeId="QuantityIncluded" defaultUomId="OTH_ct"/>
+    <moqui.basic.UomDimensionType description="Pieces Included" uomDimensionTypeId="PiecesIncluded" defaultUomId="OTH_ea"/>
+    <moqui.basic.UomDimensionType description="Weight" uomDimensionTypeId="Weight" uomTypeEnumId="UT_WEIGHT_MEASURE"/>
+    <moqui.basic.UomDimensionType description="Height" uomDimensionTypeId="Height" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+    <moqui.basic.UomDimensionType description="Width" uomDimensionTypeId="Width" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+    <moqui.basic.UomDimensionType description="Depth" uomDimensionTypeId="Depth" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+    <moqui.basic.UomDimensionType description="Volume - Dry" uomDimensionTypeId="Volume" uomTypeEnumId="UT_VOLUME_DRY_MEAS"/>
+    <moqui.basic.UomDimensionType description="Volume - Liquid" uomDimensionTypeId="VolumeLiquid" uomTypeEnumId="UT_VOLUME_LIQ_MEAS"/>
+    <moqui.basic.UomDimensionType description="Diameter" uomDimensionTypeId="Diameter" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+    <moqui.basic.UomDimensionType description="Shipping Weight" uomDimensionTypeId="ShippingWeight" uomTypeEnumId="UT_WEIGHT_MEASURE"/>
+    <moqui.basic.UomDimensionType description="Shipping Height" uomDimensionTypeId="ShippingHeight" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+    <moqui.basic.UomDimensionType description="Shipping Width" uomDimensionTypeId="ShippingWidth" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+    <moqui.basic.UomDimensionType description="Shipping Depth" uomDimensionTypeId="ShippingDepth" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+
+    <moqui.basic.UomDimTypeGroupMember uomDimTypeGroupEnumId="UdtgProduct" uomDimensionTypeId="QuantityIncluded" sequenceNum="5"/>
+    <moqui.basic.UomDimTypeGroupMember uomDimTypeGroupEnumId="UdtgProduct" uomDimensionTypeId="PiecesIncluded" sequenceNum="6"/>
+    <moqui.basic.UomDimTypeGroupMember uomDimTypeGroupEnumId="UdtgProduct" uomDimensionTypeId="Weight" sequenceNum="11"/>
+    <moqui.basic.UomDimTypeGroupMember uomDimTypeGroupEnumId="UdtgProduct" uomDimensionTypeId="Height" sequenceNum="12"/>
+    <moqui.basic.UomDimTypeGroupMember uomDimTypeGroupEnumId="UdtgProduct" uomDimensionTypeId="Width" sequenceNum="13"/>
+    <moqui.basic.UomDimTypeGroupMember uomDimTypeGroupEnumId="UdtgProduct" uomDimensionTypeId="Depth" sequenceNum="14"/>
+    <moqui.basic.UomDimTypeGroupMember uomDimTypeGroupEnumId="UdtgProduct" uomDimensionTypeId="Volume" sequenceNum="15"/>
+    <moqui.basic.UomDimTypeGroupMember uomDimTypeGroupEnumId="UdtgProduct" uomDimensionTypeId="VolumeLiquid" sequenceNum="16"/>
+    <moqui.basic.UomDimTypeGroupMember uomDimTypeGroupEnumId="UdtgProduct" uomDimensionTypeId="Diameter" sequenceNum="17"/>
+    <moqui.basic.UomDimTypeGroupMember uomDimTypeGroupEnumId="UdtgProduct" uomDimensionTypeId="ShippingWeight" sequenceNum="21"/>
+    <moqui.basic.UomDimTypeGroupMember uomDimTypeGroupEnumId="UdtgProduct" uomDimensionTypeId="ShippingHeight" sequenceNum="22"/>
+    <moqui.basic.UomDimTypeGroupMember uomDimTypeGroupEnumId="UdtgProduct" uomDimensionTypeId="ShippingWidth" sequenceNum="23"/>
+    <moqui.basic.UomDimTypeGroupMember uomDimTypeGroupEnumId="UdtgProduct" uomDimensionTypeId="ShippingDepth" sequenceNum="24"/>
+
+    <moqui.basic.UomDimTypeGroupMember uomDimTypeGroupEnumId="UdtgPerson" uomDimensionTypeId="Weight" sequenceNum="5"/>
+    <moqui.basic.UomDimTypeGroupMember uomDimTypeGroupEnumId="UdtgPerson" uomDimensionTypeId="Height" sequenceNum="6"/>
+    <moqui.basic.UomDimTypeGroupMember uomDimTypeGroupEnumId="UdtgPerson" uomDimensionTypeId="Volume" sequenceNum="7"/>
 </entity-facade-xml>
