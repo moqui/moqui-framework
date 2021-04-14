@@ -66,7 +66,6 @@ public class EntityValueImpl extends EntityValueBase {
             sql.append("INSERT INTO ").append(ed.getFullTableName());
 
             sql.append(" (");
-            StringBuilder values = new StringBuilder();
             StringBuilder valuesForCast = new StringBuilder();
 
             int size = fieldInfoArray.length;
@@ -143,11 +142,6 @@ public class EntityValueImpl extends EntityValueBase {
                 FieldInfo fieldInfo = nonPkFieldArray[i];
                 if (fieldInfo == null) break;
                 if (i > 0) sql.append(", ");
-<<<<<<< HEAD
-                sql.append(fieldInfo.getFullColumnName()).append("=?");
-                parameters.add(new EntityConditionParameter(fieldInfo, valueMapInternal.getByIString(fieldInfo.name, fieldInfo.index), eqb));
-=======
-
                 // treat JSON-like columns differently
                 String fieldName = fieldInfo.getFullColumnName();
                 String valueCast = "=?";
@@ -155,7 +149,6 @@ public class EntityValueImpl extends EntityValueBase {
                 sql.append(fieldName).append(valueCast);
 
                 parameters.add(new EntityConditionParameter(fieldInfo, valueMapInternal.get(fieldInfo.name), eqb));
->>>>>>> 6821b1e0c7700aa130f657754e4b4ca263376189
             }
 
             eqb.addWhereClause(pkFieldArray, valueMapInternal);
