@@ -66,6 +66,7 @@ public abstract class EntityValueBase implements EntityValue {
     protected transient LiteStringMap<Object> dbValueMap = null;
     protected transient LiteStringMap<Object> oldDbValueMap = null;
     private transient Map<String, Map<String, String>> localizedByLocaleByField = null;
+    private transient Set<String> touchedFields = null;
 
     private transient boolean modified = false;
     private transient boolean mutable = true;
@@ -159,6 +160,7 @@ public abstract class EntityValueBase implements EntityValue {
     private boolean isFieldModifiedIString(String name) {
         int valueMapIdx = valueMapInternal.findIndexIString(name);
         if (valueMapIdx == -1) return false;
+        if (touchedFields != null && touchedFields.contains(name)) return true;
 
         if (dbValueMap == null) return true;
         int dbIdx = dbValueMap.findIndexIString(name);
@@ -175,6 +177,13 @@ public abstract class EntityValueBase implements EntityValue {
         Object dbValue = dbValueMap.get(name);
         return (valueMapValue == null && dbValue != null) || (valueMapValue != null && !valueMapValue.equals(dbValue));
         */
+    }
+    @Override public EntityValue touchField(String name) {
+        if (!getEntityDefinition().isField(name)) throw new IllegalArgumentException("Cannot touch field name " + name + ", does not exist on entity " + entityName);
+        modified = true;
+        if (touchedFields == null) touchedFields = new HashSet<>();
+        touchedFields.add(name);
+        return this;
     }
 
     @Override public boolean isFieldSet(String name) { return valueMapInternal.containsKey(name); }

@@ -36,6 +36,7 @@ public class FieldInfo {
     protected final static boolean isTraceEnabled = logger.isTraceEnabled();
     public final static String[] aggFunctionArray = {"min", "max", "sum", "avg", "count", "count-distinct"};
     public final static Set<String> aggFunctions = new HashSet<>(Arrays.asList(aggFunctionArray));
+    public final static String decryptFailedMagicString = "_DECRYPT_FAILED_";
 
     public final EntityDefinition ed;
     public final MNode fieldNode;
@@ -385,6 +386,11 @@ public class FieldInfo {
                 value = EntityJavaUtil.enDeCrypt(original, false, efi);
             } catch (Exception e) {
                 logger.error("Error decrypting field [" + name + "] of entity [" + entityName + "]", e);
+                // NOTE DEJ 20200310 instead of using encrypted value return very clear fake placeholder; this is a bad design
+                //     because it uses a magic value that can't change as other code may use it; an alternative might be to have
+                //     the EntityValue internally handle it with a Set of fields that failed to decrypt, but this doesn't carry
+                //     through to or from web and other clients
+                value = decryptFailedMagicString;
             }
         }
 
@@ -419,6 +425,9 @@ public class FieldInfo {
             if (encrypt) {
                 if (localTypeValue != 1) throw new EntityException("The encrypt attribute was set to true on non-String field " + name + " of entity " + entityName);
                 String original = value.toString();
+                if (decryptFailedMagicString.equals(original)) {
+                    throw new EntityException("To prevent data loss, not allowing decrypt failed placeholder for field " + name + " of entity " + entityName);
+                }
                 value = EntityJavaUtil.enDeCrypt(original, true, efi);
             }
         }

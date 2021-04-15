@@ -172,6 +172,9 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="docVersion" type="text-short"><description>The document version (for OAGIS BSR Revision, for X12
             GS08 (version/revision))</description></field>
 
+        <field name="triggerVisitId" type="id"><description>Active visit when SystemMessage triggered (mainly produced) to track
+            the user who did so; independent of the message transport which could have separate remote system and other Visit-like data.</description></field>
+
         <!-- the follow may be useful for other types of messages, but come specifically from the OAGIS specification;
             leave out for now, senderId and messageId with combined fields may be adequate and are more generic
         <field name="logicalId" type="text-medium"/>
@@ -188,6 +191,8 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="parentMessageId" related="systemMessageId"/></relationship>
         <relationship type="one" title="Ack" related="moqui.service.message.SystemMessage" short-alias="ackMessage">
             <key-map field-name="ackMessageId" related="systemMessageId"/></relationship>
+        <relationship type="one" title="Trigger" related="moqui.server.Visit" short-alias="triggerVisit">
+            <key-map field-name="triggerVisitId"/></relationship>
 
         <relationship type="many" related="moqui.service.message.SystemMessageError" short-alias="errors">
             <key-map field-name="systemMessageId"/></relationship>

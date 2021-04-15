@@ -210,6 +210,8 @@ class ScreenRenderImpl implements ScreenRender {
                 response.setStatus(HttpServletResponse.SC_RESET_CONTENT)
             } else {
                 if (logger.isInfoEnabled()) logger.info("Redirecting to ${redirectUrl} instead of rendering ${this.getScreenUrlInfo().getFullPathNameList()}")
+                // add Cache-Control: no-store header since this is often in actions after screen render has started and a Cache-Control header has been set, so replace it here
+                response.setHeader("Cache-Control", "no-store")
                 response.sendRedirect(redirectUrl)
             }
             dontDoRender = true
@@ -2142,6 +2144,16 @@ class ScreenRenderImpl implements ScreenRender {
         EntityFacadeImpl entityFacade = sfi.ecfi.entityFacade
         // see if there is a user setting for the theme
         String themeId = entityFacade.fastFindOne("moqui.security.UserScreenTheme", true, true, ec.userFacade.userId, stteId)?.screenThemeId
+        // if no user theme see if group a user is in has a theme
+        if (themeId == null || themeId.length() == 0) {
+            // use reverse alpha so ALL_USERS goes last...
+            List<String> userGroupIdSet = new ArrayList(new TreeSet(ec.user.getUserGroupIdSet())).reverse(true)
+            EntityList groupThemeList = entityFacade.find("moqui.security.UserGroupScreenTheme")
+                    .condition("userGroupId", "in", userGroupIdSet).condition("screenThemeTypeEnumId", stteId)
+                    .orderBy("sequenceNum,-userGroupId").useCache(true).disableAuthz().list()
+            if (groupThemeList.size() > 0) themeId = groupThemeList.first().screenThemeId
+        }
+
         // use the Enumeration.enumCode from the type to find the theme type's default screenThemeId
         if (themeId == null || themeId.length() == 0) {
             EntityValue themeTypeEnum = entityFacade.fastFindOne("moqui.basic.Enumeration", true, true, stteId)
