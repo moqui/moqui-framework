@@ -629,6 +629,7 @@ along with this software (see the LICENSE.md file). If not, see
         </xs:documentation></xs:annotation>
         <xs:complexType>
             <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="1" ref="search-form-inputs"/>
                 <xs:choice minOccurs="0" maxOccurs="unbounded">
                     <xs:element ref="date-filter"/>
                     <xs:element ref="econdition"/>
