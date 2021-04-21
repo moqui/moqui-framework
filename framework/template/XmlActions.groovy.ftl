@@ -209,7 +209,7 @@ ${.node}
         <#t><#list .node["econditions"] as ecs>.condition(<#visit ecs/>)</#list>
         <#t><#list .node["econdition-object"] as eco>.condition(<#visit eco/>)</#list>
         <#t><#if .node["having-econditions"]?has_content><#list .node["having-econditions"]["*"] as havingCond>.havingCondition(<#visit havingCond/>)</#list></#if>
-        <#t>.count()
+        <#lt>.count()
 </#macro>
 <#-- =================== entity-find sub-elements =================== -->
 <#macro "date-filter">(org.moqui.entity.EntityCondition) ec.entity.conditionFactory.makeConditionDate("${.node["@from-field-name"]!("fromDate")}", "${.node["@thru-field-name"]!("thruDate")}", <#if .node["@valid-date"]?has_content>${.node["@valid-date"]} as java.sql.Timestamp<#else>null</#if>, ${.node["@ignore-if-empty"]!("false")}, "${.node["@ignore"]!"false"}")</#macro>
