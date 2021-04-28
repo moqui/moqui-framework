@@ -728,6 +728,14 @@ class UserFacadeImpl implements UserFacade {
     }
 
     @Override void logoutUser() {
+        String userId = getUserId()
+        // if userId set hasLoggedOut
+        if (userId != null && !userId.isEmpty()) {
+            logger.info("Setting hasLoggedOut for user ${userId}")
+            eci.serviceFacade.sync().name("update", "moqui.security.UserAccount")
+                    .parameters([userId:userId, hasLoggedOut:"Y"]).disableAuthz().call()
+        }
+
         logoutLocal()
 
         // if there is a request and session invalidate and get new
@@ -735,14 +743,6 @@ class UserFacadeImpl implements UserFacade {
             HttpSession oldSession = request.getSession(false)
             if (oldSession != null) oldSession.invalidate()
             session = request.getSession()
-        }
-
-        String userId = getUserId()
-        // if userId set hasLoggedOut
-        if (userId != null && !userId.isEmpty()) {
-            logger.info("Setting hasLoggedOut for user ${userId}")
-            eci.serviceFacade.sync().name("update", "moqui.security.UserAccount")
-                    .parameters([userId:userId, hasLoggedOut:"Y"]).disableAuthz().call()
         }
     }
 
