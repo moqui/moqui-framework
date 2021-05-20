@@ -632,8 +632,10 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         MClassLoader.addCommonClass("org.moqui.entity.EntityList", EntityList.class)
         MClassLoader.addCommonClass("EntityList", EntityList.class)
 
+        logger.info("Initializing MClassLoader context ${Thread.currentThread().getContextClassLoader()?.class?.name} cur class ${this.class.classLoader?.class?.name} system ${System.classLoader?.class?.name}")
         ClassLoader pcl = (Thread.currentThread().getContextClassLoader() ?: this.class.classLoader) ?: System.classLoader
         moquiClassLoader = new MClassLoader(pcl)
+        logger.info("Initialized MClassLoader with parent ${pcl.class.name}")
         // NOTE: initialized here but NOT used as currentThread ClassLoader
         groovyClassLoader = new GroovyClassLoader(moquiClassLoader)
 
@@ -686,7 +688,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // set as context classloader
         Thread.currentThread().setContextClassLoader(moquiClassLoader)
 
-        logger.info("Initialized ClassLoader in ${System.currentTimeMillis() - startTime}ms")
+        logger.info("Initialized ClassLoaders in ${System.currentTimeMillis() - startTime}ms")
     }
 
     /** Called from MoquiContextListener.contextInitialized after ECFI init */
