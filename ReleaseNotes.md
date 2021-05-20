@@ -14,6 +14,9 @@ Java 11 is now the minimum Java version required. For development and deployment
 (such as openjdk-11-jdk or adoptopenjdk-11-openj9 on Linux), active (on Linux use 'sudo update-alternatives --config java'),
 and that JAVA_HOME is set to the Java 11 JDK install path (for openjdk-11-jdk on Linux: /usr/lib/jvm/java-11-openjdk-amd64).
 
+Note that ElasticSearch 7.10.2 is the recommended version for this release, and is the last version released under the Apache 2.0
+license. Going forward the alternative is to use Open Distro for ElasticSearch (https://opendistro.github.io/for-elasticsearch/).
+
 For a complete list of changes see:
 
 https://github.com/moqui/moqui-framework/compare/v2.1.3...v3.0.0

@@ -163,7 +163,7 @@ services:
 
   elasticsearch:
     # very important: use the '-oss' version otherwise x-pack is included and because of licensing, etc moqui instances can't join the cluster
-    image: docker.elastic.co/elasticsearch/elasticsearch-oss:7.4.2
+    image: docker.elastic.co/elasticsearch/elasticsearch-oss:7.10.2
     container_name: elasticsearch
     # command: elasticsearch
     restart: always
@@ -182,7 +182,7 @@ services:
      - network.host=_site_
 
   kibana:
-    image: docker.elastic.co/kibana/kibana-oss:7.4.2
+    image: docker.elastic.co/kibana/kibana-oss:7.10.2
     container_name: kibana
     restart: always
     ports:

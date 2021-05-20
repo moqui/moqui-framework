@@ -25,7 +25,7 @@ import org.ajoberstar.grgit.*
 
 defaultTasks 'build'
 
-def elasticSearchVersion = '7.4.2'
+def elasticSearchVersion = '7.10.2'
 def tomcatHome = '../apache-tomcat'
 // no longer include version in war file name: def getWarName() { 'moqui-' + childProjects.framework.version + '.war' }
 def getWarName() { 'moqui.war' }
@@ -135,16 +135,34 @@ task downloadElasticSearch { doLast {
         return it
     } }
 
+    // make sure there is a logs directory, ES start error without it
+    File esLogsDir = file(targetDirPath + '/logs')
+    if (!esLogsDir.exists()) esLogsDir.mkdir()
+
     File extraDir = file(esExtraDirPath)
     if (extraDir.exists()) delete extraDir
 
     delete zipFile
 }}
+/* startElasticSearch old approach, with ES 7.10.2 never exits (though same command in terminal does)
 task startElasticSearch(type:Exec) {
-    workingDir moquiRuntime + '/elasticsearch'; commandLine './bin/elasticsearch', '-d', '-p', 'pid'
+    workingDir moquiRuntime + '/elasticsearch'
+    commandLine './bin/elasticsearch', '-d', '-p', 'pid'
+    ignoreExitValue true
     onlyIf { file(moquiRuntime + '/elasticsearch/bin').exists() && !file(moquiRuntime + '/elasticsearch/pid').exists() }
     doFirst { logger.lifecycle("Starting ElasticSearch installed in runtime/elasticsearch") }
 }
+*/
+task startElasticSearch { doLast {
+    if (file(moquiRuntime + '/elasticsearch/bin').exists() && !file(moquiRuntime + '/elasticsearch/pid').exists()) {
+        logger.lifecycle("Starting ElasticSearch installed in runtime/elasticsearch")
+        ProcessBuilder pb = new ProcessBuilder('./bin/elasticsearch', '-d', '-p', 'pid')
+        pb.directory(new File(moquiRuntime + '/elasticsearch'))
+        pb.redirectOutput()
+        pb.redirectError()
+        pb.start()
+    }
+} }
 task stopElasticSearch { doLast {
     String esDir = moquiRuntime + '/elasticsearch'
     def pidFile = file(moquiRuntime + '/elasticsearch/pid')
@@ -154,6 +172,9 @@ task stopElasticSearch { doLast {
         exec { workingDir esDir; commandLine 'kill', pid }
         // don't bother waiting in this case: exec { workingDir esDir; commandLine 'tail', "--pid=${pid}", '-f', '/dev/null' }
         if (pidFile.exists()) delete pidFile
+    } else {
+        if (!pidFile.exists()) logger.lifecycle("Not Stopping ElasticSearch installed in runtime/elasticsearch, no pid file found")
+        if (!file(moquiRuntime + '/elasticsearch/bin').exists()) logger.lifecycle("No Stopping ElasticSearch. no runtime/elasticsearch/bin directory found")
     }
 } }
 
