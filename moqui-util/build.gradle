@@ -15,7 +15,7 @@
 tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:unchecked" }
 tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:deprecation" }
 
-version = '3.0.0-rc8'
+version = '3.0.0-rc9'
 
 apply plugin: 'java'
 // to run gradle-versions-plugin use "gradle dependencyUpdates"
@@ -44,8 +44,8 @@ repositories {
     mavenCentral()
 }
 
-sourceCompatibility = '1.8'
-targetCompatibility = '1.8'
+sourceCompatibility = 11
+targetCompatibility = 11
 archivesBaseName = 'moqui-util'
 
 dependencies {

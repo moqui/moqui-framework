@@ -17,7 +17,7 @@ tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:deprecation" }
 tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:unchecked" }
 tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:deprecation" }
 
-version = '3.0.0-rc8'
+version = '3.0.0-rc9'
 
 apply plugin: 'groovy'
 apply plugin: 'war'
@@ -46,8 +46,8 @@ repositories {
     mavenCentral()
 }
 
-sourceCompatibility = '1.8'
-targetCompatibility = '1.8'
+sourceCompatibility = 11
+targetCompatibility = 11
 archivesBaseName = 'moqui'
 
 sourceSets {
