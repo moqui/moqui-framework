@@ -135,16 +135,32 @@ task downloadElasticSearch { doLast {
         return it
     } }
 
+    // make sure there is a logs directory, ES start error without it
+    File esLogsDir = file(targetDirPath + '/logs')
+    if (!esLogsDir.exists()) esLogsDir.mkdir()
+
     File extraDir = file(esExtraDirPath)
     if (extraDir.exists()) delete extraDir
 
     delete zipFile
 }}
+/*
 task startElasticSearch(type:Exec) {
     workingDir moquiRuntime + '/elasticsearch'; commandLine './bin/elasticsearch', '-d', '-p', 'pid'
     onlyIf { file(moquiRuntime + '/elasticsearch/bin').exists() && !file(moquiRuntime + '/elasticsearch/pid').exists() }
     doFirst { logger.lifecycle("Starting ElasticSearch installed in runtime/elasticsearch") }
 }
+*/
+task startElasticSearch { doLast {
+    if (file(moquiRuntime + '/elasticsearch/bin').exists() && !file(moquiRuntime + '/elasticsearch/pid').exists()) {
+        logger.lifecycle("Starting ElasticSearch installed in runtime/elasticsearch")
+        ProcessBuilder pb = new ProcessBuilder('./bin/elasticsearch', '-d', '-p', 'pid')
+        pb.directory(new File(moquiRuntime + '/elasticsearch'))
+        pb.redirectOutput()
+        pb.redirectError()
+        pb.start()
+    }
+} }
 task stopElasticSearch { doLast {
     String esDir = moquiRuntime + '/elasticsearch'
     def pidFile = file(moquiRuntime + '/elasticsearch/pid')
