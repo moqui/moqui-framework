@@ -398,6 +398,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="userId" type="id"/>
         <field name="fromDate" type="date-time"/>
         <field name="thruDate" type="date-time"/>
+        <field name="description" type="text-medium"/>
         <relationship type="one" related="moqui.security.UserAccount" short-alias="user"/>
     </entity>
     <entity entity-name="UserLoginHistory" package="moqui.security" use="nontransactional" cache="never">
