@@ -38,7 +38,7 @@ class ConcurrentExecution {
             }))
         }
 
-        def values = []
+        def values = new LinkedList<Object>()
         for (Future future: futures) {
             try {
                 def value = future.get()

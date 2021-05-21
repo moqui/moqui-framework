@@ -68,8 +68,8 @@ dependencies {
     compile project(':moqui-util')
 
     // Groovy
-    // NOTE: update attempt to 3.0.2 has issues with slow build (just slow stub generation? seems others are seeing that too)
-    //     and updated Spock required (tried 2.0-M2-groovy-3.0, not final release and tests didn't work)
+    // NOTE: update attempt to 3.0.8 failed, build performance fine vs 3.0.2, updated Spock required (tried 2.0-groovy-3.0) and
+    //     tests do not run with error 'Invalid test class' '1. No runnable methods'
     compile 'org.codehaus.groovy:groovy:2.5.14' // Apache 2.0
     compile 'org.codehaus.groovy:groovy-dateutil:2.5.14' // Apache 2.0
     compile 'org.codehaus.groovy:groovy-json:2.5.14' // Apache 2.0
