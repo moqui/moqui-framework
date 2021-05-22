@@ -1,7 +1,7 @@
 language: groovy
 
 jdk:
-  - openjdk8
+  - openjdk11
 
 install: true
 
