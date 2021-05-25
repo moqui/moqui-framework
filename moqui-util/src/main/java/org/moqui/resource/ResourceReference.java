@@ -456,6 +456,7 @@ public abstract class ResourceReference implements Serializable {
         // aside from text/*, a few notable exceptions:
         if ("application/javascript".equals(contentType)) return true;
         if ("application/json".equals(contentType)) return true;
+        if ("application/jwt".equals(contentType)) return true;
         if (contentType.endsWith("+json")) return true;
         if ("application/rtf".equals(contentType)) return true;
         if (contentType.startsWith("application/xml")) return true;

@@ -56,12 +56,12 @@ dependencies {
     // SLF4J
     compile 'org.slf4j:slf4j-api:1.7.30'
     // Freemarker
-    compile 'org.freemarker:freemarker:2.3.30' // Apache 2.0
+    compile 'org.freemarker:freemarker:2.3.31' // Apache 2.0
     // Groovy
     compile 'org.codehaus.groovy:groovy:2.5.14' // Apache 2.0
     compile 'org.codehaus.groovy:groovy-json:2.5.14' // Apache 2.0
     // Jetty HTTP Client
-    compile 'org.eclipse.jetty:jetty-client:9.4.35.v20201120' // Apache 2.0
+    compile 'org.eclipse.jetty:jetty-client:9.4.41.v20210516' // Apache 2.0
     // javax.activation - required for Java 11
     compile 'com.sun.activation:javax.activation:1.2.0' // CDDL 1.1
     // Apache Commons

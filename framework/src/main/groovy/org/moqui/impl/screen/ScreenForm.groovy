@@ -173,6 +173,7 @@ class ScreenForm {
                 throw new BaseArtifactException("Cound not find service [${serviceName}] or entity noun referred to in auto-fields-service of form [${newFormNode.attribute("name")}] of screen [${sd.location}]")
             } else if (formSubNode.name == "auto-fields-entity") {
                 String entityName = formSubNode.attribute("entity-name")
+                Boolean addAutoColumns = !"false".equals(formSubNode.attribute("auto-columns"))
 
                 if (isDynamic) {
                     entityName = ecfi.resourceFacade.expandNoL10n(entityName, null)
@@ -190,7 +191,7 @@ class ScreenForm {
                         excludes.add(excludeNode.attribute("field-name"))
                     }
                     addEntityFields(ed, formSubNode.attribute("include")?:"all",
-                            formSubNode.attribute("field-type")?:"find-display", excludes, newFormNode, fieldColumnInfo)
+                            formSubNode.attribute("field-type")?:"find-display", excludes, newFormNode, addAutoColumns ? fieldColumnInfo : null)
                 } else {
                     throw new BaseArtifactException("Cound not find entity [${entityName}] referred to in auto-fields-entity of form [${newFormNode.attribute("name")}] of screen [${sd.location}]")
                 }
@@ -1225,7 +1226,7 @@ class ScreenForm {
                 String key = childNode.attribute('key')
                 if (key != null && key.contains('${')) key = ec.resource.expandNoL10n(key, null)
                 String text = childNode.attribute('text')
-                if (text != null && text.contains('${')) text = ec.resource.expand(text, null)
+                if (text != null) text = ec.resource.expand(text, null)
                 options.put(key, text ?: ec.l10n.localize(key))
             }
         }

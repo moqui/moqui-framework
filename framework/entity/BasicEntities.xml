@@ -48,11 +48,13 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="optionValue" type="text-medium"><description>Usage depends on enum type such as an ID format/mask</description></field>
         <field name="optionIndicator" type="text-indicator"><description>Indicator flag with meaning depending on enum type</description></field>
         <field name="relatedEnumId" type="id"/>
+        <field name="statusFlowId" type="id"/>
         <relationship type="one" related="moqui.basic.EnumerationType" short-alias="type"/>
         <relationship type="one-nofk" title="Parent" related="moqui.basic.Enumeration" short-alias="parent">
             <key-map field-name="parentEnumId"/></relationship>
         <relationship type="one-nofk" title="Related" related="moqui.basic.Enumeration" short-alias="related">
             <key-map field-name="relatedEnumId"/></relationship>
+        <relationship type="one" related="moqui.basic.StatusFlow" short-alias="statusFlow"/>
         <relationship type="many" related="moqui.basic.EnumGroupMember" short-alias="groupMembers">
             <key-map field-name="enumId" related="enumGroupEnumId"/></relationship>
         <seed-data>
@@ -80,6 +82,12 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="enumTypeId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
     </entity>
+    <view-entity entity-name="EnumerationAndType" package="moqui.basic">
+        <member-entity entity-alias="ENUM" entity-name="moqui.basic.Enumeration"/>
+        <member-relationship entity-alias="ETP" join-from-alias="ENUM" relationship="type"/>
+        <alias-all entity-alias="ENUM"/>
+        <alias entity-alias="ETP" name="typeDescription" field="description"/>
+    </view-entity>
     <entity entity-name="EnumGroupMember" package="moqui.basic" use="configuration" cache="true">
         <field name="enumGroupEnumId" type="id" is-pk="true"/>
         <field name="enumId" type="id" is-pk="true"/>
