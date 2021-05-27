@@ -17,6 +17,7 @@ import groovy.transform.CompileStatic
 import org.apache.shiro.authc.IncorrectCredentialsException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.AuthenticationRequiredException
+import org.moqui.context.SecondFactorRequiredException
 import org.moqui.entity.EntityCondition
 import org.moqui.impl.context.ArtifactExecutionInfoImpl.ArtifactAuthzCheck
 import org.moqui.impl.entity.EntityValueBase
@@ -128,10 +129,8 @@ class UserFacadeImpl implements UserFacade {
                 this.session = request.getSession()
             } else {
                 logger.info("login.authenticated " + webSubject.isPermitted().toString())
-                if(eci.web.sessionAttributes.needAuthcFactor == "true"){
-                    logger.info("needs user factor 'true' ")
-                } else if(eci.web.sessionAttributes.needAuthcFactor == true){
-                    logger.info("needs user factor true ")
+                if (eci.web.sessionAttributes.moquiAuthcFactorRequired == "true") {
+                    logger.info("needs user factor 'true'")
                 }
 
                 // effectively login the user for framework (already logged in for session through Shiro)
@@ -667,16 +666,17 @@ class UserFacadeImpl implements UserFacade {
                 eci.getWebImpl().runAfterLoginActions()
                 eci.getWebImpl().getRequest().setAttribute("moqui.request.authenticated", "true")
             }
+        } catch (SecondFactorRequiredException ae) {
+            eci.messageFacade.addMessage("needs authc factor")
+            eci.web.sessionAttributes.put("moquiAuthcFactorUsername", username)
+            eci.web.sessionAttributes.put("moquiAuthcFactorRequired", "true")
+            return true
         } catch (AuthenticationException ae) {
             // others to consider handling differently (these all inherit from AuthenticationException):
             //     UnknownAccountException, IncorrectCredentialsException, ExpiredCredentialsException,
             //     CredentialsException, LockedAccountException, DisabledAccountException, ExcessiveAttemptsException
-            if(ae.message.startsWith("Password incorrect for username")){
-                eci.messageFacade.addError(ae.message)
-            }else if(ae.message.startsWith("Please authenticate")){
-                eci.messageFacade.addMessage("needs authc factor")
-                eci.web.sessionAttributes.put("needAuthcFactor", "true")
-            }
+            eci.messageFacade.addError(ae.message)
+
             return false
         }
 

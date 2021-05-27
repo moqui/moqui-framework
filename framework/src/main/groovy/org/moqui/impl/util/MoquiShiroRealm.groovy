@@ -1,12 +1,12 @@
 /*
- * This software is in the public domain under CC0 1.0 Universal plus a 
+ * This software is in the public domain under CC0 1.0 Universal plus a
  * Grant of Patent License.
- * 
+ *
  * To the extent possible under law, the author(s) have dedicated all
  * copyright and related and neighboring rights to this software to the
  * public domain worldwide. This software is distributed without any
  * warranty.
- * 
+ *
  * You should have received a copy of the CC0 Public Domain Dedication
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
@@ -25,6 +25,7 @@ import org.apache.shiro.util.SimpleByteSource
 import org.moqui.BaseArtifactException
 import org.moqui.Moqui
 import org.moqui.context.AuthenticationRequiredException
+import org.moqui.context.SecondFactorRequiredException
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
@@ -269,11 +270,11 @@ class MoquiShiroRealm implements Realm, Authorizer {
                             .parameters((Map<String, Object>) [userId:newUserAccount.userId]).requireNewTransaction(true).call()
                     throw new IncorrectCredentialsException(ecfi.resource.expand('Password incorrect for username ${username}','',[username:username]))
                 }else{
-                    Map<String, Object> doesUserNeedAuthc = ecfi.serviceFacade.sync().name("mantle.party.PartyServices.does#UserNeedAuthc")
+                    Map<String, Object> doesUserNeedAuthc = ecfi.serviceFacade.sync().name("mantle.party.PartyServices.get#UserNeedSecondFactor")
                             .parameters((Map<String, Object>) [userId:newUserAccount.userId]).call()
                     if(doesUserNeedAuthc.doesUserNeedAuthc){
                         eci.logger.warn("user needs to authenticate with second factor")
-                        throw new AuthenticationException(ecfi.resource.expand('Please authenticate ${username} before logging in','',[username:username]))
+                        throw new SecondFactorRequiredException(ecfi.resource.expand('Please authenticate ${username} before logging in','',[username:username]))
                     }else{
 //                        eci.logger.info("user does not need to authenticate with second factor")
                     }
