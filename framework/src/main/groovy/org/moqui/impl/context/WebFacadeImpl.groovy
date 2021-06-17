@@ -648,6 +648,23 @@ class WebFacadeImpl implements WebFacade {
     @Override List<MessageInfo> getSavedPublicMessages() { return savedPublicMessages }
     @Override List<String> getSavedErrors() { return savedErrors }
     @Override List<ValidationError> getSavedValidationErrors() { return savedValidationErrors }
+    @Override List<ValidationError> getFieldValidationErrors(String fieldName) {
+        List<ValidationError> errorList = null
+        if (savedValidationErrors != null && savedValidationErrors.size() > 0) {
+            for (ValidationError ve in savedValidationErrors) if (fieldName == null || fieldName.equals(ve.field)) {
+                if (errorList == null) errorList = new ArrayList<ValidationError>(5)
+                errorList.add(ve)
+            }
+        }
+        List<ValidationError> mfErrorList = eci.messageFacade.getValidationErrors()
+        if (mfErrorList != null && mfErrorList.size() > 0) {
+            for (ValidationError ve in mfErrorList) if (fieldName == null || fieldName.equals(ve.field)) {
+                if (errorList == null) errorList = new ArrayList<ValidationError>(5)
+                errorList.add(ve)
+            }
+        }
+        return errorList
+    }
 
     @Override
     void sendJsonResponse(Object responseObj) { sendJsonResponseInternal(responseObj, eci, request, response, requestAttributes) }
