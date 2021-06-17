@@ -97,13 +97,14 @@ public class MoquiStart {
             System.out.println("    disable-data-feed ----------- Disable Entity DataFeed");
             System.out.println("    raw ------------------------- For raw data load to an empty database; short for no-fk-create, use-try-insert, disable-eeca, disable-audit-log, disable-data-feed");
             System.out.println("    conf=<moqui.conf> ----------- The Moqui Conf XML file to use, overrides other ways of specifying it");
-            System.out.println("    no-run-es ------------------- Don't Try starting and stopping ElasticSearch in runtime/elasticsearch");
+            System.out.println("    no-run-es ------------------- Don't try starting and stopping ElasticSearch in runtime/elasticsearch");
             System.out.println("    If no -types or -location argument is used all known data files of all types will be loaded.");
             System.out.println("[default] ---- Run embedded Jetty server");
-            System.out.println("    port=<port> ---------------- The http listening port. Default is 8080");
-            System.out.println("    threads=<max threads> ------ Maximum number of threads. Default is 100");
-            System.out.println("    conf=<moqui.conf> ---------- The Moqui Conf XML file to use, overrides other ways of specifying it");
-            System.out.println("    no-run-es ------------------- Don't Try starting and stopping ElasticSearch in runtime/elasticsearch");
+            System.out.println("    port=<port> ----------------- The http listening port. Default is 8080");
+            System.out.println("    threads=<max threads> ------- Maximum number of threads. Default is 100");
+            System.out.println("    conf=<moqui.conf> ----------- The Moqui Conf XML file to use, overrides other ways of specifying it");
+            System.out.println("    no-run-es ------------------- Don't try starting and stopping ElasticSearch in runtime/elasticsearch");
+            System.out.println("    no-proxy-forwarding --------- Don't handle X-Forwarded-* headers");
             System.out.println("");
             System.exit(0);
         }
@@ -219,8 +220,10 @@ public class MoquiStart {
 
             Object server = serverClass.getConstructor().newInstance();
             Object httpConfig = httpConfigurationClass.getConstructor().newInstance();
-            Object forwardedRequestCustomizer = forwardedRequestCustomizerClass.getConstructor().newInstance();
-            httpConfigurationClass.getMethod("addCustomizer", customizerClass).invoke(httpConfig, forwardedRequestCustomizer);
+            if (argMap.containsKey("no-proxy-forwarding")) {
+                Object forwardedRequestCustomizer = forwardedRequestCustomizerClass.getConstructor().newInstance();
+                httpConfigurationClass.getMethod("addCustomizer", customizerClass).invoke(httpConfig, forwardedRequestCustomizer);
+            }
 
             Object httpConnectionFactory = httpConnectionFactoryClass.getConstructor(httpConfigurationClass).newInstance(httpConfig);
             Object connectionFactoryArray = Array.newInstance(connectionFactoryClass, 1);
