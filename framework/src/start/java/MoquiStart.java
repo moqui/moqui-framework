@@ -220,7 +220,7 @@ public class MoquiStart {
 
             Object server = serverClass.getConstructor().newInstance();
             Object httpConfig = httpConfigurationClass.getConstructor().newInstance();
-            if (argMap.containsKey("no-proxy-forwarding")) {
+            if (!argMap.containsKey("no-proxy-forwarding")) {
                 Object forwardedRequestCustomizer = forwardedRequestCustomizerClass.getConstructor().newInstance();
                 httpConfigurationClass.getMethod("addCustomizer", customizerClass).invoke(httpConfig, forwardedRequestCustomizer);
             }
