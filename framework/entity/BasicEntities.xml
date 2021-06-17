@@ -82,6 +82,12 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="enumTypeId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
     </entity>
+    <view-entity entity-name="EnumerationAndType" package="moqui.basic">
+        <member-entity entity-alias="ENUM" entity-name="moqui.basic.Enumeration"/>
+        <member-relationship entity-alias="ETP" join-from-alias="ENUM" relationship="type"/>
+        <alias-all entity-alias="ENUM"/>
+        <alias entity-alias="ETP" name="typeDescription" field="description"/>
+    </view-entity>
     <entity entity-name="EnumGroupMember" package="moqui.basic" use="configuration" cache="true">
         <field name="enumGroupEnumId" type="id" is-pk="true"/>
         <field name="enumId" type="id" is-pk="true"/>
