@@ -129,10 +129,8 @@ class UserFacadeImpl implements UserFacade {
                 this.session = request.getSession()
             } else {
                 logger.info("login.authenticated " + webSubject.isPermitted().toString())
-                if(eci.web.sessionAttributes.moquiAuthcFactorRequired == "true"){
-                    logger.info("needs user factor 'true' ")
-                } else if(eci.web.sessionAttributes.moquiAuthcFactorRequired == true){
-                    logger.info("needs user factor true ")
+                if (eci.web.sessionAttributes.moquiAuthcFactorRequired == "true") {
+                    logger.info("needs user factor 'true'")
                 }
 
                 // effectively login the user for framework (already logged in for session through Shiro)

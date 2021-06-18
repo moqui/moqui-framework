@@ -329,7 +329,8 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Email Code (OTP)" enumId="UafEmail" enumTypeId="UserAuthcFactorType"/>
             <!--            <moqui.basic.Enumeration description="HMAC-based one-time password" enumId="UafHotp" enumTypeId="UserAuthcFactorType"/>-->
         </seed-data>
-    </entity>    <entity entity-name="UserGroup" package="moqui.security" use="configuration" short-alias="userGroups">
+    </entity>
+    <entity entity-name="UserGroup" package="moqui.security" use="configuration" short-alias="userGroups">
         <field name="userGroupId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
         <field name="groupTypeEnumId" type="id"/>
