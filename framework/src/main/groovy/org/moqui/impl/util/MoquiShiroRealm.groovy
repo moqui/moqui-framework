@@ -274,9 +274,9 @@ class MoquiShiroRealm implements Realm, Authorizer {
                             .parameters((Map<String, Object>) [userId:newUserAccount.userId]).call()
                     if(doesUserNeedAuthc.doesUserNeedAuthc){
                         eci.logger.warn("user needs to authenticate with second factor")
-                        throw new SecondFactorRequiredException(ecfi.resource.expand('Please authenticate ${username} before logging in','',[username:username]))
+//                        throw new SecondFactorRequiredException(ecfi.resource.expand('Please authenticate ${username} before logging in','',[username:username]))
                     }else{
-//                        eci.logger.info("user does not need to authenticate with second factor")
+                        eci.logger.info("user does not need to authenticate with second factor")
                     }
 
                 }

@@ -134,7 +134,7 @@ class UserFacadeImpl implements UserFacade {
                 }
 
                 // effectively login the user for framework (already logged in for session through Shiro)
-//                pushUserSubject(webSubject)
+                pushUserSubject(webSubject)
                 if (logger.traceEnabled) logger.trace("For new request found user [${getUsername()}] in the session")
             }
         } else {
