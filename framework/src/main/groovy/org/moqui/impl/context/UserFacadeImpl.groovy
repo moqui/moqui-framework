@@ -102,7 +102,7 @@ class UserFacadeImpl implements UserFacade {
 
         String preUsername = getUsername()
         Subject webSubject = makeEmptySubject()
-        logger.info("login " + webSubject.authenticated)
+        logger.info("Is user authenticated? " + webSubject.authenticated)
         if (webSubject.authenticated) {
             String sesUsername = (String) webSubject.getPrincipal()
             if (preUsername != null && !preUsername.isEmpty()) {
@@ -129,7 +129,7 @@ class UserFacadeImpl implements UserFacade {
                 this.session = request.getSession()
             } else {
                 logger.info("login.authenticated " + webSubject.isPermitted().toString())
-                if (eci.web.sessionAttributes.moquiAuthcFactorRequired == "true") {
+                if (eci.web.sessionAttributes.moquiAuthcFactorStatus == "true") {
                     logger.info("needs user factor 'true'")
                 }
 
@@ -661,15 +661,18 @@ class UserFacadeImpl implements UserFacade {
             pushUserSubject(loginSubject)
 
             // after successful login trigger the after-login actions
-            //TODO: not sure why this is a thing (do I need to put this in the second catch?)
             if (eci.getWebImpl() != null) {
                 eci.getWebImpl().runAfterLoginActions()
-                eci.getWebImpl().getRequest().setAttribute("moqui.request.authenticated", "true")
+                eci.getWebImpl().getRequest().setAttribute("moqui.request.authenticated", "true") //TODO: I don't think I need moqui.request.authenticated
             }
         } catch (SecondFactorRequiredException ae) {
-            eci.messageFacade.addMessage("needs authc factor")
+//            eci.messageFacade.addMessage("needs authc factor")
             eci.web.sessionAttributes.put("moquiAuthcFactorUsername", username)
-            eci.web.sessionAttributes.put("moquiAuthcFactorRequired", "true")
+            eci.web.sessionAttributes.put("moquiAuthcFactorStatus", "true")
+//            eci.web.sessionAttributes.put("userLoginSubject", loginSubject)
+
+            // TODO: Check if line below can be deleted
+
             return true
         } catch (AuthenticationException ae) {
             // others to consider handling differently (these all inherit from AuthenticationException):
@@ -703,7 +706,7 @@ class UserFacadeImpl implements UserFacade {
             // after successful login trigger the after-login actions
             if (eci.getWebImpl() != null) {
                 eci.getWebImpl().runAfterLoginActions()
-                eci.getWebImpl().getRequest().setAttribute("moqui.request.authenticated", "true")
+                eci.getWebImpl().getRequest().setAttribute("moqui.request.authenticated", "true") //TODO: I don't think I need moqui.request.authenticated
             }
         } catch (AuthenticationException ae) {
             eci.messageFacade.addError(ae.message)

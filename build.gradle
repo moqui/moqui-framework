@@ -339,7 +339,7 @@ task gitTagAll {
         boolean pushTags = (project.hasProperty('push') && push == 'true')
 
         // Users can simply push tags to the remote
-        if (tagName == null && pushTags == false) 
+        if (tagName == null && pushTags == false)
             throw new InvalidUserDataException("No tag property specified (use -Ptag=...) and No push tag specified (use -Ppush=true)")
 
         List<String> gitDirectories = []
@@ -389,7 +389,7 @@ task gitTagAll {
 task gitDiffTagsAll {
     description "Do a git diff between two tags in the currently checked out branch in moqui, runtime, and each installed component"
     doLast {
-        if (!project.hasProperty('taga') || taga == null) 
+        if (!project.hasProperty('taga') || taga == null)
             throw new InvalidUserDataException("No taga property specified (use -Ptaga=...)")
 
         // If tagb is not passed, we assume HEAD
@@ -415,7 +415,7 @@ task gitDiffTagsAll {
             logger.lifecycle("${relativePath}")
 
             if ((taga == "HEAD" || tagaCommit != null) && (tagb == "HEAD" || tagbCommit != null)) {
-                grgit.log { 
+                grgit.log {
                     range taga, tagb
                 }.each {
                     logger.lifecycle("    ${it.abbreviatedId} - ${it.shortMessage}")
@@ -907,6 +907,36 @@ def cleanVersionDetailFiles() {
     for (File compDir in file('runtime/component').listFiles().findAll { it.isDirectory() }) {
         File versionDetailFile = file(compDir.path + '/version.json')
         if (versionDetailFile.exists()) versionDetailFile.delete()
+    }
+}
+
+task setupIntellij {
+    doLast {
+        def ideaDir = "${rootDir}/.idea"
+        def xsdDir = "${rootDir}/framework/xsd"
+        def parser = new XmlSlurper()
+        parser.setFeature("http://apache.org/xml/features/disallow-doctype-decl", false)
+        parser.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
+        def xmlCatalog = parser.parse(file("${xsdDir}/framework-catalog.xml"))
+        def builder = new groovy.xml.StreamingMarkupBuilder()
+        builder.encoding = 'UTF-8'
+        def rawXml = builder.bind {
+            project(version: '4') {
+                component(name: 'ExternalStorageConfigurationManager', enabled: true)
+                component(name: 'ProjectResources') {
+                    xmlCatalog.system.each { entry ->
+                        resource(
+                                url: entry.@systemId,
+                                location: "\$PROJECT_DIR/framework/xsd/${entry.@uri}"
+                        )
+                    }
+                }
+            }
+        }
+        def misc = groovy.xml.XmlUtil.serialize(rawXml)
+        delete "${ideaDir}/misc.xml"
+        mkdir ideaDir
+        new File("${ideaDir}/misc.xml").write(misc)
     }
 }
 

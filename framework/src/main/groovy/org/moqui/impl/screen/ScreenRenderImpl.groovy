@@ -1,12 +1,12 @@
 /*
  * This software is in the public domain under CC0 1.0 Universal plus a
  * Grant of Patent License.
- * 
+ *
  * To the extent possible under law, the author(s) have dedicated all
  * copyright and related and neighboring rights to this software to the
  * public domain worldwide. This software is distributed without any
  * warranty.
- * 
+ *
  * You should have received a copy of the CC0 Public Domain Dedication
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
@@ -425,8 +425,9 @@ class ScreenRenderImpl implements ScreenRender {
                 // require a moquiSessionToken parameter for all but get
                 if (request.getMethod().toLowerCase() != "get" && webappInfo != null && webappInfo.requireSessionToken &&
                         targetTransition.getRequireSessionToken() &&
-                        !"true".equals(request.getAttribute("moqui.session.token.created")) &&
-                        !"true".equals(request.getAttribute("moqui.request.authenticated"))) {
+                        !"true".equals(request.getAttribute("moqui.session.token.created"))
+                        && !"true".equals(request.getAttribute("moqui.request.authenticated"))//TODO: I don't think I need moqui.request.authenticated
+                ) {
                     String passedToken = (String) ec.web.getParameters().get("moquiSessionToken")
                     if (!passedToken) passedToken = request.getHeader("moquiSessionToken") ?:
                             request.getHeader("SessionToken") ?: request.getHeader("X-CSRF-Token")
