@@ -47,6 +47,7 @@ return;
     if (true) {
         <#if handleResult>def call_service_result = </#if>ec.service.<#if isAsync>async()<#else>sync()</#if><#rt>
             <#t>.name("${.node.@name}")<#if .node["@async"]?if_exists == "distribute">.distribute(true)</#if>
+            <#t><#if !isAsync && .node["@disable-authz"]?if_exists == "true">.disableAuthz()</#if>
             <#t><#if !isAsync && .node["@multi"]?if_exists == "true">.multi(true)</#if><#if !isAsync && .node["@multi"]?if_exists == "parameter">.multi(ec.web?.requestParameters?._isMulti == "true")</#if>
             <#t><#if !isAsync && .node["@transaction"]?has_content><#if .node["@transaction"] == "ignore">.ignoreTransaction(true)<#elseif .node["@transaction"] == "force-new" || .node["@transaction"] == "force-cache">.requireNewTransaction(true)</#if>
             <#t><#if !isAsync && .node["@transaction-timeout"]?has_content>.transactionTimeout(${.node["@transaction-timeout"]})</#if>
