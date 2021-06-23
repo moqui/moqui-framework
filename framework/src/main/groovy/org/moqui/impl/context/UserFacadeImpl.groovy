@@ -985,7 +985,7 @@ class UserFacadeImpl implements UserFacade {
             EntityValueBase ua = (EntityValueBase) null
             if (username != null && username.length() > 0) {
                 ua = (EntityValueBase) ufi.eci.getEntity().find("moqui.security.UserAccount")
-                        .condition("username", username).useCache(true).disableAuthz().one()
+                        .condition("username", username).useCache(false).disableAuthz().one()
             }
             if (ua != null) {
                 userAccount = ua
