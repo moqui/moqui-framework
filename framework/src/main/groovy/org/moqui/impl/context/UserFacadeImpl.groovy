@@ -270,8 +270,6 @@ class UserFacadeImpl implements UserFacade {
     void initFromHandshakeRequest(HandshakeRequest request) {
         this.session = (HttpSession) request.getHttpSession()
 
-        logger.info("used init handshake request")
-
         // get client IP address, handle proxy original address if exists
         String forwardedFor = request.getHeaders().get("X-Forwarded-For")?.first()
         if (forwardedFor != null && !forwardedFor.isEmpty()) { clientIpInternal = forwardedFor.split(",")[0].trim() }
@@ -281,7 +279,6 @@ class UserFacadeImpl implements UserFacade {
         // login user from value in session
         Subject webSubject = makeEmptySubject()
         if (webSubject.authenticated) {
-            logger.info("used init init handshake login")
             // effectively login the user
             pushUserSubject(webSubject)
             if (logger.traceEnabled) logger.trace("For new request found user [${username}] in the session")
@@ -326,7 +323,6 @@ class UserFacadeImpl implements UserFacade {
     }
     void initFromHttpSession(HttpSession session) {
         this.session = session
-        logger.info("used init http session")
         Subject webSubject = makeEmptySubject()
         if (webSubject.authenticated) {
             // effectively login the user

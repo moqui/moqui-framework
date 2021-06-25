@@ -910,36 +910,6 @@ def cleanVersionDetailFiles() {
     }
 }
 
-task setupIntellij {
-    doLast {
-        def ideaDir = "${rootDir}/.idea"
-        def xsdDir = "${rootDir}/framework/xsd"
-        def parser = new XmlSlurper()
-        parser.setFeature("http://apache.org/xml/features/disallow-doctype-decl", false)
-        parser.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
-        def xmlCatalog = parser.parse(file("${xsdDir}/framework-catalog.xml"))
-        def builder = new groovy.xml.StreamingMarkupBuilder()
-        builder.encoding = 'UTF-8'
-        def rawXml = builder.bind {
-            project(version: '4') {
-                component(name: 'ExternalStorageConfigurationManager', enabled: true)
-                component(name: 'ProjectResources') {
-                    xmlCatalog.system.each { entry ->
-                        resource(
-                                url: entry.@systemId,
-                                location: "\$PROJECT_DIR\$/framework/xsd/${entry.@uri}"
-                        )
-                    }
-                }
-            }
-        }
-        def misc = groovy.xml.XmlUtil.serialize(rawXml)
-        delete "${ideaDir}/misc.xml"
-        mkdir ideaDir
-        new File("${ideaDir}/misc.xml").write(misc)
-    }
-}
-
 // ========== combined tasks ==========
 
 task cleanPullLoad { dependsOn cleanAll, gitPullAll, load }
