@@ -335,6 +335,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="description" type="text-medium"/>
         <field name="groupTypeEnumId" type="id"/>
         <field name="ipAllowed" type="text-medium"><description>See UserAccout.ipAllowed</description></field>
+        <field name="requireAuthcFactor" type="text-indicator"/>
         <relationship type="one" title="UserGroupType" related="moqui.basic.Enumeration" short-alias="groupTypeEnum">
             <key-map field-name="groupTypeEnumId"/></relationship>
         <relationship type="many" related="moqui.security.UserGroupPermission" short-alias="permissions">

@@ -129,7 +129,7 @@ class UserFacadeImpl implements UserFacade {
                 this.session = request.getSession()
             } else {
                 logger.info("login.authenticated " + webSubject.isPermitted().toString())
-                if (eci.web.sessionAttributes.moquiAuthcFactorStatus == "true") {
+                if (eci.web.sessionAttributes.moquiAuthcFactorRequired == "true") {
                     logger.info("needs user factor 'true'")
                 }
 
@@ -655,6 +655,8 @@ class UserFacadeImpl implements UserFacade {
             loginSubject.login(token)
 
             //TODO: put the mfa stuff here (I think)
+            eci.web.sessionAttributes.remove("moquiAuthcFactorUsername")
+            eci.web.sessionAttributes.remove("moquiAuthcFactorRequired")
 
             // do this first so that the rest will be done as this user
             // just in case there is already a user authenticated push onto a stack to remember
@@ -668,7 +670,7 @@ class UserFacadeImpl implements UserFacade {
         } catch (SecondFactorRequiredException ae) {
 //            eci.messageFacade.addMessage("needs authc factor")
             eci.web.sessionAttributes.put("moquiAuthcFactorUsername", username)
-            eci.web.sessionAttributes.put("moquiAuthcFactorStatus", "true")
+            eci.web.sessionAttributes.put("moquiAuthcFactorRequired", "true")
 //            eci.web.sessionAttributes.put("userLoginSubject", loginSubject)
 
             // TODO: Check if line below can be deleted
