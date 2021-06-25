@@ -270,10 +270,9 @@ class MoquiShiroRealm implements Realm, Authorizer {
                             .parameters((Map<String, Object>) [userId:newUserAccount.userId]).requireNewTransaction(true).call()
                     throw new IncorrectCredentialsException(ecfi.resource.expand('Password incorrect for username ${username}','',[username:username]))
                 } else {
-                    Map<String, Object> userRequireAuthc = ecfi.serviceFacade.sync().name("mantle.party.PartyServices.get#UserNeedAuthcFactor")
+                    Map<String, Object> userRequireAuthc = ecfi.serviceFacade.sync().name("org.moqui.impl.UserServices.get#UserNeedAuthcFactor")
                             .parameters((Map<String, Object>) [userId:newUserAccount.userId]).call()
                     if (userRequireAuthc.userRequireAuthc) {
-//                        eci.logger.warn("user needs to authenticate with second factor")
                         throw new SecondFactorRequiredException(ecfi.resource.expand('Please authenticate ${username} before logging in','',[username:username]))
                     }
                 }
