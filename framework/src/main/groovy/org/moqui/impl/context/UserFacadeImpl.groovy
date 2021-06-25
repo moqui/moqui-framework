@@ -654,7 +654,6 @@ class UserFacadeImpl implements UserFacade {
             // do the actual login through Shiro
             loginSubject.login(token)
 
-            //TODO: put the mfa stuff here (I think)
             eci.web.sessionAttributes.remove("moquiAuthcFactorUsername")
             eci.web.sessionAttributes.remove("moquiAuthcFactorRequired")
 
@@ -665,16 +664,11 @@ class UserFacadeImpl implements UserFacade {
             // after successful login trigger the after-login actions
             if (eci.getWebImpl() != null) {
                 eci.getWebImpl().runAfterLoginActions()
-                eci.getWebImpl().getRequest().setAttribute("moqui.request.authenticated", "true") //TODO: I don't think I need moqui.request.authenticated
+                eci.getWebImpl().getRequest().setAttribute("moqui.request.authenticated", "true")
             }
         } catch (SecondFactorRequiredException ae) {
-//            eci.messageFacade.addMessage("needs authc factor")
             eci.web.sessionAttributes.put("moquiAuthcFactorUsername", username)
             eci.web.sessionAttributes.put("moquiAuthcFactorRequired", "true")
-//            eci.web.sessionAttributes.put("userLoginSubject", loginSubject)
-
-            // TODO: Check if line below can be deleted
-
             return true
         } catch (AuthenticationException ae) {
             // others to consider handling differently (these all inherit from AuthenticationException):
@@ -684,7 +678,6 @@ class UserFacadeImpl implements UserFacade {
 
             return false
         }
-
         return true
     }
 
@@ -708,7 +701,7 @@ class UserFacadeImpl implements UserFacade {
             // after successful login trigger the after-login actions
             if (eci.getWebImpl() != null) {
                 eci.getWebImpl().runAfterLoginActions()
-                eci.getWebImpl().getRequest().setAttribute("moqui.request.authenticated", "true") //TODO: I don't think I need moqui.request.authenticated
+                eci.getWebImpl().getRequest().setAttribute("moqui.request.authenticated", "true")
             }
         } catch (AuthenticationException ae) {
             eci.messageFacade.addError(ae.message)
