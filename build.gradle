@@ -927,7 +927,7 @@ task setupIntellij {
                     xmlCatalog.system.each { entry ->
                         resource(
                                 url: entry.@systemId,
-                                location: "\$PROJECT_DIR/framework/xsd/${entry.@uri}"
+                                location: "\$PROJECT_DIR\$/framework/xsd/${entry.@uri}"
                         )
                     }
                 }
