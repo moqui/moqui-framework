@@ -405,11 +405,6 @@ along with this software (see the LICENSE.md file). If not, see
                     </else-if>
                 </if>
             </iterate>
-
-            <if condition="!verified">
-                <then><return error="true" message="Invalid Authentication Factor Code"/></then>
-                <else><return type="success" message="Valid Authentication Factor Code"/></else>
-            </if>
         </actions>
     </service>
     <service verb="get" noun="UserNeedAuthcFactor" authenticate="anonymous-all">
@@ -436,8 +431,6 @@ along with this software (see the LICENSE.md file). If not, see
                 <econdition field-name="userGroupId" operator="in" from="ec.user.getUserGroupIdSet(userId)"/>
                 <econdition field-name="requireAuthcFactor" value="Y"/>
             </entity-find-count>
-
-            <log level="warn" message="userId: ${userId} userGroupCount: ${userGroupCount} \n ec.user.getUserGroupIdSet(): ${ec.user.getUserGroupIdSet(userId)}"/>
 
             <if condition="userGroupCount">
                 <set field="userRequireAuthc" from="true"/>
@@ -524,8 +517,6 @@ along with this software (see the LICENSE.md file). If not, see
                 <field-map field-name="toAddresses" from="userAuthcFactor.factorOption"/>
                 <field-map field-name="bodyParameters" from="[code:code,thruDateString:thruDate.toString()]"/></service-call>
 
-            <return type="success" message="Email sent with authentication code to: ${userAuthcFactor.factorOption}. The code will be valid until whichever one is first: the code being successfully used or ${thruDate.toString()}"/>
-
             <!-- if the email just sent to is not the main email address for the user send the main email address a notification email that an email with a code was sent -->
             <if condition="userAccount.emailAddress">
                 <if condition="userAccount.emailAddress != userAuthcFactor.factorOption">
@@ -578,19 +569,22 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="create" noun="UserAuthcFactorTotp">
         <description>Create an Authenticator App Factor.</description>
         <in-parameters>
-            <parameter name="userId"/>
+            <parameter name="userId" required="true"/>
             <parameter name="thruDate" type="Timestamp" default="ec.user.nowTimestamp + 365"/>
+            <parameter name="needsValidation" default-value="Y"/>
         </in-parameters>
         <out-parameters>
             <parameter name="factorId"/>
             <parameter name="factorOption"/>
         </out-parameters>
         <actions>
-            <script>import dev.samstevens.totp.secret.DefaultSecretGenerator; DefaultSecretGenerator gen = new DefaultSecretGenerator();</script>
+            <script>
+                import dev.samstevens.totp.secret.DefaultSecretGenerator
+                DefaultSecretGenerator gen = new DefaultSecretGenerator()
+            </script>
             <set field="factorTypeEnumId" value="UafTotp"/>
             <set field="fromDate" from="ec.user.nowTimestamp"/>
             <set field="factorOption" from="gen.generate()"/>
-            <set field="needsValidation" value="Y"/>
             <service-call name="create#moqui.security.UserAuthcFactor" in-map="context" out-map="context"/>
         </actions>
     </service>
@@ -613,19 +607,24 @@ along with this software (see the LICENSE.md file). If not, see
                 <field-map field-name="userId" from="userId"/></entity-find-one>
 
             <if condition="!factorId"><then>
-                <service-call name="org.moqui.impl.UserServices.create#UserAuthcFactorTotp" in-map="[userId:userId, thruDate:thruDate]" out-map="userFactor"/>
+                <service-call name="org.moqui.impl.UserServices.create#UserAuthcFactorTotp"
+                              in-map="[userId:userId, thruDate:thruDate]" out-map="userFactor"/>
             </then><else>
                 <entity-find-one entity-name="moqui.security.UserAuthcFactor" value-field="userFactor">
-                    <field-map field-name="factorId" value="${factorId}"/>
-                    <field-map field-name="userId" value="${userId}"/></entity-find-one>
+                    <field-map field-name="factorId"/>
+                    <field-map field-name="userId"/>
+                </entity-find-one>
             </else></if>
             <set field="factorOption" from="userFactor.factorOption"/>
 
-            <script>import dev.samstevens.totp.qr.*;import dev.samstevens.totp.code.HashingAlgorithm;import dev.samstevens.totp.util.Utils;
-                QrData data = new QrData.Builder()
-                .label(userAccount.username).secret(factorOption).issuer(ec.web.getHostName(false))
-                .algorithm(HashingAlgorithm.SHA1).digits(6).period(30).build();
-                QrGenerator generator = new ZxingPngQrGenerator();</script>
+            <script>
+                import dev.samstevens.totp.qr.*
+                import dev.samstevens.totp.code.HashingAlgorithm
+                import dev.samstevens.totp.util.Utils
+                QrData data = new QrData.Builder().label(userAccount.username).secret(factorOption).issuer(ec.web.getHostName(false))
+                    .algorithm(HashingAlgorithm.SHA1).digits(6).period(30).build()
+                QrGenerator generator = new ZxingPngQrGenerator()
+            </script>
             <set field="qrLabel" from="data.label"/><set field="qrIssuer" from="data.issuer"/><set field="qrSecret" from="data.secret"/>
             <set field="dataUri" from="Utils.getDataUriForImage(generator.generate(data), generator.getImageMimeType())"/>
             <set field="needsValidation" from="userFactor.needsValidation"/>
