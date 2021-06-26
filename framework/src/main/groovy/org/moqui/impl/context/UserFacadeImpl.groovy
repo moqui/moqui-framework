@@ -102,7 +102,6 @@ class UserFacadeImpl implements UserFacade {
 
         String preUsername = getUsername()
         Subject webSubject = makeEmptySubject()
-        logger.info("Is user authenticated? " + webSubject.authenticated)
         if (webSubject.authenticated) {
             String sesUsername = (String) webSubject.getPrincipal()
             if (preUsername != null && !preUsername.isEmpty()) {
@@ -128,10 +127,6 @@ class UserFacadeImpl implements UserFacade {
                 if (oldSession != null) oldSession.invalidate()
                 this.session = request.getSession()
             } else {
-                logger.info("login.authenticated " + webSubject.isPermitted().toString())
-                if (eci.web.sessionAttributes.moquiAuthcFactorRequired == "true") {
-                    logger.info("needs user factor 'true'")
-                }
 
                 // effectively login the user for framework (already logged in for session through Shiro)
                 pushUserSubject(webSubject)
