@@ -354,12 +354,11 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
-
     <!-- ================================================= -->
     <!-- ====== User Authentication Factor Services ====== -->
     <!-- ================================================= -->
 
-    <!-- TODO: figure out how to limit the amount of tries for a user -->
+    <!-- TODO: Limit the amount of attempts to validate authc code. Similair to Tarpit Locks (I think). -->
     <service verb="validate" noun="UserAuthcFactorCode">
         <description>Determine whether a user inputted code is valid based on the current UserAuthcFactor entries for that user.</description>
         <in-parameters>
@@ -373,6 +372,7 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <set field="verified" from="false"/>
 
+            <!-- This is the setup script for verifying TOTP codes withe samstevens library. -->
             <script>import dev.samstevens.totp.time.*;import dev.samstevens.totp.code.*;
                 TimeProvider timeProvider = new SystemTimeProvider();
                 CodeGenerator codeGenerator = new DefaultCodeGenerator();
@@ -422,6 +422,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <econdition field-name="userId"/>
             </entity-find-count>
 
+            <!-- If the user has any currently valid UserAuthcFactor records in the database, require authentication for the user -->
             <if condition="userAuthcFactorCount">
                 <set field="userRequireAuthc" from="true"/>
                 <return/>
@@ -432,6 +433,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <econdition field-name="requireAuthcFactor" value="Y"/>
             </entity-find-count>
 
+            <!-- If the user does not have any UserAuthcFactor records, but the user is in a group that requires authentication, require authentication for the user. -->
             <if condition="userGroupCount">
                 <set field="userRequireAuthc" from="true"/>
                 <return/>
@@ -459,8 +461,12 @@ along with this software (see the LICENSE.md file). If not, see
                 <econdition field-name="fromFactorId"/>
                 <econdition field-name="factorTypeEnumId" value="UafSingleUse"/>
             </entity-find>
+
+            <!-- This automatically invalidates any current single use authentication codes that are from the fromFactorId -->
             <iterate list="userAuthcFactorList" entry="userAuthcFactor"><service-call name="update#moqui.security.UserAuthcFactor" in-map="[factorId:userAuthcFactor.factorId, thruDate:ec.user.nowTimestamp]"/></iterate>
             <set field="singleUseCodes" from="[]"/>
+
+            <!-- This generates the actual codes using java's SecureRandom library (currently 8 integer digits) -->
             <script>for (int i = 0; i &lt; numberOfCodes; i++) singleUseCodes.add(java.security.SecureRandom.getInstanceStrong().nextInt(99999999).toString().padLeft(8,'0'))</script>
             <iterate list="singleUseCodes" entry="code">
                 <set field="factorOption" from="ec.ecfi.getSimpleHash(code, 'SaltySalt')"/>
@@ -481,12 +487,14 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="thruDate"/>
         </out-parameters>
         <actions>
+            <!-- If there is a fromFactorId, this automatically invalidates any current single use authentication codes that are from the fromFactorId -->
             <if condition="fromFactorId">
                 <entity-find entity-name="moqui.security.UserAuthcFactor" list="userAuthcFactorList">
                     <date-filter/><econdition field-name="userId"/><econdition field-name="fromFactorId"/>
                     <econdition field-name="factorTypeEnumId" value="UafSingleUse"/></entity-find>
                 <iterate list="userAuthcFactorList" entry="userAuthcFactor"><service-call name="update#moqui.security.UserAuthcFactor" in-map="[factorId:userAuthcFactor.factorId, thruDate:ec.user.nowTimestamp]"/></iterate>
             </if>
+
             <set field="factorTypeEnumId" value="UafSingleUse"/>
             <set field="fromDate" from="ec.user.nowTimestamp"/>
             <set field="code" from="java.security.SecureRandom.getInstanceStrong().nextInt(999999).toString().padLeft(6,'0')"/>
@@ -555,16 +563,17 @@ along with this software (see the LICENSE.md file). If not, see
 
             <if condition="userAuthcFactorCount == 0">
                 <then>
+                    <!-- If there are no UserAuthcFactor entries for this user with the same email, create the UserAuthcFactor. -->
                     <service-call name="create#moqui.security.UserAuthcFactor" in-map="context" out-map="context"/>
                     <service-call name="org.moqui.impl.UserServices.send#AuthcCodeEmail" in-map="emailFactorId:factorId" out-map="context"/>
                 </then>
                 <else-if condition="userAuthcFactorCount == 1">
+                    <!-- There is an UserAuthcFactor for this user that has the same email. Send error message to the user.-->
                     <return error="true" message="Email entry already exists for: ${factorOption}. Cannot create duplicate email."/>
                 </else-if>
             </if>
         </actions>
     </service>
-
 
     <service verb="create" noun="UserAuthcFactorTotp">
         <description>Create an Authenticator App Factor.</description>
@@ -606,15 +615,19 @@ along with this software (see the LICENSE.md file). If not, see
             <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
                 <field-map field-name="userId" from="userId"/></entity-find-one>
 
-            <if condition="!factorId"><then>
-                <service-call name="org.moqui.impl.UserServices.create#UserAuthcFactorTotp"
-                              in-map="[userId:userId, thruDate:thruDate]" out-map="userFactor"/>
-            </then><else>
-                <entity-find-one entity-name="moqui.security.UserAuthcFactor" value-field="userFactor">
-                    <field-map field-name="factorId"/>
-                    <field-map field-name="userId"/>
-                </entity-find-one>
-            </else></if>
+            <if condition="!factorId">
+                <then>
+                    <!-- If this service is called and no factorId is specified it will create a Totp UserAuthcFactor entry -->
+                    <service-call name="org.moqui.impl.UserServices.create#UserAuthcFactorTotp"
+                                  in-map="[userId:userId, thruDate:thruDate]" out-map="userFactor"/>
+                </then><else>
+                    <!-- If this service is called and a factorId is specified, get the userFactor from the database -->
+                    <entity-find-one entity-name="moqui.security.UserAuthcFactor" value-field="userFactor">
+                        <field-map field-name="factorId"/>
+                        <field-map field-name="userId"/>
+                    </entity-find-one>
+                </else>
+            </if>
             <set field="factorOption" from="userFactor.factorOption"/>
 
             <script>
@@ -649,5 +662,4 @@ along with this software (see the LICENSE.md file). If not, see
             </iterate>
         </actions>
     </service>
-
 </services>

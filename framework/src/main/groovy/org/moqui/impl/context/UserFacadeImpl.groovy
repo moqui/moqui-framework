@@ -645,6 +645,7 @@ class UserFacadeImpl implements UserFacade {
             // do the actual login through Shiro
             loginSubject.login(token)
 
+            // this ensures that after correctly logging in, a previously attempted login user's "Second Factor" screen isn't displayed
             eci.web.sessionAttributes.remove("moquiAuthcFactorUsername")
             eci.web.sessionAttributes.remove("moquiAuthcFactorRequired")
 
@@ -658,6 +659,7 @@ class UserFacadeImpl implements UserFacade {
                 eci.getWebImpl().getRequest().setAttribute("moqui.request.authenticated", "true")
             }
         } catch (SecondFactorRequiredException ae) {
+            // This makes the session realize the this user needs to verify login with an authentication factor
             eci.web.sessionAttributes.put("moquiAuthcFactorUsername", username)
             eci.web.sessionAttributes.put("moquiAuthcFactorRequired", "true")
             return true
