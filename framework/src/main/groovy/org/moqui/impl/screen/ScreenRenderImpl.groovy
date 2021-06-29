@@ -425,8 +425,8 @@ class ScreenRenderImpl implements ScreenRender {
                 // require a moquiSessionToken parameter for all but get
                 if (request.getMethod().toLowerCase() != "get" && webappInfo != null && webappInfo.requireSessionToken &&
                         targetTransition.getRequireSessionToken() &&
-                        !"true".equals(request.getAttribute("moqui.session.token.created"))
-                        && !"true".equals(request.getAttribute("moqui.request.authenticated"))) {
+                        !"true".equals(request.getAttribute("moqui.session.token.created")) &&
+                        !"true".equals(request.getAttribute("moqui.request.authenticated"))) {
                     String passedToken = (String) ec.web.getParameters().get("moquiSessionToken")
                     if (!passedToken) passedToken = request.getHeader("moquiSessionToken") ?:
                             request.getHeader("SessionToken") ?: request.getHeader("X-CSRF-Token")
