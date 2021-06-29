@@ -308,7 +308,7 @@ along with this software (see the LICENSE.md file). If not, see
         <alias name="emailNotifications" entity-alias="NTU"/>
     </view-entity>
     <entity entity-name="UserAuthcFactor" package="moqui.security" use="configuration">
-        <description>Use this entity for user-specific preferences (or properties). For default preferences use userId="_NA_".</description>
+        <description>This entity is for recording User Authentication Factors.</description>
         <field name="factorId" type="id" is-pk="true"/>
         <field name="userId" type="id" not-null="true"/>
         <field name="fromFactorId" type="id"/>
