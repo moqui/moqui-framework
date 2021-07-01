@@ -24,7 +24,6 @@ import org.apache.shiro.subject.PrincipalCollection
 import org.apache.shiro.util.SimpleByteSource
 import org.moqui.BaseArtifactException
 import org.moqui.Moqui
-import org.moqui.context.AuthenticationRequiredException
 import org.moqui.context.SecondFactorRequiredException
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityList
@@ -270,12 +269,22 @@ class MoquiShiroRealm implements Realm, Authorizer {
                             .parameters((Map<String, Object>) [userId:newUserAccount.userId]).requireNewTransaction(true).call()
                     throw new IncorrectCredentialsException(ecfi.resource.expand('Password incorrect for username ${username}','',[username:username]))
                 } else {
-                    // if the user's credentials are correct, check if the user requires an additional authentication factor step.
-                    Map<String, Object> activeUser = ecfi.serviceFacade.sync().name("org.moqui.impl.UserServices.get#UserNeedAuthcFactor")
-                            .parameters((Map<String, Object>) [userId:newUserAccount.userId]).call()
+                    // if the user's credentials are correct, check if the user requires an additional authentication factor step
+
+                    boolean userRequireAuthc = false
+                    long userAuthcFactorCount = eci.entityFacade.find("moqui.security.UserAuthcFactor")
+                            .conditionDate(null, null, null).condition("userId", userId).disableAuthz().count()
+                    if (userAuthcFactorCount > 0) userRequireAuthc = true
+                    if (!userRequireAuthc) {
+                        long userGroupCount = eci.entityFacade.find("moqui.security.UserGroup")
+                                .condition("userGroupId", EntityCondition.IN, eci.userFacade.getUserGroupIdSet(userId))
+                                .condition("requireAuthcFactor", "Y").disableAuthz().count()
+                        if (userGroupCount > 0) userRequireAuthc = true
+                    }
+
                     // if the user requires authentication, throw a SecondFactorRequiredException so that UserFacadeImpl.groovy can catch the error and perform the appropriate action.
-                    if (activeUser.userRequireAuthc) {
-                        throw new SecondFactorRequiredException(ecfi.resource.expand('Please authenticate ${username} before logging in','',[username:username]))
+                    if (userRequireAuthc) {
+                        throw new SecondFactorRequiredException(ecfi.resource.expand('User ${username} requires an authentication code to login','',[username:username]))
                     }
                 }
             }
