@@ -410,45 +410,11 @@ along with this software (see the LICENSE.md file). If not, see
             </iterate>
         </actions>
     </service>
-    <service verb="get" noun="UserNeedAuthcFactor" authenticate="anonymous-all">
-        <description>A user requires a second factor to login if they have any factors configured, or they are in a UserGroup that requires a second factor.</description>
-        <in-parameters><parameter name="userId" required="true"/></in-parameters>
-        <out-parameters>
-            <parameter name="userRequireAuthc" type="Boolean"/>
-        </out-parameters>
-        <actions>
-
-            <set field="userRequireAuthc" from="false"/>
-
-            <entity-find-count entity-name="moqui.security.UserAuthcFactor" count-field="userAuthcFactorCount">
-                <date-filter/>
-                <econdition field-name="userId"/>
-            </entity-find-count>
-
-            <!-- If the user has any currently valid UserAuthcFactor records in the database, require authentication for the user -->
-            <if condition="userAuthcFactorCount">
-                <set field="userRequireAuthc" from="true"/>
-                <return/>
-            </if>
-
-            <entity-find-count entity-name="moqui.security.UserGroup" count-field="userGroupCount">
-                <econdition field-name="userGroupId" operator="in" from="ec.user.getUserGroupIdSet(userId)"/>
-                <econdition field-name="requireAuthcFactor" value="Y"/>
-            </entity-find-count>
-
-            <!-- If the user does not have any UserAuthcFactor records, but the user is in a group that requires authentication, require authentication for the user. -->
-            <if condition="userGroupCount">
-                <set field="userRequireAuthc" from="true"/>
-                <return/>
-            </if>
-
-        </actions>
-    </service>
 
     <service verb="create" noun="SingleUseAuthcCodes">
         <description>Create multiple single use authentication factors.</description>
         <in-parameters>
-            <parameter name="userId" required="true"></parameter>
+            <parameter name="userId" required="true"/>
             <parameter name="fromFactorId" default=""/>
             <parameter name="thruDate" type="Timestamp" default="ec.user.nowTimestamp + 365"/>
             <parameter name="numberOfCodes" type="Integer" default="6"/>
