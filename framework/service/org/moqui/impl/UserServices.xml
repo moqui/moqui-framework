@@ -372,11 +372,14 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <set field="verified" from="false"/>
 
-            <!-- This is the setup script for verifying TOTP codes withe samstevens library. -->
-            <script>import dev.samstevens.totp.time.*;import dev.samstevens.totp.code.*;
-                TimeProvider timeProvider = new SystemTimeProvider();
-                CodeGenerator codeGenerator = new DefaultCodeGenerator();
-                CodeVerifier verifier = new DefaultCodeVerifier(codeGenerator, timeProvider);</script>
+            <!-- This is the setup script for verifying TOTP codes with the samstevens library. -->
+            <script>
+                import dev.samstevens.totp.time.*
+                import dev.samstevens.totp.code.*
+                TimeProvider timeProvider = new SystemTimeProvider()
+                CodeGenerator codeGenerator = new DefaultCodeGenerator()
+                CodeVerifier verifier = new DefaultCodeVerifier(codeGenerator, timeProvider)
+            </script>
 
             <entity-find entity-name="moqui.security.UserAuthcFactor" list="userAuthcFactorList">
                 <date-filter/>
@@ -467,7 +470,7 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="singleUseCodes" from="[]"/>
 
             <!-- This generates the actual codes using java's SecureRandom library (currently 8 integer digits) -->
-            <script>for (int i = 0; i &lt; numberOfCodes; i++) singleUseCodes.add(java.security.SecureRandom.getInstanceStrong().nextInt(99999999).toString().padLeft(8,'0'))</script>
+            <script>for (int i = 0; i &lt; numberOfCodes; i++) singleUseCodes.add(new java.security.SecureRandom().nextInt(99999999).toString().padLeft(8,'0'))</script>
             <iterate list="singleUseCodes" entry="code">
                 <set field="factorOption" from="ec.ecfi.getSimpleHash(code, 'SaltySalt')"/>
                 <service-call name="create#moqui.security.UserAuthcFactor" in-map="context"/>
@@ -492,12 +495,14 @@ along with this software (see the LICENSE.md file). If not, see
                 <entity-find entity-name="moqui.security.UserAuthcFactor" list="userAuthcFactorList">
                     <date-filter/><econdition field-name="userId"/><econdition field-name="fromFactorId"/>
                     <econdition field-name="factorTypeEnumId" value="UafSingleUse"/></entity-find>
-                <iterate list="userAuthcFactorList" entry="userAuthcFactor"><service-call name="update#moqui.security.UserAuthcFactor" in-map="[factorId:userAuthcFactor.factorId, thruDate:ec.user.nowTimestamp]"/></iterate>
+                <iterate list="userAuthcFactorList" entry="userAuthcFactor">
+                    <service-call name="update#moqui.security.UserAuthcFactor" in-map="[factorId:userAuthcFactor.factorId, thruDate:ec.user.nowTimestamp]"/>
+                </iterate>
             </if>
 
             <set field="factorTypeEnumId" value="UafSingleUse"/>
             <set field="fromDate" from="ec.user.nowTimestamp"/>
-            <set field="code" from="java.security.SecureRandom.getInstanceStrong().nextInt(999999).toString().padLeft(6,'0')"/>
+            <set field="code" from="new java.security.SecureRandom().nextInt(999999).toString().padLeft(6,'0')"/>
             <set field="factorOption" from="ec.ecfi.getSimpleHash(code, 'SaltySalt')"/>
             <service-call name="create#moqui.security.UserAuthcFactor" in-map="context" out-map="context"/>
         </actions>
@@ -516,24 +521,24 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- create a new single use authc factor code and get it's factorId -->
             <service-call name="org.moqui.impl.UserServices.create#SingleUseAuthcFactor" in-map="[userId:userAuthcFactor.userId,fromFactorId:emailFactorId]" out-map="context"/>
             <set field="singleUseFactorId" from="factorId"/>
-            <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
-                <field-map field-name="userId" from="userAuthcFactor.userId"/></entity-find-one>
 
             <!-- send an email with the single use code -->
             <service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" async="true">
                 <field-map field-name="emailTemplateId" value="SINGLE_USE_CODE"/>
                 <field-map field-name="toAddresses" from="userAuthcFactor.factorOption"/>
-                <field-map field-name="bodyParameters" from="[code:code,thruDateString:thruDate.toString()]"/></service-call>
+                <field-map field-name="bodyParameters" from="[code:code,thruDateString:thruDate.toString()]"/>
+            </service-call>
+            <message>Authentication code sent to ${userAuthcFactor.factorOption}</message>
 
             <!-- if the email just sent to is not the main email address for the user send the main email address a notification email that an email with a code was sent -->
-            <if condition="userAccount.emailAddress">
-                <if condition="userAccount.emailAddress != userAuthcFactor.factorOption">
-                    <service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" async="true">
-                        <field-map field-name="emailTemplateId" value="ADDED_EMAIL_AUTHC_FACTOR"/>
-                        <field-map field-name="toAddresses" from="userAccount.emailAddress"/>
-                        <field-map field-name="bodyParameters" from="[userEmail:userAuthcFactor.factorOption,thruDateString:thruDate.toString()]"/>
-                    </service-call>
-                </if>
+            <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
+                <field-map field-name="userId" from="userAuthcFactor.userId"/></entity-find-one>
+            <if condition="userAccount.emailAddress &amp;&amp; userAccount.emailAddress != userAuthcFactor.factorOption">
+                <service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" async="true">
+                    <field-map field-name="emailTemplateId" value="ADDED_EMAIL_AUTHC_FACTOR"/>
+                    <field-map field-name="toAddresses" from="userAccount.emailAddress"/>
+                    <field-map field-name="bodyParameters" from="[userEmail:userAuthcFactor.factorOption,thruDateString:thruDate.toString()]"/>
+                </service-call>
             </if>
         </actions>
     </service>
@@ -565,7 +570,9 @@ along with this software (see the LICENSE.md file). If not, see
                 <then>
                     <!-- If there are no UserAuthcFactor entries for this user with the same email, create the UserAuthcFactor. -->
                     <service-call name="create#moqui.security.UserAuthcFactor" in-map="context" out-map="context"/>
+                    <!-- don't send code email on create, do it manually if needed from UI:
                     <service-call name="org.moqui.impl.UserServices.send#AuthcCodeEmail" in-map="emailFactorId:factorId" out-map="context"/>
+                    -->
                 </then>
                 <else-if condition="userAuthcFactorCount == 1">
                     <!-- There is an UserAuthcFactor for this user that has the same email. Send error message to the user.-->
