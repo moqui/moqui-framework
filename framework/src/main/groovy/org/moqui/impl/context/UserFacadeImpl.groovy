@@ -645,9 +645,11 @@ class UserFacadeImpl implements UserFacade {
             // do the actual login through Shiro
             loginSubject.login(token)
 
-            // this ensures that after correctly logging in, a previously attempted login user's "Second Factor" screen isn't displayed
-            eci.web.sessionAttributes.remove("moquiAuthcFactorUsername")
-            eci.web.sessionAttributes.remove("moquiAuthcFactorRequired")
+            if (eci.web != null) {
+                // this ensures that after correctly logging in, a previously attempted login user's "Second Factor" screen isn't displayed
+                eci.web.sessionAttributes.remove("moquiAuthcFactorUsername")
+                eci.web.sessionAttributes.remove("moquiAuthcFactorRequired")
+            }
 
             // do this first so that the rest will be done as this user
             // just in case there is already a user authenticated push onto a stack to remember
@@ -659,9 +661,11 @@ class UserFacadeImpl implements UserFacade {
                 eci.getWebImpl().getRequest().setAttribute("moqui.request.authenticated", "true")
             }
         } catch (SecondFactorRequiredException ae) {
-            // This makes the session realize the this user needs to verify login with an authentication factor
-            eci.web.sessionAttributes.put("moquiAuthcFactorUsername", username)
-            eci.web.sessionAttributes.put("moquiAuthcFactorRequired", "true")
+            if (eci.web != null) {
+                // This makes the session realize the this user needs to verify login with an authentication factor
+                eci.web.sessionAttributes.put("moquiAuthcFactorUsername", username)
+                eci.web.sessionAttributes.put("moquiAuthcFactorRequired", "true")
+            }
             return true
         } catch (AuthenticationException ae) {
             // others to consider handling differently (these all inherit from AuthenticationException):
