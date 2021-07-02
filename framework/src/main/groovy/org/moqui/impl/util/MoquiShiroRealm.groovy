@@ -1,12 +1,12 @@
 /*
- * This software is in the public domain under CC0 1.0 Universal plus a 
+ * This software is in the public domain under CC0 1.0 Universal plus a
  * Grant of Patent License.
- * 
+ *
  * To the extent possible under law, the author(s) have dedicated all
  * copyright and related and neighboring rights to this software to the
  * public domain worldwide. This software is distributed without any
  * warranty.
- * 
+ *
  * You should have received a copy of the CC0 Public Domain Dedication
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
@@ -24,6 +24,7 @@ import org.apache.shiro.subject.PrincipalCollection
 import org.apache.shiro.util.SimpleByteSource
 import org.moqui.BaseArtifactException
 import org.moqui.Moqui
+import org.moqui.context.SecondFactorRequiredException
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
@@ -267,6 +268,24 @@ class MoquiShiroRealm implements Realm, Authorizer {
                     ecfi.serviceFacade.sync().name("org.moqui.impl.UserServices.increment#UserAccountFailedLogins")
                             .parameters((Map<String, Object>) [userId:newUserAccount.userId]).requireNewTransaction(true).call()
                     throw new IncorrectCredentialsException(ecfi.resource.expand('Password incorrect for username ${username}','',[username:username]))
+                } else {
+                    // if the user's credentials are correct, check if the user requires an additional authentication factor step
+
+                    boolean userRequireAuthc = false
+                    long userAuthcFactorCount = eci.entityFacade.find("moqui.security.UserAuthcFactor")
+                            .conditionDate(null, null, null).condition("userId", userId).disableAuthz().count()
+                    if (userAuthcFactorCount > 0) userRequireAuthc = true
+                    if (!userRequireAuthc) {
+                        long userGroupCount = eci.entityFacade.find("moqui.security.UserGroup")
+                                .condition("userGroupId", EntityCondition.IN, eci.userFacade.getUserGroupIdSet(userId))
+                                .condition("requireAuthcFactor", "Y").disableAuthz().count()
+                        if (userGroupCount > 0) userRequireAuthc = true
+                    }
+
+                    // if the user requires authentication, throw a SecondFactorRequiredException so that UserFacadeImpl.groovy can catch the error and perform the appropriate action.
+                    if (userRequireAuthc) {
+                        throw new SecondFactorRequiredException(ecfi.resource.expand('User ${username} requires an authentication code to login','',[username:username]))
+                    }
                 }
             }
 
