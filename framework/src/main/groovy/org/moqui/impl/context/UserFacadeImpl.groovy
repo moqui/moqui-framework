@@ -14,8 +14,10 @@
 package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
+import org.apache.shiro.authc.IncorrectCredentialsException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.AuthenticationRequiredException
+import org.moqui.context.SecondFactorRequiredException
 import org.moqui.entity.EntityCondition
 import org.moqui.impl.context.ArtifactExecutionInfoImpl.ArtifactAuthzCheck
 import org.moqui.impl.entity.EntityValueBase
@@ -125,6 +127,7 @@ class UserFacadeImpl implements UserFacade {
                 if (oldSession != null) oldSession.invalidate()
                 this.session = request.getSession()
             } else {
+
                 // effectively login the user for framework (already logged in for session through Shiro)
                 pushUserSubject(webSubject)
                 if (logger.traceEnabled) logger.trace("For new request found user [${getUsername()}] in the session")
@@ -642,6 +645,12 @@ class UserFacadeImpl implements UserFacade {
             // do the actual login through Shiro
             loginSubject.login(token)
 
+            if (eci.web != null) {
+                // this ensures that after correctly logging in, a previously attempted login user's "Second Factor" screen isn't displayed
+                eci.web.sessionAttributes.remove("moquiAuthcFactorUsername")
+                eci.web.sessionAttributes.remove("moquiAuthcFactorRequired")
+            }
+
             // do this first so that the rest will be done as this user
             // just in case there is already a user authenticated push onto a stack to remember
             pushUserSubject(loginSubject)
@@ -651,14 +660,21 @@ class UserFacadeImpl implements UserFacade {
                 eci.getWebImpl().runAfterLoginActions()
                 eci.getWebImpl().getRequest().setAttribute("moqui.request.authenticated", "true")
             }
+        } catch (SecondFactorRequiredException ae) {
+            if (eci.web != null) {
+                // This makes the session realize the this user needs to verify login with an authentication factor
+                eci.web.sessionAttributes.put("moquiAuthcFactorUsername", username)
+                eci.web.sessionAttributes.put("moquiAuthcFactorRequired", "true")
+            }
+            return true
         } catch (AuthenticationException ae) {
             // others to consider handling differently (these all inherit from AuthenticationException):
             //     UnknownAccountException, IncorrectCredentialsException, ExpiredCredentialsException,
             //     CredentialsException, LockedAccountException, DisabledAccountException, ExcessiveAttemptsException
             eci.messageFacade.addError(ae.message)
+
             return false
         }
-
         return true
     }
 
