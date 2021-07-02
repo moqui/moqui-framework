@@ -371,7 +371,7 @@ task gitTagAll {
         boolean pushTags = (project.hasProperty('push') && push == 'true')
 
         // Users can simply push tags to the remote
-        if (tagName == null && pushTags == false) 
+        if (tagName == null && pushTags == false)
             throw new InvalidUserDataException("No tag property specified (use -Ptag=...) and No push tag specified (use -Ppush=true)")
 
         List<String> gitDirectories = []
@@ -421,7 +421,7 @@ task gitTagAll {
 task gitDiffTagsAll {
     description "Do a git diff between two tags in the currently checked out branch in moqui, runtime, and each installed component"
     doLast {
-        if (!project.hasProperty('taga') || taga == null) 
+        if (!project.hasProperty('taga') || taga == null)
             throw new InvalidUserDataException("No taga property specified (use -Ptaga=...)")
 
         // If tagb is not passed, we assume HEAD
@@ -447,7 +447,7 @@ task gitDiffTagsAll {
             logger.lifecycle("${relativePath}")
 
             if ((taga == "HEAD" || tagaCommit != null) && (tagb == "HEAD" || tagbCommit != null)) {
-                grgit.log { 
+                grgit.log {
                     range taga, tagb
                 }.each {
                     logger.lifecycle("    ${it.abbreviatedId} - ${it.shortMessage}")

@@ -65,6 +65,7 @@ dependencies {
     // javax.activation - required for Java 11
     compile 'com.sun.activation:javax.activation:1.2.0' // CDDL 1.1
     // Apache Commons
+    compile 'commons-codec:commons-codec:1.15'
     compile 'commons-fileupload:commons-fileupload:1.4' // Apache 2.0
 }
 

@@ -129,6 +129,9 @@ dependencies {
     // compile 'javax.resource:connector-api:1.5'
     // compile 'javax.jms:jms:1.1'
 
+    // Java TOTP
+    compile 'dev.samstevens.totp:totp:1.7.1' // MIT
+
     // H2 Database
     compile 'com.h2database:h2:1.4.200' // MPL 2.0, EPL 1.0
 
