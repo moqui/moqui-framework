@@ -6815,3 +6815,147 @@ java.lang.StringIndexOutOfBoundsException: String index out of range: 0
  Found entities in 42 files in 118ms
 --- 2021-07-05 02:54:43.318 [tp1714688478-50] INFO              org.moqui.impl.entity.EntityFacadeImpl []
  Found 0 view-entity definitions in database (DbViewEntity records)
+--- 2021-07-05 02:59:43.188 [tp1714688478-49] INFO                org.moqui.impl.context.WebFacadeImpl []
+ Service REST for GET to /rest/s1/mantle/my/noticeCounts headers [Cookie, Accept, X-Requested-With, Connection, User-Agent, Referer, Sec-Fetch-Site, Sec-Fetch-Dest, Host, Accept-Encoding, Sec-Fetch-Mode, sec-ch-ua, sec-ch-ua-mobile, Accept-Language] parameters []
+--- 2021-07-05 02:59:43.192 [tp1714688478-49] INFO                      org.moqui.impl.service.RestApi []
+ Loaded REST API from mantle.rest.xml (392 paths, 416 methods)
+--- 2021-07-05 02:59:43.192 [tp1714688478-49] INFO                      org.moqui.impl.service.RestApi []
+ Loaded REST API files, 2 roots, in 4ms
+--- 2021-07-05 03:00:15.722 [oquiScheduled-2] INFO           org.moqui.impl.service.ScheduledJobRunner []
+ Running job render_ScheduledScreens_frequent run 100053 (last run 2021-07-05 02:51:15.705, schedule 2021-07-05T03:00-07:00[US/Pacific])
+--- 2021-07-05 03:00:15.741 [oquiScheduled-2] INFO              org.moqui.impl.entity.EntityFacadeImpl []
+ Found entities in 42 files in 17ms
+--- 2021-07-05 03:00:15.741 [oquiScheduled-2] INFO              org.moqui.impl.entity.EntityFacadeImpl []
+ Found 0 view-entity definitions in database (DbViewEntity records)
+--- 2021-07-05 03:00:15.744 [oquiScheduled-2] INFO           org.moqui.impl.service.ScheduledJobRunner []
+ Running job autoApprove_OrdersDelayed run 100054 (last run 2021-07-05 02:51:15.705, schedule 2021-07-05T03:00-07:00[US/Pacific])
+--- 2021-07-05 03:00:15.752 [oquiScheduled-2] INFO           org.moqui.impl.service.ScheduledJobRunner []
+ Running job recalculate_GlAccountOrgSummaries run 100055 (last run 2021-07-05 02:21:54.681, schedule 2021-07-05T03:00-07:00[US/Pacific])
+--- 2021-07-05 03:00:15.757 [oquiScheduled-2] INFO           org.moqui.impl.service.ScheduledJobRunner []
+ Ran 3 Service Jobs starting 2021-07-05T03:00:15.716844600-07:00[US/Pacific] (active: 7, paused: 12)
+--- 2021-07-05 03:00:16.377 [  MoquiWorker-5] INFO             org.moqui.impl.context.LoggerFacadeImpl []
+ [Recalculate GlAccountOrgSummaries] lastRunTime 2021-07-05 02:21:54.681, 3 time periods, organizations: [ORG_ZIZI_CORP]
+--- 2021-07-05 03:00:16.424 [  MoquiWorker-5] INFO            org.moqui.impl.context.MessageFacadeImpl []
+ [info] Updated GL Account Org Summaries for orgs [ORG_ZIZI_CORP] in 289ms; updated 0 Organization and 0 Period summary records
+--- 2021-07-05 03:00:16.798 [  MoquiWorker-6] WARN             org.moqui.impl.context.LoggerFacadeImpl []
+ Not saving or sending email for ScheduledScreen PopcAccRecAging: noResultsAbort Y _formListRendered true _formListResultCount 0
+--- 2021-07-05 03:04:43.207 [p1714688478-100] INFO                org.moqui.impl.context.WebFacadeImpl []
+ Service REST for GET to /rest/s1/mantle/my/noticeCounts headers [Cookie, Accept, X-Requested-With, Connection, User-Agent, Referer, Sec-Fetch-Site, Sec-Fetch-Dest, Host, Accept-Encoding, Sec-Fetch-Mode, sec-ch-ua, sec-ch-ua-mobile, Accept-Language] parameters []
+--- 2021-07-05 03:04:43.208 [p1714688478-100] INFO                      org.moqui.impl.service.RestApi []
+ Loaded REST API from mantle.rest.xml (392 paths, 416 methods)
+--- 2021-07-05 03:04:43.208 [p1714688478-100] INFO                      org.moqui.impl.service.RestApi []
+ Loaded REST API files, 2 roots, in 1ms
+--- 2021-07-05 03:04:55.675 [tp1714688478-60] INFO              org.moqui.impl.screen.ScreenRenderImpl []
+ qapps/hmadmin/dashboard [] in 111ms (text/html;charset=utf-8) session node0x77699109wyw8m09sw2rbrkh2
+--- 2021-07-05 03:04:56.583 [tp1714688478-60] INFO              org.moqui.impl.screen.ScreenRenderImpl []
+ apps/hmadmin/dashboard [] in 209ms (text/html;charset=utf-8) session node0x77699109wyw8m09sw2rbrkh2
+--- 2021-07-05 03:04:56.602 [tp1714688478-69] INFO                org.moqui.impl.context.WebFacadeImpl []
+ Service REST for GET to /rest/s1/mantle/my/userOrgInfo headers [Cookie, Accept, X-Requested-With, Connection, User-Agent, Referer, Sec-Fetch-Site, Sec-Fetch-Dest, Host, Accept-Encoding, Sec-Fetch-Mode, sec-ch-ua, sec-ch-ua-mobile, Accept-Language] parameters []
+--- 2021-07-05 03:04:56.606 [tp1714688478-69] INFO                      org.moqui.impl.service.RestApi []
+ Loaded REST API from mantle.rest.xml (392 paths, 416 methods)
+--- 2021-07-05 03:04:56.607 [tp1714688478-69] INFO                      org.moqui.impl.service.RestApi []
+ Loaded REST API files, 2 roots, in 4ms
+--- 2021-07-05 03:04:56.896 [tp1714688478-60] INFO                org.moqui.impl.context.WebFacadeImpl []
+ Streamed 1150 bytes from location component://webroot/screen/webroot/favicon.ico
+--- 2021-07-05 03:04:58.562 [tp1714688478-60] INFO              org.moqui.impl.screen.ScreenRenderImpl []
+ apps/AppList [] in 17ms (text/html;charset=utf-8) session node0x77699109wyw8m09sw2rbrkh2
+--- 2021-07-05 03:05:02.971 [tp1714688478-60] INFO              org.moqui.impl.screen.ScreenRenderImpl []
+ apps/system [] in 112ms (text/html;charset=utf-8) session node0x77699109wyw8m09sw2rbrkh2
+--- 2021-07-05 03:05:03.847 [tp1714688478-69] INFO              org.moqui.impl.screen.ScreenRenderImpl []
+ apps/system/dashboard [] in 849ms (text/html;charset=utf-8) session node0x77699109wyw8m09sw2rbrkh2
+--- 2021-07-05 03:13:20.937 [p1714688478-125] INFO              org.moqui.impl.entity.EntityFacadeImpl []
+ Found entities in 42 files in 11ms
+--- 2021-07-05 03:13:20.941 [p1714688478-125] INFO              org.moqui.impl.entity.EntityFacadeImpl []
+ Found 0 view-entity definitions in database (DbViewEntity records)
+--- 2021-07-05 03:13:21.103 [tp1714688478-99] INFO              org.moqui.impl.screen.ScreenRenderImpl []
+ apps/system/Security [] in 106ms (text/html;charset=utf-8) session node0x77699109wyw8m09sw2rbrkh2
+--- 2021-07-05 03:13:21.132 [p1714688478-124] INFO              org.moqui.impl.screen.ScreenRenderImpl []
+ apps/system/Security/UserAccount [] in 2ms (text/html;charset=utf-8) session node0x77699109wyw8m09sw2rbrkh2
+--- 2021-07-05 03:13:21.294 [tp1714688478-99] INFO              org.moqui.impl.screen.ScreenRenderImpl []
+ apps/system/Security/UserAccount/UserAccountList [] in 143ms (text/html;charset=utf-8) session node0x77699109wyw8m09sw2rbrkh2
+--- 2021-07-05 03:13:39.760 [tp1714688478-99] INFO                      org.moqui.impl.service.RestApi []
+ Loaded REST API from moqui.rest.xml (76 paths, 86 methods)
+--- 2021-07-05 03:13:39.761 [tp1714688478-99] INFO                      org.moqui.impl.service.RestApi []
+ Loaded REST API from mantle.rest.xml (392 paths, 416 methods)
+--- 2021-07-05 03:13:39.762 [tp1714688478-99] INFO                      org.moqui.impl.service.RestApi []
+ Loaded REST API files, 2 roots, in 6ms
+--- 2021-07-05 03:13:40.062 [tp1714688478-99] INFO              org.moqui.impl.entity.EntityFacadeImpl []
+ Created 828 automatic reverse relationships
+--- 2021-07-05 03:13:40.324 [tp1714688478-99] INFO              org.moqui.impl.screen.ScreenRenderImpl []
+ apps/tools/dashboard [] in 694ms (text/html;charset=utf-8) session node0x77699109wyw8m09sw2rbrkh2
+--- 2021-07-05 03:13:50.000 [p1714688478-126] INFO                      org.moqui.impl.service.RestApi []
+ Loaded REST API from moqui.rest.xml (76 paths, 86 methods)
+--- 2021-07-05 03:13:50.000 [p1714688478-126] INFO                      org.moqui.impl.service.RestApi []
+ Loaded REST API files, 2 roots, in 7ms
+--- 2021-07-05 03:13:50.090 [p1714688478-126] INFO                      org.moqui.impl.service.RestApi []
+ Generated Swagger for [moqui]; 62 (76) paths with 86 (86) methods, 96 definitions
+--- 2021-07-05 03:13:50.373 [p1714688478-126] INFO                org.moqui.impl.context.WebFacadeImpl []
+ Sent text (application/json) response of length [371525] with [utf-8] encoding in [0.451] seconds for GET request to /rest/service.swagger/moqui
+--- 2021-07-05 03:14:06.448 [p1714688478-126] INFO              org.moqui.impl.screen.ScreenRenderImpl []
+ apps/tools/Entity/DataEdit/EntityList [] in 199ms (text/html;charset=utf-8) session node0x77699109wyw8m09sw2rbrkh2
+--- 2021-07-05 03:14:12.160 [p1714688478-126] INFO                      org.moqui.impl.service.RestApi []
+ Loaded REST API from moqui.rest.xml (76 paths, 86 methods)
+--- 2021-07-05 03:14:12.177 [p1714688478-126] INFO                      org.moqui.impl.service.RestApi []
+ Loaded REST API from mantle.rest.xml (392 paths, 416 methods)
+--- 2021-07-05 03:14:12.179 [p1714688478-126] INFO                      org.moqui.impl.service.RestApi []
+ Loaded REST API files, 2 roots, in 23ms
+--- 2021-07-05 03:14:12.572 [p1714688478-126] INFO              org.moqui.impl.entity.EntityFacadeImpl []
+ Created 828 automatic reverse relationships
+--- 2021-07-05 03:14:12.651 [p1714688478-126] INFO              org.moqui.impl.screen.ScreenRenderImpl []
+ apps/tools/dashboard [] in 579ms (text/html;charset=utf-8) session node0x77699109wyw8m09sw2rbrkh2
+--- 2021-07-05 03:14:15.431 [p1714688478-126] INFO              org.moqui.impl.screen.ScreenRenderImpl []
+ apps/tools/Entity/SqlRunner [] in 101ms (text/html;charset=utf-8) session node0x77699109wyw8m09sw2rbrkh2
+--- 2021-07-05 03:14:19.680 [p1714688478-125] INFO                      org.moqui.impl.service.RestApi []
+ Loaded REST API from moqui.rest.xml (76 paths, 86 methods)
+--- 2021-07-05 03:14:19.682 [p1714688478-125] INFO                      org.moqui.impl.service.RestApi []
+ Loaded REST API from mantle.rest.xml (392 paths, 416 methods)
+--- 2021-07-05 03:14:19.682 [p1714688478-125] INFO                      org.moqui.impl.service.RestApi []
+ Loaded REST API files, 2 roots, in 9ms
+--- 2021-07-05 03:14:19.702 [p1714688478-125] INFO              org.moqui.impl.screen.ScreenRenderImpl []
+ apps/tools/dashboard [] in 103ms (text/html;charset=utf-8) session node0x77699109wyw8m09sw2rbrkh2
+--- 2021-07-05 03:14:28.867 [p1714688478-124] INFO              org.moqui.impl.screen.ScreenRenderImpl []
+ apps/tools/Entity/QueryStats [] in 319ms (text/html;charset=utf-8) session node0x77699109wyw8m09sw2rbrkh2
+--- 2021-07-05 03:14:49.202 [p1714688478-125] INFO                      org.moqui.impl.service.RestApi []
+ Loaded REST API from moqui.rest.xml (76 paths, 86 methods)
+--- 2021-07-05 03:14:49.204 [p1714688478-125] INFO                      org.moqui.impl.service.RestApi []
+ Loaded REST API from mantle.rest.xml (392 paths, 416 methods)
+--- 2021-07-05 03:14:49.205 [p1714688478-125] INFO                      org.moqui.impl.service.RestApi []
+ Loaded REST API files, 2 roots, in 7ms
+--- 2021-07-05 03:14:49.446 [p1714688478-125] INFO              org.moqui.impl.entity.EntityFacadeImpl []
+ Created 828 automatic reverse relationships
+--- 2021-07-05 03:14:49.501 [p1714688478-125] INFO              org.moqui.impl.screen.ScreenRenderImpl []
+ apps/tools/dashboard [] in 388ms (text/html;charset=utf-8) session node0x77699109wyw8m09sw2rbrkh2
+--- 2021-07-05 03:14:54.339 [p1714688478-125] INFO                org.moqui.impl.context.WebFacadeImpl []
+ Sent text (application/json) response of length [41123] with [utf-8] encoding in [0.077] seconds for GET request to /rest/master.swagger/mantle.account.financial.FinancialAccount
+--- 2021-07-05 03:15:15.724 [oquiScheduled-1] INFO           org.moqui.impl.service.ScheduledJobRunner []
+ Running job render_ScheduledScreens_frequent run 100056 (last run 2021-07-05 03:00:15.716, schedule 2021-07-05T03:15-07:00[US/Pacific])
+--- 2021-07-05 03:15:15.733 [oquiScheduled-1] INFO           org.moqui.impl.service.ScheduledJobRunner []
+ Running job autoApprove_OrdersDelayed run 100057 (last run 2021-07-05 03:00:15.716, schedule 2021-07-05T03:15-07:00[US/Pacific])
+--- 2021-07-05 03:15:15.738 [oquiScheduled-1] INFO           org.moqui.impl.service.ScheduledJobRunner []
+ Ran 2 Service Jobs starting 2021-07-05T03:15:15.717227100-07:00[US/Pacific] (active: 7, paused: 12)
+--- 2021-07-05 03:22:11.443 [eper-293bb8a5-1] INFO              org.moqui.impl.entity.EntityFacadeImpl []
+ Found entities in 42 files in 35ms
+--- 2021-07-05 03:22:11.443 [eper-293bb8a5-1] INFO              org.moqui.impl.entity.EntityFacadeImpl []
+ Found 0 view-entity definitions in database (DbViewEntity records)
+--- 2021-07-05 03:30:15.706 [oquiScheduled-1] INFO           org.moqui.impl.service.ScheduledJobRunner []
+ Running job render_ScheduledScreens_frequent run 100058 (last run 2021-07-05 03:15:15.717, schedule 2021-07-05T03:30-07:00[US/Pacific])
+--- 2021-07-05 03:30:15.749 [oquiScheduled-1] INFO              org.moqui.impl.entity.EntityFacadeImpl []
+ Found entities in 42 files in 41ms
+--- 2021-07-05 03:30:15.749 [oquiScheduled-1] INFO              org.moqui.impl.entity.EntityFacadeImpl []
+ Found 0 view-entity definitions in database (DbViewEntity records)
+--- 2021-07-05 03:30:15.753 [oquiScheduled-1] INFO           org.moqui.impl.service.ScheduledJobRunner []
+ Running job autoApprove_OrdersDelayed run 100059 (last run 2021-07-05 03:15:15.717, schedule 2021-07-05T03:30-07:00[US/Pacific])
+--- 2021-07-05 03:30:15.775 [oquiScheduled-1] INFO           org.moqui.impl.service.ScheduledJobRunner []
+ Ran 2 Service Jobs starting 2021-07-05T03:30:15.703177800-07:00[US/Pacific] (active: 7, paused: 12)
+--- 2021-07-05 03:30:16.578 [ MoquiWorker-13] WARN             org.moqui.impl.context.LoggerFacadeImpl []
+ Not saving or sending email for ScheduledScreen PopcAccRecAging: noResultsAbort Y _formListRendered true _formListResultCount 0
+--- 2021-07-05 03:45:15.715 [oquiScheduled-1] INFO           org.moqui.impl.service.ScheduledJobRunner []
+ Running job render_ScheduledScreens_frequent run 100060 (last run 2021-07-05 03:30:15.703, schedule 2021-07-05T03:45-07:00[US/Pacific])
+--- 2021-07-05 03:45:15.728 [oquiScheduled-1] INFO              org.moqui.impl.entity.EntityFacadeImpl []
+ Found entities in 42 files in 10ms
+--- 2021-07-05 03:45:15.728 [oquiScheduled-1] INFO              org.moqui.impl.entity.EntityFacadeImpl []
+ Found 0 view-entity definitions in database (DbViewEntity records)
+--- 2021-07-05 03:45:15.731 [oquiScheduled-1] INFO           org.moqui.impl.service.ScheduledJobRunner []
+ Running job autoApprove_OrdersDelayed run 100061 (last run 2021-07-05 03:30:15.703, schedule 2021-07-05T03:45-07:00[US/Pacific])
+--- 2021-07-05 03:45:15.735 [oquiScheduled-1] INFO           org.moqui.impl.service.ScheduledJobRunner []
+ Ran 2 Service Jobs starting 2021-07-05T03:45:15.708843100-07:00[US/Pacific] (active: 7, paused: 12)
