@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-title="Edit Master" default-menu-index="3">
+
+    <parameter name="aen" required="true"/><!-- Auto Entity Name -->
+    <parameter name="den"/><!-- Detail Entity Name -->
+
+    <transition name="list"><default-response url="../../MainEntityList"/></transition>
+    <transition name="find"><default-response url="../../AutoFind"/></transition>
+    <transition name="edit"><default-response url="."/></transition>
+    <transition name="update">
+        <actions><service-call name="update#${aen}" in-map="true"/></actions>
+        <default-response url="." parameter-map="ec.entity.getEntityDefinition(aen).getPrimaryKeys(context)"/>
+    </transition>
+    <transition name="export" read-only="true">
+        <actions>
+            <entity-find-one entity-name="${aen}" value-field="entityValue"/>
+            <script><![CDATA[
+                import org.moqui.context.ExecutionContext
+                import org.moqui.entity.EntityDataWriter
+
+                Map pkMap = entityValue.getPrimaryKeys()
+                if (!filename) filename = (aen.contains(".") ? aen.substring(aen.lastIndexOf(".") + 1) : aen) + "_" +
+                        pkMap.values().join("_") + "." + (fileType == 'JSON' ? 'json' : 'xml')
+
+                ExecutionContext ec = context.ec
+                EntityDataWriter edw = ec.entity.makeDataWriter().dependentLevels((dependentLevels ?: '2') as int)
+                        .fileType(fileType == 'JSON' ? EntityDataWriter.JSON : EntityDataWriter.XML)
+                        .entityName(aen).filterMap(pkMap)
+                if (masterName) edw.master(masterName)
+                noResponse = false
+                if (context.output == "file") {
+                    edw.file(filename)
+                } else if (context.output == "browser") {
+                    // stream to ec.web.response
+                    def response = ec.web.response
+                    response.setContentType(fileType == 'JSON' ? 'application/json' : 'text/xml')
+                    response.setCharacterEncoding("UTF-8")
+                    response.addHeader("Content-Disposition", "attachment; filename=\"${filename}\";")
+                    response.addHeader("Cache-Control", "no-cache, must-revalidate, private")
+                    edw.writer(response.getWriter())
+                    noResponse = true
+                }
+
+            ]]></script>
+        </actions>
+        <conditional-response url="." parameter-map="ec.entity.getEntityDefinition(aen).getPrimaryKeys(context)">
+            <condition><expression>!noResponse</expression></condition></conditional-response>
+        <default-response type="none"/>
+    </transition>
+    <transition name="getFormXml" read-only="true">
+        <actions><script><![CDATA[
+            import org.moqui.util.MNode
+
+            StringBuilder xmlBuilder = new StringBuilder()
+            xmlBuilder.append('<?xml version="1.0" encoding="UTF-8"?>\n')
+
+            MNode screenNode = new MNode("screen", ["xmlns:xsi":"http://www.w3.org/2001/XMLSchema-instance", "xsi:noNamespaceSchemaLocation":"http://moqui.org/xsd/xml-screen-2.1.xsd"])
+            MNode updateTransNode = screenNode.append("transition", [name:"update"])
+            updateTransNode.append("service-call", [name:"update#${aen}".toString()])
+            updateTransNode.append("default-response", [url:"."])
+
+            MNode actionsNode = screenNode.append("actions", null)
+            actionsNode.append("entity-find-one", ["entity-name":aen, "value-field":"fieldValues"])
+            MNode widgetsNode = screenNode.append("widgets", null)
+            widgetsNode.append(sri.getActiveScreenDef().getForm("UpdateMasterEntityValue").getAutoCleanedNode())
+            screenNode.addToSb(xmlBuilder, 0)
+
+            ec.web.sendTextResponse(xmlBuilder.toString(), "text/xml", "Edit${ec.entity.getEntityDefinition(aen).entityName}.xml")
+        ]]></script></actions>
+        <default-response type="none"/>
+    </transition>
+
+    <actions>
+        <entity-find-one entity-name="${aen}" value-field="fieldValues"/>
+        <set field="entityDefinition" from="ec.entity.getEntityDefinition(aen)"/>
+        <set field="masterNames" from="new TreeSet(entityDefinition.getMasterDefinitionMap().keySet())"/>
+    </actions>
+    <widgets>
+        <link url="list" text="Entity List" link-type="hidden-form"/>
+        <link url="find" text="Find ${ec.entity.getEntityDefinition(aen).getPrettyName(null, null)}" link-type="hidden-form"/>
+        <container-dialog id="ExportMasterEntityDialog" button-text="Export">
+            <form-single name="ExportMasterEntity" transition="export" dynamic="true">
+                <auto-fields-entity entity-name="${aen}" include="pk" field-type="hidden"/>
+                <field name="aen"><default-field><hidden/></default-field></field>
+                <field name="filename"><default-field><text-line size="60"/></default-field></field>
+                <field name="dependentLevels"><default-field><text-line size="2" default-value="2"/></default-field></field>
+                <field name="masterName"><default-field>
+                    <drop-down allow-empty="true"><list-options list="masterNames"/></drop-down></default-field></field>
+                <field name="fileType"><default-field>
+                    <radio no-current-selected-key="XML"><option key="XML"/><option key="JSON"/></radio>
+                </default-field></field>
+                <field name="output">
+                    <default-field><radio no-current-selected-key="browser">
+                        <option key="file" text="Single File"/>
+                        <option key="browser" text="Out to Browser"/>
+                    </radio></default-field>
+                </field>
+                <field name="submitButton"><default-field title="Export"><submit/></default-field></field>
+            </form-single>
+        </container-dialog>
+
+        <form-single name="UpdateMasterEntityValue" transition="update" dynamic="true">
+            <auto-fields-entity entity-name="${aen}" include="pk" field-type="display"/>
+            <auto-fields-entity entity-name="${aen}" include="nonpk" field-type="edit"/>
+            <field name="aen"><default-field><hidden/></default-field></field>
+            <!-- NOTE: lastUpdatedStamp hidden field added by auto-fields-entity include=nonpk so don't add another hidden field here -->
+            <field name="lastUpdatedStamp"><default-field title="Last Updated">
+                <display format="yyyy-MM-dd HH:mm:ss.SSS z" also-hidden="false"/></default-field></field>
+            <field name="submitButton"><default-field title="Update"><submit/></default-field></field>
+        </form-single>
+        <link url="getFormXml" text="Get Form XML" link-type="anchor"/>
+    </widgets>
+</screen>

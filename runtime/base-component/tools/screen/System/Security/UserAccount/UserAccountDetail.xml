@@ -1,0 +1,375 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-index="1">
+
+    <parameter name="userId" required="true" from="userId ?: userId_0"/>
+
+    <transition name="updateUserAccount"><service-call name="org.moqui.impl.UserServices.update#UserAccount"/>
+        <default-response url="."/></transition>
+    <transition name="updatePassword"><service-call name="org.moqui.impl.UserServices.update#Password"/>
+        <default-response url="."/></transition>
+    <transition name="enableUserAccount"><service-call name="org.moqui.impl.UserServices.enable#UserAccount"/>
+        <default-response url="."/></transition>
+    <transition name="disableUserAccount"><service-call name="org.moqui.impl.UserServices.disable#UserAccount"/>
+        <default-response url="."/></transition>
+    <transition name="resetPassword"><service-call name="org.moqui.impl.UserServices.reset#Password"/>
+        <default-response url="."/></transition>
+
+    <transition name="visitList"><default-response url="../../../Visit/VisitList"/></transition>
+    <transition name="visitDetail"><default-response url="../../../Visit/VisitDetail"/></transition>
+
+    <transition name="userGroupDetail"><default-response url="../../UserGroup/UserGroupDetail"/></transition>
+    <transition name="createUserGroupMember"><service-call name="create#moqui.security.UserGroupMember"/>
+        <default-response url="."/></transition>
+    <transition name="updateUserGroupMember"><service-call name="update#moqui.security.UserGroupMember"/>
+        <default-response url="."/></transition>
+
+    <transition name="createUserAuthcFactorTotp"><service-call name="org.moqui.impl.UserServices.create#UserAuthcFactorTotp"/>
+        <default-response url="."/></transition>
+    <transition name="verifyUserAuthcFactorTotp"><service-call name="org.moqui.impl.UserServices.verify#UserAuthcFactorTotp"/>
+        <default-response url="."/></transition>
+    <transition name="createUserAuthcFactorSingleUse">
+        <service-call name="org.moqui.impl.UserServices.create#SingleUseAuthcCodes" />
+        <actions><script>ec.web.sessionAttributes.put("singleUseCodes", singleUseCodes)</script></actions>
+        <default-response url="."/></transition>
+    <transition name="createUserAuthcFactorEmail"><service-call name="org.moqui.impl.UserServices.create#EmailUserAuthcFactor"/>
+        <default-response url="."/></transition>
+    <transition name="factorSubmit"><service-call name="org.moqui.impl.UserServices.invalidate#UserAuthcFactorEntry"/>
+        <default-response url="."/></transition>
+
+    <transition name="createUserPreference"><service-call name="create#moqui.security.UserPreference"/>
+        <default-response url="."/></transition>
+    <transition name="updateUserPreference"><service-call name="update#moqui.security.UserPreference"/>
+        <default-response url="."/></transition>
+    <transition name="deleteUserPreference"><service-call name="delete#moqui.security.UserPreference"/>
+        <default-response url="."/></transition>
+
+    <transition name="topicSubscriptions"><service-call name="store#moqui.security.user.NotificationTopicUser"/>
+        <default-response url="."/></transition>
+
+    <transition name="releaseTarpitNow">
+        <service-call name="update#moqui.security.ArtifactTarpitLock"
+                in-map="[artifactTarpitLockId:artifactTarpitLockId, releaseDateTime:ec.user.nowTimestamp]"/>
+        <default-response url="."/></transition>
+
+    <actions>
+        <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount"/>
+
+        <set field="singleUseCodes" from="ec.web.sessionAttributes.remove('singleUseCodes')"/>
+        <set field="localeStringList" from="[]"/>
+
+        <iterate list="Locale.getAvailableLocales()" entry="lcl"><script>localeStringList.add([locale:lcl.toString(), name:lcl.getDisplayName(ec.user.locale)])</script></iterate>
+        <order-map-list list="localeStringList"><order-by field-name="name"/></order-map-list>
+
+        <entity-find entity-name="moqui.security.UserAuthcFactor" list="userAuthcFactorList">
+            <date-filter/>
+            <econdition field-name="userId"/>
+        </entity-find>
+
+        <entity-find entity-name="moqui.security.UserGroupMember" list="ugmList">
+            <econdition field-name="userId"/><order-by field-name="userGroupId"/></entity-find>
+        <entity-find entity-name="moqui.security.UserPreference" list="upList">
+            <econdition field-name="userId"/><order-by field-name="preferenceKey"/></entity-find>
+        <entity-find entity-name="moqui.security.user.NotificationTopic" list="notificationTopicList">
+            <order-by field-name="description"/></entity-find>
+
+        <entity-find entity-name="moqui.security.UserLoginHistory" list="historyList" limit="20">
+            <search-form-inputs default-order-by="-fromDate"/>
+            <econdition field-name="userId"/></entity-find>
+
+        <entity-find entity-name="moqui.security.ArtifactTarpitLock" list="artifactTarpitLockList" limit="20">
+            <econdition field-name="userId"/><order-by field-name="-releaseDateTime"/></entity-find>
+        <entity-find-count entity-name="moqui.security.ArtifactTarpitLock" count-field="allTarpitLocksCount">
+            <econdition field-name="userId"/></entity-find-count>
+    </actions>
+    <widgets>
+        <container-row>
+            <row-col lg="5">
+                <link url="visitList" text="Visits" parameter-map="[userId:userId]"/>
+                <container-dialog id="UpdatePassword" button-text="Change Password">
+                    <form-single name="UpdatePasswordForm" transition="updatePassword">
+                        <field name="userId"><default-field><hidden/></default-field></field>
+                        <field name="oldPassword"><default-field><hidden default-value="ignored"/></default-field></field>
+                        <field name="newPassword"><default-field><password size="20"/></default-field></field>
+                        <field name="newPasswordVerify"><default-field><password size="20"/></default-field></field>
+                        <field name="submitButton"><default-field title="Update"><submit/></default-field></field>
+                    </form-single>
+                </container-dialog>
+
+                <link url="enableUserAccount" text="Enable Account" parameter-map="[userId:userId]" condition="userAccount.disabled == 'Y'"/>
+                <link url="disableUserAccount" text="Disable Account" parameter-map="[userId:userId]" condition="userAccount.disabled != 'Y'"/>
+                <link url="resetPassword" text="Reset Password" parameter-map="[userId:userAccount.userId]" condition="userAccount.emailAddress"
+                        confirmation="Generate reset password and send by email to ${userAccount.emailAddress}?"/>
+
+                <container-dialog id="AuditLogDialog" button-text="Audit Log" width="960">
+                    <form-list name="AuditLogList" list="auditLogList" skip-form="true">
+                        <entity-find entity-name="moqui.entity.EntityAuditLog" list="auditLogList">
+                            <econdition field-name="changedEntityName" value="moqui.security.UserAccount"/>
+                            <!-- <econdition field-name="changedFieldName" operator="not-equals" value="statusId"/> -->
+                            <econdition field-name="pkPrimaryValue" from="userId"/>
+                            <select-field field-name="changedEntityName"/>
+                            <order-by field-name="-changedDate,pkSecondaryValue"/>
+                        </entity-find>
+
+                        <field name="changedDate"><default-field title="Date"><display/></default-field></field>
+                        <field name="changedByUserId"><default-field title="User">
+                            <display-entity text="${userFullName?:''} [${username?:userId?:''}]" entity-name="moqui.security.UserAccount" key-field-name="userId"/></default-field></field>
+                        <field name="pkSecondaryValue"><default-field title="Item"><display/></default-field></field>
+                        <field name="changedFieldName"><default-field title="Field">
+                            <display text="${org.moqui.util.StringUtilities.camelCaseToPretty(changedFieldName)}"/></default-field></field>
+                        <field name="oldValueText"><default-field title="From">
+                            <display text="${ec.entity.formatFieldString(changedEntityName, changedFieldName, oldValueText)}"/></default-field></field>
+                        <field name="newValueText"><default-field title="To">
+                            <display text="${ec.entity.formatFieldString(changedEntityName, changedFieldName, newValueText)}"/></default-field></field>
+                    </form-list>
+                </container-dialog>
+                <container-dialog id="TopicUserDialog" button-text="Topic Subscriptions">
+                    <form-list name="NotificationTopicList" list="notificationTopicList" transition="topicSubscriptions" multi="true">
+                        <row-actions>
+                            <entity-find-one entity-name="moqui.security.user.NotificationTopicUser" value-field="notTopicUser">
+                                <field-map field-name="topic"/><field-map field-name="userId"/></entity-find-one>
+                        </row-actions>
+                        <field name="userId"><default-field><hidden/></default-field></field>
+                        <field name="topic"><default-field><hidden/></default-field></field>
+                        <field name="description"><default-field title="Topic"><display/></default-field></field>
+                        <field name="receiveNotifications" from="notTopicUser?.receiveNotifications ?: receiveNotifications ?: 'N'"><default-field title="Receive">
+                            <radio><option key="Y"/><option key="N"/></radio>
+                        </default-field></field>
+                        <field name="allNotifications" from="notTopicUser?.allNotifications ?: allNotifications ?: 'N'"><default-field title="All">
+                            <radio><option key="Y"/><option key="N"/></radio>
+                        </default-field></field>
+                        <field name="emailNotifications" from="notTopicUser?.emailNotifications ?: emailNotifications ?: 'N'">
+                            <conditional-field condition="emailTemplateId" title="Email"><radio><option key="Y"/><option key="N"/></radio></conditional-field>
+                            <default-field title="Email"><display text=""/></default-field>
+                        </field>
+                        <field name="submitButton"><default-field><submit text="Update"/></default-field></field>
+                    </form-list>
+                </container-dialog>
+
+                <form-single name="UserAccountForm" map="userAccount" transition="updateUserAccount">
+                    <field name="userId"><default-field><display/></default-field></field>
+                    <field name="username"><default-field><text-line size="20"/></default-field></field>
+                    <field name="emailAddress"><default-field title="Email"><text-line size="50"/></default-field></field>
+                    <field name="userFullName"><default-field title="Full Name"><text-line size="40"/></default-field></field>
+
+                    <field name="passwordSetDate"><default-field><display/></default-field></field>
+                    <field name="requirePasswordChange"><default-field>
+                        <drop-down allow-empty="true"><option key="Y"/><option key="N"/></drop-down></default-field></field>
+                    <field name="successiveFailedLogins"><default-field title="Failed Logins"><display/></default-field></field>
+                    <field name="disabled"><default-field tooltip="Set along with Disabled Date after failed login attempts, auto enabled after configured time if Disabled Date set">
+                        <display text="${disabled ?: 'N'}"/></default-field></field>
+                    <field name="disabledDateTime"><default-field title="Disabled Date"><display/></default-field></field>
+                    <field name="terminateDate"><default-field tooltip="After this date user may not login and will not receive notifications" red-when="before-now">
+                        <date-time/></default-field></field>
+                    <field name="ipAllowed"><default-field title="IPs Allowed" tooltip="Comma separated IP4 patterns, each may use '*' for wildcard or '-' separated min/max numbers">
+                        <text-line size="80"/></default-field></field>
+
+                    <field name="locale"><default-field>
+                        <drop-down allow-empty="true"><list-options list="localeStringList" key="${locale}" text="${locale} - ${name}"/></drop-down>
+                    </default-field></field>
+                    <field name="timeZone"><default-field>
+                        <drop-down allow-empty="true"><list-options list="new TreeSet(TimeZone.getAvailableIDs().collect())"/></drop-down>
+                    </default-field></field>
+
+                    <field name="submitButton"><default-field title="Update"><submit/></default-field></field>
+                </form-single>
+            </row-col>
+            <row-col lg="7">
+                <container-box><box-header title="Groups"/><box-toolbar>
+                    <container-dialog id="AddGroupMemberDialog" button-text="Add Group">
+                        <form-single name="CreateUserGroupMember" transition="createUserGroupMember">
+                            <field name="userId"><default-field><hidden/></default-field></field>
+                            <field name="userGroupId"><default-field title="Group">
+                                <drop-down>
+                                    <entity-options key="${userGroupId}" text="UserGroupNameTemplate">
+                                        <entity-find entity-name="moqui.security.UserGroup">
+                                            <order-by field-name="description"/></entity-find>
+                                    </entity-options>
+                                </drop-down>
+                            </default-field></field>
+                            <field name="fromDate" from="ec.user.nowTimestamp"><default-field><date-time/></default-field></field>
+                            <field name="submitButton"><default-field title="Add"><submit/></default-field></field>
+                        </form-single>
+                    </container-dialog>
+                </box-toolbar><box-body-nopad>
+                    <form-list name="UserGroupList" list="ugmList" transition="updateUserGroupMember">
+                        <field name="userId"><default-field><hidden/></default-field></field>
+                        <field name="userGroupId"><default-field title="Group">
+                            <display-entity entity-name="moqui.security.UserGroup"/>
+                            <link url="userGroupDetail" text="${userGroupId}" link-type="anchor"/>
+                        </default-field></field>
+                        <field name="fromDate">
+                            <header-field show-order-by="true"/>
+                            <default-field><display/></default-field>
+                        </field>
+                        <field name="thruDate">
+                            <header-field show-order-by="true"/>
+                            <default-field><date-time/></default-field>
+                        </field>
+                        <field name="submitButton"><default-field title="Update"><submit/></default-field></field>
+                    </form-list>
+                </box-body-nopad></container-box>
+
+                <container-box><box-header title="Preferences"/><box-toolbar>
+                    <container-dialog id="AddPreferenceDialog" button-text="Add Existing Preference">
+                        <form-single name="CreateUserPreference" transition="createUserPreference">
+                            <field name="userId"><default-field><hidden/></default-field></field>
+                            <field name="preferenceKey"><default-field>
+                                <widget-template-include location="component://webroot/template/screen/BasicWidgetTemplates.xml#enumDropDown">
+                                    <set field="enumTypeId" value="UserPreferenceKey"/></widget-template-include>
+                            </default-field></field>
+                            <field name="preferenceValue"><default-field><text-line size="60"/></default-field></field>
+                            <field name="submitButton"><default-field title="Add"><submit/></default-field></field>
+                        </form-single>
+                    </container-dialog>
+                    <container-dialog id="AddCustomPreferenceDialog" button-text="Add Ad-hoc Preference">
+                        <form-single name="CreateCustomUserPreference" transition="createUserPreference">
+                            <field name="userId"><default-field><hidden/></default-field></field>
+                            <field name="preferenceKey"><default-field><text-line size="30"/></default-field></field>
+                            <field name="preferenceValue"><default-field><text-line size="60"/></default-field></field>
+                            <field name="submitButton"><default-field title="Add"><submit/></default-field></field>
+                        </form-single>
+                    </container-dialog>
+                </box-toolbar><box-body-nopad>
+                    <form-list name="UserPreferenceList" list="upList" transition="updateUserPreference">
+                        <row-actions>
+                            <entity-find-one entity-name="moqui.basic.Enumeration" value-field="keyEnum">
+                                <field-map field-name="enumId" from="preferenceKey"/></entity-find-one>
+                        </row-actions>
+                        <field name="userId"><default-field><hidden/></default-field></field>
+                        <field name="preferenceKey"><default-field title="Key">
+                            <display text="${keyEnum ? keyEnum.description + ' ' : ''}(${preferenceKey})"/></default-field></field>
+                        <field name="preferenceValue"><default-field title="Value"><text-line size="30"/></default-field></field>
+                        <field name="submitButton"><default-field title="Update"><submit/></default-field></field>
+                        <field name="deleteButton"><default-field title="">
+                            <link url="deleteUserPreference" text=" " icon="fa fa-trash" confirmation="Really remove?"/></default-field></field>
+                    </form-list>
+                </box-body-nopad></container-box>
+
+                <section name="SingleUseCodesDisplay" condition="singleUseCodes">
+                    <actions>
+                        <set field="singleUseCodes1" from="[]"/><set field="singleUseCodes2" from="[]"/><set field="singleUseCodes3" from="[]"/>
+                        <script>
+                            int i;
+                            for(code in singleUseCodes){
+                                if( i%3 == 0 ) { singleUseCodes1.add(singleUseCodes[i]);}
+                                else if(i%3==1){ singleUseCodes2.add(singleUseCodes[i]);}
+                                else if(i%3==2){ singleUseCodes3.add(singleUseCodes[i]);}
+                                i++; }</script>
+                    </actions>
+                    <widgets>
+                        <container-box>
+                            <box-header><label text="Single Use Codes" style="text-danger" type="h5"/></box-header>
+                            <box-body>
+                                <label text="Write down these codes. They will only appear once." style="text-danger"/>
+                                <container-row>
+                                    <row-col lg="4">
+                                        <container type="ul">
+                                            <section-iterate name="SingleUseCodes1" list="singleUseCodes1" entry="code1">
+                                                <widgets><container type="li"><label text="${code1}" style="text-danger"/></container></widgets></section-iterate>
+                                        </container></row-col>
+                                    <row-col lg="4">
+                                        <container type="ul">
+                                            <section-iterate name="SingleUseCodes2" list="singleUseCodes2" entry="code2">
+                                                <widgets><container type="li"><label text="${code2}" style="text-danger"/></container></widgets>
+                                            </section-iterate></container></row-col>
+                                    <row-col lg="4">
+                                        <container type="ul">
+                                            <section-iterate name="SingleUseCodes3" list="singleUseCodes3" entry="code3">
+                                                <widgets><container type="li"><label text="${code3}" style="text-danger"/></container></widgets>
+                                            </section-iterate></container></row-col>
+                                </container-row>
+                            </box-body></container-box>
+                    </widgets>
+                </section>
+                <container-box><box-header title="Authentication Methods"/>
+                    <box-toolbar>
+                        <container-dialog id="CreateTotpDialog" button-text="Add Authenticator App">
+                            <form-single name="CreateUserAuthcFactorTotp" transition="createUserAuthcFactorTotp">
+                                <field name="userId" from="userAccount.userId"><default-field><hidden/></default-field></field>
+                                <field name="thruDate" from="ec.user.nowTimestamp + 365"><default-field><date-time/></default-field></field>
+                                <field name="submitButton"><default-field title="Add"><submit/></default-field></field>
+                            </form-single></container-dialog>
+                        <container-dialog id="AddSingleUseDialog" button-text="Add Single Use Codes">
+                            <form-single name="CreateUserAuthcFactorSingleUse" transition="createUserAuthcFactorSingleUse">
+                                <field name="userId" from="userId"><default-field><hidden/></default-field></field>
+                                <field name="fromDate" from="ec.user.nowTimestamp + 365"><default-field><date-time/></default-field></field>
+                                <field name="numberOfCodes"><default-field title="Number of Codes"><text-line size="30" input-type="Integer" default-value="6"/></default-field></field>
+                                <field name="submitButton"><default-field title="Add" ><submit/></default-field></field>
+                            </form-single></container-dialog>
+                        <container-dialog id="AddEmailFactor" button-text="Add Email Factor">
+                            <form-single name="CreateUserAuthcFactorEmail" transition="createUserAuthcFactorEmail">
+                                <field name="userId" from="userId"><default-field><hidden/></default-field></field>
+                                <field name="thruDate" from="ec.user.nowTimestamp + 365"><default-field><date-time/></default-field></field>
+                                <field name="factorOption" from="userAccount.emailAddress"><default-field title="Email"><text-line size="30"/></default-field></field>
+                                <field name="submitButton"><default-field title="Add"><submit/></default-field></field>
+                            </form-single>
+                        </container-dialog>
+
+                    </box-toolbar><box-body-nopad>
+                        <form-list name="UserAuthcFactorList" list="userAuthcFactorList" transition="factorSubmit">
+                            <field name="factorId">
+                                <header-field title="Id" show-order-by="true"/><default-field><display/></default-field></field>
+                            <field name="userId" from="userId"><default-field><hidden/></default-field></field>
+                            <field name="fromFactorId"><header-field title="From Id"/><default-field><display/></default-field></field>
+                            <field name="factorTypeEnumId"><header-field title="Factor Type"/><default-field><display-entity entity-name="moqui.basic.Enumeration" text="${description}"/></default-field></field>
+                            <field name="fromDate"><default-field><display/></default-field></field>
+                            <field name="thruDate"><default-field><display/></default-field></field>
+                            <field name="action">
+                                <conditional-field condition="needsValidation == 'Y' &amp;&amp; factorTypeEnumId == 'UafTotp'">
+                                    <dynamic-dialog id="VerifyTotpDialog" button-text="Verify" transition="VerifyTotp" parameter-map="[userId:userId, factorId:factorId, verify:true]"/></conditional-field>
+                                <conditional-field condition="needsValidation == 'N' &amp;&amp; factorTypeEnumId == 'UafTotp'">
+                                    <dynamic-dialog id="ViewTotpDialog" button-text="View" transition="VerifyTotp" parameter-map="[userId:userId, factorId:factorId, verify:true]"/></conditional-field>
+                                <conditional-field condition="needsValidation == 'Y' &amp;&amp; factorTypeEnumId == 'UafEmail'">
+                                    <dynamic-dialog id="VerifyEmailDialog" button-text="Verify" transition="VerifyEmail" parameter-map="[userId:userId, factorId:factorId, userEmail:factorOption]"/></conditional-field>
+                                <conditional-field condition="needsValidation == 'N' &amp;&amp; factorTypeEnumId == 'UafEmail'">
+                                    <label text="${factorOption}"/></conditional-field>
+                            </field>
+                            <field name="needsValidation"><conditional-field condition="factorTypeEnumId != 'UafSingleUse'"><label text="${needsValidation}"/></conditional-field></field>
+                            <field name="delete"><default-field title=" "><submit text=" " icon="fa fa-trash"/></default-field></field>
+                        </form-list>
+                    </box-body-nopad>
+                </container-box>
+
+                <!-- TODO: consider adding full history to another screen (tab); now limited to most recent 20 -->
+                <label text="Login History" type="h5"/>
+                <form-list name="HistoryList" list="historyList" skip-form="true">
+                    <field name="fromDate">
+                        <header-field title="Date" show-order-by="true"/>
+                        <default-field><display/></default-field>
+                    </field>
+                    <field name="successfulLogin"><default-field title="Successful"><display/></default-field></field>
+                    <field name="visitId"><default-field title="Visit">
+                        <link url="visitDetail" text="${visitId}" link-type="anchor" condition="visitId"/>
+                    </default-field></field>
+                </form-list>
+            </row-col>
+        </container-row>
+
+        <label text="Tarpit Locks (Velocity Limits Reached)" type="h5"/>
+        <label text="Showing ${artifactTarpitLockList?.size() ?: ''} most recent, user has a history of ${allTarpitLocksCount} locks"/>
+        <form-list name="ArtifactTarpitLockList" list="artifactTarpitLockList">
+            <field name="artifactTypeEnumId"><default-field><display-entity entity-name="moqui.basic.Enumeration"/></default-field></field>
+            <field name="artifactName"><default-field><display/></default-field></field>
+            <field name="releaseDateTime"><default-field><display/></default-field></field>
+            <field name="releaseNow"><default-field>
+                <link url="releaseTarpitNow" text="Release Now" parameter-map="[artifactTarpitLockId:artifactTarpitLockId]"
+                        condition="releaseDateTime &gt; ec.user.nowTimestamp"/>
+            </default-field></field>
+        </form-list>
+    </widgets>
+</screen>

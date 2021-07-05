@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-include="false">
+
+    <transition name="getServerPrinters"><service-call name="org.moqui.impl.PrintServices.get#ServerPrinters"/>
+        <default-response url="."/></transition>
+    <transition name="createNetworkPrinter"><service-call name="create#moqui.basic.print.NetworkPrinter"/>
+        <default-response url="."/></transition>
+    <transition name="updateNetworkPrinter"><service-call name="update#moqui.basic.print.NetworkPrinter"/>
+        <default-response url="."/></transition>
+    <transition name="deleteNetworkPrinter"><service-call name="delete#moqui.basic.print.NetworkPrinter"/>
+        <default-response url="."/></transition>
+    <transition name="printJobList"><default-response url="../../PrintJob/PrintJobList"/></transition>
+
+    <actions>
+        <entity-find entity-name="moqui.basic.print.NetworkPrinter" list="networkPrinterList">
+            <search-form-inputs default-order-by="serverHost,printerName"/></entity-find>
+    </actions>
+    <widgets>
+        <container-dialog id="GetDialog" button-text="Get Server Printers">
+            <form-single name="GetForm" transition="getServerPrinters">
+                <field name="serverHost"><default-field><text-line size="40"/></default-field></field>
+                <field name="serverPort"><default-field><text-line size="5" default-value="631"/></default-field></field>
+                <field name="submitButton"><default-field title="Get Printers"><submit/></default-field></field>
+            </form-single>
+        </container-dialog>
+        <container-dialog id="CreateDialog" button-text="Create Printer">
+            <form-single name="CreateForm" transition="createNetworkPrinter">
+                <field name="serverHost"><default-field><text-line size="40"/></default-field></field>
+                <field name="serverPort"><default-field><text-line size="5" default-value="631"/></default-field></field>
+                <field name="printerName"><default-field tooltip="Must match name on server exactly">
+                    <text-line size="40"/></default-field></field>
+                <field name="description"><default-field><text-line size="40"/></default-field></field>
+                <field name="location"><default-field><text-line size="40"/></default-field></field>
+                <field name="submitButton"><default-field title="Create Printer"><submit/></default-field></field>
+            </form-single>
+        </container-dialog>
+        <form-list name="PrintJobList" list="networkPrinterList" transition="updateNetworkPrinter">
+            <field name="jobs"><default-field>
+                <link url="printJobList" text="Jobs" parameter-map="[networkPrinterId:networkPrinterId]"/>
+            </default-field></field>
+            <field name="networkPrinterId">
+                <header-field title="ID" show-order-by="true"><text-find size="8" hide-options="true"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+
+            <field name="serverHost">
+                <header-field show-order-by="true"><text-find size="10" hide-options="true"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="serverPort">
+                <header-field show-order-by="true"><text-line size="3"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="printerName">
+                <header-field show-order-by="true"><text-find size="15" hide-options="true"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="description">
+                <header-field show-order-by="true"><text-find size="15" hide-options="true"/></header-field>
+                <default-field><text-line size="30"/></default-field>
+            </field>
+            <field name="location">
+                <header-field show-order-by="true"><text-find size="15" hide-options="true"/></header-field>
+                <default-field><text-line size="20"/></default-field>
+            </field>
+
+            <field name="update"><default-field title="Update"><submit/></default-field></field>
+            <field name="find">
+                <header-field title="Find"><submit/></header-field>
+                <default-field><link url="deleteNetworkPrinter" text="Delete"/></default-field>
+            </field>
+        </form-list>
+    </widgets>
+</screen>

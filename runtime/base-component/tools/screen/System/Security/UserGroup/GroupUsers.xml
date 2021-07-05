@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-index="2">
+
+    <parameter name="userGroupId" required="true"/>
+
+    <transition name="userAccountDetail"><default-response url="../../UserAccount/UserAccountDetail"/></transition>
+    <transition name="createUserGroupMember"><service-call name="create#moqui.security.UserGroupMember"/>
+        <default-response url="."/></transition>
+    <transition name="updateUserGroupMember"><service-call name="update#moqui.security.UserGroupMember"/>
+        <default-response url="."/></transition>
+
+    <transition name="getUserList">
+        <actions>
+            <entity-find entity-name="moqui.security.UserAccount" list="userList" limit="20">
+                <econditions combine="or">
+                    <econdition field-name="userId" operator="like" value="%${term}%" ignore-case="true"/>
+                    <econdition field-name="username" operator="like" value="%${term}%" ignore-case="true"/>
+                    <econdition field-name="userFullName" operator="like" value="%${term}%" ignore-case="true"/>
+                </econditions>
+                <order-by field-name="username"/>
+            </entity-find>
+            <script>
+                def outList = []
+                for (def user in userList)
+                    outList.add([value:user.userId, label:"${user.username?:''} ${user.userFullName?:''} [${user.userId}]".toString()])
+                ec.web.sendJsonResponse(outList)
+            </script>
+        </actions>
+        <default-response type="none"/>
+    </transition>
+
+    <actions>
+        <entity-find entity-name="moqui.security.UserGroupMember" list="ugmList">
+            <search-form-inputs default-order-by="userId"/>
+            <econdition field-name="userGroupId"/></entity-find>
+    </actions>
+    <widgets>
+        <container-dialog id="AddGroupMemberDialog" button-text="Add User">
+            <form-single name="CreateUserGroupMember" transition="createUserGroupMember">
+                <field name="userGroupId"><default-field><hidden/></default-field></field>
+                <field name="userId"><default-field title="User">
+                    <drop-down><dynamic-options transition="getUserList" server-search="true" min-length="2"/></drop-down>
+                </default-field></field>
+                <field name="fromDate" from="ec.user.nowTimestamp"><default-field><date-time/></default-field></field>
+                <field name="submitButton"><default-field title="Add"><submit/></default-field></field>
+            </form-single>
+        </container-dialog>
+        <form-list name="UserGroupList" list="ugmList" transition="updateUserGroupMember">
+            <field name="userGroupId"><default-field><hidden/></default-field></field>
+            <field name="userId">
+                <header-field title="User Account" show-order-by="true"/>
+                <default-field>
+                    <display-entity entity-name="moqui.security.UserAccount" text="${username} - ${userFullName}"/>
+                    <link url="userAccountDetail" text="${userId}" link-type="anchor"/>
+                </default-field>
+            </field>
+            <field name="fromDate">
+                <header-field show-order-by="true"/>
+                <default-field><display/></default-field>
+            </field>
+            <field name="thruDate">
+                <header-field show-order-by="true"/>
+                <default-field><date-time/></default-field>
+            </field>
+            <field name="submitButton"><default-field title="Update"><submit/></default-field></field>
+        </form-list>
+    </widgets>
+</screen>

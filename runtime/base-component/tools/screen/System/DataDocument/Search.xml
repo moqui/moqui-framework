@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-title="Search" default-menu-index="1">
+
+    <transition name="viewDocument"><default-response url="../ViewDocument"/></transition>
+
+    <actions>
+        <if condition="queryString">
+            <service-call name="org.moqui.search.SearchServices.search#DataDocuments" out-map="context" in-map="context + [flattenDocument:false]"/>
+        </if>
+    </actions>
+    <widgets>
+        <link url="https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html#query-string-syntax"
+                url-type="plain" link-type="anchor" target-window="_blank" text="Search String Reference"/>
+        <form-single name="SearchOptions" transition=".">
+            <field name="indexName"><default-field title="">
+                <drop-down>
+                    <entity-options key="${indexName}" text="${indexName}">
+                        <entity-find entity-name="moqui.entity.document.DataDocument" distinct="true">
+                            <select-field field-name="indexName"/>
+                            <order-by field-name="indexName"/>
+                        </entity-find>
+                    </entity-options>
+                </drop-down>
+            </default-field></field>
+            <field name="queryString"><default-field title="">
+                <text-line size="100"/></default-field></field>
+            <field name="submitButton"><default-field title="Search"><submit/></default-field></field>
+
+            <field-layout><field-row-big><field-ref name="indexName"/><field-ref name="queryString"/>
+                <field-ref name="submitButton"/></field-row-big></field-layout>
+        </form-single>
+
+        <form-list name="SearchResults" list="documentList" paginate="true" paginate-always-show="true">
+            <row-actions>
+                <entity-find-one entity-name="DataDocument" value-field="dataDocument" cache="true">
+                    <field-map field-name="dataDocumentId" from="_type"/>
+                </entity-find-one>
+                <set field="documentTitle" from="ec.resource.expand(dataDocument?.documentTitle, '')"/>
+
+                <entity-find entity-name="moqui.entity.document.DataDocumentLink" list="ddLinkList" cache="true">
+                    <econdition field-name="dataDocumentId" from="_type"/></entity-find>
+                <set field="linksList" from="[]"/>
+                <iterate list="ddLinkList" entry="ddLink"><if condition="!ddLink.linkCondition || ec.resource.condition(ddLink.linkCondition, '')">
+                    <script>linksList.add(ddLink)</script></if></iterate>
+            </row-actions>
+            <field name="type"><default-field><display text="${dataDocument.documentName} [${_type}]"/></default-field></field>
+            <field name="id"><default-field><display text="${_id}"/></default-field></field>
+            <field name="documentTitle"><default-field title="Title"><display/></default-field></field>
+            <field name="link"><default-field>
+                <section-iterate name="LinksListSection" list="linksList" entry="ddLink"><widgets>
+                    <link url="${ec.resource.expand(ddLink.linkUrl, null)}" text="${ec.resource.expand(ddLink.label, null)}"
+                            link-type="anchor" url-type="${ddLink.urlType?:'plain'}"/>
+                </widgets></section-iterate>
+            </default-field></field>
+            <field name="viewDocument"><default-field>
+                <dynamic-dialog id="ViewDocument" button-text="View Document" transition="viewDocument" width="800">
+                    <parameter name="_index"/><parameter name="_id"/></dynamic-dialog>
+            </default-field></field>
+        </form-list>
+    </widgets>
+</screen>

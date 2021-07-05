@@ -1,0 +1,72 @@
+
+# downloaded lib, generated, etc files
+/base-component/webroot/build
+/base-component/webroot/screen/webroot/libs
+/base-component/webroot/screen/webroot/js/*.min.js
+/base-component/webroot/screen/webroot/qz-tray
+
+# runtime generated files
+/db/derby/moqui/
+/db/derby/derby.log
+/db/h2/
+/db/orientdb/databases/
+/db/snapshot/
+/elasticsearch*/
+/jackrabbit/jackrabbit/
+/log/
+/sessions/
+/tmp/
+/txlog/
+
+# common runtime added files
+/classes/*.pem
+/lib/*.jar
+/component/
+/ecomponent/
+/mantle/
+
+# jackrabbit standalone jar file
+/jackrabbit/jackrabbit-standalone-*.jar
+
+# IntelliJ IDEA files
+.idea/
+out/
+*.ipr
+*.iws
+*.iml
+
+# Eclipse files (and some general ones also used by Eclipse)
+.metadata
+.gradle
+bin/
+tmp/
+*.tmp
+*.bak
+*.swp
+*~.nib
+local.properties
+.settings/
+.loadpath
+
+# NetBeans files
+nbproject/private/
+nbbuild/
+.nb-gradle/
+# allow dist, some JS libs in webroot/assets use it: dist/
+nbdist/
+nbactions.xml
+nb-configuration.xml
+
+# OSX auto files
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows auto files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux auto files
+*~

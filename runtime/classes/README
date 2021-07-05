@@ -1,0 +1,11 @@
+Put classpath resources such as configuration files and such here to
+override resources with matching paths elsewhere on the classpath. This
+is best supported when running Moqui using the executable WAR file and when
+using the Ant add-runtime target or the Gradle addRuntime task to create a
+WAR file with the runtime directory embedded. When deploying the Moqui WAR
+file in a Servlet container without an embedded runtime directory this may
+not work because the classpath is handled differently.
+
+This is especially useful for overriding the default configuration files in
+the moqui/framework/src/main/resources directory. Simply copy them to your
+runtime/classes directory and make changes as desired.

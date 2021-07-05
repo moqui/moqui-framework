@@ -1,0 +1,469 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-title="Speed Test" begin-transaction="true">
+
+    <transition name="speedTest"><default-response url="."/></transition>
+
+    <actions>
+        <script><![CDATA[
+            import groovy.transform.CompileStatic
+            import javax.cache.Cache
+            import org.moqui.context.ExecutionContext
+            import org.moqui.impl.entity.EntityFacadeImpl
+            import org.moqui.entity.EntityValue
+            import org.moqui.entity.EntityCondition
+            import org.moqui.entity.EntityConditionFactory
+            import org.moqui.screen.ScreenTest
+            import org.moqui.util.RestClient
+
+            import java.text.DecimalFormat
+            import java.sql.Timestamp
+            import org.slf4j.Logger
+            import org.slf4j.LoggerFactory
+
+            Logger logger = LoggerFactory.getLogger("SpeedTest")
+
+            beginTime = System.nanoTime()
+
+            baseCalls = baseCalls ?: '1000'
+            baseCallsNum = ec.l10n.parseNumber(baseCalls, '') as int
+
+            performanceList = runTests(baseCallsNum, context.ec, logger)
+
+            @CompileStatic
+            List runTests(int baseCallsNum, ExecutionContext ec, Logger logger) {
+                boolean generalCacheTests = true
+                boolean findCacheTests = true
+                boolean findTests = true
+                boolean directCrudTests = true
+                boolean serviceCrudTests = true
+                boolean directNoSqlCrudTests = true
+                boolean serviceCallTests = true
+                boolean screenRenderTests = true
+                boolean restApiTests = true
+
+                EntityFacadeImpl ef = (EntityFacadeImpl) ec.entity
+                Timestamp nowTs = new Timestamp(System.currentTimeMillis())
+
+                // NOTE: long sleep times (like 1000ms) do help the numbers, but still somewhat inconsistent
+                long sleepTime = 10
+
+                List performanceList = []
+
+                // direct cache writes and reads with EC
+                int calls = baseCallsNum * 2
+                BigDecimal milliseconds = 0
+                Cache testDistCache = ec.cache.getDistributedCache("test.cache.dist")
+                testDistCache.clear()
+                Cache testLocalCache = ec.cache.getLocalCache("test.cache.local")
+                testLocalCache.clear()
+                EntityValue testEnumValue =
+                        ef.find("moqui.basic.Enumeration").condition("enumId", "_NA_").useCache(true).one()
+                // to measure the cache time and not the condition creation time, create those in advance
+                long startTime = System.nanoTime()
+                EntityConditionFactory ecf = ef.conditionFactory
+
+                if (generalCacheTests) {
+                    List<EntityCondition> conditionList = new ArrayList(calls)
+
+                    for (int i = 0; i < calls; i++)
+                        conditionList.add(ecf.makeCondition("enumId", EntityCondition.EQUALS, "_NA_" + i))
+                    milliseconds = ((System.nanoTime() - startTime) / 1E6)
+                    performanceList.add([operation     : "create EntityCondition (${conditionList.size()})", entity: "",
+                                         calls         : calls, milliseconds: milliseconds, msPerCall: (milliseconds / calls),
+                                         callsPerSecond: ((calls / milliseconds) * 1000)])
+
+                    startTime = System.nanoTime()
+                    int distCalls = (calls / 10).intValue() ?: 1
+                    for (int i = 0; i < distCalls; i++) testDistCache.put(conditionList[i], testEnumValue)
+                    milliseconds = ((System.nanoTime() - startTime) / 1E6)
+                    performanceList.add([operation     : "direct cache writes - dist", entity: "moqui.basic.Enumeration",
+                                         calls         : distCalls, milliseconds: milliseconds, msPerCall: (milliseconds / distCalls),
+                                         callsPerSecond: ((distCalls / milliseconds) * 1000)])
+
+                    startTime = System.nanoTime()
+                    for (int i = 0; i < distCalls; i++) testDistCache.get(conditionList[i])
+                    milliseconds = ((System.nanoTime() - startTime) / 1E6)
+                    performanceList.add([operation     : "direct cache reads - dist", entity: "moqui.basic.Enumeration",
+                                         calls         : distCalls, milliseconds: milliseconds, msPerCall: (milliseconds / distCalls),
+                                         callsPerSecond: ((distCalls / milliseconds) * 1000)])
+
+                    startTime = System.nanoTime()
+                    for (int i = 0; i < calls; i++) testLocalCache.put(conditionList[i], testEnumValue)
+                    milliseconds = ((System.nanoTime() - startTime) / 1E6)
+                    performanceList.add([operation     : "direct cache writes - local  (${testLocalCache.size()})", entity: "moqui.basic.Enumeration",
+                                         calls         : calls, milliseconds: milliseconds, msPerCall: (milliseconds / calls),
+                                         callsPerSecond: ((calls / milliseconds) * 1000)])
+
+                    startTime = System.nanoTime()
+                    for (int i = 0; i < calls; i++) {
+                        EntityCondition cond = conditionList[i]
+                        testLocalCache.get(cond)
+                        testLocalCache.get(cond)
+                        testLocalCache.get(cond)
+                        testLocalCache.get(cond)
+                        testLocalCache.get(cond)
+                    }
+                    milliseconds = ((System.nanoTime() - startTime) / 1E6)
+                    calls = calls * 5
+                    performanceList.add([operation     : "direct cache reads - local", entity: "moqui.basic.Enumeration",
+                                         calls         : calls, milliseconds: milliseconds, msPerCall: (milliseconds / calls),
+                                         callsPerSecond: ((calls / milliseconds) * 1000)])
+
+                    // sleep to hopefully let GC do its thing, make times more consistent
+                    sleep(sleepTime)
+                }
+
+                if (findCacheTests) {
+                    // one PK cache
+                    // get it in the cache first
+                    ef.find("moqui.basic.Enumeration").condition("enumId", "_NA_").useCache(true).one()
+                    calls = baseCallsNum
+                    startTime = System.nanoTime()
+                    for (int i = 0; i < calls; i++) ef.find("moqui.basic.Enumeration").condition("enumId", "_NA_").useCache(true).one()
+                    milliseconds = ((System.nanoTime() - startTime) / 1E6)
+                    performanceList.add([operation     : "one PK cache", entity: "moqui.basic.Enumeration",
+                                         calls         : calls, milliseconds: milliseconds, msPerCall: (milliseconds / calls),
+                                         callsPerSecond: ((calls / milliseconds) * 1000)])
+
+                    // one PK cache fast find
+                    startTime = System.nanoTime()
+                    for (int i = 0; i < calls; i++) ef.fastFindOne("moqui.basic.Enumeration", true, false, "_NA_")
+                    milliseconds = ((System.nanoTime() - startTime) / 1E6)
+                    performanceList.add([operation     : "one PK cache fast", entity: "moqui.basic.Enumeration",
+                                         calls         : calls, milliseconds: milliseconds, msPerCall: (milliseconds / calls),
+                                         callsPerSecond: ((calls / milliseconds) * 1000)])
+
+                    // list cache
+                    // get it in the cache first
+                    ef.find("moqui.basic.Enumeration").condition("enumTypeId", "EntitySyncArtifactAppl").useCache(true).list()
+                    calls = baseCallsNum
+                    startTime = System.nanoTime()
+                    for (int i = 0; i < calls; i++)
+                        ef.find("moqui.basic.Enumeration").condition("enumTypeId", "EntitySyncArtifactAppl").useCache(true).list()
+                    milliseconds = ((System.nanoTime() - startTime) / 1E6)
+                    performanceList.add([operation     : "list cache by type", entity: "moqui.basic.Enumeration",
+                                         calls         : calls, milliseconds: milliseconds, msPerCall: (milliseconds / calls),
+                                         callsPerSecond: ((calls / milliseconds) * 1000)])
+                }
+
+                if (findTests) {
+                    // one PK
+                    calls = baseCallsNum
+                    startTime = System.nanoTime()
+                    for (int i = 0; i < calls; i++) ef.find("moqui.basic.Enumeration").condition("enumId", "_NA_").useCache(false).one()
+                    milliseconds = ((System.nanoTime() - startTime) / 1E6)
+                    performanceList.add([operation     : "one PK", entity: "moqui.basic.Enumeration",
+                                         calls         : calls, milliseconds: milliseconds, msPerCall: (milliseconds / calls),
+                                         callsPerSecond: ((calls / milliseconds) * 1000)])
+
+                    // one PK fast find
+                    startTime = System.nanoTime()
+                    for (int i = 0; i < calls; i++) ef.fastFindOne("moqui.basic.Enumeration", false, false, "_NA_")
+                    milliseconds = ((System.nanoTime() - startTime) / 1E6)
+                    performanceList.add([operation     : "one PK fast", entity: "moqui.basic.Enumeration",
+                                         calls         : calls, milliseconds: milliseconds, msPerCall: (milliseconds / calls),
+                                         callsPerSecond: ((calls / milliseconds) * 1000)])
+
+                    // list
+                    calls = baseCallsNum
+                    startTime = System.nanoTime()
+                    for (int i = 0; i < calls; i++)
+                        ef.find("moqui.basic.Enumeration").condition("enumTypeId", "EntitySyncArtifactAppl").useCache(false).list()
+                    milliseconds = ((System.nanoTime() - startTime) / 1E6)
+                    performanceList.add([operation     : "list by type", entity: "moqui.basic.Enumeration",
+                                         calls         : calls, milliseconds: milliseconds, msPerCall: (milliseconds / calls),
+                                         callsPerSecond: ((calls / milliseconds) * 1000)])
+                }
+
+                // ========== direct CrUD tests ==========
+                if (directCrudTests) {
+                    calls = baseCallsNum
+
+                    // sleep to hopefully let GC do its thing, make times more consistent
+                    sleep(sleepTime)
+
+                    // create with sequenced ID test
+                    startTime = System.nanoTime()
+                    ArrayList<EntityValue> createTestList = new ArrayList<EntityValue>(calls * 2)
+                    for (int i = 0; i < calls; i++) {
+                        createTestList.add(ef.makeValue("moqui.test.TestEntity")
+                                .setFields([testMedium       : "Medium " + i,
+                                            testLong         : "Long " + i, testIndicator: "Y", testDateTime: nowTs, testNumberInteger: i,
+                                            testNumberDecimal: (i + 0.5)] as Map<String, Object>, true, null, null).setSequencedIdPrimary().create())
+                    }
+                    milliseconds = ((System.nanoTime() - startTime) / 1E6)
+                    performanceList.add([operation     : "direct create with sequenced ID", entity: "moqui.test.TestEntity",
+                                         calls         : calls, milliseconds: milliseconds,
+                                         msPerCall     : (milliseconds / calls),
+                                         callsPerSecond: ((calls / milliseconds) * 1000)])
+
+                    // create with preset ID test
+                    startTime = System.nanoTime()
+                    for (int i = 0; i < calls; i++) {
+                        createTestList.add(ef.makeValue("moqui.test.TestEntity")
+                                .setFields([testId           : ("id" + i),
+                                            testMedium       : "Medium " + i, testLong: "Long " + i, testIndicator: "Y", testDateTime: nowTs,
+                                            testNumberInteger: i, testNumberDecimal: (i + 0.5)] as Map<String, Object>, true, null, null).create())
+                    }
+                    milliseconds = ((System.nanoTime() - startTime) / 1E6)
+                    performanceList.add([operation     : "direct create with preset ID", entity: "moqui.test.TestEntity",
+                                         calls         : calls, milliseconds: milliseconds, msPerCall: (milliseconds / calls),
+                                         callsPerSecond: ((calls / milliseconds) * 1000)])
+
+                    // sleep to hopefully let GC do its thing, make times more consistent
+                    sleep(sleepTime)
+
+                    // update test
+                    calls = createTestList.size()
+                    startTime = System.nanoTime()
+                    for (int i = 0; i < calls; i++) {
+                        EntityValue ev = (EntityValue) createTestList.get(i)
+                        ev.testMedium = (ev.testMedium as String) + " - Updated"
+                        ev.update()
+                    }
+                    milliseconds = ((System.nanoTime() - startTime) / 1E6)
+                    performanceList.add([operation     : "direct update", entity: "moqui.test.TestEntity",
+                                         calls         : calls, milliseconds: milliseconds, msPerCall: (milliseconds / calls),
+                                         callsPerSecond: ((calls / milliseconds) * 1000)])
+
+                    // delete
+                    calls = createTestList.size()
+                    startTime = System.nanoTime()
+                    for (int i = 0; i < calls; i++) {
+                        EntityValue ev = (EntityValue) createTestList.get(i)
+                        ev.delete()
+                    }
+                    milliseconds = ((System.nanoTime() - startTime) / 1E6)
+                    performanceList.add([operation     : "direct delete", entity: "moqui.test.TestEntity",
+                                         calls         : calls, milliseconds: milliseconds, msPerCall: (milliseconds / calls),
+                                         callsPerSecond: ((calls / milliseconds) * 1000)])
+                }
+
+                // ========== service CrUD tests ==========
+                if (serviceCrudTests) {
+                    calls = baseCallsNum
+
+                    // sleep to hopefully let GC do its thing, make times more consistent
+                    sleep(sleepTime)
+
+                    // create with sequenced ID test
+                    startTime = System.nanoTime()
+                    ArrayList<String> createTestIdList = new ArrayList<String>(calls)
+                    for (int i = 0; i < calls; i++) {
+                        createTestIdList.add(ec.service.sync().name("create", "moqui.test.TestEntity").parameters([
+                                testMedium       : "Medium " + i, testLong: "Long " + i, testIndicator: "Y", testDateTime: nowTs,
+                                testNumberInteger: i, testNumberDecimal: (i + 0.5)]).call().testId as String)
+                    }
+                    milliseconds = ((System.nanoTime() - startTime) / 1E6)
+                    performanceList.add([operation     : "service create with sequenced ID", entity: "moqui.test.TestEntity",
+                                         calls         : calls, milliseconds: milliseconds, msPerCall: (milliseconds / calls),
+                                         callsPerSecond: ((calls / milliseconds) * 1000)])
+
+                    // update test
+                    calls = createTestIdList.size()
+                    startTime = System.nanoTime()
+                    for (int i = 0; i < calls; i++) {
+                        String id = (String) createTestIdList.get(i)
+                        ec.service.sync().name("update", "moqui.test.TestEntity").parameters([testId: id, testMedium: "Updated Text"]).call()
+                    }
+                    milliseconds = ((System.nanoTime() - startTime) / 1E6)
+                    performanceList.add([operation     : "service update", entity: "moqui.test.TestEntity",
+                                         calls         : calls, milliseconds: milliseconds, msPerCall: (milliseconds / calls),
+                                         callsPerSecond: ((calls / milliseconds) * 1000)])
+
+                    // delete
+                    calls = createTestIdList.size()
+                    startTime = System.nanoTime()
+                    for (int i = 0; i < calls; i++) {
+                        String id = (String) createTestIdList.get(i)
+                        ec.service.sync().name("delete", "moqui.test.TestEntity").parameter("testId", id).call()
+                    }
+                    milliseconds = ((System.nanoTime() - startTime) / 1E6)
+                    performanceList.add([operation     : "service delete", entity: "moqui.test.TestEntity", calls: calls, milliseconds: milliseconds,
+                                         msPerCall     : (milliseconds / calls),
+                                         callsPerSecond: ((calls / milliseconds) * 1000)])
+                }
+
+                // ========== NoSQL direct CrUD tests ==========
+                if (directNoSqlCrudTests) {
+                    calls = baseCallsNum
+
+                    // sleep to hopefully let GC do its thing, make times more consistent
+                    sleep(sleepTime)
+
+                    // create with sequenced ID test
+                    startTime = System.nanoTime()
+                    ArrayList<EntityValue> createNoSqlTestList = new ArrayList<EntityValue>(calls * 2)
+                    for (int i = 0; i < calls; i++) {
+                        EntityValue ev = ef.makeValue("moqui.test.TestNoSqlEntity")
+                                .setFields([testMedium       : "Medium " + i,
+                                            testLong         : "Long " + i, testIndicator: "Y", testDateTime: nowTs, testNumberInteger: i,
+                                            testNumberDecimal: (i + 0.5)] as Map<String, Object>, true, null, null).setSequencedIdPrimary().create()
+                        createNoSqlTestList.add(ev)
+                        // logger.warn("===== created TestNoSqlEntity value ${ev}")
+                    }
+                    milliseconds = ((System.nanoTime() - startTime) / 1E6)
+                    performanceList.add([operation     : "direct create with sequenced ID", entity: "moqui.test.TestNoSqlEntity",
+                                         calls         : calls, milliseconds: milliseconds, msPerCall: (milliseconds / calls),
+                                         callsPerSecond: ((calls / milliseconds) * 1000)])
+
+                    // create with preset ID test
+                    startTime = System.nanoTime()
+                    for (int i = 0; i < calls; i++) {
+                        createNoSqlTestList.add(ef.makeValue("moqui.test.TestNoSqlEntity")
+                                .setFields([testId           : ("id" + i),
+                                            testMedium       : "Medium " + i, testLong: "Long " + i, testIndicator: "Y", testDateTime: nowTs,
+                                            testNumberInteger: i, testNumberDecimal: (i + 0.5)] as Map<String, Object>, true, null, null).create())
+                    }
+                    milliseconds = ((System.nanoTime() - startTime) / 1E6)
+                    performanceList.add([operation     : "direct create with preset ID", entity: "moqui.test.TestNoSqlEntity",
+                                         calls         : calls, milliseconds: milliseconds, msPerCall: (milliseconds / calls),
+                                         callsPerSecond: ((calls / milliseconds) * 1000)])
+
+                    // sleep to hopefully let GC do its thing, make times more consistent
+                    sleep(sleepTime)
+
+                    // update test
+                    calls = createNoSqlTestList.size()
+                    startTime = System.nanoTime()
+                    for (int i = 0; i < calls; i++) {
+                        EntityValue ev = (EntityValue) createNoSqlTestList.get(i)
+                        ev.testMedium = (ev.testMedium as String) + " - Updated"
+                        ev.update()
+                    }
+                    milliseconds = ((System.nanoTime() - startTime) / 1E6)
+                    performanceList.add([operation     : "direct update", entity: "moqui.test.TestNoSqlEntity",
+                                         calls         : calls, milliseconds: milliseconds, msPerCall: (milliseconds / calls),
+                                         callsPerSecond: ((calls / milliseconds) * 1000)])
+
+                    // delete
+                    calls = createNoSqlTestList.size()
+                    startTime = System.nanoTime()
+                    for (int i = 0; i < calls; i++) {
+                        EntityValue ev = (EntityValue) createNoSqlTestList.get(i)
+                        ev.delete()
+                    }
+                    milliseconds = ((System.nanoTime() - startTime) / 1E6)
+                    performanceList.add([operation     : "direct delete", entity: "moqui.test.TestNoSqlEntity",
+                                         calls         : calls, milliseconds: milliseconds, msPerCall: (milliseconds / calls),
+                                         callsPerSecond: ((calls / milliseconds) * 1000)])
+                }
+
+                // ========== Service Call tests ==========
+                if (serviceCallTests) {
+                    calls = baseCallsNum
+
+                    Map dataMap = [textIn1:"foo", numberIn:12.34, timestampIn:ec.user.nowTimestamp]
+                    startTime = System.nanoTime()
+                    for (int i = 0; i < calls; i++)
+                        ec.service.sync().name("org.moqui.impl.BasicServices.echo#Data").parameters(dataMap).call()
+                    milliseconds = ((System.nanoTime() - startTime) / 1E6)
+                    performanceList.add([operation     : "Call BasicServices.echo#Data Service", entity: "",
+                                         calls         : calls, milliseconds: milliseconds, msPerCall: (milliseconds / calls),
+                                         callsPerSecond: ((calls / milliseconds) * 1000)])
+                }
+
+                // ========== Screen Render tests ==========
+                if (screenRenderTests) {
+                    boolean tarpitAlreadyDisabled = ec.artifactExecution.disableTarpit()
+
+                    calls = (baseCallsNum / 100).intValue() ?: 1
+                    ScreenTest screenTest = ec.screen.makeTest().baseScreenPath("apps/system")
+
+                    // Render Dashboard (simple screen, mostly screen overhead)
+                    startTime = System.nanoTime()
+                    for (int i = 0; i < calls; i++) screenTest.render("dashboard", null, null)
+                    milliseconds = ((System.nanoTime() - startTime) / 1E6)
+                    performanceList.add([operation     : "Render System Dashboard Screen", entity: "",
+                                         calls         : calls, milliseconds: milliseconds, msPerCall: (milliseconds / calls),
+                                         callsPerSecond: ((calls / milliseconds) * 1000)])
+
+                    // Render ArtifactHitSummary
+                    startTime = System.nanoTime()
+                    for (int i = 0; i < calls; i++) screenTest.render("ArtifactHitSummary?artifactType=AT_XML_SCREEN", null, null)
+                    milliseconds = ((System.nanoTime() - startTime) / 1E6)
+                    performanceList.add([operation     : "Render System ArtifactHitSummary Screen", entity: "",
+                                         calls         : calls, milliseconds: milliseconds, msPerCall: (milliseconds / calls),
+                                         callsPerSecond: ((calls / milliseconds) * 1000)])
+
+                    logger.info("Rendered ${screenTest.renderCount} screens (${screenTest.errorCount} errors) in ${ec.l10n.format(milliseconds/1000, "0.000")}s, output ${ec.l10n.format(screenTest.renderTotalChars/1000, "#,##0")}k chars")
+
+                    // Get webroot-layout.css
+                    calls = (baseCallsNum / 10).intValue() ?: 1
+                    ScreenTest screenTestRoot = ec.screen.makeTest()
+                    startTime = System.nanoTime()
+                    for (int i = 0; i < calls; i++) screenTestRoot.render("css/webroot-layout.css", null, null)
+                    milliseconds = ((System.nanoTime() - startTime) / 1E6)
+                    performanceList.add([operation     : "Get webroot-layout.css", entity: "",
+                                         calls         : calls, milliseconds: milliseconds, msPerCall: (milliseconds / calls),
+                                         callsPerSecond: ((calls / milliseconds) * 1000)])
+
+                    logger.info("Rendered ${screenTestRoot.renderCount} screens (${screenTestRoot.errorCount} errors) in ${ec.l10n.format(milliseconds/1000, "0.000")}s, output ${ec.l10n.format(screenTestRoot.renderTotalChars/1000, "#,##0")}k chars")
+
+                    if (!tarpitAlreadyDisabled) ec.artifactExecution.enableTarpit()
+                }
+
+                // ========== Service REST API tests ==========
+                if (restApiTests) {
+                    boolean tarpitAlreadyDisabled = ec.artifactExecution.disableTarpit()
+                    calls = (baseCallsNum / 100).intValue() ?: 1
+                    String apiKey = ec.user.getLoginKey()
+                    String enumUri = ec.web.getWebappRootUrl(true, null) + "/rest/s1/moqui/basic/enums/EsaaAlways"
+
+                    // Render Dashboard (simple screen, mostly screen overhead)
+                    startTime = System.nanoTime()
+                    boolean gotError = false
+                    try {
+                        for (int i = 0; i < calls; i++) {
+                            RestClient rc = ec.service.rest().method(RestClient.GET).uri(enumUri).addHeader("api_key", apiKey)
+                            RestClient.RestResponse response = rc.call()
+                            // logger.warn("REST response: ${response.text()}")
+                        }
+                    } catch (Exception e) {
+                        logger.warn("REST API error, ignoring as web server may not be running: ${e.toString()}")
+                        gotError = true
+                    }
+                    milliseconds = ((System.nanoTime() - startTime) / 1E6)
+                    performanceList.add([operation     : "REST Client API get /basic/enums" + (gotError ? " GOT ERROR" : ""), entity: "",
+                                         calls         : calls, milliseconds: milliseconds, msPerCall: (milliseconds / calls),
+                                         callsPerSecond: ((calls / milliseconds) * 1000)])
+
+                    if (!tarpitAlreadyDisabled) ec.artifactExecution.enableTarpit()
+                }
+
+                return performanceList
+            }
+            ]]></script>
+    </actions>
+    <widgets>
+        <form-single name="SelectBaseCalls" transition="speedTest">
+            <field name="baseCalls"><default-field><text-line size="10"/></default-field></field>
+            <field name="submitButton"><default-field title="Run"><submit/></default-field></field>
+            <field-layout><field-row-big><field-ref name="baseCalls"/><field-ref name="submitButton"/></field-row-big></field-layout>
+        </form-single>
+        <form-list name="PerformanceResults" list="performanceList">
+            <field name="operation"><default-field><display/></default-field></field>
+            <field name="entity"><default-field><display/></default-field></field>
+            <field name="calls"><default-field><display/></default-field></field>
+            <field name="milliseconds"><default-field><display format="0.000"/></default-field></field>
+            <field name="msPerCall"><default-field><display format="0.000000"/></default-field></field>
+            <field name="callsPerSecond"><default-field><display format="#,##0.00"/></default-field></field>
+        </form-list>
+        <label text="Total Time ${ec.l10n.format((System.nanoTime() - beginTime)/1E9, '0.00')}s" type="strong"/>
+    </widgets>
+</screen>

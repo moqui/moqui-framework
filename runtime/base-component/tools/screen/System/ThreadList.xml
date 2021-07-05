@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-index="99" default-menu-title="Thread List">
+
+    <transition name="interruptThread">
+        <parameter name="threadName"/>
+        <actions><script><![CDATA[
+            boolean found = false
+            for (Thread thread in Thread.getAllStackTraces().keySet()) {
+                if (thread.name == threadName) {
+                    found = true
+                    try {
+                        thread.interrupt()
+                        ec.message.addMessage("Interrupted thread ${threadName}", "success")
+                    } catch (Throwable t) {
+                        ec.logger.log(300, "Error interrupting thread ${thread.id}:${thread.name}", t)
+                        ec.message.addMessage("Error interrupting thread ${thread.id}:${thread.name}: ${t.toString()}", "danger")
+                    }
+                }
+            }
+            if (!found) ec.message.addMessage("Could not find thread with name ${threadName}", "warning")
+        ]]></script></actions>
+        <default-response url="."/>
+    </transition>
+    <transition name="setWorkerPoolSize">
+        <actions><script>ec.factory.workerPool.setCorePoolSize(coreSize as int); ec.factory.workerPool.setMaximumPoolSize(maxSize as int)</script></actions>
+        <default-response url="."/>
+    </transition>
+    <transition name="scheduledReInit">
+        <actions><script>ec.factory.scheduledReInit()</script></actions>
+        <default-response url="."/>
+    </transition>
+
+    <actions>
+        <set field="workerPool" from="ec.factory.workerPool"/>
+        <set field="scheduledExecutor" from="ec.factory.scheduledExecutor"/>
+        <set field="scheduledRunnableList" from="ec.factory.scheduledRunnableList"/>
+        <set field="jobRunner" from="ec.service.getJobRunner()"/>
+
+        <set field="orderByField" from="orderByField ?: 'threadName'"/>
+
+        <set field="threadMXBean" from="java.lang.management.ManagementFactory.getThreadMXBean()"/>
+        <set field="deadlockedList" from="threadMXBean.findDeadlockedThreads()"/>
+        <set field="threadInfoList" from="threadMXBean.dumpAllThreads(false, false)"/>
+        <script>
+        threadMapList = []
+        for (java.lang.management.ThreadInfo thread in threadInfoList) {
+            threadMapList.add([threadName:thread.threadName, threadId:thread.threadId, threadState:thread.threadState.name(),
+                    cpuTime:threadMXBean.getThreadCpuTime(thread.threadId), userTime:threadMXBean.getThreadUserTime(thread.threadId),
+                    lockName:thread.lockName, lockOwnerName:thread.lockOwnerName, lockOwnerId:thread.lockOwnerId,
+                    blockedTime:thread.blockedTime, waitedTime:thread.waitedTime,
+                    stackList:Arrays.asList(thread.getStackTrace()).collect({ it.toString() })])
+        }
+        orderMapList(threadMapList, [orderByField])
+        </script>
+    </actions>
+    <widgets>
+        <label text="Threads: ${threadMXBean.getThreadCount()}, Peak: ${threadMXBean.getPeakThreadCount()}"/>
+        <label text="Deadlocked Threads: ${deadlockedList}" style="text-danger" condition="deadlockedList"/>
+
+        <container>
+            <label text="Worker Pool" type="strong"/>
+            <label text="Threads" type="strong"/>
+            <label text="Active: ${workerPool.getActiveCount()} Cur: ${workerPool.getPoolSize()} Max: ${workerPool.getMaximumPoolSize()}"
+                    style="${workerPool.getActiveCount() == workerPool.getMaximumPoolSize() ? 'text-warning' : ''}"/>
+            <label text="Queue" type="strong"/>
+            <label text="Cur: ${workerPool.queue.size()} Rem: ${workerPool.queue.remainingCapacity()}"
+                    style="workerPool.queue.remainingCapacity() == 0 ? 'text-danger' : (workerPool.queue.size() &gt; workerPool.queue.remainingCapacity() ? 'text-warning' : '')"/>
+
+            <container-dialog id="SetWorkerPoolDialog" button-text="Set Pool Size">
+                <label text="NOTE: Max Size must be greater than or equal to Core Size" type="p"/>
+                <form-single name="SetWorkerPoolForm" transition="setWorkerPoolSize">
+                    <field name="coreSize" from="workerPool.getCorePoolSize()"><default-field><text-line size="5"/></default-field></field>
+                    <field name="maxSize" from="workerPool.getMaximumPoolSize()"><default-field><text-line size="5"/></default-field></field>
+                    <field name="submitButton"><default-field title="Update"><submit/></default-field></field>
+                </form-single>
+            </container-dialog>
+        </container>
+
+        <container>
+            <label text="Scheduled Executor" type="strong"/>
+            <label text="Active: ${scheduledExecutor.getActiveCount()} Cur: ${scheduledExecutor.getPoolSize()} Max: ${scheduledExecutor.getMaximumPoolSize()}"
+                    style="${scheduledExecutor.getActiveCount() == scheduledExecutor.getMaximumPoolSize() ? 'text-warning' : ''}"/>
+            <label text="Queue (scheduled runnables):" type="strong"/>
+            <label text="${scheduledExecutor.queue.size()}" style="${scheduledExecutor.queue.size() &lt; scheduledRunnableList.size() ? 'text-danger' : ''}"/>
+
+            <container-dialog id="ScheduledQueueDialog" button-text="Scheduled Queue">
+                <section-iterate name="ScheduledQueueList" list="scheduledExecutor.queue" entry="scheduledRunnable"><widgets>
+                    <container><label text="${scheduledRunnable.toString()} Done? ${scheduledRunnable.isDone()} Cancelled? ${scheduledRunnable.isCancelled()}"/></container>
+                </widgets></section-iterate>
+            </container-dialog>
+            <container-dialog id="ScheduledRunnableDialog" button-text="Initial Runnables">
+                <section-iterate name="ScheduledRunnableList" list="scheduledRunnableList" entry="scheduledRunnable"><widgets>
+                    <container><label text="${scheduledRunnable.command.class.name} Period ${scheduledRunnable.period}s"/></container>
+                </widgets></section-iterate>
+                <link url="scheduledReInit" text="Re-Queue Initial" confirmation="Re-queue initial runnables? Do this only if there are issues with scheduled runnables."/>
+            </container-dialog>
+        </container>
+        <section name="JobRunnerInfo" condition="jobRunner"><widgets>
+            <label text="Last job runner execute: &lt;strong&gt;${new Timestamp(jobRunner.getLastExecuteTime())}&lt;/strong&gt;, runner executes: ${jobRunner.getExecuteCount()}, total jobs run: ${jobRunner.getTotalJobsRun()}, last active: ${jobRunner.getLastJobsActive()}, last paused: ${jobRunner.getLastJobsPaused()}" encode="false"/>
+        </widgets><fail-widgets>
+            <label text="No Service Job Runner active (generally because scheduled-job-check-time is set to 0)"/>
+        </fail-widgets></section>
+
+        <form-list name="ThreadList" list="threadMapList" skip-form="true" select-columns="true">
+            <field name="threadName"><header-field title="Name" show-order-by="case-insensitive"/><default-field><display/></default-field></field>
+            <field name="threadId"><header-field title="ID" show-order-by="true"/><default-field><display/></default-field></field>
+            <field name="threadState"><header-field title="State" show-order-by="true"/><default-field><display/></default-field></field>
+
+            <field name="cpuTime"><header-field title="CPU Time" show-order-by="true"/><default-field>
+                <display text="${ec.l10n.format(cpuTime/1E9, '#,##0.000')}s"/></default-field></field>
+            <field name="userTime"><header-field show-order-by="true"/><default-field>
+                <display text="${ec.l10n.format(cpuTime/1E9, '#,##0.000')}s"/></default-field></field>
+
+            <field name="lockName"><header-field title="Lock" show-order-by="true"/><default-field><display/></default-field></field>
+            <field name="lockOwnerName"><header-field title="Lock Owner" show-order-by="true"/><default-field><display/></default-field></field>
+            <field name="lockOwnerId"><header-field title="Lock Owner ID" show-order-by="true"/><default-field><display/></default-field></field>
+
+            <field name="blockedTime"><header-field title="Blocked Total" show-order-by="true"/><default-field><display/></default-field></field>
+            <field name="waitedTime"><header-field title="Waited Total" show-order-by="true"/><default-field><display/></default-field></field>
+
+            <field name="stack"><default-field title="">
+                <container-dialog id="StackListDialog" button-text="Stack" type="default" width="960">
+                    <label text="${stackList.join('\n')}" type="pre"/>
+                </container-dialog>
+            </default-field></field>
+            <field name="interrupt"><default-field title="">
+                <link url="interruptThread" text="Interrupt" confirmation="Really interrupt thread ${threadName}?" btn-type="danger"/>
+            </default-field></field>
+
+            <form-list-column><field-ref name="threadName"/></form-list-column>
+            <form-list-column><field-ref name="threadId"/></form-list-column>
+            <form-list-column><field-ref name="threadState"/></form-list-column>
+            <form-list-column><field-ref name="cpuTime"/></form-list-column>
+            <form-list-column><field-ref name="userTime"/></form-list-column>
+            <form-list-column><field-ref name="stack"/></form-list-column>
+            <form-list-column><field-ref name="interrupt"/></form-list-column>
+        </form-list>
+    </widgets>
+</screen>

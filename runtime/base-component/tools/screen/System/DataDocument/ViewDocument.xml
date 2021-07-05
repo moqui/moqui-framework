@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-include="false" standalone="true">
+
+    <parameter name="_index" required="true"/>
+    <parameter name="_id" required="true"/>
+    
+    <actions><script>
+        import groovy.json.JsonOutput
+        import org.moqui.context.ExecutionContext
+
+        ExecutionContext ec = context.ec
+        def elasticClient = ec.factory.elastic.getDefault()
+        sourceMap = elasticClient.get((String) _index, (String) _id)?._source
+        documentString = JsonOutput.prettyPrint(elasticClient.objectToJson(sourceMap))
+        flattenedDocumentMap = flattenNestedMap(sourceMap)
+    </script></actions>
+    <widgets>
+        <label text="Flattened Map" type="h4"/>
+        <label text="${flattenedDocumentMap}" encode="true"/>
+        <label text="Document JSON" type="h4"/>
+        <label text="${documentString}" encode="true" type="pre" style="pre-plain"/>
+        <label text="Document Map" type="h4"/>
+        <section-iterate name="SourceMapSection" list="sourceMap.keySet()" entry="smKey"><widgets>
+            <label text="${smKey}: ${sourceMap.get(smKey)} (${sourceMap.get(smKey)?.class?.name})" type="div"/>
+        </widgets></section-iterate>
+    </widgets>
+</screen>

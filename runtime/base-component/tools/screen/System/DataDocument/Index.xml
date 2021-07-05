@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-title="Index" default-menu-index="2">
+
+    <transition name="indexFeedDocuments">
+        <!-- <service-call name="org.moqui.search.SearchServices.index#DataFeedDocuments" in-map="context"/> -->
+        <actions>
+            <script>jobRunId = ec.service.job("IndexDataFeedDocuments").parameter("dataFeedId", dataFeedId).parameter("dataDocumentId", dataDocumentId)
+                    .parameter("fromUpdateStamp", fromUpdateStamp).parameter("thruUpdateStamp", thruUpdateStamp).parameter("batchSize", batchSize).run()</script>
+            <message>Started Index DataFeed Documents Job (Job ID ${jobRunId})</message>
+        </actions>
+        <default-response url="."/>
+    </transition>
+
+    <widgets>
+        <form-single name="IndexOptions" transition="indexFeedDocuments">
+            <field name="dataFeedId"><default-field title="Data Feed"><drop-down>
+                <entity-options key="${dataFeedId}" text="${feedName} [${dataFeedId}]">
+                    <entity-find entity-name="moqui.entity.feed.DataFeed">
+                        <order-by field-name="feedName"/></entity-find></entity-options>
+            </drop-down></default-field></field>
+            <field name="dataDocumentId"><default-field title="Data Document"><drop-down allow-empty="true">
+                <entity-options key="${dataDocumentId}" text="${documentName} [${dataDocumentId}]">
+                    <entity-find entity-name="moqui.entity.document.DataDocument">
+                        <order-by field-name="documentName"/></entity-find></entity-options>
+            </drop-down></default-field></field>
+            <field name="fromUpdateStamp"><default-field><date-time type="timestamp"/></default-field></field>
+            <field name="thruUpdateStamp"><default-field><date-time type="timestamp"/></default-field></field>
+            <field name="batchSize"><default-field><text-line size="5" default-value="1000"/></default-field></field>
+            <field name="submitButton"><default-field title="Index Feed Documents"><submit/></default-field></field>
+        </form-single>
+    </widgets>
+</screen>

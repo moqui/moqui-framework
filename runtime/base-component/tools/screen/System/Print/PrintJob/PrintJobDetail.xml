@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-index="1">
+
+    <parameter name="printJobId" required="true"/>
+
+    <transition name="updatePrintJob"><service-call name="update#moqui.basic.print.PrintJob"/>
+        <default-response url="."/></transition>
+    <transition-include name="downloadDocument" location="component://tools/screen/System/Print/PrintJob/PrintJobList.xml"/>
+
+    <transition name="sendPrintJob"><service-call name="org.moqui.impl.PrintServices.send#PrintJob"/>
+        <default-response url="."/></transition>
+    <transition name="holdPrintJob"><service-call name="org.moqui.impl.PrintServices.hold#PrintJob"/>
+        <default-response url="."/></transition>
+    <transition name="releasePrintJob"><service-call name="org.moqui.impl.PrintServices.release#PrintJob"/>
+        <default-response url="."/></transition>
+    <transition name="cancelPrintJob"><service-call name="org.moqui.impl.PrintServices.cancel#PrintJob"/>
+        <default-response url="."/></transition>
+
+    <actions>
+        <service-call name="org.moqui.impl.PrintServices.get#PrintJobDetailsFromServer" in-map="[printJobId:printJobId]"
+                out-map="serverDetails" ignore-error="true"/>
+        <!-- The service call above gets this record, but get it separately in case there was an error -->
+        <entity-find-one entity-name="moqui.basic.print.PrintJob" value-field="printJob"/>
+    </actions>
+    <widgets>
+        <container>
+            <link url="downloadDocument" text="Download Document" condition="printJob.document != null"/>
+            <link url="sendPrintJob" text="Send Now" condition="printJob.statusId in ['PtjNotSent', 'PtjSendFailed']"/>
+            <link url="holdPrintJob" text="Hold" condition="printJob.statusId == 'PtjPending'"/>
+            <link url="releasePrintJob" text="Release" condition="printJob.statusId == 'PtjPendingHeld'"/>
+            <link url="cancelPrintJob" text="Cancel" condition="printJob.statusId in ['PtjPending', 'PtjPendingHeld']"/>
+        </container>
+
+        <label text="NOTE: This gets the latest data from the print server, if the status was updated on the print server the latest will be shown here and saved." type="p"/>
+
+        <container-row>
+            <row-col lg="7">
+                <label text="Local Details" type="h4"/>
+                <form-single name="PrintJobForm" map="printJob" transition="updatePrintJob">
+                    <field name="printJobId"><default-field title="ID"><display/></default-field></field>
+                    <field name="statusId"><default-field title="Status">
+                        <display-entity entity-name="moqui.basic.StatusItem"/></default-field>
+                    </field>
+                    <field name="createdDate"><default-field><display/></default-field></field>
+                    <field name="networkPrinterId"><default-field title="Printer">
+                        <display-entity entity-name="moqui.basic.print.NetworkPrinter" text="${serverHost} - ${printerName}"/>
+                    </default-field></field>
+
+                    <field name="username"><default-field><display/></default-field></field>
+                    <field name="jobId"><default-field><display/></default-field></field>
+                    <field name="jobName"><default-field><display/></default-field></field>
+
+                    <field name="copies"><default-field><display/></default-field></field>
+                    <field name="duplex"><default-field><display/></default-field></field>
+                    <field name="pageRanges"><default-field><display/></default-field></field>
+                    <field name="contentType"><default-field><display/></default-field></field>
+
+                    <!-- should we allow an update? <field name="submitButton"><default-field title="Update"><submit/></default-field></field> -->
+                </form-single>
+            </row-col>
+            <row-col lg="5">
+                <label text="Print Server Details" type="h4"/>
+                <form-single name="ServerDetailsForm" map="serverDetails">
+                    <field name="createTime"><default-field><display/></default-field></field>
+                    <field name="completeTime"><default-field><display/></default-field></field>
+                    <field name="printerUrl"><default-field><display/></default-field></field>
+
+                    <field name="jobUrl"><default-field><display/></default-field></field>
+                    <field name="pagesPrinted"><default-field><display/></default-field></field>
+                    <field name="size"><default-field><display/></default-field></field>
+                </form-single>
+
+            </row-col>
+        </container-row>
+    </widgets>
+</screen>

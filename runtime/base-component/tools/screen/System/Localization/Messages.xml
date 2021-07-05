@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-title="Messages" default-menu-index="1">
+
+    <transition name="createLocalizedMessage">
+        <service-call name="create#moqui.basic.LocalizedMessage"/>
+        <default-response url="."/>
+    </transition>
+    <transition name="updateLocalizedMessage">
+        <service-call name="update#moqui.basic.LocalizedMessage"/>
+        <default-response url="."/>
+    </transition>
+    <transition name="deleteLocalizedMessage">
+        <service-call name="delete#moqui.basic.LocalizedMessage"/>
+        <default-response url="."/>
+    </transition>
+
+    <actions>
+        <entity-find entity-name="moqui.basic.LocalizedMessage" list="localizedMessageList" use-clone="true">
+            <search-form-inputs default-order-by="^original,locale"/></entity-find>
+    </actions>
+    <widgets>
+        <container>
+            <container-dialog id="CreateMessageDialog" button-text="New Message">
+                <form-single name="CreateLocalizedMessage" transition="createLocalizedMessage">
+                    <field name="original">
+                        <default-field><text-line size="80" maxlength="255"/></default-field>
+                    </field>
+                    <field name="locale">
+                        <default-field><text-line size="5"/></default-field>
+                    </field>
+                    <field name="localized">
+                        <default-field><text-area rows="5" cols="80"/></default-field>
+                    </field>
+                    <field name="submitButton"><default-field title="Create"><submit/></default-field></field>
+                </form-single>
+            </container-dialog>
+        </container>
+        <form-list name="UpdateLocalizedMessages" list="localizedMessageList" transition="updateLocalizedMessage"
+                   multi="true">
+            <field name="original">
+                <header-field show-order-by="case-insensitive"><text-find hide-options="true" size="15"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="locale">
+                <header-field show-order-by="true"><text-find hide-options="true" size="5"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="localized">
+                <header-field show-order-by="case-insensitive"><text-find hide-options="true" size="30"/></header-field>
+                <default-field><text-area rows="2" cols="60"/></default-field>
+            </field>
+            <field name="_useRowSubmit"><default-field><hidden default-value="true"/></default-field></field>
+            <field name="_rowSubmit"><default-field title="Update"><check><option key="true" text=" "/></check></default-field></field>
+            <field name="delete">
+                <header-field title="Find"><submit/></header-field>
+                <default-field>
+                    <link text="Delete" url="deleteLocalizedMessage">
+                        <parameter name="original"/><parameter name="locale"/>
+                    </link>
+                </default-field>
+            </field>
+            <field name="update">
+                <default-field title="Update"><submit/></default-field>
+            </field>
+        </form-list>
+    </widgets>
+</screen>

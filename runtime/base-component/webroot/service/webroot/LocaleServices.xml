@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
+
+    <service verb="get" noun="ValidateLocaleScripts" authenticate="anonymous-view">
+        <in-parameters><parameter name="locale" type="java.util.Locale" default="ec.user.locale"/></in-parameters>
+        <out-parameters>
+            <parameter name="messagesLocation"/>
+            <parameter name="methodsLocation"/>
+        </out-parameters>
+        <actions>
+            <if condition="locale == null"><return/></if>
+
+            <set field="language" from="locale.getLanguage()"/>
+            <!-- no localization for en (default) so return now -->
+            <if condition="'en'.equals(language)"><return/></if>
+            <set field="country" from="locale.getCountry()"/>
+
+            <set field="baseUrl" value="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.17.0/localization/"/>
+            <set field="messagesLocales" from="new HashSet(['ar','az','bg','bn_BD','ca','cs','da','de','el','es_AR','es','es_PE',
+                    'et','eu','fa','fi','fr','ge','gl','he','hr','hu','hy_AM','id','is','it','ja','ka','kk','ko','lt','lv','mk',
+                    'my','nl','no','pl','pt_BR','pt_PT','ro','ru','sd','si','sk','sl','sr_lat','sr','sv','th','tj','tr','uk','ur','vi','zh','zh_TW'])"/>
+            <set field="methodsLocales" from="new HashSet(['de','es_CL','fi','nl','pt'])"/>
+
+            <set field="messagesLocation" from="null"/>
+            <set field="methodsLocation" from="null"/>
+            <if condition="country">
+                <set field="localeStr" from="language + '_' + country"/>
+                <if condition="messagesLocales.contains(localeStr)">
+                    <set field="messagesLocation" from="baseUrl + 'messages_' + localeStr + '.min.js'"/></if>
+                <if condition="methodsLocales.contains(localeStr)">
+                    <set field="methodsLocation" from="baseUrl + 'methods_' + localeStr + '.min.js'"/></if>
+            </if>
+            <if condition="!messagesLocation &amp;&amp; messagesLocales.contains(language)">
+                <set field="messagesLocation" from="baseUrl + 'messages_' + language + '.min.js'"/></if>
+            <if condition="!methodsLocation &amp;&amp; methodsLocales.contains(language)">
+                <set field="methodsLocation" from="baseUrl + 'methods_' + language + '.min.js'"/></if>
+
+            <!-- special case for 'pt' and 'bn' that have no language only files so do explicit fallbacks -->
+            <if condition="!messagesLocation &amp;&amp; language == 'pt'">
+                <set field="messagesLocation" from="baseUrl + 'messages_pt_PT.min.js'"/></if>
+            <if condition="!messagesLocation &amp;&amp; language == 'bn'">
+                <set field="messagesLocation" from="baseUrl + 'messages_bn_BD.min.js'"/></if>
+        </actions>
+    </service>
+</services>

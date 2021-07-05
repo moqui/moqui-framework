@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-include="false">
+
+    <transition name="entitySyncDetail"><default-response url="../EntitySyncDetail"/></transition>
+    <transition name="createEntitySync"><service-call name="create#moqui.entity.sync.EntitySync"/>
+        <default-response url="."/></transition>
+
+    <actions>
+        <entity-find entity-name="moqui.entity.sync.EntitySync" list="entitySyncList">
+            <search-form-inputs default-order-by="description"/>
+        </entity-find>
+    </actions>
+    <widgets>
+        <container-dialog id="CreateEntitySyncDialog" button-text="Create Entity Sync">
+            <form-single name="CreateEntitySync" transition="createEntitySync">
+                <field name="description"><default-field><text-line size="60"/></default-field></field>
+                <field name="forPull"><default-field tooltip="Y for pull from remote, N for push to remote">
+                    <drop-down><option key="N"/><option key="Y"/></drop-down>
+                </default-field></field>
+                <field name="submitButton"><default-field title="Create"><submit/></default-field></field>
+            </form-single>
+        </container-dialog>
+        <form-list name="EntitySyncList" list="entitySyncList" skip-form="true">
+            <field name="entitySyncId">
+                <header-field title="ID" show-order-by="true"><text-find size="6" hide-options="true"/></header-field>
+                <default-field><link text="${entitySyncId}" url="entitySyncDetail" link-type="anchor"/></default-field>
+            </field>
+            <field name="description">
+                <header-field show-order-by="true"><text-find size="20" hide-options="true"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="statusId">
+                <header-field title="Status">
+                    <drop-down allow-empty="true">
+                        <entity-options key="${statusId}" text="${description}">
+                            <entity-find entity-name="moqui.basic.StatusItem">
+                                <econdition field-name="statusTypeId" value="EntitySync"/>
+                                <order-by field-name="description"/></entity-find>
+                        </entity-options>
+                    </drop-down>
+                </header-field>
+                <default-field><display-entity entity-name="moqui.basic.StatusItem"/></default-field>
+            </field>
+            <field name="lastStartDate">
+                <header-field show-order-by="true"><date-period allow-empty="true"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="lastSuccessfulSyncTime">
+                <header-field show-order-by="true"><date-period allow-empty="true"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="targetServerUrl">
+                <header-field show-order-by="true"><text-find size="20" hide-options="true"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="forPull">
+                <header-field><drop-down allow-empty="true"><option key="N"/><option key="Y"/></drop-down></header-field>
+                <default-field><display/></default-field>
+            </field>
+
+            <field name="find"><header-field title="Find"><submit/></header-field>
+                <default-field><display text=" "/></default-field></field>
+        </form-list>
+    </widgets>
+</screen>

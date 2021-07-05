@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        require-authentication="false" screen-theme-type-enum-id="STT_INTERNAL" default-menu-title="Applications">
+    <!-- NOTE: require-authentication=false is required to allow sub-screens to decide. -->
+
+    <transition name="ScreenTree"><default-response url="../ScreenTree"/></transition>
+    <transition name="setPreference">
+        <parameter name="preferenceKey"/><parameter name="preferenceValue"/>
+        <actions><script>ec.user.setPreference(preferenceKey, preferenceValue)</script></actions>
+        <default-response type="none"/>
+    </transition>
+    <transition name="setPrefGoLast" read-only="true">
+        <parameter name="preferenceKey"/><parameter name="preferenceValue"/>
+        <actions><script>ec.user.setPreference(preferenceKey, preferenceValue)</script></actions>
+        <default-response type="screen-last"/>
+    </transition>
+    <transition name="getPreferences" read-only="true">
+        <parameter name="keyRegexp"/>
+        <actions><script>ec.web.sendJsonResponse(ec.user.getPreferences(keyRegexp))</script></actions>
+        <default-response type="none"/>
+    </transition>
+    <transition name="qzSign" read-only="true">
+        <parameter name="message"/>
+        <actions><script>ec.web.sendQzSignedResponse(message)</script></actions>
+        <default-response type="none"/>
+    </transition>
+
+    <subscreens default-item="AppList"/>
+
+    <pre-actions><script><![CDATA[
+        // jQuery, Bootstrap, Twitter TypeAhead, Form Validation (jquery-validate), Date/Time (Moment, bootstrap-datetimepicker),
+        //      Drop-down (Select2, Selectivity), Notify/Growl (Bootstrap Notify), Inline Editable, Sortable Hierarchical List
+        // Moqui Library (3rd party lib workarounds, NotificationClient, etc)
+        html_scripts.add('/js/CombinedBase.min.js')
+
+        // Form AJAX (jquery-form)
+        html_scripts.add('/libs/jquery.form/jquery.form.min.js')
+        // Tree (JSTree)
+        html_scripts.add('/libs/jstree/jstree.min.js')
+
+        // jquery-validate locale specific scripts
+        Map validateScriptsOut = ec.service.sync().name("webroot.LocaleServices.get#ValidateLocaleScripts").call()
+        if (validateScriptsOut.messagesLocation) html_scripts.add(validateScriptsOut.messagesLocation)
+        if (validateScriptsOut.methodsLocation) html_scripts.add(validateScriptsOut.methodsLocation)
+    ]]></script></pre-actions>
+
+    <widgets>
+        <render-mode><text type="html"><![CDATA[<script>var notificationClient = new moqui.NotificationClient((location.protocol === 'https:' ? 'wss' : 'ws') + "://${ec.web.getHostName(true)}${ec.web.servletContext.contextPath}/notws");</script>]]></text></render-mode>
+
+        <section name="TopNavSection" condition="hideNav != 'true'"><widgets>
+            <container id="top">
+                <render-mode><text type="html" location="component://webroot/screen/includes/navbar.html.ftl"/></render-mode>
+                <subscreens-menu type="popup" id="header-menu" title="Application"/>
+            </container>
+        </widgets></section>
+
+        <container id="content"><container style="inner"><container style="container-fluid">
+            <section name="MessagesSection"><widgets>
+                <!-- NOTE: no need to getPublicMessageInfos() or getSavedPublicMessages(), they are always in the messages and savedMessages for internal/other user view -->
+                <section-iterate name="headerMessageInfos" list="ec.message.messageInfos" entry="messageInfo"><widgets>
+                    <render-mode><text type="html"><![CDATA[<div class="alert alert-${messageInfo.typeString} fade in" role="alert"><button type="button" class="close" data-dismiss="alert"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>]]></text></render-mode>
+                    <label text="${messageInfo.message}" type="h4"/>
+                    <render-mode><text type="html"><![CDATA[</div>]]></text></render-mode>
+                </widgets></section-iterate>
+                <section-iterate name="headerErrors" list="ec.message.errors" entry="errorMessage"><widgets>
+                    <render-mode><text type="html"><![CDATA[<div class="alert alert-danger fade in" role="alert"><button type="button" class="close" data-dismiss="alert"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>]]></text></render-mode>
+                    <label text="${errorMessage}" type="h4"/>
+                    <render-mode><text type="html"><![CDATA[</div>]]></text></render-mode>
+                </widgets></section-iterate>
+                <section-iterate name="headerValidationErrors" list="ec.message.validationErrors" entry="validationError"><widgets>
+                    <!-- TODO: put these by fields instead of in header -->
+                    <render-mode><text type="html"><![CDATA[<div class="alert alert-danger fade in" role="alert"><button type="button" class="close" data-dismiss="alert"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>]]></text></render-mode>
+                    <label text="${validationError.message} (for field ${validationError.fieldPretty})" type="h4"/>
+                    <render-mode><text type="html"><![CDATA[</div>]]></text></render-mode>
+                </widgets></section-iterate>
+
+                <section-iterate name="headerSavedMessages" list="ec.web?.savedMessages" entry="messageInfo"><widgets>
+                    <render-mode><text type="html"><![CDATA[<div class="alert alert-${messageInfo.typeString} fade in" role="alert"><button type="button" class="close" data-dismiss="alert"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>]]></text></render-mode>
+                    <label text="${messageInfo.message}" type="h4"/>
+                    <render-mode><text type="html"><![CDATA[</div>]]></text></render-mode>
+                </widgets></section-iterate>
+                <section-iterate name="headerSavedErrors" list="ec.web?.savedErrors" entry="errorMessage"><widgets>
+                    <render-mode><text type="html"><![CDATA[<div class="alert alert-danger fade in" role="alert"><button type="button" class="close" data-dismiss="alert"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>]]></text></render-mode>
+                    <label text="${errorMessage}" type="h4"/>
+                    <render-mode><text type="html"><![CDATA[</div>]]></text></render-mode>
+                </widgets></section-iterate>
+                <section-iterate name="headerSavedValidationErrors" list="ec.web?.savedValidationErrors" entry="validationError"><widgets>
+                    <!-- TODO: put these by fields instead of in header -->
+                    <render-mode><text type="html"><![CDATA[<div class="alert alert-danger fade in" role="alert"><button type="button" class="close" data-dismiss="alert"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>]]></text></render-mode>
+                    <label text="${validationError.message} (for field ${validationError.fieldPretty})" type="h4"/>
+                    <render-mode><text type="html"><![CDATA[</div>]]></text></render-mode>
+                </widgets></section-iterate>
+            </widgets></section>
+
+            <subscreens-active/>
+        </container></container></container>
+
+        <section name="BottomNavSection" condition="hideNav != 'true'"><widgets>
+            <container id="footer" style="bg-dark"><render-mode><text type="html"><![CDATA[
+                <#assign footerItemList = sri.getThemeValues("STRT_FOOTER_ITEM")>
+                <div id="apps-footer-content">
+                    <#list footerItemList! as footerItem>
+                        <#assign footerItemTemplate = footerItem?interpret>
+                        <@footerItemTemplate/>
+                    </#list>
+                </div>
+            ]]></text></render-mode></container>
+        </widgets></section>
+    </widgets>
+</screen>

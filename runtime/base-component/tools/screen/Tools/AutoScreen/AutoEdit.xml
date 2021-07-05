@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-title="Edit" default-menu-index="3">
+
+    <parameter name="aen" required="true"/>
+
+    <actions>
+        <set field="aenDef" from="ec.entity.getEntityDefinition(aen)"/>
+        <if condition="aenDef == null"><message error="true">Could not find entity with name: ${aen}</message><return/></if>
+
+        <set field="masterPrimaryKeyMap" from="aenDef.getPrimaryKeys(context)"/>
+        <!-- only include dependent entities for tabs -->
+        <set field="relationshipInfoList" from="aenDef.getRelationshipsInfo(true)"/>
+    </actions>
+    <widgets>
+        <!-- NOTE: this template will take care of the active subscreen, if needed; it's not needed for the dynamic menu -->
+        <render-mode>
+            <text type="html" location="component://tools/template/AutoScreenMenu.ftl"/>
+            <text type="vuet" location="component://tools/template/AutoScreenMenu.vuet.ftl"/>
+            <text type="qvt" location="component://tools/template/AutoScreenMenu.qvt.ftl"/>
+        </render-mode>
+    </widgets>
+</screen>

@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-index="3">
+
+    <transition name="serviceReference"><default-response url="//tools/ServiceReference"/></transition>
+
+    <actions>
+        <set field="levels" from="levels ? levels as int : 2"/>
+
+        <set field="entityInfoList" from="ec.entity.getAllEntityInfo(levels, false)"/>
+        <set field="entityCount" from="0"/>
+        <set field="viewEntityCount" from="0"/>
+        <iterate list="entityInfoList" entry="entityInfo">
+            <set field="entityCount" from="entityCount + entityInfo.entities"/>
+            <set field="viewEntityCount" from="viewEntityCount + entityInfo.viewEntities"/>
+        </iterate>
+
+        <set field="serviceInfoList" from="ec.service.getAllServiceInfo(levels)"/>
+        <set field="allRootScreenLocations" from="ec.screen.getAllRootScreenLocations()"/>
+    </actions>
+    <widgets>
+        <label text="Entity Stats" type="h3"/>
+        <label text="Entities: ${entityCount as int}, View Entities: ${viewEntityCount as int}, EECA rules: ${ec.entity.getEecaRuleCount()}" type="p"/>
+        <form-list name="EntityInfoList" list="entityInfoList" skip-form="true">
+            <field name="name"><default-field><display/></default-field></field>
+            <field name="entities"><default-field><display/></default-field></field>
+            <field name="viewEntities"><default-field><display/></default-field></field>
+        </form-list>
+
+        <label text="Service Stats" type="h3"/>
+        <label text="Services: ${ec.service.getKnownServiceNames().size()}, SECA rules: ${ec.service.getSecaRuleCount()}" type="p"/>
+        <form-list name="ServiceInfoList" list="serviceInfoList" skip-form="true">
+            <field name="name"><default-field>
+                <link url="serviceReference" text="${name}" parameter-map="[serviceName:name]" link-type="anchor"/>
+            </default-field></field>
+            <field name="services"><default-field><display/></default-field></field>
+        </form-list>
+
+        <label text="Screen Stats" type="h3"/>
+        <section-iterate name="ScreensByRoot" list="allRootScreenLocations" entry="rootLocation">
+            <actions>
+                <set field="screenInfoList" from="ec.screen.getScreenInfoList(rootLocation, levels)"/>
+            </actions>
+            <widgets>
+                <label text="Root Screen: ${rootLocation}" type="h4"/>
+                <form-list name="ScreenInfoList" list="screenInfoList" list-entry="screenInfo" skip-form="true">
+                    <field name="name" from="screenInfo.getIndentedName()">
+                        <default-field><display/></default-field></field>
+                    <field name="title">
+                        <default-field><label text="${'- ' * screenInfo.level}* ${screenInfo.ssi?.menuTitle?:'Root'}"/></default-field></field>
+                    <field name="subscreens" from="screenInfo.allSubscreens">
+                        <default-field><display/></default-field></field>
+                    <field name="subscreensNonPlaceholder" from="screenInfo.allSubscreensNonPlaceholder">
+                        <default-field><display/></default-field></field>
+                    <field name="transitions" from="screenInfo.transitions + screenInfo.allSubscreensTransitions">
+                        <default-field><display/></default-field></field>
+                    <field name="transitionsWithActions" from="screenInfo.transitionsWithActions + screenInfo.allSubscreensTransitionsWithActions">
+                        <default-field><display/></default-field></field>
+                    <field name="sections" from="screenInfo.sections + screenInfo.allSubscreensSections">
+                        <default-field><display/></default-field></field>
+                    <field name="forms" from="screenInfo.forms + screenInfo.allSubscreensForms">
+                        <default-field><display/></default-field></field>
+                    <field name="trees" from="screenInfo.trees + screenInfo.allSubscreensTrees">
+                        <default-field><display/></default-field></field>
+                </form-list>
+            </widgets>
+        </section-iterate>
+    </widgets>
+</screen>

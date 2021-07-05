@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-include="false" standalone="true">
+
+    <parameter name="dataDocumentId" required="true" from="dataDocumentId ?: dataDocumentId_0"/>
+
+    <transition name="createDataDocumentCondition"><service-call name="create#moqui.entity.document.DataDocumentCondition"/>
+        <default-response url=".."/></transition>
+    <transition name="updateDataDocumentCondition"><service-call name="update#moqui.entity.document.DataDocumentCondition"/>
+        <default-response url=".."/></transition>
+    <transition name="deleteDataDocumentCondition"><service-call name="delete#moqui.entity.document.DataDocumentCondition"/>
+        <default-response url=".."/></transition>
+
+    <transition name="createFieldDynamic" read-only="true"><service-call name="org.moqui.impl.EntityServices.create#DataDocumentField"/>
+        <default-response url="."/></transition>
+    <transition name="createDataDocumentField"><service-call name="org.moqui.impl.EntityServices.create#DataDocumentField"/>
+        <default-response url=".."/></transition>
+    <transition name="updateDataDocumentField"><service-call name="org.moqui.impl.EntityServices.update#DataDocumentField"/>
+        <default-response url=".."/></transition>
+    <transition name="deleteDataDocumentField"><service-call name="delete#moqui.entity.document.DataDocumentField"/>
+        <default-response url=".."/></transition>
+
+    <actions>
+        <set field="opOptions" from="['equals', 'not-equals', 'less', 'greater', 'less-equals', 'greater-equals', 'in', 'not-in',
+            'between', 'not-between', 'like', 'not-like', 'is-null', 'is-not-null']"/>
+        <set field="funcOptions" from="['min', 'max', 'sum', 'avg', 'count', 'count-distinct', 'upper', 'lower']"/>
+        <set field="knownFields" from="new HashSet()"/>
+
+        <!-- here instead of under FieldList form-list because used for validation of condition fields -->
+        <entity-find entity-name="moqui.entity.document.DataDocumentField" list="ddFieldList">
+            <econdition field-name="dataDocumentId"/><order-by field-name="sequenceNum,fieldPath"/></entity-find>
+        <set field="fieldAliasSet" from="new LinkedHashSet()"/>
+        <iterate list="ddFieldList" entry="ddf">
+            <script>fieldAliasSet.add(ddf.fieldNameAlias ?: (ddf.fieldPath.contains(':') ? ddf.fieldPath.substring(ddf.fieldPath.lastIndexOf(':')+1) : ddf.fieldPath))</script>
+        </iterate>
+    </actions>
+    <widgets>
+        <container-box><box-header title="Conditions"/><box-toolbar>
+            <container-dialog id="AddConditionDialog" button-text="Add Condition">
+                <form-single name="AddCondition" transition="createDataDocumentCondition">
+                    <field name="dataDocumentId"><default-field><hidden/></default-field></field>
+                    <field name="fieldNameAlias"><default-field title="Field"><drop-down>
+                        <list-options list="fieldAliasSet" key="${entry}" text="${org.moqui.util.StringUtilities.camelCaseToPretty(entry)}"/>
+                    </drop-down></default-field></field>
+                    <field name="operator"><default-field title="Operator"><drop-down><list-options list="opOptions"/></drop-down></default-field></field>
+                    <field name="fieldValue"><default-field title="Value"><text-line size="40"/></default-field></field>
+                    <field name="toFieldNameAlias"><default-field title="To Field"><drop-down allow-empty="true">
+                        <list-options list="fieldAliasSet" key="${entry}" text="${org.moqui.util.StringUtilities.camelCaseToPretty(entry)}"/>
+                    </drop-down></default-field></field>
+                    <field name="postQuery"><default-field title="PQ"><drop-down><option key="N"/><option key="Y"/></drop-down></default-field></field>
+                    <field name="submitButton"><default-field title="Add"><submit/></default-field></field>
+                </form-single>
+            </container-dialog>
+        </box-toolbar><box-body-nopad>
+            <form-list name="ConditionList" list="conditionList" transition="updateDataDocumentCondition">
+                <entity-find entity-name="moqui.entity.document.DataDocumentCondition">
+                    <econdition field-name="dataDocumentId"/><order-by field-name="fieldNameAlias"/></entity-find>
+
+                <field name="dataDocumentId"><default-field><hidden/></default-field></field>
+                <field name="conditionSeqId"><default-field><hidden/></default-field></field>
+                <field name="fieldNameAlias"><default-field title="Field" container-style="${fieldAliasSet.contains(fieldNameAlias) ? 'text-success' : 'text-danger'}">
+                    <display text="${org.moqui.util.StringUtilities.camelCaseToPretty(fieldNameAlias)}"/></default-field></field>
+                <field name="operator"><default-field title="Operator"><drop-down><list-options list="opOptions"/></drop-down></default-field></field>
+                <field name="fieldValue"><default-field title="Value"><text-line size="20"/></default-field></field>
+                <field name="toFieldNameAlias"><default-field title="To Field" container-style="${fieldAliasSet.contains(toFieldNameAlias) ? 'text-success' : 'text-danger'}">
+                    <display text="${org.moqui.util.StringUtilities.camelCaseToPretty(toFieldNameAlias)}"/></default-field></field>
+                <field name="postQuery"><default-field title="PQ"><drop-down><option key="N"/><option key="Y"/></drop-down></default-field></field>
+
+                <field name="submitButton"><default-field title="Update"><submit/></default-field></field>
+                <field name="deleteButton"><default-field title="">
+                    <link url="deleteDataDocumentCondition" text=" " icon="fa fa-trash" confirmation="Really remove?">
+                        <parameter name="dataDocumentId"/><parameter name="conditionSeqId"/><parameter name="fieldNameAlias"/></link></default-field></field>
+            </form-list>
+        </box-body-nopad></container-box>
+
+        <container-box><box-header title="Fields"/><box-toolbar>
+            <container-dialog id="AddFieldDialog" button-text="Add Field Manual">
+                <form-single name="AddField" transition="createDataDocumentField">
+                    <field name="dataDocumentId"><default-field><hidden/></default-field></field>
+                    <field name="fieldPath"><default-field><text-line/></default-field></field>
+                    <field name="fieldNameAlias"><default-field title="Alias"><text-line size="20"/></default-field></field>
+                    <field name="sortable"><default-field title="Sortable">
+                        <drop-down allow-empty="true"><option key="N"/><option key="Y"/></drop-down></default-field></field>
+                    <field name="functionName"><default-field title="Function"><drop-down allow-empty="true">
+                        <list-options list="funcOptions"/></drop-down></default-field></field>
+                    <field name="sequenceNum"><default-field title="Sequence"><text-line size="2"/></default-field></field>
+                    <field name="submitButton"><default-field title="Create"><submit/></default-field></field>
+                </form-single>
+            </container-dialog>
+        </box-toolbar><box-body>
+            <label text="Each field must have a unique name, duplicates shown in red. Set an alias to resolve duplicates." type="p"/>
+        </box-body><box-body-nopad>
+            <form-list name="FieldList" list="ddFieldList" transition="updateDataDocumentField" multi="true">
+                <row-actions>
+                    <set field="curField" from="fieldNameAlias ?: (fieldPath.contains(':') ? fieldPath.substring(fieldPath.lastIndexOf(':')+1) : fieldPath)"/>
+                    <set field="isDup" from="knownFields.contains(curField)"/>
+                    <script>knownFields.add(curField)</script>
+                </row-actions>
+
+                <field name="dataDocumentId"><default-field><hidden/></default-field></field>
+                <field name="fieldSeqId"><default-field><hidden/></default-field></field>
+                <field name="sequenceNum"><default-field title="Seq"><text-line size="2"/></default-field></field>
+                <field name="fieldPath"><default-field><display text=" "/>
+                    <link url="." text="${fieldPath.split(':').collect({ it.contains('.') ? it : org.moqui.util.StringUtilities.camelCaseToPretty(it) }).join(' : ')}"
+                            link-type="anchor" parameter-map="[fieldPath:fieldPath]" style="${isDup ? 'text-danger' : ''}"/>
+                </default-field></field>
+                <field name="fieldNameAlias" from="org.moqui.util.StringUtilities.camelCaseToPretty(fieldNameAlias)"><default-field title="Alias">
+                    <text-line size="20"/></default-field></field>
+                <field name="sortable"><default-field title="Sortable">
+                    <drop-down allow-empty="true"><option key="N"/><option key="Y"/></drop-down></default-field></field>
+                <field name="defaultDisplay"><default-field title="Display">
+                    <drop-down allow-empty="true"><option key="Y"/><option key="N"/></drop-down></default-field></field>
+                <field name="functionName"><default-field title="Function"><drop-down allow-empty="true">
+                    <list-options list="funcOptions"/></drop-down></default-field></field>
+
+                <field name="submitButton"><default-field title="Update All"><submit/></default-field></field>
+                <field name="deleteButton"><default-field title="">
+                    <link url="deleteDataDocumentField" text=" " icon="fa fa-trash" confirmation="Really remove?">
+                        <parameter name="dataDocumentId"/><parameter name="fieldSeqId"/><parameter name="fieldPath"/></link></default-field></field>
+            </form-list>
+        </box-body-nopad></container-box>
+    </widgets>
+</screen>

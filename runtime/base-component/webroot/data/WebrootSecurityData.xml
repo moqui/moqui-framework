@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<entity-facade-xml type="seed">
+    <!-- Let all users use the ScreenTree (add other webroot screens here as needed) -->
+    <moqui.security.ArtifactGroup artifactGroupId="SCREEN_TREE" description="Screen Tree (via root screen)"/>
+    <moqui.security.ArtifactGroupMember artifactGroupId="SCREEN_TREE" artifactName="component://webroot/screen/webroot/apps/ScreenTree.xml"
+            artifactTypeEnumId="AT_XML_SCREEN" inheritAuthz="Y"/>
+    <moqui.security.ArtifactGroupMember artifactGroupId="SCREEN_TREE" artifactName="component://webroot/screen/webroot/apps/AppList.xml"
+            artifactTypeEnumId="AT_XML_SCREEN" inheritAuthz="Y"/>
+    <moqui.security.ArtifactAuthz artifactAuthzId="SCREEN_TREE_1" userGroupId="ALL_USERS" artifactGroupId="SCREEN_TREE"
+            authzTypeEnumId="AUTHZT_ALLOW" authzActionEnumId="AUTHZA_VIEW"/>
+
+    <moqui.basic.Enumeration enumId="qz.print.enabled" description="QZ Print Enabled (true/false)" enumTypeId="UserPreferenceKey"/>
+    <moqui.basic.Enumeration enumId="qz.printer.main.active" description="QZ Active Main Printer Name" enumTypeId="UserPreferenceKey"/>
+    <moqui.basic.Enumeration enumId="qz.printer.label.active" description="QZ Active Label Printer Name" enumTypeId="UserPreferenceKey"/>
+</entity-facade-xml>

@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        require-authentication="true" default-menu-include="false" default-menu-title="App List">
+
+    <actions>
+        <set field="appsLocation" from="sri.getRootScreenDef().getSubscreensItem('apps').location"/>
+        <set field="currentScreenDef" from="sri.sfi.getScreenDefinition(appsLocation)"/>
+    </actions>
+    <widgets>
+        <container style="text-center">
+            <label text="Choose an Application" type="h2"/>
+
+            <section-iterate name="ScreenNestedSection" list="currentScreenDef.getMenuSubscreensItems()" entry="currentSubscreensItem">
+                <actions>
+                    <set field="currentScreenDef" from="sri.sfi.getScreenDefinition(currentSubscreensItem.location)"/>
+                    <set field="currentScreenPath" value="/apps/${currentSubscreensItem.name}"/>
+                    <set field="currentUrlInstance" from="sri.buildUrl(currentScreenPath)"/>
+                </actions>
+                <widgets>
+                    <section name="ScreenItemRender">
+                        <condition><expression>currentScreenDef != null &amp;&amp;
+                            !currentScreenDef.getParameterMap() &amp;&amp; currentUrlInstance?.isPermitted()</expression></condition>
+                        <widgets>
+                            <render-mode><text type="html"><![CDATA[
+                                <a href="${currentUrlInstance.url}" class="btn btn-primary app-list-link">
+                                    <#if currentUrlInstance.sui.menuImage?has_content>
+                                        <#if currentUrlInstance.sui.menuImageType == "icon">
+                                            <i class="${currentUrlInstance.sui.menuImage}" style="padding-right: 8px;"></i>
+                                        <#elseif currentUrlInstance.sui.menuImageType == "url-plain">
+                                            <img src="${currentUrlInstance.sui.menuImage}" width="18" style="padding-right: 4px;"/>
+                                        <#else>
+                                            <img src="${sri.buildUrl(currentUrlInstance.sui.menuImage).url}" height="18" style="padding-right: 4px;"/>
+                                        </#if>
+                                    <#else>
+                                        <i class="fa fa-link" style="padding-right: 8px;"></i>
+                                    </#if>
+                                    ${ec.resource.expand(currentSubscreensItem.menuTitle, "")}
+                                </a>
+                            ]]></text><text type="vuet"><![CDATA[
+                                <m-link href="${currentUrlInstance.path}" class="btn btn-primary app-list-link">
+                                    <#if currentUrlInstance.sui.menuImage?has_content>
+                                        <#if currentUrlInstance.sui.menuImageType == "icon">
+                                            <i class="${currentUrlInstance.sui.menuImage}" style="padding-right: 8px;"></i>
+                                        <#elseif currentUrlInstance.sui.menuImageType == "url-plain">
+                                            <img src="${currentUrlInstance.sui.menuImage}" width="18" style="padding-right: 4px;"/>
+                                        <#else>
+                                            <img src="${sri.buildUrl(currentUrlInstance.sui.menuImage).url}" height="18" style="padding-right: 4px;"/>
+                                        </#if>
+                                    <#else>
+                                        <i class="fa fa-link" style="padding-right: 8px;"></i>
+                                    </#if>
+                                    ${ec.resource.expand(currentSubscreensItem.menuTitle, "")}
+                                </m-link>
+                            ]]></text><text type="qvt"><![CDATA[
+                                <div class="q-my-sm"><q-btn outline no-caps to="${currentUrlInstance.path}" style="min-width:250px">
+                                    <#if currentUrlInstance.sui.menuImage?has_content>
+                                        <#if currentUrlInstance.sui.menuImageType == "icon">
+                                            <i class="${currentUrlInstance.sui.menuImage}" style="padding-right: 8px;"></i>
+                                        <#elseif currentUrlInstance.sui.menuImageType == "url-plain">
+                                            <img src="${currentUrlInstance.sui.menuImage}" width="18" style="padding-right: 4px;"/>
+                                        <#else>
+                                            <img src="${sri.buildUrl(currentUrlInstance.sui.menuImage).url}" height="18" style="padding-right: 4px;"/>
+                                        </#if>
+                                    <#else>
+                                        <i class="fa fa-link" style="padding-right: 8px;"></i>
+                                    </#if>
+                                    ${ec.resource.expand(currentSubscreensItem.menuTitle, "")}
+                                </q-btn></div>
+                            ]]></text></render-mode>
+                        </widgets>
+                    </section>
+                </widgets>
+            </section-iterate>
+            <render-mode>
+                <text type="html"><![CDATA[<p>&nbsp;</p><div>You are using the <strong>standard</strong> UI</div><div><a href="/vapps">Switch to the dynamic Bootstrap UI</a></div><div><a href="/qapps">Switch to the dynamic Material UI</a></div>]]></text>
+                <text type="vuet"><![CDATA[<p>&nbsp;</p><div>You are using the <strong>dynamic Bootstrap</strong> UI</div><div><a href="/apps">Switch to the standard UI</a></div><div><a href="/qapps">Switch to the dynamic Material UI</a></div>]]></text>
+                <text type="qvt"><![CDATA[<p>&nbsp;</p><div>You are using the <strong>dynamic Material</strong> UI</div><div><a href="/apps">Switch to the standard UI</a></div><div><a href="/vapps">Switch to the dynamic Bootstrap UI</a></div>]]></text>
+            </render-mode>
+        </container>
+    </widgets>
+</screen>

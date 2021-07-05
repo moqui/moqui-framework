@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-title="elFinder">
+
+    <parameter name="resourceRoot"/>
+    <always-actions>
+        <set field="mantleContentRoot" from="ec.user.getPreference('mantle.content.root') ?: 'dbresource://mantle/content'"/>
+        <set field="mantleContentLargeRoot" from="ec.user.getPreference('mantle.content.large.root') ?: 'dbresource://mantle/content'"/>
+        <set field="resourceRoot" from="resourceRoot ?: mantleContentRoot"/>
+    </always-actions>
+
+    <!-- set read-only=true because in spite of setting requestType:'post' some requests come as gets -->
+    <transition name="command" read-only="true">
+        <actions>
+            <!-- <log level="warn" message="============ resourceRoot=${resourceRoot}, ec.web.parameters=${ec.web.parameters}"/> -->
+            <service-call name="org.moqui.impl.ElFinderServices.run#Command" out-map="context"
+                    in-map="context + [otherParameters:ec.web.parameters]"/>
+            <if condition="fileLocation">
+                <script>ec.web.sendResourceResponse(fileLocation, fileInline ?: false)</script>
+                <else><script>ec.web.sendJsonResponse(responseMap)</script></else>
+            </if>
+        </actions>
+        <default-response type="none"/>
+    </transition>
+
+    <actions>
+        <set field="rootOptions" from="[mantleContentRoot, 'dbresource://', 'component://webroot', 'file:runtime']"/>
+        <if condition="mantleContentLargeRoot != mantleContentRoot"><script>rootOptions.add(mantleContentLargeRoot)</script></if>
+    </actions>
+    <widgets>
+        <form-single name="SelectRoot" transition=".">
+            <field name="resourceRoot"><default-field title="">
+                <drop-down><list-options list="rootOptions"/></drop-down>
+            </default-field></field>
+            <field name="submitButton"><default-field title="Select Root"><submit/></default-field></field>
+            <field-layout><field-row-big><field-ref name="resourceRoot"/><field-ref name="submitButton"/></field-row-big></field-layout>
+        </form-single>
+        <render-mode><text type="html,vuet,qvt"><![CDATA[
+            <div id="elfinder"></div>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/themes/smoothness/jquery-ui.min.css" type="text/css"/>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/themes/smoothness/theme.min.css" type="text/css"/>
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js" type="text/javascript"></script>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/elfinder/2.1.56/css/elfinder.min.css" type="text/css"/>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/elfinder/2.1.56/css/theme.min.css" type="text/css"/>
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/elfinder/2.1.56/js/elfinder.min.js" type="text/javascript"></script>
+            <script>
+    $('#elfinder').elfinder({ url:'${sri.buildUrl('command').url}', customData:{ moquiSessionToken:'${ec.web.sessionToken}', resourceRoot:'${resourceRoot}' },
+        lang:'en', defaultView:'list', requestType:'post', rememberLastDir:false, height:700,
+        commands : [ 'open', 'reload', 'home', 'up', 'back', 'forward', 'getfile', 'quicklook',
+            'download', 'rm', 'rename', 'mkdir', 'mkfile', 'upload', 'edit', 'info', 'view', 'help',
+            'sort'],
+        uiOptions : {
+            // toolbar configuration (NOTE: 'quicklook' doesn't seem to work)
+            toolbar : [
+                ['back', 'forward'],
+                ['reload', 'home', 'up'],
+                ['mkdir', 'mkfile', 'upload'],
+                ['open', 'download'],
+                ['info'],
+                ['rm', 'rename', 'edit'],
+                ['view', 'help']
+            ],
+            navbar : { minWidth : 150, maxWidth : 800 }
+        }
+    });
+            </script>
+        ]]></text></render-mode>
+    </widgets>
+</screen>

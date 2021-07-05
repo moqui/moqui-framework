@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-include="false">
+
+    <transition name="jobRunDetail"><default-response url="../JobRunDetail"/></transition>
+    <transition name="serviceJobDetail"><default-response url="../../Jobs/ServiceJobDetail"/></transition>
+    <transition name="userAccountDetail"><default-response url="../../../Security/UserAccount/UserAccountDetail"/></transition>
+
+    <actions>
+        <entity-find entity-name="moqui.service.job.ServiceJobRun" list="jobRunList" use-clone="true">
+            <search-form-inputs default-order-by="startTime">
+                <default-parameters startTime_poffset="0" startTime_period="Week"/></search-form-inputs>
+        </entity-find>
+    </actions>
+    <widgets>
+        <form-list name="JobRunList" list="jobRunList" skip-form="true" header-dialog="true">
+            <field name="jobRunId"><header-field show-order-by="true"><text-find size="10" hide-options="true"/></header-field>
+                <default-field><link url="jobRunDetail" text="${jobRunId}" link-type="anchor"/></default-field></field>
+            <field name="jobName">
+                <header-field show-order-by="case-insensitive">
+                    <drop-down allow-empty="true">
+                        <entity-options key="${jobName}" text="${jobName}">
+                            <entity-find entity-name="moqui.service.job.ServiceJob" limit="200">
+                                <order-by field-name="jobName"/></entity-find>
+                        </entity-options>
+                    </drop-down>
+                </header-field>
+                <default-field><link url="serviceJobDetail" text="${jobName}" link-type="anchor"/></default-field>
+            </field>
+            <field name="userId"><header-field title="User"><text-find size="10" hide-options="true"/></header-field><default-field>
+                <display-entity entity-name="moqui.security.UserAccount" text="${username} - ${userFullName}"/>
+                <link url="userAccountDetail" text="${userId}" link-type="anchor" condition="userId"/>
+            </default-field></field>
+
+            <field name="hasError"><header-field><drop-down allow-empty="true"><option key="Y"/><option key="N"/></drop-down></header-field>
+                <default-field><display/></default-field></field>
+            <field name="startTime"><header-field><date-period allow-empty="true"/></header-field>
+                <default-field><display/></default-field></field>
+            <field name="endTime"><header-field><date-period allow-empty="true"/></header-field>
+                <default-field><display/></default-field></field>
+
+            <field name="findButton"><header-field title="Find"><submit/></header-field><default-field>
+                <display text=" "/></default-field></field>
+        </form-list>
+    </widgets>
+</screen>

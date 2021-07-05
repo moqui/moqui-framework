@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-title="Export" default-menu-index="3">
+
+    <transition name="DocumentExport.json" read-only="true">
+        <actions><script><![CDATA[
+            import org.moqui.context.ExecutionContext
+            import org.moqui.impl.entity.EntityDataDocument
+
+            import java.sql.Timestamp
+
+            ExecutionContext ec = context.ec
+            EntityDataDocument edd = ec.entity.getEntityDataDocument()
+
+            if (!context.dataDocumentIds) {
+                ec.message.addError(ec.l10n.localize("No Data Documents specified, not exporting anything."))
+                return
+            }
+
+            List<String> dataDocumentIdList
+            if (dataDocumentIds instanceof String) {
+                dataDocumentIdList = [dataDocumentIds]
+            } else {
+                dataDocumentIdList = dataDocumentIds
+            }
+            boolean prettyPrint = context.prettyPrint as Boolean
+            fromUpdateStamp = fromUpdateStamp ? fromUpdateStamp as Timestamp : null
+            thruUpdateStamp = thruUpdateStamp ? thruUpdateStamp as Timestamp : null
+
+            noResponse = false
+            if (context.output == "file") {
+                edd.writeDocumentsToFile((String) path, dataDocumentIdList, null,
+                        fromUpdateStamp, thruUpdateStamp, prettyPrint)
+            } else if (context.output == "dir") {
+                edd.writeDocumentsToDirectory((String) path, dataDocumentIdList, null,
+                        fromUpdateStamp, thruUpdateStamp, prettyPrint)
+            } else {
+                def response = ec.web.response
+                response.setContentType("application/json")
+                response.setCharacterEncoding("UTF-8")
+                response.addHeader("Cache-Control", "no-cache, must-revalidate, private")
+                response.getWriter().write("[\n")
+                edd.writeDocumentsToWriter(response.getWriter(), dataDocumentIdList, null,
+                        fromUpdateStamp, thruUpdateStamp, prettyPrint)
+                response.getWriter().write("]\n")
+                noResponse = true
+            }
+        ]]></script></actions>
+        <conditional-response url="."><condition><expression>!noResponse</expression></condition></conditional-response>
+        <default-response type="none"/>
+    </transition>
+
+    <widgets>
+        <form-single name="ExportDocuments" transition="DocumentExport.json">
+            <field name="dataDocumentIds">
+                <default-field><drop-down allow-multiple="true" size="10">
+                    <entity-options key="${dataDocumentId}" text="${dataDocumentId} - ${documentName}">
+                        <entity-find entity-name="moqui.entity.document.DataDocument">
+                            <order-by field-name="dataDocumentId"/>
+                        </entity-find>
+                    </entity-options>
+                </drop-down></default-field>
+            </field>
+
+            <field name="fromUpdateStamp"><default-field><date-time/></default-field></field>
+            <field name="thruUpdateStamp"><default-field><date-time/></default-field></field>
+
+            <field name="prettyPrint"><default-field title=""><check><option key="true" text="Pretty Print JSON?"/></check></default-field></field>
+
+            <field name="path"><default-field><text-line size="80"/></default-field></field>
+            <field name="output">
+                <default-field><radio no-current-selected-key="file">
+                    <option key="file" text="Single File"/>
+                    <option key="dir" text="Directory (one file per document)"/>
+                    <option key="browser" text="Out to Browser"/>
+                </radio></default-field>
+            </field>
+
+            <field name="submitButton"><default-field title="Export"><submit/></default-field></field>
+        </form-single>
+    </widgets>
+</screen>

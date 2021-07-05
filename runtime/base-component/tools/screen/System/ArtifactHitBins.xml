@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-title="Artifact Bins" default-menu-index="3">
+
+    <transition name="ArtifactHitBinStats.csv">
+        <default-response url="."><parameter name="renderMode" value="csv"/>
+            <parameter name="pageNoLimit" value="true"/><parameter name="lastStandalone" value="true"/></default-response>
+    </transition>
+    <transition name="ArtifactHitBinStats.xml">
+        <default-response url="."><parameter name="renderMode" value="xml"/>
+            <parameter name="pageNoLimit" value="true"/><parameter name="lastStandalone" value="true"/></default-response>
+    </transition>
+    <transition name="ArtifactHitBinStats.pdf">
+        <default-response url="${ec.web.getWebappRootUrl(false, null)}/fop/apps/system/ArtifactHitBins" url-type="plain">
+            <parameter name="renderMode" value="xsl-fo"/><parameter name="pageNoLimit" value="true"/>
+            <!--<parameter name="lastStandalone" value="true"/>-->
+        </default-response>
+    </transition>
+
+    <widgets>
+        <container>
+            <link url="ArtifactHitBinStats.csv" text="Get as CSV"/>
+            <link url="ArtifactHitBinStats.xml" text="Get as XML" target-window="_blank"/>
+            <link url="ArtifactHitBinStats.pdf" text="Get as PDF" target-window="_blank"/>
+        </container>
+        <form-list name="ArtifactHitBins" list="artifactHitBinList" skip-form="true" header-dialog="true" saved-finds="true">
+            <entity-find entity-name="moqui.server.ArtifactHitBin" list="artifactHitBinList" limit="50" use-clone="true">
+                <search-form-inputs default-order-by="-binStartDateTime" require-parameters="true"/>
+            </entity-find>
+            <row-actions>
+                <set field="averageTime" from="hitCount ? totalTimeMillis/hitCount : null"/>
+                <set field="stdDev" from="totalSquaredTime &amp;&amp; hitCount > 1 ? Math.sqrt((totalSquaredTime - ((totalTimeMillis*totalTimeMillis) / hitCount)).abs() / (hitCount - 1)) : null"/>
+            </row-actions>
+            <field name="artifactType">
+                <header-field show-order-by="true">
+                    <drop-down allow-empty="true">
+                        <option key="AT_XML_SCREEN"/><option key="AT_XML_SCREEN_CONTENT"/><option key="AT_XML_SCREEN_TRANS"/>
+                        <option key="AT_SERVICE"/><option key="AT_ENTITY"/>
+                    </drop-down>
+                </header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="artifactSubType">
+                <header-field show-order-by="true">
+                    <drop-down allow-empty="true">
+                        <option key="one"/><option key="list"/><option key="iterator"/><option key="count"/>
+                        <option key="create"/><option key="update"/><option key="delete"/><option key="refresh"/>
+                        <option key="entity-auto"/><option key="entity-implicit"/><option key="inline"/>
+                        <option key="script"/><option key="java"/>
+                    </drop-down>
+                </header-field>
+                <!-- NOTE: was using this to add space to avoid wide cells: ?.replace('/',' / ') -->
+                <default-field><display text="${artifactSubType}"/></default-field>
+            </field>
+            <field name="artifactName">
+                <header-field show-order-by="true"><text-find hide-options="true" size="80"/></header-field>
+                <!-- NOTE: these replace() calls are to add spaces so that longer artifactNames can wrap instead of making the table super-wide: ?.replace('/',' / ')?.replace(' /  / ', '//')?.replace('.',' . ') -->
+                <default-field><display text="${artifactName}"/></default-field>
+            </field>
+            <field name="binStartDateTime">
+                <header-field title="Bin Start" show-order-by="true"><date-period allow-empty="true"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="totalTimeMillis">
+                <header-field title="Total" show-order-by="true"/>
+                <default-field><display/></default-field>
+            </field>
+            <field name="minTimeMillis">
+                <header-field title="Min" show-order-by="true"/>
+                <default-field><display/></default-field>
+            </field>
+            <field name="maxTimeMillis">
+                <header-field title="Max" show-order-by="true"/>
+                <default-field><display/></default-field>
+            </field>
+            <field name="averageTime"><default-field title="Avg"><display/></default-field></field>
+            <field name="stdDev"><default-field title="Std Dev"><display/></default-field></field>
+            <field name="hitCount">
+                <header-field title="Hits" show-order-by="true"/>
+                <default-field><display/></default-field>
+            </field>
+            <field name="slowHitCount">
+                <header-field title="Slow Hits" show-order-by="true"/>
+                <default-field><display/></default-field>
+            </field>
+            <field name="find"><header-field title="Find"><submit/></header-field>
+                <default-field><display text=" "/></default-field></field>
+
+            <form-list-column><field-ref name="artifactType"/><field-ref name="artifactSubType"/></form-list-column>
+            <form-list-column><field-ref name="artifactName"/><field-ref name="binStartDateTime"/></form-list-column>
+            <form-list-column><field-ref name="totalTimeMillis"/></form-list-column>
+            <form-list-column><field-ref name="minTimeMillis"/><field-ref name="maxTimeMillis"/></form-list-column>
+            <form-list-column><field-ref name="averageTime"/><field-ref name="stdDev"/></form-list-column>
+            <form-list-column><field-ref name="hitCount"/><field-ref name="slowHitCount"/></form-list-column>
+            <form-list-column><field-ref name="find"/></form-list-column>
+        </form-list>
+    </widgets>
+</screen>

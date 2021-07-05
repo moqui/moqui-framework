@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-title="Log Viewer" default-menu-index="20">
+
+    <transition name="userAccountDetail"><default-response url="//apps/system/Security/UserAccount/UserAccountDetail"/></transition>
+
+    <actions>
+        <set field="indexName" from="indexName ?: 'moqui_logs'"/>
+        <set field="pageIndex" from="(pageIndex?:'0') as int"/>
+        <set field="pageSize" from="(pageSize?:'100') as int"/>
+
+        <!-- default to last 7 days, always have a time range to avoid massive and slow results -->
+        <if condition="!tsPeriod_period &amp;&amp; !tsPeriod_from &amp;&amp; !tsPeriod_thru">
+            <set field="tsPeriod_period" from="tsPeriod_period ?: '7d'"/>
+            <set field="tsPeriod_poffset" from="tsPeriod_poffset ?: '-1'"/>
+        </if>
+        <set field="tsList" from="ec.user.getPeriodRange('tsPeriod', context)"/>
+
+        <script><![CDATA[
+            /* useful docs for query API: https://www.elastic.co/guide/reference/api/search/uri-request/ */
+
+            import org.moqui.context.ExecutionContext
+            ExecutionContext ec = context.ec
+
+            def elasticClient = ec.factory.elastic.getClient("logger") ?: ec.factory.elastic.getClient("default")
+            if (elasticClient == null) {
+                ec.message.addError("Could not find ElasticClient for cluster name logger or default")
+                return
+            }
+
+            int fromOffset = pageIndex * pageSize
+            int sizeLimit = pageSize
+
+            // build query string
+            if (tsList != null && (tsList.get(0) != null || tsList.get(1) != null)) {
+                actualQuery = '@timestamp:[' + (tsList.get(0) != null ? tsList.get(0).time : '*') + ' TO ' + (tsList.get(1) != null ? tsList.get(1).time : '*') + ']'
+                if (queryString) actualQuery = actualQuery + ' AND (' + queryString + ')'
+            } else {
+                actualQuery = queryString ?: '*'
+            }
+
+            // query string: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html
+            // had time_zone but shouldn't matter using epoch_millis format and causes issues sometimes: time_zone:TimeZone.default.getID()
+            Map queryMap = [query_string:[query:actualQuery, lenient:true]]
+            Map searchMap = [query:queryMap, from:fromOffset, size:sizeLimit, track_total_hits:true, sort:[['@timestamp':'desc']]]
+
+            // validate the query
+            // TODO: consider pulling error message from ElasticSearch, but they are pretty ugly
+            Map validateRespMap = elasticClient.validateQuery((String) indexName, queryMap, true)
+            if (validateRespMap != null) {
+                ec.message.addMessage("Invalid search: ${queryString}", "danger")
+                List explanations = (List) validateRespMap.explanations
+                if (explanations) for (Map explanation in explanations) ec.message.addMessage(explanation.error, "danger")
+                return
+            }
+
+            // get the search hits
+            Map resultMap = elasticClient.search((String) indexName, searchMap)
+            Map hitsMap = (Map) resultMap.hits
+
+            List<Map> hitsList = (List<Map>) hitsMap.hits
+            documentList = []
+            for (Map hit in hitsList) {
+                Map document = (Map) hit._source
+                document._id = hit._id
+                documentList.add(document)
+            }
+
+            // get the total search count
+            documentListCount = hitsMap.total.value
+
+            // calculate the pagination values
+            documentListPageIndex = pageIndex
+            documentListPageSize = pageSize
+            documentListPageMaxIndex = ((BigDecimal) documentListCount - 1).divide(documentListPageSize, 0, BigDecimal.ROUND_DOWN) as int
+            documentListPageRangeLow = documentListPageIndex * documentListPageSize + 1
+            documentListPageRangeHigh = (documentListPageIndex * documentListPageSize) + documentListPageSize
+            if (documentListPageRangeHigh > documentListCount) documentListPageRangeHigh = documentListCount
+
+            // show in reverse order, but still higher pages going back in time
+            documentList = documentList.reverse()
+        ]]></script>
+    </actions>
+    <widgets>
+        <link url="https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html#query-string-syntax"
+                url-type="plain" link-type="anchor" target-window="_blank" text="Query String Reference"/>
+        <form-single name="SearchOptions" transition=".">
+            <field name="indexName"><default-field title=""><text-line size="12" default-value="moqui_logs"/></default-field></field>
+            <field name="queryString"><default-field title=""><text-line size="60"/></default-field></field>
+            <field name="tsPeriod"><default-field title=""><date-period time="true"/></default-field></field>
+            <field name="submitButton"><default-field title="Search"><submit/></default-field></field>
+            <field-layout><field-row-big><field-ref name="indexName"/><field-ref name="queryString"/><field-ref name="tsPeriod"/><field-ref name="submitButton"/></field-row-big></field-layout>
+        </form-single>
+        <label text="Date Range: ${ec.l10n.format(tsList.get(0), 'yyyy-MM-dd HH:mm:ss.SSS') ?: '*'} to ${ec.l10n.format(tsList.get(1), 'yyyy-MM-dd HH:mm:ss.SSS') ?: '*'}" type="p"/>
+        <label text="Full query: ${actualQuery}" type="p"/>
+
+        <!-- show messages, mainly for 'Invalid search...' message -->
+        <section-iterate name="messageInfos" list="ec.message.messageInfos" entry="messageInfo"><widgets>
+            <container><label text="${messageInfo.message}" type="strong" style="text-${messageInfo.typeString}"/></container>
+        </widgets></section-iterate>
+
+        <form-list name="LogMessageDocuments" list="documentList" paginate="true" paginate-always-show="true" skip-form="true">
+            <row-actions>
+                <set field="levelStyle" from="'ERROR'.equals(level) ? 'text-danger' : ('WARN'.equals(level) ? 'text-warning' : ('INFO'.equals(level) ? 'text-success' : ''))"/>
+            </row-actions>
+            <field name="@timestamp"><default-field container-style="text-nowrap ${levelStyle}">
+                <display text="${ec.l10n.format(new Timestamp(context.get('@timestamp')), 'yyyy-MM-dd HH:mm:ss.SSS')}" encode="false"/></default-field></field>
+            <field name="thread_name"><default-field title="thread_name" container-style="text-nowrap ${levelStyle}"><display text="${thread_name}(${thread_id}:${thread_priority})"/></default-field></field>
+            <field name="level"><default-field title="level" container-style="${levelStyle}"><display/></default-field></field>
+            <field name="source_host"><default-field title="source_host" container-style="text-nowrap ${levelStyle}"><display/></default-field></field>
+            <field name="user_id"><default-field title="user_id">
+                <link url="userAccountDetail" text="${user_id}" link-type="anchor" parameter-map="[userId:user_id]" condition="user_id"/></default-field></field>
+            <field name="visitor_id"><default-field title="visitor_id" container-style="${levelStyle}"><display/></default-field></field>
+
+            <field name="logger_name"><default-field title="logger_name" container-style="${levelStyle}"><display/></default-field></field>
+            <field name="message">
+                <conditional-field condition="message != null &amp;&amp; message.length() &gt; 300">
+                    <display text="${message.substring(0, 300)} "/>
+                    <container-dialog id="ViewMessage" button-text="All" width="800"><label text="${message}"/></container-dialog>
+                </conditional-field>
+                <default-field title="message"><display/></default-field>
+            </field>
+            <field name="thrownView"><conditional-field condition="thrown">
+                <container-dialog id="ViewThrown" button-text="Thrown" width="960">
+                    <label text="${groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(thrown))}" type="pre"/>
+                </container-dialog>
+            </conditional-field><default-field title=""><display/></default-field></field>
+
+            <form-list-column><field-ref name="@timestamp"/><field-ref name="thread_name"/></form-list-column>
+            <form-list-column><field-ref name="level"/><field-ref name="source_host"/></form-list-column>
+            <form-list-column><field-ref name="user_id"/><field-ref name="visitor_id"/></form-list-column>
+            <form-list-column><field-ref name="logger_name"/><field-ref name="message"/></form-list-column>
+            <form-list-column><field-ref name="thrownView"/></form-list-column>
+        </form-list>
+    </widgets>
+</screen>

@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-index="1" menu-image="fa fa-dashboard" menu-image-type="icon">
+
+    <transition name="reloadEcfi" begin-transaction="false">
+        <actions>
+            <script>ec.factory.triggerDynamicReInit()</script>
+            <message>ExecutionContextFactory dynamic re-initialize triggered</message>
+        </actions>
+        <default-response url="."/>
+    </transition>
+
+    <widgets>
+        <container-row><row-col lg="6" md="6">
+            <container-box>
+                <box-header title="General Tools"/>
+                <box-body>
+                    <link url="../AutoScreen" text="Auto Screens"/>
+                    <link url="../ArtifactStats" text="Artifact Stats"/>
+                    <link url="../Service" text="Services"/>
+                </box-body>
+            </container-box>
+            <section name="RestApiSection"><actions>
+                <set field="restUrl" from="sri.buildUrl('/rest').url"/>
+                <set field="rootResources" from="ec.service.restApi.getFreshRootResources()"/>
+
+                <set field="masterEntityNameList" from="ec.entity.getAllEntityNamesWithMaster()"/>
+            </actions><widgets>
+                <container-box><box-header title="REST API: Swagger UI"/><box-body>
+                    <section-iterate name="RootResourcesSection" list="rootResources" entry="resource"><widgets>
+                        <section name="RootResourceChildren" condition="resource.childMethods &gt; 100"><widgets>
+                            <container-dialog id="RootResourceSwaggerDialog" button-text="${resource.displayName ?: resource.name} (${resource.childMethods})">
+                                <section-iterate name="RootResourceSwaggerSection" list="resource.resourceMap.values()" entry="childResource"><widgets>
+                                    <container><link url="/toolstatic/lib/swagger-ui/index.html?url=${restUrl}/service.swagger/${resource.name}/${childResource.name}"
+                                            text="${childResource.displayName ?: childResource.description ?: childResource.name} (${childResource.childMethods})"
+                                            url-type="plain" link-type="anchor" target-window="_blank"/></container>
+                                </widgets></section-iterate>
+                            </container-dialog>
+                        </widgets><fail-widgets>
+                            <link url="/toolstatic/lib/swagger-ui/index.html?url=${restUrl}/service.swagger/${resource.name}" url-type="plain"
+                                    target-window="_blank" text="${resource.displayName ?: resource.name} (${resource.childMethods})"
+                                    tooltip="${resource.description ?: ''}"/>
+                        </fail-widgets></section>
+                    </widgets></section-iterate>
+
+                    <container-dialog id="EntitySwagger" button-text="Entity Master API">
+                        <section-iterate name="EntitySwaggerSection" list="masterEntityNameList" entry="masterEntityName"><widgets>
+                            <container><link url="/toolstatic/lib/swagger-ui/index.html?url=${restUrl}/master.swagger/${masterEntityName}" url-type="plain"
+                                    text="${masterEntityName}" link-type="anchor" target-window="_blank"/></container>
+                        </widgets></section-iterate>
+                    </container-dialog>
+                    <!-- Generates enough that Swagger UI has a hard time loading it, takes a long time or fails:
+                    <link url="/toolstatic/lib/swagger-ui/index.html?url=${restUrl}/master.swagger/all"
+                            url-type="plain" target-window="_blank" text="Entity Master API"/>
+                    -->
+                    <label text="The larger APIs take a few seconds to load. Runs in same session (already authenticated)." type="p"/>
+                </box-body></container-box>
+            </widgets></section>
+        </row-col><row-col lg="6" md="6">
+            <container-box><box-header title="Entity Tools"/><box-body>
+                <container>
+                    <link url="../Entity/DataImport" text="Data Import"/>
+                    <link url="../Entity/DataExport" text="Data Export"/>
+                    <link url="../Entity/DataSnapshot" text="Data Snapshots"/>
+                    <link url="../Entity/SqlRunner" text="SQL Runner"/>
+                </container>
+                <container>
+                    <link url="../Entity/DataEdit" text="Entities"/>
+                    <link url="../DataView" text="Data Views"/>
+                    <link url="../Entity/SpeedTest" text="Speed Test"/>
+                    <link url="../Entity/QueryStats" text="Query Stats"/>
+                </container>
+            </box-body></container-box>
+        </row-col></container-row>
+
+        <!-- <link url="reloadEcfi" text="Reload Framework" link-type="anchor" confirmation="Are you sure? This is for development and emergency use only."/> -->
+    </widgets>
+</screen>

@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-include="false">
+
+    <parameter name="isOutgoing"/>
+    <parameter name="statusId"/>
+
+    <transition name="messageDetail"><default-response url="../SystemMessageDetail"/></transition>
+
+    <transition name="sendAllMessages"><service-call name="org.moqui.impl.SystemMessageServices.send#AllProducedSystemMessages"/>
+        <default-response url="."/></transition>
+    <transition name="consumeAllMessages"><service-call name="org.moqui.impl.SystemMessageServices.consume#AllReceivedSystemMessages"/>
+        <default-response url="."/></transition>
+
+    <transition name="sendMessage"><service-call name="org.moqui.impl.SystemMessageServices.send#ProducedSystemMessage"/>
+        <default-response url="."/></transition>
+    <transition name="consumeMessage"><service-call name="org.moqui.impl.SystemMessageServices.consume#ReceivedSystemMessage"/>
+        <default-response url="."/></transition>
+
+    <transition name="newIncomingMessage"><service-call name="org.moqui.impl.SystemMessageServices.receive#IncomingSystemMessage"/>
+        <default-response url="."/></transition>
+
+    <actions>
+        <entity-find-count entity-name="moqui.service.message.SystemMessage" count-field="outgoingCount">
+            <econdition field-name="statusId" value="SmsgProduced"/>
+            <econdition field-name="isOutgoing" value="Y"/>
+        </entity-find-count>
+        <entity-find-count entity-name="moqui.service.message.SystemMessage" count-field="incomingCount">
+            <econdition field-name="statusId" value="SmsgReceived"/>
+            <econdition field-name="isOutgoing" value="N"/>
+        </entity-find-count>
+        <entity-find-count entity-name="moqui.service.message.SystemMessage" count-field="errorCount">
+            <econdition field-name="statusId" value="SmsgError"/></entity-find-count>
+    </actions>
+    <widgets>
+        <container-dialog id="SendDialog" button-text="Send Produced Messages">
+            <form-single name="SendForm" transition="sendAllMessages">
+                <field name="retryMinutes"><default-field><text-line size="5" default-value="60"/></default-field></field>
+                <field name="retryLimit"><default-field><text-line size="5" default-value="24"/></default-field></field>
+                <field name="submitButton"><default-field title="Send All"><submit/></default-field></field>
+            </form-single>
+        </container-dialog>
+        <container-dialog id="ConsumeDialog" button-text="Consume Received Messages">
+            <form-single name="ConsumeForm" transition="consumeAllMessages">
+                <field name="retryMinutes"><default-field><text-line size="5" default-value="10"/></default-field></field>
+                <field name="retryLimit"><default-field><text-line size="5" default-value="3"/></default-field></field>
+                <field name="submitButton"><default-field title="Consume All"><submit/></default-field></field>
+            </form-single>
+        </container-dialog>
+        <container-dialog id="NewIncomingMessageDialog" button-text="New Incoming Message" width="800">
+            <form-single name="NewIncomingMessageForm" transition="newIncomingMessage">
+                <field name="systemMessageTypeId"><default-field title="Message Type"><drop-down>
+                    <entity-options key="${systemMessageTypeId}" text="${description}">
+                        <entity-find entity-name="moqui.service.message.SystemMessageType">
+                            <order-by field-name="description"/></entity-find>
+                    </entity-options>
+                </drop-down></default-field></field>
+                <field name="systemMessageRemoteId"><default-field title="Remote"><drop-down allow-empty="true">
+                    <entity-options key="${systemMessageRemoteId}" text="${description}">
+                        <entity-find entity-name="moqui.service.message.SystemMessageRemote">
+                            <order-by field-name="description"/></entity-find>
+                    </entity-options>
+                </drop-down></default-field></field>
+                <field name="messageText"><default-field><text-area rows="30" cols="90"/></default-field></field>
+                <field name="submitButton"><default-field title="Receive and Consume"><submit/></default-field></field>
+            </form-single>
+        </container-dialog>
+
+        <container-row>
+            <row-col lg="2"><link url="." text="Outgoing Produced Queue"
+                    parameter-map="[statusId:'SmsgProduced', isOutgoing:'Y']" link-type="anchor"/></row-col>
+            <row-col lg="1"><label text="${ec.l10n.format(outgoingCount, null)}" type="strong"/></row-col>
+            <row-col lg="2"><link url="." text="Incoming Received Queue"
+                    parameter-map="[statusId:'SmsgReceived', isOutgoing:'N']" link-type="anchor"/></row-col>
+            <row-col lg="1"><label text="${ec.l10n.format(incomingCount, null)}" type="strong"/></row-col>
+            <row-col lg="2"><link url="." text="Error Queue"
+                    parameter-map="[statusId:'SmsgError', isOutgoing:'']" link-type="anchor"/></row-col>
+            <row-col lg="1"><label text="${ec.l10n.format(errorCount, null)}" type="strong"/></row-col>
+        </container-row>
+
+        <form-list name="SystemMessageList" list="smList" skip-form="true" header-dialog="true" select-columns="true" saved-finds="true">
+            <entity-find entity-name="moqui.service.message.SystemMessage" list="smList" use-clone="true">
+                <search-form-inputs default-order-by="initDate">
+                    <default-parameters statusId="SmsgProduced,SmsgReceived,SmsgError" statusId_op="in" initDate_poffset="-1" initDate_period="30d"/>
+                </search-form-inputs>
+            </entity-find>
+
+            <auto-fields-entity entity-name="moqui.service.message.SystemMessage" field-type="find-display"/>
+
+            <field name="systemMessageId">
+                <header-field title="ID" show-order-by="true"><text-find hide-options="true" size="8"/></header-field>
+                <default-field><link text="${systemMessageId}" url="messageDetail" link-type="anchor"/></default-field>
+            </field>
+            <field name="remoteMessageId">
+                <header-field title="Remote ID" show-order-by="true"><text-find hide-options="true" size="8"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+
+            <field name="statusId">
+                <header-field title="Status"><drop-down allow-multiple="true">
+                    <entity-options key="${statusId}" text="${description}">
+                        <entity-find entity-name="moqui.basic.StatusItem">
+                            <econdition field-name="statusTypeId" value="SystemMessage"/>
+                            <order-by field-name="description"/></entity-find>
+                    </entity-options>
+                </drop-down></header-field>
+                <default-field><display-entity entity-name="moqui.basic.StatusItem"/></default-field>
+            </field>
+            <field name="isOutgoing">
+                <header-field>
+                    <drop-down allow-empty="true"><option key="Y"/><option key="N"/></drop-down>
+                </header-field>
+                <default-field><display/></default-field>
+            </field>
+
+            <field name="systemMessageTypeId">
+                <header-field title="Type"><drop-down allow-empty="true">
+                    <entity-options key="${systemMessageTypeId}" text="${description?:''} [${systemMessageTypeId}]">
+                        <entity-find entity-name="moqui.service.message.SystemMessageType">
+                            <order-by field-name="description,systemMessageTypeId"/></entity-find>
+                    </entity-options>
+                </drop-down></header-field>
+                <default-field><display-entity entity-name="moqui.service.message.SystemMessageType"
+                        text="${systemMessageTypeId}: ${description?:''}"/></default-field>
+            </field>
+            <field name="systemMessageRemoteId">
+                <header-field title="Remote">
+                    <drop-down allow-empty="true">
+                        <entity-options key="${systemMessageRemoteId}" text="${description?:''} [${systemMessageRemoteId}]">
+                            <entity-find entity-name="moqui.service.message.SystemMessageRemote">
+                                <order-by field-name="description,systemMessageRemoteId"/></entity-find>
+                        </entity-options>
+                    </drop-down>
+                </header-field>
+                <default-field><display-entity entity-name="moqui.service.message.SystemMessageRemote"
+                        text="${systemMessageRemoteId}: ${description?:''}"/></default-field>
+            </field>
+
+
+            <field name="initDate"><header-field show-order-by="true"><date-period/></header-field>
+                <default-field><display/></default-field></field>
+            <field name="processedDate"><header-field show-order-by="true"><date-period/></header-field>
+                <default-field><display/></default-field></field>
+            <field name="lastAttemptDate"><header-field show-order-by="true"><date-period/></header-field>
+                <default-field><display/></default-field></field>
+            <field name="failCount"><header-field show-order-by="true"><range-find size="3"/></header-field>
+                <default-field><display/></default-field></field>
+
+            <field name="senderId">
+                <header-field show-order-by="true"><text-find hide-options="true" size="8"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="receiverId">
+                <header-field show-order-by="true"><text-find hide-options="true" size="8"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="messageId">
+                <header-field show-order-by="true"><text-find hide-options="true" size="8"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="messageDate">
+                <header-field show-order-by="true"><date-period allow-empty="true"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+
+            <field name="docType">
+                <header-field show-order-by="true"><text-find hide-options="true" size="5"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="docSubType">
+                <header-field show-order-by="true"><text-find hide-options="true" size="5"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="docVersion">
+                <header-field show-order-by="true"><text-find hide-options="true" size="5"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+
+            <field name="find">
+                <header-field title="Find"><submit/></header-field>
+                <conditional-field condition="isOutgoing == 'Y' &amp;&amp; (statusId == 'SmsgProduced' || statusId == 'SmsgError')">
+                    <link url="sendMessage" text="Send" parameter-map="[systemMessageId:systemMessageId, isOutgoing:isOutgoing, statusId:statusId]"/>
+                </conditional-field>
+                <conditional-field condition="isOutgoing == 'N' &amp;&amp; (statusId == 'SmsgReceived' || statusId == 'SmsgError')">
+                    <link url="consumeMessage" text="Consume" parameter-map="[systemMessageId:systemMessageId, isOutgoing:isOutgoing, statusId:statusId]"/>
+                </conditional-field>
+            </field>
+            
+            <form-list-column><field-ref name="systemMessageId"/><field-ref name="remoteMessageId"/></form-list-column>
+            <form-list-column><field-ref name="statusId"/><field-ref name="isOutgoing"/></form-list-column>
+            <form-list-column><field-ref name="systemMessageTypeId"/><field-ref name="systemMessageRemoteId"/></form-list-column>
+            <form-list-column><field-ref name="initDate"/><field-ref name="processedDate"/></form-list-column>
+            <form-list-column><field-ref name="lastAttemptDate"/><field-ref name="failCount"/></form-list-column>
+            <form-list-column><field-ref name="senderId"/><field-ref name="receiverId"/></form-list-column>
+            <form-list-column><field-ref name="messageId"/><field-ref name="messageDate"/></form-list-column>
+            <form-list-column><field-ref name="docType"/><field-ref name="docSubType"/><field-ref name="docVersion"/></form-list-column>
+            <form-list-column><field-ref name="find"/></form-list-column>
+        </form-list>
+    </widgets>
+</screen>

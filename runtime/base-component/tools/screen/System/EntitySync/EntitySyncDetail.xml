@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-index="1">
+
+    <parameter name="entitySyncId" required="true"/>
+
+    <transition name="updateEntitySync"><service-call name="update#moqui.entity.sync.EntitySync"/>
+        <default-response url="."/></transition>
+    <transition name="resetNotStarted">
+        <service-call name="update#moqui.entity.sync.EntitySync" in-map="[entitySyncId:entitySyncId, statusId:'EsNotStarted']"/>
+        <default-response url="."/></transition>
+
+    <transition name="artifactGroupDetail"><default-response url="../../Security/ArtifactGroup/ArtifactGroupDetail"/></transition>
+    <transition name="createEntitySyncArtifact"><service-call name="create#moqui.entity.sync.EntitySyncArtifact"/>
+        <default-response url="."/></transition>
+    <transition name="updateEntitySyncArtifact"><service-call name="update#moqui.entity.sync.EntitySyncArtifact"/>
+        <default-response url="."/></transition>
+    <transition name="deleteEntitySyncArtifact"><service-call name="delete#moqui.entity.sync.EntitySyncArtifact"/>
+        <default-response url="."/></transition>
+
+    <actions>
+        <entity-find-one entity-name="moqui.entity.sync.EntitySync" value-field="entitySync"/>
+
+        <entity-find entity-name="moqui.entity.sync.EntitySyncArtifact" list="artifactList">
+            <econdition field-name="entitySyncId"/><order-by field-name="artifactGroupId"/></entity-find>
+        <service-call name="org.moqui.impl.EntitySyncServices.get#EntitySyncIncludeList" out-map="context" in-map="context"/>
+    </actions>
+    <widgets>
+        <container-row>
+            <row-col lg="5">
+                <link url="resetNotStarted" text="Reset From Running (do ONLY if Last Start is old or verified not running)"
+                        condition="entitySync.statusId == 'EsRunning'"/>
+                <form-single name="EntitySyncForm" map="entitySync" transition="updateEntitySync">
+                    <field name="entitySyncId"><default-field><display/></default-field></field>
+                    <field name="description"><default-field><text-line size="50"/></default-field></field>
+
+                    <field name="statusId"><default-field title="Status">
+                        <display-entity entity-name="moqui.basic.StatusItem"/>
+                        <label text="If not really running, ie running and recovery failed, will try again in 24 hours"
+                                condition="entitySync.statusId == 'EsRunning'" type="p"/>
+                    </default-field></field>
+                    <field name="lastStartDate"><default-field title="Last Start"><display/></default-field></field>
+                    <field name="lastSuccessfulSyncTime"><default-field title="Last Successful Time"><display/></default-field></field>
+
+                    <field name="syncSplitMillis"><default-field title="Sync Split" tooltip="Time period in milliseconds for each query across included entities">
+                        <text-line size="8"/></default-field></field>
+                    <field name="recordThreshold"><default-field title="Records" tooltip="Keep querying splits until at least this many records are sent">
+                        <text-line size="8"/></default-field></field>
+                    <field name="delayBufferMillis"><default-field title="Delay Buffer" tooltip="Don't send records newer than this many milliseconds old">
+                        <text-line size="8"/></default-field></field>
+
+                    <field name="targetServerUrl"><default-field><text-line size="50"/></default-field></field>
+                    <field name="targetUsername"><default-field title="Username"><text-line size="30"/></default-field></field>
+                    <field name="targetPassword"><default-field title="Password"><text-line size="20"/></default-field></field>
+
+                    <field name="forPull"><default-field tooltip="Y for pull from remote, N for push to remote">
+                        <drop-down><option key="N"/><option key="Y"/></drop-down>
+                    </default-field></field>
+
+                    <field name="submitButton"><default-field title="Update"><submit/></default-field></field>
+                </form-single>
+            </row-col>
+            <row-col lg="7">
+                <container-box>
+                    <box-header title="Artifact Groups (includes entities only)"/>
+                    <box-toolbar>
+                        <container-dialog id="AddAuthzDialog" button-text="Add Artifact Group">
+                            <form-single name="CreateEntitySyncArtifact" transition="createEntitySyncArtifact">
+                                <field name="entitySyncId"><default-field><hidden/></default-field></field>
+                                <field name="artifactGroupId"><default-field title="Artifact Group">
+                                    <drop-down>
+                                        <entity-options key="${artifactGroupId}" text="${description} [${artifactGroupId}]">
+                                            <entity-find entity-name="moqui.security.ArtifactGroup">
+                                                <order-by field-name="description"/></entity-find>
+                                        </entity-options>
+                                    </drop-down>
+                                </default-field></field>
+                                <field name="applEnumId"><default-field title="Appl Type">
+                                    <drop-down>
+                                        <entity-options key="${enumId}" text="${description}">
+                                            <entity-find entity-name="moqui.basic.Enumeration">
+                                                <econdition field-name="enumTypeId" value="EntitySyncArtifactAppl"/>
+                                                <order-by field-name="description"/></entity-find>
+                                        </entity-options>
+                                    </drop-down>
+                                </default-field></field>
+                                <field name="dependents"><default-field>
+                                    <drop-down><option key="N"/><option key="Y"/></drop-down></default-field></field>
+                                <field name="submitButton"><default-field title="Add"><submit/></default-field></field>
+                            </form-single>
+                        </container-dialog>
+                    </box-toolbar>
+                    <box-body>
+                        <form-list name="EntitySyncArtifactList" list="artifactList" transition="updateEntitySyncArtifact">
+                            <field name="entitySyncId"><default-field><hidden/></default-field></field>
+                            <field name="artifactGroupId"><default-field title="Artifact Group">
+                                <display-entity entity-name="moqui.security.ArtifactGroup" text="${description ?: ''} - "/>
+                                <link url="artifactGroupDetail" text="${artifactGroupId}" link-type="anchor"/>
+                            </default-field></field>
+                            <field name="applEnumId"><default-field title="Appl Type">
+                                <drop-down>
+                                    <entity-options key="${enumId}" text="${description}">
+                                        <entity-find entity-name="moqui.basic.Enumeration">
+                                            <econdition field-name="enumTypeId" value="EntitySyncArtifactAppl"/>
+                                            <order-by field-name="description"/></entity-find>
+                                    </entity-options>
+                                </drop-down>
+                            </default-field></field>
+                            <field name="dependents"><default-field>
+                                <drop-down><option key="N"/><option key="Y"/></drop-down></default-field></field>
+                            <field name="submitButton"><default-field title="Update"><submit/></default-field></field>
+                            <field name="deleteLink"><default-field title="">
+                                <link url="deleteEntitySyncArtifact" text="X" confirmation="Really Delete?"
+                                        parameter-map="[entitySyncId:entitySyncId, artifactGroupId:artifactGroupId]"/>
+                            </default-field></field>
+                        </form-list>
+                    </box-body>
+                </container-box>
+
+                <label text="Entities to Include" type="h5"/>
+                <form-list name="EntityIncludeList" list="entityIncludeList" skip-form="true">
+                    <field name="entityName"><default-field><display/></default-field></field>
+                    <field name="includeFilterList"><default-field><display/></default-field></field>
+                    <field name="dependents"><default-field><display/></default-field></field>
+                </form-list>
+            </row-col>
+        </container-row>
+    </widgets>
+</screen>

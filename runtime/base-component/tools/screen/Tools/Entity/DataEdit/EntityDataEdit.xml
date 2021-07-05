@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-title="Edit" default-menu-index="3">
+
+    <parameter name="selectedEntity" required="true"/>
+
+    <transition name="list"><default-response url="../EntityList"/></transition>
+    <transition name="find"><default-response url="../EntityDataFind"/></transition>
+    <transition name="edit"><default-response url="."/></transition>
+    <transition name="update">
+        <actions><service-call name="update#${selectedEntity}" in-map="true"/></actions>
+        <default-response url="." parameter-map="ec.entity.getEntityDefinition(selectedEntity).getPrimaryKeys(context)"/>
+    </transition>
+
+    <actions>
+        <set field="entityDefinition" from="ec.entity.getEntityDefinition(selectedEntity)"/>
+
+        <set field="dependentLevels" from="(dependentLevels ?: '0') as int"/>
+        <entity-find-one entity-name="${selectedEntity}" value-field="entityValue"/>
+        <set field="relationshipInfoList" from="ec.entity.getEntityDefinition(selectedEntity).getRelationshipsInfo(false)"/>
+        <script>
+            if (entityValue) {
+                Map plainMap = entityValue.getPlainValueMap(dependentLevels)
+                jb = new groovy.json.JsonBuilder()
+                jb.call(plainMap)
+                plainJsonStr = jb.toPrettyString()
+            }
+        </script>
+    </actions>
+    <widgets>
+        <container>
+            <link url="list" text="Entity List"/>
+            <link url="find" text="Find"/>
+        </container>
+        <container><label text="Edit '${selectedEntity}' Entity Value" type="h3"/></container>
+        <form-single name="UpdateEntityValue" map="entityValue" transition="update" dynamic="true">
+            <auto-fields-entity entity-name="${selectedEntity}" include="pk" field-type="display"/>
+            <auto-fields-entity entity-name="${selectedEntity}" include="nonpk" field-type="edit"/>
+            <field name="selectedEntity" from="selectedEntity"><default-field title="Entity Name"><hidden/></default-field></field>
+            <field name="submitButton"><default-field title="Update"><submit/></default-field></field>
+        </form-single>
+        <form-list name="RelatedEntities" list="relationshipInfoList" list-entry="relInfo">
+            <row-actions><set field="targetParameterMap" from="relInfo.getTargetParameterMap(entityValue)"/></row-actions>
+            <field name="title"><default-field><display/></default-field></field>
+            <field name="relatedEntityName"><default-field><display/></default-field></field>
+            <field name="type"><default-field><display/></default-field></field>
+            <field name="targetParameterMap">
+                <default-field title="ID Map"><display/></default-field></field>
+            <field name="link">
+                <conditional-field condition="relInfo.type == 'many' &amp;&amp; targetParameterMap">
+                    <link text="Find" url="find" parameter-map="targetParameterMap">
+                        <parameter name="selectedEntity" from="relInfo.relatedEntityName"/>
+                    </link>
+                </conditional-field>
+                <conditional-field condition="targetParameterMap">
+                    <link text="Edit" url="edit" parameter-map="targetParameterMap">
+                        <parameter name="selectedEntity" from="relInfo.relatedEntityName"/>
+                    </link>
+                </conditional-field>
+                <default-field><display text=" "/></default-field>
+            </field>
+        </form-list>
+        <label text="JSON with Dependents" type="h5"/>
+        <form-single name="LevelsForm" transition="." dynamic="true">
+            <auto-fields-entity entity-name="${selectedEntity}" field-type="hidden" include="pk"/>
+            <field name="selectedEntity"><default-field title="Entity Name"><hidden/></default-field></field>
+            <field name="dependentLevels"><default-field><text-line size="5"/></default-field></field>
+            <field name="submitButton"><default-field title="Submit"><submit/></default-field></field>
+            <field-layout><field-row-big><field-ref name="dependentLevels"/><field-ref name="submitButton"/></field-row-big></field-layout>
+        </form-single>
+        <label text="${plainJsonStr}" type="pre" encode="true" style="pre-plain"/>
+    </widgets>
+</screen>

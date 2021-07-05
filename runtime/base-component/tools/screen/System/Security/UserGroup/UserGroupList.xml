@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-include="false">
+
+    <transition name="userGroupDetail"><default-response url="../UserGroupDetail"/></transition>
+    <transition name="createUserGroup"><service-call name="create#moqui.security.UserGroup"/>
+        <default-response url="."/></transition>
+
+    <actions>
+        <entity-find entity-name="moqui.security.UserGroup" list="userGroupList">
+            <search-form-inputs default-order-by="username"/>
+        </entity-find>
+    </actions>
+    <widgets>
+        <container-dialog id="CreateUserGroupDialog" button-text="Create User Group">
+            <form-single name="CreateUserGroup" transition="createUserGroup">
+                <field name="userGroupId"><default-field><text-line size="20"/></default-field></field>
+                <field name="description"><default-field><text-line size="60"/></default-field></field>
+                <field name="submitButton"><default-field title="Create"><submit/></default-field></field>
+            </form-single>
+        </container-dialog>
+        <form-list name="UserGroupList" list="userGroupList" skip-form="true">
+            <field name="userGroupId">
+                <header-field title="Group ID" show-order-by="true"><text-find size="10" hide-options="true"/></header-field>
+                <default-field><link text="${userGroupId}" url="userGroupDetail" link-type="anchor"/></default-field>
+            </field>
+            <field name="groupTypeEnumId">
+                <header-field title="Group Type" show-order-by="true"><widget-template-include location="component://webroot/template/screen/BasicWidgetTemplates.xml#enumDropDown">
+                    <set field="enumTypeId" value="UserGroupType"/><set field="allowEmpty" value="true"/></widget-template-include></header-field>
+                <default-field><display-entity entity-name="moqui.basic.Enumeration"/></default-field>
+            </field>
+            <field name="description">
+                <header-field show-order-by="true"><text-find size="20" hide-options="true"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="find"><header-field title="Find"><submit/></header-field>
+                <default-field><display text=" "/></default-field></field>
+        </form-list>
+    </widgets>
+</screen>

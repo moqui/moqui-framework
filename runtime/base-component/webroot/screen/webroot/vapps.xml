@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        require-authentication="false" screen-theme-type-enum-id="STT_INTERNAL" default-menu-title="Applications" allow-extra-path="true">
+    <!-- NOTE: require-authentication=false so no permission required but in pre-actions if no user logged in goes to login screen -->
+
+    <pre-actions><script><![CDATA[
+        // if user not logged in save current path and params then redirect to Login
+        if (!ec.user.userId) { ec.web.saveScreenLastInfo(null, null); sri.sendRedirectAndStopRender('/Login') }
+
+        // jQuery, Bootstrap, Twitter TypeAhead, Form Validation (jquery-validate), Date/Time (Moment, bootstrap-datetimepicker),
+        //      Drop-down (Select2, Selectivity), Notify/Growl (Bootstrap Notify), Inline Editable, Sortable Hierarchical List
+        // Moqui Library (3rd party lib workarounds, NotificationClient, etc)
+        html_scripts.add('/js/CombinedBase.min.js')
+
+        // jquery-validate locale specific scripts
+        Map validateScriptsOut = ec.service.sync().name("webroot.LocaleServices.get#ValidateLocaleScripts").call()
+        if (validateScriptsOut.messagesLocation) html_scripts.add(validateScriptsOut.messagesLocation)
+        if (validateScriptsOut.methodsLocation) html_scripts.add(validateScriptsOut.methodsLocation)
+
+        String instancePurpose = System.getProperty("instance_purpose")
+        if (!instancePurpose || instancePurpose == 'production') {
+            /* ========== Production Mode ========== */
+            footer_scripts.add('/js/CombinedVuet.min.js')
+        } else {
+            /* ========== Dev Mode ========== */
+            // Vue JS
+            footer_scripts.add('/libs/vue/vue.js')
+            // http-vue-loader
+            footer_scripts.add('/js/http-vue-loader/httpVueLoader.js')
+            // Webroot Vue instance, in footer so runs after page loaded
+            footer_scripts.add('/js/WebrootVue.js')
+        }
+
+        // conditional QZ Tray scripts, only include if enabled
+        if (ec.user.getPreference("qz.print.enabled") == "true") {
+            footer_scripts.add('/js/qz-tray/sha-256.min.js')
+            footer_scripts.add('/js/qz-tray/qz-tray.min.js')
+            footer_scripts.add('/js/qz-tray/MoquiQzComponent.js')
+        }
+    ]]></script></pre-actions>
+
+    <widgets>
+        <render-mode>
+            <!-- for html just render the navbar (Vue page wrapper and nav component) -->
+            <text type="html" location="component://webroot/screen/includes/WebrootVue.vuet.ftl"/>
+            <!-- not meant to be used for anything else, for all other render modes go directly through /apps -->
+        </render-mode>
+    </widgets>
+</screen>

@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-title="Service Reference" default-menu-index="1">
+
+    <transition name="serviceDetail">
+        <default-response url="../ServiceDetail"/>
+    </transition>
+    <transition name="serviceRun">
+        <default-response url="../ServiceRun"/>
+    </transition>
+
+    <actions>
+        <set field="pageSize" from="pageSize ?: 40"/>
+        <set field="knownServiceNames" from="ec.service.knownServiceNames"/>
+        <set field="filteredServiceNames" from="new ArrayList(knownServiceNames)"/>
+        <script>
+        if (serviceName) {
+            Iterator theIterator = filteredServiceNames.iterator()
+            while (theIterator.hasNext()) {
+                String curSn = (String) theIterator.next()
+                if (!curSn.toUpperCase().contains(serviceName.toUpperCase())) theIterator.remove()
+            }
+        }
+        paginateList("filteredServiceNames", null, context)
+        </script>
+    </actions>
+    <widgets>
+        <form-single name="SelectService" transition="serviceRun">
+            <field name="serviceName"><default-field title="Service Name">
+                <drop-down allow-empty="true" current="selected">
+                    <list-options list="knownServiceNames" key="${entry}"/>
+                </drop-down>
+            </default-field></field>
+            <field name="submitButton"><default-field title="Run Service"><submit/></default-field></field>
+            <field-layout><field-row-big><field-ref name="serviceName"/><field-ref name="submitButton"/></field-row-big></field-layout>
+        </form-single>
+        <form-single name="SelectServiceInput" transition="serviceRun">
+            <field name="serviceName"><default-field title="Service Name (path.verb#noun)">
+                <text-line size="80"/>
+            </default-field></field>
+            <field name="submitButton"><default-field title="Run Service"><submit/></default-field></field>
+            <field-layout><field-row-big><field-ref name="serviceName"/><field-ref name="submitButton"/></field-row-big></field-layout>
+        </form-single>
+
+        <form-list name="ServiceList" list="filteredServiceNames" list-entry="serviceName" skip-form="true">
+            <field name="serviceName">
+                <header-field><text-line size="30"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="detail"><default-field title="">
+                <link url="serviceDetail" text="Service Detail" link-type="anchor"/>
+            </default-field></field>
+            <field name="run">
+                <header-field title="Find"><submit/></header-field>
+                <default-field><link url="serviceRun" text="Run Service" link-type="anchor"/></default-field>
+            </field>
+        </form-list>
+    </widgets>
+</screen>

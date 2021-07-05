@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-title="Fields" default-menu-index="2">
+
+    <parameter name="dataDocumentId" required="true" from="dataDocumentId ?: dataDocumentId_0"/>
+
+    <transition name="createDataDocumentField"><service-call name="org.moqui.impl.EntityServices.create#DataDocumentField"/>
+        <default-response url="."/></transition>
+
+    <actions>
+        <entity-find-one entity-name="moqui.entity.document.DataDocument" value-field="dataDocument"/>
+        <set field="primaryEntityName" from="dataDocument.primaryEntityName"/>
+        <set field="funcOptions" from="['min', 'max', 'sum', 'avg', 'count', 'count-distinct', 'upper', 'lower']"/>
+    </actions>
+    <widgets>
+        <container-row><row-col md="4">
+            <section name="FieldTreeSection"><widgets>
+                <label text="Add Fields (from ${org.moqui.util.StringUtilities.camelCaseToPretty(primaryEntityName.substring(primaryEntityName.lastIndexOf('.')+1))})" type="h5"/>
+                <tree name="FieldTree" open-path="${fieldPath?:''}">
+                    <parameter name="dataDocumentId"/>
+                    <tree-node name="FieldNode">
+                        <actions>
+                            <set field="fieldPath" from="(treeNodeId == '#' ? '' : treeNodeId + ':') + nodeList_entry"/>
+                        </actions>
+                        <link url="FieldList/createFieldDynamic" text="+ ${org.moqui.util.StringUtilities.camelCaseToPretty(nodeList_entry)}" id="${fieldPath}" dynamic-load-id="FieldListContainer">
+                            <parameter name="fieldPath" from="fieldPath"/></link>
+                    </tree-node>
+                    <tree-node name="RelationshipNode">
+                        <actions>
+                            <set field="curPath" from="(treeNodeId == '#' ? '' : treeNodeId + ':') + nodeList_entry"/>
+                        </actions>
+                        <label text="${nodeList_entry.contains('.') ? nodeList_entry : org.moqui.util.StringUtilities.camelCaseToPretty(nodeList_entry)}" id="${curPath}"/>
+                        <tree-sub-node node-name="FieldNode" list="childFields">
+                            <actions>
+                                <set field="curPath" from="(treeNodeId == '#' ? '' : treeNodeId)"/>
+                                <entity-find-one entity-name="moqui.entity.document.DataDocument" value-field="dataDocument" cache="true"/>
+                                <set field="curEd" from="ec.entity.getEntityDefinition(dataDocument.primaryEntityName)"/>
+                                <iterate list="curPath.split(':')" entry="relName">
+                                    <if condition="curEd == null"><break/></if>
+                                    <set field="curEd" from="curEd.getRelationshipInfo(relName)?.relatedEd"/>
+                                </iterate>
+                                <set field="childFields" from="curEd?.getAllFieldNames()"/>
+                            </actions>
+                        </tree-sub-node>
+                        <tree-sub-node node-name="RelationshipNode" list="childRelationships">
+                            <actions>
+                                <set field="childRelationships" from="[]"/>
+                                <set field="curPath" from="(treeNodeId == '#' ? '' : treeNodeId)"/>
+                                <set field="curPathSplit" from="curPath.split(':') as List"/>
+                                <if condition="curPathSplit.size() > 10"><return/></if>
+                                <entity-find-one entity-name="moqui.entity.document.DataDocument" value-field="dataDocument" cache="true"/>
+                                <set field="curEd" from="ec.entity.getEntityDefinition(dataDocument.primaryEntityName)"/>
+                                <iterate list="curPathSplit" entry="relName">
+                                    <if condition="curEd == null || !relName"><break/></if>
+                                    <set field="curEd" from="curEd.getRelationshipInfo(relName)?.relatedEd"/>
+                                </iterate>
+                                <iterate list="curEd?.getRelationshipsInfo(false)" entry="relInfo">
+                                    <if condition="relInfo.isAutoReverse"><continue/></if>
+                                    <script>childRelationships.add(relInfo.shortAlias ?: relInfo.relationshipName)</script>
+                                </iterate>
+                            </actions>
+                        </tree-sub-node>
+                    </tree-node>
+                    <tree-sub-node node-name="FieldNode" list="topLevelFields">
+                        <actions>
+                            <entity-find-one entity-name="moqui.entity.document.DataDocument" value-field="dataDocument" cache="true"/>
+                            <set field="primaryEd" from="ec.entity.getEntityDefinition(dataDocument.primaryEntityName)"/>
+                            <set field="topLevelFields" from="primaryEd.getAllFieldNames()"/>
+                        </actions>
+                    </tree-sub-node>
+                    <tree-sub-node node-name="RelationshipNode" list="topLevelRelationships">
+                        <actions>
+                            <entity-find-one entity-name="moqui.entity.document.DataDocument" value-field="dataDocument" cache="true"/>
+                            <set field="primaryEd" from="ec.entity.getEntityDefinition(dataDocument.primaryEntityName)"/>
+                            <set field="topLevelRelationships" from="[]"/>
+                            <iterate list="primaryEd.getRelationshipsInfo(false)" entry="relInfo">
+                                <if condition="relInfo.isAutoReverse"><continue/></if>
+                                <script>topLevelRelationships.add(relInfo.shortAlias ?: relInfo.relationshipName)</script>
+                            </iterate>
+                        </actions>
+                    </tree-sub-node>
+                </tree>
+            </widgets></section>
+        </row-col><row-col md="8">
+            <dynamic-container id="FieldListContainer" transition="FieldList"/>
+        </row-col></container-row>
+    </widgets>
+</screen>

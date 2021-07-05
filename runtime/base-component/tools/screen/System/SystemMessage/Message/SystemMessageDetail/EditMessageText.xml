@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        standalone="true">
+
+    <parameter name="systemMessageId" required="true"/>
+
+    <transition name="updateMessage"><service-call name="update#moqui.service.message.SystemMessage"/>
+        <default-response url=".."/></transition>
+
+    <actions>
+        <entity-find-one entity-name="moqui.service.message.SystemMessage" value-field="systemMessage"/>
+    </actions>
+    <widgets>
+
+        <form-single name="SystemMessageForm" map="systemMessage" transition="updateMessage">
+            <field name="systemMessageId"><default-field title="ID"><display/></default-field></field>
+            <field name="messageText"><default-field><text-area cols="100" rows="30"/></default-field></field>
+            <field name="submitButton"><default-field title="Update"><submit/></default-field></field>
+        </form-single>
+    </widgets>
+</screen>

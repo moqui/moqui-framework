@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-title="Query Stats">
+
+    <transition name="clearQueryStats"><actions><script>ec.entity.clearQueryStats()</script></actions>
+        <default-response url="."/></transition>
+
+    <actions>
+        <set field="queryStatsList" from="ec.entity.getQueryStatsList(orderByField?:'-totalTime', entityFilter, sqlFilter)"/>
+        <set field="pageSize" from="pageSize ?: '40'"/>
+        <script>paginateList("queryStatsList", null, context)</script>
+    </actions>
+    <widgets>
+        <link url="clearQueryStats" text="Clear Stats"/>
+        <label text="Statistics for queries run since server start. All times are in microseconds."/>
+        <form-single name="FilterForm" transition=".">
+            <field name="entityFilter"><default-field><text-line size="30"/></default-field></field>
+            <field name="sqlFilter"><default-field title="SQL Filter"><text-line size="30"/></default-field></field>
+            <field name="submitButton"><default-field title="Filter"><submit/></default-field></field>
+            <field-layout><field-row-big><field-ref name="entityFilter"/><field-ref name="sqlFilter"/>
+                <field-ref name="submitButton"/></field-row-big></field-layout>
+        </form-single>
+        <form-list name="QueryStatsList" list="queryStatsList" skip-form="true">
+            <row-actions>
+                <set field="artifactInfoList" from="[]"/>
+                <iterate list="artifactCounts" entry="count" key="artifact">
+                    <script>artifactInfoList.add([artifact:artifact, count:count])</script></iterate>
+                <order-map-list list="artifactInfoList"><order-by field-name="-count"/></order-map-list>
+            </row-actions>
+            <field name="entityName"><header-field show-order-by="true"/><default-field><display/></default-field></field>
+            <field name="sql">
+                <header-field title="SQL" show-order-by="true"/>
+                <conditional-field condition="sql != null &amp;&amp; sql.length() &gt; 500">
+                    <display text="${sql.substring(0, 500)} "/>
+                    <container-dialog id="ViewSql" button-text="All" width="800"><label text="${sql}"/></container-dialog>
+                </conditional-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="artifactCounts"><default-field>
+                <section-iterate name="ArtifactCounts" list="artifactInfoList" entry="artifactInfo"><widgets>
+                    <label text="${artifactInfo.artifact} - ${artifactInfo.count}" type="div"/>
+                </widgets></section-iterate>
+            </default-field></field>
+            <field name="hitCount"><header-field title="Hits" show-order-by="true"/><default-field><display/></default-field></field>
+            <field name="errorCount"><header-field title="Errors" show-order-by="true"/><default-field><display/></default-field></field>
+
+            <field name="minTime"><header-field title="Min" show-order-by="true"/><default-field><display format="#,##0.0"/></default-field></field>
+            <field name="maxTime"><header-field title="Max" show-order-by="true"/><default-field><display format="#,##0.0"/></default-field></field>
+            <field name="totalTime"><header-field title="Total" show-order-by="true"/><default-field><display format="#,##0.0"/></default-field></field>
+            <field name="average"><header-field title="Avg" show-order-by="true"/><default-field><display format="#,##0.0"/></default-field></field>
+            <field name="stdDev"><header-field title="Std Dev" show-order-by="true"/><default-field><display format="#,##0.0"/></default-field></field>
+
+            <form-list-column><field-ref name="entityName"/><field-ref name="sql"/><field-ref name="artifactCounts"/></form-list-column>
+            <form-list-column><field-ref name="hitCount"/><field-ref name="errorCount"/></form-list-column>
+            <form-list-column><field-ref name="minTime"/><field-ref name="maxTime"/><field-ref name="average"/></form-list-column>
+            <form-list-column><field-ref name="totalTime"/><field-ref name="stdDev"/></form-list-column>
+        </form-list>
+    </widgets>
+</screen>

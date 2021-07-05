@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<entity-facade-xml type="seed-initial">
+    <moqui.basic.Enumeration description="Internal Applications - Quasar" enumId="STT_INTERNAL_QUASAR" enumTypeId="ScreenThemeType" enumCode="DEFAULT_QUASAR"/>
+
+    <!-- Default Theme -->
+    <moqui.screen.ScreenTheme screenThemeId="DEFAULT_QUASAR" screenThemeTypeEnumId="STT_INTERNAL_QUASAR"
+            description="Moqui Default Quasar Theme"/>
+
+    <!-- Default Theme (note that DEFAULT ScreenTheme record defined in ScreenEntities.xml) -->
+
+    <!-- Required CSS files for layout/widgets/etc used in XML Screen/Form template macros -->
+    <moqui.screen.ScreenThemeResource screenThemeId="DEFAULT_QUASAR" sequenceNum="1" resourceTypeEnumId="STRT_STYLESHEET" resourceValue=""/>
+    <!-- NOTE: using FA 4.7.0 with 'fa' class, for FA 5+ must change all to 'fas' class -->
+    <moqui.screen.ScreenThemeResource screenThemeId="DEFAULT_QUASAR" sequenceNum="2" resourceTypeEnumId="STRT_STYLESHEET"
+            resourceValue="/libs/font-awesome/css/font-awesome.min.css"/>
+    <!-- FUTURE consider using material icons instead of font-awesome - ISSUE: there are many XML Screen files with 'fa-' references
+        AND material icons requires very different syntax with <i class="material-icons-outlined">invert_colors</i> (2 parts) unlike fa with <i class="fa fa-shopping-cart"></i> (1 part) -->
+    <moqui.screen.ScreenThemeResource screenThemeId="DEFAULT_QUASAR" sequenceNum="3" resourceTypeEnumId="STRT_STYLESHEET"
+            resourceValue="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons"/>
+    <moqui.screen.ScreenThemeResource screenThemeId="DEFAULT_QUASAR" sequenceNum="4" resourceTypeEnumId="STRT_STYLESHEET"
+            resourceValue="/libs/quasar/quasar.min.css"/>
+
+    <!-- Add external theme(s) here  -->
+    <moqui.screen.ScreenThemeResource screenThemeId="DEFAULT_QUASAR" sequenceNum="10" resourceTypeEnumId="STRT_STYLESHEET" resourceValue=""/>
+
+    <!-- Quasar layout and theme, loaded last to override -->
+    <moqui.screen.ScreenThemeResource screenThemeId="DEFAULT_QUASAR" sequenceNum="20" resourceTypeEnumId="STRT_STYLESHEET"
+            resourceValue="/css/WebrootVue.qvt.css"/>
+
+    <!-- Logo, icon, body class -->
+    <moqui.screen.ScreenThemeResource screenThemeId="DEFAULT_QUASAR" sequenceNum="100" resourceTypeEnumId="STRT_HEADER_LOGO"
+            resourceValue="/images/MoquiLogoSmall.png"/>
+    <moqui.screen.ScreenThemeResource screenThemeId="DEFAULT_QUASAR" sequenceNum="101" resourceTypeEnumId="STRT_SHORTCUT_ICON"
+            resourceValue="/favicon.ico"/>
+    <!-- <moqui.screen.ScreenThemeResource screenThemeId="DEFAULT_QUASAR" sequenceNum="102" resourceTypeEnumId="STRT_BODY_CLASS"
+            resourceValue="bg-light"/> -->
+
+    <!-- Footer items -->
+    <moqui.screen.ScreenThemeResource screenThemeId="DEFAULT_QUASAR" sequenceNum="200" resourceTypeEnumId="STRT_FOOTER_ITEM">
+        <resourceValue><![CDATA[<div class="col-md-6 text-center q-px-md"><a class="text-grey-1" href="https://www.moqui.org/" target="_blank">${ec.resource.expand('Built on Moqui ${ec.factory.moquiVersion}', '')}</a></div>]]></resourceValue>
+    </moqui.screen.ScreenThemeResource>
+    <moqui.screen.ScreenThemeResource screenThemeId="DEFAULT_QUASAR" sequenceNum="201" resourceTypeEnumId="STRT_FOOTER_ITEM">
+        <resourceValue><![CDATA[<div class="col-md-6 text-center q-px-md"><a class="text-grey-1" href="/qapps/ScreenTree">${ec.l10n.localize('Site Map')}</a></div>]]></resourceValue>
+    </moqui.screen.ScreenThemeResource>
+</entity-facade-xml>

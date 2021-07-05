@@ -1,0 +1,212 @@
+/* This software is in the public domain under CC0 1.0 Universal plus a Grant of Patent License. */
+
+a { color:var(--q-color-primary); text-decoration:none; }
+.q-menu a, .q-toolbar a { color:inherit; }
+
+.text-success { color:var(--q-color-positive); }
+.text-danger { color:var(--q-color-negative); }
+.text-mono { font-family: monospace,monospace; }
+strong, .text-strong { font-weight:bold; }
+
+form, fieldset { border:none; display:contents; }
+
+/* Quasar styles have huge h? sizes by default, trim down to something more reasonable */
+h1, .text-h1 { font-size:2.5rem; line-height:2.5rem; letter-spacing:initial; }
+h2, .text-h2 { font-size:2rem; line-height:2rem; letter-spacing:initial; }
+h3, .text-h3 { font-size:1.8rem; line-height:1.8rem; letter-spacing:initial; }
+h4, .text-h4 { font-size:1.4rem; line-height:1.4rem; letter-spacing:initial; margin-block-start:0.25em; margin-block-end:0.25em; }
+h5, .text-h5 { font-size:1.2rem; line-height:1.2rem; letter-spacing:initial; margin-block-start:0.25em; margin-block-end:0.25em; }
+h6, .text-h6 { font-size:1.0rem; line-height:1.0rem; letter-spacing:initial; margin-block-start:0.25em; margin-block-end:0.25em; }
+
+p { margin-bottom:8px; } /* orig 16px */
+pre { text-wrap: normal; white-space: pre-line; word-wrap: normal; word-break: normal; }
+
+body.dev #top { background: #0c1b29!important; }
+body.test #top { background: #224422!important; }
+
+/* example for header that changes light and dark along with rest of screen:
+#top { background:white!important; color:black; }
+body.body--dark #top { background:black!important; color:white; }
+
+body.dev #top { background:lightblue!important; color:black; }
+body.dev.body--dark #top { background:#0c1b29!important; color:white; }
+
+body.test #top { background:lightgreen!important; color:black; }
+body.test.body--dark #top { background:#224422!important; color:white; }
+*/
+
+.body--dark .q-menu { background-color:black; }
+.body--dark img.invertible { -webkit-filter: invert(90%); filter: invert(90%); }
+
+.q-dark, .q-card { background:transparent; }
+.q-card__actions h5 { font-size: 1.1rem; display:inline-block; margin-block-start:0; margin-block-end:0; }
+.q-dialog .q-card { background-color:white; }
+.body--dark .q-dialog .q-card { background-color:black; }
+
+.non-selectable { -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; }
+
+.q-btn { margin:2px; }
+.q-btn--dense .q-btn__wrapper { padding:4px 8px; }
+.q-btn .q-icon, .q-btn .q-spinner { font-size:18px; padding:2px 0; } /* was 1.715em ~= 24px */
+/* using q-btn flat for link style buttons, reduce margin/padding/height to match inline text */
+.m-link.q-btn--flat { margin:0; }
+.m-link.q-btn--flat .q-btn__wrapper { padding:0 4px; min-height:1.5em; }
+.m-link.q-btn--flat .q-btn__content { line-height:1.5; }
+/* don't let buttons wrap, ugly */
+.q-btn__content { flex-wrap: nowrap; }
+
+form.q-form { width:100%; }
+
+/* BEGIN q-field label move up to overlay outline */
+/* need small (6px) top margin so floating label does not overlap elements above, but to make all q-field consistent apply too all (not just .q-field--labeled.q-field--dense) */
+.q-field--dense { margin:6px 0 6px 0; }
+/* don't double margin for q-field within q-field */
+.q-field--dense .q-field--dense, .row .q-field--dense { margin:0; }
+/* move field lable up to 'notch' in outline (like https://material.io/components/text-fields) */
+.q-field--dense .q-field__label { top:0; padding-left:4px; padding-right:4px; background-color:white; }
+.body--dark .q-field--dense .q-field__label { background-color:black; }
+/* make notch fit text, not full width */
+.q-field--dense.q-field--float .q-field__label { right:auto; }
+/* move input text up 6px OOTB padding-top:14px */
+.q-field--labeled.q-field--dense .q-field__native, .q-field--labeled.q-field--dense .q-field__prefix { padding-top:8px; }
+/* move drop-down input up 6px; this padding-top defaults to 14px, have to move up 12px to handle wrapped field padding */
+.q-field--auto-height.q-field--dense.q-field--labeled .q-field__control-container { padding-top:0; }
+/* fix blue focus border on top of label instead of behind */
+.q-field__label { z-index:10; }
+/* fix disabled opacity, was 0.6 which caused border to bleed through */
+.q-field--disabled .q-field__control > div { opacity:1 !important; }
+/* END q-field label move */
+
+.q-field--focused .q-field__input { border-bottom: var(--q-color-primary) solid 1px; margin-left:8px; }
+
+.q-field--dense .q-field__marginal { height:auto; min-height:40px; }
+.q-field__prepend { max-width:75%; }
+.q-field__marginal .q-checkbox__label { font-size:10px; } /* orig from q-field__marginal 24px */
+
+/* instead of always having 20px bottom area only do when there is an error - may need adjustment for other field bottom uses */
+.q-field--with-bottom { padding-bottom:0; }
+.q-field--with-bottom.q-field--error { padding-bottom:16px; }
+.q-field__bottom { padding-top:4px; }
+
+.q-item__section--avatar { min-width:30px; } /* orig 56px */
+.q-drawer .q-item__section--side { padding-right:4px; } /* orig 16px */
+
+.m-container-box .q-card__actions { padding:8px 8px 0 8px; }
+.q-card__section--vert { padding:8px; } /* orig 16px */
+
+.big-row { display:flex; flex-wrap:wrap; justify-content:flex-start; align-content:center; }
+.big-row.text-center { justify-content:center; }
+.big-row-item {}
+.big-row-item .q-field { display:inline-flex; }
+
+.q-table--dense .q-table .form-list-nav-row th:first-child { padding:4px 0; }
+.form-list-nav-row .q-bar { background-color:transparent; }
+.form-list-nav-row, .form-list-nav-row .q-btn { font-size:13px; }
+
+.form-date-find { display:inline-flex; }
+
+/* ====== div based table styles ====== */
+
+.table { display: table; width: 100%; }
+.thead { display: table-header-group; font-weight: bold; }
+.tfoot { display: table-footer-group; font-weight: bold; }
+.tbody { display: table-row-group; }
+.tr { display: table-row; }
+.td, .th { display: table-cell; vertical-align: middle; }
+td, .td { min-height:21px; }
+
+/* ====== quasar table styles adapted to div based table styles ====== */
+/* NOTE: these are based on quasar.css version 1.12.11 */
+/* lines 4216-4531 */
+.q-table .thead .tr, .q-table .tbody .td { height: 48px; }
+.q-table .th { font-weight: 500; font-size: 13px; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; }
+.q-table .th, .q-table .td { padding: 7px 16px; background-color: inherit; }
+.q-table .thead, .q-table .td, .q-table .th { border-style: solid; border-width: 0; }
+.q-table .tbody .td { font-size: 14px; } /* was 13px in quasar css */
+
+.q-table--no-wrap .th, .q-table--no-wrap .td { white-space: nowrap; }
+.q-table--grid .q-table__middle .thead, .q-table--grid .q-table__middle .thead .th { border: 0 !important; }
+
+.q-table--horizontal-separator .thead .th, .q-table--cell-separator .thead .th, .q-table--horizontal-separator .tbody .tr:not(:last-child) .td,
+    .q-table--cell-separator .tbody .tr:not(:last-child) .td { border-bottom-width: 1px; }
+.q-table--vertical-separator .td, .q-table--cell-separator .td, .q-table--vertical-separator .th, .q-table--cell-separator .th { border-left-width: 1px; }
+.q-table--vertical-separator .thead .tr:last-child .th, .q-table--cell-separator .thead .tr:last-child .th, .q-table--vertical-separator.q-table--loading .tr:nth-last-child(2) .th,
+.q-table--cell-separator.q-table--loading .tr:nth-last-child(2) .th { border-bottom-width: 1px; }
+.q-table--vertical-separator .td:first-child, .q-table--cell-separator .td:first-child, .q-table--vertical-separator .th:first-child,
+    .q-table--cell-separator .th:first-child { border-left: 0; }
+.q-table--dense .q-table .th, .q-table--dense .q-table .td { padding: 4px 8px; }
+.q-table--dense .q-table .thead .tr, .q-table--dense .q-table .tbody .tr, .q-table--dense .q-table .tbody .td { height: 28px; }
+.q-table--dense .q-table .th:first-child, .q-table--dense .q-table .td:first-child { padding-left: 16px; }
+.q-table--dense .q-table .th:last-child, .q-table--dense .q-table .td:last-child { padding-right: 16px; }
+.q-table .thead, .q-table .tr, .q-table .th, .q-table .td { border-color: rgba(0,0,0,0.12); }
+.q-table .tbody .td { position: relative; }
+.q-table .tbody .td:before, .q-table .tbody .td:after { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; }
+.q-table .tbody .td:before { background: rgba(0,0,0,0.03); }
+.q-table .tbody .td:after { background: rgba(0,0,0,0.06); }
+.q-table .tbody .tr.selected .td:after { content: ''; }
+body.desktop .q-table .tr:not(.q-tr--no-hover):hover .td:not(.q-td--no-hover):before { content: ''; }
+.q-table--dark .q-table__bottom, .q-table--dark .thead, .q-table--dark .tr, .q-table--dark .th, .q-table--dark .td { border-color: rgba(255,255,255,0.28); }
+.q-table--dark .tbody .td:before { background: rgba(255,255,255,0.07); }
+.q-table--dark .tbody .td:after { background: rgba(255,255,255,0.1); }
+
+/* lines 5730-5735 */
+.q-table .q-virtual-scroll__padding .tr { height: 0 !important; }
+.q-table .q-virtual-scroll__padding .td { padding: 0 !important; }
+
+/* ====== Old Handy Styles ====== */
+
+/* Description List Horizontal - based on Bootstrap concept */
+dl { margin-top:8px; margin-bottom:8px; }
+dt { font-weight:700; }
+dd { margin-left:0; }
+@media (min-width:768px) {
+    .dl-horizontal dt { float:left; width:160px; clear:left; text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .dl-horizontal dd { margin-left:180px; }
+}
+.dl-horizontal dd:before, .dl-horizontal dd:after { display:table; content:" "; }
+.dl-horizontal dd:after { clear:both; }
+
+ul.tree-list, ul.tree-list ul { list-style-type: none; padding: 4px 4px 4px 20px; }
+
+ul.float-box { display: inline-block; list-style: none outside none; margin: 0 0 -8px 0; padding: 0; }
+ul.float-box li { display: inline-block; line-height: 18px; margin: 0 8px 8px 0; padding: 8px; float: left; }
+ul.float-box li.box-narrow { max-width: 300px; }
+
+ul.float-plain { display: inline-block; list-style: none outside none; margin: 0 0 -8px 0; padding: 0; }
+ul.float-plain li { display: inline-block; line-height: 18px; margin: 0 8px 8px 0; padding: 8px; float: left; }
+ul.float-plain.condensed { margin: 0; }
+ul.float-plain.condensed li { margin: 0 4px 0 0; padding: 4px; }
+
+.diagram-sequence { font-size: 16px; text-align: center; width: 900px; max-width: 100%; margin-left: auto; margin-right: auto; }
+/*.diagram-sequence>div { border-right: rgb(127, 127, 127) dotted 0; }
+.diagram-sequence>div:first-child { border-left: rgb(127, 127, 127) dotted 0; }*/
+.diagram-sequence>div:last-child {  }
+.diagram-sequence p { margin-bottom: 10px; }
+.diagram-sequence-item { position: relative; border-bottom: rgb(127, 127, 127) solid 2px; margin: 0 4px 8px 4px; }
+.diagram-sequence-item.smaller { font-size: 14px; }
+.diagram-sequence-item i.left { position: absolute; font-size: 12px; bottom: -8px; left: -2px; color: rgb(127, 127, 127); }
+.diagram-sequence-item i.left:before { content:"\f053" }
+.diagram-sequence-item i.right { position: absolute; font-size: 12px; bottom: -8px; right: -2px; color: rgb(127, 127, 127); }
+.diagram-sequence-item i.right:before { content:"\f054" }
+.diagram-sequence-actor { font-size: larger; font-weight: bold; margin-bottom: 14px; border-top: rgb(127, 127, 127) solid 1px; border-bottom: rgb(127, 127, 127) solid 1px; }
+
+/* misc library styles */
+/* simplemde */
+.editor-toolbar.fullscreen { z-index:100!important; top:50px!important; }
+.CodeMirror-fullscreen, .editor-preview-side { z-index:100!important; top:100px!important; }
+/* jsdiff */
+.compare del { background-color:#f2dede; text-decoration:none; }
+.compare ins { background-color:#dff0d8; text-decoration:none; }
+
+/* ====== print style overrides ====== */
+
+@media print {
+    *, *:before, *:after { background: transparent none !important; }
+    body { background: white none !important; font-size: 10px; }
+
+    #top, #footer { display: none; }
+    .q-page-container { padding:0!important; }
+    .q-drawer, .q-tabs, .q-btn, .form-list-nav-row { display: none; }
+
+    tbody>tr:nth-child(even)>td, .tbody .tr:nth-child(even)>.td { background-color: #EEEEEE !important; }
+}

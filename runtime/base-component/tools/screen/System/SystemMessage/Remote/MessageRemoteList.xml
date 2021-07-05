@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-include="false">
+
+    <transition name="remoteDetail"><default-response url="../MessageRemoteDetail"/></transition>
+    <transition name="createMessageRemote"><service-call name="create#moqui.service.message.SystemMessageRemote"/>
+        <default-response url="."/></transition>
+
+    <actions>
+        <entity-find entity-name="moqui.service.message.SystemMessageRemote" list="smrList">
+            <search-form-inputs default-order-by="description,systemMessageRemoteId"/>
+        </entity-find>
+    </actions>
+    <widgets>
+        <container-dialog id="CreateRemoteDialog" button-text="Create Message Remote" width="800">
+            <form-single name="CreateMessageRemoteForm" transition="createMessageRemote">
+                <field name="description"><default-field><text-line size="40"/></default-field></field>
+                <field name="sendUrl"><default-field><text-line size="80"/></default-field></field>
+                <field name="sendServiceName"><default-field><text-line size="80"/></default-field></field>
+                <field name="username"><default-field><text-line size="30"/></default-field></field>
+                <field name="password"><default-field><text-line size="30"/></default-field></field>
+                <field name="submitButton"><default-field title="Create"><submit/></default-field></field>
+            </form-single>
+        </container-dialog>
+        <form-list name="SystemMessageRemoteList" list="smrList" skip-form="true">
+            <field name="systemMessageRemoteId">
+                <default-field title="Remote ID"><link text="${systemMessageRemoteId}" url="remoteDetail"/></default-field>
+            </field>
+            <field name="description">
+                <header-field show-order-by="true"><text-find hide-options="true"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="sendUrl">
+                <header-field show-order-by="true"><text-find hide-options="true"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="username">
+                <header-field show-order-by="true"><text-find hide-options="true"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+        </form-list>
+    </widgets>
+</screen>

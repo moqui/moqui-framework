@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-index="1">
+
+    <parameter name="artifactGroupId" required="true"/>
+
+    <transition name="updateArtifactGroup"><service-call name="update#moqui.security.ArtifactGroup"/>
+        <default-response url="."/></transition>
+
+    <transition name="createArtifactGroupMember"><service-call name="create#moqui.security.ArtifactGroupMember"/>
+        <default-response url="."/></transition>
+    <transition name="updateArtifactGroupMember"><service-call name="update#moqui.security.ArtifactGroupMember"/>
+        <default-response url="."/></transition>
+    <transition name="deleteArtifactGroupMember"><service-call name="delete#moqui.security.ArtifactGroupMember"/>
+        <default-response url="."/></transition>
+
+    <transition name="userGroupDetail"><default-response url="../../UserGroup/UserGroupDetail"/></transition>
+    <transition name="createArtifactAuthz"><service-call name="create#moqui.security.ArtifactAuthz"/>
+        <default-response url="."/></transition>
+    <transition name="updateArtifactAuthz"><service-call name="update#moqui.security.ArtifactAuthz"/>
+        <default-response url="."/></transition>
+    <transition name="deleteArtifactAuthz"><service-call name="delete#moqui.security.ArtifactAuthz"/>
+        <default-response url="."/></transition>
+
+    <transition name="createArtifactTarpit"><service-call name="create#moqui.security.ArtifactTarpit"/>
+        <default-response url="."/></transition>
+    <transition name="updateArtifactTarpit"><service-call name="update#moqui.security.ArtifactTarpit"/>
+        <default-response url="."/></transition>
+    <transition name="deleteArtifactTarpit"><service-call name="delete#moqui.security.ArtifactTarpit"/>
+        <default-response url="."/></transition>
+
+    <actions>
+        <entity-find-one entity-name="moqui.security.ArtifactGroup" value-field="artifactGroup"/>
+
+        <entity-find entity-name="moqui.security.ArtifactGroupMember" list="memberList">
+            <econdition field-name="artifactGroupId"/><order-by field-name="preferenceKey"/></entity-find>
+        <entity-find entity-name="moqui.security.ArtifactAuthz" list="authzList">
+            <econdition field-name="artifactGroupId"/><order-by field-name="userGroupId,authzTypeEnumId"/></entity-find>
+        <entity-find entity-name="moqui.security.ArtifactTarpit" list="tarpitList">
+            <econdition field-name="artifactGroupId"/><order-by field-name="userGroupId"/></entity-find>
+    </actions>
+    <widgets>
+        <form-single name="ArtifactGroupForm" map="artifactGroup" transition="updateArtifactGroup">
+            <field name="artifactGroupId"><default-field><display/></default-field></field>
+            <field name="description"><default-field><text-line size="40"/></default-field></field>
+
+            <field name="submitButton"><default-field title="Update"><submit/></default-field></field>
+        </form-single>
+        <container-box>
+            <box-header title="Artifact Members"/>
+            <box-toolbar>
+                <container-dialog id="AddMemberDialog" button-text="Add Any Artifact/Pattern">
+                    <form-single name="CreateArtifactGroupMember" transition="createArtifactGroupMember">
+                        <field name="artifactGroupId"><default-field><hidden/></default-field></field>
+                        <field name="artifactTypeEnumId"><default-field title="Artifact Type">
+                            <drop-down>
+                                <entity-options key="${enumId}" text="${description}">
+                                    <entity-find entity-name="moqui.basic.Enumeration">
+                                        <econdition field-name="enumTypeId" value="ArtifactType"/>
+                                        <order-by field-name="description"/></entity-find>
+                                </entity-options>
+                            </drop-down>
+                        </default-field></field>
+                        <field name="artifactName"><default-field><text-line size="60"/></default-field></field>
+
+                        <field name="nameIsPattern"><default-field>
+                            <drop-down><option key="N"/><option key="Y"/></drop-down></default-field></field>
+                        <field name="inheritAuthz"><default-field>
+                            <drop-down><option key="N"/><option key="Y"/></drop-down></default-field></field>
+                        <field name="filterMap"><default-field title="Filter Map" tooltip="Groovy expression that evaluates to a Map">
+                            <text-line size="60"/></default-field></field>
+                        <field name="submitButton"><default-field title="Add"><submit/></default-field></field>
+                    </form-single>
+                </container-dialog>
+                <!-- TODO: add entity form (autocomplete to avoid large drop-down) -->
+                <!-- TODO: add service form (autocomplete to avoid large drop-down) -->
+                <!-- TODO: add screen form (autocomplete to avoid large drop-down) -->
+            </box-toolbar>
+            <box-body>
+                <form-list name="ArtifactGroupMemberList" list="memberList" transition="updateArtifactGroupMember">
+                    <field name="artifactGroupId"><default-field><hidden/></default-field></field>
+                    <field name="artifactTypeEnumId"><default-field title="Artifact Type">
+                        <display-entity entity-name="moqui.basic.Enumeration"/></default-field></field>
+                    <field name="artifactName"><default-field><display/></default-field></field>
+
+                    <field name="nameIsPattern"><default-field>
+                        <drop-down><option key="N"/><option key="Y"/></drop-down></default-field></field>
+                    <field name="inheritAuthz"><default-field>
+                        <drop-down><option key="N"/><option key="Y"/></drop-down></default-field></field>
+                    <field name="filterMap"><default-field title="Filter Map" tooltip="Groovy expression that evaluates to a Map">
+                        <text-line size="30"/></default-field></field>
+                    <field name="submitButton"><default-field title="Update"><submit/></default-field></field>
+                    <field name="deleteLink"><default-field title="">
+                        <link url="deleteArtifactGroupMember" text=" " icon="fa fa-trash" confirmation="Really Delete?"
+                                parameter-map="[artifactGroupId:artifactGroupId, artifactName:artifactName, artifactTypeEnumId:artifactTypeEnumId]"/>
+                    </default-field></field>
+                </form-list>
+            </box-body>
+        </container-box>
+
+        <container-box>
+            <box-header title="Authorizations"/>
+            <box-toolbar>
+                <container-dialog id="AddAuthzDialog" button-text="Add Authorization">
+                    <form-single name="CreateArtifactAuthz" transition="createArtifactAuthz">
+                        <field name="artifactGroupId"><default-field><hidden/></default-field></field>
+                        <field name="userGroupId"><default-field title="User Group">
+                            <drop-down>
+                                <entity-options key="${userGroupId}" text="UserGroupNameTemplate">
+                                    <entity-find entity-name="moqui.security.UserGroup">
+                                        <order-by field-name="description"/></entity-find>
+                                </entity-options>
+                            </drop-down>
+                        </default-field></field>
+                        <field name="authzTypeEnumId"><default-field title="Authz Type">
+                            <drop-down>
+                                <entity-options key="${enumId}" text="${description}">
+                                    <entity-find entity-name="moqui.basic.Enumeration">
+                                        <econdition field-name="enumTypeId" value="AuthzType"/>
+                                        <order-by field-name="description"/></entity-find>
+                                </entity-options>
+                            </drop-down>
+                        </default-field></field>
+                        <field name="authzActionEnumId"><default-field title="Action">
+                            <drop-down>
+                                <entity-options key="${enumId}" text="${description}">
+                                    <entity-find entity-name="moqui.basic.Enumeration">
+                                        <econdition field-name="enumTypeId" value="AuthzAction"/>
+                                        <order-by field-name="description"/></entity-find>
+                                </entity-options>
+                            </drop-down>
+                        </default-field></field>
+                        <field name="authzServiceName"><default-field><text-line size="60"/></default-field></field>
+                        <field name="submitButton"><default-field title="Add"><submit/></default-field></field>
+                    </form-single>
+                </container-dialog>
+            </box-toolbar>
+            <box-body>
+                <form-list name="ArtifactAuthzList" list="authzList" transition="updateArtifactAuthz">
+                    <row-actions>
+                        <entity-find entity-name="moqui.security.ArtifactAuthzFilterAndSet" list="entityFilterSetList">
+                            <econdition field-name="artifactAuthzId"/></entity-find>
+                    </row-actions>
+                    <field name="artifactAuthzId"><default-field title="ID"><display/></default-field></field>
+                    <field name="artifactGroupId"><default-field><hidden/></default-field></field>
+                    <field name="userGroupId"><default-field title="User Group">
+                        <display-entity entity-name="moqui.security.UserGroup" text="${description ?: ''} - "/>
+                        <link url="userGroupDetail" text="${userGroupId}" link-type="anchor"/>
+                    </default-field></field>
+                    <field name="authzTypeEnumId"><default-field title="Authz Type">
+                        <drop-down>
+                            <entity-options key="${enumId}" text="${description}">
+                                <entity-find entity-name="moqui.basic.Enumeration">
+                                    <econdition field-name="enumTypeId" value="AuthzType"/>
+                                    <order-by field-name="description"/></entity-find>
+                            </entity-options>
+                        </drop-down>
+                    </default-field></field>
+                    <field name="authzActionEnumId"><default-field title="Action">
+                        <drop-down>
+                            <entity-options key="${enumId}" text="${description}">
+                                <entity-find entity-name="moqui.basic.Enumeration">
+                                    <econdition field-name="enumTypeId" value="AuthzAction"/>
+                                    <order-by field-name="description"/></entity-find>
+                            </entity-options>
+                        </drop-down>
+                    </default-field></field>
+                    <field name="authzServiceName"><default-field><text-line size="30"/></default-field></field>
+                    <field name="entityFilterSets"><default-field>
+                        <section-iterate name="EntityFilterSetSection" list="entityFilterSetList" entry="entityFilterSet"><widgets>
+                            <label text="${entityFilterSet.description}"/>
+                            <label text="Authz Cond: ${entityFilterSet.authzApplyCond}" condition="entityFilterSet.authzApplyCond" type="div"/>
+                            <label text="Filter Cond: ${entityFilterSet.applyCond}" condition="entityFilterSet.applyCond" type="div"/>
+                        </widgets></section-iterate>
+                    </default-field></field>
+                    <field name="submitButton"><default-field title="Update"><submit/></default-field></field>
+                    <field name="deleteLink"><default-field title="">
+                        <link url="deleteArtifactAuthz" text=" " icon="fa fa-trash" confirmation="Really Delete?"
+                                parameter-map="[artifactAuthzId:artifactAuthzId]"/>
+                    </default-field></field>
+                </form-list>
+            </box-body>
+        </container-box>
+
+        <container-box>
+            <box-header title="Tarpits (Use Velocity Limits)"/>
+            <box-toolbar>
+                <container-dialog id="AddTarpitDialog" button-text="Add Tarpit">
+                    <form-single name="CreateArtifactTarpit" transition="createArtifactTarpit">
+                        <field name="artifactGroupId"><default-field><hidden/></default-field></field>
+                        <field name="userGroupId"><default-field title="User Group">
+                            <drop-down>
+                                <entity-options key="${userGroupId}" text="UserGroupNameTemplate">
+                                    <entity-find entity-name="moqui.security.UserGroup">
+                                        <order-by field-name="description"/></entity-find>
+                                </entity-options>
+                            </drop-down>
+                        </default-field></field>
+                        <field name="maxHitsCount"><default-field><text-line size="8"/></default-field></field>
+                        <field name="maxHitsDuration"><default-field tooltip="In seconds"><text-line size="8"/></default-field></field>
+                        <field name="tarpitDuration"><default-field tooltip="In seconds"><text-line size="8"/></default-field></field>
+                        <field name="submitButton"><default-field title="Add"><submit/></default-field></field>
+                    </form-single>
+                </container-dialog>
+            </box-toolbar>
+            <box-body>
+                <form-list name="ArtifactTarpitList" list="tarpitList" transition="updateArtifactTarpit">
+                    <field name="artifactGroupId"><default-field><hidden/></default-field></field>
+                    <field name="userGroupId"><default-field title="User Group">
+                        <display-entity entity-name="moqui.security.UserGroup" text="${description ?: ''} - "/>
+                        <link url="userGroupDetail" text="${userGroupId}" link-type="anchor"/>
+                    </default-field></field>
+                    <field name="maxHitsCount"><default-field><text-line size="8"/></default-field></field>
+                    <field name="maxHitsDuration"><default-field tooltip="In seconds"><text-line size="8"/></default-field></field>
+                    <field name="tarpitDuration"><default-field tooltip="In seconds"><text-line size="8"/></default-field></field>
+                    <field name="submitButton"><default-field title="Update"><submit/></default-field></field>
+                    <field name="deleteLink"><default-field title="">
+                        <link url="deleteArtifactTarpit" text=" " icon="fa fa-trash" confirmation="Really Delete?"
+                                parameter-map="[artifactGroupId:artifactGroupId, userGroupId:userGroupId]"/>
+                    </default-field></field>
+                </form-list>
+            </box-body>
+        </container-box>
+    </widgets>
+</screen>

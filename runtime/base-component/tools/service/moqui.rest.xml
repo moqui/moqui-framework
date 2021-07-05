@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+
+<!-- General Guideline Verbs: GET=find, POST=create/do, PUT=store (create or update), PATCH=update, DELETE=delete  -->
+
+<resource xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/rest-api-2.1.xsd"
+        name="moqui" displayName="Moqui Tools REST API" version="${moqui_version}"
+        description="Services for various system administration and other tools in Moqui Framework. See more information
+            about Moqui Framework at [http://www.moqui.org/framework](http://www.moqui.org/framework/index.html)">
+
+    <resource name="artifacts" description="Artifacts - Screens, Services, Entities, etc">
+        <resource name="hitSummary"><method type="get">
+            <entity name="moqui.server.ArtifactHitReport" operation="list"/></method></resource>
+        <resource name="hitBins"><method type="get">
+            <entity name="moqui.server.ArtifactHitBin" operation="list"/></method></resource>
+    </resource>
+
+    <resource name="dataDocuments" description="Data Documents - Database derived JSON documents, feeds">
+        <method type="get"><entity name="dataDocuments" operation="list"/></method>
+        <method type="post"><entity name="dataDocuments" masterName="default" operation="create"/></method>
+        <id name="dataDocumentId">
+            <method type="get"><entity name="dataDocuments" masterName="default" operation="one"/></method>
+            <method type="put"><entity name="dataDocuments" masterName="default" operation="update"/></method>
+            <resource name="clone"><method type="post">
+                <service name="org.moqui.impl.EntityServices.clone#DataDocument"/></method></resource>
+        </id>
+        <resource name="feeds">
+            <id name="dataFeedId">
+                <resource name="index"><method type="post">
+                    <service name="org.moqui.search.SearchServices.index#DataFeedDocuments"/></method></resource>
+                <resource name="documents"><method type="get">
+                    <service name="org.moqui.impl.EntityServices.get#DataFeedDocuments"/></method></resource>
+            </id>
+        </resource>
+        <resource name="indexes">
+            <id name="indexName">
+                <resource name="mappings"><method type="post">
+                    <service name="org.moqui.search.SearchServices.put#DataDocumentMappings"/></method></resource>
+                <resource name="search"><method type="post">
+                    <service name="org.moqui.search.SearchServices.search#DataDocuments"/></method></resource>
+                <!--
+                <resource name="searchCount"><method type="post">
+                    <service name="org.moqui.search.SearchServices.search#CountBySource"/></method></resource> -->
+            </id>
+        </resource>
+    </resource>
+
+    <resource name="basic" description="Basic Entities - Enum, Geo, Status, UOM, etc">
+        <resource name="enums">
+            <method type="get"><entity name="enums" operation="list"/></method>
+            <method type="post"><entity name="enums" operation="create"/></method>
+            <id name="enumId">
+                <method type="get"><entity name="enums" masterName="default" operation="one"/></method>
+                <method type="patch"><entity name="enums" operation="update"/></method>
+            </id>
+        </resource>
+        <resource name="enumTypes">
+            <method type="get"><entity name="moqui.basic.EnumerationType" operation="list"/></method>
+            <id name="enumTypeId">
+                <method type="get"><entity name="moqui.basic.EnumerationType" operation="one"/></method>
+            </id>
+        </resource>
+        <resource name="geos">
+            <method type="get"><entity name="geos" operation="list"/></method>
+            <method type="post"><entity name="geos" operation="create"/></method>
+            <id name="geoId">
+                <method type="get"><entity name="geos" masterName="default" operation="one"/></method>
+                <method type="patch"><entity name="geos" operation="update"/></method>
+                <resource name="regions"><method type="get">
+                    <service name="org.moqui.impl.BasicServices.get#GeoRegionsForDropDown"/></method></resource>
+            </id>
+        </resource>
+        <resource name="statuses">
+            <method type="get"><entity name="statuses" operation="list"/></method>
+            <method type="post"><entity name="statuses" operation="create"/></method>
+            <id name="statusId">
+                <method type="get"><entity name="statuses" masterName="default" operation="one"/></method>
+                <method type="patch"><entity name="statuses" operation="update"/></method>
+            </id>
+        </resource>
+        <resource name="uoms">
+            <method type="get"><entity name="uoms" operation="list"/></method>
+            <method type="post"><entity name="uoms" operation="create"/></method>
+            <id name="uomId">
+                <method type="get"><entity name="uoms" masterName="default" operation="one"/></method>
+                <method type="patch"><entity name="uoms" operation="update"/></method>
+            </id>
+        </resource>
+    </resource>
+    <resource name="email" description="Email Services - Messages, Templates, Servers">
+        <resource name="messages">
+            <method type="get"><entity name="emailMessages" operation="list"/></method>
+            <!-- NOTE: for now no create allowed, created when sending or receiving -->
+            <!-- <method type="post"><entity name="emailMessages" operation="create"/></method> -->
+            <id name="emailMessageId">
+                <method type="get"><entity name="emailMessages" masterName="default" operation="one"/></method>
+                <method type="patch"><entity name="emailMessages" masterName="default" operation="update"/></method>
+            </id>
+        </resource>
+        <resource name="templates">
+            <method type="get"><entity name="emailTemplates" operation="list"/></method>
+            <method type="post"><entity name="emailTemplates" operation="create"/></method>
+            <id name="emailTemplateId">
+                <method type="get"><entity name="emailTemplates" masterName="default" operation="one"/></method>
+                <method type="patch"><entity name="emailTemplates" masterName="default" operation="update"/></method>
+                <resource name="send"><method type="post">
+                    <service name="org.moqui.impl.EmailServices.send#Email"/></method></resource>
+            </id>
+        </resource>
+        <resource name="servers">
+            <method type="get"><entity name="moqui.basic.email.EmailServer" operation="list"/></method>
+            <method type="post"><entity name="moqui.basic.email.EmailServer" operation="create"/></method>
+            <id name="emailServerId">
+                <method type="get"><entity name="moqui.basic.email.EmailServer" operation="one"/></method>
+                <method type="patch"><entity name="moqui.basic.email.EmailServer" operation="update"/></method>
+                <resource name="poll"><method type="post">
+                    <service name="org.moqui.impl.EmailServices.poll#EmailServer"/></method></resource>
+            </id>
+        </resource>
+    </resource>
+    <resource name="print" description="Print - Network Printers and Jobs">
+        <resource name="printers">
+            <method type="get"><entity name="moqui.basic.print.NetworkPrinter" operation="list"/></method>
+            <method type="post"><entity name="moqui.basic.print.NetworkPrinter" operation="create"/></method>
+            <id name="networkPrinterId">
+                <method type="get"><entity name="moqui.basic.print.NetworkPrinter" operation="one"/></method>
+                <method type="patch"><entity name="moqui.basic.print.NetworkPrinter" operation="update"/></method>
+
+                <resource name="print">
+                    <!-- TODO how to handle InputStream or SerialBlob in parameters? -->
+                    <resource name="document"><method type="post">
+                        <service name="org.moqui.impl.PrintServices.print#Document"/></method></resource>
+                    <resource name="resource"><method type="post">
+                        <service name="org.moqui.impl.PrintServices.print#ResourceDocument"/></method></resource>
+                    <resource name="screen"><method type="post">
+                        <service name="org.moqui.impl.PrintServices.print#ScreenDocument"/></method></resource>
+                </resource>
+            </id>
+        </resource>
+        <resource name="jobs">
+            <method type="get"><entity name="printJobs" operation="list"/></method>
+            <method type="post"><entity name="printJobs" operation="create"/></method>
+
+            <id name="printJobId">
+                <method type="get"><entity name="printJobs" masterName="default" operation="one"/></method>
+                <method type="patch"><entity name="printJobs" operation="update"/></method>
+
+                <resource name="send"><method type="post">
+                    <service name="org.moqui.impl.PrintServices.send#PrintJob"/></method></resource>
+                <resource name="serverDetails"><method type="get">
+                    <service name="org.moqui.impl.PrintServices.get#PrintJobDetailsFromServer"/></method></resource>
+                <resource name="hold"><method type="post">
+                    <service name="org.moqui.impl.PrintServices.hold#PrintJob"/></method></resource>
+                <resource name="release"><method type="post">
+                    <service name="org.moqui.impl.PrintServices.release#PrintJob"/></method></resource>
+                <resource name="cancel"><method type="post">
+                    <service name="org.moqui.impl.PrintServices.cancel#PrintJob"/></method></resource>
+            </id>
+        </resource>
+
+        <resource name="server"><method type="get">
+            <service name="org.moqui.impl.PrintServices.get#ServerPrinters"/></method></resource>
+    </resource>
+
+    <resource name="entity" description="Entity - Sync, etc">
+        <resource name="syncs">
+            <method type="get"><entity name="entitySyncs" operation="list"/></method>
+            <method type="post"><entity name="entitySyncs" masterName="default" operation="create"/></method>
+
+            <id name="entitySyncId">
+                <method type="get"><entity name="entitySyncs" masterName="default" operation="one"/></method>
+                <method type="patch"><entity name="entitySyncs" masterName="default" operation="update"/></method>
+
+                <resource name="run"><method type="post">
+                    <service name="org.moqui.impl.EntitySyncServices.run#EntitySync"/></method></resource>
+                <resource name="includeList"><method type="get">
+                    <service name="org.moqui.impl.EntitySyncServices.get#EntitySyncIncludeList"/></method></resource>
+            </id>
+            <resource name="run"><method type="post">
+                <service name="org.moqui.impl.EntitySyncServices.run#EntitySyncAll"/></method></resource>
+            <resource name="data">
+                <resource name="put"><method type="post">
+                    <service name="org.moqui.impl.EntitySyncServices.put#EntitySyncData"/></method></resource>
+                <resource name="get"><method type="post">
+                    <service name="org.moqui.impl.EntitySyncServices.get#EntitySyncData"/></method></resource>
+            </resource>
+        </resource>
+    </resource>
+
+    <resource name="systemMessages" description="System to System Messages - Queue, Send, Receive, Consume, etc">
+        <method type="get"><entity name="systemMessages" operation="list"/></method>
+
+        <id name="systemMessageId">
+            <method type="get"><entity name="systemMessages" masterName="default" operation="one"/></method>
+            <method type="patch"><entity name="systemMessages" operation="update"/></method>
+
+            <resource name="send"><method type="post">
+                <service name="org.moqui.impl.SystemMessageServices.send#ProducedSystemMessage"/></method></resource>
+            <resource name="consume"><method type="post">
+                <service name="org.moqui.impl.SystemMessageServices.consume#ReceivedSystemMessage"/></method></resource>
+            <resource name="resetError"><method type="post">
+                <service name="org.moqui.impl.SystemMessageServices.reset#SystemMessageInError"/></method></resource>
+        </id>
+
+        <resource name="outgoing">
+            <resource name="queue"><method type="post">
+                <service name="org.moqui.impl.SystemMessageServices.queue#SystemMessage"/></method></resource>
+            <resource name="queueAck"><method type="post">
+                <service name="org.moqui.impl.SystemMessageServices.queue#AckSystemMessage"/></method></resource>
+            <resource name="sendAll"><method type="post">
+                <service name="org.moqui.impl.SystemMessageServices.send#AllProducedSystemMessages"/></method></resource>
+        </resource>
+        <resource name="incoming">
+            <resource name="receive"><method type="post">
+                <service name="org.moqui.impl.SystemMessageServices.receive#IncomingSystemMessage"/></method></resource>
+            <resource name="consumeAll"><method type="post">
+                <service name="org.moqui.impl.SystemMessageServices.consume#AllReceivedSystemMessages"/></method></resource>
+        </resource>
+    </resource>
+
+    <resource name="users" description="User Accounts">
+        <method type="get"><entity name="users" operation="list"/></method>
+        <method type="post"><service name="org.moqui.impl.UserServices.create#UserAccount"/></method>
+
+        <id name="userId">
+            <method type="get"><entity name="users" operation="one"/></method>
+            <method type="patch"><entity name="users" operation="update"/></method>
+
+            <resource name="password">
+                <resource name="update"><method type="post">
+                    <service name="org.moqui.impl.UserServices.update#Password"/></method></resource>
+                <resource name="reset"><method type="post">
+                    <service name="org.moqui.impl.UserServices.reset#Password"/></method></resource>
+            </resource>
+        </id>
+    </resource>
+
+    <!-- TODO: caches, TODO will need services implemented as uses API directly for most ops -->
+</resource>

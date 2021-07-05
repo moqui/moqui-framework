@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd">
+
+    <parameter name="systemMessageRemoteId" required="true"/>
+
+    <transition name="updateMessageRemote"><service-call name="update#moqui.service.message.SystemMessageRemote"/>
+        <default-response url="."/></transition>
+
+    <transition name="createMessageRemoteEnumMap"><service-call name="create#moqui.service.message.SystemMessageEnumMap"/>
+        <default-response url="."/></transition>
+    <transition name="updateMessageRemoteEnumMap"><service-call name="update#moqui.service.message.SystemMessageEnumMap"/>
+        <default-response url="."/></transition>
+    <transition name="deleteMessageRemoteEnumMap"><service-call name="delete#moqui.service.message.SystemMessageEnumMap"/>
+        <default-response url="."/></transition>
+
+    <transition name="systemMessageList"><default-response url="../../Message/SystemMessageList"/></transition>
+
+    <actions>
+        <entity-find-one entity-name="moqui.service.message.SystemMessageRemote" value-field="systemMessageRemote"/>
+
+        <entity-find entity-name="moqui.service.message.SystemMessageEnumMap" list="systemMessageEnumMapList">
+            <econdition field-name="systemMessageRemoteId"/></entity-find>
+    </actions>
+    <widgets>
+        <container-row><row-col lg="7">
+            <link url="systemMessageList" text="Messages" parameter-map="[systemMessageRemoteId:systemMessageRemoteId]"/>
+
+            <form-single name="SystemMessageRemoteForm" map="systemMessageRemote" transition="updateMessageRemote">
+                <field name="systemMessageRemoteId"><default-field title="Message Remote ID"><display/></default-field></field>
+                <auto-fields-entity entity-name="moqui.service.message.SystemMessageRemote" field-type="edit" include="nonpk"/>
+                <field name="description"><default-field><text-line size="40"/></default-field></field>
+                <field name="sendUrl"><default-field><text-line size="100"/></default-field></field>
+                <field name="sendServiceName"><default-field><text-line size="100"/></default-field></field>
+                <field name="messageAuthEnumId"><default-field title="Message Auth">
+                    <widget-template-include location="component://webroot/template/screen/BasicWidgetTemplates.xml#enumDropDown">
+                        <set field="enumTypeId" value="SystemMessageAuthType"/><set field="allowEmpty" value="true"/></widget-template-include>
+                </default-field></field>
+                <field name="sendAuthEnumId"><default-field title="Message Send Auth">
+                    <widget-template-include location="component://webroot/template/screen/BasicWidgetTemplates.xml#enumDropDown">
+                        <set field="enumTypeId" value="SystemMessageAuthType"/><set field="allowEmpty" value="true"/></widget-template-include>
+                </default-field></field>
+                <field name="systemMessageTypeId"><default-field title="Message Type"><drop-down allow-empty="true">
+                    <entity-options key="${systemMessageTypeId}" text="${description}">
+                        <entity-find entity-name="moqui.service.message.SystemMessageType">
+                            <order-by field-name="description"/></entity-find></entity-options>
+                </drop-down></default-field></field>
+                <field name="segmentTerminator"><default-field><text-line size="1" maxlength="1"/></default-field></field>
+                <field name="elementSeparator"><default-field><text-line size="1" maxlength="1"/></default-field></field>
+                <field name="componentDelimiter"><default-field><text-line size="1" maxlength="1"/></default-field></field>
+                <field name="escapeCharacter"><default-field><text-line size="1" maxlength="1"/></default-field></field>
+                <field name="submitButton"><default-field title="Update"><submit/></default-field></field>
+            </form-single>
+        </row-col><row-col lg="5">
+            <container-box><box-header title="Remote Enum Map"/><box-toolbar>
+                <container-dialog id="createMessageRemoteEnumMap" button-text="Create Enum Map">
+                    <form-single name="CreateMessageRemoteEnumMap" transition="createMessageRemoteEnumMap">
+                        <field name="systemMessageRemoteId"><default-field><hidden/></default-field></field>
+                        <field name="enumId"><default-field><drop-down>
+                            <entity-options key="${enumId}" text="${typeDescription} - ${description}">
+                                <!-- use a view entity to show type description, sort by type description -->
+                                <entity-find entity-name="moqui.basic.EnumerationAndType">
+                                    <order-by field-name="typeDescription,sequenceNum,description"/>
+                                </entity-find>
+                            </entity-options>
+                        </drop-down></default-field></field>
+                        <field name="mappedValue"><default-field><text-line size="30"/></default-field></field>
+                        <field name="submitButton"><default-field title="Add"><submit/></default-field></field>
+                    </form-single>
+                </container-dialog>
+            </box-toolbar><box-body-nopad>
+                <form-list name="SystemMessageEnumMapList" list="systemMessageEnumMapList" transition="updateMessageRemoteEnumMap">
+                    <row-actions><entity-find-one entity-name="moqui.basic.Enumeration" value-field="keyEnum">
+                            <field-map field-name="enumId"/></entity-find-one></row-actions>
+                    <field name="systemMessageRemoteId"><default-field><hidden/></default-field></field>
+                    <field name="enumId"><default-field title="Enum Id">
+                        <display text="${keyEnum ? keyEnum.description + ' ' : ''}(${enumId})"/></default-field></field>
+                    <field name="mappedValue"><default-field title="Value"><text-line/></default-field></field>
+                    <field name="submitButton"><default-field title="Update"><submit/></default-field></field>
+                    <field name="lastUpdatedStamp"><default-field><hidden/></default-field></field>
+                    <field name="deleteButton"><default-field title="">
+                        <link url="deleteMessageRemoteEnumMap" text=" " icon="fa fa-trash" confirmation="Really remove?"/></default-field></field>
+                </form-list>
+            </box-body-nopad></container-box>
+        </row-col></container-row>
+    </widgets>
+</screen>

@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-title="Export">
+
+    <transition name="EntityExport" begin-transaction="false" read-only="true">
+        <actions>
+            <script><![CDATA[
+                import org.moqui.entity.EntityDataWriter
+                import org.moqui.context.ExecutionContext
+                ExecutionContext ec = context.ec
+                EntityDataWriter edw = ec.entity.makeDataWriter()
+
+                // handle entityNames
+                if (!context.entityNames) {
+                    ec.message.addError(ec.l10n.localize("No entity names specified, not exporting anything."))
+                    return
+                }
+
+                if (entityNames instanceof List) {
+                    for (String entityName in entityNames) {
+                        def entDef = ec.entity.getEntityDefinition(entityName)
+                        if (entDef == null) ec.message.addError(ec.resource.expand('Could not find entity with name ${entityName}',''))
+                    }
+                    edw.entityNames(entityNames)
+                } else {
+                    def entDef = ec.entity.getEntityDefinition(entityNames)
+                    if (entDef == null) ec.message.addError(ec.resource.expand('Could not find entity with name ${entityNames}',''))
+                    edw.entityName(entityNames as String)
+                }
+
+                if (ec.message.hasError()) return
+
+                if (dependentLevels) edw.dependentLevels(dependentLevels as int)
+                if (masterName) edw.master(masterName)
+                if (fromDate) edw.fromDate(ec.l10n.parseTimestamp(fromDate, null))
+                if (thruDate) edw.thruDate(ec.l10n.parseTimestamp(thruDate, null))
+                if (filterMap) edw.filterMap((Map) ec.resource.expression(filterMap, null))
+                if (orderBy) edw.orderBy([(String) orderBy])
+                edw.fileType(fileType == 'JSON' ? EntityDataWriter.JSON : EntityDataWriter.XML)
+
+                noResponse = false
+                if (context.output == "file") {
+                    edw.file(path)
+                } else if (context.output == "dir") {
+                    edw.directory(path)
+                } else if (context.output == "browser") {
+                    // stream to ec.web.response
+                    def response = ec.web.response
+                    response.setContentType(fileType == 'JSON' ? 'application/json' : 'text/xml')
+                    response.setCharacterEncoding("UTF-8")
+                    response.addHeader("Content-Disposition", "attachment; filename=\"EntityExport_${ec.l10n.format(ec.user.nowTimestamp, 'yyyyMMdd_HHmm')}.${fileType == 'JSON' ? 'json' : 'xml'}\";")
+                    response.addHeader("Cache-Control", "no-cache, must-revalidate, private")
+                    edw.writer(response.getWriter())
+                    noResponse = true
+                }
+            ]]></script>
+        </actions>
+        <conditional-response url="."><condition><expression>!noResponse</expression></condition></conditional-response>
+        <default-response type="none"/>
+    </transition>
+
+    <widgets>
+        <form-single name="ExportData" transition="EntityExport">
+            <field name="entityNames">
+                <default-field><drop-down allow-multiple="true" size="80">
+                    <list-options list="ec.entity.getAllEntitiesInfo('fullEntityName', null, false, true)" key="${fullEntityName}"/>
+                </drop-down></default-field>
+            </field>
+            <field name="dependentLevels"><default-field><text-line size="2" default-value="0"/></default-field></field>
+            <field name="masterName"><default-field tooltip="Use master definition for each entity that has one with this name; try 'default'">
+                <text-line size="15"/></default-field></field>
+
+            <field name="fromDate"><default-field><date-time/></default-field></field>
+            <field name="thruDate"><default-field><date-time/></default-field></field>
+
+            <field name="filterMap"><default-field><text-line size="80" default-value="[:]"/></default-field></field>
+            <field name="orderBy"><default-field><text-line size="80"/></default-field></field>
+            <field name="fileType"><default-field>
+                <radio no-current-selected-key="XML"><option key="XML"/><option key="JSON"/></radio>
+            </default-field></field>
+            <field name="output">
+                <default-field><radio no-current-selected-key="browser">
+                    <option key="file" text="Single File"/>
+                    <option key="dir" text="Directory (one file per entity)"/>
+                    <option key="browser" text="Out to Browser"/>
+                </radio></default-field>
+            </field>
+            <field name="path"><default-field><text-line size="80"/></default-field></field>
+
+            <field name="submitButton"><default-field title="Export"><submit/></default-field></field>
+        </form-single>
+    </widgets>
+</screen>

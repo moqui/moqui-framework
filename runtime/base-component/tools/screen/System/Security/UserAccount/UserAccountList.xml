@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-include="false">
+
+    <transition name="userAccountDetail"><default-response url="../UserAccountDetail"/></transition>
+    <transition name="createUserAccount"><service-call name="org.moqui.impl.UserServices.create#UserAccount"/>
+        <default-response url="."/></transition>
+
+    <widgets>
+        <container-dialog id="CreateUserAccountDialog" button-text="Create User Account">
+            <form-single name="CreateUserAccount" transition="createUserAccount">
+                <field name="partyId"><default-field><hidden/></default-field></field>
+                <field name="username"><default-field><text-line size="20"/></default-field></field>
+                <field name="emailAddress"><default-field title="Email"><text-line size="60"/></default-field></field>
+                <field name="userFullName"><default-field title="Full Name"><text-line size="40"/></default-field></field>
+                <field name="newPassword"><default-field title="Password"><password size="15"/></default-field></field>
+                <field name="newPasswordVerify"><default-field title="Password Verify"><password size="15"/></default-field></field>
+                <field name="requirePasswordChange"><default-field>
+                    <drop-down><option key="Y"/><option key="N"/></drop-down></default-field></field>
+                <field name="submitButton"><default-field title="Create"><submit/></default-field></field>
+            </form-single>
+        </container-dialog>
+        <form-list name="UserAccountList" list="userAccountList" skip-form="true" header-dialog="true" saved-finds="true"
+                select-columns="true" show-xlsx-button="true" show-csv-button="true" show-page-size="true">
+            <entity-find entity-name="moqui.security.UserAccountAndGroup" list="userAccountList" distinct="true">
+                <search-form-inputs default-order-by="username"/>
+                <econdition field-name="emailNotifications" value="Y" ignore="!topic"/>
+                <select-field field-name="userId"/>
+            </entity-find>
+
+            <field name="userGroupId"><header-field title="User Group">
+                <drop-down allow-multiple="true" show-not="true">
+                    <entity-options key="${userGroupId}" text="${description}">
+                        <entity-find entity-name="moqui.security.UserGroup">
+                            <econdition field-name="userGroupId" operator="not-equals" value="ALL_USERS"/>
+                            <order-by field-name="description"/></entity-find>
+                    </entity-options>
+                </drop-down>
+            </header-field></field>
+            <field name="loginFromDate"><header-field title="Login Date"><date-period/></header-field></field>
+            <field name="topic"><header-field title="Topic Email">
+                <drop-down allow-multiple="true"><!-- NOTE considered show-not="true" but logic funny as involves topic and emailNotifications fields -->
+                    <entity-options key="${topic}" text="${description}">
+                        <entity-find entity-name="moqui.security.user.NotificationTopic">
+                            <order-by field-name="description"/></entity-find>
+                    </entity-options>
+                </drop-down>
+            </header-field></field>
+
+            <field name="userId">
+                <header-field title="ID" show-order-by="true"><text-find size="20" default-operator="begins"/></header-field>
+                <default-field><link text="${userId}" url="userAccountDetail" link-type="anchor"/></default-field>
+            </field>
+            <field name="username">
+                <header-field show-order-by="true"><text-find size="25" default-operator="begins"/></header-field>
+                <default-field><link text="${username}" url="userAccountDetail" link-type="anchor"/></default-field>
+            </field>
+            <field name="emailAddress">
+                <header-field show-order-by="true"><text-find size="25" default-operator="begins"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="userFullName">
+                <header-field show-order-by="true"><text-find size="25" default-operator="begins"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="passwordSetDate">
+                <header-field show-order-by="true"><date-period/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="requirePasswordChange">
+                <header-field title="Req PW Change" show-order-by="true"><drop-down allow-empty="true"><option key="Y"/><option key="N"/></drop-down></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="successiveFailedLogins">
+                <header-field title="Failed Logins" show-order-by="true"/>
+                <default-field><display/></default-field>
+            </field>
+            <field name="disabled">
+                <header-field show-order-by="true"><drop-down allow-empty="true"><option key="Y"/><option key="N"/></drop-down></header-field>
+                <default-field><display text="${disabled ?: 'N'} ${disabledDateTime ?: ''}"/></default-field>
+            </field>
+            <field name="locale">
+                <header-field show-order-by="true"><text-find size="6" default-operator="begins"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="timeZone">
+                <header-field show-order-by="true"><text-find size="8" default-operator="begins"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="find"><header-field title="Find"><submit/></header-field>
+                <default-field><display text=" "/></default-field></field>
+        </form-list>
+    </widgets>
+</screen>

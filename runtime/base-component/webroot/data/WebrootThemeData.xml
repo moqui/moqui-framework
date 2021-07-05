@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<entity-facade-xml type="seed-initial">
+    <!-- Default Theme (note that DEFAULT ScreenTheme record defined in ScreenEntities.xml) -->
+
+    <!-- Required CSS files for layout/widgets/etc used in XML Screen/Form template macros -->
+    <moqui.screen.ScreenThemeResource screenThemeId="DEFAULT" sequenceNum="1" resourceTypeEnumId="STRT_STYLESHEET" resourceValue=""/>
+    <moqui.screen.ScreenThemeResource screenThemeId="DEFAULT" sequenceNum="2" resourceTypeEnumId="STRT_STYLESHEET"
+            resourceValue="/libs/font-awesome/css/font-awesome.min.css"/>
+    <moqui.screen.ScreenThemeResource screenThemeId="DEFAULT" sequenceNum="3" resourceTypeEnumId="STRT_STYLESHEET"
+            resourceValue="/libs/twitter-bootstrap/css/bootstrap.min.css"/>
+    <moqui.screen.ScreenThemeResource screenThemeId="DEFAULT" sequenceNum="4" resourceTypeEnumId="STRT_STYLESHEET"
+            resourceValue="/libs/bootstrap-datetimepicker/css/bootstrap-datetimepicker.min.css"/>
+    <moqui.screen.ScreenThemeResource screenThemeId="DEFAULT" sequenceNum="5" resourceTypeEnumId="STRT_STYLESHEET"
+            resourceValue="/libs/select2/select2.min.css"/>
+    <moqui.screen.ScreenThemeResource screenThemeId="DEFAULT" sequenceNum="6" resourceTypeEnumId="STRT_STYLESHEET"
+            resourceValue="/libs/select2-bootstrap-theme/select2-bootstrap.min.css"/>
+    <moqui.screen.ScreenThemeResource screenThemeId="DEFAULT" sequenceNum="7" resourceTypeEnumId="STRT_STYLESHEET"
+            resourceValue="/libs/Selectivity.js/selectivity-full.min.css"/>
+    <moqui.screen.ScreenThemeResource screenThemeId="DEFAULT" sequenceNum="8" resourceTypeEnumId="STRT_STYLESHEET"
+            resourceValue="/libs/jstree/themes/default/style.min.css"/>
+
+    <!-- Add external theme(s) here  -->
+    <moqui.screen.ScreenThemeResource screenThemeId="DEFAULT" sequenceNum="10" resourceTypeEnumId="STRT_STYLESHEET" resourceValue=""/>
+
+    <!-- Webroot layout and theme -->
+    <moqui.screen.ScreenThemeResource screenThemeId="DEFAULT" sequenceNum="20" resourceTypeEnumId="STRT_STYLESHEET"
+            resourceValue="/css/webroot-layout.css"/>
+    <moqui.screen.ScreenThemeResource screenThemeId="DEFAULT" sequenceNum="21" resourceTypeEnumId="STRT_STYLESHEET"
+            resourceValue="/css/webroot-theme.css"/>
+
+    <!-- Logo, icon, body class -->
+    <moqui.screen.ScreenThemeResource screenThemeId="DEFAULT" sequenceNum="100" resourceTypeEnumId="STRT_HEADER_LOGO"
+            resourceValue="/images/MoquiLogoSmall.png"/>
+    <moqui.screen.ScreenThemeResource screenThemeId="DEFAULT" sequenceNum="101" resourceTypeEnumId="STRT_SHORTCUT_ICON"
+            resourceValue="/favicon.ico"/>
+    <moqui.screen.ScreenThemeResource screenThemeId="DEFAULT" sequenceNum="102" resourceTypeEnumId="STRT_BODY_CLASS"
+            resourceValue="bg-light"/>
+
+    <!-- Footer items -->
+    <moqui.screen.ScreenThemeResource screenThemeId="DEFAULT" sequenceNum="200" resourceTypeEnumId="STRT_FOOTER_ITEM">
+        <resourceValue><![CDATA[<p><a href="https://www.moqui.org/" target="_blank">${ec.resource.expand('Built on Moqui Framework ${ec.factory.moquiVersion}', '')}</a></p>]]></resourceValue>
+    </moqui.screen.ScreenThemeResource>
+    <moqui.screen.ScreenThemeResource screenThemeId="DEFAULT" sequenceNum="201" resourceTypeEnumId="STRT_FOOTER_ITEM">
+        <resourceValue><![CDATA[<p><a href="/vapps/ScreenTree">${ec.l10n.localize('Site Map')}</a></p>]]></resourceValue>
+    </moqui.screen.ScreenThemeResource>
+</entity-facade-xml>

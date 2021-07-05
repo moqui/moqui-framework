@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        require-authentication="false" default-menu-include="false">
+
+    <actions>
+        <set field="parentScreenDef" from="currentScreenDef"/>
+        <set field="parentScreenPath" from="currentScreenPath"/>
+    </actions>
+    <widgets>
+        <container style="ScreenTreeNested">
+            <section-iterate name="ScreenNestedSection" list="showAll == 'true' ? parentScreenDef.getSubscreensItemsSorted() : parentScreenDef.getMenuSubscreensItems()" entry="currentSubscreensItem">
+                <actions>
+                    <set field="currentScreenDef" from="sri.sfi.getScreenDefinition(currentSubscreensItem.location)"/>
+                    <set field="currentScreenPath" value="${parentScreenPath}/${currentSubscreensItem.name}"/>
+                    <set field="currentUrlInfo" from="sri.buildUrl(currentScreenPath)"/>
+                </actions>
+                <widgets>
+                    <section name="ScreenItemRender">
+                        <condition><expression>currentScreenDef != null &amp;&amp; currentUrlInfo?.isPermitted() &amp;&amp; (showAll == 'true' || !currentScreenDef?.hasRequiredParameters())</expression></condition>
+                        <widgets>
+                            <section name="LinkOrLabel" condition="!currentScreenDef?.hasRequiredParameters()">
+                                <widgets><link url="${currentUrlInfo.path}" link-type="anchor"
+                                        text="${currentSubscreensItem.menuTitle}"/></widgets>
+                                <fail-widgets><label text="${currentSubscreensItem.menuTitle}" style="text-muted"/></fail-widgets>
+                            </section>
+
+                            <include-screen location="component://webroot/screen/webroot/apps/ScreenTree/ScreenTreeNested.xml"
+                                    share-scope="false"/>
+                        </widgets>
+                        <fail-widgets>
+                            <render-mode><text type="html"><![CDATA[<!-- excluding screen at path ${currentScreenPath} -->]]></text></render-mode>
+                        </fail-widgets>
+                    </section>
+                </widgets>
+            </section-iterate>
+        </container>
+    </widgets>
+</screen>

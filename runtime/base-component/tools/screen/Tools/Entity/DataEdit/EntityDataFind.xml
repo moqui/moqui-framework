@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-title="Find" default-menu-index="2">
+
+    <parameter name="selectedEntity" required="true"/>
+
+    <transition name="list"><default-response url="../EntityList"/></transition>
+    <transition name="find"><default-response url="."/></transition>
+    <transition name="create">
+        <actions><service-call name="create#${selectedEntity}" in-map="true"/></actions>
+        <default-response url="."/>
+    </transition>
+    <transition name="listSubmit">
+        <actions>
+            <if condition="delete">
+                <service-call name="delete#${selectedEntity}" in-map="true"/>
+            </if>
+        </actions>
+        <conditional-response url=".">
+            <condition><expression>delete</expression></condition>
+        </conditional-response>
+        <default-response url="../EntityDataEdit" parameter-map="ec.entity.getEntityDefinition(selectedEntity).getPrimaryKeys(context)"/>
+    </transition>
+
+    <actions>
+        <set field="entityDefinition" from="ec.entity.getEntityDefinition(selectedEntity)"/>
+        <entity-find entity-name="${selectedEntity}" list="entityValueList" offset="0" limit="50" use-clone="true">
+            <search-form-inputs/>
+        </entity-find>
+    </actions>
+    <widgets>
+        <container>
+            <link url="list" text="Entity List"/>
+            <container-dialog id="FindValueDialog" button-text="Find">
+                <form-single name="FindEntityValue" transition="find" dynamic="true">
+                    <auto-fields-entity entity-name="${selectedEntity}" field-type="find"/>
+                    <field name="selectedEntity"><default-field title="Entity Name"><hidden/></default-field></field>
+                    <field name="submitButton"><default-field title="Find"><submit/></default-field></field>
+                </form-single>
+            </container-dialog>
+            <container-dialog id="CreateValueDialog" button-text="New Value">
+                <form-single name="CreateEntityValue" transition="create" dynamic="true">
+                    <auto-fields-entity entity-name="${selectedEntity}" field-type="edit"/>
+                    <field name="selectedEntity"><default-field title="Entity Name"><hidden/></default-field></field>
+                    <field name="submitButton"><default-field title="Create"><submit/></default-field></field>
+                </form-single>
+            </container-dialog>
+            <link url="../EntityDetail" parameter-map="[selectedEntity:selectedEntity]" text="See Entity Detail"/>
+        </container>
+        <container><label text="Find '${selectedEntity}' Entity Value" type="h3"/></container>
+        <form-list name="ListEntityValue" list="entityValueList" transition="listSubmit" header-dialog="true" dynamic="true"
+                show-csv-button="true" show-xlsx-button="true" show-page-size="true">
+            <hidden-parameters><parameter name="selectedEntity"/></hidden-parameters>
+            <field name="find"><header-field title="Find"><submit/></header-field></field>
+            <field name="edit"><default-field title="Edit"><submit/></default-field></field>
+            <field name="delete"><default-field title="Delete"><submit/></default-field></field>
+            <auto-fields-entity entity-name="${selectedEntity}" field-type="find-display"/>
+            <columns>
+                <column><field-ref name="edit"/><field-ref name="delete"/></column>
+            </columns>
+        </form-list>
+    </widgets>
+</screen>

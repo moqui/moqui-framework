@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-include="false">
+
+    <transition name="serviceJobDetail"><default-response url="../ServiceJobDetail"/></transition>
+
+    <actions>
+        <set field="jobRunner" from="ec.service.getJobRunner()"/>
+
+        <entity-find-count entity-name="moqui.service.message.SystemMessage" count-field="outgoingCount">
+            <econdition field-name="statusId" value="SmsgProduced"/>
+            <econdition field-name="isOutgoing" value="Y"/>
+        </entity-find-count>
+        <entity-find-count entity-name="moqui.service.message.SystemMessage" count-field="incomingCount">
+            <econdition field-name="statusId" value="SmsgReceived"/>
+            <econdition field-name="isOutgoing" value="N"/>
+        </entity-find-count>
+        <entity-find-count entity-name="moqui.service.message.SystemMessage" count-field="errorCount">
+            <econdition field-name="statusId" value="SmsgError"/></entity-find-count>
+    </actions>
+    <widgets>
+        <section name="JobRunnerInfo" condition="jobRunner"><widgets>
+            <label text="Last job runner execute: &lt;strong&gt;${new Timestamp(jobRunner.getLastExecuteTime())}&lt;/strong&gt;, runner executes: ${jobRunner.getExecuteCount()}, total jobs run: ${jobRunner.getTotalJobsRun()}, last active: ${jobRunner.getLastJobsActive()}, last paused: ${jobRunner.getLastJobsPaused()}" encode="false"/>
+        </widgets><fail-widgets>
+            <label text="No Service Job Runner active (generally because scheduled-job-check-time is set to 0)"/>
+        </fail-widgets></section>
+
+        <form-list name="ServiceJobList" list="serviceJobList" skip-form="true" show-page-size="true">
+            <entity-find entity-name="moqui.service.job.ServiceJob" list="serviceJobList">
+                <search-form-inputs default-order-by="^jobName"/></entity-find>
+
+            <field name="jobName">
+                <header-field show-order-by="case-insensitive"><text-find hide-options="true" size="20"/></header-field>
+                <default-field><link text="${jobName}" url="serviceJobDetail" link-type="anchor"/></default-field>
+            </field>
+            <field name="description">
+                <header-field show-order-by="true"><text-find hide-options="true" size="30"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="topic">
+                <header-field show-order-by="true"><text-find hide-options="true" size="15"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="cronExpression">
+                <header-field show-order-by="true"><text-find hide-options="true" size="15"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <!-- leaving here commented for now, don't expect them to be used much or useful to search by
+            <field name="fromDate">
+                <header-field show-order-by="true"><date-period allow-empty="true"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="thruDate">
+                <header-field show-order-by="true"><date-period allow-empty="true"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            -->
+            <field name="paused">
+                <header-field><drop-down allow-empty="true"><option key="Y"/><option key="N"/></drop-down></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="findButton"><header-field title="Find"><submit/></header-field><default-field>
+                <display text=" "/></default-field></field>
+        </form-list>
+    </widgets>
+</screen>

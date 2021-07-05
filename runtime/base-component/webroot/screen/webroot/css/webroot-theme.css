@@ -1,0 +1,169 @@
+/* This software is in the public domain under CC0 1.0 Universal plus a Grant of Patent License. */
+
+/* ========================== body, etc ========================== */
+
+/* main background styles, light/dark switch */
+.bg-dark { background-color: #3a3a3a !important; color: #f5f5f5 !important; }
+.bg-light { background-color: #ffffff !important; color: #222222 !important; }
+
+#footer { color: #f4f4f4; border-top: 1px solid #222; }
+
+/* ====================== headings, general ====================== */
+
+div.message { width: 600px; margin: 2px auto 2px auto; border: 1px solid #DDDDDF; padding: 2px; text-align: center; background: transparent; }
+div.message span { font-size: 1em; }
+div.error span { color: red; }
+
+tt, pre, pre code, .text-mono { font-family: monospace,monospace; font-size: 1em; }
+.bg-dark pre { background-color: #3a3a3a; color: #EEE; border-color: #222; }
+.bg-dark .well { background-color: #303030; color: #EEE; border-color: #222; }
+
+/* .button-plain is for hidden forms with a button element but we want it to look like an anchor */
+button.button-plain { border: 0; padding: 0; background: transparent; margin: 0; color: #428bca; }
+button.button-plain:hover { text-decoration: underline; }
+
+input:required:invalid, input:invalid, textarea:invalid { background-color: #FEE; }
+input:focus:valid, textarea:focus:valid { background-color: #EEE; }
+
+/* simple CSS spinner */
+@keyframes spin { to { transform: rotate(1turn); } }
+.spinner { position: relative; display: inline-block; width: 5em; height: 5em; margin: 0 0; font-size: 12px; text-indent: 999em;
+    overflow: hidden; animation: spin 1s infinite steps(8); }
+.spinner.small { font-size: 6px; } .spinner.large { font-size: 18px; }
+.spinner:before, .spinner:after, .spinner > div:before, .spinner > div:after { content: ''; position: absolute;
+    top: 0; left: 2.25em; /* (container width - part width)/2  */ width: 0.5em; height: 1.5em; border-radius: 0.2em;
+    background: #eee; box-shadow: 0 3.5em #eee; /* container height - part height */ transform-origin: 50% 2.5em; /* container height / 2 */ }
+.spinner:before { background: #555; } .spinner:after { transform: rotate(-45deg); background: #777; }
+.spinner > div:before { transform: rotate(-90deg); background: #999; }
+.spinner > div:after { transform: rotate(-135deg); background: #bbb; }
+
+/* ======================= XML Form Styles ======================= */
+
+.form-order-by a:hover { color: blue; }
+.form-order-by a.active { color: red; }
+.form-order-by a.active:hover { color: darkred; }
+
+nav.form-list-nav, table.table>thead>tr>th { background: #EEE; }
+.form-list-sub-rows table.table>thead>tr>th { background: #D8D8D8; }
+.bg-dark nav.form-list-nav, .bg-dark table.table>thead>tr>th { background: #222; }
+.bg-dark .form-list-sub-rows table.table>thead>tr>th { background: #383838; }
+.bg-dark .modal-content nav.form-list-nav, .bg-dark .modal-content table.table>thead>tr>th { background: #EEE; }
+.bg-dark .modal-content .form-list-sub-rows table.table>thead>tr>th { background: #D8D8D8; }
+.form-list-sub-rows td { background: linear-gradient(rgba(0,0,0,0.1),rgba(0,0,0,0.1)); }
+.bg-dark .form-list-sub-rows td { background: linear-gradient(rgba(192,192,192,0.1),rgba(192,192,192,0.1)); }
+
+.form-single-field-group { border-top: #888 solid thin; }
+
+label.is-changed { text-decoration: underline; text-decoration-color: #0097cf; text-decoration-style: solid; }
+.is-changed { font-weight: bolder; }
+
+/* ======================= Handy Styles ======================= */
+
+ul.float-box li { background: #EEEEEE; box-shadow: 0 0 0 1px #F8F8F8 inset, 0 0 0 1px #CCCCCC;
+    -webkit-box-shadow: 0 0 0 1px #F8F8F8 inset, 0 0 0 1px #CCCCCC; }
+ul.float-box li.active { box-shadow: 0 0 0 1px #337ab7 inset, 0 0 0 1px #CCCCCC;
+    -webkit-box-shadow: 0 0 0 1px #337ab7 inset, 0 0 0 1px #CCCCCC; }
+.bg-dark ul.float-box li { background: #333; box-shadow: 0 0 0 1px #337ab7 inset, 0 0 0 1px #333;
+    -webkit-box-shadow: 0 0 0 1px #080808 inset, 0 0 0 1px #333; }
+.bg-dark ul.float-box li.active { box-shadow: 0 0 0 1px #080808 inset, 0 0 0 1px #333;
+    -webkit-box-shadow: 0 0 0 1px #337ab7 inset, 0 0 0 1px #333; }
+
+.bg-light .shaded-area { background: #f8f8f8; box-shadow: 0 0 0 1px #F8F8F8 inset, 0 0 0 1px #CCC;
+    -webkit-box-shadow: 0 0 0 1px #F8F8F8 inset, 0 0 0 1px #CCC; }
+.bg-dark .shaded-area { background: #3f3f3f; box-shadow: 0 0 0 1px #080808 inset, 0 0 0 1px #333;
+    -webkit-box-shadow: 0 0 0 1px #080808 inset, 0 0 0 1px #333;}
+
+/* ================ Extensions for bootstrap.min.css =============== */
+
+.bg-dark .nav.nav-tabs a:hover { background-color: #888; border-color: black; }
+.bg-dark .nav.nav-tabs .active a { background-color: inherit; color: inherit; border-color: black; border-bottom-color: #3a3a3a; }
+.bg-dark .nav.nav-tabs { border-color: black; }
+
+body.dev #top nav { background: #0c1b29; }
+body.test #top nav { background: #224422; }
+body.test #content { background: #f0fff0; }
+body.test.bg-dark #content { background: #003300; }
+
+.navbar-inverse .navbar-nav > li > a { font-size: 1.1em; color: #BBB; }
+.navbar-inverse .navbar-nav > li > a:hover, .navbar-inverse .navbar-nav > li > a:focus { color: #fff; background-color: transparent; }
+
+.pagination > li > span { color: inherit; }
+.bg-dark ul.pagination > li { color: #222222 }
+
+.bg-dark .panel-default>.panel-heading { background-color: #333; color: inherit; }
+.bg-dark .panel, .bg-dark .panel-heading { border-color: #222; }
+
+/* Variations on Bootstrap default table styles */
+.table .table { background-color: transparent; }
+.table-hover>tbody>tr:hover, .table-striped>tbody>tr:nth-of-type(odd):hover { background-color: #f0f0f0; }
+.bg-dark .table-striped th, .bg-dark .table-striped td { border-color: #222222; }
+.bg-dark .table-striped>tbody>tr:nth-child(odd):not(.danger):not(.info):not(.warning):not(.success) { background-color: #303030; }
+.bg-dark .table-hover>tbody>tr:hover>td { background-color: #444444; }
+.bg-dark .modal-content .table-striped>tbody>tr:nth-child(odd):not(.danger):not(.info):not(.warning):not(.success) { background-color: #f9f9f9; }
+.bg-dark .modal-content .table-hover>tbody>tr:hover>td { background-color: #f0f0f0; }
+
+/* prevent extra padding at the bottom of form-single within container-box (panel) */
+.panel-body fieldset > .form-group:last-child { margin-bottom: 0; }
+
+/* ================ Other, Fix Styles =============== */
+
+.bg-dark .bootstrap-datetimepicker-widget { color: #222222; }
+.bg-dark .modal-content { color: #222222; }
+.bg-dark .select2-dropdown { color: #222222; }
+
+.bg-dark .jstree-clicked { background-color: #013 !important; }
+.bg-dark .jstree-anchor:hover { background-color: #222; }
+
+.bg-dark pre.editable-label { background-color: #3a3a3a; border-color: #222; }
+.editable-label { color: rgb(66, 139, 202); }
+form.editable-form button { background: white; color: #333; border: 1px solid; border-color: #ddd #bbb #999; padding: 2px 4px 2px 4px; margin: 2px; outline: 0; }
+.bg-dark form.editable-form button { background: #333; color: #EEE; }
+.bg-dark form.editable-form textarea { background-color: #3a3a3a; border-color: #222; }
+
+/* invert images in dark theme, good for black and white, may not be good otherwise so use img.invertible class */
+.bg-dark img.invertible { -webkit-filter: invert(90%); filter: invert(90%); }
+
+/* Twitter TypeAhead styles for autocomplete */
+.tt-menu { background-color: #fff; }
+.bg-dark .tt-menu { background-color: #3a3a3a; }
+.tt-suggestion:hover { cursor: pointer; color: #fff; background-color: #0097cf; }
+.tt-suggestion.tt-cursor { color: #fff; background-color: #0097cf; }
+
+.compare del { background-color:#f2dede; text-decoration:none; }
+.compare ins { background-color:#dff0d8; text-decoration:none; }
+
+/* ======================= Screen-specific ======================= */
+
+.bg-light.Login { background: url("../images/pattern/cream_pixels.png") repeat #444; }
+.bg-dark.Login { background: url("../images/pattern/irongrip.png") repeat #444; }
+
+/* ================ Flatten, visually simplify bootstrap.min.css =============== */
+/* Comment or delete these for the default backgrounds, etc */
+
+.panel-default>.panel-heading, .panel-info>.panel-heading, .panel-success>.panel-heading, .panel-warning>.panel-heading,
+  .panel-danger>.panel-heading, .bg-dark .panel-default>.panel-heading
+{ background-color: transparent; border-bottom-color: transparent; }
+
+nav.form-list-nav, table.table>thead>tr>th, .bg-dark nav.form-list-nav, .bg-dark table.table>thead>tr>th
+{ background-color: transparent; }
+
+.table-striped>tbody>tr:nth-of-type(odd), .bg-dark .table-striped>tbody>tr:nth-child(odd):not(.danger):not(.info):not(.warning):not(.success)
+{ background-color: transparent; }
+
+ul.float-box li, .bg-dark ul.float-box li { background-color: transparent; }
+
+#navbar-buttons .navbar-btn { border-color: transparent; background-color: transparent; color: #9d9d9d; }
+#navbar-buttons .navbar-btn:hover { border-color: #3a3a3a; background-color: #3a3a3a; }
+#navbar-buttons .navbar-btn.btn-default { color: #9d9d9d; }
+#navbar-buttons .navbar-btn.btn-danger { color: #d9534f; }
+#navbar-buttons .navbar-btn.btn-info { color: #46b8da; }
+#navbar-buttons .navbar-btn.btn-success { color: #449d44; }
+#navbar-buttons .navbar-btn.btn-primary { color: #2e6da4; }
+#navbar-buttons .navbar-btn.btn-warning { color: #985f0d; }
+
+#navbar-buttons .navbar-btn .label-default { background-color: #9d9d9d; }
+#navbar-buttons .navbar-btn .label-danger { background-color: #d9534f; }
+#navbar-buttons .navbar-btn .label-info { background-color: #46b8da; }
+#navbar-buttons .navbar-btn .label-success { background-color: #449d44; }
+#navbar-buttons .navbar-btn .label-primary { background-color: #2e6da4; }
+#navbar-buttons .navbar-btn .label-warning { background-color: #985f0d; }

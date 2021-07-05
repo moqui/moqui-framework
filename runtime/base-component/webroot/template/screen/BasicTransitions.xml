@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-include="false">
+
+    <!-- NOTE: this screen is not meant to be rendered, it is just a library of transitions and sections to include -->
+
+    <transition name="emailScreenAsync" read-only="true">
+        <service-call name="org.moqui.impl.EmailServices.send#ScreenRenderEmail" async="true"
+                in-map="context + [screenLocation:sri.getActiveScreenDef().location, bodyParameters:ec.web.requestParameters]"/>
+        <actions>
+            <if condition="!ec.message.hasError()">
+                <message type="success">Your report is being generated and will be sent to ${toAddresses} when ready.</message></if>
+        </actions>
+        <default-response url="." parameter-map="ec.web.requestParameters"/>
+    </transition>
+
+    <widgets>
+        <section name="EmailScreenSection"><widgets>
+            <container-dialog id="EmailScreenDialog" button-text="Email Export">
+                <form-single name="EmailScreenForm" transition="emailScreenAsync" pass-through-parameters="true">
+                    <field name="screenRenderMode"><default-field title="Output"><radio no-current-selected-key="xlsx">
+                        <option key="xlsx" text="XLS"/><option key="csv" text="CSV"/></radio></default-field></field>
+                    <field name="title" from="'Report: ' + sri.getActiveScreenDef().getDefaultMenuName()">
+                        <default-field><text-line size="60"/></default-field></field>
+                    <field name="toAddresses" from="ec.user.userAccount?.emailAddress">
+                        <default-field><text-line size="80"/></default-field></field>
+                    <field name="submitButton"><default-field title="Send Email"><submit/></default-field></field>
+                </form-single>
+            </container-dialog>
+        </widgets></section>
+    </widgets>
+</screen>

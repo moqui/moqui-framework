@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd">
+
+    <transition name="clearCache">
+        <actions><script>ec.cache.getCache(cacheName).clear()</script></actions>
+        <default-response url="."/>
+    </transition>
+    <transition name="clearArtifactCaches">
+        <actions><script>
+            ['entity.definition', 'entity.location', 'entity.data.feed.info', 'service.location',
+            'kie.component.releaseId', 'kie.session.component', 'screen.location', 'screen.location.perm', 'screen.url',
+            'screen.template.mode', 'screen.template.location', 'screen.find.path',
+            'resource.xml-actions.location', 'resource.groovy.location',
+            'resource.ftl.location', 'resource.gstring.location',
+            'resource.wiki.location', 'resource.markdown.location', 'resource.text.location', 'resource.text.location',
+            'resource.reference.location', 'l10n.message'].each {
+                cacheName -> if (ec.cache.cacheExists(cacheName)) ec.cache.getCache(cacheName).clear()
+            }
+
+            ec.ecfi.warmCache()
+        </script></actions>
+        <default-response url="."/>
+    </transition>
+    <transition name="clearAllCaches">
+        <actions><script>ec.cache.clearAllCaches()</script></actions>
+        <default-response url="."/>
+    </transition>
+    <transition name="cacheElements">
+        <default-response url="../CacheElements"/>
+    </transition>
+    <transition name="runGc">
+        <actions><script>System.gc()</script></actions>
+        <default-response url="."/>
+    </transition>
+
+    <actions>
+        <set field="cacheList" from="ec.cache.getAllCachesInfo(orderByField?:'+name', filterRegexp)"/>
+        <set field="pageSize" from="pageSize ?: '40'"/>
+        <script>paginateList("cacheList", null, context)</script>
+
+        <set field="memoryMXBean" from="java.lang.management.ManagementFactory.getMemoryMXBean()"/>
+        <set field="heapMemoryUsage" from="memoryMXBean.getHeapMemoryUsage()"/>
+        <set field="nonHeapMemoryUsage" from="memoryMXBean.getNonHeapMemoryUsage()"/>
+    </actions>
+    <widgets>
+        <container-row><row-col lg="6" md="6">
+            <label text="Heap Used: ${ec.l10n.format(heapMemoryUsage.getUsed()/(1024*1024), '#,##0.00')} MiB, Committed: ${ec.l10n.format(heapMemoryUsage.getCommitted()/(1024*1024), '#,##0.00')} MiB, Max: ${ec.l10n.format(heapMemoryUsage.getMax()/(1024*1024), '#,##0.00')} MiB"/>
+        </row-col><row-col lg="6" md="6">
+            <label text="Non-Heap Used: ${ec.l10n.format(nonHeapMemoryUsage.getUsed()/(1024*1024), '#,##0.00')} MiB, Committed: ${ec.l10n.format(nonHeapMemoryUsage.getCommitted()/(1024*1024), '#,##0.00')} MiB"/>
+        </row-col></container-row>
+        <container-row><row-col lg="6" md="6">
+            <link text="Clear All" url="clearAllCaches"/>
+            <link text="Clear All Artifact" url="clearArtifactCaches"/>
+            <link text="Run GC" url="runGc" btn-type="warning" confirmation="Run Java garbage collection? This may take some time and pause other running threads."/>
+        </row-col><row-col lg="6" md="6">
+            <form-single name="FilterForm" transition=".">
+                <field name="filterRegexp"><default-field><text-line size="30"/></default-field></field>
+                <field name="submitButton"><default-field title="Filter"><submit/></default-field></field>
+                <field-layout><field-row-big><field-ref name="filterRegexp"/><field-ref name="submitButton"/></field-row-big></field-layout>
+            </form-single>
+        </row-col></container-row>
+
+        <form-list name="CacheList" list="cacheList" skip-form="true">
+            <field name="name">
+                <header-field show-order-by="true"/>
+                <default-field><link text="${name}" url="cacheElements" link-type="anchor">
+                    <parameter name="cacheName" from="name"/></link></default-field>
+            </field>
+            <field name="size">
+                <header-field show-order-by="true"/>
+                <default-field><display/></default-field>
+            </field>
+            <field name="putCount">
+                <header-field title="Puts" show-order-by="true"/>
+                <default-field><display/></default-field>
+            </field>
+            <field name="hitCount">
+                <header-field title="Hits" show-order-by="true"/>
+                <default-field><display/></default-field>
+            </field>
+            <field name="missCountTotal">
+                <header-field title="Misses" show-order-by="true"/>
+                <default-field><display/></default-field>
+            </field>
+            <field name="removeCount">
+                <header-field title="Removes" show-order-by="true"/>
+                <default-field><display/></default-field>
+            </field>
+            <field name="expireCount">
+                <header-field title="Expires" show-order-by="true"/>
+                <default-field><display/></default-field>
+            </field>
+            <field name="evictionCount">
+                <header-field title="Evicts" show-order-by="true"/>
+                <default-field><display/></default-field>
+            </field>
+            <field name="expireTimeIdle"><default-field title="Exp Idle"><display/></default-field></field>
+            <field name="expireTimeLive"><default-field title="Exp Live"><display/></default-field></field>
+            <field name="maxElements"><default-field title="Max (Evct)">
+                <display text="${maxElements} (${evictionStrategy})"/></default-field></field>
+            <field name="clear">
+                <default-field><link text="Clear" url="clearCache" link-type="hidden-form-link">
+                    <parameter name="cacheName" from="name"/></link></default-field>
+            </field>
+        </form-list>
+    </widgets>
+</screen>

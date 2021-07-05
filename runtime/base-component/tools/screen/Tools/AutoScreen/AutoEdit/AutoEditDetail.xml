@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-title="Edit Detail" default-menu-index="3">
+
+    <parameter name="aen" required="true"/><!-- Auto Entity Name -->
+    <parameter name="den" required="true"/><!-- Detail Entity Name -->
+
+    <transition name="list"><default-response url="../../MainEntityList"/></transition>
+    <transition name="find"><default-response url="../../AutoFind"/></transition>
+    <transition name="create"><actions><service-call name="create#${den}" in-map="true"/></actions>
+        <default-response url="." parameter-map="ec.entity.getEntityDefinition(aen).getPrimaryKeys(context)"/></transition>
+    <transition name="update"><actions><service-call name="update#${den}" in-map="true"/></actions>
+        <default-response url="." parameter-map="ec.entity.getEntityDefinition(aen).getPrimaryKeys(context)"/></transition>
+    <transition name="deleteRecord"><actions><service-call name="delete#${den}" in-map="context"/></actions>
+        <default-response url="." parameter-map="ec.entity.getEntityDefinition(aen).getPrimaryKeys(context)"/></transition>
+    <transition name="getFormXml" read-only="true">
+        <actions><script><![CDATA[
+            import org.moqui.util.MNode
+
+            StringBuilder xmlBuilder = new StringBuilder()
+            xmlBuilder.append('<?xml version="1.0" encoding="UTF-8"?>\n')
+
+            MNode screenNode = new MNode("screen", ["xmlns:xsi":"http://www.w3.org/2001/XMLSchema-instance", "xsi:noNamespaceSchemaLocation":"http://moqui.org/xsd/xml-screen-2.1.xsd"])
+            MNode createTransNode = screenNode.append("transition", [name:"create"])
+            createTransNode.append("service-call", [name:"create#${den}".toString()])
+            createTransNode.append("default-response", [url:"."])
+            MNode updateTransNode = screenNode.append("transition", [name:"update"])
+            updateTransNode.append("service-call", [name:"update#${den}".toString()])
+            updateTransNode.append("default-response", [url:"."])
+
+            MNode actionsNode = screenNode.append("actions", null)
+            actionsNode.append("entity-find", ["entity-name":den, list:"entityValueList"]).append("search-form-inputs", null)
+
+            MNode widgetsNode = screenNode.append("widgets", null)
+            widgetsNode.append(sri.getActiveScreenDef().getForm("CreateEntityValue").getAutoCleanedNode())
+            widgetsNode.append(sri.getActiveScreenDef().getForm("ListEntityValue").getAutoCleanedNode())
+            screenNode.addToSb(xmlBuilder, 0)
+
+            ec.web.sendTextResponse(xmlBuilder.toString(), "text/xml", "${ec.entity.getEntityDefinition(aen).entityName}${ec.entity.getEntityDefinition(den).entityName}s.xml")
+        ]]></script></actions>
+        <default-response type="none"/>
+    </transition>
+
+    <actions>
+        <entity-find entity-name="${den}" list="entityValueList" offset="0" limit="50" cache="false">
+            <search-form-inputs/></entity-find>
+    </actions>
+    <widgets>
+        <container>
+            <link url="list" text="Entity List" link-type="hidden-form"/>
+            <link url="find" text="Find ${ec.entity.getEntityDefinition(aen).getPrettyName(null, null)}" link-type="hidden-form"/>
+            <container-dialog id="CreateValueDialog" button-text="New ${ec.entity.getEntityDefinition(den).getPrettyName(null, aen)}">
+                <form-single name="CreateEntityValue" transition="create" dynamic="true">
+                    <auto-fields-entity entity-name="${den}" field-type="edit"/>
+                    <field name="aen"><default-field><hidden/></default-field></field>
+                    <field name="den"><default-field><hidden/></default-field></field>
+                    <field name="submitButton"><default-field title="Create"><submit/></default-field></field>
+                </form-single>
+            </container-dialog>
+        </container>
+        <form-list name="ListEntityValue" list="entityValueList" list-entry="entityValue" header-dialog="true" skip-form="true" dynamic="true">
+            <field name="aen"><header-field><hidden/></header-field><default-field><hidden/></default-field></field>
+            <field name="den"><header-field><hidden/></header-field><default-field><hidden/></default-field></field>
+
+            <field name="find"><header-field title="Find"><submit/></header-field></field>
+            <field name="edit">
+                <conditional-field title="" condition="entityValue != null">
+                    <link url="../AutoEditMaster" text="" icon="fa fa-pencil"
+                            parameter-map="entityValue.getPrimaryKeys() + [aen:den, den:null]"/></conditional-field>
+                <default-field title=""><display text=" "/></default-field>
+            </field>
+            <field name="delete">
+                <conditional-field title="" condition="entityValue != null"><link url="deleteRecord" text="" icon="fa fa-trash"
+                        confirmation="Are you sure?" parameter-map="entityValue.getPrimaryKeys()"/></conditional-field>
+                <default-field title=""><display text=" "/></default-field>
+            </field>
+            <auto-fields-entity entity-name="${den}" field-type="find-display"/>
+            <field name="lastUpdatedStamp"><default-field title="Last Updated"><display format="yyyy-MM-dd HH:mm:ss"/></default-field></field>
+
+            <columns>
+                <column><field-ref name="edit"/><field-ref name="delete"/></column>
+                <column><field-ref name="lastUpdatedStamp"/></column>
+            </columns>
+        </form-list>
+        <link url="getFormXml" text="Get Forms XML" link-type="anchor"/>
+    </widgets>
+</screen>

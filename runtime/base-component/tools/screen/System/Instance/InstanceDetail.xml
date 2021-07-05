@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-title="Instance Detail">
+
+    <parameter name="appInstanceId" required="true"/>
+
+    <transition name="updateAppInstance"><service-call name="update#moqui.server.instance.AppInstance"/>
+        <default-response url="."/></transition>
+
+    <transition name="createAppInstanceEnv"><service-call name="create#moqui.server.instance.AppInstanceEnv"/>
+        <default-response url="."/></transition>
+    <transition name="updateAppInstanceEnv"><service-call name="update#moqui.server.instance.AppInstanceEnv"/>
+        <default-response url="."/></transition>
+    <transition name="deleteAppInstanceEnv"><service-call name="delete#moqui.server.instance.AppInstanceEnv"/>
+        <default-response url="."/></transition>
+
+    <transition name="createAppInstanceLink"><service-call name="create#moqui.server.instance.AppInstanceLink"/>
+        <default-response url="."/></transition>
+    <transition name="updateAppInstanceLink"><service-call name="update#moqui.server.instance.AppInstanceLink"/>
+        <default-response url="."/></transition>
+    <transition name="deleteAppInstanceLink"><service-call name="delete#moqui.server.instance.AppInstanceLink"/>
+        <default-response url="."/></transition>
+
+    <transition name="createAppInstanceVol"><service-call name="create#moqui.server.instance.AppInstanceVolume"/>
+        <default-response url="."/></transition>
+    <transition name="updateAppInstanceVol"><service-call name="update#moqui.server.instance.AppInstanceVolume"/>
+        <default-response url="."/></transition>
+    <transition name="deleteAppInstanceVol"><service-call name="delete#moqui.server.instance.AppInstanceVolume"/>
+        <default-response url="."/></transition>
+
+    <transition name="provisionAppInstance"><service-call name="org.moqui.impl.InstanceServices.provision#AppInstance"/>
+        <default-response url="."/></transition>
+    <transition name="createAppDatabase"><service-call name="org.moqui.impl.InstanceServices.create#AppDatabase"/>
+        <default-response url="."/></transition>
+
+    <transition name="initAppInstance"><service-call name="org.moqui.impl.InstanceServices.init#AppInstance"/>
+        <default-response url="."/></transition>
+    <transition name="startAppInstance"><service-call name="org.moqui.impl.InstanceServices.start#AppInstance"/>
+        <default-response url="."/></transition>
+    <transition name="stopAppInstance"><service-call name="org.moqui.impl.InstanceServices.stop#AppInstance"/>
+        <default-response url="."/></transition>
+    <transition name="removeAppInstance"><service-call name="org.moqui.impl.InstanceServices.remove#AppInstance"/>
+        <default-response url="."/></transition>
+
+    <actions>
+        <entity-find-one entity-name="moqui.server.instance.AppInstance" value-field="appInstance"/>
+        <set field="envList" from="appInstance.envs"/>
+        <set field="linkList" from="appInstance.links"/>
+        <set field="volumeList" from="appInstance.vols"/>
+
+        <service-call name="org.moqui.impl.InstanceServices.check#AppInstance" in-map="[appInstanceId:appInstanceId]" out-map="context"/>
+        <service-call name="org.moqui.impl.InstanceServices.check#AppDatabase" in-map="[appInstanceId:appInstanceId]" out-map="context"/>
+        <service-call name="org.moqui.impl.InstanceServices.check#MoquiServer" in-map="[appInstanceId:appInstanceId]" out-map="context"/>
+
+        <set field="gotMoquiStatus" from="false"/>
+        <if condition="moquiStatusMap">
+            <set field="gotMoquiStatus" from="true"/>
+            <set field="loadPercent" from="(moquiStatusMap?.Utilization?.LoadPercent as BigDecimal).setScale(0, BigDecimal.ROUND_HALF_UP)"/>
+            <set field="heapPercent" from="(moquiStatusMap?.Utilization?.HeapPercent as BigDecimal).setScale(0, BigDecimal.ROUND_HALF_UP)"/>
+            <set field="diskPercent" from="(moquiStatusMap?.Utilization?.DiskPercent as BigDecimal).setScale(0, BigDecimal.ROUND_HALF_UP)"/>
+        </if>
+    </actions>
+    <widgets><container-row><row-col md="7">
+        <container-box><box-header title="App Instance ${appInstance.appInstanceId}"/><box-toolbar>
+            <link url="provisionAppInstance" text="Provision App" parameter-map="[appInstanceId:appInstanceId]"
+                  condition="!instanceExists &amp;&amp; !databaseExists"/>
+
+            <link url="createAppDatabase" text="Create DB" parameter-map="[appInstanceId:appInstanceId]"
+                  condition="!userExists &amp;&amp; !databaseExists"/>
+
+            <link url="initAppInstance" text="Init Instance" parameter-map="[appInstanceId:appInstanceId]" condition="!instanceExists"/>
+            <link url="startAppInstance" text="Start Instance" parameter-map="[appInstanceId:appInstanceId]" condition="instanceExists &amp;&amp; !instanceRunning"/>
+            <link url="stopAppInstance" text="Stop Instance" parameter-map="[appInstanceId:appInstanceId]" condition="instanceRunning"/>
+            <link url="removeAppInstance" text="Remove Instance" parameter-map="[appInstanceId:appInstanceId]" condition="instanceExists"
+                  confirmation="Remove instance for ${appInstanceId}?"/>
+        </box-toolbar><box-body>
+            <container>
+                <label text="" style="fa fa-database ${databaseExists ? 'text-success' : 'text-danger'}" type="i" condition="true" tooltip="Database Exists"/>
+                <label text="Database ${databaseExists ? 'Exists' : 'Does Not Exist'}" style="${databaseExists ? 'text-success' : 'text-danger'}" type="strong"/>
+                <label text="" style="fa fa-user ${dbUserExists ? 'text-success' : 'text-danger'}" type="i" condition="true" tooltip="DB User Exists"/>
+                <label text="DB User ${dbUserExists ? 'Exists' : 'Does Not Exist'}" style="${dbUserExists ? 'text-success' : 'text-danger'}" type="strong"/>
+                <label text="" style="fa fa-server ${instanceExists ? 'text-success' : 'text-danger'}" type="i" condition="true" tooltip="Instance Exists"/>
+                <label text="Instance ${instanceExists ? 'Exists' : 'Does Not Exist'}" style="${instanceExists ? 'text-success' : 'text-danger'}" type="strong"/>
+                <label text="" style="fa fa-cog ${instanceRunning ? 'text-success' : 'text-danger'}" type="i" condition="true" tooltip="Instance Running"/>
+                <label text="Instance ${instanceRunning ? '' : 'Not'} Running" style="${instanceRunning ? 'text-success' : 'text-danger'}" type="strong"/>
+            </container>
+            <container>
+                <label text="" style="fa fa-heartbeat ${gotMoquiStatus ? 'text-success' : 'text-danger'}" type="i" condition="true" tooltip="Moqui Server Running"/>
+                <label text="Moqui Server ${gotMoquiStatus ? '' : 'Not'} Running" style="${gotMoquiStatus ? 'text-success' : 'text-danger'}" type="strong"/>
+                <label text="Load: ${ec.l10n.format(loadPercent, '00')}%" style="${loadPercent &lt; 70 ? 'text-success' : (loadPercent &lt; 90 ? 'text-warn' : 'text-danger' )}" type="strong" condition="loadPercent"/>
+                <label text="Heap: ${ec.l10n.format(heapPercent, '00')}%" style="${heapPercent &lt; 70 ? 'text-success' : (heapPercent &lt; 90 ? 'text-warn' : 'text-danger' )}" type="strong" condition="heapPercent"/>
+                <label text="Disk: ${ec.l10n.format(diskPercent, '00')}%" style="${diskPercent &lt; 70 ? 'text-success' : (diskPercent &lt; 90 ? 'text-warn' : 'text-danger' )}" type="strong" condition="diskPercent"/>
+            </container>
+
+            <container-dialog id="InstanceDetail" button-text="Instance Detail" width="900">
+                <label text="${groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(inspectMap))}" type="pre" style="pre-plain"/>
+            </container-dialog>
+            <container-dialog id="MoquiServerDetail" button-text="Moqui Server Detail">
+                <label text="${groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(moquiStatusMap))}" type="pre" style="pre-plain"/>
+            </container-dialog>
+            <container-dialog id="InstanceLog" button-text="Instance Log" width="900">
+                <label text="${instanceLog}" type="pre" style="pre-plain"/>
+            </container-dialog>
+            <link url="http://${appInstance.hostName}" url-type="plain" text="http://${appInstance.hostName}" link-type="anchor-button" target-window="_blank"/>
+
+            <form-single name="UpdateInstance" transition="updateAppInstance" map="appInstance">
+                <field name="appInstanceId"><default-field><hidden/></default-field></field>
+                <field name="instanceName"><default-field><text-line size="50"/></default-field></field>
+                <field name="instanceUuid"><default-field title="Instance UUID"><display/></default-field></field>
+                <field name="hostName"><default-field tooltip="Hostname for access to the instance, generally a virtual host name">
+                    <text-line size="50"/></default-field></field>
+                <field name="instanceImageId"><default-field title="Image">
+                    <drop-down>
+                        <entity-options key="${instanceImageId}" text="${imageName} - ${hostTypeDescription} - ${imageTypeDescription}">
+                            <entity-find entity-name="moqui.server.instance.InstanceImageDetail">
+                                <order-by field-name="imageName"/></entity-find>
+                        </entity-options>
+                    </drop-down>
+                </default-field></field>
+                <field name="instanceHostId"><default-field title="Instance Host">
+                    <drop-down allow-empty="true">
+                        <entity-options key="${instanceHostId}" text="${typeDescription} ${hostAddress}">
+                            <entity-find entity-name="moqui.server.instance.InstanceHostDetail">
+                                <order-by field-name="typeDescription"/></entity-find>
+                        </entity-options>
+                    </drop-down>
+                </default-field></field>
+                <field name="databaseHostId"><default-field title="Database Host">
+                    <drop-down allow-empty="true">
+                        <entity-options key="${databaseHostId}" text="${typeDescription} ${hostAddress}">
+                            <entity-find entity-name="moqui.server.instance.DatabaseHostDetail">
+                                <order-by field-name="typeDescription"/></entity-find>
+                        </entity-options>
+                    </drop-down>
+                </default-field></field>
+                <field name="initCommand"><default-field title="Init Command (Parameter)"><text-line size="50"/></default-field></field>
+                <field name="networkMode"><default-field><text-line size="30"/></default-field></field>
+                <field name="jsonConfig"><default-field title="JSON Config"><text-area cols="50" rows="5"/></default-field></field>
+
+                <field name="submitButton"><default-field title="Update"><submit/></default-field></field>
+            </form-single>
+        </box-body></container-box>
+    </row-col><row-col md="5">
+        <container-box><box-header title="Environment Variables"/><box-toolbar>
+            <container-dialog id="AddEnvDialog" button-text="Add Env Var">
+                <form-single name="AddEnv" transition="createAppInstanceEnv">
+                    <field name="appInstanceId"><default-field><hidden/></default-field></field>
+                    <field name="envName"><default-field title="Name"><text-line size="30"/></default-field></field>
+                    <field name="envValue"><default-field title="Value"><text-line size="30"/></default-field></field>
+                    <field name="submitButton"><default-field title="Add Env"><submit/></default-field></field>
+                </form-single>
+            </container-dialog>
+        </box-toolbar><box-body>
+            <label text="After updating environment variables the instance must be removed and re-initialized for them to take effect"/>
+        </box-body><box-body-nopad>
+            <form-list name="EnvList" list="envList" transition="updateAppInstanceEnv">
+                <field name="appInstanceId"><default-field><hidden/></default-field></field>
+                <field name="envName"><default-field title="Name"><display/></default-field></field>
+                <field name="envValue"><default-field title="Value"><text-line size="30"/></default-field></field>
+                <field name="submitButton"><default-field title="Update"><submit/></default-field></field>
+                <field name="deleteLink"><default-field title="">
+                    <link url="deleteAppInstanceEnv" text="X" parameter-map="[appInstanceId:appInstanceId, envName:envName]"
+                          confirmation="Really delete env ${envName}?"/>
+                </default-field></field>
+            </form-list>
+        </box-body-nopad></container-box>
+        <container-box><box-header title="Volumes"/><box-toolbar>
+            <container-dialog id="AddVolDialog" button-text="Add Volume">
+                <form-single name="AddVol" transition="createAppInstanceVol">
+                    <field name="appInstanceId"><default-field><hidden/></default-field></field>
+                    <field name="mountPoint"><default-field title="Mountpoint"><text-line size="30"/></default-field></field>
+                    <field name="volumeName"><default-field title="Name"><text-line size="30"/></default-field></field>
+                    <field name="submitButton"><default-field title="Add Volume"><submit/></default-field></field>
+                </form-single>
+            </container-dialog>
+        </box-toolbar><box-body>
+            <label text="After updating volumes the instance must be removed and re-initialized for them to take effect, note that these operations may result in loss of data"/>
+        </box-body><box-body-nopad>
+            <form-list name="VolList" list="volumeList" transition="updateAppInstanceVol">
+                <field name="appInstanceId"><default-field><hidden/></default-field></field>
+                <field name="mountPoint"><default-field title="Mountpoint"><display/></default-field></field>
+                <field name="volumeName"><default-field title="Volume Name"><text-line size="30"/></default-field></field>
+                <field name="submitButton"><default-field title="Update"><submit/></default-field></field>
+                <field name="deleteLink"><default-field title="">
+                    <link url="deleteAppInstanceVol" text="X" parameter-map="[appInstanceId:appInstanceId, mountPoint:mountPoint]"
+                            confirmation="Really delete volume ${volumeName}?"/>
+                </default-field></field>
+            </form-list>
+        </box-body-nopad></container-box>
+        <container-box><box-header title="Instance (Container) Links"/><box-toolbar>
+            <container-dialog id="AddLinkDialog" button-text="Add Link">
+                <form-single name="AddLink" transition="createAppInstanceLink">
+                    <field name="appInstanceId"><default-field><hidden/></default-field></field>
+                    <field name="instanceName"><default-field><text-line size="25"/></default-field></field>
+                    <field name="aliasName"><default-field><text-line size="25"/></default-field></field>
+                    <field name="submitButton"><default-field title="Add Link"><submit/></default-field></field>
+                </form-single>
+            </container-dialog>
+        </box-toolbar><box-body>
+            <label text="After updating links the instance must be removed and re-initialized for them to take effect"/>
+        </box-body><box-body-nopad>
+            <form-list name="LinkList" list="linkList" transition="updateAppInstanceLink">
+                <field name="appInstanceId"><default-field><hidden/></default-field></field>
+                <field name="instanceName"><default-field><display/></default-field></field>
+                <field name="aliasName"><default-field><text-line size="25"/></default-field></field>
+                <field name="submitButton"><default-field title="Update"><submit/></default-field></field>
+                <field name="deleteLink"><default-field title="">
+                    <link url="deleteAppInstanceLink" text="X" parameter-map="[appInstanceId:appInstanceId, instanceName:instanceName]"
+                          confirmation="Really delete link for ${instanceName}?"/>
+                </default-field></field>
+            </form-list>
+        </box-body-nopad></container-box>
+
+    </row-col></container-row></widgets>
+</screen>

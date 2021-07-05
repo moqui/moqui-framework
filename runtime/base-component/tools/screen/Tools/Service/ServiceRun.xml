@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-title="Service Run" default-menu-index="2">
+
+    <parameter name="serviceName"/>
+
+    <transition name="run" begin-transaction="false">
+        <actions>
+            <script>
+                org.moqui.context.ExecutionContext ec = context.ec
+                if (cronString) {
+                    ec.service.schedule().name(serviceName).parameters(context).cron(cronString).call()
+                } else {
+                    serviceResults = ec.service.sync().name(serviceName).parameters(context).call()
+                }
+                if (serviceResults) {
+                    StringBuilder sb = new StringBuilder("Service Run Results:\n")
+                    for (def resultEntry in serviceResults) sb.append("==> ${resultEntry.key}: ${resultEntry.value?.toString()}\n")
+                    ec.logger.info(sb.toString())
+
+                    // save the results to display on the screen in the next request (after the transition redirect)
+                    ec.webImpl?.saveParametersToSession(serviceResults)
+                }
+            </script>
+        </actions>
+        <default-response url="." save-parameters="true"><parameter name="doingRun" value="Y"/></default-response>
+    </transition>
+
+    <actions>
+    </actions>
+    <widgets>
+        <form-single name="SelectServiceInput" transition=".">
+            <field name="serviceName"><default-field title="Service Name (path.verb#noun)">
+                <text-line size="80"/></default-field></field>
+            <field name="submitButton"><default-field title="Select Service"><submit/></default-field></field>
+            <field-layout><field-row-big><field-ref name="serviceName"/><field-ref name="submitButton"/></field-row-big></field-layout>
+        </form-single>
+        <section name="ServiceResultsSection" condition="serviceName &amp;&amp; doingRun == 'Y'">
+            <widgets>
+                <label text="Results for Service: ${serviceName}" type="h3"/>
+                <form-single name="ServiceResults" dynamic="true">
+                    <auto-fields-service service-name="${serviceName}" field-type="display" include="out"/>
+                    <field name="serviceName"><default-field><hidden/></default-field></field>
+                </form-single>
+            </widgets>
+        </section>
+        <section name="ServiceParametersSection" condition="serviceName"><widgets>
+            <label text="Run Service: ${serviceName}" type="h3"/>
+            <form-single name="ServiceParameters" transition="run" dynamic="true">
+                <field name="serviceName"><default-field><hidden/></default-field></field>
+                <auto-fields-service service-name="${serviceName}" include="in" field-type="edit"/>
+                <field name="submitButton"><default-field title="Run Service"><submit/></default-field></field>
+
+                <field name="cronString"><default-field tooltip="Enter a cron string to schedule instead of running immediately">
+                    <text-line size="20"/></default-field></field>
+            </form-single>
+        </widgets></section>
+    </widgets>
+</screen>

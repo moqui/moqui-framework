@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-title="Snapshots">
+
+    <transition name="exportSnapshot" begin-transaction="false">
+        <actions>
+            <script><![CDATA[
+                if (!entitiesToSkip) entitiesToSkip = null
+                if (entitiesToSkip != null && !(entitiesToSkip instanceof List)) entitiesToSkip = [entitiesToSkip]
+
+                jobRunId = ec.service.job("ExportEntityDataSnapshot")
+                    .parameters([fromDate:fromDate, thruDate:thruDate, baseFilename:baseFilename, filePerEntity:filePerEntity,
+                                 entitiesToSkip:entitiesToSkip]).run()
+            ]]></script>
+            <message>Started Export Entity Data Snapshot ${baseFilename} (Job ID ${jobRunId})</message>
+        </actions>
+        <default-response url="."/>
+    </transition>
+    <transition name="downloadSnapshot" begin-transaction="false" read-only="true">
+        <actions><script>ec.web.sendResourceResponse("db/snapshot/" + filename)</script></actions>
+        <default-response type="none"/>
+    </transition>
+    <transition name="deleteSnapshot" begin-transaction="false">
+        <actions><script>ec.resource.getLocationReference("db/snapshot/" + filename).delete()</script></actions>
+        <default-response url="."/>
+    </transition>
+    <transition name="importSnapshot" begin-transaction="false">
+        <actions>
+            <script>jobRunId = ec.service.job("ImportEntityDataSnapshot").parameters(context).run()</script>
+            <message>Started Import Entity Data Snapshot ${filename} (Job ID ${jobRunId})</message>
+        </actions>
+        <default-response url="."/>
+    </transition>
+    <transition name="uploadSnapshot" begin-transaction="false">
+        <actions><script><![CDATA[
+            String filename = snapshotFile.getName()
+            if (!filename.endsWith(".zip")) { ec.message.addError("File ${filename} is not a zip file, should be a zip containing one or more xml data files"); return; }
+            File targetFile = new File((String) ec.factory.getRuntimePath() + '/db/snapshot/' + filename)
+            if (!targetFile.parentFile.exists()) targetFile.parentFile.mkdirs()
+            if (targetFile.exists()) { ec.message.addError("File ${filename} already exists"); return }
+            InputStream fileStream = snapshotFile.getInputStream()
+            try { targetFile.append(fileStream) } finally { fileStream.close() }
+        ]]></script></actions>
+        <default-response url="."/>
+    </transition>
+    <transition name="dropForeignKeys" begin-transaction="false">
+        <actions>
+            <script>ec.entity.entityDbMeta.forceCheckExistingTables()</script>
+            <set field="dropped" from="ec.entity.getEntityDbMeta().dropAllForeignKeys()"/>
+            <message>Dropped ${dropped} foreign keys</message>
+        </actions>
+        <default-response url="."/>
+    </transition>
+    <transition name="createForeignKeys" begin-transaction="false">
+        <actions>
+            <set field="created" from="ec.entity.getEntityDbMeta().createForeignKeysForExistingTables()"/>
+            <message>Created ${created} foreign keys</message>
+        </actions>
+        <default-response url="."/>
+    </transition>
+
+    <actions>
+        <script><![CDATA[
+            File snapshotDir = new File((String) ec.factory.getRuntimePath() + '/db/snapshot')
+            snapshotFiles = snapshotDir.exists() ? snapshotDir.listFiles() : null
+            snapshotList = []
+            if (snapshotFiles) for (File sfile in snapshotFiles)
+                if (!sfile.isDirectory() && sfile.getName().endsWith(".zip") && sfile.length() > 0) snapshotList.add(sfile)
+        ]]></script>
+    </actions>
+    <widgets>
+        <container-dialog id="ExportDialog" button-text="Export Snapshot">
+            <form-single name="ExportData" transition="exportSnapshot">
+                <!-- NOTE: add entities to exclude?, maybe ArtifactHit by default? -->
+                <field name="entitiesToSkip">
+                    <default-field><drop-down allow-multiple="true" size="80">
+                        <list-options list="ec.entity.getAllEntitiesInfo('fullEntityName', null, false, true)" key="${fullEntityName}"/>
+                    </drop-down></default-field>
+                </field>
+                <field name="fromDate"><default-field><date-time/></default-field></field>
+                <field name="thruDate"><default-field><date-time/></default-field></field>
+                <field name="baseFilename"><default-field><text-line size="40" default-value="MoquiSnapshot${ec.l10n.format(ec.user.nowTimestamp, 'yyyyMMdd-HHmm')}"/></default-field></field>
+                <field name="filePerEntity"><default-field>
+                    <radio no-current-selected-key="false"><option key="true"/><option key="false"/></radio>
+                </default-field></field>
+                <field name="submitButton"><default-field title="Export Snapshot"><submit/></default-field></field>
+            </form-single>
+        </container-dialog>
+        <container-dialog id="UploadDialog" button-text="Upload Snapshot">
+            <form-single name="UploadSnapshot" transition="uploadSnapshot">
+                <field name="snapshotFile"><default-field><file size="50"/></default-field></field>
+                <field name="submitButton"><default-field title="Upload Snapshot"><submit/></default-field></field>
+            </form-single>
+        </container-dialog>
+        <link url="dropForeignKeys" text="Drop FKs" confirmation="Really drop all known foreign keys?"/>
+        <link url="createForeignKeys" text="Create FKs" confirmation="Really create all missing foreign keys?"/>
+
+        <label text="Current Snapshot Files" type="h4"/>
+        <section-iterate name="SnapshotListSection" list="snapshotList" entry="sfile"><widgets>
+            <container-row>
+                <row-col sm="4"><label text="${sfile.name}"/></row-col>
+                <row-col sm="2"><label text="${ec.l10n.format(new java.sql.Timestamp(sfile.lastModified()), null)}"/></row-col>
+                <row-col sm="2"><label text="${ec.l10n.format((sfile.length())/(1024*1024), '#,##0.00')} MiB"/></row-col>
+                <row-col sm="1"><link url="downloadSnapshot" text="Download" parameter-map="[filename:sfile.name]"/></row-col>
+                <row-col sm="1"><link url="deleteSnapshot" text="Delete" parameter-map="[filename:sfile.name]"/></row-col>
+                <row-col sm="1"><container-dialog id="ImportDialog" button-text="Import">
+                    <form-single name="ImportForm" transition="importSnapshot">
+                        <field name="zipFilename" from="sfile.name"><default-field><display/></default-field></field>
+                        <field name="dummyFks"><default-field><radio no-current-selected-key="false">
+                            <option key="true"/><option key="false"/></radio></default-field></field>
+                        <field name="useTryInsert"><default-field><radio no-current-selected-key="false">
+                            <option key="true"/><option key="false"/></radio></default-field></field>
+                        <field name="disableEntityEca"><default-field><radio no-current-selected-key="true">
+                            <option key="true"/><option key="false"/></radio></default-field></field>
+                        <field name="disableAuditLog"><default-field><radio no-current-selected-key="true">
+                            <option key="true"/><option key="false"/></radio></default-field></field>
+                        <field name="disableFkCreate"><default-field><radio no-current-selected-key="true">
+                            <option key="true"/><option key="false"/></radio></default-field></field>
+                        <field name="disableDataFeed"><default-field><radio no-current-selected-key="true">
+                            <option key="true"/><option key="false"/></radio></default-field></field>
+                        <field name="transactionTimeout"><default-field><text-line size="6" default-value="3600"/></default-field></field>
+                        <field name="submitButton"><default-field title="Import Snapshot"><submit/></default-field></field>
+                    </form-single>
+                </container-dialog></row-col>
+            </container-row>
+        </widgets></section-iterate>
+    </widgets>
+</screen>

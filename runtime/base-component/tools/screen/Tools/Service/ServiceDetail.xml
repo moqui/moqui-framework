@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-include="false">
+
+    <parameter name="serviceName" required="true"/>
+
+    <transition name="serviceReference">
+        <default-response url="../ServiceReference"/>
+    </transition>
+    <transition name="serviceRun">
+        <default-response url="../ServiceRun"/>
+    </transition>
+
+    <actions>
+        <set field="sd" from="ec.service.getServiceDefinition(serviceName)"/>
+        <set field="serviceNode" from="sd.serviceNode"/>
+        <set field="inParameterNodes" from="serviceNode.first('in-parameters')?.children('parameter')"/>
+        <set field="outParameterNodes" from="serviceNode.first('out-parameters')?.children('parameter')"/>
+        <set field="secas" from="ec.service.secaRulesByServiceName.get(sd.serviceNameNoHash)"/>
+    </actions>
+    <widgets>
+        <container-box><box-header><label type="h5" text="${sd.serviceName}"/></box-header><box-toolbar>
+            <link url="serviceReference" text="Service List"/>
+            <link url="serviceRun" text="Run Service"/>
+        </box-toolbar><box-body>
+            <label type="strong" text="${serviceNode.first('description')?.text ?: ''}" display-if-empty="false"/>
+            <!-- <label type="p" text="${serviceNode.attributes}"/> -->
+            <label type="p" text="Authenticate: ${sd.authenticate}"/>
+            <label type="p" text="Service Type: ${sd.serviceType}${sd.location ? ', Location: ' + sd.location : ''}${sd.method ? ', Method: ' + sd.method : ''}"/>
+            <label type="p" text="Tx Ignore: ${sd.txIgnore}, Force New: ${sd.txForceNew}, Use Tx Cache: ${sd.txUseCache}, Timeout: ${sd.txTimeout}"/>
+        </box-body></container-box>
+
+        <container-box><box-header><label type="h5" text="In Parameters"/></box-header><box-body-nopad>
+            <form-list name="InParameters" list="inParameterNodes" list-entry="parameterNode" skip-form="true">
+                <row-actions><script>ec.context.putAll(parameterNode.attributes)</script></row-actions>
+                <field name="name" from="context.name"><default-field><display/></default-field></field>
+                <field name="type"><default-field><display text="${type?:'String'}"/></default-field></field>
+                <field name="required"><default-field><display text="${required?:'false'}"/></default-field></field>
+                <field name="default"><default-field><display text="${parameterNode.attribute('default') ?: ''} - ${parameterNode.attribute('default-value') ?: ''}"/></default-field></field>
+                <field name="format"><default-field><display/></default-field></field>
+                <field name="description"><default-field><display text="${parameterNode.first('description')?.text ?: ''}"/></default-field></field>
+                <field name="entityField"><default-field><display text="${parameterNode.attribute('entity-name') ?: ''}${parameterNode.attribute('field-name') ? '.' + parameterNode.attribute('field-name') : ''}"/></default-field></field>
+            </form-list>
+        </box-body-nopad></container-box>
+
+        <container-box><box-header><label type="h5" text="Out Parameters"/></box-header><box-body-nopad>
+            <form-list name="OutParameters" list="outParameterNodes" list-entry="parameterNode" skip-form="true">
+                <row-actions><script>ec.context.putAll(parameterNode.attributes)</script></row-actions>
+                <field name="name" from="context.name"><default-field><display/></default-field></field>
+                <field name="type"><default-field><display text="${type?:'String'}"/></default-field></field>
+                <field name="required"><default-field><display/></default-field></field>
+                <field name="default"><default-field><display text="${parameterNode.attribute('default') ?: ''} - ${parameterNode.attribute('default-value') ?: ''}"/></default-field></field>
+                <field name="format"><default-field><display/></default-field></field>
+                <field name="description"><default-field><display text="${parameterNode.first('description')?.text ?: ''}"/></default-field></field>
+                <field name="entityField"><default-field><display text="${parameterNode.attribute('entity-name') ?: ''}${parameterNode.attribute('field-name') ? '.' + parameterNode.attribute('field-name') : ''}"/></default-field></field>
+            </form-list>
+        </box-body-nopad></container-box>
+
+        <section name="XmlActionDisplaySection" condition="sd.xmlAction"><widgets>
+            <label text="XML Actions" type="h3"/>
+            <container type="pre" style="line-numbers"><label text="${serviceNode.first('actions')?.toString()}"
+                    type="code" style="language-markup" encode="true"/></container>
+
+            <label text="Generated Groovy" type="h3"/>
+            <container type="pre" style="line-numbers">
+                <label text="${sd.xmlAction.groovyString}" type="code" style="language-groovy" encode="true"/></container>
+        </widgets></section>
+        <section name="LocationDisplaySection" condition="sd.serviceNode.attribute('location') &amp;&amp; sd.serviceNode.attribute('type')!='java'"><widgets>
+            <label text="Script" type="h3"/>
+            <container type="pre" style="line-numbers">
+                <label text="${ec.resource.getLocationText(sd.serviceNode.attribute('location'), false)}" type="code"
+                       style="language-groovy" encode="true"/></container>
+        </widgets></section>
+        <label text="SECA Rules" type="h3" condition="secas"/>
+        <section-iterate name="Secas" list="secas" entry="seca"><widgets>
+            <container type="pre" style="line-numbers">
+                <label text="${seca.toString()}" type="code" style="language-markup" encode="true"/></container>
+        </widgets></section-iterate>
+        <render-mode><text type="html,vuet,qvt"><![CDATA[
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.20.0/themes/prism-twilight.min.css" type="text/css"/>
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.20.0/prism.min.js" type="text/javascript"></script>
+        ]]></text></render-mode>
+    </widgets>
+</screen>

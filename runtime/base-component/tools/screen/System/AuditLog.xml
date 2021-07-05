@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-title="Audit Log" default-menu-index="4">
+
+    <widgets>
+        <form-list name="EntityAuditLogList" list="entityAuditLogList" header-dialog="true">
+            <entity-find entity-name="moqui.entity.EntityAuditLog" list="entityAuditLogList" limit="50" use-clone="true">
+                <search-form-inputs default-order-by="-changedDate" require-parameters="true"/>
+            </entity-find>
+
+            <field name="changedDate">
+                <header-field title="Date" show-order-by="true"><date-period time="true"/></header-field>
+                <default-field><display also-hidden="false"/></default-field>
+            </field>
+            <field name="changedEntityName">
+                <header-field title="Entity" show-order-by="true"><text-find size="80" default-operator="equals"/></header-field>
+                <default-field><display also-hidden="false"/></default-field>
+            </field>
+            <field name="changedFieldName">
+                <header-field title="Field" show-order-by="true"><text-find size="30" default-operator="equals"/></header-field>
+                <default-field><display also-hidden="false"/></default-field>
+            </field>
+            <field name="pkPrimaryValue">
+                <header-field title="PK 1" show-order-by="true"><text-find size="30" default-operator="equals"/></header-field>
+                <default-field><display also-hidden="false"/></default-field>
+            </field>
+            <field name="pkSecondaryValue">
+                <header-field title="PK 2"><text-find size="30" default-operator="equals"/></header-field>
+                <default-field><display also-hidden="false"/></default-field>
+            </field>
+            <!--
+            <field name="pkRestCombinedValue">
+                <header-field title="PK Rest"><text-find hide-options="true" size="8"/></header-field>
+                <default-field><display also-hidden="false"/></default-field>
+            </field>
+            -->
+            <field name="oldValueText">
+                <header-field title="Old" show-order-by="true"><text-find size="60" default-operator="begins"/></header-field>
+                <default-field><display also-hidden="false"/></default-field>
+            </field>
+            <field name="newValueText">
+                <header-field title="New" show-order-by="true"><text-find size="60" default-operator="begins"/></header-field>
+                <default-field><display also-hidden="false"/></default-field>
+            </field>
+            <field name="changedByUserId">
+                <header-field title="User" show-order-by="true"><text-find size="20" default-operator="begins"/></header-field>
+                <default-field><display also-hidden="false"/></default-field>
+            </field>
+            <field name="changedInVisitId">
+                <header-field title="Visit" show-order-by="true"><text-find size="20" default-operator="begins"/></header-field>
+                <default-field><display also-hidden="false"/></default-field>
+            </field>
+            <field name="find"><header-field title="Find"><submit/></header-field>
+                <default-field><display text=" "/></default-field></field>
+        </form-list>
+    </widgets>
+</screen>

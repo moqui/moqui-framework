@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd">
+
+    <parameter name="systemMessageId" required="true"/>
+
+    <transition name="remoteDetail"><default-response url="../../Remote/MessageRemoteDetail"/></transition>
+    <transition name="typeDetail"><default-response url="../../Type/MessageTypeDetail"/></transition>
+
+    <transition name="sendMessage"><service-call name="org.moqui.impl.SystemMessageServices.send#ProducedSystemMessage"/>
+        <default-response url="."/></transition>
+    <transition name="consumeMessage">
+        <service-call name="org.moqui.impl.SystemMessageServices.consume#ReceivedSystemMessage" async="true"/>
+        <actions><message>Consume started in background</message></actions>
+        <default-response url="."/>
+    </transition>
+    <transition name="queueAckMessage"><service-call name="org.moqui.impl.SystemMessageServices.queue#AckSystemMessage"/>
+        <default-response url="."/></transition>
+
+    <transition name="updateMessage"><service-call name="update#moqui.service.message.SystemMessage"/>
+        <default-response url="."/></transition>
+
+    <transition name="resetError"><service-call name="org.moqui.impl.SystemMessageServices.reset#SystemMessageInError"/>
+        <default-response url="."/></transition>
+    <transition name="cancelMessage"><service-call name="org.moqui.impl.SystemMessageServices.cancel#SystemMessage"/>
+        <default-response url="."/></transition>
+
+    <transition name="downloadMessageText" read-only="true">
+        <actions>
+            <entity-find-one entity-name="moqui.service.message.SystemMessage" value-field="systemMessage"/>
+            <script>ec.web.sendTextResponse(systemMessage.messageText, "text/plain", "SystemMessage${systemMessageId}.txt")</script>
+        </actions>
+        <default-response type="none"/>
+    </transition>
+
+    <actions>
+        <entity-find-one entity-name="moqui.service.message.SystemMessage" value-field="systemMessage"/>
+        <entity-find entity-name="moqui.service.message.SystemMessageError" list="errorList">
+            <econdition field-name="systemMessageId"/><order-by field-name="-errorDate"/></entity-find>
+        <entity-find entity-name="moqui.service.message.SystemMessage" list="ackOfMessageList">
+            <econdition field-name="ackMessageId" from="systemMessageId"/></entity-find>
+        <entity-find entity-name="moqui.service.message.SystemMessage" list="childMessageList">
+            <econdition field-name="parentMessageId" from="systemMessageId"/></entity-find>
+    </actions>
+    <widgets>
+        <dynamic-dialog id="EmtDialog" button-text="Edit Message Text" transition="EditMessageText" width="900"/>
+        <link url="downloadMessageText" text="Download Message Text"/>
+
+        <link url="sendMessage" text="Send Message" parameter-map="[systemMessageId:systemMessageId]"
+                condition="systemMessage.isOutgoing == 'Y' &amp;&amp; (systemMessage.statusId == 'SmsgProduced' || systemMessage.statusId == 'SmsgError')"/>
+        <link url="updateMessage" text="Reset to Produced" parameter-map="[systemMessageId:systemMessageId, statusId:'SmsgProduced']"
+                condition="systemMessage.statusId == 'SmsgSending'" confirmation="Are you sure? If message is actually sending may result in double send."/>
+
+        <link url="consumeMessage" text="Consume Message" parameter-map="[systemMessageId:systemMessageId]"
+                condition="systemMessage.isOutgoing == 'N' &amp;&amp; (systemMessage.statusId == 'SmsgReceived' || systemMessage.statusId == 'SmsgError')"/>
+        <link url="queueAckMessage" text="Send Ack Message" parameter-map="[systemMessageId:systemMessageId]"
+                condition="systemMessage.isOutgoing == 'N' &amp;&amp; (systemMessage.statusId in ['SmsgConsumed', 'SmsgRejected', 'SmsgError'])"/>
+        <link url="cancelMessage" text="Cancel Message" parameter-map="[systemMessageId:systemMessageId]"
+                condition="systemMessage.statusId in ['SmsgProduced', 'SmsgReceived', 'SmsgError', 'SmsgRejected']"/>
+
+        <section name="ResetErrorSection" condition="systemMessage.statusId == 'SmsgError'">
+            <widgets><link url="resetError" text="Reset from Error" parameter-map="[systemMessageId:systemMessageId]"/></widgets></section>
+
+        <container-row>
+            <row-col lg="5">
+                <form-single name="SystemMessageForm" map="systemMessage">
+                    <field name="systemMessageId"><default-field title="ID"><display/></default-field></field>
+                    <auto-fields-entity entity-name="moqui.service.message.SystemMessage" field-type="display" include="nonpk"/>
+                    <field name="messageText"><default-field><ignored/></default-field></field>
+
+                    <field name="statusId"><default-field title="Status"><display-entity entity-name="moqui.basic.StatusItem"/></default-field></field>
+
+                    <field name="systemMessageTypeId"><default-field title="Type">
+                        <link url="typeDetail" entity-name="moqui.service.message.SystemMessageType"
+                                text="${description?:''} [${systemMessageTypeId}]" link-type="anchor"
+                                parameter-map="[systemMessageTypeId:systemMessage.systemMessageTypeId]"/>
+                    </default-field></field>
+                    <field name="parentMessageId"><default-field title="Parent Message">
+                        <link url="." text="${systemMessage.parentMessageId}" link-type="anchor"
+                                parameter-map="[systemMessageId:systemMessage.parentMessageId]"
+                                condition="systemMessage.parentMessageId"/>
+                    </default-field></field>
+                    <field name="ackMessageId"><default-field title="Ack Message">
+                        <link url="." text="${systemMessage.ackMessageId}" link-type="anchor"
+                                parameter-map="[systemMessageId:systemMessage.ackMessageId]"
+                                condition="systemMessage.ackMessageId"/>
+                    </default-field></field>
+                    <field name="systemMessageRemoteId"><default-field title="Remote">
+                        <link url="remoteDetail" text="${description?:''} [${systemMessageRemoteId}]" link-type="anchor"
+                                entity-name="moqui.service.message.SystemMessageRemote"
+                                parameter-map="[systemMessageRemoteId:systemMessage.systemMessageRemoteId]"
+                                condition="systemMessage.systemMessageRemoteId"/>
+                    </default-field></field>
+                </form-single>
+            </row-col>
+            <row-col lg="7">
+                <section name="AckOfSection" condition="ackOfMessageList"><widgets>
+                    <form-list name="AckOfForm" list="ackOfMessageList" skip-form="true">
+                        <field name="systemMessageId"><default-field title="Ack of Message">
+                            <link url="." text="${systemMessageId}"/></default-field></field>
+                        <field name="systemMessageTypeId"><default-field title="Type">
+                            <link url="typeDetail" entity-name="moqui.service.message.SystemMessageType"
+                                    text="${description?:''} [${systemMessageTypeId}]" link-type="anchor"
+                                    parameter-map="[systemMessageTypeId:systemMessage.systemMessageTypeId]"/>
+                        </default-field></field>
+                    </form-list>
+                </widgets></section>
+                <section name="ChildrenSection" condition="childMessageList"><widgets>
+                    <form-list name="ChildrenForm" list="childMessageList" skip-form="true">
+                        <field name="systemMessageId"><default-field title="Child Message">
+                            <link url="." text="${systemMessageId}"/></default-field></field>
+                        <field name="systemMessageTypeId"><default-field title="Type">
+                            <link url="typeDetail" entity-name="moqui.service.message.SystemMessageType"
+                                    text="${description?:''} [${systemMessageTypeId}]" link-type="anchor"
+                                    parameter-map="[systemMessageTypeId:systemMessage.systemMessageTypeId]"/>
+                        </default-field></field>
+                    </form-list>
+                </widgets></section>
+
+                <section name="StatusHistorySection"><actions>
+                    <entity-find entity-name="moqui.entity.EntityAuditLog" list="reverseList">
+                        <econdition field-name="changedEntityName" value="moqui.service.message.SystemMessage"/>
+                        <econdition field-name="changedFieldName" value="statusId"/>
+                        <econdition field-name="pkPrimaryValue" from="systemMessageId"/>
+                        <order-by field-name="-changedDate"/>
+                    </entity-find>
+                </actions><widgets>
+                    <container-box><box-header title="Status History"/><box-body>
+                        <section-iterate name="StatusHistoryTable" list="reverseList" entry="statusHistory"><actions>
+                            <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
+                                <field-map field-name="userId" from="statusHistory.changedByUserId"/></entity-find-one>
+                            <entity-find-one entity-name="moqui.basic.StatusItem" value-field="statusItem" cache="true">
+                                <field-map field-name="statusId" from="statusHistory.newValueText"/></entity-find-one>
+                        </actions><widgets>
+                            <container-row>
+                                <row-col lg="7" md="7" sm="7">
+                                    <label text="${ec.l10n.format(statusHistory.changedDate, '')}" type="strong" style="text-nowrap"/>
+                                    <label text="by ${userAccount?.username ?: statusHistory.changedByUserId ?: 'Unknown'}" style="text-nowrap"/>
+                                </row-col>
+                                <row-col lg="5" md="5" sm="5">
+                                    <label text="${statusItem?statusItem.description:''}" type="p"/>
+                                </row-col>
+                            </container-row>
+                        </widgets></section-iterate>
+                    </box-body></container-box>
+                </widgets></section>
+                <form-list name="ErrorListForm" list="errorList" skip-form="true">
+                    <field name="errorDate"><default-field><display/></default-field></field>
+                    <field name="errorText"><default-field><display/></default-field></field>
+                </form-list>
+            </row-col>
+        </container-row>
+    </widgets>
+</screen>

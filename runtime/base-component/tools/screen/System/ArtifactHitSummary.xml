@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-title="Artifact Summary" default-menu-index="2">
+
+    <transition name="ArtifactHitSummaryStats.csv">
+        <default-response url="."><parameter name="renderMode" value="csv"/><parameter name="pageNoLimit" value="true"/>
+            <parameter name="lastStandalone" value="true"/><parameter name="saveFilename" value="ArtifactHitSummaryStats.csv"/></default-response>
+    </transition>
+    <transition name="ArtifactHitSummaryStats.xml">
+        <default-response url="."><parameter name="renderMode" value="xml"/><parameter name="pageNoLimit" value="true"/>
+            <parameter name="lastStandalone" value="true"/><parameter name="saveFilename" value="ArtifactHitSummaryStats.xml"/></default-response>
+    </transition>
+    <transition name="ArtifactHitSummaryStats.pdf">
+        <default-response url="${ec.web.getWebappRootUrl(false, null)}/fop/apps/system/ArtifactHitSummary" url-type="plain">
+            <parameter name="pageNoLimit" value="true"/><parameter name="layoutMaster" value="tabloid-landscape"/>
+            <parameter name="filename" value="ArtifactHitSummaryStats.pdf"/>
+            <!-- <parameter name="lastStandalone" value="true"/> -->
+        </default-response>
+    </transition>
+
+    <widgets>
+        <container>
+            <!-- <link url="ArtifactHitSummaryStats.csv" text="Get as CSV"/> -->
+            <!-- <link url="ArtifactHitSummaryStats.pdf" text="Get as PDF"/> -->
+            <link url="ArtifactHitSummaryStats.xml" text="Get as XML"/>
+        </container>
+        <!-- not yet, not fully implemented but simple test case: server-static="vuet" -->
+        <form-list name="ArtifactHitSummaryList" list="artifactHitReportList" skip-form="true"
+                   show-csv-button="true" show-xlsx-button="true" show-text-button="true" show-pdf-button="true"
+                   header-dialog="true" saved-finds="true" select-columns="true">
+            <entity-find entity-name="moqui.server.ArtifactHitReport" list="artifactHitReportList" limit="50" use-clone="true">
+                <search-form-inputs default-order-by="artifactType,artifactName" require-parameters="true"/>
+                <select-field field-name="totalSquaredTime"/>
+            </entity-find>
+            <row-actions>
+                <set field="averageTime" from="hitCount ? totalTimeMillis/hitCount : null"/>
+                <set field="stdDev" from="totalSquaredTime &amp;&amp; hitCount > 1 ? Math.sqrt((totalSquaredTime - ((totalTimeMillis*totalTimeMillis) / hitCount)).abs() / (hitCount - 1)) : null"/>
+            </row-actions>
+
+            <field name="artifactType" print-width="20">
+                <header-field show-order-by="true">
+                    <drop-down allow-empty="true">
+                        <option key="AT_XML_SCREEN"/><option key="AT_XML_SCREEN_CONTENT"/><option key="AT_XML_SCREEN_TRANS"/>
+                        <option key="AT_SERVICE"/><option key="AT_ENTITY"/>
+                    </drop-down>
+                </header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="artifactSubType" print-width="20">
+                <header-field show-order-by="true">
+                    <drop-down allow-empty="true">
+                        <option key="one"/><option key="list"/><option key="iterator"/><option key="count"/>
+                        <option key="create"/><option key="update"/><option key="delete"/><option key="refresh"/>
+                        <option key="entity-auto"/><option key="entity-implicit"/><option key="inline"/>
+                        <option key="script"/><option key="java"/>
+                    </drop-down>
+                </header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="artifactName" print-width="60">
+                <header-field show-order-by="true"><text-find hide-options="true" size="80"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="lastHitDateTime" print-width="13" print-width-type="characters">
+                <header-field title="Last Hit" show-order-by="true"/>
+                <default-field><display text-format="yyyyMMdd HHmm"/></default-field>
+            </field>
+            <field name="hitCount" print-width="9" print-width-type="characters" align="right">
+                <header-field title="Hits" show-order-by="true"/>
+                <default-field><display format="#,##0" text-format="0"/></default-field>
+            </field>
+            <field name="totalTimeMillis" print-width="8" print-width-type="characters" align="right">
+                <header-field title="Total" show-order-by="true"/>
+                <default-field><display format="#,##0.000" text-format="0"/></default-field>
+            </field>
+            <field name="minTimeMillis" print-width="8" print-width-type="characters" align="right">
+                <header-field title="Min" show-order-by="true"/>
+                <default-field><display format="#,##0.000" text-format="0.00"/></default-field>
+            </field>
+            <field name="maxTimeMillis" print-width="8" print-width-type="characters" align="right">
+                <header-field title="Max" show-order-by="true"/>
+                <default-field><display format="#,##0.000" text-format="0.00"/></default-field>
+            </field>
+            <field name="averageTime" print-width="8" print-width-type="characters" align="right">
+                <default-field title="Avg"><display format="#,##0.000" text-format="0.00"/></default-field></field>
+            <field name="stdDev" print-width="8" print-width-type="characters" align="right">
+                <default-field title="Std Dev"><display format="#,##0.000" text-format="0.00"/></default-field></field>
+            <field name="slowHitCount" print-width="5" print-width-type="characters" align="right">
+                <header-field title="Slow Hits" show-order-by="true"/>
+                <default-field><display format="#,##0" text-format="0"/></default-field>
+            </field>
+            <field name="find" print-width="0"><header-field title="Find"><submit/></header-field><default-field>
+                <display text=" "/></default-field></field>
+        </form-list>
+    </widgets>
+</screen>

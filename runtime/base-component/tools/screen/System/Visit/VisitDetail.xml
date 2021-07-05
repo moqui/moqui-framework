@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-include="false">
+
+    <parameter name="visitId" required="true"/>
+
+    <transition name="userAccountDetail"><default-response url="//system/Security/UserAccountDetail"/></transition>
+    <transition name="getVisitClientIpData"><service-call name="org.moqui.impl.ServerServices.get#VisitClientIpData"/>
+        <default-response url="."/></transition>
+
+    <actions>
+        <entity-find-one entity-name="moqui.server.Visit" value-field="visit"/>
+        <if condition="visit == null"><return error="true" message="Visit not found with ID ${visitId}"/></if>
+        <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
+            <field-map field-name="userId" from="visit.userId"/></entity-find-one>
+        <entity-find entity-name="moqui.server.ArtifactHit" list="artifactHitList" use-clone="true">
+            <search-form-inputs default-order-by="startDateTime"/>
+            <econdition field-name="visitId"/>
+        </entity-find>
+    </actions>
+    <widgets>
+        <container-box><box-header title="Visit #${visitId}"/><box-toolbar>
+            <section name="ClientIpLinkSection" condition="visit != null &amp;&amp; !visit.clientIpIspName"><widgets>
+                <link url="getVisitClientIpData" text="Get Client IP Data"/></widgets></section>
+        </box-toolbar><box-body>
+            <container-row><row-col md="4">
+                <container-row><row-col xs="4" style="text-right"><label text="Visitor ID" type="strong"/></row-col>
+                    <row-col xs="8"><label text="${visit.visitorId}"/></row-col></container-row>
+                <container-row><row-col xs="4" style="text-right"><label text="Session ID" type="strong"/></row-col>
+                    <row-col xs="8"><label text="${visit.sessionId}"/></row-col></container-row>
+                <container-row><row-col xs="4" style="text-right"><label text="Webapp" type="strong"/></row-col>
+                    <row-col xs="8"><label text="${visit.webappName}"/></row-col></container-row>
+                <container-row><row-col xs="4" style="text-right"><label text="From Date" type="strong"/></row-col>
+                    <row-col xs="8"><label text="${ec.l10n.format(visit.fromDate, '')}"/></row-col></container-row>
+                <container-row><row-col xs="4" style="text-right"><label text="Thru Date" type="strong"/></row-col>
+                    <row-col xs="8"><label text="${ec.l10n.format(visit.thruDate, '')}"/></row-col></container-row>
+            </row-col><row-col md="3">
+                <container-row><row-col xs="4" style="text-right"><label text="User" type="strong"/></row-col>
+                    <row-col xs="8"><link url="userAccountDetail" text="UsernameTemplate" text-map="userAccount" link-type="anchor"
+                            parameter-map="[userId:visit.userId]" condition="visit.userId"/></row-col></container-row>
+                <container-row><row-col xs="4" style="text-right"><label text="User Created" type="strong"/></row-col>
+                    <row-col xs="8"><label text="${visit.userCreated ?: 'N'}"/></row-col></container-row>
+                <container-row><row-col xs="4" style="text-right"><label text="Locale" type="strong"/></row-col>
+                    <row-col xs="8"><label text="${visit.initialLocale}"/></row-col></container-row>
+
+                <container-row><row-col xs="4" style="text-right"><label text="Client User" type="strong"/></row-col>
+                    <row-col xs="8"><label text="${visit.clientUser ?: 'Unknown'}"/></row-col></container-row>
+                <container-row><row-col xs="4" style="text-right"><label text="Client Host" type="strong"/></row-col>
+                    <row-col xs="8"><label text="${visit.clientHostName}"/></row-col></container-row>
+                <container-row><row-col xs="4" style="text-right"><label text="Client IP" type="strong"/></row-col>
+                    <row-col xs="8"><label text="${visit.clientIpAddress}"/></row-col></container-row>
+            </row-col><row-col md="5">
+                <container-row><row-col xs="4" style="text-right"><label text="Server Host" type="strong"/></row-col>
+                    <row-col xs="8"><label text="${visit.serverHostName}"/></row-col></container-row>
+                <container-row><row-col xs="4" style="text-right"><label text="Server IP" type="strong"/></row-col>
+                    <row-col xs="8"><label text="${visit.serverIpAddress}"/></row-col></container-row>
+                <container-row><row-col xs="4" style="text-right"><label text="Initial Request" type="strong"/></row-col>
+                    <row-col xs="8"><label text="${visit.initialRequest}"/></row-col></container-row>
+                <container-row><row-col xs="4" style="text-right"><label text="Referrer" type="strong"/></row-col>
+                    <row-col xs="8"><label text="${visit.initialReferrer ?: 'None'}"/></row-col></container-row>
+                <container-row><row-col xs="4" style="text-right"><label text="User Agent" type="strong"/></row-col>
+                    <row-col xs="8"><label text="${visit.initialUserAgent ?: ''}"/></row-col></container-row>
+            </row-col></container-row>
+        </box-body></container-box>
+        <section name="ClientIpSection" condition="visit.clientIpIspName"><widgets>
+            <container-box><box-header title="Client IP ${visit.clientIpAddress} Data"/><box-body>
+                <container-row><row-col md="6">
+                    <label text="ISP: ${visit.clientIpIspName}" type="div" condition="visit.clientIpIspName"/>
+                    <label text="Latitude: ${visit.clientIpLatitude}" type="div" condition="visit.clientIpLatitude"/>
+                    <label text="Longitude: ${visit.clientIpLongitude}" type="div" condition="visit.clientIpLongitude"/>
+                    <label text="Time Zone: ${visit.clientIpTimeZone}" type="div" condition="visit.clientIpTimeZone"/>
+                    <label text="Metro Code: ${visit.clientIpMetroCode}" type="div" condition="visit.clientIpMetroCode"/>
+                </row-col><row-col md="6">
+                    <label text="Postal Code: ${visit.clientIpPostalCode}" type="div" condition="visit.clientIpPostalCode"/>
+                    <label text="City: ${visit.clientIpCity}" type="div" condition="visit.clientIpCity"/>
+                    <label text="Region Code: ${visit.clientIpRegionCode}" type="div" condition="visit.clientIpRegionCode"/>
+                    <label text="Region Name: ${visit.clientIpRegionName}" type="div" condition="visit.clientIpRegionName"/>
+                    <label text="State/Province: ${visit.clientIpStateProvGeoId}" type="div" condition="visit.clientIpStateProvGeoId"/>
+                    <label text="Country: ${visit.clientIpCountryGeoId}" type="div" condition="visit.clientIpCountryGeoId"/>
+                </row-col></container-row>
+            </box-body></container-box>
+        </widgets></section>
+
+        <form-list name="VisitArtifactHitList" list="artifactHitList" skip-form="true" header-dialog="true" select-columns="true">
+            <field name="visitId"><header-field><hidden/></header-field></field>
+
+            <field name="startDateTime"><header-field show-order-by="true"><date-period time="true"/></header-field>
+                <default-field><display/></default-field></field>
+            <field name="userId"><default-field><display/></default-field></field>
+
+            <field name="artifactType">
+                <header-field show-order-by="true"><drop-down allow-multiple="true">
+                    <option key="AT_XML_SCREEN"/><option key="AT_XML_SCREEN_CONTENT"/><option key="AT_XML_SCREEN_TRANS"/>
+                    <option key="AT_SERVICE"/><option key="AT_ENTITY"/>
+                </drop-down></header-field>
+                <default-field title="Type"><display text="${artifactType?.replace('-',' - ')}"/></default-field>
+            </field>
+            <field name="artifactSubType"><default-field title="Sub Type"><display/></default-field></field>
+
+            <field name="artifactName"><header-field show-order-by="true"><text-find/></header-field>
+                <default-field><display/></default-field></field>
+            <field name="parameterString"><header-field><text-find/></header-field>
+                <default-field><display text="${parameterString?.replace(',',' , ') ?: 'N/A'}"/></default-field></field>
+
+            <field name="runningTimeMillis"><header-field title="Time" show-order-by="true"/>
+                <default-field><display text="${ec.l10n.format(runningTimeMillis, '0.00')}ms"/></default-field></field>
+            <field name="isSlowHit">
+                <header-field title="Slow" show-order-by="true"><drop-down allow-empty="true"><option key="Y"/><option key="N"/></drop-down></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="outputSize"><default-field title="Size"><display text="${outputSize ?: 'Unknown'}"/></default-field></field>
+
+            <field name="wasError">
+                <header-field title="Error" show-order-by="true"><drop-down allow-empty="true"><option key="Y"/><option key="N"/></drop-down></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="errorMessage"><header-field><text-find/></header-field>
+                <default-field title="Message"><display/></default-field></field>
+
+            <field name="requestUrl"><header-field show-order-by="true"/>
+                <default-field><display/></default-field></field>
+            <field name="referrerUrl"><default-field><display text="${referrerUrl ?: 'N/A'}"/></default-field></field>
+
+            <field name="serverIpAddress"><default-field><display/></default-field></field>
+            <field name="serverHostName"><default-field><display/></default-field></field>
+
+            <field name="findButton"><header-field title="Find"><submit/></header-field></field>
+
+            <!-- NOTE: maybe go to 3-4 rows per record instead of two -->
+            <form-list-column><field-ref name="startDateTime"/><field-ref name="userId"/></form-list-column>
+            <form-list-column><field-ref name="artifactType"/><field-ref name="artifactSubType"/></form-list-column>
+            <form-list-column><field-ref name="runningTimeMillis"/><field-ref name="isSlowHit"/><field-ref name="outputSize"/></form-list-column>
+            <form-list-column><field-ref name="artifactName"/><field-ref name="parameterString"/>
+                <field-ref name="requestUrl"/><field-ref name="referrerUrl"/></form-list-column>
+            <form-list-column><field-ref name="wasError"/><field-ref name="errorMessage"/></form-list-column>
+            <form-list-column><field-ref name="serverIpAddress"/><field-ref name="serverHostName"/></form-list-column>
+            <form-list-column><field-ref name="findButton"/></form-list-column>
+        </form-list>
+    </widgets>
+</screen>

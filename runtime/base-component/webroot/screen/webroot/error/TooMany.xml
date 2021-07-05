@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        require-authentication="false">
+    <widgets>
+        <render-mode><text type="html"><![CDATA[
+            <p>&nbsp;</p>
+            <div class="jumbotron">
+                <h1><i class="fa fa-clock-o text-danger"></i> Too Many Requests (${errorCode})</h1>
+                <p class="text-danger">${errorMessage!""}</p>
+                <a href="${sri.buildUrl("/").url}" class="btn btn-primary btn-lg" role="button">Go Home</a>
+                <a href="javascript:window.history.back();" class="btn btn-primary btn-lg" role="button">Go Back</a>
+            </div>
+        ]]></text></render-mode>
+    </widgets>
+</screen>

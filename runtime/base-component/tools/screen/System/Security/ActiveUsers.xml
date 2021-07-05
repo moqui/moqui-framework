@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-title="Active Users" default-menu-index="5">
+
+    <transition name="userAccountDetail"><default-response url="//system/Security/UserAccountDetail"/></transition>
+
+    <actions>
+        <entity-find entity-name="moqui.server.VisitUserSummary" list="visitUserList">
+            <search-form-inputs default-order-by="-visitCount"><default-parameters
+                    fromDate_poffset="-1" fromDate_period="30d"/></search-form-inputs>
+            <select-field field-name="userId,visitCount,fromDateMin,fromDateMax"/>
+        </entity-find>
+    </actions>
+    <widgets>
+        <form-list name="VisitUserList" list="visitUserList" skip-form="true" header-dialog="true" show-page-size="true"
+                show-csv-button="true" show-xlsx-button="true" saved-finds="true">
+            <field name="fromDate">
+                <header-field show-order-by="true"><date-period/></header-field>
+            </field>
+            <field name="fromDateMin"><default-field><display/></default-field></field>
+            <field name="fromDateMax"><default-field><display/></default-field></field>
+            <field name="userId">
+                <header-field show-order-by="true"><text-find size="20" default-operator="begins"/></header-field>
+                <default-field><display/><link url="userAccountDetail" text="UsernameTemplate" link-type="anchor"
+                        entity-name="moqui.security.UserAccount"/></default-field>
+            </field>
+            <field name="visitCount"><header-field show-order-by="true"><range-find size="6"/></header-field>
+                <default-field><display/></default-field></field>
+            <field name="find"><header-field><submit text="Find"/></header-field>
+                <default-field><display text=" "/></default-field></field>
+        </form-list>
+    </widgets>
+</screen>

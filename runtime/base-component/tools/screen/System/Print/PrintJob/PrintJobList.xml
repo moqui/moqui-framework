@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-include="false">
+
+    <transition name="printJobDetail"><default-response url="../PrintJobDetail"/></transition>
+    <transition name="downloadDocument" read-only="true">
+        <parameter name="printJobId"/>
+        <actions>
+            <entity-find-one entity-name="moqui.basic.print.PrintJob" value-field="printJob"/>
+            <script>
+                import org.apache.commons.io.IOUtils
+
+                byte[] bytes = printJob.getBytes("document")
+                if (bytes.length > 0) {
+                    fileExtension = null
+                    if (printJob.contentType) {
+                        ec.web.response.setContentType(printJob.contentType)
+                        // TODO: need a more comprehensive way to determine extension based on contentType
+                        if (printJob.contentType == "application/pdf") fileExtension = "pdf"
+                    }
+                    if (fileExtension) {
+                        fileName = "${printJob.jobName ?: 'document'}.${fileExtension}".toString()
+                        contentDisposition = "attachment; filename=\"${fileName}\"; filename*=utf-8''${encodeAsciiFilename(fileName)}"
+                    } else {
+                        contentDisposition = "attachment"
+                    }
+
+                    ec.web.response.addHeader("Content-Disposition", contentDisposition)
+                    IOUtils.write(bytes, ec.web.response.outputStream)
+                } else {
+                    ec.message.addError(ec.resource.expand('No document found in PrintJob [${printJobId}]',''))
+                }
+            </script>
+        </actions>
+        <default-response type="none"/>
+        <error-response url="."/>
+    </transition>
+
+    <actions>
+        <entity-find entity-name="moqui.basic.print.PrintJob" list="printJobList">
+            <search-form-inputs default-order-by="-createdDate"/></entity-find>
+    </actions>
+    <widgets>
+        <form-list name="PrintJobList" list="printJobList" skip-form="true">
+            <field name="printJobId">
+                <header-field title="ID" show-order-by="true"><text-find size="10" hide-options="true"/></header-field>
+                <default-field>
+                    <display/>
+                    <link text="View/Update" url="printJobDetail" link-type="anchor-button"/>
+                </default-field>
+            </field>
+            <field name="statusId">
+                <header-field title="Status">
+                    <drop-down allow-empty="true">
+                        <entity-options key="${statusId}" text="${description}">
+                            <entity-find entity-name="moqui.basic.StatusItem">
+                                <econdition field-name="statusTypeId" value="EntitySync"/>
+                                <order-by field-name="description"/></entity-find></entity-options>
+                    </drop-down>
+                </header-field>
+                <default-field><display-entity entity-name="moqui.basic.StatusItem"/></default-field>
+            </field>
+            <field name="createdDate">
+                <header-field show-order-by="true"><date-period allow-empty="true"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="networkPrinterId">
+                <header-field title="Printer">
+                    <drop-down allow-empty="true">
+                        <entity-options key="${networkPrinterId}" text="${description ?: printerName} (${serverHost})">
+                            <entity-find entity-name="moqui.basic.print.NetworkPrinter">
+                                <order-by field-name="description,printerName"/></entity-find></entity-options>
+                    </drop-down>
+                </header-field>
+                <default-field><display-entity entity-name="moqui.basic.print.NetworkPrinter" text="${serverHost} - ${description ?: printerName}"/></default-field>
+            </field>
+
+            <field name="username">
+                <header-field show-order-by="true"><text-find size="15" hide-options="true"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="jobId">
+                <header-field show-order-by="true"><text-line size="5"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="jobName">
+                <header-field show-order-by="true"><text-find size="15" hide-options="true"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+
+            <field name="copies">
+                <header-field show-order-by="true"><text-line size="5"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="duplex">
+                <header-field show-order-by="true">
+                    <drop-down allow-empty="true"><option key="N"/><option key="Y"/></drop-down></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="pageRanges">
+                <header-field show-order-by="true"><text-find size="5" hide-options="true"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="contentType">
+                <header-field show-order-by="true"><text-find size="15" hide-options="true"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+
+            <field name="find">
+                <header-field title="Find"><submit/></header-field>
+                <conditional-field condition="document != null">
+                    <link url="downloadDocument" text="Download"/></conditional-field>
+                <default-field><display text=" "/></default-field>
+            </field>
+
+            <form-list-column><field-ref name="printJobId"/></form-list-column>
+            <form-list-column><field-ref name="statusId"/><field-ref name="createdDate"/></form-list-column>
+            <form-list-column><field-ref name="networkPrinterId"/><field-ref name="username"/></form-list-column>
+            <form-list-column><field-ref name="jobId"/><field-ref name="jobName"/></form-list-column>
+            <form-list-column><field-ref name="copies"/><field-ref name="duplex"/></form-list-column>
+            <form-list-column><field-ref name="pageRanges"/><field-ref name="contentType"/></form-list-column>
+            <form-list-column><field-ref name="find"/></form-list-column>
+        </form-list>
+    </widgets>
+</screen>

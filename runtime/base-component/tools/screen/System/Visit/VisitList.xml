@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd">
+
+    <transition name="visitDetail"><default-response url="../VisitDetail"/></transition>
+    <transition name="userAccountDetail"><default-response url="//system/Security/UserAccountDetail"/></transition>
+
+    <actions>
+        <entity-find entity-name="moqui.server.Visit" list="visitList" use-clone="true">
+            <search-form-inputs default-order-by="-fromDate"/>
+        </entity-find>
+    </actions>
+    <widgets>
+        <form-list name="VisitList" list="visitList" skip-form="true" header-dialog="true" saved-finds="true"
+                show-csv-button="true" show-xlsx-button="true" select-columns="true" show-page-size="true">
+            <row-actions>
+                <entity-find-count entity-name="moqui.server.ArtifactHit" count-field="hitCount">
+                    <econdition field-name="visitId"/></entity-find-count>
+            </row-actions>
+
+            <field name="fromDate">
+                <header-field show-order-by="true"><date-period/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="visitId">
+                <header-field show-order-by="true"><text-find size="20" default-operator="begins"/></header-field>
+                <default-field><link text="${visitId}" url="visitDetail" link-type="anchor"><parameter name="visitId"/></link></default-field>
+            </field>
+            <field name="visitorId">
+                <header-field show-order-by="true"><text-find size="20" default-operator="begins"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="userId">
+                <header-field show-order-by="true"><text-find size="20" default-operator="begins"/></header-field>
+                <default-field>
+                    <display-entity entity-name="moqui.security.UserAccount" text="UsernameTemplate"/>
+                    <link url="userAccountDetail" text="${userId}" link-type="anchor" condition="userId"/>
+                </default-field>
+            </field>
+            <field name="serverIpAddress">
+                <header-field title="Server IP"><text-find size="20" default-operator="begins"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="clientIpAddress">
+                <header-field title="Client IP" show-order-by="true"><text-find size="20" default-operator="begins"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="clientIpCountryGeoId">
+                <header-field title="Client Country" show-order-by="true"><text-find size="5" default-operator="begins"/></header-field>
+                <default-field><display-entity entity-name="moqui.basic.Geo" text="${geoId} - ${geoName}"/></default-field>
+            </field>
+            <field name="initialRequest">
+                <header-field show-order-by="true"><text-find size="60" default-operator="begins"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="hitCount"><default-field><display/></default-field></field>
+            <field name="findButton"><header-field><submit text="Find"/></header-field></field>
+
+            <form-list-column><field-ref name="visitId"/><field-ref name="fromDate"/></form-list-column>
+            <form-list-column><field-ref name="visitorId"/><field-ref name="userId"/></form-list-column>
+            <form-list-column><field-ref name="clientIpAddress"/><field-ref name="clientIpCountryGeoId"/></form-list-column>
+            <form-list-column><field-ref name="serverIpAddress"/><field-ref name="initialRequest"/></form-list-column>
+            <form-list-column><field-ref name="hitCount"/></form-list-column>
+        </form-list>
+    </widgets>
+</screen>

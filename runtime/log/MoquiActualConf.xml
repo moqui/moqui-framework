@@ -1,0 +1,417 @@
+<moqui-conf xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/moqui-conf-2.1.xsd">
+    <default-property name="instance_purpose" value="dev"/>
+    <default-property name="default_locale" value="en_US"/>
+    <default-property name="default_time_zone" value="US/Pacific"/>
+    <default-property name="database_time_zone" value="US/Pacific"/>
+    <default-property name="webapp_http_host" value=""/>
+    <default-property name="webapp_http_port" value=""/>
+    <default-property name="webapp_https_port" value=""/>
+    <default-property name="webapp_https_enabled" value="false"/>
+    <default-property name="webapp_allow_origins" value="*"/>
+    <default-property name="webapp_handle_cors" value="true"/>
+    <default-property name="webapp_status_ips" value="127.0.0.1"/>
+    <default-property name="webapp_require_session_token" value="true"/>
+    <default-property name="webapp_upload_executable_allow" value="false"/>
+    <default-property name="entity_ds_db_conf" value="h2"/>
+    <default-property name="entity_ds_host" value="127.0.0.1"/>
+    <default-property name="entity_ds_port" value=""/>
+    <default-property name="entity_ds_database" value="moqui"/>
+    <default-property name="entity_ds_url" value="jdbc:h2:${moqui_runtime}/db/h2/${entity_ds_database};lock_timeout=30000"/>
+    <default-property name="entity_ds_schema" value=""/>
+    <default-property name="entity_ds_user" value="sa"/>
+    <default-property name="entity_ds_password" value="sa"/>
+    <default-property name="entity_ds_crypt_pass" value="MoquiDefaultPassword:CHANGEME"/>
+    <default-property name="entity_ds_crypt_pass_old" value="MoquiDefaultPassword:CHANGEME"/>
+    <default-property name="entity_add_missing_runtime" value="false"/>
+    <default-property name="entity_add_missing_startup" value="true"/>
+    <default-property name="entity_lock_track" value="true"/>
+    <default-property name="entity_statement_timeout" value="false"/>
+    <default-property name="entity_empty_db_load" value="all"/>
+    <default-property name="entity_ds_c1_disabled" value="true"/>
+    <default-property name="entity_ds_c1_db_conf" value="mysql"/>
+    <default-property name="entity_ds_c1_schema" value=""/>
+    <default-property name="entity_ds_c1_host" value=""/>
+    <default-property name="entity_ds_c1_port" value=""/>
+    <default-property name="entity_ds_c1_database" value=""/>
+    <default-property name="entity_ds_c1_user" value=""/>
+    <default-property name="entity_ds_c1_password" value=""/>
+    <default-property name="scheduled_job_check_time" value="60"/>
+    <default-property name="elasticsearch_url" value="http://127.0.0.1:9200"/>
+    <default-property name="elasticsearch_user" value=""/>
+    <default-property name="elasticsearch_password" value=""/>
+    <default-property name="elasticsearch_index_prefix" value=""/>
+    <default-property name="kibana_host" value="127.0.0.1"/>
+    <default-property name="kibana_port" value="5601"/>
+    <tools empty-db-load="${entity_empty_db_load}" worker-queue="65535" worker-pool-core="16" worker-pool-max="24" worker-pool-alive="60">
+        <tool-factory class="org.moqui.impl.tools.MCacheToolFactory" init-priority="03" disabled="false"/>
+        <tool-factory class="org.moqui.impl.tools.H2ServerToolFactory" init-priority="12" disabled="false"/>
+        <tool-factory class="org.moqui.impl.tools.JackrabbitRunToolFactory" init-priority="40" disabled="true"/>
+        <tool-factory class="org.moqui.impl.tools.SubEthaSmtpToolFactory" init-priority="50" disabled="true"/>
+        <tool-factory class="org.moqui.fop.FopToolFactory" init-priority="20" disabled="false"/>
+    </tools>
+    <cache-list warm-on-start="false" local-factory="MCache" distributed-factory="MCache">
+        <cache name="entity.record.one." max-elements="20000" eviction-strategy="least-frequently-used" key-type="org.moqui.entity.EntityCondition" value-type="org.moqui.impl.entity.EntityValueBase"/>
+        <cache name="entity.record.list." max-elements="10000" eviction-strategy="least-frequently-used" key-type="org.moqui.entity.EntityCondition" value-type="org.moqui.impl.entity.EntityListImpl"/>
+        <cache name="entity.record.count." max-elements="10000" eviction-strategy="least-frequently-used" key-type="org.moqui.entity.EntityCondition" value-type="Long"/>
+        <cache name="entity.record.one_ra." max-elements="40000" eviction-strategy="least-frequently-used" key-type="org.moqui.entity.EntityCondition" value-type="Set"/>
+        <cache name="entity.record.one_view_ra." max-elements="40000" eviction-strategy="least-frequently-used" key-type="org.moqui.entity.EntityCondition" value-type="Set"/>
+        <cache name="entity.record.one_bf" max-elements="1000" eviction-strategy="least-frequently-used" value-type="Set"/>
+        <cache name="entity.record.list_ra." max-elements="20000" eviction-strategy="least-frequently-used" key-type="org.moqui.entity.EntityCondition" value-type="Set"/>
+        <cache name="entity.record.list_view_ra." max-elements="20000" eviction-strategy="least-frequently-used" key-type="org.moqui.entity.EntityCondition" value-type="Set"/>
+        <cache name="entity.definition" value-type="org.moqui.impl.entity.EntityDefinition" expire-time-idle="30"/>
+        <cache name="entity.location" value-type="Map" expire-time-live="300"/>
+        <cache name="entity.sequence.bank" value-type="long[]"/>
+        <cache name="entity.data.feed.info" expire-time-live="900" value-type="ArrayList" expire-time-idle="30"/>
+        <cache name="service.location" value-type="org.moqui.impl.service.ServiceDefinition" expire-time-idle="10"/>
+        <cache name="service.rest.api" value-type="org.moqui.impl.service.RestApi$ResourceNode" expire-time-idle="10"/>
+        <cache name="kie.component.releaseId" value-type="org.kie.api.builder.ReleaseId" expire-time-idle="10"/>
+        <cache name="kie.session.component" value-type="String"/>
+        <cache name="screen.location" value-type="org.moqui.impl.screen.ScreenDefinition" expire-time-idle="10"/>
+        <cache name="screen.location.perm" value-type="org.moqui.impl.screen.ScreenDefinition"/>
+        <cache name="screen.url" value-type="org.moqui.impl.screen.ScreenUrlInfo" expire-time-idle="10"/>
+        <cache name="screen.info" value-type="List"/>
+        <cache name="screen.info.ref.rev" value-type="Set"/>
+        <cache name="screen.template.mode" value-type="freemarker.template.Template" expire-time-idle="10"/>
+        <cache name="screen.template.location" value-type="freemarker.template.Template" expire-time-idle="10"/>
+        <cache name="widget.template.location" value-type="MNode"/>
+        <cache name="screen.find.path" value-type="ArrayList" expire-time-idle="30"/>
+        <cache name="screen.form.db.node" value-type="MNode"/>
+        <cache name="resource.xml-actions.location" value-type="org.moqui.impl.actions.XmlAction" expire-time-idle="5"/>
+        <cache name="resource.groovy.location" value-type="java.lang.Class" expire-time-idle="5"/>
+        <cache name="resource.javascript.location" value-type="java.lang.Class"/>
+        <cache name="resource.ftl.location" value-type="freemarker.template.Template" type="local" max-elements="10000" expire-time-idle="5"/>
+        <cache name="resource.gstring.location" value-type="groovy.text.Template" type="local" max-elements="10000" expire-time-idle="5"/>
+        <cache name="resource.wiki.location" value-type="String" type="local" max-elements="10000" expire-time-live="3600" expire-time-idle="5"/>
+        <cache name="resource.markdown.location" value-type="String" type="local" max-elements="10000" expire-time-live="3600" expire-time-idle="5"/>
+        <cache name="resource.text.location" value-type="String" type="local" max-elements="10000" expire-time-live="3600" expire-time-idle="5"/>
+        <cache name="resource.reference.location" value-type="org.moqui.resource.ResourceReference" expire-time-idle="5"/>
+        <cache name="l10n.message" expire-time-live="3600" max-elements="50000" value-type="String" expire-time-idle="600"/>
+        <cache name="artifact.tarpit.hits" expire-time-idle="900" max-elements="10000" value-type="ArrayList"/>
+    </cache-list>
+    <server-stats bin-length-seconds="900" visit-enabled="true" visit-ip-info-on-login="true" visitor-enabled="true" stats-skip-condition="pathInfo?.startsWith('/rpc') || pathInfo?.startsWith('/rest') || pathInfo?.startsWith('/status')">
+        <artifact-stats type="AT_XML_SCREEN" persist-bin="true" persist-hit="true"/>
+        <artifact-stats type="AT_XML_SCREEN_CONTENT" persist-bin="true" persist-hit="true"/>
+        <artifact-stats type="AT_XML_SCREEN_TRANS" persist-bin="true" persist-hit="true"/>
+        <artifact-stats type="AT_SERVICE" persist-bin="true" persist-hit="true"/>
+        <artifact-stats type="AT_ENTITY" persist-bin="true"/>
+    </server-stats>
+    <webapp-list>
+        <webapp name="webroot" http-port="${webapp_http_port}" http-host="${webapp_http_host}" https-port="${webapp_https_port}" https-host="${webapp_http_host}" https-enabled="${webapp_https_enabled}" handle-cors="${webapp_handle_cors}" allow-origins="${webapp_allow_origins}" require-session-token="${webapp_require_session_token}" upload-executable-allow="${webapp_upload_executable_allow}" websocket-timeout="600000">
+            <root-screen host=".*" location="component://webroot/screen/webroot.xml"/>
+            <error-screen error="unauthorized" screen-path="error/Unauthorized"/>
+            <error-screen error="forbidden" screen-path="error/Forbidden"/>
+            <error-screen error="not-found" screen-path="error/NotFound"/>
+            <error-screen error="too-many" screen-path="error/TooMany"/>
+            <error-screen error="internal-error" screen-path="error/InternalError"/>
+            <filter name="ElasticRequestLogFilter" class="org.moqui.impl.webapp.ElasticRequestLogFilter" async-supported="true">
+                <url-pattern><![CDATA[/*]]></url-pattern>
+                <dispatcher><![CDATA[REQUEST]]></dispatcher>
+            </filter>
+            <filter name="ElasticAuthFilter" class="org.moqui.impl.webapp.MoquiAuthFilter" async-supported="true">
+                <init-param name="permission" value="ElasticRemote"/>
+                <url-pattern><![CDATA[/elastic/*]]></url-pattern>
+            </filter>
+            <filter name="KibanaAuthFilter" class="org.moqui.impl.webapp.MoquiAuthFilter" async-supported="true">
+                <init-param name="permission" value="KibanaRemote"/>
+                <url-pattern><![CDATA[/kibana/*]]></url-pattern>
+            </filter>
+            <listener class="org.moqui.impl.webapp.MoquiSessionListener"/>
+            <servlet name="MoquiServlet" class="org.moqui.impl.webapp.MoquiServlet" load-on-startup="1">
+                <url-pattern><![CDATA[/*]]></url-pattern></servlet>
+            <servlet name="MoquiFopServlet" class="org.moqui.impl.webapp.MoquiFopServlet" load-on-startup="1">
+                <url-pattern><![CDATA[/fop/*]]></url-pattern></servlet>
+            <servlet name="ElasticSearchProxy" class="org.eclipse.jetty.proxy.ProxyServlet$Transparent" load-on-startup="1" async-supported="true">
+                <init-param name="proxyTo" value="${elasticsearch_url ?: 'http://127.0.0.1:9200'}"/>
+                <init-param name="prefix" value="/elastic"/>
+                <url-pattern><![CDATA[/elastic/*]]></url-pattern>
+            </servlet>
+            <servlet name="KibanaProxy" class="org.eclipse.jetty.proxy.ProxyServlet$Transparent" load-on-startup="1" async-supported="true">
+                <init-param name="proxyTo" value="http://${kibana_host}:${kibana_port}"/>
+                <init-param name="prefix" value="/kibana"/>
+                <url-pattern><![CDATA[/kibana/*]]></url-pattern>
+            </servlet>
+            <session-config timeout="60"/>
+            <endpoint path="/notws" class="org.moqui.impl.webapp.NotificationEndpoint" timeout="3600000" enabled="true"/>
+            <response-header type="web-resource-inline" name="Cache-Control" value="max-age=86400, must-revalidate, public"/>
+            <response-header type="screen-resource-binary" name="Cache-Control" value="max-age=86400, must-revalidate, public"/>
+            <response-header type="screen-resource-text" name="Cache-Control" value="max-age=86400, must-revalidate, public"/>
+            <response-header type="screen-resource-template" name="Cache-Control" value="no-cache, no-store, must-revalidate, private"/>
+            <response-header type="screen-server-static" name="Cache-Control" value="max-age=86400, must-revalidate, public"/>
+            <response-header type="screen-secure" name="Strict-Transport-Security" value="max-age=31536000"/>
+            <response-header type="screen-render" name="Cache-Control" value="no-cache, no-store, must-revalidate, private"/>
+            <response-header type="screen-render" name="Content-Security-Policy" value="frame-ancestors 'none'; form-action 'self';"/>
+            <response-header type="screen-render" name="X-Frame-Options" value="sameorigin"/>
+            <response-header type="screen-render" name="X-XSS-Protection" value="1; mode=block"/>
+            <response-header type="screen-render" name="X-Content-Type-Options" value="nosniff"/>
+            <response-header type="cors-actual" name="Vary" value="Origin"/>
+            <response-header type="cors-actual" name="Access-Control-Allow-Credentials" value="true"/>
+            <response-header type="cors-actual" name="Access-Control-Expose-Headers" value="Access-Control-Allow-Origin,Access-Control-Allow-Credentials,X-CSRF-Token,moquiSessionToken"/>
+            <response-header type="cors-preflight" name="Vary" value="Origin"/>
+            <response-header type="cors-preflight" name="Access-Control-Allow-Credentials" value="true"/>
+            <response-header type="cors-preflight" name="Access-Control-Allow-Headers" value="Accept,Accept-Encoding,Content-Type,Content-Encoding,Origin,X-Requested-With,Access-Control-Request-Method,Access-Control-Request-Headers,api_key,login_key,X-HTTP-Method-Override,moquiSessionToken,SessionToken,X-CSRF-Token,Authorization"/>
+            <response-header type="cors-preflight" name="Access-Control-Allow-Methods" value="GET,PUT,POST,PATCH,DELETE,OPTIONS"/>
+            <response-header type="cors-preflight" name="Access-Control-Max-Age" value="3600"/>
+            <servlet name="HtmlRenderServlet" class="org.moqui.fop.HtmlRenderServlet" load-on-startup="1">
+                <url-pattern><![CDATA[/htmlr/*]]></url-pattern></servlet>
+            <servlet name="H2Console" class="org.h2.server.web.WebServlet" load-on-startup="1">
+                <url-pattern><![CDATA[/h2/*]]></url-pattern></servlet>
+        </webapp></webapp-list>
+    <artifact-execution-facade>
+        <artifact-execution type="AT_XML_SCREEN" authz-enabled="true" tarpit-enabled="false"/>
+        <artifact-execution type="AT_XML_SCREEN_TRANS" authz-enabled="true" tarpit-enabled="false"/>
+        <artifact-execution type="AT_SERVICE" authz-enabled="true" tarpit-enabled="false"/>
+        <artifact-execution type="AT_ENTITY" authz-enabled="true" tarpit-enabled="false"/>
+    </artifact-execution-facade>
+    <user-facade>
+        <password encrypt-hash-type="SHA-256" min-length="8" min-digits="1" min-others="1" history-limit="5" change-weeks="104" email-require-change="false" email-expire-hours="48"/>
+        <login-key encrypt-hash-type="SHA-256" expire-hours="144"/>
+        <login max-failures="3" disable-minutes="5" history-store="true" history-incorrect-password="false"/>
+    </user-facade>
+    <transaction-facade use-transaction-cache="true" use-connection-stash="true" use-lock-track="${entity_lock_track}" use-statement-timeout="${entity_statement_timeout}">
+        <transaction-internal class="org.moqui.impl.context.TransactionInternalBitronix"/></transaction-facade>
+    <resource-facade xml-actions-template-location="classpath://template/XmlActions.groovy.ftl" xsl-fo-handler-factory="FOP">
+        <resource-reference scheme="http" class="org.moqui.resource.UrlResourceReference"/>
+        <resource-reference scheme="https" class="org.moqui.resource.UrlResourceReference"/>
+        <resource-reference scheme="file" class="org.moqui.resource.UrlResourceReference"/>
+        <resource-reference scheme="ftp" class="org.moqui.resource.UrlResourceReference"/>
+        <resource-reference scheme="jar" class="org.moqui.resource.UrlResourceReference"/>
+        <resource-reference scheme="bundleresource" class="org.moqui.resource.UrlResourceReference"/>
+        <resource-reference scheme="wsjar" class="org.moqui.resource.UrlResourceReference"/>
+        <resource-reference scheme="runtime" class="org.moqui.resource.UrlResourceReference"/>
+        <resource-reference scheme="classpath" class="org.moqui.resource.ClasspathResourceReference"/>
+        <resource-reference scheme="component" class="org.moqui.impl.context.reference.ComponentResourceReference"/>
+        <resource-reference scheme="content" class="org.moqui.impl.context.reference.ContentResourceReference"/>
+        <resource-reference scheme="dbresource" class="org.moqui.impl.context.reference.DbResourceReference"/>
+        <template-renderer extension="ftl" class="org.moqui.impl.context.renderer.FtlTemplateRenderer"/>
+        <template-renderer extension="html.ftl" class="org.moqui.impl.context.renderer.FtlTemplateRenderer"/>
+        <template-renderer extension="gstring" class="org.moqui.impl.context.renderer.GStringTemplateRenderer"/>
+        <template-renderer extension="html.gstring" class="org.moqui.impl.context.renderer.GStringTemplateRenderer"/>
+        <template-renderer extension="md" class="org.moqui.impl.context.renderer.MarkdownTemplateRenderer"/>
+        <template-renderer extension="markdown" class="org.moqui.impl.context.renderer.MarkdownTemplateRenderer"/>
+        <template-renderer extension="md.ftl" class="org.moqui.impl.context.renderer.FtlMarkdownTemplateRenderer"/>
+        <template-renderer extension="markdown.ftl" class="org.moqui.impl.context.renderer.FtlMarkdownTemplateRenderer"/>
+        <template-renderer extension="html" class="org.moqui.impl.context.renderer.NoTemplateRenderer"/>
+        <script-runner extension=".groovy" class="org.moqui.impl.context.runner.GroovyScriptRunner"/>
+        <script-runner extension=".xml" class="org.moqui.impl.context.runner.XmlActionsScriptRunner"/>
+        <script-runner extension=".js" engine="javascript"/>
+    </resource-facade>
+    <screen-facade boundary-comments="true" default-autocomplete-rows="20" default-paginate-rows="20">
+        <screen-text-output type="csv" mime-type="text/csv" always-standalone="true" macro-template-location="template/screen-macro/DefaultScreenMacros.csv.ftl"/>
+        <screen-text-output type="html" mime-type="text/html" macro-template-location="template/screen-macro/ScreenHtmlMacros.ftl"/>
+        <screen-text-output type="text" mime-type="text/plain" macro-template-location="template/screen-macro/DefaultScreenMacros.text.ftl"/>
+        <screen-text-output type="xml" mime-type="text/xml" macro-template-location="template/screen-macro/DefaultScreenMacros.xml.ftl"/>
+        <screen-text-output type="xsl-fo" mime-type="text/xml" always-standalone="true" macro-template-location="template/screen-macro/DefaultScreenMacros.xsl-fo.ftl"/>
+        <screen-text-output type="vuet" mime-type="text/html" always-standalone="true" macro-template-location="template/screen-macro/DefaultScreenMacros.vuet.ftl"/>
+        <screen-text-output type="js" mime-type="application/javascript" always-standalone="true" macro-template-location="template/screen-macro/DefaultScreenMacros.plain.ftl"/>
+        <screen-text-output type="vue" mime-type="text/html" always-standalone="true" macro-template-location="template/screen-macro/DefaultScreenMacros.plain.ftl"/>
+        <screen-text-output type="qvt" mime-type="text/html" always-standalone="true" macro-template-location="template/screen-macro/DefaultScreenMacros.qvt.ftl"/>
+        <screen-text-output type="qjs" mime-type="application/javascript" always-standalone="true" macro-template-location="template/screen-macro/DefaultScreenMacros.plain.ftl"/>
+        <screen-text-output type="qvue" mime-type="text/html" always-standalone="true" macro-template-location="template/screen-macro/DefaultScreenMacros.plain.ftl"/>
+        <screen location="component://webroot/screen/webroot/apps.xml">
+            <subscreens-item name="system" menu-title="System" menu-index="98" location="component://tools/screen/System.xml"/>
+            <subscreens-item name="tools" menu-title="Tools" menu-index="99" location="component://tools/screen/Tools.xml"/>
+            <subscreens-item name="my" menu-title="My Account" menu-index="90" location="component://SimpleScreens/screen/MyAccount.xml"/>
+            <subscreens-item name="hm" menu-title="HiveMind PM" menu-index="7" location="component://HiveMind/screen/HiveMindRoot.xml"/>
+            <subscreens-item name="hmadmin" menu-title="HiveMind Admin" menu-index="8" location="component://HiveMind/screen/HiveMindAdmin.xml"/>
+            <subscreens-item name="PopcAdmin" menu-title="POPC ERP" menu-index="9" location="component://PopCommerce/screen/PopCommerceAdmin.xml"/>
+            <subscreens-item name="hhwh" menu-title="HH Warehouse" menu-index="20" location="component://SimpleScreens/screen/BasicHandheld/Warehouse.xml"/>
+        </screen>
+        <screen location="component://webroot/screen/webroot.xml">
+            <subscreens-item name="ssstatic" menu-include="false" location="component://SimpleScreens/screen/ssstatic.xml"/>
+            <subscreens-item name="hmstatic" menu-include="false" location="component://HiveMind/screen/hmstatic.xml"/>
+            <subscreens-item name="popc" menu-title="POP Commerce" menu-include="false" location="component://PopCommerce/screen/PopCommerceRoot.xml"/>
+        </screen>
+    </screen-facade>
+    <service-facade distributed-factory="" scheduled-job-check-time="${scheduled_job_check_time}">
+        <service-location name="main-json" location="http://localhost:8080/rpc/json"/>
+        <service-type name="inline" runner-class="org.moqui.impl.service.runner.InlineServiceRunner"/>
+        <service-type name="entity-auto" runner-class="org.moqui.impl.service.runner.EntityAutoServiceRunner"/>
+        <service-type name="script" runner-class="org.moqui.impl.service.runner.ScriptServiceRunner"/>
+        <service-type name="java" runner-class="org.moqui.impl.service.runner.JavaServiceRunner"/>
+        <service-type name="remote-json-rpc" runner-class="org.moqui.impl.service.runner.RemoteJsonRpcServiceRunner"/>
+        <service-file location="classpath://service/org/moqui/EmailServices.xml"/>
+        <service-file location="classpath://service/org/moqui/EntityServices.xml"/>
+        <service-file location="classpath://service/org/moqui/impl/BasicServices.xml"/>
+        <service-file location="classpath://service/org/moqui/impl/ElFinderServices.xml"/>
+        <service-file location="classpath://service/org/moqui/impl/EmailServices.xml"/>
+        <service-file location="classpath://service/org/moqui/impl/EntityServices.xml"/>
+        <service-file location="classpath://service/org/moqui/impl/EntitySyncServices.xml"/>
+        <service-file location="classpath://service/org/moqui/impl/GoogleServices.xml"/>
+        <service-file location="classpath://service/org/moqui/impl/InstanceServices.xml"/>
+        <service-file location="classpath://service/org/moqui/impl/PrintServices.xml"/>
+        <service-file location="classpath://service/org/moqui/impl/ScreenServices.xml"/>
+        <service-file location="classpath://service/org/moqui/impl/ServerServices.xml"/>
+        <service-file location="classpath://service/org/moqui/impl/ServiceServices.xml"/>
+        <service-file location="classpath://service/org/moqui/impl/SystemMessageServices.xml"/>
+        <service-file location="classpath://service/org/moqui/impl/UserServices.xml"/>
+        <service-file location="classpath://service/org/moqui/impl/WikiServices.xml"/>
+        <service-file location="classpath://service/org/moqui/search/SearchServices.xml"/>
+    </service-facade>
+    <elastic-facade>
+        <cluster name="default" url="${elasticsearch_host1 ?: elasticsearch_url}" user="${elasticsearch_user}" password="${elasticsearch_password}" index-prefix="${elasticsearch_index_prefix}" pool-max="64" queue-size="1024"/></elastic-facade>
+    <entity-facade default-group-name="transactional" entity-eca-enabled="true" sequenced-id-prefix="" distributed-cache-invalidate="false" dci-topic-factory="" query-stats="true" database-locale="${default_locale}" database-time-zone="${database_time_zone ?: default_time_zone}" crypt-salt="20201202" crypt-iter="10" crypt-algo="PBEWithHmacSHA256AndAES_128" crypt-pass="${entity_ds_crypt_pass}">
+        <decrypt-alt crypt-salt="SkcorIuqom" crypt-iter="10" crypt-algo="PBEWithMD5AndDES" crypt-pass="${entity_ds_crypt_pass}"/>
+        <decrypt-alt crypt-salt="SkcorIuqom" crypt-iter="10" crypt-algo="PBEWithMD5AndDES" crypt-pass="${entity_ds_crypt_pass_old}"/>
+        <decrypt-alt crypt-salt="20201202" crypt-iter="10" crypt-algo="PBEWithHmacSHA256AndAES_128" crypt-pass="${entity_ds_crypt_pass_old}"/>
+        <datasource group-name="transactional" database-conf-name="${entity_ds_db_conf}" schema-name="${entity_ds_schema}" runtime-add-missing="${entity_add_missing_runtime}" startup-add-missing="${entity_add_missing_startup}"/>
+        <datasource group-name="transactional#clone1" database-conf-name="${entity_ds_c1_db_conf}" schema-name="${entity_ds_c1_schema}" runtime-add-missing="false" startup-add-missing="false" disabled="${entity_ds_c1_disabled}">
+            <inline-jdbc pool-maxsize="40" isolation-level="ReadUncommitted">
+                <xa-properties serverName="${entity_ds_c1_host}" port="${entity_ds_c1_port?:'3306'}" databaseName="${entity_ds_c1_database}" user="${entity_ds_c1_user}" password="${entity_ds_c1_password}" pinGlobalTxToPhysicalConnection="true" autoReconnectForPools="true" useUnicode="true" encoding="UTF-8"/></inline-jdbc></datasource>
+        <load-entity location="classpath://entity/BasicEntities.xml"/>
+        <load-entity location="classpath://entity/EntityEntities.xml"/>
+        <load-entity location="classpath://entity/OlapEntities.xml"/>
+        <load-entity location="classpath://entity/ResourceEntities.xml"/>
+        <load-entity location="classpath://entity/ScreenEntities.xml"/>
+        <load-entity location="classpath://entity/Screen.eecas.xml"/>
+        <load-entity location="classpath://entity/SecurityEntities.xml"/>
+        <load-entity location="classpath://entity/ServerEntities.xml"/>
+        <load-entity location="classpath://entity/ServiceEntities.xml"/>
+        <load-entity location="classpath://entity/TestEntities.xml"/>
+        <load-data location="classpath://data/CommonL10nData.xml"/>
+        <load-data location="classpath://data/CurrencyData.xml"/>
+        <load-data location="classpath://data/EntityTypeData.xml"/>
+        <load-data location="classpath://data/GeoCountryData.xml"/>
+        <load-data location="classpath://data/SecurityTypeData.xml"/>
+        <load-data location="classpath://data/UnitData.xml"/>
+        <load-data location="classpath://data/MoquiSetupData.xml"/>
+    </entity-facade>
+    <database-list>
+        <dictionary-type type="id" java-type="java.lang.String" default-sql-type="VARCHAR(40)"/>
+        <dictionary-type type="id-long" java-type="java.lang.String" default-sql-type="VARCHAR(255)"/>
+        <dictionary-type type="date" java-type="java.sql.Date" default-sql-type="DATE"/>
+        <dictionary-type type="time" java-type="java.sql.Time" default-sql-type="TIME"/>
+        <dictionary-type type="date-time" java-type="java.sql.Timestamp" default-sql-type="TIMESTAMP"/>
+        <dictionary-type type="number-integer" java-type="java.lang.Long" default-sql-type="NUMERIC(20,0)"/>
+        <dictionary-type type="number-decimal" java-type="java.math.BigDecimal" default-sql-type="NUMERIC(26,6)"/>
+        <dictionary-type type="number-float" java-type="java.lang.Double" default-sql-type="DOUBLE"/>
+        <dictionary-type type="currency-amount" java-type="java.math.BigDecimal" default-sql-type="NUMERIC(24,4)"/>
+        <dictionary-type type="currency-precise" java-type="java.math.BigDecimal" default-sql-type="NUMERIC(25,5)"/>
+        <dictionary-type type="text-indicator" java-type="java.lang.String" default-sql-type="CHAR(1)"/>
+        <dictionary-type type="text-short" java-type="java.lang.String" default-sql-type="VARCHAR(63)"/>
+        <dictionary-type type="text-medium" java-type="java.lang.String" default-sql-type="VARCHAR(255)"/>
+        <dictionary-type type="text-intermediate" java-type="java.lang.String" default-sql-type="VARCHAR(1023)"/>
+        <dictionary-type type="text-long" java-type="java.lang.String" default-sql-type="VARCHAR(4095)"/>
+        <dictionary-type type="text-very-long" java-type="java.lang.String" default-sql-type="CLOB"/>
+        <dictionary-type type="binary-very-long" java-type="java.sql.Blob" default-sql-type="BLOB"/>
+        <database name="db2" join-style="ansi" offset-style="limit" from-lateral-style="lateral" never-nulls="true" default-isolation-level="ReadCommitted" for-update="FOR UPDATE WITH RS" use-schema-for-all="true" use-indexes-unique="false" use-pk-constraint-names="false" fk-style="name_fk" default-test-query="SELECT 1 FROM SYSIBM.SYSDUMMY1" default-jdbc-driver="com.ibm.db2.jcc.DB2Driver" default-xa-ds-class="com.ibm.db2.jcc.DB2XADataSource" default-startup-add-missing="true" default-runtime-add-missing="false">
+            <database-type type="number-integer" sql-type="DECIMAL(20,0)"/>
+            <database-type type="number-decimal" sql-type="DECIMAL(26,6)"/>
+            <database-type type="number-float" sql-type="DECIMAL(30,12)"/>
+            <database-type type="currency-amount" sql-type="DECIMAL(24,4)"/>
+            <database-type type="currency-precise" sql-type="DECIMAL(25,5)"/>
+            <inline-jdbc>
+                <xa-properties driverType="4" serverName="${entity_ds_host}" portNumber="${entity_ds_port?:'50000'}" databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
+        </database>
+        <database name="db2i" lb-name="db2" join-style="ansi" offset-style="limit" from-lateral-style="lateral" never-nulls="true" default-isolation-level="ReadCommitted" for-update="FOR UPDATE WITH RS" use-schema-for-all="true" use-indexes-unique-where-not-null="true" default-test-query="SELECT 1 FROM SYSIBM.SYSDUMMY1" default-jdbc-driver="com.ibm.as400.access.AS400JDBCDriver" default-xa-ds-class="com.ibm.as400.access.AS400JDBCXADataSource" default-startup-add-missing="true" default-runtime-add-missing="false">
+            <database-type type="number-integer" sql-type="DECIMAL(20,0)"/>
+            <database-type type="number-decimal" sql-type="DECIMAL(26,6)"/>
+            <database-type type="number-float" sql-type="DECIMAL(30,12)"/>
+            <database-type type="currency-amount" sql-type="DECIMAL(24,4)"/>
+            <database-type type="currency-precise" sql-type="DECIMAL(25,5)"/>
+            <inline-jdbc>
+                <xa-properties serverName="${entity_ds_host}" databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}" cursorHold="false" threadUsed="false"/></inline-jdbc>
+        </database>
+        <database name="derby" use-pk-constraint-names="false" use-indexes-unique="false" default-isolation-level="ReadCommitted" default-jdbc-driver="org.apache.derby.jdbc.EmbeddedDriver" default-xa-ds-class="org.apache.derby.jdbc.EmbeddedXADataSource">
+            <inline-jdbc>
+                <xa-properties databaseName="${moqui_runtime}/db/derby/${entity_ds_database}" createDatabase="create"/></inline-jdbc></database>
+        <database name="h2" use-pk-constraint-names="false" use-indexes-unique="true" add-unique-as="true" default-isolation-level="ReadCommitted" default-jdbc-driver="org.h2.Driver" default-xa-ds-class="org.h2.jdbcx.JdbcDataSource" default-start-server-args="-tcpPort 9092 -ifExists -baseDir ${moqui_runtime}/db/h2">
+            <inline-jdbc>
+                <xa-properties url="${entity_ds_url}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc></database>
+        <database name="hsql" lb-name="hsqldb" use-fk-initially-deferred="false" join-style="ansi-no-parenthesis" default-isolation-level="ReadUncommitted" default-jdbc-driver="org.hsqldb.jdbcDriver" default-test-query="SELECT 1 FROM SEQUENCE_VALUE_ITEM WHERE 1=0">
+            <database-type type="id" sql-type="VARCHAR"/>
+            <database-type type="id-long" sql-type="VARCHAR"/>
+            <database-type type="number-integer" sql-type="BIGINT"/>
+            <database-type type="number-decimal" sql-type="DOUBLE"/>
+            <database-type type="number-float" sql-type="DOUBLE"/>
+            <database-type type="currency-amount" sql-type="DOUBLE"/>
+            <database-type type="currency-precise" sql-type="DOUBLE"/>
+            <database-type type="text-indicator" sql-type="CHAR"/>
+            <database-type type="text-short" sql-type="VARCHAR"/>
+            <database-type type="text-medium" sql-type="VARCHAR"/>
+            <database-type type="text-intermediate" sql-type="VARCHAR"/>
+            <database-type type="text-long" sql-type="VARCHAR"/>
+            <database-type type="text-very-long" sql-type="VARCHAR"/>
+            <database-type type="binary-very-long" sql-type="OBJECT" sql-type-alias="OTHER"/>
+        </database>
+        <database name="mssql" join-style="ansi" default-isolation-level="ReadCommitted" offset-style="fetch" from-lateral-style="apply" default-test-query="SELECT 1" default-jdbc-driver="com.microsoft.sqlserver.jdbc.SQLServerDriver" default-xa-ds-class="com.microsoft.sqlserver.jdbc.SQLServerXADataSource" default-startup-add-missing="true" default-runtime-add-missing="false" never-nulls="true">
+            <database-type type="id" sql-type="NVARCHAR(40)"/>
+            <database-type type="id-long" sql-type="NVARCHAR(255)"/>
+            <database-type type="date" sql-type="DATETIME"/>
+            <database-type type="time" sql-type="DATETIME"/>
+            <database-type type="date-time" sql-type="DATETIME"/>
+            <database-type type="number-integer" sql-type="DECIMAL(20,0)"/>
+            <database-type type="number-decimal" sql-type="DECIMAL(26,6)"/>
+            <database-type type="number-float" sql-type="DECIMAL(32,12)"/>
+            <database-type type="currency-amount" sql-type="DECIMAL(24,4)"/>
+            <database-type type="currency-precise" sql-type="DECIMAL(25,5)"/>
+            <database-type type="text-indicator" sql-type="CHAR(1)"/>
+            <database-type type="text-short" sql-type="NVARCHAR(63)"/>
+            <database-type type="text-medium" sql-type="NVARCHAR(255)"/>
+            <database-type type="text-intermediate" sql-type="NVARCHAR(1023)"/>
+            <database-type type="text-long" sql-type="NVARCHAR(4000)"/>
+            <database-type type="text-very-long" sql-type="TEXT"/>
+            <database-type type="binary-very-long" sql-type="IMAGE"/>
+            <inline-jdbc>
+                <xa-properties serverName="${entity_ds_host}" portNumber="${entity_ds_port?:'1433'}" databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}" selectMethod="Cursor"/></inline-jdbc>
+        </database>
+        <database name="mysql" join-style="ansi-no-parenthesis" offset-style="limit" never-nulls="true" table-engine="InnoDB" character-set="utf8" collate="utf8_general_ci" fk-style="name_fk" default-isolation-level="ReadCommitted" default-test-query="SELECT 1" default-jdbc-driver="com.mysql.jdbc.Driver" default-xa-ds-class="com.mysql.jdbc.jdbc2.optional.MysqlXADataSource">
+            <database-type type="date-time" sql-type="DATETIME(3)"/>
+            <database-type type="number-integer" sql-type="DECIMAL(20,0)"/>
+            <database-type type="number-decimal" sql-type="DECIMAL(26,6)"/>
+            <database-type type="number-float" sql-type="DECIMAL(32,12)"/>
+            <database-type type="currency-amount" sql-type="DECIMAL(24,4)"/>
+            <database-type type="currency-precise" sql-type="DECIMAL(25,5)"/>
+            <database-type type="text-very-long" sql-type="LONGTEXT"/>
+            <database-type type="binary-very-long" sql-type="LONGBLOB"/>
+            <inline-jdbc pool-maxsize="140">
+                <xa-properties serverName="${entity_ds_host}" port="${entity_ds_port?:'3306'}" pinGlobalTxToPhysicalConnection="true" autoReconnectForPools="true" useUnicode="true" encoding="UTF-8" useCursorFetch="true" databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
+        </database>
+        <database name="mysql8" lb-name="mysql" join-style="ansi-no-parenthesis" offset-style="limit" from-lateral-style="lateral" never-nulls="true" table-engine="InnoDB" character-set="utf8" collate="utf8_general_ci" fk-style="name_fk" default-isolation-level="ReadCommitted" default-test-query="SELECT 1" default-startup-add-missing="true" default-runtime-add-missing="false" default-jdbc-driver="com.mysql.cj.jdbc.Driver" default-xa-ds-class="com.mysql.cj.jdbc.MysqlXADataSource">
+            <database-type type="date-time" sql-type="DATETIME(3)"/>
+            <database-type type="number-integer" sql-type="DECIMAL(20,0)"/>
+            <database-type type="number-decimal" sql-type="DECIMAL(26,6)"/>
+            <database-type type="number-float" sql-type="DECIMAL(32,12)"/>
+            <database-type type="currency-amount" sql-type="DECIMAL(24,4)"/>
+            <database-type type="currency-precise" sql-type="DECIMAL(25,5)"/>
+            <database-type type="text-very-long" sql-type="LONGTEXT"/>
+            <database-type type="binary-very-long" sql-type="LONGBLOB"/>
+            <inline-jdbc pool-maxsize="140">
+                <xa-properties serverName="${entity_ds_host}" port="${entity_ds_port?:'3306'}" pinGlobalTxToPhysicalConnection="true" autoReconnectForPools="true" useCursorFetch="true" serverTimezone="${database_time_zone ?: default_time_zone}" useSSL="false" allowPublicKeyRetrieval="true" databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
+        </database>
+        <database name="oracle" add-unique-as="true" join-style="ansi" from-lateral-style="apply" default-isolation-level="ReadCommitted" default-test-query="SELECT 1 FROM DUAL" default-jdbc-driver="oracle.jdbc.driver.OracleDriver" default-xa-ds-class="oracle.jdbc.xa.client.OracleXADataSource" default-startup-add-missing="true" default-runtime-add-missing="false">
+            <database-type type="id" sql-type="VARCHAR2(40)"/>
+            <database-type type="id-long" sql-type="VARCHAR2(255)"/>
+            <database-type type="time" sql-type="DATE"/>
+            <database-type type="number-integer" sql-type="NUMBER(20,0)"/>
+            <database-type type="number-decimal" sql-type="NUMBER(26,6)"/>
+            <database-type type="number-float" sql-type="NUMBER(32,12)"/>
+            <database-type type="currency-amount" sql-type="NUMBER(24,4)"/>
+            <database-type type="currency-precise" sql-type="NUMBER(25,5)"/>
+            <database-type type="text-short" sql-type="VARCHAR2(63)"/>
+            <database-type type="text-medium" sql-type="VARCHAR2(255)"/>
+            <database-type type="text-intermediate" sql-type="VARCHAR2(1023)"/>
+            <database-type type="text-long" sql-type="VARCHAR2(4000)"/>
+            <inline-jdbc>
+                <xa-properties user="${entity_ds_user}" password="${entity_ds_password}" URL="jdbc:oracle:thin:@${entity_ds_host}:${entity_ds_port?:'1521'}:${entity_ds_database}"/></inline-jdbc>
+        </database>
+        <database name="postgres" lb-name="postgresql" join-style="ansi" from-lateral-style="lateral" result-fetch-size="50" never-try-insert="true" default-isolation-level="ReadCommitted" use-tm-join="true" default-test-query="SELECT 1" default-jdbc-driver="org.postgresql.Driver" default-xa-ds-class="org.postgresql.xa.PGXADataSource" default-startup-add-missing="true" default-runtime-add-missing="false" use-binary-type-for-blob="true">
+            <database-type type="number-float" sql-type="FLOAT8"/>
+            <database-type type="text-medium" sql-type="TEXT"/>
+            <database-type type="text-intermediate" sql-type="TEXT"/>
+            <database-type type="text-long" sql-type="TEXT"/>
+            <database-type type="text-very-long" sql-type="TEXT"/>
+            <database-type type="binary-very-long" sql-type="BYTEA"/>
+            <inline-jdbc pool-maxsize="90">
+                <xa-properties serverName="${entity_ds_host}" portNumber="${entity_ds_port?:'5432'}" databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
+        </database>
+    </database-list>
+    <repository-list/>
+    <component-list>
+        <component-dir location="base-component"/>
+        <component-dir location="mantle"/>
+        <component-dir location="component"/>
+        <component-dir location="ecomponent"/>
+    </component-list>
+    <default-property name="mantle_content_root" value=""/>
+    <default-property name="mantle_content_large_root" value=""/>
+</moqui-conf>

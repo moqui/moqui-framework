@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-title="Entity List" default-menu-index="1">
+
+    <transition name="find"><default-response url="../EntityDataFind"/></transition>
+    <transition name="detail"><default-response url="../EntityDetail"/></transition>
+    <transition name="checkTables">
+        <actions><script>ec.entity.entityDbMeta.forceCheckExistingTables()</script></actions>
+        <default-response url="."/>
+    </transition>
+
+    <transition name="getLiquibaseInitXml" read-only="true">
+        <actions><script><![CDATA[
+            def lbRootNode = ec.entity.getEntityDbMeta().liquibaseInitChangelog(filterRegexp)
+            ec.web.sendTextResponse(lbRootNode.toString(), "text/xml", "LiquibaseInit-${new java.sql.Date(System.currentTimeMillis()).toString()}.xml")
+        ]]></script></actions>
+        <default-response type="none"/>
+    </transition>
+    <transition name="dropForeignKeys" begin-transaction="false">
+        <actions>
+            <script>ec.entity.entityDbMeta.forceCheckExistingTables()</script>
+            <set field="dropped" from="ec.entity.getEntityDbMeta().dropAllForeignKeys()"/>
+            <message>Dropped ${dropped} foreign keys</message>
+        </actions>
+        <default-response url="."/>
+    </transition>
+    <transition name="createForeignKeys" begin-transaction="false">
+        <actions>
+            <set field="created" from="ec.entity.getEntityDbMeta().createForeignKeysForExistingTables()"/>
+            <message>Created ${created} foreign keys</message>
+        </actions>
+        <default-response url="."/>
+    </transition>
+
+    <actions>
+        <set field="pageSize" from="pageSize ?: 60"/>
+        <set field="masterEntitiesOnly" from="viewOption == 'master'"/>
+        <set field="excludeViewEntities" from="viewOption == 'exclude-views'"/>
+        <set field="entityList" from="ec.entity.getAllEntitiesInfo(orderByField?:'fullEntityName', filterRegexp, masterEntitiesOnly, excludeViewEntities)"/>
+        <script>paginateList("entityList", null, context)</script>
+    </actions>
+    <widgets>
+        <link url="checkTables" text="Check/Update All Tables"/>
+        <link url="dropForeignKeys" text="Drop FKs" confirmation="Really drop all known foreign keys?"/>
+        <link url="createForeignKeys" text="Create FKs" confirmation="Really create all missing foreign keys?"/>
+        <container-dialog id="LiquibaseInitDialog" button-text="Liquibase Init XML">
+            <form-single name="LiquibaseInit" transition="getLiquibaseInitXml">
+                <field name="filterRegexp"><default-field><text-line size="40"/></default-field></field>
+                <field name="submitButton"><default-field title="Download"><submit/></default-field></field>
+            </form-single>
+        </container-dialog>
+
+        <form-single name="FilterForm" transition=".">
+            <field name="filterRegexp"><default-field><text-line size="30"/></default-field></field>
+            <field name="viewOption"><default-field title="View Option">
+                <drop-down>
+                    <option key="all" text="All Entities"/>
+                    <option key="master" text="Master Entities"/>
+                    <option key="exclude-views" text="Exclude View Entities"/>
+                </drop-down>
+            </default-field></field>
+            <field name="submitButton"><default-field title="Filter"><submit/></default-field></field>
+            <field-layout><field-row-big><field-ref name="filterRegexp"/><field-ref name="viewOption"/>
+                <field-ref name="submitButton"/></field-row-big></field-layout>
+        </form-single>
+        <form-list name="EntityList" list="entityList">
+            <field name="package">
+                <header-field show-order-by="true"/>
+                <default-field><display also-hidden="false"/></default-field>
+            </field>
+            <field name="entityName">
+                <header-field show-order-by="true"/>
+                <default-field><display also-hidden="false"/></default-field>
+            </field>
+            <field name="isView">
+                <header-field title="View##DataBase" show-order-by="true"/>
+                <default-field><display also-hidden="false"/></default-field>
+            </field>
+            <field name="find"><default-field>
+                <link url="find" text="Find" link-type="anchor" parameter-map="[selectedEntity:fullEntityName]"/>
+            </default-field></field>
+            <field name="detail"><default-field>
+                <link url="detail" text="Detail" link-type="anchor" parameter-map="[selectedEntity:fullEntityName]"/>
+            </default-field></field>
+        </form-list>
+    </widgets>
+</screen>

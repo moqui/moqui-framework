@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        require-authentication="false">
+    <widgets>
+        <render-mode><text type="html"><![CDATA[
+            <p>&nbsp;</p>
+            <div class="jumbotron">
+                <h1><i class="fa fa-exclamation-circle text-danger"></i> Internal Server Error (${errorCode})</h1>
+                <p class="text-danger">${errorMessage!""}</p>
+                <a href="${sri.buildUrl("/").url}" class="btn btn-primary btn-lg" role="button">Go Home</a>
+                <a href="javascript:window.history.back();" class="btn btn-primary btn-lg" role="button">Go Back</a>
+                <#if errorThrowable??><button type="button" class="btn btn-primary btn-lg" data-toggle="modal" data-target="#ErrorDetailModal">See Detail</button></#if>
+            </div>
+            <#if errorThrowable??>
+                <#assign stackList = errorThrowable.getStackTrace()>
+                <div id="ErrorDetailModal" class="modal fade" tabindex="-1" role="dialog">
+                  <div class="modal-dialog modal-lg"><div class="modal-content">
+                      <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                        <h4 class="modal-title">Error Detail</h4>
+                      </div>
+                      <div class="modal-body">
+<pre>
+${(errorThrowable.message!"No Message")?html}
+<#list stackList as stackElement>
+at ${stackElement.toString()}
+</#list>
+</pre>
+                      </div>
+                    </div><!-- /.modal-content -->
+                  </div><!-- /.modal-dialog -->
+                </div><!-- /.modal -->
+            </#if>
+        ]]></text></render-mode>
+    </widgets>
+</screen>

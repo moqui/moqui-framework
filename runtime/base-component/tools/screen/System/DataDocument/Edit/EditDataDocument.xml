@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-title="Data Document" default-menu-index="1">
+
+    <parameter name="dataDocumentId" required="true"/>
+
+    <transition name="updateDataDocument"><service-call name="update#moqui.entity.document.DataDocument"/>
+        <default-response url="."/></transition>
+    <transition name="cloneDataDocument"><service-call name="org.moqui.impl.EntityServices.clone#DataDocument"/>
+        <default-response url="."/></transition>
+
+    <transition name="createDataDocumentUserGroup"><service-call name="create#moqui.entity.document.DataDocumentUserGroup"/>
+        <default-response url="."/></transition>
+    <transition name="deleteDataDocumentUserGroup"><service-call name="delete#moqui.entity.document.DataDocumentUserGroup"/>
+        <default-response url="."/></transition>
+    <transition name="createDataFeedDocument"><service-call name="create#moqui.entity.feed.DataFeedDocument"/>
+        <default-response url="."/></transition>
+    <transition name="deleteDataFeedDocument"><service-call name="delete#moqui.entity.feed.DataFeedDocument"/>
+        <default-response url="."/></transition>
+
+    <transition name="createDataDocumentLink"><service-call name="create#moqui.entity.document.DataDocumentLink"/>
+        <default-response url="."/></transition>
+    <transition name="updateDataDocumentLink"><service-call name="update#moqui.entity.document.DataDocumentLink"/>
+        <default-response url="."/></transition>
+    <transition name="deleteDataDocumentLink"><service-call name="delete#moqui.entity.document.DataDocumentLink"/>
+        <default-response url="."/></transition>
+
+    <actions>
+        <entity-find-one entity-name="moqui.entity.document.DataDocument" value-field="dataDocument"/>
+
+        <set field="entityInfoList" from="ec.entity.getAllEntitiesInfo('entityName', null, false, true)"/>
+        <if condition="excludeFilter"><set field="entityInfoList" from="entityInfoList.findAll({ !it.fullEntityName.matches(excludeFilter) })"/></if>
+    </actions>
+    <widgets>
+        <container-row><row-col lg="5">
+            <container-dialog id="CloneDialog" button-text="Clone">
+                <form-single name="CloneDataDocument" transition="cloneDataDocument">
+                    <field name="dataDocumentId"><default-field><hidden/></default-field></field>
+                    <field name="newDataDocumentId"><default-field title="New ID"><text-line size="30"/></default-field></field>
+                    <field name="newIndexName"><default-field title="New Index"><text-line size="30"/></default-field></field>
+                    <field name="copyConditions"><default-field><drop-down><option key="false"/><option key="true"/></drop-down></default-field></field>
+                    <field name="copyLinks"><default-field><drop-down><option key="false"/><option key="true"/></drop-down></default-field></field>
+                    <field name="submitButton"><default-field title="Clone"><submit/></default-field></field>
+                </form-single>
+            </container-dialog>
+            <form-single name="EditDataDocument" transition="updateDataDocument" map="dataDocument">
+                <field name="dataDocumentId"><default-field title="ID"><display/></default-field></field>
+                <field name="documentName"><default-field title="Name"><text-line size="40"/></default-field></field>
+                <field name="primaryEntityName"><default-field title="Primary Entity"><drop-down>
+                    <list-options list="entityInfoList" key="${fullEntityName}"
+                            text="${org.moqui.util.StringUtilities.camelCaseToPretty(entityName)}"/>
+                </drop-down></default-field></field>
+
+                <field name="documentTitle"><default-field title="Title"><text-line/></default-field></field>
+                <field name="indexName"><default-field><text-line size="30"/></default-field></field>
+                <field name="manualDataServiceName"><default-field title="Manual Data Service"><text-line/></default-field></field>
+
+                <field name="submitButton"><default-field title="Update"><submit/></default-field></field>
+            </form-single>
+        </row-col><row-col lg="7">
+            <container-box><box-header title="User Groups"/><box-toolbar>
+                <container-dialog id="AddGroupDialog" button-text="Add Group">
+                    <form-single name="AddUserGroup" transition="createDataDocumentUserGroup">
+                        <field name="dataDocumentId"><default-field><hidden/></default-field></field>
+                        <field name="userGroupId"><default-field title="Group">
+                            <drop-down>
+                                <entity-options key="${userGroupId}" text="UserGroupNameTemplate">
+                                    <entity-find entity-name="moqui.security.UserGroup">
+                                        <order-by field-name="description"/></entity-find>
+                                </entity-options>
+                            </drop-down>
+                        </default-field></field>
+                        <field name="submitButton"><default-field title="Add"><submit/></default-field></field>
+                    </form-single>
+                </container-dialog>
+            </box-toolbar><box-body-nopad>
+                <form-list name="UserGroupList" list="ddugList" skip-form="true" skip-header="true">
+                    <entity-find entity-name="moqui.entity.document.DataDocumentUserGroup">
+                        <econdition field-name="dataDocumentId"/><order-by field-name="userGroupId"/></entity-find>
+                    <field name="dataDocumentId"><default-field><hidden/></default-field></field>
+                    <field name="userGroupId"><default-field title="Group">
+                        <display-entity entity-name="moqui.security.UserGroup"/></default-field></field>
+                    <field name="deleteButton"><default-field title="">
+                        <link url="deleteDataDocumentUserGroup" text=" " icon="fa fa-trash" confirmation="Really remove?"/></default-field></field>
+                </form-list>
+            </box-body-nopad></container-box>
+
+            <container-box><box-header title="Data Feeds"/><box-toolbar>
+                <container-dialog id="AddFeedDialog" button-text="Add Feed">
+                    <form-single name="AddDataFeed" transition="createDataFeedDocument">
+                        <field name="dataDocumentId"><default-field><hidden/></default-field></field>
+                        <field name="dataFeedId"><default-field title="Feed">
+                            <drop-down>
+                                <entity-options key="${dataFeedId}" text="${dataFeedId}: ${feedName?:''}">
+                                    <entity-find entity-name="moqui.entity.feed.DataFeed">
+                                        <order-by field-name="feedName"/></entity-find>
+                                </entity-options>
+                            </drop-down>
+                        </default-field></field>
+                        <field name="submitButton"><default-field title="Add"><submit/></default-field></field>
+                    </form-single>
+                </container-dialog>
+            </box-toolbar><box-body-nopad>
+                <form-list name="DataFeedList" list="dfdList" skip-form="true" skip-header="true">
+                    <entity-find entity-name="moqui.entity.feed.DataFeedDocument">
+                        <econdition field-name="dataDocumentId"/><order-by field-name="dataFeedId"/></entity-find>
+                    <field name="dataDocumentId"><default-field><hidden/></default-field></field>
+                    <field name="dataFeedId"><default-field title="Feed">
+                        <display-entity entity-name="moqui.entity.feed.DataFeed" text="${dataFeedId}: ${feedName?:''}"/></default-field></field>
+                    <field name="deleteButton"><default-field title="">
+                        <link url="deleteDataFeedDocument" text=" " icon="fa fa-trash" confirmation="Really remove?"/></default-field></field>
+                </form-list>
+            </box-body-nopad></container-box>
+        </row-col></container-row>
+        <container-box><box-header title="Links"/><box-toolbar>
+            <container-dialog id="AddLinkDialog" button-text="Add Link">
+                <form-single name="AddLink" transition="createDataDocumentLink">
+                    <field name="dataDocumentId"><default-field><hidden/></default-field></field>
+                    <field name="label"><default-field><text-line size="60"/></default-field></field>
+                    <field name="linkUrl"><default-field title="URL"><text-line/></default-field></field>
+                    <field name="urlType"><default-field title="Type"><drop-down><option key="plain"/><option key="screen"/></drop-down></default-field></field>
+                    <field name="linkCondition"><default-field title="Condition"><text-line/></default-field></field>
+                    <field name="submitButton"><default-field title="Create"><submit/></default-field></field>
+                </form-single>
+            </container-dialog>
+        </box-toolbar><box-body-nopad>
+            <form-list name="LinkList" list="conditionList" transition="updateDataDocumentLink">
+                <entity-find entity-name="moqui.entity.document.DataDocumentLink">
+                    <econdition field-name="dataDocumentId"/><order-by field-name="fieldNameAlias"/></entity-find>
+
+                <field name="dataDocumentId"><default-field><hidden/></default-field></field>
+                <field name="linkSeqId"><default-field><hidden/></default-field></field>
+                <field name="label"><default-field><text-line/></default-field></field>
+                <field name="linkUrl"><default-field title="URL"><text-line/></default-field></field>
+                <field name="urlType"><default-field title="Type"><drop-down><option key="plain"/><option key="screen"/></drop-down></default-field></field>
+                <field name="linkCondition"><default-field title="Condition"><text-line/></default-field></field>
+
+                <field name="submitButton"><default-field title="Upd"><submit/></default-field></field>
+                <field name="deleteButton"><default-field title="">
+                    <link url="deleteDataDocumentLink" text=" " icon="fa fa-trash" confirmation="Really remove?"/></default-field></field>
+            </form-list>
+        </box-body-nopad></container-box>
+    </widgets>
+</screen>

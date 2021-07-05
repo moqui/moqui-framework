@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-title="Data View Results" default-menu-index="1">
+
+    <parameter name="dbViewEntityName" required="true"/>
+
+    <transition name="edit"><default-response url="../EditDbView"/></transition>
+    <transition name="filter">
+        <default-response url="."/>
+    </transition>
+    <transition name="DbView.csv">
+        <default-response url="."><parameter name="renderMode" value="csv"/>
+            <parameter name="pageNoLimit" value="true"/><parameter name="lastStandalone" value="true"/></default-response>
+    </transition>
+
+    <actions>
+        <entity-find-one entity-name="moqui.entity.view.DbViewEntityMember" value-field="masterMember">
+            <field-map field-name="dbViewEntityName"/><field-map field-name="entityAlias" value="MASTER"/></entity-find-one>
+        <set field="masterDef" from="ec.entity.getEntityDefinition(masterMember.entityName)"/>
+        <if condition="masterDef == null"><message error="true">Could not find master entity with name: ${masterMember.entityName}</message><return/></if>
+
+        <entity-find-one entity-name="moqui.entity.view.DbViewEntity" value-field="fieldValues"/>
+        <entity-find entity-name="${dbViewEntityName}" list="dbViewList" use-clone="true">
+            <search-form-inputs/>
+        </entity-find>
+    </actions>
+    <widgets>
+        <container>
+            <link url="edit" text="Edit ${dbViewEntityName}"/>
+            <link url="DbView.csv" text="Get as CSV"/>
+        </container>
+        <label text="Data View for: ${dbViewEntityName}" type="h2"/>
+        <container-dialog id="FilterViewDialog" button-text="Filter ${ec.entity.getEntityDefinition(dbViewEntityName).getPrettyName(null, null)}">
+            <form-single name="FilterDbView" transition="filter" dynamic="true">
+                <auto-fields-entity entity-name="${dbViewEntityName}" field-type="find"/>
+                <field name="dbViewEntityName"><default-field><hidden/></default-field></field>
+                <field name="submitButton"><default-field title="Find"><submit/></default-field></field>
+            </form-single>
+        </container-dialog>
+        <form-list name="ViewList" list="dbViewList" dynamic="true">
+            <auto-fields-entity entity-name="${dbViewEntityName}" field-type="display"/>
+        </form-list>
+    </widgets>
+</screen>

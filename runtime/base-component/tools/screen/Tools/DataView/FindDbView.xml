@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-title="Data View Entity List" default-menu-index="1">
+
+    <transition name="edit"><default-response url="../EditDbView"/></transition>
+    <transition name="view"><default-response url="../ViewDbView"/></transition>
+    <transition name="create"><service-call name="org.moqui.impl.EntityServices.create#DbViewEntity"/>
+        <default-response url="."/></transition>
+
+    <actions>
+        <entity-find entity-name="moqui.entity.view.DbViewEntity" list="dbViewEntityList">
+            <search-form-inputs/>
+            <econdition field-name="isDataView" value="Y"/>
+        </entity-find>
+    </actions>
+    <widgets>
+        <form-single name="CreateDbViewEntity" transition="create">
+            <field name="dbViewEntityName"><default-field title="View Entity Name"><text-line size="20"/></default-field></field>
+            <field name="packageName"><default-field title="Package"><text-line size="20"/></default-field></field>
+            <field name="cache"><default-field><hidden default-value="N"/></default-field></field>
+            <field name="isDataView"><default-field><hidden default-value="Y"/></default-field></field>
+            <field name="submitButton"><default-field title="Create"><submit/></default-field></field>
+            <field-layout><field-row-big>
+                <field-ref name="dbViewEntityName"/><field-ref name="packageName"/>
+                <field-ref name="cache"/><field-ref name="isDataView"/><field-ref name="submitButton"/>
+            </field-row-big></field-layout>
+        </form-single>
+        <form-list name="ListDbViewEntities" list="dbViewEntityList">
+            <field name="dbViewEntityName">
+                <header-field title="Entity" show-order-by="true"/>
+                <default-field><display also-hidden="false"/></default-field>
+            </field>
+            <field name="packageName">
+                <header-field title="Package" show-order-by="true"/>
+                <default-field><display also-hidden="false"/></default-field>
+            </field>
+            <field name="edit"><default-field><link url="edit" text="Edit"/></default-field></field>
+            <field name="view"><default-field><link url="view" text="View"/></default-field></field>
+        </form-list>
+    </widgets>
+</screen>

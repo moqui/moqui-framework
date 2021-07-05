@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-title="SQL" begin-transaction="false"><!-- NOTE: begin tx is false so table meta data changes, etc can be done -->
+
+    <actions>
+        <if condition="!sri.getScreenUrlInfo().isPermitted(ec, null, org.moqui.context.ArtifactExecutionInfo.AUTHZA_ALL)">
+            <return error="true" message="User must be authorized for all actions on this screen"/></if>
+
+        <script><![CDATA[
+            import java.sql.Connection
+            import java.sql.ResultSet
+            import java.sql.SQLWarning
+            import org.moqui.context.ExecutionContext
+
+            ExecutionContext ec = context.ec
+
+            def rs = null
+            outerColumnsList = new ArrayList<ArrayList<String>>()
+            outerRecordsList = new ArrayList<ArrayList<ArrayList>>()
+
+            int limitInt = (limit?:"500") as int
+
+            // make sure SQL comes in secure parameter (body, etc no URL)
+            sql = ec.web.secureRequestParameters.get("sql")
+            if (sql && groupName) {
+                messageList = []
+                Connection con = ec.entity.getConnection(groupName)
+                try {
+                    stmt = con.createStatement()
+
+                    for(int i=0; i< 100; i++) {
+                        // try get 100 ResultSets, avoid infinite loop
+                        boolean isResultSet = i == 0 ? stmt.execute(sql as String) : stmt.getMoreResults()
+                        // ec.logger.info("$isResultSet")
+
+                        SQLWarning w = stmt.getWarnings()
+                        for (int j = 0; j < 100 && w != null; j++) {
+                            ec.logger.warn(w.getMessage() as String)
+                            w = w.getNextWarning()
+                        }
+
+                        stmt.clearWarnings()
+
+                        if (isResultSet) {
+                            columns = new ArrayList<String>()
+                            records = new ArrayList<ArrayList>()
+                            outerColumnsList.add(columns)
+                            outerRecordsList.add(records)
+                            rs = stmt.getResultSet()
+                            if (rs != null) {
+                                rsmd = rs.getMetaData()
+                                columnCount = rsmd.getColumnCount()
+                                for (i = 1; i <= columnCount; i++) columns.add(rsmd.getColumnName(i))
+
+                                limitReached = false
+                                while (rs.next()) {
+                                    if (limitInt > 0 && records.size() >= limitInt) {
+                                        limitReached = true
+                                        break
+                                    }
+                                    record = new ArrayList<Object>(columnCount)
+                                    for (i = 1; i <= columnCount; i++) record.add(rs.getObject(i))
+                                    records.add(record)
+                                }
+                                rs.close()
+
+                                if (limitReached) {
+                                    messageList.add(ec.resource.expand('Only showing first ${limit} rows.',''))
+                                } else {
+                                    messageList.add(ec.resource.expand('Showing all ${records.size()} results.',''))
+                                }
+                            }
+                        } else if ((rowsAffected = stmt.getUpdateCount()) != -1){
+                            messageList.add(ec.resource.expand('Query altered ${rowsAffected} rows.',''))
+                        } else {
+                            break
+                        }
+                    }
+                } catch (Exception e) {
+                    messageList.add(e.toString())
+                    ec.logger.log(200, "Error running SQL query in SqlRunner", e)
+                } finally {
+                    if (stmt != null) { try { stmt.close() } catch (Exception e) { /* Ignore */ } }
+                    if (con != null) { try { con.close() } catch (Exception e) { /* Ignore */ } }
+                }
+            }
+        ]]></script>
+    </actions>
+    <widgets>
+        <section-iterate name="Messages" list="messageList" entry="message"><widgets>
+            <label text="${message}" type="p" style="text-info"/>
+        </widgets></section-iterate>
+        <form-single name="SqlOptions" transition="." body-parameters="sql">
+            <field name="groupName"><default-field><drop-down no-current-selected-key="transactional">
+                <list-options list="ec.entity.getDatasourceGroupNames()"/></drop-down></default-field></field>
+            <field name="sql"><default-field title="SQL Statement"><text-area cols="120" rows="8"/></default-field></field>
+            <field name="limit"><default-field><text-line size="5" default-value="500"/></default-field></field>
+            <field name="submitButton"><default-field title="Run SQL"><submit/></default-field></field>
+        </form-single>
+
+        <label text="Query Results" type="h4"/>
+        <render-mode><text type="html,vuet,qvt"><![CDATA[
+            <#if outerColumnsList?has_content>
+                <#list outerColumnsList as columns>
+                    <#assign records = outerRecordsList[columns?index] />
+                    <div style="margin-bottom: 2em;">
+                    <h3>Result Set ${columns?index + 1}</h3>
+                    <#if columns?has_content>
+                        <table class="table table-striped table-hover">
+                            <tr class="header-row"><#list columns as column><td style="padding-right: 1em;">${column}</td></#list></tr>
+                            <#if records?has_content><#list records as record>
+                                <tr><#list record as curField><td style="padding-right: 1em;">${ec.l10n.format(curField, '')!"&nbsp;"}</td></#list></tr>
+                            </#list></#if>
+                        </table>
+                    </#if>
+                    </div>
+                </#list>
+            </#if>
+        ]]></text></render-mode>
+    </widgets>
+</screen>

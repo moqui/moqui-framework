@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-title="Job Run Detail" default-menu-index="1">
+
+    <parameter name="jobRunId" required="true"/>
+    <transition name="serviceJobDetail"><default-response url="../../Jobs/ServiceJobDetail"/></transition>
+    <transition name="userAccountDetail"><default-response url="../../../Security/UserAccount/UserAccountDetail"/></transition>
+    <transition name="logViewer"><default-response url="../../../LogViewer"/></transition>
+
+    <actions>
+        <entity-find-one entity-name="moqui.service.job.ServiceJobRun" value-field="serviceJobRun"/>
+        <set field="queryString" value="thread_name:${serviceJobRun.runThread}"/>
+    </actions>
+    <widgets>
+        <link url="logViewer" text="View Log" parameter-map="[queryString:('thread_name:' + serviceJobRun?.runThread),
+                tsPeriod_from:ec.l10n.format(serviceJobRun?.startTime, 'yyyy-MM-dd HH:mm:ss.SSS'),
+                tsPeriod_thru:ec.l10n.format(serviceJobRun?.endTime, 'yyyy-MM-dd HH:mm:ss.SSS')]"/>
+
+        <form-single name="ServiceJobRunDetail" map="serviceJobRun">
+            <auto-fields-entity entity-name="moqui.service.job.ServiceJobRun" field-type="display"/>
+            <field name="jobName"><default-field><link url="serviceJobDetail" text="${jobName}" link-type="anchor"/></default-field></field>
+            <field name="userId"><default-field title="User">
+                <display-entity entity-name="moqui.security.UserAccount" text="${username} - ${userFullName}"/>
+                <link url="userAccountDetail" text="${userId}" link-type="anchor" condition="userId"/>
+            </default-field></field>
+
+            <field-layout>
+                <field-ref name="jobRunId"/><field-ref name="jobName"/><field-ref name="userId"/>
+                <fields-not-referenced/>
+            </field-layout>
+        </form-single>
+    </widgets>
+</screen>

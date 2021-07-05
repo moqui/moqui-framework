@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-title="History" default-menu-index="2">
+
+    <parameter name="entitySyncId" required="true"/>
+
+    <transition name="resetNotStarted">
+        <service-call name="update#moqui.entity.sync.EntitySync" in-map="[entitySyncId:entitySyncId, statusId:'EsNotStarted']"/>
+        <default-response url="."/></transition>
+
+    <actions>
+        <entity-find-one entity-name="moqui.entity.sync.EntitySync" value-field="entitySync"/>
+
+        <entity-find entity-name="moqui.entity.sync.EntitySyncHistory" list="historyList">
+            <search-form-inputs default-order-by="-startDate"/>
+            <econdition field-name="entitySyncId"/></entity-find>
+    </actions>
+    <widgets>
+        <form-list name="HistoryList" list="historyList" skip-form="true">
+            <field name="entitySyncId"><header-field><hidden/></header-field></field>
+            <field name="startDate">
+                <header-field show-order-by="true"><date-period/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="finishDate">
+                <header-field show-order-by="true"><date-period/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="statusId">
+                <header-field title="Status">
+                    <drop-down allow-empty="true">
+                        <entity-options key="${statusId}" text="${description}">
+                            <entity-find entity-name="moqui.basic.StatusItem">
+                                <econdition field-name="statusTypeId" value="EntitySync"/>
+                                <order-by field-name="description"/></entity-find>
+                        </entity-options>
+                    </drop-down>
+                </header-field>
+                <default-field><display-entity entity-name="moqui.basic.StatusItem"/></default-field>
+            </field>
+            <field name="exclusiveFromTime">
+                <header-field show-order-by="true"><date-period/></header-field>
+                <default-field><display format="yyyy-MM-dd HH:mm:ss.SSS"/></default-field>
+            </field>
+            <field name="inclusiveThruTime">
+                <header-field show-order-by="true"><date-period/></header-field>
+                <default-field><display format="yyyy-MM-dd HH:mm:ss.SSS"/></default-field>
+            </field>
+            <field name="recordsStored">
+                <header-field show-order-by="true"><range-find size="4"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="runningTimeMillis">
+                <header-field show-order-by="true"/>
+                <default-field><display/></default-field>
+            </field>
+            <field name="errorMessage">
+                <header-field><submit text="Find"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+
+            <form-list-column><field-ref name="startDate"/><field-ref name="finishDate"/></form-list-column>
+            <form-list-column><field-ref name="statusId"/></form-list-column>
+            <form-list-column><field-ref name="exclusiveFromTime"/><field-ref name="inclusiveThruTime"/></form-list-column>
+            <form-list-column><field-ref name="recordsStored"/><field-ref name="runningTimeMillis"/></form-list-column>
+            <form-list-column><field-ref name="errorMessage"/></form-list-column>
+        </form-list>
+    </widgets>
+</screen>

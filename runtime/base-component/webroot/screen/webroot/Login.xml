@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-include="false" require-authentication="false" history="false">
+
+    <transition name="login" require-session-token="false">
+        <actions><script>ec.user.loginUser(username, password)</script></actions>
+        <conditional-response url="../SecondFactor"><condition><expression>ec.web.sessionAttributes.moquiAuthcFactorRequired</expression></condition></conditional-response>
+        <default-response type="screen-last"/><error-response url="."/></transition>
+    <transition name="logout"><actions><script>ec.user.logoutUser()</script></actions>
+        <default-response url="/"/><error-response url="."/></transition>
+    <transition name="resetPassword"><service-call name="org.moqui.impl.UserServices.reset#Password"/>
+        <default-response url="."/></transition>
+    <transition name="changePassword"><service-call name="org.moqui.impl.UserServices.update#Password"/>
+        <default-response url="../Login"/><error-response url="."/></transition>
+    <transition name="createInitialAdminAccount"><service-call name="org.moqui.impl.UserServices.create#InitialAdminAccount"/>
+        <default-response url="../Login"/><error-response url="."/></transition>
+
+    <pre-actions><script>
+        // if user already logged in redirect to root
+        if (ec.user.userId) sri.sendRedirectAndStopRender('/')
+
+        // jQuery/UI
+        html_scripts.add('/libs/jquery/jquery.min.js')
+        // Bootstrap
+        html_scripts.add('/libs/twitter-bootstrap/js/bootstrap.min.js')
+        // Moqui webroot layout
+        html_stylesheets.add('/css/webroot-layout.css')
+    </script></pre-actions>
+    <widgets>
+        <!-- NOTE: this screen is not under the apps screen, but uses similar header/footer/etc -->
+        <container id="content" style="Login"><container style="inner"><container style="container-fluid">
+            <section-iterate name="headerSavedMessages" list="ec.web?.savedMessages" entry="message"><widgets>
+                <render-mode><text type="html"><![CDATA[<div class="alert alert-success fade in" role="alert"><button type="button" class="close" data-dismiss="alert"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>]]></text></render-mode>
+                <label text="${message}" type="h4"/>
+                <render-mode><text type="html"><![CDATA[</div>]]></text></render-mode>
+            </widgets></section-iterate>
+            <section-iterate name="headerSavedErrors" list="ec.web?.savedErrors" entry="errorMessage"><widgets>
+                <render-mode><text type="html"><![CDATA[<div class="alert alert-danger fade in" role="alert"><button type="button" class="close" data-dismiss="alert"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>]]></text></render-mode>
+                <label text="${errorMessage}" type="h4"/>
+                <render-mode><text type="html"><![CDATA[</div>]]></text></render-mode>
+            </widgets></section-iterate>
+            <section-iterate name="headerSavedValidationErrors" list="ec.web?.savedValidationErrors" entry="validationError"><widgets>
+                <!-- TODO: put these by fields instead of in header -->
+                <render-mode><text type="html"><![CDATA[<div class="alert alert-danger fade in" role="alert"><button type="button" class="close" data-dismiss="alert"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>]]></text></render-mode>
+                <label text="${validationError.message} (for field ${validationError.field})" type="h4"/>
+                <render-mode><text type="html"><![CDATA[</div>]]></text></render-mode>
+            </widgets></section-iterate>
+
+            <!-- if there are no user accounts, other than the _NA_ UserAccount which is in seed data, show form to create admin account -->
+            <section name="NeedsSetupSection" condition="ec.entity.find('moqui.security.UserAccount').disableAuthz().count() > 1"><widgets>
+                <render-mode><text type="html" template="true" location="component://webroot/screen/webroot/Login.ftl"/></render-mode>
+            </widgets><fail-widgets>
+                <render-mode><text type="html"><![CDATA[
+    <div class="text-center">
+        <h3>Welcome to your new system</h3>
+        <form method="post" action="${sri.buildUrl("createInitialAdminAccount").url}" class="form-signin" id="InitialAdminForm">
+            <p class="text-muted text-center">There are no user accounts, get started by creating an initial administrator account</p>
+            <input type="hidden" name="moquiSessionToken" value="${ec.web.sessionToken}">
+            <input type="text" name="username" value="${(ec.getWeb().getErrorParameters().get("username"))!""}" placeholder="Username" required="required" class="form-control top">
+            <input type="password" name="newPassword" placeholder="New Password" required="required" class="form-control middle">
+            <input type="password" name="newPasswordVerify" placeholder="New Password Verify" required="required" class="form-control middle">
+            <input type="text" name="userFullName" value="${(ec.getWeb().getErrorParameters().get("userFullName"))!""}" placeholder="User Full Name" required="required" class="form-control middle">
+            <input type="text" name="emailAddress" value="${(ec.getWeb().getErrorParameters().get("emailAddress"))!""}" placeholder="Email Address" required="required" class="form-control bottom">
+            <button class="btn btn-lg btn-primary btn-block" type="submit">Create Initial Admin Account</button>
+        </form>
+    </div>
+                ]]></text></render-mode>
+            </fail-widgets></section>
+
+            <!-- TODO: remove this link when moving away from more of a testing mode, very convenient for dev/testing -->
+            <section name="TestLoginSection">
+                <condition><expression>ec.entity.find('moqui.security.UserAccount').condition('userId', 'EX_JOHN_DOE')
+                    .condition('currentPassword', '16ac58bbfa332c1c55bd98b53e60720bfa90d394').disableAuthz().count()</expression></condition>
+                <widgets><render-mode><text type="html"><![CDATA[
+                <form method="post" action="${sri.buildUrl("login").url}" id="TestLoginLink">
+                    <input type="hidden" name="username" value="john.doe">
+                    <input type="hidden" name="password" value="moqui">
+                    <button class="btn btn-sm btn-primary" type="submit" id="TestLoginLink_button">Test Login (John Doe)</button>
+                </form>
+                <script>$("#TestLoginLink_button").focus();</script>
+                ]]></text></render-mode></widgets>
+            </section>
+        </container></container></container>
+    </widgets>
+</screen>

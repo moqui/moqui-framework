@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<entity-facade-xml type="demo">
+    <!-- NOTE 1265184000000 = 2010-02-03 00:00:00 US/Pacific -->
+
+    <!-- ========== Test Admin User ========== -->
+    <!-- password=moqui -->
+    <moqui.security.UserAccount userId="EX_JOHN_DOE" username="john.doe" userFullName="John Doe"
+            currentPassword="16ac58bbfa332c1c55bd98b53e60720bfa90d394" passwordHashType="SHA"
+            passwordHint="framework name, lowercase" currencyUomId="USD" locale="en_US" timeZone="US/Central"
+            emailAddress="john.doe@moqui.org"/>
+    <moqui.security.UserGroupMember userGroupId="ADMIN" userId="EX_JOHN_DOE" fromDate="1265184000000"/>
+    <moqui.security.UserPermission userPermissionId="ExamplePerm" description="Example Permission"/>
+    <moqui.security.UserGroupPermission userGroupId="ADMIN" userPermissionId="ExamplePerm"
+            fromDate="1265184000000" thruDate=""/>
+    <moqui.security.UserLoginHistory userId="EX_JOHN_DOE" fromDate="1265184000000" successfulLogin="Y"/>
+
+    <!-- ========== Artifact Tarpit Example ========== -->
+    <moqui.security.ArtifactGroup artifactGroupId="ALL_SCREENS" description="All Screens"/>
+    <moqui.security.ArtifactGroupMember artifactGroupId="ALL_SCREENS" artifactName=".*" nameIsPattern="Y"
+            artifactTypeEnumId="AT_XML_SCREEN"/>
+    <!-- if more than 120 screens in 60 seconds, deny access for 60 seconds -->
+    <moqui.security.ArtifactTarpit userGroupId="ALL_USERS" artifactGroupId="ALL_SCREENS"
+            maxHitsCount="120" maxHitsDuration="60" tarpitDuration="60"/>
+</entity-facade-xml>

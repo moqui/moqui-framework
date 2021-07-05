@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-title="Application Instances" default-menu-include="false">
+
+    <transition name="instanceDetail"><default-response url="../InstanceDetail"/></transition>
+
+    <transition name="createAppInstance"><service-call name="org.moqui.impl.InstanceServices.create#AppInstance"/>
+        <default-response url="."/></transition>
+    <transition name="provisionAppInstance"><service-call name="org.moqui.impl.InstanceServices.provision#AppInstance"/>
+        <default-response url="."/></transition>
+    <transition name="checkAppInstanceAndDatabase"><service-call name="org.moqui.impl.InstanceServices.check#AppInstanceAndDatabase"/>
+        <default-response url="."/></transition>
+
+    <transition name="checkAppDatabase"><service-call name="org.moqui.impl.InstanceServices.check#AppDatabase"/>
+        <default-response url="."/></transition>
+    <transition name="createAppDatabase"><service-call name="org.moqui.impl.InstanceServices.create#AppDatabase"/>
+        <default-response url="."/></transition>
+
+    <transition name="initAppInstance"><service-call name="org.moqui.impl.InstanceServices.init#AppInstance"/>
+        <default-response url="."/></transition>
+    <transition name="startAppInstance"><service-call name="org.moqui.impl.InstanceServices.start#AppInstance"/>
+        <default-response url="."/></transition>
+    <transition name="stopAppInstance"><service-call name="org.moqui.impl.InstanceServices.stop#AppInstance"/>
+        <default-response url="."/></transition>
+    <transition name="removeAppInstance"><service-call name="org.moqui.impl.InstanceServices.remove#AppInstance"/>
+        <default-response url="."/></transition>
+    <transition name="checkAppInstance"><service-call name="org.moqui.impl.InstanceServices.check#AppInstance"/>
+        <default-response url="."/></transition>
+
+    <actions>
+        <!-- <set field="checkAllBool" from="checkAll == 'true'"/> -->
+        <set field="checkAllBool" from="true"/>
+
+        <entity-find entity-name="moqui.server.instance.AppInstance" list="instanceList">
+            <search-form-inputs default-order-by="instanceName"/>
+        </entity-find>
+    </actions>
+    <widgets>
+        <container-dialog id="CreateInstanceDialog" button-text="Create App Instance">
+            <form-single name="CreateInstance" transition="createAppInstance">
+                <field name="instanceName"><default-field tooltip="Defaults to Host Name with dots (.) replaced by underscore (_)">
+                    <text-line size="50"/></default-field></field>
+                <field name="hostName"><default-field tooltip="Hostname for access to the instance, generally a virtual host name">
+                    <text-line size="50"/></default-field></field>
+                <field name="instanceImageId"><default-field title="Image">
+                    <drop-down>
+                        <entity-options key="${instanceImageId}" text="${imageName} - ${hostTypeDescription} - ${imageTypeDescription}">
+                            <entity-find entity-name="moqui.server.instance.InstanceImageDetail">
+                                <order-by field-name="imageName"/></entity-find>
+                        </entity-options>
+                    </drop-down>
+                </default-field></field>
+                <field name="instanceHostId"><default-field title="Instance Host">
+                    <drop-down allow-empty="true">
+                        <entity-options key="${instanceHostId}" text="${typeDescription} ${hostAddress}">
+                            <entity-find entity-name="moqui.server.instance.InstanceHostDetail">
+                                <order-by field-name="typeDescription"/></entity-find>
+                        </entity-options>
+                    </drop-down>
+                </default-field></field>
+                <field name="databaseHostId"><default-field title="Database Host">
+                    <drop-down allow-empty="true">
+                        <entity-options key="${databaseHostId}" text="${typeDescription} ${hostAddress}">
+                            <entity-find entity-name="moqui.server.instance.DatabaseHostDetail">
+                                <order-by field-name="typeDescription"/></entity-find>
+                        </entity-options>
+                    </drop-down>
+                </default-field></field>
+                <field name="submitButton"><default-field title="Create"><submit/></default-field></field>
+            </form-single>
+        </container-dialog>
+        <!-- <link url="." text="Check All" parameter-map="[checkAll:'true']"/> -->
+
+        <form-list name="InstanceList" list="instanceList" skip-form="true">
+            <row-actions>
+                <if condition="checkAllBool"><then>
+                    <service-call name="org.moqui.impl.InstanceServices.check#AppInstanceAndDatabase"
+                                  in-map="[appInstanceId:appInstanceId]" out-map="context"/>
+                    <if condition="ec.message.hasError()">
+                        <set field="checkErrors" from="ec.message.getErrorsString()"/>
+                        <script>ec.message.clearErrors()</script>
+                    </if>
+
+                    <set field="gotMoquiStatus" from="false"/>
+                    <if condition="moquiStatusMap">
+                        <set field="gotMoquiStatus" from="true"/>
+                        <set field="loadPercent" from="(moquiStatusMap?.Utilization?.LoadPercent as BigDecimal).setScale(0, BigDecimal.ROUND_HALF_UP)"/>
+                        <set field="heapPercent" from="(moquiStatusMap?.Utilization?.HeapPercent as BigDecimal).setScale(0, BigDecimal.ROUND_HALF_UP)"/>
+                        <set field="diskPercent" from="(moquiStatusMap?.Utilization?.DiskPercent as BigDecimal).setScale(0, BigDecimal.ROUND_HALF_UP)"/>
+                    </if>
+                </then></if>
+            </row-actions>
+            <field name="appInstanceId"><default-field title="Instance ID"><link url="instanceDetail" text="${appInstanceId}" link-type="anchor"/></default-field></field>
+            <field name="instanceName"><default-field><display/></default-field></field>
+            <field name="hostName"><default-field><link url="http://${hostName}" url-type="plain" text="${hostName}" link-type="anchor"/></default-field></field>
+            <field name="instanceImageId"><default-field title="Image">
+                <display-entity entity-name="moqui.server.instance.InstanceImageDetail"
+                                text="${imageName} - ${hostTypeDescription} - ${imageTypeDescription}"/>
+            </default-field></field>
+            <field name="instanceHostId"><default-field title="Instance Host">
+                <display-entity entity-name="moqui.server.instance.InstanceHostDetail" text="${typeDescription} ${hostAddress}"/>
+            </default-field></field>
+            <field name="databaseHostId"><default-field title="Database Host">
+                <display-entity entity-name="moqui.server.instance.DatabaseHostDetail" text="${typeDescription} ${hostAddress}"/>
+            </default-field></field>
+            <field name="status"><default-field title="Status">
+                <label text="" style="fa fa-database ${databaseExists ? 'text-success' : 'text-danger'}" type="i" condition="checkAllBool" tooltip="Database Exists"/>
+                <label text="" style="fa fa-user ${dbUserExists ? 'text-success' : 'text-danger'}" type="i" condition="checkAllBool" tooltip="DB User Exists"/>
+                <label text="" style="fa fa-server ${instanceExists ? 'text-success' : 'text-danger'}" type="i" condition="checkAllBool" tooltip="Instance Exists"/>
+                <label text="" style="fa fa-cog ${instanceRunning ? 'text-success' : 'text-danger'}" type="i" condition="checkAllBool" tooltip="Instance Running"/>
+
+                <label text="" style="fa fa-heartbeat ${gotMoquiStatus ? 'text-success' : 'text-danger'}" type="i" condition="checkAllBool" tooltip="Moqui Server Running"/>
+                <label text="L:${ec.l10n.format(loadPercent, '00')}%" style="${loadPercent &lt; 70 ? 'text-success' : (loadPercent &gt; 90 ? 'text-warn' : 'text-danger' )}" type="strong" condition="loadPercent"/>
+                <label text="H:${ec.l10n.format(heapPercent, '00')}%" style="${heapPercent &lt; 70 ? 'text-success' : (heapPercent &gt; 90 ? 'text-warn' : 'text-danger' )}" type="strong" condition="heapPercent"/>
+                <label text="D:${ec.l10n.format(diskPercent, '00')}%" style="${diskPercent &lt; 70 ? 'text-success' : (diskPercent &gt; 90 ? 'text-warn' : 'text-danger' )}" type="strong" condition="diskPercent"/>
+
+                <label text="${checkErrors?:''}" type="div" style="text-danger"/>
+            </default-field></field>
+            <field name="provisionLink"><default-field title="">
+                <link url="provisionAppInstance" text="Provision" parameter-map="[appInstanceId:appInstanceId]"
+                      condition="!checkAllBool || (!instanceExists &amp;&amp; !databaseExists)"/>
+            </default-field></field>
+            <field name="databaseLinks"><default-field title="Database">
+                <!-- <link url="checkAppDatabase" text="Check DB" parameter-map="[appInstanceId:appInstanceId]"/> -->
+                <link url="createAppDatabase" text="Create DB" parameter-map="[appInstanceId:appInstanceId]"
+                      condition="!checkAllBool || !databaseExists"/>
+            </default-field></field>
+            <field name="instanceLinks"><default-field title="Instance">
+                <!-- <link url="checkAppInstance" text="Check" parameter-map="[appInstanceId:appInstanceId]"/> -->
+                <link url="initAppInstance" text="Init" parameter-map="[appInstanceId:appInstanceId]" condition="!checkAllBool || !instanceExists"/>
+                <link url="startAppInstance" text="Start" parameter-map="[appInstanceId:appInstanceId]" condition="!checkAllBool || (instanceExists &amp;&amp; !instanceRunning)"/>
+                <link url="stopAppInstance" text="Stop" parameter-map="[appInstanceId:appInstanceId]" condition="!checkAllBool || instanceRunning"/>
+                <link url="removeAppInstance" text="Remove" parameter-map="[appInstanceId:appInstanceId]" condition="!checkAllBool || instanceExists"
+                      confirmation="Remove instance for ${appInstanceId}?"/>
+            </default-field></field>
+        </form-list>
+    </widgets>
+</screen>

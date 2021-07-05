@@ -1,0 +1,314 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        require-authentication="false" track-artifact-hit="false" default-menu-include="false">
+    <!-- NOTE: require-authentication=false is required to allow transitions to decide. -->
+
+    <!-- NOTE: the api_key transition was removed because there is no good use case, just use cases that are less secure and poorly thought through -->
+    <!-- NOTE: the moquiSessionToken was removed for security reasons, it opened a vector in a CSRF attack to acquire the session token at any time -->
+
+    <!-- login: for client applications that use a Moqui UserAccount -->
+    <transition name="login" require-session-token="false"><actions><script>ec.user.loginUser(username, password)</script></actions>
+        <default-response type="none"/></transition>
+    <!-- logout: REST API calls from a browser or session aware client will have an active session, use this for explicit logout and terminate session -->
+    <transition name="logout" begin-transaction="false">
+        <actions><script>
+            if (ec.user.username) { ec.user.logoutUser(); ec.web.sendTextResponse("successful") }
+            else { ec.web.sendTextResponse("no_user") }
+        </script></actions>
+        <default-response type="none"/>
+    </transition>
+
+    <!--
+    EXAMPLES
+
+    Verbs: GET=find, POST=create, PUT=store (create or update), PATCH=update, DELETE=delete
+
+    By short-alias:
+    NOTE: "am9obi5kb2U6bW9xdWk=" is the Base64 encoded String "john.doe:moqui"
+
+    curl -X GET -H "Authorization: Basic am9obi5kb2U6bW9xdWk=" http://localhost:8080/rest/e1/examples/TEST2
+    curl -X GET -u john.doe:moqui http://localhost:8080/rest/e1/examples/TEST2
+
+    By entity name:
+
+    curl -X GET -H "Authorization: Basic am9obi5kb2U6bW9xdWk=" http://localhost:8080/rest/e1/Example/TEST2
+
+    Detail/child records can be retrieved in various ways, in the first "items" is a short-alias on the relationship:
+
+    curl -X GET -u john.doe:moqui http://localhost:8080/rest/e1/examples/TEST2/items/01
+    curl -X GET -u john.doe:moqui http://localhost:8080/rest/e1/exampleItems/TEST2/01
+
+    To get a record plus all dependents in the JSON document use dependents=true:
+
+    curl -X GET -u john.doe:moqui -i http://localhost:8080/rest/e1/examples/TEST2?dependents=true
+
+    To get a record plus all dependent/related records for a master definition in the JSON document use master=${masterName}:
+
+    curl -X GET -u john.doe:moqui -i http://localhost:8080/rest/e1/examples/TEST2?master=default
+
+    Or for operations ONLY on entities by master definition use the "m1" path instead of "e1" and put the master name
+    (default is 'default') after the entity name or alias in the path. For example:
+
+    curl -X GET -u john.doe:moqui -i http://localhost:8080/rest/m1/examples/default/TEST2
+
+    Under the "m1" path if the path element after the entity name or alias is not the name of a master for the entity
+    it uses the "default" master definition. Because of that the following also works:
+
+    curl -X GET -u john.doe:moqui -i http://localhost:8080/rest/m1/examples/TEST2
+
+    Parameters can also be used for searching, which supports the per-field extensions (_op, _ic, etc) of
+    EntityFind.searchFormInputs(), the orderByField parameter for comma-separated fields to sort the results by,
+    and pageIndex, pageSize for pagination; parameters can be in the URL (preferred) or in request body as JSON.
+
+    The number of records will be limited to 100 unless a different pageSize is specified. The total count of records
+    is returned in the X-Total-Count HTTP response header. To facilitate pagination also calculates and adds headers
+    for the same fields Moqui uses for pagination: X-Page-Index, X-Page-Size, X-Page-Max-Index, X-Page-Range-Low,
+    and X-Page-Range-High.
+
+    curl -X GET -u john.doe:moqui -i http://localhost:8080/rest/e1/examples
+    curl -X GET -u john.doe:moqui -i 'http://localhost:8080/rest/e1/examples?exampleName=test&exampleName_op=contains&exampleName_ic=Y&orderByField=exampleName&pageIndex=0'
+
+    Create looks like (note the two approaches for authc):
+
+    curl -X POST -H "Content-Type: application/json" -u john.doe:moqui \
+         -d '{ "exampleName":"REST Test 1", "exampleTypeEnumId":"EXT_MADE_UP", "statusId":"EXST_IN_DESIGN" }' \
+            http://localhost:8080/rest/e1/examples
+    curl -X POST -H "Content-Type: application/json" \
+         -d '{ "exampleName":"REST Test 1", "exampleTypeEnumId":"EXT_MADE_UP", "statusId":"EXST_IN_DESIGN", \
+             "authUsername":"john.doe", "authPassword":"moqui" }' http://localhost:8080/rest/e1/examples
+
+    Store looks like (PATCH is similar):
+
+    curl -X PUT -H "Content-Type: application/json" -u john.doe:moqui \
+         -d '{ "exampleName":"REST Test - Rev 2" }' http://localhost:8080/rest/e1/examples/TEST2
+
+    Delete looks like:
+
+    curl -X DELETE -H "Content-Type: application/json" -u john.doe:moqui \
+         http://localhost:8080/rest/e1/examples/100010
+
+    This can also be used for bulk operations by passing a JSON document that is a list/array of map/object instead of a
+    single map/object. The operation will be done for each entry in the list/array and the result will be a JSON
+    document with a list/array with the result for each of the passed entries (generally a map/object, may be empty).
+
+    For example, to create multiple items (ExampleItem) for an Example, with an auto-generated secondary sequence ID
+    (exampleItemSeqId) use something like:
+
+    curl -X POST -H "Content-Type: application/json" -u john.doe:moqui \
+         -d '[{ "description":"New REST Item 1", "amount":100 }, { "description":"New REST Item 2", "amount":200 }]' \
+            http://localhost:8080/rest/e1/examples/TEST2/items
+
+    There is a similar concept to dependent records when creating a new record, related records can be included in the
+    document by their relationship name or short-alias, for example:
+
+    curl -X POST -H "Content-Type: application/json" -u john.doe:moqui \
+         -d '{ "exampleName":"REST Test With Items", "exampleTypeEnumId":"EXT_MADE_UP", "statusId":"EXST_IN_DESIGN",
+                "items": [
+                    { "amount": 100.0, "description": "Test With Items Item 1" },
+                    { "amount": 200.0, "description": "Test With Items Item 2" }
+                ]
+             }' \
+            http://localhost:8080/rest/e1/examples
+
+    For PUT/store or PATCH/update related records included in the document are stored (created or updated).
+
+    This example has 3 items: one that will exist and be updated (01), one that has no PK value so will always be created,
+    and one that has a specified PK value that won't exist the first time it is run resulting in a create but will exist
+    after that resulting in an update. The second curl command can be used to see the results after each run.
+
+    curl -X PUT -H "Content-Type: application/json" -u john.doe:moqui \
+         -d '{ "exampleId":"TEST2", "exampleName":"Name updated through store with related",
+                "items": [
+                    { "exampleItemSeqId":"01", "description": "Updated related item 01" },
+                    { "description": "Created new related item with generated ID" },
+                    { "exampleItemSeqId":"FOO", "description": "Stored new or existing related item with specified ID" }
+                ]
+             }' \
+            http://localhost:8080/rest/e1/examples
+    curl -X GET -u john.doe:moqui -i http://localhost:8080/rest/e1/examples/TEST2?dependentLevels=1
+    -->
+    <!-- NOTE: read-only=true to disable check for URL parameters for transitions with actions -->
+    <transition name="e1" read-only="true">
+        <actions><script>ec.web.handleEntityRestCall(sri.screenUrlInfo.extraPathNameList, false)</script></actions>
+        <default-response type="none"/>
+    </transition>
+    <transition name="m1" read-only="true">
+        <actions><script>ec.web.handleEntityRestCall(sri.screenUrlInfo.extraPathNameList, true)</script></actions>
+        <default-response type="none"/>
+    </transition>
+    <!-- DEPRECATED: v1 is the same as e1, was the original Entity REST API; e1 is preferred to distinguish from m1, s1; v1 should be considered deprecated -->
+    <transition name="v1" read-only="true">
+        <actions><script>ec.web.handleEntityRestCall(sri.screenUrlInfo.extraPathNameList, false)</script></actions>
+        <default-response type="none"/>
+    </transition>
+
+    <!--
+    To get the json-schema (see http://json-schema.org) for an entity use a request like:
+
+    curl -X GET -u john.doe:moqui http://localhost:8080/rest/entity.json/examples
+    curl -X GET -u john.doe:moqui http://localhost:8080/rest/entity.json/examples.json
+    curl -X GET -u john.doe:moqui http://localhost:8080/rest/entity.json/moqui.example.Example
+
+    To get the json-schema (see http://json-schema.org) for ALL entities use a request like:
+
+    curl -X GET -u john.doe:moqui http://localhost:8080/rest/entity.json
+
+    To get the RAML definition (see http://raml.org) for ALL entities use a request like:
+
+    curl -X GET -u john.doe:moqui http://localhost:8080/rest/entity.raml
+
+    To get the Swagger definition for all entities use a request like:
+
+    curl -X GET -u john.doe:moqui http://localhost:8080/rest/entity.swagger/all.json
+    curl -X GET -u john.doe:moqui http://localhost:8080/rest/entity.swagger/all.yaml
+
+    To get the Swagger definition for just the moqui.example.Example (examples) entity use a request like:
+
+    curl -X GET -u john.doe:moqui http://localhost:8080/rest/entity.swagger/examples.json
+    curl -X GET -u john.doe:moqui http://localhost:8080/rest/entity.swagger/examples.yaml
+    -->
+    <transition name="entity.json" read-only="true" method="get">
+        <actions><script>org.moqui.impl.util.RestSchemaUtil.handleEntityRestSchema(ec, sri.screenUrlInfo.extraPathNameList,
+                sri.buildUrl("entity.json").getUrl(), sri.buildUrl("e1").getUrl(), sri.buildUrl("entity.json").getUrl(), false)</script></actions>
+        <default-response type="none"/>
+    </transition>
+    <transition name="entity.raml" read-only="true" method="get">
+        <actions><script>org.moqui.impl.util.RestSchemaUtil.handleEntityRestRaml(ec, sri.screenUrlInfo.extraPathNameList,
+                sri.buildUrl("e1").getUrl(), sri.buildUrl("entity.json").getUrl(), false)</script></actions>
+        <default-response type="none"/>
+    </transition>
+    <transition name="entity.swagger" read-only="true" method="get">
+        <actions><script>org.moqui.impl.util.RestSchemaUtil.handleEntityRestSwagger(ec, sri.screenUrlInfo.extraPathNameList, "/rest/e1", false)</script></actions>
+        <default-response type="none"/>
+    </transition>
+
+    <!--
+    To get the json-schema (see http://json-schema.org) for a master entity use a path with the entity name then the
+    master definition name (optional, get all if not specified). Note that the .json extension is optional.
+
+    curl -X GET -u john.doe:moqui http://localhost:8080/rest/master.json/examples/default
+    curl -X GET -u john.doe:moqui http://localhost:8080/rest/master.json/examples/default.json
+    curl -X GET -u john.doe:moqui http://localhost:8080/rest/master.json/examples.json
+    curl -X GET -u john.doe:moqui http://localhost:8080/rest/master.json/moqui.example.Example
+
+    To get the json-schema (see http://json-schema.org) for ALL master entities simply leave off the entity name and
+    master name:
+
+    curl -X GET -u john.doe:moqui http://localhost:8080/rest/master.json
+
+    To get the RAML schema (see http://raml.org) follow the same pattern except with master.raml instead of master.json:
+
+    curl -X GET -u john.doe:moqui http://localhost:8080/rest/master.raml/examples/default
+    curl -X GET -u john.doe:moqui http://localhost:8080/rest/master.raml/examples.raml
+    curl -X GET -u john.doe:moqui http://localhost:8080/rest/master.raml/moqui.example.Example
+    curl -X GET -u john.doe:moqui http://localhost:8080/rest/master.raml
+
+    To get the Swagger definition for all master entities use a request like:
+
+    curl -X GET -u john.doe:moqui http://localhost:8080/rest/entity.swagger/all.json
+    curl -X GET -u john.doe:moqui http://localhost:8080/rest/entity.swagger/all.yaml
+
+    To get the Swagger definition for all master definitions of the moqui.example.Example (examples) entity use a request like:
+
+    curl -X GET -u john.doe:moqui http://localhost:8080/rest/master.swagger/examples.json
+    curl -X GET -u john.doe:moqui http://localhost:8080/rest/master.swagger/examples.yaml
+
+    To get the Swagger definition for the 'default' master definitions of the moqui.example.Example (examples) entity use a request like:
+
+    curl -X GET -u john.doe:moqui http://localhost:8080/rest/master.swagger/examples/default.json
+    curl -X GET -u john.doe:moqui http://localhost:8080/rest/master.swagger/examples/default.yaml
+    -->
+    <transition name="master.json" read-only="true" method="get">
+        <actions><script>org.moqui.impl.util.RestSchemaUtil.handleEntityRestSchema(ec, sri.screenUrlInfo.extraPathNameList,
+                sri.buildUrl("master.json").getUrl(), sri.buildUrl("m1").getUrl(), sri.buildUrl("master.json").getUrl(), true)</script></actions>
+        <default-response type="none"/>
+    </transition>
+    <transition name="master.raml" read-only="true" method="get">
+        <actions><script>org.moqui.impl.util.RestSchemaUtil.handleEntityRestRaml(ec, sri.screenUrlInfo.extraPathNameList,
+                sri.buildUrl("m1").getUrl(), sri.buildUrl("master.raml").getUrl(), true)</script></actions>
+        <default-response type="none"/>
+    </transition>
+    <transition name="master.swagger" read-only="true" method="get">
+        <actions><script>org.moqui.impl.util.RestSchemaUtil.handleEntityRestSwagger(ec, sri.screenUrlInfo.extraPathNameList, "/rest/m1", true)</script></actions>
+        <default-response type="none"/>
+    </transition>
+
+    <!--
+    The s1 transition is for the Service REST API. See the XSD for describing REST resources/etc in rest-api-${version}.xsd.
+
+    For example to call methods on resources in the example.rest.xml file:
+
+    curl -X GET -u john.doe:moqui -i http://localhost:8080/rest/s1/example/examples
+    curl -X GET -u john.doe:moqui -i http://localhost:8080/rest/s1/example/examples?exampleTypeEnumId=EXT_MADE_UP
+    curl -X GET -u john.doe:moqui http://localhost:8080/rest/s1/example/examples/TEST2
+    curl -X GET -u john.doe:moqui http://localhost:8080/rest/s1/example/examples/TEST2/items
+    curl -X GET -u john.doe:moqui http://localhost:8080/rest/s1/example/examples/TEST2/items/01
+
+    curl -X POST -H "Content-Type: application/json" -u john.doe:moqui \
+         -d '{ "exampleName":"Service REST API Test 1", "exampleTypeEnumId":"EXT_MADE_UP", "statusId":"EXST_IN_DESIGN" }' \
+         http://localhost:8080/rest/s1/example/examples
+
+    Bash command for POST with api_key grabbed on the fly:
+    curl -X POST -H "Content-Type: application/json" -H "api_key: $(curl -X GET -H "Accept: text/plain" -u john.doe:moqui http://localhost:8080/rest/api_key)" \
+         -d '{ "exampleName":"Service REST API Test 1", "exampleTypeEnumId":"EXT_MADE_UP", "statusId":"EXST_IN_DESIGN" }' \
+         http://localhost:8080/rest/s1/example/examples
+
+    curl -X GET -u john.doe:moqui "http://localhost:8080/rest/s1/moqui/artifacts/hitSummary?artifactType=entity&artifactSubType=create&artifactName=moqui.basic&artifactName_op=contains"
+
+    Example from mantle-usl to delete with wildcard ID:
+    curl -X DELETE -u john.doe:moqui http://localhost:8080/rest/s1/mantle/products/DEMO_1_1/categories/PopcAllProducts/*
+    -->
+    <transition name="s1" read-only="true">
+        <actions><script>ec.web.handleServiceRestCall(sri.screenUrlInfo.extraPathNameList)</script></actions>
+        <default-response type="none"/>
+    </transition>
+    <!--
+    Use the service.swagger transition to get the Swagger API definition for a particular API by the root resource name.
+    Can output in JSON or YAML (using .json or .yaml extension, default to JSON output).
+
+    curl -X GET -u john.doe:moqui http://localhost:8080/rest/service.swagger/example.json
+    curl -X GET -u john.doe:moqui http://localhost:8080/rest/service.swagger/example.yaml
+
+    For a RAML API definition use something like (.raml extension optional):
+
+    curl -X GET -u john.doe:moqui http://localhost:8080/rest/service.raml/example.raml
+    -->
+    <transition name="service.swagger" read-only="true" method="get">
+        <actions><script>org.moqui.impl.util.RestSchemaUtil.handleServiceRestSwagger(ec, sri.screenUrlInfo.extraPathNameList, "/rest/s1")</script></actions>
+        <default-response type="none"/>
+    </transition>
+    <transition name="service.raml" read-only="true" method="get">
+        <actions><script>org.moqui.impl.util.RestSchemaUtil.handleServiceRestRaml(ec, sri.screenUrlInfo.extraPathNameList, sri.buildUrl("s1").getUrl())</script></actions>
+        <default-response type="none"/>
+    </transition>
+
+    <!--
+    Specialized request handler for SystemMessage receipt and recording.
+    Calls service: org.moqui.impl.SystemMessageServices.receive#IncomingSystemMessage
+
+    Use a path like: /rest/sm/{systemMessageTypeId}/{systemMessageRemoteId}/{remoteMessageId}
+    Note that systemMessageTypeId (so we know how to process the message) and systemMessageRemoteId (for security, etc) are required, remoteMessageId is optional.
+    Note that a Content-Type header is required and must be one of the various supported text content types
+
+    curl -X POST -u john.doe:moqui -H "Content-Type: application/json" -d '{ "test1":"foo", "test2":"bar" }' http://localhost:8080/rest/sm/ExampleMessage/Example1Local/12345
+    -->
+    <transition name="sm" read-only="true" require-session-token="false" begin-transaction="false">
+        <actions><script>ec.web.handleSystemMessage(sri.screenUrlInfo.extraPathNameList)</script></actions>
+        <default-response type="none"/>
+    </transition>
+
+    <widgets><!-- this should never be viewed... --></widgets>
+</screen>

@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        require-authentication="false" screen-theme-type-enum-id="STT_INTERNAL_QUASAR" default-menu-title="Applications" allow-extra-path="true">
+    <!-- NOTE: require-authentication=false so no permission required but in pre-actions if no user logged in goes to login screen -->
+
+    <pre-actions><script><![CDATA[
+        // if user not logged in save current path and params then redirect to Login
+        if (!ec.user.userId) { ec.web.saveScreenLastInfo(null, null); sri.sendRedirectAndStopRender('/Login') }
+
+        html_scripts.add('/libs/moment.js/moment-with-locales.min.js')
+        html_scripts.add('/libs/jquery/jquery.min.js')
+
+        String instancePurpose = System.getProperty("instance_purpose")
+        if (!instancePurpose || instancePurpose == 'production') {
+            /* ========== Production Mode ========== */
+            html_scripts.add('/js/MoquiLib.min.js')
+            // Vue JS
+            footer_scripts.add('/libs/vue/vue.min.js')
+            // http-vue-loader
+            footer_scripts.add('/js/http-vue-loader/httpVueLoader.js')
+            // Quasar
+            footer_scripts.add("/libs/quasar/quasar.umd.min.js")
+            // Webroot Quasar-Vue instance, in footer so runs after page loaded
+            footer_scripts.add('/js/WebrootVue.qvt.min.js')
+        } else {
+            /* ========== Dev Mode ========== */
+            html_scripts.add('/js/MoquiLib.js')
+            // Vue JS
+            footer_scripts.add('/libs/vue/vue.js')
+            // http-vue-loader
+            footer_scripts.add('/js/http-vue-loader/httpVueLoader.js')
+            // Quasar
+            footer_scripts.add("/libs/quasar/quasar.umd.min.js")
+            // Webroot Quasar-Vue instance, in footer so runs after page loaded
+            footer_scripts.add('/js/WebrootVue.qvt.js')
+        }
+
+        // conditional QZ Tray scripts, only include if enabled
+        if (ec.user.getPreference("qz.print.enabled") == "true") {
+            footer_scripts.add('/js/qz-tray/sha-256.min.js')
+            footer_scripts.add('/js/qz-tray/qz-tray.min.js')
+            // TODO migrate MoquiQzComponent.js to MoquiQzComponent.qvt.js
+            footer_scripts.add('/js/qz-tray/MoquiQzComponent.js')
+        }
+    ]]></script></pre-actions>
+
+    <widgets>
+        <render-mode>
+            <!-- for html just render the navbar (Vue page wrapper and nav component) -->
+            <text type="html" location="component://webroot/screen/includes/WebrootVue.qvt.ftl"/>
+            <!-- not meant to be used for anything else, for all other render modes go directly through /apps -->
+        </render-mode>
+    </widgets>
+</screen>

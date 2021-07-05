@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        require-authentication="true" default-menu-include="false" default-menu-title="Site Map">
+
+    <parameter name="showAll"/>
+
+    <actions>
+        <set field="currentScreenDef" from="sri.getRootScreenDef()"/>
+        <set field="currentScreenPath" value=""/>
+    </actions>
+    <widgets>
+        <label text="Site Map" type="h2"/>
+        <include-screen location="component://webroot/screen/webroot/apps/ScreenTree/ScreenTreeNested.xml"
+                share-scope="false"/>
+
+        <link url="." text="Show All" parameter-map="[showAll:'true']" link-type="anchor" style="text-muted" condition="showAll != 'true'"/>
+    </widgets>
+</screen>

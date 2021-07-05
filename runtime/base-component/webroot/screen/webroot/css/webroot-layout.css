@@ -1,0 +1,272 @@
+/* This software is in the public domain under CC0 1.0 Universal plus a Grant of Patent License. */
+
+/* ========================== body, etc ========================== */
+
+html, body, #apps-root { height: 100%; }
+/* body { padding-top: 51px; } /* this is the initial load setting, will get set dynamically for navbar-fixed-top */
+#top { height: 51px; }
+#top .navbar { margin-bottom: 0; border-radius: 0; }
+/* note that with fixed height for #top .navbar if overflow hidden drop-down menus don't show; would be nice to have some way for icons to disappear instead of wrapping below... */
+@media (min-width: 768px) { #top .navbar { height: 51px; overflow-y: visible; } .navbar-text { margin-left: 8px; } }
+/* #top, #content>.inner, #footer are the main page structure elements */
+#content { overflow: visible; background: transparent; min-height: calc(100% - 101px); }
+/* inner contains a bootstrap container-fluid div which has 16px left/right padding */
+.inner { overflow: visible; background: transparent; border: 0; padding: 16px 0 58px 0; /* padding bottom is footer height (48) plus 10px */ }
+#footer { width: 100%; position: relative; height: 50px; margin: 0 auto 0 auto; /* negative value of footer height */ }
+#footer p { padding: 0.2em 0 0 0; font-size: 0.9em; margin: 0; text-align: center; }
+
+#apps-footer-content { margin-top: 4px; text-align: center; }
+
+#dynamic-menus .glyphicon, #dynamic-menus .fa { top: 0; font-size: 10px; }
+#navbar-buttons .btn .label { top: -2px; }
+#notify-history-menu ul { min-width: 500px; }
+#notify-history-menu li { padding: 8px; }
+#notify-history-menu li div { margin-bottom: 0; }
+
+/* ====================== headings, general ====================== */
+
+div.message { border: 1px solid #DDDDDF; }
+div.error span { color: red; }
+
+strong, .text-strong { font-weight: bold; }
+tt, pre, pre code { font-family: "Courier New", Courier, monospace; }
+p, pre { white-space: pre-line; word-wrap: normal; word-break: normal; }
+.bg-dark pre { background-color: #3a3a3a; color: #EEE; border-color: #222; }
+pre.pre-plain { white-space: pre; }
+p { margin: 0 0 8px 0; }
+.padding-top-8 { padding-top: 8px; }
+.padding-top-16 { padding-top: 16px; }
+address { margin-bottom: 4px; }
+
+form { display: inline; }
+
+a.disabled { pointer-events: none; text-decoration: none; }
+
+ul.tree-list, ul.tree-list ul { list-style-type: none; padding: 4px 4px 4px 20px; }
+
+/* ======================= XML Screen Styles ======================= */
+
+/* styles for non-dynamic table layout, not using jquery-layout */
+div.container-panel-outer {  }
+div.container-panel-middle { display: table; table-layout: auto; width: 100%; height: 100%; }
+div.container-panel-left { display: table-cell; /*width: 180px;*/ padding-right: 8px; height: 100%; vertical-align: top; }
+div.container-panel-center-only { display: table-cell; width: 100%; height: 100%; padding: 0 8px 0 8px; vertical-align: top; }
+div.container-panel-center-left { display: table-cell; height: 100%; padding: 0 8px 0 8px; vertical-align: top; }
+div.container-panel-center-both { display: table-cell; height: 100%; padding: 0 8px 0 8px; vertical-align: top; }
+div.container-panel-center-right { display: table-cell; height: 100%; padding: 0 8px 0 8px; vertical-align: top; }
+div.container-panel-right { display: table-cell; padding-left: 8px; height: 100%; vertical-align: top; }
+div.container-panel-header { width: 100%; }
+div.container-panel-footer { width: 100%; }
+
+/* ======================= XML Form Styles ======================= */
+
+/* these are still used when a row has more than 2 fields in it */
+.big-row-item { display: inline-block; margin-left: 15px; margin-right: 15px; }
+.big-row-item input, .big-row-item select, .big-row-item span.select2-container { display: inline-block; }
+.big-row-item>.form-group { margin-bottom: 0; }
+.big-row-item>.form-group>label { display: block; text-align: left; }
+
+/* These are for form-list titles and order by links */
+.form-title { white-space: nowrap; font-weight: bold; }
+.form-order-by { margin: 0; white-space: nowrap; height: 18px; display: inline-block; vertical-align: top; }
+.form-order-by a { display: block; height: 10px; font-size: 14px; margin: -2px 0; }
+.form-header-field { white-space: nowrap; padding-top: 4px; }
+
+td span.form-display { display: inline-block; width: 100%; }
+
+.form-date-find, .form-range-find { display: inline-block; padding-bottom: 4px; }
+.form-text-find input, .form-range-find input { display: inline-block; }
+
+td .Long, td .Double, td .Float, td .Integer { text-align: center; }
+td .BigDecimal, td .currency { text-align: right; }
+
+/* by CSS spec either x or y not visible changes the visible to auto, this breaks bootstrap-datetimepicker, select2 still works:
+.table-scroll-wrapper { overflow-x: auto; overflow-y: visible; } */
+/* this fixes bootstrap-datetimepicker but causes horizontal scroll bar to overlap elements below, and for some reason breaks find screens like FindOrder
+.table-scroll-wrapper { overflow-x: auto; overflow-y: visible; padding-bottom: 300px; margin-bottom: -300px; padding-top: 300px; margin-top: -300px; } */
+.table-condensed .form-group { margin-bottom: 0; }
+td.form-list-sub-row-cell { padding: 0 !important; }
+.form-list-sub-rows { margin-left: 23px; padding-left: 8px; border-left: 1px dashed #8c8c8c; }
+.form-list-sub-rows>table { margin-bottom: 0; }
+
+/* ======================= Handy Styles ======================= */
+
+ul.float-box { display: inline-block; list-style: none outside none; margin: 0 0 -8px 0; padding: 0; }
+ul.float-box li { display: inline-block; line-height: 18px; margin: 0 8px 8px 0; padding: 8px; float: left; }
+ul.float-box li.box-narrow { max-width: 300px; }
+
+ul.float-plain { display: inline-block; list-style: none outside none; margin: 0 0 -8px 0; padding: 0; }
+ul.float-plain li { display: inline-block; line-height: 18px; margin: 0 8px 8px 0; padding: 8px; float: left; }
+ul.float-plain.condensed { margin: 0; }
+ul.float-plain.condensed li { margin: 0 4px 0 0; padding: 4px; }
+
+.shaded-area { padding: 8px; margin-bottom: 8px; line-height: 18px; }
+span.shaded-area { display: inline-block; white-space: normal; }
+.shaded-area.condensed { padding: 4px; margin-bottom: 4px; }
+
+.diagram-sequence { font-size: 16px; text-align: center; width: 900px; max-width: 100%; margin-left: auto; margin-right: auto; }
+.diagram-sequence>div { border-right: rgb(127, 127, 127) dashed thin; }
+.diagram-sequence>div:first-child { border-left: rgb(127, 127, 127) dashed thin;  }
+.diagram-sequence>div:last-child {  }
+.diagram-sequence p { margin-bottom: 10px; }
+.diagram-sequence-item { position: relative; border-bottom: rgb(127, 127, 127) solid 2px; margin-bottom: 8px; }
+.diagram-sequence-item.smaller { font-size: 14px; }
+.diagram-sequence-item i.left { position: absolute; font-size: 14px; bottom: -8px; left: -2px; color: rgb(127, 127, 127); }
+.diagram-sequence-item i.left:before { content:"\f053" }
+.diagram-sequence-item i.right { position: absolute; font-size: 14px; bottom: -8px; right: -2px; color: rgb(127, 127, 127); }
+.diagram-sequence-item i.right:before { content:"\f054" }
+.diagram-sequence-actor { font-size: larger; font-weight: bold; margin-bottom: 14px; border-top: rgb(127, 127, 127) solid 1px; border-bottom: rgb(127, 127, 127) solid 1px; }
+
+/* ================ Extensions for bootstrap.min.css =============== */
+
+.col { display:inline-block; }
+
+.progress { margin-bottom: 8px; }
+
+/* Styles to get around default Bootstrap input width:100%; note margin-right on .input-group is enough for a 14px icon but nothing more! */
+.form-control { display: inline; min-width: 20px; width: auto; max-width: 100%; }
+.input-group { display: inline-block; white-space: nowrap; margin-right: 0; margin-top: -2px; }
+.input-group .form-control { display: inline; min-width: 20px; width: auto; }
+.input-group .input-group-addon, .input-group .input-group-btn { display: inline; line-height: 34px; padding: 8px 12px; }
+
+/* Similar styles to Bootstrap .form-control-static, applied more specifically and without explicit class */
+.form-group > div > p, .form-group > div > span.text-inline, .form-group > div > a:not(.btn) {
+    display: inline-block; min-height: 34px; padding-top: 7px; padding-bottom: 7px; margin-bottom: 0; }
+table .form-group > div > a:not(.btn), table .form-group > div > span.text-inline { min-height: 10px; padding-top: 0; padding-bottom: 0; }
+.form-header-field > button.btn, .form-group > div > a.btn { margin-top: 2px !important; }
+
+.nav.nav-tabs { margin-bottom: 8px; }
+/* Make it apparent that you can click the current or current parent tab */
+.nav-tabs > li.active > a, .nav-tabs > li.active > a:hover, .nav-tabs > li.active > a:focus { cursor: pointer; }
+
+/* Bootstrap by default has a 20px height for this, for 30px height shift up 5px */
+.navbar-brand>img { height: 30px; margin-top: -5px; }
+/* Bootstrap has no margin for a.navbar-btn so add them; note margin-right in bootstrap is -15px because of other styles, so for a margin of 10px set to -5px */
+.navbar-right.btn, .navbar-right .btn { margin-right: 0; margin-left: 0; }
+.navbar-right.btn-group { margin-right: 0; margin-left: 0; }
+.nav>li>a { padding-left: 6px; padding-right: 6px; }
+.navbar-collapse { padding-right: 0; }
+
+.pagination { margin: 6px 0; } /* default 20px 0 */
+nav.form-list-nav .pagination { margin: 6px 6px 0 6px; }
+nav.form-list-nav>form.form-inline { display: inline-block; margin: 2px 6px 0 0; float: left; }
+nav.form-list-nav>.btn { display: inline-block; margin: 6px 8px 0 0; float: left; }
+nav.form-list-nav>.btn-group { display: inline-block; margin: 6px 8px 0 0; float: left; }
+nav.form-list-nav>.btn-group>.btn { margin: 0; }
+nav.form-list-nav>span.select2-container { float: left; margin: 6px 0 6px 0; min-width: 100px; max-width: 160px; }
+
+/* Extend the Bootstrap panel, add support for a panel-toolbar, treat h5 and span just like bootstrap panel-title */
+.panel .panel-heading { position: relative; }
+.panel .panel-heading .panel-toolbar { position: absolute; top: 0; right: 0; }
+.panel .panel-toolbar .label { display: inline-block; margin: 4px 4px 4px 0; }
+.panel .panel-heading>h5, .panel .panel-heading>span { display: inline-block; margin-top: 0; margin-bottom: 0; font-size: 16px; }
+.panel, .panel .panel-body { background: transparent; }
+.panel-body>table.table { margin: -15px; width: calc(100% + 30px); max-width: none; }
+.panel { margin-bottom: 12px; } /* default 20px */
+.panel-body { padding: 8px; } /* default 15px */
+
+.btn { margin: 4px 4px 4px 0; }
+.btn-group .btn { margin-right: 0; }
+.btn-group { margin-right: 4px; margin-left: 4px; }
+
+/* nav .btn-group { padding-left: 4px; } */
+/* was: .btn-group-condensed>.btn:not(:first-child):not(:last-child):not(.dropdown-toggle) */
+.btn-group-condensed>.btn:not(.dropdown-toggle) {
+    padding-left: 4px; padding-right: 4px; border-left: 0; border-right: 0; }
+.btn-group-condensed>.btn:first-child { padding-right: 4px; border-right: 0; }
+.btn-group-condensed>.btn:last-child { padding-left: 4px; border-left: 0; }
+
+/* Variations on Bootstrap default table styles */
+.table>thead>tr>th { vertical-align: top; }
+.table>tbody>tr>td { vertical-align: middle; }
+.table { margin-bottom: 8px; }
+
+.well>.list-inline { margin-bottom: 0; }
+
+/* ================ Other, Fix Styles =============== */
+
+input[type=radio], input[type=checkbox] { height: auto; }
+
+.select2-container { display: inline-block; min-width: 60px; max-width: 100%; margin-top: -2px; }
+.date-period .select2-container--bootstrap { display: inline-block; }
+
+a.jstree-anchor { white-space: normal; }
+.jstree-default .jstree-anchor { height: auto; }
+
+.modal-dialog { text-align: left; } /* needed when right aligning the dialog button */
+
+.datepicker { white-space: initial; } /* needed to wrap the months in select month panel */
+
+/* style for bootstrap-notify (growl alerts) */
+.notify-container { padding-right: 30px; }
+
+/* overrides default display: inline-block to fix being pushed down, higher margin-top for tt-menu to compensate for no height */
+.twitter-typeahead { display: inline !important; }
+.tt-menu { width: 360px; margin: 18px 0; padding: 8px 0; border: 1px solid rgba(0, 0, 0, 0.2);
+    -webkit-border-radius: 4px; -moz-border-radius: 4px; border-radius: 4px; overflow: hidden; }
+.tt-suggestion { padding: 4px 8px; }
+.tt-suggestion p { margin: 0; }
+
+/* ======================= Screen-specific ======================= */
+
+.app-list-link { font-size: 1.5em; display: block; width: 320px; margin: 8px auto 8px auto; }
+
+.ScreenTreeNested { margin: 4px 0 4px 12px; padding: 0 0 0 12px; border-left: 1px dashed lightgrey; }
+
+.Login .form-signin { display: block; width: 340px; padding: 10px; margin: 0 auto; border-radius: 3px; }
+.Login .form-signin input { width: 100%; height: auto; font-size: 1.2em; }
+.Login .form-signin input.top { margin-bottom: -1px; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.Login .form-signin input.middle { margin-bottom: -1px; border-radius: 0; }
+.Login .form-signin input.bottom { border-top-left-radius: 0; border-top-right-radius: 0; margin-bottom: 10px; }
+
+/* wiki screen, including CodeMirror class */
+#wiki-page-area { width: 100%; overflow-x: scroll; overflow-y: visible; }
+#wiki-page-area th, #wiki-page-area td { padding: 2px 4px 2px 4px; border: thin solid lightgrey; }
+.CodeMirror, .CodeMirror-scroll { min-height: 600px; min-width: 800px; }
+
+/* ======================= Image thumbnail hover styles ======================= */
+
+span.hover-image-container img.hover-image { position: absolute; display: none;}
+
+span.hover-image-container img.hover-image { background-color: #FFF6E8; padding: 6px;
+    -webkit-box-shadow: 0 0 6px rgba(132, 132, 132, .75); -moz-box-shadow: 0 0 6px rgba(132, 132, 132, .75); box-shadow: 0 0 6px rgba(132, 132, 132, .75);
+    -webkit-border-radius: 4px; -moz-border-radius: 4px;border-radius: 4px; }
+
+span.hover-image-container:hover img.hover-image { display: initial; margin : 10px 0 0 5px; }
+
+/* ======================= hide-nav (mainly for printing) ======================= */
+
+.hide-nav button, .hide-nav a.btn { display: none; }
+.hide-nav .form-list-nav { display: none; }
+.hide-nav .nav { display: none; }
+body.hide-nav { padding-top: 0; } /* don't do body padding-top for nav bar */
+
+@media print {
+    /* use white background for all, bootstrap uses white background for tables but leaves all else transparent */
+    *, *:before, *:after { background: transparent none !important; }
+    body, #content, .inner, .container-fluid { background: white none !important; }
+    /* don't show URL for links as bootstrap does by default, makes a mess */
+    a[href]:after { content: ""; }
+    body { font-size: 10px; }
+    /* condense more for printing (bootstrap default 5px), note still has border between rows */
+    .table-condensed tbody tr td { padding-top: 0; padding-bottom: 0; }
+
+    button, a.btn { display: none !important; }
+    #footer, .nav, .form-order-by, .form-list-nav-row { display: none; }
+    body { padding-top: 0; } /* don't do body padding-top for nav bar */
+    #content { min-height: 100%; } /* make body content full height, no -50px for footer */
+    #top { height: 0; }
+
+    .modal { background: white !important; }
+    body.modal-open { visibility: hidden; }
+    body.modal-open .modal.in { visibility: visible; }
+    .chart-container canvas { min-height: 100%; max-width: 100%; max-height: 100%; height: auto!important; width: auto!important; }
+
+    .table-striped>tbody>tr:nth-child(even)>td { background-color: #EEEEEE !important; }
+    .col-sm-1, .col-sm-2, .col-sm-3, .col-sm-4, .col-sm-5, .col-sm-6, .col-sm-7, .col-sm-8, .col-sm-9, .col-sm-10, .col-sm-11, .col-sm-12 { float: left; }
+    .col-sm-12{width:100%;}.col-sm-11{width:91.66666667%;}.col-sm-10{width:83.33333333%;}.col-sm-9{width:75%;}.col-sm-8{width:66.66666667%;}.col-sm-7{width:58.33333333%;}
+    .col-sm-6{width:50%;}.col-sm-5{width:41.66666667%;}.col-sm-4{width:33.33333333%;}.col-sm-3{width:25%;}.col-sm-2{width:16.66666667%;}.col-sm-1{width:8.33333333%;}
+    .col-md-1, .col-md-2, .col-md-3, .col-md-4, .col-md-5, .col-md-6, .col-md-7, .col-md-8, .col-md-9, .col-md-10, .col-md-11, .col-md-12 { float: left; }
+    .col-md-12{width:100%;}.col-md-11{width:91.66666667%;}.col-md-10{width:83.33333333%;}.col-md-9{width:75%;}.col-md-8{width:66.66666667%;}.col-md-7{width:58.33333333%;}
+    .col-md-6{width:50%;}.col-md-5{width:41.66666667%;}.col-md-4{width:33.33333333%;}.col-md-3{width:25%;}.col-md-2{width:16.66666667%;}.col-md-1{width:8.33333333%;}
+}

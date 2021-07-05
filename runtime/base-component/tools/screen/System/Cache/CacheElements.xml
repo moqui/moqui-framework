@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd">
+
+    <parameter name="cacheName" required="true"/>
+
+    <transition name="clearCacheElement">
+        <actions>
+            <script><![CDATA[
+                ec.logger.info("Clearing cache entry with key ${key} from cache ${cacheName}")
+                javax.cache.Cache theCache = ec.cache.getCache(cacheName)
+                Iterator iter = theCache.iterator()
+                while (iter.hasNext()) {
+                    javax.cache.Cache.Entry entry = iter.next()
+                    if (key == (entry.key as String)) {
+                        cacheValue = theCache.getAndRemove(entry.key)
+                        ec.message.addMessage(ec.resource.expand('Cleared ${key} from cache [${cacheName}] had value [${cacheValue}]',''))
+                        return
+                    }
+                }
+                ec.message.addError(ec.resource.expand('No entry with key [${key}] in cache [${cacheName}]',''))
+            ]]></script>
+        </actions>
+        <default-response url="."/>
+    </transition>
+
+    <actions>
+        <if condition="!ec.cache.cacheExists(cacheName)">
+            <return error="true" message="Cache with name ${cacheName} not found"/></if>
+
+        <set field="pageSize" from="pageSize ?: 40"/>
+        <set field="cacheElementList" from="ec.cache.makeElementInfoList(cacheName, orderByField?:'+key')"/>
+        <script>paginateList("cacheElementList", null, context)</script>
+    </actions>
+    <widgets>
+        <label text="Elements for Cache [${cacheName}]" type="h3"/>
+        <label text="${totalSize &gt; displayLimit ? totalSize + ' elements, displaying first ' + displayLimit : ''}" display-if-empty="false"/>
+        <form-list name="CacheElements" list="cacheElementList" skip-form="true">
+            <field name="key">
+                <header-field show-order-by="true"/>
+                <default-field><display also-hidden="false"/></default-field>
+            </field>
+            <field name="value">
+                <default-field><display text="${value != null &amp;&amp; value.length() > 200 ? value.substring(0, 200) : value}" also-hidden="false"/></default-field>
+            </field>
+            <field name="hitCount">
+                <header-field title="Hits" show-order-by="true"/>
+                <default-field><display also-hidden="false"/></default-field>
+            </field>
+            <field name="creationTime">
+                <header-field title="Created" show-order-by="true"/>
+                <default-field><display also-hidden="false"/></default-field>
+            </field>
+            <field name="lastUpdateTime">
+                <header-field title="Last Update" show-order-by="true"/>
+                <default-field><display also-hidden="false"/></default-field>
+            </field>
+            <field name="lastAccessTime">
+                <header-field title="Last Access" show-order-by="true"/>
+                <default-field><display also-hidden="false"/></default-field>
+            </field>
+            <field name="clear">
+                <default-field><link text="Clear" url="clearCacheElement" link-type="hidden-form-link"><parameter name="key"/></link></default-field>
+            </field>
+        </form-list>
+    </widgets>
+</screen>

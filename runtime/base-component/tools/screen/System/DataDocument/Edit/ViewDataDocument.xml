@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-title="View" default-menu-index="3">
+
+    <parameter name="dataDocumentId" required="true"/>
+
+    <transition name="DocumentExport.json" read-only="true">
+        <actions><script><![CDATA[
+            import org.moqui.context.ExecutionContext
+            import org.moqui.impl.entity.EntityDataDocument
+            import java.sql.Timestamp
+
+            ExecutionContext ec = context.ec
+            EntityDataDocument edd = ec.entity.getEntityDataDocument()
+
+            boolean prettyPrint = context.prettyPrint as Boolean
+            fromUpdateStamp = fromUpdateStamp ? fromUpdateStamp as Timestamp : null
+            thruUpdateStamp = thruUpdateStamp ? thruUpdateStamp as Timestamp : null
+
+            String filename = (String) dataDocumentId + ".json"
+            def response = ec.web.response
+            response.setContentType("application/json")
+            response.setCharacterEncoding("UTF-8")
+            response.addHeader("Content-Disposition", "attachment; filename=\"${filename}\"; filename*=utf-8''${encodeAsciiFilename(filename)}")
+            response.addHeader("Cache-Control", "no-cache, must-revalidate, private")
+            response.getWriter().write("[\n")
+            edd.writeDocumentsToWriter(response.getWriter(), [(String) dataDocumentId], null, fromUpdateStamp, thruUpdateStamp, prettyPrint)
+            response.getWriter().write("]\n")
+        ]]></script></actions>
+        <default-response type="none"/>
+    </transition>
+
+    <actions>
+        <set field="entityName" from="'DataDocument.' + dataDocumentId"/>
+        <set field="aenDef" from="ec.entity.getEntityDefinition(entityName)"/>
+        <if condition="aenDef == null"><message error="true">Could not find Data Document ${dataDocumentId}</message><return/></if>
+    </actions>
+    <widgets>
+        <container-dialog id="ExportJsonDialog" button-text="Download JSON">
+            <form-single name="ExportDocuments" transition="DocumentExport.json">
+                <field name="dataDocumentId"><default-field><hidden/></default-field></field>
+                <field name="fromUpdateStamp"><default-field><date-time/></default-field></field>
+                <field name="thruUpdateStamp"><default-field><date-time/></default-field></field>
+                <field name="prettyPrint"><default-field title=""><check><option key="true" text="Pretty Print JSON?"/></check></default-field></field>
+
+                <field name="submitButton"><default-field title="Download"><submit/></default-field></field>
+            </form-single>
+        </container-dialog>
+        <form-list name="DataViewList" list="entityValueList" skip-form="true" dynamic="true" header-dialog="true"
+                show-csv-button="true" show-xlsx-button="true" show-page-size="true" saved-finds="true">
+            <entity-find entity-name="${entityName}" list="entityValueList" cache="false" use-clone="true">
+                <search-form-inputs/></entity-find>
+            <field name="dataDocumentId"><header-field><hidden/></header-field></field>
+            <auto-fields-entity entity-name="${entityName}" field-type="find-display"/>
+            <field name="findButton"><header-field title="Find"><submit/></header-field></field>
+        </form-list>
+    </widgets>
+</screen>

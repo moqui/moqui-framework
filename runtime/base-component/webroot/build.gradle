@@ -1,0 +1,262 @@
+/*
+ * This software is in the public domain under CC0 1.0 Universal plus a
+ * Grant of Patent License.
+ *
+ * To the extent possible under law, the author(s) have dedicated all
+ * copyright and related and neighboring rights to this software to the
+ * public domain worldwide. This software is distributed without any
+ * warranty.
+ *
+ * You should have received a copy of the CC0 Public Domain Dedication
+ * along with this software (see the LICENSE.md file). If not, see
+ * <http://creativecommons.org/publicdomain/zero/1.0/>.
+ */
+
+import java.nio.charset.StandardCharsets
+
+buildscript {
+    repositories {
+        mavenCentral()
+        maven { url "https://plugins.gradle.org/m2/" }
+    }
+    dependencies { classpath 'com.github.ben-manes:gradle-versions-plugin:0.28.0' }
+}
+
+/* gradle.js plugin getting warning with Gradle 5+, incompatible with Gradle 6:
+
+   Internal API constructor FactoryNamedDomainObjectContainerConstructor AbstractNamedDomainObjectContainer(Class<T>, Instantiator)
+   has been deprecated. This is scheduled to be removed in Gradle 6.0. Don't use internal API
+
+   see https://github.com/eriwen/gradle-js-plugin/issues/168
+ */
+plugins {
+    id "com.eriwen.gradle.js" version "2.14.1"
+}
+
+apply plugin: 'com.github.ben-manes.versions'
+dependencyUpdates.resolutionStrategy = { componentSelection { rules -> rules.all { ComponentSelection selection ->
+    boolean rejected = ['alpha', 'beta', 'rc', 'cr', 'm', 'b'].any { qualifier -> selection.candidate.version ==~ /(?i).*[.-]${qualifier}[.\d-].*/ }
+    if (rejected) selection.reject('Release candidate')
+} } }
+
+def webrootPath = "screen/webroot"
+def libsPath = webrootPath + "/libs"
+def downloadBase = "http://cdnjs.cloudflare.com/ajax/libs/"
+def fileMap = [
+    "rsvp/4.8.3/rsvp.min.js":"",
+
+    "twitter-bootstrap/3.4.1/css/bootstrap.min.css":"",
+    "twitter-bootstrap/3.4.1/js/bootstrap.min.js":"",
+    "twitter-bootstrap/3.4.1/fonts/glyphicons-halflings-regular.eot":"",
+    "twitter-bootstrap/3.4.1/fonts/glyphicons-halflings-regular.svg":"",
+    "twitter-bootstrap/3.4.1/fonts/glyphicons-halflings-regular.ttf":"",
+    "twitter-bootstrap/3.4.1/fonts/glyphicons-halflings-regular.woff":"",
+    "twitter-bootstrap/3.4.1/fonts/glyphicons-halflings-regular.woff2":"",
+
+    "bootstrap-datetimepicker/4.17.47/css/bootstrap-datetimepicker.min.css":"",
+    // js/bootstrap-datetimepicker/bootstrap-datetimepicker.min.js 4.17.47 has a small change so that keyBinds are handled properly
+    // "bootstrap-datetimepicker/4.17.47/js/bootstrap-datetimepicker.min.js":"",
+
+    "mouse0270-bootstrap-notify/3.1.7/bootstrap-notify.min.js":"",
+
+    "font-awesome/4.7.0/css/font-awesome.min.css":"",
+    "font-awesome/4.7.0/fonts/FontAwesome.otf":"",
+    "font-awesome/4.7.0/fonts/fontawesome-webfont.eot":"",
+    "font-awesome/4.7.0/fonts/fontawesome-webfont.svg":"",
+    "font-awesome/4.7.0/fonts/fontawesome-webfont.ttf":"",
+    "font-awesome/4.7.0/fonts/fontawesome-webfont.woff":"",
+    "font-awesome/4.7.0/fonts/fontawesome-webfont.woff2":"",
+
+    "jeditable.js/1.7.3/jeditable.min.js":"",
+
+    "jquery/3.4.1/jquery.min.js":"",
+
+    "jquery.form/4.2.1/jquery.form.min.js":"",
+    "jquery.inputmask/3.3.4/jquery.inputmask.bundle.min.js":"",
+
+    // can get jquery-sortable-lists from cdnjs? http://camohub.github.io/jquery-sortable-lists/
+
+    "jquery-validate/1.17.0/jquery.validate.min.js":"",
+    "jquery-validate/1.17.0/additional-methods.min.js":"",
+
+    "jstree/3.3.8/jstree.min.js":"",
+    "jstree/3.3.8/themes/default/style.min.css":"",
+    "jstree/3.3.8/themes/default/32px.png":"",
+    "jstree/3.3.8/themes/default/40px.png":"",
+    "jstree/3.3.8/themes/default/throbber.gif":"",
+
+    "moment.js/2.24.0/moment-with-locales.min.js":"",
+
+    // js/select2/select2.min.js 4.0.3 has small changes so that widths are handled properly, so not in download list
+    "select2/4.0.3/css/select2.min.css":"",
+    "select2-bootstrap-theme/0.1.0-beta.10/select2-bootstrap.min.css":"",
+
+    "Selectivity.js/2.1.0/selectivity-full.min.js":"",
+    "Selectivity.js/2.1.0/selectivity-full.min.css":"",
+
+    "typeahead.js/0.11.1/typeahead.jquery.min.js":"",
+
+    "vue/2.6.10/vue.js":"",
+    "vue/2.6.10/vue.min.js":""
+]
+
+def jsdelivrBase = "https://cdn.jsdelivr.net/npm/"
+def jsdelivrList = ["quasar@1.15.20/dist/quasar.min.css", "quasar@1.15.20/dist/quasar.umd.min.js"]
+
+String getTargetPath(String sourcePath, String targetPath) {
+    if (!targetPath) {
+        String[] sourceSplit = sourcePath.split("/")
+        targetPath = sourceSplit[0] + '/' + sourceSplit[2..sourceSplit.length-1].join('/')
+    }
+    return targetPath
+}
+task downloadFiles { doLast {
+    for (Map.Entry fileEntry in fileMap.entrySet()) {
+        String sourcePath = fileEntry.key
+        String targetPath = getTargetPath(sourcePath, (String) fileEntry.value)
+
+        File targetFile = file(libsPath + '/' + targetPath)
+        if (targetFile.exists()) continue
+
+        String sourceUrl = downloadBase + sourcePath
+        logger.lifecycle("Downloading ${sourceUrl} to ${targetFile.absolutePath}")
+        targetFile.getParentFile().mkdirs()
+        ant.get(src: sourceUrl, dest: targetFile)
+    }
+
+    for (String jsdPath in jsdelivrList) {
+        String[] sourceSplit = jsdPath.split("/")
+        String libDir = sourceSplit[0].substring(0, sourceSplit[0].indexOf("@"))
+        String targetPath = libDir + '/' + sourceSplit[sourceSplit.length-1]
+
+        File targetFile = file(libsPath + '/' + targetPath)
+        if (targetFile.exists()) continue
+
+        String sourceUrl = jsdelivrBase + jsdPath
+        logger.lifecycle("Downloading ${sourceUrl} to ${targetFile.absolutePath}")
+        targetFile.getParentFile().mkdirs()
+        ant.get(src: sourceUrl, dest: targetFile)
+    }
+} }
+
+def baseJs = []
+// RSVP (promises, futures)
+baseJs.add(libsPath + '/rsvp/rsvp.min.js')
+// jQuery
+baseJs.add(libsPath + '/jquery/jquery.min.js')
+// Bootstrap
+baseJs.add(libsPath + '/twitter-bootstrap/js/bootstrap.min.js')
+// Autocomplete (Twitter TypeAhead)
+baseJs.add(libsPath + '/typeahead.js/typeahead.jquery.min.js')
+// Input Masking
+baseJs.add(libsPath + '/jquery.inputmask/jquery.inputmask.bundle.min.js')
+// Form Validation and AJAX (jquery-validation, jquery-form)
+baseJs.add(libsPath + '/jquery-validate/jquery.validate.min.js')
+baseJs.add(libsPath + '/jquery-validate/additional-methods.min.js')
+// Date/Time (Moment, bootstrap-datetimepicker)
+baseJs.add(libsPath + '/moment.js/moment-with-locales.min.js')
+//baseJs.add(libsPath + '/bootstrap-datetimepicker/js/bootstrap-datetimepicker.min.js')
+baseJs.add(webrootPath + '/js/bootstrap-datetimepicker.min.js')
+// Drop-down (Select2, Selectivity)
+baseJs.add(webrootPath + '/js/select2.min.js')
+baseJs.add(libsPath + '/Selectivity.js/selectivity-full.min.js')
+// Notify/Growl (Bootstrap Notify)
+baseJs.add(libsPath + '/mouse0270-bootstrap-notify/bootstrap-notify.min.js')
+// Inline Editable
+baseJs.add(libsPath + '/jeditable.js/jeditable.min.js')
+// Sortable Hierarchical List
+baseJs.add(webrootPath + '/js/jquery-sortable-lists/jquery-sortable-lists.min.js')
+// Moqui Library (3rd party lib workarounds, NotificationClient, etc)
+baseJs.add(webrootPath + '/js/MoquiLib.min.js')
+
+// NOTE: not adding qz-tray/qz-tray.js (qz-tray.min.js) or qz-tray/sha-256.min.js to combined base, only included if user preference 'qz.print.enabled' == "true"
+
+def htmlJs = []
+// Form AJAX (jquery-form)
+htmlJs.add(libsPath + '/jquery.form/jquery.form.min.js')
+// Tree (JSTree)
+htmlJs.add(libsPath + '/jstree/jstree.min.js')
+
+def vuetJs = []
+// Vue JS
+vuetJs.add(libsPath + '/vue/vue.min.js')
+// http-vue-loader
+vuetJs.add(webrootPath + '/js/http-vue-loader/httpVueLoader.js')
+// Vue root component instance, in footer so runs after page loaded
+vuetJs.add(webrootPath + '/js/WebrootVue.min.js')
+
+
+task minifySelect2(type: com.eriwen.gradle.js.tasks.MinifyJsTask) {
+    source = file("${webrootPath}/js/select2/select2.js")
+    dest = file("${webrootPath}/js/select2.min.js")
+    closure { compilerOptions.setOutputCharset(StandardCharsets.UTF_8) }
+}
+task minifyDateTimePicker(type: com.eriwen.gradle.js.tasks.MinifyJsTask) {
+    source = file("${webrootPath}/js/bootstrap-datetimepicker/bootstrap-datetimepicker.js")
+    dest = file("${webrootPath}/js/bootstrap-datetimepicker.min.js")
+    closure { compilerOptions.setOutputCharset(StandardCharsets.UTF_8) }
+}
+/* using pre-minified version
+task minifyQzTray(type: com.eriwen.gradle.js.tasks.MinifyJsTask) {
+    source = file("${webrootPath}/js/qz-tray/qz-tray.js")
+    dest = file("${webrootPath}/js/qz-tray.min.js")
+    closure { compilerOptions.setOutputCharset(StandardCharsets.UTF_8); warningLevel = 'QUIET' }
+}
+*/
+task minifyMoquiLib(type: com.eriwen.gradle.js.tasks.MinifyJsTask) {
+    source = file("${webrootPath}/js/MoquiLib.js")
+    dest = file("${webrootPath}/js/MoquiLib.min.js")
+    closure { compilerOptions.setOutputCharset(StandardCharsets.UTF_8) }
+}
+task combineBaseJs(type: com.eriwen.gradle.js.tasks.CombineJsTask) {
+    dependsOn downloadFiles
+    dependsOn minifySelect2
+    dependsOn minifyDateTimePicker
+    dependsOn minifyMoquiLib
+    encoding = "UTF-8"
+    source = baseJs
+    dest = file("${webrootPath}/js/CombinedBase.min.js")
+}
+// moment.js and many others have lots of comments, etc that make it very large so re-minify
+/* issues have been found in certain browsers on certain operating systems with this, see https://github.com/moqui/moqui-runtime/issues/76
+task minifyCombinedBase(type: com.eriwen.gradle.js.tasks.MinifyJsTask) {
+    dependsOn combineBaseJs
+    source = file("${webrootPath}/js/CombinedBase.min.js")
+    dest = file("${webrootPath}/js/CombinedBaseMin.min.js")
+    closure {
+        warningLevel = 'QUIET'
+        compilerOptions.setOutputCharset(StandardCharsets.UTF_8)
+    }
+}
+*/
+
+task minifyWebrootVue(type: com.eriwen.gradle.js.tasks.MinifyJsTask) {
+    source = file("${webrootPath}/js/WebrootVue.js")
+    dest = file("${webrootPath}/js/WebrootVue.min.js")
+    closure { compilerOptions.setOutputCharset(StandardCharsets.UTF_8) }
+}
+task combineVuetJs(type: com.eriwen.gradle.js.tasks.CombineJsTask) {
+    dependsOn downloadFiles
+    dependsOn minifyWebrootVue
+    encoding = "UTF-8"
+    source = vuetJs
+    dest = file("${webrootPath}/js/CombinedVuet.min.js")
+}
+
+task minifyWebrootVueQvt(type: com.eriwen.gradle.js.tasks.MinifyJsTask) {
+    source = file("${webrootPath}/js/WebrootVue.qvt.js")
+    dest = file("${webrootPath}/js/WebrootVue.qvt.min.js")
+    closure { compilerOptions.setOutputCharset(StandardCharsets.UTF_8) }
+}
+
+task clean { doLast { delete fileTree(dir: "${webrootPath}/js", include: '*.min.js') }}
+task build {
+    dependsOn downloadFiles
+    dependsOn combineBaseJs
+    // issues seen with this on Windows, disabling for now: dependsOn minifyCombinedBase
+    dependsOn combineVuetJs
+    dependsOn minifyWebrootVueQvt
+}
+task cleanAll { doLast {
+    delete file(libsPath)
+} }

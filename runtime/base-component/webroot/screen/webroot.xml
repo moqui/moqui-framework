@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        require-authentication="false">
+    <!-- NOTE: require-authentication=false is required to allow sub-screens to decide, and because the Login screen is below this. -->
+    <always-actions>
+        <!-- No JS or CSS files referenced here, just setup lists for subscreens to add to in pre-actions -->
+        <set field="html_scripts" from="new LinkedHashSet()"/>
+        <set field="footer_scripts" from="new LinkedHashSet()"/>
+
+        <!-- See WebrootThemeData.xml for CSS references -->
+        <set field="html_stylesheets" from="new LinkedHashSet()"/>
+    </always-actions>
+    <transition name="status">
+        <actions>
+            <set field="allowed_ips" from="System.getProperty('webapp_status_ips')? System.getProperty('webapp_status_ips').replaceAll('\\s', '').split(',')+['127.0.0.1']: ['127.0.0.1']"/>
+            <if condition="ec.web.getRequest().getRemoteAddr() in allowed_ips"><then>
+                <script>ec.web.sendJsonResponse(ec.factory.getStatusMap())</script>
+            </then><else>
+                <log message="Rejecting /status from ${ec.web.getRequest().getRemoteAddr()}"/>
+            </else></if>
+        </actions>
+        <default-response type="none"/>
+    </transition>
+    <transition name="menuData" read-only="true" begin-transaction="false">
+        <actions><script><![CDATA[
+            List menuDataList = sri.getMenuData(sri.screenUrlInfo.extraPathNameList)
+            if (menuDataList != null) ec.web.sendJsonResponse(menuDataList)
+        ]]></script></actions>
+        <!-- NOTE DEJ 20200806 use save-parameters="true" to re-save parameters otherwise lost from the menuData request under vapps, qapps, etc -->
+        <default-response type="none" save-parameters="true"/>
+    </transition>
+    <transition name="email"><path-parameter name="emailMessageId"/><actions><script>ec.web.viewEmailMessage()</script></actions>
+        <default-response type="none"/></transition>
+
+    <transition name="robots.txt" read-only="true">
+        <!-- TODO: get fancier with this, crawl screen tree looking for screens that don't require authc, maybe some sort of setting to allow robots or not -->
+        <!-- TODO: also generate sitemap XML with paths we want crawled, based on ? -->
+        <actions><script><![CDATA[
+            List disallowList = ['apps', 'vapps', 'qapps', 'rest', 'rpc', 'status', 'menuData']
+            def outWriter = new StringWriter()
+            outWriter.append("user-agent: *\n")
+            for (disPath in disallowList) outWriter.append("disallow: /${disPath}\n")
+            ec.web.sendTextResponse(outWriter.toString())
+        ]]></script>
+        </actions>
+        <default-response type="none"/>
+    </transition>
+
+    <!-- Force custom favicon, if set in the "STRT_SHORTCUT_ICON" ScreenThemeResource. -->
+    <transition name="favicon.ico">
+        <actions>
+            <script>
+                iconList = sri.getThemeValues("STRT_SHORTCUT_ICON")
+                if (!iconList || iconList[0] == "") iconList = ["/favicon.ico"]
+                ec.web.sendResourceResponse("component://webroot/screen/webroot" + iconList[0])
+            </script>
+        </actions>
+        <default-response type="none"/>
+    </transition>
+
+    <subscreens default-item="qapps">
+        <subscreens-item name="toolstatic" location="component://tools/screen/toolstatic.xml" menu-include="false"/>
+        <!-- add UNDECORATED (or self-decorating) app roots here -->
+    </subscreens>
+    <widgets>
+        <render-mode>
+            <text type="html" location="component://webroot/screen/includes/Header.html.ftl" no-boundary-comment="true"/>
+            <text type="xsl-fo" location="component://webroot/screen/includes/Header.xsl-fo.ftl" no-boundary-comment="true"/>
+        </render-mode>
+        <render-mode><text template="true">${sri.renderSubscreen()}</text></render-mode>
+        <render-mode>
+            <text type="html" location="component://webroot/screen/includes/Footer.html.ftl"/>
+            <text type="xsl-fo"><![CDATA[${sri.getAfterScreenWriterText()}</fo:flow></fo:page-sequence></fo:root>]]></text>
+        </render-mode>
+    </widgets>
+</screen>
