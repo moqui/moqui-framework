@@ -14,19 +14,6 @@
 package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
-import org.apache.shiro.authc.IncorrectCredentialsException
-import org.moqui.context.ArtifactExecutionInfo
-import org.moqui.context.AuthenticationRequiredException
-import org.moqui.context.SecondFactorRequiredException
-import org.moqui.entity.EntityCondition
-import org.moqui.impl.context.ArtifactExecutionInfoImpl.ArtifactAuthzCheck
-import org.moqui.impl.entity.EntityValueBase
-import org.moqui.impl.screen.ScreenUrlInfo
-import org.moqui.impl.util.MoquiShiroRealm
-import org.moqui.util.MNode
-import org.moqui.util.ObjectUtilities
-import org.moqui.util.StringUtilities
-import org.moqui.util.WebUtilities
 
 import javax.websocket.server.HandshakeRequest
 import java.sql.Timestamp
@@ -38,14 +25,25 @@ import javax.servlet.http.HttpSession
 import org.apache.shiro.authc.AuthenticationException
 import org.apache.shiro.authc.UsernamePasswordToken
 import org.apache.shiro.subject.Subject
+import org.apache.shiro.subject.support.DefaultSubjectContext
 import org.apache.shiro.web.subject.WebSubjectContext
 import org.apache.shiro.web.subject.support.DefaultWebSubjectContext
 import org.apache.shiro.web.session.HttpServletSession
 
+import org.moqui.context.ArtifactExecutionInfo
+import org.moqui.context.AuthenticationRequiredException
+import org.moqui.context.SecondFactorRequiredException
 import org.moqui.context.UserFacade
-import org.moqui.entity.EntityValue
+import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityList
-import org.apache.shiro.subject.support.DefaultSubjectContext
+import org.moqui.entity.EntityValue
+import org.moqui.impl.context.ArtifactExecutionInfoImpl.ArtifactAuthzCheck
+import org.moqui.impl.entity.EntityValueBase
+import org.moqui.impl.screen.ScreenUrlInfo
+import org.moqui.impl.util.MoquiShiroRealm
+import org.moqui.util.MNode
+import org.moqui.util.StringUtilities
+import org.moqui.util.WebUtilities
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
