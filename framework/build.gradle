@@ -131,6 +131,8 @@ dependencies {
 
     // Java TOTP
     compile 'dev.samstevens.totp:totp:1.7.1' // MIT
+    // dev.samstevens.totp:totp depends on com.google.zxing:javase which depends on com.beust:jcommander, but an older version with a CVE, so specify latest to fix
+    compile 'com.beust:jcommander:1.81'
 
     // H2 Database
     compile 'com.h2database:h2:1.4.200' // MPL 2.0, EPL 1.0
