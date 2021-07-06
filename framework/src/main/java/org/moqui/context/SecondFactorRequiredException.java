@@ -22,3 +22,4 @@ public class SecondFactorRequiredException extends AuthenticationException {
     public SecondFactorRequiredException(Throwable nested) { super(nested); }
     public SecondFactorRequiredException(String str, Throwable nested) { super(str, nested); }
 }
+
