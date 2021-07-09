@@ -125,6 +125,26 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
         Map<String, Object> runInternal() throws Exception {
             ExecutionContextImpl threadEci = (ExecutionContextImpl) null
             try {
+                // check for active Transaction
+                if (ecfi.transactionFacade.isTransactionInPlace()) {
+                    logger.error("In ServiceCallAsync service ${serviceName} a transaction is in place for thread ${Thread.currentThread().getName()}, trying to commit")
+                    try {
+                        ecfi.transactionFacade.destroyAllInThread()
+                    } catch (Exception e) {
+                        logger.error("ServiceCallAsync commit in place transaction failed for thread ${Thread.currentThread().getName()}", e)
+                    }
+                }
+                // check for active ExecutionContext
+                ExecutionContextImpl activeEc = ecfi.activeContext.get()
+                if (activeEc != null) {
+                    logger.error("In ServiceCallAsync service ${serviceName} there is already an ExecutionContext for user ${activeEc.user.username} (from ${activeEc.forThreadId}:${activeEc.forThreadName}) in this thread ${Thread.currentThread().id}:${Thread.currentThread().name}, destroying")
+                    try {
+                        activeEc.destroy()
+                    } catch (Throwable t) {
+                        logger.error("Error destroying ExecutionContext already in place in ServiceCallAsync in thread ${Thread.currentThread().id}:${Thread.currentThread().name}", t)
+                    }
+                }
+
                 threadEci = getEcfi().getEci()
                 if (threadUsername != null && threadUsername.length() > 0)
                     threadEci.userFacade.internalLoginUser(threadUsername, false)
