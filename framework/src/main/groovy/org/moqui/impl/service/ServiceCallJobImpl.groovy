@@ -202,6 +202,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
                     throw new IllegalStateException(errMsg)
                 }
 
+                // check for active Transaction
                 if (ecfi.transactionFacade.isTransactionInPlace()) {
                     logger.error("In ServiceCallJob ${jobName} service ${serviceName} a transaction is in place for thread ${Thread.currentThread().getName()}, trying to commit")
                     try {
@@ -210,7 +211,18 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
                         logger.error("ServiceCallJob commit in place transaction failed for thread ${Thread.currentThread().getName()}", e)
                     }
                 }
+                // check for active ExecutionContext
+                ExecutionContextImpl activeEc = ecfi.activeContext.get()
+                if (activeEc != null) {
+                    logger.error("In ServiceCallJob ${jobName} service ${serviceName} there is already an ExecutionContext for user ${activeEc.user.username} (from ${activeEc.forThreadId}:${activeEc.forThreadName}) in this thread ${Thread.currentThread().id}:${Thread.currentThread().name}, destroying")
+                    try {
+                        activeEc.destroy()
+                    } catch (Throwable t) {
+                        logger.error("Error destroying ExecutionContext already in place in ServiceCallJob in thread ${Thread.currentThread().id}:${Thread.currentThread().name}", t)
+                    }
+                }
 
+                // get a fresh ExecutionContext
                 threadEci = ecfi.getEci()
                 if (threadUsername != null && threadUsername.length() > 0)
                     threadEci.userFacade.internalLoginUser(threadUsername, false)
