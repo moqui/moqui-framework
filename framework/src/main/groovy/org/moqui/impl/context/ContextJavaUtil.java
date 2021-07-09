@@ -647,6 +647,15 @@ public class ContextJavaUtil {
                 } catch (Throwable t) {
                     logger.error("Error destroying ExecutionContext in WorkerThreadPoolExecutor.afterExecute()", t);
                 }
+            } else {
+                if (ecfi.transactionFacade.isTransactionInPlace()) {
+                    logger.error("In WorkerThreadPoolExecutor a transaction is in place for thread " + Thread.currentThread().getName() + ", trying to commit");
+                    try {
+                        ecfi.transactionFacade.destroyAllInThread();
+                    } catch (Exception e) {
+                        logger.error("WorkerThreadPoolExecutor commit in place transaction failed in thread " + Thread.currentThread().getName(), e);
+                    }
+                }
             }
 
             super.afterExecute(runnable, throwable);
