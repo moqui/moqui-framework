@@ -201,6 +201,16 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
                     logger.error(errMsg)
                     throw new IllegalStateException(errMsg)
                 }
+
+                if (ecfi.transactionFacade.isTransactionInPlace()) {
+                    logger.error("In ServiceCallJob ${jobName} service ${serviceName} a transaction is in place for thread ${Thread.currentThread().getName()}, trying to commit")
+                    try {
+                        ecfi.transactionFacade.destroyAllInThread()
+                    } catch (Exception e) {
+                        logger.error("ServiceCallJob commit in place transaction failed for thread ${Thread.currentThread().getName()}", e)
+                    }
+                }
+
                 threadEci = ecfi.getEci()
                 if (threadUsername != null && threadUsername.length() > 0)
                     threadEci.userFacade.internalLoginUser(threadUsername, false)
@@ -227,16 +237,19 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
                 }
 
                 // set endTime, results, messages, errors on ServiceJobRun
-                if (results.containsKey(null)) {
-                    logger.warn("Service Job ${jobName} results has a null key with value ${results.get(null)}, removing")
-                    results.remove(null)
-                }
                 String resultString = (String) null
-                try {
-                    resultString = JsonOutput.toJson(results)
-                } catch (Exception e) {
-                    logger.warn("Error writing JSON for Service Job ${jobName} results: ${e.toString()}\n${results}")
+                if (results != null) {
+                    if (results.containsKey(null)) {
+                        logger.warn("Service Job ${jobName} results has a null key with value ${results.get(null)}, removing")
+                        results.remove(null)
+                    }
+                    try {
+                        resultString = JsonOutput.toJson(results)
+                    } catch (Exception e) {
+                        logger.warn("Error writing JSON for Service Job ${jobName} results: ${e.toString()}\n${results}")
+                    }
                 }
+
                 boolean hasError = threadEci.messageFacade.hasError()
                 String messages = threadEci.messageFacade.getMessagesString()
                 if (messages != null && messages.length() > 4000) messages = messages.substring(0, 4000)
