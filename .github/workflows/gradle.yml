@@ -21,6 +21,8 @@ jobs:
       with:
         java-version: '8'
         distribution: 'adopt'
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
     - name: Get Dependancies
       run: |
         ./gradlew getRuntime
@@ -31,7 +33,10 @@ jobs:
         ./gradlew getComponent -Pcomponent=MarbleERP
         ./gradlew getComponent -Pcomponent=PopRestStore
         ./gradlew getComponent -Pcomponent=example        
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
     - name: Load, Save, and Test with Gradle
       run: ./gradlew loadsave test
+    - name: Build and Run Moqui.war
+      run: |
+        ./gradlew build
+        ls -la
+        java -jar moqui.war
