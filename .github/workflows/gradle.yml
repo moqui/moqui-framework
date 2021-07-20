@@ -32,11 +32,7 @@ jobs:
         ./gradlew getComponent -Pcomponent=PopCommerce
         ./gradlew getComponent -Pcomponent=MarbleERP
         ./gradlew getComponent -Pcomponent=PopRestStore
-        ./gradlew getComponent -Pcomponent=example        
+        ./gradlew getComponent -Pcomponent=example
     - name: Load, Save, and Test with Gradle
-      run: ./gradlew loadsave test
-    - name: Build and Run Moqui.war
-      run: |
-        ./gradlew build
-        ls -la
-        java -jar moqui.war
+      run: ./gradlew --quiet loadsave test
+        
