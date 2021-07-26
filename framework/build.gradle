@@ -98,7 +98,7 @@ dependencies {
     compile 'commons-collections:commons-collections:3.2.2' // Apache 2.0
     compile 'commons-digester:commons-digester:2.1' // Apache 2.0
     compile 'commons-fileupload:commons-fileupload:1.4' // Apache 2.0
-    compile 'commons-io:commons-io:2.8.0' // Apache 2.0
+    compile 'commons-io:commons-io:2.11.0' // Apache 2.0
     compile 'commons-logging:commons-logging:1.2' // Apache 2.0
     compile 'commons-validator:commons-validator:1.7' // Apache 2.0
 
@@ -138,11 +138,11 @@ dependencies {
     compile 'com.h2database:h2:1.4.200' // MPL 2.0, EPL 1.0
 
     // Jackson Databind (JSON, etc)
-    compile 'com.fasterxml.jackson.core:jackson-databind:2.12.3'
+    compile 'com.fasterxml.jackson.core:jackson-databind:2.12.4'
 
     // Jetty HTTP Client and Proxy Servlet
-    compile 'org.eclipse.jetty:jetty-client:9.4.41.v20210516' // Apache 2.0
-    compile 'org.eclipse.jetty:jetty-proxy:9.4.41.v20210516' // Apache 2.0
+    compile 'org.eclipse.jetty:jetty-client:9.4.43.v20210629' // Apache 2.0
+    compile 'org.eclipse.jetty:jetty-proxy:9.4.43.v20210629' // Apache 2.0
     // NOTE: update after version 9.4.18.v20190429 results in 'IllegalArgumentException: URI is not hierarchical' error, have workarounds for now catching exception in MClassLoader.getResources()
 
     // javax.mail
@@ -153,14 +153,14 @@ dependencies {
     compile 'joda-time:joda-time:2.10.10' // Apache 2.0
 
     // JSoup (HTML parser, cleaner)
-    compile 'org.jsoup:jsoup:1.13.1' // MIT
+    compile 'org.jsoup:jsoup:1.14.1' // MIT
 
     // Apache Shiro
     compile module('org.apache.shiro:shiro-core:1.7.1') // Apache 2.0
     compile module('org.apache.shiro:shiro-web:1.7.1') // Apache 2.0
 
     // SLF4J, Log4j 2 (note Log4j 2 is used by various libraries, best not to replace it even if mostly possible with SLF4J)
-    compile 'org.slf4j:slf4j-api:1.7.30'
+    compile 'org.slf4j:slf4j-api:1.7.32'
     compile 'org.apache.logging.log4j:log4j-core:2.14.1'
     compile 'org.apache.logging.log4j:log4j-api:2.14.1'
     runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.14.1'
@@ -170,7 +170,7 @@ dependencies {
     compile module('org.subethamail:subethasmtp:3.1.7')
 
     // Snake YAML
-    compile 'org.yaml:snakeyaml:1.28' // Apache 2.0
+    compile 'org.yaml:snakeyaml:1.29' // Apache 2.0
 
     // Apache Jackrabbit - uncomment here or include elsewhere when Jackrabbit repository configurations are used
     // compile 'org.apache.jackrabbit:jackrabbit-jcr-rmi:2.12.1' // Apache 2.0
@@ -191,16 +191,16 @@ dependencies {
     // ========== executable war dependencies ==========
     // Jetty
     // NOTE: update to Jetty 9.4.25.v20191220 caused issue on response.getWriter().write(String): Internal error processing request: java.lang.IllegalStateException: s=OPEN,api=BLOCKED,sc=false,e=null
-    execWarRuntime 'org.eclipse.jetty:jetty-server:9.4.41.v20210516' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.4.41.v20210516' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.4.41.v20210516' // Apache 2.0
-    execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.4.41.v20210516') // Apache 2.0
-    execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.4.41.v20210516') { // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-server:9.4.43.v20210629' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.4.43.v20210629' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.4.43.v20210629' // Apache 2.0
+    execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.4.43.v20210629') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.4.43.v20210629') { // Apache 2.0
         exclude group: 'javax.websocket' } // we have the full websocket API, including the client one causes problems
     execWarRuntime 'javax.websocket:javax.websocket-api:1.0' // using 1.0, don't update to 1.1 until used in Jetty, Tomcat, etc
-    execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.4.41.v20210516') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.4.43.v20210629') // Apache 2.0
     // only include this if using Endpoint and MessageHandler annotations:
-    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:9.4.41.v20210516') // Apache 2.0
+    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:9.4.43.v20210629') // Apache 2.0
 }
 
 // setup task dependencies to make sure the start sourceSets always get run
