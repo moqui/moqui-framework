@@ -178,6 +178,60 @@ task stopElasticSearch { doLast {
     }
 } }
 
+// ========== development tasks ==========
+task setupIntellij {
+    description "Adds all XML catalog items to intellij to enable autocomplete"
+    doLast {
+        def ideaDir = "${rootDir}/.idea"
+        def parser = new XmlSlurper()
+        parser.setFeature("http://apache.org/xml/features/disallow-doctype-decl", false)
+        parser.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
+        def catalogEntries = parser.parse(file("${rootDir}/framework/xsd/framework-catalog.xml"))
+                .system
+                .list()
+                .stream()
+                .map { [url: it.@systemId, location: "\$PROJECT_DIR\$/framework/xsd/${it.@uri}"] }
+                .collect(java.util.stream.Collectors.toList())
+        mkdir ideaDir
+        def rawXml
+        def miscFile = file("${ideaDir}/misc.xml")
+        if (!miscFile.exists()) {
+            def builder = new groovy.xml.StreamingMarkupBuilder()
+            builder.encoding = 'UTF-8'
+            rawXml = builder.bind {
+                project(version: '4') {
+                    component(name: 'ExternalStorageConfigurationManager', enabled: true)
+                    component(name: 'ProjectResources') {
+                        catalogEntries.each { resource(url: it.url, location: it.location) }
+                    }
+                }
+            }
+        } else {
+            def projectNode = parser.parse(miscFile)
+            def resourcesNode = projectNode.children().find { it.@name == 'ProjectResources' }
+            if (resourcesNode.size() == 0) {
+                projectNode.appendNode {
+                    component(name: 'ProjectResources') {
+                        catalogEntries.each { resource(url: it.url, location: it.location) }
+                    }
+                }
+            } else {
+                catalogEntries.each { cat ->
+                    def existingEntry = resourcesNode.children().find { it.@url == cat.url }
+                    if (existingEntry.size() > 0) {
+                        existingEntry.replaceNode { resource(url: cat.url, location: cat.location) }
+                    } else {
+                        resourcesNode.appendNode { resource(url: cat.url, location: cat.location) }
+                    }
+                }
+            }
+            rawXml = projectNode
+        }
+        def misc = groovy.xml.XmlUtil.serialize(rawXml)
+        miscFile.write(misc)
+    }
+}
+
 // ========== test task ==========
 // NOTE1: to run startElasticSearch before the first test task add it as a dependency to all test tasks
 // NOTE2: to run stopElasticSearch after the last test task make all test tasks finalizedBy stopElasticSearch
@@ -344,7 +398,7 @@ task gitTagAll {
         boolean pushTags = (project.hasProperty('push') && push == 'true')
 
         // Users can simply push tags to the remote
-        if (tagName == null && pushTags == false) 
+        if (tagName == null && pushTags == false)
             throw new InvalidUserDataException("No tag property specified (use -Ptag=...) and No push tag specified (use -Ppush=true)")
 
         List<String> gitDirectories = []
@@ -394,7 +448,7 @@ task gitTagAll {
 task gitDiffTagsAll {
     description "Do a git diff between two tags in the currently checked out branch in moqui, runtime, and each installed component"
     doLast {
-        if (!project.hasProperty('taga') || taga == null) 
+        if (!project.hasProperty('taga') || taga == null)
             throw new InvalidUserDataException("No taga property specified (use -Ptaga=...)")
 
         // If tagb is not passed, we assume HEAD
@@ -420,7 +474,7 @@ task gitDiffTagsAll {
             logger.lifecycle("${relativePath}")
 
             if ((taga == "HEAD" || tagaCommit != null) && (tagb == "HEAD" || tagbCommit != null)) {
-                grgit.log { 
+                grgit.log {
                     range taga, tagb
                 }.each {
                     logger.lifecycle("    ${it.abbreviatedId} - ${it.shortMessage}")

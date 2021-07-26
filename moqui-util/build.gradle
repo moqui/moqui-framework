@@ -61,10 +61,11 @@ dependencies {
     compile 'org.codehaus.groovy:groovy:2.5.14' // Apache 2.0
     compile 'org.codehaus.groovy:groovy-json:2.5.14' // Apache 2.0
     // Jetty HTTP Client
-    compile 'org.eclipse.jetty:jetty-client:9.4.41.v20210516' // Apache 2.0
+    compile 'org.eclipse.jetty:jetty-client:9.4.43.v20210629' // Apache 2.0
     // javax.activation - required for Java 11
     compile 'com.sun.activation:javax.activation:1.2.0' // CDDL 1.1
     // Apache Commons
+    compile 'commons-codec:commons-codec:1.15'
     compile 'commons-fileupload:commons-fileupload:1.4' // Apache 2.0
 }
 

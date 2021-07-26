@@ -589,12 +589,16 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         if (confXmlRoot.first("cache-list").attribute("warm-on-start") != "false") warmCache()
 
         // Run init() in ToolFactory implementations from tools.tool-factory elements
-        for (ToolFactory tf in toolFactoryMap.values()) {
+        Iterator<Map.Entry<String, ToolFactory>> tfIterator = toolFactoryMap.entrySet().iterator()
+        while (tfIterator.hasNext()) {
+            Map.Entry<String, ToolFactory> tfEntry = tfIterator.next()
+            ToolFactory tf = tfEntry.getValue()
             logger.info("Initializing ToolFactory: ${tf.getName()}")
             try {
                 tf.init(this)
             } catch (Throwable t) {
                 logger.error("Error initializing ToolFactory ${tf.getName()}", t)
+                tfIterator.remove()
             }
         }
 

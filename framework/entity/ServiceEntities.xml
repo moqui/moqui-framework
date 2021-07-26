@@ -53,8 +53,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="repeatCount" type="number-integer"><description>If specified only run this many times. Must specify
             a cronExpression for the job to repeat. When this count is reached thruDate will be set to now and paused set to Y.
             Ignored for ad-hoc/explicit runs.</description></field>
-        <field name="paused" type="text-indicator"><description>If Y this job is inactive and won't be run on a schedule
-            even if cronExpression is not null. Ignored for ad-hoc/explicit runs.</description></field>
+        <field name="paused" type="text-indicator" enable-audit-log="update"><description>If Y this job is inactive and won't be
+            run on a schedule even if cronExpression is not null. Ignored for ad-hoc/explicit runs.</description></field>
         <field name="expireLockTime" type="number-integer"><description>Ignore lock and run anyway after this many
             minutes. This should generally be much greater than the longest time the service is expected to run. This is
             the mechanism for recovering jobs after a run failed in a way that did not clean up the ServiceJobRunLock

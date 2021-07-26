@@ -14,17 +14,6 @@
 package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
-import org.moqui.context.ArtifactExecutionInfo
-import org.moqui.context.AuthenticationRequiredException
-import org.moqui.entity.EntityCondition
-import org.moqui.impl.context.ArtifactExecutionInfoImpl.ArtifactAuthzCheck
-import org.moqui.impl.entity.EntityValueBase
-import org.moqui.impl.screen.ScreenUrlInfo
-import org.moqui.impl.util.MoquiShiroRealm
-import org.moqui.util.MNode
-import org.moqui.util.ObjectUtilities
-import org.moqui.util.StringUtilities
-import org.moqui.util.WebUtilities
 
 import javax.websocket.server.HandshakeRequest
 import java.sql.Timestamp
@@ -36,14 +25,25 @@ import javax.servlet.http.HttpSession
 import org.apache.shiro.authc.AuthenticationException
 import org.apache.shiro.authc.UsernamePasswordToken
 import org.apache.shiro.subject.Subject
+import org.apache.shiro.subject.support.DefaultSubjectContext
 import org.apache.shiro.web.subject.WebSubjectContext
 import org.apache.shiro.web.subject.support.DefaultWebSubjectContext
 import org.apache.shiro.web.session.HttpServletSession
 
+import org.moqui.context.ArtifactExecutionInfo
+import org.moqui.context.AuthenticationRequiredException
+import org.moqui.context.SecondFactorRequiredException
 import org.moqui.context.UserFacade
-import org.moqui.entity.EntityValue
+import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityList
-import org.apache.shiro.subject.support.DefaultSubjectContext
+import org.moqui.entity.EntityValue
+import org.moqui.impl.context.ArtifactExecutionInfoImpl.ArtifactAuthzCheck
+import org.moqui.impl.entity.EntityValueBase
+import org.moqui.impl.screen.ScreenUrlInfo
+import org.moqui.impl.util.MoquiShiroRealm
+import org.moqui.util.MNode
+import org.moqui.util.StringUtilities
+import org.moqui.util.WebUtilities
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -125,6 +125,7 @@ class UserFacadeImpl implements UserFacade {
                 if (oldSession != null) oldSession.invalidate()
                 this.session = request.getSession()
             } else {
+
                 // effectively login the user for framework (already logged in for session through Shiro)
                 pushUserSubject(webSubject)
                 if (logger.traceEnabled) logger.trace("For new request found user [${getUsername()}] in the session")
@@ -642,6 +643,12 @@ class UserFacadeImpl implements UserFacade {
             // do the actual login through Shiro
             loginSubject.login(token)
 
+            if (eci.web != null) {
+                // this ensures that after correctly logging in, a previously attempted login user's "Second Factor" screen isn't displayed
+                eci.web.sessionAttributes.remove("moquiAuthcFactorUsername")
+                eci.web.sessionAttributes.remove("moquiAuthcFactorRequired")
+            }
+
             // do this first so that the rest will be done as this user
             // just in case there is already a user authenticated push onto a stack to remember
             pushUserSubject(loginSubject)
@@ -651,14 +658,21 @@ class UserFacadeImpl implements UserFacade {
                 eci.getWebImpl().runAfterLoginActions()
                 eci.getWebImpl().getRequest().setAttribute("moqui.request.authenticated", "true")
             }
+        } catch (SecondFactorRequiredException ae) {
+            if (eci.web != null) {
+                // This makes the session realize the this user needs to verify login with an authentication factor
+                eci.web.sessionAttributes.put("moquiAuthcFactorUsername", username)
+                eci.web.sessionAttributes.put("moquiAuthcFactorRequired", "true")
+            }
+            return true
         } catch (AuthenticationException ae) {
             // others to consider handling differently (these all inherit from AuthenticationException):
             //     UnknownAccountException, IncorrectCredentialsException, ExpiredCredentialsException,
             //     CredentialsException, LockedAccountException, DisabledAccountException, ExcessiveAttemptsException
             eci.messageFacade.addError(ae.message)
+
             return false
         }
-
         return true
     }
 
@@ -970,7 +984,7 @@ class UserFacadeImpl implements UserFacade {
             EntityValueBase ua = (EntityValueBase) null
             if (username != null && username.length() > 0) {
                 ua = (EntityValueBase) ufi.eci.getEntity().find("moqui.security.UserAccount")
-                        .condition("username", username).useCache(true).disableAuthz().one()
+                        .condition("username", username).useCache(false).disableAuthz().one()
             }
             if (ua != null) {
                 userAccount = ua

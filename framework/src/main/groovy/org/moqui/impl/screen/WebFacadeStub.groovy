@@ -130,6 +130,7 @@ class WebFacadeStub implements WebFacade {
     @Override List<MessageInfo> getSavedPublicMessages() { return null }
     @Override List<String> getSavedErrors() { return null }
     @Override List<ValidationError> getSavedValidationErrors() { return null }
+    @Override List<ValidationError> getFieldValidationErrors(String fieldName) { return null }
 
     @Override List<Map> getScreenHistory() { return (List<Map>) sessionAttributes.get("moqui.screen.history") ?: new ArrayList<Map>() }
 
