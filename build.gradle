@@ -178,30 +178,52 @@ task setupIntellij {
     description "Adds all XML catalog items to intellij to enable autocomplete"
     doLast {
         def ideaDir = "${rootDir}/.idea"
-        def xsdDir = "${rootDir}/framework/xsd"
         def parser = new XmlSlurper()
         parser.setFeature("http://apache.org/xml/features/disallow-doctype-decl", false)
         parser.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
-        def xmlCatalog = parser.parse(file("${xsdDir}/framework-catalog.xml"))
-        def builder = new groovy.xml.StreamingMarkupBuilder()
-        builder.encoding = 'UTF-8'
-        def rawXml = builder.bind {
-            project(version: '4') {
-                component(name: 'ExternalStorageConfigurationManager', enabled: true)
-                component(name: 'ProjectResources') {
-                    xmlCatalog.system.each { entry ->
-                        resource(
-                            url: entry.@systemId,
-                            location: "\$PROJECT_DIR\$/framework/xsd/${entry.@uri}"
-                        )
+        def catalogEntries = parser.parse(file("${rootDir}/framework/xsd/framework-catalog.xml"))
+                .system
+                .list()
+                .stream()
+                .map { [url: it.@systemId, location: "\$PROJECT_DIR\$/framework/xsd/${it.@uri}"] }
+                .collect(java.util.stream.Collectors.toList())
+        mkdir ideaDir
+        def rawXml
+        def miscFile = file("${ideaDir}/misc.xml")
+        if (!miscFile.exists()) {
+            def builder = new groovy.xml.StreamingMarkupBuilder()
+            builder.encoding = 'UTF-8'
+            rawXml = builder.bind {
+                project(version: '4') {
+                    component(name: 'ExternalStorageConfigurationManager', enabled: true)
+                    component(name: 'ProjectResources') {
+                        catalogEntries.each { resource(url: it.url, location: it.location) }
                     }
                 }
             }
+        } else {
+            def projectNode = parser.parse(miscFile)
+            def resourcesNode = projectNode.children().find { it.@name == 'ProjectResources' }
+            if (resourcesNode.size() == 0) {
+                projectNode.appendNode {
+                    component(name: 'ProjectResources') {
+                        catalogEntries.each { resource(url: it.url, location: it.location) }
+                    }
+                }
+            } else {
+                catalogEntries.each { cat ->
+                    def existingEntry = resourcesNode.children().find { it.@url == cat.url }
+                    if (existingEntry.size() > 0) {
+                        existingEntry.replaceNode { resource(url: cat.url, location: cat.location) }
+                    } else {
+                        resourcesNode.appendNode { resource(url: cat.url, location: cat.location) }
+                    }
+                }
+            }
+            rawXml = projectNode
         }
         def misc = groovy.xml.XmlUtil.serialize(rawXml)
-        delete "${ideaDir}/misc.xml"
-        mkdir ideaDir
-        new File("${ideaDir}/misc.xml").write(misc)
+        miscFile.write(misc)
     }
 }
 
