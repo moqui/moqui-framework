@@ -122,9 +122,8 @@ dependencies {
     // NOTE: javax.activation:javax.activation-api is required by jaxb-api, has classes same as old 2012 javax.activation:activation used by javax.mail
     // NOTE: as of Java 11 the com.sun packages no longer available so for javax.mail need full javax.activation jar (also includes javax.activation-api)
     compile 'com.sun.activation:javax.activation:1.2.0' // CDDL 1.1
-    // using websocket-api 1.0, don't update to 1.1 until used in Jetty, Tomcat, etc
-    compile 'javax.websocket:javax.websocket-api:1.0'
-    providedCompile 'javax.servlet:javax.servlet-api:3.1.0'
+    compile 'javax.websocket:javax.websocket-api:1.1'
+    providedCompile 'javax.servlet:javax.servlet-api:4.0.1'
     // Specs not needed by default:
     // compile 'javax.resource:connector-api:1.5'
     // compile 'javax.jms:jms:1.1'
@@ -141,9 +140,8 @@ dependencies {
     compile 'com.fasterxml.jackson.core:jackson-databind:2.12.4'
 
     // Jetty HTTP Client and Proxy Servlet
-    compile 'org.eclipse.jetty:jetty-client:9.4.43.v20210629' // Apache 2.0
-    compile 'org.eclipse.jetty:jetty-proxy:9.4.43.v20210629' // Apache 2.0
-    // NOTE: update after version 9.4.18.v20190429 results in 'IllegalArgumentException: URI is not hierarchical' error, have workarounds for now catching exception in MClassLoader.getResources()
+    compile 'org.eclipse.jetty:jetty-client:10.0.6' // Apache 2.0
+    compile 'org.eclipse.jetty:jetty-proxy:10.0.6' // Apache 2.0
 
     // javax.mail
     // NOTE: javax.mail depends on 'javax.activation:activation' which is the old package for 'javax.activation:javax.activation-api' used by jaxb-api
@@ -160,10 +158,12 @@ dependencies {
     compile module('org.apache.shiro:shiro-web:1.7.1') // Apache 2.0
 
     // SLF4J, Log4j 2 (note Log4j 2 is used by various libraries, best not to replace it even if mostly possible with SLF4J)
-    compile 'org.slf4j:slf4j-api:1.7.32'
+    // NOTE: using slf4j 2.0.0-alpha2 because Jetty 10 uses it, overriding earlier version in embedded mode with shared classpath
+    compile 'org.slf4j:slf4j-api:2.0.0-alpha2'
+    // NOTE using log4j-slf4j18-impl instead of log4j-slf4j-impl because the SLF4J 1.8 version includes a SLF4J 2.0 compatible logging provider
+    runtime 'org.apache.logging.log4j:log4j-slf4j18-impl:2.14.1'
     compile 'org.apache.logging.log4j:log4j-core:2.14.1'
     compile 'org.apache.logging.log4j:log4j-api:2.14.1'
-    runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.14.1'
     runtime 'org.apache.logging.log4j:log4j-jcl:2.14.1'
 
     // SubEtha SMTP (module as depends on old javax.mail location; also uses SLF4J, activation included elsewhere)
@@ -190,17 +190,17 @@ dependencies {
 
     // ========== executable war dependencies ==========
     // Jetty
-    // NOTE: update to Jetty 9.4.25.v20191220 caused issue on response.getWriter().write(String): Internal error processing request: java.lang.IllegalStateException: s=OPEN,api=BLOCKED,sc=false,e=null
-    execWarRuntime 'org.eclipse.jetty:jetty-server:9.4.43.v20210629' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.4.43.v20210629' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.4.43.v20210629' // Apache 2.0
-    execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.4.43.v20210629') // Apache 2.0
-    execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.4.43.v20210629') { // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-server:10.0.6' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-webapp:10.0.6' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-jndi:10.0.6' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty.websocket:websocket-javax-server:10.0.6' // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:websocket-javax-client:10.0.6') { // Apache 2.0
         exclude group: 'javax.websocket' } // we have the full websocket API, including the client one causes problems
     execWarRuntime 'javax.websocket:javax.websocket-api:1.0' // using 1.0, don't update to 1.1 until used in Jetty, Tomcat, etc
-    execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.4.43.v20210629') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:websocket-jetty-server:10.0.6') // Apache 2.0
     // only include this if using Endpoint and MessageHandler annotations:
-    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:9.4.43.v20210629') // Apache 2.0
+    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:10.0.6') // Apache 2.0
+    execWarRuntime 'org.apache.logging.log4j:log4j-slf4j18-impl:2.14.1'
 }
 
 // setup task dependencies to make sure the start sourceSets always get run
