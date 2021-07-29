@@ -669,7 +669,7 @@ class EntityDbMeta {
             if (checkIdxExists) {
                 Boolean idxExists = indexExists(ed, indexName, indexNode.children("index-field").collect {it.attribute('name')})
                 if (idxExists != null && idxExists) {
-                    if (logger.traceEnabled) logger.trace("Not creating index ${indexName} for entity ${ed.getFullEntityName()} because it already exists.")
+                    if (logger.infoEnabled) logger.info("Not creating index ${indexName} for entity ${ed.getFullEntityName()} because it already exists.")
                     continue
                 }
             }
@@ -690,8 +690,11 @@ class EntityDbMeta {
             }
             sql.append(")")
 
-            runSqlUpdate(sql, groupName, sharedCon)
-            created ++
+            Integer curCreated = runSqlUpdate(sql, groupName, sharedCon)
+            if (curCreated != null) {
+                if (logger.infoEnabled) logger.info("Created index ${indexName} for entity ${ed.getFullEntityName()}")
+                created ++
+            }
         }
 
         // do fk auto indexes
@@ -703,7 +706,7 @@ class EntityDbMeta {
             if (checkIdxExists) {
                 Boolean idxExists = indexExists(ed, indexName, relInfo.keyMap.keySet())
                 if (idxExists != null && idxExists) {
-                    if (logger.traceEnabled) logger.trace("Not creating index ${indexName} for entity ${ed.getFullEntityName()} because it already exists.")
+                    if (logger.infoEnabled) logger.info("Not creating index ${indexName} for entity ${ed.getFullEntityName()} because it already exists.")
                     continue
                 }
             }
@@ -721,8 +724,11 @@ class EntityDbMeta {
             sql.append(")")
 
             // logger.warn("====== create relationship index [${indexName}] for entity [${ed.getFullEntityName()}]")
-            runSqlUpdate(sql, groupName, sharedCon)
-            created ++
+            Integer curCreated = runSqlUpdate(sql, groupName, sharedCon)
+            if (curCreated != null) {
+                if (logger.infoEnabled) logger.info("Created index ${indexName} for entity ${ed.getFullEntityName()}")
+                created ++
+            }
         }
         return created
     }
@@ -820,11 +826,11 @@ class EntityDbMeta {
             ikSet1 = dbData.getIndexInfo(null, ed.getSchemaName(), ed.getTableName(), false, true)
             while (ikSet1.next()) {
                 String idxName = ikSet1.getString("INDEX_NAME")
-                if (idxName != indexName && idxName != indexName.toLowerCase()) continue
+                if (idxName.toLowerCase() != indexName.toLowerCase()) continue
                 String idxCol = ikSet1.getString("COLUMN_NAME")
                 for (String fn in fieldNames) {
                     String fnColName = ed.getColumnName(fn)
-                    if (fnColName == idxCol || fnColName.toLowerCase() == idxCol) {
+                    if (fnColName.toLowerCase() == idxCol.toLowerCase()) {
                         fieldNames.remove(fn)
                         break
                     }
@@ -835,11 +841,11 @@ class EntityDbMeta {
                 ikSet2 = dbData.getIndexInfo(null, ed.getSchemaName(), ed.getTableName().toLowerCase(), false, true)
                 while (ikSet2.next()) {
                     String idxName = ikSet2.getString("INDEX_NAME")
-                    if (idxName != indexName && idxName != indexName.toLowerCase()) continue
+                    if (idxName.toLowerCase() != indexName.toLowerCase()) continue
                     String idxCol = ikSet2.getString("COLUMN_NAME")
                     for (String fn in fieldNames) {
                         String fnColName = ed.getColumnName(fn)
-                        if (fnColName ==  idxCol || fnColName.toLowerCase() ==  idxCol) {
+                        if (fnColName.toLowerCase() == idxCol.toLowerCase()) {
                             fieldNames.remove(fn)
                             break
                         }
