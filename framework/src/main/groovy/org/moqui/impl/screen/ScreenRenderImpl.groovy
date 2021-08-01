@@ -1,12 +1,12 @@
 /*
  * This software is in the public domain under CC0 1.0 Universal plus a
  * Grant of Patent License.
- * 
+ *
  * To the extent possible under law, the author(s) have dedicated all
  * copyright and related and neighboring rights to this software to the
  * public domain worldwide. This software is distributed without any
  * warranty.
- * 
+ *
  * You should have received a copy of the CC0 Public Domain Dedication
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
@@ -210,6 +210,8 @@ class ScreenRenderImpl implements ScreenRender {
                 response.setStatus(HttpServletResponse.SC_RESET_CONTENT)
             } else {
                 if (logger.isInfoEnabled()) logger.info("Redirecting to ${redirectUrl} instead of rendering ${this.getScreenUrlInfo().getFullPathNameList()}")
+                // add Cache-Control: no-store header since this is often in actions after screen render has started and a Cache-Control header has been set, so replace it here
+                response.setHeader("Cache-Control", "no-store")
                 response.sendRedirect(redirectUrl)
             }
             dontDoRender = true
@@ -1752,7 +1754,37 @@ class ScreenRenderImpl implements ScreenRender {
                 valuePlainString = valuePlainString.substring(1, valuePlainString.length() - 1).replaceAll(" ", "")
             String[] currentValueArr = valuePlainString != null && !valuePlainString.isEmpty() ? valuePlainString.split(",") : null
 
-            if ("drop-down".equals(widgetName)) {
+            if ("display".equals(widgetName)) {
+                // primary value is for hidden field only, otherwise add nothing (display only)
+                String alsoHidden = widgetNode.attribute("also-hidden")
+                if (alsoHidden == null || alsoHidden.isEmpty() || "true".equals(alsoHidden))
+                    fieldValues.put(fieldName, valuePlainString)
+
+                // display value, reproduce logic that was in the ftl display macro
+                String fieldValue = (String) null
+                String textAttr = widgetNode.attribute("text")
+                String currencyAttr = widgetNode.attribute("currency-unit-field")
+                if (textAttr != null && ! textAttr.isEmpty()) {
+                    String textMapAttr = widgetNode.attribute("text-map")
+                    Map textMap = (Map) null
+                    if (textMapAttr != null && !textMapAttr.isEmpty())
+                        textMap = (Map) ec.resourceFacade.expression(textMapAttr, null)
+                    if (textMap != null && textMap.size() > 0) {
+                        fieldValue = ec.resourceFacade.expand(textAttr, null, textMap)
+                    } else {
+                        fieldValue = ec.resourceFacade.expand(textAttr, null)
+                    }
+                    if (currencyAttr != null && !currencyAttr.isEmpty())
+                        fieldValue = ec.l10nFacade.formatCurrency(fieldValue, ec.resourceFacade.expression(currencyAttr, null) as String)
+                } else if (currencyAttr != null && !currencyAttr.isEmpty()) {
+                    fieldValue = ec.l10nFacade.formatCurrency(getFieldValue(fieldNode, ""), ec.resourceFacade.expression(currencyAttr, null) as String)
+                } else {
+                    fieldValue = getFieldValueString(widgetNode)
+                }
+                fieldValues.put(fieldName + "_display", fieldValue)
+
+                // TODO: handle dynamic-transition attribute for initial value, and dynamic on client side too
+            } else if ("drop-down".equals(widgetName)) {
                 boolean allowMultiple = "true".equals(ec.resourceFacade.expandNoL10n(widgetNode.attribute("allow-multiple"), null))
                 if (allowMultiple) {
                     fieldValues.put(fieldName, currentValueArr != null ? new ArrayList(Arrays.asList(currentValueArr)) : null)
@@ -1791,36 +1823,6 @@ class ScreenRenderImpl implements ScreenRender {
                 String type = widgetNode.attribute("type")
                 String javaFormat = "date".equals(type) ? "yyyy-MM-dd" : ("time".equals(type) ? "HH:mm" : "yyyy-MM-dd HH:mm")
                 fieldValues.put(fieldName, getFieldValueString(fieldNode, widgetNode.attribute("default-value"), javaFormat))
-            } else if ("display".equals(widgetName)) {
-                // primary value is for hidden field only, otherwise add nothing (display only)
-                String alsoHidden = widgetNode.attribute("also-hidden")
-                if (alsoHidden == null || alsoHidden.isEmpty() || "true".equals(alsoHidden))
-                    fieldValues.put(fieldName, valuePlainString)
-
-                // display value, reproduce logic that was in the ftl display macro
-                String fieldValue = (String) null
-                String textAttr = widgetNode.attribute("text")
-                String currencyAttr = widgetNode.attribute("currency-unit-field")
-                if (textAttr != null && ! textAttr.isEmpty()) {
-                    String textMapAttr = widgetNode.attribute("text-map")
-                    Map textMap = (Map) null
-                    if (textMapAttr != null && !textMapAttr.isEmpty())
-                        textMap = (Map) ec.resourceFacade.expression(textMapAttr, null)
-                    if (textMap != null && textMap.size() > 0) {
-                        fieldValue = ec.resourceFacade.expand(textAttr, null, textMap)
-                    } else {
-                        fieldValue = ec.resourceFacade.expand(textAttr, null)
-                    }
-                    if (currencyAttr != null && !currencyAttr.isEmpty())
-                        fieldValue = ec.l10nFacade.formatCurrency(fieldValue, ec.resourceFacade.expression(currencyAttr, null) as String)
-                } else if (currencyAttr != null && !currencyAttr.isEmpty()) {
-                    fieldValue = ec.l10nFacade.formatCurrency(getFieldValue(fieldNode, ""), ec.resourceFacade.expression(currencyAttr, null) as String)
-                } else {
-                    fieldValue = getFieldValueString(widgetNode)
-                }
-                fieldValues.put(fieldName + "_display", fieldValue)
-
-                // TODO: handle dynamic-transition attribute for initial value, and dynamic on client side too
             } else if ("display-entity".equals(widgetName)) {
                 // primary value is for hidden field only, otherwise add nothing (display only)
                 String alsoHidden = widgetNode.attribute("also-hidden")
@@ -1856,7 +1858,7 @@ class ScreenRenderImpl implements ScreenRender {
                 String icValue = ec.contextStack.getByString(icName)
                 if ((icValue == null || icValue.isEmpty()) && (icAttr == null || icAttr.isEmpty() || icAttr.equals("true"))) icValue = "Y"
                 fieldValues.put(icName, icValue ?: "N")
-            } else {
+            } else if (!"submit".equals(widgetName) && !"link".equals(widgetName)) {
                 // unknown/other type
                 fieldValues.put(fieldName, valuePlainString)
             }
@@ -2142,6 +2144,16 @@ class ScreenRenderImpl implements ScreenRender {
         EntityFacadeImpl entityFacade = sfi.ecfi.entityFacade
         // see if there is a user setting for the theme
         String themeId = entityFacade.fastFindOne("moqui.security.UserScreenTheme", true, true, ec.userFacade.userId, stteId)?.screenThemeId
+        // if no user theme see if group a user is in has a theme
+        if (themeId == null || themeId.length() == 0) {
+            // use reverse alpha so ALL_USERS goes last...
+            List<String> userGroupIdSet = new ArrayList(new TreeSet(ec.user.getUserGroupIdSet())).reverse(true)
+            EntityList groupThemeList = entityFacade.find("moqui.security.UserGroupScreenTheme")
+                    .condition("userGroupId", "in", userGroupIdSet).condition("screenThemeTypeEnumId", stteId)
+                    .orderBy("sequenceNum,-userGroupId").useCache(true).disableAuthz().list()
+            if (groupThemeList.size() > 0) themeId = groupThemeList.first().screenThemeId
+        }
+
         // use the Enumeration.enumCode from the type to find the theme type's default screenThemeId
         if (themeId == null || themeId.length() == 0) {
             EntityValue themeTypeEnum = entityFacade.fastFindOne("moqui.basic.Enumeration", true, true, stteId)

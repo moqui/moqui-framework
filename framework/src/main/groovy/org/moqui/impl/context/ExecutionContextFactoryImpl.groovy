@@ -589,12 +589,16 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         if (confXmlRoot.first("cache-list").attribute("warm-on-start") != "false") warmCache()
 
         // Run init() in ToolFactory implementations from tools.tool-factory elements
-        for (ToolFactory tf in toolFactoryMap.values()) {
+        Iterator<Map.Entry<String, ToolFactory>> tfIterator = toolFactoryMap.entrySet().iterator()
+        while (tfIterator.hasNext()) {
+            Map.Entry<String, ToolFactory> tfEntry = tfIterator.next()
+            ToolFactory tf = tfEntry.getValue()
             logger.info("Initializing ToolFactory: ${tf.getName()}")
             try {
                 tf.init(this)
             } catch (Throwable t) {
                 logger.error("Error initializing ToolFactory ${tf.getName()}", t)
+                tfIterator.remove()
             }
         }
 
@@ -632,8 +636,10 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         MClassLoader.addCommonClass("org.moqui.entity.EntityList", EntityList.class)
         MClassLoader.addCommonClass("EntityList", EntityList.class)
 
+        logger.info("Initializing MClassLoader context ${Thread.currentThread().getContextClassLoader()?.class?.name} cur class ${this.class.classLoader?.class?.name} system ${System.classLoader?.class?.name}")
         ClassLoader pcl = (Thread.currentThread().getContextClassLoader() ?: this.class.classLoader) ?: System.classLoader
         moquiClassLoader = new MClassLoader(pcl)
+        logger.info("Initialized MClassLoader with parent ${pcl.class.name}")
         // NOTE: initialized here but NOT used as currentThread ClassLoader
         groovyClassLoader = new GroovyClassLoader(moquiClassLoader)
 
@@ -686,7 +692,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // set as context classloader
         Thread.currentThread().setContextClassLoader(moquiClassLoader)
 
-        logger.info("Initialized ClassLoader in ${System.currentTimeMillis() - startTime}ms")
+        logger.info("Initialized ClassLoaders in ${System.currentTimeMillis() - startTime}ms")
     }
 
     /** Called from MoquiContextListener.contextInitialized after ECFI init */
@@ -1765,7 +1771,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             requireSessionToken = !"false".equals(webappNode.attribute("require-session-token"))
 
             String allowOrigins = webappNode.attribute("allow-origins")
-            if (allowOrigins) for (String origin in allowOrigins.split(",")) allowOriginSet.add(origin.trim())
+            if (allowOrigins) for (String origin in allowOrigins.split(",")) allowOriginSet.add(origin.trim().toLowerCase())
 
             logger.info("Initializing webapp ${webappName} http://${httpHost}:${httpPort} https://${httpsHost}:${httpsPort} https enabled? ${httpsEnabled}")
 

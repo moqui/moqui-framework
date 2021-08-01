@@ -21,6 +21,7 @@ import org.moqui.context.NotificationMessage
 import org.moqui.context.WebMediaTypeException
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
+import org.moqui.impl.context.WebFacadeImpl
 import org.moqui.impl.screen.ScreenRenderImpl
 import org.moqui.util.MNode
 import org.slf4j.Logger
@@ -71,6 +72,7 @@ class MoquiServlet extends HttpServlet {
         if (originHeader != null && !originHeader.isEmpty() && webappInfo != null &&
                 !"false".equals(webappInfo.webappNode.attribute("handle-cors"))) {
 
+            originHeader = originHeader.toLowerCase()
             // generate Access-Control-Allow-Origin based on Origin, if allowed
             Set<String> allowOriginSet = webappInfo.allowOriginSet
             int originSepIdx = originHeader.indexOf("://")
@@ -87,10 +89,21 @@ class MoquiServlet extends HttpServlet {
                 if (allowOriginSet.contains(originHeader) || allowOriginSet.contains(originDomain)) {
                     response.setHeader("Access-Control-Allow-Origin", originHeader)
                 } else {
-                    logger.warn("Returning 401, Origin ${originHeader} not allowed for configuration ${allowOriginSet} or server name ${serverName} or request host ${hostName}")
-                    // Origin not allowed, send 401 response
-                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Origin not allowed")
-                    return
+                    // see if any configured domain is a suffix of the origin specified in the request
+                    boolean foundMatch = false
+                    for (String allowOrigin in allowOriginSet) if (originDomain.endsWith(allowOrigin) || originHeader.endsWith(allowOrigin)) {
+                        foundMatch = true
+                        break
+                    }
+                    if (foundMatch) {
+                        response.setHeader("Access-Control-Allow-Origin", originHeader)
+                    } else {
+                        logger.warn("Returning 401, Origin ${originHeader} not allowed for configuration ${allowOriginSet} or server name ${serverName} or request host ${hostName}")
+                        // Origin not allowed, send 401 response
+                        // response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Origin not allowed")
+                        WebFacadeImpl.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Origin not allowed", null, request, response)
+                        return
+                    }
                 }
             }
 
@@ -262,11 +275,7 @@ class MoquiServlet extends HttpServlet {
                 response.sendError(errorCode, message)
             }
         } else {
-            if (ec.web != null) {
-                ec.web.sendError(errorCode, message, origThrowable)
-            } else {
-                response.sendError(errorCode, message)
-            }
+            WebFacadeImpl.sendError(errorCode, message, origThrowable, request, response)
         }
     }
 

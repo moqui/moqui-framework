@@ -13,6 +13,7 @@
  */
 package org.moqui.util;
 
+import org.apache.commons.codec.binary.*;
 import org.codehaus.groovy.runtime.DefaultGroovyMethods;
 import org.moqui.BaseException;
 import org.slf4j.Logger;
@@ -431,10 +432,14 @@ public class StringUtilities {
     }
 
     public static String getRandomString(int length) {
+        return getRandomString(length, null);
+    }
+    public static String getRandomString(int length, BaseNCodec baseNCodec) {
+        if (baseNCodec == null) baseNCodec = new org.apache.commons.codec.binary.Base64(true);
         SecureRandom sr = new SecureRandom();
         byte[] randomBytes = new byte[length];
         sr.nextBytes(randomBytes);
-        String randomStr = Base64.getUrlEncoder().encodeToString(randomBytes);
+        String randomStr = baseNCodec.encodeToString(randomBytes);
         if (randomStr.length() > length) randomStr = randomStr.substring(0, length);
         return randomStr;
     }

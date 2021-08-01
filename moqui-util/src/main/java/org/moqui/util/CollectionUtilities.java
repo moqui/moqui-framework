@@ -38,6 +38,20 @@ public class CollectionUtilities {
         public KeyValue(String key, Object value) { this.key = key; this.value = value; }
     }
 
+    public static ArrayList<Object> getMapArrayListValues(ArrayList<Map<Object, Object>> mapList, Object key, boolean excludeNullValues) {
+        if (mapList == null) return null;
+        int mapListSize = mapList.size();
+        ArrayList<Object> valList = new ArrayList<>(mapListSize);
+        for (int i = 0; i < mapListSize; i++) {
+            Map<Object, Object> curMap = mapList.get(i);
+            if (curMap == null) continue;
+            Object curVal = curMap.get(key);
+            if (excludeNullValues && curVal == null) continue;
+            valList.add(curVal);
+        }
+        return valList;
+    }
+
     public static void filterMapList(List<Map> theList, Map<String, Object> fieldValues) {
         filterMapList(theList, fieldValues, false);
     }

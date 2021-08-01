@@ -455,7 +455,7 @@ class ScreenUrlInfo {
         requireEncryption = !"false".equals(rootSd?.webSettingsNode?.attribute("require-encryption"))
         if ("true".equals(rootSd?.screenNode?.attribute('begin-transaction'))) beginTransaction = true
         String txTimeoutAttr = rootSd?.screenNode?.attribute("transaction-timeout")
-        if (txTimeoutAttr) transactionTimeout = Integer.getInteger(txTimeoutAttr)
+        if (txTimeoutAttr) transactionTimeout = Integer.parseInt(txTimeoutAttr)
 
         // start the render lists with the root SD
         screenRenderDefList.add(rootSd)
@@ -610,7 +610,7 @@ class ScreenUrlInfo {
             if (curSd.screenNode?.attribute('begin-transaction') == "true") this.beginTransaction = true
             String curTxTimeoutAttr = curSd.screenNode?.attribute("transaction-timeout")
             if (curTxTimeoutAttr) {
-                Integer curTransactionTimeout = Integer.getInteger(txTimeoutAttr)
+                Integer curTransactionTimeout = Integer.parseInt(curTxTimeoutAttr)
                 if (transactionTimeout == null || curTransactionTimeout > transactionTimeout)
                     transactionTimeout = curTransactionTimeout
             }
@@ -711,7 +711,7 @@ class ScreenUrlInfo {
             if (curSd.screenNode?.attribute('begin-transaction') == "true") this.beginTransaction = true
             String curTxTimeoutAttr = curSd.screenNode?.attribute("transaction-timeout")
             if (curTxTimeoutAttr) {
-                Integer curTransactionTimeout = Integer.getInteger(txTimeoutAttr)
+                Integer curTransactionTimeout = Integer.parseInt(curTxTimeoutAttr)
                 if (transactionTimeout == null || curTransactionTimeout > transactionTimeout)
                     transactionTimeout = curTransactionTimeout
             }
