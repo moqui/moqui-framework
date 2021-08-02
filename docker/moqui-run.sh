@@ -11,10 +11,10 @@ if [ ! -e runtime/txlog ]; then cp -R $MOQUI_HOME/runtime/txlog runtime/; fi
 if [ ! -e runtime/db ]; then cp -R $MOQUI_HOME/runtime/db runtime/; fi
 if [ ! -e runtime/elasticsearch ]; then cp -R $MOQUI_HOME/runtime/elasticsearch runtime/; fi
 
-docker run --rm -p 8080:8080 -v $PWD/runtime/conf:/opt/moqui/runtime/conf -v $PWD/runtime/lib:/opt/moqui/runtime/lib \
+docker run --rm -p 8080:80 -v $PWD/runtime/conf:/opt/moqui/runtime/conf -v $PWD/runtime/lib:/opt/moqui/runtime/lib \
     -v $PWD/runtime/classes:/opt/moqui/runtime/classes -v $PWD/runtime/log:/opt/moqui/runtime/log \
     -v $PWD/runtime/txlog:/opt/moqui/runtime/txlog -v $PWD/runtime/db:/opt/moqui/runtime/db \
     -v $PWD/runtime/elasticsearch:/opt/moqui/runtime/elasticsearch \
     --name=moqui-server moqui
-# docker run -d -p 8080:8080 moqui
-# docker run --rm -p 8080:8080 moqui
+# docker run -d -p 8080:80 moqui
+# docker run --rm -p 8080:80 moqui
