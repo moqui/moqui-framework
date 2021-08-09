@@ -89,11 +89,24 @@ class MoquiServlet extends HttpServlet {
                 if (allowOriginSet.contains(originHeader) || allowOriginSet.contains(originDomain)) {
                     response.setHeader("Access-Control-Allow-Origin", originHeader)
                 } else {
-                    // see if any configured domain is a suffix of the origin specified in the request
+                    // no luck with simpler match, see if any configured domain matches by dot-separated segment
+                    // for example: moqui.org ==> 'org','moqui' so www.moqui.org ('org','moqui','www') will match but foo-moqui.org ('org','foo-moqui') will not
                     boolean foundMatch = false
-                    for (String allowOrigin in allowOriginSet) if (originDomain.endsWith(allowOrigin) || originHeader.endsWith(allowOrigin)) {
-                        foundMatch = true
-                        break
+                    for (String allowOrigin in allowOriginSet) {
+                        String[] originArray = originDomain.split("\\.").reverse()
+                        String[] allowArray = allowOrigin.split("\\.").reverse()
+                        // logger.warn("allowArray: ${allowArray} originArray: ${originArray}")
+                        boolean allMatched = true
+                        for (int i = 0; i < allowArray.length; i++) {
+                            if (allowArray[i] != originArray[i]) {
+                                allMatched = false
+                                break
+                            }
+                        }
+                        if (allMatched) {
+                            foundMatch = true
+                            break
+                        }
                     }
                     if (foundMatch) {
                         response.setHeader("Access-Control-Allow-Origin", originHeader)
