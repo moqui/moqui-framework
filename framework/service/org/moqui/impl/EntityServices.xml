@@ -265,7 +265,7 @@ along with this software (see the LICENSE.md file). If not, see
 
                 if (fromDate) edw.fromDate(ec.l10n.parseTimestamp(fromDate, null))
                 if (thruDate) edw.thruDate(ec.l10n.parseTimestamp(thruDate, null))
-                if (entitiesToSkip) edw.entityNames(entitiesToSkip)
+                if (entitiesToSkip) edw.skipEntityNames(entitiesToSkip)
 
                 String baseName = baseFilename
                 if (!baseName) baseName = "MoquiSnapshot${ec.l10n.format(ec.user.nowTimestamp, 'yyyyMMddHHmm')}"
