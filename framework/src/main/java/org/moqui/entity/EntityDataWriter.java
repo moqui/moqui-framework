@@ -38,13 +38,16 @@ public interface EntityDataWriter {
      * @return Reference to this for convenience.
      */
     EntityDataWriter entityName(String entityName);
-
     /** A List of entity names to query and export. Data is queried and exporting from entities in the order they are
      * specified in this list and other calls to this or entityName().
      * @param entityNames The list of entity names
      * @return Reference to this for convenience.
      */
     EntityDataWriter entityNames(List<String> entityNames);
+
+    EntityDataWriter skipEntityName(String entityName);
+    EntityDataWriter skipEntityNames(List<String> enList);
+
     /** Write data from all entities. When set other entity names are excluded instead of included. */
     EntityDataWriter allEntities();
 
