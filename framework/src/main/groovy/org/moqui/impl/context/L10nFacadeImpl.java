@@ -217,7 +217,7 @@ public class L10nFacadeImpl implements L10nFacade {
 
         // try interpreting the String as a long
         try {
-            Long lng = Long.valueOf(input);
+            long lng = Long.parseLong(input);
             return new java.sql.Date(lng);
         } catch (NumberFormatException e) {
             if (logger.isTraceEnabled()) logger.trace("Ignoring NumberFormatException for Date parse: " + e.toString());
@@ -262,9 +262,9 @@ public class L10nFacadeImpl implements L10nFacade {
         // long values are pretty common, so if there are no special characters try that first (fast to check)
         if (cal == null) {
             int nonDigits = ObjectUtilities.countChars(input, false, true, true);
-            if (nonDigits == 0) {
+            if (nonDigits == 0 || (nonDigits == 1 && input.startsWith("-"))) {
                 try {
-                    Long lng = Long.valueOf(input);
+                    long lng = Long.parseLong(input);
                     return new Timestamp(lng);
                 } catch (NumberFormatException e) {
                     if (logger.isTraceEnabled()) logger.trace("Ignoring NumberFormatException for Timestamp parse: " + e.toString());
