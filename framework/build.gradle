@@ -12,19 +12,8 @@
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
 
-tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:unchecked" }
-tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:deprecation" }
-tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:unchecked" }
-tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:deprecation" }
 
-version = '3.0.0-rc8'
 
-apply plugin: 'groovy'
-apply plugin: 'war'
-// to run gradle-versions-plugin use "gradle dependencyUpdates"
-apply plugin: 'com.github.ben-manes.versions'
-// uncomment to add the Error Prone compiler; not enabled by default (doesn't work on Travis CI)
-// apply plugin: 'net.ltgt.errorprone'
 buildscript {
     repositories {
         mavenCentral()
@@ -35,6 +24,25 @@ buildscript {
         // uncomment to add the Error Prone compiler: classpath 'net.ltgt.gradle:gradle-errorprone-plugin:0.0.8'
     }
 }
+plugins{
+    id 'java-library'
+    id 'groovy'
+    id 'war'
+}
+version = '3.0.0-rc8'
+tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:unchecked" }
+tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:deprecation" }
+tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:unchecked" }
+tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:deprecation" }
+
+configurations {
+    execWarRuntime.extendsFrom api
+}
+
+// to run gradle-versions-plugin use "gradle dependencyUpdates"
+apply plugin: 'com.github.ben-manes.versions'
+// uncomment to add the Error Prone compiler; not enabled by default (doesn't work on Travis CI)
+// apply plugin: 'net.ltgt.errorprone'
 dependencyUpdates.resolutionStrategy = { componentSelection { rules -> rules.all { ComponentSelection selection ->
     boolean rejected = ['alpha', 'beta', 'rc', 'cr', 'm', 'b'].any { qualifier -> selection.candidate.version ==~ /(?i).*[.-]${qualifier}[.\d-].*/ }
     if (rejected) selection.reject('Release candidate')
@@ -65,16 +73,16 @@ tasks.withType(JavaCompile) { options.compilerArgs << "-proc:none" }
 tasks.withType(GroovyCompile) { options.compilerArgs << "-proc:none" }
 
 dependencies {
-    compile project(':moqui-util')
+    api project(':moqui-util')
 
     // Groovy
     // NOTE: update attempt to 3.0.2 has issues with slow build (just slow stub generation? seems others are seeing that too)
     //     and updated Spock required (tried 2.0-M2-groovy-3.0, not final release and tests didn't work)
-    compile 'org.codehaus.groovy:groovy:2.5.14' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-dateutil:2.5.14' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-json:2.5.14' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-templates:2.5.14' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-xml:2.5.14' // Apache 2.0
+    api 'org.codehaus.groovy:groovy:2.5.14' // Apache 2.0
+    api 'org.codehaus.groovy:groovy-dateutil:2.5.14' // Apache 2.0
+    api 'org.codehaus.groovy:groovy-json:2.5.14' // Apache 2.0
+    api 'org.codehaus.groovy:groovy-templates:2.5.14' // Apache 2.0
+    api 'org.codehaus.groovy:groovy-xml:2.5.14' // Apache 2.0
     // jansi is needed for groovydoc only, so in providedCompile (not included in war)
     compileOnly 'org.fusesource.jansi:jansi:1.18'
     // Findbugs need only during compile (used by freemarker and various moqui classes)
@@ -83,94 +91,94 @@ dependencies {
     // ========== Local (flatDir) libraries in framework/lib ==========
 
     // Bitronix Transaction Manager (the default internal tx mgr; custom build from source as 3.0.0 not yet released)
-    compile 'org.codehaus.btm:btm:3.0.0-SNAPSHOT' // Apache 2.0
-    runtime 'org.javassist:javassist:3.28.0-GA' // Apache 2.0
+    api 'org.codehaus.btm:btm:3.0.0-SNAPSHOT' // Apache 2.0
+    runtimeOnly 'org.javassist:javassist:3.28.0-GA' // Apache 2.0
 
     // ========== Libraries from jcenter ==========
 
     // Apache Commons
-    runtime 'commons-codec:commons-codec:1.15'
-    compile 'org.apache.commons:commons-csv:1.8' // Apache 2.0
+    runtimeOnly 'commons-codec:commons-codec:1.15'
+    api 'org.apache.commons:commons-csv:1.8' // Apache 2.0
     // NOTE: commons-email depends on com.sun.mail:javax.mail, included below
-    compile module('org.apache.commons:commons-email:1.5') // Apache 2.0
-    compile 'org.apache.commons:commons-lang3:3.12.0' // Apache 2.0; used by cron-utils
-    compile 'commons-beanutils:commons-beanutils:1.9.4' // Apache 2.0
-    compile 'commons-collections:commons-collections:3.2.2' // Apache 2.0
-    compile 'commons-digester:commons-digester:2.1' // Apache 2.0
-    compile 'commons-fileupload:commons-fileupload:1.4' // Apache 2.0
-    compile 'commons-io:commons-io:2.11.0' // Apache 2.0
-    compile 'commons-logging:commons-logging:1.2' // Apache 2.0
-    compile 'commons-validator:commons-validator:1.7' // Apache 2.0
+    api module('org.apache.commons:commons-email:1.5') // Apache 2.0
+    api 'org.apache.commons:commons-lang3:3.12.0' // Apache 2.0; used by cron-utils
+    api 'commons-beanutils:commons-beanutils:1.9.4' // Apache 2.0
+    api 'commons-collections:commons-collections:3.2.2' // Apache 2.0
+    api 'commons-digester:commons-digester:2.1' // Apache 2.0
+    api 'commons-fileupload:commons-fileupload:1.4' // Apache 2.0
+    api 'commons-io:commons-io:2.11.0' // Apache 2.0
+    api 'commons-logging:commons-logging:1.2' // Apache 2.0
+    api 'commons-validator:commons-validator:1.7' // Apache 2.0
 
     // Cron Utils
-    compile 'com.cronutils:cron-utils:9.1.5' // Apache 2.0
+    api 'com.cronutils:cron-utils:9.1.5' // Apache 2.0
 
     // Flexmark (markdown)
-    compile 'com.vladsch.flexmark:flexmark:0.62.2'
-    compile 'com.vladsch.flexmark:flexmark-ext-tables:0.62.2'
-    compile 'com.vladsch.flexmark:flexmark-ext-toc:0.62.2'
+    api 'com.vladsch.flexmark:flexmark:0.62.2'
+    api 'com.vladsch.flexmark:flexmark-ext-tables:0.62.2'
+    api 'com.vladsch.flexmark:flexmark-ext-toc:0.62.2'
 
     // Freemarker
-    compile 'org.freemarker:freemarker:2.3.31' // Apache 2.0
+    api 'org.freemarker:freemarker:2.3.31' // Apache 2.0
 
     // Java Specifications
-    compile 'javax.transaction:jta:1.1'
-    compile 'javax.cache:cache-api:1.1.0'
-    compile 'javax.jcr:jcr:2.0'
+    api 'javax.transaction:jta:1.1'
+    api 'javax.cache:cache-api:1.1.0'
+    api 'javax.jcr:jcr:2.0'
     // jaxb-api no longer included in Java 9 and later, also tested with openjdk-8
-    compile module('javax.xml.bind:jaxb-api:2.3.1') // CDDL 1.1
+    api module('javax.xml.bind:jaxb-api:2.3.1') // CDDL 1.1
     // NOTE: javax.activation:javax.activation-api is required by jaxb-api, has classes same as old 2012 javax.activation:activation used by javax.mail
     // NOTE: as of Java 11 the com.sun packages no longer available so for javax.mail need full javax.activation jar (also includes javax.activation-api)
-    compile 'com.sun.activation:javax.activation:1.2.0' // CDDL 1.1
+    api 'com.sun.activation:javax.activation:1.2.0' // CDDL 1.1
     // using websocket-api 1.0, don't update to 1.1 until used in Jetty, Tomcat, etc
-    compile 'javax.websocket:javax.websocket-api:1.0'
+    api 'javax.websocket:javax.websocket-api:1.0'
     providedCompile 'javax.servlet:javax.servlet-api:3.1.0'
     // Specs not needed by default:
     // compile 'javax.resource:connector-api:1.5'
     // compile 'javax.jms:jms:1.1'
 
     // Java TOTP
-    compile 'dev.samstevens.totp:totp:1.7.1' // MIT
+    api 'dev.samstevens.totp:totp:1.7.1' // MIT
     // dev.samstevens.totp:totp depends on com.google.zxing:javase which depends on com.beust:jcommander, but an older version with a CVE, so specify latest to fix
-    compile 'com.beust:jcommander:1.81'
+    api 'com.beust:jcommander:1.81'
 
     // H2 Database
-    compile 'com.h2database:h2:1.4.200' // MPL 2.0, EPL 1.0
+    api 'com.h2database:h2:1.4.200' // MPL 2.0, EPL 1.0
 
     // Jackson Databind (JSON, etc)
-    compile 'com.fasterxml.jackson.core:jackson-databind:2.12.4'
+    api 'com.fasterxml.jackson.core:jackson-databind:2.12.4'
 
     // Jetty HTTP Client and Proxy Servlet
-    compile 'org.eclipse.jetty:jetty-client:9.4.43.v20210629' // Apache 2.0
-    compile 'org.eclipse.jetty:jetty-proxy:9.4.43.v20210629' // Apache 2.0
+    api 'org.eclipse.jetty:jetty-client:9.4.43.v20210629' // Apache 2.0
+    api 'org.eclipse.jetty:jetty-proxy:9.4.43.v20210629' // Apache 2.0
     // NOTE: update after version 9.4.18.v20190429 results in 'IllegalArgumentException: URI is not hierarchical' error, have workarounds for now catching exception in MClassLoader.getResources()
 
     // javax.mail
     // NOTE: javax.mail depends on 'javax.activation:activation' which is the old package for 'javax.activation:javax.activation-api' used by jaxb-api
-    compile module('com.sun.mail:javax.mail:1.6.2') // CDDL
+    api module('com.sun.mail:javax.mail:1.6.2') // CDDL
 
     // Joda Time (used by elasticsearch, aws)
-    compile 'joda-time:joda-time:2.10.10' // Apache 2.0
+    api 'joda-time:joda-time:2.10.10' // Apache 2.0
 
     // JSoup (HTML parser, cleaner)
-    compile 'org.jsoup:jsoup:1.14.1' // MIT
+    api 'org.jsoup:jsoup:1.14.1' // MIT
 
     // Apache Shiro
-    compile module('org.apache.shiro:shiro-core:1.7.1') // Apache 2.0
-    compile module('org.apache.shiro:shiro-web:1.7.1') // Apache 2.0
+    api module('org.apache.shiro:shiro-core:1.7.1') // Apache 2.0
+    api module('org.apache.shiro:shiro-web:1.7.1') // Apache 2.0
 
     // SLF4J, Log4j 2 (note Log4j 2 is used by various libraries, best not to replace it even if mostly possible with SLF4J)
-    compile 'org.slf4j:slf4j-api:1.7.32'
-    compile 'org.apache.logging.log4j:log4j-core:2.14.1'
-    compile 'org.apache.logging.log4j:log4j-api:2.14.1'
-    runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.14.1'
-    runtime 'org.apache.logging.log4j:log4j-jcl:2.14.1'
+    api 'org.slf4j:slf4j-api:1.7.32'
+    api 'org.apache.logging.log4j:log4j-core:2.14.1'
+    api 'org.apache.logging.log4j:log4j-api:2.14.1'
+    runtimeOnly 'org.apache.logging.log4j:log4j-slf4j-impl:2.14.1'
+    runtimeOnly 'org.apache.logging.log4j:log4j-jcl:2.14.1'
 
     // SubEtha SMTP (module as depends on old javax.mail location; also uses SLF4J, activation included elsewhere)
-    compile module('org.subethamail:subethasmtp:3.1.7')
+    api module('org.subethamail:subethasmtp:3.1.7')
 
     // Snake YAML
-    compile 'org.yaml:snakeyaml:1.29' // Apache 2.0
+    api 'org.yaml:snakeyaml:1.29' // Apache 2.0
 
     // Apache Jackrabbit - uncomment here or include elsewhere when Jackrabbit repository configurations are used
     // compile 'org.apache.jackrabbit:jackrabbit-jcr-rmi:2.12.1' // Apache 2.0
@@ -184,13 +192,14 @@ dependencies {
 
     // ========== test dependencies ==========
     // spock-core depends on groovy-all but we are including selected groovy modules, so don't get its dependencies
-    testCompile module('org.spockframework:spock-core:1.3-groovy-2.5') // Apache 2.0
-    testCompile 'junit:junit:4.13.2' // Apache 2.0
-    testCompile 'org.hamcrest:hamcrest-core:2.2' // BSD 3-Clause
+    testImplementation module('org.spockframework:spock-core:1.3-groovy-2.5') // Apache 2.0
+    testImplementation 'junit:junit:4.13.2' // Apache 2.0
+    testImplementation 'org.hamcrest:hamcrest-core:2.2' // BSD 3-Clause
 
     // ========== executable war dependencies ==========
     // Jetty
     // NOTE: update to Jetty 9.4.25.v20191220 caused issue on response.getWriter().write(String): Internal error processing request: java.lang.IllegalStateException: s=OPEN,api=BLOCKED,sc=false,e=null
+    // fixme i replaces execWarRuntime with
     execWarRuntime 'org.eclipse.jetty:jetty-server:9.4.43.v20210629' // Apache 2.0
     execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.4.43.v20210629' // Apache 2.0
     execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.4.43.v20210629' // Apache 2.0
@@ -247,7 +256,7 @@ war {
     // add MoquiInit.properties to the WEB-INF/classes dir for the deployed war mode of operation
     from(fileTree(dir: destinationDir, includes: ['MoquiInit.properties'])) { into 'WEB-INF/classes' }
     // this excludes the classes in sourceSets.main.output (better to have the jar file built above)
-    classpath = configurations.runtime - configurations.providedCompile
+    classpath = configurations.runtimeClasspath - configurations.providedCompile
     classpath file(jar.archivePath)
 
     // put start classes and Jetty jars in the root of the war file for the executable war/jar mode of operation
