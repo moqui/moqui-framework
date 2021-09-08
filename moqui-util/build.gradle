@@ -54,7 +54,8 @@ dependencies {
     implementation( 'javax.cache:cache-api:1.0.0',
     'javax.servlet:javax.servlet-api:3.1.0',
     // SLF4J
-    'org.slf4j:slf4j-api:1.7.30',
+    'org.slf4j:slf4j-api:1.7.32',
+
     // Freemarker
     'org.freemarker:freemarker:2.3.31', // Apache 2.0
     // Groovy

@@ -98,7 +98,8 @@ dependencies {
 
     // Apache Commons
     runtimeOnly 'commons-codec:commons-codec:1.15'
-    api 'org.apache.commons:commons-csv:1.8' // Apache 2.0
+    api 'org.apache.commons:commons-csv:1.9.0' // Apache 2.0
+
     // NOTE: commons-email depends on com.sun.mail:javax.mail, included below
     api module('org.apache.commons:commons-email:1.5') // Apache 2.0
     api 'org.apache.commons:commons-lang3:3.12.0' // Apache 2.0; used by cron-utils
@@ -146,7 +147,8 @@ dependencies {
     api 'com.h2database:h2:1.4.200' // MPL 2.0, EPL 1.0
 
     // Jackson Databind (JSON, etc)
-    api 'com.fasterxml.jackson.core:jackson-databind:2.12.4'
+
+    api 'com.fasterxml.jackson.core:jackson-databind:2.12.5'
 
     // Jetty HTTP Client and Proxy Servlet
     api 'org.eclipse.jetty:jetty-client:9.4.43.v20210629' // Apache 2.0
@@ -161,11 +163,12 @@ dependencies {
     api 'joda-time:joda-time:2.10.10' // Apache 2.0
 
     // JSoup (HTML parser, cleaner)
-    api 'org.jsoup:jsoup:1.14.1' // MIT
+
+    api 'org.jsoup:jsoup:1.14.2' // MIT
 
     // Apache Shiro
-    api module('org.apache.shiro:shiro-core:1.7.1') // Apache 2.0
-    api module('org.apache.shiro:shiro-web:1.7.1') // Apache 2.0
+    api module('org.apache.shiro:shiro-core:1.8.0') // Apache 2.0
+    api module('org.apache.shiro:shiro-web:1.8.0') // Apache 2.0
 
     // SLF4J, Log4j 2 (note Log4j 2 is used by various libraries, best not to replace it even if mostly possible with SLF4J)
     api 'org.slf4j:slf4j-api:1.7.32'
