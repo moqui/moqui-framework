@@ -254,6 +254,8 @@ class ResourceFacadeImpl implements ResourceFacade {
     }
 
     @Override InputStream getLocationStream(String location) {
+        if (location == null) return null
+
         int hashIdx = location.indexOf("#")
         String versionName = null
         if (hashIdx > 0) {
@@ -267,6 +269,8 @@ class ResourceFacadeImpl implements ResourceFacade {
     }
 
     @Override String getLocationText(String location, boolean cache) {
+        if (location == null) return ""
+
         int hashIdx = location.indexOf("#")
         String versionName = (hashIdx > 0 && (hashIdx+1) < location.length()) ? location.substring(hashIdx+1) : null
 
