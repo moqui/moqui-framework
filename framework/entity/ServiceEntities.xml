@@ -313,7 +313,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="remoteAttributes" type="text-indicator"><description>May be useful for other transports, for SFTP servers
             that do not support setting file attributes after put/upload set to N</description></field>
         <field name="sendServiceName" type="text-medium"><description>Override for SystemMessageType.sendServiceName</description></field>
-        <field name="username" type="text-medium"><description>
+        <field name="username" type="text-medium" enable-audit-log="update"><description>
             Username for basic auth when sending to the remote system.
             This user needs permission to run the remote service or whatever on the remote system receives the message.
 
@@ -323,11 +323,11 @@ along with this software (see the LICENSE.md file). If not, see
         </description></field>
         <field name="password" type="text-medium" encrypt="true">
             <description>Username for basic auth when sending to the remote system.</description></field>
-        <field name="publicKey" type="text-long">
+        <field name="publicKey" type="text-long" enable-audit-log="update">
             <description>Public Key for key based authentication, generally RSA PEM format</description></field>
         <field name="privateKey" type="text-long" encrypt="true">
             <description>Private Key for key based authentication, generally RSA PEM PKCS #8 format like OpenSSH</description></field>
-        <field name="remotePublicKey" type="text-long">
+        <field name="remotePublicKey" type="text-long" enable-audit-log="update">
             <description>Remote System's Public Key for decryption, signature validation, etc; generally RSA PEM or X.509 Certificate format</description></field>
         <!-- potential future use, restrict receive message: <field name="authorizedIpAddresses" type="text-medium"/> -->
         <field name="sharedSecret" type="text-medium" encrypt="true"><description>Shared secret for auth on receive and/or sign on send.</description></field>
@@ -339,13 +339,13 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="systemMessageTypeId" type="id"><description>Optional. May be used when this remote is for one
             type of message.</description></field>
         <!-- for incoming message internal is the receiver, remote the sender; for outgoing messages internal is the sender, remote the receiver -->
-        <field name="internalId" type="text-short"><description>Sender (outgoing) or receiver (incoming) ID (EDI: in
-            ISA06/08; OAGIS in ApplicationArea.Sender/Receiver.ID)</description></field>
+        <field name="internalId" type="text-short" enable-audit-log="update">
+            <description>Sender (outgoing) or receiver (incoming) ID (EDI: in ISA06/08; OAGIS in ApplicationArea.Sender/Receiver.ID)</description></field>
         <field name="internalIdType" type="text-short"/>
         <field name="internalAppCode" type="text-medium"><description>Application code (EDI: in GS02/03; OAGIS: in
             ApplicationArea.Sender/Receiver elements, split among sub-elements)</description></field>
-        <field name="remoteId" type="text-short"><description>Sender (incoming) or receiver (outgoing) ID (EDI: in
-            ISA06/08; OAGIS in ApplicationArea.Sender/Receiver.ID)</description></field>
+        <field name="remoteId" type="text-short" enable-audit-log="update">
+            <description>Sender (incoming) or receiver (outgoing) ID (EDI: in ISA06/08; OAGIS in ApplicationArea.Sender/Receiver.ID)</description></field>
         <field name="remoteIdType" type="text-short"/>
         <field name="remoteAppCode" type="text-medium"><description>Application code (EDI: in GS02/03; OAGIS: in
             ApplicationArea.Sender/Receiver elements, split among sub-elements)</description></field>
