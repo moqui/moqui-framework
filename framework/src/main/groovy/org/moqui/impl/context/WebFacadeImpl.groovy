@@ -21,6 +21,8 @@ import org.apache.commons.fileupload.FileItem
 import org.apache.commons.fileupload.FileItemFactory
 import org.apache.commons.fileupload.disk.DiskFileItemFactory
 import org.apache.commons.fileupload.servlet.ServletFileUpload
+import org.apache.commons.io.IOUtils
+import org.apache.commons.io.output.StringBuilderWriter
 import org.moqui.context.*
 import org.moqui.context.MessageFacade.MessageInfo
 import org.moqui.entity.EntityNotFoundException
@@ -123,13 +125,11 @@ class WebFacadeImpl implements WebFacade {
         String contentType = request.getHeader("Content-Type")
         if (ResourceReference.isTextContentType(contentType)) {
             // read the body first to make sure it isn't empty, better support clients that pass a Content-Type but no content (even though they shouldn't)
-            StringBuilder bodyBuilder = new StringBuilder()
             BufferedReader reader = request.getReader()
-            if (reader != null) {
-                String curLine
-                while ((curLine = reader.readLine()) != null) bodyBuilder.append(curLine)
-            }
-            if (bodyBuilder.length() > 0) {
+            StringBuilderWriter bodyBuilder = new StringBuilderWriter()
+            if (reader != null) IOUtils.copyLarge(reader, bodyBuilder)
+
+            if (bodyBuilder.builder.length() > 0) {
                 String bodyString = bodyBuilder.toString()
                 requestBodyText = bodyString
                 multiPartParameters = new HashMap()
