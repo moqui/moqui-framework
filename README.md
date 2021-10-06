@@ -12,8 +12,7 @@
 [![Gitter Chat at https://gitter.im/moqui/moqui-framework](https://badges.gitter.im/moqui/moqui-framework.svg)](https://gitter.im/moqui/moqui-framework?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![Stack Overflow](https://img.shields.io/badge/stack%20overflow-moqui-blue.svg)](http://stackoverflow.com/questions/tagged/moqui)
 
-## DTQ custom info
-### Installation procedure
+## Installation procedure
 
 1. ```git clone moqui-framework <app-name>```
 2. ```cd <app-name> + git clone moqui-runtime runtime```
