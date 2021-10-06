@@ -132,6 +132,9 @@ dependencies {
     // H2 Database
     compile 'com.h2database:h2:1.4.200' // MPL 2.0, EPL 1.0
 
+    // PostgreSQL JDBC driver
+    compile group: 'org.postgresql', name: 'postgresql', version: '42.2.19'
+
     // Jackson Databind (JSON, etc)
     compile 'com.fasterxml.jackson.core:jackson-databind:2.12.1'
 

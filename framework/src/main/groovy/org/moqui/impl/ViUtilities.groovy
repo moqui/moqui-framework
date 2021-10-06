@@ -13,9 +13,16 @@
  */
 package org.moqui.impl
 
+
+import org.moqui.context.ElasticFacade
 import groovy.json.JsonSlurper
+import org.moqui.context.ExecutionContext
+
 import java.sql.Connection
 import org.slf4j.Logger
+
+import java.text.SimpleDateFormat
+import java.util.regex.Pattern
 
 /** These are utilities that should exist elsewhere, but I can't find a good simple library for them, and they are
  * stupid but necessary for certain things.
@@ -122,7 +129,7 @@ class ViUtilities {
             if (rs != null) {
                 def rsmd = rs.getMetaData()
                 def columnCount = rsmd.getColumnCount()
-                for (int i = 1; i <= columnCount; i++) columns.add(rsmd.getColumnName(i))
+                for (int i = 1; i <= columnCount; i++) columns.add(rsmd.getColumnName(i).toLowerCase())
 
                 def limitReached = false
                 while (rs.next()) {
@@ -212,4 +219,40 @@ class ViUtilities {
 
         return result
     };
+}
+
+class ViElastic {
+    static Map executeQuery(ExecutionContext executionContext, String indexName, Map searchMap)
+    {
+        // initialize client
+        def es = executionContext.elastic.getClient("default")
+        if (!es) return [result: false, message: 'Elastic not initialiazed']
+
+        def result = [:]
+
+        try {
+            def es_result = es.search(indexName, searchMap)
+            result = [result: true, message: '', data: es_result]
+        } catch (Exception exc) {
+            result = [result: false, message: exc.message]
+        }
+
+        return result
+    }
+}
+
+class ViDateConversions {
+    static Long convertToUnix(String input) {
+        if (input.isNumber()) return Long.parseLong(input)
+
+        // is it date format?
+        def date_1_rec = Pattern.compile("\\d{4}-\\d{2}-\\d{2}:\\d{2}:\\d{2}:\\d{2}")
+        if (input==~date_1_rec)
+        {
+            def date_1 = new SimpleDateFormat("yyyy-MM-dd:HH:mm:ss").parse(input)
+            return date_1.getTime() / 1000
+        }
+
+        return null
+    }
 }

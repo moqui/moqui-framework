@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
+    <service verb="save" noun="ContentFileFromByte">
+        <in-parameters>
+            <parameter name="messageContentId" required="true"/>
+            <parameter name="emailMessageId" type="String" required="true"/>
+            <parameter name="filename" required="true"/>
+            <parameter name="contentFileByte" type="Object" required="true"/>
+            <parameter name="saveContentLocation" type="Boolean" default="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="contentLocation"/></out-parameters>
+        <actions>
+            <set field="contentRoot" from="ec.user.getPreference('mantle.content.root') ?: 'dbresource://mantle/content'"/>
+            <set field="contentLocation" value="${contentRoot}/message/${emailMessageId}/content_${messageContentId}/${filename}"/>
+
+            <set field="docRr" from="ec.resource.getLocationReference(contentLocation)"/>
+            <script>
+                ec.logger.info("saving content with ID ${messageContentId} into location ${contentLocation}")
+
+                ByteArrayInputStream fileStream = new ByteArrayInputStream(contentFileByte)
+                try { docRr.putStream(fileStream) } finally {  }
+
+                //extract filename and extension
+                def fileInfo = []
+                def fileExtension = null
+
+                if (filename.toString().contains('.')) {
+                    fileInfo = filename.tokenize('.')
+                    fileExtension = fileInfo[fileInfo.size() - 1]
+                }
+            </script>
+
+            <if condition="saveContentLocation"><service-call name="update#moqui.basic.email.MessageContent"
+                                                              in-map="[messageContentId:messageContentId,contentLocation:contentLocation,extension:fileExtension,size:contentFileByte.length]"/></if>
+        </actions>
+    </service>
+    <service verb="create" noun="ContentFromByte">
+        <in-parameters>
+            <auto-parameters entity-name="moqui.basic.email.MessageContent" include="nonpk">
+                <exclude field-name="contentLocation"/></auto-parameters>
+            <parameter name="emailMessageId" type="String" required="true"/>
+            <parameter name="filename" required="true"/>
+            <parameter name="contentFileByte" type="Object"/>
+        </in-parameters>
+        <out-parameters><parameter name="messageContentId"/></out-parameters>
+        <actions>
+            <service-call name="create#moqui.basic.email.MessageContent" in-map="context" out-map="context"/>
+
+            <script>
+                <![CDATA[
+                    ec.logger.info("creating content from e-mail ${emailMessageId} with file name ${filename}")
+                ]]>
+            </script>
+
+
+            <service-call name="org.moqui.EmailContentServices.save#ContentFileFromByte" in-map="context"/>
+        </actions>
+    </service>
+
+    <service verb="getAttachmentInfo" noun="EmailMessage">
+        <in-parameters>
+            <parameter name="emailMessageId" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="fileCount"/>
+            <parameter name="fileSize"/>
+            <parameter name="fileSizeMB"/>
+            <parameter name="extensionType" type="List"/>
+            <parameter name="extensionTypeList"/>
+        </out-parameters>
+        <actions>
+            <entity-find entity-name="moqui.basic.email.MessageContent" list="messageContentList">
+                <econdition field-name="emailMessageId" from="emailMessageId"/>
+                <select-field field-name="extension"/>
+                <select-field field-name="size"/>
+            </entity-find>
+
+            <set field="fileCount" type="Double" value="0"/>
+            <set field="fileSize" type="Double" value="0"/>
+            <set field="fileSizeMB" type="Double" value="0"/>
+            <set field="extensionType" type="List" from="[]"/>
+            <set field="extensionTypeList" type="String" value=""/>
+
+            <script>
+                for (def messageContent in messageContentList) {
+                    fileCount = fileCount + 1
+                    fileSize += messageContent.size?:0
+
+                    def extensionCalcValue = messageContent.extension
+                    if (extensionCalcValue == null) {extensionCalcValue = 'none'}
+                    if (!extensionType.contains(extensionCalcValue.toLowerCase())) {
+                        extensionType.add(extensionCalcValue.toLowerCase())
+                        extensionTypeList += extensionCalcValue.toLowerCase() + ','
+                    }
+                }
+                if (extensionTypeList=='') {
+                    // do nothing
+                } else {
+                    extensionTypeList = extensionTypeList[0..-2]
+                }
+
+                fileSizeMB = fileSize / 1024 / 1024
+            </script>
+        </actions>
+    </service>
+    <service verb="getAttachmentList" noun="EmailMessage">
+        <in-parameters>
+            <parameter name="emailMessageId" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="attachments" type="List"/>
+        </out-parameters>
+        <actions>
+            <set field="attachments" from="[]"/>
+
+            <entity-find entity-name="moqui.basic.email.MessageContent" list="messageContentList">
+                <econdition field-name="emailMessageId" from="emailMessageId"/>
+                <select-field field-name="messageContentId"/>
+                <select-field field-name="extension"/>
+                <select-field field-name="filename"/>
+                <select-field field-name="displayName"/>
+                <select-field field-name="contentLocation"/>
+                <select-field field-name="size"/>
+            </entity-find>
+
+            <script>
+                for (def messageContent in messageContentList) {
+                    def extractedFileName = messageContent.contentLocation.tokenize('/').last()
+                    def calcDisplayName = messageContent.displayName
+
+                    if (messageContent.displayName == null) {
+                        calcDisplayName = extractedFileName
+                    }
+
+                    attachments.add([
+                        messageContentId:messageContent.messageContentId,
+                        contentLocation: messageContent.contentLocation,
+                        fileName: extractedFileName,
+                        displayName: calcDisplayName
+                    ])
+                }
+            </script>
+        </actions>
+    </service>
+</services>

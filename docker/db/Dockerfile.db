@@ -1,0 +1,4 @@
+FROM postgres:13.2-alpine
+RUN apk update && apk add dos2unix
+
+COPY *.sql /dumps/

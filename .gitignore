@@ -1,6 +1,13 @@
 # separate addons file to add/override components
 # myaddons.xml
 
+# local files
+__*
+
+# db dumps
+*.sql
+*.zip
+
 # temp or backup files
 *.old
 
@@ -18,7 +25,6 @@ build
 /runtime
 /execwartmp
 /docker/runtime
-/docker/db
 
 # IntelliJ IDEA files
 .idea

@@ -13,7 +13,6 @@ COPY WEB-INF WEB-INF
 COPY META-INF META-INF
 COPY *.class ./
 COPY execlib execlib
-COPY wait-for-postgres.sh /
 
 # always want the runtime directory
 COPY runtime runtime

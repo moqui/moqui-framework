@@ -2,7 +2,7 @@
 
 Echo Mounting LDAP environment
 
-pushd ldap
+pushd ..\..\ldap
 docker-compose -f ldap.yml -p moqui.ldap up -d
 popd
 

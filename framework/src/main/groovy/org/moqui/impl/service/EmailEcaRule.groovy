@@ -53,7 +53,7 @@ class EmailEcaRule {
         }
 
         //store attachment attribute
-        storeAttachment = emecaNode.attribute("store-attachment").toBoolean()
+        this.storeAttachment = emecaNode.attribute("store-attachment").toBoolean()
     }
 
     // Node getEmecaNode() { return emecaNode }
@@ -116,11 +116,12 @@ class EmailEcaRule {
 
             boolean conditionPassed = true
             if (condition) conditionPassed = condition.checkCondition(ec)
-            //logger.info("======== EMECA ${emecaNode.attribute("rule-name")} conditionPassed? ${conditionPassed} fields:\n${fields}\nflags: ${flags}\nheaders: ${headers}")
+            // logger.info("======== EMECA ${emecaNode.attribute("rule-name")} conditionPassed? ${conditionPassed} fields:\n${fields}\nflags: ${flags}\nheaders: ${headers}")
 
             //create message & attachments
             if (conditionPassed) {
-                //ec.logger.info("[TASK] create#EmailMessage")
+                ec.logger.info("[TASK] create#EmailMessage")
+                ec.logger.info("fields:\\n${fields}\\nflags: ${flags}\\nheaders: ${headers}")
                 Map outMap = ec.serviceFacade.sync().name("create#moqui.basic.email.EmailMessage")
                         .parameters(
                             [
@@ -255,17 +256,17 @@ class EmailEcaRule {
                     /*calculate display name correctly*/
                     displayName = MimeUtility.decodeText(fileNameArr[0]).replaceAll(' ', '_').replaceAll("[^a-zA-Z0-9_]+","")
 
-                    //logger.info("displayName: ${displayName}, fileName: ${newFileName}, extension: ${newFileExtension}, type: ${contentTypeSpec}, doExtraction: ${doRunExtraction}")
+                    logger.debug("Display name: ${displayName}, file name: ${newFileName}, extension: ${newFileExtension}, type: ${contentTypeSpec}, do extraction: ${doRunExtraction}")
                 } else {
                     logger.warn("Unexpected result of processing file name, proceeding without it.")
                 }
 
             } catch (Exception ex) {
-                logger.warn("Cannot extract file name, proceeding without it. ${ex.message}")
+                logger.error("Cannot extract file name, proceeding without it. ${ex.message}")
             }
 
             if (doRunExtraction) {
-                ec.serviceFacade.sync().name("EmailContentServices.create#ContentFromByte")
+                ec.serviceFacade.sync().name("org.moqui.EmailContentServices.create#ContentFromByte")
                         .parameters(
                             [
                                     emailMessageId: emailMessageId,

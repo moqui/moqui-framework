@@ -1,6 +1,8 @@
 ECHO OFF
 ECHO "preparing moqui environment"
 
+pushd ..
+
 SET COMP_FILE=%~1
 SET MOQUI_HOME=%~2
 
