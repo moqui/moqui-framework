@@ -18,7 +18,10 @@
 2. ```cd <app-name> + git clone moqui-runtime runtime```
 3. ```cd runtime ``` checkout setup comp to provide basic features
 4. provide runnable conf file and upload it to runtime/conf
-5. run ```gradlew load``` to initialize databse
+5. run ```gradlew load``` to initialize database
+6. prepare docker scripts for generating Docker images
+
+When using with PostgreSQL databases, create database using scripts in build-utils/db directory
 
 
 ## Moqui related info
