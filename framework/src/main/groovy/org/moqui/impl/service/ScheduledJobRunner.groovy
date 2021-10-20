@@ -108,7 +108,8 @@ class ScheduledJobRunner implements Runnable {
             for (int i = 0; i < serviceJobListSize; i++) {
                 EntityValue serviceJob = (EntityValue) serviceJobList.get(i)
                 String jobName = (String) serviceJob.jobName
-                if (!"N".equals(serviceJob.paused)) {
+                // a job is ACTIVE if the paused field is null or 'N', so skip for any other value for paused (Y, T, whatever)
+                if (serviceJob.paused != null && !"N".equals(serviceJob.paused)) {
                     jobsPaused++
                     continue
                 }
