@@ -1241,6 +1241,8 @@ class ScreenRenderImpl implements ScreenRender {
         return ""
     }
 
+    /** If isTemplateStr != "false" then render a template using renderer based on location extension,
+     * or if no rendered found use isTemplateStr as an extension (like "ftl"), and if no template renderer found just write the text */
     String renderText(String location, String isTemplateStr) {
         boolean isTemplate = !"false".equals(isTemplateStr)
 
@@ -1253,9 +1255,12 @@ class ScreenRenderImpl implements ScreenRender {
             // NOTE: run templates with their own variable space so we can add sri, and avoid getting anything added from within
             ContextStack cs = (ContextStack) ec.context
             cs.push()
-            cs.put("sri", this)
-            sfi.ecfi.resourceFacade.template(location, writer)
-            cs.pop()
+            try {
+                cs.put("sri", this)
+                ec.resourceFacade.template(location, writer, isTemplateStr)
+            } finally {
+                cs.pop()
+            }
             writer.flush()
             // NOTE: this returns a String so that it can be used in an FTL interpolation, but it always writes to the writer
             return ""
