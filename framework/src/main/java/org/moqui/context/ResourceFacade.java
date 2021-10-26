@@ -47,6 +47,8 @@ public interface ResourceFacade {
 
     /** Render a template at the given location using the current context and write the output to the given writer. */
     void template(String location, Writer writer);
+    void template(String location, Writer writer, String defaultExtension);
+    String template(String location, String defaultExtension);
 
     /** Run a script at the given location (optionally with the given method, like in a groovy class) using the current
      * context for its variable space.
