@@ -295,6 +295,7 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters>
             <parameter name="userId"/>
             <parameter name="username"><description>May be used instead of userId to identify user.</description></parameter>
+            <parameter name="bodyParameters" type="Map" default="[:]"/>
         </in-parameters>
         <actions>
             <!-- find by userId -->
@@ -329,7 +330,7 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" async="true">
                 <field-map field-name="emailTemplateId" value="PASSWORD_RESET"/>
                 <field-map field-name="toAddresses" from="userAccount.emailAddress"/>
-                <field-map field-name="bodyParameters" from="[userAccount:userAccount, resetPassword:resetPassword]"/>
+                <field-map field-name="bodyParameters" from="bodyParameters + [userAccount:userAccount, resetPassword:resetPassword]"/>
             </service-call>
             <message public="true" type="success">A reset password was sent by email to ${userAccount.emailAddress}. This password may only be used to change your password. Your current password is still valid.</message>
             <if condition="userAccount.requirePasswordChange == 'Y'"><message public="true" type="info">You must change your password before login.</message></if>
