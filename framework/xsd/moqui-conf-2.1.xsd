@@ -648,6 +648,9 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="startup-add-missing" default="false" type="boolean-expandable"/>
             <xs:attribute name="runtime-add-missing" default="true" type="boolean-expandable"/>
             <xs:attribute name="runtime-add-fks" default="true" type="boolean-expandable"/>
+            <xs:attribute name="allow-extra-fields" default="false" type="boolean-expandable">
+                <xs:annotation><xs:documentation>E.g. used for MongoDB datasource to allow adding fields outside entity definition scope - fields that are not set in the EntityDefinition XML.</xs:documentation></xs:annotation>
+            </xs:attribute>
             <xs:attribute name="object-factory" type="xs:string" default="org.moqui.impl.entity.EntityDatasourceFactoryImpl">
                 <xs:annotation><xs:documentation>The references class must implement the
                     org.moqui.entity.EntityDatasourceFactory interface.</xs:documentation></xs:annotation>

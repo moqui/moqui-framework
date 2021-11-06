@@ -391,7 +391,9 @@ public abstract class EntityValueBase implements EntityValue {
         return valueMapInternal.getByIString(fieldInfo.name, fieldInfo.index);
     }
 
-    @Override public Object getNoCheckSimple(String name) { return valueMapInternal.get(name); }
+    @Override public Object getNoCheckSimple(String name) {
+        return valueMapInternal.get(name);
+    }
 
     @Override public Object getOriginalDbValue(String name) {
         return (dbValueMap != null && dbValueMap.containsKey(name)) ? dbValueMap.get(name) : valueMapInternal.get(name);
@@ -1569,7 +1571,7 @@ public abstract class EntityValueBase implements EntityValue {
                 }
             }
 
-            // if (ed.getEntityName() == "foo") logger.warn("================ evb.update() ${getEntityName()} nonPkFieldList=${nonPkFieldList};\nvalueMap=${valueMap};\noldValues=${oldValues}")
+            //if (ed.getEntityName() == "foo") logger.warn("================ evb.update() ${getEntityName()} nonPkFieldList=${nonPkFieldList};\nvalueMap=${valueMap};\noldValues=${oldValues}");
             if (nonPkFieldArrayIndex == 0 || (nonPkFieldArrayIndex == 1 && modifiedLastUpdatedStamp)) {
                 if (logger.isTraceEnabled()) logger.trace("Not doing update on entity with no changed non-PK fields; value=" + this.toString());
                 return this;

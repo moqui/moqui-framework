@@ -1,0 +1,1 @@
+FROM moqui/moqui-master:1.0.5.mongodb

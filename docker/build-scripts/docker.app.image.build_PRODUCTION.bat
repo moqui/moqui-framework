@@ -1,7 +1,7 @@
 @echo off
 
 SET _DOCKERFILE=Dockerfile-alpine
-SET _IMAGE_VERSION=1.0.4
+SET _IMAGE_VERSION=1.0.5
 SET _IMAGE_NAME=moqui/moqui-master
 SET _REPO_NAME=dataquest.azurecr.io
 REM SET _REPO_NAME=rskdev.azurecr.io

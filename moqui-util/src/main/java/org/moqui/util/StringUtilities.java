@@ -175,7 +175,7 @@ public class StringUtilities {
         return pathList;
     }
 
-    public static String camelCaseToPretty(String camelCase) {
+    public static String camelCaseToPretty(String camelCase, Boolean toAllUpperCase, String separator) {
         if (camelCase == null || camelCase.length() == 0) return "";
         StringBuilder prettyName = new StringBuilder();
         String lastPart = null;
@@ -187,15 +187,19 @@ public class StringUtilities {
                 part = part.substring(1);
                 firstChar = part.charAt(0);
             }
-            if (Character.isLowerCase(firstChar)) part = Character.toUpperCase(firstChar) + part.substring(1);
+            if (Character.isLowerCase(firstChar)) part = Character.toUpperCase(firstChar) + (toAllUpperCase?part.substring(1).toUpperCase():part.substring(1));
             if (part.equalsIgnoreCase("id")) part = "ID";
 
             if (part.equals(lastPart)) continue;
             lastPart = part;
-            if (prettyName.length() > 0) prettyName.append(" ");
-            prettyName.append(part);
+            if (prettyName.length() > 0) prettyName.append(separator);
+            prettyName.append(toAllUpperCase?part.toUpperCase():part);
         }
         return prettyName.toString();
+    }
+
+    public static String camelCaseToPretty(String camelCase) {
+        return camelCaseToPretty(camelCase, false, " ");
     }
     public static String prettyToCamelCase(String pretty, boolean firstUpper) {
         if (pretty == null || pretty.length() == 0) return "";

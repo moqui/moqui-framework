@@ -56,6 +56,13 @@ class EntityDbMeta {
         return true
     }
 
+    boolean checkAllowExtraFields(String groupName) {
+        MNode datasourceNode = efi.getDatasourceNode(groupName)
+        String aefAttr = datasourceNode?.attribute("allow-extra-fields")
+        boolean addExtraFields = aefAttr ? "true".equals(aefAttr) : false
+        return addExtraFields
+    }
+
     boolean checkTableRuntime(EntityDefinition ed) {
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
         // most common case: not view entity and already checked

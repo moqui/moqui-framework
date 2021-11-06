@@ -535,6 +535,9 @@ public class EntityJavaUtil {
                     }
                 }
             }
+
+            // DTQ@MR - customization to enable writing undefined values into entity
+            this.checkExtraFields(src, dest, fieldInfoArray);
         }
 
         public Map<String, Object> cloneMapRemoveFields(Map<String, Object> theMap, Boolean pks) {
@@ -548,6 +551,35 @@ public class EntityJavaUtil {
                 newMap.remove(fi.name);
             }
             return newMap;
+        }
+
+        /**
+         * We may allow writing of additional fields into entity, should
+         * the datasource allow for such feature - this applies especially for Non-SQL databases, e.g. MongoDB
+         * @param src source map holding data we want to write
+         * @param dest destination entity
+         * @param fieldInfoArray fields list
+         */
+
+        private void checkExtraFields(Map<String, Object> src, EntityValueBase dest, FieldInfo[] fieldInfoArray) {
+            boolean allowExtraFields = efi.getEntityDbMeta().checkAllowExtraFields(ed.groupName);
+            if (!allowExtraFields) return;
+
+            logger.info("Checking extra fields when setting Entity '" + ed.fullEntityName + "' values");
+
+            // which fields are extra?
+            List<String> extras = new ArrayList<>();
+            src.keySet().forEach(fieldToWrite -> {
+                if (Arrays.stream(fieldInfoArray).noneMatch(s-> Objects.equals(s.name, fieldToWrite))){
+                    extras.add(fieldToWrite);
+                }
+            });
+
+            if (extras.isEmpty()) return;
+
+            extras.forEach(fieldToWrite -> {
+                dest.valueMapInternal.putByIString(fieldToWrite, src.get(fieldToWrite), 4);
+            });
         }
     }
 
