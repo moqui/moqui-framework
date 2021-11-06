@@ -565,7 +565,7 @@ public class EntityJavaUtil {
             boolean allowExtraFields = efi.getEntityDbMeta().checkAllowExtraFields(ed.groupName);
             if (!allowExtraFields) return;
 
-            logger.info("Checking extra fields when setting Entity '" + ed.fullEntityName + "' values");
+            logger.debug("Checking extra fields when setting Entity '" + ed.fullEntityName + "' values");
 
             // which fields are extra?
             List<String> extras = new ArrayList<>();
@@ -577,8 +577,19 @@ public class EntityJavaUtil {
 
             if (extras.isEmpty()) return;
 
+            // must check valueMapInternal against fieldInfoArray,
+            // otherwise we may have problem when calculated fields are appended later in the process
+            // e.g. 'created'
+            if (fieldInfoArray.length < dest.valueMapInternal.size()) {
+                throw new EntityException("More values in internal map, before extra fields are appended, something must have gone terribly wrong");
+            }
+
+            final int[] lastIndex = {dest.valueMapInternal.getKeyArrayLength() - 1};
             extras.forEach(fieldToWrite -> {
-                dest.valueMapInternal.putByIString(fieldToWrite, src.get(fieldToWrite), 4);
+                // when inserting values to internal value map, we should also
+                // modify the entity info, so that it reflects the changes in indices
+                dest.valueMapInternal.putByIString(fieldToWrite, src.get(fieldToWrite), lastIndex[0] + 1);
+                lastIndex[0] += 1;
             });
         }
     }

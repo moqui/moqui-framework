@@ -268,14 +268,19 @@ abstract class EntityFindBase implements EntityFind {
         boolean wecNull = (whereEntityCondition == null)
         int samSize = simpleAndMap != null ? simpleAndMap.size() : 0
 
+        boolean allowExtraField = efi.entityDbMeta.checkAllowExtraFields(localEd.groupName)
         EntityConditionImplBase singleCond = (EntityConditionImplBase) null
         if (singleCondField != null) {
             if (samSize > 0) logger.warn("simpleAndMap size ${samSize} and singleCondField not null!")
             ConditionField cf
             if (localEd != null) {
                 FieldInfo fi = localEd.getFieldInfo(singleCondField)
-                if (fi == null) throw new EntityException("Error in find, field ${singleCondField} does not exist in entity ${localEd.getFullEntityName()}")
-                cf = fi.conditionField
+                if (fi == null){
+                    if (!allowExtraField) throw new EntityException("Error in find, field ${singleCondField} does not exist in entity ${localEd.getFullEntityName()}")
+                    cf = new ConditionField(singleCondField)
+                } else {
+                    cf = fi.conditionField
+                }
             } else {
                 cf = new ConditionField(singleCondField)
             }
@@ -294,8 +299,13 @@ abstract class EntityFindBase implements EntityFind {
                 ConditionField cf
                 if (localEd != null) {
                     FieldInfo fi = localEd.getFieldInfo((String) samEntry.getKey())
-                    if (fi == null) throw new EntityException("Error in find, field ${samEntry.getKey()} does not exist in entity ${localEd.getFullEntityName()}")
-                    cf = fi.conditionField
+                    if (fi == null){
+                        if (!allowExtraField) throw new EntityException("Error in find, field ${samEntry.getKey()} does not exist in entity ${localEd.getFullEntityName()}")
+
+                        cf = new ConditionField(samEntry.key)
+                    } else {
+                        cf = fi.conditionField
+                    }
                 } else {
                     cf = new ConditionField((String) samEntry.key)
                 }
