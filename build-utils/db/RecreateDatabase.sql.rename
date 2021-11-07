@@ -1,0 +1,11 @@
+# rename PUT_YOUR_DB_NAME_HERE to your name
+drop database IF EXISTS PUT_YOUR_DB_NAME_HERE;
+
+CREATE DATABASE PUT_YOUR_DB_NAME_HERE
+    WITH
+    OWNER = moqui
+    ENCODING = 'UTF8'
+    LC_COLLATE = 'en_US.utf8'
+    LC_CTYPE = 'en_US.utf8'
+    TABLESPACE = pg_default
+    CONNECTION LIMIT = -1;

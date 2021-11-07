@@ -12,6 +12,19 @@
 [![Gitter Chat at https://gitter.im/moqui/moqui-framework](https://badges.gitter.im/moqui/moqui-framework.svg)](https://gitter.im/moqui/moqui-framework?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![Stack Overflow](https://img.shields.io/badge/stack%20overflow-moqui-blue.svg)](http://stackoverflow.com/questions/tagged/moqui)
 
+## Installation procedure
+
+1. ```git clone moqui-framework <app-name>```
+2. ```cd <app-name> + git clone moqui-runtime runtime```
+3. ```cd runtime ``` checkout setup comp to provide basic features
+4. provide runnable conf file and upload it to runtime/conf
+5. run ```gradlew load``` to initialize database
+6. prepare docker scripts for generating Docker images
+
+When using with PostgreSQL databases, create database using scripts in build-utils/db directory
+
+
+## Moqui related info
 
 For information about community infrastructure for code, discussions, support, etc see the Community Guide:
 
