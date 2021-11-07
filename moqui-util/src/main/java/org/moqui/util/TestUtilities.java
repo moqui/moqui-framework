@@ -1,6 +1,7 @@
 package org.moqui.util;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonElement;
 import org.apache.commons.io.FileUtils;
 
 import java.io.File;
@@ -35,7 +36,7 @@ public class TestUtilities {
         return FileUtils.getFile(path);
     }
 
-    public static List<HashMap<String, Object>> loadTestDataIntoArray(String[] resDirPath) throws URISyntaxException, IOException {
+    public static List<JsonElement> loadTestDataIntoArray(String[] resDirPath) throws URISyntaxException, IOException {
         // load data to import from a JSON
         String[] importFilePath = TestUtilities.extendList(RESOURCE_PATH, resDirPath);
         FileInputStream fisImport = new FileInputStream(getInputFile(importFilePath));
