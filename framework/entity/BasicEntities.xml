@@ -618,6 +618,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="storeSkipSeen" type="text-indicator"/>
         <field name="mailUsername" type="text-medium" enable-audit-log="update"/>
         <field name="mailPassword" type="text-medium" encrypt="true" enable-audit-log="update"/>
+        <field name="allowedToDomains" type="text-long" enable-audit-log="update">
+            <description>Comma separated list of domain names to allow (like: moqui.org, dejc.com), matched by ends with; if no value specified all domains allowed</description></field>
         <seed-data>
             <!-- The MOQUI_LOCAL EmailServer is used by SubEthaSmtpToolFactory for the local SMTP server to setup the server, and
                 for use by send#EmailTemplate if this emailServerId is used to send email -->
