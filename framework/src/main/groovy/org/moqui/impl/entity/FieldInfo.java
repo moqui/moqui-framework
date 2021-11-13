@@ -68,7 +68,7 @@ public class FieldInfo {
         name = nameAttr.intern();
         conditionField = new ConditionField(this);
         String columnNameAttr = fnAttrs.get("column-name");
-        columnName = columnNameAttr != null && columnNameAttr.length() > 0 ? columnNameAttr : EntityJavaUtil.camelCaseToUnderscored(name);
+        columnName = columnNameAttr != null && columnNameAttr.length() > 0 ? columnNameAttr : ed.efi.getEntityDbMeta().formattedTableName(ed.groupName, name);
         defaultStr = fnAttrs.get("default");
 
         String typeAttr = fnAttrs.get("type");

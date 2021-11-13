@@ -56,11 +56,41 @@ class EntityDbMeta {
         return true
     }
 
+    /**
+     * Do we allow extra fields to be created in this datasource? e.g. MongoDB
+     * @param groupName
+     * @return
+     */
     boolean checkAllowExtraFields(String groupName) {
         MNode datasourceNode = efi.getDatasourceNode(groupName)
         String aefAttr = datasourceNode?.attribute("allow-extra-fields")
         boolean addExtraFields = aefAttr ? "true".equals(aefAttr) : false
         return addExtraFields
+    }
+
+    /**
+     * Method for proper table name formatting, used in EntityField
+     * @param groupName
+     * @param tableName
+     * @return
+     */
+    String formattedTableName(String groupName, String tableName)
+    {
+        MNode datasourceNode = efi.getDatasourceNode(groupName)
+        String tnfAttr = datasourceNode?.attribute("table-name-format")
+
+        if (!tnfAttr) return EntityJavaUtil.camelCaseToUnderscored(tableName)
+
+        switch (tnfAttr) {
+            case "Underscored":
+                return EntityJavaUtil.camelCaseToUnderscored(tableName)
+                break
+            case "camelCase":
+                return tableName
+                break
+            default:
+                return EntityJavaUtil.camelCaseToUnderscored(tableName)
+        }
     }
 
     boolean checkTableRuntime(EntityDefinition ed) {
