@@ -48,11 +48,16 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="optionValue" type="text-medium"><description>Usage depends on enum type such as an ID format/mask</description></field>
         <field name="optionIndicator" type="text-indicator"><description>Indicator flag with meaning depending on enum type</description></field>
         <field name="relatedEnumId" type="id"/>
+        <field name="relatedEnumTypeId" type="id"/>
+        <field name="statusFlowId" type="id"/>
         <relationship type="one" related="moqui.basic.EnumerationType" short-alias="type"/>
         <relationship type="one-nofk" title="Parent" related="moqui.basic.Enumeration" short-alias="parent">
             <key-map field-name="parentEnumId"/></relationship>
         <relationship type="one-nofk" title="Related" related="moqui.basic.Enumeration" short-alias="related">
             <key-map field-name="relatedEnumId"/></relationship>
+        <relationship type="one-nofk" title="Related" related="moqui.basic.EnumerationType" short-alias="relatedType">
+            <key-map field-name="relatedEnumTypeId"/></relationship>
+        <relationship type="one" related="moqui.basic.StatusFlow" short-alias="statusFlow"/>
         <relationship type="many" related="moqui.basic.EnumGroupMember" short-alias="groupMembers">
             <key-map field-name="enumId" related="enumGroupEnumId"/></relationship>
         <seed-data>
@@ -80,6 +85,12 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="enumTypeId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
     </entity>
+    <view-entity entity-name="EnumerationAndType" package="moqui.basic">
+        <member-entity entity-alias="ENUM" entity-name="moqui.basic.Enumeration"/>
+        <member-relationship entity-alias="ETP" join-from-alias="ENUM" relationship="type"/>
+        <alias-all entity-alias="ENUM"/>
+        <alias entity-alias="ETP" name="typeDescription" field="description"/>
+    </view-entity>
     <entity entity-name="EnumGroupMember" package="moqui.basic" use="configuration" cache="true">
         <field name="enumGroupEnumId" type="id" is-pk="true"/>
         <field name="enumId" type="id" is-pk="true"/>
@@ -571,6 +582,9 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.EnumerationType description="Email Type" enumTypeId="EmailType"/>
             <moqui.basic.Enumeration description="System" enumId="EMT_SYSTEM" enumTypeId="EmailType"/>
             <moqui.basic.Enumeration description="Password Reset" enumId="EMT_PWD_RESET" parentEnumId="EMT_SYSTEM" enumTypeId="EmailType"/>
+            <moqui.basic.Enumeration description="Single Use Code" enumId="EMT_SINGLE_USE_CODE" parentEnumId="EMT_SYSTEM" enumTypeId="EmailType"/>
+            <moqui.basic.Enumeration description="Added Email Authentication Type" enumId="EMT_ADDED_EMAIL_AUTHC_FACTOR" parentEnumId="EMT_SYSTEM" enumTypeId="EmailType"/>
+            <moqui.basic.Enumeration description="Email Authentication Code Sent" enumId="EMT_EMAIL_AUTHC_FACTOR_SENT" parentEnumId="EMT_SYSTEM" enumTypeId="EmailType"/>
             <moqui.basic.Enumeration description="Notification" enumId="EMT_NOTIFICATION" parentEnumId="EMT_SYSTEM" enumTypeId="EmailType"/>
             <moqui.basic.Enumeration description="Screen Render" enumId="EMT_SCREEN_RENDER" parentEnumId="EMT_SYSTEM" enumTypeId="EmailType"/>
             <!-- <moqui.basic.Enumeration description="Error Notice" enumId="EMT_ERROR_NOTICE" parentEnumId="EMT_SYSTEM" enumTypeId="EmailType"/> -->
@@ -591,19 +605,21 @@ along with this software (see the LICENSE.md file). If not, see
     </entity>
     <entity entity-name="EmailServer" package="moqui.basic.email" use="configuration" cache="true">
         <field name="emailServerId" type="id" is-pk="true"/>
-        <field name="smtpHost" type="text-medium"/>
+        <field name="smtpHost" type="text-medium" enable-audit-log="update"/>
         <field name="smtpPort" type="text-short"/>
         <field name="smtpStartTls" type="text-indicator"/>
         <field name="smtpSsl" type="text-indicator"/>
-        <field name="storeHost" type="text-medium"/>
+        <field name="storeHost" type="text-medium" enable-audit-log="update"/>
         <field name="storePort" type="text-short"/>
         <field name="storeProtocol" type="text-short"/>
         <field name="storeFolder" type="text-medium"><description>Defaults to INBOX</description></field>
         <field name="storeDelete" type="text-indicator"/>
         <field name="storeMarkSeen" type="text-indicator"/>
         <field name="storeSkipSeen" type="text-indicator"/>
-        <field name="mailUsername" type="text-medium"/>
-        <field name="mailPassword" type="text-medium" encrypt="true"/>
+        <field name="mailUsername" type="text-medium" enable-audit-log="update"/>
+        <field name="mailPassword" type="text-medium" encrypt="true" enable-audit-log="update"/>
+        <field name="allowedToDomains" type="text-long" enable-audit-log="update">
+            <description>Comma separated list of domain names to allow (like: moqui.org, dejc.com), matched by ends with; if no value specified all domains allowed</description></field>
         <seed-data>
             <!-- The MOQUI_LOCAL EmailServer is used by SubEthaSmtpToolFactory for the local SMTP server to setup the server, and
                 for use by send#EmailTemplate if this emailServerId is used to send email -->
@@ -632,14 +648,17 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="EmailTemplate" package="moqui.basic.email" use="configuration" short-alias="emailTemplates" cache="true">
         <field name="emailTemplateId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
-        <field name="emailServerId" type="id"/>
+        <field name="emailServerId" type="id" enable-audit-log="update"/>
         <field name="emailTypeEnumId" type="id"/>
-        <field name="fromAddress" type="text-medium"/>
+        <field name="fromAddress" type="text-medium" enable-audit-log="update"/>
         <field name="fromName" type="text-medium"/>
-        <field name="replyToAddresses" type="text-medium"><description>Comma separated list of reply to email addresses</description></field>
-        <field name="bounceAddress" type="text-medium"/>
-        <field name="ccAddresses" type="text-medium"><description>Comma separated list of CC email addresses</description></field>
-        <field name="bccAddresses" type="text-medium"><description>Comma separated list of BCC email addresses</description></field>
+        <field name="replyToAddresses" type="text-medium" enable-audit-log="update">
+            <description>Comma separated list of reply to email addresses</description></field>
+        <field name="bounceAddress" type="text-medium" enable-audit-log="update"/>
+        <field name="ccAddresses" type="text-medium" enable-audit-log="update">
+            <description>Comma separated list of CC email addresses</description></field>
+        <field name="bccAddresses" type="text-medium" enable-audit-log="update">
+            <description>Comma separated list of BCC email addresses</description></field>
         <field name="subject" type="text-long"/>
         <field name="bodyScreenLocation" type="text-medium"/>
         <field name="webappName" type="text-medium"/>

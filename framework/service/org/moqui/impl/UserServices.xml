@@ -21,7 +21,7 @@ along with this software (see the LICENSE.md file). If not, see
         </in-parameters>
         <actions><script>ec.user.setPreference(preferenceKey, preferenceValue)</script></actions>
     </service>
-    
+
     <service verb="create" noun="UserAccount" authenticate="anonymous-all" allow-remote="false">
         <in-parameters>
             <auto-parameters entity-name="moqui.security.UserAccount" include="nonpk"><exclude field-name="currentPassword"/>
@@ -295,6 +295,7 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters>
             <parameter name="userId"/>
             <parameter name="username"><description>May be used instead of userId to identify user.</description></parameter>
+            <parameter name="bodyParameters" type="Map" default="[:]"/>
         </in-parameters>
         <actions>
             <!-- find by userId -->
@@ -329,7 +330,7 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" async="true">
                 <field-map field-name="emailTemplateId" value="PASSWORD_RESET"/>
                 <field-map field-name="toAddresses" from="userAccount.emailAddress"/>
-                <field-map field-name="bodyParameters" from="[userAccount:userAccount, resetPassword:resetPassword]"/>
+                <field-map field-name="bodyParameters" from="bodyParameters + [userAccount:userAccount, resetPassword:resetPassword]"/>
             </service-call>
             <message public="true" type="success">A reset password was sent by email to ${userAccount.emailAddress}. This password may only be used to change your password. Your current password is still valid.</message>
             <if condition="userAccount.requirePasswordChange == 'Y'"><message public="true" type="info">You must change your password before login.</message></if>
@@ -351,6 +352,288 @@ along with this software (see the LICENSE.md file). If not, see
                 <return error="true" message="Can only create initial admin account if there are no UserAccount records"/></if>
             <service-call name="org.moqui.impl.UserServices.create#UserAccount" in-map="context" out-map="context"/>
             <service-call name="create#moqui.security.UserGroupMember" in-map="[userId:userId, userGroupId:'ADMIN']"/>
+        </actions>
+    </service>
+
+    <!-- ================================================= -->
+    <!-- ====== User Authentication Factor Services ====== -->
+    <!-- ================================================= -->
+
+    <!-- TODO: Limit the amount of attempts to validate authc code. Similair to Tarpit Locks (I think). -->
+    <service verb="validate" noun="UserAuthcFactorCode">
+        <description>Determine whether a user inputted code is valid based on the current UserAuthcFactor entries for that user.</description>
+        <in-parameters>
+            <parameter name="userId" required="true"/>
+            <parameter name="code"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="verified" type="Boolean"/>
+            <parameter name="factorId"/>
+        </out-parameters>
+        <actions>
+            <set field="verified" from="false"/>
+
+            <!-- This is the setup script for verifying TOTP codes with the samstevens library. -->
+            <script>
+                import dev.samstevens.totp.time.*
+                import dev.samstevens.totp.code.*
+                TimeProvider timeProvider = new SystemTimeProvider()
+                CodeGenerator codeGenerator = new DefaultCodeGenerator()
+                CodeVerifier verifier = new DefaultCodeVerifier(codeGenerator, timeProvider)
+            </script>
+
+            <entity-find entity-name="moqui.security.UserAuthcFactor" list="userAuthcFactorList">
+                <date-filter/>
+                <econdition field-name="userId"/>
+                <econdition field-name="factorTypeEnumId" operator="not-equals" value="UafEmail"/>
+            </entity-find>
+
+            <iterate list="userAuthcFactorList" entry="userAuthcFactor">
+                <if condition="userAuthcFactor.factorTypeEnumId == 'UafSingleUse'">
+                    <then>
+                        <!-- This checks to see whether the hashed single use code in the database is the input code hashed. -->
+                        <if condition="userAuthcFactor.factorOption == ec.ecfi.getSimpleHash(code, 'SaltySalt')">
+                            <set field="factorId" from="userAuthcFactor.factorId"/>
+                            <set field="verified" from="true"/>
+                            <service-call name="update#moqui.security.UserAuthcFactor" in-map="[factorId:userAuthcFactor.factorId,thruDate:ec.user.nowTimestamp]"/>
+                            <if condition="userAuthcFactor.fromFactorId"><service-call name="update#moqui.security.UserAuthcFactor" in-map="[factorId:userAuthcFactor.fromFactorId,needsValidation:'N']"/></if>
+                        </if>
+                    </then>
+                    <else-if condition="userAuthcFactor.factorTypeEnumId == 'UafTotp'">
+                        <!-- This checks to see whether the secret key stored in the database matches the input code at this time -->
+                        <if condition="verifier.isValidCode(userAuthcFactor.factorOption, code)">
+                            <set field="factorId" from="userAuthcFactor.factorId"/>
+                            <set field="verified" from="true"/>
+                            <service-call name="update#moqui.security.UserAuthcFactor" in-map="[factorId:userAuthcFactor.factorId,needsValidation:'N']"/>
+                        </if>
+                    </else-if>
+                </if>
+            </iterate>
+        </actions>
+    </service>
+
+    <service verb="create" noun="SingleUseAuthcCodes">
+        <description>Create multiple single use authentication factors.</description>
+        <in-parameters>
+            <parameter name="userId" required="true"/>
+            <parameter name="fromFactorId" default=""/>
+            <parameter name="thruDate" type="Timestamp" default="ec.user.nowTimestamp + 365"/>
+            <parameter name="numberOfCodes" type="Integer" default="6"/>
+        </in-parameters>
+        <out-parameters><parameter name="singleUseCodes" type="List"/></out-parameters>
+        <actions>
+            <if condition="numberOfCodes &gt; 21"><return error="true" message="Cannot create more than 21 codes at a time"/></if>
+            <set field="factorTypeEnumId" value="UafSingleUse"/>
+            <set field="fromDate" from="ec.user.nowTimestamp"/>
+            <entity-find entity-name="moqui.security.UserAuthcFactor" list="userAuthcFactorList">
+                <date-filter/>
+                <econdition field-name="userId"/>
+                <econdition field-name="fromFactorId"/>
+                <econdition field-name="factorTypeEnumId" value="UafSingleUse"/>
+            </entity-find>
+
+            <!-- This automatically invalidates any current single use authentication codes that are from the fromFactorId -->
+            <iterate list="userAuthcFactorList" entry="userAuthcFactor"><service-call name="update#moqui.security.UserAuthcFactor" in-map="[factorId:userAuthcFactor.factorId, thruDate:ec.user.nowTimestamp]"/></iterate>
+            <set field="singleUseCodes" from="[]"/>
+
+            <!-- This generates the actual codes using java's SecureRandom library (currently 8 integer digits) -->
+            <script>for (int i = 0; i &lt; numberOfCodes; i++) singleUseCodes.add(new java.security.SecureRandom().nextInt(99999999).toString().padLeft(8,'0'))</script>
+            <iterate list="singleUseCodes" entry="code">
+                <set field="factorOption" from="ec.ecfi.getSimpleHash(code, 'SaltySalt')"/>
+                <service-call name="create#moqui.security.UserAuthcFactor" in-map="context"/>
+            </iterate>
+        </actions>
+    </service>
+    <service verb="create" noun="SingleUseAuthcFactor">
+        <description>Create a single use authentication factor.</description>
+        <in-parameters>
+            <parameter name="userId" required="true"></parameter>
+            <parameter name="fromFactorId" default=""/>
+            <parameter name="thruDate" type="Timestamp" default="ec.user.nowTimestamp + 1"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="factorId"/>
+            <parameter name="code"/>
+            <parameter name="thruDate"/>
+        </out-parameters>
+        <actions>
+            <!-- If there is a fromFactorId, this automatically invalidates any current single use authentication codes that are from the fromFactorId -->
+            <if condition="fromFactorId">
+                <entity-find entity-name="moqui.security.UserAuthcFactor" list="userAuthcFactorList">
+                    <date-filter/><econdition field-name="userId"/><econdition field-name="fromFactorId"/>
+                    <econdition field-name="factorTypeEnumId" value="UafSingleUse"/></entity-find>
+                <iterate list="userAuthcFactorList" entry="userAuthcFactor">
+                    <service-call name="update#moqui.security.UserAuthcFactor" in-map="[factorId:userAuthcFactor.factorId, thruDate:ec.user.nowTimestamp]"/>
+                </iterate>
+            </if>
+
+            <set field="factorTypeEnumId" value="UafSingleUse"/>
+            <set field="fromDate" from="ec.user.nowTimestamp"/>
+            <set field="code" from="new java.security.SecureRandom().nextInt(999999).toString().padLeft(6,'0')"/>
+            <set field="factorOption" from="ec.ecfi.getSimpleHash(code, 'SaltySalt')"/>
+            <service-call name="create#moqui.security.UserAuthcFactor" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+    <service verb="send" noun="AuthcCodeEmail" authenticate="anonymous-view">
+        <description>Service to send an email with a single use code in it for verifying an email.</description>
+        <in-parameters><parameter name="emailFactorId" required="true"/></in-parameters>
+        <out-parameters>
+            <parameter name="singleUseFactorId"/>
+            <parameter name="code"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="moqui.security.UserAuthcFactor" value-field="userAuthcFactor">
+                <field-map field-name="factorId" from="emailFactorId"/></entity-find-one>
+
+            <!-- create a new single use authc factor code and get it's factorId -->
+            <service-call name="org.moqui.impl.UserServices.create#SingleUseAuthcFactor" in-map="[userId:userAuthcFactor.userId,fromFactorId:emailFactorId]" out-map="context"/>
+            <set field="singleUseFactorId" from="factorId"/>
+
+            <!-- send an email with the single use code -->
+            <service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" async="true">
+                <field-map field-name="emailTemplateId" value="SINGLE_USE_CODE"/>
+                <field-map field-name="toAddresses" from="userAuthcFactor.factorOption"/>
+                <field-map field-name="bodyParameters" from="[code:code,thruDateString:thruDate.toString()]"/>
+            </service-call>
+            <message>Authentication code sent to ${userAuthcFactor.factorOption}</message>
+
+            <!-- if the email just sent to is not the main email address for the user send the main email address a notification email that an email with a code was sent -->
+            <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
+                <field-map field-name="userId" from="userAuthcFactor.userId"/></entity-find-one>
+            <if condition="userAccount.emailAddress &amp;&amp; userAccount.emailAddress != userAuthcFactor.factorOption">
+                <service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" async="true">
+                    <field-map field-name="emailTemplateId" value="ADDED_EMAIL_AUTHC_FACTOR"/>
+                    <field-map field-name="toAddresses" from="userAccount.emailAddress"/>
+                    <field-map field-name="bodyParameters" from="[userEmail:userAuthcFactor.factorOption,thruDateString:thruDate.toString()]"/>
+                </service-call>
+            </if>
+        </actions>
+    </service>
+    <service verb="create" noun="EmailUserAuthcFactor">
+        <description>Creates a UserAuthcFactor entry for email, and an entry for the single use code to verify the email.</description>
+        <in-parameters>
+            <parameter name="userId" required="true"><description>User to enable Email Factor Method</description></parameter>
+            <parameter name="thruDate" type="Timestamp" default="ec.user.nowTimestamp+365"/>
+            <parameter name="factorOption" required="true"><text-email/></parameter>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="factorId"/>
+            <parameter name="singleUseFactorId"/>
+            <parameter name="code"/>
+        </out-parameters>
+        <actions>
+            <set field="factorTypeEnumId" value="UafEmail"/>
+            <set field="fromDate" from="ec.user.nowTimestamp"/>
+            <set field="needsValidation" value="Y"/>
+
+            <entity-find-count entity-name="moqui.security.UserAuthcFactor" count-field="userAuthcFactorCount">
+                <date-filter/>
+                <econdition field-name="userId"/>
+                <econdition field-name="factorTypeEnumId"/>
+                <econdition field-name="factorOption"/>
+            </entity-find-count>
+
+            <if condition="userAuthcFactorCount == 0">
+                <then>
+                    <!-- If there are no UserAuthcFactor entries for this user with the same email, create the UserAuthcFactor. -->
+                    <service-call name="create#moqui.security.UserAuthcFactor" in-map="context" out-map="context"/>
+                    <!-- don't send code email on create, do it manually if needed from UI:
+                    <service-call name="org.moqui.impl.UserServices.send#AuthcCodeEmail" in-map="emailFactorId:factorId" out-map="context"/>
+                    -->
+                </then>
+                <else-if condition="userAuthcFactorCount == 1">
+                    <!-- There is an UserAuthcFactor for this user that has the same email. Send error message to the user.-->
+                    <return error="true" message="Email entry already exists for: ${factorOption}. Cannot create duplicate email."/>
+                </else-if>
+            </if>
+        </actions>
+    </service>
+
+    <service verb="create" noun="UserAuthcFactorTotp">
+        <description>Create an Authenticator App Factor.</description>
+        <in-parameters>
+            <parameter name="userId" required="true"/>
+            <parameter name="thruDate" type="Timestamp" default="ec.user.nowTimestamp + 365"/>
+            <parameter name="needsValidation" default-value="Y"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="factorId"/>
+            <parameter name="factorOption"/>
+        </out-parameters>
+        <actions>
+            <script>
+                import dev.samstevens.totp.secret.DefaultSecretGenerator
+                DefaultSecretGenerator gen = new DefaultSecretGenerator()
+            </script>
+            <set field="factorTypeEnumId" value="UafTotp"/>
+            <set field="fromDate" from="ec.user.nowTimestamp"/>
+            <set field="factorOption" from="gen.generate()"/>
+            <service-call name="create#moqui.security.UserAuthcFactor" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+    <service verb="setup" noun="UserAuthcFactorTotp">
+        <in-parameters>
+            <parameter name="factorId"/>
+            <parameter name="userId" required="true"/>
+            <parameter name="thruDate"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="qrLabel"/>
+            <parameter name="qrIssuer"/>
+            <parameter name="qrSecret"/>
+            <parameter name="qrUri"/>
+            <parameter name="dataUri"/>
+            <parameter name="needsValidation"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
+                <field-map field-name="userId" from="userId"/></entity-find-one>
+
+            <if condition="!factorId">
+                <then>
+                    <!-- If this service is called and no factorId is specified it will create a Totp UserAuthcFactor entry -->
+                    <service-call name="org.moqui.impl.UserServices.create#UserAuthcFactorTotp"
+                                  in-map="[userId:userId, thruDate:thruDate]" out-map="userFactor"/>
+                </then><else>
+                    <!-- If this service is called and a factorId is specified, get the userFactor from the database -->
+                    <entity-find-one entity-name="moqui.security.UserAuthcFactor" value-field="userFactor">
+                        <field-map field-name="factorId"/>
+                        <field-map field-name="userId"/>
+                    </entity-find-one>
+                </else>
+            </if>
+            <set field="factorOption" from="userFactor.factorOption"/>
+
+            <script>
+                import dev.samstevens.totp.qr.*
+                import dev.samstevens.totp.code.HashingAlgorithm
+                import dev.samstevens.totp.util.Utils
+                QrData data = new QrData.Builder().label(userAccount.username).secret(factorOption).issuer(ec.web.getHostName(false))
+                    .algorithm(HashingAlgorithm.SHA1).digits(6).period(30).build()
+                QrGenerator generator = new ZxingPngQrGenerator()
+            </script>
+            <set field="qrLabel" from="data.label"/><set field="qrIssuer" from="data.issuer"/><set field="qrSecret" from="data.secret"/>
+            <set field="dataUri" from="Utils.getDataUriForImage(generator.generate(data), generator.getImageMimeType())"/>
+            <set field="needsValidation" from="userFactor.needsValidation"/>
+        </actions>
+    </service>
+
+    <service verb="invalidate" noun="UserAuthcFactorEntry">
+        <description>Invalidate a factorId and any UserAuthcFactor entries that are dependant on that factorId.</description>
+        <in-parameters>
+            <parameter name="factorId" required="true"/>
+            <parameter name="userId" required="true"/>
+            <parameter name="fromFactorId"/>
+        </in-parameters>
+        <actions>
+            <entity-find entity-name="moqui.security.UserAuthcFactor" list="userAuthcFactorList">
+                <date-filter/><econdition field-name="userId"/></entity-find>
+
+            <iterate list="userAuthcFactorList" entry="userAuthcFactor">
+                <if condition="userAuthcFactor.fromFactorId == factorId || userAuthcFactor.factorId == factorId">
+                    <service-call name="update#moqui.security.UserAuthcFactor" in-map="[factorId:userAuthcFactor.factorId, thruDate:ec.user.nowTimestamp]"/>
+                </if>
+            </iterate>
         </actions>
     </service>
 </services>

@@ -157,7 +157,8 @@ public class MoquiStart {
         // ===== Done trying specific commands, so load the embedded server
 
         // Get a start loader with loadWebInf=false since the container will load those we don't want to here (would be on classpath twice)
-        StartClassLoader moquiStartLoader = new StartClassLoader(reportJarsUnused);
+        // NOTE DEJ20210520: now always using StartClassLoader because of breaking classloader changes in 9.4.37 (likely from https://github.com/eclipse/jetty.project/pull/5894)
+        StartClassLoader moquiStartLoader = new StartClassLoader(true);
         Thread.currentThread().setContextClassLoader(moquiStartLoader);
 
         // NOTE: not using MoquiShutdown hook any more, let Jetty stop everything
@@ -264,7 +265,8 @@ public class MoquiStart {
             }
             serverClass.getMethod("setHandler", handlerClass).invoke(server, webapp);
 
-            if (reportJarsUnused) webappClass.getMethod("setClassLoader", ClassLoader.class).invoke(webapp, moquiStartLoader);
+            // NOTE DEJ20210520: now always using StartClassLoader because of breaking classloader changes in 9.4.37 (likely from https://github.com/eclipse/jetty.project/pull/5894)
+            webappClass.getMethod("setClassLoader", ClassLoader.class).invoke(webapp, moquiStartLoader);
 
             // WebSocket
             Object wsContainer = wsInitializerClass.getMethod("configureContext", scHandlerClass).invoke(null, webapp);

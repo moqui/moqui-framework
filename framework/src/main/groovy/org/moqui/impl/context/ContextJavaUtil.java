@@ -23,6 +23,7 @@ import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import groovy.lang.GString;
+import org.codehaus.groovy.runtime.StringGroovyMethods;
 import org.jetbrains.annotations.NotNull;
 import org.moqui.context.ArtifactExecutionInfo;
 import org.moqui.entity.EntityFind;
@@ -248,7 +249,7 @@ public class ContextJavaUtil {
             if (wfi != null) {
                 String fullUrl = wfi.getRequestUrl();
                 requestUrl = (fullUrl.length() > 255) ? fullUrl.substring(0, 255) : fullUrl;
-                referrerUrl = wfi.getRequest().getHeader("Referrer");
+                referrerUrl = wfi.getRequest().getHeader("Referer");
             }
         }
         EntityValue makeAhiValue(ExecutionContextFactoryImpl ecfi) {
@@ -315,6 +316,7 @@ public class ContextJavaUtil {
         public final long moquiTxId = moquiTxIdLast.incrementAndGet();
         public Exception transactionBegin = null;
         public Long transactionBeginStartTime = null;
+        public int transactionTimeout = 60;
         public RollbackInfo rollbackOnlyInfo = null;
 
         public Transaction suspendedTx = null;
@@ -336,6 +338,7 @@ public class ContextJavaUtil {
             rollbackOnlyInfo = null;
             transactionBegin = null;
             transactionBeginStartTime = null;
+            transactionTimeout = 60;
             activeXaResourceMap.clear();
             activeSynchronizationMap.clear();
             txCache = null;
@@ -408,17 +411,21 @@ public class ContextJavaUtil {
                 if (curErlList.size() > 0) {
                     StringBuilder msgBuilder = new StringBuilder().append("Potential lock conflict entity ").append(entityName)
                             .append(" pk ").append(pkString).append(" thread ").append(threadName)
-                            .append(" moqui tx ").append(moquiTxId).append(" began ").append(new Timestamp(txBeginTime));
+                            .append(" TX ").append(moquiTxId).append(" began ").append(new Timestamp(txBeginTime));
                     if (mutateEntityName != null) msgBuilder.append(" from mutate of entity ").append(mutateEntityName).append(" pk ").append(mutatePkString);
                     msgBuilder.append(" at: ");
-                    if (artifactStack != null) for (int mi = 0; mi < artifactStack.size(); mi++)
-                        msgBuilder.append("\n== ").append(artifactStack.get(mi).toBasicString());
+                    if (artifactStack != null) for (int mi = 0; mi < artifactStack.size(); mi++) {
+                        msgBuilder.append("\n").append(StringGroovyMethods.padLeft((CharSequence) Integer.toString(mi), 2, "0"))
+                                .append(": ").append(artifactStack.get(mi).toBasicString());
+                    }
                     for (int i = 0; i < curErlList.size(); i++) {
                         EntityRecordLock otherErl = curErlList.get(i);
-                        msgBuilder.append("\nOther Lock ").append(i).append(" thread ").append(otherErl.threadName)
-                                .append(" moqui tx ").append(otherErl.moquiTxId).append(" began ").append(new Timestamp(txBeginTime)).append(" at: ");
-                        if (otherErl.artifactStack != null) for (int mi = 0; mi < otherErl.artifactStack.size(); mi++)
-                            msgBuilder.append("\n== ").append(otherErl.artifactStack.get(mi).toBasicString());
+                        msgBuilder.append("\n== OTHER LOCK ").append(i).append(" thread ").append(otherErl.threadName)
+                                .append(" TX ").append(otherErl.moquiTxId).append(" began ").append(new Timestamp(otherErl.txBeginTime)).append(" at: ");
+                        if (otherErl.artifactStack != null) for (int mi = 0; mi < otherErl.artifactStack.size(); mi++) {
+                            msgBuilder.append("\n").append(StringGroovyMethods.padLeft((CharSequence) Integer.toString(mi), 2, "0"))
+                                    .append(": ").append(otherErl.artifactStack.get(mi).toBasicString());
+                        }
                     }
                     logger.warn(msgBuilder.toString());
                 }
@@ -639,6 +646,15 @@ public class ContextJavaUtil {
                     activeEc.destroy();
                 } catch (Throwable t) {
                     logger.error("Error destroying ExecutionContext in WorkerThreadPoolExecutor.afterExecute()", t);
+                }
+            } else {
+                if (ecfi.transactionFacade.isTransactionInPlace()) {
+                    logger.error("In WorkerThreadPoolExecutor a transaction is in place for thread " + Thread.currentThread().getName() + ", trying to commit");
+                    try {
+                        ecfi.transactionFacade.destroyAllInThread();
+                    } catch (Exception e) {
+                        logger.error("WorkerThreadPoolExecutor commit in place transaction failed in thread " + Thread.currentThread().getName(), e);
+                    }
                 }
             }
 

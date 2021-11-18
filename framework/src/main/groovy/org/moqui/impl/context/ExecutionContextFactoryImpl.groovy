@@ -83,7 +83,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected final static boolean isTraceEnabled = logger.isTraceEnabled()
     
     private AtomicBoolean destroyed = new AtomicBoolean(false)
-    
+
+    public final long initStartTime
+    public final String initStartHex
     protected String runtimePath
     @SuppressWarnings("GrFinalVariableAccess") protected final String runtimeConfPath
     @SuppressWarnings("GrFinalVariableAccess") protected final MNode confXmlRoot
@@ -155,7 +157,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
      * or by init methods in a servlet or context filter or OSGi component or Spring component or whatever.
      */
     ExecutionContextFactoryImpl() {
-        long initStartTime = System.currentTimeMillis()
+        initStartTime = System.currentTimeMillis()
+        // 1609900441000 (decimal 13 chars) = 176D58B3DA8 (hex 11 chars) take 7 means leave off 4 hex chars which is 65536ms which is ~1 minute (ie server start time round floor to ~1 min)
+        initStartHex = Long.toHexString(initStartTime).take(7)
 
         // get the MoquiInit.properties file
         Properties moquiInitProperties = new Properties()
@@ -241,7 +245,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     /** This constructor takes the runtime directory path and conf file path directly. */
     ExecutionContextFactoryImpl(String runtimePathParm, String confPathParm) {
-        long initStartTime = System.currentTimeMillis()
+        initStartTime = System.currentTimeMillis()
+        // 1609900441000 (decimal 13 chars) = 176D58B3DA8 (hex 11 chars) take 7 means leave off 4 hex chars which is 65536ms which is ~1 minute (ie server start time round floor to ~1 min)
+        initStartHex = Long.toHexString(initStartTime).take(7)
 
         // setup the runtimeFile
         File runtimeFile = new File(runtimePathParm)
@@ -583,12 +589,16 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         if (confXmlRoot.first("cache-list").attribute("warm-on-start") != "false") warmCache()
 
         // Run init() in ToolFactory implementations from tools.tool-factory elements
-        for (ToolFactory tf in toolFactoryMap.values()) {
+        Iterator<Map.Entry<String, ToolFactory>> tfIterator = toolFactoryMap.entrySet().iterator()
+        while (tfIterator.hasNext()) {
+            Map.Entry<String, ToolFactory> tfEntry = tfIterator.next()
+            ToolFactory tf = tfEntry.getValue()
             logger.info("Initializing ToolFactory: ${tf.getName()}")
             try {
                 tf.init(this)
             } catch (Throwable t) {
                 logger.error("Error initializing ToolFactory ${tf.getName()}", t)
+                tfIterator.remove()
             }
         }
 
@@ -626,8 +636,10 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         MClassLoader.addCommonClass("org.moqui.entity.EntityList", EntityList.class)
         MClassLoader.addCommonClass("EntityList", EntityList.class)
 
+        logger.info("Initializing MClassLoader context ${Thread.currentThread().getContextClassLoader()?.class?.name} cur class ${this.class.classLoader?.class?.name} system ${System.classLoader?.class?.name}")
         ClassLoader pcl = (Thread.currentThread().getContextClassLoader() ?: this.class.classLoader) ?: System.classLoader
         moquiClassLoader = new MClassLoader(pcl)
+        logger.info("Initialized MClassLoader with parent ${pcl.class.name}")
         // NOTE: initialized here but NOT used as currentThread ClassLoader
         groovyClassLoader = new GroovyClassLoader(moquiClassLoader)
 
@@ -680,7 +692,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // set as context classloader
         Thread.currentThread().setContextClassLoader(moquiClassLoader)
 
-        logger.info("Initialized ClassLoader in ${System.currentTimeMillis() - startTime}ms")
+        logger.info("Initialized ClassLoaders in ${System.currentTimeMillis() - startTime}ms")
     }
 
     /** Called from MoquiContextListener.contextInitialized after ECFI init */
@@ -944,9 +956,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         MNode loginKeyNode = confXmlRoot.first("user-facade").first("login-key")
         return loginKeyNode.attribute("encrypt-hash-type") ?: "SHA-256"
     }
-    int getLoginKeyExpireHours() {
+    float getLoginKeyExpireHours() {
         MNode loginKeyNode = confXmlRoot.first("user-facade").first("login-key")
-        return (loginKeyNode.attribute("expire-hours") ?: "144") as int
+        return (loginKeyNode.attribute("expire-hours") ?: "144") as float
     }
 
     // ====================================================
@@ -1759,7 +1771,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             requireSessionToken = !"false".equals(webappNode.attribute("require-session-token"))
 
             String allowOrigins = webappNode.attribute("allow-origins")
-            if (allowOrigins) for (String origin in allowOrigins.split(",")) allowOriginSet.add(origin.trim())
+            if (allowOrigins) for (String origin in allowOrigins.split(",")) allowOriginSet.add(origin.trim().toLowerCase())
 
             logger.info("Initializing webapp ${webappName} http://${httpHost}:${httpPort} https://${httpsHost}:${httpsPort} https enabled? ${httpsEnabled}")
 

@@ -21,6 +21,7 @@ import org.moqui.context.NotificationMessage
 import org.moqui.context.WebMediaTypeException
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
+import org.moqui.impl.context.WebFacadeImpl
 import org.moqui.impl.screen.ScreenRenderImpl
 import org.moqui.util.MNode
 import org.slf4j.Logger
@@ -66,44 +67,7 @@ class MoquiServlet extends HttpServlet {
         }
 
         // handle CORS actual and preflight request headers
-        ExecutionContextFactoryImpl.WebappInfo webappInfo = ecfi.getWebappInfo(webappName)
-        String originHeader = request.getHeader("Origin")
-        if (originHeader != null && !originHeader.isEmpty() && webappInfo != null &&
-                !"false".equals(webappInfo.webappNode.attribute("handle-cors"))) {
-
-            // generate Access-Control-Allow-Origin based on Origin, if allowed
-            Set<String> allowOriginSet = webappInfo.allowOriginSet
-            int originSepIdx = originHeader.indexOf("://")
-            String originDomain = originSepIdx > 0 ? originHeader.substring(originSepIdx + 3) : originHeader
-            int originDomColonIdx = originDomain.indexOf(":")
-            if (originDomColonIdx > 0) originDomain = originDomain.substring(0, originDomColonIdx)
-            // if * allowed or Origin domain matches request domain always allow (same origin)
-            String serverName = request.getServerName()
-            URL requestUrl = new URL(request.getRequestURL().toString())
-            String hostName = requestUrl.getHost()
-            if (allowOriginSet.contains("*") || originDomain == serverName || originDomain == hostName) {
-                response.setHeader("Access-Control-Allow-Origin", originHeader)
-            } else {
-                if (allowOriginSet.contains(originHeader) || allowOriginSet.contains(originDomain)) {
-                    response.setHeader("Access-Control-Allow-Origin", originHeader)
-                } else {
-                    logger.warn("Returning 401, Origin ${originHeader} not allowed for configuration ${allowOriginSet} or server name ${serverName} or request host ${hostName}")
-                    // Origin not allowed, send 401 response
-                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Origin not allowed")
-                    return
-                }
-            }
-
-            String acRequestMethod = request.getHeader("Access-Control-Request-Method")
-            if ("OPTIONS".equals(request.getMethod()) && acRequestMethod != null && !acRequestMethod.isEmpty()) {
-                // String acRequestHeaders = request.getHeader("Access-Control-Request-Headers")
-                webappInfo.addHeaders("cors-preflight", response)
-                response.setStatus(HttpServletResponse.SC_OK)
-                return
-            } else {
-                webappInfo.addHeaders("cors-actual", response)
-            }
-        }
+        if (handleCors(request, response, webappName, ecfi)) return
 
         if (!request.characterEncoding) request.setCharacterEncoding("UTF-8")
         long startTime = System.currentTimeMillis()
@@ -213,6 +177,77 @@ class MoquiServlet extends HttpServlet {
         */
     }
 
+    /** Handles CORS headers and if this a CORS preflight request or the origin is not allowed sends the proper response and returns true (caller should then not respond, ie just quit via return) */
+    static boolean handleCors(HttpServletRequest request, HttpServletResponse response, String webappName, ExecutionContextFactoryImpl ecfi) {
+        ExecutionContextFactoryImpl.WebappInfo webappInfo = ecfi.getWebappInfo(webappName)
+        String originHeader = request.getHeader("Origin")
+
+        if (originHeader != null && !originHeader.isEmpty() && webappInfo != null &&
+                !"false".equals(webappInfo.webappNode.attribute("handle-cors"))) {
+
+            originHeader = originHeader.toLowerCase()
+            // generate Access-Control-Allow-Origin based on Origin, if allowed
+            Set<String> allowOriginSet = webappInfo.allowOriginSet
+            int originSepIdx = originHeader.indexOf("://")
+            String originDomain = originSepIdx > 0 ? originHeader.substring(originSepIdx + 3) : originHeader
+            int originDomColonIdx = originDomain.indexOf(":")
+            if (originDomColonIdx > 0) originDomain = originDomain.substring(0, originDomColonIdx)
+            // if * allowed or Origin domain matches request domain always allow (same origin)
+            String serverName = request.getServerName()
+            URL requestUrl = new URL(request.getRequestURL().toString())
+            String hostName = requestUrl.getHost()
+            if (allowOriginSet.contains("*") || originDomain == serverName || originDomain == hostName) {
+                response.setHeader("Access-Control-Allow-Origin", originHeader)
+            } else {
+                if (allowOriginSet.contains(originHeader) || allowOriginSet.contains(originDomain)) {
+                    response.setHeader("Access-Control-Allow-Origin", originHeader)
+                } else {
+                    // no luck with simpler match, see if any configured domain matches by dot-separated segment
+                    // for example: moqui.org ==> 'org','moqui' so www.moqui.org ('org','moqui','www') will match but foo-moqui.org ('org','foo-moqui') will not
+                    boolean foundMatch = false
+                    for (String allowOrigin in allowOriginSet) {
+                        String[] originArray = originDomain.split("\\.").reverse()
+                        String[] allowArray = allowOrigin.split("\\.").reverse()
+                        // logger.warn("allowArray: ${allowArray} originArray: ${originArray}")
+                        boolean allMatched = true
+                        for (int i = 0; i < allowArray.length; i++) {
+                            if (allowArray[i] != originArray[i]) {
+                                allMatched = false
+                                break
+                            }
+                        }
+                        if (allMatched) {
+                            foundMatch = true
+                            break
+                        }
+                    }
+                    if (foundMatch) {
+                        response.setHeader("Access-Control-Allow-Origin", originHeader)
+                    } else {
+                        logger.warn("Returning 401, Origin ${originHeader} not allowed for configuration ${allowOriginSet} or server name ${serverName} or request host ${hostName}")
+                        // Origin not allowed, send 401 response
+                        // response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Origin not allowed")
+                        WebFacadeImpl.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Origin not allowed", null, request, response)
+                        return true
+                    }
+                }
+            }
+
+            String acRequestMethod = request.getHeader("Access-Control-Request-Method")
+            if ("OPTIONS".equals(request.getMethod()) && acRequestMethod != null && !acRequestMethod.isEmpty()) {
+                // String acRequestHeaders = request.getHeader("Access-Control-Request-Headers")
+                webappInfo.addHeaders("cors-preflight", response)
+                response.setStatus(HttpServletResponse.SC_OK)
+                return true
+            } else {
+                webappInfo.addHeaders("cors-actual", response)
+                return false
+            }
+        }
+
+        return false
+    }
+
     static void sendErrorResponse(HttpServletRequest request, HttpServletResponse response, int errorCode, String errorType,
             String message, Throwable origThrowable, ExecutionContextFactoryImpl ecfi, String moquiWebappName, ScreenRenderImpl sri) {
 
@@ -262,11 +297,7 @@ class MoquiServlet extends HttpServlet {
                 response.sendError(errorCode, message)
             }
         } else {
-            if (ec.web != null) {
-                ec.web.sendError(errorCode, message, origThrowable)
-            } else {
-                response.sendError(errorCode, message)
-            }
+            WebFacadeImpl.sendError(errorCode, message, origThrowable, request, response)
         }
     }
 

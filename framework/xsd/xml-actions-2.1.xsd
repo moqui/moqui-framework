@@ -137,6 +137,10 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:annotation><xs:documentation>Can be false to do nothing, true to send the service result or an
                     expression to run on the service result to get the object to send.</xs:documentation></xs:annotation>
             </xs:attribute>
+            <xs:attribute name="disable-authz" type="boolean" default="false">
+                <xs:annotation><xs:documentation>Disables checking authorization for this service call.
+                    Ignored for async service calls.</xs:documentation></xs:annotation>
+            </xs:attribute>
         </xs:complexType>
     </xs:element>
     <!-- tabled, adds little value, not likely to be implemented:
@@ -629,6 +633,7 @@ along with this software (see the LICENSE.md file). If not, see
         </xs:documentation></xs:annotation>
         <xs:complexType>
             <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="1" ref="search-form-inputs"/>
                 <xs:choice minOccurs="0" maxOccurs="unbounded">
                     <xs:element ref="date-filter"/>
                     <xs:element ref="econdition"/>

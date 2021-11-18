@@ -14,17 +14,6 @@
 package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
-import org.moqui.context.ArtifactExecutionInfo
-import org.moqui.context.AuthenticationRequiredException
-import org.moqui.entity.EntityCondition
-import org.moqui.impl.context.ArtifactExecutionInfoImpl.ArtifactAuthzCheck
-import org.moqui.impl.entity.EntityValueBase
-import org.moqui.impl.screen.ScreenUrlInfo
-import org.moqui.impl.util.MoquiShiroRealm
-import org.moqui.util.MNode
-import org.moqui.util.ObjectUtilities
-import org.moqui.util.StringUtilities
-import org.moqui.util.WebUtilities
 
 import javax.websocket.server.HandshakeRequest
 import java.sql.Timestamp
@@ -36,14 +25,25 @@ import javax.servlet.http.HttpSession
 import org.apache.shiro.authc.AuthenticationException
 import org.apache.shiro.authc.UsernamePasswordToken
 import org.apache.shiro.subject.Subject
+import org.apache.shiro.subject.support.DefaultSubjectContext
 import org.apache.shiro.web.subject.WebSubjectContext
 import org.apache.shiro.web.subject.support.DefaultWebSubjectContext
 import org.apache.shiro.web.session.HttpServletSession
 
+import org.moqui.context.ArtifactExecutionInfo
+import org.moqui.context.AuthenticationRequiredException
+import org.moqui.context.SecondFactorRequiredException
 import org.moqui.context.UserFacade
-import org.moqui.entity.EntityValue
+import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityList
-import org.apache.shiro.subject.support.DefaultSubjectContext
+import org.moqui.entity.EntityValue
+import org.moqui.impl.context.ArtifactExecutionInfoImpl.ArtifactAuthzCheck
+import org.moqui.impl.entity.EntityValueBase
+import org.moqui.impl.screen.ScreenUrlInfo
+import org.moqui.impl.util.MoquiShiroRealm
+import org.moqui.util.MNode
+import org.moqui.util.StringUtilities
+import org.moqui.util.WebUtilities
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -125,6 +125,7 @@ class UserFacadeImpl implements UserFacade {
                 if (oldSession != null) oldSession.invalidate()
                 this.session = request.getSession()
             } else {
+
                 // effectively login the user for framework (already logged in for session through Shiro)
                 pushUserSubject(webSubject)
                 if (logger.traceEnabled) logger.trace("For new request found user [${getUsername()}] in the session")
@@ -237,7 +238,7 @@ class UserFacadeImpl implements UserFacade {
                 Map<String, Object> parameters = new HashMap<String, Object>([sessionId:session.id, webappName:webappId,
                         fromDate:new Timestamp(session.getCreationTime()),
                         initialLocale:getLocale().toString(), initialRequest:fullUrl,
-                        initialReferrer:request.getHeader("Referrer")?:"",
+                        initialReferrer:request.getHeader("Referer")?:"",
                         initialUserAgent:curUserAgent,
                         clientHostName:request.getRemoteHost(), clientUser:request.getRemoteUser()])
 
@@ -635,12 +636,18 @@ class UserFacadeImpl implements UserFacade {
 
         UsernamePasswordToken token = new UsernamePasswordToken(username, password, true)
         // if there is a web session invalidate it so there is a new session for the login (prevent Session Fixation attacks)
-        if (eci.getWebImpl() != null) session = eci.getWebImpl().makeNewSession()
+        if (eci.getWebImpl() != null) eci.getWebImpl().makeNewSession()
 
         Subject loginSubject = makeEmptySubject()
         try {
             // do the actual login through Shiro
             loginSubject.login(token)
+
+            if (eci.web != null) {
+                // this ensures that after correctly logging in, a previously attempted login user's "Second Factor" screen isn't displayed
+                eci.web.sessionAttributes.remove("moquiAuthcFactorUsername")
+                eci.web.sessionAttributes.remove("moquiAuthcFactorRequired")
+            }
 
             // do this first so that the rest will be done as this user
             // just in case there is already a user authenticated push onto a stack to remember
@@ -651,14 +658,21 @@ class UserFacadeImpl implements UserFacade {
                 eci.getWebImpl().runAfterLoginActions()
                 eci.getWebImpl().getRequest().setAttribute("moqui.request.authenticated", "true")
             }
+        } catch (SecondFactorRequiredException ae) {
+            if (eci.web != null) {
+                // This makes the session realize the this user needs to verify login with an authentication factor
+                eci.web.sessionAttributes.put("moquiAuthcFactorUsername", username)
+                eci.web.sessionAttributes.put("moquiAuthcFactorRequired", "true")
+            }
+            return true
         } catch (AuthenticationException ae) {
             // others to consider handling differently (these all inherit from AuthenticationException):
             //     UnknownAccountException, IncorrectCredentialsException, ExpiredCredentialsException,
             //     CredentialsException, LockedAccountException, DisabledAccountException, ExcessiveAttemptsException
             eci.messageFacade.addError(ae.message)
+
             return false
         }
-
         return true
     }
 
@@ -707,6 +721,14 @@ class UserFacadeImpl implements UserFacade {
     }
 
     @Override void logoutUser() {
+        String userId = getUserId()
+        // if userId set hasLoggedOut
+        if (userId != null && !userId.isEmpty()) {
+            logger.info("Setting hasLoggedOut for user ${userId}")
+            eci.serviceFacade.sync().name("update", "moqui.security.UserAccount")
+                    .parameters([userId:userId, hasLoggedOut:"Y"]).disableAuthz().call()
+        }
+
         logoutLocal()
 
         // if there is a request and session invalidate and get new
@@ -714,14 +736,6 @@ class UserFacadeImpl implements UserFacade {
             HttpSession oldSession = request.getSession(false)
             if (oldSession != null) oldSession.invalidate()
             session = request.getSession()
-        }
-
-        String userId = getUserId()
-        // if userId set hasLoggedOut
-        if (userId != null && !userId.isEmpty()) {
-            logger.info("Setting hasLoggedOut for user ${userId}")
-            eci.serviceFacade.sync().name("update", "moqui.security.UserAccount")
-                    .parameters([userId:userId, hasLoggedOut:"Y"]).disableAuthz().call()
         }
     }
 
@@ -756,6 +770,9 @@ class UserFacadeImpl implements UserFacade {
         return internalLoginUser(userAccount.getString("username"))
     }
     @Override String getLoginKey() {
+        return getLoginKey(eci.ecfi.getLoginKeyExpireHours())
+    }
+    @Override String getLoginKey(float expireHours) {
         String userId = getUserId()
         if (!userId) throw new AuthenticationRequiredException("No active user, cannot get login key")
 
@@ -764,9 +781,8 @@ class UserFacadeImpl implements UserFacade {
 
         // save hashed in UserLoginKey, calc expire and set from/thru dates
         String hashedKey = eci.ecfi.getSimpleHash(loginKey, "", eci.ecfi.getLoginKeyHashType(), false)
-        int expireHours = eci.ecfi.getLoginKeyExpireHours()
         Timestamp fromDate = getNowTimestamp()
-        long thruTime = fromDate.getTime() + (expireHours * 60*60*1000)
+        long thruTime = fromDate.getTime() + Math.round(expireHours * 60*60*1000)
         eci.serviceFacade.sync().name("create", "moqui.security.UserLoginKey")
                 .parameters([loginKey:hashedKey, userId:userId, fromDate:fromDate, thruDate:new Timestamp(thruTime)])
                 .disableAuthz().requireNewTransaction(true).call()
@@ -968,7 +984,7 @@ class UserFacadeImpl implements UserFacade {
             EntityValueBase ua = (EntityValueBase) null
             if (username != null && username.length() > 0) {
                 ua = (EntityValueBase) ufi.eci.getEntity().find("moqui.security.UserAccount")
-                        .condition("username", username).useCache(true).disableAuthz().one()
+                        .condition("username", username).useCache(false).disableAuthz().one()
             }
             if (ua != null) {
                 userAccount = ua

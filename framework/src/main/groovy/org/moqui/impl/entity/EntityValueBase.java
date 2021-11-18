@@ -66,6 +66,7 @@ public abstract class EntityValueBase implements EntityValue {
     protected transient LiteStringMap<Object> dbValueMap = null;
     protected transient LiteStringMap<Object> oldDbValueMap = null;
     private transient Map<String, Map<String, String>> localizedByLocaleByField = null;
+    private transient Set<String> touchedFields = null;
 
     private transient boolean modified = false;
     private transient boolean mutable = true;
@@ -159,6 +160,7 @@ public abstract class EntityValueBase implements EntityValue {
     private boolean isFieldModifiedIString(String name) {
         int valueMapIdx = valueMapInternal.findIndexIString(name);
         if (valueMapIdx == -1) return false;
+        if (touchedFields != null && touchedFields.contains(name)) return true;
 
         if (dbValueMap == null) return true;
         int dbIdx = dbValueMap.findIndexIString(name);
@@ -175,6 +177,13 @@ public abstract class EntityValueBase implements EntityValue {
         Object dbValue = dbValueMap.get(name);
         return (valueMapValue == null && dbValue != null) || (valueMapValue != null && !valueMapValue.equals(dbValue));
         */
+    }
+    @Override public EntityValue touchField(String name) {
+        if (!getEntityDefinition().isField(name)) throw new IllegalArgumentException("Cannot touch field name " + name + ", does not exist on entity " + entityName);
+        modified = true;
+        if (touchedFields == null) touchedFields = new HashSet<>();
+        touchedFields.add(name);
+        return this;
     }
 
     @Override public boolean isFieldSet(String name) { return valueMapInternal.containsKey(name); }
@@ -698,13 +707,27 @@ public abstract class EntityValueBase implements EntityValue {
                 LinkedHashMap<String, Object> parms = new LinkedHashMap<>();
                 parms.put("changedEntityName", getEntityName());
                 parms.put("changedFieldName", fieldName);
-                parms.put("newValueText", ObjectUtilities.toPlainString(value));
                 if (changeReason != null) parms.put("changeReason", changeReason);
                 parms.put("changedDate", nowTimestamp);
                 parms.put("changedByUserId", ec.getUser().getUserId());
                 parms.put("changedInVisitId", ec.getUser().getVisitId());
                 parms.put("artifactStack", stackNameString);
-                if (oldValue != null) parms.put("oldValueText", ObjectUtilities.toPlainString(oldValue));
+
+                // prep values, encrypt if needed
+                if (value != null) {
+                    String newValueText = ObjectUtilities.toPlainString(value);
+                    if (fieldInfo.encrypt) newValueText = EntityJavaUtil.enDeCrypt(newValueText, true, ec.getEntityFacade());
+                    if (newValueText.length() > 4000) newValueText = newValueText.substring(0, 4000);
+                    parms.put("newValueText", newValueText);
+                }
+                if (oldValue != null) {
+                    String oldValueText = ObjectUtilities.toPlainString(oldValue);
+                    if (fieldInfo.encrypt) oldValueText = EntityJavaUtil.enDeCrypt(oldValueText, true, ec.getEntityFacade());
+                    if (oldValueText.length() > 4000) oldValueText = oldValueText.substring(0, 4000);
+                    parms.put("oldValueText", oldValueText);
+                }
+
+                // set all pk fields by name to support EntityAuditLog extensions for specific pk fields, will usually all get ignored
                 parms.putAll(pksValueMap);
 
                 // logger.warn("TOREMOVE: in handleAuditLog for [${ed.entityName}.${fieldName}] value=[${value}], oldValue=[${oldValue}], oldValues=[${oldValues}]", new Exception("AuditLog location"))

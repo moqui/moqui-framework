@@ -51,6 +51,7 @@ class TransactionFacadeImpl implements TransactionFacade {
     protected boolean useTransactionCache = true
     protected boolean useConnectionStash = true
     protected boolean useLockTrack = false
+    protected boolean useStatementTimeout = false
 
     private ThreadLocal<TxStackInfo> txStackInfoCurThread = new ThreadLocal<TxStackInfo>()
     private ThreadLocal<LinkedList<TxStackInfo>> txStackInfoListThread = new ThreadLocal<LinkedList<TxStackInfo>>()
@@ -63,6 +64,7 @@ class TransactionFacadeImpl implements TransactionFacade {
         MNode transactionFacadeNode = ecfi.getConfXmlRoot().first("transaction-facade")
         transactionFacadeNode.setSystemExpandAttributes(true)
         useLockTrack = "true".equals(transactionFacadeNode.attribute("use-lock-track"))
+        useStatementTimeout = "true".equals(transactionFacadeNode.attribute("use-statement-timeout"))
 
         if (transactionFacadeNode.hasChild("transaction-jndi")) {
             this.populateTransactionObjectsJndi()
@@ -126,6 +128,7 @@ class TransactionFacadeImpl implements TransactionFacade {
     }
 
     boolean getUseLockTrack() { return useLockTrack }
+    boolean getUseStatementTimeout() { return useStatementTimeout }
 
     TransactionInternal getTransactionInternal() { return transactionInternal }
     TransactionManager getTransactionManager() { return tm }
@@ -319,6 +322,14 @@ class TransactionFacadeImpl implements TransactionFacade {
         return curStatus == Status.STATUS_ACTIVE || curStatus == Status.STATUS_NO_TRANSACTION
     }
 
+    int getTransactionTimeout() { return getTxStackInfo().transactionTimeout }
+    long getTxTimeoutRemainingMillis() {
+        TxStackInfo txStackInfo = getTxStackInfo()
+        long txTimeoutMs = txStackInfo.transactionTimeout * 1000L
+        long txSinceBeginMs = txStackInfo.transactionBeginStartTime != null ? System.currentTimeMillis() - txStackInfo.transactionBeginStartTime : 0L
+        return txSinceBeginMs > 0 ? txTimeoutMs - txSinceBeginMs : txTimeoutMs
+    }
+
     @Override
     boolean begin(Integer timeout) {
         int currentStatus = ut.getStatus()
@@ -350,6 +361,7 @@ class TransactionFacadeImpl implements TransactionFacade {
             TxStackInfo txStackInfo = getTxStackInfo()
             txStackInfo.transactionBegin = new Exception("Tx Begin Placeholder")
             txStackInfo.transactionBeginStartTime = System.currentTimeMillis()
+            if (timeout != null) txStackInfo.transactionTimeout = timeout
             // logger.warn("================ begin TX, getActiveSynchronizationStack()=${getActiveSynchronizationStack()}")
 
             if (txStackInfo.txCache != null) logger.warn("Begin TX, tx cache is not null!")

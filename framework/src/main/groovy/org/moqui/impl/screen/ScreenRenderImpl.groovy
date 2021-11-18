@@ -1,12 +1,12 @@
 /*
  * This software is in the public domain under CC0 1.0 Universal plus a
  * Grant of Patent License.
- * 
+ *
  * To the extent possible under law, the author(s) have dedicated all
  * copyright and related and neighboring rights to this software to the
  * public domain worldwide. This software is distributed without any
  * warranty.
- * 
+ *
  * You should have received a copy of the CC0 Public Domain Dedication
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
@@ -210,6 +210,8 @@ class ScreenRenderImpl implements ScreenRender {
                 response.setStatus(HttpServletResponse.SC_RESET_CONTENT)
             } else {
                 if (logger.isInfoEnabled()) logger.info("Redirecting to ${redirectUrl} instead of rendering ${this.getScreenUrlInfo().getFullPathNameList()}")
+                // add Cache-Control: no-store header since this is often in actions after screen render has started and a Cache-Control header has been set, so replace it here
+                response.setHeader("Cache-Control", "no-store")
                 response.sendRedirect(redirectUrl)
             }
             dontDoRender = true
@@ -303,6 +305,24 @@ class ScreenRenderImpl implements ScreenRender {
         // NOTE: this should allow override of parameters along with a formListFindId while defaulting to configured ones,
         //     but is far from ideal in detecting whether configured parms should be used
         String formListFindId = ec.contextStack.getByString("formListFindId")
+        if ((formListFindId == null || formListFindId.isEmpty()) && screenUrlInfo.targetScreen != null) {
+            // get user's default saved find if there is one
+            String userId = ec.userFacade.getUserId()
+            if (userId != null) {
+                EntityValue formListFindUserDefault = ec.entityFacade.find("moqui.screen.form.FormListFindUserDefault")
+                        .condition("userId", userId).condition("screenLocation", screenUrlInfo.targetScreen.location)
+                        .disableAuthz().useCache(true).one()
+                if (formListFindUserDefault != null) {
+                    formListFindId = (String) formListFindUserDefault.get("formListFindId")
+                    ec.contextStack.put("formListFindId", formListFindId)
+                }
+            }
+        }
+        if ("_clear".equals(formListFindId)) {
+            formListFindId = null
+            ec.contextStack.put("formListFindId", null)
+            if (web != null) web.requestParameters.put("formListFindId", "")
+        }
         if (formListFindId != null && !formListFindId.isEmpty()) {
             Set<String> targetScreenParmNames = screenUrlInfo.targetScreen?.getParameterMap()?.keySet()
             Map<String, String> flfParameters = ScreenForm.makeFormListFindParameters(formListFindId, ec)
@@ -334,6 +354,21 @@ class ScreenRenderImpl implements ScreenRender {
 
             // add URL parameters, if there were any in the URL (in path info or after ?)
             screenUrlInstance.addParameters(web.requestParameters)
+
+            // check for pageSize parameter, if set save in current user's preference, if not look up from user pref
+            if (ec.userFacade.userId != null) {
+                String pageSize = web.requestParameters.get("pageSize")
+                String userPageSize = ec.userFacade.getPreference("screen.user.page.size")
+                if (pageSize != null && pageSize.isInteger()) {
+                    if (!pageSize.equals(userPageSize))
+                        ec.userFacade.setPreference("screen.user.page.size", pageSize)
+                } else {
+                    if (userPageSize != null && userPageSize.isInteger()) {
+                        // don't add to parameters, just set internally: web.requestParameters.put("pageSize", userPageSize)
+                        ec.contextStack.put("pageSize", userPageSize)
+                    }
+                }
+            }
         }
 
         // check webapp settings for each screen in the path
@@ -399,9 +434,9 @@ class ScreenRenderImpl implements ScreenRender {
                     String curToken = ec.web.getSessionToken()
                     if (curToken != null && curToken.length() > 0) {
                         if (passedToken == null || passedToken.length() == 0) {
-                            throw new AuthenticationRequiredException("Session token required (in moquiSessionToken) for URL ${screenUrlInstance.url}")
+                            throw new AuthenticationRequiredException("Session token required (in X-CSRF-Token) for URL ${screenUrlInstance.url}")
                         } else if (!curToken.equals(passedToken)) {
-                            throw new AuthenticationRequiredException("Session token does not match (in moquiSessionToken) for URL ${screenUrlInstance.url}")
+                            throw new AuthenticationRequiredException("Session token does not match (in X-CSRF-Token) for URL ${screenUrlInstance.url}")
                         }
                     }
                 }
@@ -1206,6 +1241,8 @@ class ScreenRenderImpl implements ScreenRender {
         return ""
     }
 
+    /** If isTemplateStr != "false" then render a template using renderer based on location extension,
+     * or if no rendered found use isTemplateStr as an extension (like "ftl"), and if no template renderer found just write the text */
     String renderText(String location, String isTemplateStr) {
         boolean isTemplate = !"false".equals(isTemplateStr)
 
@@ -1218,9 +1255,12 @@ class ScreenRenderImpl implements ScreenRender {
             // NOTE: run templates with their own variable space so we can add sri, and avoid getting anything added from within
             ContextStack cs = (ContextStack) ec.context
             cs.push()
-            cs.put("sri", this)
-            sfi.ecfi.resourceFacade.template(location, writer)
-            cs.pop()
+            try {
+                cs.put("sri", this)
+                ec.resourceFacade.template(location, writer, isTemplateStr)
+            } finally {
+                cs.pop()
+            }
             writer.flush()
             // NOTE: this returns a String so that it can be used in an FTL interpolation, but it always writes to the writer
             return ""
@@ -1680,7 +1720,12 @@ class ScreenRenderImpl implements ScreenRender {
                     logger.warn("Screen ${activeScreenDef.getScreenName()} field ${fieldName} conditional-field has no condition, skipping")
                     continue
                 }
-                if (ec.resourceFacade.condition(condition, null)) activeSubNode = condFieldNode
+                // logger.warn("condition ${condition}, eval: ${ec.resourceFacade.condition(condition, null)}")
+                if (ec.resourceFacade.condition(condition, null)) {
+                    activeSubNode = condFieldNode
+                    // use first conditional-field with passing condition
+                    break
+                }
             }
             if (activeSubNode == null) activeSubNode = fieldNode.first("default-field")
         }
@@ -1714,7 +1759,37 @@ class ScreenRenderImpl implements ScreenRender {
                 valuePlainString = valuePlainString.substring(1, valuePlainString.length() - 1).replaceAll(" ", "")
             String[] currentValueArr = valuePlainString != null && !valuePlainString.isEmpty() ? valuePlainString.split(",") : null
 
-            if ("drop-down".equals(widgetName)) {
+            if ("display".equals(widgetName)) {
+                // primary value is for hidden field only, otherwise add nothing (display only)
+                String alsoHidden = widgetNode.attribute("also-hidden")
+                if (alsoHidden == null || alsoHidden.isEmpty() || "true".equals(alsoHidden))
+                    fieldValues.put(fieldName, valuePlainString)
+
+                // display value, reproduce logic that was in the ftl display macro
+                String fieldValue = (String) null
+                String textAttr = widgetNode.attribute("text")
+                String currencyAttr = widgetNode.attribute("currency-unit-field")
+                if (textAttr != null && ! textAttr.isEmpty()) {
+                    String textMapAttr = widgetNode.attribute("text-map")
+                    Map textMap = (Map) null
+                    if (textMapAttr != null && !textMapAttr.isEmpty())
+                        textMap = (Map) ec.resourceFacade.expression(textMapAttr, null)
+                    if (textMap != null && textMap.size() > 0) {
+                        fieldValue = ec.resourceFacade.expand(textAttr, null, textMap)
+                    } else {
+                        fieldValue = ec.resourceFacade.expand(textAttr, null)
+                    }
+                    if (currencyAttr != null && !currencyAttr.isEmpty())
+                        fieldValue = ec.l10nFacade.formatCurrency(fieldValue, ec.resourceFacade.expression(currencyAttr, null) as String)
+                } else if (currencyAttr != null && !currencyAttr.isEmpty()) {
+                    fieldValue = ec.l10nFacade.formatCurrency(getFieldValue(fieldNode, ""), ec.resourceFacade.expression(currencyAttr, null) as String)
+                } else {
+                    fieldValue = getFieldValueString(widgetNode)
+                }
+                fieldValues.put(fieldName + "_display", fieldValue)
+
+                // TODO: handle dynamic-transition attribute for initial value, and dynamic on client side too
+            } else if ("drop-down".equals(widgetName)) {
                 boolean allowMultiple = "true".equals(ec.resourceFacade.expandNoL10n(widgetNode.attribute("allow-multiple"), null))
                 if (allowMultiple) {
                     fieldValues.put(fieldName, currentValueArr != null ? new ArrayList(Arrays.asList(currentValueArr)) : null)
@@ -1753,36 +1828,6 @@ class ScreenRenderImpl implements ScreenRender {
                 String type = widgetNode.attribute("type")
                 String javaFormat = "date".equals(type) ? "yyyy-MM-dd" : ("time".equals(type) ? "HH:mm" : "yyyy-MM-dd HH:mm")
                 fieldValues.put(fieldName, getFieldValueString(fieldNode, widgetNode.attribute("default-value"), javaFormat))
-            } else if ("display".equals(widgetName)) {
-                // primary value is for hidden field only, otherwise add nothing (display only)
-                String alsoHidden = widgetNode.attribute("also-hidden")
-                if (alsoHidden == null || alsoHidden.isEmpty() || "true".equals(alsoHidden))
-                    fieldValues.put(fieldName, valuePlainString)
-
-                // display value, reproduce logic that was in the ftl display macro
-                String fieldValue = (String) null
-                String textAttr = widgetNode.attribute("text")
-                String currencyAttr = widgetNode.attribute("currency-unit-field")
-                if (textAttr != null && ! textAttr.isEmpty()) {
-                    String textMapAttr = widgetNode.attribute("text-map")
-                    Map textMap = (Map) null
-                    if (textMapAttr != null && !textMapAttr.isEmpty())
-                        textMap = (Map) ec.resourceFacade.expression(textMapAttr, null)
-                    if (textMap != null && textMap.size() > 0) {
-                        fieldValue = ec.resourceFacade.expand(textAttr, null, textMap)
-                    } else {
-                        fieldValue = ec.resourceFacade.expand(textAttr, null)
-                    }
-                    if (currencyAttr != null && !currencyAttr.isEmpty())
-                        fieldValue = ec.l10nFacade.formatCurrency(fieldValue, ec.resourceFacade.expression(currencyAttr, null) as String)
-                } else if (currencyAttr != null && !currencyAttr.isEmpty()) {
-                    fieldValue = ec.l10nFacade.formatCurrency(getFieldValue(fieldNode, ""), ec.resourceFacade.expression(currencyAttr, null) as String)
-                } else {
-                    fieldValue = getFieldValueString(widgetNode)
-                }
-                fieldValues.put(fieldName + "_display", fieldValue)
-
-                // TODO: handle dynamic-transition attribute for initial value, and dynamic on client side too
             } else if ("display-entity".equals(widgetName)) {
                 // primary value is for hidden field only, otherwise add nothing (display only)
                 String alsoHidden = widgetNode.attribute("also-hidden")
@@ -1818,7 +1863,7 @@ class ScreenRenderImpl implements ScreenRender {
                 String icValue = ec.contextStack.getByString(icName)
                 if ((icValue == null || icValue.isEmpty()) && (icAttr == null || icAttr.isEmpty() || icAttr.equals("true"))) icValue = "Y"
                 fieldValues.put(icName, icValue ?: "N")
-            } else {
+            } else if (!"submit".equals(widgetName) && !"link".equals(widgetName)) {
                 // unknown/other type
                 fieldValues.put(fieldName, valuePlainString)
             }
@@ -2104,6 +2149,16 @@ class ScreenRenderImpl implements ScreenRender {
         EntityFacadeImpl entityFacade = sfi.ecfi.entityFacade
         // see if there is a user setting for the theme
         String themeId = entityFacade.fastFindOne("moqui.security.UserScreenTheme", true, true, ec.userFacade.userId, stteId)?.screenThemeId
+        // if no user theme see if group a user is in has a theme
+        if (themeId == null || themeId.length() == 0) {
+            // use reverse alpha so ALL_USERS goes last...
+            List<String> userGroupIdSet = new ArrayList(new TreeSet(ec.user.getUserGroupIdSet())).reverse(true)
+            EntityList groupThemeList = entityFacade.find("moqui.security.UserGroupScreenTheme")
+                    .condition("userGroupId", "in", userGroupIdSet).condition("screenThemeTypeEnumId", stteId)
+                    .orderBy("sequenceNum,-userGroupId").useCache(true).disableAuthz().list()
+            if (groupThemeList.size() > 0) themeId = groupThemeList.first().screenThemeId
+        }
+
         // use the Enumeration.enumCode from the type to find the theme type's default screenThemeId
         if (themeId == null || themeId.length() == 0) {
             EntityValue themeTypeEnum = entityFacade.fastFindOne("moqui.basic.Enumeration", true, true, stteId)
@@ -2212,10 +2267,16 @@ class ScreenRenderImpl implements ScreenRender {
             curScreen = ec.screenFacade.getScreenDefinition(curSsi.location)
 
             List<Map> subscreensList = new LinkedList<>()
-            ArrayList<SubscreensItem> menuItems = curScreen.getMenuSubscreensItems()
+            ArrayList<SubscreensItem> menuItems = curScreen.getSubscreensItemsSorted()
             int menuItemsSize = menuItems.size()
             for (int j = 0; j < menuItemsSize; j++) {
                 SubscreensItem subscreensItem = (SubscreensItem) menuItems.get(j)
+
+                // include active subscreen even if not normally in menu
+                if (!subscreensItem.menuInclude && subscreensItem.name != nextItem) continue
+                // valid in current context? (user group, etc)
+                if (!subscreensItem.isValidInCurrentContext()) continue
+
                 String screenPath = new StringBuilder(currentPath).append('/').append(StringUtilities.urlEncodeIfNeeded(subscreensItem.name)).toString()
                 UrlInstance screenUrlInstance = buildUrl(screenPath)
                 ScreenUrlInfo sui = screenUrlInstance.sui
@@ -2281,12 +2342,36 @@ class ScreenRenderImpl implements ScreenRender {
         if (lastTitle.contains('${')) lastTitle = ec.resourceFacade.expand(lastTitle, "")
         List<Map<String, Object>> screenDocList = fullUrlInfo.targetScreen.getScreenDocumentInfoList()
 
+        // look for form-list with saved find on target screen, if so look for saved finds available to user to display in menu
+        List<Map> savedFindsList = new LinkedList<>()
+        ScreenDefinition targetScreen = fullUrlInfo.getTargetScreen()
+        ArrayList<ScreenForm> formList = targetScreen.getAllForms()
+        for (int i = 0; i < formList.size(); i++) {
+            ScreenForm screenForm = (ScreenForm) formList.get(i)
+            if (screenForm.isFormList && "true".equals(screenForm.internalFormNode.attribute("saved-finds"))) {
+                // is a saved find active (or has default)?
+                String formListFindId = ec.contextStack.getByString("formListFindId")
+                if (formListFindId == null || formListFindId.isEmpty()) formListFindId = screenForm.getUserDefaultFormListFindId(ec)
+
+                // add data for saved finds
+                List<Map<String, Object>> userFlfList = screenForm.getUserFormListFinds(ec)
+                for (Map<String, Object> userFlf in userFlfList) {
+                    EntityValue formListFind = (EntityValue) userFlf.formListFind
+                    Map itemMap = [name:formListFind.formListFindId, title:formListFind.description, image:lastImage, imageType:lastImageType,
+                            path:lastPath, pathWithParams:(lastPath + "?formListFindId=" + formListFind.formListFindId)]
+                    if (formListFindId != null && formListFindId.equals(formListFind.formListFindId)) itemMap.active = true
+                    savedFindsList.add(itemMap)
+                }
+            }
+        }
+
         if (extraPathList != null) {
             int extraPathListSize = extraPathList.size()
             for (int i = 0; i < extraPathListSize; i++) extraPathList.set(i, StringUtilities.urlEncodeIfNeeded((String) extraPathList.get(i)))
         }
-        Map lastMap = [name:lastPathItem, title:lastTitle, path:lastPath, pathWithParams:currentPath.toString(), image:lastImage, imageType:lastImageType,
-                extraPathList:extraPathList, screenDocList:screenDocList, renderModes:fullUrlInfo.targetScreen.renderModes]
+        Map lastMap = [name:lastPathItem, title:lastTitle, path:lastPath, pathWithParams:currentPath.toString(),
+                image:lastImage, imageType:lastImageType, extraPathList:extraPathList, screenDocList:screenDocList,
+                renderModes:fullUrlInfo.targetScreen.renderModes, savedFinds:savedFindsList]
         menuDataList.add(lastMap)
         // not needed: screenStatic:fullUrlInfo.targetScreen.isServerStatic(renderMode)
 

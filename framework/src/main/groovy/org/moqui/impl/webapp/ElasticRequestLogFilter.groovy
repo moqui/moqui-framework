@@ -130,9 +130,13 @@ class ElasticRequestLogFilter implements Filter {
 
         if (clientIpAddress != null) {
             clientIpAddress = clientIpAddress.trim()
-            if (clientIpAddress.charAt(0) == (char) '[') clientIpAddress = clientIpAddress.substring(1)
-            if (clientIpAddress.charAt(clientIpAddress.length() - 1) == (char) ']') clientIpAddress = clientIpAddress.substring(0, clientIpAddress.length() - 1)
-            clientIpAddress = clientIpAddress.trim()
+            if (!clientIpAddress.isEmpty()) {
+                if (clientIpAddress.charAt(0) == (char) '[')
+                    clientIpAddress = clientIpAddress.substring(1)
+                if (clientIpAddress.charAt(clientIpAddress.length() - 1) == (char) ']')
+                    clientIpAddress = clientIpAddress.substring(0, clientIpAddress.length() - 1)
+                clientIpAddress = clientIpAddress.trim()
+            }
         }
 
         // IPv6 addresses have square braces but ElasticSearch doesn't like them, so if there are any get rid of them
@@ -156,7 +160,7 @@ class ElasticRequestLogFilter implements Filter {
                 request_method:request.getMethod(), request_scheme:request.getScheme(), request_host:request.getServerName(),
                 request_path:request.getRequestURI(), request_query:request.getQueryString(), http_version:httpVersion,
                 response:response.getStatus(), time_initial_ms:initialTime, time_final_ms:finalTime, bytes:written,
-                referrer:request.getHeader("Referrer"), agent:request.getHeader("User-Agent"),
+                referrer:request.getHeader("Referer"), agent:request.getHeader("User-Agent"),
                 session:session?.getId(), visitor_id:session?.getAttribute("moqui.visitorId")]
         requestLogQueue.add(reqMap)
         // logger.info("${request.getMethod()} ${request.getRequestURI()} - ${response.getStatus()} ${finalTime}ms ${written}b asyncs ${request.isAsyncStarted()}\n${reqMap}")

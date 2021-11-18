@@ -15,7 +15,7 @@ package org.moqui.impl.service;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
-import org.jsoup.safety.Whitelist;
+import org.jsoup.safety.Safelist;
 import org.moqui.util.MClassLoader;
 import org.moqui.impl.context.ExecutionContextImpl;
 import org.moqui.util.MNode;
@@ -56,7 +56,7 @@ public class ParameterInfo {
     public final MNode parameterNode;
     public final String name, type, format;
     public final ParameterType parmType;
-    public final Class parmClass;
+    public final Class<?> parmClass;
 
     public final String entityName, fieldName;
     public final String defaultStr, defaultValue;
@@ -225,13 +225,12 @@ public class ParameterInfo {
         return converted;
     }
 
-    @SuppressWarnings("unchecked")
     Object validateParameterHtml(String namePrefix, Object parameterValue, boolean isString, ExecutionContextImpl eci) {
         // check for none/safe/any HTML
         if (isString) {
             return canonicalizeAndCheckHtml(sd, namePrefix, (String) parameterValue, eci);
         } else {
-            Collection lst = (Collection) parameterValue;
+            Collection<?> lst = (Collection<?>) parameterValue;
             ArrayList<Object> lstClone = new ArrayList<>(lst);
             int lstSize = lstClone.size();
             for (int i = 0; i < lstSize; i++) {
@@ -270,7 +269,7 @@ public class ParameterInfo {
 
         if (indexOfLessThan >= 0) {
             if (allowSafe) {
-                return Jsoup.clean(parameterValue, "", Whitelist.relaxed(), outputSettings);
+                return Jsoup.clean(parameterValue, "", Safelist.relaxed(), outputSettings);
             } else {
                 // check for "<"; this will protect against HTML/JavaScript injection
                 eci.getMessage().addValidationError(null, namePrefix + name, sd.serviceName, eci.getL10n().localize("HTML not allowed including less-than (<), greater-than (>), etc symbols"), null);

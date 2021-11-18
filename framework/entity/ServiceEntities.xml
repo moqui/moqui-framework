@@ -53,13 +53,14 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="repeatCount" type="number-integer"><description>If specified only run this many times. Must specify
             a cronExpression for the job to repeat. When this count is reached thruDate will be set to now and paused set to Y.
             Ignored for ad-hoc/explicit runs.</description></field>
-        <field name="paused" type="text-indicator"><description>If Y this job is inactive and won't be run on a schedule
-            even if cronExpression is not null. Ignored for ad-hoc/explicit runs.</description></field>
+        <field name="paused" type="text-indicator" enable-audit-log="update"><description>If Y this job is inactive and won't be
+            run on a schedule even if cronExpression is not null. Ignored for ad-hoc/explicit runs.</description></field>
         <field name="expireLockTime" type="number-integer"><description>Ignore lock and run anyway after this many
             minutes. This should generally be much greater than the longest time the service is expected to run. This is
             the mechanism for recovering jobs after a run failed in a way that did not clean up the ServiceJobRunLock
             record. Defaults to 24 hours (1440 minutes) to make sure jobs get recovered.</description></field>
-        <field name="minRetryTime" type="number-integer"><description></description></field>
+        <field name="minRetryTime" type="number-integer">
+            <description>Minimum time between retries after an error (based on most recent ServiceJobRun record), in minutes</description></field>
 
         <relationship type="one-nofk" related="moqui.security.user.NotificationTopic"/>
         <relationship type="many" related="moqui.service.job.ServiceJobParameter" short-alias="parameters"/>
@@ -172,6 +173,9 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="docVersion" type="text-short"><description>The document version (for OAGIS BSR Revision, for X12
             GS08 (version/revision))</description></field>
 
+        <field name="triggerVisitId" type="id"><description>Active visit when SystemMessage triggered (mainly produced) to track
+            the user who did so; independent of the message transport which could have separate remote system and other Visit-like data.</description></field>
+
         <!-- the follow may be useful for other types of messages, but come specifically from the OAGIS specification;
             leave out for now, senderId and messageId with combined fields may be adequate and are more generic
         <field name="logicalId" type="text-medium"/>
@@ -188,6 +192,8 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="parentMessageId" related="systemMessageId"/></relationship>
         <relationship type="one" title="Ack" related="moqui.service.message.SystemMessage" short-alias="ackMessage">
             <key-map field-name="ackMessageId" related="systemMessageId"/></relationship>
+        <relationship type="one" title="Trigger" related="moqui.server.Visit" short-alias="triggerVisit">
+            <key-map field-name="triggerVisitId"/></relationship>
 
         <relationship type="many" related="moqui.service.message.SystemMessageError" short-alias="errors">
             <key-map field-name="systemMessageId"/></relationship>
@@ -302,13 +308,13 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="SystemMessageRemote" package="moqui.service.message" use="configuration" cache="true">
         <field name="systemMessageRemoteId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
-        <field name="sendUrl" type="text-medium"/>
-        <field name="receiveUrl" type="text-medium"/>
+        <field name="sendUrl" type="text-medium" enable-audit-log="update"/>
+        <field name="receiveUrl" type="text-medium" enable-audit-log="update"/>
         <field name="remoteCharset" type="text-short"/>
         <field name="remoteAttributes" type="text-indicator"><description>May be useful for other transports, for SFTP servers
             that do not support setting file attributes after put/upload set to N</description></field>
         <field name="sendServiceName" type="text-medium"><description>Override for SystemMessageType.sendServiceName</description></field>
-        <field name="username" type="text-medium"><description>
+        <field name="username" type="text-medium" enable-audit-log="update"><description>
             Username for basic auth when sending to the remote system.
             This user needs permission to run the remote service or whatever on the remote system receives the message.
 
@@ -316,15 +322,19 @@ along with this software (see the LICENSE.md file). If not, see
             service, ie the user should be in a group that has authz for the SystemMessageServices ArtifactGroup such as the
             SYSMSG_RECEIVE user group (see SecurityTypeData.xml).
         </description></field>
-        <field name="password" type="text-medium" encrypt="true">
+        <field name="password" type="text-medium" encrypt="true" enable-audit-log="update">
             <description>Username for basic auth when sending to the remote system.</description></field>
-        <field name="publicKey" type="text-long">
+        <field name="publicKey" type="text-long" enable-audit-log="update">
             <description>Public Key for key based authentication, generally RSA PEM format</description></field>
-        <field name="privateKey" type="text-long" encrypt="true">
+        <field name="privateKey" type="text-long" encrypt="true" enable-audit-log="update">
             <description>Private Key for key based authentication, generally RSA PEM PKCS #8 format like OpenSSH</description></field>
+        <field name="remotePublicKey" type="text-long" enable-audit-log="update">
+            <description>Remote System's Public Key for decryption, signature validation, etc; generally RSA PEM or X.509 Certificate format</description></field>
         <!-- potential future use, restrict receive message: <field name="authorizedIpAddresses" type="text-medium"/> -->
-        <field name="sharedSecret" type="text-medium" encrypt="true"><description>Shared secret for auth on receive and/or sign on send.</description></field>
-        <field name="sendSharedSecret" type="text-medium" encrypt="true"><description>Shared secret for auth on send if different from secret used to authorize on receive.</description></field>
+        <field name="sharedSecret" type="text-medium" encrypt="true" enable-audit-log="update">
+            <description>Shared secret for auth on receive and/or sign on send.</description></field>
+        <field name="sendSharedSecret" type="text-medium" encrypt="true" enable-audit-log="update">
+            <description>Shared secret for auth on send if different from secret used to authorize on receive.</description></field>
         <field name="authHeaderName" type="text-medium"/>
         <field name="messageAuthEnumId" type="id"/>
         <field name="sendAuthEnumId" type="id"><description>If send and receive auth mechanisms are different specify send auth method here</description></field>
@@ -332,13 +342,13 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="systemMessageTypeId" type="id"><description>Optional. May be used when this remote is for one
             type of message.</description></field>
         <!-- for incoming message internal is the receiver, remote the sender; for outgoing messages internal is the sender, remote the receiver -->
-        <field name="internalId" type="text-short"><description>Sender (outgoing) or receiver (incoming) ID (EDI: in
-            ISA06/08; OAGIS in ApplicationArea.Sender/Receiver.ID)</description></field>
+        <field name="internalId" type="text-short" enable-audit-log="update">
+            <description>Sender (outgoing) or receiver (incoming) ID (EDI: in ISA06/08; OAGIS in ApplicationArea.Sender/Receiver.ID)</description></field>
         <field name="internalIdType" type="text-short"/>
         <field name="internalAppCode" type="text-medium"><description>Application code (EDI: in GS02/03; OAGIS: in
             ApplicationArea.Sender/Receiver elements, split among sub-elements)</description></field>
-        <field name="remoteId" type="text-short"><description>Sender (incoming) or receiver (outgoing) ID (EDI: in
-            ISA06/08; OAGIS in ApplicationArea.Sender/Receiver.ID)</description></field>
+        <field name="remoteId" type="text-short" enable-audit-log="update">
+            <description>Sender (incoming) or receiver (outgoing) ID (EDI: in ISA06/08; OAGIS in ApplicationArea.Sender/Receiver.ID)</description></field>
         <field name="remoteIdType" type="text-short"/>
         <field name="remoteAppCode" type="text-medium"><description>Application code (EDI: in GS02/03; OAGIS: in
             ApplicationArea.Sender/Receiver elements, split among sub-elements)</description></field>

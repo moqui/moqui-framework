@@ -91,19 +91,25 @@ class ScheduledJobRunner implements Runnable {
         try {
             // make sure no transaction is in place, shouldn't be any so try to commit if there is one
             if (ecfi.transactionFacade.isTransactionInPlace()) {
-                logger.warn("Found transaction in place in ServiceJobRunner thread, trying to commit")
-                ecfi.transactionFacade.commit()
+                logger.error("Found transaction in place in ScheduledJobRunner thread ${Thread.currentThread().getName()}, trying to commit")
+                try {
+                    ecfi.transactionFacade.destroyAllInThread()
+                } catch (Exception e) {
+                    logger.error("ScheduledJobRunner commit in place transaction failed for thread ${Thread.currentThread().getName()}", e)
+                }
             }
 
             // find scheduled jobs
-            EntityList serviceJobList = efi.find("moqui.service.job.ServiceJob").useCache(true)
-                    .condition("cronExpression", EntityCondition.ComparisonOperator.NOT_EQUAL, null).list()
+            EntityList serviceJobList = efi.find("moqui.service.job.ServiceJob").useCache(false)
+                    .condition("cronExpression", EntityCondition.ComparisonOperator.NOT_EQUAL, null)
+                    .orderBy("jobName").list()
             serviceJobList.filterByDate("fromDate", "thruDate", nowTimestamp)
             int serviceJobListSize = serviceJobList.size()
             for (int i = 0; i < serviceJobListSize; i++) {
                 EntityValue serviceJob = (EntityValue) serviceJobList.get(i)
                 String jobName = (String) serviceJob.jobName
-                if ("Y".equals(serviceJob.paused)) {
+                // a job is ACTIVE if the paused field is null or 'N', so skip for any other value for paused (Y, T, whatever)
+                if (serviceJob.paused != null && !"N".equals(serviceJob.paused)) {
                     jobsPaused++
                     continue
                 }

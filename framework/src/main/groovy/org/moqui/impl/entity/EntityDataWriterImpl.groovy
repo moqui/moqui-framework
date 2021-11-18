@@ -39,6 +39,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
     private EntityDataWriter.FileType fileType = XML
     private int txTimeout = 3600
     private LinkedHashSet<String> entityNames = new LinkedHashSet<>()
+    private LinkedHashSet<String> skipEntityNames = new LinkedHashSet<>()
     private boolean allEntities = false
 
     private int dependentLevels = 0
@@ -56,6 +57,8 @@ class EntityDataWriterImpl implements EntityDataWriter {
     EntityDataWriter fileType(EntityDataWriter.FileType ft) { fileType = ft; return this }
     EntityDataWriter entityName(String entityName) { entityNames.add(entityName);  return this }
     EntityDataWriter entityNames(List<String> enList) { entityNames.addAll(enList);  return this }
+    EntityDataWriter skipEntityName(String entityName) { skipEntityNames.add(entityName);  return this }
+    EntityDataWriter skipEntityNames(List<String> enList) { skipEntityNames.addAll(enList);  return this }
     EntityDataWriter allEntities() { allEntities = true; return this }
 
     EntityDataWriter dependentRecords(boolean dr) { if (dr) { dependentLevels = 2 } else { dependentLevels = 0 }; return this }
@@ -137,6 +140,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
             boolean beganTransaction = tf.begin(txTimeout)
             try {
                 for (String en in entityNames) {
+                    if (skipEntityNames.contains(en)) continue
                     EntityDefinition ed = efi.getEntityDefinition(en)
                     boolean useMaster = masterName != null && masterName.length() > 0 && ed.getMasterDefinition(masterName) != null
                     EntityFind ef = makeEntityFind(en)
@@ -210,6 +214,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
         try {
             PrintWriter pw = new PrintWriter(out)
             for (String en in entityNames) {
+                if (skipEntityNames.contains(en)) continue
                 EntityDefinition ed = efi.getEntityDefinition(en)
                 boolean useMaster = masterName != null && masterName.length() > 0 && ed.getMasterDefinition(masterName) != null
                 EntityFind ef = makeEntityFind(en)
@@ -264,6 +269,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
                 startFile(writer)
 
                 for (String en in entityNames) {
+                    if (skipEntityNames.contains(en)) continue
                     EntityDefinition ed = efi.getEntityDefinition(en)
                     boolean useMaster = masterName != null && masterName.length() > 0 && ed.getMasterDefinition(masterName) != null
                     EntityFind ef = makeEntityFind(en)

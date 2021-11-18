@@ -48,12 +48,14 @@ public interface WebFacade {
     ArrayList<String> getPathInfoList();
     /** If Content-Type request header is a text type and body length is greater than zero you can get the full body text here */
     String getRequestBodyText();
+    /** Returns a String to append to a URL to make it distinct to force browser reload */
+    String getResourceDistinctValue();
 
     HttpServletResponse getResponse();
 
     HttpSession getSession();
     Map<String, Object> getSessionAttributes();
-    /** Get the token to include in all POST requests with the name moquiSessionToken (in the session as 'moqui.session.token') */
+    /** Get the token to include in all POST requests with the name moquiSessionToken or the X-CSRF-Token request header (in the session as 'moqui.session.token') */
     String getSessionToken();
 
     ServletContext getServletContext();
@@ -65,6 +67,8 @@ public interface WebFacade {
     List<MessageInfo> getSavedPublicMessages();
     List<String> getSavedErrors();
     List<ValidationError> getSavedValidationErrors();
+    /** Get saved (in session) and current MessageFacade validation errors for the given field name, if null returns all errors; if no errors found returns null */
+    List<ValidationError> getFieldValidationErrors(String fieldName);
 
     /** A list of recent screen requests to show to a user (does not include requests to transitions or standalone screens).
      * Map contains 'name' (screen name plus up to 2 parameter values), 'url' (full URL with parameters),

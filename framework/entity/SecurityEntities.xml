@@ -20,7 +20,6 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- ========================================================= -->
 
     <!-- ========== Artifact Group ========== -->
-
     <entity entity-name="ArtifactGroup" package="moqui.security" use="configuration" short-alias="artifactGroups">
         <field name="artifactGroupId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
@@ -43,7 +42,7 @@ along with this software (see the LICENSE.md file). If not, see
                 in other words permission to access an artifact implies permission to access everything needed to get
                 to that artifact.
 
-                Defaults to Y. 
+                Defaults to Y.
             </description>
         </field>
         <field name="filterMap" type="text-long"><description>A Groovy expression that evaluates to a Map that
@@ -308,12 +307,35 @@ along with this software (see the LICENSE.md file). If not, see
         <alias name="receiveNotifications" entity-alias="NTU"/>
         <alias name="emailNotifications" entity-alias="NTU"/>
     </view-entity>
-
+    <entity entity-name="UserAuthcFactor" package="moqui.security" use="configuration">
+        <description>This entity is for recording User Authentication Factors.</description>
+        <field name="factorId" type="id" is-pk="true"/>
+        <field name="userId" type="id" not-null="true"/>
+        <field name="fromFactorId" type="id"/>
+        <field name="factorTypeEnumId" type="id"/>
+        <field name="fromDate" type="date-time"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="factorOption" type="text-medium" encrypt="true">
+            <description>Use varies based on factor type: TOTP is shared secret, Single Use is the code, Email Code is email address</description></field>
+        <field name="needsValidation" type="text-indicator"/>
+        <relationship type="one-nofk" related="moqui.security.UserAccount" short-alias="user">
+            <description>No FK in order to allow externally authenticated users.</description></relationship>
+        <relationship type="one" title="UserAuthcFactorType" related="moqui.basic.Enumeration" short-alias="factorTypeEnum">
+            <key-map field-name="factorTypeEnumId"/></relationship>
+        <seed-data>
+            <moqui.basic.EnumerationType description="User Authentication Factor Type" enumTypeId="UserAuthcFactorType"/>
+            <moqui.basic.Enumeration description="Authenticator App (TOTP)" enumId="UafTotp" enumTypeId="UserAuthcFactorType"/>
+            <moqui.basic.Enumeration description="Single Use Code" enumId="UafSingleUse" enumTypeId="UserAuthcFactorType"/>
+            <moqui.basic.Enumeration description="Email Code (OTP)" enumId="UafEmail" enumTypeId="UserAuthcFactorType"/>
+            <!--            <moqui.basic.Enumeration description="HMAC-based one-time password" enumId="UafHotp" enumTypeId="UserAuthcFactorType"/>-->
+        </seed-data>
+    </entity>
     <entity entity-name="UserGroup" package="moqui.security" use="configuration" short-alias="userGroups">
         <field name="userGroupId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
         <field name="groupTypeEnumId" type="id"/>
         <field name="ipAllowed" type="text-medium"><description>See UserAccout.ipAllowed</description></field>
+        <field name="requireAuthcFactor" type="text-indicator"/>
         <relationship type="one" title="UserGroupType" related="moqui.basic.Enumeration" short-alias="groupTypeEnum">
             <key-map field-name="groupTypeEnumId"/></relationship>
         <relationship type="many" related="moqui.security.UserGroupPermission" short-alias="permissions">
@@ -378,6 +400,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="userId" type="id"/>
         <field name="fromDate" type="date-time"/>
         <field name="thruDate" type="date-time"/>
+        <field name="description" type="text-medium"/>
         <relationship type="one" related="moqui.security.UserAccount" short-alias="user"/>
     </entity>
     <entity entity-name="UserLoginHistory" package="moqui.security" use="nontransactional" cache="never">
@@ -435,6 +458,17 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="screenThemeTypeEnumId" type="id" is-pk="true"/>
         <field name="screenThemeId" type="id"/>
         <relationship type="one-nofk" related="moqui.security.UserAccount" short-alias="user">
+            <description>No FK in order to allow externally authenticated users.</description></relationship>
+        <relationship type="one" title="ScreenThemeType" related="moqui.basic.Enumeration">
+            <key-map field-name="screenThemeTypeEnumId"/></relationship>
+        <relationship type="one" related="moqui.screen.ScreenTheme"/>
+    </entity>
+    <entity entity-name="UserGroupScreenTheme" package="moqui.security" use="configuration" cache="true">
+        <field name="userGroupId" type="id" is-pk="true"/>
+        <field name="screenThemeTypeEnumId" type="id" is-pk="true"/>
+        <field name="screenThemeId" type="id"/>
+        <field name="sequenceNum" type="number-integer"/>
+        <relationship type="one-nofk" related="moqui.security.UserGroup" short-alias="group">
             <description>No FK in order to allow externally authenticated users.</description></relationship>
         <relationship type="one" title="ScreenThemeType" related="moqui.basic.Enumeration">
             <key-map field-name="screenThemeTypeEnumId"/></relationship>
