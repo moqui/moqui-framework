@@ -106,6 +106,8 @@ along with this software (see the LICENSE.md file). If not, see
                         configuration data; eventual consistency is okay; typically cached</xs:documentation></xs:annotation></xs:enumeration>
                     <xs:enumeration value="analytical"><xs:annotation><xs:documentation>analytical entities with data
                         typically derived from transactional data</xs:documentation></xs:annotation></xs:enumeration>
+                    <xs:enumeration value="file"><xs:annotation><xs:documentation>analytical entities with data
+                        typically derived from transactional data</xs:documentation></xs:annotation></xs:enumeration>
                 </xs:restriction></xs:simpleType>
             </xs:attribute>
             <xs:attribute name="sequence-primary-use-uuid" type="boolean" default="false">

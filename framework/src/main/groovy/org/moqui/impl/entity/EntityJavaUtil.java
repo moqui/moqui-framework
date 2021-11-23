@@ -484,7 +484,7 @@ public class EntityJavaUtil {
             }
         }
 
-        void setFieldsEv(Map<String, Object> src, EntityValueBase dest, Boolean pks) {
+        public void setFieldsEv(Map<String, Object> src, EntityValueBase dest, Boolean pks) {
             // like above with setIfEmpty=true, namePrefix=null, pks=null
             if (src == null || dest == null) return;
 

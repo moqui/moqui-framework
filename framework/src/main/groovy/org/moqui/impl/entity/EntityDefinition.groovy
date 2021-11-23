@@ -527,6 +527,10 @@ class EntityDefinition {
         return fieldInfo.getFullColumnName()
     }
 
+    String getUsage(){
+        return this.internalEntityNode.attribute("use")
+    }
+
     ArrayList<String> getPkFieldNames() { return pkFieldNameList }
     ArrayList<String> getNonPkFieldNames() { return nonPkFieldNameList }
     ArrayList<String> getAllFieldNames() { return allFieldNameList }

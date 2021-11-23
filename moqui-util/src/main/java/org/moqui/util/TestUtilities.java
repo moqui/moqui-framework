@@ -15,7 +15,7 @@ import java.util.HashMap;
 import java.util.List;
 
 public class TestUtilities {
-    private static final String[] RESOURCE_PATH = {"src", "test", "resources"};
+    public static final String[] RESOURCE_PATH = {"src", "test", "resources"};
 
     public static String[] extendList(String[] listToExtend, String[] valuesToAppend) {
         String[] result = new String[listToExtend.length + valuesToAppend.length];
