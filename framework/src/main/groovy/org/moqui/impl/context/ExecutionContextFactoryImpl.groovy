@@ -1821,7 +1821,11 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                 if (!type.equals(responseHeader.attribute("type"))) continue
                 String headerValue = responseHeader.attribute("value")
                 if (headerValue == null || headerValue.isEmpty()) continue
-                response.addHeader(responseHeader.attribute("name"), headerValue)
+                if ("true".equals(responseHeader.attribute("add"))) {
+                    response.addHeader(responseHeader.attribute("name"), headerValue)
+                } else {
+                    response.setHeader(responseHeader.attribute("name"), headerValue)
+                }
                 // logger.warn("Added header ${responseHeader.attribute("name")} value ${headerValue} type ${type}")
             }
         }

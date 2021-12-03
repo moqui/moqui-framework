@@ -240,25 +240,25 @@
                 value="frame-ancestors 'none'; form-action 'self'; default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;"
             -->
             <response-header type="screen-render" name="Content-Security-Policy" value="frame-ancestors 'none'; form-action 'self';"/>
-            <response-header type="screen-render" name="X-Frame-Options" value="sameorigin"/>
+            <response-header type="screen-render" name="X-Frame-Options" add="true" value="sameorigin"/>
             <!-- X-XSS-Protection: this is largely useless with the Content-Security-Policy but here because some web security scanners look for it -->
             <response-header type="screen-render" name="X-XSS-Protection" value="1; mode=block"/>
             <!-- X-Content-Type-Options: this could cause problems as much as help but here because some web security scanners look for it -->
-            <response-header type="screen-render" name="X-Content-Type-Options" value="nosniff"/>
+            <response-header type="screen-render" name="X-Content-Type-Options" add="true" value="nosniff"/>
             <!-- CORS actual and preflight headers -->
             <!-- NOTE: Access-Control-Allow-Origin is set dynamically by MoquiServlet if Origin request header value is in the value of the webapp.@allow-origins attribute -->
             <!-- Access-Control-Allow-Credentials - always true so cookies, authc, etc always allowed -->
             <response-header type="cors-actual" name="Vary" value="Origin"/>
             <response-header type="cors-actual" name="Access-Control-Allow-Credentials" value="true"/>
-            <response-header type="cors-actual" name="Access-Control-Expose-Headers"
+            <response-header type="cors-actual" name="Access-Control-Expose-Headers" add="true"
                     value="Access-Control-Allow-Origin,Access-Control-Allow-Credentials,X-CSRF-Token,moquiSessionToken"/>
             <response-header type="cors-preflight" name="Vary" value="Origin"/>
             <response-header type="cors-preflight" name="Access-Control-Allow-Credentials" value="true"/>
             <!-- doesn't seem these are needed, allowed by default: ,Authorization,Referrer,User-Agent -->
-            <response-header type="cors-preflight" name="Access-Control-Allow-Headers"
+            <response-header type="cors-preflight" name="Access-Control-Allow-Headers" add="true"
                     value="Accept,Accept-Encoding,Content-Type,Content-Encoding,Origin,X-Requested-With,Access-Control-Request-Method,Access-Control-Request-Headers,api_key,login_key,X-HTTP-Method-Override,moquiSessionToken,SessionToken,X-CSRF-Token,Authorization"/>
             <!-- TODO: would be nice to handle this differently, ie dynamically based on preflight request path -->
-            <response-header type="cors-preflight" name="Access-Control-Allow-Methods" value="GET,PUT,POST,PATCH,DELETE,OPTIONS"/>
+            <response-header type="cors-preflight" name="Access-Control-Allow-Methods" add="true" value="GET,PUT,POST,PATCH,DELETE,OPTIONS"/>
             <response-header type="cors-preflight" name="Access-Control-Max-Age" value="3600"/>
         </webapp>
     </webapp-list>
