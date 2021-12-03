@@ -97,9 +97,9 @@ class MoquiFopServlet extends HttpServlet {
             String filename = (ec.web.parameters.get("filename") as String) ?: (ec.web.parameters.get("saveFilename") as String)
             if (filename) {
                 String utfFilename = StringUtilities.encodeAsciiFilename(filename)
-                response.addHeader("Content-Disposition", "attachment; filename=\"${filename}\"; filename*=utf-8''${utfFilename}")
+                response.setHeader("Content-Disposition", "attachment; filename=\"${filename}\"; filename*=utf-8''${utfFilename}")
             } else {
-                response.addHeader("Content-Disposition", "inline")
+                response.setHeader("Content-Disposition", "inline")
             }
 
             // special case disable authz for resource access
