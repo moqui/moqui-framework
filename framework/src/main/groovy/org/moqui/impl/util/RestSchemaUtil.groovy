@@ -755,9 +755,9 @@ class RestSchemaUtil {
         String filename = entityName ?: "Entities"
         if (masterName) filename = filename + "." + masterName
 
-        eci.webImpl.response.addHeader("Access-Control-Allow-Origin", "*")
-        eci.webImpl.response.addHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, PUT, PATCH, OPTIONS")
-        eci.webImpl.response.addHeader("Access-Control-Allow-Headers", "Content-Type, api_key, Authorization")
+        eci.webImpl.response.setHeader("Access-Control-Allow-Origin", "*")
+        eci.webImpl.response.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, PUT, PATCH, OPTIONS")
+        eci.webImpl.response.setHeader("Access-Control-Allow-Headers", "Content-Type, api_key, Authorization")
 
         String fullHost = WebFacadeImpl.makeWebappHost(eci.webImpl.webappMoquiName, eci, eci.webImpl, true)
         String scheme = fullHost.substring(0, fullHost.indexOf("://"))
@@ -836,9 +836,9 @@ class RestSchemaUtil {
             filenameBase.append(pathName).append('.')
         }
 
-        eci.webImpl.response.addHeader("Access-Control-Allow-Origin", "*")
-        eci.webImpl.response.addHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, PUT, PATCH, OPTIONS")
-        eci.webImpl.response.addHeader("Access-Control-Allow-Headers", "Content-Type, api_key, Authorization")
+        eci.webImpl.response.setHeader("Access-Control-Allow-Origin", "*")
+        eci.webImpl.response.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, PUT, PATCH, OPTIONS")
+        eci.webImpl.response.setHeader("Access-Control-Allow-Headers", "Content-Type, api_key, Authorization")
 
         String fullHost = WebFacadeImpl.makeWebappHost(eci.webImpl.webappMoquiName, eci, eci.webImpl, true)
         String scheme = fullHost.substring(0, fullHost.indexOf("://"))

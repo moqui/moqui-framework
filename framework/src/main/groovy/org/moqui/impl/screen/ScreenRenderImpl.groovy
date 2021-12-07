@@ -205,13 +205,13 @@ class ScreenRenderImpl implements ScreenRender {
                     .first("screen-text-output", "type", renderMode)
             if (stoNode != null && "true".equals(stoNode.attribute("always-standalone"))) {
                 if (logger.isInfoEnabled()) logger.info("Redirecting with 205 and X-Redirect-To ${redirectUrl} instead of rendering ${this.getScreenUrlInfo().getFullPathNameList()}")
-                response.addHeader("X-Redirect-To", redirectUrl)
+                response.setHeader("X-Redirect-To", redirectUrl)
                 // use code 205 (Reset Content) for client router handled redirect
                 response.setStatus(HttpServletResponse.SC_RESET_CONTENT)
             } else {
                 if (logger.isInfoEnabled()) logger.info("Redirecting to ${redirectUrl} instead of rendering ${this.getScreenUrlInfo().getFullPathNameList()}")
                 // add Cache-Control: no-store header since this is often in actions after screen render has started and a Cache-Control header has been set, so replace it here
-                response.setHeader("Cache-Control", "no-store")
+                response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate, private")
                 response.sendRedirect(redirectUrl)
             }
             dontDoRender = true
@@ -631,7 +631,7 @@ class ScreenRenderImpl implements ScreenRender {
                     if (webappInfo != null) {
                         webappInfo.addHeaders("screen-resource-binary", response)
                     } else {
-                        response.addHeader("Cache-Control", "max-age=86400, must-revalidate, public")
+                        response.setHeader("Cache-Control", "max-age=86400, must-revalidate, public")
                     }
 
                     InputStream is
@@ -666,7 +666,7 @@ class ScreenRenderImpl implements ScreenRender {
                         if (webappInfo != null) {
                             webappInfo.addHeaders("screen-resource-template", response)
                         } else {
-                            response.addHeader("Cache-Control", "no-cache, no-store, must-revalidate, private")
+                            response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate, private")
                         }
                     }
                     tr.render(fileResourceRef.location, writer)
@@ -676,7 +676,7 @@ class ScreenRenderImpl implements ScreenRender {
                         if (webappInfo != null) {
                             webappInfo.addHeaders("screen-resource-text", response)
                         } else {
-                            response.addHeader("Cache-Control", "max-age=86400, must-revalidate, public")
+                            response.setHeader("Cache-Control", "max-age=86400, must-revalidate, public")
                         }
                     }
                     // no renderer found, just grab the text (cached) and throw it to the writer
@@ -819,19 +819,19 @@ class ScreenRenderImpl implements ScreenRender {
                     if (webappInfo != null) {
                         webappInfo.addHeaders("screen-server-static", response)
                     } else {
-                        response.addHeader("Cache-Control", "max-age=86400, must-revalidate, public")
+                        response.setHeader("Cache-Control", "max-age=86400, must-revalidate, public")
                     }
                 } else {
                     if (webappInfo != null) {
                         webappInfo.addHeaders("screen-render", response)
                     } else {
                         // if requires a render, don't cache and make it private
-                        response.addHeader("Cache-Control", "no-cache, no-store, must-revalidate, private")
+                        response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate, private")
                         // add Content-Security-Policy by default to not allow use in iframe or allow form actions on different host
                         // see https://content-security-policy.com/
                         // TODO make this configurable for different screen paths? maybe a screen.web-settings attribute to exclude or add to?
-                        response.addHeader("Content-Security-Policy", "frame-ancestors 'none'; form-action 'self';")
-                        response.addHeader("X-Frame-Options", "deny")
+                        response.setHeader("Content-Security-Policy", "frame-ancestors 'none'; form-action 'self';")
+                        response.setHeader("X-Frame-Options", "deny")
                     }
                 }
                 // if the request is secure add HSTS Strict-Transport-Security header with one leap year age (in seconds)
@@ -839,14 +839,14 @@ class ScreenRenderImpl implements ScreenRender {
                     if (webappInfo != null) {
                         webappInfo.addHeaders("screen-secure", response)
                     } else {
-                        response.addHeader("Strict-Transport-Security", "max-age=31536000")
+                        response.setHeader("Strict-Transport-Security", "max-age=31536000")
                     }
                 }
 
                 String filename = ec.context.saveFilename as String
                 if (filename) {
                     String utfFilename = StringUtilities.encodeAsciiFilename(filename)
-                    response.addHeader("Content-Disposition", "attachment; filename=\"${filename}\"; filename*=utf-8''${utfFilename}")
+                    response.setHeader("Content-Disposition", "attachment; filename=\"${filename}\"; filename*=utf-8''${utfFilename}")
                 }
             }
 
