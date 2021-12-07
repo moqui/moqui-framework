@@ -135,6 +135,11 @@ dependencies {
     compile 'com.beust:jcommander:1.81'
 
     // H2 Database
+    // NOTE: update to H2 2.0.202 works well, except VALUE is now a reserved word, problem for:
+    //    DbFormFieldAttribute, DbFormFieldEntOptsCond, PartyDimension, ProductDimension, ProductUomDimension
+    //    this can be addressed with something like column-name="DIM_VALUE" which fixes H2
+    //    but then all existing databases need data migration (move data from VALUE column to DIM_VALUE)
+    //    so, we need a different solution before updating H2
     compile 'com.h2database:h2:1.4.200' // MPL 2.0, EPL 1.0
 
     // Jackson Databind (JSON, etc)
