@@ -155,7 +155,7 @@ task startElasticSearch { doLast {
     if (file(moquiRuntime + '/elasticsearch/bin').exists() && !file(moquiRuntime + '/elasticsearch/pid').exists()) {
         logger.lifecycle("Starting ElasticSearch installed in runtime/elasticsearch")
         ProcessBuilder pb = new ProcessBuilder('./bin/elasticsearch', '-d', '-p', 'pid')
-        pb.directory(new File(moquiRuntime + '/elasticsearch'))
+        pb.directory(file(moquiRuntime + '/elasticsearch'))
         pb.redirectOutput()
         pb.redirectError()
         pb.start()
