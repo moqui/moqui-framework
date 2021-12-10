@@ -11,6 +11,8 @@ https://logging.apache.org/log4j/2.x/manual/layouts.html#PatternLayout
         <Property name="moqui.logger.level.xml_action">info</Property>
         <Property name="moqui.logger.level.entity_find">info</Property>
         <Property name="moqui.logger.level.entity_query">info</Property>
+        <!-- set log4j2.formatMsgNoLookups=true for log string based vulnerability -->
+        <Property name="log4j2.formatMsgNoLookups">true</Property>
     </Properties>
     <Appenders>
         <RollingFile name="LogFile" fileName="${sys:moqui.runtime}/log/moqui.log"
