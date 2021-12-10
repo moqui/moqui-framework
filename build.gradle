@@ -21,6 +21,9 @@ buildscript {
 }
 // Not needed for explicit use, causes problems when not from git repo: plugins { id 'org.ajoberstar.grgit' version 'x.y.z' }
 
+// Run headless so GradleWorkerMain does not steal focus (mostly a macOS annoyance)
+allprojects { tasks.withType(JavaForkOptions) { jvmArgs '-Djava.awt.headless=true' } }
+
 import org.ajoberstar.grgit.*
 
 defaultTasks 'build'
@@ -104,7 +107,7 @@ def cleanElasticSearch(String esDir) {
 task downloadElasticSearch { doLast {
     String suffix
     String distType
-    String osName = System.getProperty("os.name").toLowerCase();
+    String osName = System.getProperty("os.name").toLowerCase()
     if (osName.startsWith("windows")) {
         suffix = "windows-x86_64.zip"
         distType = "zip"
