@@ -18,7 +18,7 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- moqui.entity -->
     <!-- ========================================================= -->
 
-    <entity entity-name="EntityAuditLog" package="moqui.entity" use="transactional" authorize-skip="create" cache="never">
+    <entity entity-name="EntityAuditLog" package="moqui.entity" use="transactional" authorize-skip="create" cache="never" create-only="true">
         <field name="auditHistorySeqId" type="id" is-pk="true"/>
         <field name="changedEntityName" type="text-medium"/>
         <field name="changedFieldName" type="text-short"/>

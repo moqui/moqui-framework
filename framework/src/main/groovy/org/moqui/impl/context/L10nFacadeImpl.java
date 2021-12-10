@@ -312,7 +312,17 @@ public class L10nFacadeImpl implements L10nFacade {
         return bigDecimalValidator.validate(input, format, getLocale()); }
     public String formatNumber(Number input, String format, Locale locale) {
         if (locale == null) locale = getLocale();
-        return bigDecimalValidator.format(input, format, locale);
+        if (format == null || format.isEmpty()) {
+            // BigDecimalValidator defaults to 3 decimal digits, if no format specified we don't want to truncate so small, use better defaults
+            NumberFormat nf = locale != null ? NumberFormat.getNumberInstance(locale) : NumberFormat.getNumberInstance();
+            nf.setMinimumFractionDigits(0);
+            nf.setMaximumFractionDigits(12);
+            nf.setMinimumIntegerDigits(1);
+            nf.setGroupingUsed(true);
+            return nf.format(input);
+        } else {
+            return bigDecimalValidator.format(input, format, locale);
+        }
     }
 
     @Override

@@ -776,9 +776,9 @@ class WebFacadeImpl implements WebFacade {
         response.setContentLength(length)
 
         if (!filename) {
-            response.addHeader("Content-Disposition", "inline")
+            response.setHeader("Content-Disposition", "inline")
         } else {
-            response.addHeader("Content-Disposition", "attachment; filename=\"${filename}\"; filename*=utf-8''${StringUtilities.encodeAsciiFilename(filename)}")
+            response.setHeader("Content-Disposition", "attachment; filename=\"${filename}\"; filename*=utf-8''${StringUtilities.encodeAsciiFilename(filename)}")
         }
 
         try {
@@ -807,16 +807,16 @@ class WebFacadeImpl implements WebFacade {
         String contentType = rr.getContentType()
         if (contentType) response.setContentType(contentType)
         if (inline) {
-            response.addHeader("Content-Disposition", "inline")
+            response.setHeader("Content-Disposition", "inline")
 
             WebappInfo webappInfo = eci.ecfi.getWebappInfo(eci.webImpl?.webappMoquiName)
             if (webappInfo != null) {
                 webappInfo.addHeaders("web-resource-inline", response)
             } else {
-                response.addHeader("Cache-Control", "max-age=86400, must-revalidate, public")
+                response.setHeader("Cache-Control", "max-age=86400, must-revalidate, public")
             }
         } else {
-            response.addHeader("Content-Disposition", "attachment; filename=\"${rr.getFileName()}\"; filename*=utf-8''${StringUtilities.encodeAsciiFilename(rr.getFileName())}")
+            response.setHeader("Content-Disposition", "attachment; filename=\"${rr.getFileName()}\"; filename*=utf-8''${StringUtilities.encodeAsciiFilename(rr.getFileName())}")
         }
         if (contentType == null || contentType.isEmpty() || ResourceReference.isBinaryContentType(contentType)) {
             InputStream is = rr.openStream()
@@ -1313,7 +1313,7 @@ class WebFacadeImpl implements WebFacade {
     void viewEmailMessage() {
         // first send the empty image
         response.setContentType('image/png')
-        response.addHeader("Content-Disposition", "inline")
+        response.setHeader("Content-Disposition", "inline")
         OutputStream os = response.outputStream
         try { os.write(trackingPng) } finally { os.close() }
         // mark the message viewed
