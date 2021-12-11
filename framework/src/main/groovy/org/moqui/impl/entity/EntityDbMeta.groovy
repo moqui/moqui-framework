@@ -69,27 +69,27 @@ class EntityDbMeta {
     }
 
     /**
-     * Method for proper table name formatting, used in EntityField
+     * Method for proper table/column name formatting, used in EntityField
      * @param groupName
-     * @param tableName
+     * @param componentName
      * @return
      */
-    String formattedTableName(String groupName, String tableName)
+    String formattedComponentName(String groupName, String componentName)
     {
         MNode datasourceNode = efi.getDatasourceNode(groupName)
         String tnfAttr = datasourceNode?.attribute("table-name-format")
 
-        if (!tnfAttr) return EntityJavaUtil.camelCaseToUnderscored(tableName)
+        if (!tnfAttr) return EntityJavaUtil.camelCaseToUnderscored(componentName)
 
         switch (tnfAttr) {
             case "Underscored":
-                return EntityJavaUtil.camelCaseToUnderscored(tableName)
+                return EntityJavaUtil.camelCaseToUnderscored(componentName)
                 break
             case "camelCase":
-                return tableName
+                return componentName
                 break
             default:
-                return EntityJavaUtil.camelCaseToUnderscored(tableName)
+                return EntityJavaUtil.camelCaseToUnderscored(componentName)
         }
     }
 
