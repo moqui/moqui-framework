@@ -252,7 +252,7 @@ public abstract class EntityValueBase implements EntityValue {
         throw new EntityException("The name [" + name + "] is not a valid field name or relationship name for entity " + entityName);
     }
 
-    private Object getKnownField(FieldInfo fieldInfo) {
+    public Object getKnownField(FieldInfo fieldInfo) {
         EntityDefinition ed = fieldInfo.ed;
         // if this is a simple field (is field, no l10n, not user field) just get the value right away (vast majority of use)
         if (fieldInfo.isSimple) return valueMapInternal.getByIString(fieldInfo.name, fieldInfo.index);

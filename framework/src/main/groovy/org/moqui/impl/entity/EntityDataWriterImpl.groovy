@@ -15,7 +15,9 @@ package org.moqui.impl.entity
 
 import groovy.json.JsonBuilder
 import org.moqui.entity.EntityValue
+import org.moqui.util.ObjectUtilities
 
+import javax.sql.rowset.serial.SerialBlob
 import java.sql.Timestamp
 
 import org.moqui.context.TransactionException
@@ -36,11 +38,10 @@ class EntityDataWriterImpl implements EntityDataWriter {
 
     private EntityFacadeImpl efi
 
-    private EntityDataWriter.FileType fileType = XML
+    private FileType fileType = XML
     private int txTimeout = 3600
     private LinkedHashSet<String> entityNames = new LinkedHashSet<>()
     private LinkedHashSet<String> skipEntityNames = new LinkedHashSet<>()
-    private boolean allEntities = false
 
     private int dependentLevels = 0
     private String masterName = null
@@ -54,12 +55,18 @@ class EntityDataWriterImpl implements EntityDataWriter {
 
     EntityFacadeImpl getEfi() { return efi }
 
-    EntityDataWriter fileType(EntityDataWriter.FileType ft) { fileType = ft; return this }
-    EntityDataWriter entityName(String entityName) { entityNames.add(entityName);  return this }
-    EntityDataWriter entityNames(List<String> enList) { entityNames.addAll(enList);  return this }
-    EntityDataWriter skipEntityName(String entityName) { skipEntityNames.add(entityName);  return this }
-    EntityDataWriter skipEntityNames(List<String> enList) { skipEntityNames.addAll(enList);  return this }
-    EntityDataWriter allEntities() { allEntities = true; return this }
+    EntityDataWriter fileType(FileType ft) { fileType = ft; return this }
+    EntityDataWriter fileType(String ft) { fileType = FileType.valueOf(ft); return this }
+    EntityDataWriter entityName(String entityName) { entityNames.add(entityName); return this }
+    EntityDataWriter entityNames(Collection<String> enList) { entityNames.addAll(enList); return this }
+    EntityDataWriter skipEntityName(String entityName) { skipEntityNames.add(entityName); return this }
+    EntityDataWriter skipEntityNames(Collection<String> enList) { skipEntityNames.addAll(enList); return this }
+    EntityDataWriter allEntities() {
+        LinkedHashSet<String> newEntities = new LinkedHashSet<>(efi.getAllNonViewEntityNames())
+        newEntities.removeAll(entityNames)
+        entityNames = newEntities
+        return this
+    }
 
     EntityDataWriter dependentRecords(boolean dr) { if (dr) { dependentLevels = 2 } else { dependentLevels = 0 }; return this }
     EntityDataWriter dependentLevels(int levels) { dependentLevels = levels; return this }
@@ -80,6 +87,12 @@ class EntityDataWriterImpl implements EntityDataWriter {
 
         if (filename.endsWith('.json')) fileType(JSON)
         else if (filename.endsWith('.xml')) fileType(XML)
+        else if (filename.endsWith('.csv')) fileType(CSV)
+
+        if (CSV.is(fileType) && entityNames.size() > 1) {
+            efi.ecfi.executionContext.message.addError('Cannot write to single CSV file with multiple entity names')
+            return 0
+        }
 
         PrintWriter pw = new PrintWriter(outFile)
         // NOTE: don't have to do anything different here for different file types, writer() method will handle that
@@ -100,6 +113,12 @@ class EntityDataWriterImpl implements EntityDataWriter {
 
         if (filenameWithinZip.endsWith('.json')) fileType(JSON)
         else if (filenameWithinZip.endsWith('.xml')) fileType(XML)
+        else if (filenameWithinZip.endsWith('.csv')) fileType(CSV)
+
+        if (CSV.is(fileType) && entityNames.size() > 1) {
+            efi.ecfi.executionContext.message.addError('Cannot write to single CSV file with multiple entity names')
+            return 0
+        }
 
         ZipOutputStream out = new ZipOutputStream(new FileOutputStream(zipFile))
         try {
@@ -128,7 +147,6 @@ class EntityDataWriterImpl implements EntityDataWriter {
             return 0
         }
 
-        checkAllEntities()
         if (dependentLevels > 0) efi.createAllAutoReverseManyRelationships()
 
         int valuesWritten = 0
@@ -149,7 +167,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
                     try {
                         if (!eli.hasNext()) continue
 
-                        String filename = path + '/' + en + (JSON.is(fileType) ? ".json" : ".xml")
+                        String filename = path + '/' + en + '.' + fileType.name().toLowerCase()
                         File outFile = new File(filename)
                         if (outFile.exists()) {
                             efi.ecfi.getEci().message.addError(efi.ecfi.resource.expand('File ${filename} already exists, skipping entity ${en}.','',[filename:filename,en:en]))
@@ -159,7 +177,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
 
                         PrintWriter pw = new PrintWriter(outFile)
                         try {
-                            startFile(pw)
+                            startFile(pw, ed)
 
                             int curValuesWritten = 0
                             EntityValue ev
@@ -197,6 +215,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
 
         return valuesWritten
     }
+
     @Override
     int zipDirectory(String pathWithinZip, String zipFilename) {
         File zipFile = new File(zipFilename)
@@ -206,11 +225,14 @@ class EntityDataWriterImpl implements EntityDataWriter {
             return 0
         }
 
-        checkAllEntities()
+        return zipDirectory(pathWithinZip, new FileOutputStream(zipFile))
+    }
+    @Override
+    int zipDirectory(String pathWithinZip, OutputStream outputStream) {
         if (dependentLevels > 0) efi.createAllAutoReverseManyRelationships()
 
         int valuesWritten = 0
-        ZipOutputStream out = new ZipOutputStream(new FileOutputStream(zipFile))
+        ZipOutputStream out = new ZipOutputStream(outputStream)
         try {
             PrintWriter pw = new PrintWriter(out)
             for (String en in entityNames) {
@@ -222,11 +244,11 @@ class EntityDataWriterImpl implements EntityDataWriter {
                 try {
                     if (!eli.hasNext()) continue
 
-                    String filenameWithinZip = pathWithinZip + '/' + en + (JSON.is(fileType) ? ".json" : ".xml")
+                    String filenameWithinZip = pathWithinZip + '/' + en + '.' + fileType.name().toLowerCase()
                     ZipEntry e = new ZipEntry(filenameWithinZip)
                     out.putNextEntry(e)
                     try {
-                        startFile(pw)
+                        startFile(pw, ed)
 
                         int curValuesWritten = 0
                         EntityValue ev
@@ -256,8 +278,11 @@ class EntityDataWriterImpl implements EntityDataWriter {
 
     @Override
     int writer(Writer writer) {
-        checkAllEntities()
         if (dependentLevels > 0) efi.createAllAutoReverseManyRelationships()
+
+        LinkedHashSet<String> activeEntityNames = skipEntityNames.size() > 0 ? entityNames - skipEntityNames : entityNames
+        EntityDefinition singleEd = null
+        if (activeEntityNames.size() == 1) singleEd = efi.getEntityDefinition(activeEntityNames.first())
 
         TransactionFacade tf = efi.ecfi.transactionFacade
         boolean suspendedTransaction = false
@@ -266,10 +291,9 @@ class EntityDataWriterImpl implements EntityDataWriter {
             if (tf.isTransactionInPlace()) suspendedTransaction = tf.suspend()
             boolean beganTransaction = tf.begin(txTimeout)
             try {
-                startFile(writer)
+                startFile(writer, singleEd)
 
-                for (String en in entityNames) {
-                    if (skipEntityNames.contains(en)) continue
+                for (String en in activeEntityNames) {
                     EntityDefinition ed = efi.getEntityDefinition(en)
                     boolean useMaster = masterName != null && masterName.length() > 0 && ed.getMasterDefinition(masterName) != null
                     EntityFind ef = makeEntityFind(en)
@@ -305,21 +329,30 @@ class EntityDataWriterImpl implements EntityDataWriter {
         return valuesWritten
     }
 
-    private void startFile(Writer writer) {
+    private void startFile(Writer writer, EntityDefinition ed) {
         if (JSON.is(fileType)) {
             writer.println("[")
-        } else {
+        } else if (XML.is(fileType)) {
             writer.println("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
             writer.println("<entity-facade-xml>")
+        } else if (CSV.is(fileType)) {
+            if (ed == null) throw new IllegalArgumentException("Tried to start CSV file with no single entity specified")
+            // first record: entity name (and optional file type, not applicable here)
+            writer.println(ed.getFullEntityName())
+            // second record: header row with all field names
+            writer.println(ed.getAllFieldNames().join(","))
         }
     }
     private void endFile(Writer writer) {
         if (JSON.is(fileType)) {
             writer.println("]")
             writer.println("")
-        } else {
+        } else if (XML.is(fileType)) {
             writer.println("</entity-facade-xml>")
             writer.println("")
+        } else if (CSV.is(fileType)) {
+            // could add empty line at end but is effectively an empty record, better to do nothing to end the file
+            // writer.println("")
         }
     }
     private int writeValue(EntityValue ev, Writer writer, boolean useMaster) {
@@ -338,22 +371,51 @@ class EntityDataWriterImpl implements EntityDataWriter {
             writer.println(",")
             // TODO: consider including dependent records in the count too... maybe write something to recursively count the nested Maps
             valuesWritten = 1
-        } else {
+        } else if (XML.is(fileType)) {
             if (useMaster) {
                 valuesWritten = ev.writeXmlTextMaster(writer, prefix, masterName)
             } else {
                 valuesWritten = ev.writeXmlText(writer, prefix, dependentLevels)
             }
+        } else if (CSV.is(fileType)) {
+            EntityValueBase evb = (EntityValueBase) ev
+            // NOTE: master entity def concept doesn't apply to CSV, file format cannot handle multiple entities in single file
+            FieldInfo[] fieldInfoArray = evb.getEntityDefinition().entityInfo.allFieldInfoArray
+            for (int i = 0; i < fieldInfoArray.length; i++) {
+                Object fieldValue = evb.getKnownField(fieldInfoArray[i])
+                String fieldStr
+                if (fieldValue instanceof byte[]) {
+                    fieldStr = Base64.getEncoder().encodeToString((byte[]) fieldValue)
+                } else if (fieldValue instanceof SerialBlob) {
+                    if (((SerialBlob) fieldValue).length() == 0) {
+                        fieldStr = ""
+                    } else {
+                        byte[] objBytes = ((SerialBlob) fieldValue).getBytes(1, (int) ((SerialBlob) fieldValue).length())
+                        fieldStr = Base64.getEncoder().encodeToString(objBytes)
+                    }
+                } else {
+                    fieldStr = ObjectUtilities.toPlainString(fieldValue)
+                }
+                if (fieldStr == null) fieldStr = ""
+
+                // write the field value
+                if (fieldStr.contains(",") || fieldStr.contains("\"") || fieldStr.contains("\n")) {
+                    writer.write("\"")
+                    writer.write(fieldStr.replace("\"", "\"\""))
+                    writer.write("\"")
+                } else {
+                    writer.write(fieldStr)
+                }
+
+                // add the comma
+                if (i < (fieldInfoArray.length - 1)) writer.write(",")
+            }
+
+            // end the line
+            writer.println()
+            valuesWritten = 1
         }
         return valuesWritten
-    }
-    private void checkAllEntities() {
-        if (allEntities) {
-            LinkedHashSet<String> newEntities = new LinkedHashSet<>(efi.getAllNonViewEntityNames())
-            newEntities.removeAll(entityNames)
-            entityNames = newEntities
-            allEntities = false
-        }
     }
 
     private EntityFind makeEntityFind(String en) {

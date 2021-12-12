@@ -13,8 +13,10 @@
  */
 package org.moqui.entity;
 
+import java.io.OutputStream;
 import java.io.Writer;
 import java.sql.Timestamp;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -27,10 +29,12 @@ public interface EntityDataWriter {
 
     FileType XML = FileType.XML;
     FileType JSON = FileType.JSON;
+    FileType CSV = FileType.CSV;
 
-    enum FileType { XML, JSON }
+    enum FileType { XML, JSON, CSV }
 
     EntityDataWriter fileType(FileType ft);
+    EntityDataWriter fileType(String ft);
 
     /** Specify the name of an entity to query and export. Data is queried and exporting from entities in the order they
      * are added by calling this or entityNames() multiple times.
@@ -43,12 +47,16 @@ public interface EntityDataWriter {
      * @param entityNames The list of entity names
      * @return Reference to this for convenience.
      */
-    EntityDataWriter entityNames(List<String> entityNames);
+    EntityDataWriter entityNames(Collection<String> entityNames);
 
     EntityDataWriter skipEntityName(String entityName);
-    EntityDataWriter skipEntityNames(List<String> enList);
+    EntityDataWriter skipEntityNames(Collection<String> enList);
 
-    /** Write data from all entities. When set other entity names are excluded instead of included. */
+    /**
+     * Add all entities to entity names.
+     * For backward compatibility (before the skip entity names feature), if any entity names were specified before
+     * calling this they are excluded from all entities instead of included.
+     */
     EntityDataWriter allEntities();
 
     /** Should the dependent records of each record be written? If set will include 2 levels of dependents by default,
@@ -104,6 +112,7 @@ public interface EntityDataWriter {
      */
     int directory(String path);
     int zipDirectory(String pathWithinZip, String zipFilename);
+    int zipDirectory(String pathWithinZip, OutputStream outputStream);
     /** Write the results to a Writer.
      * @param writer The Writer to write to
      * @return Count of values written

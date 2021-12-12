@@ -312,6 +312,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                 long beforeTime = System.currentTimeMillis()
 
                 inputStream = efi.ecfi.resourceFacade.getLocationStream(location)
+                if (inputStream == null) throw new BaseException("Data file not found at ${location}")
 
                 long recordsLoaded = 0
                 int messagesBefore = exh.valueHandler.messageList != null ? exh.valueHandler.messageList.size() : 0
@@ -352,6 +353,12 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                                 long curFileLoaded = (exh.valuesRead?:0) - beforeRecords
                                 recordsLoaded += curFileLoaded
                                 logger.info("Loaded ${curFileLoaded} records from ${entryFile} in zip file ${location} in ${((System.currentTimeMillis() - beforeTime)/1000)}s")
+                            } else if (entryFile.endsWith(".json")) {
+                                // TODO
+                                logger.warn("Found file ${entryFile} in zip file ${location} that is not a .xml file, ignoring")
+                            } else if (entryFile.endsWith(".csv")) {
+                                // TODO
+                                logger.warn("Found file ${entryFile} in zip file ${location} that is not a .xml file, ignoring")
                             } else {
                                 logger.warn("Found file ${entryFile} in zip file ${location} that is not a .xml file, ignoring")
                             }
