@@ -253,7 +253,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
                     if (!eli.hasNext()) continue
 
                     String filenameBase = tableColumnNames ? ed.getTableName() : en
-                    String filenameWithinZip = pathWithinZip + '/' + filenameBase + '.' + fileType.name().toLowerCase()
+                    String filenameWithinZip = (pathWithinZip ? pathWithinZip + '/' : '') + filenameBase + '.' + fileType.name().toLowerCase()
                     ZipEntry e = new ZipEntry(filenameWithinZip)
                     out.putNextEntry(e)
                     try {

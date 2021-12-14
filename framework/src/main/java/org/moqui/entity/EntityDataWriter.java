@@ -116,7 +116,9 @@ public interface EntityDataWriter {
      * @return Count of values written
      */
     int directory(String path);
+    /** Write to a directory in a zip file located at zipFilename */
     int zipDirectory(String pathWithinZip, String zipFilename);
+    /** Write to a directory in a zip file in an OutputStream; NOTE: closes OutputStream when done */
     int zipDirectory(String pathWithinZip, OutputStream outputStream);
     /** Write the results to a Writer.
      * @param writer The Writer to write to
