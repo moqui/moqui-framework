@@ -30,6 +30,8 @@ import org.moqui.entity.EntityCondition.ComparisonOperator
 import org.slf4j.LoggerFactory
 import org.slf4j.Logger
 
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
@@ -50,6 +52,9 @@ class EntityDataWriterImpl implements EntityDataWriter {
     private List<String> orderByList = []
     private Timestamp fromDate = null
     private Timestamp thruDate = null
+
+    private boolean isoDateTime = false
+    private boolean tableColumnNames = false
 
     EntityDataWriterImpl(EntityFacadeImpl efi) { this.efi = efi }
 
@@ -76,6 +81,9 @@ class EntityDataWriterImpl implements EntityDataWriter {
     EntityDataWriter orderBy(List<String> obl) { orderByList.addAll(obl); return this }
     EntityDataWriter fromDate(Timestamp fd) { fromDate = fd; return this }
     EntityDataWriter thruDate(Timestamp td) { thruDate = td; return this }
+
+    EntityDataWriter isoDateTime(boolean iso) { isoDateTime = iso; return this }
+    EntityDataWriter tableColumnNames(boolean tcn) { tableColumnNames = tcn; return this }
 
     @Override
     int file(String filename) {
@@ -244,7 +252,8 @@ class EntityDataWriterImpl implements EntityDataWriter {
                 try {
                     if (!eli.hasNext()) continue
 
-                    String filenameWithinZip = pathWithinZip + '/' + en + '.' + fileType.name().toLowerCase()
+                    String filenameBase = tableColumnNames ? ed.getTableName() : en
+                    String filenameWithinZip = pathWithinZip + '/' + filenameBase + '.' + fileType.name().toLowerCase()
                     ZipEntry e = new ZipEntry(filenameWithinZip)
                     out.putNextEntry(e)
                     try {
@@ -337,10 +346,18 @@ class EntityDataWriterImpl implements EntityDataWriter {
             writer.println("<entity-facade-xml>")
         } else if (CSV.is(fileType)) {
             if (ed == null) throw new IllegalArgumentException("Tried to start CSV file with no single entity specified")
-            // first record: entity name (and optional file type, not applicable here)
-            writer.println(ed.getFullEntityName())
+            // first record: entity name, 'export' for file type, then each PK field
+            if (tableColumnNames) {
+                writer.println(ed.getTableName() + ",export," + ed.getPkFieldNames().collect({ ed.getFieldInfo(it).columnName }).join(","))
+            } else {
+                writer.println(ed.getFullEntityName() + ",export," + ed.getPkFieldNames().join(","))
+            }
             // second record: header row with all field names
-            writer.println(ed.getAllFieldNames().join(","))
+            if (tableColumnNames) {
+                writer.println(ed.getAllFieldNames().collect({ ed.getFieldInfo(it).columnName }).join(","))
+            } else {
+                writer.println(ed.getAllFieldNames().join(","))
+            }
         }
     }
     private void endFile(Writer writer) {
@@ -358,6 +375,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
     private int writeValue(EntityValue ev, Writer writer, boolean useMaster) {
         int valuesWritten
         if (JSON.is(fileType)) {
+            // TODO: support isoDateTime and tableColumnNames
             Map<String, Object> plainMap
             if (useMaster) {
                 plainMap = ev.getMasterValueMap(masterName)
@@ -372,6 +390,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
             // TODO: consider including dependent records in the count too... maybe write something to recursively count the nested Maps
             valuesWritten = 1
         } else if (XML.is(fileType)) {
+            // TODO: support isoDateTime and tableColumnNames
             if (useMaster) {
                 valuesWritten = ev.writeXmlTextMaster(writer, prefix, masterName)
             } else {
@@ -383,20 +402,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
             FieldInfo[] fieldInfoArray = evb.getEntityDefinition().entityInfo.allFieldInfoArray
             for (int i = 0; i < fieldInfoArray.length; i++) {
                 Object fieldValue = evb.getKnownField(fieldInfoArray[i])
-                String fieldStr
-                if (fieldValue instanceof byte[]) {
-                    fieldStr = Base64.getEncoder().encodeToString((byte[]) fieldValue)
-                } else if (fieldValue instanceof SerialBlob) {
-                    if (((SerialBlob) fieldValue).length() == 0) {
-                        fieldStr = ""
-                    } else {
-                        byte[] objBytes = ((SerialBlob) fieldValue).getBytes(1, (int) ((SerialBlob) fieldValue).length())
-                        fieldStr = Base64.getEncoder().encodeToString(objBytes)
-                    }
-                } else {
-                    fieldStr = ObjectUtilities.toPlainString(fieldValue)
-                }
-                if (fieldStr == null) fieldStr = ""
+                String fieldStr = convertFieldValue(fieldValue)
 
                 // write the field value
                 if (fieldStr.contains(",") || fieldStr.contains("\"") || fieldStr.contains("\n")) {
@@ -416,6 +422,34 @@ class EntityDataWriterImpl implements EntityDataWriter {
             valuesWritten = 1
         }
         return valuesWritten
+    }
+
+    String convertFieldValue(Object fieldValue) {
+        String fieldStr
+        if (fieldValue instanceof byte[]) {
+            fieldStr = Base64.getEncoder().encodeToString((byte[]) fieldValue)
+        } else if (fieldValue instanceof SerialBlob) {
+            if (((SerialBlob) fieldValue).length() == 0) {
+                fieldStr = ""
+            } else {
+                byte[] objBytes = ((SerialBlob) fieldValue).getBytes(1, (int) ((SerialBlob) fieldValue).length())
+                fieldStr = Base64.getEncoder().encodeToString(objBytes)
+            }
+        } else if (isoDateTime && fieldValue instanceof java.util.Date) {
+            if (fieldValue instanceof Timestamp) {
+                fieldStr = fieldValue.toInstant().atZone(ZoneOffset.UTC.normalized()).format(DateTimeFormatter.ISO_INSTANT)
+            } else if (fieldValue instanceof java.sql.Date) {
+                fieldStr = efi.ecfi.getEci().l10nFacade.formatDate(fieldValue, "yyyy-MM-dd", null, null)
+            } else if (fieldValue instanceof java.sql.Time) {
+                fieldStr = efi.ecfi.getEci().l10nFacade.formatTime(fieldValue, "HH:mm:ssZ", null, TimeZone.getTimeZone(ZoneOffset.UTC))
+            } else {
+                fieldStr = fieldValue.toInstant().atZone(ZoneOffset.UTC.normalized()).format(DateTimeFormatter.ISO_DATE_TIME)
+            }
+        } else {
+            fieldStr = ObjectUtilities.toPlainString(fieldValue)
+        }
+        if (fieldStr == null) fieldStr = ""
+        return fieldStr
     }
 
     private EntityFind makeEntityFind(String en) {

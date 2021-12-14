@@ -302,7 +302,7 @@ public class L10nFacadeImpl implements L10nFacade {
 
     @Override public Calendar parseDateTime(String input, String format) {
         return calendarValidator.validate(input, format, getLocale(), getTimeZone()); }
-    public String formatDateTime(Calendar input, String format, Locale locale, TimeZone tz) {
+    @Override public String formatDateTime(Calendar input, String format, Locale locale, TimeZone tz) {
         if (locale == null) locale = getLocale();
         if (tz == null) tz = getTimeZone();
         return calendarValidator.format(input, format, locale, tz);
@@ -310,7 +310,7 @@ public class L10nFacadeImpl implements L10nFacade {
 
     @Override public BigDecimal parseNumber(String input, String format) {
         return bigDecimalValidator.validate(input, format, getLocale()); }
-    public String formatNumber(Number input, String format, Locale locale) {
+    @Override public String formatNumber(Number input, String format, Locale locale) {
         if (locale == null) locale = getLocale();
         if (format == null || format.isEmpty()) {
             // BigDecimalValidator defaults to 3 decimal digits, if no format specified we don't want to truncate so small, use better defaults
