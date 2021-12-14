@@ -288,7 +288,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                 try {
                     loadSingleFile(location, exh, ech, ejh)
                 } catch (Throwable t) {
-                    logger.error("Skipping to next file after error: ${t.toString()}")
+                    logger.error("Skipping to next file after error: ${t.toString()} ${t.getCause() != null ? t.getCause().toString() : ''}")
                 }
             }
         })
@@ -312,6 +312,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                 long beforeTime = System.currentTimeMillis()
 
                 inputStream = efi.ecfi.resourceFacade.getLocationStream(location)
+                if (inputStream == null) throw new BaseException("Data file not found at ${location}")
 
                 long recordsLoaded = 0
                 int messagesBefore = exh.valueHandler.messageList != null ? exh.valueHandler.messageList.size() : 0
@@ -319,8 +320,10 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                 if (location.endsWith(".xml")) {
                     long beforeRecords = exh.valuesRead ?: 0
                     exh.setLocation(location)
+
                     SAXParser parser = SAXParserFactory.newInstance().newSAXParser()
                     parser.parse(inputStream, exh)
+
                     recordsLoaded = (exh.valuesRead?:0) - beforeRecords
                     logger.info("Loaded ${recordsLoaded} records from ${location} in ${((System.currentTimeMillis() - beforeTime)/1000)}s")
                 } else if (location.endsWith(".csv")) {
@@ -341,9 +344,9 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                     while((entry = zis.getNextEntry()) != null) {
                         try {
                             String entryFile = entry.getName()
+                            long entryBeforeTime = System.currentTimeMillis()
                             if (entryFile.endsWith(".xml")) {
                                 long beforeRecords = exh.valuesRead ?: 0
-                                beforeTime = System.currentTimeMillis()
                                 exh.setLocation(location)
 
                                 SAXParser parser = SAXParserFactory.newInstance().newSAXParser()
@@ -351,7 +354,21 @@ class EntityDataLoaderImpl implements EntityDataLoader {
 
                                 long curFileLoaded = (exh.valuesRead?:0) - beforeRecords
                                 recordsLoaded += curFileLoaded
-                                logger.info("Loaded ${curFileLoaded} records from ${entryFile} in zip file ${location} in ${((System.currentTimeMillis() - beforeTime)/1000)}s")
+                                logger.info("Loaded ${curFileLoaded} records from ${entryFile} in zip file ${location} in ${((System.currentTimeMillis() - entryBeforeTime)/1000)}s")
+                            } else if (entryFile.endsWith(".csv")) {
+                                long beforeRecords = ech.valuesRead ?: 0
+                                if (ech.loadFile(entryFile, zis)) {
+                                    long curFileLoaded = (ech.valuesRead?:0) - beforeRecords
+                                    recordsLoaded += curFileLoaded
+                                    logger.info("Loaded ${curFileLoaded} records from ${entryFile} in zip file ${location} in ${((System.currentTimeMillis() - entryBeforeTime)/1000)}s")
+                                }
+                            } else if (entryFile.endsWith(".json")) {
+                                long beforeRecords = ejh.valuesRead ?: 0
+                                if (ejh.loadFile(entryFile, zis)) {
+                                    long curFileLoaded = (ejh.valuesRead?:0) - beforeRecords
+                                    recordsLoaded += curFileLoaded
+                                    logger.info("Loaded ${curFileLoaded} records from ${entryFile} in zip file ${location} in ${((System.currentTimeMillis() - entryBeforeTime)/1000)}s")
+                                }
                             } else {
                                 logger.warn("Found file ${entryFile} in zip file ${location} that is not a .xml file, ignoring")
                             }
@@ -889,6 +906,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             }
 
             // logger.warn("======== CSV entity/service [${entityName}] headerMap: ${headerMap}")
+            EntityDefinition entityDefinition = isService ? null : edli.efi.getEntityDefinition(entityName)
             while (iterator.hasNext()) {
                 CSVRecord record = iterator.next()
                 // logger.warn("======== CSV record: ${record.toString()}")
@@ -905,8 +923,28 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                 } else {
                     EntityValueImpl currentEntityValue = (EntityValueImpl) edli.efi.makeValue(entityName)
                     if (edli.defaultValues) currentEntityValue.setFields(edli.defaultValues, true, null, null)
-                    for (Map.Entry<String, Integer> header in headerMap)
-                        currentEntityValue.setString(header.key, record.get(header.value))
+                    for (Map.Entry<String, Integer> header in headerMap) {
+                        String fieldStr = record.get(header.value)
+                        if (fieldStr == null) continue
+                        if (fieldStr.isEmpty()) {
+                            currentEntityValue.set(header.key, null)
+                            continue
+                        }
+
+                        // for BLOB field type do Base64 decode
+                        if (entityDefinition != null && fieldStr != null) {
+                            FieldInfo fi = entityDefinition.fieldInfoMap.get(header.key)
+                            if (fi.typeValue == 12) {
+                                byte[] bytes = Base64.getDecoder().decode(fieldStr)
+                                logger.warn("Load ${bytes.length} bytes: ${fieldStr}")
+                                currentEntityValue.setBytes(header.key, bytes)
+                                continue
+                            }
+                        }
+
+                        // handle generally with setString()
+                        currentEntityValue.setString(header.key, fieldStr)
+                    }
 
                     if (!currentEntityValue.containsPrimaryKey()) {
                         if (currentEntityValue.getEntityDefinition().getPkFieldNames().size() == 1) {
