@@ -100,6 +100,11 @@ public interface EntityDataWriter {
      */
     EntityDataWriter thruDate(Timestamp thruDate);
 
+    /** Write Date, Time, and Timestamp fields in ISO format instead of millis since epoch integer; currently only supported for CSV */
+    EntityDataWriter isoDateTime(boolean iso);
+    /** Write table and column names instead of entity and field names; currently only supported for CSV */
+    EntityDataWriter tableColumnNames(boolean tcn);
+
     /** Write all results to a single file.
      * @param filename The path and name of the file to write values to
      * @return Count of values written
