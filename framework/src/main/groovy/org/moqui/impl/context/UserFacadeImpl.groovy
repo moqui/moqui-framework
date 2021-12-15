@@ -93,10 +93,8 @@ class UserFacadeImpl implements UserFacade {
         this.response = response
         this.session = request.getSession()
 
-        // get client IP address, handle proxy original address if exists
-        String forwardedFor = request.getHeader("X-Forwarded-For")
-        if (forwardedFor != null && !forwardedFor.isEmpty()) { clientIpInternal = forwardedFor.split(",")[0].trim() }
-        else { clientIpInternal = request.getRemoteAddr() }
+        // get client IP address, handle proxy upstream address if added in a header
+        clientIpInternal = getClientIp(request, null, eci.ecfi)
 
         String preUsername = getUsername()
         Subject webSubject = makeEmptySubject()
@@ -264,9 +262,7 @@ class UserFacadeImpl implements UserFacade {
         this.session = (HttpSession) request.getHttpSession()
 
         // get client IP address, handle proxy original address if exists
-        String forwardedFor = request.getHeaders().get("X-Forwarded-For")?.first()
-        if (forwardedFor != null && !forwardedFor.isEmpty()) { clientIpInternal = forwardedFor.split(",")[0].trim() }
-        // any other way to get websocket client IP? else { clientIpInternal = request.getRemoteAddr() }
+        clientIpInternal = getClientIp(null, request, eci.ecfi)
 
         // WebSocket handshake request is the HTTP upgrade request so this will be the original session
         // login user from value in session
@@ -943,6 +939,68 @@ class UserFacadeImpl implements UserFacade {
 
         // whether previous user on stack or new one, set the currentInfo
         currentInfo = newCurInfo
+    }
+
+    static String getClientIp(HttpServletRequest httpRequest, HandshakeRequest handshakeRequest, ExecutionContextFactoryImpl ecfi) {
+        // use configured client-ip-header to support more than the unreliable X-Forwarded-For header
+        String webappName = null
+        if (httpRequest != null) {
+            webappName = httpRequest.servletContext.getInitParameter("moqui-name")
+        } else if (handshakeRequest != null) {
+            Object hsrSession = handshakeRequest.httpSession
+            if (hsrSession instanceof HttpSession) webappName = hsrSession.getServletContext().getInitParameter("moqui-name")
+        }
+
+        String clientIpHeaderValue = null
+        if (webappName != null && !webappName.isEmpty()) {
+            ExecutionContextFactoryImpl.WebappInfo webappInfo = ecfi.getWebappInfo(webappName)
+            String clientIpHeader = webappInfo?.clientIpHeader
+            // get the header value from http or handshake request
+            if (clientIpHeader != null && !clientIpHeader.isEmpty()) {
+                if (httpRequest != null) {
+                    clientIpHeaderValue = httpRequest.getHeader(clientIpHeader)
+                } else if (handshakeRequest != null) {
+                    clientIpHeaderValue = handshakeRequest.getHeaders().get(clientIpHeader)?.first()
+                }
+
+                if (httpRequest != null && (clientIpHeaderValue == null || clientIpHeaderValue.isEmpty())) {
+                    logger.warn("No value found in HTTP request Client IP header ${clientIpHeader}, servlet container reports ${httpRequest.getRemoteAddr()}")
+                }
+            }
+        }
+
+        // get first entry in header value or request's remote addr
+        String clientIp = null
+        if (clientIpHeaderValue != null && !clientIpHeaderValue.isEmpty()) {
+            clientIp = clientIpHeaderValue.split(",")[0].trim()
+        } else {
+            if (httpRequest != null) {
+                clientIp = httpRequest.getRemoteAddr()
+                // logger.info("httpRequest remote addr clientIp ${clientIp}")
+            } else if (handshakeRequest != null) {
+                // any other way to get websocket client IP? else { clientIpInternal = request.getRemoteAddr() }
+            }
+        }
+
+        if (clientIp != null) {
+            // some headers, like CloudFront-Viewer-Address, contain a port as well so remove that
+            int cipColonIdx = clientIp.lastIndexOf(':')
+            if (cipColonIdx >= 0) {
+                // for IPv6 addresses with square braces, only strip before colon if colon after closing square brace
+                int closeSqBrIdx = clientIp.indexOf(']')
+                if (closeSqBrIdx == -1 || closeSqBrIdx < cipColonIdx)
+                    clientIp = clientIp.substring(cipColonIdx + 1)
+            }
+
+            // strip IPv6 square braces if present
+            if (clientIp != null && !clientIp.isEmpty()) {
+                if (clientIp.charAt(0) == (char) '[') clientIp = clientIp.substring(1)
+                if (clientIp.charAt(clientIp.length() - 1) == (char) ']')
+                    clientIp = clientIp.substring(0, clientIp.length() - 1)
+            }
+        }
+
+        return clientIp
     }
 
     static class UserInfo {

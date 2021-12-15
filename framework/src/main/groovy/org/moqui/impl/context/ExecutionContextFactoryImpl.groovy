@@ -1111,28 +1111,29 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         BigDecimal diskPercent = (((diskTotalSpace - diskFreeSpace) / diskTotalSpace) * 100.0).setScale(2, RoundingMode.HALF_UP)
 
         HttpServletRequest request = getEci().getWeb()?.getRequest()
-        Map<String, Object> statusMap = [ MoquiFramework:moquiVersion,
+        Map<String, Object> statusMap = [
+            // because security: MoquiFramework:moquiVersion,
             Utilization: [LoadPercent:loadPercent, HeapPercent:heapPercent, DiskPercent:diskPercent],
             Web: [ LocalAddr:request?.getLocalAddr(), LocalPort:request?.getLocalPort(), LocalName:request?.getLocalName(),
-                     ServerName:request?.getServerName(), ServerPort:request?.getServerPort() ],
+                    ServerName:request?.getServerName(), ServerPort:request?.getServerPort() ],
             Heap: [ Used:(heapUsed/(1024*1024)).setScale(3, RoundingMode.HALF_UP),
-                      Committed:(heapMemoryUsage.getCommitted()/(1024*1024)).setScale(3, RoundingMode.HALF_UP),
-                      Max:(heapMax/(1024*1024)).setScale(3, RoundingMode.HALF_UP) ],
+                    Committed:(heapMemoryUsage.getCommitted()/(1024*1024)).setScale(3, RoundingMode.HALF_UP),
+                    Max:(heapMax/(1024*1024)).setScale(3, RoundingMode.HALF_UP) ],
             NonHeap: [ Used:(nonHeapMemoryUsage.getUsed()/(1024*1024)).setScale(3, RoundingMode.HALF_UP),
-                         Committed:(nonHeapMemoryUsage.getCommitted()/(1024*1024)).setScale(3, RoundingMode.HALF_UP) ],
+                    Committed:(nonHeapMemoryUsage.getCommitted()/(1024*1024)).setScale(3, RoundingMode.HALF_UP) ],
             Disk: [ Free:(diskFreeSpace/(1024*1024)).setScale(3, RoundingMode.HALF_UP),
-                      Usable:(runtimeFile.getUsableSpace()/(1024*1024)).setScale(3, RoundingMode.HALF_UP),
-                      Total:(diskTotalSpace/(1024*1024)).setScale(3, RoundingMode.HALF_UP) ],
-            System: [ Load:loadAvg, Processors:processors, CPU:osMXBean.getArch(),
-                        OsName:osMXBean.getName(), OsVersion:osMXBean.getVersion() ],
-            JavaRuntime: [ SpecVersion:runtimeMXBean.getSpecVersion(), VmVendor:runtimeMXBean.getVmVendor(),
-                             VmVersion:runtimeMXBean.getVmVersion(), Start:startTimestamp, UptimeHours:uptimeHours ],
+                    Usable:(runtimeFile.getUsableSpace()/(1024*1024)).setScale(3, RoundingMode.HALF_UP),
+                    Total:(diskTotalSpace/(1024*1024)).setScale(3, RoundingMode.HALF_UP) ],
+            // trimmed because security: System: [ Load:loadAvg, Processors:processors, CPU:osMXBean.getArch(), OsName:osMXBean.getName(), OsVersion:osMXBean.getVersion() ],
+            System: [ Load:loadAvg, Processors:processors ],
+            // trimmed because security: JavaRuntime: [ SpecVersion:runtimeMXBean.getSpecVersion(), VmVendor:runtimeMXBean.getVmVendor(), VmVersion:runtimeMXBean.getVmVersion(), Start:startTimestamp, UptimeHours:uptimeHours ],
+            JavaRuntime: [ Start:startTimestamp, UptimeHours:uptimeHours ],
             JavaStats: [ GcCount:gcCount, GcTimeSeconds:gcTime/1000, JIT:jitMXBean.getName(), CompileTimeSeconds:jitMXBean.getTotalCompilationTime()/1000,
-                           ClassesLoaded:classMXBean.getLoadedClassCount(), ClassesTotalLoaded:classMXBean.getTotalLoadedClassCount(),
-                           ClassesUnloaded:classMXBean.getUnloadedClassCount(), ThreadCount:threadMXBean.getThreadCount(),
-                           PeakThreadCount:threadMXBean.getPeakThreadCount() ] as Map<String, Object>,
-            DataSources: entityFacade.getDataSourcesInfo()
-        ]
+                    ClassesLoaded:classMXBean.getLoadedClassCount(), ClassesTotalLoaded:classMXBean.getTotalLoadedClassCount(),
+                    ClassesUnloaded:classMXBean.getUnloadedClassCount(), ThreadCount:threadMXBean.getThreadCount(),
+                    PeakThreadCount:threadMXBean.getPeakThreadCount() ] as Map<String, Object>
+            // because security: DataSources: entityFacade.getDataSourcesInfo()
+        ] as Map<String, Object>
         return statusMap
     }
 
@@ -1756,6 +1757,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         String httpPort, httpHost, httpsPort, httpsHost
         boolean httpsEnabled
         boolean requireSessionToken
+        String clientIpHeader
 
         WebappInfo(String webappName, ExecutionContextFactoryImpl ecfi) {
             this.webappName = webappName
@@ -1769,6 +1771,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             httpsHost = webappNode.attribute("https-host") ?: httpHost ?: null
             httpsEnabled = "true".equals(webappNode.attribute("https-enabled"))
             requireSessionToken = !"false".equals(webappNode.attribute("require-session-token"))
+            clientIpHeader = webappNode.attribute("client-ip-header")
 
             String allowOrigins = webappNode.attribute("allow-origins")
             if (allowOrigins) for (String origin in allowOrigins.split(",")) allowOriginSet.add(origin.trim().toLowerCase())
