@@ -5,7 +5,7 @@
     <!-- Settings in this file can be overridden in a component (MoquiConf.xml) and/or runtime conf file that has
         any of the desired sub-elements. -->
 
-    <!-- Default properties are only set if there is no Java property or environment variable of the same name (or with underscores replaced by dots) -->
+    <!-- Default Properties: only set if there is no Java property or environment variable of the same name (or with underscores replaced by dots) -->
 
     <!-- recommended values: production, dev, test; any code may look at these Java System properties to vary behavior (System.getProperty("instance_purpose")) -->
     <default-property name="instance_purpose" value="production"/>
@@ -25,6 +25,21 @@
     <default-property name="webapp_status_ips" value="127.0.0.1"/>
     <default-property name="webapp_require_session_token" value="true"/>
     <default-property name="webapp_upload_executable_allow" value="false"/>
+
+    <!--
+        While there is no default value for webapp_client_ip_header, embedded Jetty looks at Forwarded and
+        X-Forwarded-For headers via ForwardedRequestCustomizer (see MoquiStart.java); this is necessary so that
+        Jetty knows if a proxied request came via HTTPS vs HTTP, but is risky because clients can set a value for
+        the header to spoof any of these settings including a client IP address; if the outer-most proxy handles
+        X-Forwarded-For by always setting it to its client IP address instead of the common default behavior of
+        appending to an existing X-Forwarded-For header then it is fine, but to avoid this set webapp_client_ip_header
+        to something more reliable for the proxy used.
+
+        nginx-proxy: X-Real-IP (see https://github.com/nginx-proxy/nginx-proxy/blob/main/nginx.tmpl)
+        Cloudflare: CF-Connecting-IP (or True-Client-IP if that feature is enabled)
+        AWS Cloudfront: CloudFront-Viewer-Address (requires config in Cloudfront origin request policy)
+    -->
+    <default-property name="webapp_client_ip_header" value=""/>
 
     <!-- Properties for the primary (transactional group) datasource -->
     <default-property name="entity_ds_db_conf" value="h2"/>
@@ -158,7 +173,7 @@
                 https-port="${webapp_https_port}" https-host="${webapp_http_host}" https-enabled="${webapp_https_enabled}"
                 handle-cors="${webapp_handle_cors}" allow-origins="${webapp_allow_origins}"
                 require-session-token="${webapp_require_session_token}" upload-executable-allow="${webapp_upload_executable_allow}"
-                websocket-timeout="600000">
+                websocket-timeout="600000" client-ip-header="${webapp_client_ip_header}">
             <!-- root and error screens for OOTB runtime directory (moqui/moqui-runtime repository) -->
             <root-screen host=".*" location="component://webroot/screen/webroot.xml"/>
             <error-screen error="unauthorized" screen-path="error/Unauthorized"/>
