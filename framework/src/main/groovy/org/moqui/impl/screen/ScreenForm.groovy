@@ -362,7 +362,14 @@ class ScreenForm {
                     String fieldName = (String) dbFormField.fieldName
                     MNode newFieldNode = new MNode("field", [name:fieldName])
                     if (dbFormField.entryName) newFieldNode.attributes.put("from", (String) dbFormField.entryName)
-                    MNode subFieldNode = newFieldNode.append("default-field", null)
+
+                    // create the sub-field node; if DbFormField.condition use conditional-field instead of default-field
+                    MNode subFieldNode
+                    if (dbFormField.condition) {
+                        subFieldNode = newFieldNode.append("conditional-field", [condition:dbFormField.condition] as Map<String, String>)
+                    } else {
+                        subFieldNode = newFieldNode.append("default-field", null)
+                    }
                     if (dbFormField.title) subFieldNode.attributes.put("title", (String) dbFormField.title)
                     if (dbFormField.tooltip) subFieldNode.attributes.put("tooltip", (String) dbFormField.tooltip)
 
