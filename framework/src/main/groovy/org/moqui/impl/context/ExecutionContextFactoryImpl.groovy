@@ -1074,7 +1074,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
 
-    Map<String, Object> getStatusMap() {
+    Map<String, Object> getStatusMap() { return getStatusMap(false) }
+    Map<String, Object> getStatusMap(boolean includeSensitive) {
         def memoryMXBean = ManagementFactory.getMemoryMXBean()
         def heapMemoryUsage = memoryMXBean.getHeapMemoryUsage()
         def nonHeapMemoryUsage = memoryMXBean.getNonHeapMemoryUsage()
@@ -1134,6 +1135,12 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                     PeakThreadCount:threadMXBean.getPeakThreadCount() ] as Map<String, Object>
             // because security: DataSources: entityFacade.getDataSourcesInfo()
         ] as Map<String, Object>
+        if (includeSensitive) {
+            statusMap.MoquiFramework = moquiVersion
+            statusMap.System = [Load:loadAvg, Processors:processors, CPU:osMXBean.getArch(), OsName:osMXBean.getName(), OsVersion:osMXBean.getVersion()]
+            statusMap.JavaRuntime = [SpecVersion:runtimeMXBean.getSpecVersion(), VmVendor:runtimeMXBean.getVmVendor(), VmVersion:runtimeMXBean.getVmVersion(), Start:startTimestamp, UptimeHours:uptimeHours]
+            statusMap.DataSources = entityFacade.getDataSourcesInfo()
+        }
         return statusMap
     }
 
