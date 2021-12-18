@@ -327,7 +327,8 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Authenticator App (TOTP)" enumId="UafTotp" enumTypeId="UserAuthcFactorType"/>
             <moqui.basic.Enumeration description="Single Use Code" enumId="UafSingleUse" enumTypeId="UserAuthcFactorType"/>
             <moqui.basic.Enumeration description="Email Code (OTP)" enumId="UafEmail" enumTypeId="UserAuthcFactorType"/>
-            <!--            <moqui.basic.Enumeration description="HMAC-based one-time password" enumId="UafHotp" enumTypeId="UserAuthcFactorType"/>-->
+            <!-- <moqui.basic.Enumeration description="SMS Code (OTP)" enumId="UafSms" enumTypeId="UserAuthcFactorType"/> -->
+            <!-- <moqui.basic.Enumeration description="HMAC-based one-time password" enumId="UafHotp" enumTypeId="UserAuthcFactorType"/> -->
         </seed-data>
     </entity>
     <entity entity-name="UserGroup" package="moqui.security" use="configuration" short-alias="userGroups">
