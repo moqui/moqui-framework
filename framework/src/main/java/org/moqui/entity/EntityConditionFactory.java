@@ -42,10 +42,9 @@ public interface EntityConditionFactory {
     /** More convenient for scripts, etc. The conditionList parameter may contain Map or EntityCondition objects. */
     EntityCondition makeCondition(List<Object> conditionList, String listOperator, String mapComparisonOperator, String mapJoinOperator);
 
-    EntityCondition makeCondition(Map<String, Object> fieldMap, EntityCondition.ComparisonOperator comparisonOperator, EntityCondition.JoinOperator joinOperator);
-
     /** Default to ComparisonOperator of EQUALS and JoinOperator of AND */
     EntityCondition makeCondition(Map<String, Object> fieldMap);
+    EntityCondition makeCondition(Map<String, Object> fieldMap, EntityCondition.ComparisonOperator comparisonOperator, EntityCondition.JoinOperator joinOperator);
 
     EntityCondition makeConditionDate(String fromFieldName, String thruFieldName, Timestamp compareStamp);
 

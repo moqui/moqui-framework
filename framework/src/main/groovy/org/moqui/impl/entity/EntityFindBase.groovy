@@ -235,6 +235,12 @@ abstract class EntityFindBase implements EntityFind {
     }
 
     @Override
+    EntityConditionFluent condition() {
+        throw new RuntimeException("Not yet implemented, check back later")
+        // TODO: two implementations of EntityConditionFluent: one backed by EntityFind, one that is a wrapper around ListCondition
+    }
+
+    @Override
     boolean getHasCondition() {
         if (singleCondField != null) return true
         if (simpleAndMap != null && simpleAndMap.size() > 0) return true
