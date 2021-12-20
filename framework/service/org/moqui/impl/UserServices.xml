@@ -491,9 +491,19 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <set field="username" from="ec.web?.sessionAttributes?.moquiAuthcFactorUsername ?: ec.user.username"/>
             <if condition="!username"><return error="true" message="No user pre-authenticated, cannot send code"/></if>
+            <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
+                <field-map field-name="username"/></entity-find-one>
+            <if condition="userAccount == null"><return error="true" message="User ${username} not found"/></if>
 
             <!-- special case for email OTP with UserAccount.emailAddress -->
             <if condition="'UserAccountEmail'.equals(factorId)">
+                <entity-find entity-name="moqui.security.UserAuthcFactor" list="userAuthcFactorList">
+                    <date-filter/><econdition field-name="userId" from="userAccount.userId"/>
+                    <econdition field-name="fromFactorId" operator="is-null"/>
+                </entity-find>
+                <if condition="userAuthcFactorList">
+                    <return error="true" message="User has other authentication factors configured, cannot use account email address"/></if>
+
                 <service-call name="org.moqui.impl.UserServices.send#AuthcCodeUserAccountEmail"
                         in-map="[username:username]" out-map="context"/>
                 <return/>
@@ -502,10 +512,6 @@ along with this software (see the LICENSE.md file). If not, see
             <entity-find-one entity-name="moqui.security.UserAuthcFactor" value-field="userAuthcFactor">
                 <field-map field-name="factorId"/></entity-find-one>
             <if condition="userAuthcFactor == null"><return error="true" message="Authentication factor ${factorId} not found"/></if>
-
-            <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
-                <field-map field-name="username"/></entity-find-one>
-            <if condition="userAccount == null"><return error="true" message="User ${username} not found"/></if>
             <if condition="userAuthcFactor.userId != userAccount.userId">
                 <return error="true" message="Authentication Factor ${factorId} is not valid for ${userAccount.username}"/></if>
 
@@ -546,7 +552,8 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" async="true">
                 <field-map field-name="emailTemplateId" value="SINGLE_USE_CODE"/>
                 <field-map field-name="toAddresses" from="emailAddress"/>
-                <field-map field-name="bodyParameters" from="[code:code,thruDateString:thruDate.toString()]"/>
+                <field-map field-name="bodyParameters" from="[code:createSuFactorOut.code,
+                        thruDateString:ec.l10n.format(createSuFactorOut.thruDate, null)]"/>
             </service-call>
             <message>Authentication code sent to ${emailAddress}</message>
 
@@ -555,7 +562,8 @@ along with this software (see the LICENSE.md file). If not, see
                 <service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" async="true">
                     <field-map field-name="emailTemplateId" value="ADDED_EMAIL_AUTHC_FACTOR"/>
                     <field-map field-name="toAddresses" from="userAccount.emailAddress"/>
-                    <field-map field-name="bodyParameters" from="[userEmail:emailAddress,thruDateString:thruDate.toString()]"/>
+                    <field-map field-name="bodyParameters" from="[userEmail:emailAddress,
+                            thruDateString:ec.l10n.format(createSuFactorOut.thruDate, null)]"/>
                 </service-call>
             </if>
         </actions>
@@ -569,7 +577,7 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
                 <field-map field-name="username"/></entity-find-one>
-            <set field="userId" from="userAuthcFactor.userId"/>
+            <set field="userId" from="userAccount.userId"/>
             <set field="emailAddress" from="userAccount.emailAddress"/>
 
             <!-- create a new single use authc factor code and get it's factorId -->
@@ -581,7 +589,8 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" async="true">
                 <field-map field-name="emailTemplateId" value="SINGLE_USE_CODE"/>
                 <field-map field-name="toAddresses" from="emailAddress"/>
-                <field-map field-name="bodyParameters" from="[code:code,thruDateString:thruDate.toString()]"/>
+                <field-map field-name="bodyParameters" from="[code:createSuFactorOut.code,
+                        thruDateString:ec.l10n.format(createSuFactorOut.thruDate, null)]"/>
             </service-call>
             <message>Authentication code sent to ${emailAddress}</message>
         </actions>
