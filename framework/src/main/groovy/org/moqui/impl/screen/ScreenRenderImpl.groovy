@@ -1721,10 +1721,14 @@ class ScreenRenderImpl implements ScreenRender {
                     continue
                 }
                 // logger.warn("condition ${condition}, eval: ${ec.resourceFacade.condition(condition, null)}")
-                if (ec.resourceFacade.condition(condition, null)) {
-                    activeSubNode = condFieldNode
-                    // use first conditional-field with passing condition
-                    break
+                try {
+                    if (ec.resourceFacade.condition(condition, null)) {
+                        activeSubNode = condFieldNode
+                        // use first conditional-field with passing condition
+                        break
+                    }
+                } catch (Throwable t) {
+                    logger.warn("Error evaluating condition ${condition} on field ${fieldName} on screen ${this.getActiveScreenDef().getLocation()}", t)
                 }
             }
             if (activeSubNode == null) activeSubNode = fieldNode.first("default-field")

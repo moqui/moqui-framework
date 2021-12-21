@@ -135,6 +135,8 @@ dependencies {
     compile 'com.beust:jcommander:1.81'
 
     // H2 Database
+    // CVE pending: https://github.com/advisories/GHSA-7rpj-hg47-cx62 https://nvd.nist.gov/vuln/detail/CVE-2021-23463
+    // NOTE: Moqui does not use org.h2.jdbc.JdbcResultSet.getSQLXML() or any H2 specific API except to init server in H2ServerToolFactory
     // NOTE: update to H2 2.0.202 works well, except VALUE is now a reserved word, problem for:
     //    DbFormFieldAttribute, DbFormFieldEntOptsCond, PartyDimension, ProductDimension, ProductUomDimension
     //    this can be addressed with something like column-name="DIM_VALUE" which fixes H2
@@ -166,10 +168,10 @@ dependencies {
 
     // SLF4J, Log4j 2 (note Log4j 2 is used by various libraries, best not to replace it even if mostly possible with SLF4J)
     compile 'org.slf4j:slf4j-api:1.7.32'
-    compile 'org.apache.logging.log4j:log4j-core:2.16.0'
-    compile 'org.apache.logging.log4j:log4j-api:2.16.0'
-    runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.16.0'
-    runtime 'org.apache.logging.log4j:log4j-jcl:2.16.0'
+    compile 'org.apache.logging.log4j:log4j-core:2.17.0'
+    compile 'org.apache.logging.log4j:log4j-api:2.17.0'
+    runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.17.0'
+    runtime 'org.apache.logging.log4j:log4j-jcl:2.17.0'
 
     // SubEtha SMTP (module as depends on old javax.mail location; also uses SLF4J, activation included elsewhere)
     compile module('org.subethamail:subethasmtp:3.1.7')
