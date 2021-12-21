@@ -344,6 +344,9 @@ public class L10nFacadeImpl implements L10nFacade {
         if (value instanceof Number) return formatNumber((Number) value, format, locale);
         // Calendar is an abstract class, so must use instanceof here as well
         if (value instanceof Calendar) return formatDateTime((Calendar) value, format, locale, tz);
+        // support formatting of Map and Collection using JSON
+        if (value instanceof Map || value instanceof Collection)
+            return groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(value));
         return value.toString();
     }
 }
