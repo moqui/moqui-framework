@@ -359,12 +359,76 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- ====== User Authentication Factor Services ====== -->
     <!-- ================================================= -->
 
-    <!-- TODO: Limit the amount of attempts to validate authc code. Similair to Tarpit Locks (I think). -->
+    <service verb="get" noun="UserAuthcFactorInfo" authenticate="anonymous-view">
+        <in-parameters>
+            <parameter name="username" default="ec.web.sessionAttributes.moquiAuthcFactorUsername"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="factorTypeEnumIds" type="Set"/>
+            <parameter name="factorTypeDescriptions" type="List"/>
+            <parameter name="sendableFactors" type="List"><parameter name="sendableFactor" type="Map">
+                <parameter name="factorId"/>
+                <parameter name="factorTypeEnumId"/>
+                <parameter name="factorOption"/>
+            </parameter></parameter>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
+                <field-map field-name="username"/></entity-find-one>
+            <if condition="userAccount == null"><return error="true" message="No user pre-authenticated"/></if>
+
+            <entity-find entity-name="moqui.security.UserAuthcFactor" list="userAuthcFactorList">
+                <date-filter/><econdition field-name="userId" from="userAccount.userId"/>
+                <econdition field-name="fromFactorId" operator="is-null"/>
+                <!-- was condition in post-find iterate: userAuthcFactor.factorTypeEnumId != UafSingleUse &amp;&amp; !userAuthcFactor.fromFactorId -->
+            </entity-find>
+
+            <!-- if user has no authc factors configured allow code via UserAccount.emailAddress -->
+            <!-- NOTE: org.moqui.impl.UserServices.send#AuthcCode looks for a special factorId of 'UserAccountEmail' for this purpose -->
+            <if condition="userAuthcFactorList.size() == 0 &amp;&amp; userAccount.emailAddress">
+                <set field="userAuthcFactorList" from="[[factorId:'UserAccountEmail', userId:userAccount.userId,
+                    factorTypeEnumId:'UafEmail', factorOption:userAccount.emailAddress]]"/>
+            </if>
+
+            <set field="factorTypeEnumIds" from="new TreeSet(userAuthcFactorList*.factorTypeEnumId)"/>
+            <set field="factorTypeDescriptions" from="new LinkedList(factorTypeEnumIds.collect({
+                ec.entity.find('moqui.basic.Enumeration').condition('enumId', it).one()?.description ?: it }))"/>
+
+            <set field="sendableFactors" from="[]"/>
+            <iterate list="userAuthcFactorList" entry="factor">
+                <if condition="factor.factorTypeEnumId == 'UafEmail'">
+                    <script>sendableFactors.add([factorId:factor.factorId, factorTypeEnumId:factor.factorTypeEnumId,
+                            factorOption:factor.factorOption])</script>
+                </if>
+            </iterate>
+        </actions>
+    </service>
+
+    <service verb="validate" noun="ExternalUserAuthcCode" authenticate="anonymous-view">
+        <in-parameters><parameter name="code" required="true"/></in-parameters>
+        <out-parameters>
+            <parameter name="verified" type="Boolean"/>
+            <parameter name="factorId"/>
+            <parameter name="username"/>
+        </out-parameters>
+        <actions>
+            <set field="username" from="ec.web.sessionAttributes.moquiAuthcFactorUsername"/>
+            <if condition="!username"><return error="true" message="No user pre-authenticated, cannot send code"/></if>
+
+            <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
+                <field-map field-name="username"/></entity-find-one>
+            <if condition="userAccount == null"><return error="true" message="User ${username} not found"/></if>
+
+            <service-call name="org.moqui.impl.UserServices.validate#UserAuthcFactorCode"
+                    in-map="[userId:userAccount.userId, code:code]" out-map="context"/>
+        </actions>
+    </service>
     <service verb="validate" noun="UserAuthcFactorCode">
+        <!-- TODO: Limit the amount of attempts to validate authc code. Similar to Tarpit Locks. -->
         <description>Determine whether a user inputted code is valid based on the current UserAuthcFactor entries for that user.</description>
         <in-parameters>
             <parameter name="userId" required="true"/>
-            <parameter name="code"/>
+            <parameter name="code" required="true"/>
         </in-parameters>
         <out-parameters>
             <parameter name="verified" type="Boolean"/>
@@ -486,7 +550,7 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters><parameter name="factorId" required="true"/></in-parameters>
         <out-parameters>
             <parameter name="singleUseFactorId"/>
-            <parameter name="code"/>
+            <!-- this service is for external use, don't return the code: <parameter name="code"/> -->
         </out-parameters>
         <actions>
             <set field="username" from="ec.web?.sessionAttributes?.moquiAuthcFactorUsername ?: ec.user.username"/>
@@ -545,7 +609,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- create a new single use authc factor code and get it's factorId -->
             <service-call name="org.moqui.impl.UserServices.create#SingleUseAuthcFactor"
-                    in-map="[userId:userId,fromFactorId:factorId]" out-map="createSuFactorOut"/>
+                    in-map="[userId:userId, fromFactorId:factorId]" out-map="createSuFactorOut"/>
             <set field="singleUseFactorId" from="createSuFactorOut.factorId"/>
 
             <!-- send an email with the single use code -->
@@ -582,7 +646,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- create a new single use authc factor code and get it's factorId -->
             <service-call name="org.moqui.impl.UserServices.create#SingleUseAuthcFactor"
-                    in-map="[userId:userId]" out-map="createSuFactorOut"/>
+                    in-map="[userId:userId, fromFactorId:'UserAccountEmail']" out-map="createSuFactorOut"/>
             <set field="singleUseFactorId" from="createSuFactorOut.factorId"/>
 
             <!-- send an email with the single use code -->
