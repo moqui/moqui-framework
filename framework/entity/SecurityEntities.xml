@@ -327,7 +327,7 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Authenticator App (TOTP)" enumId="UafTotp" enumTypeId="UserAuthcFactorType"/>
             <moqui.basic.Enumeration description="Single Use Code" enumId="UafSingleUse" enumTypeId="UserAuthcFactorType"/>
             <moqui.basic.Enumeration description="Email Code" enumId="UafEmail" enumTypeId="UserAuthcFactorType"/>
-            <!-- <moqui.basic.Enumeration description="SMS Code" enumId="UafSms" enumTypeId="UserAuthcFactorType"/> -->
+            <moqui.basic.Enumeration description="SMS Code" enumId="UafSms" enumTypeId="UserAuthcFactorType"/>
             <!-- <moqui.basic.Enumeration description="Authenticator App (HMAC OTP)" enumId="UafHotp" enumTypeId="UserAuthcFactorType"/> -->
 
             <!-- generic factor record for UserAccount.emailAddress as an authc factor -->

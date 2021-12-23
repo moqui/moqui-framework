@@ -396,7 +396,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <set field="sendableFactors" from="[]"/>
             <iterate list="userAuthcFactorList" entry="factor">
-                <if condition="factor.factorTypeEnumId == 'UafEmail'">
+                <if condition="factor.factorTypeEnumId in ['UafEmail', 'UafSms']">
                     <script>sendableFactors.add([factorId:factor.factorId, factorTypeEnumId:factor.factorTypeEnumId,
                             factorOption:factor.factorOption])</script>
                 </if>
@@ -579,18 +579,19 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="userAuthcFactor.userId != userAccount.userId">
                 <return error="true" message="Authentication Factor ${factorId} is not valid for ${userAccount.username}"/></if>
 
-
-            <!-- TODO replace with looked up service name to allow pluggable factors; how to look up? Enumeration.optionValue (255 chars)? -->
             <if condition="userAuthcFactor.factorTypeEnumId == 'UafEmail'"><then>
                 <service-call name="org.moqui.impl.UserServices.send#AuthcCodeEmail" in-map="[factorId:factorId]" out-map="context"/>
-            </then><else>
+            </then><else-if condition="userAuthcFactor.factorTypeEnumId == 'UafSms'">
+                <service-call name="org.moqui.impl.UserServices.send#AuthcCodeSms" in-map="[factorId:factorId]" out-map="context"/>
+            </else-if><else>
                 <return error="true" message="Send code not supported for authc factor type ${userAuthcFactor.factorTypeEnumId}"/>
             </else></if>
         </actions>
     </service>
     <service verb="send" noun="AuthcCodeEmail">
         <description>
-            This should be called from send#AuthcCode which does validation, including verifying factor is owned by authc username in session.
+            For public access (outside an admin app) this should be called from send#AuthcCode which does validation,
+                including verifying factor is owned by authc username in session.
             Service to send an email with a single use code in it for verifying an email.
         </description>
         <in-parameters><parameter name="factorId" required="true"/></in-parameters>
@@ -657,6 +658,50 @@ along with this software (see the LICENSE.md file). If not, see
                         thruDateString:ec.l10n.format(createSuFactorOut.thruDate, null)]"/>
             </service-call>
             <message>Authentication code sent to ${emailAddress}</message>
+        </actions>
+    </service>
+    <service verb="send" noun="AuthcCodeSms">
+        <description>
+            For public access (outside an admin app) this should be called from send#AuthcCode which does validation,
+            including verifying factor is owned by authc username in session.
+            Service to send a SMS message with a single use code in it.
+        </description>
+        <in-parameters><parameter name="factorId" required="true"/></in-parameters>
+        <out-parameters>
+            <parameter name="singleUseFactorId"/>
+            <parameter name="code"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="moqui.security.UserAuthcFactor" value-field="userAuthcFactor">
+                <field-map field-name="factorId"/></entity-find-one>
+            <set field="userId" from="userAuthcFactor.userId"/>
+            <set field="contactNumber" from="userAuthcFactor.factorOption"/>
+
+            <!-- create a new single use authc factor code and get it's factorId -->
+            <service-call name="org.moqui.impl.UserServices.create#SingleUseAuthcFactor"
+                    in-map="[userId:userId, fromFactorId:factorId]" out-map="createSuFactorOut"/>
+            <set field="singleUseFactorId" from="createSuFactorOut.factorId"/>
+
+            <!-- send a SMS message with the single use code -->
+            <service-call name="org.moqui.SmsServices.send#SmsMessage">
+                <field-map field-name="contactNumber"/>
+                <!-- NOTE: uses LocalizedMessage with original=UserAuthcOtpMessage, defined in CommonL10nData.xml -->
+                <field-map field-name="message" from="ec.resource.expand('UserAuthcOtpMessage', null, [code:createSuFactorOut.code])"/>
+            </service-call>
+            <message public="true" type="success">Authentication code sent to ${contactNumber}</message>
+
+            <!-- TODO consider always sending email to account address to let them know a code was sent, need variation in email text for SMS
+            <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
+                <field-map field-name="userId"/></entity-find-one>
+            <if condition="userAccount.emailAddress">
+                <service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" async="true">
+                    <field-map field-name="emailTemplateId" value="ADDED_EMAIL_AUTHC_FACTOR"/>
+                    <field-map field-name="toAddresses" from="userAccount.emailAddress"/>
+                    <field-map field-name="bodyParameters" from="[userEmail:emailAddress,
+                            thruDateString:ec.l10n.format(createSuFactorOut.thruDate, null)]"/>
+                </service-call>
+            </if>
+            -->
         </actions>
     </service>
 

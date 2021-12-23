@@ -84,4 +84,6 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.LocalizedMessage locale="default" original="UserGroupNameTemplate" localized="${description} [${userGroupId}]"/>
     <moqui.basic.LocalizedMessage locale="default" original="UsernameTemplate"
             localized="${userFullName ?: (lastName ? (firstName ? firstName + ' ' : '') + lastName : '')} [${username?:userId?:''}]"/>
+
+    <moqui.basic.LocalizedMessage locale="default" original="UserAuthcOtpMessage" localized="Your single use code is ${code}"/>
 </entity-facade-xml>
