@@ -88,6 +88,7 @@ class WebFacadeStub implements WebFacade {
     String getResponseText() { responseWriter.flush(); return responseWriter.toString() }
     Object getResponseJsonObj() { return responseJsonObj }
     HttpServletResponseStub getHttpServletResponseStub() { return httpServletResponse }
+    String getRequestDetails() { return "Stub" }
 
     @Override String getRequestUrl() { return "TestRequestUrl" }
 
