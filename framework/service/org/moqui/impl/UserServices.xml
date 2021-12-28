@@ -706,43 +706,61 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
-    <service verb="create" noun="EmailUserAuthcFactor">
-        <description>Creates a UserAuthcFactor entry for email, and an entry for the single use code to verify the email.</description>
+    <service verb="create" noun="UserAuthcFactorEmail">
+        <description>Creates a UserAuthcFactor entry for email</description>
         <in-parameters>
-            <parameter name="userId" required="true"><description>User to enable Email Factor Method</description></parameter>
-            <parameter name="thruDate" type="Timestamp" default="ec.user.nowTimestamp+365"/>
+            <parameter name="userId" required="true"><description>User to enable Factor Method</description></parameter>
+            <parameter name="fromDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <parameter name="thruDate" type="Timestamp"/>
+            <parameter name="factorTypeEnumId" default-value="UafEmail"/>
             <parameter name="factorOption" required="true"><text-email/></parameter>
+            <parameter name="needsValidation" default-value="Y"/>
         </in-parameters>
         <out-parameters>
             <parameter name="factorId"/>
-            <parameter name="singleUseFactorId"/>
-            <parameter name="code"/>
+            <!-- no longer generates and sends code: <parameter name="singleUseFactorId"/> <parameter name="code"/> -->
         </out-parameters>
         <actions>
-            <set field="factorTypeEnumId" value="UafEmail"/>
-            <set field="fromDate" from="ec.user.nowTimestamp"/>
-            <set field="needsValidation" value="Y"/>
-
             <entity-find-count entity-name="moqui.security.UserAuthcFactor" count-field="userAuthcFactorCount">
                 <date-filter/>
                 <econdition field-name="userId"/>
-                <econdition field-name="factorTypeEnumId"/>
                 <econdition field-name="factorOption"/>
             </entity-find-count>
-
-            <if condition="userAuthcFactorCount == 0">
-                <then>
-                    <!-- If there are no UserAuthcFactor entries for this user with the same email, create the UserAuthcFactor. -->
-                    <service-call name="create#moqui.security.UserAuthcFactor" in-map="context" out-map="context"/>
-                    <!-- don't send code email on create, do it manually if needed from UI:
-                    <service-call name="org.moqui.impl.UserServices.send#AuthcCodeEmail" in-map="[factorId:factorId]" out-map="context"/>
-                    -->
-                </then>
-                <else-if condition="userAuthcFactorCount == 1">
-                    <!-- There is an UserAuthcFactor for this user that has the same email. Send error message to the user.-->
-                    <return error="true" message="Email entry already exists for: ${factorOption}. Cannot create duplicate email."/>
-                </else-if>
-            </if>
+            <if condition="userAuthcFactorCount == 0"><then>
+                <!-- If there are no UserAuthcFactor entries for this user with the same email, create the UserAuthcFactor. -->
+                <service-call name="create#moqui.security.UserAuthcFactor" in-map="context" out-map="context"/>
+                <!-- don't send code email on create, do it manually if needed from UI:
+                <service-call name="org.moqui.impl.UserServices.send#AuthcCodeEmail" in-map="[factorId:factorId]" out-map="context"/> -->
+            </then><else>
+                <!-- There is an UserAuthcFactor for this user that has the same email. Send error message to the user.-->
+                <return error="true" message="Entry already exists for ${factorOption}"/>
+            </else></if>
+        </actions>
+    </service>
+    <service verb="create" noun="UserAuthcFactorSms">
+        <description>Creates a UserAuthcFactor entry for SMS</description>
+        <in-parameters>
+            <parameter name="userId" required="true"><description>User to enable Factor Method</description></parameter>
+            <parameter name="fromDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <parameter name="thruDate" type="Timestamp"/>
+            <parameter name="factorTypeEnumId" default-value="UafSms"/>
+            <parameter name="factorOption" required="true"><matches regexp="^\+?\d[-\. \d]*\d\d$" message="Please enter a valid phone number"/></parameter>
+            <parameter name="needsValidation" default-value="Y"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="factorId"/>
+        </out-parameters>
+        <actions>
+            <entity-find-count entity-name="moqui.security.UserAuthcFactor" count-field="userAuthcFactorCount">
+                <date-filter/>
+                <econdition field-name="userId"/>
+                <econdition field-name="factorOption"/>
+            </entity-find-count>
+            <if condition="userAuthcFactorCount == 0"><then>
+                <service-call name="create#moqui.security.UserAuthcFactor" in-map="context" out-map="context"/>
+            </then><else>
+                <return error="true" message="Entry already exists for ${factorOption}"/>
+            </else></if>
         </actions>
     </service>
 
