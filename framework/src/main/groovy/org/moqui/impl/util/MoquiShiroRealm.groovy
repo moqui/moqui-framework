@@ -270,20 +270,10 @@ class MoquiShiroRealm implements Realm, Authorizer {
                     throw new IncorrectCredentialsException(ecfi.resource.expand('Password incorrect for username ${username}','',[username:username]))
                 } else {
                     // if the user's credentials are correct, check if the user requires an additional authentication factor step
-
-                    boolean userRequireAuthc = false
-                    long userAuthcFactorCount = eci.entityFacade.find("moqui.security.UserAuthcFactor")
-                            .conditionDate(null, null, null).condition("userId", userId).disableAuthz().count()
-                    if (userAuthcFactorCount > 0) userRequireAuthc = true
-                    if (!userRequireAuthc) {
-                        long userGroupCount = eci.entityFacade.find("moqui.security.UserGroup")
-                                .condition("userGroupId", EntityCondition.IN, eci.userFacade.getUserGroupIdSet(userId))
-                                .condition("requireAuthcFactor", "Y").disableAuthz().count()
-                        if (userGroupCount > 0) userRequireAuthc = true
-                    }
-
+                    boolean secondReqd = ecfi.serviceFacade.sync().name("org.moqui.impl.UserServices.get#UserAuthcFactorRequired")
+                            .parameter("userId", userId).disableAuthz().call()?.secondFactorRequired ?: false
                     // if the user requires authentication, throw a SecondFactorRequiredException so that UserFacadeImpl.groovy can catch the error and perform the appropriate action.
-                    if (userRequireAuthc) {
+                    if (secondReqd) {
                         throw new SecondFactorRequiredException(ecfi.resource.expand('User ${username} requires an authentication code to login','',[username:username]))
                     }
                 }
