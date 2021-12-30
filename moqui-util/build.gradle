@@ -58,7 +58,7 @@ dependencies {
     compile 'javax.activation:activation:1.1.1'
 
     // SLF4J
-    compile 'org.slf4j:slf4j-api:1.7.30'
+    compile 'org.slf4j:slf4j-api:1.7.32'
     // Freemarker
     compile 'org.freemarker:freemarker:2.3.30' // Apache 2.0
     // Groovy
