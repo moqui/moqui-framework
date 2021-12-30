@@ -106,6 +106,10 @@ abstract class EntityFindBase implements EntityFind {
     @Override EntityFind entity(String name) { entityName = name; return this }
     @Override String getEntity() { return entityName }
 
+    protected boolean allowExtraField() {
+        return efi.entityDbMeta.checkAllowExtraFields(entityDef.groupName)
+    }
+
     // ======================== Conditions (Where and Having) =================
 
     @Override
@@ -131,7 +135,10 @@ abstract class EntityFindBase implements EntityFind {
     EntityFind condition(String fieldName, EntityCondition.ComparisonOperator operator, Object value) {
         EntityDefinition ed = getEntityDef()
         FieldInfo fi = ed.getFieldInfo(fieldName)
-        if (fi == null) throw new EntityException("Field ${fieldName} not found on entity ${entityName}, cannot add condition")
+        if (fi == null) {
+            if (!allowExtraField()) throw new EntityException("Field ${fieldName} not found on entity ${entityName}, cannot add condition")
+            return condition(new FieldValueCondition(new ConditionField(fieldName), operator, value))
+        }
         if (operator == null) operator = EntityCondition.EQUALS
         if (ed.isViewEntity && fi.fieldNode.attribute("function")) {
             return havingCondition(new FieldValueCondition(fi.conditionField, operator, value))
@@ -274,8 +281,12 @@ abstract class EntityFindBase implements EntityFind {
             ConditionField cf
             if (localEd != null) {
                 FieldInfo fi = localEd.getFieldInfo(singleCondField)
-                if (fi == null) throw new EntityException("Error in find, field ${singleCondField} does not exist in entity ${localEd.getFullEntityName()}")
-                cf = fi.conditionField
+                if (fi == null){
+                    if (!allowExtraField()) throw new EntityException("Error in find, field ${singleCondField} does not exist in entity ${localEd.getFullEntityName()}")
+                    cf = new ConditionField(singleCondField)
+                } else {
+                    cf = fi.conditionField
+                }
             } else {
                 cf = new ConditionField(singleCondField)
             }
@@ -294,8 +305,13 @@ abstract class EntityFindBase implements EntityFind {
                 ConditionField cf
                 if (localEd != null) {
                     FieldInfo fi = localEd.getFieldInfo((String) samEntry.getKey())
-                    if (fi == null) throw new EntityException("Error in find, field ${samEntry.getKey()} does not exist in entity ${localEd.getFullEntityName()}")
-                    cf = fi.conditionField
+                    if (fi == null){
+                        if (!allowExtraField()) throw new EntityException("Error in find, field ${samEntry.getKey()} does not exist in entity ${localEd.getFullEntityName()}")
+
+                        cf = new ConditionField(samEntry.key)
+                    } else {
+                        cf = fi.conditionField
+                    }
                 } else {
                     cf = new ConditionField((String) samEntry.key)
                 }

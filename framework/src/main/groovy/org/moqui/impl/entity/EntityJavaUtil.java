@@ -484,7 +484,7 @@ public class EntityJavaUtil {
             }
         }
 
-        void setFieldsEv(Map<String, Object> src, EntityValueBase dest, Boolean pks) {
+        public void setFieldsEv(Map<String, Object> src, EntityValueBase dest, Boolean pks) {
             // like above with setIfEmpty=true, namePrefix=null, pks=null
             if (src == null || dest == null) return;
 
@@ -535,6 +535,9 @@ public class EntityJavaUtil {
                     }
                 }
             }
+
+            // DTQ@MR - customization to enable writing undefined values into entity
+            this.checkExtraFields(src, dest, fieldInfoArray);
         }
 
         public Map<String, Object> cloneMapRemoveFields(Map<String, Object> theMap, Boolean pks) {
@@ -548,6 +551,46 @@ public class EntityJavaUtil {
                 newMap.remove(fi.name);
             }
             return newMap;
+        }
+
+        /**
+         * We may allow writing of additional fields into entity, should
+         * the datasource allow for such feature - this applies especially for Non-SQL databases, e.g. MongoDB
+         * @param src source map holding data we want to write
+         * @param dest destination entity
+         * @param fieldInfoArray fields list
+         */
+
+        private void checkExtraFields(Map<String, Object> src, EntityValueBase dest, FieldInfo[] fieldInfoArray) {
+            boolean allowExtraFields = efi.getEntityDbMeta().checkAllowExtraFields(ed.groupName);
+            if (!allowExtraFields) return;
+
+            logger.debug("Checking extra fields when setting Entity '" + ed.fullEntityName + "' values");
+
+            // which fields are extra?
+            List<String> extras = new ArrayList<>();
+            src.keySet().forEach(fieldToWrite -> {
+                if (Arrays.stream(fieldInfoArray).noneMatch(s-> Objects.equals(s.name, fieldToWrite))){
+                    extras.add(fieldToWrite);
+                }
+            });
+
+            if (extras.isEmpty()) return;
+
+            // must check valueMapInternal against fieldInfoArray,
+            // otherwise we may have problem when calculated fields are appended later in the process
+            // e.g. 'created'
+            if (fieldInfoArray.length < dest.valueMapInternal.size()) {
+                throw new EntityException("More values in internal map, before extra fields are appended, something must have gone terribly wrong");
+            }
+
+            final int[] lastIndex = {dest.valueMapInternal.getKeyArrayLength() - 1};
+            extras.forEach(fieldToWrite -> {
+                // when inserting values to internal value map, we should also
+                // modify the entity info, so that it reflects the changes in indices
+                dest.valueMapInternal.putByIString(fieldToWrite, src.get(fieldToWrite), lastIndex[0] + 1);
+                lastIndex[0] += 1;
+            });
         }
     }
 

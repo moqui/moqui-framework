@@ -1,0 +1,62 @@
+version: "2"
+services:
+#  moqui-server:
+#    build:
+#      context: .
+#      dockerfile: mongodb-setup/Dockerfile.mongodb
+#    container_name: moqui-server
+#    command: ["java", "-cp", ".", "MoquiStart", "conf=conf/__MoquiDevConf_MongoDB.xml", "port=8080"]
+#    restart: always
+#    links:
+#     - postgres-database
+#    ports:
+#     - 8080:8080
+#    volumes:
+#     - ./runtime/classes:/opt/moqui/runtime/classes
+#     - ./runtime/ecomponent:/opt/moqui/runtime/ecomponent
+#     - ./runtime/log:/opt/moqui/runtime/log
+#     - ./runtime/txlog:/opt/moqui/runtime/txlog
+#     - ./runtime/sessions:/opt/moqui/runtime/sessions
+#    environment:
+#     - instance_purpose=dev
+#     - entity_ds_db_conf=postgres
+#     - entity_ds_host=postgres-database
+#     - entity_ds_port=5432
+#     - entity_ds_database=moqui
+#     - entity_ds_user=root
+#     - entity_ds_password=moqui
+#     - entity_ds_crypt_pass='MoquiDefaultPassword:CHANGEME'
+#     # moqui will accept traffic from other hosts but these are the values used for URL writing when specified:
+#     - webapp_http_host=localhost
+#     - webapp_http_port=8080
+#     - webapp_https_port=443
+#     - webapp_https_enabled=false
+#     - default_locale=en_US
+#     - default_time_zone=US/Pacific
+
+  postgres-database:
+    image: postgres:12.1
+    container_name: postgres-database
+    restart: always
+    # uncomment this to expose the port for use outside other containers
+    ports:
+      - 127.0.0.1:5432:5432
+    environment:
+      - POSTGRES_DB=moqui
+      - POSTGRES_DB_SCHEMA=public
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      # PGDATA, POSTGRES_INITDB_ARGS
+
+  mongo-database:
+    image: mongo:5.0.3
+    container_name: mongo-database
+    restart: always
+    ports:
+     # change this as needed to bind to any address or even comment to not expose port outside containers
+     - 127.0.0.1:27017:27017
+     - 127.0.0.1:9229:9229
+    environment:
+     - MONGO_INITDB_ROOT_USERNAME=moqui
+     - MONGO_INITDB_DATABASE=moqui
+     - MONGO_INITDB_ROOT_PASSWORD=moqui

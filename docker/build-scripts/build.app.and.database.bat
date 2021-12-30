@@ -22,7 +22,7 @@ psql -U postgres -p 5431 -f sql/create.db.sql -v db=%db%
 REM set path and change directory
 pushd ..\..
 
-REM populate date (using entity-load)
+REM populate data (using entity-load)
 call gradlew -Dmoqui.conf.dev=conf\generated\%moqui_conf% -x test load -Ptypes=%seed_info%
 call gradlew -Dmoqui.conf.dev=conf\generated\%moqui_conf% addRuntime -x test
 

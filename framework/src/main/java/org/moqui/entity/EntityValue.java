@@ -19,6 +19,7 @@ import org.w3c.dom.Element;
 
 import javax.sql.rowset.serial.SerialBlob;
 import java.io.Externalizable;
+import java.io.FileInputStream;
 import java.io.Writer;
 import java.math.BigDecimal;
 import java.util.HashMap;
@@ -105,6 +106,16 @@ public interface EntityValue extends Map<String, Object>, Externalizable, Compar
      * @return reference to this for convenience
      */
     EntityValue setString(String name, String value);
+
+    /**
+     * Method is currently supported for MongoDB only.
+     *
+     * @param file The file to upload itself
+     * @param fileName File name required, so that the metadata can be saved along
+     * @param metadata Additional metadata to fill together with data
+     * @return
+     */
+    EntityValue setAttachment(FileInputStream file, String fileName, HashMap<String, Object> metadata);
 
     Boolean getBoolean(String name);
 

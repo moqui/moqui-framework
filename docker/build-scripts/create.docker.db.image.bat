@@ -7,6 +7,8 @@ IF DEFINED _PYTHON_EXEC (SET PYTHON_TO_RUN=%_PYTHON_EXEC%) ELSE (SET PYTHON_TO_R
 IF DEFINED _PGDUMP_EXEC (SET PGDUMP_TO_RUN=%_PGDUMP_EXEC%) ELSE (SET PGDUMP_TO_RUN=pg_dump)
 IF "%PYTHON_TO_RUN%"=="" OR "%PGDUMP_TO_RUN%"=="" ( ECHO Basic variables required to run the script not set (`pg_dump.exe=%PGDUMP_TO_RUN%` and/or `python=%_PYTHON_EXEC%` executable) & goto e)
 
+SET _APP_BUILD=0
+
 REM pushd %cd%
 SET docker_dir=%cd%
 

@@ -33,10 +33,7 @@ import org.w3c.dom.Element;
 import javax.annotation.Nonnull;
 import javax.sql.rowset.serial.SerialBlob;
 import javax.sql.rowset.serial.SerialException;
-import java.io.IOException;
-import java.io.ObjectInput;
-import java.io.ObjectOutput;
-import java.io.Writer;
+import java.io.*;
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.sql.Connection;
@@ -391,7 +388,9 @@ public abstract class EntityValueBase implements EntityValue {
         return valueMapInternal.getByIString(fieldInfo.name, fieldInfo.index);
     }
 
-    @Override public Object getNoCheckSimple(String name) { return valueMapInternal.get(name); }
+    @Override public Object getNoCheckSimple(String name) {
+        return valueMapInternal.get(name);
+    }
 
     @Override public Object getOriginalDbValue(String name) {
         return (dbValueMap != null && dbValueMap.containsKey(name)) ? dbValueMap.get(name) : valueMapInternal.get(name);
@@ -460,6 +459,10 @@ public abstract class EntityValueBase implements EntityValue {
         if (!mutable) throw new EntityException("Cannot set fields, this entity value is not mutable (it is read-only)");
         getEntityDefinition().entityInfo.setFieldsEv(fields, this, null);
         return this;
+    }
+    @Override public EntityValue setAttachment(FileInputStream file, String fileName, HashMap<String, Object> metadata)
+    {
+        throw new EntityException("Method must be supported on connectorFactory level");
     }
     @Override public EntityValue setString(String name, String value) {
         // this will do a field name check
@@ -1569,7 +1572,7 @@ public abstract class EntityValueBase implements EntityValue {
                 }
             }
 
-            // if (ed.getEntityName() == "foo") logger.warn("================ evb.update() ${getEntityName()} nonPkFieldList=${nonPkFieldList};\nvalueMap=${valueMap};\noldValues=${oldValues}")
+            //if (ed.getEntityName() == "foo") logger.warn("================ evb.update() ${getEntityName()} nonPkFieldList=${nonPkFieldList};\nvalueMap=${valueMap};\noldValues=${oldValues}");
             if (nonPkFieldArrayIndex == 0 || (nonPkFieldArrayIndex == 1 && modifiedLastUpdatedStamp)) {
                 if (logger.isTraceEnabled()) logger.trace("Not doing update on entity with no changed non-PK fields; value=" + this.toString());
                 return this;
