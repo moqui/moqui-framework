@@ -117,6 +117,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="oldPassword" required="true"><description>Ignored if user has password admin permissions.</description></parameter>
             <parameter name="newPassword" required="true"/>
             <parameter name="newPasswordVerify" required="true"/>
+            <parameter name="code"><description>Second factor authentication, required if second factor required for user (via group or authc factors configured)</description></parameter>
         </in-parameters>
         <out-parameters>
             <parameter name="passwordIssues" type="Boolean"/>
@@ -137,8 +138,9 @@ along with this software (see the LICENSE.md file). If not, see
                 <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
                     <field-map field-name="userId" from="ec.user.userId"/></entity-find-one>
             </else></if>
-            <if condition="!userAccount"><return message="Could not find user with name ${username}" public="true" type="danger"/></if>
+            <if condition="userAccount == null"><return message="Could not find user with name ${username}" public="true" type="danger"/></if>
             <set field="userId" from="userAccount.userId"/>
+            <set field="username" from="userAccount.username"/>
 
             <!-- compare the passwords, encrypted -->
             <if condition="!hasPwAdminPermission">
@@ -165,6 +167,19 @@ along with this software (see the LICENSE.md file). If not, see
                         <return message="Password incorrect for user ${username}" public="true" type="danger"/>
                     </else></if>
                 </if>
+            </if>
+
+            <!-- see if a second authc factor is required for this user, if so require authc code to update password -->
+            <service-call name="org.moqui.impl.UserServices.get#UserAuthcFactorRequired" out-map="context">
+                <field-map field-name="userId"/></service-call>
+            <if condition="secondFactorRequired">
+                <if condition="!code">
+                    <return message="Authentication code required for user ${username}" public="true" type="danger"/></if>
+
+                <service-call name="org.moqui.impl.UserServices.validate#UserAuthcFactorCode"
+                        in-map="[userId:userId, code:code]" out-map="validateCodeOut"/>
+                <if condition="!validateCodeOut.verified">
+                    <return message="Authentication code not valid" public="true" type="danger"/></if>
             </if>
 
             <service-call name="org.moqui.impl.UserServices.update#PasswordInternal" out-map="context"
@@ -381,8 +396,11 @@ along with this software (see the LICENSE.md file). If not, see
                 <field-map field-name="userId" from="userAccount.userId"/></service-call>
         </actions>
     </service>
-    <service verb="get" noun="UserAuthcFactorInfo" authenticate="anonymous-view">
-        <in-parameters><parameter name="userId" required="true"/></in-parameters>
+    <service verb="get" noun="UserAuthcFactorInfo">
+        <in-parameters>
+            <parameter name="userId" required="true"/>
+            <parameter name="getFactorsIfNotRequired" type="Boolean" default="true"/>
+        </in-parameters>
         <out-parameters>
             <parameter name="secondFactorRequired" type="Boolean"/>
             <parameter name="factorTypeEnumIds" type="Set"/>
@@ -396,6 +414,10 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <service-call name="org.moqui.impl.UserServices.get#UserAuthcFactorRequired" out-map="context">
                 <field-map field-name="userId"/></service-call>
+
+            <!-- getFactorsIfNotRequired supported here, return now if false AND secondFactorRequired is false -->
+            <if condition="!getFactorsIfNotRequired &amp;&amp; !secondFactorRequired">
+                <return/></if>
 
             <entity-find entity-name="moqui.security.UserAuthcFactor" list="userAuthcFactorList">
                 <date-filter/><econdition field-name="userId"/>
