@@ -296,6 +296,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="userId"/>
             <parameter name="username"><description>May be used instead of userId to identify user.</description></parameter>
             <parameter name="bodyParameters" type="Map" default="[:]"/>
+            <parameter name="emailTemplateId" default-value="PASSWORD_RESET"/>
         </in-parameters>
         <actions>
             <!-- find by userId -->
@@ -328,7 +329,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- send an email with the new password -->
             <service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" async="true">
-                <field-map field-name="emailTemplateId" value="PASSWORD_RESET"/>
+                <field-map field-name="emailTemplateId"/>
                 <field-map field-name="toAddresses" from="userAccount.emailAddress"/>
                 <field-map field-name="bodyParameters" from="bodyParameters + [userAccount:userAccount, resetPassword:resetPassword]"/>
             </service-call>
