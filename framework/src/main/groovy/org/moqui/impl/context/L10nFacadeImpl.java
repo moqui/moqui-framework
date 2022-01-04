@@ -18,6 +18,8 @@ import org.moqui.context.L10nFacade;
 import org.moqui.entity.EntityValue;
 import org.moqui.entity.EntityFind;
 
+import groovy.json.JsonOutput;
+
 import javax.xml.bind.DatatypeConverter;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -334,7 +336,7 @@ public class L10nFacadeImpl implements L10nFacade {
         if (value == null) return "";
         if (locale == null) locale = getLocale();
         if (tz == null) tz = getTimeZone();
-        Class valueClass = value.getClass();
+        Class<?> valueClass = value.getClass();
         if (valueClass == String.class) return (String) value;
         if (valueClass == Timestamp.class) return formatTimestamp((Timestamp) value, format, locale, tz);
         if (valueClass == java.util.Date.class) return formatTimestamp((java.util.Date) value, format, locale, tz);
@@ -344,6 +346,11 @@ public class L10nFacadeImpl implements L10nFacade {
         if (value instanceof Number) return formatNumber((Number) value, format, locale);
         // Calendar is an abstract class, so must use instanceof here as well
         if (value instanceof Calendar) return formatDateTime((Calendar) value, format, locale, tz);
+        // support formatting of Map and Collection using JSON
+        if (value instanceof Map || value instanceof Collection) {
+            String json = JsonOutput.toJson(value);
+            return (json.length() > 128) ? JsonOutput.prettyPrint(json) : json;
+        }
         return value.toString();
     }
 }

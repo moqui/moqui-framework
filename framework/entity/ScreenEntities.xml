@@ -317,6 +317,8 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="DbFormField" package="moqui.screen.form" use="configuration">
         <field name="formId" type="id" is-pk="true"/>
         <field name="fieldName" type="text-medium" is-pk="true"/>
+        <field name="condition" type="text-medium">
+            <description>Only show this field if the condition evaluates to true (Groovy expression)</description></field>
         <field name="entryName" type="text-medium"/>
         <field name="title" type="text-medium"/>
         <field name="tooltip" type="text-medium"/>
@@ -325,7 +327,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="layoutSequenceNum" type="number-integer"/>
         <field name="isRequired" type="text-indicator"/>
 
-        <field name="printPageNumber" type="number-integer"><description>Defaults to 1, ie one page/section for all fields if nothing higher than 1 is specified.</description></field>
+        <field name="printPageNumber" type="number-integer">
+            <description>Defaults to 1, ie one page/section for all fields if nothing higher than 1 is specified.</description></field>
         <field name="printTop" type="text-short"/>
         <field name="printLeft" type="text-short"/>
         <field name="printBottom" type="text-short"/>
