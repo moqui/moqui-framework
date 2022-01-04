@@ -14,6 +14,8 @@
 package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
+import org.apache.shiro.authc.ExpiredCredentialsException
+import org.moqui.context.PasswordChangeRequiredException
 
 import javax.websocket.server.HandshakeRequest
 import java.sql.Timestamp
@@ -641,7 +643,7 @@ class UserFacadeImpl implements UserFacade {
 
             if (eci.web != null) {
                 // this ensures that after correctly logging in, a previously attempted login user's "Second Factor" screen isn't displayed
-                eci.web.sessionAttributes.remove("moquiAuthcFactorUsername")
+                eci.web.sessionAttributes.remove("moquiPreAuthcUsername")
                 eci.web.sessionAttributes.remove("moquiAuthcFactorRequired")
             }
 
@@ -657,16 +659,25 @@ class UserFacadeImpl implements UserFacade {
         } catch (SecondFactorRequiredException ae) {
             if (eci.web != null) {
                 // This makes the session realize the this user needs to verify login with an authentication factor
-                eci.web.sessionAttributes.put("moquiAuthcFactorUsername", username)
+                eci.web.sessionAttributes.put("moquiPreAuthcUsername", username)
                 eci.web.sessionAttributes.put("moquiAuthcFactorRequired", "true")
             }
-            return true
+            return false
+        } catch (PasswordChangeRequiredException ae) {
+            eci.web.sessionAttributes.put("moquiPreAuthcUsername", username)
+            eci.web.sessionAttributes.put("moquiPasswordChangeRequired", "true")
+            eci.messageFacade.addError(ae.message)
+            return false
+        } catch (ExpiredCredentialsException ae) {
+            eci.web.sessionAttributes.put("moquiPreAuthcUsername", username)
+            eci.web.sessionAttributes.put("moquiExpiredCredentials", "true")
+            eci.messageFacade.addError(ae.message)
+            return false
         } catch (AuthenticationException ae) {
             // others to consider handling differently (these all inherit from AuthenticationException):
             //     UnknownAccountException, IncorrectCredentialsException, ExpiredCredentialsException,
             //     CredentialsException, LockedAccountException, DisabledAccountException, ExcessiveAttemptsException
             eci.messageFacade.addError(ae.message)
-
             return false
         }
         return true

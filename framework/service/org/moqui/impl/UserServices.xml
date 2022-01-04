@@ -387,7 +387,7 @@ along with this software (see the LICENSE.md file). If not, see
             </parameter></parameter>
         </out-parameters>
         <actions>
-            <set field="username" from="ec.web?.sessionAttributes?.moquiAuthcFactorUsername ?: ec.user.username"/>
+            <set field="username" from="ec.web?.sessionAttributes?.moquiPreAuthcUsername ?: ec.user.username"/>
             <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
                 <field-map field-name="username"/></entity-find-one>
             <if condition="userAccount == null"><return error="true" message="No user pre-authenticated"/></if>
@@ -473,7 +473,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="username"/>
         </out-parameters>
         <actions>
-            <set field="username" from="ec.web.sessionAttributes.moquiAuthcFactorUsername"/>
+            <set field="username" from="ec.web.sessionAttributes.moquiPreAuthcUsername"/>
             <if condition="!username"><return error="true" message="No user pre-authenticated, cannot send code"/></if>
 
             <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
@@ -614,7 +614,7 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- this service is for external use, don't return the code: <parameter name="code"/> -->
         </out-parameters>
         <actions>
-            <set field="username" from="ec.web?.sessionAttributes?.moquiAuthcFactorUsername ?: ec.user.username"/>
+            <set field="username" from="ec.web?.sessionAttributes?.moquiPreAuthcUsername ?: ec.user.username"/>
             <if condition="!username"><return error="true" message="No user pre-authenticated, cannot send code"/></if>
             <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
                 <field-map field-name="username"/></entity-find-one>
