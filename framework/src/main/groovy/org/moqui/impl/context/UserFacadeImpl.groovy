@@ -14,6 +14,7 @@
 package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
+import org.apache.shiro.authc.AuthenticationToken
 import org.apache.shiro.authc.ExpiredCredentialsException
 import org.moqui.context.PasswordChangeRequiredException
 
@@ -632,20 +633,35 @@ class UserFacadeImpl implements UserFacade {
             return false
         }
 
-        UsernamePasswordToken token = new UsernamePasswordToken(username, password, true)
         // if there is a web session invalidate it so there is a new session for the login (prevent Session Fixation attacks)
         if (eci.getWebImpl() != null) eci.getWebImpl().makeNewSession()
+
+        UsernamePasswordToken token = new UsernamePasswordToken(username, password, true)
+        return internalLoginToken(username, token)
+    }
+
+    /** For internal framework use only, does a login without authc. */
+    boolean internalLoginUser(String username) { return internalLoginUser(username, true) }
+    boolean internalLoginUser(String username, boolean saveHistory) {
+        if (username == null || username.isEmpty()) {
+            eci.message.addError(eci.l10n.localize("No username specified"))
+            return false
+        }
+
+        UsernamePasswordToken token = new MoquiShiroRealm.ForceLoginToken(username, true, saveHistory)
+        return internalLoginToken(username, token)
+    }
+    boolean internalLoginToken(String username, AuthenticationToken token) {
+        if (eci.web != null) {
+            // this ensures that after correctly logging in, a previously attempted login user's "Second Factor" screen isn't displayed
+            eci.web.sessionAttributes.remove("moquiPreAuthcUsername")
+            eci.web.sessionAttributes.remove("moquiAuthcFactorRequired")
+        }
 
         Subject loginSubject = makeEmptySubject()
         try {
             // do the actual login through Shiro
             loginSubject.login(token)
-
-            if (eci.web != null) {
-                // this ensures that after correctly logging in, a previously attempted login user's "Second Factor" screen isn't displayed
-                eci.web.sessionAttributes.remove("moquiPreAuthcUsername")
-                eci.web.sessionAttributes.remove("moquiAuthcFactorRequired")
-            }
 
             // do this first so that the rest will be done as this user
             // just in case there is already a user authenticated push onto a stack to remember
@@ -662,7 +678,7 @@ class UserFacadeImpl implements UserFacade {
                 eci.web.sessionAttributes.put("moquiPreAuthcUsername", username)
                 eci.web.sessionAttributes.put("moquiAuthcFactorRequired", "true")
             }
-            eci.messageFacade.addError(ae.message)
+            // don't add this particular error, causes problems when this is followed immediately by an attempt to verify a submitted code in the same tx: eci.messageFacade.addError(ae.message)
             return false
         } catch (PasswordChangeRequiredException ae) {
             if (eci.web != null) {
@@ -688,37 +704,6 @@ class UserFacadeImpl implements UserFacade {
         return true
     }
 
-    // TODO: refactor this junk to dedup login, add third method that accepts a token parameters, only real diff between the two
-
-    /** For internal framework use only, does a login without authc. */
-    boolean internalLoginUser(String username) { return internalLoginUser(username, true) }
-    boolean internalLoginUser(String username, boolean saveHistory) {
-        if (username == null || username.isEmpty()) {
-            eci.message.addError(eci.l10n.localize("No username specified"))
-            return false
-        }
-
-        UsernamePasswordToken token = new MoquiShiroRealm.ForceLoginToken(username, true, saveHistory)
-        Subject loginSubject = makeEmptySubject()
-        try {
-            loginSubject.login(token)
-
-            // do this first so that the rest will be done as this user
-            // just in case there is already a user authenticated push onto a stack to remember
-            pushUserSubject(loginSubject)
-
-            // after successful login trigger the after-login actions
-            if (eci.getWebImpl() != null) {
-                eci.getWebImpl().runAfterLoginActions()
-                eci.getWebImpl().getRequest().setAttribute("moqui.request.authenticated", "true")
-            }
-        } catch (AuthenticationException ae) {
-            eci.messageFacade.addError(ae.message)
-            return false
-        }
-
-        return true
-    }
     /** For internal use only, quick login using a Subject already logged in from another thread, etc */
     boolean internalLoginSubject(Subject loginSubject) {
         if (loginSubject == null || !loginSubject.getPrincipal() || !loginSubject.isAuthenticated()) return false

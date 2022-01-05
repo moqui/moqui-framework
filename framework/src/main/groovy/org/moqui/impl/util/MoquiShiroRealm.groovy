@@ -151,7 +151,7 @@ class MoquiShiroRealm implements Realm, Authorizer {
                     .parameter("userId", userId).disableAuthz().call()?.secondFactorRequired ?: false
             // if the user requires authentication, throw a SecondFactorRequiredException so that UserFacadeImpl.groovy can catch the error and perform the appropriate action.
             if (secondReqd) {
-                throw new SecondFactorRequiredException(eci.ecfi.resource.expand('User ${username} requires an authentication code to login',
+                throw new SecondFactorRequiredException(eci.ecfi.resource.expand('Authentication code required for user ${username}',
                         '',[username:newUserAccount.getNoCheckSimple("username")]))
             }
         }
