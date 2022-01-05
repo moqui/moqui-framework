@@ -98,7 +98,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
 
     public static MNode parse(String location, InputSource isrc) {
         try {
-            MNodeXmlHandler xmlHandler = new MNodeXmlHandler(false);
+            MNodeXmlHandler xmlHandler = new MNodeXmlHandler(false, location);
             XMLReader reader = SAXParserFactory.newInstance().newSAXParser().getXMLReader();
             reader.setContentHandler(xmlHandler);
             reader.parse(isrc);
@@ -122,7 +122,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
     }
     public static MNode parseRootOnly(String location, InputSource isrc) {
         try {
-            MNodeXmlHandler xmlHandler = new MNodeXmlHandler(true);
+            MNodeXmlHandler xmlHandler = new MNodeXmlHandler(true, location);
             XMLReader reader = SAXParserFactory.newInstance().newSAXParser().getXMLReader();
             reader.setContentHandler(xmlHandler);
             reader.parse(isrc);
@@ -143,6 +143,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
     private String childText = null;
     private long lastModified = 0;
     private boolean systemExpandAttributes = false;
+    private String fileLocation = null;
 
     /* ========== Constructors ========== */
 
@@ -185,6 +186,9 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
         nodeName = name;
         if (attributes != null) attributeMap.putAll(attributes);
     }
+
+    public MNode setFileLocation(String location) { fileLocation = location; return this; }
+    public String getFileLocation() { return fileLocation; }
 
     /* ========== Get Methods ========== */
 
@@ -484,6 +488,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
 
     public MNode deepCopy(MNode parent) {
         MNode newNode = new MNode(nodeName, attributeMap, parent, null, childText);
+        if (fileLocation != null) newNode.fileLocation = fileLocation;
         if (childList != null) {
             int childListSize = childList.size();
             if (childListSize > 0) {
@@ -779,9 +784,10 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
         StringBuilder curText = null;
 
         final boolean rootOnly;
+        String fileLocation = null;
         private boolean stopParse = false;
 
-        MNodeXmlHandler(boolean rootOnly) { this.rootOnly = rootOnly; }
+        MNodeXmlHandler(boolean rootOnly, String fileLocation) { this.rootOnly = rootOnly; this.fileLocation = fileLocation; }
         MNode getRootNode() { return rootNode; }
         long getNodesRead() { return nodesRead; }
 
@@ -796,6 +802,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
             } else {
                 curNode = curNode.append(qName, null);
             }
+            if (fileLocation != null) curNode.setFileLocation(fileLocation);
 
             int length = attributes.getLength();
             for (int i = 0; i < length; i++) {
