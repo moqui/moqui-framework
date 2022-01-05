@@ -110,7 +110,7 @@ along with this software (see the LICENSE.md file). If not, see
 
     <service verb="update" noun="Password" authenticate="anonymous-all" allow-remote="true">
         <description>Set a user's password. The userId must match the current user and the oldPassword must match the
-            user's currentPassword or special permission is required.</description>
+            user's currentPassword or special permission is required, or user has already pre-authenticated and specified an authz code.</description>
         <in-parameters>
             <parameter name="userId"><description>Defaults to the current userId in the ExecutionContext.</description></parameter>
             <parameter name="username"><description>May be used instead of userId to identify user.</description></parameter>
@@ -120,6 +120,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="code"><description>Second factor authentication, required if second factor required for user (via group or authc factors configured)</description></parameter>
         </in-parameters>
         <out-parameters>
+            <parameter name="username"/>
             <parameter name="passwordIssues" type="Boolean"/>
             <parameter name="updateSuccessful" type="Boolean"/>
         </out-parameters>
@@ -142,44 +143,72 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="userId" from="userAccount.userId"/>
             <set field="username" from="userAccount.username"/>
 
-            <!-- compare the passwords, encrypted -->
             <if condition="!hasPwAdminPermission">
                 <if condition="ec.user.userId &amp;&amp; userId != ec.user.userId">
                     <return message="Cannot update the password of another user without password admin permission" public="true" type="danger"/></if>
-                <if condition="!oldPassword">
-                    <return message="Please enter current password" public="true" type="danger"/></if>
 
-                <script>
-                    def token = new org.apache.shiro.authc.UsernamePasswordToken((String) userAccount.username, (String) oldPassword)
-                    def info = new org.apache.shiro.authc.SimpleAuthenticationInfo(userAccount.username, userAccount.currentPassword,
-                            userAccount.passwordSalt ? new org.apache.shiro.util.SimpleByteSource((String) userAccount.passwordSalt) : null, "moquiRealm")
-                </script>
-                <if condition="!userAccount.currentPassword || !ec.ecfi.getCredentialsMatcher(userAccount.passwordHashType, 'Y'.equals(userAccount.passwordBase64)).doCredentialsMatch(token, info)">
-                    <if condition="userAccount.resetPassword"><then>
-                        <!-- try the resetPassword -->
-                        <script>
-                            info = new org.apache.shiro.authc.SimpleAuthenticationInfo(userAccount.username, userAccount.resetPassword,
-                                    userAccount.passwordSalt ? new org.apache.shiro.util.SimpleByteSource((String) userAccount.passwordSalt) : null, "moquiRealm")
-                        </script>
-                        <if condition="!ec.ecfi.getCredentialsMatcher(userAccount.passwordHashType, 'Y'.equals(userAccount.passwordBase64)).doCredentialsMatch(token, info)">
-                            <return message="Password did not match current password or reset password for user ${username}" public="true" type="danger"/></if>
-                    </then><else>
-                        <return message="Password incorrect for user ${username}" public="true" type="danger"/>
-                    </else></if>
+                <!--
+                - if code verified and pre-auth don't require oldPassword
+                - if oldPassword and code check oldPassword first, if wrong don't want to check code (might use up single use code)
+                approach: if pre-auth and code specified check code first, otherwise check after oldPassword
+                -->
+                <!-- see if a second authc factor is required for this user, if so require authc code to update password -->
+                <service-call name="org.moqui.impl.UserServices.get#UserAuthcFactorRequired" out-map="context">
+                    <field-map field-name="userId"/></service-call>
+                <set field="codeVerified" from="false"/>
+                <if condition="secondFactorRequired">
+                    <!-- NOTE: don't check for missing code here, do that after oldPassword verify so if it verifies we can pre-auth -->
+                    <!-- if pre-auth and code specified check code first, otherwise check after oldPassword -->
+                    <if condition="ec.web?.sessionAttributes?.moquiPreAuthcUsername || ec.user.username">
+                        <service-call name="org.moqui.impl.UserServices.validate#UserAuthcFactorCode"
+                                in-map="[userId:userId, code:code]" out-map="validateCodeOut"/>
+                        <if condition="!validateCodeOut.verified">
+                            <return message="Authentication code not valid" public="true" type="danger"/></if>
+                        <set field="codeVerified" from="true"/>
+                    </if>
                 </if>
-            </if>
 
-            <!-- see if a second authc factor is required for this user, if so require authc code to update password -->
-            <service-call name="org.moqui.impl.UserServices.get#UserAuthcFactorRequired" out-map="context">
-                <field-map field-name="userId"/></service-call>
-            <if condition="secondFactorRequired">
-                <if condition="!code">
-                    <return message="Authentication code required for user ${username}" public="true" type="danger"/></if>
+                <!-- compare the passwords, encrypted, skip in special case for pre-auth user if a second factor required -->
+                <!-- codeVerified is only true if user pre-auth'ed and code verified above -->
+                <if condition="!codeVerified">
+                    <if condition="!oldPassword">
+                        <return message="Please enter current password" public="true" type="danger"/></if>
 
-                <service-call name="org.moqui.impl.UserServices.validate#UserAuthcFactorCode"
-                        in-map="[userId:userId, code:code]" out-map="validateCodeOut"/>
-                <if condition="!validateCodeOut.verified">
-                    <return message="Authentication code not valid" public="true" type="danger"/></if>
+                    <script>
+                        def token = new org.apache.shiro.authc.UsernamePasswordToken((String) userAccount.username, (String) oldPassword)
+                        def info = new org.apache.shiro.authc.SimpleAuthenticationInfo(userAccount.username, userAccount.currentPassword,
+                                userAccount.passwordSalt ? new org.apache.shiro.util.SimpleByteSource((String) userAccount.passwordSalt) : null, "moquiRealm")
+                    </script>
+                    <if condition="!userAccount.currentPassword || !ec.ecfi.getCredentialsMatcher(userAccount.passwordHashType, 'Y'.equals(userAccount.passwordBase64)).doCredentialsMatch(token, info)">
+                        <if condition="userAccount.resetPassword"><then>
+                            <!-- try the resetPassword -->
+                            <script>
+                                info = new org.apache.shiro.authc.SimpleAuthenticationInfo(userAccount.username, userAccount.resetPassword,
+                                        userAccount.passwordSalt ? new org.apache.shiro.util.SimpleByteSource((String) userAccount.passwordSalt) : null, "moquiRealm")
+                            </script>
+                            <if condition="!ec.ecfi.getCredentialsMatcher(userAccount.passwordHashType, 'Y'.equals(userAccount.passwordBase64)).doCredentialsMatch(token, info)">
+                                <return message="Password did not match current password or reset password for user ${username}" public="true" type="danger"/></if>
+                        </then><else>
+                            <return message="Password incorrect for user ${username}" public="true" type="danger"/>
+                        </else></if>
+                    </if>
+
+                    <if condition="secondFactorRequired">
+                        <if condition="!code">
+                            <!-- at this point oldPassword verified but no code specified, so pre-auth so they don't have to specify oldPassword again -->
+                            <if condition="ec.web?.sessionAttributes">
+                                <set field="ec.web?.sessionAttributes?.moquiPreAuthcUsername" from="username"/>
+                                <!-- TODO: consider calling internalLoginUser for other logic like maybe pw change required or pw expired, etc... -->
+                            </if>
+                            <return message="Authentication code required for user ${username}" public="true" error="true"/>
+                        </if>
+
+                        <service-call name="org.moqui.impl.UserServices.validate#UserAuthcFactorCode"
+                                in-map="[userId:userId, code:code]" out-map="validateCodeOut"/>
+                        <if condition="!validateCodeOut.verified">
+                            <return message="Authentication code not valid" public="true" type="danger"/></if>
+                    </if>
+                </if>
             </if>
 
             <service-call name="org.moqui.impl.UserServices.update#PasswordInternal" out-map="context"
@@ -427,9 +456,12 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- if user has no authc factors configured allow code via UserAccount.emailAddress -->
             <!-- NOTE: org.moqui.impl.UserServices.send#AuthcCode looks for a special factorId of 'UserAccountEmail' for this purpose -->
-            <if condition="userAuthcFactorList.size() == 0 &amp;&amp; userAccount.emailAddress">
-                <set field="userAuthcFactorList" from="[[factorId:'UserAccountEmail', userId:userId,
-                    factorTypeEnumId:'UafEmail', factorOption:userAccount.emailAddress]]"/>
+            <if condition="userAuthcFactorList.size() == 0">
+                <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount"/>
+                <if condition="userAccount?.emailAddress">
+                    <set field="userAuthcFactorList" from="[[factorId:'UserAccountEmail', userId:userId,
+                            factorTypeEnumId:'UafEmail', factorOption:userAccount.emailAddress]]"/>
+                </if>
             </if>
 
             <set field="factorTypeEnumIds" from="new TreeSet(userAuthcFactorList*.factorTypeEnumId)"/>
@@ -465,7 +497,7 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
-    <service verb="validate" noun="ExternalUserAuthcCode" authenticate="anonymous-view">
+    <service verb="validate" noun="ExternalUserAuthcCode" authenticate="anonymous-all">
         <in-parameters><parameter name="code" required="true"/></in-parameters>
         <out-parameters>
             <parameter name="verified" type="Boolean"/>
@@ -606,7 +638,7 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
-    <service verb="send" noun="ExternalAuthcCode" authenticate="anonymous-view">
+    <service verb="send" noun="ExternalAuthcCode" authenticate="anonymous-all">
         <description>Send authentication code for the factorId, looks up service to use based on factorTypeEnumId</description>
         <in-parameters><parameter name="factorId" required="true"/></in-parameters>
         <out-parameters>

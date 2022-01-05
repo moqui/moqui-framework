@@ -662,15 +662,20 @@ class UserFacadeImpl implements UserFacade {
                 eci.web.sessionAttributes.put("moquiPreAuthcUsername", username)
                 eci.web.sessionAttributes.put("moquiAuthcFactorRequired", "true")
             }
+            eci.messageFacade.addError(ae.message)
             return false
         } catch (PasswordChangeRequiredException ae) {
-            eci.web.sessionAttributes.put("moquiPreAuthcUsername", username)
-            eci.web.sessionAttributes.put("moquiPasswordChangeRequired", "true")
+            if (eci.web != null) {
+                eci.web.sessionAttributes.put("moquiPreAuthcUsername", username)
+                eci.web.sessionAttributes.put("moquiPasswordChangeRequired", "true")
+            }
             eci.messageFacade.addError(ae.message)
             return false
         } catch (ExpiredCredentialsException ae) {
-            eci.web.sessionAttributes.put("moquiPreAuthcUsername", username)
-            eci.web.sessionAttributes.put("moquiExpiredCredentials", "true")
+            if (eci.web != null) {
+                eci.web.sessionAttributes.put("moquiPreAuthcUsername", username)
+                eci.web.sessionAttributes.put("moquiExpiredCredentials", "true")
+            }
             eci.messageFacade.addError(ae.message)
             return false
         } catch (AuthenticationException ae) {
@@ -682,6 +687,8 @@ class UserFacadeImpl implements UserFacade {
         }
         return true
     }
+
+    // TODO: refactor this junk to dedup login, add third method that accepts a token parameters, only real diff between the two
 
     /** For internal framework use only, does a login without authc. */
     boolean internalLoginUser(String username) { return internalLoginUser(username, true) }
