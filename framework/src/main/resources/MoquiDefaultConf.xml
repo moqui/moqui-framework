@@ -393,6 +393,7 @@
         <!-- These are not needed for running classpath services, are for service reference (known services) -->
         <service-file location="classpath://service/org/moqui/EmailServices.xml"/>
         <service-file location="classpath://service/org/moqui/EntityServices.xml"/>
+        <service-file location="classpath://service/org/moqui/SmsServices.xml"/>
         <service-file location="classpath://service/org/moqui/impl/BasicServices.xml"/>
         <service-file location="classpath://service/org/moqui/impl/ElFinderServices.xml"/>
         <service-file location="classpath://service/org/moqui/impl/EmailServices.xml"/>
