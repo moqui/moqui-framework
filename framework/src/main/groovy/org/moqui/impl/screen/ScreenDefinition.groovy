@@ -85,6 +85,54 @@ class ScreenDefinition {
 
     ScreenDefinition(ScreenFacadeImpl sfi, MNode screenNode, String location) {
         this.sfi = sfi
+
+        // merge screen-extend (before using anything from screenNode)
+        int locationSepLoc = location.indexOf("://")
+        String locPath = locationSepLoc == -1 ? location : location.substring(locationSepLoc + 3)
+        String locPathAfterScreen = null
+        int locPathScreenLoc = locPath.indexOf("/screen/")
+        if (locPathScreenLoc >= 0) locPathAfterScreen = locPath.substring(locPathScreenLoc + 8)
+
+        // search components for screen-extend files
+        List<MNode> screenExtendNodeList = new LinkedList<>()
+        for (String componentLoc in sfi.ecfi.getComponentBaseLocations().values()) {
+            ResourceReference screenExtendRr = sfi.ecfi.resourceFacade.getLocationReference(componentLoc + "/screen-extend")
+            if (!screenExtendRr.supportsExists()) {
+                logger.warn("For screen-extend skipping component that does not support exists check: ${componentLoc}")
+                continue
+            }
+            // try the after '/screen/' path after the full path so that different screens with the same after-screen path can be distinguished
+            ResourceReference matchingRr = screenExtendRr.findChildFile(locPath)
+            if (!matchingRr.exists) {
+                matchingRr = screenExtendRr.findChildFile(locPathAfterScreen)
+                // still found nothing? move along
+                if (!matchingRr.exists) continue
+            }
+
+            MNode screenExtendNode = MNode.parse(matchingRr)
+            screenExtendNodeList.add(screenExtendNode)
+        }
+        // merge/etc screen-extend nodes from files
+        Map<String, ArrayList<MNode>> extendDescendantsMap = new HashMap<>()
+        for (MNode screenExtendNode in screenExtendNodeList) {
+            // NOTE: form-single, form-list merged below; various others overridden below
+            screenExtendNode.descendants(scanWidgetNames, extendDescendantsMap)
+
+            // start with attributes and simple override by name/id elements
+            screenNode.attributes.putAll(screenExtendNode.attributes)
+            screenNode.mergeChildrenByKey(screenExtendNode, "parameter", "name", null)
+            screenNode.mergeChildrenByKey(screenExtendNode, "transition", "name", null)
+            screenNode.mergeChildrenByKey(screenExtendNode, "transition-include", "name", null)
+
+            MNode overrideSubscreensNode = screenExtendNode.first("subscreens")
+            if (overrideSubscreensNode != null) {
+                // TODO
+            }
+
+
+        }
+
+        // init screen def fields
         this.screenNode = screenNode
         subscreensNode = screenNode.first("subscreens")
         webSettingsNode = screenNode.first("web-settings")
@@ -167,15 +215,23 @@ class ScreenDefinition {
             for (MNode sectionNode in descMap.get('section-include')) pullSectionInclude(sectionNode)
 
             // get all forms by name
-            for (MNode formNode in descMap.get('form-single')) {
-                ScreenForm newForm = new ScreenForm(ecfi, this, formNode, "${location}.form_single\$${formNode.attribute("name")}")
+            for (MNode formNode in descMap.get("form-single")) {
+                String formName = formNode.attribute("name")
+                List<MNode> extendList = extendDescendantsMap.get("form-single")
+                if (extendList != null) extendList = extendList.findAll({it.attribute("name") == formName})
+
+                ScreenForm newForm = new ScreenForm(ecfi, this, formNode, extendList, "${location}.form_single\$${formName}")
                 if (newForm.extendsScreenLocation != null) dependsOnScreenLocations.add(newForm.extendsScreenLocation)
-                formByName.put(formNode.attribute("name"), newForm)
+                formByName.put(formName, newForm)
             }
             for (MNode formNode in descMap.get('form-list')) {
-                ScreenForm newForm = new ScreenForm(ecfi, this, formNode, "${location}.form_list\$${formNode.attribute("name")}")
+                String formName = formNode.attribute("name")
+                List<MNode> extendList = extendDescendantsMap.get("form-list")
+                if (extendList != null) extendList = extendList.findAll({it.attribute("name") == formName})
+
+                ScreenForm newForm = new ScreenForm(ecfi, this, formNode, extendList, "${location}.form_list\$${formName}")
                 if (newForm.extendsScreenLocation != null) dependsOnScreenLocations.add(newForm.extendsScreenLocation)
-                formByName.put(formNode.attribute("name"), newForm)
+                formByName.put(formName, newForm)
             }
 
             // get all trees by name

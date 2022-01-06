@@ -347,10 +347,10 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
     public Map<String, ArrayList<MNode>> descendants(Set<String> names) {
         Map<String, ArrayList<MNode>> nodes = new HashMap<>(names.size());
         for (String name : names) nodes.put(name, new ArrayList<>());
-        descendantsInternal(names, nodes);
+        descendants(names, nodes);
         return nodes;
     }
-    private void descendantsInternal(Set<String> names, Map<String, ArrayList<MNode>> nodes) {
+    public void descendants(Set<String> names, Map<String, ArrayList<MNode>> nodes) {
         if (childList == null) return;
 
         int childListSize = childList.size();
@@ -358,9 +358,13 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
             MNode curChild = childList.get(i);
             if (names == null || names.contains(curChild.nodeName)) {
                 ArrayList<MNode> curList = nodes.get(curChild.nodeName);
+                if (curList == null) {
+                    curList = new ArrayList<>();
+                    nodes.put(curChild.nodeName, curList);
+                }
                 curList.add(curChild);
             }
-            curChild.descendantsInternal(names, nodes);
+            curChild.descendants(names, nodes);
         }
     }
     public ArrayList<MNode> descendants(String name) {
