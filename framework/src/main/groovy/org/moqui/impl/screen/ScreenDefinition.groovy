@@ -129,7 +129,17 @@ class ScreenDefinition {
 
             MNode overrideSubscreensNode = screenExtendNode.first("subscreens")
             if (overrideSubscreensNode != null) {
-                // TODO
+                MNode baseSubscreensNode = screenNode.first("subscreens")
+                if (baseSubscreensNode == null) {
+                    baseSubscreensNode = overrideSubscreensNode.deepCopy(screenNode)
+                } else {
+                    baseSubscreensNode.attributes.putAll(overrideSubscreensNode.attributes)
+                    ArrayList<MNode> ssItemNodes = overrideSubscreensNode.children("subscreens-item")
+                    for (int i = 0; i < ssItemNodes.size(); i++) {
+                        MNode ssItemNode = (MNode) ssItemNodes.get(i)
+                        ssItemNode.deepCopy(baseSubscreensNode)
+                    }
+                }
             }
         }
 
@@ -209,17 +219,30 @@ class ScreenDefinition {
         if (rootSection != null && rootSection.widgets != null) {
             Map<String, ArrayList<MNode>> descMap = rootSection.widgets.widgetsNode.descendants(scanWidgetNames)
             // get all of the other sections by name
-            for (MNode sectionNode in descMap.get('section'))
-                sectionByName.put(sectionNode.attribute("name"), new ScreenSection(ecfi, sectionNode, "${location}.section\$${sectionNode.attribute("name")}"))
-            for (MNode sectionNode in descMap.get('section-iterate'))
-                sectionByName.put(sectionNode.attribute("name"), new ScreenSection(ecfi, sectionNode, "${location}.section_iterate\$${sectionNode.attribute("name")}"))
-            for (MNode sectionNode in descMap.get('section-include')) pullSectionInclude(sectionNode)
+            for (MNode sectionNode in descMap.get('section')) {
+                String sectionName = sectionNode.attribute("name")
+                // get last matching node, is replace/override
+                ArrayList<MNode> extendNodes = extendDescendantsMap.get("section")
+                Integer replaceIndex = extendNodes?.findLastIndexOf({ it.attribute("name") == sectionName })
+                MNode useNode = (replaceIndex != null && replaceIndex != -1) ? extendNodes.get(replaceIndex) : sectionNode
+                sectionByName.put(sectionName, new ScreenSection(ecfi, useNode, "${location}.section\$${sectionName}"))
+            }
+            for (MNode sectionNode in descMap.get('section-iterate')) {
+                String sectionName = sectionNode.attribute("name")
+                ArrayList<MNode> extendNodes = extendDescendantsMap.get("section-iterate")
+                Integer replaceIndex = extendNodes?.findLastIndexOf({ it.attribute("name") == sectionName })
+                MNode useNode = (replaceIndex != null && replaceIndex != -1) ? extendNodes.get(replaceIndex) : sectionNode
+                sectionByName.put(sectionName, new ScreenSection(ecfi, useNode, "${location}.section_iterate\$${sectionName}"))
+            }
+            for (MNode sectionNode in descMap.get('section-include')) {
+                pullSectionInclude(sectionNode)
+            }
 
             // get all forms by name
             for (MNode formNode in descMap.get("form-single")) {
                 String formName = formNode.attribute("name")
                 List<MNode> extendList = extendDescendantsMap.get("form-single")
-                if (extendList != null) extendList = extendList.findAll({it.attribute("name") == formName})
+                if (extendList != null) extendList = extendList.findAll({ it.attribute("name") == formName })
 
                 ScreenForm newForm = new ScreenForm(ecfi, this, formNode, extendList, "${location}.form_single\$${formName}")
                 if (newForm.extendsScreenLocation != null) dependsOnScreenLocations.add(newForm.extendsScreenLocation)
