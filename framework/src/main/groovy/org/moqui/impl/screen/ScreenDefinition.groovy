@@ -101,14 +101,17 @@ class ScreenDefinition {
                 logger.warn("For screen-extend skipping component that does not support exists check: ${componentLoc}")
                 continue
             }
+            // continue to next component if screen-extend directory does not exist (quit early)
+            if (!screenExtendRr.exists) continue
+
             // try the after '/screen/' path after the full path so that different screens with the same after-screen path can be distinguished
             ResourceReference matchingRr = screenExtendRr.findChildFile(locPath)
-            if (!matchingRr.exists) {
+            if (!matchingRr.exists && locPathAfterScreen != null)
                 matchingRr = screenExtendRr.findChildFile(locPathAfterScreen)
-                // still found nothing? move along
-                if (!matchingRr.exists) continue
-            }
+            // still found nothing? move along
+            if (!matchingRr.exists) continue
 
+            logger.info("Found screen-extend at ${matchingRr.location} for screen at ${location}")
             MNode screenExtendNode = MNode.parse(matchingRr)
             screenExtendNodeList.add(screenExtendNode)
         }
@@ -128,8 +131,6 @@ class ScreenDefinition {
             if (overrideSubscreensNode != null) {
                 // TODO
             }
-
-
         }
 
         // init screen def fields
