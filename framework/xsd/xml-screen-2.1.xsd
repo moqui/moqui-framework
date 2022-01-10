@@ -164,26 +164,35 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:sequence>
             <xs:element ref="parameter" minOccurs="0" maxOccurs="unbounded"/>
 
-            <xs:element name="always-actions-before" minOccurs="0"><xs:complexType>
-                <xs:group minOccurs="0" maxOccurs="unbounded" ref="AllOperations"/></xs:complexType></xs:element>
-            <xs:element name="always-actions-after" minOccurs="0"><xs:complexType>
-                <xs:group minOccurs="0" maxOccurs="unbounded" ref="AllOperations"/></xs:complexType></xs:element>
-
             <xs:choice minOccurs="0" maxOccurs="unbounded">
                 <xs:element ref="transition"/>
                 <xs:element ref="transition-include"/>
             </xs:choice>
             <xs:element ref="subscreens" minOccurs="0"/>
 
-            <xs:element name="pre-actions-before" minOccurs="0"><xs:complexType>
-                <xs:group minOccurs="0" maxOccurs="unbounded" ref="AllOperations"/></xs:complexType></xs:element>
-            <xs:element name="pre-actions-after" minOccurs="0"><xs:complexType>
-                <xs:group minOccurs="0" maxOccurs="unbounded" ref="AllOperations"/></xs:complexType></xs:element>
-
-            <xs:element name="actions-before" minOccurs="0"><xs:complexType>
-                <xs:group minOccurs="0" maxOccurs="unbounded" ref="AllOperations"/></xs:complexType></xs:element>
-            <xs:element name="actions-after" minOccurs="0"><xs:complexType>
-                <xs:group minOccurs="0" maxOccurs="unbounded" ref="AllOperations"/></xs:complexType></xs:element>
+            <xs:element name="actions-extend" minOccurs="0" maxOccurs="unbounded"><xs:complexType>
+                <xs:group minOccurs="0" maxOccurs="unbounded" ref="AllOperations"/>
+                <xs:attribute name="type" default="screen"><xs:simpleType><xs:restriction base="xs:token">
+                    <xs:enumeration value="always"/><!-- always-actions -->
+                    <xs:enumeration value="pre"/><!-- pre-actions -->
+                    <xs:enumeration value="screen"/><!-- actions -->
+                </xs:restriction></xs:simpleType></xs:attribute>
+                <xs:attribute name="when" default="after"><xs:simpleType><xs:restriction base="xs:token">
+                    <xs:enumeration value="before"/>
+                    <xs:enumeration value="after"/>
+                    <xs:enumeration value="replace"/>
+                </xs:restriction></xs:simpleType></xs:attribute>
+            </xs:complexType></xs:element>
+            <xs:element name="widgets-extend" minOccurs="0" maxOccurs="unbounded"><xs:complexType>
+                <xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/>
+                <xs:attribute name="name" type="xs:string" use="required"/>
+                <xs:attribute name="where" default="before"><xs:simpleType><xs:restriction base="xs:token">
+                    <xs:enumeration value="before"/>
+                    <xs:enumeration value="prepend"/>
+                    <xs:enumeration value="append"/>
+                    <xs:enumeration value="after"/>
+                </xs:restriction></xs:simpleType></xs:attribute>
+            </xs:complexType></xs:element>
 
             <xs:choice minOccurs="0" maxOccurs="unbounded">
                 <!-- forms merged by name -->
@@ -195,7 +204,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element ref="section-iterate"/>
                 <!-- TODO section, section-iterate before or after, by name attribute; for section iterate also prepend, append for inside loop -->
 
-                <!-- TODO container, container-box 'slots' like before, prepend, append, after - would require use of 'id' attribute -->
+                <!-- TODO container, container-box 'slots' like before, prepend, append, after - would require use of 'id' attribute - or use widgets-extend? -->
             </xs:choice>
         </xs:sequence>
     </xs:extension></xs:complexContent></xs:complexType></xs:element>
@@ -307,7 +316,7 @@ along with this software (see the LICENSE.md file). If not, see
         </xs:sequence>
         <xs:attribute name="name" type="name-package" use="required">
             <xs:annotation><xs:documentation>
-                Transition names should be camel-cased and start with an lower-case letter (whereas screen filenames
+                Transition names should be camel-cased and start with a lower-case letter (whereas screen filenames
                 and subscreens-item names start with a upper-case letter).
 
                 The transition name is used in link and other elements in place of URLs when going to another
