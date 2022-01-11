@@ -94,7 +94,7 @@ class ScreenDefinition {
         if (locPathScreenLoc >= 0) locPathAfterScreen = locPath.substring(locPathScreenLoc + 8)
 
         // search components for screen-extend files
-        List<MNode> screenExtendNodeList = new LinkedList<>()
+        ArrayList<MNode> screenExtendNodeList = new ArrayList<>()
         for (String componentLoc in sfi.ecfi.getComponentBaseLocations().values()) {
             ResourceReference screenExtendRr = sfi.ecfi.resourceFacade.getLocationReference(componentLoc + "/screen-extend")
             if (!screenExtendRr.supportsExists()) {
@@ -117,8 +117,9 @@ class ScreenDefinition {
         }
         // merge/etc screen-extend nodes from files
         Map<String, ArrayList<MNode>> extendDescendantsMap = new HashMap<>()
-        for (MNode screenExtendNode in screenExtendNodeList) {
-            // NOTE: form-single, form-list merged below; various others overridden below
+        for (int seIdx = 0; seIdx < screenExtendNodeList.size(); seIdx++) {
+            MNode screenExtendNode = (MNode) screenExtendNodeList.get(seIdx)
+            // NOTE: form-single, form-list merged below; various others overridden below (section, section-iterate)
             screenExtendNode.descendants(scanWidgetNames, extendDescendantsMap)
 
             // start with attributes and simple override by name/id elements
@@ -131,16 +132,41 @@ class ScreenDefinition {
             if (overrideSubscreensNode != null) {
                 MNode baseSubscreensNode = screenNode.first("subscreens")
                 if (baseSubscreensNode == null) {
-                    baseSubscreensNode = overrideSubscreensNode.deepCopy(screenNode)
+                    screenNode.append(overrideSubscreensNode.deepCopy(screenNode))
                 } else {
-                    baseSubscreensNode.attributes.putAll(overrideSubscreensNode.attributes)
-                    ArrayList<MNode> ssItemNodes = overrideSubscreensNode.children("subscreens-item")
-                    for (int i = 0; i < ssItemNodes.size(); i++) {
-                        MNode ssItemNode = (MNode) ssItemNodes.get(i)
-                        ssItemNode.deepCopy(baseSubscreensNode)
-                    }
+                    baseSubscreensNode.mergeNodeWithChildKey(overrideSubscreensNode, "subscreens-item", "name", null)
                 }
             }
+
+            ArrayList<MNode> actionsExtendNodeList = screenExtendNode.children("actions-extend")
+            for (int i = 0; i < actionsExtendNodeList.size(); i++) {
+                MNode actionsExtendNode = (MNode) actionsExtendNodeList.get(i)
+                String typeName = actionsExtendNode.attribute("type") ?: "actions"
+                MNode curActionsNode = screenNode.first(typeName)
+                if (curActionsNode == null) curActionsNode = screenNode.append(typeName, null)
+
+                String when = actionsExtendNode.attribute("when")
+                if ("replace".equals(when)) {
+                    curActionsNode.removeAll()
+                    curActionsNode.appendAll(actionsExtendNode.children, true)
+                } else if ("before".equals(when)) {
+                    curActionsNode.appendAll(actionsExtendNode.children, 0, true)
+                } else {
+                    // default to "after"
+                    curActionsNode.appendAll(actionsExtendNode.children, true)
+                }
+            }
+
+            ArrayList<MNode> widgetsExtendNodeList = screenExtendNode.children("widgets-extend")
+            for (int i = 0; i < widgetsExtendNodeList.size(); i++) {
+                MNode widgetsExtendNode = (MNode) widgetsExtendNodeList.get(i)
+                // TODO support for form-single, form-list, section, section-iterate, container (by id), container-box (by id)
+
+            }
+        }
+
+        if (screenExtendNodeList.size() > 0) {
+            logger.warn("TOREMOVE after extend of screen at ${location}:\n${screenNode.toString()}")
         }
 
         // init screen def fields

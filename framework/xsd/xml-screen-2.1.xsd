@@ -172,10 +172,10 @@ along with this software (see the LICENSE.md file). If not, see
 
             <xs:element name="actions-extend" minOccurs="0" maxOccurs="unbounded"><xs:complexType>
                 <xs:group minOccurs="0" maxOccurs="unbounded" ref="AllOperations"/>
-                <xs:attribute name="type" default="screen"><xs:simpleType><xs:restriction base="xs:token">
-                    <xs:enumeration value="always"/><!-- always-actions -->
-                    <xs:enumeration value="pre"/><!-- pre-actions -->
-                    <xs:enumeration value="screen"/><!-- actions -->
+                <xs:attribute name="type" default="actions"><xs:simpleType><xs:restriction base="xs:token">
+                    <xs:enumeration value="always-actions"/>
+                    <xs:enumeration value="pre-actions"/>
+                    <xs:enumeration value="actions"/>
                 </xs:restriction></xs:simpleType></xs:attribute>
                 <xs:attribute name="when" default="after"><xs:simpleType><xs:restriction base="xs:token">
                     <xs:enumeration value="before"/>
