@@ -347,10 +347,10 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
     public Map<String, ArrayList<MNode>> descendants(Set<String> names) {
         Map<String, ArrayList<MNode>> nodes = new HashMap<>(names.size());
         for (String name : names) nodes.put(name, new ArrayList<>());
-        descendantsInternal(names, nodes);
+        descendants(names, nodes);
         return nodes;
     }
-    private void descendantsInternal(Set<String> names, Map<String, ArrayList<MNode>> nodes) {
+    public void descendants(Set<String> names, Map<String, ArrayList<MNode>> nodes) {
         if (childList == null) return;
 
         int childListSize = childList.size();
@@ -358,9 +358,13 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
             MNode curChild = childList.get(i);
             if (names == null || names.contains(curChild.nodeName)) {
                 ArrayList<MNode> curList = nodes.get(curChild.nodeName);
+                if (curList == null) {
+                    curList = new ArrayList<>();
+                    nodes.put(curChild.nodeName, curList);
+                }
                 curList.add(curChild);
             }
-            curChild.descendantsInternal(names, nodes);
+            curChild.descendants(names, nodes);
         }
     }
     public ArrayList<MNode> descendants(String name) {
@@ -483,6 +487,22 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
         }
         return -1;
     }
+    public int firstIndex(MNode child) {
+        if (childList == null || child == null) return -1;
+        int childListSize = childList.size();
+        // first find match by identity (same object), most reliable match
+        for (int i = 0; i < childListSize; i++) {
+            MNode curChild = childList.get(i);
+            if (child == curChild) return i;
+        }
+        // if not found find by node name and attributes
+        for (int i = 0; i < childListSize; i++) {
+            MNode curChild = childList.get(i);
+            if (!child.getName().equals(curChild.getName())) continue;
+            if (child.getAttributes().equals(curChild.getAttributes())) return i;
+        }
+        return -1;
+    }
 
     public String getText() { return childText; }
 
@@ -533,6 +553,20 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
         append(newNode);
         return newNode;
     }
+    /** Append nodes to end of current child nodes, optionally clone */
+    public void appendAll(List<MNode> children, boolean clone) {
+        for (MNode child : children) {
+            append(clone ? child.deepCopy(this) : child);
+        }
+    }
+    /** Append child nodes at given index, optionally clone */
+    public void appendAll(List<MNode> children, int index, boolean clone) {
+        int insertIdx = index;
+        for (MNode child : children) {
+            append(clone ? child.deepCopy(this) : child, insertIdx);
+            insertIdx++;
+        }
+    }
 
     public MNode replace(int index, MNode child) {
         if (childList == null || childList.size() < index)
@@ -547,11 +581,13 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
         return newNode;
     }
 
+    /** Remove the child at the given index */
     public void remove(int index) {
         if (childList == null || childList.size() < index)
             throw new IllegalArgumentException("Index " + index + " not valid, size is " + (childList == null ? 0 : childList.size()));
         childList.remove(index);
     }
+    /** Remove children matching the node/element name */
     public boolean remove(String name) {
         if (childrenByName != null) childrenByName.remove(name);
         if (childList == null) return false;
@@ -567,6 +603,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
         }
         return removed;
     }
+    /** Remove children where Closure evaluates to true */
     public boolean remove(Closure<Boolean> condition) {
         if (childList == null) return false;
         boolean removed = false;
@@ -581,6 +618,13 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
             }
         }
         return removed;
+    }
+    /** Remove all children */
+    public boolean removeAll() {
+        if (childList == null || childList.size() == 0) return false;
+        childList.clear();
+        if (childrenByName != null) childrenByName.clear();
+        return true;
     }
 
     /** Merge a single child node with the given name from overrideNode if it has a child with that name.
