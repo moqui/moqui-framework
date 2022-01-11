@@ -1,0 +1,29 @@
+# Builds a minimal docker image with openjdk and moqui with various volumes for configuration and persisted data outside the container
+# NOTE: add components, build and if needed load data before building a docker image with this
+
+FROM openjdk:11-jdk-slim
+MAINTAINER dataquest <info@dataquest.sk>
+
+WORKDIR /opt/moqui
+
+# copy required files
+COPY WEB-INF WEB-INF
+COPY META-INF META-INF
+COPY *.class ./
+COPY execlib execlib
+COPY runtime runtime
+
+# exposed as volumes for configuration purposes
+VOLUME ["/opt/moqui/runtime/conf", "/opt/moqui/runtime/lib", "/opt/moqui/runtime/classes"]
+# exposed as volumes to persist data outside the container, recommended
+VOLUME ["/opt/moqui/runtime/log", "/opt/moqui/runtime/txlog"]
+
+# Main Servlet Container Port
+EXPOSE 80
+
+# this is to run from the war file directly, preferred approach unzips war file in advance
+ENTRYPOINT ["java", "-cp", ".", "MoquiStart", "port=80"]
+
+HEALTHCHECK --interval=30s --timeout=600ms --start-period=120s CMD curl -f -H "X-Forwarded-Proto: https" -H "X-Forwarded-Ssl: on" http://localhost/status || exit 1
+# specify this as a default parameter if none are specified with docker exec/run, ie run production by default
+CMD ["conf=conf/MoquiTestConf.xml"]

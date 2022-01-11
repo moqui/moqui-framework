@@ -6,6 +6,7 @@ SET VERSION=%~3
 SET DOCKERFILE=%~4
 
 IF "%VERSION%"=="" SET VERSION=latest
+IF "%NAME_TAG%"=="" (ECHO `NAME_TAG` not set, quitting procedure && exit /b 0)
 
 REM "Building docker image from moqui-plus-runtime.war"
 7z x %MOQUI_HOME%\moqui-plus-runtime.war
