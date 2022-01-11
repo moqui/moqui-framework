@@ -183,13 +183,17 @@ along with this software (see the LICENSE.md file). If not, see
                     <xs:enumeration value="replace"/>
                 </xs:restriction></xs:simpleType></xs:attribute>
             </xs:complexType></xs:element>
-            <xs:element name="widgets-extend" minOccurs="0" maxOccurs="unbounded"><xs:complexType>
+            <xs:element name="widgets-extend" minOccurs="0" maxOccurs="unbounded"><xs:annotation><xs:documentation>
+                This is a simple, generic way to insert widget elements into various places in existing screens.
+                Add widgets before or after all elements where name here matches the name or id attributes match.
+            </xs:documentation></xs:annotation><xs:complexType>
                 <xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/>
-                <xs:attribute name="name" type="xs:string" use="required"/>
+                <xs:attribute name="name" type="xs:string" use="required"><xs:annotation><xs:documentation>
+                    Match against name or id attributes on elements in the base screen (being extended).
+                </xs:documentation></xs:annotation></xs:attribute>
                 <xs:attribute name="where" default="before"><xs:simpleType><xs:restriction base="xs:token">
                     <xs:enumeration value="before"/>
-                    <xs:enumeration value="prepend"/>
-                    <xs:enumeration value="append"/>
+                    <!-- FUTURE: semantics are more complex, vary by element: <xs:enumeration value="prepend"/><xs:enumeration value="append"/> -->
                     <xs:enumeration value="after"/>
                 </xs:restriction></xs:simpleType></xs:attribute>
             </xs:complexType></xs:element>
@@ -202,9 +206,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <!-- section, section-iterate override by name -->
                 <xs:element ref="section"/>
                 <xs:element ref="section-iterate"/>
-                <!-- TODO section, section-iterate before or after, by name attribute; for section iterate also prepend, append for inside loop -->
-
-                <!-- TODO container, container-box 'slots' like before, prepend, append, after - would require use of 'id' attribute - or use widgets-extend? -->
+                <!-- FUTURE container, container-box 'slots' like toolbar, body, body-nopad and before, prepend, append, after - or support somehow in widgets-extend? -->
             </xs:choice>
         </xs:sequence>
     </xs:extension></xs:complexContent></xs:complexType></xs:element>

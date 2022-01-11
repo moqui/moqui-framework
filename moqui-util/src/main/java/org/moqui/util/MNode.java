@@ -487,6 +487,22 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
         }
         return -1;
     }
+    public int firstIndex(MNode child) {
+        if (childList == null || child == null) return -1;
+        int childListSize = childList.size();
+        // first find match by identity (same object), most reliable match
+        for (int i = 0; i < childListSize; i++) {
+            MNode curChild = childList.get(i);
+            if (child == curChild) return i;
+        }
+        // if not found find by node name and attributes
+        for (int i = 0; i < childListSize; i++) {
+            MNode curChild = childList.get(i);
+            if (!child.getName().equals(curChild.getName())) continue;
+            if (child.getAttributes().equals(curChild.getAttributes())) return i;
+        }
+        return -1;
+    }
 
     public String getText() { return childText; }
 

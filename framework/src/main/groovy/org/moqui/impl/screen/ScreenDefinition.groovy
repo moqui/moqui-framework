@@ -158,16 +158,39 @@ class ScreenDefinition {
             }
 
             ArrayList<MNode> widgetsExtendNodeList = screenExtendNode.children("widgets-extend")
-            for (int i = 0; i < widgetsExtendNodeList.size(); i++) {
-                MNode widgetsExtendNode = (MNode) widgetsExtendNodeList.get(i)
-                // TODO support for form-single, form-list, section, section-iterate, container (by id), container-box (by id)
+            for (int weIdx = 0; weIdx < widgetsExtendNodeList.size(); weIdx++) {
+                // need any explicit support? form-single, form-list, section, section-iterate, container (id), container-box (id), container-dialog (id), dynamic-dialog (id)
+                // for now just look for any matching name or id attribute and go for it
 
+                MNode widgetsExtendNode = (MNode) widgetsExtendNodeList.get(weIdx)
+                String extendName = widgetsExtendNode.attribute("name")
+                if (extendName == null || extendName.isEmpty()) continue
+
+                ArrayList<MNode> matchingNodes = screenNode.breadthFirst({ MNode it ->
+                    extendName.equals(it.attribute("name")) || extendName.equals(it.attribute("id")) })
+                // logger.warn("widgets-extend name=${extendName} matchingNodes ${matchingNodes}")
+                for (int mnIdx = 0; mnIdx < matchingNodes.size(); mnIdx++) {
+                    MNode matchingNode = (MNode) matchingNodes.get(mnIdx)
+                    MNode matchParent = matchingNode.getParent()
+                    if (matchParent == null) {
+                        logger.warn("In screen-extend no parent found for element ${matchingNode.name} name=${matchingNode.attribute('name')} id=${matchingNode.attribute('id')} in target screen at ${location}")
+                        continue
+                    }
+                    int childIdx = matchParent.firstIndex(matchingNode)
+                    if (childIdx == -1) {
+                        logger.warn("In screen-extend could not find index for element ${matchingNode.name} name=${matchingNode.attribute('name')} id=${matchingNode.attribute('id')} in target screen at ${location}")
+                        continue
+                    }
+                    // if where=after (default before) then add 1 to childIdx
+                    if ("after".equals(widgetsExtendNode.attribute("where"))) childIdx++
+
+                    // ready to go, append cloned widgets-extend child nodes
+                    matchParent.appendAll(widgetsExtendNode.children, childIdx, true)
+                }
             }
         }
 
-        if (screenExtendNodeList.size() > 0) {
-            logger.warn("TOREMOVE after extend of screen at ${location}:\n${screenNode.toString()}")
-        }
+        // if (screenExtendNodeList.size() > 0) logger.warn("after extend of screen at ${location}:\n${screenNode.toString()}")
 
         // init screen def fields
         this.screenNode = screenNode
