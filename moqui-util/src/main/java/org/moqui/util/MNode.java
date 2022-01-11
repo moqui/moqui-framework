@@ -537,6 +537,20 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
         append(newNode);
         return newNode;
     }
+    /** Append nodes to end of current child nodes, optionally clone */
+    public void appendAll(List<MNode> children, boolean clone) {
+        for (MNode child : children) {
+            append(clone ? child.deepCopy(this) : child);
+        }
+    }
+    /** Append child nodes at given index, optionally clone */
+    public void appendAll(List<MNode> children, int index, boolean clone) {
+        int insertIdx = index;
+        for (MNode child : children) {
+            append(clone ? child.deepCopy(this) : child, insertIdx);
+            insertIdx++;
+        }
+    }
 
     public MNode replace(int index, MNode child) {
         if (childList == null || childList.size() < index)
@@ -551,11 +565,13 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
         return newNode;
     }
 
+    /** Remove the child at the given index */
     public void remove(int index) {
         if (childList == null || childList.size() < index)
             throw new IllegalArgumentException("Index " + index + " not valid, size is " + (childList == null ? 0 : childList.size()));
         childList.remove(index);
     }
+    /** Remove children matching the node/element name */
     public boolean remove(String name) {
         if (childrenByName != null) childrenByName.remove(name);
         if (childList == null) return false;
@@ -571,6 +587,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
         }
         return removed;
     }
+    /** Remove children where Closure evaluates to true */
     public boolean remove(Closure<Boolean> condition) {
         if (childList == null) return false;
         boolean removed = false;
@@ -585,6 +602,13 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
             }
         }
         return removed;
+    }
+    /** Remove all children */
+    public boolean removeAll() {
+        if (childList == null || childList.size() == 0) return false;
+        childList.clear();
+        if (childrenByName != null) childrenByName.clear();
+        return true;
     }
 
     /** Merge a single child node with the given name from overrideNode if it has a child with that name.
