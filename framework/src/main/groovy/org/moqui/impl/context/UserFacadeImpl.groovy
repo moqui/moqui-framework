@@ -396,7 +396,9 @@ class UserFacadeImpl implements UserFacade {
             // try UserGroupPreference
             EntityList ugpList = eci.getEntity().find("moqui.security.UserGroupPreference")
                     .condition("userGroupId", EntityCondition.IN, getUserGroupIdSet(userId))
-                    .condition("preferenceKey", preferenceKey).useCache(true).disableAuthz().list()
+                    .condition("preferenceKey", preferenceKey)
+                    .orderBy("groupPriority").orderBy("-userGroupId")
+                    .useCache(true).disableAuthz().list()
             if (ugpList != null && ugpList.size() > 0) up = ugpList.get(0)
         }
         return up?.preferenceValue
@@ -408,14 +410,18 @@ class UserFacadeImpl implements UserFacade {
 
         Map<String, String> prefMap = new HashMap<>()
         // start with UserGroupPreference, put UserPreference values over top to override
+        // NOTE: sort in reverse order from normal query so that later values in list overwrite earlier values
         EntityList ugpList = eci.getEntity().find("moqui.security.UserGroupPreference")
-                .condition("userGroupId", EntityCondition.IN, getUserGroupIdSet(userId)).disableAuthz().list()
+                .condition("userGroupId", EntityCondition.IN, getUserGroupIdSet(userId))
+                .orderBy("-groupPriority").orderBy("userGroupId")
+                .disableAuthz().list()
         int ugpListSize = ugpList.size()
         for (int i = 0; i < ugpListSize; i++) {
             EntityValue ugp = (EntityValue) ugpList.get(i)
             String prefKey = (String) ugp.getNoCheckSimple("preferenceKey")
             if (hasKeyFilter && !prefKey.matches(keyRegexp)) continue
-            prefMap.put(prefKey, (String) ugp.getNoCheckSimple("preferenceValue"))
+            String prefValue = (String) ugp.getNoCheckSimple("preferenceValue")
+            if (prefValue != null && !prefValue.isEmpty()) prefMap.put(prefKey, prefValue)
         }
 
         if (userId != null) {
@@ -426,7 +432,8 @@ class UserFacadeImpl implements UserFacade {
                 EntityValue upref = (EntityValue) uprefList.get(i)
                 String prefKey = (String) upref.getNoCheckSimple("preferenceKey")
                 if (hasKeyFilter && !prefKey.matches(keyRegexp)) continue
-                prefMap.put(prefKey, (String) upref.getNoCheckSimple("preferenceValue"))
+                String prefValue = (String) upref.getNoCheckSimple("preferenceValue")
+                if (prefValue != null && !prefValue.isEmpty()) prefMap.put(prefKey, prefValue)
             }
         }
 
