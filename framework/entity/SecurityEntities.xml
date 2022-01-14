@@ -326,8 +326,12 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.EnumerationType description="User Authentication Factor Type" enumTypeId="UserAuthcFactorType"/>
             <moqui.basic.Enumeration description="Authenticator App (TOTP)" enumId="UafTotp" enumTypeId="UserAuthcFactorType"/>
             <moqui.basic.Enumeration description="Single Use Code" enumId="UafSingleUse" enumTypeId="UserAuthcFactorType"/>
-            <moqui.basic.Enumeration description="Email Code (OTP)" enumId="UafEmail" enumTypeId="UserAuthcFactorType"/>
-            <!--            <moqui.basic.Enumeration description="HMAC-based one-time password" enumId="UafHotp" enumTypeId="UserAuthcFactorType"/>-->
+            <moqui.basic.Enumeration description="Email Code" enumId="UafEmail" enumTypeId="UserAuthcFactorType"/>
+            <moqui.basic.Enumeration description="SMS Code" enumId="UafSms" enumTypeId="UserAuthcFactorType"/>
+            <!-- <moqui.basic.Enumeration description="Authenticator App (HMAC OTP)" enumId="UafHotp" enumTypeId="UserAuthcFactorType"/> -->
+
+            <!-- generic factor record for UserAccount.emailAddress as an authc factor -->
+            <moqui.security.UserAuthcFactor factorId="UserAccountEmail" userId="_NA_" factorTypeEnumId="UafEmail" fromDate="0" thruDate="0"/>
         </seed-data>
     </entity>
     <entity entity-name="UserGroup" package="moqui.security" use="configuration" short-alias="userGroups">
@@ -447,6 +451,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="userGroupId" type="id" is-pk="true"/>
         <field name="preferenceKey" type="text-medium" is-pk="true"/>
         <field name="preferenceValue" type="text-long"/>
+        <field name="groupPriority" type="number-integer">
+            <description>For deciding which value to use when a user is a member of multiple groups with preferences with the same key.</description></field>
         <relationship type="one-nofk" related="moqui.security.UserGroup" short-alias="group">
             <description>No FK in order to allow externally authenticated users.</description></relationship>
         <relationship type="one-nofk" title="UserPreferenceKey" related="moqui.basic.Enumeration" short-alias="keyEnum">

@@ -48,6 +48,7 @@ class ScreenForm {
     protected ExecutionContextFactoryImpl ecfi
     protected ScreenDefinition sd
     protected MNode internalFormNode
+    protected List<MNode> extendFormNodes = null
     protected FormInstance internalFormInstance
     protected String location, formName, fullFormName
     protected boolean hasDbExtensions = false, isDynamic = false, isFormList = false
@@ -56,7 +57,8 @@ class ScreenForm {
     protected MNode entityFindNode = null
     protected XmlAction rowActions = null
 
-    ScreenForm(ExecutionContextFactoryImpl ecfi, ScreenDefinition sd, MNode baseFormNode, String location) {
+    ScreenForm(ExecutionContextFactoryImpl ecfi, ScreenDefinition sd, MNode baseFormNode,
+               List<MNode> extendFormNodes, String location) {
         this.ecfi = ecfi
         this.sd = sd
         this.location = location
@@ -79,10 +81,11 @@ class ScreenForm {
 
         if (isDynamic) {
             internalFormNode = baseFormNode
+            this.extendFormNodes = extendFormNodes
         } else {
             // setting parent to null so that this isn't found in addition to the literal form-* element
             internalFormNode = new MNode(baseFormNode.name, null)
-            initForm(baseFormNode, internalFormNode)
+            initForm(baseFormNode, internalFormNode, extendFormNodes)
             internalFormInstance = new FormInstance(this)
         }
     }
@@ -93,7 +96,7 @@ class ScreenForm {
     }
     boolean hasDataPrep() { return entityFindNode != null }
 
-    void initForm(MNode baseFormNode, MNode newFormNode) {
+    void initForm(MNode baseFormNode, MNode newFormNode, List<MNode> extendFormNodes) {
         // if there is an extends, put that in first (everything else overrides it)
         if (baseFormNode.attribute("extends")) {
             String extendsForm = baseFormNode.attribute("extends")
@@ -200,6 +203,13 @@ class ScreenForm {
 
         // merge original formNode to override any applicable settings
         mergeFormNodes(newFormNode, baseFormNode, false, false)
+
+        // merge screen-extend forms
+        if (extendFormNodes != null) {
+            for (MNode extendFormNode in extendFormNodes) {
+                mergeFormNodes(newFormNode, extendFormNode, true, true)
+            }
+        }
 
         // populate validate-service and validate-entity attributes if the target transition calls a single service
         setSubFieldValidateAttrs(newFormNode, "transition", "default-field")
@@ -449,7 +459,7 @@ class ScreenForm {
 
         if (isDynamic) {
             MNode newFormNode = new MNode(internalFormNode.name, null)
-            initForm(internalFormNode, newFormNode)
+            initForm(internalFormNode, newFormNode, extendFormNodes)
             if (dbFormNodeList != null) for (MNode dbFormNode in dbFormNodeList) mergeFormNodes(newFormNode, dbFormNode, false, true)
             return newFormNode
         } else if ((dbFormNodeList != null && dbFormNodeList.size() > 0) || displayOnly) {

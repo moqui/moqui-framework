@@ -14,6 +14,9 @@
 package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
+import org.apache.shiro.authc.AuthenticationToken
+import org.apache.shiro.authc.ExpiredCredentialsException
+import org.moqui.context.PasswordChangeRequiredException
 
 import javax.websocket.server.HandshakeRequest
 import java.sql.Timestamp
@@ -393,7 +396,9 @@ class UserFacadeImpl implements UserFacade {
             // try UserGroupPreference
             EntityList ugpList = eci.getEntity().find("moqui.security.UserGroupPreference")
                     .condition("userGroupId", EntityCondition.IN, getUserGroupIdSet(userId))
-                    .condition("preferenceKey", preferenceKey).useCache(true).disableAuthz().list()
+                    .condition("preferenceKey", preferenceKey)
+                    .orderBy("groupPriority").orderBy("-userGroupId")
+                    .useCache(true).disableAuthz().list()
             if (ugpList != null && ugpList.size() > 0) up = ugpList.get(0)
         }
         return up?.preferenceValue
@@ -405,14 +410,18 @@ class UserFacadeImpl implements UserFacade {
 
         Map<String, String> prefMap = new HashMap<>()
         // start with UserGroupPreference, put UserPreference values over top to override
+        // NOTE: sort in reverse order from normal query so that later values in list overwrite earlier values
         EntityList ugpList = eci.getEntity().find("moqui.security.UserGroupPreference")
-                .condition("userGroupId", EntityCondition.IN, getUserGroupIdSet(userId)).disableAuthz().list()
+                .condition("userGroupId", EntityCondition.IN, getUserGroupIdSet(userId))
+                .orderBy("-groupPriority").orderBy("userGroupId")
+                .disableAuthz().list()
         int ugpListSize = ugpList.size()
         for (int i = 0; i < ugpListSize; i++) {
             EntityValue ugp = (EntityValue) ugpList.get(i)
             String prefKey = (String) ugp.getNoCheckSimple("preferenceKey")
             if (hasKeyFilter && !prefKey.matches(keyRegexp)) continue
-            prefMap.put(prefKey, (String) ugp.getNoCheckSimple("preferenceValue"))
+            String prefValue = (String) ugp.getNoCheckSimple("preferenceValue")
+            if (prefValue != null && !prefValue.isEmpty()) prefMap.put(prefKey, prefValue)
         }
 
         if (userId != null) {
@@ -423,7 +432,8 @@ class UserFacadeImpl implements UserFacade {
                 EntityValue upref = (EntityValue) uprefList.get(i)
                 String prefKey = (String) upref.getNoCheckSimple("preferenceKey")
                 if (hasKeyFilter && !prefKey.matches(keyRegexp)) continue
-                prefMap.put(prefKey, (String) upref.getNoCheckSimple("preferenceValue"))
+                String prefValue = (String) upref.getNoCheckSimple("preferenceValue")
+                if (prefValue != null && !prefValue.isEmpty()) prefMap.put(prefKey, prefValue)
             }
         }
 
@@ -630,20 +640,35 @@ class UserFacadeImpl implements UserFacade {
             return false
         }
 
-        UsernamePasswordToken token = new UsernamePasswordToken(username, password, true)
         // if there is a web session invalidate it so there is a new session for the login (prevent Session Fixation attacks)
         if (eci.getWebImpl() != null) eci.getWebImpl().makeNewSession()
+
+        UsernamePasswordToken token = new UsernamePasswordToken(username, password, true)
+        return internalLoginToken(username, token)
+    }
+
+    /** For internal framework use only, does a login without authc. */
+    boolean internalLoginUser(String username) { return internalLoginUser(username, true) }
+    boolean internalLoginUser(String username, boolean saveHistory) {
+        if (username == null || username.isEmpty()) {
+            eci.message.addError(eci.l10n.localize("No username specified"))
+            return false
+        }
+
+        UsernamePasswordToken token = new MoquiShiroRealm.ForceLoginToken(username, true, saveHistory)
+        return internalLoginToken(username, token)
+    }
+    boolean internalLoginToken(String username, AuthenticationToken token) {
+        if (eci.web != null) {
+            // this ensures that after correctly logging in, a previously attempted login user's "Second Factor" screen isn't displayed
+            eci.web.sessionAttributes.remove("moquiPreAuthcUsername")
+            eci.web.sessionAttributes.remove("moquiAuthcFactorRequired")
+        }
 
         Subject loginSubject = makeEmptySubject()
         try {
             // do the actual login through Shiro
             loginSubject.login(token)
-
-            if (eci.web != null) {
-                // this ensures that after correctly logging in, a previously attempted login user's "Second Factor" screen isn't displayed
-                eci.web.sessionAttributes.remove("moquiAuthcFactorUsername")
-                eci.web.sessionAttributes.remove("moquiAuthcFactorRequired")
-            }
 
             // do this first so that the rest will be done as this user
             // just in case there is already a user authenticated push onto a stack to remember
@@ -657,50 +682,35 @@ class UserFacadeImpl implements UserFacade {
         } catch (SecondFactorRequiredException ae) {
             if (eci.web != null) {
                 // This makes the session realize the this user needs to verify login with an authentication factor
-                eci.web.sessionAttributes.put("moquiAuthcFactorUsername", username)
+                eci.web.sessionAttributes.put("moquiPreAuthcUsername", username)
                 eci.web.sessionAttributes.put("moquiAuthcFactorRequired", "true")
             }
-            return true
+            // don't add this particular error, causes problems when this is followed immediately by an attempt to verify a submitted code in the same tx: eci.messageFacade.addError(ae.message)
+            return false
+        } catch (PasswordChangeRequiredException ae) {
+            if (eci.web != null) {
+                eci.web.sessionAttributes.put("moquiPreAuthcUsername", username)
+                eci.web.sessionAttributes.put("moquiPasswordChangeRequired", "true")
+            }
+            eci.messageFacade.addError(ae.message)
+            return false
+        } catch (ExpiredCredentialsException ae) {
+            if (eci.web != null) {
+                eci.web.sessionAttributes.put("moquiPreAuthcUsername", username)
+                eci.web.sessionAttributes.put("moquiExpiredCredentials", "true")
+            }
+            eci.messageFacade.addError(ae.message)
+            return false
         } catch (AuthenticationException ae) {
             // others to consider handling differently (these all inherit from AuthenticationException):
             //     UnknownAccountException, IncorrectCredentialsException, ExpiredCredentialsException,
             //     CredentialsException, LockedAccountException, DisabledAccountException, ExcessiveAttemptsException
             eci.messageFacade.addError(ae.message)
-
             return false
         }
         return true
     }
 
-    /** For internal framework use only, does a login without authc. */
-    boolean internalLoginUser(String username) { return internalLoginUser(username, true) }
-    boolean internalLoginUser(String username, boolean saveHistory) {
-        if (username == null || username.isEmpty()) {
-            eci.message.addError(eci.l10n.localize("No username specified"))
-            return false
-        }
-
-        UsernamePasswordToken token = new MoquiShiroRealm.ForceLoginToken(username, true, saveHistory)
-        Subject loginSubject = makeEmptySubject()
-        try {
-            loginSubject.login(token)
-
-            // do this first so that the rest will be done as this user
-            // just in case there is already a user authenticated push onto a stack to remember
-            pushUserSubject(loginSubject)
-
-            // after successful login trigger the after-login actions
-            if (eci.getWebImpl() != null) {
-                eci.getWebImpl().runAfterLoginActions()
-                eci.getWebImpl().getRequest().setAttribute("moqui.request.authenticated", "true")
-            }
-        } catch (AuthenticationException ae) {
-            eci.messageFacade.addError(ae.message)
-            return false
-        }
-
-        return true
-    }
     /** For internal use only, quick login using a Subject already logged in from another thread, etc */
     boolean internalLoginSubject(Subject loginSubject) {
         if (loginSubject == null || !loginSubject.getPrincipal() || !loginSubject.isAuthenticated()) return false
