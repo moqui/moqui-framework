@@ -794,4 +794,24 @@ public class EntityJavaUtil {
             this.valueList = valueList; valueListSize = valueList.size(); this.foundUpdated = foundUpdated; this.econd = econd;
         }
     }
+
+    /* added as a possibility for EntityValueBase.checkAgainstDatabaseInfo() but simpler for interfaces, sorting, etc to use a Map:
+    public static class EntityValueDiffInfo {
+        public String entityName, fieldName;
+        public Map<String, Object> pkValues;
+        public Object checkValue, dbValue;
+        public boolean notFound;
+        public EntityValueDiffInfo(String entityName, Map<String, Object> pkValues) {
+            this.entityName = entityName; this.fieldName = null; this.pkValues = pkValues;
+            this.checkValue = null; this.dbValue = null;
+            this.notFound = true;
+        }
+        public EntityValueDiffInfo(String entityName, Map<String, Object> pkValues, String fieldName,
+                                   Object checkValue, Object dbValue) {
+            this.entityName = entityName; this.fieldName = fieldName; this.pkValues = pkValues;
+            this.checkValue = checkValue; this.dbValue = dbValue;
+            this.notFound = false;
+        }
+    }
+    */
 }

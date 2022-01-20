@@ -960,6 +960,66 @@ public abstract class EntityValueBase implements EntityValue {
 
     @Override
     @SuppressWarnings("unchecked")
+    public long checkAgainstDatabaseInfo(List<Map<String, Object>> diffInfoList, List<String> messages, String location) {
+        long fieldsChecked = 0;
+        try {
+            EntityValue dbValue = this.cloneValue();
+            if (!dbValue.refresh()) {
+                Map<String, Object> diffInfo = new HashMap<>();
+                diffInfo.put("entity", getEntityName());
+                diffInfo.put("pk", getPrimaryKeys());
+                diffInfo.put("notFound", true);
+                diffInfo.put("pkComplete", containsPrimaryKey());
+                diffInfo.put("location", location);
+                diffInfoList.add(diffInfo);
+                // alternative object based, more efficient but way less convenient: diffInfoList.add(new EntityJavaUtil.EntityValueDiffInfo(getEntityName(), getPrimaryKeys()));
+                return 0;
+            }
+
+            for (String nonpkFieldName : this.getEntityDefinition().getNonPkFieldNames()) {
+                // skip the lastUpdatedStamp field
+                if ("lastUpdatedStamp".equals(nonpkFieldName)) continue;
+
+                final Object checkFieldValue = this.get(nonpkFieldName);
+                final Object dbFieldValue = dbValue.get(nonpkFieldName);
+
+                // use compareTo if available, generally more lenient (for BigDecimal ignores scale, etc)
+                if (checkFieldValue != null) {
+                    boolean areSame = true;
+                    if (checkFieldValue instanceof Comparable && dbFieldValue != null) {
+                        Comparable cfComp = (Comparable) checkFieldValue;
+                        if (cfComp.compareTo(dbFieldValue) != 0) areSame = false;
+                    } else {
+                        if (!checkFieldValue.equals(dbFieldValue)) areSame = false;
+                    }
+                    if (!areSame) {
+                        Map<String, Object> diffInfo = new HashMap<>();
+                        diffInfo.put("entity", getEntityName());
+                        diffInfo.put("pk", getPrimaryKeys());
+                        diffInfo.put("field", nonpkFieldName);
+                        diffInfo.put("value", checkFieldValue);
+                        diffInfo.put("dbValue", dbFieldValue);
+                        diffInfo.put("notFound", false);
+                        diffInfo.put("pkComplete", containsPrimaryKey());
+                        diffInfo.put("location", location);
+                        diffInfoList.add(diffInfo);
+                        // alternative object based, more efficient but way less convenient: diffInfoList.add(new EntityJavaUtil.EntityValueDiffInfo(getEntityName(), getPrimaryKeys(), nonpkFieldName, checkFieldValue, dbFieldValue));
+                    }
+                }
+                fieldsChecked++;
+            }
+        } catch (EntityException e) {
+            throw e;
+        } catch (Throwable t) {
+            String errMsg = "Error checking entity " + getEntityName() + " with pk " + getPrimaryKeys() + ": " + t.toString();
+            if (messages != null) messages.add(errMsg);
+            logger.error(errMsg, t);
+        }
+
+        return fieldsChecked;
+    }
+    @Override
+    @SuppressWarnings("unchecked")
     public long checkAgainstDatabase(List<String> messages) {
         long fieldsChecked = 0;
         try {
