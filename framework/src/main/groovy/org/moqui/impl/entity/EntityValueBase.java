@@ -968,6 +968,7 @@ public abstract class EntityValueBase implements EntityValue {
                 Map<String, Object> diffInfo = new HashMap<>();
                 diffInfo.put("entity", getEntityName());
                 diffInfo.put("pk", getPrimaryKeys());
+                diffInfo.put("createValues", getValueMap());
                 diffInfo.put("notFound", true);
                 diffInfo.put("pkComplete", containsPrimaryKey());
                 diffInfo.put("location", location);
