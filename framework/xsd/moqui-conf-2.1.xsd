@@ -260,6 +260,7 @@ along with this software (see the LICENSE.md file). If not, see
                     </xs:restriction></xs:simpleType></xs:attribute>
                     <xs:attribute name="name" type="xs:string" use="required"/>
                     <xs:attribute name="value" type="xs:string" use="required"/>
+                    <xs:attribute name="add" type="boolean" default="false"/>
                 </xs:complexType></xs:element>
             </xs:sequence>
             <xs:attribute name="name" type="name-plain" use="required"><xs:annotation><xs:documentation>
@@ -281,6 +282,14 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="websocket-timeout" type="xs:integer"><xs:annotation><xs:documentation>
                 The default WebSocket session max idle timeout for the whole server.</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="upload-executable-allow" type="boolean-expandable" default="false"/>
+            <xs:attribute name="client-ip-header" type="xs:string"><xs:annotation><xs:documentation>
+                Set this if there is a reverse proxy in front of the Moqui server.
+
+                Using X-Forwarded-For is risky because clients can set a value for the header to spoof a client IP
+                address; if the outer-most proxy handles X-Forwarded-For by always setting it to its client IP address
+                instead of the common default behavior of appending to an existing X-Forwarded-For header then it is fine,
+                but should generally be set to a more reliable header for the reverse-proxy used.
+            </xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
 

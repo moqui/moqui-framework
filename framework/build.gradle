@@ -70,11 +70,11 @@ dependencies {
     // Groovy
     // NOTE: update attempt to 3.0.2 has issues with slow build (just slow stub generation? seems others are seeing that too)
     //     and updated Spock required (tried 2.0-M2-groovy-3.0, not final release and tests didn't work)
-    compile 'org.codehaus.groovy:groovy:2.5.14' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-dateutil:2.5.14' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-json:2.5.14' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-templates:2.5.14' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-xml:2.5.14' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy:2.5.15' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-dateutil:2.5.15' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-json:2.5.15' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-templates:2.5.15' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-xml:2.5.15' // Apache 2.0
     // jansi is needed for groovydoc only, so in providedCompile (not included in war)
     compileOnly 'org.fusesource.jansi:jansi:1.18'
     // Findbugs need only during compile (used by freemarker and various moqui classes)
@@ -89,8 +89,8 @@ dependencies {
     // ========== Libraries from jcenter ==========
 
     // Apache Commons
-    runtime 'commons-codec:commons-codec:1.15'
-    compile 'org.apache.commons:commons-csv:1.8' // Apache 2.0
+    compile 'commons-codec:commons-codec:1.15'
+    compile 'org.apache.commons:commons-csv:1.9.0' // Apache 2.0
     // NOTE: commons-email depends on com.sun.mail:javax.mail, included below
     compile module('org.apache.commons:commons-email:1.5') // Apache 2.0
     compile 'org.apache.commons:commons-lang3:3.12.0' // Apache 2.0; used by cron-utils
@@ -103,7 +103,7 @@ dependencies {
     compile 'commons-validator:commons-validator:1.7' // Apache 2.0
 
     // Cron Utils
-    compile 'com.cronutils:cron-utils:9.1.5' // Apache 2.0
+    compile 'com.cronutils:cron-utils:9.1.6' // Apache 2.0
 
     // Flexmark (markdown)
     compile 'com.vladsch.flexmark:flexmark:0.62.2'
@@ -135,14 +135,21 @@ dependencies {
     compile 'com.beust:jcommander:1.81'
 
     // H2 Database
+    // CVE pending: https://github.com/advisories/GHSA-7rpj-hg47-cx62 https://nvd.nist.gov/vuln/detail/CVE-2021-23463
+    // NOTE: Moqui does not use org.h2.jdbc.JdbcResultSet.getSQLXML() or any H2 specific API except to init server in H2ServerToolFactory
+    // NOTE: update to H2 2.0.202 works well, except VALUE is now a reserved word, problem for:
+    //    DbFormFieldAttribute, DbFormFieldEntOptsCond, PartyDimension, ProductDimension, ProductUomDimension
+    //    this can be addressed with something like column-name="DIM_VALUE" which fixes H2
+    //    but then all existing databases need data migration (move data from VALUE column to DIM_VALUE)
+    //    so, we need a different solution before updating H2
     compile 'com.h2database:h2:1.4.200' // MPL 2.0, EPL 1.0
 
     // Jackson Databind (JSON, etc)
-    compile 'com.fasterxml.jackson.core:jackson-databind:2.12.4'
+    compile 'com.fasterxml.jackson.core:jackson-databind:2.12.5'
 
     // Jetty HTTP Client and Proxy Servlet
-    compile 'org.eclipse.jetty:jetty-client:9.4.43.v20210629' // Apache 2.0
-    compile 'org.eclipse.jetty:jetty-proxy:9.4.43.v20210629' // Apache 2.0
+    compile 'org.eclipse.jetty:jetty-client:9.4.44.v20210927' // Apache 2.0
+    compile 'org.eclipse.jetty:jetty-proxy:9.4.44.v20210927' // Apache 2.0
     // NOTE: update after version 9.4.18.v20190429 results in 'IllegalArgumentException: URI is not hierarchical' error, have workarounds for now catching exception in MClassLoader.getResources()
 
     // javax.mail
@@ -150,21 +157,21 @@ dependencies {
     compile module('com.sun.mail:javax.mail:1.6.2') // CDDL
 
     // Joda Time (used by elasticsearch, aws)
-    compile 'joda-time:joda-time:2.10.10' // Apache 2.0
+    compile 'joda-time:joda-time:2.10.13' // Apache 2.0
 
     // JSoup (HTML parser, cleaner)
-    compile 'org.jsoup:jsoup:1.14.1' // MIT
+    compile 'org.jsoup:jsoup:1.14.3' // MIT
 
     // Apache Shiro
-    compile module('org.apache.shiro:shiro-core:1.7.1') // Apache 2.0
-    compile module('org.apache.shiro:shiro-web:1.7.1') // Apache 2.0
+    compile module('org.apache.shiro:shiro-core:1.8.0') // Apache 2.0
+    compile module('org.apache.shiro:shiro-web:1.8.0') // Apache 2.0
 
     // SLF4J, Log4j 2 (note Log4j 2 is used by various libraries, best not to replace it even if mostly possible with SLF4J)
     compile 'org.slf4j:slf4j-api:1.7.32'
-    compile 'org.apache.logging.log4j:log4j-core:2.14.1'
-    compile 'org.apache.logging.log4j:log4j-api:2.14.1'
-    runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.14.1'
-    runtime 'org.apache.logging.log4j:log4j-jcl:2.14.1'
+    compile 'org.apache.logging.log4j:log4j-core:2.17.1'
+    compile 'org.apache.logging.log4j:log4j-api:2.17.1'
+    runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.17.1'
+    runtime 'org.apache.logging.log4j:log4j-jcl:2.17.1'
 
     // SubEtha SMTP (module as depends on old javax.mail location; also uses SLF4J, activation included elsewhere)
     compile module('org.subethamail:subethasmtp:3.1.7')
@@ -191,16 +198,16 @@ dependencies {
     // ========== executable war dependencies ==========
     // Jetty
     // NOTE: update to Jetty 9.4.25.v20191220 caused issue on response.getWriter().write(String): Internal error processing request: java.lang.IllegalStateException: s=OPEN,api=BLOCKED,sc=false,e=null
-    execWarRuntime 'org.eclipse.jetty:jetty-server:9.4.43.v20210629' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.4.43.v20210629' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.4.43.v20210629' // Apache 2.0
-    execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.4.43.v20210629') // Apache 2.0
-    execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.4.43.v20210629') { // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-server:9.4.44.v20210927' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.4.44.v20210927' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.4.44.v20210927' // Apache 2.0
+    execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.4.44.v20210927') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.4.44.v20210927') { // Apache 2.0
         exclude group: 'javax.websocket' } // we have the full websocket API, including the client one causes problems
     execWarRuntime 'javax.websocket:javax.websocket-api:1.0' // using 1.0, don't update to 1.1 until used in Jetty, Tomcat, etc
-    execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.4.43.v20210629') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.4.44.v20210927') // Apache 2.0
     // only include this if using Endpoint and MessageHandler annotations:
-    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:9.4.43.v20210629') // Apache 2.0
+    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:9.4.44.v20210927') // Apache 2.0
 }
 
 // setup task dependencies to make sure the start sourceSets always get run

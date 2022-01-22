@@ -252,7 +252,7 @@ public abstract class EntityValueBase implements EntityValue {
         throw new EntityException("The name [" + name + "] is not a valid field name or relationship name for entity " + entityName);
     }
 
-    private Object getKnownField(FieldInfo fieldInfo) {
+    public Object getKnownField(FieldInfo fieldInfo) {
         EntityDefinition ed = fieldInfo.ed;
         // if this is a simple field (is field, no l10n, not user field) just get the value right away (vast majority of use)
         if (fieldInfo.isSimple) return valueMapInternal.getByIString(fieldInfo.name, fieldInfo.index);
@@ -707,13 +707,27 @@ public abstract class EntityValueBase implements EntityValue {
                 LinkedHashMap<String, Object> parms = new LinkedHashMap<>();
                 parms.put("changedEntityName", getEntityName());
                 parms.put("changedFieldName", fieldName);
-                parms.put("newValueText", ObjectUtilities.toPlainString(value));
                 if (changeReason != null) parms.put("changeReason", changeReason);
                 parms.put("changedDate", nowTimestamp);
                 parms.put("changedByUserId", ec.getUser().getUserId());
                 parms.put("changedInVisitId", ec.getUser().getVisitId());
                 parms.put("artifactStack", stackNameString);
-                if (oldValue != null) parms.put("oldValueText", ObjectUtilities.toPlainString(oldValue));
+
+                // prep values, encrypt if needed
+                if (value != null) {
+                    String newValueText = ObjectUtilities.toPlainString(value);
+                    if (fieldInfo.encrypt) newValueText = EntityJavaUtil.enDeCrypt(newValueText, true, ec.getEntityFacade());
+                    if (newValueText.length() > 4000) newValueText = newValueText.substring(0, 4000);
+                    parms.put("newValueText", newValueText);
+                }
+                if (oldValue != null) {
+                    String oldValueText = ObjectUtilities.toPlainString(oldValue);
+                    if (fieldInfo.encrypt) oldValueText = EntityJavaUtil.enDeCrypt(oldValueText, true, ec.getEntityFacade());
+                    if (oldValueText.length() > 4000) oldValueText = oldValueText.substring(0, 4000);
+                    parms.put("oldValueText", oldValueText);
+                }
+
+                // set all pk fields by name to support EntityAuditLog extensions for specific pk fields, will usually all get ignored
                 parms.putAll(pksValueMap);
 
                 // logger.warn("TOREMOVE: in handleAuditLog for [${ed.entityName}.${fieldName}] value=[${value}], oldValue=[${oldValue}], oldValues=[${oldValues}]", new Exception("AuditLog location"))
@@ -944,6 +958,67 @@ public abstract class EntityValueBase implements EntityValue {
         return noneMissing;
     }
 
+    @Override
+    @SuppressWarnings("unchecked")
+    public long checkAgainstDatabaseInfo(List<Map<String, Object>> diffInfoList, List<String> messages, String location) {
+        long fieldsChecked = 0;
+        try {
+            EntityValue dbValue = this.cloneValue();
+            if (!dbValue.refresh()) {
+                Map<String, Object> diffInfo = new HashMap<>();
+                diffInfo.put("entity", getEntityName());
+                diffInfo.put("pk", getPrimaryKeys());
+                diffInfo.put("createValues", getValueMap());
+                diffInfo.put("notFound", true);
+                diffInfo.put("pkComplete", containsPrimaryKey());
+                diffInfo.put("location", location);
+                diffInfoList.add(diffInfo);
+                // alternative object based, more efficient but way less convenient: diffInfoList.add(new EntityJavaUtil.EntityValueDiffInfo(getEntityName(), getPrimaryKeys()));
+                return 0;
+            }
+
+            for (String nonpkFieldName : this.getEntityDefinition().getNonPkFieldNames()) {
+                // skip the lastUpdatedStamp field
+                if ("lastUpdatedStamp".equals(nonpkFieldName)) continue;
+
+                final Object checkFieldValue = this.get(nonpkFieldName);
+                final Object dbFieldValue = dbValue.get(nonpkFieldName);
+
+                // use compareTo if available, generally more lenient (for BigDecimal ignores scale, etc)
+                if (checkFieldValue != null) {
+                    boolean areSame = true;
+                    if (checkFieldValue instanceof Comparable && dbFieldValue != null) {
+                        Comparable cfComp = (Comparable) checkFieldValue;
+                        if (cfComp.compareTo(dbFieldValue) != 0) areSame = false;
+                    } else {
+                        if (!checkFieldValue.equals(dbFieldValue)) areSame = false;
+                    }
+                    if (!areSame) {
+                        Map<String, Object> diffInfo = new HashMap<>();
+                        diffInfo.put("entity", getEntityName());
+                        diffInfo.put("pk", getPrimaryKeys());
+                        diffInfo.put("field", nonpkFieldName);
+                        diffInfo.put("value", checkFieldValue);
+                        diffInfo.put("dbValue", dbFieldValue);
+                        diffInfo.put("notFound", false);
+                        diffInfo.put("pkComplete", containsPrimaryKey());
+                        diffInfo.put("location", location);
+                        diffInfoList.add(diffInfo);
+                        // alternative object based, more efficient but way less convenient: diffInfoList.add(new EntityJavaUtil.EntityValueDiffInfo(getEntityName(), getPrimaryKeys(), nonpkFieldName, checkFieldValue, dbFieldValue));
+                    }
+                }
+                fieldsChecked++;
+            }
+        } catch (EntityException e) {
+            throw e;
+        } catch (Throwable t) {
+            String errMsg = "Error checking entity " + getEntityName() + " with pk " + getPrimaryKeys() + ": " + t.toString();
+            if (messages != null) messages.add(errMsg);
+            logger.error(errMsg, t);
+        }
+
+        return fieldsChecked;
+    }
     @Override
     @SuppressWarnings("unchecked")
     public long checkAgainstDatabase(List<String> messages) {

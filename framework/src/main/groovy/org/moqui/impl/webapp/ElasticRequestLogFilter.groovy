@@ -17,6 +17,7 @@ import groovy.transform.CompileStatic
 import org.moqui.Moqui
 import org.moqui.impl.context.ElasticFacadeImpl.ElasticClientImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
+import org.moqui.impl.context.UserFacadeImpl
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -124,15 +125,14 @@ class ElasticRequestLogFilter implements Filter {
         // always flush the buffer so we can get the final time; this is for some reason NECESSARY for the wrapper otherwise content doesn't make it through
         response.flushBuffer()
 
-        String clientIpAddress = request.getRemoteAddr()
-        String forwardedFor = request.getHeader("X-Forwarded-For")
-        if (forwardedFor != null && !forwardedFor.isEmpty()) clientIpAddress = forwardedFor.split(",")[0]
-
-        if (clientIpAddress != null) {
-            clientIpAddress = clientIpAddress.trim()
-            if (clientIpAddress.charAt(0) == (char) '[') clientIpAddress = clientIpAddress.substring(1)
-            if (clientIpAddress.charAt(clientIpAddress.length() - 1) == (char) ']') clientIpAddress = clientIpAddress.substring(0, clientIpAddress.length() - 1)
-            clientIpAddress = clientIpAddress.trim()
+        String clientIp = UserFacadeImpl.getClientIp(request, null, ecfi)
+        String serverIp = request.getLocalAddr()
+        // IPv6 addresses sometimes have square braces around them, ElasticSearch doesn't like that so strip them if found
+        // NOTE: clientIp already has square braces removed by getClientIp()
+        if (serverIp != null && !serverIp.isEmpty()) {
+            if (serverIp.charAt(0) == (char) '[') serverIp = serverIp.substring(1)
+            if (serverIp.charAt(serverIp.length() - 1) == (char) ']')
+                serverIp = serverIp.substring(0, serverIp.length() - 1)
         }
 
         // IPv6 addresses have square braces but ElasticSearch doesn't like them, so if there are any get rid of them
@@ -151,8 +151,8 @@ class ElasticRequestLogFilter implements Filter {
         // final time after streaming response (ie flush response)
         long finalTime = System.currentTimeMillis() - startTime
 
-        Map reqMap = ['@timestamp':startTime, remote_ip:clientIpAddress, remote_user:request.getRemoteUser(),
-                server_ip:request.getLocalAddr(), content_type:response.getContentType(),
+        Map reqMap = ['@timestamp':startTime, remote_ip:clientIp, remote_user:request.getRemoteUser(),
+                server_ip:serverIp, content_type:response.getContentType(),
                 request_method:request.getMethod(), request_scheme:request.getScheme(), request_host:request.getServerName(),
                 request_path:request.getRequestURI(), request_query:request.getQueryString(), http_version:httpVersion,
                 response:response.getStatus(), time_initial_ms:initialTime, time_final_ms:finalTime, bytes:written,
