@@ -1008,7 +1008,7 @@ class ScreenUrlInfo {
         }
         Map getTransitionAliasParameters() { return transitionAliasParameters }
 
-        String getPath() { return sui.getUrlWithBase("") }
+        String getPath() { return sui.getUrlWithBase(sri.servletContextPath) }
         String getPathWithParams() {
             String ps = getParameterString()
             String path = getPath()
