@@ -14,7 +14,7 @@
     <component name="mk-services" group="mkdecisiondev" version="" branch="master"/>
     <component name="mk-integrations" group="mkdecisiondev" version="" branch="master"/>
     <component name="mk-store" group="mkdecisiondev" version="" branch="master"/>
-    <component name="mk-dashboard" group="mkdecisiondev" version="" branch="master"/>
+    <component name="daolos-vendor-dashboard" group="mkdecisiondev" version="" branch="master"/>
 
     <!-- only on CodeCommit, migrate? <component name="sales-demo-config" group="mkdecisiondev" version="" branch="master"/> -->
     <!-- only on CodeCommit, migrate? <component name="mk-config-assistant" group="mkdecisiondev" version="" branch="master"/> -->
@@ -41,6 +41,7 @@
     <component name="moqui-pac4j-authentication" group="mkdecisiondev" version="" branch="master"/>
     <component name="moqui-graphql" group="mkdecisiondev" version="" branch="master"/>
     <component name="moqui-datawarehouse" group="mkdecisiondev" version="" branch="master"/>
+    <component name="mk-dashboard" group="mkdecisiondev" version="" branch="master"/> <!-- only used by Evergreen Bank -->
 
     <!-- Customer Data Components -->
     <component name="close-wafdbank-data" group="mkdecisiondev" version="" branch="master"/>
@@ -66,7 +67,7 @@
 
     <!-- Component Sets for Convenience -->
     <component-set name="mk-moqui" components="moqui-aws,moqui-fop,moqui-poi,moqui-sftp,mantle-udm,mantle-usl,SimpleScreens,MarbleERP"/>
-    <component-set name="mk-base-new" components="mk-services,mk-integrations,mk-store,mk-dashboard"/>
+    <component-set name="mk-base-new" components="mk-services,mk-integrations,mk-store,daolos-vendor-dashboard"/>
     <component-set name="mk-base-orig" components="mk-identity,mk-idology,moqui-ccos,moqui-close,moqui-close-decision,moqui-coreconnect,moqui-coreconnect-fis,moqui-creditconnect,moqui-creditconnect-experian,moqui-creditconnect-transunion,moqui-financial-worksheet,moqui-graphql,moqui-html-pdf,moqui-mk-dashboard,moqui-pac4j-authentication"/>
 
     <component-set name="mk-dev-base" sets="mk-moqui,mk-base-new,mk-base-orig"/>
