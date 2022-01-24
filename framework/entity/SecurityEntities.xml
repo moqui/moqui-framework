@@ -451,6 +451,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="userGroupId" type="id" is-pk="true"/>
         <field name="preferenceKey" type="text-medium" is-pk="true"/>
         <field name="preferenceValue" type="text-long"/>
+        <field name="groupPriority" type="number-integer">
+            <description>For deciding which value to use when a user is a member of multiple groups with preferences with the same key.</description></field>
         <relationship type="one-nofk" related="moqui.security.UserGroup" short-alias="group">
             <description>No FK in order to allow externally authenticated users.</description></relationship>
         <relationship type="one-nofk" title="UserPreferenceKey" related="moqui.basic.Enumeration" short-alias="keyEnum">
