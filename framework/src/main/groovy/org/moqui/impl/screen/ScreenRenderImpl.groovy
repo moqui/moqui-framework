@@ -2303,7 +2303,7 @@ class ScreenRenderImpl implements ScreenRender {
                 String image = sui.menuImage
                 String imageType = sui.menuImageType
                 if (image != null && !image.isEmpty() && (imageType == null || imageType.isEmpty() || "url-screen".equals(imageType)))
-                    image = buildUrl(image).path
+                    image = buildUrl(image).url
 
                 boolean active = (nextItem == subscreensItem.name)
                 Map itemMap = [name:subscreensItem.name, title:ec.resource.expand(subscreensItem.menuTitle, ""),
@@ -2324,7 +2324,7 @@ class ScreenRenderImpl implements ScreenRender {
             String image = sui.menuImage
             String imageType = sui.menuImageType
             if (image != null && !image.isEmpty() && (imageType == null || imageType.isEmpty() || "url-screen".equals(imageType)))
-                image = buildUrl(image).path
+                image = buildUrl(image).url
 
             menuDataList.add([name:pathItem, title:curScreen.getDefaultMenuName(), subscreens:subscreensList, path:curScreenPath,
                     pathWithParams:curPathWithParams, hasTabMenu:curScreen.hasTabMenu(), renderModes:curScreen.renderModes, image:image, imageType:imageType])
