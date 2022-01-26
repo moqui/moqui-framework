@@ -1,0 +1,1 @@
+pg_dump -U moqui moqui > /tmp/dump/moqui-dump.sql
