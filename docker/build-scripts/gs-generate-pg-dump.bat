@@ -17,7 +17,7 @@ docker-compose ^
     --no-cache
 
 REM run DUMP script
-cat ./DumpDatabase.sql | docker exec -i dev-postgres su postgres
+type DumpDatabase.sql | docker exec -i dev-postgres su postgres
 
 REM kill 'em
 docker-compose -p moqui-fill -f fill-database.yml down --rmi local -v
