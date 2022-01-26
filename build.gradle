@@ -17,7 +17,7 @@ buildscript {
         mavenCentral()
         maven { url "https://plugins.gradle.org/m2/" }
     }
-    dependencies { classpath 'org.ajoberstar:grgit:2.2.1' }
+    dependencies { classpath 'org.ajoberstar.grgit:grgit-gradle:4.1.1' }
 }
 // Not needed for explicit use, causes problems when not from git repo: plugins { id 'org.ajoberstar.grgit' version 'x.y.z' }
 

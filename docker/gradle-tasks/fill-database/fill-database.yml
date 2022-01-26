@@ -1,0 +1,22 @@
+version: "3"
+services:
+  moqui-load-server:
+    image: moqui-load-server
+    build:
+      context: ./../../..
+      dockerfile: docker/gradle-tasks/fill-database/Dockerfile-load-in-build-jdk-11
+      args:
+        MOQUI_CONF: conf/MoquiLoadConf.xml
+        GRADLE_VERSION: 5.6.4
+    container_name: moqui-load-server
+    command: ["java", "-cp", ".", "MoquiStart", "port=8080"]
+    restart: always
+    networks:
+      - dtq-int
+    ports:
+     - "8080:8080"
+
+networks:
+  dtq-int:
+    external:
+      name: dtq-int

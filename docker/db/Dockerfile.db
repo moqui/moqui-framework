@@ -1,4 +1,12 @@
 FROM postgres:13.2-alpine
 RUN apk update && apk add dos2unix
 
+# copy SQL into dump directory
 COPY *.sql /dumps/
+
+# copy initialization scripts
+COPY initialize.moqui.db.sh /docker-entrypoint-initdb.d/
+COPY setup.db.sh /docker-entrypoint-initdb.d/
+
+RUN dos2unix /docker-entrypoint-initdb.d/initialize.moqui.db.sh
+RUN dos2unix /docker-entrypoint-initdb.d/setup.db.sh
