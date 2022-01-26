@@ -1,0 +1,28 @@
+version: "3"
+services:
+  pg-dump-database:
+    image: postgres:14.1-alpine
+    container_name: dev-postgres
+    volumes:
+      - ./../../db:/tmp/dump
+    environment:
+      POSTGRES_USER: moqui
+      POSTGRES_DB: moqui
+      POSTGRES_PASSWORD: postgres
+      PGPORT: 5431
+      POSTGRES_HOST_AUTH_METHOD: trust
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:5431" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: always
+    networks:
+      - dtq-int
+    ports:
+     - "5431:5431"
+
+networks:
+  dtq-int:
+    external:
+      name: dtq-int
