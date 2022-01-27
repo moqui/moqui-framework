@@ -33,4 +33,5 @@
     <component name="moqui-basic-setup" group="dataquest-dev" version="" branch="master" repository="github-ssh"/>      <!-- no releases -->
     <component name="moqui-mtx-api" group="dataquest-dev" version="" branch="master" repository="github-ssh"/>      <!-- no releases -->
     <component name="moqui-backend-store" group="dataquest-dev" version="" branch="master" repository="github-ssh"/>      <!-- no releases -->
+    <component name="moqui-dev-api" group="dataquest-dev" version="" branch="master" repository="github-ssh"/>      <!-- no releases -->
 </addons>
