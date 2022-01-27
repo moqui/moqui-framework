@@ -862,7 +862,7 @@ File downloadComponent(String targetDirPath, String type, Node component, Node a
         // logger.lifecycle("Deleting dir ${targetDirPath}/${archiveDirName}")
         delete file("${targetDirPath}/${archiveDirName}")
     } else if (type == 'git') {
-        Grgit.clone(dir: targetDir, uri: url)
+        Grgit.clone(dir: targetDir, uri: url, refToCheckout: component.'@branch')
     }
     logger.lifecycle("Downloaded ${compName} to ${targetDirPath}")
     return targetDir
