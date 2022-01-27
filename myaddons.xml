@@ -17,7 +17,7 @@
     </repository>
 
     <!-- Where to get runtime directory if not present -->
-    <runtime name="moqui-runtime" group="mrovnanik" version="1.0.0" branch="production" repository="github-ssh"/>
+    <runtime name="moqui-runtime" group="dataquest-dev" version="1.0.0" branch="production" repository="github-ssh"/>
 
     <!-- Moqui Tool Components -->
     <component name="moqui-atomikos" group="moqui" version="1.0.0" branch="master" repository="github-ssh"/>
