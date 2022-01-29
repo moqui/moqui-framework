@@ -132,7 +132,7 @@ dependencies {
     // Java TOTP
     compile 'dev.samstevens.totp:totp:1.7.1' // MIT
     // dev.samstevens.totp:totp depends on com.google.zxing:javase which depends on com.beust:jcommander, but an older version with a CVE, so specify latest to fix
-    compile 'com.beust:jcommander:1.81'
+    compile 'com.beust:jcommander:1.82'
 
     // H2 Database
     // CVE pending: https://github.com/advisories/GHSA-7rpj-hg47-cx62 https://nvd.nist.gov/vuln/detail/CVE-2021-23463
@@ -145,7 +145,7 @@ dependencies {
     compile 'com.h2database:h2:1.4.200' // MPL 2.0, EPL 1.0
 
     // Jackson Databind (JSON, etc)
-    compile 'com.fasterxml.jackson.core:jackson-databind:2.12.5'
+    compile 'com.fasterxml.jackson.core:jackson-databind:2.13.1'
 
     // Jetty HTTP Client and Proxy Servlet
     compile 'org.eclipse.jetty:jetty-client:9.4.44.v20210927' // Apache 2.0
@@ -167,7 +167,7 @@ dependencies {
     compile module('org.apache.shiro:shiro-web:1.8.0') // Apache 2.0
 
     // SLF4J, Log4j 2 (note Log4j 2 is used by various libraries, best not to replace it even if mostly possible with SLF4J)
-    compile 'org.slf4j:slf4j-api:1.7.32'
+    compile 'org.slf4j:slf4j-api:1.7.35'
     compile 'org.apache.logging.log4j:log4j-core:2.17.1'
     compile 'org.apache.logging.log4j:log4j-api:2.17.1'
     runtime 'org.apache.logging.log4j:log4j-slf4j-impl:2.17.1'
@@ -177,7 +177,7 @@ dependencies {
     compile module('org.subethamail:subethasmtp:3.1.7')
 
     // Snake YAML
-    compile 'org.yaml:snakeyaml:1.29' // Apache 2.0
+    compile 'org.yaml:snakeyaml:1.30' // Apache 2.0
 
     // Apache Jackrabbit - uncomment here or include elsewhere when Jackrabbit repository configurations are used
     // compile 'org.apache.jackrabbit:jackrabbit-jcr-rmi:2.12.1' // Apache 2.0
