@@ -65,8 +65,24 @@ public class FieldInfo {
         // NOTE: intern a must here for use with LiteStringMap, without this all sorts of bad behavior, not finding any fields sort of thing
         name = nameAttr.intern();
         conditionField = new ConditionField(this);
+        // column name from attribute or underscored name, may have override per DB
         String columnNameAttr = fnAttrs.get("column-name");
-        columnName = columnNameAttr != null && columnNameAttr.length() > 0 ? columnNameAttr : EntityJavaUtil.camelCaseToUnderscored(name);
+        String colNameToUse = columnNameAttr != null && columnNameAttr.length() > 0 ? columnNameAttr :
+                EntityJavaUtil.camelCaseToUnderscored(name);
+        // column name: see if there is a name-replace
+        String groupName = ed.getEntityGroupName();
+        MNode databaseNode = ed.efi.getDatabaseNode(groupName);
+        ArrayList<MNode> nameReplaceNodes = databaseNode.children("name-replace");
+        for (int i = 0; i < nameReplaceNodes.size(); i++) {
+            MNode nameReplaceNode = nameReplaceNodes.get(i);
+            if (colNameToUse.equalsIgnoreCase(nameReplaceNode.attribute("original"))) {
+                String replaceName = nameReplaceNode.attribute("replace");
+                logger.info("Replacing column name " + colNameToUse + " with replace name " + replaceName + " for entity " + entityName);
+                colNameToUse = replaceName;
+            }
+        }
+        columnName = colNameToUse;
+
         defaultStr = fnAttrs.get("default");
 
         String typeAttr = fnAttrs.get("type");
@@ -142,6 +158,7 @@ public class FieldInfo {
         }
     }
 
+    /** Full column name for complex finds on view entities; plain entity column names are never expanded */
     public String getFullColumnName() {
         if (fullColumnNameInternal != null) return fullColumnNameInternal;
         return ed.efi.ecfi.resourceFacade.expand(expandColumnName, "", null, false);
