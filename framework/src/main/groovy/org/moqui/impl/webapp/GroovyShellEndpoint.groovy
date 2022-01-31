@@ -95,6 +95,7 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint {
         logger.warn("TOREMOVE received groovy ws message: ${message}")
         if (inputWriter != null) {
             inputWriter.write(message)
+            inputWriter.flush()
         } else {
             logger.warn("In GroovyShellEndpoint for user ${userId}:${username} groovysh inputWriter is null, cannot write message: ${message}")
         }
