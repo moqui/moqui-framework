@@ -25,10 +25,12 @@ import javax.websocket.CloseReason
 import javax.websocket.EndpointConfig
 import javax.websocket.Session
 import java.nio.ByteBuffer
+import java.util.concurrent.atomic.AtomicInteger
 
 @CompileStatic
 class GroovyShellEndpoint extends MoquiAbstractEndpoint {
     private final static Logger logger = LoggerFactory.getLogger(GroovyShellEndpoint.class)
+    private final static AtomicInteger threadExt = new AtomicInteger(1)
 
     ExecutionContextImpl eci = null
     Groovysh groovysh = null
@@ -59,8 +61,10 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint {
         groovysh = new Groovysh(ecf.classLoader, eci.getContextBinding(), io)
 
         // run in separate thread
-        groovyshThread = Thread.start("GroovyShellWeb", {
+        groovyshThread = Thread.start("GroovyShellWeb-" + threadExt.getAndIncrement(), {
             registerEci()
+            // do this for convenience, since anything can be run here no point in authz security
+            eci.artifactExecutionFacade.disableAuthz()
             groovysh.run(null)
         })
 
@@ -106,7 +110,15 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint {
         if (groovysh != null) {
             // can't really quit from outside, so exec a command to quite from the inside!
             try {
-                groovysh.execute(":exit")
+                if (inputWriter != null) {
+                    try {
+                        inputWriter.println(":exit")
+                    } catch (Throwable ti) {
+                        groovysh.execute(":exit")
+                    }
+                } else {
+                    groovysh.execute(":exit")
+                }
             } catch (Throwable t) {
                 logger.error("Error in close GroovyShellEndpoint groovysh :exit", t)
             } finally {
@@ -148,7 +160,7 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint {
         PipedInputStreamWatcher(PipedOutputStream src) throws IOException { super(src) }
         PipedInputStreamWatcher(PipedOutputStream src, int pipeSize) throws IOException { super(src, pipeSize) }
         @Override void close() throws IOException {
-            logger.warn("Closing PipedInputStream at", new Exception("Close PIS loc"))
+            // logger.warn("Closing PipedInputStream at", new Exception("Close PIS loc"))
             super.close()
         }
     }
