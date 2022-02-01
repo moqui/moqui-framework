@@ -52,10 +52,10 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint {
         PipedInputStream input = new PipedInputStreamWatcher(pos, 4096)
         inputWriter = new PrintWriter(pos, true)
 
-        OutputStream output = new BufferedOutputStream(new WsSessionOutputStream(session), 8192)
+        OutputStream output = new BufferedOutputStream(new WsSessionOutputStream(this), 8192)
 
         io = new IO(input, output, output)
-        io.verbosity = IO.Verbosity.DEBUG
+        io.verbosity = IO.Verbosity.VERBOSE
         groovysh = new Groovysh(ecf.classLoader, eci.getContextBinding(), io)
 
         // run in separate thread
@@ -92,7 +92,7 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint {
 
     @Override
     void onMessage(String message) {
-        logger.warn("TOREMOVE received groovy ws message: ${message}")
+        // logger.warn("received groovy ws message: ${message}")
         if (inputWriter != null) {
             inputWriter.write(message)
             inputWriter.flush()
@@ -105,17 +105,33 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint {
     void onClose(Session session, CloseReason closeReason) {
         if (groovysh != null) {
             // can't really quit from outside, so exec a command to quite from the inside!
-            groovysh.execute(":exit")
-            groovysh = null
+            try {
+                groovysh.execute(":exit")
+            } catch (Throwable t) {
+                logger.error("Error in close GroovyShellEndpoint groovysh :exit", t)
+            } finally {
+                groovysh = null
+            }
         }
         if (io != null) {
-            io.flush()
-            io.close()
-            io = null
+            try {
+                io.flush()
+                io.close()
+
+            } catch (Throwable t) {
+                logger.error("Error in close GroovyShellEndpoint groovysh :exit", t)
+            } finally {
+                io = null
+            }
         }
         if (eci != null) {
-            eci.destroy()
-            eci = null
+            try {
+                eci.destroy()
+            } catch (Throwable t) {
+                logger.error("Error in close GroovyShellEndpoint groovysh :exit", t)
+            } finally {
+                eci = null
+            }
         }
         if (groovyshThread != null) {
             // TODO: any way to make sure groovysh in thread terminates?
@@ -146,25 +162,45 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint {
     }
 
     static class WsSessionOutputStream extends OutputStream {
+        GroovyShellEndpoint groovyShellEndpoint
         Session session
-        WsSessionOutputStream(Session session) { this.session = session }
+        WsSessionOutputStream(GroovyShellEndpoint groovyShellEndpoint) {
+            this.groovyShellEndpoint = groovyShellEndpoint
+            this.session = groovyShellEndpoint.session
+        }
+
+        /** Sometimes the pipe dies, exit from groovysh instead of infinite errors */
+        boolean checkDeadPipe(String bytesStr) {
+            if (bytesStr != null && bytesStr.contains("Write end dead")) {
+                logger.warn("Got Write end dead, exiting from groovysh")
+                if (groovyShellEndpoint.groovysh != null) {
+                    // can't really quit from outside, so exec a command to quite from the inside!
+                    groovyShellEndpoint.groovysh.execute(":exit")
+                    groovyShellEndpoint.groovysh = null
+                }
+                return true
+            }
+            return false
+        }
 
         @Override void write(@NotNull byte[] b) throws IOException {
-            // session.getAsyncRemote().sendBinary(ByteBuffer.wrap(b))
-            session.getAsyncRemote().sendText(new String(b))
-            logger.warn("writing bytes: ${new String(b)}")
+            String bytesStr = new String(b)
+            if (checkDeadPipe(bytesStr)) return
+            session.getAsyncRemote().sendText(bytesStr)
+            // logger.warn("writing bytes: ${bytesStr}")
+            // old approach that didn't work: session.getAsyncRemote().sendBinary(ByteBuffer.wrap(b))
         }
         @Override void write(@NotNull byte[] b, int off, int len) throws IOException {
-            // session.getAsyncRemote().sendBinary(ByteBuffer.wrap(b, off, len))
-            session.getAsyncRemote().sendText(new String(b, off, len))
-            logger.warn("writing bytes: ${new String(b, off, len)}")
+            String bytesStr = new String(b, off, len)
+            if (checkDeadPipe(bytesStr)) return
+            session.getAsyncRemote().sendText(bytesStr)
+            // logger.warn("writing bytes: ${new String(b, off, len)}")
         }
         @Override void write(int b) throws IOException {
             byte[] bytes = new byte[1]
             bytes[0] = (byte) b
-            // session.getAsyncRemote().sendBinary(ByteBuffer.wrap(bytes))
             session.getAsyncRemote().sendText(new String(bytes))
-            logger.warn("writing byte: ${new String(bytes)}")
+            // logger.warn("writing byte: ${new String(bytes)}")
         }
         @Override void flush() throws IOException { }
         @Override void close() throws IOException { }
