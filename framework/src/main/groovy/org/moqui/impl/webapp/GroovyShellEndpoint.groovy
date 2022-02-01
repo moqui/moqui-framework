@@ -42,6 +42,7 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint {
 
     @Override
     void onOpen(Session session, EndpointConfig config) {
+        logger.info("Opening GroovyShellEndpoint session ${session.getId()} for user ${userId}:${username}")
         this.destroyInitialEci = false
         super.onOpen(session, config)
         eci = ecf.getEci()
@@ -61,6 +62,7 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint {
         groovysh = new Groovysh(ecf.classLoader, eci.getContextBinding(), io)
 
         // run in separate thread
+        // TODO: how to make SURE these threads go away? does groovysh have any sort of timeout to quit after no activity?
         groovyshThread = Thread.start("GroovyShellWeb-" + threadExt.getAndIncrement(), {
             registerEci()
             // do this for convenience, since anything can be run here no point in authz security
@@ -107,6 +109,7 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint {
 
     @Override
     void onClose(Session session, CloseReason closeReason) {
+        logger.info("Closing GroovyShellEndpoint session ${session.getId()} for user ${userId}:${username}")
         if (groovysh != null) {
             // can't really quit from outside, so exec a command to quite from the inside!
             try {
@@ -124,6 +127,7 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint {
             } finally {
                 groovysh = null
             }
+            // alternate, possible, but doesn't stop the Thread like :exit does: groovysh.runner.running = false
         }
         if (io != null) {
             try {
@@ -188,6 +192,7 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint {
                 if (groovyShellEndpoint.groovysh != null) {
                     // can't really quit from outside, so exec a command to quite from the inside!
                     groovyShellEndpoint.groovysh.execute(":exit")
+                    // alternate, possible, but doesn't stop the Thread like :exit does: groovyShellEndpoint.groovysh.runner.running = false
                     groovyShellEndpoint.groovysh = null
                 }
                 return true
