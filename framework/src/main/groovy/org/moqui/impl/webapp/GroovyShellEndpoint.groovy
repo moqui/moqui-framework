@@ -21,14 +21,16 @@ import org.moqui.impl.context.ExecutionContextImpl
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import javax.swing.Timer
 import javax.websocket.CloseReason
 import javax.websocket.EndpointConfig
 import javax.websocket.Session
-import java.nio.ByteBuffer
+import java.awt.event.ActionEvent
+import java.awt.event.ActionListener
 import java.util.concurrent.atomic.AtomicInteger
 
 @CompileStatic
-class GroovyShellEndpoint extends MoquiAbstractEndpoint {
+class GroovyShellEndpoint extends MoquiAbstractEndpoint implements ActionListener {
     private final static Logger logger = LoggerFactory.getLogger(GroovyShellEndpoint.class)
     private final static AtomicInteger threadExt = new AtomicInteger(1)
 
@@ -37,14 +39,15 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint {
     IO io = null
     PrintWriter inputWriter = null
     Thread groovyshThread = null
+    Timer inactivityTimer = null
 
     GroovyShellEndpoint() { super() }
 
     @Override
     void onOpen(Session session, EndpointConfig config) {
-        logger.info("Opening GroovyShellEndpoint session ${session.getId()} for user ${userId}:${username}")
         this.destroyInitialEci = false
         super.onOpen(session, config)
+        logger.info("Opening GroovyShellEndpoint session ${session.getId()} for user ${userId}:${username}")
         eci = ecf.getEci()
 
         // make sure user has special permission
@@ -61,16 +64,33 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint {
         io.verbosity = IO.Verbosity.VERBOSE
         groovysh = new Groovysh(ecf.classLoader, eci.getContextBinding(), io)
 
-        // run in separate thread
-        // TODO: how to make SURE these threads go away? does groovysh have any sort of timeout to quit after no activity?
+        // init inactivity timer
+        inactivityTimer = new Timer(90000, this)
+        inactivityTimer.setRepeats(false)
+
+        // run groovy shell in separate thread
         groovyshThread = Thread.start("GroovyShellWeb-" + threadExt.getAndIncrement(), {
             registerEci()
             // do this for convenience, since anything can be run here no point in authz security
             eci.artifactExecutionFacade.disableAuthz()
+            inactivityTimer.start()
             groovysh.run(null)
         })
 
         deregisterEci()
+    }
+
+    void stopGroovyshThread() {
+        if (groovyshThread!=null) {
+            inactivityTimer.stop()
+            inputWriter.write(":exit" + System.lineSeparator())
+            inputWriter.flush()
+            groovyshThread.join(50)
+            if (groovyshThread.isAlive()) logger.warn("groovysh Thread ${groovyshThread.getId()}:${groovyshThread.getName()} still alive")
+            groovyshThread = null
+            groovysh = null
+            inactivityTimer = null
+        }
     }
 
     void registerEci() {
@@ -100,6 +120,7 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint {
     void onMessage(String message) {
         // logger.warn("received groovy ws message: ${message}")
         if (inputWriter != null) {
+            inactivityTimer.restart()
             inputWriter.write(message)
             inputWriter.flush()
         } else {
@@ -110,30 +131,11 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint {
     @Override
     void onClose(Session session, CloseReason closeReason) {
         logger.info("Closing GroovyShellEndpoint session ${session.getId()} for user ${userId}:${username}")
-        if (groovysh != null) {
-            // can't really quit from outside, so exec a command to quite from the inside!
-            try {
-                if (inputWriter != null) {
-                    try {
-                        inputWriter.println(":exit")
-                    } catch (Throwable ti) {
-                        groovysh.execute(":exit")
-                    }
-                } else {
-                    groovysh.execute(":exit")
-                }
-            } catch (Throwable t) {
-                logger.error("Error in close GroovyShellEndpoint groovysh :exit", t)
-            } finally {
-                groovysh = null
-            }
-            // alternate, possible, but doesn't stop the Thread like :exit does: groovysh.runner.running = false
-        }
+        stopGroovyshThread()
         if (io != null) {
             try {
                 io.flush()
                 io.close()
-
             } catch (Throwable t) {
                 logger.error("Error in close GroovyShellEndpoint groovysh :exit", t)
             } finally {
@@ -149,14 +151,14 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint {
                 eci = null
             }
         }
-        if (groovyshThread != null) {
-            // TODO: any way to make sure groovysh in thread terminates?
-            groovyshThread.interrupt()
-            groovyshThread.join(50)
-            if (groovyshThread.isAlive()) logger.warn("groovysh Thread ${groovyshThread.getId()}:${groovyshThread.getName()} still alive")
-            groovyshThread = null
-        }
         super.onClose(session, closeReason)
+    }
+
+    @Override
+    void actionPerformed(ActionEvent e) {
+        if (e.getSource()==inactivityTimer) {
+            stopGroovyshThread()
+        }
     }
 
     static class PipedInputStreamWatcher extends PipedInputStream {
