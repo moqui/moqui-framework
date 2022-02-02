@@ -1041,6 +1041,7 @@ class EntityDefinition {
             if (validDate == (Timestamp) null) validDate = efi.ecfi.getEci().userFacade.getNowTimestamp()
 
             String entityAliasAttr = dateFilter.attribute("entity-alias")
+            // if no entity-alias specified, use entity-alias from join member-entity node (if field exists on join entity)
             if (joinEntityDef != null && (entityAliasAttr == null || entityAliasAttr.isEmpty()) && joinEntityDef.isField(fromFieldName))
                 entityAliasAttr = joinMemberEntityNode.attribute("entity-alias")
 
@@ -1068,8 +1069,19 @@ class EntityDefinition {
             EntityDefinition condEd
 
             String entityAliasAttr = econdition.attribute("entity-alias")
-            if (joinEntityDef != null && (entityAliasAttr == null || entityAliasAttr.isEmpty()) && joinEntityDef.isField(fieldNameAttr))
-                entityAliasAttr = joinMemberEntityNode.attribute("entity-alias")
+            // if no entity-alias specified, use entity-alias from join member-entity node (if field exists on join entity)
+            if (joinEntityDef != null && (entityAliasAttr == null || entityAliasAttr.isEmpty()) && joinEntityDef.isField(fieldNameAttr)) {
+                String joinMemberAlias = joinMemberEntityNode.attribute("entity-alias")
+                if (memberEntityAliasMap.containsKey(joinMemberAlias)) {
+                    entityAliasAttr = joinMemberAlias
+                } else {
+                    // special case for entity-condition.econdition under view-entity.member-entity with sub-select=true
+                    //     and when doing lateral joins, because WHERE clause is inside sub-select so should default to member-entity's internal alias
+                    // is the field an alias on this entity? use that entity-alias
+                    MNode aliasNode = this.getFieldNode(fieldNameAttr)
+                    if (aliasNode != null) entityAliasAttr = aliasNode.attribute("entity-alias")
+                }
+            }
 
             if (entityAliasAttr != null && !entityAliasAttr.isEmpty()) {
                 MNode memberEntity = (MNode) memberEntityAliasMap.get(entityAliasAttr)
