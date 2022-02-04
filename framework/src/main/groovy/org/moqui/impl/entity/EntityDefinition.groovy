@@ -872,12 +872,12 @@ class EntityDefinition {
             for (Map.Entry<String, EntityDependents> entry in dependentEntities) {
                 RelationshipInfo relInfo = relationshipInfos.get(entry.getKey())
                 builder.append(indent).append(relInfo.relationshipName).append(" ").append(relInfo.keyMap).append("\n")
-                if (level < 8 && !entitiesVisited.contains(entry.getValue().entityName)) {
+                if (level < 4 && !entitiesVisited.contains(entry.getValue().entityName)) {
                     entry.getValue().buildString(builder, level + 1I, entitiesVisited)
                     entitiesVisited.add(entry.getValue().entityName)
                 } else if (entitiesVisited.contains(entry.getValue().entityName)) {
                     builder.append(indent).append(indentBase).append("Dependants already displayed\n")
-                } else if (level == 8) {
+                } else if (level == 4) {
                     builder.append(indent).append(indentBase).append("Reached level limit\n")
                 }
             }
