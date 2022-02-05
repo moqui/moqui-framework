@@ -152,15 +152,15 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         if (traceEnabled) logger.trace("Calling service " + serviceName + " initial input: " + currentParameters);
 
         // get these before cleaning up the parameters otherwise will be removed
-        String userId = null;
+        String username = null;
         String password = null;
         if (currentParameters.containsKey("authUsername")) {
-            userId = (String) currentParameters.get("authUsername");
+            username = (String) currentParameters.get("authUsername");
             password = (String) currentParameters.get("authPassword");
         } else if (currentParameters.containsKey("authUserAccount")) {
             Map authUserAccount = (Map) currentParameters.get("authUserAccount");
-            userId = (String) authUserAccount.get("userId");
-            if (userId == null || userId.isEmpty()) userId = (String) currentParameters.get("authUsername");
+            username = (String) authUserAccount.get("username");
+            if (username == null || username.isEmpty()) username = (String) currentParameters.get("authUsername");
             password = (String) authUserAccount.get("currentPassword");
             if (password == null || password.isEmpty()) password = (String) currentParameters.get("authPassword");
         }
@@ -198,8 +198,8 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         boolean userLoggedIn = false;
 
         // always try to login the user if parameters are specified
-        if (userId != null && password != null && userId.length() > 0 && password.length() > 0) {
-            userLoggedIn = eci.getUser().loginUser(userId, password);
+        if (username != null && password != null && username.length() > 0 && password.length() > 0) {
+            userLoggedIn = eci.getUser().loginUser(username, password);
             // if user was not logged in we should already have an error message in place so just return
             if (!userLoggedIn) return null;
         }
