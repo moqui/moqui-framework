@@ -62,8 +62,7 @@ class RemoteRestServiceRunner implements ServiceRunner {
             // NOTE: another option for parameters might be addBodyParameters(parameters), but a JSON body in the request is more common except for GET
             if (parameters != null && !parameters.isEmpty()) rc.jsonObject(parameters)
         }
-
-        logger.warn("remote-rest service call to ${rc.getUriString()}")
+        // logger.warn("remote-rest service call to ${rc.getUriString()}")
 
         // TODO/FUTURE: other options for remote authentication with headers/etc? a big limitation here, needs to be in parameters for now
 
