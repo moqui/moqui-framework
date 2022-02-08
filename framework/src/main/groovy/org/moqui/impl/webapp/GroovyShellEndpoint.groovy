@@ -64,8 +64,8 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint implements ActionListene
         io.verbosity = IO.Verbosity.VERBOSE
         groovysh = new Groovysh(ecf.classLoader, eci.getContextBinding(), io)
 
-        // init inactivity timer
-        inactivityTimer = new Timer(90000, this)
+        // init inactivity timer, 300 seconds (5 min)
+        inactivityTimer = new Timer(300000, this)
         inactivityTimer.setRepeats(false)
 
         // run groovy shell in separate thread
@@ -81,15 +81,29 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint implements ActionListene
     }
 
     void stopGroovyshThread() {
-        if (groovyshThread!=null) {
-            inactivityTimer.stop()
-            inputWriter.write(":exit" + System.lineSeparator())
-            inputWriter.flush()
+        if (groovyshThread != null) {
+            if (inactivityTimer != null) {
+                inactivityTimer.stop()
+                inactivityTimer = null
+            }
+            if (inputWriter != null) {
+                inputWriter.write(":exit" + System.lineSeparator())
+                inputWriter.flush()
+            }
             groovyshThread.join(50)
-            if (groovyshThread.isAlive()) logger.warn("groovysh Thread ${groovyshThread.getId()}:${groovyshThread.getName()} still alive")
+            if (groovyshThread.isAlive()) {
+                logger.warn("groovysh Thread ${groovyshThread.getId()}:${groovyshThread.getName()} still alive")
+                try {
+                    // this is deprecated, but Groovysh doesn't seem to have other reliable ways to stop it
+                    // TODO: find other ways to stop Groovysh
+                    //     note that also tried interrupting run loop but didn't work: groovysh.runner.running = false
+                    groovyshThread.destroy()
+                } catch (Exception e) {
+                    logger.error("Error destroying GroovyShell thread", e)
+                }
+            }
             groovyshThread = null
             groovysh = null
-            inactivityTimer = null
         }
     }
 
@@ -156,7 +170,7 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint implements ActionListene
 
     @Override
     void actionPerformed(ActionEvent e) {
-        if (e.getSource()==inactivityTimer) {
+        if (e.getSource() == inactivityTimer) {
             stopGroovyshThread()
         }
     }
