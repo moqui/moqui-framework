@@ -49,6 +49,8 @@ along with this software (see the LICENSE.md file). If not, see
 
     <moqui.security.UserPermission userPermissionId="ADMIN_LOGIN_AS" description="Admin Login As User"/>
 
-    <moqui.security.UserPermission userPermissionId="GROOVY_SHELL_WEB" description="Groovy Shell via WebSocket"/>
-    <moqui.security.UserGroupPermission userGroupId="ADMIN" userPermissionId="GROOVY_SHELL_WEB" fromDate="0"/>
+    <moqui.security.UserPermission userPermissionId="SQL_RUNNER_WEB" description="Tools: SQL Runner"/>
+    <moqui.security.UserPermission userPermissionId="GROOVY_SHELL_WEB" description="Tools: Groovy Shell"/>
+    <!-- better to restrict more, not add to ADMIN group, recommend adding to individuals for use:
+        <moqui.security.UserGroupPermission userGroupId="ADMIN" userPermissionId="GROOVY_SHELL_WEB" fromDate="0"/> -->
 </entity-facade-xml>
