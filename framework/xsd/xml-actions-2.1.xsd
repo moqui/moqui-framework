@@ -950,6 +950,32 @@ along with this software (see the LICENSE.md file). If not, see
         </xs:complexType>
     </xs:element>
 
+    <xs:element name="try" substitutionGroup="ControlOperations">
+        <xs:annotation><xs:documentation>
+            The try element can be used to catch errors
+        </xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:group minOccurs="0" maxOccurs="unbounded" ref="AllOperations"/>
+                <xs:element maxOccurs="unbounded" ref="catch"/>
+                <xs:element minOccurs="0" ref="finally"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="finally">
+        <xs:annotation><xs:documentation>The finally block is executed after the catch block</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:group minOccurs="0" maxOccurs="unbounded" ref="AllOperations"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="catch">
+        <xs:annotation><xs:documentation>Catches an exception</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:group minOccurs="0" maxOccurs="unbounded" ref="AllOperations"/>
+            <xs:attribute name="class" type="xs:string"/>
+            <xs:attribute name="field" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
 
     <xs:group name="IfConditions">
         <xs:choice>
