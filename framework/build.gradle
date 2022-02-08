@@ -72,6 +72,7 @@ dependencies {
     //     and updated Spock required (tried 2.0-M2-groovy-3.0, not final release and tests didn't work)
     compile 'org.codehaus.groovy:groovy:2.5.15' // Apache 2.0
     compile 'org.codehaus.groovy:groovy-dateutil:2.5.15' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-groovysh:2.5.15' // Apache 2.0
     compile 'org.codehaus.groovy:groovy-json:2.5.15' // Apache 2.0
     compile 'org.codehaus.groovy:groovy-templates:2.5.15' // Apache 2.0
     compile 'org.codehaus.groovy:groovy-xml:2.5.15' // Apache 2.0
@@ -99,6 +100,7 @@ dependencies {
     compile 'commons-digester:commons-digester:2.1' // Apache 2.0
     compile 'commons-fileupload:commons-fileupload:1.4' // Apache 2.0
     compile 'commons-io:commons-io:2.11.0' // Apache 2.0
+    compile 'commons-net:commons-net:3.8.0' // Apache 2.0
     compile 'commons-logging:commons-logging:1.2' // Apache 2.0
     compile 'commons-validator:commons-validator:1.7' // Apache 2.0
 
