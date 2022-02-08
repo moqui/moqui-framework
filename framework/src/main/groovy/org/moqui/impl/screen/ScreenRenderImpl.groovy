@@ -1189,6 +1189,23 @@ class ScreenRenderImpl implements ScreenRender {
         return ""
     }
 
+    String renderSectionInclude(MNode sectionIncludeNode) {
+        String sectionLocation = sectionIncludeNode.attribute("location")
+        String sectionName = sectionIncludeNode.attribute("name")
+        boolean isDynamic = (sectionLocation != null && sectionLocation.contains('${')) || (sectionName != null && sectionName.contains('${'))
+        if (isDynamic) {
+            ScreenDefinition sd = getActiveScreenDef()
+            sectionLocation = sfi.ecfi.resourceFacade.expandNoL10n(sectionLocation, null)
+            sectionName = sfi.ecfi.resourceFacade.expandNoL10n(sectionName, null)
+            String cacheName = sectionLocation + "#" + sectionName
+            if (sd.sectionByName.get(cacheName) == null) sd.pullSectionInclude(sectionIncludeNode)
+            // logger.warn("sd.sectionByName ${sd.sectionByName}")
+            return renderSection(cacheName)
+        } else {
+            return renderSection(sectionName)
+        }
+    }
+
     MNode getFormNode(String formName) {
         FormInstance fi = getFormInstance(formName)
         if (fi == null) return null
@@ -2303,7 +2320,7 @@ class ScreenRenderImpl implements ScreenRender {
                 String image = sui.menuImage
                 String imageType = sui.menuImageType
                 if (image != null && !image.isEmpty() && (imageType == null || imageType.isEmpty() || "url-screen".equals(imageType)))
-                    image = buildUrl(image).path
+                    image = buildUrl(image).url
 
                 boolean active = (nextItem == subscreensItem.name)
                 Map itemMap = [name:subscreensItem.name, title:ec.resource.expand(subscreensItem.menuTitle, ""),
@@ -2324,7 +2341,7 @@ class ScreenRenderImpl implements ScreenRender {
             String image = sui.menuImage
             String imageType = sui.menuImageType
             if (image != null && !image.isEmpty() && (imageType == null || imageType.isEmpty() || "url-screen".equals(imageType)))
-                image = buildUrl(image).path
+                image = buildUrl(image).url
 
             menuDataList.add([name:pathItem, title:curScreen.getDefaultMenuName(), subscreens:subscreensList, path:curScreenPath,
                     pathWithParams:curPathWithParams, hasTabMenu:curScreen.hasTabMenu(), renderModes:curScreen.renderModes, image:image, imageType:imageType])
