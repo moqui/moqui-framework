@@ -578,10 +578,20 @@ public class FieldInfo {
                         ps.setBytes(index, valueBb.array());
                     } else if (value instanceof Blob) {
                         Blob valueBlob = (Blob) value;
-                        // calling setBytes instead of setBlob
+                        // calling setBytes instead of setBlob - old github.com/moqui/moqui repo issue #28 with Postgres JDBC driver
                         // ps.setBlob(index, (Blob) value)
                         // Blob blb = value
-                        ps.setBytes(index, valueBlob.getBytes(1, (int) valueBlob.length()));
+                        try {
+                            ps.setBytes(index, valueBlob.getBytes(1, (int) valueBlob.length()));
+                        } catch (Exception bytesExc) {
+                            // try ps.setBlob for larger byte arrays that H2 throws an exception for
+                            try {
+                                ps.setBlob(index, valueBlob);
+                            } catch (Exception blobExc) {
+                                // throw the original exception from setBytes()
+                                throw bytesExc;
+                            }
+                        }
                     } else {
                         if (value != null) {
                             throw new EntityException("Type not supported for BLOB field: " + value.getClass().getName() + ", for field " + entityName + "." + name);
