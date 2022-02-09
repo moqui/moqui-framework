@@ -7,7 +7,11 @@ MAINTAINER dataquest <info@dataquest.sk>
 WORKDIR /opt/moqui
 
 # for running from the war directly, preferred approach unzips war in advance (see docker-build.sh that does this)
-COPY backend-dev/moqui-plus-runtime.war .
+RUN apk update && \
+    apk add dos2unix
+COPY moqui-plus-runtime.war .
+COPY docker/wait-for-connectivity.sh .
+RUN dos2unix wait-for-connectivity.sh && chmod +x wait-for-connectivity.sh
 RUN unzip moqui-plus-runtime.war
 
 # exposed as volumes for configuration purposes
