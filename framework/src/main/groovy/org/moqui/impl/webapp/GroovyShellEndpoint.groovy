@@ -62,6 +62,7 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint implements ActionListene
 
         io = new IO(input, output, output)
         io.verbosity = IO.Verbosity.VERBOSE
+        // maybe not a good idea: eci.contextStack.put("io", io)
         groovysh = new Groovysh(ecf.classLoader, eci.getContextBinding(), io)
 
         // init inactivity timer, 300 seconds (5 min)
@@ -97,7 +98,8 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint implements ActionListene
                     // this is deprecated, but Groovysh doesn't seem to have other reliable ways to stop it
                     // TODO: find other ways to stop Groovysh
                     //     note that also tried interrupting run loop but didn't work: groovysh.runner.running = false
-                    groovyshThread.destroy()
+                    // NOTE: destroy() throws java.lang.NoSuchMethodError
+                    groovyshThread.stop()
                 } catch (Exception e) {
                     logger.error("Error destroying GroovyShell thread", e)
                 }
