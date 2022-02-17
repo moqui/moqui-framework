@@ -27,7 +27,6 @@ import javax.servlet.http.HttpServletResponse
 import javax.servlet.http.HttpServletResponseWrapper
 import javax.servlet.http.HttpSession
 import java.util.concurrent.ConcurrentLinkedQueue
-import java.util.concurrent.TimeUnit
 
 /** Save data about HTTP requests to ElasticSearch using a Servlet Filter */
 @CompileStatic
