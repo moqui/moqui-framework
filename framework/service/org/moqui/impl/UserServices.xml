@@ -356,12 +356,16 @@ along with this software (see the LICENSE.md file). If not, see
                     <field-map field-name="emailAddress" from="username"/></entity-find-one>
             </if>
             <if condition="userAccount == null">
-                <message public="true" type="danger">Could not find account with username or email address ${username}</message>
-                <return error="true" message="Account not found"/>
+                <return error="true" public="true" type="danger"
+                        message="Could not find account with username or email address ${username}"/>
             </if>
             <if condition="!userAccount.emailAddress">
-                <message public="true" type="danger">Account with username ${username} does not have an email address</message>
-                <return error="true" message="Account has no email address"/>
+                <return error="true" public="true" type="danger"
+                        message="Account with username ${username} does not have an email address"/>
+            </if>
+            <if condition="userAccount.fromIdentityProviderId &amp;&amp; !userAccount.currentPassword">
+                <return error="true" public="true" type="danger"
+                        message="Account with username ${username} is not setup to login directly"/>
             </if>
 
             <!-- reset the password to a random value -->

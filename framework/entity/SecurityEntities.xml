@@ -269,14 +269,19 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="locale" type="text-short"/>
         <field name="timeZone" type="text-short"/>
         <field name="externalUserId" type="text-medium"/>
+        <field name="fromIdentityProviderId" type="id"/>
         <field name="emailAddress" type="text-medium" enable-audit-log="update">
             <description>The email address to use for forgot password emails and other system messages.</description></field>
         <field name="ipAllowed" type="text-medium">
             <description>If specified only allow login from matching IP4 address. Comma separated patterns where each pattern has 4
                 dot separated segments each segment may be number, '*' for wildcard, or '-' separate number range (like '0-31').</description>
         </field>
+
         <relationship type="one" title="Currency" related="moqui.basic.Uom" short-alias="currencyUom">
             <key-map field-name="currencyUomId"/></relationship>
+        <relationship type="one" related="moqui.security.user.IdentityProvider" short-alias="fromIdentityProvider">
+            <key-map field-name="fromIdentityProviderId"/></relationship>
+
         <relationship type="many" related="moqui.security.UserGroupMember" short-alias="groups">
             <key-map field-name="userId"/></relationship>
         <relationship type="many" related="moqui.security.UserLoginKey" short-alias="loginKeys">
@@ -479,6 +484,22 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" title="ScreenThemeType" related="moqui.basic.Enumeration">
             <key-map field-name="screenThemeTypeEnumId"/></relationship>
         <relationship type="one" related="moqui.screen.ScreenTheme"/>
+    </entity>
+
+    <!-- ========== Identity Provider ========== -->
+
+    <entity entity-name="IdentityProvider" package="moqui.security.user">
+        <field name="identityProviderId" type="id" is-pk="true"/>
+        <field name="loginUrl" type="text-medium" enable-audit-log="update"/>
+        <field name="sharedSecret" type="text-medium" encrypt="true" enable-audit-log="update"/>
+        <field name="publicKey" type="text-long" enable-audit-log="update"/>
+    </entity>
+    <entity entity-name="IdentityProviderRole" package="moqui.security.user">
+        <field name="identityProviderId" type="id" is-pk="true"/>
+        <field name="providerRole" type="id" is-pk="true"/>
+        <field name="userGroupId" type="id"/>
+        <relationship type="one" related="moqui.security.user.IdentityProvider" short-alias="identityProvider"/>
+        <relationship type="one" related="moqui.security.UserGroup" short-alias="userGroup"/>
     </entity>
 
     <!-- ========== User Notifications ========== -->
