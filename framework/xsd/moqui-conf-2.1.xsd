@@ -731,6 +731,10 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:complexType>
             <xs:sequence>
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="database-type"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" name="name-replace"><xs:complexType>
+                    <xs:attribute name="original" type="name-plain" use="required"/>
+                    <xs:attribute name="replace" type="name-plain" use="required"/>
+                </xs:complexType></xs:element>
                 <xs:element minOccurs="0" maxOccurs="1" ref="inline-jdbc"/>
             </xs:sequence>
 

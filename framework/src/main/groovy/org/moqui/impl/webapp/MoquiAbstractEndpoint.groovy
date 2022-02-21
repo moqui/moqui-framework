@@ -37,12 +37,13 @@ import javax.websocket.server.HandshakeRequest
 abstract class MoquiAbstractEndpoint extends Endpoint implements MessageHandler.Whole<String> {
     private final static Logger logger = LoggerFactory.getLogger(MoquiAbstractEndpoint.class)
 
-    private ExecutionContextFactoryImpl ecfi = (ExecutionContextFactoryImpl) null
-    private Session session = (Session) null
-    private HttpSession httpSession = (HttpSession) null
-    private HandshakeRequest handshakeRequest = (HandshakeRequest) null
-    private String userId = (String) null
-    private String username = (String) null
+    protected ExecutionContextFactoryImpl ecfi = (ExecutionContextFactoryImpl) null
+    protected Session session = (Session) null
+    protected HttpSession httpSession = (HttpSession) null
+    protected HandshakeRequest handshakeRequest = (HandshakeRequest) null
+    protected String userId = (String) null
+    protected String username = (String) null
+    protected boolean destroyInitialEci = true
 
     MoquiAbstractEndpoint() { super() }
 
@@ -80,7 +81,7 @@ abstract class MoquiAbstractEndpoint extends Endpoint implements MessageHandler.
 
             if (logger.isTraceEnabled()) logger.trace("Opened WebSocket Session ${session.getId()}, userId: ${userId} (${username}), timeout: ${session.getMaxIdleTimeout()}ms")
         } finally {
-            if (eci != null) {
+            if (eci != null && destroyInitialEci) {
                 eci.destroy()
             }
         }

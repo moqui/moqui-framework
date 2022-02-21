@@ -393,9 +393,10 @@ public class EntityFindBuilder extends EntityQueryBuilder {
         if (entityConditionList != null && entityConditionList.size() > 0) {
             // add any additional manual conditions for the member-entity view link here
             MNode entityCondition = entityConditionList.get(0);
+            // logger.warn("======== appendJoinConditions() localEntityDefinition " + localEntityDefinition.fullEntityName + " linkEntityDefinition " + linkEntityDefinition.fullEntityName + " relatedLinkEntityDefinition " + relatedLinkEntityDefinition.fullEntityName);
             EntityConditionImplBase linkEcib = localEntityDefinition.makeViewListCondition(entityCondition, relatedMemberEntityNode);
             if (keyMapsSize > 0) localBuilder.append(" AND ");
-            // TODO: is this correct? what does it append to? not localBuilder?
+            // TODO: does this need to use localBuilder? seems to be working so far...
             linkEcib.makeSqlWhere(this, null);
         }
     }
@@ -635,7 +636,7 @@ public class EntityFindBuilder extends EntityQueryBuilder {
             if (condition != null) localBuilder.append(" AND ");
         }
         if (condition != null) {
-            // TODO: does this need to use localBuilder?
+            // TODO: does this need to use localBuilder? seems to be working so far...
             condition.makeSqlWhere(this, localEntityDefinition);
         }
 

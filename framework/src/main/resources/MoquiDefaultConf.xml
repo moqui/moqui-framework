@@ -236,6 +236,7 @@
 
             <!-- Notification Message Endpoint -->
             <endpoint path="/notws" class="org.moqui.impl.webapp.NotificationEndpoint" timeout="3600000" enabled="true"/>
+            <endpoint path="/groovysh" class="org.moqui.impl.webapp.GroovyShellEndpoint" timeout="900000" enabled="true"/>
 
             <!-- Default response headers, for override keyed on type+name -->
             <response-header type="web-resource-inline" name="Cache-Control" value="max-age=86400, must-revalidate, public"/>
@@ -389,6 +390,7 @@
         <service-type name="script" runner-class="org.moqui.impl.service.runner.ScriptServiceRunner"/>
         <service-type name="java" runner-class="org.moqui.impl.service.runner.JavaServiceRunner"/>
         <service-type name="remote-json-rpc" runner-class="org.moqui.impl.service.runner.RemoteJsonRpcServiceRunner"/>
+        <service-type name="remote-rest" runner-class="org.moqui.impl.service.runner.RemoteRestServiceRunner"/>
 
         <!-- These are not needed for running classpath services, are for service reference (known services) -->
         <service-file location="classpath://service/org/moqui/EmailServices.xml"/>
@@ -605,8 +607,7 @@
             <inline-jdbc jdbc-uri="jdbc:derby:moqui;create=true" jdbc-username="moqui" jdbc-password="moqui"/>
         </datasource>
         -->
-        <database name="derby"
-                use-pk-constraint-names="false" use-indexes-unique="false" default-isolation-level="ReadCommitted"
+        <database name="derby" use-pk-constraint-names="false" use-indexes-unique="false" default-isolation-level="ReadCommitted"
                 default-jdbc-driver="org.apache.derby.jdbc.EmbeddedDriver"
                 default-xa-ds-class="org.apache.derby.jdbc.EmbeddedXADataSource">
             <!-- default-test-query="???" maybe like SELECT 1 FROM SEQUENCE_VALUE_ITEM WHERE 1=0 -->
@@ -626,6 +627,8 @@
         <database name="h2" use-pk-constraint-names="false" use-indexes-unique="true" add-unique-as="true" default-isolation-level="ReadCommitted"
                 default-jdbc-driver="org.h2.Driver" default-xa-ds-class="org.h2.jdbcx.JdbcDataSource"
                 default-start-server-args="-tcpPort 9092 -ifExists -baseDir ${moqui_runtime}/db/h2">
+            <!-- 'VALUE' is a reserved word in H2 starting with version 2.0.202 -->
+            <name-replace original="VALUE" replace="THE_VALUE"/>
             <inline-jdbc><xa-properties url="${entity_ds_url}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
         </database>
         <!-- TODO: add configuration examples -->
@@ -733,6 +736,8 @@
             <database-type type="text-very-long" sql-type="LONGTEXT"/>
             <database-type type="binary-very-long" sql-type="LONGBLOB"/>
 
+            <name-replace original="CONDITION" replace="THE_CONDITION"/>
+
             <!-- default max connections for MySQL is 151 -->
             <inline-jdbc pool-maxsize="140"><xa-properties serverName="${entity_ds_host}" port="${entity_ds_port?:'3306'}"
                     pinGlobalTxToPhysicalConnection="true" autoReconnectForPools="true" useUnicode="true" encoding="UTF-8" useCursorFetch="true"
@@ -766,6 +771,8 @@
 
             <database-type type="text-very-long" sql-type="LONGTEXT"/>
             <database-type type="binary-very-long" sql-type="LONGBLOB"/>
+
+            <name-replace original="CONDITION" replace="THE_CONDITION"/>
 
             <!-- default max connections for MySQL is 151 -->
             <inline-jdbc pool-maxsize="140"><xa-properties serverName="${entity_ds_host}" port="${entity_ds_port?:'3306'}"

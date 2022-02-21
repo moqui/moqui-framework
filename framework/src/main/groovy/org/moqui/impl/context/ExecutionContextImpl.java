@@ -67,8 +67,8 @@ public class ExecutionContextImpl implements ExecutionContext {
     private Cache<String, String> l10nMessageCache;
     private Cache<String, ArrayList> tarpitHitCache;
 
-    public final String forThreadName;
-    public final long forThreadId;
+    public String forThreadName;
+    public long forThreadId;
     // public final Exception createLoc;
 
     public ExecutionContextImpl(ExecutionContextFactoryImpl ecfi, Thread forThread) {
