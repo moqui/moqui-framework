@@ -490,9 +490,22 @@ along with this software (see the LICENSE.md file). If not, see
 
     <entity entity-name="IdentityProvider" package="moqui.security.user">
         <field name="identityProviderId" type="id" is-pk="true"/>
-        <field name="loginUrl" type="text-medium" enable-audit-log="update"/>
+        <field name="providerTypeEnumId" type="id"/>
+        <field name="clientId" type="text-medium" enable-audit-log="update"/>
         <field name="sharedSecret" type="text-medium" encrypt="true" enable-audit-log="update"/>
         <field name="publicKey" type="text-long" enable-audit-log="update"/>
+        <field name="discoveryUri" type="text-medium" enable-audit-log="update"/>
+        <field name="loginUrl" type="text-medium" enable-audit-log="update"/>
+        <field name="logoutUrl" type="text-medium" enable-audit-log="update"/>
+        <seed-data>
+            <moqui.basic.EnumerationType description="Identity Provider Type" enumTypeId="IdentityProviderType"/>
+            <moqui.basic.Enumeration description="Generic OpenID Connect (OIDC)" enumId="IptOidc" enumTypeId="IdentityProviderType"/>
+            <moqui.basic.Enumeration description="Google OIDC" enumId="IptGoogle" enumTypeId="IdentityProviderType"/>
+            <moqui.basic.Enumeration description="MS Azure AD 1 OIDC" enumId="IptMsAzureAd1" enumTypeId="IdentityProviderType"/>
+            <moqui.basic.Enumeration description="MS Azure AD 2 OIDC" enumId="IptMsAzureAd2" enumTypeId="IdentityProviderType"/>
+            <moqui.basic.Enumeration description="Apple OIDC" enumId="IptApple" enumTypeId="IdentityProviderType"/>
+            <moqui.basic.Enumeration description="Keycloak OIDC" enumId="IptKeycloak" enumTypeId="IdentityProviderType"/>
+        </seed-data>
     </entity>
     <entity entity-name="IdentityProviderRole" package="moqui.security.user">
         <field name="identityProviderId" type="id" is-pk="true"/>
