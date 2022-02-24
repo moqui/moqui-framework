@@ -508,9 +508,10 @@ class ScreenRenderImpl implements ScreenRender {
             if (wfi != null) {
                 // handle screen-last, etc
                 if (isScreenLast || "screen-last-noparam".equals(ri.type)) {
-                    String savedUrl =  wfi.getRemoveScreenLastPath()
+                    String savedUrl = wfi.getRemoveScreenLastPath()
                     urlType = "screen-path"
                     if (savedUrl != null && savedUrl.length() > 0) {
+                        if (savedUrl.startsWith("http")) urlType = "plain"
                         url = savedUrl
                         wfi.removeScreenLastParameters(isScreenLast)
                         // logger.warn("going to screen-last from screen last path ${url}")
