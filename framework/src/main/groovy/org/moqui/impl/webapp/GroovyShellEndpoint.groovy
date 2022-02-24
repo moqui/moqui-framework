@@ -40,6 +40,7 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint implements ActionListene
     PrintWriter inputWriter = null
     Thread groovyshThread = null
     Timer inactivityTimer = null
+    StringBuilder commandLogBuffer = new StringBuilder()
 
     GroovyShellEndpoint() { super() }
 
@@ -133,10 +134,15 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint implements ActionListene
     }
 
     @Override
-    void onMessage(String message) {
+    synchronized void onMessage(String message) {
         // logger.warn("received groovy ws message: ${message}")
         if (inputWriter != null) {
             inactivityTimer.restart()
+            commandLogBuffer.append(message)
+            if (message.contains("\n") || message.contains("\r")) {
+                logger.info("groovysh (${eci.userFacade.username}): ${commandLogBuffer}")
+                commandLogBuffer.delete(0, commandLogBuffer.length())
+            }
             inputWriter.write(message)
             inputWriter.flush()
         } else {
