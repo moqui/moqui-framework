@@ -742,6 +742,7 @@ along with this software (see the LICENSE.md file). If not, see
             </xs:choice>
             <xs:element minOccurs="0" maxOccurs="unbounded" ref="StandaloneFields"/>
             <xs:element minOccurs="0" maxOccurs="unbounded" ref="set"/>
+            <xs:element minOccurs="0" ref="visible-when"/>
         </xs:sequence>
         <xs:attribute name="title" type="xs:string">
             <xs:annotation><xs:documentation>The name of this field that will be shown to the user; can use the ${}
@@ -777,25 +778,25 @@ along with this software (see the LICENSE.md file). If not, see
         </xs:attribute>
     </xs:extension></xs:complexContent></xs:complexType>
 
-    <!-- TABLED, not to be part of 1.0:
     <xs:element name="visible-when">
         <xs:annotation><xs:documentation>
             Used to dynamically show or hide a field based on the value of another field (usually a drop-down).
-            If any of these elements are present the field is hidden unless one of the field/value pairs is a match.
-            For more complex conditions on visibility custom event handling should be used (ie JavaScript for HTML/Web
-                pages, Java/Groovy for Desktop UI, etc).
+            If this element is present the field is hidden unless the value of the named field matches
+                the value/from String or is in the value/from Collection.
+            NOTE: currently implemented for qvt only (qapps and other Quasar-Vue Templates)
         </xs:documentation></xs:annotation>
         <xs:complexType>
-            <xs:attribute name="field" type="xs:string" use="required">
-                <xs:annotation><xs:documentation>The name of the field (usually a drop-down) used to determine if this
-                    field should be visible or not.</xs:documentation></xs:annotation>
-            </xs:attribute>
-            <xs:attribute name="value" type="xs:string" use="required">
-                <xs:annotation><xs:documentation>The value the field should match in order for this to be visible.</xs:documentation></xs:annotation>
-            </xs:attribute>
+            <xs:attribute name="field" type="xs:string" use="required"><xs:annotation><xs:documentation>
+                The name of the field (usually a drop-down) used to determine if this field should be visible or not
+            </xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="value" type="xs:string"><xs:annotation><xs:documentation>
+                The value the field should match in order for this to be visible, may be a list of comma-separated values
+            </xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="from" type="xs:string"><xs:annotation><xs:documentation>
+                Groovy expression that evaluates to a String or Collection
+            </xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
-    -->
 
   <!-- ================== Field Sub-Elements ==================== -->
     <xs:element name="auto-widget-service" substitutionGroup="SubFields"><xs:complexType>
