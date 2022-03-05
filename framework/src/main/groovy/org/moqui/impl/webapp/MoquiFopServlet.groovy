@@ -18,6 +18,7 @@ import org.moqui.context.ArtifactTarpitException
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.util.StringUtilities
 
+import javax.servlet.ServletConfig
 import javax.servlet.ServletException
 import javax.servlet.http.HttpServlet
 import javax.servlet.http.HttpServletRequest
@@ -41,12 +42,14 @@ class MoquiFopServlet extends HttpServlet {
     }
 
     @Override
-    void doPost(HttpServletRequest request, HttpServletResponse response) { doScreenRequest(request, response) }
+    void init(ServletConfig config) throws ServletException {
+        super.init(config)
+        String webappName = config.getInitParameter("moqui-name") ?: config.getServletContext().getInitParameter("moqui-name")
+        logger.info("${config.getServletName()} initialized for webapp ${webappName}")
+    }
 
     @Override
-    void doGet(HttpServletRequest request, HttpServletResponse response) { doScreenRequest(request, response) }
-
-    void doScreenRequest(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    void service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         ExecutionContextFactoryImpl ecfi =
                 (ExecutionContextFactoryImpl) getServletContext().getAttribute("executionContextFactory")
         String moquiWebappName = getServletContext().getInitParameter("moqui-name")
@@ -55,6 +58,9 @@ class MoquiFopServlet extends HttpServlet {
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "System is initializing, try again soon.")
             return
         }
+
+        // handle CORS actual and preflight request headers
+        if (MoquiServlet.handleCors(request, response, moquiWebappName, ecfi)) return
 
         long startTime = System.currentTimeMillis()
 
@@ -91,9 +97,9 @@ class MoquiFopServlet extends HttpServlet {
             String filename = (ec.web.parameters.get("filename") as String) ?: (ec.web.parameters.get("saveFilename") as String)
             if (filename) {
                 String utfFilename = StringUtilities.encodeAsciiFilename(filename)
-                response.addHeader("Content-Disposition", "attachment; filename=\"${filename}\"; filename*=utf-8''${utfFilename}")
+                response.setHeader("Content-Disposition", "attachment; filename=\"${filename}\"; filename*=utf-8''${utfFilename}")
             } else {
-                response.addHeader("Content-Disposition", "inline")
+                response.setHeader("Content-Disposition", "inline")
             }
 
             // special case disable authz for resource access

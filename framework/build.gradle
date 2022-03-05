@@ -70,11 +70,12 @@ dependencies {
     // Groovy
     // NOTE: update attempt to 3.0.8 failed, build performance fine vs 3.0.2, updated Spock required (tried 2.0-groovy-3.0) and
     //     tests do not run with error 'Invalid test class' '1. No runnable methods'
-    compile 'org.codehaus.groovy:groovy:2.5.14' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-dateutil:2.5.14' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-json:2.5.14' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-templates:2.5.14' // Apache 2.0
-    compile 'org.codehaus.groovy:groovy-xml:2.5.14' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy:2.5.15' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-dateutil:2.5.15' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-groovysh:2.5.15' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-json:2.5.15' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-templates:2.5.15' // Apache 2.0
+    compile 'org.codehaus.groovy:groovy-xml:2.5.15' // Apache 2.0
     // jansi is needed for groovydoc only, so in providedCompile (not included in war)
     compileOnly 'org.fusesource.jansi:jansi:1.18'
     // Findbugs need only during compile (used by freemarker and various moqui classes)
@@ -89,8 +90,8 @@ dependencies {
     // ========== Libraries from jcenter ==========
 
     // Apache Commons
-    runtime 'commons-codec:commons-codec:1.15'
-    compile 'org.apache.commons:commons-csv:1.8' // Apache 2.0
+    compile 'commons-codec:commons-codec:1.15'
+    compile 'org.apache.commons:commons-csv:1.9.0' // Apache 2.0
     // NOTE: commons-email depends on com.sun.mail:javax.mail, included below
     compile module('org.apache.commons:commons-email:1.5') // Apache 2.0
     compile 'org.apache.commons:commons-lang3:3.12.0' // Apache 2.0; used by cron-utils
@@ -99,11 +100,12 @@ dependencies {
     compile 'commons-digester:commons-digester:2.1' // Apache 2.0
     compile 'commons-fileupload:commons-fileupload:1.4' // Apache 2.0
     compile 'commons-io:commons-io:2.11.0' // Apache 2.0
+    compile 'commons-net:commons-net:3.8.0' // Apache 2.0
     compile 'commons-logging:commons-logging:1.2' // Apache 2.0
     compile 'commons-validator:commons-validator:1.7' // Apache 2.0
 
     // Cron Utils
-    compile 'com.cronutils:cron-utils:9.1.5' // Apache 2.0
+    compile 'com.cronutils:cron-utils:9.1.6' // Apache 2.0
 
     // Flexmark (markdown)
     compile 'com.vladsch.flexmark:flexmark:0.62.2'
@@ -131,13 +133,13 @@ dependencies {
     // Java TOTP
     compile 'dev.samstevens.totp:totp:1.7.1' // MIT
     // dev.samstevens.totp:totp depends on com.google.zxing:javase which depends on com.beust:jcommander, but an older version with a CVE, so specify latest to fix
-    compile 'com.beust:jcommander:1.81'
+    compile 'com.beust:jcommander:1.82'
 
     // H2 Database
-    compile 'com.h2database:h2:1.4.200' // MPL 2.0, EPL 1.0
+    compile 'com.h2database:h2:2.1.210' // MPL 2.0, EPL 1.0
 
     // Jackson Databind (JSON, etc)
-    compile 'com.fasterxml.jackson.core:jackson-databind:2.12.4'
+    compile 'com.fasterxml.jackson.core:jackson-databind:2.13.1'
 
     // Jetty HTTP Client and Proxy Servlet
     compile 'org.eclipse.jetty:jetty-client:10.0.6' // Apache 2.0
@@ -148,29 +150,29 @@ dependencies {
     compile module('com.sun.mail:javax.mail:1.6.2') // CDDL
 
     // Joda Time (used by elasticsearch, aws)
-    compile 'joda-time:joda-time:2.10.10' // Apache 2.0
+    compile 'joda-time:joda-time:2.10.13' // Apache 2.0
 
     // JSoup (HTML parser, cleaner)
-    compile 'org.jsoup:jsoup:1.14.1' // MIT
+    compile 'org.jsoup:jsoup:1.14.3' // MIT
 
     // Apache Shiro
-    compile module('org.apache.shiro:shiro-core:1.7.1') // Apache 2.0
-    compile module('org.apache.shiro:shiro-web:1.7.1') // Apache 2.0
+    compile module('org.apache.shiro:shiro-core:1.8.0') // Apache 2.0
+    compile module('org.apache.shiro:shiro-web:1.8.0') // Apache 2.0
 
     // SLF4J, Log4j 2 (note Log4j 2 is used by various libraries, best not to replace it even if mostly possible with SLF4J)
     // NOTE: using slf4j 2.0.0-alpha2 because Jetty 10 uses it, overriding earlier version in embedded mode with shared classpath
-    compile 'org.slf4j:slf4j-api:2.0.0-alpha2'
+    compile 'org.slf4j:slf4j-api:2.0.0-alpha6'
     // NOTE using log4j-slf4j18-impl instead of log4j-slf4j-impl because the SLF4J 1.8 version includes a SLF4J 2.0 compatible logging provider
-    runtime 'org.apache.logging.log4j:log4j-slf4j18-impl:2.14.1'
-    compile 'org.apache.logging.log4j:log4j-core:2.14.1'
-    compile 'org.apache.logging.log4j:log4j-api:2.14.1'
-    runtime 'org.apache.logging.log4j:log4j-jcl:2.14.1'
+    runtime 'org.apache.logging.log4j:log4j-slf4j18-impl:2.17.1'
+    compile 'org.apache.logging.log4j:log4j-core:2.17.1'
+    compile 'org.apache.logging.log4j:log4j-api:2.17.1'
+    runtime 'org.apache.logging.log4j:log4j-jcl:2.17.1'
 
     // SubEtha SMTP (module as depends on old javax.mail location; also uses SLF4J, activation included elsewhere)
     compile module('org.subethamail:subethasmtp:3.1.7')
 
     // Snake YAML
-    compile 'org.yaml:snakeyaml:1.29' // Apache 2.0
+    compile 'org.yaml:snakeyaml:1.30' // Apache 2.0
 
     // Apache Jackrabbit - uncomment here or include elsewhere when Jackrabbit repository configurations are used
     // compile 'org.apache.jackrabbit:jackrabbit-jcr-rmi:2.12.1' // Apache 2.0
@@ -200,7 +202,7 @@ dependencies {
     execWarRuntime ('org.eclipse.jetty.websocket:websocket-jetty-server:10.0.6') // Apache 2.0
     // only include this if using Endpoint and MessageHandler annotations:
     // execWarRuntime ('org.eclipse.jetty:jetty-annotations:10.0.6') // Apache 2.0
-    execWarRuntime 'org.apache.logging.log4j:log4j-slf4j18-impl:2.14.1'
+    execWarRuntime 'org.apache.logging.log4j:log4j-slf4j18-impl:2.17.1'
 }
 
 // setup task dependencies to make sure the start sourceSets always get run

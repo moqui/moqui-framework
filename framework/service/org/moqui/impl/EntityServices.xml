@@ -253,7 +253,10 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="thruDate" type="Timestamp"/>
             <parameter name="entitiesToSkip" type="List"><parameter name="entityName"/></parameter>
             <parameter name="baseFilename"/>
+            <parameter name="fileType" default-value="XML"/>
             <parameter name="filePerEntity" type="Boolean" default="true"/>
+            <parameter name="isoDateTime" type="Boolean" default="false"/>
+            <parameter name="tableColumnNames" type="Boolean" default="false"/>
         </in-parameters>
         <out-parameters><parameter name="recordsWritten" type="Integer"/></out-parameters>
         <actions>
@@ -265,15 +268,21 @@ along with this software (see the LICENSE.md file). If not, see
 
                 if (fromDate) edw.fromDate(ec.l10n.parseTimestamp(fromDate, null))
                 if (thruDate) edw.thruDate(ec.l10n.parseTimestamp(thruDate, null))
-                if (entitiesToSkip) edw.entityNames(entitiesToSkip)
+                if (entitiesToSkip) edw.skipEntityNames(entitiesToSkip)
+
+                edw.fileType((String) fileType)
+                edw.isoDateTime(isoDateTime)
+                edw.tableColumnNames(tableColumnNames)
 
                 String baseName = baseFilename
-                if (!baseName) baseName = "MoquiSnapshot${ec.l10n.format(ec.user.nowTimestamp, 'yyyyMMddHHmm')}"
+                if (!baseName) baseName = "MoquiSnapshot-${ec.l10n.format(ec.user.nowTimestamp, 'yyyyMMdd-HHmm')}"
+
+                if ("CSV".equals(fileType)) filePerEntity = true
 
                 if (filePerEntity) {
                     recordsWritten = edw.zipDirectory(baseName, ec.factory.getRuntimePath() + "/db/snapshot/" + baseName + ".zip")
                 } else {
-                    recordsWritten = edw.zipFile(baseName + ".xml", ec.factory.getRuntimePath() + "/db/snapshot/" + baseName + ".zip")
+                    recordsWritten = edw.zipFile(baseName + "." + fileType.toLowerCase(), ec.factory.getRuntimePath() + "/db/snapshot/" + baseName + ".zip")
                 }
             ]]></script>
         </actions>

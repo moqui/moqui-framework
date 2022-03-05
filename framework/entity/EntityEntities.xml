@@ -18,7 +18,7 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- moqui.entity -->
     <!-- ========================================================= -->
 
-    <entity entity-name="EntityAuditLog" package="moqui.entity" use="transactional" authorize-skip="create" cache="never">
+    <entity entity-name="EntityAuditLog" package="moqui.entity" use="transactional" authorize-skip="create" cache="never" create-only="true">
         <field name="auditHistorySeqId" type="id" is-pk="true"/>
         <field name="changedEntityName" type="text-medium"/>
         <field name="changedFieldName" type="text-short"/>
@@ -266,6 +266,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="targetServerUrl" type="text-medium"/>
         <field name="targetUsername" type="text-medium"/>
         <field name="targetPassword" type="text-medium" encrypt="true"/>
+        <field name="targetPath" type="text-medium">
+            <description>For sending to via file the path and filename to use, or path/filename pattern using Groovy string expand</description></field>
         <field name="keepRemoveInfoHours" type="number-decimal"/>
         <field name="forPull" type="text-indicator"><description>If Y this record tracks data pulled from a remote
             system, otherwise it tracks data pushed from this system.</description></field>

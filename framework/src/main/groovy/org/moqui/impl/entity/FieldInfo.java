@@ -65,8 +65,24 @@ public class FieldInfo {
         // NOTE: intern a must here for use with LiteStringMap, without this all sorts of bad behavior, not finding any fields sort of thing
         name = nameAttr.intern();
         conditionField = new ConditionField(this);
+        // column name from attribute or underscored name, may have override per DB
         String columnNameAttr = fnAttrs.get("column-name");
-        columnName = columnNameAttr != null && columnNameAttr.length() > 0 ? columnNameAttr : EntityJavaUtil.camelCaseToUnderscored(name);
+        String colNameToUse = columnNameAttr != null && columnNameAttr.length() > 0 ? columnNameAttr :
+                EntityJavaUtil.camelCaseToUnderscored(name);
+        // column name: see if there is a name-replace
+        String groupName = ed.getEntityGroupName();
+        MNode databaseNode = ed.efi.getDatabaseNode(groupName);
+        ArrayList<MNode> nameReplaceNodes = databaseNode.children("name-replace");
+        for (int i = 0; i < nameReplaceNodes.size(); i++) {
+            MNode nameReplaceNode = nameReplaceNodes.get(i);
+            if (colNameToUse.equalsIgnoreCase(nameReplaceNode.attribute("original"))) {
+                String replaceName = nameReplaceNode.attribute("replace");
+                logger.info("Replacing column name " + colNameToUse + " with replace name " + replaceName + " for entity " + entityName);
+                colNameToUse = replaceName;
+            }
+        }
+        columnName = colNameToUse;
+
         defaultStr = fnAttrs.get("default");
 
         String typeAttr = fnAttrs.get("type");
@@ -142,6 +158,7 @@ public class FieldInfo {
         }
     }
 
+    /** Full column name for complex finds on view entities; plain entity column names are never expanded */
     public String getFullColumnName() {
         if (fullColumnNameInternal != null) return fullColumnNameInternal;
         return ed.efi.ecfi.resourceFacade.expand(expandColumnName, "", null, false);
@@ -561,10 +578,20 @@ public class FieldInfo {
                         ps.setBytes(index, valueBb.array());
                     } else if (value instanceof Blob) {
                         Blob valueBlob = (Blob) value;
-                        // calling setBytes instead of setBlob
+                        // calling setBytes instead of setBlob - old github.com/moqui/moqui repo issue #28 with Postgres JDBC driver
                         // ps.setBlob(index, (Blob) value)
                         // Blob blb = value
-                        ps.setBytes(index, valueBlob.getBytes(1, (int) valueBlob.length()));
+                        try {
+                            ps.setBytes(index, valueBlob.getBytes(1, (int) valueBlob.length()));
+                        } catch (Exception bytesExc) {
+                            // try ps.setBlob for larger byte arrays that H2 throws an exception for
+                            try {
+                                ps.setBlob(index, valueBlob);
+                            } catch (Exception blobExc) {
+                                // throw the original exception from setBytes()
+                                throw bytesExc;
+                            }
+                        }
                     } else {
                         if (value != null) {
                             throw new EntityException("Type not supported for BLOB field: " + value.getClass().getName() + ", for field " + entityName + "." + name);

@@ -52,6 +52,8 @@ public class RestClient {
     public enum Method { GET, PATCH, PUT, POST, DELETE, OPTIONS, HEAD }
     public static final Method GET = Method.GET, PATCH = Method.PATCH, PUT = Method.PUT, POST = Method.POST,
             DELETE = Method.DELETE, OPTIONS = Method.OPTIONS, HEAD = Method.HEAD;
+    public static final String[] METHOD_ARRAY = { "GET", "PATCH", "PUT", "POST", "DELETE", "OPTIONS", "HEAD" };
+    public static final Set<String> METHOD_SET = new HashSet<>(Arrays.asList(METHOD_ARRAY));
 
     // NOTE: there is no constant on HttpServletResponse for 429; see RFC 6585 for details
     public static final int TOO_MANY = 429;
@@ -128,6 +130,7 @@ public class RestClient {
         return this;
     }
     public RestClient method(Method method) { this.method = method; return this; }
+    public Method getMethod() { return method; }
 
     /** Defaults to 'application/json', could also be 'text/xml', etc */
     public RestClient contentType(String contentType) {
@@ -536,18 +539,25 @@ public class RestClient {
             if (path.length() == 0) path.append("/");
             uriSb.append(path);
 
-            StringBuilder query = null;
-            if (parameters != null && parameters.size() > 0) {
-                query = new StringBuilder();
-                for (Map.Entry<String, String> parm : parameters.entrySet()) {
-                    if (query.length() > 0) query.append("&");
-                    query.append(URLEncoder.encode(parm.getKey(), "UTF-8")).append("=").append(URLEncoder.encode(parm.getValue(), "UTF-8"));
-                }
-            }
+            String query = parametersMapToString(parameters);
             if (query != null && query.length() > 0) uriSb.append('?').append(query);
 
             return rci.uri(uriSb.toString());
         }
+    }
+
+    public static String parametersMapToString(Map<String, ?> parameters) throws UnsupportedEncodingException {
+        if (parameters == null || parameters.size() == 0) return null;
+        StringBuilder query = new StringBuilder();
+        for (Map.Entry<String, ?> parm : parameters.entrySet()) {
+            if (query.length() > 0) query.append("&");
+            Object valueObj = parm.getValue();
+            if (valueObj == null) continue;
+            String valueStr = ObjectUtilities.toPlainString(valueObj);
+            query.append(URLEncoder.encode(parm.getKey(), "UTF-8"))
+                    .append("=").append(URLEncoder.encode(valueStr, "UTF-8"));
+        }
+        return query.toString();
     }
 
     private static class KeyValueString {

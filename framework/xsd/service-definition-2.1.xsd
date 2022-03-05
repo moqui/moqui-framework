@@ -70,8 +70,8 @@ along with this software (see the LICENSE.md file). If not, see
                         <xs:enumeration value="script"/>
                         <xs:enumeration value="java"/>
                         <xs:enumeration value="interface"/>
-                        <xs:enumeration value="remote-xml-rpc"/>
                         <xs:enumeration value="remote-json-rpc"/>
+                        <xs:enumeration value="remote-rest"/>
                         <xs:enumeration value="camel"/>
                     </xs:restriction>
                 </xs:simpleType>

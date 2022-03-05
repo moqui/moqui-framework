@@ -31,37 +31,8 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:any minOccurs="0" maxOccurs="unbounded" processContents="skip"/>
     </xs:choice></xs:group>
 
-    <!-- ================ Screen - root element ================ -->
-    <xs:element name="screen"><xs:annotation>
-        <xs:documentation>
-            The screen is the basic unit of a user interface defines how data, logic, and visual elements fit together.
-
-            Screen filenames should be camel-cased and start with an upper-case letter (whereas transitions should
-            start with a lower-case letter).
-        </xs:documentation>
-    </xs:annotation><xs:complexType>
-        <xs:sequence>
-            <xs:element ref="macro-template" minOccurs="0" maxOccurs="unbounded"/>
-            <xs:element ref="web-settings" minOccurs="0"/>
-            <xs:element ref="parameter" minOccurs="0" maxOccurs="unbounded">
-                <xs:annotation><xs:documentation>
-                    These are the parameters the screen expects or allows to be passed in, and where the calling
-                    screen can get them from by default (usually just default to the same from, but can be a
-                    static value for default or whatever).
-
-                    Individual transition, transition.*-response and other elements can override where the parameter
-                    comes from with their own parameter sub-elements.
-                </xs:documentation></xs:annotation>
-            </xs:element>
-            <xs:element ref="always-actions" minOccurs="0"/>
-            <xs:choice minOccurs="0" maxOccurs="unbounded">
-                <xs:element ref="transition"/>
-                <xs:element ref="transition-include"/>
-            </xs:choice>
-            <xs:element ref="subscreens" minOccurs="0"/>
-            <xs:element ref="pre-actions" minOccurs="0"/>
-            <xs:group ref="section-elements"/>
-        </xs:sequence>
+    <!-- ================ Screen - root elements ================ -->
+    <xs:complexType name="screen-base">
         <xs:attribute name="standalone" type="boolean" default="false">
             <xs:annotation><xs:documentation>
                 If set to true this screen will be rendered without rendering any parent screens. It can still be
@@ -147,7 +118,99 @@ along with this software (see the LICENSE.md file). If not, see
                 Values can be comma separated to apply to multiple render modes. A value of "all" will apply to all render modes.
             </xs:documentation></xs:annotation>
         </xs:attribute>
-    </xs:complexType></xs:element>
+    </xs:complexType>
+
+    <xs:element name="screen"><xs:annotation>
+        <xs:documentation>
+            The screen is the basic unit of a user interface defines how data, logic, and visual elements fit together.
+
+            Screen filenames should be camel-cased and start with an upper-case letter (whereas transitions should
+            start with a lower-case letter).
+        </xs:documentation>
+    </xs:annotation><xs:complexType><xs:complexContent><xs:extension base="screen-base">
+        <!-- NOTE: screen element attributes come from screen-base that this is an extension of -->
+        <xs:sequence>
+            <xs:element ref="macro-template" minOccurs="0" maxOccurs="unbounded"/>
+            <xs:element ref="web-settings" minOccurs="0"/>
+            <xs:element ref="parameter" minOccurs="0" maxOccurs="unbounded">
+                <xs:annotation><xs:documentation>
+                    These are the parameters the screen expects or allows to be passed in, and where the calling
+                    screen can get them from by default (usually just default to the same from, but can be a
+                    static value for default or whatever).
+
+                    Individual transition, transition.*-response and other elements can override where the parameter
+                    comes from with their own parameter sub-elements.
+                </xs:documentation></xs:annotation>
+            </xs:element>
+            <xs:element ref="always-actions" minOccurs="0"/>
+            <xs:choice minOccurs="0" maxOccurs="unbounded">
+                <xs:element ref="transition"/>
+                <xs:element ref="transition-include"/>
+            </xs:choice>
+            <xs:element ref="subscreens" minOccurs="0"/>
+            <xs:element ref="pre-actions" minOccurs="0"/>
+            <xs:group ref="section-elements"/>
+        </xs:sequence>
+    </xs:extension></xs:complexContent></xs:complexType></xs:element>
+
+    <xs:element name="screen-extend"><xs:annotation>
+        <xs:documentation>
+            The root element of a file under the 'screen-extend' directory in a component using a path and filename that matches
+            the path and filename of the screen to extend. The path can match by the path under the 'screen' directory or by the
+            full path following the protocol/scheme of the location URI (ie everything after ://).
+        </xs:documentation>
+    </xs:annotation><xs:complexType><xs:complexContent><xs:extension base="screen-base">
+        <!-- NOTE: screen element attributes come from screen-base that this is an extension of -->
+        <xs:sequence>
+            <xs:element ref="parameter" minOccurs="0" maxOccurs="unbounded"/>
+
+            <xs:choice minOccurs="0" maxOccurs="unbounded">
+                <xs:element ref="transition"/>
+                <xs:element ref="transition-include"/>
+            </xs:choice>
+            <xs:element ref="subscreens" minOccurs="0"/>
+
+            <xs:element name="actions-extend" minOccurs="0" maxOccurs="unbounded"><xs:complexType>
+                <xs:group minOccurs="0" maxOccurs="unbounded" ref="AllOperations"/>
+                <xs:attribute name="type" default="actions"><xs:simpleType><xs:restriction base="xs:token">
+                    <xs:enumeration value="always-actions"/>
+                    <xs:enumeration value="pre-actions"/>
+                    <xs:enumeration value="actions"/>
+                </xs:restriction></xs:simpleType></xs:attribute>
+                <xs:attribute name="when" default="after"><xs:simpleType><xs:restriction base="xs:token">
+                    <xs:enumeration value="before"/>
+                    <xs:enumeration value="after"/>
+                    <xs:enumeration value="replace"/>
+                </xs:restriction></xs:simpleType></xs:attribute>
+            </xs:complexType></xs:element>
+            <xs:element name="widgets-extend" minOccurs="0" maxOccurs="unbounded"><xs:annotation><xs:documentation>
+                This is a simple, generic way to insert widget elements into various places in existing screens.
+                Add widgets before or after all elements where name here matches the name or id attributes match.
+            </xs:documentation></xs:annotation><xs:complexType>
+                <xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/>
+                <xs:attribute name="name" type="xs:string" use="required"><xs:annotation><xs:documentation>
+                    Match against name or id attributes on elements in the base screen (being extended).
+                </xs:documentation></xs:annotation></xs:attribute>
+                <xs:attribute name="where" default="before"><xs:simpleType><xs:restriction base="xs:token">
+                    <xs:enumeration value="before"/>
+                    <!-- FUTURE: semantics are more complex, vary by element: <xs:enumeration value="prepend"/><xs:enumeration value="append"/> -->
+                    <xs:enumeration value="after"/>
+                </xs:restriction></xs:simpleType></xs:attribute>
+            </xs:complexType></xs:element>
+
+            <xs:choice minOccurs="0" maxOccurs="unbounded">
+                <!-- forms merged by name -->
+                <xs:element ref="form-single"/>
+                <xs:element ref="form-list"/>
+
+                <!-- section, section-iterate override by name -->
+                <xs:element ref="section"/>
+                <xs:element ref="section-iterate"/>
+                <!-- FUTURE container, container-box 'slots' like toolbar, body, body-nopad and before, prepend, append, after - or support somehow in widgets-extend? -->
+            </xs:choice>
+        </xs:sequence>
+    </xs:extension></xs:complexContent></xs:complexType></xs:element>
+
     <xs:element name="macro-template"><xs:annotation>
         <xs:documentation>
             A location here will override the settings in the moqui-conf.screen-facade.screen-text-output, but will be
@@ -255,7 +318,7 @@ along with this software (see the LICENSE.md file). If not, see
         </xs:sequence>
         <xs:attribute name="name" type="name-package" use="required">
             <xs:annotation><xs:documentation>
-                Transition names should be camel-cased and start with an lower-case letter (whereas screen filenames
+                Transition names should be camel-cased and start with a lower-case letter (whereas screen filenames
                 and subscreens-item names start with a upper-case letter).
 
                 The transition name is used in link and other elements in place of URLs when going to another

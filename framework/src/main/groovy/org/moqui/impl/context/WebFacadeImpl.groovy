@@ -21,6 +21,8 @@ import org.apache.commons.fileupload.FileItem
 import org.apache.commons.fileupload.FileItemFactory
 import org.apache.commons.fileupload.disk.DiskFileItemFactory
 import org.apache.commons.fileupload.servlet.ServletFileUpload
+import org.apache.commons.io.IOUtils
+import org.apache.commons.io.output.StringBuilderWriter
 import org.moqui.context.*
 import org.moqui.context.MessageFacade.MessageInfo
 import org.moqui.entity.EntityNotFoundException
@@ -123,13 +125,11 @@ class WebFacadeImpl implements WebFacade {
         String contentType = request.getHeader("Content-Type")
         if (ResourceReference.isTextContentType(contentType)) {
             // read the body first to make sure it isn't empty, better support clients that pass a Content-Type but no content (even though they shouldn't)
-            StringBuilder bodyBuilder = new StringBuilder()
             BufferedReader reader = request.getReader()
-            if (reader != null) {
-                String curLine
-                while ((curLine = reader.readLine()) != null) bodyBuilder.append(curLine)
-            }
-            if (bodyBuilder.length() > 0) {
+            StringBuilderWriter bodyBuilder = new StringBuilderWriter()
+            if (reader != null) IOUtils.copyLarge(reader, bodyBuilder)
+
+            if (bodyBuilder.builder.length() > 0) {
                 String bodyString = bodyBuilder.toString()
                 requestBodyText = bodyString
                 multiPartParameters = new HashMap()
@@ -466,7 +466,12 @@ class WebFacadeImpl implements WebFacade {
         String servletPath = request.getServletPath()
         // subtract 1 to exclude empty string before leading '/' that will always be there
         int servletPathSize = servletPath.isEmpty() ? 0 : (servletPath.split("/").length - 1)
-        ArrayList<String> pathList = StringUtilities.pathStringToList(reqURI, servletPathSize)
+
+        // exclude context path segments
+        String contextPath = request.getContextPath()
+        int contextPathSize = contextPath.isEmpty() ? 0 : (contextPath.split("/").length - 1)
+
+        ArrayList<String> pathList = StringUtilities.pathStringToList(reqURI, servletPathSize + contextPathSize)
         // logger.warn("pathInfo ${request.getPathInfo()} servletPath ${servletPath} reqURI ${request.getRequestURI()} pathList ${pathList}")
         return pathList
     }
@@ -776,9 +781,9 @@ class WebFacadeImpl implements WebFacade {
         response.setContentLength(length)
 
         if (!filename) {
-            response.addHeader("Content-Disposition", "inline")
+            response.setHeader("Content-Disposition", "inline")
         } else {
-            response.addHeader("Content-Disposition", "attachment; filename=\"${filename}\"; filename*=utf-8''${StringUtilities.encodeAsciiFilename(filename)}")
+            response.setHeader("Content-Disposition", "attachment; filename=\"${filename}\"; filename*=utf-8''${StringUtilities.encodeAsciiFilename(filename)}")
         }
 
         try {
@@ -807,16 +812,16 @@ class WebFacadeImpl implements WebFacade {
         String contentType = rr.getContentType()
         if (contentType) response.setContentType(contentType)
         if (inline) {
-            response.addHeader("Content-Disposition", "inline")
+            response.setHeader("Content-Disposition", "inline")
 
             WebappInfo webappInfo = eci.ecfi.getWebappInfo(eci.webImpl?.webappMoquiName)
             if (webappInfo != null) {
                 webappInfo.addHeaders("web-resource-inline", response)
             } else {
-                response.addHeader("Cache-Control", "max-age=86400, must-revalidate, public")
+                response.setHeader("Cache-Control", "max-age=86400, must-revalidate, public")
             }
         } else {
-            response.addHeader("Content-Disposition", "attachment; filename=\"${rr.getFileName()}\"; filename*=utf-8''${StringUtilities.encodeAsciiFilename(rr.getFileName())}")
+            response.setHeader("Content-Disposition", "attachment; filename=\"${rr.getFileName()}\"; filename*=utf-8''${StringUtilities.encodeAsciiFilename(rr.getFileName())}")
         }
         if (contentType == null || contentType.isEmpty() || ResourceReference.isBinaryContentType(contentType)) {
             InputStream is = rr.openStream()
@@ -1313,7 +1318,7 @@ class WebFacadeImpl implements WebFacade {
     void viewEmailMessage() {
         // first send the empty image
         response.setContentType('image/png')
-        response.addHeader("Content-Disposition", "inline")
+        response.setHeader("Content-Disposition", "inline")
         OutputStream os = response.outputStream
         try { os.write(trackingPng) } finally { os.close() }
         // mark the message viewed
