@@ -18,6 +18,8 @@ import org.moqui.context.L10nFacade;
 import org.moqui.entity.EntityValue;
 import org.moqui.entity.EntityFind;
 
+import groovy.json.JsonOutput;
+
 import javax.xml.bind.DatatypeConverter;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -302,7 +304,7 @@ public class L10nFacadeImpl implements L10nFacade {
 
     @Override public Calendar parseDateTime(String input, String format) {
         return calendarValidator.validate(input, format, getLocale(), getTimeZone()); }
-    public String formatDateTime(Calendar input, String format, Locale locale, TimeZone tz) {
+    @Override public String formatDateTime(Calendar input, String format, Locale locale, TimeZone tz) {
         if (locale == null) locale = getLocale();
         if (tz == null) tz = getTimeZone();
         return calendarValidator.format(input, format, locale, tz);
@@ -310,9 +312,19 @@ public class L10nFacadeImpl implements L10nFacade {
 
     @Override public BigDecimal parseNumber(String input, String format) {
         return bigDecimalValidator.validate(input, format, getLocale()); }
-    public String formatNumber(Number input, String format, Locale locale) {
+    @Override public String formatNumber(Number input, String format, Locale locale) {
         if (locale == null) locale = getLocale();
-        return bigDecimalValidator.format(input, format, locale);
+        if (format == null || format.isEmpty()) {
+            // BigDecimalValidator defaults to 3 decimal digits, if no format specified we don't want to truncate so small, use better defaults
+            NumberFormat nf = locale != null ? NumberFormat.getNumberInstance(locale) : NumberFormat.getNumberInstance();
+            nf.setMinimumFractionDigits(0);
+            nf.setMaximumFractionDigits(12);
+            nf.setMinimumIntegerDigits(1);
+            nf.setGroupingUsed(true);
+            return nf.format(input);
+        } else {
+            return bigDecimalValidator.format(input, format, locale);
+        }
     }
 
     @Override
@@ -324,7 +336,7 @@ public class L10nFacadeImpl implements L10nFacade {
         if (value == null) return "";
         if (locale == null) locale = getLocale();
         if (tz == null) tz = getTimeZone();
-        Class valueClass = value.getClass();
+        Class<?> valueClass = value.getClass();
         if (valueClass == String.class) return (String) value;
         if (valueClass == Timestamp.class) return formatTimestamp((Timestamp) value, format, locale, tz);
         if (valueClass == java.util.Date.class) return formatTimestamp((java.util.Date) value, format, locale, tz);
@@ -334,6 +346,11 @@ public class L10nFacadeImpl implements L10nFacade {
         if (value instanceof Number) return formatNumber((Number) value, format, locale);
         // Calendar is an abstract class, so must use instanceof here as well
         if (value instanceof Calendar) return formatDateTime((Calendar) value, format, locale, tz);
+        // support formatting of Map and Collection using JSON
+        if (value instanceof Map || value instanceof Collection) {
+            String json = JsonOutput.toJson(value);
+            return (json.length() > 128) ? JsonOutput.prettyPrint(json) : json;
+        }
         return value.toString();
     }
 }

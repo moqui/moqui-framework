@@ -16,8 +16,9 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.Enumeration description="Moqui Administrators" enumId="UgtMoquiAdmin" enumTypeId="UserGroupType"/>
     <moqui.basic.Enumeration description="Remote Systems" enumId="UgtRemoteSystems" enumTypeId="UserGroupType"/>
 
-    <!-- An group for full-access Administrators -->
+    <!-- User Group for full-access Administrators -->
     <moqui.security.UserGroup userGroupId="ADMIN" description="Administrators (full access)" groupTypeEnumId="UgtMoquiAdmin"/>
+    <moqui.security.UserGroup userGroupId="ADMIN_ADV" description="Administrators - Advanced" groupTypeEnumId="UgtMoquiAdmin"/>
 
     <!-- A default/automatic group for all users -->
     <moqui.security.UserGroup userGroupId="ALL_USERS" description="All Users (all users members by default)"/>
@@ -46,4 +47,11 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- Special Permissions -->
     <moqui.security.UserPermission userPermissionId="ADMIN_PASSWORD" description="Admin Password Update"/>
     <moqui.security.UserGroupPermission userGroupId="ADMIN" userPermissionId="ADMIN_PASSWORD" fromDate="0"/>
+
+    <moqui.security.UserPermission userPermissionId="ADMIN_LOGIN_AS" description="Admin Login As User"/>
+    <moqui.security.UserGroupPermission userGroupId="ADMIN_ADV" userPermissionId="ADMIN_LOGIN_AS" fromDate="0"/>
+    <moqui.security.UserPermission userPermissionId="SQL_RUNNER_WEB" description="Tools: SQL Runner"/>
+    <moqui.security.UserGroupPermission userGroupId="ADMIN_ADV" userPermissionId="SQL_RUNNER_WEB" fromDate="0"/>
+    <moqui.security.UserPermission userPermissionId="GROOVY_SHELL_WEB" description="Tools: Groovy Shell"/>
+    <moqui.security.UserGroupPermission userGroupId="ADMIN_ADV" userPermissionId="GROOVY_SHELL_WEB" fromDate="0"/>
 </entity-facade-xml>

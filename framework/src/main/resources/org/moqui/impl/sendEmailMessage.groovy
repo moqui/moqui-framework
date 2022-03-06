@@ -91,16 +91,42 @@ try {
     }
     if (emailTemplate?.bounceAddress) email.setBounceAddress((String) emailTemplate.bounceAddress)
 
+    // prep list of allowed to domains, if configured
+    String allowedToDomains = emailServer.allowedToDomains
+    ArrayList<String> toDomainList = null
+    List<String> skippedToAddresses = null
+    if (allowedToDomains) {
+        toDomainList = new ArrayList<>(allowedToDomains.split(",").collect({ it.trim() }))
+        skippedToAddresses = []
+    }
+
     // set to, cc, bcc addresses
     def toList = ((String) toAddresses).split(",")
-    for (toAddress in toList) email.addTo(toAddress.trim())
+    for (toAddress in toList) {
+        if (isDomainAllowed(toAddress, toDomainList)) email.addTo(toAddress.trim())
+        else skippedToAddresses.add(toAddress)
+    }
     if (ccAddresses) {
         def ccList = ((String) ccAddresses).split(",")
-        for (ccAddress in ccList) email.addCc(ccAddress.trim())
+        for (ccAddress in ccList) {
+            if (isDomainAllowed(ccAddress, toDomainList)) email.addCc(ccAddress.trim())
+            else skippedToAddresses.add(ccAddress)
+        }
     }
     if (bccAddresses) {
         def bccList = ((String) bccAddresses).split(",")
-        for (def bccAddress in bccList) email.addBcc(bccAddress.trim())
+        for (def bccAddress in bccList) {
+            if (isDomainAllowed(bccAddress, toDomainList)) email.addBcc(bccAddress.trim())
+            else skippedToAddresses.add(bccAddress)
+        }
+    }
+
+    if (!email.getToAddresses()) {
+        logger.warn("Not sending EmailMessage ${emailMessageId} with no To Addresses; To, CC, BCC addresses skipped because domain not allowed: ${skippedToAddresses} allowed domains: ${toDomainList}")
+        ec.message.addMessage("Not sending email message with no To Address; address(es) skipped because domain not allowed: ${skippedToAddresses}", "warning")
+        return
+    } else if (skippedToAddresses) {
+        logger.warn("Sending EmailMessage ${emailMessageId} to remaining To Address(es) ${email.getToAddresses()}; some To, CC, BCC addresses skipped because domain not allowed: ${skippedToAddresses} allowed domains: ${toDomainList}")
     }
 
     // set the html message
@@ -130,4 +156,23 @@ try {
     logger.error("Error in sendEmailTemplate", t)
     ec.message.addMessage("Error sending email: ${t.toString()}")
     // don't rethrow: throw new BaseArtifactException("Error in sendEmailTemplate", t)
+}
+
+static boolean isDomainAllowed(String emailAddress, ArrayList<String> toDomainList) {
+    if (emailAddress == null || emailAddress.isEmpty()) return false
+    boolean domainAllowed = true
+    if (toDomainList != null && !toDomainList.isEmpty()) {
+        domainAllowed = false
+        int atIndex = emailAddress.indexOf("@")
+        if (atIndex == -1) return false
+        String emailDomain = emailAddress.substring(atIndex + 1, emailAddress.length())
+
+        for (toDomain in toDomainList) {
+            if (emailDomain.endsWith(toDomain)) {
+                domainAllowed = true
+                break
+            }
+        }
+    }
+    return domainAllowed
 }

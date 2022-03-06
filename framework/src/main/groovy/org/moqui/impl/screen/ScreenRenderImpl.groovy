@@ -205,13 +205,13 @@ class ScreenRenderImpl implements ScreenRender {
                     .first("screen-text-output", "type", renderMode)
             if (stoNode != null && "true".equals(stoNode.attribute("always-standalone"))) {
                 if (logger.isInfoEnabled()) logger.info("Redirecting with 205 and X-Redirect-To ${redirectUrl} instead of rendering ${this.getScreenUrlInfo().getFullPathNameList()}")
-                response.addHeader("X-Redirect-To", redirectUrl)
+                response.setHeader("X-Redirect-To", redirectUrl)
                 // use code 205 (Reset Content) for client router handled redirect
                 response.setStatus(HttpServletResponse.SC_RESET_CONTENT)
             } else {
                 if (logger.isInfoEnabled()) logger.info("Redirecting to ${redirectUrl} instead of rendering ${this.getScreenUrlInfo().getFullPathNameList()}")
                 // add Cache-Control: no-store header since this is often in actions after screen render has started and a Cache-Control header has been set, so replace it here
-                response.setHeader("Cache-Control", "no-store")
+                response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate, private")
                 response.sendRedirect(redirectUrl)
             }
             dontDoRender = true
@@ -508,9 +508,10 @@ class ScreenRenderImpl implements ScreenRender {
             if (wfi != null) {
                 // handle screen-last, etc
                 if (isScreenLast || "screen-last-noparam".equals(ri.type)) {
-                    String savedUrl =  wfi.getRemoveScreenLastPath()
+                    String savedUrl = wfi.getRemoveScreenLastPath()
                     urlType = "screen-path"
                     if (savedUrl != null && savedUrl.length() > 0) {
+                        if (savedUrl.startsWith("http")) urlType = "plain"
                         url = savedUrl
                         wfi.removeScreenLastParameters(isScreenLast)
                         // logger.warn("going to screen-last from screen last path ${url}")
@@ -631,7 +632,7 @@ class ScreenRenderImpl implements ScreenRender {
                     if (webappInfo != null) {
                         webappInfo.addHeaders("screen-resource-binary", response)
                     } else {
-                        response.addHeader("Cache-Control", "max-age=86400, must-revalidate, public")
+                        response.setHeader("Cache-Control", "max-age=86400, must-revalidate, public")
                     }
 
                     InputStream is
@@ -666,7 +667,7 @@ class ScreenRenderImpl implements ScreenRender {
                         if (webappInfo != null) {
                             webappInfo.addHeaders("screen-resource-template", response)
                         } else {
-                            response.addHeader("Cache-Control", "no-cache, no-store, must-revalidate, private")
+                            response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate, private")
                         }
                     }
                     tr.render(fileResourceRef.location, writer)
@@ -676,7 +677,7 @@ class ScreenRenderImpl implements ScreenRender {
                         if (webappInfo != null) {
                             webappInfo.addHeaders("screen-resource-text", response)
                         } else {
-                            response.addHeader("Cache-Control", "max-age=86400, must-revalidate, public")
+                            response.setHeader("Cache-Control", "max-age=86400, must-revalidate, public")
                         }
                     }
                     // no renderer found, just grab the text (cached) and throw it to the writer
@@ -819,19 +820,19 @@ class ScreenRenderImpl implements ScreenRender {
                     if (webappInfo != null) {
                         webappInfo.addHeaders("screen-server-static", response)
                     } else {
-                        response.addHeader("Cache-Control", "max-age=86400, must-revalidate, public")
+                        response.setHeader("Cache-Control", "max-age=86400, must-revalidate, public")
                     }
                 } else {
                     if (webappInfo != null) {
                         webappInfo.addHeaders("screen-render", response)
                     } else {
                         // if requires a render, don't cache and make it private
-                        response.addHeader("Cache-Control", "no-cache, no-store, must-revalidate, private")
+                        response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate, private")
                         // add Content-Security-Policy by default to not allow use in iframe or allow form actions on different host
                         // see https://content-security-policy.com/
                         // TODO make this configurable for different screen paths? maybe a screen.web-settings attribute to exclude or add to?
-                        response.addHeader("Content-Security-Policy", "frame-ancestors 'none'; form-action 'self';")
-                        response.addHeader("X-Frame-Options", "deny")
+                        response.setHeader("Content-Security-Policy", "frame-ancestors 'none'; form-action 'self';")
+                        response.setHeader("X-Frame-Options", "deny")
                     }
                 }
                 // if the request is secure add HSTS Strict-Transport-Security header with one leap year age (in seconds)
@@ -839,14 +840,14 @@ class ScreenRenderImpl implements ScreenRender {
                     if (webappInfo != null) {
                         webappInfo.addHeaders("screen-secure", response)
                     } else {
-                        response.addHeader("Strict-Transport-Security", "max-age=31536000")
+                        response.setHeader("Strict-Transport-Security", "max-age=31536000")
                     }
                 }
 
                 String filename = ec.context.saveFilename as String
                 if (filename) {
                     String utfFilename = StringUtilities.encodeAsciiFilename(filename)
-                    response.addHeader("Content-Disposition", "attachment; filename=\"${filename}\"; filename*=utf-8''${utfFilename}")
+                    response.setHeader("Content-Disposition", "attachment; filename=\"${filename}\"; filename*=utf-8''${utfFilename}")
                 }
             }
 
@@ -1189,6 +1190,23 @@ class ScreenRenderImpl implements ScreenRender {
         return ""
     }
 
+    String renderSectionInclude(MNode sectionIncludeNode) {
+        String sectionLocation = sectionIncludeNode.attribute("location")
+        String sectionName = sectionIncludeNode.attribute("name")
+        boolean isDynamic = (sectionLocation != null && sectionLocation.contains('${')) || (sectionName != null && sectionName.contains('${'))
+        if (isDynamic) {
+            ScreenDefinition sd = getActiveScreenDef()
+            sectionLocation = sfi.ecfi.resourceFacade.expandNoL10n(sectionLocation, null)
+            sectionName = sfi.ecfi.resourceFacade.expandNoL10n(sectionName, null)
+            String cacheName = sectionLocation + "#" + sectionName
+            if (sd.sectionByName.get(cacheName) == null) sd.pullSectionInclude(sectionIncludeNode)
+            // logger.warn("sd.sectionByName ${sd.sectionByName}")
+            return renderSection(cacheName)
+        } else {
+            return renderSection(sectionName)
+        }
+    }
+
     MNode getFormNode(String formName) {
         FormInstance fi = getFormInstance(formName)
         if (fi == null) return null
@@ -1241,6 +1259,8 @@ class ScreenRenderImpl implements ScreenRender {
         return ""
     }
 
+    /** If isTemplateStr != "false" then render a template using renderer based on location extension,
+     * or if no rendered found use isTemplateStr as an extension (like "ftl"), and if no template renderer found just write the text */
     String renderText(String location, String isTemplateStr) {
         boolean isTemplate = !"false".equals(isTemplateStr)
 
@@ -1253,9 +1273,12 @@ class ScreenRenderImpl implements ScreenRender {
             // NOTE: run templates with their own variable space so we can add sri, and avoid getting anything added from within
             ContextStack cs = (ContextStack) ec.context
             cs.push()
-            cs.put("sri", this)
-            sfi.ecfi.resourceFacade.template(location, writer)
-            cs.pop()
+            try {
+                cs.put("sri", this)
+                ec.resourceFacade.template(location, writer, isTemplateStr)
+            } finally {
+                cs.pop()
+            }
             writer.flush()
             // NOTE: this returns a String so that it can be used in an FTL interpolation, but it always writes to the writer
             return ""
@@ -1716,10 +1739,14 @@ class ScreenRenderImpl implements ScreenRender {
                     continue
                 }
                 // logger.warn("condition ${condition}, eval: ${ec.resourceFacade.condition(condition, null)}")
-                if (ec.resourceFacade.condition(condition, null)) {
-                    activeSubNode = condFieldNode
-                    // use first conditional-field with passing condition
-                    break
+                try {
+                    if (ec.resourceFacade.condition(condition, null)) {
+                        activeSubNode = condFieldNode
+                        // use first conditional-field with passing condition
+                        break
+                    }
+                } catch (Throwable t) {
+                    logger.warn("Error evaluating condition ${condition} on field ${fieldName} on screen ${this.getActiveScreenDef().getLocation()}", t)
                 }
             }
             if (activeSubNode == null) activeSubNode = fieldNode.first("default-field")
@@ -2294,7 +2321,7 @@ class ScreenRenderImpl implements ScreenRender {
                 String image = sui.menuImage
                 String imageType = sui.menuImageType
                 if (image != null && !image.isEmpty() && (imageType == null || imageType.isEmpty() || "url-screen".equals(imageType)))
-                    image = buildUrl(image).path
+                    image = buildUrl(image).url
 
                 boolean active = (nextItem == subscreensItem.name)
                 Map itemMap = [name:subscreensItem.name, title:ec.resource.expand(subscreensItem.menuTitle, ""),
@@ -2315,7 +2342,7 @@ class ScreenRenderImpl implements ScreenRender {
             String image = sui.menuImage
             String imageType = sui.menuImageType
             if (image != null && !image.isEmpty() && (imageType == null || imageType.isEmpty() || "url-screen".equals(imageType)))
-                image = buildUrl(image).path
+                image = buildUrl(image).url
 
             menuDataList.add([name:pathItem, title:curScreen.getDefaultMenuName(), subscreens:subscreensList, path:curScreenPath,
                     pathWithParams:curPathWithParams, hasTabMenu:curScreen.hasTabMenu(), renderModes:curScreen.renderModes, image:image, imageType:imageType])
