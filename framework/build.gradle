@@ -12,11 +12,12 @@
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
 
-version = '3.0.0-rc9'
 tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:unchecked" }
 tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:deprecation" }
 tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:unchecked" }
 tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:deprecation" }
+
+version = '3.0.0-rc9'
 
 configurations {
     execWarRuntime.extendsFrom api
@@ -227,7 +228,7 @@ sourceSets.test.compileClasspath += files(sourceSets.main.output.classesDirs)
 check.dependsOn.clear()
 
 test {
-    useJUnitPlatform { includeEngines 'junit-jupiter', 'junit-vintage' }
+//    useJUnitPlatform { includeEngines 'junit-jupiter', 'junit-vintage' }
     testLogging { events "passed", "skipped", "failed" }
     dependsOn cleanTest
     include '**/*MoquiSuite.class'
