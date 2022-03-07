@@ -141,7 +141,7 @@ dependencies {
     api 'com.beust:jcommander:1.82'
 
     // H2 Database
-    api 'com.h2database:h2:1.4.200' // MPL 2.0, EPL 1.0
+    api 'com.h2database:h2:2.1.210' // MPL 2.0, EPL 1.0
 
     // Jackson Databind (JSON, etc)
     api 'com.fasterxml.jackson.core:jackson-databind:2.13.1'
