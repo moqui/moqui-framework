@@ -23,7 +23,7 @@ configurations {
     execWarRuntime.extendsFrom api
 }
 
-apply plugin: 'java-library'
+//apply plugin: 'java-library'
 apply plugin: 'groovy'
 apply plugin: 'war'
 // to run gradle-versions-plugin use "gradle dependencyUpdates"
@@ -36,11 +36,11 @@ buildscript {
         maven { url "https://plugins.gradle.org/m2/" }
     }
     dependencies {
-        classpath 'com.github.ben-manes:gradle-versions-plugin:0.28.0'
+        classpath 'com.github.ben-manes:gradle-versions-plugin:0.42.0'
         // uncomment to add the Error Prone compiler: classpath 'net.ltgt.gradle:gradle-errorprone-plugin:0.0.8'
     }
 }
-dependencyUpdates.resolutionStrategy = { componentSelection { rules -> rules.all { ComponentSelection selection ->
+dependencyUpdates.resolutionStrategy { componentSelection { rules -> rules.all { ComponentSelection selection ->
     boolean rejected = ['alpha', 'beta', 'rc', 'cr', 'm', 'b'].any { qualifier -> selection.candidate.version ==~ /(?i).*[.-]${qualifier}[.\d-].*/ }
     if (rejected) selection.reject('Release candidate')
 } } }
@@ -70,17 +70,17 @@ tasks.withType(JavaCompile) { options.compilerArgs << "-proc:none" }
 tasks.withType(GroovyCompile) { options.compilerArgs << "-proc:none" }
 
 dependencies {
-    api project(':moqui-util')
+    implementation project(':moqui-util')
 
     // Groovy
     // NOTE: update attempt to 3.0.8 failed, build performance fine vs 3.0.2, updated Spock required (tried 2.0-groovy-3.0) and
     //     tests do not run with error 'Invalid test class' '1. No runnable methods'
-    api 'org.codehaus.groovy:groovy:2.5.15' // Apache 2.0
-    api 'org.codehaus.groovy:groovy-dateutil:2.5.15' // Apache 2.0
-    api 'org.codehaus.groovy:groovy-groovysh:2.5.15' // Apache 2.0
-    api 'org.codehaus.groovy:groovy-json:2.5.15' // Apache 2.0
-    api 'org.codehaus.groovy:groovy-templates:2.5.15' // Apache 2.0
-    api 'org.codehaus.groovy:groovy-xml:2.5.15' // Apache 2.0
+    implementation 'org.codehaus.groovy:groovy:2.5.15' // Apache 2.0
+    implementation 'org.codehaus.groovy:groovy-dateutil:2.5.15' // Apache 2.0
+    implementation 'org.codehaus.groovy:groovy-groovysh:2.5.15' // Apache 2.0
+    implementation 'org.codehaus.groovy:groovy-json:2.5.15' // Apache 2.0
+    implementation 'org.codehaus.groovy:groovy-templates:2.5.15' // Apache 2.0
+    implementation 'org.codehaus.groovy:groovy-xml:2.5.15' // Apache 2.0
     // jansi is needed for groovydoc only, so in providedCompile (not included in war)
     compileOnly 'org.fusesource.jansi:jansi:1.18'
     // Findbugs need only during compile (used by freemarker and various moqui classes)
@@ -89,133 +89,133 @@ dependencies {
     // ========== Local (flatDir) libraries in framework/lib ==========
 
     // Bitronix Transaction Manager (the default internal tx mgr; custom build from source as 3.0.0 not yet released)
-    api 'org.codehaus.btm:btm:3.0.0-SNAPSHOT' // Apache 2.0
+    implementation 'org.codehaus.btm:btm:3.0.0-SNAPSHOT' // Apache 2.0
     runtimeOnly 'org.javassist:javassist:3.28.0-GA' // Apache 2.0
 
     // ========== Libraries from jcenter ==========
 
     // Apache Commons
     runtimeOnly 'commons-codec:commons-codec:1.15'
-    api 'org.apache.commons:commons-csv:1.9.0' // Apache 2.0
+    implementation 'org.apache.commons:commons-csv:1.9.0' // Apache 2.0
 
     // NOTE: commons-email depends on com.sun.mail:javax.mail, included below
-    api module('org.apache.commons:commons-email:1.5') // Apache 2.0
-    api 'org.apache.commons:commons-lang3:3.12.0' // Apache 2.0; used by cron-utils
-    api 'commons-beanutils:commons-beanutils:1.9.4' // Apache 2.0
-    api 'commons-collections:commons-collections:3.2.2' // Apache 2.0
-    api 'commons-digester:commons-digester:2.1' // Apache 2.0
-    api 'commons-fileupload:commons-fileupload:1.4' // Apache 2.0
-    api 'commons-io:commons-io:2.11.0' // Apache 2.0
-    api 'commons-logging:commons-logging:1.2' // Apache 2.0
-    api 'commons-validator:commons-validator:1.7' // Apache 2.0
+    implementation module('org.apache.commons:commons-email:1.5') // Apache 2.0
+    implementation 'org.apache.commons:commons-lang3:3.12.0' // Apache 2.0; used by cron-utils
+    implementation 'commons-beanutils:commons-beanutils:1.9.4' // Apache 2.0
+    implementation 'commons-collections:commons-collections:3.2.2' // Apache 2.0
+    implementation 'commons-digester:commons-digester:2.1' // Apache 2.0
+    implementation 'commons-fileupload:commons-fileupload:1.4' // Apache 2.0
+    implementation 'commons-io:commons-io:2.11.0' // Apache 2.0
+    implementation 'commons-logging:commons-logging:1.2' // Apache 2.0
+    implementation 'commons-validator:commons-validator:1.7' // Apache 2.0
 
     // Cron Utils
-    api 'com.cronutils:cron-utils:9.1.6' // Apache 2.0
+    implementation 'com.cronutils:cron-utils:9.1.6' // Apache 2.0
 
     // Flexmark (markdown)
-    api 'com.vladsch.flexmark:flexmark:0.62.2'
-    api 'com.vladsch.flexmark:flexmark-ext-tables:0.62.2'
-    api 'com.vladsch.flexmark:flexmark-ext-toc:0.62.2'
+    implementation 'com.vladsch.flexmark:flexmark:0.64.0'
+    implementation 'com.vladsch.flexmark:flexmark-ext-tables:0.64.0'
+    implementation 'com.vladsch.flexmark:flexmark-ext-toc:0.64.0'
 
     // Freemarker
-    api 'org.freemarker:freemarker:2.3.31' // Apache 2.0
+    implementation 'org.freemarker:freemarker:2.3.31' // Apache 2.0
 
     // Java Specifications
-    api 'javax.transaction:jta:1.1'
-    api 'javax.cache:cache-api:1.1.0'
-    api 'javax.jcr:jcr:2.0'
+    implementation 'javax.transaction:jta:1.1'
+    implementation 'javax.cache:cache-api:1.1.1'
+    implementation 'javax.jcr:jcr:2.0'
     // jaxb-api no longer included in Java 9 and later, also tested with openjdk-8
-    api module('javax.xml.bind:jaxb-api:2.3.1') // CDDL 1.1
+    implementation module('javax.xml.bind:jaxb-api:2.3.1') // CDDL 1.1
     // NOTE: javax.activation:javax.activation-api is required by jaxb-api, has classes same as old 2012 javax.activation:activation used by javax.mail
     // NOTE: as of Java 11 the com.sun packages no longer available so for javax.mail need full javax.activation jar (also includes javax.activation-api)
-    api 'com.sun.activation:javax.activation:1.2.0' // CDDL 1.1
-    api 'javax.websocket:javax.websocket-api:1.1'
+    implementation 'com.sun.activation:javax.activation:1.2.0' // CDDL 1.1
+    implementation 'javax.websocket:javax.websocket-api:1.1'
     providedCompile 'javax.servlet:javax.servlet-api:4.0.1'
     // Specs not needed by default:
-    // compile 'javax.resource:connector-api:1.5'
-    // compile 'javax.jms:jms:1.1'
+    // implementation 'javax.resource:connector-api:1.5'
+    // implementation 'javax.jms:jms:1.1'
 
     // Java TOTP
-    api 'dev.samstevens.totp:totp:1.7.1' // MIT
+    implementation 'dev.samstevens.totp:totp:1.7.1' // MIT
     // dev.samstevens.totp:totp depends on com.google.zxing:javase which depends on com.beust:jcommander, but an older version with a CVE, so specify latest to fix
-    api 'com.beust:jcommander:1.82'
+    implementation 'com.beust:jcommander:1.82'
 
     // H2 Database
-    api 'com.h2database:h2:2.1.210' // MPL 2.0, EPL 1.0
+    implementation 'com.h2database:h2:2.1.210' // MPL 2.0, EPL 1.0
 
     // Jackson Databind (JSON, etc)
-    api 'com.fasterxml.jackson.core:jackson-databind:2.13.1'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.13.2'
 
     // Jetty HTTP Client and Proxy Servlet
-    api 'org.eclipse.jetty:jetty-client:10.0.6' // Apache 2.0
-    api 'org.eclipse.jetty:jetty-proxy:10.0.6' // Apache 2.0
+    implementation 'org.eclipse.jetty:jetty-client:10.0.8' // Apache 2.0
+    implementation 'org.eclipse.jetty:jetty-proxy:10.0.8' // Apache 2.0
 
     // javax.mail
     // NOTE: javax.mail depends on 'javax.activation:activation' which is the old package for 'javax.activation:javax.activation-api' used by jaxb-api
-    api module('com.sun.mail:javax.mail:1.6.2') // CDDL
+    implementation module('com.sun.mail:javax.mail:1.6.2') // CDDL
 
     // Joda Time (used by elasticsearch, aws)
-    api 'joda-time:joda-time:2.10.13' // Apache 2.0
+    implementation 'joda-time:joda-time:2.10.13' // Apache 2.0
 
     // JSoup (HTML parser, cleaner)
 
-    api 'org.jsoup:jsoup:1.14.2' // MIT
+    implementation 'org.jsoup:jsoup:1.14.3' // MIT
 
     // Apache Shiro
-    api module('org.apache.shiro:shiro-core:1.8.0') // Apache 2.0
-    api module('org.apache.shiro:shiro-web:1.8.0') // Apache 2.0
+    implementation module('org.apache.shiro:shiro-core:1.8.0') // Apache 2.0
+    implementation module('org.apache.shiro:shiro-web:1.8.0') // Apache 2.0
 
     // SLF4J, Log4j 2 (note Log4j 2 is used by various libraries, best not to replace it even if mostly possible with SLF4J)
     // NOTE: using slf4j 2.0.0-alpha2 because Jetty 10 uses it, overriding earlier version in embedded mode with shared classpath
-    api 'org.slf4j:slf4j-api:2.0.0-alpha6'
+    implementation 'org.slf4j:slf4j-api:2.0.0-alpha6'
     // NOTE using log4j-slf4j18-impl instead of log4j-slf4j-impl because the SLF4J 1.8 version includes a SLF4J 2.0 compatible logging provider
-    runtimeOnly 'org.apache.logging.log4j:log4j-slf4j18-impl:2.17.1'
-    api 'org.apache.logging.log4j:log4j-core:2.17.1'
-    api 'org.apache.logging.log4j:log4j-api:2.17.1'
-    runtimeOnly 'org.apache.logging.log4j:log4j-jcl:2.17.1'
+    runtimeOnly 'org.apache.logging.log4j:log4j-slf4j18-impl:2.17.2'
+    implementation 'org.apache.logging.log4j:log4j-core:2.17.2'
+    implementation 'org.apache.logging.log4j:log4j-api:2.17.2'
+    runtimeOnly 'org.apache.logging.log4j:log4j-jcl:2.17.2'
 
     // SubEtha SMTP (module as depends on old javax.mail location; also uses SLF4J, activation included elsewhere)
-    api module('org.subethamail:subethasmtp:3.1.7')
+    implementation module('org.subethamail:subethasmtp:3.1.7')
 
     // Snake YAML
-    api 'org.yaml:snakeyaml:1.30' // Apache 2.0
+    implementation 'org.yaml:snakeyaml:1.30' // Apache 2.0
 
     // Apache Jackrabbit - uncomment here or include elsewhere when Jackrabbit repository configurations are used
-    // api 'org.apache.jackrabbit:jackrabbit-jcr-rmi:2.12.1' // Apache 2.0
-    // api 'org.apache.jackrabbit:jackrabbit-jcr2dav:2.12.1' // Apache 2.0
+    // implementation 'org.apache.jackrabbit:jackrabbit-jcr-rmi:2.12.1' // Apache 2.0
+    // implementation 'org.apache.jackrabbit:jackrabbit-jcr2dav:2.12.1' // Apache 2.0
 
     // Apache Commons JCS - Only needed when using JCSCacheToolFactory
-    // api 'org.apache.commons:commons-jcs-jcache:2.0-beta-1' // Apache 2.0
+    // implementation 'org.apache.commons:commons-jcs-jcache:2.0-beta-1' // Apache 2.0
 
     // Liquibase (for future reference, not used yet)
-    // api 'org.liquibase:liquibase-core:3.4.2' // Apache 2.0
+    // implementation 'org.liquibase:liquibase-core:3.4.2' // Apache 2.0
 
     // ========== test dependencies ==========
-//    testImplementation(platform('org.junit:junit-bom:5.7.2'))
+//    testImplementation(platform('org.junit:junit-bom:5.8.2'))
     testImplementation module('org.spockframework:spock-core:1.3-groovy-2.5') // Apache 2.0
     testImplementation 'junit:junit:4.13.2' // Apache 2.0
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.2'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.2'
-    testRuntimeOnly 'org.junit.vintage:junit-vintage-engine:5.7.2'
-//    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.7.2'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.2'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.2'
+    testRuntimeOnly 'org.junit.vintage:junit-vintage-engine:5.8.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.8.2'
 
-//    testImplementation 'org.spockframework:spock-core:2.0-groovy-3.0' // Apache 2.0
+//    testImplementation 'org.spockframework:spock-core:2.1-groovy-3.0' // Apache 2.0
 //    testImplementation 'org.spockframework:spock-junit4:2.0-groovy-3.0' // Apache 2.0
     testImplementation 'org.hamcrest:hamcrest-core:2.2' // BSD 3-Clause
 
     // ========== executable war dependencies ==========
     // Jetty
-    execWarRuntime 'org.eclipse.jetty:jetty-server:10.0.6' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-webapp:10.0.6' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-jndi:10.0.6' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty.websocket:websocket-javax-server:10.0.6' // Apache 2.0
-    execWarRuntime ('org.eclipse.jetty.websocket:websocket-javax-client:10.0.6') { // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-server:10.0.8' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-webapp:10.0.8' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty:jetty-jndi:10.0.8' // Apache 2.0
+    execWarRuntime 'org.eclipse.jetty.websocket:websocket-javax-server:10.0.8' // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:websocket-javax-client:10.0.8') { // Apache 2.0
         exclude group: 'javax.websocket' } // we have the full websocket API, including the client one causes problems
     execWarRuntime 'javax.websocket:javax.websocket-api:1.0' // using 1.0, don't update to 1.1 until used in Jetty, Tomcat, etc
-    execWarRuntime ('org.eclipse.jetty.websocket:websocket-jetty-server:10.0.6') // Apache 2.0
+    execWarRuntime ('org.eclipse.jetty.websocket:websocket-jetty-server:10.0.8') // Apache 2.0
     // only include this if using Endpoint and MessageHandler annotations:
-    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:10.0.6') // Apache 2.0
-    execWarRuntime 'org.apache.logging.log4j:log4j-slf4j18-impl:2.17.1'
+    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:10.0.8') // Apache 2.0
+    execWarRuntime 'org.apache.logging.log4j:log4j-slf4j18-impl:2.17.2'
 }
 
 // setup task dependencies to make sure the start sourceSets always get run
@@ -228,8 +228,6 @@ sourceSets.test.compileClasspath += files(sourceSets.main.output.classesDirs)
 check.dependsOn.clear()
 
 test {
-//    useJUnitPlatform { includeEngines 'junit-jupiter', 'junit-vintage' }
-    testLogging { events "passed", "skipped", "failed" }
     dependsOn cleanTest
     include '**/*MoquiSuite.class'
 
@@ -243,7 +241,10 @@ test {
     // filter out classpath entries that don't exist (gradle adds a bunch of these), or ElasticSearch JarHell will blow up
     classpath = classpath.filter { it.exists() }
 
+//    useJUnitPlatform { includeEngines 'junit-jupiter', 'junit-vintage' }
     useJUnitPlatform()
+    testLogging { events "passed", "skipped", "failed" }
+
     beforeTest { descriptor -> logger.lifecycle("Running test: ${descriptor}") }
 }
 
