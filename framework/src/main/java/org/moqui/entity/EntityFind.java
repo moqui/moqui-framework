@@ -303,7 +303,7 @@ public interface EntityFind extends java.io.Serializable, SimpleEtl.Extractor {
      * @return long representing number of rows effected by this operation
      * @throws EntityException
      */
-    long updateAll(Map<String, ?> fieldsToSet) throws EntityException;
+    long updateAll(Map<String, Object> fieldsToSet) throws EntityException;
 
     /** Delete entity records that match a condition.
      *

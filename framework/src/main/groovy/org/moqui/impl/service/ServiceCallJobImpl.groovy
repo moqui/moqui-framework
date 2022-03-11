@@ -66,7 +66,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
         serviceNameInternal((String) serviceJob.serviceName)
     }
 
-    @Override ServiceCallJob parameters(Map<String, ?> map) { parameters.putAll(map); return this }
+    @Override ServiceCallJob parameters(Map<String, Object> map) { parameters.putAll(map); return this }
     @Override ServiceCallJob parameter(String name, Object value) { parameters.put(name, value); return this }
     @Override ServiceCallJob localOnly(boolean local) { localOnly = local; return this }
 

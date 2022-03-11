@@ -97,10 +97,10 @@
         some components change system behavior and may cause unexpected and undesired results -->
     <component-set name="framework" components="example,moqui-aws,moqui-cups,moqui-fop,moqui-hazelcast,moqui-kie,moqui-orientdb,moqui-poi,moqui-sftp,moqui-wikitext"/>
     <component-set name="mantle" components="mantle-udm,mantle-usl,AuthorizeDotNet,mantle-edi,mantle-paytrace,mantle-shippo,mantle-yotpo"/>
-    <component-set name="apps" components="HiveMind,PopCommerce,PopRestStore"/>
+    <component-set name="apps" components="HiveMind,PopCommerce,PopRestStore,MarbleERP"/>
     <component-set name="ecosystem" sets="framework,mantle,apps"/>
 
-    <component-set name="demo" components="example,HiveMind,PopCommerce,PopRestStore"/>
+    <component-set name="demo" components="example,HiveMind,PopCommerce,PopRestStore,MarbleERP"/>
     <component-set name="popc" components="PopCommerce,PopRestStore"/>
 
     <!-- Release builds:

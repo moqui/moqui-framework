@@ -11,6 +11,7 @@
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
+/*
 package org.moqui.impl.webapp
 
 import groovy.transform.CompileStatic
@@ -209,7 +210,7 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint implements ActionListene
             this.session = groovyShellEndpoint.session
         }
 
-        /** Sometimes the pipe dies, exit from groovysh instead of infinite errors */
+        // Sometimes the pipe dies, exit from groovysh instead of infinite errors
         boolean checkDeadPipe(String bytesStr) {
             if (bytesStr != null && bytesStr.contains("Write end dead")) {
                 logger.warn("Got Write end dead, exiting from groovysh")
@@ -247,3 +248,4 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint implements ActionListene
         @Override void close() throws IOException { }
     }
 }
+*/
