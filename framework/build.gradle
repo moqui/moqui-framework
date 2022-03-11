@@ -19,10 +19,6 @@ tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:deprecation" }
 
 version = '3.0.0-rc9'
 
-configurations {
-    execWarRuntime.extendsFrom api
-}
-
 apply plugin: 'java-library'
 apply plugin: 'groovy'
 apply plugin: 'war'
