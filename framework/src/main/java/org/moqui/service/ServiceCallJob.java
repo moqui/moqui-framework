@@ -24,7 +24,7 @@ import java.util.concurrent.Future;
 @SuppressWarnings("unused")
 public interface ServiceCallJob extends ServiceCall, Future<Map<String, Object>> {
     /** Map of name, value pairs that make up the context (in parameters) passed to the service. */
-    ServiceCallJob parameters(Map<String, ?> context);
+    ServiceCallJob parameters(Map<String, Object> context);
     /** Single name, value pairs to put in the context (in parameters) passed to the service. */
     ServiceCallJob parameter(String name, Object value);
     /** Set to true to run local even if a distributed executor service is configured (defaults to false) */
