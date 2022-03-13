@@ -58,8 +58,8 @@ dependencies {
     // Freemarker
     implementation 'org.freemarker:freemarker:2.3.31' // Apache 2.0
     // Groovy
-    implementation 'org.codehaus.groovy:groovy:3.0.10' // Apache 2.0
-    implementation 'org.codehaus.groovy:groovy-json:3.0.10' // Apache 2.0
+    implementation 'org.codehaus.groovy:groovy:3.0.9' // Apache 2.0
+    implementation 'org.codehaus.groovy:groovy-json:3.0.9' // Apache 2.0
     // Jetty HTTP Client
     implementation 'org.eclipse.jetty:jetty-client:10.0.8' // Apache 2.0
     // javax.activation - required for Java 11
