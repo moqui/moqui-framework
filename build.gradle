@@ -155,24 +155,33 @@ task startElasticSearch(type:Exec) {
 }
 */
 task startElasticSearch { doLast {
-    if (file(moquiRuntime + '/elasticsearch/bin').exists() && !file(moquiRuntime + '/elasticsearch/pid').exists()) {
+    def pidFile = file(moquiRuntime + '/elasticsearch/pid')
+    def esBinFile = file(moquiRuntime + '/elasticsearch/bin')
+    if (esBinFile.exists() && !pidFile.exists()) {
         logger.lifecycle("Starting ElasticSearch installed in runtime/elasticsearch")
         ProcessBuilder pb = new ProcessBuilder('./bin/elasticsearch', '-d', '-p', 'pid')
         pb.directory(file(moquiRuntime + '/elasticsearch'))
         pb.redirectOutput()
         pb.redirectError()
         pb.start()
+    } else {
+        if (pidFile.exists()) logger.lifecycle("Not Starting ElasticSearch installed in runtime/elasticsearch, pid file already exists")
+        if (!esBinFile.exists()) logger.lifecycle("Not Starting ElasticSearch, no runtime/elasticsearch/bin directory found")
     }
 } }
 task stopElasticSearch { doLast {
     String esDir = moquiRuntime + '/elasticsearch'
     def pidFile = file(moquiRuntime + '/elasticsearch/pid')
-    if (pidFile.exists() && file(moquiRuntime + '/elasticsearch/bin').exists()) {
+    def esBinFile = file(moquiRuntime + '/elasticsearch/bin')
+    if (pidFile.exists() && esBinFile.exists()) {
         String pid = pidFile.getText()
         logger.lifecycle("Stopping ElasticSearch installed in runtime/elasticsearch with pid ${pid}")
         exec { workingDir esDir; commandLine 'kill', pid }
         // don't bother waiting in this case: exec { workingDir esDir; commandLine 'tail', "--pid=${pid}", '-f', '/dev/null' }
         if (pidFile.exists()) delete pidFile
+    } else {
+        if (!pidFile.exists()) logger.lifecycle("Not Stopping ElasticSearch installed in runtime/elasticsearch, no pid file found")
+        if (!esBinFile.exists()) logger.lifecycle("Not Stopping ElasticSearch, no runtime/elasticsearch/bin directory found")
     }
 } }
 
