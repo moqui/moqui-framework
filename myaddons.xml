@@ -68,7 +68,7 @@
     <!-- Component Sets for Convenience -->
     <component-set name="mk-moqui" components="moqui-aws,moqui-fop,moqui-poi,moqui-sftp,mantle-udm,mantle-usl,SimpleScreens,MarbleERP"/>
     <component-set name="mk-base-new" components="mk-services,mk-integrations,mk-store,daolos-vendor-dashboard"/>
-    <component-set name="mk-base-orig" components="mk-identity,mk-idology,moqui-ccos,moqui-close,moqui-close-decision,moqui-coreconnect,moqui-coreconnect-fis,moqui-creditconnect,moqui-creditconnect-experian,moqui-creditconnect-transunion,moqui-financial-worksheet,moqui-graphql,moqui-html-pdf,moqui-mk-dashboard,moqui-pac4j-authentication"/>
+    <component-set name="mk-base-orig" components="moqui-preciseid,mk-identity,mk-idology,moqui-ccos,moqui-close,moqui-close-decision,moqui-coreconnect,moqui-coreconnect-fis,moqui-creditconnect,moqui-creditconnect-experian,moqui-creditconnect-transunion,moqui-financial-worksheet,moqui-graphql,moqui-html-pdf,moqui-mk-dashboard,moqui-pac4j-authentication"/>
 
     <component-set name="mk-dev-base" sets="mk-moqui,mk-base-new,mk-base-orig"/>
 </addons>
