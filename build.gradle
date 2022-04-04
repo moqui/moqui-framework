@@ -147,7 +147,7 @@ task downloadElasticSearch { doLast {
 
     delete zipFile
 }}
-/* startElasticSearch old approach, with ES 7.10.2 never exits (though same command in terminal does)
+/* startElasticSearch old approach, with ES 7.10.2 never exits (though same command in terminal does) */
 task startElasticSearch(type:Exec) {
     workingDir moquiRuntime + '/elasticsearch'
     commandLine './bin/elasticsearch', '-d', '-p', 'pid'
@@ -155,7 +155,7 @@ task startElasticSearch(type:Exec) {
     onlyIf { file(moquiRuntime + '/elasticsearch/bin').exists() && !file(moquiRuntime + '/elasticsearch/pid').exists() }
     doFirst { logger.lifecycle("Starting ElasticSearch installed in runtime/elasticsearch") }
 }
-*/
+/* startElasticSearch new approach with ProcessBuilder, note that does nothing on macOS with Azul OpenJDK 11
 task startElasticSearch { doLast {
     def pidFile = file(moquiRuntime + '/elasticsearch/pid')
     def esBinFile = file(moquiRuntime + '/elasticsearch/bin')
@@ -171,6 +171,7 @@ task startElasticSearch { doLast {
         if (!esBinFile.exists()) logger.lifecycle("Not Starting ElasticSearch, no runtime/elasticsearch/bin directory found")
     }
 } }
+*/
 task stopElasticSearch { doLast {
     String esDir = moquiRuntime + '/elasticsearch'
     def pidFile = file(moquiRuntime + '/elasticsearch/pid')

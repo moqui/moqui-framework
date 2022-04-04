@@ -191,16 +191,19 @@ dependencies {
     // api 'org.liquibase:liquibase-core:3.4.2' // Apache 2.0
 
     // ========== test dependencies ==========
+    testImplementation platform("org.spockframework:spock-bom:2.1-groovy-3.0")
     testImplementation 'org.spockframework:spock-core:2.1-groovy-3.0' // Apache 2.0
     testImplementation 'org.spockframework:spock-junit4:2.1-groovy-3.0' // Apache 2.0
     testImplementation 'org.hamcrest:hamcrest-core:2.2' // BSD 3-Clause
 
-    // testImplementation 'junit:junit:4.13.2' // Apache 2.0
+    /* NOTE: these are left for reference but not needed, using spock-core and spock-junit4 dependencies from above:
     testImplementation(platform('org.junit:junit-bom:5.8.2'))
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.8.2'
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.2'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.2'
     testRuntimeOnly 'org.junit.vintage:junit-vintage-engine:5.8.2'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.8.2'
+    testCompileOnly 'junit:junit:4.13.2' // Apache 2.0
+    */
 
     // ========== executable war dependencies ==========
     // Jetty
@@ -227,18 +230,18 @@ sourceSets.test.compileClasspath += files(sourceSets.main.output.classesDirs)
 check.dependsOn.clear()
 
 test {
-    // TODO: commenting out the next line gets tests to run, but they run before the framework starts and all fail... weird
-    useJUnitPlatform { includeEngines 'junit-jupiter', 'junit-vintage' }
+    useJUnitPlatform() // { includeEngines 'junit-jupiter', 'junit-vintage' }
     testLogging { events "passed", "skipped", "failed" }
+    testLogging.showStandardStreams = true; testLogging.showExceptions = true
+    maxParallelForks 1
 
     dependsOn cleanTest
-    include '**/*MoquiSuite.class'
+    // TODO: find a new way to specify order of test classes to run (aside from alpha by name...), and to destroy ECF after all tests done
+    // include '**/*MoquiSuite.class'
 
     systemProperty 'moqui.runtime', '../runtime'
     systemProperty 'moqui.conf', 'conf/MoquiDevConf.xml'
     systemProperty 'moqui.init.static', 'true'
-
-    testLogging.showStandardStreams = true; testLogging.showExceptions = true
 
     classpath += files(sourceSets.main.output.classesDirs); classpath += files(projectDir.absolutePath)
     // filter out classpath entries that don't exist (gradle adds a bunch of these), or ElasticSearch JarHell will blow up
