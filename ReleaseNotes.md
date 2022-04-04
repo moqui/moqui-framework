@@ -5,17 +5,17 @@
 
 Moqui Framework 3.0.0 is a major new feature and bug fix release.
 
+Java 11 is now the minimum Java version required. For development and deployment make sure Java 11 is installed
+(such as openjdk-11-jdk or adoptopenjdk-11-openj9 on Linux), active (on Linux use 'sudo update-alternatives --config java'),
+and that JAVA_HOME is set to the Java 11 JDK install path (for openjdk-11-jdk on Linux: /usr/lib/jvm/java-11-openjdk-amd64).
+
 In this release the old moqui-elasticsearch component with embedded ElasticSearch is no longer supported. Instead, the new
 ElasticFacade is included in the framework as a client to an external ElasticSearch instance which can be installed in
 runtime/elasticsearch and automatically started/stopped in a separate process by the MoquiStart class (executable WAR, not when
 WAR file dropped into Servlet container).
 
-Java 11 is now the minimum Java version required. For development and deployment make sure Java 11 is installed 
-(such as openjdk-11-jdk or adoptopenjdk-11-openj9 on Linux), active (on Linux use 'sudo update-alternatives --config java'),
-and that JAVA_HOME is set to the Java 11 JDK install path (for openjdk-11-jdk on Linux: /usr/lib/jvm/java-11-openjdk-amd64).
-
 Note that ElasticSearch 7.10.2 is the recommended version for this release, and is the last version released under the Apache 2.0
-license. Going forward the alternative is to use Open Distro for ElasticSearch (https://opendistro.github.io/for-elasticsearch/).
+license. Going forward the alternatives include Open Search (https://opensearch.org/) or Open Distro for ElasticSearch (https://opendistro.github.io/for-elasticsearch/).
 
 For a complete list of changes see:
 
@@ -24,6 +24,8 @@ https://github.com/moqui/moqui-framework/compare/v2.1.3...v3.0.0
 ### Non Backward Compatible Changes
 
 - Java 11 is now required, updated from Java 8
+- Updated Spock to 2.1 and with that update now using JUnit Platform and JUnit 5 (Jupiter); with this update old JUnit 4
+  tests should work, but JUnit 4 test suites need to be updated to use the JUnit Platform and Jupiter annotations
 - Library updates have been done that conflict with ElasticSearch making it impossible to run embedded
 - XMLRPC support had been partly removed years ago, is now completely removed
 - CUPS4J library no longer included in moqui-framework
@@ -32,7 +34,8 @@ https://github.com/moqui/moqui-framework/compare/v2.1.3...v3.0.0
 
 ### New Features
 
-- Recommended Gradle version is 5.6.4 (at least Gradle 5+ but not Gradle 6+ for compatibility with current plugins)
+- Recommended Gradle version is 7+ with updates to support the latest versions of Gradle
+- Updated Jetty to version 10 (which requires Java 11 or later)
 - Optimization for startup-add-missing to get meta data for all tables and columns instead of per entity for much faster startup
   when enabled; default for runtime-add-missing is now 'false' and startup-add-missing is now 'true' for all DBs including H2
 - View Entity find improvements
