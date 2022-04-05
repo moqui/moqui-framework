@@ -56,10 +56,10 @@ groovydoc {
     source = sourceSets.main.allSource
 }
 
-tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:unchecked" }
-tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:deprecation" }
-tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:unchecked" }
-tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:deprecation" }
+// tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:unchecked" }
+// tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:deprecation" }
+// tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:unchecked" }
+// tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:deprecation" }
 
 // Log4J has annotation processors, disable to avoid warning
 tasks.withType(JavaCompile) { options.compilerArgs << "-proc:none" }
