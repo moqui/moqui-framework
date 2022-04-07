@@ -75,6 +75,8 @@ dependencies {
     api 'org.codehaus.groovy:groovy:3.0.9' // Apache 2.0
     api 'org.codehaus.groovy:groovy-dateutil:3.0.9' // Apache 2.0
     api 'org.codehaus.groovy:groovy-groovysh:3.0.9' // Apache 2.0
+    // jline, an older version, is required by groovy-groovysh but not in its dependencies
+    implementation 'jline:jline:2.14.6' // BSD
     api 'org.codehaus.groovy:groovy-json:3.0.9' // Apache 2.0
     api 'org.codehaus.groovy:groovy-templates:3.0.9' // Apache 2.0
     api 'org.codehaus.groovy:groovy-xml:3.0.9' // Apache 2.0
