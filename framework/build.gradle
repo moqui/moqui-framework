@@ -70,8 +70,6 @@ dependencies {
     api project(':moqui-util')
 
     // Groovy
-    // NOTE: update attempt to 3 series failed, build performance fine in 3.0.8 and later vs 3.0.2, but updated Spock required (tried 2.0-groovy-3.0) and
-    //     tests do not run with error 'Invalid test class' '1. No runnable methods'
     // NOTE: Groovy 3.0.10 has a bug that somehow causes EntityDefinition.isViewEntity (public final boolean) to switch
     //     from true during constructor to false later on; see EntityFindBuilder.java:111-112, EntityDefinition.groovy:92
     api 'org.codehaus.groovy:groovy:3.0.9' // Apache 2.0
