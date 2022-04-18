@@ -40,6 +40,7 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint implements ActionListene
     PrintWriter inputWriter = null
     Thread groovyshThread = null
     Timer inactivityTimer = null
+    StringBuilder commandLogBuffer = new StringBuilder()
 
     GroovyShellEndpoint() { super() }
 
@@ -62,6 +63,7 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint implements ActionListene
 
         io = new IO(input, output, output)
         io.verbosity = IO.Verbosity.VERBOSE
+        // maybe not a good idea: eci.contextStack.put("io", io)
         groovysh = new Groovysh(ecf.classLoader, eci.getContextBinding(), io)
 
         // init inactivity timer, 300 seconds (5 min)
@@ -97,7 +99,8 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint implements ActionListene
                     // this is deprecated, but Groovysh doesn't seem to have other reliable ways to stop it
                     // TODO: find other ways to stop Groovysh
                     //     note that also tried interrupting run loop but didn't work: groovysh.runner.running = false
-                    groovyshThread.destroy()
+                    // NOTE: destroy() throws java.lang.NoSuchMethodError
+                    groovyshThread.stop()
                 } catch (Exception e) {
                     logger.error("Error destroying GroovyShell thread", e)
                 }
@@ -131,10 +134,15 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint implements ActionListene
     }
 
     @Override
-    void onMessage(String message) {
+    synchronized void onMessage(String message) {
         // logger.warn("received groovy ws message: ${message}")
         if (inputWriter != null) {
             inactivityTimer.restart()
+            commandLogBuffer.append(message)
+            if (message.contains("\n") || message.contains("\r")) {
+                logger.info("groovysh (${eci.userFacade.username}): ${commandLogBuffer}")
+                commandLogBuffer.delete(0, commandLogBuffer.length())
+            }
             inputWriter.write(message)
             inputWriter.flush()
         } else {
