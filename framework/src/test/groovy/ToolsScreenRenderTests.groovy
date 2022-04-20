@@ -97,7 +97,7 @@ class ToolsScreenRenderTests extends Specification {
         "Entity/DataExport/EntityExport?entityNames=moqui.test.TestEntity&dependentLevels=1&fileType=JSON&output=browser" | "Test Name A" | "testMedium"
         "Entity/DataExport/EntityExport?entityNames=moqui.test.TestEntity&dependentLevels=1&fileType=XML&output=browser" | "Test Name A" | "testMedium"
         "Entity/DataImport" | "" | ""
-        "Entity/SqlRunner?groupName=transactional&sql=SELECT * FROM TEST_ENTITY" | "Test Name A" | ""
+        // test admin user no longer has access to this by default: "Entity/SqlRunner?groupName=transactional&sql=SELECT * FROM TEST_ENTITY" | "Test Name A" | ""
         // run with very few baseCalls so it doesn't take too long
         "Entity/SpeedTest?baseCalls=10" | "" | ""
 

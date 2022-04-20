@@ -466,7 +466,12 @@ class WebFacadeImpl implements WebFacade {
         String servletPath = request.getServletPath()
         // subtract 1 to exclude empty string before leading '/' that will always be there
         int servletPathSize = servletPath.isEmpty() ? 0 : (servletPath.split("/").length - 1)
-        ArrayList<String> pathList = StringUtilities.pathStringToList(reqURI, servletPathSize)
+
+        // exclude context path segments
+        String contextPath = request.getContextPath()
+        int contextPathSize = contextPath.isEmpty() ? 0 : (contextPath.split("/").length - 1)
+
+        ArrayList<String> pathList = StringUtilities.pathStringToList(reqURI, servletPathSize + contextPathSize)
         // logger.warn("pathInfo ${request.getPathInfo()} servletPath ${servletPath} reqURI ${request.getRequestURI()} pathList ${pathList}")
         return pathList
     }

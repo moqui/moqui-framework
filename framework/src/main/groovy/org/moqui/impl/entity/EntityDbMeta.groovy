@@ -698,7 +698,9 @@ class EntityDbMeta {
         }
 
         // do fk auto indexes
-        if (databaseNode.attribute("use-foreign-key-indexes") == "false") return
+        // nothing after fk indexes to return now if disabled
+        if (databaseNode.attribute("use-foreign-key-indexes") == "false") return created
+
         for (RelationshipInfo relInfo in ed.getRelationshipsInfo(false)) {
             if (relInfo.type != "one") continue
 

@@ -90,14 +90,14 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
     }
 
     static class AsyncServiceInfo implements Externalizable {
-        transient ExecutionContextFactoryImpl ecfi
+        transient ExecutionContextFactoryImpl ecfiLocal
         String threadUsername
         String serviceName
         Map<String, Object> parameters
 
         AsyncServiceInfo() { }
         AsyncServiceInfo(ExecutionContextImpl eci, String serviceName, Map<String, Object> parameters) {
-            ecfi = eci.ecfi
+            ecfiLocal = eci.ecfi
             threadUsername = eci.userFacade.username
             this.serviceName = serviceName
             this.parameters = new HashMap<>(parameters)
@@ -118,24 +118,24 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
         }
 
         ExecutionContextFactoryImpl getEcfi() {
-            if (ecfi == null) ecfi = (ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory()
-            return ecfi
+            if (ecfiLocal == null) ecfiLocal = (ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory()
+            return ecfiLocal
         }
 
         Map<String, Object> runInternal() throws Exception {
             ExecutionContextImpl threadEci = (ExecutionContextImpl) null
             try {
                 // check for active Transaction
-                if (ecfi.transactionFacade.isTransactionInPlace()) {
+                if (getEcfi().transactionFacade.isTransactionInPlace()) {
                     logger.error("In ServiceCallAsync service ${serviceName} a transaction is in place for thread ${Thread.currentThread().getName()}, trying to commit")
                     try {
-                        ecfi.transactionFacade.destroyAllInThread()
+                        getEcfi().transactionFacade.destroyAllInThread()
                     } catch (Exception e) {
                         logger.error("ServiceCallAsync commit in place transaction failed for thread ${Thread.currentThread().getName()}", e)
                     }
                 }
                 // check for active ExecutionContext
-                ExecutionContextImpl activeEc = ecfi.activeContext.get()
+                ExecutionContextImpl activeEc = getEcfi().activeContext.get()
                 if (activeEc != null) {
                     logger.error("In ServiceCallAsync service ${serviceName} there is already an ExecutionContext for user ${activeEc.user.username} (from ${activeEc.forThreadId}:${activeEc.forThreadName}) in this thread ${Thread.currentThread().id}:${Thread.currentThread().name}, destroying")
                     try {

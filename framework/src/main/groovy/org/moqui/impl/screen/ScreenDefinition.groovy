@@ -284,7 +284,11 @@ class ScreenDefinition {
                 sectionByName.put(sectionName, new ScreenSection(ecfi, useNode, "${location}.section_iterate\$${sectionName}"))
             }
             for (MNode sectionNode in descMap.get('section-include')) {
-                pullSectionInclude(sectionNode)
+                String sectionLocation = sectionNode.attribute("location")
+                String sectionName = sectionNode.attribute("name")
+                boolean isDynamic = (sectionLocation != null && sectionLocation.contains('${')) || (sectionName != null && sectionName.contains('${'))
+                // if the section-include is dynamic then don't pull it now, do at runtime based on dynamic name and location
+                if (!isDynamic) pullSectionInclude(sectionNode)
             }
 
             // get all forms by name
@@ -335,18 +339,27 @@ class ScreenDefinition {
         if (logger.isTraceEnabled()) logger.trace("Loaded screen at [${location}] in [${(System.currentTimeMillis()-startTime)/1000}] seconds")
     }
 
-    void pullSectionInclude(MNode sectionNode) {
-        String location = sectionNode.attribute("location")
-        String sectionName = sectionNode.attribute("name")
+    void pullSectionInclude(MNode sectionIncludeNode) {
+        String location = sectionIncludeNode.attribute("location")
+        String sectionName = sectionIncludeNode.attribute("name")
+        boolean isDynamic = (location != null && location.contains('${')) || (sectionName != null && sectionName.contains('${'))
+        String cacheName = null
+        if (isDynamic) {
+            location = sfi.ecfi.resourceFacade.expandNoL10n(location, null)
+            sectionName = sfi.ecfi.resourceFacade.expandNoL10n(sectionName, null)
+            // get fullName for sectionByName cache before checking location for # so that matches what ScreenRenderImpl.renderSectionInclude() does
+            cacheName = location + "#" + sectionName
+        }
         if (location.contains('#')) {
             sectionName = location.substring(location.indexOf('#') + 1)
             location = location.substring(0, location.indexOf('#'))
         }
+        if (!isDynamic) cacheName = sectionName
 
         ScreenDefinition includeScreen = sfi.getEcfi().screenFacade.getScreenDefinition(location)
         ScreenSection includeSection = includeScreen?.getSection(sectionName)
-        if (includeSection == null) throw new BaseArtifactException("Could not find section [${sectionNode.attribute("name")} to include at location [${sectionNode.attribute("location")}]")
-        sectionByName.put(sectionNode.attribute("name"), includeSection)
+        if (includeSection == null) throw new BaseArtifactException("Could not find section ${sectionName} to include at location ${location}")
+        sectionByName.put(cacheName, includeSection)
         dependsOnScreenLocations.add(location)
 
         Map<String, ArrayList<MNode>> descMap = includeSection.sectionNode.descendants(
