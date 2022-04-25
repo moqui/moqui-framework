@@ -1022,7 +1022,7 @@ class UserFacadeImpl implements UserFacade {
         Set<String> internalUserGroupIdSet = (Set<String>) null
         // these two are used by ArtifactExecutionFacadeImpl but are maintained here to be cleared when user changes, are based on current user's groups
         final EnumMap<ArtifactExecutionInfo.ArtifactType, ArrayList<Map<String, Object>>> internalArtifactTarpitCheckListMap =
-                new EnumMap<>(ArtifactExecutionInfo.ArtifactType.class)
+                new EnumMap<ArtifactExecutionInfo.ArtifactType, ArrayList<Map<String, Object>>>(ArtifactExecutionInfo.ArtifactType.class)
         ArrayList<ArtifactAuthzCheck> internalArtifactAuthzCheckList = (ArrayList<ArtifactAuthzCheck>) null
 
         Locale localeCache = (Locale) null

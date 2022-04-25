@@ -89,6 +89,7 @@ class EntityDefinition {
         fullEntityName = packageName + "." + internalEntityNode.attribute("entity-name")
 
         isViewEntity = "view-entity".equals(internalEntityNode.getName())
+        if (fullEntityName.contains("ArtifactTarpitCheckView")) logger.warn("===== TOREMOVE ===== entity ${fullEntityName} node ${internalEntityNode.getName()} isViewEntity ${isViewEntity} ${this}")
         isDynamicView = "true".equals(internalEntityNode.attribute("is-dynamic-view"))
 
         if (isDynamicView) {
