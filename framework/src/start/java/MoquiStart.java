@@ -212,7 +212,8 @@ public class MoquiStart {
             Class<?> httpConnectionFactoryClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.HttpConnectionFactory");
 
             Class<?> scHandlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.servlet.ServletContextHandler");
-            Class<?> wsInitializerClass = moquiStartLoader.loadClass("org.eclipse.jetty.websocket.jsr356.server.deploy.WebSocketServerContainerInitializer");
+            Class<?> wsInitializerClass = moquiStartLoader.loadClass("org.eclipse.jetty.websocket.javax.server.config.JavaxWebSocketServletContainerInitializer");
+            Class<?> wsInitializerConfiguratorClass = moquiStartLoader.loadClass("org.eclipse.jetty.websocket.javax.server.config.JavaxWebSocketServletContainerInitializer$Configurator");
 
             Class<?> gzipHandlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.handler.gzip.GzipHandler");
             Class<?> handlerWrapperClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.handler.HandlerWrapper");
@@ -276,7 +277,7 @@ public class MoquiStart {
             webappClass.getMethod("setClassLoader", ClassLoader.class).invoke(webapp, moquiStartLoader);
 
             // WebSocket
-            Object wsContainer = wsInitializerClass.getMethod("configureContext", scHandlerClass).invoke(null, webapp);
+            Object wsContainer = wsInitializerClass.getMethod("configure", scHandlerClass, wsInitializerConfiguratorClass).invoke(null, webapp, null);
             webappClass.getMethod("setAttribute", String.class, Object.class).invoke(webapp, "javax.websocket.server.ServerContainer", wsContainer);
 
             // GzipHandler
@@ -825,8 +826,8 @@ public class MoquiStart {
 
             int dotIndex = className.lastIndexOf('.');
             String packageName = dotIndex > 0 ? className.substring(0, dotIndex) : "";
-            // NOTE: for Java 11 change getPackage() to getDefinedPackage(), can't do before because getDefinedPackage() doesn't exist in Java 8
-            if (getPackage(packageName) == null) {
+            // NOTE: for Java 11 changed getPackage() to getDefinedPackage(), can't do before because getDefinedPackage() doesn't exist in Java 8
+            if (getDefinedPackage(packageName) == null) {
                 definePackage(packageName,
                         mf.getMainAttributes().getValue(Attributes.Name.SPECIFICATION_TITLE),
                         mf.getMainAttributes().getValue(Attributes.Name.SPECIFICATION_VERSION),
