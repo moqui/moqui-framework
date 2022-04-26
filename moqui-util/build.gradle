@@ -61,7 +61,7 @@ dependencies {
     implementation 'org.codehaus.groovy:groovy:3.0.9' // Apache 2.0
     implementation 'org.codehaus.groovy:groovy-json:3.0.9' // Apache 2.0
     // Jetty HTTP Client
-    implementation 'org.eclipse.jetty:jetty-client:10.0.8' // Apache 2.0
+    implementation 'org.eclipse.jetty:jetty-client:10.0.9' // Apache 2.0
     // javax.activation - required for Java 11
     implementation 'com.sun.activation:javax.activation:1.2.0' // CDDL 1.1
     // Apache Commons
