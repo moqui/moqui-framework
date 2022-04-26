@@ -67,8 +67,6 @@ tasks.withType(GroovyCompile) { options.compilerArgs << "-proc:none" }
 
 // NOTE: for dependency types and 'api' definition see: https://docs.gradle.org/current/userguide/java_library_plugin.html
 dependencies {
-    api project(':moqui-util')
-
     // Groovy
     // NOTE: Groovy 3.0.10 has a bug that somehow causes EntityDefinition.isViewEntity (public final boolean) to switch
     //     from true during constructor to false later on; see EntityFindBuilder.java:111-112, EntityDefinition.groovy:92
