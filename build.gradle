@@ -111,6 +111,8 @@ def cleanElasticSearch(String moquiRuntime) {
     }
 }
 task downloadOpenSearch { doLast {
+    // NOTE: works with Linux and macOS
+    // TODO: Windows support...
     String distType = "tar.gz"
     // https://artifacts.opensearch.org/releases/core/opensearch/1.3.1/opensearch-min-1.3.1-linux-x64.tar.gz
     String esUrl = "https://artifacts.opensearch.org/releases/core/opensearch/${openSearchVersion}/opensearch-min-${openSearchVersion}-linux-x64.${distType}"
