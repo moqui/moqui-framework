@@ -103,7 +103,7 @@ public class MoquiStart {
             System.out.println("    port=<port> ---------------- The http listening port. Default is 8080");
             System.out.println("    threads=<max threads> ------ Maximum number of threads. Default is 100");
             System.out.println("    conf=<moqui.conf> ---------- The Moqui Conf XML file to use, overrides other ways of specifying it");
-            System.out.println("    no-run-es ------------------- Don't Try starting and stopping ElasticSearch in runtime/elasticsearch");
+            System.out.println("    no-run-es ------------------- Don't Try starting and stopping OpenSearch in runtime/opensearch or ElasticSearch in runtime/elasticsearch");
             System.out.println("");
             System.exit(0);
         }
@@ -472,37 +472,40 @@ public class MoquiStart {
 
     private static Process checkStartElasticSearch() {
         String runtimePath = System.getProperty("moqui.runtime");
-        String esDir = runtimePath + "/elasticsearch";
-        if (!new File(esDir + "/bin").exists()) return null;
-        if (new File(esDir + "/pid").exists()) {
-            System.out.println("ElasticSearch install found in runtime/elasticsearch, pid file found so not starting");
+        File osDir = new File(runtimePath + "/opensearch");
+        boolean osDirExists = osDir.exists();
+        String baseName = osDirExists ? "opensearch" : "elasticsearch";
+        String workDir = runtimePath + "/" + baseName;
+        if (!new File(workDir + "/bin").exists()) return null;
+        if (new File(workDir + "/pid").exists()) {
+            System.out.println((osDirExists ? "OpenSearch" : "ElasticSearch") + " install found in " + workDir + ", pid file found so not starting");
             return null;
         }
         String javaHome = System.getProperty("java.home");
-        System.out.println("Starting ElasticSearch install found in runtime/elasticsearch, pid file not found (" + javaHome + ")");
+        System.out.println("Starting " + (osDirExists ? "OpenSearch" : "ElasticSearch") + " install found in " + workDir + ", pid file not found (JDK: " + javaHome + ")");
         boolean isWindows = System.getProperty("os.name").toLowerCase().startsWith("windows");
         try {
             String[] command;
             if (isWindows) {
-                command = new String[] {"cmd.exe", "/c", "bin\\elasticsearch.bat"};
+                command = new String[] {"cmd.exe", "/c", "bin\\" + baseName + ".bat"};
             } else {
-                command = new String[]{"./bin/elasticsearch"};
+                command = new String[]{"./bin/" + baseName};
                 try {
-                    boolean elasticsearchOwner = Files.getOwner(Paths.get(runtimePath, "elasticsearch")).getName().equals("elasticsearch");
-                    boolean suAble = Runtime.getRuntime().exec(new String[]{"/bin/su", "-c", "/bin/true", "elasticsearch"}).waitFor() == 0;
-                    if (elasticsearchOwner && suAble) command = new String[]{"su", "-c", "./bin/elasticsearch", "elasticsearch"};
+                    boolean elasticsearchOwner = Files.getOwner(Paths.get(runtimePath, baseName)).getName().equals(baseName);
+                    boolean suAble = Runtime.getRuntime().exec(new String[]{"/bin/su", "-c", "/bin/true", baseName}).waitFor() == 0;
+                    if (elasticsearchOwner && suAble) command = new String[]{"su", "-c", "./bin/" + baseName, baseName};
                 } catch (IOException e) {}
             }
             ProcessBuilder pb = new ProcessBuilder(command);
             pb.redirectErrorStream(true);
-            pb.directory(new File(esDir));
+            pb.directory(new File(workDir));
             pb.environment().put("JAVA_HOME", javaHome);
             pb.inheritIO();
             Process esProcess = pb.start();
             System.setProperty("moqui.elasticsearch.started", "true");
             return esProcess;
         } catch (Exception e) {
-            System.out.println("Error starting ElasticSearch in runtime/elasticsearch: " + e.toString());
+            System.out.println("Error starting " + (osDirExists ? "OpenSearch" : "ElasticSearch") + " in " + workDir + ": " + e);
             return null;
         }
     }

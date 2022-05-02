@@ -167,6 +167,7 @@ class ElasticFacadeImpl implements ElasticFacade {
         private Map serverInfo = (Map) null
         private String esVersion = (String) null
         private boolean esVersionUnder7 = false
+        private boolean isOpenSearch = false
 
         ElasticClientImpl(MNode clusterNode, ExecutionContextFactoryImpl ecfi) {
             this.ecfi = ecfi
@@ -209,9 +210,13 @@ class ElasticFacadeImpl implements ElasticFacade {
                     }
                 }
                 if (serverInfo != null) {
-                    esVersion = ((Map) serverInfo.version)?.number
-                    esVersionUnder7 = esVersion?.charAt(0) < ((char) '7')
-                    logger.info("Connected to ElasticSearch cluster ${clusterName} at ${clusterProtocol}://${clusterHost}:${clusterPort} version ${esVersion} earlier than 7.0 ${esVersionUnder7}\n${serverInfo}")
+                    // [name:dejc-m1p.local, cluster_name:opensearch, cluster_uuid:aoMc3T7ES9yCC6yzi-_Ghg, version:[distribution:opensearch, number:1.3.1, build_type:tar, build_hash:c4c0672877bf0f787ca857c7c37b775967f93d81, build_date:2022-03-29T18:34:46.566802Z, build_snapshot:false, lucene_version:8.10.1, minimum_wire_compatibility_version:6.8.0, minimum_index_compatibility_version:6.0.0-beta1], tagline:The OpenSearch Project: https://opensearch.org/]
+                    Map versionMap = ((Map) serverInfo.version)
+                    String distro = versionMap?.distribution ?: "elasticsearch"
+                    isOpenSearch = "opensearch".equals(distro)
+                    esVersion = versionMap?.number
+                    esVersionUnder7 = !isOpenSearch && esVersion?.charAt(0) < ((char) '7')
+                    logger.info("Connected to ElasticSearch cluster ${clusterName} at ${clusterProtocol}://${clusterHost}:${clusterPort} distribution ${distro} version ${esVersion}, ES earlier than 7.0? ${esVersionUnder7}\n${serverInfo}")
                     break
                 }
             }
