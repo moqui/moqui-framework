@@ -58,10 +58,10 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import javax.annotation.Nonnull
-import javax.servlet.ServletContext
-import javax.servlet.http.HttpServletRequest
-import javax.servlet.http.HttpServletResponse
-import javax.websocket.server.ServerContainer
+import jakarta.servlet.ServletContext
+import jakarta.servlet.http.HttpServletRequest
+import jakarta.servlet.http.HttpServletResponse
+import jakarta.websocket.server.ServerContainer
 import java.lang.management.ManagementFactory
 import java.math.RoundingMode
 import java.sql.Timestamp
@@ -126,7 +126,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected org.apache.shiro.mgt.SecurityManager internalSecurityManager
     /** The ServletContext, if Moqui was initialized in a webapp (generally through MoquiContextListener) */
     protected ServletContext internalServletContext = null
-    /** The WebSocket ServerContainer, if found in 'javax.websocket.server.ServerContainer' ServletContext attribute */
+    /** The WebSocket ServerContainer, if found in 'jakarta.websocket.server.ServerContainer' ServletContext attribute */
     protected ServerContainer internalServerContainer = null
 
     /** Notification Message Topic (for distributed notifications) */
@@ -1070,7 +1070,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     @Override @Nonnull ServerContainer getServerContainer() { internalServerContainer }
     @Override void initServletContext(ServletContext sc) {
         internalServletContext = sc
-        internalServerContainer = (ServerContainer) sc.getAttribute("javax.websocket.server.ServerContainer")
+        internalServerContainer = (ServerContainer) sc.getAttribute("jakarta.websocket.server.ServerContainer")
     }
 
 

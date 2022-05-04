@@ -237,7 +237,7 @@ along with this software (see the LICENSE.md file). If not, see
                         <xs:attribute name="path" type="xs:string" use="required"><xs:annotation><xs:documentation>
                             The path for the endpoint, relative to webapp, must start with forward slash ('/')</xs:documentation></xs:annotation></xs:attribute>
                         <xs:attribute name="class" type="xs:string" use="required"><xs:annotation><xs:documentation>
-                            Must extend javax.websocket.Endpoint. For Moqui-specific features including setting up an ExecutionContext
+                            Must extend jakarta.websocket.Endpoint. For Moqui-specific features including setting up an ExecutionContext
                             extend org.moqui.impl.webapp.MoquiAbstractEndpoint. Even if not using MoquiAbstractEndpoint it will try
                             to add the following ServerEndpointConfig user properties: handshakeRequest, httpSession,
                             executionContextFactory, and maxIdleTimeout (set to value of @timeout).</xs:documentation></xs:annotation></xs:attribute>

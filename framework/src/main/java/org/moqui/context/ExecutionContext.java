@@ -26,8 +26,8 @@ import org.moqui.util.ContextStack;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 /**
  * Interface definition for object used throughout the Moqui Framework to manage contextual execution information and

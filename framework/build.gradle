@@ -58,8 +58,8 @@ groovydoc {
 
 // tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:unchecked" }
 // tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:deprecation" }
-// tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:unchecked" }
-// tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:deprecation" }
+tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:unchecked" }
+tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:deprecation" }
 
 // Log4J has annotation processors, disable to avoid warning
 tasks.withType(JavaCompile) { options.compilerArgs << "-proc:none" }
@@ -125,10 +125,10 @@ dependencies {
     // NOTE: javax.activation:javax.activation-api is required by jaxb-api, has classes same as old 2012 javax.activation:activation used by javax.mail
     // NOTE: as of Java 11 the com.sun packages no longer available so for javax.mail need full javax.activation jar (also includes javax.activation-api)
     api 'com.sun.activation:javax.activation:1.2.0' // CDDL 1.1
-    api 'javax.websocket:javax.websocket-api:1.1'
-    // TODO: this should be compileOnlyApi, but that was not included in Gradle 5... so cannot have excluded from
+    // TODO: these 2 should be compileOnlyApi, but that was not included in Gradle 5... so cannot have excluded from
     //     runtime in a single way for Gradle 5 and 7; for now leaving in api, not desirable because we don't want it in the war file
-    api 'javax.servlet:javax.servlet-api:4.0.1'
+    api 'jakarta.servlet:jakarta.servlet-api:5.0.0'
+    api 'jakarta.websocket:jakarta.websocket-api:2.0.0'
     // Specs not needed by default:
     // api 'javax.resource:connector-api:1.5'
     // api 'javax.jms:jms:1.1'
@@ -145,8 +145,8 @@ dependencies {
     api 'com.fasterxml.jackson.core:jackson-databind:2.13.2.2'
 
     // Jetty HTTP Client and Proxy Servlet
-    api 'org.eclipse.jetty:jetty-client:10.0.9' // Apache 2.0
-    api 'org.eclipse.jetty:jetty-proxy:10.0.9' // Apache 2.0
+    api 'org.eclipse.jetty:jetty-client:11.0.9' // Apache 2.0
+    api 'org.eclipse.jetty:jetty-proxy:11.0.9' // Apache 2.0
 
     // javax.mail
     // NOTE: javax.mail depends on 'javax.activation:activation' which is the old package for 'javax.activation:javax.activation-api' used by jaxb-api
@@ -161,6 +161,7 @@ dependencies {
 
     // Apache Shiro
     api module('org.apache.shiro:shiro-core:1.9.0') // Apache 2.0
+    // NOTE: shiro-web depends on the javax.servlet packages, Groovy compile fails with: "General error during canonicalization: java.lang.NoClassDefFoundError: javax.servlet.ServletRequest"
     api module('org.apache.shiro:shiro-web:1.9.0') // Apache 2.0
 
     // SLF4J, Log4j 2 (note Log4j 2 is used by various libraries, best not to replace it even if mostly possible with SLF4J)
@@ -204,16 +205,13 @@ dependencies {
 
     // ========== executable war dependencies ==========
     // Jetty
-    execWarRuntimeOnly 'org.eclipse.jetty:jetty-server:10.0.9' // Apache 2.0
-    execWarRuntimeOnly 'org.eclipse.jetty:jetty-webapp:10.0.9' // Apache 2.0
-    execWarRuntimeOnly 'org.eclipse.jetty:jetty-jndi:10.0.9' // Apache 2.0
-    execWarRuntimeOnly 'org.eclipse.jetty.websocket:websocket-javax-server:10.0.9' // Apache 2.0
-    execWarRuntimeOnly ('org.eclipse.jetty.websocket:websocket-javax-client:10.0.9') { // Apache 2.0
-        exclude group: 'javax.websocket' } // we have the full websocket API, including the client one causes problems
-    execWarRuntimeOnly 'javax.websocket:javax.websocket-api:1.0' // using 1.0, don't update to 1.1 until used in Jetty, Tomcat, etc
-    execWarRuntimeOnly ('org.eclipse.jetty.websocket:websocket-jetty-server:10.0.9') // Apache 2.0
+    execWarRuntimeOnly 'org.eclipse.jetty:jetty-server:11.0.9' // Apache 2.0
+    execWarRuntimeOnly 'org.eclipse.jetty:jetty-webapp:11.0.9' // Apache 2.0
+    execWarRuntimeOnly 'org.eclipse.jetty:jetty-jndi:11.0.9' // Apache 2.0
+    execWarRuntimeOnly 'org.eclipse.jetty.websocket:websocket-jetty-server:11.0.9' // Apache 2.0
+    execWarRuntimeOnly 'org.eclipse.jetty.websocket:websocket-jetty-client:11.0.9' // Apache 2.0
     // only include this if using Endpoint and MessageHandler annotations:
-    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:10.0.9') // Apache 2.0
+    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:11.0.9') // Apache 2.0
     execWarRuntimeOnly 'org.apache.logging.log4j:log4j-slf4j18-impl:2.17.2'
 }
 
