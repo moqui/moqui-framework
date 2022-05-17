@@ -16,6 +16,7 @@ package org.moqui.impl.service;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.safety.Safelist;
+import org.moqui.impl.context.ContextJavaUtil;
 import org.moqui.util.MClassLoader;
 import org.moqui.impl.context.ExecutionContextImpl;
 import org.moqui.util.MNode;
@@ -151,7 +152,7 @@ public class ParameterInfo {
         Object converted = null;
         boolean isEmptyString = isString && ((CharSequence) parameterValue).length() == 0;
         if (parmType != null && isString && !isEmptyString) {
-            String valueStr = parameterValue.toString();
+            String valueStr = parameterValue.toString().trim();
             // try some String to XYZ specific conversions for parsing with format, locale, etc
             switch (parmType) {
                 case INTEGER:
@@ -217,8 +218,14 @@ public class ParameterInfo {
                     }
                     break;
                 case MAP:
-                    if (valueStr.startsWith("{"))
-                        converted = new groovy.json.JsonSlurper().parseText(valueStr);
+                    if (valueStr.startsWith("{")) {
+                        try {
+                            converted = ContextJavaUtil.jacksonMapper.readValue(valueStr, Map.class);
+                        } catch (Exception e) {
+                            eci.messageFacade.addValidationError(null, namePrefix + name, serviceName,
+                                    "Could not convert JSON to Map", e);
+                        }
+                    }
                     break;
             }
         }
