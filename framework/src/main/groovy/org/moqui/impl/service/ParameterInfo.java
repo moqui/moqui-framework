@@ -32,7 +32,7 @@ public class ParameterInfo {
     protected final static Logger logger = LoggerFactory.getLogger(ParameterInfo.class);
 
     public enum ParameterAllowHtml { ANY, SAFE, NONE }
-    public enum ParameterType { STRING, INTEGER, LONG, FLOAT, DOUBLE, BIG_DECIMAL, BIG_INTEGER, TIME, DATE, TIMESTAMP, LIST, SET }
+    public enum ParameterType { STRING, INTEGER, LONG, FLOAT, DOUBLE, BIG_DECIMAL, BIG_INTEGER, TIME, DATE, TIMESTAMP, LIST, SET, MAP }
     public static Map<String, ParameterType> typeEnumByString = new HashMap<>();
     static {
         typeEnumByString.put("String", ParameterType.STRING); typeEnumByString.put("java.lang.String", ParameterType.STRING);
@@ -49,6 +49,7 @@ public class ParameterInfo {
         typeEnumByString.put("Collection", ParameterType.LIST); typeEnumByString.put("java.util.Collection", ParameterType.LIST);
         typeEnumByString.put("List", ParameterType.LIST); typeEnumByString.put("java.util.List", ParameterType.LIST);
         typeEnumByString.put("Set", ParameterType.SET); typeEnumByString.put("java.util.Set", ParameterType.SET);
+        typeEnumByString.put("Map", ParameterType.MAP); typeEnumByString.put("java.util.Map", ParameterType.MAP);
     }
 
     public final ServiceDefinition sd;
@@ -214,6 +215,10 @@ public class ParameterInfo {
                         newSet.add(valueStr);
                         converted = newSet;
                     }
+                    break;
+                case MAP:
+                    if (valueStr.startsWith("{"))
+                        converted = new groovy.json.JsonSlurper().parseText(valueStr);
                     break;
             }
         }
