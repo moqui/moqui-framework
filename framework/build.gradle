@@ -12,7 +12,7 @@
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
 
-version = '3.0.0-rc9'
+version = '3.0.0'
 
 apply plugin: 'java-library'
 apply plugin: 'groovy'
