@@ -101,7 +101,7 @@ def cleanElasticSearch(String moquiRuntime) {
 
             startSearch()
         } else {
-            logger.lifecycle("Found ${osDir.exists() ? 'OpenSearch' : 'ElasticSearch'} in ${workDir}/bin directory but no pid, deleting data without stop/start; WARNING if ElasticSearch is running this will cause problems!")
+            logger.lifecycle("Found ${osDir.exists() ? 'OpenSearch' : 'ElasticSearch'} in ${workDir}/bin directory but no pid, deleting data without stop/start; WARNING if ${osDir.exists() ? 'OpenSearch' : 'ElasticSearch'} is running this will cause problems!")
             delete file(workDir+'/data')
             if (file(workDir+'/logs').exists()) delete files(file(workDir+'/logs').listFiles())
         }
