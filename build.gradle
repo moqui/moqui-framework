@@ -785,7 +785,11 @@ task plusRuntimeWarTemp {
         // add Procfile to root
         copy { from file('Procfile') into 'wartemp' }
         // special case: copy elasticsearch plugin/module jars (needed for ES installed in runtime/elasticsearch
-        copy { from fileTree(dir: '.', include: moquiRuntime+'/elasticsearch/**/*.jar') into wartempFile }
+        if (file(moquiRuntime+'/elasticsearch').exists())
+            copy { from fileTree(dir: '.', include: moquiRuntime+'/elasticsearch/**/*.jar') into wartempFile }
+        // special case: copy opensearch plugin/module jars (needed for ES installed in runtime/opensearch
+        if (file(moquiRuntime+'/opensearch').exists())
+            copy { from fileTree(dir: '.', include: moquiRuntime+'/opensearch/**/*.jar') into wartempFile }
         // special case: copy jackrabbit standalone jar (if exists)
         copy { from fileTree(dir: moquiRuntime + '/jackrabbit', include: 'jackrabbit-standalone-*.jar').files; into 'wartemp/' + moquiRuntime + '/jackrabbit' }
 
