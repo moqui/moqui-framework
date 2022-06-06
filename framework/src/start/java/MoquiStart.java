@@ -115,6 +115,12 @@ public class MoquiStart {
             URL wrapperUrl = cs.getLocation();
             File wrapperFile = new File(wrapperUrl.toURI());
             if (wrapperFile.isDirectory()) isInWar = false;
+            /* to accommodate an executable start.jar file inside the executable WAR file:
+            if (isInWar && wrapperFile.getName().equals("start.jar")) {
+                isInWar = false;
+                // wrapperFile = wrapperFile.getParentFile();
+            }
+            */
         } catch (Exception e) {
             System.out.println("Error checking class wrapper: " + e.toString());
         }
@@ -591,6 +597,14 @@ public class MoquiStart {
                 wrapperUrl = cs.getLocation();
                 File wrapperFile = new File(wrapperUrl.toURI());
                 isInWar = !wrapperFile.isDirectory();
+
+                /* to accommodate an executable start.jar file inside the executable WAR file:
+                if (isInWar && wrapperFile.getName().equals("start.jar")) {
+                    isInWar = false;
+                    wrapperFile = wrapperFile.getParentFile();
+                    wrapperUrl = wrapperFile.toURI().toURL();
+                }
+                */
 
                 if (isInWar) {
                     JarFile outerFile = new JarFile(wrapperFile);
