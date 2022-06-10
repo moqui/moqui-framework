@@ -801,7 +801,7 @@ task listComponents(){
 }
 
 task listComponentSets(){
-    description "List of components in myaddons.xml"
+    description "List of component sets in myaddons.xml"
     doLast {
         Node myaddons = parseMyaddons()
 
