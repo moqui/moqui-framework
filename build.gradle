@@ -791,7 +791,6 @@ task listComponents(){
     description "List of components in myaddons.xml"
     doLast {
         Node myaddons = parseMyaddons()
-        logger.lifecycle("List of components in myaddons.xml")
 
         if (myaddons?.'component'){
             myaddons.'component'.each{
@@ -805,7 +804,6 @@ task listComponentSets(){
     description "List of components in myaddons.xml"
     doLast {
         Node myaddons = parseMyaddons()
-        logger.lifecycle("List of component sets in myaddons.xml")
 
         if (myaddons?.'component-set') {
             myaddons.'component-set'.each {
