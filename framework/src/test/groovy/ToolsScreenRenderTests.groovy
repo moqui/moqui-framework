@@ -107,7 +107,7 @@ class ToolsScreenRenderTests extends Specification {
         "Service/ServiceDetail?serviceName=org.moqui.impl.UserServices.create#UserAccount" |
                 "moqui.security.UserAccount.username" | """ec.service.sync().name(&quot;create#moqui.security.UserAccount&quot;)"""
         "Service/ServiceRun?serviceName=org.moqui.impl.UserServices.create#UserAccount" |
-                "User Full Name" | "Cron String"
+                "User Full Name" | "Run Service"
         // run the service, then make sure it ran
         "Service/ServiceRun/run?serviceName=org.moqui.impl.UserServices.create#UserAccount&username=ScreenTest&newPassword=moqui1!!&newPasswordVerify=moqui1!!&userFullName=Screen Test User&emailAddress=screen@test.com" | "" | ""
         "Entity/DataEdit/EntityDataFind?username=ScreenTest&selectedEntity=moqui.security.UserAccount" |
