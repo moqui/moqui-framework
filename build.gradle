@@ -806,7 +806,7 @@ task listComponents(){
                                 for (comp in componentSetsList){
                                     def componentNode =  myaddons.'component'.find {it.@name == comp}
                                     if (componentNode) {
-                                        logger.lifecycle("${componentNode.@name} ${componentNode?.@version ?: 'latest'}")
+                                        logger.lifecycle("${componentNode.@name}:${componentNode?.@version ?: 'latest'}")
                                     } else {
                                         logger.lifecycle("component was not found ${comp}")
                                     }
@@ -822,7 +822,7 @@ task listComponents(){
                     for (comp in componentsList){
                         def componentNode =  myaddons.'component'.find {it.@name == comp}
                         if (componentNode) {
-                            logger.lifecycle("${componentNode.@name} ${componentNode?.@version ?: 'latest'}")
+                            logger.lifecycle("${componentNode.@name}:${componentNode?.@version ?: 'latest'}")
                         } else {
                             logger.lifecycle("component was not found ${comp}")
                         }
@@ -832,7 +832,7 @@ task listComponents(){
         } else {
             if (myaddons?.'component'){
                 myaddons.'component'.each{
-                    logger.lifecycle("${it.@name} ${it?.@version ?: 'latest'}")
+                    logger.lifecycle("${it.@name}:${it?.@version ?: 'latest'}")
                 }
             }
         }
