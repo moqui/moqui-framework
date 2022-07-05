@@ -791,10 +791,49 @@ task listComponents(){
     description "List of components in myaddons.xml"
     doLast {
         Node myaddons = parseMyaddons()
+        if (project.hasProperty('componentSet')) {
+            if (myaddons?.'component'){
+                def componentSetNode = myaddons.'component-set'.find { it.@name == componentSet}
+                String[] componentsList = (componentSetNode.@components as String).split(',')
+                String[] setsList = (componentSetNode.@sets as String).split(',')
 
-        if (myaddons?.'component'){
-            myaddons.'component'.each{
-                logger.lifecycle("${it.@name} ${it?.@version ?: 'latest'}")
+                if (setsList.size() > 0){
+                    for (sets in setsList){
+                        def setsNode =  myaddons.'component-set'.find {it.@name == sets}
+                        if (setsNode) {
+                            String[] componentSetsList = (setsNode.@components as String).split(',')
+                            if (componentSetsList.size() > 0){
+                                for (comp in componentSetsList){
+                                    def componentNode =  myaddons.'component'.find {it.@name == comp}
+                                    if (componentNode) {
+                                        logger.lifecycle("${componentNode.@name} ${componentNode?.@version ?: 'latest'}")
+                                    } else {
+                                        logger.lifecycle("component was not found ${comp}")
+                                    }
+                                }
+                            }
+                        } else {
+                            logger.lifecycle("component-set was not found ${sets}")
+                        }
+                    }
+                }
+
+                if (componentsList.size() > 0){
+                    for (comp in componentsList){
+                        def componentNode =  myaddons.'component'.find {it.@name == comp}
+                        if (componentNode) {
+                            logger.lifecycle("${componentNode.@name} ${componentNode?.@version ?: 'latest'}")
+                        } else {
+                            logger.lifecycle("component was not found ${comp}")
+                        }
+                    }
+                }
+            }
+        } else {
+            if (myaddons?.'component'){
+                myaddons.'component'.each{
+                    logger.lifecycle("${it.@name} ${it?.@version ?: 'latest'}")
+                }
             }
         }
     }
