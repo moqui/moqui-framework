@@ -2,8 +2,8 @@
 
     <!-- moqui components -->
     <runtime name="moqui-runtime" group="mkdecisiondev" version="v3.0.1-alk" branch="master"/>
-    <component name="moqui-aws" group="mkdecisiondev" version="	v1.0.1-alk" branch="master"/>
-    <component name="moqui-fop" group="mkdecisiondev" version="	v1.1.2-alk" branch="master"/>
+    <component name="moqui-aws" group="mkdecisiondev" version="v1.0.1-alk" branch="master"/>
+    <component name="moqui-fop" group="mkdecisiondev" version="v1.1.2-alk" branch="master"/>
     <component name="moqui-sftp" group="mkdecisiondev" version="v1.0.1-alk" branch="master"/>
     <component name="mantle-udm" group="mkdecisiondev" version="v2.1.2-alk" branch="master"/>
     <component name="mantle-usl" group="mkdecisiondev" version="v2.1.2-alk" branch="master"/>
