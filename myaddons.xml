@@ -10,7 +10,6 @@
     <component name="SimpleScreens" group="mkdecisiondev" version="v2.1.2-alk" branch="master"/>
     <component name="MarbleERP" group="mkdecisiondev" version="v1.1.0-alk" branch="master"/>
 
-
     <!-- ignite components -->
     <component name="mk-store" group="mkdecisiondev" version="v1.4.0" branch="master"/>
     <component name="daolos-vendor-dashboard" group="mkdecisiondev" version="v1.2.2" branch="master"/>
@@ -37,6 +36,8 @@
     <component name="moqui-graphql" group="mkdecisiondev" version="v1.1.0-alk" branch="master"/>
     <component name="moqui-datawarehouse" group="mkdecisiondev" version="" branch="master"/>
     <component name="close-banker-portal" group="mkdecisiondev" version="" branch="master"/>
+    <component name="moqui-naics" group="mkdecisiondev" version="" branch="master"/>
+    <component name="moqui-secure-headers" group="mkdecisiondev" version="" branch="master"/>
 
     <!-- customer data components -->
     <component name="close-alabamacu-data" group="mkdecisiondev" version="" branch="master"/>
@@ -62,7 +63,7 @@
     <component name="close-icba-appflow-config" group="mkdecisiondev" version="" branch="master"/>
 
     <!-- base component sets -->
-    <component-set name="base-moqui" components="moqui-aws,moqui-fop,moqui-poi,moqui-sftp,mantle-udm,mantle-usl,SimpleScreens,MarbleERP"/>
+    <component-set name="base-moqui" components="moqui-aws,moqui-fop,moqui-sftp,mantle-udm,mantle-usl,SimpleScreens,MarbleERP"/>
     <component-set name="base-close-moqui" components="moqui-secure-headers,close-customer-portal,daolos-vendor-dashboard,mk-identity,mk-idology,mk-integrations,mk-services,mk-store,moqui-ccos,moqui-close,moqui-close-decision,moqui-coreconnect,moqui-coreconnect-fis,moqui-credit-offers,moqui-creditconnect,moqui-creditconnect-experian,moqui-creditconnect-transunion,moqui-financial-worksheet,moqui-graphql,moqui-html-pdf,moqui-mk-dashboard,moqui-naics,moqui-preciseid,moqui-sentry-logging"/>
     <component-set name="base-close-keycloak" components="moqui-secure-headers,close-customer-portal,daolos-vendor-dashboard,mk-identity,mk-idology,mk-integrations,mk-services,mk-store,moqui-ccos,moqui-close,moqui-close-decision,moqui-coreconnect,moqui-coreconnect-fis,moqui-credit-offers,moqui-creditconnect,moqui-creditconnect-experian,moqui-creditconnect-transunion,moqui-financial-worksheet,moqui-graphql,moqui-html-pdf,moqui-mk-dashboard,moqui-naics,moqui-pac4j-authentication,moqui-preciseid,moqui-sentry-logging"/>
 
