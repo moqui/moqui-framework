@@ -794,10 +794,10 @@ task listComponents(){
         if (project.hasProperty('componentSet')) {
             if (myaddons?.'component'){
                 def componentSetNode = myaddons.'component-set'.find { it.@name == componentSet}
-                String[] componentsList = (componentSetNode.@components as String).split(',')
-                String[] setsList = (componentSetNode.@sets as String).split(',')
+                String[] componentsList = (componentSetNode?.@components as String)?.split(',')
+                String[] setsList = (componentSetNode?.@sets as String).split(',')
 
-                if (setsList.size() > 0){
+                if (setsList?.size() > 0){
                     for (sets in setsList){
                         def setsNode =  myaddons.'component-set'.find {it.@name == sets}
                         if (setsNode) {
@@ -818,7 +818,7 @@ task listComponents(){
                     }
                 }
 
-                if (componentsList.size() > 0){
+                if (componentsList?.size() > 0){
                     for (comp in componentsList){
                         def componentNode =  myaddons.'component'.find {it.@name == comp}
                         if (componentNode) {
