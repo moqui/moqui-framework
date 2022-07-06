@@ -58,9 +58,12 @@
     <component name="close-becu-data" group="mkdecisiondev" version="" branch="master"/>
     <component name="close-ubb-data" group="mkdecisiondev" version="" branch="master"/>
     <component name="close-suttonbank-data" group="mkdecisiondev" version="" branch="master"/>
-    <component name="close-example-data" group="mkdecisiondev" version="" branch="master"/>
     <component name="close-fnblasanimas-data" group="mkdecisiondev" version="" branch="master"/>
+    <component name="close-firstcommunity-data" group="mkdecisiondev" version="" branch="master"/>
+    <component name="close-waldenmutual-data" group="mkdecisiondev" version="" branch="master"/>
+    <component name="close-kane-data" group="mkdecisiondev" version="" branch="master"/>
     <component name="close-icba-appflow-config" group="mkdecisiondev" version="" branch="master"/>
+    <component name="close-example-data" group="mkdecisiondev" version="" branch="master"/>
 
     <!-- base component sets -->
     <component-set name="base-moqui" components="moqui-aws,moqui-fop,moqui-sftp,mantle-udm,mantle-usl,SimpleScreens,MarbleERP"/>
@@ -84,7 +87,7 @@
     <component-set name="moqui-close-kane" sets="base-moqui,base-close-keycloak" components="close-kane-data"/>
     <component-set name="moqui-close-mycsbin" sets="base-moqui,base-close-keycloak" components="close-mycsbin-data"/>
     <component-set name="moqui-close-pointbank" sets="base-moqui,base-close-keycloak" components="close-pointbank-data"/>
-    <component-set name="moqui-close-suttonbank" sets="base-moqui,base-close-keycloak" components="close-suttonbank-dat"/>
+    <component-set name="moqui-close-suttonbank" sets="base-moqui,base-close-keycloak" components="close-suttonbank-data"/>
     <component-set name="moqui-close-tcmbank" sets="base-moqui,base-close-keycloak" components="moqui-datawarehouse,close-tcm-data"/>
     <component-set name="moqui-close-ubb" sets="base-moqui,base-close-keycloak" components="close-ubb-data"/>
     <component-set name="moqui-close-wafdbank" sets="base-moqui,base-close-keycloak" components="close-wafdbank-data"/>
