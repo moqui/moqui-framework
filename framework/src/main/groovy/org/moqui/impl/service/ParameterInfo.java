@@ -16,6 +16,7 @@ package org.moqui.impl.service;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.safety.Safelist;
+import org.moqui.impl.context.ContextJavaUtil;
 import org.moqui.util.MClassLoader;
 import org.moqui.impl.context.ExecutionContextImpl;
 import org.moqui.util.MNode;
@@ -32,7 +33,7 @@ public class ParameterInfo {
     protected final static Logger logger = LoggerFactory.getLogger(ParameterInfo.class);
 
     public enum ParameterAllowHtml { ANY, SAFE, NONE }
-    public enum ParameterType { STRING, INTEGER, LONG, FLOAT, DOUBLE, BIG_DECIMAL, BIG_INTEGER, TIME, DATE, TIMESTAMP, LIST, SET }
+    public enum ParameterType { STRING, INTEGER, LONG, FLOAT, DOUBLE, BIG_DECIMAL, BIG_INTEGER, TIME, DATE, TIMESTAMP, LIST, SET, MAP }
     public static Map<String, ParameterType> typeEnumByString = new HashMap<>();
     static {
         typeEnumByString.put("String", ParameterType.STRING); typeEnumByString.put("java.lang.String", ParameterType.STRING);
@@ -49,6 +50,7 @@ public class ParameterInfo {
         typeEnumByString.put("Collection", ParameterType.LIST); typeEnumByString.put("java.util.Collection", ParameterType.LIST);
         typeEnumByString.put("List", ParameterType.LIST); typeEnumByString.put("java.util.List", ParameterType.LIST);
         typeEnumByString.put("Set", ParameterType.SET); typeEnumByString.put("java.util.Set", ParameterType.SET);
+        typeEnumByString.put("Map", ParameterType.MAP); typeEnumByString.put("java.util.Map", ParameterType.MAP);
     }
 
     public final ServiceDefinition sd;
@@ -150,7 +152,7 @@ public class ParameterInfo {
         Object converted = null;
         boolean isEmptyString = isString && ((CharSequence) parameterValue).length() == 0;
         if (parmType != null && isString && !isEmptyString) {
-            String valueStr = parameterValue.toString();
+            String valueStr = parameterValue.toString().trim();
             // try some String to XYZ specific conversions for parsing with format, locale, etc
             switch (parmType) {
                 case INTEGER:
@@ -213,6 +215,16 @@ public class ParameterInfo {
                         Set<String> newSet = new LinkedHashSet<>();
                         newSet.add(valueStr);
                         converted = newSet;
+                    }
+                    break;
+                case MAP:
+                    if (valueStr.startsWith("{")) {
+                        try {
+                            converted = ContextJavaUtil.jacksonMapper.readValue(valueStr, Map.class);
+                        } catch (Exception e) {
+                            eci.messageFacade.addValidationError(null, namePrefix + name, serviceName,
+                                    "Could not convert JSON to Map", e);
+                        }
                     }
                     break;
             }

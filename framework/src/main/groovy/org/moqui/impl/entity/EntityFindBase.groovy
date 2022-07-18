@@ -1425,7 +1425,7 @@ abstract class EntityFindBase implements EntityFind {
                                 FieldInfo[] fieldInfoArray, FieldOrderOptions[] fieldOptionsArray) throws SQLException
 
     @Override
-    long updateAll(Map<String, ?> fieldsToSet) {
+    long updateAll(Map<String, Object> fieldsToSet) {
         boolean enableAuthz = disableAuthz ? !efi.ecfi.getEci().artifactExecutionFacade.disableAuthz() : false
         try {
             return updateAllInternal(fieldsToSet)
@@ -1433,7 +1433,7 @@ abstract class EntityFindBase implements EntityFind {
             if (enableAuthz) efi.ecfi.getEci().artifactExecutionFacade.enableAuthz()
         }
     }
-    protected long updateAllInternal(Map<String, ?> fieldsToSet) {
+    protected long updateAllInternal(Map<String, Object> fieldsToSet) {
         // NOTE: this code isn't very efficient, but will do the trick and cause all EECAs to be fired
         // NOTE: consider expanding this to do a bulk update in the DB if there are no EECAs for the entity
 

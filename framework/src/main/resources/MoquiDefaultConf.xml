@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!-- No copyright or license for configuration file, details here are not considered a creative work. -->
-<moqui-conf xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/moqui-conf-2.1.xsd">
+<moqui-conf xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="moqui-conf-3.xsd">
 
     <!-- Settings in this file can be overridden in a component (MoquiConf.xml) and/or runtime conf file that has
         any of the desired sub-elements. -->
@@ -595,7 +595,7 @@
             <database-type type="currency-amount" sql-type="DECIMAL(24,4)"/>
             <database-type type="currency-precise" sql-type="DECIMAL(25,5)"/>
 
-            <inline-jdbc><xa-properties serverName="${entity_ds_host}" databaseName="${entity_ds_database}"
+            <inline-jdbc><xa-properties serverName="${entity_ds_host}" databaseName="${entity_ds_database}" dateFormat="iso"
                     user="${entity_ds_user}" password="${entity_ds_password}" cursorHold="false" threadUsed="false"/></inline-jdbc>
         </database>
         <!--

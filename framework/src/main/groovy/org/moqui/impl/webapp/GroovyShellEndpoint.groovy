@@ -11,12 +11,12 @@
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
+
 package org.moqui.impl.webapp
 
 import groovy.transform.CompileStatic
-import org.codehaus.groovy.tools.shell.Groovysh
+import org.apache.groovy.groovysh.Groovysh
 import org.codehaus.groovy.tools.shell.IO
-import org.jetbrains.annotations.NotNull
 import org.moqui.impl.context.ExecutionContextImpl
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -209,7 +209,7 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint implements ActionListene
             this.session = groovyShellEndpoint.session
         }
 
-        /** Sometimes the pipe dies, exit from groovysh instead of infinite errors */
+        // Sometimes the pipe dies, exit from groovysh instead of infinite errors
         boolean checkDeadPipe(String bytesStr) {
             if (bytesStr != null && bytesStr.contains("Write end dead")) {
                 logger.warn("Got Write end dead, exiting from groovysh")
@@ -224,14 +224,14 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint implements ActionListene
             return false
         }
 
-        @Override void write(@NotNull byte[] b) throws IOException {
+        @Override void write(byte[] b) throws IOException {
             String bytesStr = new String(b)
             if (checkDeadPipe(bytesStr)) return
             session.getAsyncRemote().sendText(bytesStr)
             // logger.warn("writing bytes: ${bytesStr}")
             // old approach that didn't work: session.getAsyncRemote().sendBinary(ByteBuffer.wrap(b))
         }
-        @Override void write(@NotNull byte[] b, int off, int len) throws IOException {
+        @Override void write(byte[] b, int off, int len) throws IOException {
             String bytesStr = new String(b, off, len)
             if (checkDeadPipe(bytesStr)) return
             session.getAsyncRemote().sendText(bytesStr)
