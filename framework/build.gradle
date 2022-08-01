@@ -145,8 +145,8 @@ dependencies {
     api 'com.fasterxml.jackson.core:jackson-databind:2.13.3'
 
     // Jetty HTTP Client and Proxy Servlet
-    api 'org.eclipse.jetty:jetty-client:10.0.9' // Apache 2.0
-    api 'org.eclipse.jetty:jetty-proxy:10.0.9' // Apache 2.0
+    api 'org.eclipse.jetty:jetty-client:10.0.11' // Apache 2.0
+    api 'org.eclipse.jetty:jetty-proxy:10.0.11' // Apache 2.0
 
     // javax.mail
     // NOTE: javax.mail depends on 'javax.activation:activation' which is the old package for 'javax.activation:javax.activation-api' used by jaxb-api
@@ -159,8 +159,8 @@ dependencies {
     api 'org.jsoup:jsoup:1.15.1' // MIT
 
     // Apache Shiro
-    api module('org.apache.shiro:shiro-core:1.9.0') // Apache 2.0
-    api module('org.apache.shiro:shiro-web:1.9.0') // Apache 2.0
+    api module('org.apache.shiro:shiro-core:1.9.1') // Apache 2.0
+    api module('org.apache.shiro:shiro-web:1.9.1') // Apache 2.0
 
     // SLF4J, Log4j 2 (note Log4j 2 is used by various libraries, best not to replace it even if mostly possible with SLF4J)
     // NOTE: using slf4j 2.0.0-alpha2 because Jetty 10 uses it, overriding earlier version in embedded mode with shared classpath
@@ -203,16 +203,16 @@ dependencies {
 
     // ========== executable war dependencies ==========
     // Jetty
-    execWarRuntimeOnly 'org.eclipse.jetty:jetty-server:10.0.9' // Apache 2.0
-    execWarRuntimeOnly 'org.eclipse.jetty:jetty-webapp:10.0.9' // Apache 2.0
-    execWarRuntimeOnly 'org.eclipse.jetty:jetty-jndi:10.0.9' // Apache 2.0
-    execWarRuntimeOnly 'org.eclipse.jetty.websocket:websocket-javax-server:10.0.9' // Apache 2.0
-    execWarRuntimeOnly ('org.eclipse.jetty.websocket:websocket-javax-client:10.0.9') { // Apache 2.0
+    execWarRuntimeOnly 'org.eclipse.jetty:jetty-server:10.0.11' // Apache 2.0
+    execWarRuntimeOnly 'org.eclipse.jetty:jetty-webapp:10.0.11' // Apache 2.0
+    execWarRuntimeOnly 'org.eclipse.jetty:jetty-jndi:10.0.11' // Apache 2.0
+    execWarRuntimeOnly 'org.eclipse.jetty.websocket:websocket-javax-server:10.0.11' // Apache 2.0
+    execWarRuntimeOnly ('org.eclipse.jetty.websocket:websocket-javax-client:10.0.11') { // Apache 2.0
         exclude group: 'javax.websocket' } // we have the full websocket API, including the client one causes problems
     execWarRuntimeOnly 'javax.websocket:javax.websocket-api:1.1'
-    execWarRuntimeOnly ('org.eclipse.jetty.websocket:websocket-jetty-server:10.0.9') // Apache 2.0
+    execWarRuntimeOnly ('org.eclipse.jetty.websocket:websocket-jetty-server:10.0.11') // Apache 2.0
     // only include this if using Endpoint and MessageHandler annotations:
-    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:10.0.9') // Apache 2.0
+    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:10.0.11') // Apache 2.0
     execWarRuntimeOnly 'org.apache.logging.log4j:log4j-slf4j18-impl:2.17.2'
 }
 
