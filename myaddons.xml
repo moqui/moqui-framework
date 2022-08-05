@@ -1,9 +1,9 @@
 <addons default-repository="github">
 
     <!-- moqui components -->
-    <runtime name="moqui-runtime" group="mkdecisiondev" version="v3.0.2-alk" branch="master"/>
+    <runtime name="moqui-runtime" group="mkdecisiondev" version="v3.0.3-alk" branch="master"/>
     <component name="mantle-udm" group="mkdecisiondev" version="v2.1.2-alk" branch="master"/>
-    <component name="mantle-usl" group="mkdecisiondev" version="v2.1.2-alk" branch="master"/>
+    <component name="mantle-usl" group="mkdecisiondev" version="v2.1.3-alk" branch="master"/>
     <component name="moqui-aws" group="mkdecisiondev" version="v1.0.1-alk" branch="master"/>
     <component name="moqui-fop" group="mkdecisiondev" version="v1.1.2-alk" branch="master"/>
     <component name="moqui-sftp" group="mkdecisiondev" version="v1.0.1-alk" branch="master"/>
@@ -11,19 +11,20 @@
     <component name="MarbleERP" group="mkdecisiondev" version="v1.1.0-alk" branch="master"/>
 
     <!-- ignite components -->
-    <component name="mk-store" group="mkdecisiondev" version="v1.5.0" branch="master"/>
+    <component name="mk-store" group="mkdecisiondev" version="v1.6.0" branch="master"/>
+    <component name="moqui-credit-offers" group="mkdecisiondev" version="v1.6.1" branch="master"/>
     <component name="daolos-vendor-dashboard" group="mkdecisiondev" version="v1.2.3" branch="master"/>
-    <component name="moqui-financial-worksheet" group="mkdecisiondev" version="v1.2.1" branch="master"/>
-    <component name="moqui-close-decision" group="mkdecisiondev" version="v1.4.1" branch="master"/>
-    <component name="moqui-close" group="mkdecisiondev" version="v1.11.0" branch="master"/>
-    <component name="mk-services" group="mkdecisiondev" version="v1.5.0" branch="master"/>
-    <component name="moqui-ccos" group="mkdecisiondev" version="v1.2.0" branch="master"/>
-    <component name="moqui-mk-dashboard" group="mkdecisiondev" version="v1.10.0" branch="master"/>
+    <component name="moqui-financial-worksheet" group="mkdecisiondev" version="v1.3.0" branch="master"/>
+    <component name="moqui-close-decision" group="mkdecisiondev" version="v1.5.0" branch="master"/>
+    <component name="moqui-close" group="mkdecisiondev" version="v1.12.0" branch="master"/>
+    <component name="mk-services" group="mkdecisiondev" version="v1.6.0" branch="master"/>
+    <component name="moqui-ccos" group="mkdecisiondev" version="v1.2.1" branch="master"/>
+    <component name="moqui-mk-dashboard" group="mkdecisiondev" version="v1.10.1" branch="master"/>
     <component name="close-customer-portal" group="mkdecisiondev" version="v1.1.1" branch="master"/>
     <component name="moqui-html-pdf" group="mkdecisiondev" version="v1.1.0" branch="master"/>
     <component name="mk-integrations" group="mkdecisiondev" version="v1.5.0" branch="master"/>
-    <component name="moqui-creditconnect" group="mkdecisiondev" version="v1.4.0" branch="master"/>
-    <component name="moqui-creditconnect-experian" group="mkdecisiondev" version="v1.3.0" branch="master"/>
+    <component name="moqui-creditconnect" group="mkdecisiondev" version="v1.5.0" branch="master"/>
+    <component name="moqui-creditconnect-experian" group="mkdecisiondev" version="v1.4.0" branch="master"/>
     <component name="moqui-creditconnect-transunion" group="mkdecisiondev" version="v1.4.0" branch="master"/>
     <component name="mk-idology" group="mkdecisiondev" version="v1.1.0" branch="master"/>
     <component name="mk-identity" group="mkdecisiondev" version="v1.1.0" branch="master"/>
@@ -32,11 +33,10 @@
     <component name="moqui-coreconnect-fis" group="mkdecisiondev" version="v1.1.0" branch="master"/>
     <component name="moqui-pac4j-authentication" group="mkdecisiondev" version="v1.1.0" branch="master"/>
     <component name="moqui-sentry-logging" group="mkdecisiondev" version="v1.1.0" branch="master"/>
-    <component name="moqui-credit-offers" group="mkdecisiondev" version="v1.6.1" branch="master"/>
+    <component name="moqui-naics" group="mkdecisiondev" version="v1.1.0" branch="master"/>
     <component name="moqui-graphql" group="mkdecisiondev" version="v1.1.0-alk" branch="master"/>
     <component name="moqui-datawarehouse" group="mkdecisiondev" version="" branch="master"/>
     <component name="close-banker-portal" group="mkdecisiondev" version="" branch="master"/>
-    <component name="moqui-naics" group="mkdecisiondev" version="v1.1.0" branch="master"/>
     <component name="moqui-secure-headers" group="mkdecisiondev" version="" branch="master"/>
 
     <!-- customer data components -->
@@ -63,6 +63,10 @@
     <component name="close-waldenmutual-data" group="mkdecisiondev" version="" branch="master"/>
     <component name="close-kane-data" group="mkdecisiondev" version="" branch="master"/>
     <component name="close-icba-appflow-config" group="mkdecisiondev" version="" branch="master"/>
+    <component name="close-achieva-data" group="mkdecisiondev" version="" branch="master"/>
+    <component name="close-somerset-data" group="mkdecisiondev" version="" branch="master"/>
+    <component name="close-ttcufcu-data" group="mkdecisiondev" version="" branch="master"/>
+    <component name="close-texanscu-data" group="mkdecisiondev" version="" branch="master"/>
     <component name="close-example-data" group="mkdecisiondev" version="" branch="master"/>
 
     <!-- base component sets -->
@@ -92,5 +96,9 @@
     <component-set name="moqui-close-ubb" sets="base-moqui,base-close-keycloak" components="close-ubb-data"/>
     <component-set name="moqui-close-wafdbank" sets="base-moqui,base-close-keycloak" components="close-wafdbank-data"/>
     <component-set name="moqui-close-waldenmutual" sets="base-moqui,base-close-keycloak" components="close-waldenmutual-data"/>
+    <component-set name="moqui-close-achieva" sets="base-moqui,base-close-keycloak" components="close-achieva-data"/>
+    <component-set name="moqui-close-somerset" sets="base-moqui,base-close-keycloak" components="close-somerset-data"/>
+    <component-set name="moqui-close-ttcufcu" sets="base-moqui,base-close-keycloak" components="close-ttcufcu-data"/>
+    <component-set name="moqui-close-texanscu" sets="base-moqui,base-close-keycloak" components="close-texanscu-data"/>
 
 </addons>
