@@ -63,6 +63,10 @@
     <component name="close-waldenmutual-data" group="mkdecisiondev" version="" branch="master"/>
     <component name="close-kane-data" group="mkdecisiondev" version="" branch="master"/>
     <component name="close-icba-appflow-config" group="mkdecisiondev" version="" branch="master"/>
+    <component name="close-achieva-data" group="mkdecisiondev" version="" branch="master"/>
+    <component name="close-somerset-data" group="mkdecisiondev" version="" branch="master"/>
+    <component name="close-ttcufcu-data" group="mkdecisiondev" version="" branch="master"/>
+    <component name="close-texanscu-data" group="mkdecisiondev" version="" branch="master"/>
     <component name="close-example-data" group="mkdecisiondev" version="" branch="master"/>
 
     <!-- base component sets -->
@@ -92,5 +96,9 @@
     <component-set name="moqui-close-ubb" sets="base-moqui,base-close-keycloak" components="close-ubb-data"/>
     <component-set name="moqui-close-wafdbank" sets="base-moqui,base-close-keycloak" components="close-wafdbank-data"/>
     <component-set name="moqui-close-waldenmutual" sets="base-moqui,base-close-keycloak" components="close-waldenmutual-data"/>
+    <component-set name="moqui-close-achieva" sets="base-moqui,base-close-keycloak" components="close-achieva-data"/>
+    <component-set name="moqui-close-somerset" sets="base-moqui,base-close-keycloak" components="close-somerset-data"/>
+    <component-set name="moqui-close-ttcufcu" sets="base-moqui,base-close-keycloak" components="close-ttcufcu-data"/>
+    <component-set name="moqui-close-texanscu" sets="base-moqui,base-close-keycloak" components="close-texanscu-data"/>
 
 </addons>
