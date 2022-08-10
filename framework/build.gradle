@@ -68,8 +68,9 @@ tasks.withType(GroovyCompile) { options.compilerArgs << "-proc:none" }
 // NOTE: for dependency types and 'api' definition see: https://docs.gradle.org/current/userguide/java_library_plugin.html
 dependencies {
     // Groovy
-    // NOTE: Groovy 3.0.10 has a bug that somehow causes EntityDefinition.isViewEntity (public final boolean) to switch
-    //     from true during constructor to false later on; see EntityFindBuilder.java:111-112, EntityDefinition.groovy:92
+    // NOTE: Groovy 3.0.10-3.0.12 has a bug that somehow causes EntityDefinition.isViewEntity (public final boolean) to switch
+    //     from true during constructor to false later on; see EntityFindBuilder.java:112-114 and EntityDefinition.groovy:50-53,94-95;
+    //     for now using Boolean instead of boolean to resolve, but starting at 3.0.9 to avoid risk with other code
     api 'org.codehaus.groovy:groovy:3.0.9' // Apache 2.0
     api 'org.codehaus.groovy:groovy-dateutil:3.0.9' // Apache 2.0
     api 'org.codehaus.groovy:groovy-groovysh:3.0.9' // Apache 2.0
