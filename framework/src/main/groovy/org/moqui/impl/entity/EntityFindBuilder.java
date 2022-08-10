@@ -108,8 +108,11 @@ public class EntityFindBuilder extends EntityQueryBuilder {
         localBuilder.append(" FROM ");
 
         EntityConditionImplBase outWhereCondition = localWhereCondition;
+
         // TODO: bug in Groovy 3.0.10 that somehow flips the isViewEntity boolean; can remove this once resolved with a future version of Groovy
-        if (localEntityDefinition.fullEntityName.contains("ArtifactTarpitCheckView")) logger.warn("===== TOREMOVE ===== localEntityDefinition " + localEntityDefinition.fullEntityName + " isViewEntity " + localEntityDefinition.isViewEntity + " " + localEntityDefinition);
+        // if (localEntityDefinition.fullEntityName.contains("ArtifactTarpitCheckView") || localEntityDefinition.fullEntityName.contains("DataFeedDocumentDetail"))
+        //     logger.warn("===== TOREMOVE ===== localEntityDefinition " + localEntityDefinition.fullEntityName + " isViewEntity " + localEntityDefinition.isViewEntity + " " + localEntityDefinition);
+
         if (localEntityDefinition.isViewEntity) {
             final MNode entityNode = localEntityDefinition.getEntityNode();
             final MNode databaseNode = efi.getDatabaseNode(localEntityDefinition.getEntityGroupName());

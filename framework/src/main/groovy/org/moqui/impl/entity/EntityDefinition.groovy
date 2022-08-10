@@ -47,8 +47,10 @@ class EntityDefinition {
     protected final EntityFacadeImpl efi
     public final MNode internalEntityNode
     public final String fullEntityName
-    public final boolean isViewEntity
-    public final boolean isDynamicView
+    // NOTE: these fields were primitive type boolean, changed to object type Boolean because of issue introduced in
+    //    Groovy 3.0.10; with boolean it worked fine in 3.0.9, after that once the constructor completes true values in
+    //    these two fields get flipped to false; see commented logs at EntityDefinition.groovy:94-95, EntityFindBuild.java:112-114
+    public final Boolean isViewEntity, isDynamicView
     public final String groupName
     public final EntityJavaUtil.EntityInfo entityInfo
 
@@ -89,7 +91,8 @@ class EntityDefinition {
         fullEntityName = packageName + "." + internalEntityNode.attribute("entity-name")
 
         isViewEntity = "view-entity".equals(internalEntityNode.getName())
-        if (fullEntityName.contains("ArtifactTarpitCheckView")) logger.warn("===== TOREMOVE ===== entity ${fullEntityName} node ${internalEntityNode.getName()} isViewEntity ${isViewEntity} ${this}")
+        // if (fullEntityName.contains("ArtifactTarpitCheckView") || fullEntityName.contains("DataFeedDocumentDetail"))
+        //     logger.warn("===== TOREMOVE ===== entity ${fullEntityName} node ${internalEntityNode.getName()} isViewEntity ${isViewEntity} ${this}")
         isDynamicView = "true".equals(internalEntityNode.attribute("is-dynamic-view"))
 
         boolean memberNeverCache = false
