@@ -19,6 +19,7 @@ import org.apache.commons.csv.CSVFormat
 import org.apache.commons.csv.CSVParser
 import org.apache.commons.csv.CSVRecord
 import org.moqui.BaseException
+import org.moqui.context.NotificationMessage
 import org.moqui.impl.context.TransactionFacadeImpl
 import org.moqui.resource.ResourceReference
 import org.moqui.context.TransactionFacade
@@ -138,7 +139,6 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         internalRun(exh, ech, ejh)
         return cvh.messageList
     }
-
     @Override
     long check(List<String> messageList) {
         CheckValueHandler cvh = new CheckValueHandler(this, messageList)
@@ -149,6 +149,35 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         internalRun(exh, ech, ejh)
         return cvh.getFieldsChecked()
     }
+
+    @Override
+    List<Map<String, Object>> checkInfo() {
+        CheckInfoValueHandler civh = new CheckInfoValueHandler(this)
+        EntityXmlHandler exh = new EntityXmlHandler(this, civh)
+        EntityCsvHandler ech = new EntityCsvHandler(this, civh)
+        EntityJsonHandler ejh = new EntityJsonHandler(this, civh)
+
+        internalRun(exh, ech, ejh)
+
+        List<String> messageList = civh.messageList
+        if (messageList != null && messageList.size() > 0) {
+            ExecutionContextImpl eci = this.efi.ecfi.getEci()
+            for (String message in messageList) eci.messageFacade.addMessage(message, NotificationMessage.info)
+        }
+
+        return civh.getDiffInfoList()
+    }
+    @Override
+    long checkInfo(List<Map<String, Object>> diffInfoList, List<String> messageList) {
+        CheckInfoValueHandler civh = new CheckInfoValueHandler(this, diffInfoList, messageList)
+        EntityXmlHandler exh = new EntityXmlHandler(this, civh)
+        EntityCsvHandler ech = new EntityCsvHandler(this, civh)
+        EntityJsonHandler ejh = new EntityJsonHandler(this, civh)
+
+        internalRun(exh, ech, ejh)
+        return civh.getFieldsChecked()
+    }
+
 
     @Override long load() { load(null) }
     @Override long load(List<String> messageList) {
@@ -211,7 +240,6 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             }
 
             for (Map.Entry<String, String> compLocEntry in loadCompLocations) {
-
                 // if we're loading seed type data, add COMPONENT entity def files to the list of locations to load
                 if (!dataTypes || dataTypes.contains("seed")) {
                     for (ResourceReference entityRr in efi.getComponentEntityFileLocations([compLocEntry.key]))
@@ -420,9 +448,9 @@ class EntityDataLoaderImpl implements EntityDataLoader {
 
         ValueHandler(EntityDataLoaderImpl edli) { this.edli = edli }
 
-        abstract void handleValue(EntityValue value)
-        abstract void handlePlainMap(String entityName, Map value)
-        abstract void handleService(ServiceCallSync scs)
+        abstract void handleValue(EntityValue value, String location)
+        abstract void handlePlainMap(String entityName, Map value, String location)
+        abstract void handleService(ServiceCallSync scs, String location)
     }
     static class CheckValueHandler extends ValueHandler {
         protected long fieldsChecked = 0
@@ -438,13 +466,47 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         }
 
         long getFieldsChecked() { return fieldsChecked }
-        void handleValue(EntityValue value) { value.checkAgainstDatabase(messageList) }
-        void handlePlainMap(String entityName, Map value) {
+        void handleValue(EntityValue value, String location) { value.checkAgainstDatabase(messageList) }
+        void handlePlainMap(String entityName, Map value, String location) {
             EntityList el = edli.getEfi().getValueListFromPlainMap(value, entityName)
             // logger.warn("=========== Check value: ${value}\nel: ${el}")
             for (EntityValue ev in el) fieldsChecked += ev.checkAgainstDatabase(messageList)
         }
-        void handleService(ServiceCallSync scs) { messageList.add("Doing check only so not calling service [${scs.getServiceName()}] with parameters ${scs.getCurrentParameters()}".toString()) }
+        void handleService(ServiceCallSync scs, String location) {
+            messageList.add("Doing check only so not calling service [${scs.getServiceName()}] with parameters ${scs.getCurrentParameters()}".toString()) }
+    }
+    static class CheckInfoValueHandler extends ValueHandler {
+        protected long fieldsChecked = 0
+        protected List<Map<String, Object>> diffInfoList
+
+        CheckInfoValueHandler(EntityDataLoaderImpl edli) {
+            super(edli)
+            messageList = new LinkedList<>()
+            diffInfoList = new LinkedList<>()
+        }
+        CheckInfoValueHandler(EntityDataLoaderImpl edli, List<Map<String, Object>> diffInfoList, List<String> messages) {
+            super(edli)
+            messageList = messages
+            if (messageList == null) messageList = new LinkedList<>()
+            this.diffInfoList = diffInfoList
+            if (this.diffInfoList == null) this.diffInfoList = new LinkedList<>()
+        }
+
+        long getFieldsChecked() { return fieldsChecked }
+        List<Map<String, Object>> getDiffInfoList() { return diffInfoList }
+
+        void handleValue(EntityValue value, String location) {
+            fieldsChecked += value.checkAgainstDatabaseInfo(diffInfoList, messageList, location)
+        }
+        void handlePlainMap(String entityName, Map value, String location) {
+            EntityList el = edli.getEfi().getValueListFromPlainMap(value, entityName)
+            // logger.warn("=========== Check value: ${value}\nel: ${el}")
+            for (EntityValue ev in el) {
+                fieldsChecked += ev.checkAgainstDatabaseInfo(diffInfoList, messageList, location)
+            }
+        }
+        void handleService(ServiceCallSync scs, String location) {
+            messageList.add("Doing check only so not calling service [${scs.getServiceName()}] with parameters ${scs.getCurrentParameters()}".toString()) }
     }
     static class LoadValueHandler extends ValueHandler {
         protected ServiceFacadeImpl sfi
@@ -462,7 +524,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             messageList = messages
         }
 
-        void handleValue(EntityValue value) {
+        void handleValue(EntityValue value, String location) {
             boolean tryInsert = edli.useTryInsert
             if (tryInsert && value instanceof EntityValueBase) {
                 EntityValueBase evb = (EntityValueBase) value
@@ -499,7 +561,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                 value.createOrUpdate()
             }
         }
-        void handlePlainMap(String entityName, Map value) {
+        void handlePlainMap(String entityName, Map value, String location) {
             EntityDefinition ed = ec.entityFacade.getEntityDefinition(entityName)
             if (ed == null) throw new BaseException("Could not find entity ${entityName}")
             if (edli.onlyCreate) {
@@ -529,7 +591,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                 }
             }
         }
-        void handleService(ServiceCallSync scs) {
+        void handleService(ServiceCallSync scs, String location) {
             if (edli.onlyCreate) {
                 String msg = "Not calling service ${scs.getServiceName()}, running with only insert"
                 logger.info(msg)
@@ -551,14 +613,15 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         protected EntityList el
         ListValueHandler(EntityDataLoaderImpl edli) { super(edli); el = new EntityListImpl(edli.efi) }
         EntityList getEntityList() { return el }
-        void handleValue(EntityValue value) {
+        void handleValue(EntityValue value, String location) {
             el.add(value)
         }
-        void handlePlainMap(String entityName, Map value) {
+        void handlePlainMap(String entityName, Map value, String location) {
             EntityDefinition ed = edli.getEfi().getEntityDefinition(entityName)
             edli.getEfi().addValuesFromPlainMapRecursive(ed, value, el, null)
         }
-        void handleService(ServiceCallSync scs) { logger.warn("For load to EntityList not calling service [${scs.getServiceName()}] with parameters ${scs.getCurrentParameters()}") }
+        void handleService(ServiceCallSync scs, String location) {
+            logger.warn("For load to EntityList not calling service [${scs.getServiceName()}] with parameters ${scs.getCurrentParameters()}") }
     }
 
     static class TypeToSkipException extends RuntimeException {
@@ -690,7 +753,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                         relatedEdStack = [subEd]
                     }
                 } else {
-                    logger.warn("Found element [${elementName}] under element for entity [${checkEd.getFullEntityName()}] and it is not a field or relationship so ignoring (line ${locator?.lineNumber})")
+                    logger.warn("Found element [${elementName}] under element for entity [${checkEd.getFullEntityName()}] and it is not a field or relationship so ignoring (file ${location} line ${locator?.lineNumber})")
                 }
             } else if (currentServiceDef != null) {
                 currentFieldName = qName
@@ -709,7 +772,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                     }
                     rootValueMap = getAttributesMap(attributes, null)
                 } else {
-                    throw new SAXException("Found element [${qName}] name, transformed to [${elementName}], that is not a valid entity name or service name (line ${locator?.lineNumber})")
+                    throw new SAXException("Found element [${qName}] name, transformed to [${elementName}], that is not a valid entity name or service name (file ${location} line ${locator?.lineNumber})")
                 }
             }
         }
@@ -729,7 +792,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                         attrMap.put(name, null)
                     }
                 } else {
-                    logger.warn("Ignoring invalid attribute name [${name}] for entity [${checkEd.getFullEntityName()}] with value [${value}] because it is not field of that entity (line ${locator?.lineNumber})")
+                    logger.warn("Ignoring invalid attribute name [${name}] for entity [${checkEd.getFullEntityName()}] with value [${value}] because it is not field of that entity (file ${location} line ${locator?.lineNumber})")
                 }
             }
             return attrMap
@@ -772,7 +835,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                                 addToMap.put(currentFieldName, currentFieldValue.toString())
                             }
                         } else {
-                            logger.warn("Ignoring invalid field name ${currentFieldName} found for entity ${checkEd.getFullEntityName()} (line ${locator?.lineNumber}) with value: ${currentFieldValue}")
+                            logger.warn("Ignoring invalid field name ${currentFieldName} found for entity ${checkEd.getFullEntityName()} (file ${location} line ${locator?.lineNumber}) with value: ${currentFieldValue}")
                         }
                     } else if (currentServiceDef != null) {
                         rootValueMap.put(currentFieldName, currentFieldValue)
@@ -797,24 +860,24 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                             if (edli.dummyFks || edli.useTryInsert) {
                                 EntityValue curValue = currentEntityDef.makeEntityValue()
                                 curValue.setAll(valueMap)
-                                valueHandler.handleValue(curValue)
+                                valueHandler.handleValue(curValue, location)
                                 valuesRead++
                             } else {
-                                valueHandler.handlePlainMap(currentEntityDef.getFullEntityName(), valueMap)
+                                valueHandler.handlePlainMap(currentEntityDef.getFullEntityName(), valueMap, location)
                                 valuesRead++
                             }
                         } catch (EntityException e) {
-                            throw new SAXException("Error storing entity [${currentEntityDef.getFullEntityName()}] value (line ${locator?.lineNumber}): " + e.toString(), e)
+                            throw new SAXException("Error storing entity [${currentEntityDef.getFullEntityName()}] value (file ${location} line ${locator?.lineNumber}): " + e.toString(), e)
                         } finally {
                             currentEntityDef = (EntityDefinition) null
                         }
                     } else {
                         try {
                             ServiceCallSync currentScs = edli.sfi.sync().name(entityOperation, currentEntityDef.getFullEntityName()).parameters(valueMap)
-                            valueHandler.handleService(currentScs)
+                            valueHandler.handleService(currentScs, location)
                             valuesRead++
                         } catch (Exception e) {
-                            throw new SAXException("Error running service [${currentServiceDef.serviceName}] (line ${locator?.lineNumber}): " + e.toString(), e)
+                            throw new SAXException("Error running service [${currentServiceDef.serviceName}] (file ${location} line ${locator?.lineNumber}): " + e.toString(), e)
                         } finally {
                             currentEntityDef = (EntityDefinition) null
                             entityOperation = (String) null
@@ -823,10 +886,10 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                 } else if (currentServiceDef != null) {
                     try {
                         ServiceCallSync currentScs = edli.sfi.sync().name(currentServiceDef.serviceName).parameters(valueMap)
-                        valueHandler.handleService(currentScs)
+                        valueHandler.handleService(currentScs, location)
                         valuesRead++
                     } catch (Exception e) {
-                        throw new SAXException("Error running service [${currentServiceDef.serviceName}] (line ${locator?.lineNumber}): " + e.toString(), e)
+                        throw new SAXException("Error running service [${currentServiceDef.serviceName}] (file ${location} line ${locator?.lineNumber}): " + e.toString(), e)
                     } finally {
                         currentServiceDef = (ServiceDefinition) null
                     }
@@ -918,7 +981,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                         if (header.value >= record.size()) continue
                         currentScs.parameter(header.key, record.get(header.value))
                     }
-                    valueHandler.handleService(currentScs)
+                    valueHandler.handleService(currentScs, location)
                     valuesRead++
                 } else {
                     EntityValueImpl currentEntityValue = (EntityValueImpl) edli.efi.makeValue(entityName)
@@ -955,7 +1018,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                     }
 
                     // logger.warn("======== CSV entity: ${currentEntityValue.toString()}")
-                    valueHandler.handleValue(currentEntityValue)
+                    valueHandler.handleValue(currentEntityValue, location)
                     valuesRead++
                 }
             }
@@ -1037,10 +1100,10 @@ class EntityDataLoaderImpl implements EntityDataLoader {
 
                 if (isService) {
                     ServiceCallSyncImpl currentScs = (ServiceCallSyncImpl) edli.sfi.sync().name(entityName).parameters(value)
-                    valueHandler.handleService(currentScs)
+                    valueHandler.handleService(currentScs, location)
                     valuesRead++
                 } else {
-                    valueHandler.handlePlainMap(entityName, value)
+                    valueHandler.handlePlainMap(entityName, value, location)
                     // TODO: make this more complete, like counting nested Maps?
                     valuesRead++
                 }

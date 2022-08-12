@@ -12,7 +12,7 @@ You should have received a copy of the CC0 Public Domain Dedication
 along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
-<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-3.xsd">
 
     <service verb="set" noun="Preference" allow-remote="true">
         <in-parameters>
@@ -110,15 +110,17 @@ along with this software (see the LICENSE.md file). If not, see
 
     <service verb="update" noun="Password" authenticate="anonymous-all" allow-remote="true">
         <description>Set a user's password. The userId must match the current user and the oldPassword must match the
-            user's currentPassword or special permission is required.</description>
+            user's currentPassword or special permission is required, or user has already pre-authenticated and specified an authz code.</description>
         <in-parameters>
             <parameter name="userId"><description>Defaults to the current userId in the ExecutionContext.</description></parameter>
             <parameter name="username"><description>May be used instead of userId to identify user.</description></parameter>
             <parameter name="oldPassword" required="true"><description>Ignored if user has password admin permissions.</description></parameter>
             <parameter name="newPassword" required="true"/>
             <parameter name="newPasswordVerify" required="true"/>
+            <parameter name="code"><description>Second factor authentication, required if second factor required for user (via group or authc factors configured)</description></parameter>
         </in-parameters>
         <out-parameters>
+            <parameter name="username"/>
             <parameter name="passwordIssues" type="Boolean"/>
             <parameter name="updateSuccessful" type="Boolean"/>
         </out-parameters>
@@ -137,33 +139,75 @@ along with this software (see the LICENSE.md file). If not, see
                 <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
                     <field-map field-name="userId" from="ec.user.userId"/></entity-find-one>
             </else></if>
-            <if condition="!userAccount"><return message="Could not find user with name ${username}" public="true" type="danger"/></if>
+            <if condition="userAccount == null"><return message="Could not find user with name ${username}" public="true" type="danger"/></if>
             <set field="userId" from="userAccount.userId"/>
+            <set field="username" from="userAccount.username"/>
 
-            <!-- compare the passwords, encrypted -->
             <if condition="!hasPwAdminPermission">
                 <if condition="ec.user.userId &amp;&amp; userId != ec.user.userId">
                     <return message="Cannot update the password of another user without password admin permission" public="true" type="danger"/></if>
-                <if condition="!oldPassword">
-                    <return message="Please enter current password" public="true" type="danger"/></if>
 
-                <script>
-                    def token = new org.apache.shiro.authc.UsernamePasswordToken((String) userAccount.username, (String) oldPassword)
-                    def info = new org.apache.shiro.authc.SimpleAuthenticationInfo(userAccount.username, userAccount.currentPassword,
-                            userAccount.passwordSalt ? new org.apache.shiro.util.SimpleByteSource((String) userAccount.passwordSalt) : null, "moquiRealm")
-                </script>
-                <if condition="!userAccount.currentPassword || !ec.ecfi.getCredentialsMatcher(userAccount.passwordHashType, 'Y'.equals(userAccount.passwordBase64)).doCredentialsMatch(token, info)">
-                    <if condition="userAccount.resetPassword"><then>
-                        <!-- try the resetPassword -->
-                        <script>
-                            info = new org.apache.shiro.authc.SimpleAuthenticationInfo(userAccount.username, userAccount.resetPassword,
-                                    userAccount.passwordSalt ? new org.apache.shiro.util.SimpleByteSource((String) userAccount.passwordSalt) : null, "moquiRealm")
-                        </script>
-                        <if condition="!ec.ecfi.getCredentialsMatcher(userAccount.passwordHashType, 'Y'.equals(userAccount.passwordBase64)).doCredentialsMatch(token, info)">
-                            <return message="Password did not match current password or reset password for user ${username}" public="true" type="danger"/></if>
-                    </then><else>
-                        <return message="Password incorrect for user ${username}" public="true" type="danger"/>
-                    </else></if>
+                <!--
+                - if code verified and pre-auth don't require oldPassword
+                - if oldPassword and code check oldPassword first, if wrong don't want to check code (might use up single use code)
+                approach: if pre-auth and code specified check code first, otherwise check after oldPassword
+                -->
+                <!-- see if a second authc factor is required for this user, if so require authc code to update password -->
+                <service-call name="org.moqui.impl.UserServices.get#UserAuthcFactorRequired" out-map="context">
+                    <field-map field-name="userId"/></service-call>
+                <set field="codeVerified" from="false"/>
+                <if condition="secondFactorRequired">
+                    <!-- NOTE: don't check for missing code here, do that after oldPassword verify so if it verifies we can pre-auth -->
+                    <!-- if pre-auth and code specified check code first, otherwise check after oldPassword -->
+                    <if condition="ec.web?.sessionAttributes?.moquiPreAuthcUsername || ec.user.username">
+                        <service-call name="org.moqui.impl.UserServices.validate#UserAuthcFactorCode"
+                                in-map="[userId:userId, code:code]" out-map="validateCodeOut"/>
+                        <if condition="!validateCodeOut.verified">
+                            <return message="Authentication code not valid" public="true" type="danger"/></if>
+                        <set field="codeVerified" from="true"/>
+                    </if>
+                </if>
+
+                <!-- compare the passwords, encrypted, skip in special case for pre-auth user if a second factor required -->
+                <!-- codeVerified is only true if user pre-auth'ed and code verified above -->
+                <if condition="!codeVerified">
+                    <if condition="!oldPassword">
+                        <return message="Please enter current password" public="true" type="danger"/></if>
+
+                    <script>
+                        def token = new org.apache.shiro.authc.UsernamePasswordToken((String) userAccount.username, (String) oldPassword)
+                        def info = new org.apache.shiro.authc.SimpleAuthenticationInfo(userAccount.username, userAccount.currentPassword,
+                                userAccount.passwordSalt ? new org.apache.shiro.util.SimpleByteSource((String) userAccount.passwordSalt) : null, "moquiRealm")
+                    </script>
+                    <if condition="!userAccount.currentPassword || !ec.ecfi.getCredentialsMatcher(userAccount.passwordHashType, 'Y'.equals(userAccount.passwordBase64)).doCredentialsMatch(token, info)">
+                        <if condition="userAccount.resetPassword"><then>
+                            <!-- try the resetPassword -->
+                            <script>
+                                info = new org.apache.shiro.authc.SimpleAuthenticationInfo(userAccount.username, userAccount.resetPassword,
+                                        userAccount.passwordSalt ? new org.apache.shiro.util.SimpleByteSource((String) userAccount.passwordSalt) : null, "moquiRealm")
+                            </script>
+                            <if condition="!ec.ecfi.getCredentialsMatcher(userAccount.passwordHashType, 'Y'.equals(userAccount.passwordBase64)).doCredentialsMatch(token, info)">
+                                <return message="Password did not match current password or reset password for user ${username}" public="true" type="danger"/></if>
+                        </then><else>
+                            <return message="Password incorrect for user ${username}" public="true" type="danger"/>
+                        </else></if>
+                    </if>
+
+                    <if condition="secondFactorRequired">
+                        <if condition="!code">
+                            <!-- at this point oldPassword verified but no code specified, so pre-auth so they don't have to specify oldPassword again -->
+                            <if condition="ec.web?.sessionAttributes">
+                                <set field="ec.web?.sessionAttributes?.moquiPreAuthcUsername" from="username"/>
+                                <!-- TODO: consider calling internalLoginUser for other logic like maybe pw change required or pw expired, etc... -->
+                            </if>
+                            <return message="Authentication code required for user ${username}" public="true" error="true"/>
+                        </if>
+
+                        <service-call name="org.moqui.impl.UserServices.validate#UserAuthcFactorCode"
+                                in-map="[userId:userId, code:code]" out-map="validateCodeOut"/>
+                        <if condition="!validateCodeOut.verified">
+                            <return message="Authentication code not valid" public="true" type="danger"/></if>
+                    </if>
                 </if>
             </if>
 
@@ -296,6 +340,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="userId"/>
             <parameter name="username"><description>May be used instead of userId to identify user.</description></parameter>
             <parameter name="bodyParameters" type="Map" default="[:]"/>
+            <parameter name="emailTemplateId" default-value="PASSWORD_RESET"/>
         </in-parameters>
         <actions>
             <!-- find by userId -->
@@ -328,7 +373,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- send an email with the new password -->
             <service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" async="true">
-                <field-map field-name="emailTemplateId" value="PASSWORD_RESET"/>
+                <field-map field-name="emailTemplateId"/>
                 <field-map field-name="toAddresses" from="userAccount.emailAddress"/>
                 <field-map field-name="bodyParameters" from="bodyParameters + [userAccount:userAccount, resetPassword:resetPassword]"/>
             </service-call>
@@ -359,12 +404,124 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- ====== User Authentication Factor Services ====== -->
     <!-- ================================================= -->
 
-    <!-- TODO: Limit the amount of attempts to validate authc code. Similair to Tarpit Locks (I think). -->
+    <service verb="get" noun="ExternalUserAuthcFactorInfo" authenticate="anonymous-view">
+        <out-parameters>
+            <parameter name="secondFactorRequired" type="Boolean"/>
+            <parameter name="factorTypeEnumIds" type="Set"/>
+            <parameter name="factorTypeDescriptions" type="List"/>
+            <parameter name="sendableFactors" type="List"><parameter name="sendableFactor" type="Map">
+                <parameter name="factorId"/>
+                <parameter name="factorTypeEnumId"/>
+                <parameter name="factorOption"/>
+            </parameter></parameter>
+        </out-parameters>
+        <actions>
+            <set field="username" from="ec.web?.sessionAttributes?.moquiPreAuthcUsername ?: ec.user.username"/>
+            <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
+                <field-map field-name="username"/></entity-find-one>
+            <if condition="userAccount == null"><return error="true" message="No user pre-authenticated"/></if>
+
+            <service-call name="org.moqui.impl.UserServices.get#UserAuthcFactorInfo" out-map="context">
+                <field-map field-name="userId" from="userAccount.userId"/></service-call>
+        </actions>
+    </service>
+    <service verb="get" noun="UserAuthcFactorInfo">
+        <in-parameters>
+            <parameter name="userId" required="true"/>
+            <parameter name="getFactorsIfNotRequired" type="Boolean" default="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="secondFactorRequired" type="Boolean"/>
+            <parameter name="factorTypeEnumIds" type="Set"/>
+            <parameter name="factorTypeDescriptions" type="List"/>
+            <parameter name="sendableFactors" type="List"><parameter name="sendableFactor" type="Map">
+                <parameter name="factorId"/>
+                <parameter name="factorTypeEnumId"/>
+                <parameter name="factorOption"/>
+            </parameter></parameter>
+        </out-parameters>
+        <actions>
+            <service-call name="org.moqui.impl.UserServices.get#UserAuthcFactorRequired" out-map="context">
+                <field-map field-name="userId"/></service-call>
+
+            <!-- getFactorsIfNotRequired supported here, return now if false AND secondFactorRequired is false -->
+            <if condition="!getFactorsIfNotRequired &amp;&amp; !secondFactorRequired">
+                <return/></if>
+
+            <entity-find entity-name="moqui.security.UserAuthcFactor" list="userAuthcFactorList">
+                <date-filter/><econdition field-name="userId"/>
+                <econdition field-name="fromFactorId" operator="is-null"/>
+                <!-- was condition in post-find iterate: userAuthcFactor.factorTypeEnumId != UafSingleUse &amp;&amp; !userAuthcFactor.fromFactorId -->
+            </entity-find>
+
+            <!-- if user has no authc factors configured allow code via UserAccount.emailAddress -->
+            <!-- NOTE: org.moqui.impl.UserServices.send#AuthcCode looks for a special factorId of 'UserAccountEmail' for this purpose -->
+            <if condition="userAuthcFactorList.size() == 0">
+                <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount"/>
+                <if condition="userAccount?.emailAddress">
+                    <set field="userAuthcFactorList" from="[[factorId:'UserAccountEmail', userId:userId,
+                            factorTypeEnumId:'UafEmail', factorOption:userAccount.emailAddress]]"/>
+                </if>
+            </if>
+
+            <set field="factorTypeEnumIds" from="new TreeSet(userAuthcFactorList*.factorTypeEnumId)"/>
+            <set field="factorTypeDescriptions" from="new LinkedList(factorTypeEnumIds.collect({
+                ec.entity.find('moqui.basic.Enumeration').condition('enumId', it).one()?.description ?: it }))"/>
+
+            <set field="sendableFactors" from="[]"/>
+            <iterate list="userAuthcFactorList" entry="factor">
+                <if condition="factor.factorTypeEnumId in ['UafEmail', 'UafSms']">
+                    <script>sendableFactors.add([factorId:factor.factorId, factorTypeEnumId:factor.factorTypeEnumId,
+                                                 factorOption:factor.factorOption])</script>
+                </if>
+            </iterate>
+        </actions>
+    </service>
+    <service verb="get" noun="UserAuthcFactorRequired" authenticate="false">
+        <!-- NOTE: has authenticate="false" for use in MoquiShiroRealm during login, not anonymous-view/-all to not open it up that much -->
+        <description>This service is the definition of when a 2nd factor is required for a user, used in MoquiShiroRealm and elsewhere</description>
+        <in-parameters><parameter name="userId" required="true"/></in-parameters>
+        <out-parameters><parameter name="secondFactorRequired" type="Boolean"/></out-parameters>
+        <actions>
+            <entity-find-count entity-name="moqui.security.UserAuthcFactor" count-field="uafCount">
+                <date-filter/><econdition field-name="userId"/></entity-find-count>
+            <if condition="uafCount == 0"><then>
+                <entity-find-count entity-name="moqui.security.UserGroup" count-field="userGroupCount">
+                    <econdition field-name="userGroupId" operator="in" from="ec.user.getUserGroupIdSet(userId)"/>
+                    <econdition field-name="requireAuthcFactor" value="Y"/>
+                </entity-find-count>
+                <set field="secondFactorRequired" from="userGroupCount &gt; 0"/>
+            </then><else>
+                <set field="secondFactorRequired" from="true"/>
+            </else></if>
+        </actions>
+    </service>
+
+    <service verb="validate" noun="ExternalUserAuthcCode" authenticate="anonymous-all">
+        <in-parameters><parameter name="code" required="true"/></in-parameters>
+        <out-parameters>
+            <parameter name="verified" type="Boolean"/>
+            <parameter name="factorId"/>
+            <parameter name="username"/>
+        </out-parameters>
+        <actions>
+            <set field="username" from="ec.web.sessionAttributes.moquiPreAuthcUsername"/>
+            <if condition="!username"><return error="true" message="No user pre-authenticated, cannot send code"/></if>
+
+            <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
+                <field-map field-name="username"/></entity-find-one>
+            <if condition="userAccount == null"><return error="true" message="User ${username} not found"/></if>
+
+            <service-call name="org.moqui.impl.UserServices.validate#UserAuthcFactorCode"
+                    in-map="[userId:userAccount.userId, code:code]" out-map="context"/>
+        </actions>
+    </service>
     <service verb="validate" noun="UserAuthcFactorCode">
+        <!-- TODO: Limit the amount of attempts to validate authc code. Similar to Tarpit Locks. -->
         <description>Determine whether a user inputted code is valid based on the current UserAuthcFactor entries for that user.</description>
         <in-parameters>
             <parameter name="userId" required="true"/>
-            <parameter name="code"/>
+            <parameter name="code" required="true"/>
         </in-parameters>
         <out-parameters>
             <parameter name="verified" type="Boolean"/>
@@ -433,11 +590,17 @@ along with this software (see the LICENSE.md file). If not, see
             </entity-find>
 
             <!-- This automatically invalidates any current single use authentication codes that are from the fromFactorId -->
-            <iterate list="userAuthcFactorList" entry="userAuthcFactor"><service-call name="update#moqui.security.UserAuthcFactor" in-map="[factorId:userAuthcFactor.factorId, thruDate:ec.user.nowTimestamp]"/></iterate>
+            <iterate list="userAuthcFactorList" entry="userAuthcFactor">
+                <service-call name="update#moqui.security.UserAuthcFactor"
+                        in-map="[factorId:userAuthcFactor.factorId, thruDate:ec.user.nowTimestamp]"/>
+            </iterate>
             <set field="singleUseCodes" from="[]"/>
 
             <!-- This generates the actual codes using java's SecureRandom library (currently 8 integer digits) -->
-            <script>for (int i = 0; i &lt; numberOfCodes; i++) singleUseCodes.add(new java.security.SecureRandom().nextInt(99999999).toString().padLeft(8,'0'))</script>
+            <script>
+                for (int i = 0; i &lt; numberOfCodes; i++)
+                    singleUseCodes.add(new java.security.SecureRandom().nextInt(99999999).toString().padLeft(8,'0'))
+            </script>
             <iterate list="singleUseCodes" entry="code">
                 <set field="factorOption" from="ec.ecfi.getSimpleHash(code, 'SaltySalt')"/>
                 <service-call name="create#moqui.security.UserAuthcFactor" in-map="context"/>
@@ -447,8 +610,8 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="create" noun="SingleUseAuthcFactor">
         <description>Create a single use authentication factor.</description>
         <in-parameters>
-            <parameter name="userId" required="true"></parameter>
-            <parameter name="fromFactorId" default=""/>
+            <parameter name="userId" required="true"/>
+            <parameter name="fromFactorId"/>
             <parameter name="thruDate" type="Timestamp" default="ec.user.nowTimestamp + 1"/>
         </in-parameters>
         <out-parameters>
@@ -474,78 +637,222 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="create#moqui.security.UserAuthcFactor" in-map="context" out-map="context"/>
         </actions>
     </service>
-    <service verb="send" noun="AuthcCodeEmail" authenticate="anonymous-view">
-        <description>Service to send an email with a single use code in it for verifying an email.</description>
-        <in-parameters><parameter name="emailFactorId" required="true"/></in-parameters>
+
+    <service verb="send" noun="ExternalAuthcCode" authenticate="anonymous-all">
+        <description>Send authentication code for the factorId, looks up service to use based on factorTypeEnumId</description>
+        <in-parameters><parameter name="factorId" required="true"/></in-parameters>
+        <out-parameters>
+            <parameter name="singleUseFactorId"/>
+            <!-- this service is for external use, don't return the code: <parameter name="code"/> -->
+        </out-parameters>
+        <actions>
+            <set field="username" from="ec.web?.sessionAttributes?.moquiPreAuthcUsername ?: ec.user.username"/>
+            <if condition="!username"><return error="true" message="No user pre-authenticated, cannot send code"/></if>
+            <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
+                <field-map field-name="username"/></entity-find-one>
+            <if condition="userAccount == null"><return error="true" message="User ${username} not found"/></if>
+
+            <!-- special case for email OTP with UserAccount.emailAddress -->
+            <if condition="'UserAccountEmail'.equals(factorId)">
+                <entity-find entity-name="moqui.security.UserAuthcFactor" list="userAuthcFactorList">
+                    <date-filter/><econdition field-name="userId" from="userAccount.userId"/>
+                    <econdition field-name="fromFactorId" operator="is-null"/>
+                </entity-find>
+                <if condition="userAuthcFactorList">
+                    <return error="true" message="User has other authentication factors configured, cannot use account email address"/></if>
+
+                <service-call name="org.moqui.impl.UserServices.send#AuthcCodeUserAccountEmail"
+                        in-map="[username:username]" out-map="context"/>
+                <return/>
+            </if>
+
+            <entity-find-one entity-name="moqui.security.UserAuthcFactor" value-field="userAuthcFactor">
+                <field-map field-name="factorId"/></entity-find-one>
+            <if condition="userAuthcFactor == null"><return error="true" message="Authentication factor ${factorId} not found"/></if>
+            <if condition="userAuthcFactor.userId != userAccount.userId">
+                <return error="true" message="Authentication Factor ${factorId} is not valid for ${userAccount.username}"/></if>
+
+            <if condition="userAuthcFactor.factorTypeEnumId == 'UafEmail'"><then>
+                <service-call name="org.moqui.impl.UserServices.send#AuthcCodeEmail" in-map="[factorId:factorId]" out-map="context"/>
+            </then><else-if condition="userAuthcFactor.factorTypeEnumId == 'UafSms'">
+                <service-call name="org.moqui.impl.UserServices.send#AuthcCodeSms" in-map="[factorId:factorId]" out-map="context"/>
+            </else-if><else>
+                <return error="true" message="Send code not supported for authc factor type ${userAuthcFactor.factorTypeEnumId}"/>
+            </else></if>
+        </actions>
+    </service>
+    <service verb="send" noun="AuthcCodeEmail">
+        <description>
+            For public access (outside an admin app) this should be called from send#AuthcCode which does validation,
+                including verifying factor is owned by authc username in session.
+            Service to send an email with a single use code in it for verifying an email.
+        </description>
+        <in-parameters><parameter name="factorId" required="true"/></in-parameters>
         <out-parameters>
             <parameter name="singleUseFactorId"/>
             <parameter name="code"/>
         </out-parameters>
         <actions>
             <entity-find-one entity-name="moqui.security.UserAuthcFactor" value-field="userAuthcFactor">
-                <field-map field-name="factorId" from="emailFactorId"/></entity-find-one>
+                <field-map field-name="factorId"/></entity-find-one>
+            <set field="userId" from="userAuthcFactor.userId"/>
+            <set field="emailAddress" from="userAuthcFactor.factorOption"/>
+
+            <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
+                <field-map field-name="userId"/></entity-find-one>
 
             <!-- create a new single use authc factor code and get it's factorId -->
-            <service-call name="org.moqui.impl.UserServices.create#SingleUseAuthcFactor" in-map="[userId:userAuthcFactor.userId,fromFactorId:emailFactorId]" out-map="context"/>
-            <set field="singleUseFactorId" from="factorId"/>
+            <service-call name="org.moqui.impl.UserServices.create#SingleUseAuthcFactor"
+                    in-map="[userId:userId, fromFactorId:factorId]" out-map="createSuFactorOut"/>
+            <set field="singleUseFactorId" from="createSuFactorOut.factorId"/>
 
             <!-- send an email with the single use code -->
             <service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" async="true">
                 <field-map field-name="emailTemplateId" value="SINGLE_USE_CODE"/>
-                <field-map field-name="toAddresses" from="userAuthcFactor.factorOption"/>
-                <field-map field-name="bodyParameters" from="[code:code,thruDateString:thruDate.toString()]"/>
+                <field-map field-name="toAddresses" from="emailAddress"/>
+                <field-map field-name="bodyParameters" from="[code:createSuFactorOut.code,
+                        thruDateString:ec.l10n.format(createSuFactorOut.thruDate, null)]"/>
             </service-call>
-            <message>Authentication code sent to ${userAuthcFactor.factorOption}</message>
+            <message>Authentication code sent to ${emailAddress}</message>
 
             <!-- if the email just sent to is not the main email address for the user send the main email address a notification email that an email with a code was sent -->
-            <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
-                <field-map field-name="userId" from="userAuthcFactor.userId"/></entity-find-one>
-            <if condition="userAccount.emailAddress &amp;&amp; userAccount.emailAddress != userAuthcFactor.factorOption">
+            <if condition="userAccount.emailAddress &amp;&amp; userAccount.emailAddress != emailAddress">
                 <service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" async="true">
                     <field-map field-name="emailTemplateId" value="ADDED_EMAIL_AUTHC_FACTOR"/>
                     <field-map field-name="toAddresses" from="userAccount.emailAddress"/>
-                    <field-map field-name="bodyParameters" from="[userEmail:userAuthcFactor.factorOption,thruDateString:thruDate.toString()]"/>
+                    <field-map field-name="bodyParameters" from="[userEmail:emailAddress,
+                            thruDateString:ec.l10n.format(createSuFactorOut.thruDate, null)]"/>
                 </service-call>
             </if>
         </actions>
     </service>
-    <service verb="create" noun="EmailUserAuthcFactor">
-        <description>Creates a UserAuthcFactor entry for email, and an entry for the single use code to verify the email.</description>
-        <in-parameters>
-            <parameter name="userId" required="true"><description>User to enable Email Factor Method</description></parameter>
-            <parameter name="thruDate" type="Timestamp" default="ec.user.nowTimestamp+365"/>
-            <parameter name="factorOption" required="true"><text-email/></parameter>
-        </in-parameters>
+    <service verb="send" noun="AuthcCodeUserAccountEmail">
+        <in-parameters><parameter name="username" required="true"/></in-parameters>
         <out-parameters>
-            <parameter name="factorId"/>
             <parameter name="singleUseFactorId"/>
             <parameter name="code"/>
         </out-parameters>
         <actions>
-            <set field="factorTypeEnumId" value="UafEmail"/>
-            <set field="fromDate" from="ec.user.nowTimestamp"/>
-            <set field="needsValidation" value="Y"/>
+            <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
+                <field-map field-name="username"/></entity-find-one>
+            <set field="userId" from="userAccount.userId"/>
+            <set field="emailAddress" from="userAccount.emailAddress"/>
 
+            <!-- create a new single use authc factor code and get it's factorId -->
+            <service-call name="org.moqui.impl.UserServices.create#SingleUseAuthcFactor"
+                    in-map="[userId:userId, fromFactorId:'UserAccountEmail']" out-map="createSuFactorOut"/>
+            <set field="singleUseFactorId" from="createSuFactorOut.factorId"/>
+
+            <!-- send an email with the single use code -->
+            <service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" async="true">
+                <field-map field-name="emailTemplateId" value="SINGLE_USE_CODE"/>
+                <field-map field-name="toAddresses" from="emailAddress"/>
+                <field-map field-name="bodyParameters" from="[code:createSuFactorOut.code,
+                        thruDateString:ec.l10n.format(createSuFactorOut.thruDate, null)]"/>
+            </service-call>
+            <message>Authentication code sent to ${emailAddress}</message>
+        </actions>
+    </service>
+    <service verb="send" noun="AuthcCodeSms">
+        <description>
+            For public access (outside an admin app) this should be called from send#AuthcCode which does validation,
+            including verifying factor is owned by authc username in session.
+            Service to send a SMS message with a single use code in it.
+        </description>
+        <in-parameters><parameter name="factorId" required="true"/></in-parameters>
+        <out-parameters>
+            <parameter name="singleUseFactorId"/>
+            <parameter name="code"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="moqui.security.UserAuthcFactor" value-field="userAuthcFactor">
+                <field-map field-name="factorId"/></entity-find-one>
+            <set field="userId" from="userAuthcFactor.userId"/>
+            <set field="contactNumber" from="userAuthcFactor.factorOption"/>
+
+            <!-- create a new single use authc factor code and get it's factorId -->
+            <service-call name="org.moqui.impl.UserServices.create#SingleUseAuthcFactor"
+                    in-map="[userId:userId, fromFactorId:factorId]" out-map="createSuFactorOut"/>
+            <set field="singleUseFactorId" from="createSuFactorOut.factorId"/>
+
+            <!-- send a SMS message with the single use code -->
+            <service-call name="org.moqui.SmsServices.send#SmsMessage">
+                <field-map field-name="contactNumber"/>
+                <!-- NOTE: uses LocalizedMessage with original=UserAuthcOtpMessage, defined in CommonL10nData.xml -->
+                <field-map field-name="message" from="ec.resource.expand('UserAuthcOtpMessage', null, [code:createSuFactorOut.code])"/>
+            </service-call>
+            <message public="true" type="success">Authentication code sent to ${contactNumber}</message>
+
+            <!-- TODO consider always sending email to account address to let them know a code was sent, need variation in email text for SMS
+            <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
+                <field-map field-name="userId"/></entity-find-one>
+            <if condition="userAccount.emailAddress">
+                <service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" async="true">
+                    <field-map field-name="emailTemplateId" value="ADDED_EMAIL_AUTHC_FACTOR"/>
+                    <field-map field-name="toAddresses" from="userAccount.emailAddress"/>
+                    <field-map field-name="bodyParameters" from="[userEmail:emailAddress,
+                            thruDateString:ec.l10n.format(createSuFactorOut.thruDate, null)]"/>
+                </service-call>
+            </if>
+            -->
+        </actions>
+    </service>
+
+    <service verb="create" noun="UserAuthcFactorEmail">
+        <description>Creates a UserAuthcFactor entry for email</description>
+        <in-parameters>
+            <parameter name="userId" required="true"><description>User to enable Factor Method</description></parameter>
+            <parameter name="fromDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <parameter name="thruDate" type="Timestamp"/>
+            <parameter name="factorTypeEnumId" default-value="UafEmail"/>
+            <parameter name="factorOption" required="true"><text-email/></parameter>
+            <parameter name="needsValidation" default-value="Y"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="factorId"/>
+            <!-- no longer generates and sends code: <parameter name="singleUseFactorId"/> <parameter name="code"/> -->
+        </out-parameters>
+        <actions>
             <entity-find-count entity-name="moqui.security.UserAuthcFactor" count-field="userAuthcFactorCount">
                 <date-filter/>
                 <econdition field-name="userId"/>
-                <econdition field-name="factorTypeEnumId"/>
                 <econdition field-name="factorOption"/>
             </entity-find-count>
-
-            <if condition="userAuthcFactorCount == 0">
-                <then>
-                    <!-- If there are no UserAuthcFactor entries for this user with the same email, create the UserAuthcFactor. -->
-                    <service-call name="create#moqui.security.UserAuthcFactor" in-map="context" out-map="context"/>
-                    <!-- don't send code email on create, do it manually if needed from UI:
-                    <service-call name="org.moqui.impl.UserServices.send#AuthcCodeEmail" in-map="emailFactorId:factorId" out-map="context"/>
-                    -->
-                </then>
-                <else-if condition="userAuthcFactorCount == 1">
-                    <!-- There is an UserAuthcFactor for this user that has the same email. Send error message to the user.-->
-                    <return error="true" message="Email entry already exists for: ${factorOption}. Cannot create duplicate email."/>
-                </else-if>
-            </if>
+            <if condition="userAuthcFactorCount == 0"><then>
+                <!-- If there are no UserAuthcFactor entries for this user with the same email, create the UserAuthcFactor. -->
+                <service-call name="create#moqui.security.UserAuthcFactor" in-map="context" out-map="context"/>
+                <!-- don't send code email on create, do it manually if needed from UI:
+                <service-call name="org.moqui.impl.UserServices.send#AuthcCodeEmail" in-map="[factorId:factorId]" out-map="context"/> -->
+            </then><else>
+                <!-- There is an UserAuthcFactor for this user that has the same email. Send error message to the user.-->
+                <return error="true" message="Entry already exists for ${factorOption}"/>
+            </else></if>
+        </actions>
+    </service>
+    <service verb="create" noun="UserAuthcFactorSms">
+        <description>Creates a UserAuthcFactor entry for SMS</description>
+        <in-parameters>
+            <parameter name="userId" required="true"><description>User to enable Factor Method</description></parameter>
+            <parameter name="fromDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <parameter name="thruDate" type="Timestamp"/>
+            <parameter name="factorTypeEnumId" default-value="UafSms"/>
+            <parameter name="factorOption" required="true"><matches regexp="^\+?\d[-\. \d]*\d\d$" message="Please enter a valid phone number"/></parameter>
+            <parameter name="needsValidation" default-value="Y"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="factorId"/>
+        </out-parameters>
+        <actions>
+            <entity-find-count entity-name="moqui.security.UserAuthcFactor" count-field="userAuthcFactorCount">
+                <date-filter/>
+                <econdition field-name="userId"/>
+                <econdition field-name="factorOption"/>
+            </entity-find-count>
+            <if condition="userAuthcFactorCount == 0"><then>
+                <service-call name="create#moqui.security.UserAuthcFactor" in-map="context" out-map="context"/>
+            </then><else>
+                <return error="true" message="Entry already exists for ${factorOption}"/>
+            </else></if>
         </actions>
     </service>
 

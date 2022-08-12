@@ -111,6 +111,9 @@ public interface EntityDataLoader {
      */
     List<String> check();
     long check(List<String> messageList);
+    /** A variation on check() that returns structured field diff information instead of diff info in messages */
+    List<Map<String, Object>> checkInfo();
+    long checkInfo(List<Map<String, Object>> diffInfoList, List<String> messageList);
 
     /** Load the values into the database(s). */
     long load();

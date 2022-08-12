@@ -617,7 +617,11 @@ public class ContextJavaUtil {
             if (lsm != null) {
                 int size = lsm.size();
                 for (int i = 0; i < size; i++) {
-                    gen.writeObjectField(lsm.getKey(i), lsm.getValue(i));
+                    String key = lsm.getKey(i);
+                    Object value = lsm.getValue(i);
+                    // sparse maps could have null keys at certain indexes
+                    if (key == null) continue;
+                    gen.writeObjectField(key, value);
                 }
             }
             gen.writeEndObject();

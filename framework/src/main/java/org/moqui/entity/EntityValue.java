@@ -264,6 +264,7 @@ public interface EntityValue extends Map<String, Object>, Externalizable, Compar
     boolean checkFks(boolean insertDummy) throws EntityException;
     /** Compare this value to the database, adding messages about fields that differ or if the record doesn't exist to messages. */
     long checkAgainstDatabase(List<String> messages);
+    long checkAgainstDatabaseInfo(List<Map<String, Object>> diffInfoList, List<String> messages, String location);
 
     /** Makes an XML Element object with an attribute for each field of the entity
      * @param document The XML Document that the new Element will be part of

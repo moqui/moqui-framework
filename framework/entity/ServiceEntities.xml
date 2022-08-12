@@ -12,7 +12,7 @@ You should have received a copy of the CC0 Public Domain Dedication
 along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
-<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-2.1.xsd">
+<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-3.xsd">
 
     <entity entity-name="ServiceRegister" package="moqui.service" use="configuration" cache="true">
         <field name="serviceRegisterId" type="id" is-pk="true"/>
@@ -364,10 +364,17 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="componentDelimiter" type="text-indicator"/>
         <field name="escapeCharacter" type="text-indicator"/>
 
+        <field name="preAuthMessageRemoteId" type="id">
+            <description>Remote system related to this remote system but for pre-auth purposes, like a separate single sign on server</description></field>
+
         <relationship type="one" title="SystemMessageAuthType" related="moqui.basic.Enumeration" short-alias="messageAuthEnum">
             <key-map field-name="messageAuthEnumId"/></relationship>
         <relationship type="one" title="SendMessageAuthType" related="moqui.basic.Enumeration" short-alias="sendAuthEnum">
             <key-map field-name="sendAuthEnumId"/></relationship>
+
+        <relationship type="one" related="moqui.service.message.SystemMessageType" short-alias="systemMessageType"/>
+        <relationship type="one" title="PreAuth" related="moqui.service.message.SystemMessageRemote" short-alias="preAuthMessageRemote">
+            <key-map field-name="preAuthMessageRemoteId"/></relationship>
 
         <seed-data>
             <moqui.basic.EnumerationType description="System Message Auth Type" enumTypeId="SystemMessageAuthType"/>

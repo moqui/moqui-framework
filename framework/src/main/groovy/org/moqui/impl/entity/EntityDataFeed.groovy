@@ -710,7 +710,7 @@ class EntityDataFeed {
 
                 ArrayList primaryPkValueList = new ArrayList<Map<String, Object>>(primaryPkFieldValues)
                 int primaryPkValueListSize = primaryPkValueList.size()
-                int chunkSize = 500
+                int chunkSize = 200
                 for (int outer = 0; outer < primaryPkValueListSize; ) {
                     int remaining = primaryPkValueListSize - outer
                     int curSize = remaining > chunkSize ? chunkSize : remaining

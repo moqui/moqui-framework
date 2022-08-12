@@ -271,9 +271,9 @@ class RestApi {
             }
             if (remainingInParmNames) {
                 if (method in ['post', 'put', 'patch']) {
-                    parameters.add([name:'body', in:'body', required:true, schema:['$ref':"#/definitions/${sd.serviceName}.In".toString()]])
+                    parameters.add([name:'body', in:'body', required:true, schema:['$ref':"#/definitions/${sd.serviceNameNoHash}.In".toString()]])
                     // add a definition for service in parameters
-                    definitionsMap.put("${sd.serviceName}.In".toString(), RestSchemaUtil.getJsonSchemaMapIn(sd))
+                    definitionsMap.put("${sd.serviceNameNoHash}.In".toString(), RestSchemaUtil.getJsonSchemaMapIn(sd))
                 } else {
                     for (String parmName in remainingInParmNames) {
                         MNode parmNode = sd.getInParameter(parmName)
@@ -296,8 +296,8 @@ class RestApi {
             Map responses = ["401":[description:"Authentication required"], "403":[description:"Access Forbidden (no authz)"],
                              "429":[description:"Too Many Requests (tarpit)"], "500":[description:"General Error"]] as Map<String, Object>
             if (sd.getOutParameterNames().size() > 0) {
-                responses.put("200", [description:'Success', schema:['$ref':"#/definitions/${sd.serviceName}.Out".toString()]])
-                definitionsMap.put("${sd.serviceName}.Out".toString(), RestSchemaUtil.getJsonSchemaMapOut(sd))
+                responses.put("200", [description:'Success', schema:['$ref':"#/definitions/${sd.serviceNameNoHash}.Out".toString()]])
+                definitionsMap.put("${sd.serviceNameNoHash}.Out".toString(), RestSchemaUtil.getJsonSchemaMapOut(sd))
             }
 
             Map curMap = new LinkedHashMap<String, Object>()

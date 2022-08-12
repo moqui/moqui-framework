@@ -13,8 +13,8 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
-    <xs:include schemaLocation="common-types-2.1.xsd"/>
-    <xs:include schemaLocation="xml-actions-2.1.xsd"/>
+    <xs:include schemaLocation="common-types-3.xsd"/>
+    <xs:include schemaLocation="xml-actions-3.xsd"/>
 
     <!-- root element -->
     <xs:element name="services">
@@ -70,8 +70,8 @@ along with this software (see the LICENSE.md file). If not, see
                         <xs:enumeration value="script"/>
                         <xs:enumeration value="java"/>
                         <xs:enumeration value="interface"/>
-                        <xs:enumeration value="remote-xml-rpc"/>
                         <xs:enumeration value="remote-json-rpc"/>
+                        <xs:enumeration value="remote-rest"/>
                         <xs:enumeration value="camel"/>
                     </xs:restriction>
                 </xs:simpleType>

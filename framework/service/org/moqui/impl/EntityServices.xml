@@ -12,7 +12,7 @@ You should have received a copy of the CC0 Public Domain Dedication
 along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
-<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-3.xsd">
 
     <!-- ==================================================== -->
     <!-- ========== DataDocument and Feed Services ========== -->
@@ -251,6 +251,7 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters>
             <parameter name="fromDate" type="Timestamp"/>
             <parameter name="thruDate" type="Timestamp"/>
+            <parameter name="entitiesToInclude" type="List"><parameter name="entityName"/></parameter>
             <parameter name="entitiesToSkip" type="List"><parameter name="entityName"/></parameter>
             <parameter name="baseFilename"/>
             <parameter name="fileType" default-value="XML"/>
@@ -264,10 +265,15 @@ along with this software (see the LICENSE.md file). If not, see
                 import org.moqui.entity.EntityDataWriter
                 import org.moqui.context.ExecutionContext
                 ExecutionContext ec = context.ec
-                EntityDataWriter edw = ec.entity.makeDataWriter().allEntities()
+                EntityDataWriter edw = ec.entity.makeDataWriter()
 
                 if (fromDate) edw.fromDate(ec.l10n.parseTimestamp(fromDate, null))
                 if (thruDate) edw.thruDate(ec.l10n.parseTimestamp(thruDate, null))
+                if (entitiesToInclude) {
+                    edw.entityNames(entitiesToInclude)
+                } else {
+                    edw.allEntities()
+                }
                 if (entitiesToSkip) edw.skipEntityNames(entitiesToSkip)
 
                 edw.fileType((String) fileType)

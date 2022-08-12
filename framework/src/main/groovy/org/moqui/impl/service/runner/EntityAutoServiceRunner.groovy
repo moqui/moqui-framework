@@ -326,7 +326,7 @@ class EntityAutoServiceRunner implements ServiceRunner {
 
         Map<String, Object> tempResult = [:]
         boolean allPksIn = checkAllPkFields(ed, parameters, tempResult, newEntityValue, outParamNames)
-        result.putAll(tempResult)
+        if (result != null) result.putAll(tempResult)
 
         if (!allPksIn) {
             // we had to fill some stuff in, so do a create

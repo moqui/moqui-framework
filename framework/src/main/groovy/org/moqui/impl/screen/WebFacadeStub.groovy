@@ -88,6 +88,7 @@ class WebFacadeStub implements WebFacade {
     String getResponseText() { responseWriter.flush(); return responseWriter.toString() }
     Object getResponseJsonObj() { return responseJsonObj }
     HttpServletResponseStub getHttpServletResponseStub() { return httpServletResponse }
+    String getRequestDetails() { return "Stub" }
 
     @Override String getRequestUrl() { return "TestRequestUrl" }
 
@@ -417,13 +418,14 @@ class WebFacadeStub implements WebFacade {
         @Override void removeAttribute(String s) { wfs.sessionAttributes.remove(s) }
         @Override String getServletContextName() { return "Moqui Root Webapp" }
 
-        // ========== New methods for Servlet 3.1 ==========
-        @Override int getEffectiveMajorVersion() { return 3 }
-        @Override int getEffectiveMinorVersion() { return 1 }
+        // ========== New methods for Servlet 3.1 and 4.0 ==========
+        @Override int getEffectiveMajorVersion() { return 4 }
+        @Override int getEffectiveMinorVersion() { return 0 }
         @Override boolean setInitParameter(String name, String value) { return false }
         @Override ServletRegistration.Dynamic addServlet(String servletName, String className) { throw new UnsupportedOperationException() }
         @Override ServletRegistration.Dynamic addServlet(String servletName, Servlet servlet) { throw new UnsupportedOperationException() }
         @Override ServletRegistration.Dynamic addServlet(String servletName, Class<? extends Servlet> servletClass) { throw new UnsupportedOperationException() }
+        @Override ServletRegistration.Dynamic addJspFile(String servletName, String jspFile) { throw new UnsupportedOperationException() }
         @Override def <T extends Servlet> T createServlet(Class<T> clazz) throws ServletException { throw new UnsupportedOperationException() }
         @Override ServletRegistration getServletRegistration(String servletName) { throw new UnsupportedOperationException() }
         @Override Map<String, ? extends ServletRegistration> getServletRegistrations() { throw new UnsupportedOperationException() }
@@ -445,6 +447,12 @@ class WebFacadeStub implements WebFacade {
         @Override ClassLoader getClassLoader() { throw new UnsupportedOperationException() }
         @Override void declareRoles(String... roleNames) { throw new UnsupportedOperationException() }
         @Override String getVirtualServerName() { throw new UnsupportedOperationException() }
+        @Override int getSessionTimeout() { return 30 }
+        @Override void setSessionTimeout(int sessionTimeout) { }
+        @Override String getRequestCharacterEncoding() { return "UTF-8" }
+        @Override void setRequestCharacterEncoding(String encoding) { throw new UnsupportedOperationException() }
+        @Override String getResponseCharacterEncoding() { return "UTF-8" }
+        @Override void setResponseCharacterEncoding(String encoding) { throw new UnsupportedOperationException() }
     }
 
     static class HttpServletResponseStub implements HttpServletResponse {

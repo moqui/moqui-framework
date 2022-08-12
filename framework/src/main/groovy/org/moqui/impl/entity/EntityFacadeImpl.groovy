@@ -1139,7 +1139,7 @@ class EntityFacadeImpl implements EntityFacade {
             }
 
             eil.add([entityName:ed.entityInfo.internalEntityName, "package":ed.entityNode.attribute("package"),
-                    isView:(ed.isViewEntity ? "true" : "false"), fullEntityName:ed.fullEntityName] as Map<String, Object>)
+                    isView:(ed.isViewEntity ? "true" : "false"), fullEntityName:ed.fullEntityName, tableName:ed.tableName] as Map<String, Object>)
         }
 
         if (orderByField != null && !orderByField.isEmpty()) CollectionUtilities.orderMapList(eil, [orderByField])

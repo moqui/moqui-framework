@@ -24,6 +24,7 @@ import org.apache.shiro.subject.PrincipalCollection
 import org.apache.shiro.util.SimpleByteSource
 import org.moqui.BaseArtifactException
 import org.moqui.Moqui
+import org.moqui.context.PasswordChangeRequiredException
 import org.moqui.context.SecondFactorRequiredException
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityList
@@ -122,11 +123,14 @@ class MoquiShiroRealm implements Realm, Authorizer {
         return newUserAccount
     }
 
-    static void loginPostPassword(ExecutionContextImpl eci, EntityValue newUserAccount) {
+    static void loginPostPassword(ExecutionContextImpl eci, EntityValue newUserAccount, AuthenticationToken token) {
         // the password did match, but check a few additional things
+        String userId = newUserAccount.getNoCheckSimple("userId")
+
+        // check for require password change
         if ("Y".equals(newUserAccount.getNoCheckSimple("requirePasswordChange"))) {
             // NOTE: don't call incrementUserAccountFailedLogins here (don't need compounding reasons to stop access)
-            throw new CredentialsException(eci.resource.expand('Authenticate failed for user [${newUserAccount.username}] because account requires password change [PWDCHG].','',[newUserAccount:newUserAccount]))
+            throw new PasswordChangeRequiredException(eci.resource.expand('Authenticate failed for user [${newUserAccount.username}] because account requires password change [PWDCHG].','',[newUserAccount:newUserAccount]))
         }
         // check time since password was last changed, if it has been too long (user-facade.password.@change-weeks default 12) then fail
         if (newUserAccount.getNoCheckSimple("passwordSetDate") != null) {
@@ -140,6 +144,18 @@ class MoquiShiroRealm implements Realm, Authorizer {
                 }
             }
         }
+        // check if the user requires an additional authentication factor step
+        // do this after checking for require password change and expired password for better user experience
+        if (!(token instanceof ForceLoginToken)) {
+            boolean secondReqd = eci.ecfi.serviceFacade.sync().name("org.moqui.impl.UserServices.get#UserAuthcFactorRequired")
+                    .parameter("userId", userId).disableAuthz().call()?.secondFactorRequired ?: false
+            // if the user requires authentication, throw a SecondFactorRequiredException so that UserFacadeImpl.groovy can catch the error and perform the appropriate action.
+            if (secondReqd) {
+                throw new SecondFactorRequiredException(eci.ecfi.resource.expand('Authentication code required for user ${username}',
+                        '',[username:newUserAccount.getNoCheckSimple("username")]))
+            }
+        }
+
         // check ipAllowed if on UserAccount or any UserGroup a member of
         String clientIp = eci.userFacade.getClientIp()
         if (clientIp == null || clientIp.isEmpty()) {
@@ -211,7 +227,7 @@ class MoquiShiroRealm implements Realm, Authorizer {
         }
     }
 
-    static void loginAfterAlways(ExecutionContextImpl eci, String userId, String passwordUsed, boolean successful) {
+    static void loginSaveHistory(ExecutionContextImpl eci, String userId, String passwordUsed, boolean successful) {
         // track the UserLoginHistory, whether the above succeeded or failed (ie even if an exception was thrown)
         if (!eci.getSkipStats()) {
             MNode loginNode = eci.ecfi.confXmlRoot.first("user-facade").first("login")
@@ -268,28 +284,11 @@ class MoquiShiroRealm implements Realm, Authorizer {
                     ecfi.serviceFacade.sync().name("org.moqui.impl.UserServices.increment#UserAccountFailedLogins")
                             .parameters((Map<String, Object>) [userId:newUserAccount.userId]).requireNewTransaction(true).call()
                     throw new IncorrectCredentialsException(ecfi.resource.expand('Password incorrect for username ${username}','',[username:username]))
-                } else {
-                    // if the user's credentials are correct, check if the user requires an additional authentication factor step
-
-                    boolean userRequireAuthc = false
-                    long userAuthcFactorCount = eci.entityFacade.find("moqui.security.UserAuthcFactor")
-                            .conditionDate(null, null, null).condition("userId", userId).disableAuthz().count()
-                    if (userAuthcFactorCount > 0) userRequireAuthc = true
-                    if (!userRequireAuthc) {
-                        long userGroupCount = eci.entityFacade.find("moqui.security.UserGroup")
-                                .condition("userGroupId", EntityCondition.IN, eci.userFacade.getUserGroupIdSet(userId))
-                                .condition("requireAuthcFactor", "Y").disableAuthz().count()
-                        if (userGroupCount > 0) userRequireAuthc = true
-                    }
-
-                    // if the user requires authentication, throw a SecondFactorRequiredException so that UserFacadeImpl.groovy can catch the error and perform the appropriate action.
-                    if (userRequireAuthc) {
-                        throw new SecondFactorRequiredException(ecfi.resource.expand('User ${username} requires an authentication code to login','',[username:username]))
-                    }
                 }
             }
 
-            loginPostPassword(eci, newUserAccount)
+            // credentials matched
+            loginPostPassword(eci, newUserAccount, token)
 
             // at this point the user is successfully authenticated
             successful = true
@@ -299,7 +298,7 @@ class MoquiShiroRealm implements Realm, Authorizer {
                 ForceLoginToken flt = (ForceLoginToken) token
                 saveHistory = flt.saveHistory
             }
-            if (saveHistory) loginAfterAlways(eci, userId, token.credentials as String, successful)
+            if (saveHistory) loginSaveHistory(eci, userId, token.credentials as String, successful)
         }
 
         return info
