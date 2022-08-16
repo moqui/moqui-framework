@@ -62,7 +62,7 @@ public interface EntityCondition extends Externalizable {
     /** Set this condition to ignore case in the query.
      * This may not have an effect for all types of conditions.
      *
-     * @return Returns reference to the query for convenience.
+     * @return Returns reference to this condition for convenience.
      */
     EntityCondition ignoreCase();
 }

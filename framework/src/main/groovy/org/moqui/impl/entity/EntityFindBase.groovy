@@ -62,6 +62,7 @@ abstract class EntityFindBase implements EntityFind {
     protected Object singleCondValue = null
     protected Map<String, Object> simpleAndMap = (Map<String, Object>) null
     protected EntityConditionImplBase whereEntityCondition = (EntityConditionImplBase) null
+    protected EntityCondFluentFind localCondFluentFind = (EntityCondFluentFind) null
 
     protected EntityConditionImplBase havingEntityCondition = (EntityConditionImplBase) null
 
@@ -236,8 +237,8 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override
     EntityConditionFluent condition() {
-        throw new RuntimeException("Not yet implemented, check back later")
-        // TODO: two implementations of EntityConditionFluent: one backed by EntityFind, one that is a wrapper around ListCondition
+        if (localCondFluentFind == null) localCondFluentFind = new EntityCondFluentFind(this)
+        return localCondFluentFind
     }
 
     @Override
