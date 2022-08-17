@@ -16,9 +16,9 @@
     <component name="daolos-vendor-dashboard" group="mkdecisiondev" version="v1.3.0" branch="master"/>
     <component name="moqui-financial-worksheet" group="mkdecisiondev" version="v1.3.1" branch="master"/>
     <component name="moqui-close-decision" group="mkdecisiondev" version="v1.6.0" branch="master"/>
-    <component name="moqui-close" group="mkdecisiondev" version="v1.13.0" branch="master"/>
-    <component name="mk-services" group="mkdecisiondev" version="v1.7.0" branch="master"/>
-    <component name="moqui-ccos" group="mkdecisiondev" version="v1.3.0" branch="master"/>
+    <component name="moqui-close" group="mkdecisiondev" version="v1.13.1" branch="master"/>
+    <component name="mk-services" group="mkdecisiondev" version="v1.7.1" branch="master"/>
+    <component name="moqui-ccos" group="mkdecisiondev" version="v1.3.1" branch="master"/>
     <component name="moqui-mk-dashboard" group="mkdecisiondev" version="v1.11.0" branch="master"/>
     <component name="close-customer-portal" group="mkdecisiondev" version="v1.1.1" branch="master"/>
     <component name="moqui-html-pdf" group="mkdecisiondev" version="v1.1.0" branch="master"/>
