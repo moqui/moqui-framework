@@ -68,8 +68,9 @@ tasks.withType(GroovyCompile) { options.compilerArgs << "-proc:none" }
 // NOTE: for dependency types and 'api' definition see: https://docs.gradle.org/current/userguide/java_library_plugin.html
 dependencies {
     // Groovy
-    // NOTE: Groovy 3.0.10 has a bug that somehow causes EntityDefinition.isViewEntity (public final boolean) to switch
-    //     from true during constructor to false later on; see EntityFindBuilder.java:111-112, EntityDefinition.groovy:92
+    // NOTE: Groovy 3.0.10-3.0.12 has a bug that somehow causes EntityDefinition.isViewEntity (public final boolean) to switch
+    //     from true during constructor to false later on; see EntityFindBuilder.java:112-114 and EntityDefinition.groovy:50-53,94-95;
+    //     for now using Boolean instead of boolean to resolve, but starting at 3.0.9 to avoid risk with other code
     api 'org.codehaus.groovy:groovy:3.0.9' // Apache 2.0
     api 'org.codehaus.groovy:groovy-dateutil:3.0.9' // Apache 2.0
     api 'org.codehaus.groovy:groovy-groovysh:3.0.9' // Apache 2.0
@@ -78,7 +79,7 @@ dependencies {
     api 'org.codehaus.groovy:groovy-json:3.0.9' // Apache 2.0
     api 'org.codehaus.groovy:groovy-templates:3.0.9' // Apache 2.0
     api 'org.codehaus.groovy:groovy-xml:3.0.9' // Apache 2.0
-    // jansi is needed for groovydoc only, so in compileOnly (not included in war)
+    // jansi is needed for groovydoc only, so in compileOnly (not included in war) - don't update to version 2, keep at version 1 for compatibility
     compileOnly 'org.fusesource.jansi:jansi:1.18'
     // Findbugs need only during compile (used by freemarker and various moqui classes)
     compileOnly 'com.google.code.findbugs:annotations:3.0.1'
@@ -106,7 +107,7 @@ dependencies {
     api 'commons-validator:commons-validator:1.7' // Apache 2.0
 
     // Cron Utils
-    api 'com.cronutils:cron-utils:9.1.6' // Apache 2.0
+    api 'com.cronutils:cron-utils:9.2.0' // Apache 2.0
 
     // Flexmark (markdown)
     api 'com.vladsch.flexmark:flexmark:0.64.0'
@@ -117,7 +118,7 @@ dependencies {
     api 'org.freemarker:freemarker:2.3.31' // Apache 2.0
 
     // H2 Database
-    api 'com.h2database:h2:2.1.212' // MPL 2.0, EPL 1.0
+    api 'com.h2database:h2:2.1.214' // MPL 2.0, EPL 1.0
 
     // Java Specifications
     api 'javax.transaction:jta:1.1'
@@ -156,20 +157,20 @@ dependencies {
     api 'joda-time:joda-time:2.10.14' // Apache 2.0
 
     // JSoup (HTML parser, cleaner)
-    api 'org.jsoup:jsoup:1.15.1' // MIT
+    api 'org.jsoup:jsoup:1.15.2' // MIT
 
     // Apache Shiro
     api module('org.apache.shiro:shiro-core:1.9.1') // Apache 2.0
     api module('org.apache.shiro:shiro-web:1.9.1') // Apache 2.0
 
     // SLF4J, Log4j 2 (note Log4j 2 is used by various libraries, best not to replace it even if mostly possible with SLF4J)
-    // NOTE: using slf4j 2.0.0-alpha2 because Jetty 10 uses it, overriding earlier version in embedded mode with shared classpath
-    api 'org.slf4j:slf4j-api:2.0.0-alpha7'
-    implementation 'org.apache.logging.log4j:log4j-core:2.17.2'
-    implementation 'org.apache.logging.log4j:log4j-api:2.17.2'
-    runtimeOnly 'org.apache.logging.log4j:log4j-jcl:2.17.2'
+    // NOTE: using slf4j 2.0.0 in beta because Jetty 10 uses 2.0.0, overriding earlier version in embedded mode with shared classpath
+    api 'org.slf4j:slf4j-api:2.0.0-beta1'
+    implementation 'org.apache.logging.log4j:log4j-core:2.18.0'
+    implementation 'org.apache.logging.log4j:log4j-api:2.18.0'
+    runtimeOnly 'org.apache.logging.log4j:log4j-jcl:2.18.0'
     // NOTE using log4j-slf4j18-impl instead of log4j-slf4j-impl because the SLF4J 1.8 version includes a SLF4J 2.0 compatible logging provider
-    runtimeOnly 'org.apache.logging.log4j:log4j-slf4j18-impl:2.17.2'
+    runtimeOnly 'org.apache.logging.log4j:log4j-slf4j18-impl:2.18.0'
 
     // SubEtha SMTP (module as depends on old javax.mail location; also uses SLF4J, activation included elsewhere)
     api module('org.subethamail:subethasmtp:3.1.7')
@@ -190,11 +191,11 @@ dependencies {
     // ========== test dependencies ==========
 
     // junit-platform-launcher is a dependency from spock-core, included explicitly to get more recent version as needed
-    testImplementation 'org.junit.platform:junit-platform-launcher:1.8.2'
+    testImplementation 'org.junit.platform:junit-platform-launcher:1.9.0'
     // junit-platform-suite required for test suites to specify test class order, etc
-    testImplementation 'org.junit.platform:junit-platform-suite:1.8.2'
+    testImplementation 'org.junit.platform:junit-platform-suite:1.9.0'
     // junit-jupiter-api for using JUnit directly, not generally needed for Spock based tests
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.2'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.9.0'
     // Spock Framework
     testImplementation platform("org.spockframework:spock-bom:2.1-groovy-3.0") // Apache 2.0
     testImplementation 'org.spockframework:spock-core:2.1-groovy-3.0' // Apache 2.0
@@ -213,7 +214,7 @@ dependencies {
     execWarRuntimeOnly ('org.eclipse.jetty.websocket:websocket-jetty-server:10.0.11') // Apache 2.0
     // only include this if using Endpoint and MessageHandler annotations:
     // execWarRuntime ('org.eclipse.jetty:jetty-annotations:10.0.11') // Apache 2.0
-    execWarRuntimeOnly 'org.apache.logging.log4j:log4j-slf4j18-impl:2.17.2'
+    execWarRuntimeOnly 'org.apache.logging.log4j:log4j-slf4j18-impl:2.18.0'
 }
 
 // setup task dependencies to make sure the start sourceSets always get run
