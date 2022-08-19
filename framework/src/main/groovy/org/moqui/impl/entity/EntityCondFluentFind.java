@@ -16,11 +16,13 @@ package org.moqui.impl.entity;
 import org.moqui.entity.EntityCondition;
 import org.moqui.entity.EntityConditionFluent;
 import org.moqui.impl.entity.condition.EntityConditionImplBase;
+import org.moqui.impl.entity.condition.ListCondition;
 
 import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.Map;
 
 public class EntityCondFluentFind implements EntityConditionFluent {
@@ -40,14 +42,21 @@ public class EntityCondFluentFind implements EntityConditionFluent {
         if (conditions.length == 1) {
             entityFindBase.condition(conditions[0]);
         } else {
-            for (int i = 0; i < conditions.length; i++) entityFindBase.condition(conditions[i]);
+            ArrayList<EntityConditionImplBase> condImplList = new ArrayList<>(conditions.length);
+            for (int i = 0; i < conditions.length; i++) condImplList.add((EntityConditionImplBase) conditions[i]);
+            entityFindBase.condition(new ListCondition(condImplList, JoinOperator.OR));
         }
         return this;
     }
-
     @Override
     public EntityConditionFluent and(EntityCondition... conditions) {
-        return null;
+        if (conditions.length == 0) return this;
+        if (conditions.length == 1) {
+            entityFindBase.condition(conditions[0]);
+        } else {
+            for (int i = 0; i < conditions.length; i++) entityFindBase.condition(conditions[i]);
+        }
+        return this;
     }
 
     @Override

@@ -15,13 +15,14 @@ package org.moqui.impl.entity;
 
 import org.moqui.entity.EntityCondition;
 import org.moqui.entity.EntityConditionFluent;
-import org.moqui.impl.entity.condition.EntityConditionImplBase;
-import org.moqui.impl.entity.condition.ListCondition;
+import org.moqui.impl.entity.condition.*;
+import org.moqui.util.ObjectUtilities;
 
 import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.Map;
 
 public class EntityCondFluentList implements EntityConditionFluent {
@@ -39,42 +40,60 @@ public class EntityCondFluentList implements EntityConditionFluent {
 
     @Override
     public EntityConditionFluent or(EntityCondition... conditions) {
-        if (conditions.length == 0) return this;
+        conditionArray(conditions, JoinOperator.OR);
+        return this;
+    }
+    @Override
+    public EntityConditionFluent and(EntityCondition... conditions) {
+        conditionArray(conditions, JoinOperator.AND);
+        return this;
+    }
+    private void conditionArray(EntityCondition[] conditions, JoinOperator joinOp) {
+        if (conditions.length == 0) return;
         if (conditions.length == 1) {
             // small optimization for length one case
             listCondition.addCondition((EntityConditionImplBase) conditions[0]);
         } else {
-            for (int i = 0; i < conditions.length; i++)
-                listCondition.addCondition((EntityConditionImplBase) conditions[i]);
+            if (listCondition.getOperator() == joinOp) {
+                // if join op matches add to internal ListCondition
+                for (int i = 0; i < conditions.length; i++)
+                    listCondition.addCondition((EntityConditionImplBase) conditions[i]);
+            } else {
+                // if join op is different create new ListCondition and add that to internal ListCondition
+                ArrayList<EntityConditionImplBase> condImplList = new ArrayList<>(conditions.length);
+                for (int i = 0; i < conditions.length; i++) condImplList.add((EntityConditionImplBase) conditions[i]);
+                listCondition.addCondition(new ListCondition(condImplList, joinOp));
+            }
         }
-        return this;
-    }
-
-    @Override
-    public EntityConditionFluent and(EntityCondition... conditions) {
-        return null;
     }
 
     @Override
     public EntityConditionFluent equals(String fieldName, Object value) {
-        return null;
+        listCondition.addCondition(new FieldValueCondition(new ConditionField(fieldName), ComparisonOperator.EQUALS, value));
+        return this;
     }
 
     @Override
     public EntityConditionFluent compare(String fieldName, ComparisonOperator operator, Object value) {
-        return null;
+        listCondition.addCondition(new FieldValueCondition(new ConditionField(fieldName), operator, value));
+        return this;
     }
-
     @Override
     public EntityConditionFluent compare(String fieldName, ComparisonOperator operator, Object value, boolean ignoreCase, boolean orNull, boolean ignoreIfEmpty) {
-        return null;
-    }
+        if (ignoreIfEmpty && (value == null || ObjectUtilities.isEmpty(value))) return this;
 
+        EntityConditionImplBase cond = new FieldValueCondition(new ConditionField(fieldName), operator, value);
+        if (ignoreCase) cond.ignoreCase();
+        EntityConditionImplBase fullCond = orNull ? new BasicJoinCondition(cond, JoinOperator.OR,
+                new FieldValueCondition(new ConditionField(fieldName), ComparisonOperator.EQUALS, null)) : cond;
+        listCondition.addCondition(fullCond);
+
+        return this;
+    }
     @Override
     public EntityConditionFluent compare(String fieldName, String operator, Object value) {
         return null;
     }
-
     @Override
     public EntityConditionFluent compare(String fieldName, String operator, Object value, boolean ignoreCase, boolean orNull, boolean ignoreIfEmpty) {
         return null;
@@ -84,7 +103,6 @@ public class EntityCondFluentList implements EntityConditionFluent {
     public EntityConditionFluent compareToField(String fieldName, ComparisonOperator operator, String toFieldName) {
         return null;
     }
-
     @Override
     public EntityConditionFluent compareToField(String fieldName, ComparisonOperator operator, String toFieldName, boolean ignoreCase, boolean orNull) {
         return null;
