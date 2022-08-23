@@ -322,10 +322,15 @@ class ScreenUrlInfo {
             if (authzAction == null) authzAction = ServiceDefinition.verbAuthzActionEnumMap.get(ServiceDefinition.getVerbFromName(serviceName))
             if (authzAction == null) authzAction = ArtifactExecutionInfo.AUTHZA_ALL
 
+            boolean allowedByServiceDefinition = false
+            if (authzAction == ArtifactExecutionInfo.AUTHZA_VIEW) {
+                allowedByServiceDefinition = "anonymous-view".equals(sd.authenticate) || "anonymous-all".equals(sd.authenticate)
+            } else if (authzAction == ArtifactExecutionInfo.AUTHZA_ALL)
+                allowedByServiceDefinition = "anonymous-all".equals(sd.authenticate)
             ArtifactExecutionInfoImpl aeii = new ArtifactExecutionInfoImpl(serviceName, ArtifactExecutionInfo.AT_SERVICE, authzAction, null)
 
             ArtifactExecutionInfoImpl lastAeii = (ArtifactExecutionInfoImpl) artifactExecutionInfoStack.peekFirst()
-            if (!aefi.isPermitted(aeii, lastAeii, true, false, false, null)) {
+            if (!aefi.isPermitted(aeii, lastAeii, !allowedByServiceDefinition, false, false, null)) {
                 // logger.warn("TOREMOVE user ${username} is NOT allowed to run transition at path ${this.fullPathNameList} because of screen at ${screenDef.location}")
                 if (permittedCacheKey != null) aefi.screenPermittedCache.put(permittedCacheKey, false)
                 return false
