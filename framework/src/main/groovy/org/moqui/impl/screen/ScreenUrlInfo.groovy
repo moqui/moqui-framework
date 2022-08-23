@@ -271,6 +271,7 @@ class ScreenUrlInfo {
         ArrayDeque<ArtifactExecutionInfoImpl> artifactExecutionInfoStack = new ArrayDeque<ArtifactExecutionInfoImpl>()
 
         int screenPathDefListSize = screenPathDefList.size()
+        boolean allowedByScreenRequireAuthenticationAttribute = false
         for (int i = 0; i < screenPathDefListSize; i++) {
             AuthzAction curActionEnum = (i == (screenPathDefListSize - 1)) ? actionEnum : ArtifactExecutionInfo.AUTHZA_VIEW
             ScreenDefinition screenDef = (ScreenDefinition) screenPathDefList.get(i)
@@ -285,9 +286,13 @@ class ScreenUrlInfo {
             MNode screenNode = screenDef.getScreenNode()
 
             String requireAuthentication = screenNode.attribute('require-authentication')
+            if (actionEnum == ArtifactExecutionInfo.AUTHZA_VIEW) {
+                allowedByScreenRequireAuthenticationAttribute = allowedByScreenRequireAuthenticationAttribute || "anonymous-view".equals(requireAuthentication) || "anonymous-all".equals(requireAuthentication)
+            } else if (actionEnum == ArtifactExecutionInfo.AUTHZA_ALL)
+                allowedByScreenRequireAuthenticationAttribute = allowedByScreenRequireAuthenticationAttribute || "anonymous-all".equals(requireAuthentication)
             if (!aefi.isPermitted(aeii, lastAeii,
                     isLast ? (!requireAuthentication || "true".equals(requireAuthentication)) : false, false, false, artifactExecutionInfoStack)) {
-                // logger.warn("TOREMOVE user ${username} is NOT allowed to view screen at path ${this.fullPathNameList} because of screen at ${screenDef.location}")
+                //logger.warn("TOREMOVE user ${userId} is NOT allowed to view screen at path ${this.fullPathNameList} because of screen at ${screenDef.location}")
                 if (permittedCacheKey != null) aefi.screenPermittedCache.put(permittedCacheKey, false)
                 return false
             }
@@ -296,7 +301,7 @@ class ScreenUrlInfo {
         }
 
         // see if the transition is permitted
-        if (transitionItem != null) {
+        if (!allowedByScreenRequireAuthenticationAttribute && transitionItem != null) {
             ScreenDefinition lastScreenDef = (ScreenDefinition) screenPathDefList.get(screenPathDefList.size() - 1)
             ArtifactExecutionInfoImpl aeii = new ArtifactExecutionInfoImpl("${lastScreenDef.location}/${transitionItem.name}",
                     ArtifactExecutionInfo.AT_XML_SCREEN_TRANS, ArtifactExecutionInfo.AUTHZA_VIEW, null)
