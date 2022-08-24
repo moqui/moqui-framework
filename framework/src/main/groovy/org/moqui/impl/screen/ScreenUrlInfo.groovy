@@ -271,7 +271,9 @@ class ScreenUrlInfo {
         ArrayDeque<ArtifactExecutionInfoImpl> artifactExecutionInfoStack = new ArrayDeque<ArtifactExecutionInfoImpl>()
 
         int screenPathDefListSize = screenPathDefList.size()
-        boolean allowedByScreenRequireAuthenticationAttribute = false
+        boolean allowedByScreenDefinitionView = false
+        boolean allowedByScreenDefinitionAll = false
+        boolean allowedByScreenDefinition = false
         for (int i = 0; i < screenPathDefListSize; i++) {
             AuthzAction curActionEnum = (i == (screenPathDefListSize - 1)) ? actionEnum : ArtifactExecutionInfo.AUTHZA_VIEW
             ScreenDefinition screenDef = (ScreenDefinition) screenPathDefList.get(i)
@@ -287,9 +289,11 @@ class ScreenUrlInfo {
 
             String requireAuthentication = screenNode.attribute('require-authentication')
             if (actionEnum == ArtifactExecutionInfo.AUTHZA_VIEW) {
-                allowedByScreenRequireAuthenticationAttribute = allowedByScreenRequireAuthenticationAttribute || "anonymous-view".equals(requireAuthentication) || "anonymous-all".equals(requireAuthentication)
+                allowedByScreenDefinitionView = true
+                allowedByScreenDefinition = allowedByScreenDefinition || "anonymous-view".equals(requireAuthentication) || "anonymous-all".equals(requireAuthentication)
             } else if (actionEnum == ArtifactExecutionInfo.AUTHZA_ALL)
-                allowedByScreenRequireAuthenticationAttribute = allowedByScreenRequireAuthenticationAttribute || "anonymous-all".equals(requireAuthentication)
+                allowedByScreenDefinitionAll = true
+                allowedByScreenDefinition = allowedByScreenDefinition || "anonymous-all".equals(requireAuthentication)
             if (!aefi.isPermitted(aeii, lastAeii,
                     isLast ? (!requireAuthentication || "true".equals(requireAuthentication)) : false, false, false, artifactExecutionInfoStack)) {
                 //logger.warn("TOREMOVE user ${userId} is NOT allowed to view screen at path ${this.fullPathNameList} because of screen at ${screenDef.location}")
@@ -301,7 +305,7 @@ class ScreenUrlInfo {
         }
 
         // see if the transition is permitted
-        if (!allowedByScreenRequireAuthenticationAttribute && transitionItem != null) {
+        if (!allowedByScreenDefinition && transitionItem != null) {
             ScreenDefinition lastScreenDef = (ScreenDefinition) screenPathDefList.get(screenPathDefList.size() - 1)
             ArtifactExecutionInfoImpl aeii = new ArtifactExecutionInfoImpl("${lastScreenDef.location}/${transitionItem.name}",
                     ArtifactExecutionInfo.AT_XML_SCREEN_TRANS, ArtifactExecutionInfo.AUTHZA_VIEW, null)
@@ -324,9 +328,9 @@ class ScreenUrlInfo {
 
             boolean allowedByServiceDefinition = false
             if (authzAction == ArtifactExecutionInfo.AUTHZA_VIEW) {
-                allowedByServiceDefinition = "anonymous-view".equals(sd.authenticate) || "anonymous-all".equals(sd.authenticate)
+                allowedByServiceDefinition = allowedByScreenDefinitionView || "anonymous-view".equals(sd.authenticate) || "anonymous-all".equals(sd.authenticate)
             } else if (authzAction == ArtifactExecutionInfo.AUTHZA_ALL)
-                allowedByServiceDefinition = "anonymous-all".equals(sd.authenticate)
+                allowedByServiceDefinition = allowedByScreenDefinitionAll || "anonymous-all".equals(sd.authenticate)
             ArtifactExecutionInfoImpl aeii = new ArtifactExecutionInfoImpl(serviceName, ArtifactExecutionInfo.AT_SERVICE, authzAction, null)
 
             ArtifactExecutionInfoImpl lastAeii = (ArtifactExecutionInfoImpl) artifactExecutionInfoStack.peekFirst()
