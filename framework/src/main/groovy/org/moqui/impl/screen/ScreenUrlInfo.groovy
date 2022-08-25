@@ -288,12 +288,12 @@ class ScreenUrlInfo {
             MNode screenNode = screenDef.getScreenNode()
 
             String requireAuthentication = screenNode.attribute('require-authentication')
+            allowedByScreenDefinitionView = "anonymous-view".equals(requireAuthentication)
+            allowedByScreenDefinitionAll = "anonymous-all".equals(requireAuthentication)
             if (actionEnum == ArtifactExecutionInfo.AUTHZA_VIEW) {
-                allowedByScreenDefinitionView = true
-                allowedByScreenDefinition = allowedByScreenDefinition || "anonymous-view".equals(requireAuthentication) || "anonymous-all".equals(requireAuthentication)
+                allowedByScreenDefinition = allowedByScreenDefinition || allowedByScreenDefinitionView || allowedByScreenDefinitionAll
             } else if (actionEnum == ArtifactExecutionInfo.AUTHZA_ALL)
-                allowedByScreenDefinitionAll = true
-                allowedByScreenDefinition = allowedByScreenDefinition || "anonymous-all".equals(requireAuthentication)
+                allowedByScreenDefinition = allowedByScreenDefinition || allowedByScreenDefinitionAll
             if (!aefi.isPermitted(aeii, lastAeii,
                     isLast ? (!requireAuthentication || "true".equals(requireAuthentication)) : false, false, false, artifactExecutionInfoStack)) {
                 //logger.warn("TOREMOVE user ${userId} is NOT allowed to view screen at path ${this.fullPathNameList} because of screen at ${screenDef.location}")
@@ -329,7 +329,7 @@ class ScreenUrlInfo {
             boolean allowedByServiceDefinition = false
             if (authzAction == ArtifactExecutionInfo.AUTHZA_VIEW) {
                 allowedByServiceDefinition = allowedByScreenDefinitionView || "anonymous-view".equals(sd.authenticate) || "anonymous-all".equals(sd.authenticate)
-            } else if (authzAction == ArtifactExecutionInfo.AUTHZA_ALL)
+            } else if (authzAction in [ArtifactExecutionInfo.AUTHZA_ALL, ArtifactExecutionInfo.AUTHZA_CREATE, ArtifactExecutionInfo.AUTHZA_UPDATE, ArtifactExecutionInfo.AUTHZA_DELETE])
                 allowedByServiceDefinition = allowedByScreenDefinitionAll || "anonymous-all".equals(sd.authenticate)
             ArtifactExecutionInfoImpl aeii = new ArtifactExecutionInfoImpl(serviceName, ArtifactExecutionInfo.AT_SERVICE, authzAction, null)
 
