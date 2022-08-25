@@ -77,11 +77,20 @@ jobs:
         # Build a docker container and
         # push it to ECR so that it can
         # be deployed to ECS.
-        ls -la
+#        rm -rf moqui-framework
+#        git clone https://github.com/resistmanagement/moqui-framework.git
+#        cd moqui-framework
+#        git checkout docker-opensearch
+        ./gradlew getRuntime downloadOpenSearch getComponentSet -PcomponentSet=resistmanagement addRuntime
+        cd docker/simple
+        ./docker-build.sh ../.. $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+#        ./docker-build.sh ../.. testa/test:latest
+#        git branch -v
+#        cd ../../..
         # docker pull acetousk/moqui
         # docker tag acetousk/moqui $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        #docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        #echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
 #    - name: Get Task Definition
 #      id: get-task-def
