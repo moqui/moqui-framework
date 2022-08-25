@@ -77,39 +77,30 @@ jobs:
         # Build a docker container and
         # push it to ECR so that it can
         # be deployed to ECS.
-        # rm -rf moqui-framework
-        # git clone https://github.com/resistmanagement/moqui-framework.git
-        # cd moqui-framework
-        # git checkout docker-opensearch
         ./gradlew getRuntime downloadOpenSearch getComponentSet -PcomponentSet=resistmanagement addRuntime
         cd docker/simple
         ./docker-build.sh ../.. $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        # ./docker-build.sh ../.. testa/test:latest
-        # git branch -v
-        # cd ../../..
-        # docker pull acetousk/moqui
-        # docker tag acetousk/moqui $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
-#    - name: Get Task Definition
-#      id: get-task-def
-#      run: |
-#        aws ecs describe-task-definition --task-definition ${{ env.ECS_TASK_DEFINITION_NAME }} --output json > ${{ env.ECS_TASK_DEFINITION }}
-#        sed '2d;$d' ${{ env.ECS_TASK_DEFINITION }} >> ${{ env.ECS_TASK_DEFINITION }}.tmp && mv ${{ env.ECS_TASK_DEFINITION }}.tmp ${{ env.ECS_TASK_DEFINITION }}
-#
-#    - name: Fill in the new image ID in the Amazon ECS task definition
-#      id: task-def
-#      uses: aws-actions/amazon-ecs-render-task-definition@v1
-#      with:
-#        task-definition: ${{ env.ECS_TASK_DEFINITION }}
-#        container-name: ${{ env.CONTAINER_NAME }}
-#        image: ${{ steps.build-image.outputs.image }}
-#
-#    - name: Deploy Amazon ECS task definition
-#      uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-#      with:
-#        task-definition: ${{ steps.task-def.outputs.task-definition }}
-#        service: ${{ env.ECS_SERVICE }}
-#        cluster: ${{ env.ECS_CLUSTER }}
-#        wait-for-service-stability: true
+    - name: Get Task Definition
+      id: get-task-def
+      run: |
+        aws ecs describe-task-definition --task-definition ${{ env.ECS_TASK_DEFINITION_NAME }} --output json > ${{ env.ECS_TASK_DEFINITION }}
+        sed '2d;$d' ${{ env.ECS_TASK_DEFINITION }} >> ${{ env.ECS_TASK_DEFINITION }}.tmp && mv ${{ env.ECS_TASK_DEFINITION }}.tmp ${{ env.ECS_TASK_DEFINITION }}
+
+    - name: Fill in the new image ID in the Amazon ECS task definition
+      id: task-def
+      uses: aws-actions/amazon-ecs-render-task-definition@v1
+      with:
+        task-definition: ${{ env.ECS_TASK_DEFINITION }}
+        container-name: ${{ env.CONTAINER_NAME }}
+        image: ${{ steps.build-image.outputs.image }}
+
+    - name: Deploy Amazon ECS task definition
+      uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+      with:
+        task-definition: ${{ steps.task-def.outputs.task-definition }}
+        service: ${{ env.ECS_SERVICE }}
+        cluster: ${{ env.ECS_CLUSTER }}
+        wait-for-service-stability: true
