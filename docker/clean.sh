@@ -1,5 +1,6 @@
 #! /bin/bash
 
+search_name=opensearch
 if [ -d runtime/opensearch/bin ]; then search_name=opensearch;
 elif [ -d runtime/elasticsearch/bin ]; then search_name=elasticsearch;
 fi

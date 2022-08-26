@@ -30,7 +30,7 @@ name: Deploy to Amazon ECS
 on:
   push:
     branches:
-      - "docker-opensearch"
+      - "resistmanagement"
 
 env:
   AWS_REGION: ${{ secrets.MY_AWS_REGION }}                   # set this to your preferred AWS region, e.g. us-west-1
@@ -103,4 +103,4 @@ jobs:
         task-definition: ${{ steps.task-def.outputs.task-definition }}
         service: ${{ env.ECS_SERVICE }}
         cluster: ${{ env.ECS_CLUSTER }}
-        wait-for-service-stability: true
+        wait-for-service-stability: false # setting this to true uses a lot of resources
