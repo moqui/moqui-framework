@@ -13,7 +13,7 @@
     <!-- ignite components -->
     <component name="mk-store" group="mkdecisiondev" version="v1.8.0" branch="master"/>
     <component name="moqui-credit-offers" group="mkdecisiondev" version="v1.6.1" branch="master"/>
-    <component name="daolos-vendor-dashboard" group="mkdecisiondev" version="v1.3.0" branch="master"/>
+    <component name="daolos-vendor-dashboard" group="mkdecisiondev" version="v1.3.1" branch="master"/>
     <component name="moqui-financial-worksheet" group="mkdecisiondev" version="v1.3.1" branch="master"/>
     <component name="moqui-close-decision" group="mkdecisiondev" version="v1.6.1" branch="master"/>
     <component name="moqui-close" group="mkdecisiondev" version="v1.13.2" branch="master"/>
