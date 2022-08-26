@@ -52,8 +52,7 @@ services:
      - ./runtime/log:/opt/moqui/runtime/log
      - ./runtime/txlog:/opt/moqui/runtime/txlog
      - ./runtime/sessions:/opt/moqui/runtime/sessions
-     # this one isn't needed when not using H2/etc:
-     - ./runtime/db:/opt/moqui/runtime/db
+     # this one isn't needed when not using H2/etc: - ./runtime/db:/opt/moqui/runtime/db
     environment:
      - instance_purpose=production
      - entity_ds_db_conf=postgres
