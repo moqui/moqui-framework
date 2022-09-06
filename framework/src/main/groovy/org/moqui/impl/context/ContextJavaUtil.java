@@ -629,12 +629,12 @@ public class ContextJavaUtil {
     }
 
     // NOTE: using unbound LinkedBlockingQueue, so max pool size in ThreadPoolExecutor has no effect
-    static class WorkerThreadFactory implements ThreadFactory {
+    public static class WorkerThreadFactory implements ThreadFactory {
         private final ThreadGroup workerGroup = new ThreadGroup("MoquiWorkers");
         private final AtomicInteger threadNumber = new AtomicInteger(1);
         public Thread newThread(Runnable r) { return new Thread(workerGroup, r, "MoquiWorker-" + threadNumber.getAndIncrement()); }
     }
-    static class WorkerThreadPoolExecutor extends ThreadPoolExecutor {
+    public static class WorkerThreadPoolExecutor extends ThreadPoolExecutor {
         private ExecutionContextFactoryImpl ecfi;
         public WorkerThreadPoolExecutor(ExecutionContextFactoryImpl ecfi, int coreSize, int maxSize, long aliveTime,
                                  TimeUnit timeUnit, BlockingQueue<Runnable> blockingQueue) {
