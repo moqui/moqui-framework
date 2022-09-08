@@ -19,7 +19,7 @@ import org.moqui.context.ToolFactory
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
-/** ElasticSearch Client is used for indexing and searching documents */
+/** ToolFactory to initialize Apache Jackrabbit and get a java.lang.Process for the Jackrabbit instance */
 @CompileStatic
 class JackrabbitRunToolFactory implements ToolFactory<Process> {
     protected final static Logger logger = LoggerFactory.getLogger(JackrabbitRunToolFactory.class)
