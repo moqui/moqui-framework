@@ -634,11 +634,16 @@ public class ContextJavaUtil {
         private final AtomicInteger threadNumber = new AtomicInteger(1);
         public Thread newThread(Runnable r) { return new Thread(workerGroup, r, "MoquiWorker-" + threadNumber.getAndIncrement()); }
     }
+    public static class JobThreadFactory implements ThreadFactory {
+        private final ThreadGroup workerGroup = new ThreadGroup("MoquiJobs");
+        private final AtomicInteger threadNumber = new AtomicInteger(1);
+        public Thread newThread(Runnable r) { return new Thread(workerGroup, r, "MoquiJob-" + threadNumber.getAndIncrement()); }
+    }
     public static class WorkerThreadPoolExecutor extends ThreadPoolExecutor {
         private ExecutionContextFactoryImpl ecfi;
         public WorkerThreadPoolExecutor(ExecutionContextFactoryImpl ecfi, int coreSize, int maxSize, long aliveTime,
-                                 TimeUnit timeUnit, BlockingQueue<Runnable> blockingQueue) {
-            super(coreSize, maxSize, aliveTime, timeUnit, blockingQueue, new WorkerThreadFactory());
+                                        TimeUnit timeUnit, BlockingQueue<Runnable> blockingQueue, ThreadFactory threadFactory) {
+            super(coreSize, maxSize, aliveTime, timeUnit, blockingQueue, threadFactory);
             this.ecfi = ecfi;
         }
 

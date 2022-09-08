@@ -461,7 +461,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         long aliveTime = (toolsNode.attribute("worker-pool-alive") ?: "60") as long
 
         logger.info("Initializing worker ThreadPoolExecutor: queue limit ${workerQueueSize}, pool-core ${coreSize}, pool-max ${maxSize}, pool-alive ${aliveTime}s")
-        return new ContextJavaUtil.WorkerThreadPoolExecutor(this, coreSize, maxSize, aliveTime, TimeUnit.SECONDS, workQueue)
+        return new ContextJavaUtil.WorkerThreadPoolExecutor(this, coreSize, maxSize, aliveTime, TimeUnit.SECONDS,
+                workQueue, new ContextJavaUtil.WorkerThreadFactory())
     }
     boolean waitWorkerPoolEmpty(int retryLimit) {
         ThreadPoolExecutor jobWorkerPool = serviceFacade.jobWorkerPool
