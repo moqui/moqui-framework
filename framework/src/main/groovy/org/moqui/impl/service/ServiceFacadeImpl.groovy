@@ -81,8 +81,8 @@ class ServiceFacadeImpl implements ServiceFacade {
         MNode serviceFacadeNode = ecfi.confXmlRoot.first("service-facade")
 
         int jobQueueMax = (serviceFacadeNode.attribute("job-queue-max") ?: "0") as int
-        int coreSize = (serviceFacadeNode.attribute("job-pool-core") ?: "4") as int
-        int maxSize = (serviceFacadeNode.attribute("job-pool-max") ?: "12") as int
+        int coreSize = (serviceFacadeNode.attribute("job-pool-core") ?: "2") as int
+        int maxSize = (serviceFacadeNode.attribute("job-pool-max") ?: "8") as int
         int availableProcessorsSize = Runtime.getRuntime().availableProcessors() * 2
         if (availableProcessorsSize > maxSize) {
             logger.info("Setting Service Job worker pool size to ${availableProcessorsSize} based on available processors * 2")

@@ -85,9 +85,7 @@ class ScheduledJobRunner implements Runnable {
         ZonedDateTime now = ZonedDateTime.now()
         long nowMillis = now.toInstant().toEpochMilli()
         Timestamp nowTimestamp = new Timestamp(nowMillis)
-        int jobsRun = 0
-        int jobsActive = 0
-        int jobsPaused = 0
+        int jobsRun = 0, jobsActive = 0, jobsPaused = 0, jobsReadyNotRun = 0
 
         // Get ExecutionContext, just for disable authz
         ExecutionContextImpl eci = ecfi.getEci()
@@ -140,9 +138,6 @@ class ScheduledJobRunner implements Runnable {
                     }
                 }
                 jobsActive++
-
-                // if no more job slots available continue, don't break because we want to loop through all to get jobsPaused, jobsActive
-                if (jobSlotsAvailable <= 0) continue
 
                 String jobRunId
                 EntityValue serviceJobRun
@@ -197,6 +192,12 @@ class ScheduledJobRunner implements Runnable {
                                 continue
                             }
                         }
+                    }
+
+                    // if no more job slots available continue, don't break because we want to loop through all to get jobsPaused, jobsActive, etc
+                    if (jobSlotsAvailable <= 0) {
+                        jobsReadyNotRun++
+                        continue
                     }
 
                     // create a job run and lock it
@@ -266,12 +267,11 @@ class ScheduledJobRunner implements Runnable {
 
         int jobSlots = jobQueueMax + jobWorkerPool.getMaximumPoolSize()
         int jobsRunning = jobWorkerPool.getActiveCount() + jobWorkerPool.queue.size()
-        int jobSlotsAvailable = jobSlots - jobsRunning
 
-        if (jobsRun > 0) {
-            logger.info("Ran ${jobsRun} Service Jobs starting ${now} (active: ${jobsActive}, paused: ${jobsPaused}; on this server running ${jobsRunning} out of ${jobSlots} jobs)")
-        } else if (logger.isTraceEnabled()) {
-            logger.trace("Ran ${jobsRun} Service Jobs starting ${now} (active: ${jobsActive}, paused: ${jobsPaused}; on this server running ${jobsRunning} out of ${jobSlots} jobs)")
+        if (jobsRun > 0 || logger.isTraceEnabled()) {
+            String infoStr = "Ran ${jobsRun} Service Jobs starting ${now} - active: ${jobsActive}, paused: ${jobsPaused}; on this server using ${jobsRunning} of ${jobSlots} job slots"
+            if (jobsReadyNotRun > 0) infoStr += ", ${jobsReadyNotRun} jobs ready but not run (insufficient job slots)"
+            logger.info(infoStr)
         }
     }
 
