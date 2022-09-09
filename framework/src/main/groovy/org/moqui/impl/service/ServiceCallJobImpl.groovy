@@ -95,7 +95,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
         // run it
         ServiceJobCallable callable = new ServiceJobCallable(eci, serviceJob, jobRunId, lastRunTime, clearLock, parameters)
         if (sfi.distributedExecutorService == null || localOnly || "Y".equals(serviceJob.localOnly)) {
-            runFuture = ecfi.workerPool.submit(callable)
+            runFuture = sfi.jobWorkerPool.submit(callable)
         } else {
             runFuture = sfi.distributedExecutorService.submit(callable)
         }
