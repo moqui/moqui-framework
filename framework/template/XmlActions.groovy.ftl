@@ -288,6 +288,7 @@ ${.node}
 
             ${.node["@entry"]}_index++
         }
+        if(${.node["@entry"]}IsEli) _${.node["@entry"]}Iterator.close()
     }
 </#macro>
 <#macro message>
