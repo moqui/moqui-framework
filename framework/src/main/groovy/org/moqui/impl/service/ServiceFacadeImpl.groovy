@@ -14,6 +14,7 @@
 package org.moqui.impl.service
 
 import groovy.transform.CompileStatic
+import org.moqui.impl.context.ContextJavaUtil
 import org.moqui.resource.ResourceReference
 import org.moqui.context.ToolFactory
 import org.moqui.impl.context.ExecutionContextFactoryImpl
@@ -50,6 +51,7 @@ class ServiceFacadeImpl implements ServiceFacade {
     protected final Map<String, ServiceRunner> serviceRunners = new HashMap<>()
 
     private ScheduledJobRunner jobRunner = null
+    public final ThreadPoolExecutor jobWorkerPool
 
     /** Distributed ExecutorService for async services, etc */
     protected ExecutorService distributedExecutorService = null
@@ -71,6 +73,28 @@ class ServiceFacadeImpl implements ServiceFacade {
 
         // load REST API
         restApi = new RestApi(ecfi)
+
+        jobWorkerPool = makeWorkerPool()
+    }
+
+    private ThreadPoolExecutor makeWorkerPool() {
+        MNode serviceFacadeNode = ecfi.confXmlRoot.first("service-facade")
+
+        int jobQueueMax = (serviceFacadeNode.attribute("job-queue-max") ?: "0") as int
+        int coreSize = (serviceFacadeNode.attribute("job-pool-core") ?: "2") as int
+        int maxSize = (serviceFacadeNode.attribute("job-pool-max") ?: "8") as int
+        int availableProcessorsSize = Runtime.getRuntime().availableProcessors() * 2
+        if (availableProcessorsSize > maxSize) {
+            logger.info("Setting Service Job worker pool size to ${availableProcessorsSize} based on available processors * 2")
+            maxSize = availableProcessorsSize
+        }
+        long aliveTime = (serviceFacadeNode.attribute("worker-pool-alive") ?: "120") as long
+
+        logger.info("Initializing Service Job ThreadPoolExecutor: queue limit ${jobQueueMax}, pool-core ${coreSize}, pool-max ${maxSize}, pool-alive ${aliveTime}s")
+        // make the actual queue at least maxSize to allow for stuffing the queue to get it to add threads to the pool
+        BlockingQueue<Runnable> workQueue = new LinkedBlockingQueue<>(jobQueueMax < maxSize ? maxSize : jobQueueMax)
+        return new ContextJavaUtil.WorkerThreadPoolExecutor(ecfi, coreSize, maxSize, aliveTime, TimeUnit.SECONDS,
+                workQueue, new ContextJavaUtil.JobThreadFactory())
     }
 
     void postFacadeInit() {
