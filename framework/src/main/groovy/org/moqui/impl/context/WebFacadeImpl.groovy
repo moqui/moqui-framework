@@ -270,16 +270,17 @@ class WebFacadeImpl implements WebFacade {
         }
 
         ScreenUrlInfo.UrlInstance urlInstance = urlInstanceOrig.cloneUrlInstance()
-        // ignore the page index for history
+        // instead of ignoring page index for history (old approach), retain but exclude in history duplicate search
         urlInstance.getParameterMap().remove("pageIndex")
         // logger.warn("======= parameters: ${urlInstance.getParameterMap()}")
-        String urlWithParams = urlInstance.getUrlWithParams()
+        String urlWithAllParams = urlInstanceOrig.getUrlWithParams()
+        String urlWithParamsNoPageIndex = urlInstance.getUrlWithParams()
         String urlNoParams = urlInstance.getUrl()
         // logger.warn("======= urlWithParams: ${urlWithParams}")
 
         // if is the same as last screen skip it
         Map firstItem = screenHistoryList.size() > 0 ? screenHistoryList.get(0) : null
-        if (firstItem != null && firstItem.url == urlWithParams) return
+        if (firstItem != null && firstItem.url == urlWithParamsNoPageIndex) return
 
         String targetMenuName = targetScreen.getDefaultMenuName()
 
@@ -326,11 +327,11 @@ class WebFacadeImpl implements WebFacade {
             Iterator<Map> screenHistoryIter = screenHistoryList.iterator()
             while (screenHistoryIter.hasNext()) {
                 Map screenHistory = screenHistoryIter.next()
-                if (screenHistory.url == urlWithParams) screenHistoryIter.remove()
+                if (screenHistory.urlNoPageIndex == urlWithParamsNoPageIndex) screenHistoryIter.remove()
             }
             // add to history list
-            screenHistoryList.add(0, [name:nameBuilder.toString(), url:urlWithParams, urlNoParams:urlNoParams,
-                    path:urlInstance.path, pathWithParams:urlInstance.pathWithParams,
+            screenHistoryList.add(0, [name:nameBuilder.toString(), url:urlWithAllParams, urlNoParams:urlNoParams,
+                    urlNoPageIndex:urlWithParamsNoPageIndex, path:urlInstance.path, pathWithParams:urlInstance.pathWithParams,
                     image:sui.menuImage, imageType:sui.menuImageType, screenLocation:targetScreen.getLocation()])
             // trim the list if needed; keep 40, whatever uses it may display less
             while (screenHistoryList.size() > 40) screenHistoryList.remove(40)
