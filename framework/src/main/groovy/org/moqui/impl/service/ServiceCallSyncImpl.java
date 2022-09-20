@@ -31,6 +31,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
     private Integer transactionTimeout = null;
     private boolean ignorePreviousError = false;
     private boolean softValidate = false;
+    private boolean handleException = true;
     private boolean multi = false;
     private boolean rememberParameters = true;
     protected boolean disableAuthz = false;
@@ -51,6 +52,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
 
     @Override public ServiceCallSync ignorePreviousError(boolean ipe) { this.ignorePreviousError = ipe; return this; }
     @Override public ServiceCallSync softValidate(boolean sv) { this.softValidate = sv; return this; }
+    @Override public ServiceCallSync handleException(boolean he) { this.handleException = he; return this; }
     @Override public ServiceCallSync multi(boolean mlt) { this.multi = mlt; return this; }
     @Override public ServiceCallSync disableAuthz() { disableAuthz = true; return this; }
     @Override public ServiceCallSync noRememberParameters() { rememberParameters = false; return this; }
@@ -343,16 +345,24 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
                 BaseException.filterStackTrace(t);
                 // registered callbacks with Throwable
                 sfi.callRegisteredCallbacksThrowable(serviceName, currentParameters, t);
-                // rollback the transaction
-                tf.rollback(beganTransaction, "Error running service " + serviceName + " (Throwable)", t);
-                transactionStatus = tf.getStatus();
                 logger.warn("Error running service " + serviceName + " (Throwable) Artifact stack: " + eci.artifactExecutionFacade.getStackNameString(), t);
-                // add all exception messages to the error messages list
-                eci.messageFacade.addError(t.getMessage());
-                Throwable parent = t.getCause();
-                while (parent != null) {
-                    eci.messageFacade.addError(parent.getMessage());
-                    parent = parent.getCause();
+
+                if (handleException) {
+                    // rollback the transaction
+                    tf.rollback(beganTransaction, "Error running service " + serviceName + " (Throwable)", t);
+                    transactionStatus = tf.getStatus();
+                    // add all exception messages to the error messages list
+                    eci.messageFacade.addError(t.getMessage());
+                    Throwable parent = t.getCause();
+                    while (parent != null) {
+                        eci.messageFacade.addError(parent.getMessage());
+                        parent = parent.getCause();
+                    }
+
+                } else {
+                    // clear error messages to prevent any unintentional rollbacks
+                    eci.messageFacade.clearErrors();
+                    throw t;
                 }
             } finally {
                 try {

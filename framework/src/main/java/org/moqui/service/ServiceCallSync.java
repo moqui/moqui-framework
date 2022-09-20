@@ -68,6 +68,10 @@ public interface ServiceCallSync extends ServiceCall {
     ServiceCallSync ignorePreviousError(boolean ipe);
     /** If true add danger messages instead of hard error messages for validation */
     ServiceCallSync softValidate(boolean sv);
+    /** Normally call() will handle any ServiceExceptions by adding error messages to the MessageFacade and putting the
+     * current transaction into rollback. You can disable this behavior and instead escalate the ServiceException to the
+     * caller by using .handleException(false) */
+    ServiceCallSync handleException(boolean he);
 
     /** If true expect multiple sets of parameters passed in a single map, each set with a suffix of an underscore
      * and the row of the number, ie something like "userId_8" for the userId parameter in the 8th row.
