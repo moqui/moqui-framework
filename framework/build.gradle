@@ -168,8 +168,7 @@ dependencies {
     implementation 'org.apache.logging.log4j:log4j-core:2.19.0'
     implementation 'org.apache.logging.log4j:log4j-api:2.19.0'
     runtimeOnly 'org.apache.logging.log4j:log4j-jcl:2.19.0'
-    // NOTE using log4j-slf4j18-impl instead of log4j-slf4j-impl because the SLF4J 1.8 version includes a SLF4J 2.0 compatible logging provider
-    runtimeOnly 'org.apache.logging.log4j:log4j-slf4j18-impl:2.18.0'
+    runtimeOnly 'org.apache.logging.log4j:log4j-slf4j2-impl:2.19.0'
 
     // SubEtha SMTP (module as depends on old javax.mail location; also uses SLF4J, activation included elsewhere)
     api module('org.subethamail:subethasmtp:3.1.7')
