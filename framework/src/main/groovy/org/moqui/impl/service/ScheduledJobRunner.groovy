@@ -27,6 +27,7 @@ import org.moqui.entity.EntityValue
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.EntityFacadeImpl
+import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -34,6 +35,7 @@ import java.sql.Timestamp
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import java.util.concurrent.ThreadPoolExecutor
 
 /**
  * Runs scheduled jobs as defined in ServiceJob records with a cronExpression. Cron expression uses Quartz flavored syntax.
@@ -55,10 +57,13 @@ class ScheduledJobRunner implements Runnable {
     private final static CronParser parser = new CronParser(cronDefinition)
     private final static Map<String, Cron> cronByExpression = new HashMap<>()
     private long lastExecuteTime = 0
-    private int executeCount = 0, totalJobsRun = 0, lastJobsActive = 0, lastJobsPaused = 0
+    private int jobQueueMax = 0, executeCount = 0, totalJobsRun = 0, lastJobsActive = 0, lastJobsPaused = 0
 
     ScheduledJobRunner(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
+
+        MNode serviceFacadeNode = ecfi.confXmlRoot.first("service-facade")
+        jobQueueMax = (serviceFacadeNode.attribute("job-queue-max") ?: "0") as int
     }
 
     // NOTE: these are called in the service job screens
@@ -80,14 +85,13 @@ class ScheduledJobRunner implements Runnable {
         ZonedDateTime now = ZonedDateTime.now()
         long nowMillis = now.toInstant().toEpochMilli()
         Timestamp nowTimestamp = new Timestamp(nowMillis)
-        int jobsRun = 0
-        int jobsActive = 0
-        int jobsPaused = 0
+        int jobsRun = 0, jobsActive = 0, jobsPaused = 0, jobsReadyNotRun = 0
 
         // Get ExecutionContext, just for disable authz
         ExecutionContextImpl eci = ecfi.getEci()
         eci.artifactExecution.disableAuthz()
         EntityFacadeImpl efi = ecfi.entityFacade
+        ThreadPoolExecutor jobWorkerPool = ecfi.serviceFacade.jobWorkerPool
         try {
             // make sure no transaction is in place, shouldn't be any so try to commit if there is one
             if (ecfi.transactionFacade.isTransactionInPlace()) {
@@ -95,14 +99,23 @@ class ScheduledJobRunner implements Runnable {
                 try {
                     ecfi.transactionFacade.destroyAllInThread()
                 } catch (Exception e) {
-                    logger.error("ScheduledJobRunner commit in place transaction failed for thread ${Thread.currentThread().getName()}", e)
+                    logger.error(" Commit of in-place transaction failed for ScheduledJobRunner thread ${Thread.currentThread().getName()}", e)
                 }
+            }
+
+            // look at jobWorkerPool to see how many jobs we can run: (jobQueueMax + poolMax) - (active + queueSize)
+            int jobSlots = jobQueueMax + jobWorkerPool.getMaximumPoolSize()
+            int jobsRunning = jobWorkerPool.getActiveCount() + jobWorkerPool.queue.size()
+            int jobSlotsAvailable = jobSlots - jobsRunning
+            // if we can't handle any more jobs
+            if (jobSlotsAvailable <= 0) {
+                logger.info("ScheduledJobRunner doing nothing, already ${jobsRunning} of ${jobSlots} jobs running")
             }
 
             // find scheduled jobs
             EntityList serviceJobList = efi.find("moqui.service.job.ServiceJob").useCache(false)
                     .condition("cronExpression", EntityCondition.ComparisonOperator.NOT_EQUAL, null)
-                    .orderBy("jobName").list()
+                    .orderBy("priority").orderBy("jobName").list()
             serviceJobList.filterByDate("fromDate", "thruDate", nowTimestamp)
             int serviceJobListSize = serviceJobList.size()
             for (int i = 0; i < serviceJobListSize; i++) {
@@ -181,6 +194,12 @@ class ScheduledJobRunner implements Runnable {
                         }
                     }
 
+                    // if no more job slots available continue, don't break because we want to loop through all to get jobsPaused, jobsActive, etc
+                    if (jobSlotsAvailable <= 0) {
+                        jobsReadyNotRun++
+                        continue
+                    }
+
                     // create a job run and lock it
                     serviceJobRun = efi.makeValue("moqui.service.job.ServiceJobRun")
                             .set("jobName", jobName).setSequencedIdPrimary().create()
@@ -194,7 +213,6 @@ class ScheduledJobRunner implements Runnable {
                     }
 
                     logger.info("Running job ${jobName} run ${jobRunId} (last run ${lastRunTime}, schedule ${lastSchedule})")
-                    jobsRun++
                 } catch (Throwable t) {
                     String errMsg = "Error getting and checking service job run lock"
                     ecfi.transaction.rollback(beganTransaction, errMsg, t)
@@ -204,6 +222,12 @@ class ScheduledJobRunner implements Runnable {
                     ecfi.transaction.commit(beganTransaction)
                 }
 
+                jobsRun++
+                jobSlotsAvailable--
+                if (jobSlotsAvailable <= 0) {
+                    logger.info("ScheduledJobRunner out of job slots after running ${jobsRun} jobs, ${jobSlots} jobs running, evaluated ${i} of ${serviceJobListSize} ServiceJob records")
+                }
+
                 // at this point jobRunId and serviceJobRunLock should not be null
                 ServiceCallJobImpl serviceCallJob = new ServiceCallJobImpl(jobName, ecfi.serviceFacade)
                 // use the job run we created
@@ -211,6 +235,8 @@ class ScheduledJobRunner implements Runnable {
                 serviceCallJob.withLastRunTime(lastRunTime)
                 // clear the lock when finished
                 serviceCallJob.clearLock()
+                // always run locally to use service job's worker pool and keep queue of pending jobs in the database
+                serviceCallJob.localOnly(true)
                 // run it, will run async
                 try {
                     serviceCallJob.run()
@@ -222,6 +248,8 @@ class ScheduledJobRunner implements Runnable {
                                 .set("endTime", nowTimestamp).update()
                     })
                 }
+
+                // end of for loop
             }
         } catch (Throwable t) {
             logger.error("Uncaught error in scheduled job runner", t)
@@ -237,10 +265,13 @@ class ScheduledJobRunner implements Runnable {
         lastJobsActive = jobsActive
         lastJobsPaused = jobsPaused
 
-        if (jobsRun > 0) {
-            logger.info("Ran ${jobsRun} Service Jobs starting ${now} (active: ${jobsActive}, paused: ${jobsPaused})")
-        } else if (logger.isTraceEnabled()) {
-            logger.trace("Ran ${jobsRun} Service Jobs starting ${now} (active: ${jobsActive}, paused: ${jobsPaused})")
+        int jobSlots = jobQueueMax + jobWorkerPool.getMaximumPoolSize()
+        int jobsRunning = jobWorkerPool.getActiveCount() + jobWorkerPool.queue.size()
+
+        if (jobsRun > 0 || logger.isTraceEnabled()) {
+            String infoStr = "Ran ${jobsRun} Service Jobs starting ${now} - active: ${jobsActive}, paused: ${jobsPaused}; on this server using ${jobsRunning} of ${jobSlots} job slots"
+            if (jobsReadyNotRun > 0) infoStr += ", ${jobsReadyNotRun} jobs ready but not run (insufficient job slots)"
+            logger.info(infoStr)
         }
     }
 

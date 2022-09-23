@@ -209,7 +209,7 @@ class EntityDbMeta {
                 }
 
                 if (remainingTableNames.size() > 0)
-                    logger.info("Found unknown tables in database for group ${groupName}: ${remainingTableNames}")
+                    logger.warn("Found unknown tables in database for group ${groupName}: ${remainingTableNames}")
             } finally {
                 if (con != null) con.close()
             }
