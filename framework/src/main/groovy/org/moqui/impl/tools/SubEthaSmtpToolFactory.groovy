@@ -35,7 +35,13 @@ import org.subethamail.smtp.server.SMTPServer
 import javax.mail.Session
 import javax.mail.internet.MimeMessage
 
-/** ElasticSearch Client is used for indexing and searching documents */
+/**
+ * ToolFactory to initialize SubEtha SMTP server and provide access to an instance of org.subethamail.smtp.server.SMTPServer
+ *
+ * Includes static class EmecaMessageHandler that will generate Email ECA events for messages received.
+ *
+ * See the MOQUI_LOCAL EmailServer record in seed data for SMTP server parameters.
+ */
 @CompileStatic
 class SubEthaSmtpToolFactory implements ToolFactory<SMTPServer> {
     protected final static Logger logger = LoggerFactory.getLogger(SubEthaSmtpToolFactory.class)
