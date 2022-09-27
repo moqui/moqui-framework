@@ -140,7 +140,7 @@ dependencies {
     compile 'com.h2database:h2:2.1.210' // MPL 2.0, EPL 1.0
 
     // Jackson Databind (JSON, etc)
-    compile 'com.fasterxml.jackson.core:jackson-databind:2.13.2'
+    compile 'com.fasterxml.jackson.core:jackson-databind:2.13.4'
 
     // Jetty HTTP Client and Proxy Servlet
     compile 'org.eclipse.jetty:jetty-client:9.4.44.v20210927' // Apache 2.0
@@ -172,7 +172,7 @@ dependencies {
     compile module('org.subethamail:subethasmtp:3.1.7')
 
     // Snake YAML
-    compile 'org.yaml:snakeyaml:1.30' // Apache 2.0
+    compile 'org.yaml:snakeyaml:1.31' // Apache 2.0
 
     // Apache Jackrabbit - uncomment here or include elsewhere when Jackrabbit repository configurations are used
     // compile 'org.apache.jackrabbit:jackrabbit-jcr-rmi:2.12.1' // Apache 2.0
