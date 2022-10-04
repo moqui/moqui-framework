@@ -119,7 +119,7 @@ class EntityDbMeta {
 
                 ResultSet tableSet = null
                 try {
-                    tableSet = dbData.getTables(null, schemaName, "%", types)
+                    tableSet = dbData.getTables(con.getCatalog(), schemaName, "%", types)
                     while (tableSet.next()) {
                         String tableName = tableSet.getString('TABLE_NAME')
                         existingTableNames.add(tableName)
@@ -133,7 +133,7 @@ class EntityDbMeta {
                 Map<String, Set<String>> existingColumnsByTable = new HashMap<>()
                 ResultSet colSet = null
                 try {
-                    colSet = dbData.getColumns(null, schemaName, "%", "%")
+                    colSet = dbData.getColumns(con.getCatalog(), schemaName, "%", "%")
                     while (colSet.next()) {
                         String tableName = colSet.getString("TABLE_NAME")
                         String colName = colSet.getString("COLUMN_NAME")
@@ -209,7 +209,7 @@ class EntityDbMeta {
                 }
 
                 if (remainingTableNames.size() > 0)
-                    logger.info("Found unknown tables in database for group ${groupName}: ${remainingTableNames}")
+                    logger.warn("Found unknown tables in database for group ${groupName}: ${remainingTableNames}")
             } finally {
                 if (con != null) con.close()
             }
@@ -283,7 +283,6 @@ class EntityDbMeta {
                                 try {
                                     ikSet = dbData.getImportedKeys(null, schemaName, fkTable.toLowerCase())
                                     while (ikSet.next()) {
-                                        gotIkResults = true
                                         String pkTable = ikSet.getString("PKTABLE_NAME")
                                         String fkCol = ikSet.getString("FKCOLUMN_NAME")
                                         Map<String, Set<String>> fkInfo = (Map<String, Set<String>>) fkInfoByFkTable.get(fkTable)
@@ -460,12 +459,12 @@ class EntityDbMeta {
                 DatabaseMetaData dbData = con.getMetaData()
 
                 String[] types = ["TABLE", "VIEW", "ALIAS", "SYNONYM"]
-                tableSet1 = dbData.getTables(null, ed.getSchemaName(), ed.getTableName(), types)
+                tableSet1 = dbData.getTables(con.getCatalog(), ed.getSchemaName(), ed.getTableName(), types)
                 if (tableSet1.next()) {
                     dbResult = true
                 } else {
                     // try lower case, just in case DB is case sensitive
-                    tableSet2 = dbData.getTables(null, ed.getSchemaName(), ed.getTableName().toLowerCase(), types)
+                    tableSet2 = dbData.getTables(con.getCatalog(), ed.getSchemaName(), ed.getTableName().toLowerCase(), types)
                     if (tableSet2.next()) {
                         dbResult = true
                     } else {
@@ -572,7 +571,7 @@ class EntityDbMeta {
 
             ArrayList<FieldInfo> fieldInfos = new ArrayList<>(ed.allFieldInfoList)
             int fieldCount = fieldInfos.size()
-            colSet1 = dbData.getColumns(null, ed.getSchemaName(), ed.getTableName(), "%")
+            colSet1 = dbData.getColumns(con.getCatalog(), ed.getSchemaName(), ed.getTableName(), "%")
             if (colSet1.isClosed()) {
                 logger.error("Tried to get columns for entity ${ed.getFullEntityName()} but ResultSet was closed!")
                 return new ArrayList<FieldInfo>()
@@ -591,7 +590,7 @@ class EntityDbMeta {
 
             if (fieldInfos.size() == fieldCount) {
                 // try lower case table name
-                colSet2 = dbData.getColumns(null, ed.getSchemaName(), ed.getTableName().toLowerCase(), "%")
+                colSet2 = dbData.getColumns(con.getCatalog(), ed.getSchemaName(), ed.getTableName().toLowerCase(), "%")
                 if (colSet2.isClosed()) {
                     logger.error("Tried to get columns for entity ${ed.getFullEntityName()} but ResultSet was closed!")
                     return new ArrayList<FieldInfo>()
@@ -658,7 +657,7 @@ class EntityDbMeta {
         String groupName = ed.getEntityGroupName()
         MNode databaseNode = efi.getDatabaseNode(groupName)
 
-        if (databaseNode.attribute("use-indexes") == "false") return
+        if (databaseNode.attribute("use-indexes") == "false") return 0
 
         int constraintNameClipLength = (databaseNode.attribute("constraint-name-clip-length")?:"30") as int
 
