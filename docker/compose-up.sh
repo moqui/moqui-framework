@@ -10,13 +10,6 @@ MOQUI_HOME="${2:-..}"
 NAME_TAG=moqui
 RUNTIME_IMAGE="${3:-eclipse-temurin:11-jdk}"
 
-if [ -f simple/docker-build.sh ]; then
-  cd simple
-  ./docker-build.sh ../.. $NAME_TAG $RUNTIME_IMAGE
-  # shellcheck disable=SC2103
-  cd ..
-fi
-
 # Note: If you don't have access to your conf directory while running this:
 #   This will make it so that your docker/conf directory no longer has your configuration files in it.
 #      This is because when docker-compose provisions a volume on the host it applies the host's data before the image's data.
