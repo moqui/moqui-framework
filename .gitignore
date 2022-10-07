@@ -12,6 +12,8 @@ build
 /execwartmp
 /docker/runtime
 /docker/db
+/docker/elasticsearch/data/nodes
+/docker/opensearch/data/nodes
 
 # IntelliJ IDEA files
 .idea
