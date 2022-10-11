@@ -8,4 +8,4 @@ fi
 COMP_FILE="${1}"
 
 # set the project name to 'moqui', network will be called 'moqui_default'
-docker-compose -f $COMP_FILE -p moqui down
+docker compose -f $COMP_FILE -p moqui down

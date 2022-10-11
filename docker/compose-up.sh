@@ -30,4 +30,4 @@ if [ ! -e runtime/db ]; then cp -R $MOQUI_HOME/runtime/db runtime/; fi
 if [ ! -e runtime/$search_name ]; then cp -R $MOQUI_HOME/runtime/$search_name runtime/; fi
 
 # set the project name to 'moqui', network will be called 'moqui_default'
-docker-compose -f $COMP_FILE -p moqui up -d
+docker compose -f $COMP_FILE -p moqui up -d
