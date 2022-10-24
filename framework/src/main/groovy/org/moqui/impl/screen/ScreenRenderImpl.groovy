@@ -994,6 +994,12 @@ class ScreenRenderImpl implements ScreenRender {
                 if (loginPathAttr) loginPath = loginPathAttr
             }
 
+            // override default login screen with Alkami Ignite's applicant sign in
+            String requestedPath = ec.web.request.getPathInfo()
+            if (requestedPath.startsWith("/account") || requestedPath.startsWith("/checkout")) {
+                loginPath = "/account/SignIn"
+            }
+
             if (screenUrlInfo.lastStandalone != 0 || screenUrlInstance.getTargetTransition() != null) {
                 // just send a 401 response, should always be for data submit, content rendering, JS AJAX requests, etc
                 if (wfi != null) wfi.sendError(401, null, null)
