@@ -11,27 +11,27 @@
     <component name="MarbleERP" group="mkdecisiondev" version="v1.1.0-alk" branch="master"/>
 
     <!-- ignite components -->
-    <component name="mk-store" group="mkdecisiondev" version="v1.11.0" branch="master"/>
+    <component name="mk-store" group="mkdecisiondev" version="v1.12.0" branch="master"/>
     <component name="moqui-credit-offers" group="mkdecisiondev" version="v1.6.1" branch="master"/>
-    <component name="daolos-vendor-dashboard" group="mkdecisiondev" version="v1.4.0" branch="master"/>
+    <component name="daolos-vendor-dashboard" group="mkdecisiondev" version="v1.5.0" branch="master"/>
     <component name="moqui-financial-worksheet" group="mkdecisiondev" version="v1.3.1" branch="master"/>
-    <component name="moqui-close-decision" group="mkdecisiondev" version="v1.8.0" branch="master"/>
-    <component name="moqui-close" group="mkdecisiondev" version="v1.14.0" branch="master"/>
-    <component name="mk-services" group="mkdecisiondev" version="v1.11.1" branch="master"/>
+    <component name="moqui-close-decision" group="mkdecisiondev" version="v1.9.0" branch="master"/>
+    <component name="moqui-close" group="mkdecisiondev" version="v1.15.0" branch="master"/>
+    <component name="mk-services" group="mkdecisiondev" version="v1.12.0" branch="master"/>
     <component name="moqui-ccos" group="mkdecisiondev" version="v1.3.2" branch="master"/>
-    <component name="moqui-mk-dashboard" group="mkdecisiondev" version="v1.12.0" branch="master"/>
+    <component name="moqui-mk-dashboard" group="mkdecisiondev" version="v1.13.0" branch="master"/>
     <component name="close-customer-portal" group="mkdecisiondev" version="v1.1.1" branch="master"/>
     <component name="moqui-html-pdf" group="mkdecisiondev" version="v1.1.0" branch="master"/>
-    <component name="mk-integrations" group="mkdecisiondev" version="v1.9.0" branch="master"/>
+    <component name="mk-integrations" group="mkdecisiondev" version="v1.9.1" branch="master"/>
     <component name="moqui-creditconnect" group="mkdecisiondev" version="v1.5.2" branch="master"/>
-    <component name="moqui-creditconnect-experian" group="mkdecisiondev" version="v1.4.2" branch="master"/>
+    <component name="moqui-creditconnect-experian" group="mkdecisiondev" version="v1.5.0" branch="master"/>
     <component name="moqui-creditconnect-transunion" group="mkdecisiondev" version="v1.4.2" branch="master"/>
     <component name="mk-idology" group="mkdecisiondev" version="v1.1.0" branch="master"/>
     <component name="mk-identity" group="mkdecisiondev" version="v1.1.0" branch="master"/>
     <component name="moqui-preciseid" group="mkdecisiondev" version="v1.1.2" branch="master"/>
     <component name="moqui-coreconnect" group="mkdecisiondev" version="v1.1.0" branch="master"/>
     <component name="moqui-coreconnect-fis" group="mkdecisiondev" version="v1.1.0" branch="master"/>
-    <component name="moqui-pac4j-authentication" group="mkdecisiondev" version="v1.2.0" branch="master"/>
+    <component name="moqui-pac4j-authentication" group="mkdecisiondev" version="v1.2.1" branch="master"/>
     <component name="moqui-sentry-logging" group="mkdecisiondev" version="v1.1.0" branch="master"/>
     <component name="moqui-naics" group="mkdecisiondev" version="v1.2.0" branch="master"/>
     <component name="moqui-graphql" group="mkdecisiondev" version="v1.1.0-alk" branch="master"/>
@@ -72,6 +72,7 @@
     <component name="close-premieronecu-data" group="mkdecisiondev" version="" branch="master"/>
     <component name="close-ihcu-data" group="mkdecisiondev" version="" branch="master"/>
     <component name="close-bankofcommerce-data" group="mkdecisiondev" version="" branch="master"/>
+    <component name="close-mascoma-data" group="mkdecisiondev" version="" branch="master"/>
 
     <!-- base component sets -->
     <component-set name="base-moqui" components="moqui-aws,moqui-fop,moqui-sftp,mantle-udm,mantle-usl,SimpleScreens,MarbleERP"/>
@@ -107,5 +108,6 @@
     <component-set name="moqui-close-premieronecu" sets="base-moqui,base-close-keycloak" components="close-premieronecu-data"/>
     <component-set name="moqui-close-ihcu" sets="base-moqui,base-close-keycloak" components="close-ihcu-data"/>
     <component-set name="moqui-close-bankofcommerce" sets="base-moqui,base-close-keycloak" components="close-bankofcommerce-data"/>
+    <component-set name="moqui-close-mascoma" sets="base-moqui,base-close-keycloak" components="close-mascoma-data"/>
 
 </addons>
