@@ -1,0 +1,68 @@
+.git/
+.github/
+.gitlab/
+docker/
+.gitignore
+.gitlab-ci.yml
+.travis.yml
+.whitesource
+AUTHORS
+Dockerfile
+LICENSE.md
+moqui.war
+README.md
+ReleaseNotes.md
+SECURITY.md
+
+# gradle/build files
+#build
+#.gradle
+#/framework/dependencies
+
+
+# build generated files
+/Save*.zip
+
+# runtime directory (separate repository so ignore directory entirely)
+/execwartmp
+
+# IntelliJ IDEA files
+.idea
+out
+*.ipr
+*.iws
+*.iml
+
+# Eclipse files (and some general ones also used by Eclipse)
+.metadata
+bin
+tmp
+*.tmp
+*.bak
+*.swp
+*~.nib
+local.properties
+.settings
+.loadpath
+
+# NetBeans files
+nbproject/private
+nbbuild
+.nb-gradle
+nbdist
+nbactions.xml
+nb-configuration.xml
+
+# OSX auto files
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows auto files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux auto files
+*~
