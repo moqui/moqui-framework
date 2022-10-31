@@ -2365,7 +2365,7 @@ class ScreenRenderImpl implements ScreenRender {
             lastImage = buildUrl(lastImage).url
 
         SubscreensItem lastSsi = curScreen.getSubscreensItem(lastPathItem)
-        String lastTitle = lastSsi?.menuTitle ?: fullUrlInfo.targetScreen.getDefaultMenuName()
+        String lastTitle = ec.l10n.localize(lastSsi?.menuTitle) ?: fullUrlInfo.targetScreen.getDefaultMenuName()
         if (lastTitle.contains('${')) lastTitle = ec.resourceFacade.expand(lastTitle, "")
         List<Map<String, Object>> screenDocList = fullUrlInfo.targetScreen.getScreenDocumentInfoList()
 
