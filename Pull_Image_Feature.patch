@@ -1,0 +1,152 @@
+diff --git a/framework/service/org/moqui/impl/InstanceServices.xml b/framework/service/org/moqui/impl/InstanceServices.xml
+index 7071d77f..0e7be7fd 100644
+--- a/framework/service/org/moqui/impl/InstanceServices.xml
++++ b/framework/service/org/moqui/impl/InstanceServices.xml
+@@ -92,6 +92,8 @@ along with this software (see the LICENSE.md file). If not, see
+         </in-parameters>
+         <out-parameters><parameter name="appInstanceId"/></out-parameters>
+         <actions>
+             <entity-find-one entity-name="moqui.server.instance.InstanceImage" value-field="instanceImage"/>
+             <if condition="instanceImage == null"><return error="true" message="InstanceImage not found with ID ${instanceImageId}"/></if>
+             <set field="imageType" from="instanceImage.imageType"/>
+@@ -214,8 +216,12 @@ along with this software (see the LICENSE.md file). If not, see
+             <entity-find-one entity-name="moqui.server.instance.AppInstance" value-field="appInstance"/>
+             <set field="hostType" from="appInstance?.instanceHost?.hostType"/>
+             <if condition="hostType == null"><return error="true" message="No InstanceHostType found for AppInstance with ID ${appInstanceId}"/></if>
+-            <service-call name="${hostType.initService}" in-map="context" out-map="context"/>
+-        </actions>
++            <!-- <service-call name="${hostType.initService}" in-map="context" out-map="context"/>-->
++        //For Async Calling
++        <script><![CDATA[
++            import org.moqui.context.ExecutionContext
++            import java.util.concurrent.Future
++            Future<Map> instanceFuture = ec.service.async().name("${hostType.initService}").parameters([context:context,appInstanceId:appInstanceId]).callFuture()
++        ]]></script></actions>
+     </service>
+     <service verb="start" noun="AppInstance">
+         <implements service="org.moqui.impl.InstanceServices.start#Instance"/>
+@@ -281,7 +287,7 @@ along with this software (see the LICENSE.md file). If not, see
+         - https://docs.docker.com/engine/security/https/
+     -->
+ 
+-    <service verb="init" noun="InstanceDocker">
++    <service verb="init" noun="InstanceDocker" transaction-timeout="2000" >
+         <!-- see https://docs.docker.com/engine/reference/api/docker_remote_api_v1.24/#/create-a-container -->
+         <implements service="org.moqui.impl.InstanceServices.init#Instance"/>
+         <actions><script><![CDATA[
+@@ -290,6 +296,11 @@ along with this software (see the LICENSE.md file). If not, see
+             import org.moqui.context.ExecutionContext
+             import org.moqui.entity.EntityValue
+             import org.moqui.util.RestClient
++            import java.util.concurrent.Future
++            import java.io.BufferedReader
++            import java.io.InputStreamReader
++            import java.io.IOException
++            import groovy.json.JsonOutput
+ 
+             connectSuccess = null
+             instanceCreated = false
+@@ -307,13 +318,8 @@ along with this software (see the LICENSE.md file). If not, see
+             if (instanceImage == null) {
+                 ec.message.addError("No InstanceImage found for AppInstance ${appInstanceId}"); return;
+             }
+-            EntityValue instanceImageType = instanceImage.findRelatedOne("imageType", null, null)
+-
+-            RestClient restClient = ec.service.rest().method("POST")
+-            restClient.uri().protocol(instanceHost.hostProtocol ? (String) instanceHost.hostProtocol : "http")
+-                    .host(instanceHost.hostAddress as String).port(instanceHost.adminPort ? (instanceHost.adminPort as int) : 2375)
+-                    .path("containers").path("create").parameter("name", (String) appInstance.instanceName).build()
+ 
++            EntityValue instanceImageType = instanceImage.findRelatedOne("imageType", null, null)
+             Map hostConfigMap = [RestartPolicy: [Name: "unless-stopped"]] as Map<String, Object>
+             List<String> linkList = []
+             for (Map link in appInstance.links) linkList.add("${link.instanceName}:${link.aliasName ?: link.instanceName}")
+@@ -345,17 +351,56 @@ along with this software (see the LICENSE.md file). If not, see
+                 jsonBody = baseConfigMap
+             }
+ 
+-            ec.logger.info("Initializing docker container for ${appInstance.instanceName} with:\n${jsonBody}")
+-            restClient.jsonObject(jsonBody)
++            try {
++                authToken = instanceImage.password
++                if (((String) instanceImage.username).equals("AWS")) {
++                    try {
++                        Process processCmd = Runtime.getRuntime().exec((instanceImage.password).split(" "), null)
++                        BufferedReader readToken = new BufferedReader(new InputStreamReader(processCmd.getInputStream()))
++                        authToken = readToken.readLine()
++                    }
++                    catch (IOException io) {
++                        authToken = null
++                        ec.logger.log(ec.logger.ERROR_INT, "Error connecting to Docker host in processing aws cmd", io)
++                        ec.message.addError("Error connecting to Docker host: ${io.toString()}")
++                    }
++                }
++                //Registry-Location now we using as Server-Address
++                Map jsonAuth = [username: instanceImage.username , password: authToken , email: instanceImage.emailAddress , serveraddress: instanceImage.registryLocation ]
++                String json = (String) JsonOutput.toJson(jsonAuth)
++                String authEncoded = Base64.getEncoder().encodeToString(json.getBytes())
++                Map param = [fromImage:(String) instanceImage.imageName ,repo : (String)instanceImage.imageName]
++                RestClient restClientImageCreate = ec.service.rest().method("POST").addHeader((String)("X-Registry-Auth"),(String) authEncoded)
++                restClientImageCreate.uri().protocol(instanceHost.hostProtocol ? (String) instanceHost.hostProtocol : "http")
++                .host(instanceHost.hostAddress as String).port(instanceHost.adminPort ? (instanceHost.adminPort as int) : 2375)
++                .path("images").path("create")
++                .parameters(param).build()
++                restClientImageCreate.timeout(1000)
++
++                RestClient.RestResponse restResponseImageCreate = restClientImageCreate.call()
++                if (restResponseImageCreate.statusCode != 200) {
++                     ec.message.addMessage("Error Image-pull-fail problem image not-exists either or credential is wrong (${restResponseImageCreate.statusCode}): ${restResponseImageCreate.getReasonPhrase()}")
++                }
++            } catch (Exception e) {
++                connectSuccess = false
++                ec.logger.log(ec.logger.ERROR_INT, "Error connecting to Docker host", e)
++                ec.message.addError("Error connecting to Docker host: ${e.toString()}")
++            }
+ 
+             try {
++                RestClient restClient = ec.service.rest().method("POST")
++                restClient.uri().protocol(instanceHost.hostProtocol ? (String) instanceHost.hostProtocol : "http")
++                        .host(instanceHost.hostAddress as String).port(instanceHost.adminPort ? (instanceHost.adminPort as int) : 2375)
++                        .path("containers").path("create").parameter("name", (String) appInstance.instanceName).build()
++                ec.logger.info("Initializing docker container for ${appInstance.instanceName} with:\n${jsonBody}")
++                restClient.jsonObject(jsonBody)
++
+                 RestClient.RestResponse restResponse = restClient.call()
+                 connectSuccess = true
+ 
+                 if (restResponse.statusCode == 201) {
+                     instanceCreated = true
+                     instanceExists = true
+-
+                     Map jsonObj = (Map) restResponse.jsonObject()
+                     instanceUuid = jsonObj.Id
+                     warnings = jsonObj.Warnings
+@@ -370,7 +415,11 @@ along with this software (see the LICENSE.md file). If not, see
+                     instanceExists = true
+                     ec.logger.warn("Docker container ${appInstance.instanceName} (${appInstance.instanceUuid}) conflict [${restResponse.getReasonPhrase()}]:\n${restResponse.text()}")
+                     ec.message.addMessage("Docker container ${appInstance.instanceName} (${appInstance.instanceUuid}) got a conflict on create [${restResponse.getReasonPhrase()}]")
+-                } else {
++                } else if (restResponse.statusCode == 404) {
++                    // POST /v1.24/images/create?fromImage=busybox&tag=latest HTTP/1.1
++                    ec.message.addMessage("Image not Found ,or may be Docker login fail")
++                }
++                else {
+                     ec.logger.error("Docker container ${appInstance.instanceName} (${appInstance.instanceUuid}) ERROR [${restResponse.getReasonPhrase()}]:\n${restResponse.text()}")
+                     ec.message.addMessage("Error on create container for ${appInstance.instanceName} (${restResponse.statusCode}): ${restResponse.getReasonPhrase()}")
+                 }
+@@ -667,7 +716,6 @@ along with this software (see the LICENSE.md file). If not, see
+                 dbConnectSuccess = false
+                 databaseExists = false
+                 dbUserExists = false
+-
+                 javax.sql.XAConnection testXaCon = null
+                 java.sql.Connection testCon = null
+                 try {
+@@ -729,7 +777,8 @@ along with this software (see the LICENSE.md file). If not, see
+                     ec.message.addMessage("Created user ${envMap.entity_ds_user} on host ${adminMap.entity_ds_host}")
+                 }
+                 // NOTE: because of issue above user must already exist, often the case (using same user to access all tenant DBs; may create separate users to access only a single tenant DB)
+                 ec.entity.runSqlUpdateConf("GRANT ALL ON ${envMap.entity_ds_database}.* TO '${envMap.entity_ds_user}'", adminMap);
+             ]]></script>
+         </actions>
+     </service>
