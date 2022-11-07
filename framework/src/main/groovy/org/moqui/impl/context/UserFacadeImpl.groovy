@@ -658,6 +658,7 @@ class UserFacadeImpl implements UserFacade {
         UsernamePasswordToken token = new MoquiShiroRealm.ForceLoginToken(username, true, saveHistory)
         return internalLoginToken(username, token)
     }
+    /** Lowest level internal login method, all others call this one */
     boolean internalLoginToken(String username, AuthenticationToken token) {
         if (eci.web != null) {
             // this ensures that after correctly logging in, a previously attempted login user's "Second Factor" screen isn't displayed
@@ -678,6 +679,21 @@ class UserFacadeImpl implements UserFacade {
             if (eci.getWebImpl() != null) {
                 eci.getWebImpl().runAfterLoginActions()
                 eci.getWebImpl().getRequest().setAttribute("moqui.request.authenticated", "true")
+            }
+
+            // add active user info to ECFI map
+            // note currentInfo is set in pushUserSubject() above
+            if (currentInfo != null) {
+                Map<String, Object> activeUserMap = eci.ecfi.activeUserInfo.get(currentInfo.userId)
+                if (activeUserMap == null) {
+                    activeUserMap.put("loginTimeMillis", System.currentTimeMillis())
+                    // this step is not necessary for a local map, but is for a distributed map to push out the update to the map entry
+                    eci.ecfi.activeUserInfo.put(currentInfo.userId, activeUserMap)
+                } else {
+                    eci.ecfi.activeUserInfo.put(currentInfo.userId,
+                            [userId:currentInfo.userId, username:currentInfo.username,
+                             loginTimeMillis:System.currentTimeMillis(), activeScreens:[]] as Map<String, Object>)
+                }
             }
         } catch (SecondFactorRequiredException ae) {
             if (eci.web != null) {
@@ -721,6 +737,9 @@ class UserFacadeImpl implements UserFacade {
     void logoutLocal() {
         // before logout trigger the before-logout actions
         if (eci.getWebImpl() != null) eci.getWebImpl().runBeforeLogoutActions()
+
+        // remove active user info from ECFI map
+        eci.ecfi.activeUserInfo.remove(currentInfo.userId)
 
         // pop from user stack, also calls Shiro logout()
         popUser()

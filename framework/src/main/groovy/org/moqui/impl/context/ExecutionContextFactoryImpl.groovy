@@ -122,6 +122,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     private final EnumMap<ArtifactType, Boolean> artifactPersistBinByTypeEnum = new EnumMap<ArtifactType, Boolean>(ArtifactType.class)
     final ConcurrentLinkedQueue<ArtifactHitInfo> deferredHitInfoQueue = new ConcurrentLinkedQueue<ArtifactHitInfo>()
 
+    protected Map<String, Map<String, Object>> activeUserInfo
+    protected Map<String, Map<String, Object>> activeScreenInfo
+
     /** The SecurityManager for Apache Shiro */
     protected org.apache.shiro.mgt.SecurityManager internalSecurityManager
     /** The ServletContext, if Moqui was initialized in a webapp (generally through MoquiContextListener) */
@@ -583,6 +586,11 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                 logger.error("Error loading ToolFactory with class ${tfClass}", t)
             }
         }
+
+        // init the active user and screen info maps
+        // TODO: add plugin support for active user and screen Maps, implement in moqui-hazelcast for distributed maps
+        activeUserInfo = new HashMap<>(100)
+        activeScreenInfo = new HashMap<>(100)
     }
 
     private void postFacadeInit() {
