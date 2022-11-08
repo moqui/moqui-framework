@@ -360,13 +360,14 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:simpleType><xs:restriction base="xs:token">
                     <xs:enumeration value="none"><xs:annotation><xs:documentation>
                         nothing is mutable by default (make mutable on each detail and field)</xs:documentation></xs:annotation></xs:enumeration>
-                    <xs:enumeration value="all"><xs:annotation><xs:documentation>
+                    <!-- TODO: Uncomment these when they're implemented -->
+                    <!-- <xs:enumeration value="all"><xs:annotation><xs:documentation>
                         everything is mutable by default (make immutable on each detail and field)</xs:documentation></xs:annotation></xs:enumeration>
                     <xs:enumeration value="one-none-many-all"><xs:annotation><xs:documentation>
                         mutable defaults to true for all type many detail relationships, and to false for all type one;
                         when used carefully this is a good default because most simple CrUD operations involve updates to
                         detail data with many records for each parent record, but type one related entities are more
-                        often for view only (such as Enumeration, StatusItem, etc)</xs:documentation></xs:annotation></xs:enumeration>
+                        often for view only (such as Enumeration, StatusItem, etc)</xs:documentation></xs:annotation></xs:enumeration> -->
                 </xs:restriction></xs:simpleType>
             </xs:attribute>
         </xs:complexType>
@@ -401,7 +402,8 @@ along with this software (see the LICENSE.md file). If not, see
             Included and mutable by default means excluded and immutable fields are explicit for easier auditability.
         </xs:documentation></xs:annotation>
         <xs:attribute name="name" type="name-field" use="required"/>
-        <xs:attribute name="exclude" default="false" type="boolean"/>
+        <!-- TODO: Uncomment this when it's implemented -->
+<!--        <xs:attribute name="exclude" default="false" type="boolean"/>-->
         <xs:attribute name="immutable" default="false" type="boolean"/>
     </xs:complexType></xs:element>
 

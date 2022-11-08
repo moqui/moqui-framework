@@ -1,12 +1,12 @@
 /*
- * This software is in the public domain under CC0 1.0 Universal plus a 
+ * This software is in the public domain under CC0 1.0 Universal plus a
  * Grant of Patent License.
- * 
+ *
  * To the extent possible under law, the author(s) have dedicated all
  * copyright and related and neighboring rights to this software to the
  * public domain worldwide. This software is distributed without any
  * warranty.
- * 
+ *
  * You should have received a copy of the CC0 Public Domain Dedication
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
@@ -751,9 +751,21 @@ class EntityDefinition {
     @CompileStatic
     static class MasterDefinition {
         String name
+        ArrayList<MasterDetailField> detailFieldList = new ArrayList<MasterDetailField>()
         ArrayList<MasterDetail> detailList = new ArrayList<MasterDetail>()
         MasterDefinition(EntityDefinition ed, MNode masterNode) {
             name = masterNode.attribute("name") ?: "default"
+            List<MNode> detailFieldNodeList = masterNode.children("detail-field")
+//            logger.warn(detailFieldNodeList.toString())
+            for (MNode detailFieldNode in detailFieldNodeList) {
+                try {
+                    detailFieldList.add(new MasterDetailField(detailFieldNode))
+                } catch (Exception e) {
+//                    logger.error("Error adding detail field ${detailFieldNode.attribute("name")} to master ${name} of entity ${ed.getFullEntityName()}: ${e.toString()}")
+                    throw e
+                }
+            }
+
             List<MNode> detailNodeList = masterNode.children("detail")
             for (MNode detailNode in detailNodeList) {
                 try {
@@ -770,6 +782,7 @@ class EntityDefinition {
         EntityDefinition parentEd
         RelationshipInfo relInfo
         String relatedMasterName
+        ArrayList<MasterDetailField> internalDetailFieldNodeList = new ArrayList<>()
         ArrayList<MasterDetail> internalDetailList = new ArrayList<>()
         MasterDetail(EntityDefinition parentEd, MNode detailNode) {
             this.parentEd = parentEd
@@ -780,8 +793,15 @@ class EntityDefinition {
 
             List<MNode> detailNodeList = detailNode.children("detail")
             for (MNode childNode in detailNodeList) internalDetailList.add(new MasterDetail(relInfo.relatedEd, childNode))
+            // TODO: Is there a better way to allow not duplicating detail-field data in memory by having it both in MasterDetail and MasterDefinition. (note: it's currently in both because the field data for the first entity isn't accessible when passing a MasterDetail list because there is no MasterDetail for the first entity (only MasterDefinition))
+            List<MNode> detailFieldNodeList = detailNode.children("detail-field")
+            for (MNode childNode in detailFieldNodeList) internalDetailFieldNodeList.add(new MasterDetailField(childNode))
 
             relatedMasterName = (String) detailNode.attribute("use-master")
+        }
+
+        ArrayList<MasterDetailField> getDetailFieldList() {
+            return internalDetailFieldNodeList
         }
 
         ArrayList<MasterDetail> getDetailList() {
@@ -795,8 +815,49 @@ class EntityDefinition {
 
                 return combinedList
             } else {
+//                logger.warn("returning internalDetailList " + internalDetailList)
                 return internalDetailList
             }
+        }
+    }
+    @CompileStatic
+    static class MasterDetailField {
+        public String fieldName
+        public String immutable
+        public String exclude
+        MasterDetailField(MNode detailFieldNode) {
+            fieldName = (String) detailFieldNode.attribute("name")
+            immutable = (String) detailFieldNode.attribute("immutable")
+            exclude = (String) detailFieldNode.attribute("exclude")
+        }
+
+        /**
+         * Check if the Master Detail Field is readable (in the future another attribute may be added to determine
+         * whether a field is readable and this'll make it easier to implement).
+         *
+         * @return boolean
+         */
+        boolean isReadable() {
+            return true
+        }
+
+        /**
+         * Check if the Master Detail Field is writable (in the future another attribute may be added to blanket apply
+         * whether a Master is writable and this'll make it easier to implement).
+         *
+         * @return boolean
+         */
+        boolean isWritable() {
+            return immutable != null
+        }
+
+        /**
+         * Check if the Master Detail field is excluded
+         *
+         * @return boolean
+         */
+        boolean isExcluded() {
+            return (exclude != null ? exclude : false)
         }
     }
 
