@@ -17,6 +17,7 @@ import groovy.transform.CompileStatic
 import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.NotificationMessage
 import org.moqui.context.NotificationMessageListener
+import org.moqui.util.StringUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -33,6 +34,7 @@ class NotificationWebSocketListener implements NotificationMessageListener {
         String userId = endpoint.userId
         if (userId == null) return
         String sessionId = endpoint.session.id
+        logger.info("Notification Listener registering websocket session ${sessionId} for user id ${userId}")
         ConcurrentHashMap<String, NotificationEndpoint> registeredEndPoints = endpointsByUser.get(userId)
         if (registeredEndPoints == null) {
             registeredEndPoints = new ConcurrentHashMap<>()
@@ -41,11 +43,16 @@ class NotificationWebSocketListener implements NotificationMessageListener {
         }
         NotificationEndpoint existing = registeredEndPoints.putIfAbsent(sessionId, endpoint)
         if (existing != null) logger.warn("Found existing NotificationEndpoint for user ${endpoint.userId} (${existing.username}) session ${sessionId}; not registering additional endpoint")
+        // send a message to tell the client its serverSessionId
+        String messageWrapperJson = StringUtilities.defaultJacksonMapper.writeValueAsString(
+                [userId:userId, serverSessionId:sessionId])
+        endpoint.session.asyncRemote.sendText(messageWrapperJson)
     }
     void deregisterEndpoint(NotificationEndpoint endpoint) {
         String userId = endpoint.userId
         if (userId == null) return
         String sessionId = endpoint.session.id
+        logger.info("Notification Listener closing/deregistering websocket session ${sessionId} for user id ${userId}")
         ConcurrentHashMap<String, NotificationEndpoint> registeredEndPoints = endpointsByUser.get(userId)
         if (registeredEndPoints == null) {
             logger.warn("Tried to deregister endpoing for user ${endpoint.userId} but no endpoints found")
@@ -68,14 +75,23 @@ class NotificationWebSocketListener implements NotificationMessageListener {
 
     @Override
     void onMessage(NotificationMessage nm) {
-        String messageWrapperJson = nm.getWrappedMessageJson()
+        Map<String, Object> wrappedMessageMap = nm.getWrappedMessageMap()
         for (String userId in nm.getNotifyUserIds()) {
             ConcurrentHashMap<String, NotificationEndpoint> registeredEndPoints = endpointsByUser.get(userId)
             if (registeredEndPoints == null) continue
+            Set<String> sessionIdSet = nm.getWebsocketSessionIds(userId)
             for (NotificationEndpoint endpoint in registeredEndPoints.values()) {
                 if (endpoint.session != null && endpoint.session.isOpen() &&
+                        (sessionIdSet == null || sessionIdSet.contains(endpoint.session.id)) &&
                         (endpoint.subscribedTopics.contains("ALL") || endpoint.subscribedTopics.contains(nm.topic))) {
+                    // first clone the shared wrappedMessageMap, then add info for current user/session
+                    Map<String, Object> curMessageMap = new HashMap<>(wrappedMessageMap)
+                    curMessageMap.put("userId", userId)
+                    curMessageMap.put("serverSessionId", endpoint.session.id)
+                    // convert to JSON and send
+                    String messageWrapperJson = StringUtilities.defaultJacksonMapper.writeValueAsString(curMessageMap)
                     endpoint.session.asyncRemote.sendText(messageWrapperJson)
+                    // now that it is sent, mark it as such
                     nm.markSent(userId)
                 }
             }

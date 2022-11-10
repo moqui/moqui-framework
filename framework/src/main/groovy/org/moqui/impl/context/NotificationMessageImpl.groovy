@@ -13,10 +13,10 @@
  */
 package org.moqui.impl.context
 
-import groovy.json.JsonOutput
-import groovy.json.JsonSlurper
+import com.fasterxml.jackson.databind.JsonNode
 import groovy.transform.CompileStatic
 import org.moqui.BaseArtifactException
+import org.moqui.BaseException
 import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
 import org.moqui.context.NotificationMessage
@@ -25,6 +25,7 @@ import org.moqui.entity.EntityFacade
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityListIterator
 import org.moqui.entity.EntityValue
+import org.moqui.util.StringUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -36,6 +37,7 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
 
     private Set<String> userIdSet = new HashSet()
     private String userGroupId = (String) null
+    private Map<String, Set<String>> websocketSessionIdMap = (Map<String, Set<String>>) null
     private String topic = (String) null
     private transient EntityValue notificationTopic = (EntityValue) null
     private String messageJson = (String) null
@@ -79,6 +81,18 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
 
     @Override NotificationMessage userGroupId(String userGroupId) { this.userGroupId = userGroupId; return this }
     @Override String getUserGroupId() { userGroupId }
+
+    @Override NotificationMessage websocketSessionId(String userId, String id) {
+        if (websocketSessionIdMap == null) websocketSessionIdMap = new HashMap<>()
+        Set<String> sessionIdSet = websocketSessionIdMap.get(userId)
+        if (sessionIdSet == null) sessionIdSet = new HashSet<>()
+        sessionIdSet.add(id)
+        return this
+    }
+    @Override Set<String> getWebsocketSessionIds(String userId) {
+        if (websocketSessionIdMap == null) return null
+        return websocketSessionIdMap.get(userId)
+    }
 
     @Override Set<String> getNotifyUserIds() {
         Set<String> notifyUserIds = new HashSet<>()
@@ -153,7 +167,7 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
     @Override String getMessageJson() {
         if (messageJson == null && messageMap != null) {
             try {
-                messageJson = JsonOutput.toJson(messageMap)
+                messageJson = StringUtilities.defaultJacksonMapper.writeValueAsString(messageMap)
             } catch (Exception e) {
                 logger.warn("Error writing JSON for Notification ${topic} message: ${e.toString()}\n${messageMap}")
             }
@@ -161,8 +175,14 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
         return messageJson
     }
     @Override Map<String, Object> getMessageMap() {
-        if (messageMap == null && messageJson != null)
-            messageMap = Collections.unmodifiableMap((Map<String, Object>) new JsonSlurper().parseText(messageJson))
+        if (messageMap == null && messageJson != null) {
+            JsonNode jsonNode = StringUtilities.defaultJacksonMapper.readTree(messageJson)
+            if (jsonNode.isObject()) {
+                messageMap = Collections.unmodifiableMap(StringUtilities.defaultJacksonMapper.treeToValue(jsonNode, Map.class))
+            } else if (jsonNode.isArray()) {
+                throw new BaseException("JSON text root is not an Object, cannot get Message Map object")
+            }
+        }
         return messageMap
     }
 
@@ -457,7 +477,7 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
     @Override String getWrappedMessageJson() {
         Map<String, Object> wrappedMap = getWrappedMessageMap()
         try {
-            return JsonOutput.toJson(wrappedMap)
+            return StringUtilities.defaultJacksonMapper.writeValueAsString(wrappedMap)
         } catch (Exception e) {
             logger.warn("Error writing JSON for Notification ${topic} message: ${e.toString()}\n${wrappedMap}")
             return null

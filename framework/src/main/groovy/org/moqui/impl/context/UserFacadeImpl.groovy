@@ -685,7 +685,7 @@ class UserFacadeImpl implements UserFacade {
             // note currentInfo is set in pushUserSubject() above
             if (currentInfo != null) {
                 Map<String, Object> activeUserMap = eci.ecfi.activeUserInfo.get(currentInfo.userId)
-                if (activeUserMap == null) {
+                if (activeUserMap != null) {
                     activeUserMap.put("loginTimeMillis", System.currentTimeMillis())
                     // this step is not necessary for a local map, but is for a distributed map to push out the update to the map entry
                     eci.ecfi.activeUserInfo.put(currentInfo.userId, activeUserMap)

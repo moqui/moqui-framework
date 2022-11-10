@@ -30,6 +30,11 @@ public interface NotificationMessage extends java.io.Serializable {
     NotificationMessage userGroupId(String userGroupId);
     String getUserGroupId();
 
+    /** When sent by websocket if any session IDs are specified for a user the message is sent only to the clients
+     * with a matching session ID, otherwise sent to all websocket clients */
+    NotificationMessage websocketSessionId(String userId, String id);
+    Set<String> getWebsocketSessionIds(String userId);
+
     /** Get userId for all users associated with this notification, directly or through the UserGroup, and who have
      * NotificationTopicUser.receiveNotifications=Y, which if not set (or there is no NotificationTopicUser record)
      * defaults to NotificationTopic.receiveNotifications (if not set defaults to Y) */
