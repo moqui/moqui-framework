@@ -140,6 +140,9 @@ class DbResourceReference extends BaseResourceReference {
         SerialBlob sblob = new SerialBlob(baos.toByteArray())
         this.putObject(sblob)
     }
+    @Override void putBytes(byte[] bytes) {
+        this.putObject(new SerialBlob(bytes))
+    }
 
     protected void putObject(Object fileObj) {
         EntityValue dbrf = getDbResourceFile()
