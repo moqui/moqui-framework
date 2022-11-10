@@ -15,7 +15,6 @@ package org.moqui.impl.context;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.codehaus.groovy.runtime.StringGroovyMethods;
-import org.jetbrains.annotations.NotNull;
 import org.moqui.context.ArtifactExecutionInfo;
 import org.moqui.entity.EntityFind;
 import org.moqui.entity.EntityList;
@@ -28,6 +27,7 @@ import org.moqui.util.StringUtilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
 import javax.transaction.Synchronization;
 import javax.transaction.Transaction;
 import javax.transaction.xa.XAResource;
@@ -631,8 +631,8 @@ public class ContextJavaUtil {
         }
 
         @Override public boolean isPeriodic() { return future.isPeriodic(); }
-        @Override public long getDelay(@NotNull TimeUnit timeUnit) { return future.getDelay(timeUnit); }
-        @Override public int compareTo(@NotNull Delayed delayed) { return future.compareTo(delayed); }
+        @Override public long getDelay(@Nonnull TimeUnit timeUnit) { return future.getDelay(timeUnit); }
+        @Override public int compareTo(@Nonnull Delayed delayed) { return future.compareTo(delayed); }
 
         @Override public void run() {
             try {
@@ -647,7 +647,7 @@ public class ContextJavaUtil {
         @Override public boolean isDone() { return future.isDone(); }
 
         @Override public V get() throws InterruptedException, ExecutionException { return future.get(); }
-        @Override public V get(long l, @NotNull TimeUnit timeUnit) throws InterruptedException, ExecutionException, TimeoutException {
+        @Override public V get(long l, @Nonnull TimeUnit timeUnit) throws InterruptedException, ExecutionException, TimeoutException {
             return get(l, timeUnit); }
 
         @Override public String toString() {
