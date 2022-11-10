@@ -137,11 +137,11 @@ class WebFacadeImpl implements WebFacade {
 
                 if ((contentType.contains("application/json") || contentType.contains("text/json"))) {
                     try {
-                        JsonNode jsonNode = ContextJavaUtil.jacksonMapper.readTree(bodyString)
+                        JsonNode jsonNode = StringUtilities.defaultJacksonMapper.readTree(bodyString)
                         if (jsonNode.isObject()) {
-                            jsonParameters = ContextJavaUtil.jacksonMapper.treeToValue(jsonNode, Map.class)
+                            jsonParameters = StringUtilities.defaultJacksonMapper.treeToValue(jsonNode, Map.class)
                         } else if (jsonNode.isArray()) {
-                            jsonParameters = [_requestBodyJsonList:ContextJavaUtil.jacksonMapper.treeToValue(jsonNode, List.class)] as Map<String, Object>
+                            jsonParameters = [_requestBodyJsonList:StringUtilities.defaultJacksonMapper.treeToValue(jsonNode, List.class)] as Map<String, Object>
                         }
                     } catch (Throwable t) {
                         logger.error("Error parsing HTTP request body JSON: ${t.toString()}", t)
@@ -710,7 +710,7 @@ class WebFacadeImpl implements WebFacade {
         }
 
         // logger.warn("========== Sending JSON for object: ${responseObj}")
-        if (responseObj != null) jsonStr = ContextJavaUtil.jacksonMapper.writeValueAsString(responseObj)
+        if (responseObj != null) jsonStr = StringUtilities.defaultJacksonMapper.writeValueAsString(responseObj)
 
         if (!jsonStr) return
 
@@ -742,7 +742,7 @@ class WebFacadeImpl implements WebFacade {
     static void sendJsonErrorInternal(int statusCode, String message, Throwable origThrowable, HttpServletResponse response) {
         if ((message == null || message.isEmpty()) && origThrowable != null) message = origThrowable.message
         // NOTE: uses same field name as sendJsonResponseInternal
-        String jsonStr = ContextJavaUtil.jacksonMapper.writeValueAsString([errorCode:statusCode, errors:message])
+        String jsonStr = StringUtilities.defaultJacksonMapper.writeValueAsString([errorCode:statusCode, errors:message])
         response.setContentType("application/json")
         // NOTE: String.length not correct for byte length
         String charset = response.getCharacterEncoding() ?: "UTF-8"

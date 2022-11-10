@@ -13,16 +13,7 @@
  */
 package org.moqui.impl.context;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.SerializerProvider;
-import com.fasterxml.jackson.databind.module.SimpleModule;
-import com.fasterxml.jackson.databind.ser.std.StdSerializer;
-import groovy.lang.GString;
 import org.codehaus.groovy.runtime.StringGroovyMethods;
 import org.jetbrains.annotations.NotNull;
 import org.moqui.context.ArtifactExecutionInfo;
@@ -31,22 +22,18 @@ import org.moqui.entity.EntityList;
 import org.moqui.entity.EntityValue;
 import org.moqui.impl.entity.EntityValueBase;
 import org.moqui.impl.screen.ScreenRenderImpl;
-import org.moqui.resource.ResourceReference;
 import org.moqui.util.ContextStack;
-import org.moqui.util.LiteStringMap;
 import org.moqui.util.ObjectUtilities;
+import org.moqui.util.StringUtilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.transaction.Synchronization;
 import javax.transaction.Transaction;
 import javax.transaction.xa.XAResource;
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.*;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -56,6 +43,9 @@ public class ContextJavaUtil {
     protected final static Logger logger = LoggerFactory.getLogger(ContextJavaUtil.class);
     private static final long checkSlowThreshold = 50;
     protected static final double userImpactMinMillis = 1000;
+
+    // for backward compatibility, has been moved to StringUtilities
+    public final static ObjectMapper jacksonMapper = StringUtilities.defaultJacksonMapper;
 
     /** the Groovy JsonBuilder doesn't handle various Moqui objects very well, ends up trying to access all
      * properties and results in infinite recursion, so need to unwrap and exclude some */
@@ -574,77 +564,6 @@ public class ContextJavaUtil {
             return new ConnectionWrapper((Connection) con.clone(), tfi, groupName) }
         protected void finalize() throws Throwable { con.finalize() }
         */
-    }
-
-
-    public final static ObjectMapper jacksonMapper = new ObjectMapper()
-            .setSerializationInclusion(JsonInclude.Include.ALWAYS)
-            .enable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS).enable(SerializationFeature.INDENT_OUTPUT)
-            .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
-            .configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true);
-    static {
-        // Jackson custom serializers, etc
-        SimpleModule module = new SimpleModule();
-        module.addSerializer(GString.class, new ContextJavaUtil.GStringJsonSerializer());
-        module.addSerializer(LiteStringMap.class, new ContextJavaUtil.LiteStringMapJsonSerializer());
-        module.addSerializer(ResourceReference.class, new ContextJavaUtil.ResourceReferenceJsonSerializer());
-        jacksonMapper.registerModule(module);
-    }
-    static class GStringJsonSerializer extends StdSerializer<GString> {
-        GStringJsonSerializer() { super(GString.class); }
-        @Override public void serialize(GString value, JsonGenerator gen, SerializerProvider serializers)
-                throws IOException, JsonProcessingException { if (value != null) gen.writeString(value.toString()); }
-    }
-    static class TimestampNoNegativeJsonSerializer extends StdSerializer<Timestamp> {
-        TimestampNoNegativeJsonSerializer() { super(Timestamp.class); }
-        @Override public void serialize(Timestamp value, JsonGenerator gen, SerializerProvider serializers)
-                throws IOException, JsonProcessingException {
-            if (value != null) {
-                long time = value.getTime();
-                if (time < 0) {
-                    String isoUtc = value.toInstant().atZone(ZoneOffset.UTC.normalized()).format(DateTimeFormatter.ISO_INSTANT);
-                    gen.writeString(isoUtc);
-                    // logger.warn("Negative Timestamp " + time + ": " + isoUtc);
-                } else {
-                    gen.writeNumber(time);
-                }
-            }
-        }
-    }
-    static class LiteStringMapJsonSerializer extends StdSerializer<LiteStringMap> {
-        LiteStringMapJsonSerializer() { super(LiteStringMap.class); }
-        @Override public void serialize(LiteStringMap lsm, JsonGenerator gen, SerializerProvider serializers)
-                throws IOException, JsonProcessingException {
-            gen.writeStartObject();
-            if (lsm != null) {
-                int size = lsm.size();
-                for (int i = 0; i < size; i++) {
-                    String key = lsm.getKey(i);
-                    Object value = lsm.getValue(i);
-                    // sparse maps could have null keys at certain indexes
-                    if (key == null) continue;
-                    gen.writeObjectField(key, value);
-                }
-            }
-            gen.writeEndObject();
-        }
-    }
-    static class ResourceReferenceJsonSerializer extends StdSerializer<ResourceReference> {
-        ResourceReferenceJsonSerializer() { super(ResourceReference.class); }
-        @Override public void serialize(ResourceReference resourceRef, JsonGenerator gen, SerializerProvider serializers)
-                throws IOException, JsonProcessingException {
-            if (resourceRef == null) {
-                gen.writeNull();
-                return;
-            }
-            gen.writeStartObject();
-            gen.writeObjectField("location", resourceRef.getLocation());
-            gen.writeObjectField("isDirectory", resourceRef.isDirectory());
-            gen.writeObjectField("lastModified", resourceRef.getLastModified());
-            ResourceReference.Version currentVersion = resourceRef.getCurrentVersion();
-            if (currentVersion != null) gen.writeObjectField("currentVersionName", currentVersion.getVersionName());
-            gen.writeEndObject();
-        }
     }
 
     // NOTE: using unbound LinkedBlockingQueue, so max pool size in ThreadPoolExecutor has no effect

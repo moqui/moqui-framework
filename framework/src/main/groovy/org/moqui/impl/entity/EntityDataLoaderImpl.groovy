@@ -13,7 +13,7 @@
  */
 package org.moqui.impl.entity
 
-import groovy.json.JsonSlurper
+import com.fasterxml.jackson.databind.JsonNode
 import groovy.transform.CompileStatic
 import org.apache.commons.csv.CSVFormat
 import org.apache.commons.csv.CSVParser
@@ -34,6 +34,7 @@ import org.moqui.impl.service.ServiceFacadeImpl
 import org.moqui.impl.service.runner.EntityAutoServiceRunner
 import org.moqui.service.ServiceCallSync
 import org.moqui.util.MNode
+import org.moqui.util.StringUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.xml.sax.*
@@ -1043,34 +1044,34 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         List<String> getMessageList() { return messageList }
 
         boolean loadFile(String location, InputStream is) {
-            JsonSlurper slurper = new JsonSlurper()
-            Object jsonObj
+            String type = null
+            List valueList
+
             try {
-                jsonObj = slurper.parse(new BufferedReader(new InputStreamReader(is, "UTF-8")))
+                // jsonObj = slurper.parse(new BufferedReader(new InputStreamReader(is, "UTF-8")))
+                JsonNode jsonNode = StringUtilities.defaultJacksonMapper.readTree(
+                        new BufferedReader(new InputStreamReader(is, "UTF-8")))
+                if (jsonNode.isObject()) {
+                    Map jsonMap = StringUtilities.defaultJacksonMapper.treeToValue(jsonNode, Map.class)
+                    type = jsonMap.get("_dataType")
+                    valueList = [jsonMap]
+                } else if (jsonNode.isArray()) {
+                    valueList = StringUtilities.defaultJacksonMapper.treeToValue(jsonNode, List.class)
+                    Object firstValue = valueList?.get(0)
+                    if (firstValue instanceof Map) {
+                        Map firstValMap = (Map) firstValue
+                        if (firstValMap.get("_dataType")) {
+                            type = firstValMap.get("_dataType")
+                            valueList.remove((int) 0I)
+                        }
+                    }
+                } else {
+                    throw new BaseException("Root JSON field was not a Map/object or List/array, type is ${jsonNode?.getNodeType()?.toString()}")
+                }
             } catch (Throwable t) {
                 String errMsg = "Error parsing HTTP request body JSON: ${t.toString()}"
                 logger.error(errMsg, t)
                 throw new BaseException(errMsg, t)
-            }
-
-            String type = null
-            List valueList
-            if (jsonObj instanceof Map) {
-                Map jsonMap = (Map) jsonObj
-                type = jsonMap.get("_dataType")
-                valueList = [jsonObj]
-            } else if (jsonObj instanceof List) {
-                valueList = (List) jsonObj
-                Object firstValue = valueList?.get(0)
-                if (firstValue instanceof Map) {
-                    Map firstValMap = (Map) firstValue
-                    if (firstValMap.get("_dataType")) {
-                        type = firstValMap.get("_dataType")
-                        valueList.remove((int) 0I)
-                    }
-                }
-            } else {
-                throw new BaseException("Root JSON field was not a Map/object or List/array, type is ${jsonObj.getClass().getName()}")
             }
 
             if (type && edli.dataTypes && !edli.dataTypes.contains(type)) {

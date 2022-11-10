@@ -13,7 +13,6 @@
  */
 package org.moqui.impl.context
 
-import groovy.json.JsonSlurper
 import groovy.transform.CompileStatic
 import org.apache.logging.log4j.LogManager
 import org.apache.logging.log4j.core.LoggerContext
@@ -359,7 +358,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         File versionJsonFile = new File(runtimePath + "/version.json")
         if (versionJsonFile.exists()) {
             try {
-                versionMap = (Map) new JsonSlurper().parse(versionJsonFile)
+                versionMap = (Map) StringUtilities.defaultJacksonMapper.readValue(versionJsonFile, Map.class)
             } catch (Exception e) {
                 logger.warn("Error parsion runtime/version.json", e)
             }
@@ -1367,7 +1366,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             ResourceReference versionJsonRr = componentRr.getChild("version.json")
             if (versionJsonRr.exists) {
                 try {
-                    versionMap = (Map) new JsonSlurper().parseText(versionJsonRr.getText())
+                    versionMap = (Map) StringUtilities.defaultJacksonMapper.readValue(versionJsonRr.getText(), Map.class)
                 } catch (Exception e) {
                     logger.warn("Error parsing ${versionJsonRr.location}", e)
                 }

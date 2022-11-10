@@ -32,10 +32,12 @@ import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityJavaUtil
 import org.moqui.impl.entity.FieldInfo
 import org.moqui.impl.util.ElasticSearchLogger
+import org.moqui.resource.ResourceReference
 import org.moqui.util.LiteStringMap
 import org.moqui.util.MNode
 import org.moqui.util.RestClient
 import org.moqui.util.RestClient.Method
+import org.moqui.util.StringUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -59,11 +61,12 @@ class ElasticFacadeImpl implements ElasticFacade {
     static {
         // Jackson custom serializers, etc
         SimpleModule module = new SimpleModule()
-        module.addSerializer(GString.class, new ContextJavaUtil.GStringJsonSerializer())
-        module.addSerializer(LiteStringMap.class, new ContextJavaUtil.LiteStringMapJsonSerializer())
+        module.addSerializer(GString.class, new StringUtilities.GStringJsonSerializer())
+        module.addSerializer(LiteStringMap.class, new StringUtilities.LiteStringMapJsonSerializer())
         // NOTE: using custom serializer for Timestamps because ElasticSearch 7+ does NOT allow negative longs for epoch_millis format... sigh
         //     .enable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
-        module.addSerializer(Timestamp.class, new ContextJavaUtil.TimestampNoNegativeJsonSerializer())
+        module.addSerializer(Timestamp.class, new StringUtilities.TimestampNoNegativeJsonSerializer())
+        module.addSerializer(ResourceReference.class, new StringUtilities.ResourceReferenceJsonSerializer())
         jacksonMapper.registerModule(module)
     }
 

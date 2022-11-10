@@ -16,11 +16,11 @@ package org.moqui.impl.service;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.safety.Safelist;
-import org.moqui.impl.context.ContextJavaUtil;
 import org.moqui.util.MClassLoader;
 import org.moqui.impl.context.ExecutionContextImpl;
 import org.moqui.util.MNode;
 import org.moqui.util.ObjectUtilities;
+import org.moqui.util.StringUtilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -220,7 +220,7 @@ public class ParameterInfo {
                 case MAP:
                     if (valueStr.startsWith("{")) {
                         try {
-                            converted = ContextJavaUtil.jacksonMapper.readValue(valueStr, Map.class);
+                            converted = StringUtilities.defaultJacksonMapper.readValue(valueStr, Map.class);
                         } catch (Exception e) {
                             eci.messageFacade.addValidationError(null, namePrefix + name, serviceName,
                                     "Could not convert JSON to Map", e);

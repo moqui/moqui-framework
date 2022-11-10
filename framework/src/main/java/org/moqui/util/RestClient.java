@@ -13,8 +13,8 @@
  */
 package org.moqui.util;
 
-import groovy.json.JsonBuilder;
-import groovy.json.JsonSlurper;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.HttpClientTransport;
 import org.eclipse.jetty.client.HttpResponseException;
@@ -180,16 +180,11 @@ public class RestClient {
             return text(bodyJsonObject.toString());
         }
 
-        JsonBuilder jb = new JsonBuilder();
-        if (bodyJsonObject instanceof Map) {
-            jb.call((Map) bodyJsonObject);
-        } else if (bodyJsonObject instanceof List) {
-            jb.call((List) bodyJsonObject);
-        } else {
-            jb.call((Object) bodyJsonObject);
+        try {
+            return text(StringUtilities.defaultJacksonMapper.writeValueAsString(bodyJsonObject));
+        } catch (JsonProcessingException e) {
+            throw new IllegalArgumentException("Error writing JSON string from bodyJsonObject", e);
         }
-
-        return text(jb.toString());
     }
 
     /** Set the body text as XML from a MNode */
@@ -439,7 +434,14 @@ public class RestClient {
         /** Parse the response as JSON and return an Object */
         public Object jsonObject() {
             try {
-                return new JsonSlurper().parseText(text());
+                JsonNode jsonNode = StringUtilities.defaultJacksonMapper.readTree(text());
+                if (jsonNode.isObject()) {
+                    return StringUtilities.defaultJacksonMapper.treeToValue(jsonNode, Map.class);
+                } else if (jsonNode.isArray()) {
+                    return StringUtilities.defaultJacksonMapper.treeToValue(jsonNode, List.class);
+                } else {
+                    throw new BaseException("JSON text root is not an Object or Array");
+                }
             } catch (Throwable t) {
                 throw new BaseException("Error parsing JSON response from request to " + rci.uriString, t);
             }

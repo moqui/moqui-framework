@@ -13,9 +13,10 @@
  */
 package org.moqui.impl.screen
 
-import groovy.json.JsonSlurper
+import com.fasterxml.jackson.databind.JsonNode
 import groovy.transform.CompileStatic
 import org.moqui.BaseArtifactException
+import org.moqui.BaseException
 import org.moqui.context.ExecutionContext
 import org.moqui.entity.*
 import org.moqui.impl.actions.XmlAction
@@ -31,6 +32,7 @@ import org.moqui.util.CollectionUtilities
 import org.moqui.util.ContextStack
 import org.moqui.util.MNode
 import org.moqui.util.ObjectUtilities
+import org.moqui.util.StringUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -2658,8 +2660,18 @@ class ScreenForm {
         // if columnsTree empty there were no changes
         if (!columnsTreeStr) return
 
-        JsonSlurper slurper = new JsonSlurper()
-        List<Map> columnsTree = (List<Map>) slurper.parseText(columnsTreeStr)
+        List<Map> columnsTree = (List<Map>) null
+        try {
+            JsonNode jsonNode = StringUtilities.defaultJacksonMapper.readTree(columnsTreeStr)
+            if (jsonNode.isArray()) {
+                columnsTree = (List<Map>) StringUtilities.defaultJacksonMapper.treeToValue(jsonNode, List.class)
+            } else {
+                throw new BaseException("JSON text root is not an Array")
+            }
+        } catch (Throwable t) {
+            throw new BaseException("Error parsing JSON: " + t.toString(), t)
+        }
+
         CollectionUtilities.orderMapList(columnsTree, ['order'])
 
         int columnIndex = 0

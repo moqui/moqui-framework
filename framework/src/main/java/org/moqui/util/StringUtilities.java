@@ -13,14 +13,26 @@
  */
 package org.moqui.util;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.SerializerProvider;
+import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.databind.ser.std.StdSerializer;
+import groovy.lang.GString;
 import org.apache.commons.codec.binary.*;
 import org.codehaus.groovy.runtime.DefaultGroovyMethods;
 import org.moqui.BaseException;
+import org.moqui.resource.ResourceReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Element;
 
 import javax.swing.text.MaskFormatter;
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -29,7 +41,10 @@ import java.net.URISyntaxException;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.security.SecureRandom;
+import java.sql.Timestamp;
 import java.text.ParseException;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.regex.Pattern;
 
@@ -46,6 +61,76 @@ public class StringUtilities {
         HashMap<String, String> map = new HashMap<>(5);
         map.put("apos", "\'"); map.put("quot", "\""); map.put("amp", "&"); map.put("lt", "<"); map.put("gt", ">");
         xmlEntityMap = map;
+    }
+
+    public final static ObjectMapper defaultJacksonMapper = new ObjectMapper()
+            .setSerializationInclusion(JsonInclude.Include.ALWAYS)
+            .enable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS).enable(SerializationFeature.INDENT_OUTPUT)
+            .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
+            .configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true);
+    static {
+        // Jackson custom serializers, etc
+        SimpleModule module = new SimpleModule();
+        module.addSerializer(GString.class, new GStringJsonSerializer());
+        module.addSerializer(LiteStringMap.class, new LiteStringMapJsonSerializer());
+        module.addSerializer(ResourceReference.class, new ResourceReferenceJsonSerializer());
+        defaultJacksonMapper.registerModule(module);
+    }
+    public static class GStringJsonSerializer extends StdSerializer<GString> {
+        public GStringJsonSerializer() { super(GString.class); }
+        @Override public void serialize(GString value, JsonGenerator gen, SerializerProvider serializers)
+                throws IOException, JsonProcessingException { if (value != null) gen.writeString(value.toString()); }
+    }
+    public static class TimestampNoNegativeJsonSerializer extends StdSerializer<Timestamp> {
+        public TimestampNoNegativeJsonSerializer() { super(Timestamp.class); }
+        @Override public void serialize(Timestamp value, JsonGenerator gen, SerializerProvider serializers)
+                throws IOException, JsonProcessingException {
+            if (value != null) {
+                long time = value.getTime();
+                if (time < 0) {
+                    String isoUtc = value.toInstant().atZone(ZoneOffset.UTC.normalized()).format(DateTimeFormatter.ISO_INSTANT);
+                    gen.writeString(isoUtc);
+                    // logger.warn("Negative Timestamp " + time + ": " + isoUtc);
+                } else {
+                    gen.writeNumber(time);
+                }
+            }
+        }
+    }
+    public static class LiteStringMapJsonSerializer extends StdSerializer<LiteStringMap> {
+        public LiteStringMapJsonSerializer() { super(LiteStringMap.class); }
+        @Override public void serialize(LiteStringMap lsm, JsonGenerator gen, SerializerProvider serializers)
+                throws IOException, JsonProcessingException {
+            gen.writeStartObject();
+            if (lsm != null) {
+                int size = lsm.size();
+                for (int i = 0; i < size; i++) {
+                    String key = lsm.getKey(i);
+                    Object value = lsm.getValue(i);
+                    // sparse maps could have null keys at certain indexes
+                    if (key == null) continue;
+                    gen.writeObjectField(key, value);
+                }
+            }
+            gen.writeEndObject();
+        }
+    }
+    public static class ResourceReferenceJsonSerializer extends StdSerializer<ResourceReference> {
+        public ResourceReferenceJsonSerializer() { super(ResourceReference.class); }
+        @Override public void serialize(ResourceReference resourceRef, JsonGenerator gen, SerializerProvider serializers)
+                throws IOException, JsonProcessingException {
+            if (resourceRef == null) {
+                gen.writeNull();
+                return;
+            }
+            gen.writeStartObject();
+            gen.writeObjectField("location", resourceRef.getLocation());
+            gen.writeObjectField("isDirectory", resourceRef.isDirectory());
+            gen.writeObjectField("lastModified", resourceRef.getLastModified());
+            ResourceReference.Version currentVersion = resourceRef.getCurrentVersion();
+            if (currentVersion != null) gen.writeObjectField("currentVersionName", currentVersion.getVersionName());
+            gen.writeEndObject();
+        }
     }
 
     private static final String[] SCALES = new String[]{"", "thousand", "million", "billion", "trillion", "quadrillion", "quintillion", "sextillion"};

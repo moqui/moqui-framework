@@ -13,9 +13,8 @@
  */
 package org.moqui.impl.screen
 
+import com.fasterxml.jackson.databind.JsonNode
 import freemarker.template.Template
-import groovy.json.JsonOutput
-import groovy.json.JsonSlurper
 import groovy.transform.CompileStatic
 import org.moqui.BaseArtifactException
 import org.moqui.BaseException
@@ -1983,18 +1982,10 @@ class ScreenRenderImpl implements ScreenRender {
         String output = str.getOutput()
 
         String transValue = null
-        Object jsonObj = null
         try {
-            jsonObj = new JsonSlurper().parseText(output)
-            if (jsonObj instanceof List && ((List) jsonObj).size() > 0) {
-                Object firstObj = ((List) jsonObj).get(0)
-                if (firstObj instanceof Map) {
-                    transValue = ((Map) firstObj).get(labelField)
-                } else {
-                    transValue = firstObj.toString()
-                }
-            } else if (jsonObj instanceof Map) {
-                Map jsonMap = (Map) jsonObj
+            JsonNode jsonNode = StringUtilities.defaultJacksonMapper.readTree(output)
+            if (jsonNode.isObject()) {
+                Map jsonMap = StringUtilities.defaultJacksonMapper.treeToValue(jsonNode, Map.class)
                 Object optionsObj = jsonMap.get("options")
                 if (optionsObj instanceof List && ((List) optionsObj).size() > 0) {
                     Object firstObj = ((List) optionsObj).get(0)
@@ -2006,8 +1997,18 @@ class ScreenRenderImpl implements ScreenRender {
                 } else {
                     transValue = jsonMap.get(labelField)
                 }
-            } else if (jsonObj != null) {
-                transValue = jsonObj.toString()
+            } else if (jsonNode.isArray()) {
+                List outputList = StringUtilities.defaultJacksonMapper.treeToValue(jsonNode, List.class)
+                if (outputList != null && outputList.size() > 0) {
+                    Object firstObj = outputList.get(0)
+                    if (firstObj instanceof Map) {
+                        transValue = ((Map) firstObj).get(labelField)
+                    } else {
+                        transValue = firstObj.toString()
+                    }
+                }
+            } else {
+                throw new BaseException("JSON text root is not an Object or Array")
             }
         } catch (Throwable t) {
             // this happens all the time for non-JSON text response: logger.warn("Error getting field label from transition", t)
