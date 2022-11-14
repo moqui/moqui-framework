@@ -116,7 +116,15 @@ public class L10nFacadeImpl implements L10nFacade {
             }
         }
 
-        Currency currency = uomId != null && uomId.length() > 0 ? Currency.getInstance(uomId) : null;
+        Currency currency = null;
+        if(uomId != null && uomId.length() > 0) {
+            try {
+                currency = Currency.getInstance(uomId);
+            } catch (Exception e) {
+                logger.error(e.getMessage());
+            }
+        }
+
         if (locale == null) locale = getLocale();
         if (currency != null) {
             NumberFormat nf = NumberFormat.getCurrencyInstance(locale);
