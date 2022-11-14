@@ -15,7 +15,7 @@ along with this software (see the LICENSE.md file). If not, see
 
 <!-- NOTE: files using this schema are found in the service directory in a component when named *.rest.xml -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
-    <xs:include schemaLocation="common-types-2.1.xsd"/>
+    <xs:include schemaLocation="common-types-3.xsd"/>
 
     <xs:element name="resource">
         <xs:complexType>
@@ -40,6 +40,11 @@ along with this software (see the LICENSE.md file). If not, see
             </xs:sequence>
             <xs:attribute name="name" type="xs:string" use="required"/>
             <xs:attribute name="require-authentication" type="authc-options" default="true"/>
+            <xs:attribute name="allow-extra-path" type="boolean" default="false">
+                <xs:annotation><xs:documentation>If set to true arbitrary path elements following this screen's path are allowed.
+                    Default is false and an exception will be thrown if there is an extra path element that does not match a
+                    resource below the id element, or it has a child id element.</xs:documentation></xs:annotation>
+            </xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="method">

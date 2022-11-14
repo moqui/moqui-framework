@@ -1,6 +1,3 @@
-# separate addons file to add/override components
-myaddons.xml
-
 # gradle/build files
 build
 .gradle
@@ -15,6 +12,8 @@ build
 /execwartmp
 /docker/runtime
 /docker/db
+/docker/elasticsearch/data/nodes
+/docker/opensearch/data/nodes
 
 # IntelliJ IDEA files
 .idea

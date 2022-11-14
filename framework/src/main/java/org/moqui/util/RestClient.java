@@ -20,14 +20,13 @@ import org.eclipse.jetty.client.HttpClientTransport;
 import org.eclipse.jetty.client.HttpResponseException;
 import org.eclipse.jetty.client.ValidatingConnectionPool;
 import org.eclipse.jetty.client.api.*;
+import org.eclipse.jetty.client.dynamic.HttpClientTransportDynamic;
 import org.eclipse.jetty.client.http.HttpClientTransportOverHTTP;
-import org.eclipse.jetty.client.util.FutureResponseListener;
-import org.eclipse.jetty.client.util.InputStreamContentProvider;
-import org.eclipse.jetty.client.util.MultiPartContentProvider;
-import org.eclipse.jetty.client.util.StringContentProvider;
+import org.eclipse.jetty.client.util.*;
 import org.eclipse.jetty.http.HttpField;
 import org.eclipse.jetty.http.HttpFields;
 import org.eclipse.jetty.http.HttpHeader;
+import org.eclipse.jetty.io.ClientConnector;
 import org.eclipse.jetty.util.HttpCookieStore;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
@@ -93,7 +92,7 @@ public class RestClient {
     private String acceptContentType = null;
     private Charset charset = StandardCharsets.UTF_8;
     private String bodyText = null;
-    private MultiPartContentProvider multiPart = null;
+    private MultiPartRequestContent multiPart = null;
     private List<KeyValueString> headerList = new LinkedList<>();
     private List<KeyValueString> bodyParameterList = new LinkedList<>();
     private String username = null;
@@ -219,24 +218,25 @@ public class RestClient {
     /** Add a field part to a multi part request **/
     public RestClient addFieldPart(String field, String value) {
         if (method != Method.POST) throw new IllegalStateException("Can only use multipart body with POST method, not supported for method " + method + "; if you need a different effective request method try using the X-HTTP-Method-Override header");
-        if (multiPart == null) multiPart = new MultiPartContentProvider();
-        multiPart.addFieldPart(field, new StringContentProvider(value), null);
+
+        if (multiPart == null) multiPart = new MultiPartRequestContent();
+        multiPart.addFieldPart(field, new StringRequestContent(value), null);
         return this;
     }
     /** Add a String file part to a multi part request **/
     public RestClient addFilePart(String name, String fileName, String stringContent) {
-        return addFilePart(name, fileName, new StringContentProvider(stringContent), null);
+        return addFilePart(name, fileName, new StringRequestContent(stringContent), null);
     }
     /** Add a InputStream file part to a multi part request **/
     public RestClient addFilePart(String name, String fileName, InputStream streamContent) {
-        return addFilePart(name, fileName, new InputStreamContentProvider(streamContent), null);
+        return addFilePart(name, fileName, new InputStreamRequestContent(streamContent), null);
     }
     /** Add file part using Jetty ContentProvider.
      * WARNING: This uses Jetty HTTP Client API objects and may change over time, do not use if alternative will work.
      */
-    public RestClient addFilePart(String name, String fileName, ContentProvider content, HttpFields fields) {
+    public RestClient addFilePart(String name, String fileName, Request.Content content, HttpFields fields) {
         if (method != Method.POST) throw new IllegalStateException("Can only use multipart body with POST method, not supported for method " + method + "; if you need a different effective request method try using the X-HTTP-Method-Override header");
-        if (multiPart == null) multiPart = new MultiPartContentProvider();
+        if (multiPart == null) multiPart = new MultiPartRequestContent();
         multiPart.addFilePart(name, fileName, content, fields);
         return this;
     }
@@ -347,14 +347,15 @@ public class RestClient {
         }
 
         if (multiPart != null) {
+            multiPart.close();
             if (method == Method.POST) {
                 // HttpClient will send the correct headers when it's a multi-part content type (ie set content type to multipart/form-data, etc)
-                request.content(multiPart);
+                request.body(multiPart);
             } else {
                 throw new IllegalStateException("Can only use multipart body with POST method, not supported for method " + method + "; if you need a different effective request method try using the X-HTTP-Method-Override header");
             }
         } else if (bodyText != null && !bodyText.isEmpty()) {
-            request.content(new StringContentProvider(contentType, bodyText, charset), contentType);
+            request.body(new StringRequestContent(contentType, bodyText, charset));
             // not needed, set by call to request.content() with passed contentType: request.header(HttpHeader.CONTENT_TYPE, contentType);
         }
 
@@ -691,9 +692,12 @@ public class RestClient {
         }
 
         public SimpleRequestFactory(boolean trustAll, boolean disableCookieManagement) {
-            SslContextFactory sslContextFactory = new SslContextFactory.Client(trustAll);
+            SslContextFactory.Client sslContextFactory = new SslContextFactory.Client(true);
             sslContextFactory.setEndpointIdentificationAlgorithm(null);
-            httpClient = new HttpClient(sslContextFactory);
+            ClientConnector clientConnector = new ClientConnector();
+            clientConnector.setSslContextFactory(sslContextFactory);
+            httpClient = new HttpClient(new HttpClientTransportDynamic(clientConnector));
+
             if (disableCookieManagement) httpClient.setCookieStore(new HttpCookieStore.Empty());
             // use a default idle timeout of 15 seconds, should be lower than server idle timeouts which will vary by server but 30 seconds seems to be common
             httpClient.setIdleTimeout(15000);
@@ -728,7 +732,7 @@ public class RestClient {
         private int queueSize = 1024;
         private long validationTimeoutMillis = 1000;
 
-        private SslContextFactory sslContextFactory = null;
+        private SslContextFactory.Client sslContextFactory = null;
         private HttpClientTransport transport = null;
         private QueuedThreadPool executor = null;
         private Scheduler scheduler = null;
@@ -736,7 +740,8 @@ public class RestClient {
         /** The required shortName is used as a prefix for thread names and should be distinct. */
         public PooledRequestFactory(String shortName) { this.shortName = shortName; }
 
-        public PooledRequestFactory with(SslContextFactory sslcf) { sslContextFactory = sslcf; return this; }
+        /** Note that if a transport is specified it must include the SslContextFactory.Client so this is ignored. */
+        public PooledRequestFactory with(SslContextFactory.Client sslcf) { sslContextFactory = sslcf; return this; }
         public PooledRequestFactory with(HttpClientTransport transport) { this.transport = transport; return this; }
         public PooledRequestFactory with(QueuedThreadPool executor) { this.executor = executor; return this; }
         public PooledRequestFactory with(Scheduler scheduler) { this.scheduler = scheduler; return this; }
@@ -749,8 +754,15 @@ public class RestClient {
         public PooledRequestFactory validationTimeout(long millis) { validationTimeoutMillis = millis; return this; }
 
         public PooledRequestFactory init() {
-            if (sslContextFactory == null) sslContextFactory = new SslContextFactory.Client(true);
-            if (transport == null) transport = new HttpClientTransportOverHTTP(1);
+            if (transport == null) {
+                if (sslContextFactory == null) {
+                    sslContextFactory = new SslContextFactory.Client(true);
+                    sslContextFactory.setEndpointIdentificationAlgorithm(null);
+                }
+                ClientConnector clientConnector = new ClientConnector();
+                clientConnector.setSslContextFactory(sslContextFactory);
+                transport = new HttpClientTransportDynamic(clientConnector);
+            }
 
             if (executor == null) { executor = new QueuedThreadPool(); executor.setName(shortName + "-queue"); }
             if (scheduler == null) scheduler = new ScheduledExecutorScheduler(shortName + "-scheduler", false);
@@ -759,7 +771,7 @@ public class RestClient {
                     destination.getHttpClient().getMaxConnectionsPerDestination(), destination,
                     destination.getHttpClient().getScheduler(), validationTimeoutMillis));
 
-            httpClient = new HttpClient(transport, sslContextFactory);
+            httpClient = new HttpClient(transport);
             httpClient.setExecutor(executor);
             httpClient.setScheduler(scheduler);
             httpClient.setMaxConnectionsPerDestination(poolSize);

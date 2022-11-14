@@ -13,8 +13,8 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
-    <xs:include schemaLocation="common-types-2.1.xsd"/>
-    <xs:include schemaLocation="xml-actions-2.1.xsd"/>
+    <xs:include schemaLocation="common-types-3.xsd"/>
+    <xs:include schemaLocation="xml-actions-3.xsd"/>
 
     <xs:element name="moqui-conf">
         <xs:complexType>
@@ -540,6 +540,14 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="scheduled-job-check-time" type="non-neg-int-expandable"><xs:annotation><xs:documentation>
                 How often to check for and run scheduled service jobs in seconds. Set to 0 (zero) to disable.
             </xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="job-queue-max" type="xs:integer"><xs:annotation><xs:documentation>
+                The maximum number of jobs to queue when job-pool-max is reached.</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="job-pool-core" type="xs:integer"><xs:annotation><xs:documentation>
+                The core (minimum) size of the service job thread pool.</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="job-pool-max" type="xs:integer"><xs:annotation><xs:documentation>
+                The maximum size of the service job thread pool.</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="job-pool-alive" type="xs:integer"><xs:annotation><xs:documentation>
+                The amount of time, in seconds, to keep idle worker threads alive (beyond core pool size).</xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="service-location">

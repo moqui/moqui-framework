@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!-- No copyright or license for configuration file, details here are not considered a creative work. -->
-<moqui-conf xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/moqui-conf-2.1.xsd">
+<moqui-conf xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/moqui-conf-3.xsd">
 
     <!-- Settings in this file can be overridden in a component (MoquiConf.xml) and/or runtime conf file that has
         any of the desired sub-elements. -->
@@ -81,7 +81,7 @@
     <default-property name="kibana_host" value="127.0.0.1"/>
     <default-property name="kibana_port" value="5601"/>
 
-    <tools empty-db-load="${entity_empty_db_load}" worker-queue="65535" worker-pool-core="16" worker-pool-max="24" worker-pool-alive="60">
+    <tools empty-db-load="${entity_empty_db_load}" worker-queue="65535" worker-pool-core="8" worker-pool-max="24" worker-pool-alive="60">
         <tool-factory class="org.moqui.impl.tools.MCacheToolFactory" init-priority="03" disabled="false"/>
         <!-- Apache Commons JCS, an alternative for distributed caches (cannot be used as local cache as requires Serializable keys/values just like Hazelcast) -->
         <!-- <tool-factory class="org.moqui.impl.tools.JCSCacheToolFactory" init-priority="09" disabled="true"/> -->
@@ -381,7 +381,8 @@
                 macro-template-location="template/screen-macro/DefaultScreenMacros.plain.ftl"/>
     </screen-facade>
 
-    <service-facade distributed-factory="" scheduled-job-check-time="${scheduled_job_check_time}">
+    <service-facade distributed-factory="" scheduled-job-check-time="${scheduled_job_check_time}"
+            job-queue-max="0" job-pool-core="2" job-pool-max="8" job-pool-alive="120">
         <service-location name="main-json" location="http://localhost:8080/rpc/json"/>
 
         <!-- runner-class needs to implement the org.moqui.impl.service.ServiceRunner interface -->
@@ -595,7 +596,7 @@
             <database-type type="currency-amount" sql-type="DECIMAL(24,4)"/>
             <database-type type="currency-precise" sql-type="DECIMAL(25,5)"/>
 
-            <inline-jdbc><xa-properties serverName="${entity_ds_host}" databaseName="${entity_ds_database}"
+            <inline-jdbc><xa-properties serverName="${entity_ds_host}" databaseName="${entity_ds_database}" dateFormat="iso"
                     user="${entity_ds_user}" password="${entity_ds_password}" cursorHold="false" threadUsed="false"/></inline-jdbc>
         </database>
         <!--

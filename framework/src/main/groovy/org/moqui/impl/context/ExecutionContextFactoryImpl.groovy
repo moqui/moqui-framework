@@ -113,13 +113,13 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected final List<NotificationMessageListener> registeredNotificationMessageListeners = []
 
     protected final Map<String, ArtifactStatsInfo> artifactStatsInfoByType = new HashMap<>()
-    public final Map<ArtifactType, Boolean> artifactTypeAuthzEnabled = new EnumMap<>(ArtifactType.class)
-    public final Map<ArtifactType, Boolean> artifactTypeTarpitEnabled = new EnumMap<>(ArtifactType.class)
+    public final Map<ArtifactType, Boolean> artifactTypeAuthzEnabled = new EnumMap<ArtifactType, Boolean>(ArtifactType.class)
+    public final Map<ArtifactType, Boolean> artifactTypeTarpitEnabled = new EnumMap<ArtifactType, Boolean>(ArtifactType.class)
 
     protected String skipStatsCond
     protected long hitBinLengthMillis = 900000 // 15 minute default
-    private final EnumMap<ArtifactType, Boolean> artifactPersistHitByTypeEnum = new EnumMap<>(ArtifactType.class)
-    private final EnumMap<ArtifactType, Boolean> artifactPersistBinByTypeEnum = new EnumMap<>(ArtifactType.class)
+    private final EnumMap<ArtifactType, Boolean> artifactPersistHitByTypeEnum = new EnumMap<ArtifactType, Boolean>(ArtifactType.class)
+    private final EnumMap<ArtifactType, Boolean> artifactPersistBinByTypeEnum = new EnumMap<ArtifactType, Boolean>(ArtifactType.class)
     final ConcurrentLinkedQueue<ArtifactHitInfo> deferredHitInfoQueue = new ConcurrentLinkedQueue<ArtifactHitInfo>()
 
     /** The SecurityManager for Apache Shiro */
@@ -461,18 +461,22 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         long aliveTime = (toolsNode.attribute("worker-pool-alive") ?: "60") as long
 
         logger.info("Initializing worker ThreadPoolExecutor: queue limit ${workerQueueSize}, pool-core ${coreSize}, pool-max ${maxSize}, pool-alive ${aliveTime}s")
-        return new ContextJavaUtil.WorkerThreadPoolExecutor(this, coreSize, maxSize, aliveTime, TimeUnit.SECONDS, workQueue)
+        return new ContextJavaUtil.WorkerThreadPoolExecutor(this, coreSize, maxSize, aliveTime, TimeUnit.SECONDS,
+                workQueue, new ContextJavaUtil.WorkerThreadFactory())
     }
     boolean waitWorkerPoolEmpty(int retryLimit) {
+        ThreadPoolExecutor jobWorkerPool = serviceFacade.jobWorkerPool
         int count = 0
-        logger.warn("Wait for workerPool empty: queue size ${workerPool.getQueue().size()} active ${workerPool.getActiveCount()}")
-        while (count < retryLimit && (workerPool.getQueue().size() > 0 || workerPool.getActiveCount() > 0)) {
+        logger.warn("Wait for workerPool and jobWorkerPool empty: worker queue size ${workerPool.getQueue().size()} active ${workerPool.getActiveCount()}; service job queue size ${jobWorkerPool.getQueue().size()} active ${jobWorkerPool.getActiveCount()}")
+        while (count < retryLimit && (workerPool.getQueue().size() > 0 || workerPool.getActiveCount() > 0 ||
+                jobWorkerPool.getQueue().size() > 0 || jobWorkerPool.getActiveCount() > 0)) {
             Thread.sleep(100)
             count++
         }
         int afterSize = workerPool.getQueue().size() + workerPool.getActiveCount()
-        if (afterSize > 0) logger.warn("After ${retryLimit} 100ms waits worker pool size is still ${afterSize}")
-        return afterSize == 0
+        int jobAfterSize = jobWorkerPool.getQueue().size() + jobWorkerPool.getActiveCount()
+        if (afterSize > 0 || jobAfterSize > 0) logger.warn("After ${retryLimit} 100ms waits worker pool size is ${afterSize} and service job pool size is ${jobAfterSize}")
+        return afterSize == 0 && jobAfterSize == 0
     }
 
     private CustomScheduledExecutor makeScheduledExecutor() {

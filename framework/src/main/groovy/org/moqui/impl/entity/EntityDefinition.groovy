@@ -47,8 +47,10 @@ class EntityDefinition {
     protected final EntityFacadeImpl efi
     public final MNode internalEntityNode
     public final String fullEntityName
-    public final boolean isViewEntity
-    public final boolean isDynamicView
+    // NOTE: these fields were primitive type boolean, changed to object type Boolean because of issue introduced in
+    //    Groovy 3.0.10; with boolean it worked fine in 3.0.9, after that once the constructor completes true values in
+    //    these two fields get flipped to false; see commented logs at EntityDefinition.groovy:94-95, EntityFindBuild.java:112-114
+    public final Boolean isViewEntity, isDynamicView
     public final String groupName
     public final EntityJavaUtil.EntityInfo entityInfo
 
@@ -89,34 +91,13 @@ class EntityDefinition {
         fullEntityName = packageName + "." + internalEntityNode.attribute("entity-name")
 
         isViewEntity = "view-entity".equals(internalEntityNode.getName())
+        // if (fullEntityName.contains("ArtifactTarpitCheckView") || fullEntityName.contains("DataFeedDocumentDetail"))
+        //     logger.warn("===== TOREMOVE ===== entity ${fullEntityName} node ${internalEntityNode.getName()} isViewEntity ${isViewEntity} ${this}")
         isDynamicView = "true".equals(internalEntityNode.attribute("is-dynamic-view"))
 
-        if (isDynamicView) {
-            // use the group of the primary member-entity
-            String memberEntityName = null
-            ArrayList<MNode> meList = internalEntityNode.children("member-entity")
-            for (MNode meNode : meList) {
-                String jfaAttr = meNode.attribute("join-from-alias")
-                if (jfaAttr == null || jfaAttr.isEmpty()) {
-                    memberEntityName = meNode.attribute("entity-name")
-                    break
-                }
-            }
-            if (memberEntityName != null) {
-                groupName = efi.getEntityGroupName(memberEntityName)
-            } else {
-                throw new EntityException("Could not find group for dynamic view entity")
-            }
-        } else {
-            String groupAttr = internalEntityNode.attribute("group")
-            if (groupAttr == null || groupAttr.isEmpty()) groupAttr = internalEntityNode.attribute("group-name")
-            if (groupAttr == null || groupAttr.isEmpty()) groupAttr = efi.getDefaultGroupName()
-            groupName = groupAttr
-        }
-
-        // now initFields() and create EntityInfo
-        boolean neverCache = false
+        boolean memberNeverCache = false
         if (isViewEntity) {
+            // init some view-entity only fields
             memberEntityFieldAliases = [:]
             memberEntityAliasMap = [:]
 
@@ -159,25 +140,38 @@ class EntityDefinition {
                 memberEntityAliasMap.put(memberEntity.attribute("entity-alias"), memberEntity)
                 String subSelectAttr = memberEntity.attribute("sub-select")
                 if ("true".equals(subSelectAttr) || "non-lateral".equals(subSelectAttr)) hasSubSelectMembers = true
+
                 EntityDefinition memberEd = efi.getEntityDefinition(memberEntityName)
                 if (memberEd == null) throw new EntityException("No definition found for member-entity ${memberEntity.attribute("entity-alias")} name ${memberEntityName} in view-entity ${fullEntityName}")
+
                 MNode memberEntityNode = memberEd.getEntityNode()
-                String groupNameAttr = memberEntityNode.attribute("group") ?: memberEntityNode.attribute("group-name")
-                if (groupNameAttr == null || groupNameAttr.length() == 0) {
+                String memberGroupAttr = memberEntityNode.attribute("group") ?: memberEntityNode.attribute("group-name")
+                if (memberGroupAttr == null || memberGroupAttr.length() == 0) {
                     // use the default group
-                    groupNameAttr = efi.getDefaultGroupName()
+                    memberGroupAttr = efi.getDefaultGroupName()
                 }
-                // only set on view-entity for the first one
-                if (allGroupNames.size() == 0) internalEntityNode.attributes.put("group", groupNameAttr)
+                // only set on view-entity for the first/primary member-entity
+                String veGroupAttr = internalEntityNode.attribute("group")
+                if (allGroupNames.size() == 0 && (veGroupAttr == null || veGroupAttr.isEmpty()))
+                    internalEntityNode.attributes.put("group", memberGroupAttr)
                 // remember all group names applicable to the view entity
-                allGroupNames.add(groupNameAttr)
+                allGroupNames.add(memberGroupAttr)
 
                 // if is view entity and any member entities set to never cache set this to never cache
-                if ("never".equals(memberEntityNode.attribute("cache"))) neverCache = true
+                if ("never".equals(memberEntityNode.attribute("cache"))) memberNeverCache = true
             }
             // warn if view-entity has members in more than one group (join will fail if deployed in different DBs)
-            // TODO enable this again to check view-entities for groups: if (allGroupNames.size() > 1) logger.warn("view-entity ${getFullEntityName()} has members in more than one group: ${allGroupNames}")
+            if (allGroupNames.size() > 1) logger.warn("view-entity ${getFullEntityName()} has members in more than one group: ${allGroupNames}")
+        }
 
+        // get group from entity node now that view-entity group handled
+        String groupAttr = internalEntityNode.attribute("group")
+        if (groupAttr == null || groupAttr.isEmpty()) groupAttr = internalEntityNode.attribute("group-name")
+        if (groupAttr == null || groupAttr.isEmpty()) groupAttr = efi.getDefaultGroupName()
+        groupName = groupAttr
+
+        // now initFields() and create EntityInfo
+        if (isViewEntity) {
             // if this is a view-entity, expand the alias-all elements into alias elements here
             this.expandAliasAlls()
             // set @type, set is-pk on all alias Nodes if the related field is-pk
@@ -206,7 +200,7 @@ class EntityDefinition {
                 aliasByField.add(aliasNode)
             }
 
-            int curIndex = 0;
+            int curIndex = 0
             for (MNode aliasNode in internalEntityNode.children("alias")) {
                 if (aliasNode.attribute("pq-expression")) {
                     if (pqExpressionNodeMap == null) pqExpressionNodeMap = new HashMap<>()
@@ -241,7 +235,7 @@ class EntityDefinition {
         }
 
         // finally create the EntityInfo object
-        entityInfo = new EntityJavaUtil.EntityInfo(this, neverCache)
+        entityInfo = new EntityJavaUtil.EntityInfo(this, memberNeverCache)
     }
 
     private void addFieldInfo(FieldInfo fi) {

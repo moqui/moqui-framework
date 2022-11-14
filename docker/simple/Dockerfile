@@ -1,7 +1,7 @@
 # Builds a minimal docker image with openjdk and moqui with various volumes for configuration and persisted data outside the container
 # NOTE: add components, build and if needed load data before building a docker image with this
-
-FROM openjdk:8-jdk
+ARG RUNTIME_IMAGE=eclipse-temurin:11-jdk
+FROM ${RUNTIME_IMAGE}
 MAINTAINER Moqui Framework <moqui@googlegroups.com>
 
 WORKDIR /opt/moqui
@@ -17,19 +17,32 @@ COPY execlib execlib
 # always want the runtime directory
 COPY runtime runtime
 
-# create user for elasticsearch and chown corresponding files
-RUN groupadd -r elasticsearch && useradd --no-log-init -r -d /opt/moqui/runtime/elasticsearch -g elasticsearch elasticsearch && chown -R elasticsearch:elasticsearch runtime/elasticsearch
+# create user for search and chown corresponding files
+ARG search_name=opensearch
+
+RUN if [ -d runtime/opensearch/bin ]; then echo "Installing OpenSearch User"; \
+      search_name=opensearch; \
+      groupadd -g 1000 opensearch && \
+      useradd -u 1000 -g 1000 -G 0 -d /opt/moqui/runtime/opensearch opensearch && \
+      chmod 0775 /opt/moqui/runtime/opensearch && \
+      chown -R 1000:0 /opt/moqui/runtime/opensearch; \
+    elif [ -d runtime/elasticsearch/bin ]; then echo "Installing ElasticSearch User"; \
+      search_name=elasticsearch; \
+      groupadd -r elasticsearch && \
+      useradd --no-log-init -r -g elasticsearch -d /opt/moqui/runtime/elasticsearch elasticsearch && \
+      chown -R elasticsearch:elasticsearch runtime/elasticsearch; \
+    fi
 
 # exposed as volumes for configuration purposes
 VOLUME ["/opt/moqui/runtime/conf", "/opt/moqui/runtime/lib", "/opt/moqui/runtime/classes", "/opt/moqui/runtime/ecomponent"]
 # exposed as volumes to persist data outside the container, recommended
-VOLUME ["/opt/moqui/runtime/log", "/opt/moqui/runtime/txlog", "/opt/moqui/runtime/sessions", "/opt/moqui/runtime/db", "/opt/moqui/runtime/elasticsearch"]
+VOLUME ["/opt/moqui/runtime/log", "/opt/moqui/runtime/txlog", "/opt/moqui/runtime/sessions", "/opt/moqui/runtime/db", "/opt/moqui/runtime/$search_name"]
 
 # Main Servlet Container Port
 EXPOSE 80
-# ElasticSearch HTTP Port
+# Search HTTP Port
 EXPOSE 9200
-# ElasticSearch Cluster (TCP Transport) Port
+# Search Cluster (TCP Transport) Port
 EXPOSE 9300
 # Hazelcast Cluster Port
 EXPOSE 5701
