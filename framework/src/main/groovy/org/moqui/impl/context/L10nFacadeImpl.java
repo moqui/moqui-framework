@@ -117,11 +117,11 @@ public class L10nFacadeImpl implements L10nFacade {
         }
 
         Currency currency = null;
-        if(uomId != null && uomId.length() > 0) {
+        if (uomId != null && uomId.length() > 0) {
             try {
                 currency = Currency.getInstance(uomId);
             } catch (Exception e) {
-                logger.error(e.getMessage());
+                if (logger.isTraceEnabled()) logger.trace("Ignoring IllegalArgumentException for Currency parse: " + e.toString());
             }
         }
 
