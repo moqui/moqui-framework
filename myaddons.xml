@@ -11,7 +11,7 @@
     <component name="MarbleERP" group="mkdecisiondev" version="v1.1.0-alk" branch="master"/>
 
     <!-- ignite components -->
-    <component name="mk-store" group="mkdecisiondev" version="v1.12.0" branch="master"/>
+    <component name="mk-store" group="mkdecisiondev" version="v1.12.1" branch="master"/>
     <component name="moqui-credit-offers" group="mkdecisiondev" version="v1.6.1" branch="master"/>
     <component name="daolos-vendor-dashboard" group="mkdecisiondev" version="v1.5.0" branch="master"/>
     <component name="moqui-financial-worksheet" group="mkdecisiondev" version="v1.3.1" branch="master"/>
@@ -22,7 +22,7 @@
     <component name="moqui-mk-dashboard" group="mkdecisiondev" version="v1.13.0" branch="master"/>
     <component name="close-customer-portal" group="mkdecisiondev" version="v1.1.1" branch="master"/>
     <component name="moqui-html-pdf" group="mkdecisiondev" version="v1.1.0" branch="master"/>
-    <component name="mk-integrations" group="mkdecisiondev" version="v1.9.1" branch="master"/>
+    <component name="mk-integrations" group="mkdecisiondev" version="v1.9.2" branch="master"/>
     <component name="moqui-creditconnect" group="mkdecisiondev" version="v1.5.2" branch="master"/>
     <component name="moqui-creditconnect-experian" group="mkdecisiondev" version="v1.5.0" branch="master"/>
     <component name="moqui-creditconnect-transunion" group="mkdecisiondev" version="v1.4.2" branch="master"/>
