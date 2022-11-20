@@ -2,7 +2,7 @@
 # nginx-proxy supporting multiple moqui instances on different hosts.
 
 # Run with something like this for detached mode:
-# $ docker-compose -f moqui-ng-my-compose.yml -p moqui up -d
+# $ docker compose -f moqui-ng-my-compose.yml -p moqui up -d
 # Or to copy runtime directories for mounted volumes, set default settings, etc use something like this:
 # $ ./compose-run.sh moqui-ng-my-compose.yml
 # This sets the project/app name to 'moqui' and the network will be 'moqui_default', to be used by external moqui containers
