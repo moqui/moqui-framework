@@ -751,20 +751,46 @@ class EntityDefinition {
     @CompileStatic
     static class MasterDefinition {
         String name
+        boolean includeNonPkFields
         ArrayList<MasterDetailField> detailFieldList = new ArrayList<MasterDetailField>()
         ArrayList<MasterDetail> detailList = new ArrayList<MasterDetail>()
         MasterDefinition(EntityDefinition ed, MNode masterNode) {
             name = masterNode.attribute("name") ?: "default"
+            includeNonPkFields = (masterNode.attribute("include-nonpk-fields") ?: "true") == "true"
+
+            // Go through the defaults and setup the default detail fields
             List<MNode> detailFieldNodeList = masterNode.children("detail-field")
-//            logger.warn(detailFieldNodeList.toString())
-            for (MNode detailFieldNode in detailFieldNodeList) {
-                try {
-                    detailFieldList.add(new MasterDetailField(detailFieldNode))
-                } catch (Exception e) {
-//                    logger.error("Error adding detail field ${detailFieldNode.attribute("name")} to master ${name} of entity ${ed.getFullEntityName()}: ${e.toString()}")
-                    throw e
+            for (String pkFieldName in ed.pkFieldNameList) {
+                MNode userInputDetailField = detailFieldNodeList.find{it.attribute("name") == pkFieldName }
+                if (userInputDetailField != null) {
+                    if (userInputDetailField.attribute("immutable") != null && userInputDetailField.attribute("immutable") != "true") {
+                        logger.warn("Cannot set Detail Field ${userInputDetailField.attribute("name")} immutable to false for entity ${ed.fullEntityName} in master definition ${name} because it is always true")
+                    }
+                    if (userInputDetailField.attribute("exclude") != null && userInputDetailField.attribute("exclude") != "false") {
+                        logger.warn("Cannot set Detail Field ${userInputDetailField.attribute("name")} exclude to true for entity ${ed.fullEntityName} in master definition ${name} because it is always false")
+                    }
+                }
+
+                detailFieldList.add(new MasterDetailField(pkFieldName, true, false))
+            }
+            for (String nonPkFieldName in ed.nonPkFieldNames) {
+                if (nonPkFieldName == "lastUpdatedStamp") continue
+
+                MNode userInputDetailField = detailFieldNodeList.find{it.attribute("name") == nonPkFieldName }
+
+                // exclude and immutable are null because the default is in the MasterDetailField class constructor
+                detailFieldList.add(new MasterDetailField(nonPkFieldName, userInputDetailField.attribute("immutable"), userInputDetailField.attribute("exclude"), includeNonPkFields) )
+            }
+            MNode lastUpdatedStampDetailField = detailFieldNodeList.find{it.attribute("name") == "lastUpdatedStamp" }
+            if (lastUpdatedStampDetailField != null) {
+                if (lastUpdatedStampDetailField.attribute("immutable") != null && lastUpdatedStampDetailField.attribute("immutable") != "true") {
+                    logger.warn("Cannot set Detail Field ${lastUpdatedStampDetailField.attribute("name")} immutable to false for entity ${ed.fullEntityName} in master definition ${name} because it is always true")
+                }
+                if (lastUpdatedStampDetailField.attribute("exclude") != null && lastUpdatedStampDetailField.attribute("exclude") != "false") {
+                    logger.warn("Cannot set Detail Field ${lastUpdatedStampDetailField.attribute("name")} exclude to true for entity ${ed.fullEntityName} in master definition ${name} because it is always false")
                 }
             }
+            detailFieldList.add(new MasterDetailField("lastUpdatedStamp", true, false))
 
             List<MNode> detailNodeList = masterNode.children("detail")
             for (MNode detailNode in detailNodeList) {
@@ -782,7 +808,8 @@ class EntityDefinition {
         EntityDefinition parentEd
         RelationshipInfo relInfo
         String relatedMasterName
-        ArrayList<MasterDetailField> internalDetailFieldNodeList = new ArrayList<>()
+        Boolean includeNonPkFields
+        ArrayList<MasterDetailField> detailFieldList = new ArrayList<>()
         ArrayList<MasterDetail> internalDetailList = new ArrayList<>()
         MasterDetail(EntityDefinition parentEd, MNode detailNode) {
             this.parentEd = parentEd
@@ -790,18 +817,48 @@ class EntityDefinition {
             relInfo = parentEd.getRelationshipInfo(relationshipName)
             if (relInfo == null) throw new BaseArtifactException("Invalid relationship name [${relationshipName}] for entity ${parentEd.getFullEntityName()}")
             // logger.warn("Following relationship ${relationshipName}")
+            includeNonPkFields = detailNode.attribute("include-nonpk-fields") ? detailNode.attribute("include-nonpk-fields") == "true" : true
+            relatedMasterName = (String) detailNode.attribute("use-master")
 
             List<MNode> detailNodeList = detailNode.children("detail")
             for (MNode childNode in detailNodeList) internalDetailList.add(new MasterDetail(relInfo.relatedEd, childNode))
             // TODO: Is there a better way to allow not duplicating detail-field data in memory by having it both in MasterDetail and MasterDefinition. (note: it's currently in both because the field data for the first entity isn't accessible when passing a MasterDetail list because there is no MasterDetail for the first entity (only MasterDefinition))
             List<MNode> detailFieldNodeList = detailNode.children("detail-field")
-            for (MNode childNode in detailFieldNodeList) internalDetailFieldNodeList.add(new MasterDetailField(childNode))
+            for (String pkFieldName in parentEd.pkFieldNameList) {
+                MNode userInputDetailField = detailFieldNodeList.find{it.attribute("name") == pkFieldName }
+                if (userInputDetailField != null) {
+                    if (userInputDetailField.attribute("immutable") != null && userInputDetailField.attribute("immutable") != "true") {
+                        logger.warn("Cannot set Detail Field ${userInputDetailField.attribute("name")} immutable to false for entity ${parentEd.fullEntityName} because it is always true")
+                    }
+                    if (userInputDetailField.attribute("exclude") != null && userInputDetailField.attribute("exclude") != "false") {
+                        logger.warn("Cannot set Detail Field ${userInputDetailField.attribute("name")} exclude to true for entity ${parentEd.fullEntityName} because it is always false")
+                    }
+                }
 
-            relatedMasterName = (String) detailNode.attribute("use-master")
+                detailFieldList.add(new MasterDetailField(pkFieldName, true, false))
+            }
+            for (String nonPkFieldName in parentEd.nonPkFieldNames) {
+                if (nonPkFieldName == "lastUpdatedStamp") continue
+
+                MNode userInputDetailField = detailFieldNodeList.find{it.attribute("name") == nonPkFieldName }
+
+                // exclude and immutable are null because the default is in the MasterDetailField class constructor
+                detailFieldList.add(new MasterDetailField(nonPkFieldName, userInputDetailField.attribute("immutable"), userInputDetailField.attribute("exclude")))
+            }
+            MNode lastUpdatedStampDetailField = detailFieldNodeList.find{it.attribute("name") == "lastUpdatedStamp" }
+            if (lastUpdatedStampDetailField != null) {
+                if (lastUpdatedStampDetailField.attribute("immutable") != null && lastUpdatedStampDetailField.attribute("immutable") != "true") {
+                    logger.warn("Cannot set Detail Field ${lastUpdatedStampDetailField.attribute("name")} immutable to false for entity ${parentEd.fullEntityName} because it is always true")
+                }
+                if (lastUpdatedStampDetailField.attribute("exclude") != null && lastUpdatedStampDetailField.attribute("exclude") != "false") {
+                    logger.warn("Cannot set Detail Field ${lastUpdatedStampDetailField.attribute("name")} exclude to true for entity ${parentEd.fullEntityName} because it is always false")
+                }
+            }
+            detailFieldList.add(new MasterDetailField("lastUpdatedStamp", true, false))
         }
 
         ArrayList<MasterDetailField> getDetailFieldList() {
-            return internalDetailFieldNodeList
+            return detailFieldList
         }
 
         ArrayList<MasterDetail> getDetailList() {
@@ -822,42 +879,54 @@ class EntityDefinition {
     }
     @CompileStatic
     static class MasterDetailField {
-        public String fieldName
-        public String immutable
-        public String exclude
-        MasterDetailField(MNode detailFieldNode) {
-            fieldName = (String) detailFieldNode.attribute("name")
-            immutable = (String) detailFieldNode.attribute("immutable")
-            exclude = (String) detailFieldNode.attribute("exclude")
+        private String fieldName
+        private Boolean immutable
+        private Boolean readable
+
+        MasterDetailField(String ifieldName, String iimmutable, String iexcluded, Boolean includedByDefault) {
+            fieldName = ifieldName
+            immutable = iimmutable == "true" ? true : (iimmutable == "false" ? false : false)
+            // readable is (includedByDefault and not excluded) or (not includedByDefault)
+            readable = ireadable == "true" ? true : (ireadable == "false" ? false : true)
+        }
+        MasterDetailField(String ifieldName, String iimmutable, String ireadable) {
+            fieldName = ifieldName
+            immutable = iimmutable == "true" ? true : (iimmutable == "false" ? false : false)
+            readable = ireadable == "true" ? true : (ireadable == "false" ? false : true)
+        }
+        MasterDetailField(String ifieldName, Boolean iimmutable, Boolean ireadable) {
+            fieldName = ifieldName
+            immutable = iimmutable != null ? iimmutable : false
+            readable = ireadable != null ? ireadable : true
         }
 
         /**
-         * Check if the Master Detail Field is readable (in the future another attribute may be added to determine
-         * whether a field is readable and this'll make it easier to implement).
+         * Return the field name for the Master Detail Field
          *
-         * @return boolean
+         * @return String
          */
-        boolean isReadable() {
-            return true
+        String getFieldName() {
+            return fieldName
         }
 
         /**
          * Check if the Master Detail Field is writable (in the future another attribute may be added to blanket apply
          * whether a Master is writable and this'll make it easier to implement).
          *
-         * @return boolean
+         * @return Boolean
          */
-        boolean isWritable() {
-            return immutable != null
+        Boolean isWritable() {
+            return immutable
         }
 
         /**
-         * Check if the Master Detail field is excluded
+         * Check if the Master Detail Field is readable (in the future another attribute may be added to determine
+         * whether a field is readable and this'll make it easier to implement).
          *
-         * @return boolean
+         * @return Boolean
          */
-        boolean isExcluded() {
-            return (exclude != null ? exclude : false)
+        Boolean isReadable() {
+            return readable
         }
     }
 

@@ -370,6 +370,11 @@ along with this software (see the LICENSE.md file). If not, see
                         often for view only (such as Enumeration, StatusItem, etc)</xs:documentation></xs:annotation></xs:enumeration> -->
                 </xs:restriction></xs:simpleType>
             </xs:attribute>
+            <xs:attribute name="include-nonpk-fields" type="boolean" default="true"><xs:annotation><xs:documentation>
+                If true all non primary key child detail fields record may be read unless they are explicitly excluded.
+                If false all non primary key child detail fields are not readable unless they are explicitly included.
+                Defaults to ...?
+            </xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="detail">
@@ -392,6 +397,11 @@ along with this software (see the LICENSE.md file). If not, see
                 If a detail relationship is not mutable, all child detail relationships are also not mutable.
                 If a detail relationship is mutable, child detail relationships are still only mutable if specified.
             </xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="include-nonpk-fields" type="boolean" default="true"><xs:annotation><xs:documentation>
+                If true all non primary key child detail fields record may be read unless they are explicitly excluded.
+                If false all non primary key child detail fields are not readable unless they are explicitly included.
+                Defaults to ...?
+            </xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="detail-field"><xs:complexType>
@@ -403,7 +413,7 @@ along with this software (see the LICENSE.md file). If not, see
         </xs:documentation></xs:annotation>
         <xs:attribute name="name" type="name-field" use="required"/>
         <!-- TODO: Uncomment this when it's implemented -->
-<!--        <xs:attribute name="exclude" default="false" type="boolean"/>-->
+        <xs:attribute name="exclude" default="false" type="boolean"/>
         <xs:attribute name="immutable" default="false" type="boolean"/>
     </xs:complexType></xs:element>
 
