@@ -377,12 +377,12 @@ along with this software (see the LICENSE.md file). If not, see
                 If a detail relationship is not mutable, all child detail relationships are also not mutable.
                 If a detail relationship is mutable, child detail relationships are still only mutable if specified.
             </xs:documentation></xs:annotation></xs:attribute>
-            <xs:attribute name="default-nonpk-readable" type="boolean" default="false"><xs:annotation><xs:documentation>
+            <xs:attribute name="readable-nonpk-default" type="boolean" default="false"><xs:annotation><xs:documentation>
                 If true all non primary key child detail fields record may be read unless they are explicitly overridden.
                 If false all non primary key child detail fields are not readable unless they are explicitly overridden.
                 Defaults to ...?
             </xs:documentation></xs:annotation></xs:attribute>
-            <xs:attribute name="default-nonpk-mutable" type="boolean" default="false"><xs:annotation><xs:documentation>
+            <xs:attribute name="mutable-nonpk-default" type="boolean" default="false"><xs:annotation><xs:documentation>
                 If true all non primary key child detail fields record may be mutable unless they are explicitly overridden.
                 If false all non primary key child detail fields are immutable unless they are explicitly overridden.
                 Defaults to ...?
@@ -409,12 +409,12 @@ along with this software (see the LICENSE.md file). If not, see
                 If a detail relationship is not mutable, all child detail relationships are also not mutable.
                 If a detail relationship is mutable, child detail relationships are still only mutable if specified.
             </xs:documentation></xs:annotation></xs:attribute>
-            <xs:attribute name="default-nonpk-readable" type="boolean" default="false"><xs:annotation><xs:documentation>
+            <xs:attribute name="readable-nonpk-default" type="boolean" default="false"><xs:annotation><xs:documentation>
                 If true all non primary key child detail fields record may be read unless they are explicitly overridden.
                 If false all non primary key child detail fields are not readable unless they are explicitly overridden.
                 Defaults to ...?
             </xs:documentation></xs:annotation></xs:attribute>
-            <xs:attribute name="default-nonpk-mutable" type="boolean" default="false"><xs:annotation><xs:documentation>
+            <xs:attribute name="mutable-nonpk-default" type="boolean" default="false"><xs:annotation><xs:documentation>
                 If true all non primary key child detail fields record may be mutable unless they are explicitly overridden.
                 If false all non primary key child detail fields are immutable unless they are explicitly overridden.
                 Defaults to ...?

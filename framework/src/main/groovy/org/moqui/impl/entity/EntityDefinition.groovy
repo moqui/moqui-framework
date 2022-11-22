@@ -757,8 +757,8 @@ class EntityDefinition {
         ArrayList<MasterDetail> detailList = new ArrayList<MasterDetail>()
         MasterDefinition(EntityDefinition ed, MNode masterNode) {
             name = masterNode.attribute("name") ?: "default"
-            defaultNonpkReadable = (masterNode.attribute("default-nonpk-readable") ?: "false") == "true"
-            defaultNonpkMutable = (masterNode.attribute("default-nonpk-mutable") ?: "false") == "true"
+            defaultNonpkReadable = (masterNode.attribute("readable-nonpk-default") ?: "false") == "true"
+            defaultNonpkMutable = (masterNode.attribute("mutable-nonpk-default") ?: "false") == "true"
 
             // Go through the defaults and setup the default detail fields
             List<MNode> detailFieldNodeList = masterNode.children("detail-field")
@@ -823,8 +823,8 @@ class EntityDefinition {
             // logger.warn("Following relationship ${relationshipName}")
             relatedMasterName = (String) detailNode.attribute("use-master")
 
-            defaultNonpkReadable = (detailNode.attribute("default-nonpk-readable") ?: "false") == "true"
-            defaultNonpkMutable = (detailNode.attribute("default-nonpk-mutable") ?: "false") == "true"
+            defaultNonpkReadable = (detailNode.attribute("readable-nonpk-default") ?: "false") == "true"
+            defaultNonpkMutable = (detailNode.attribute("mutable-nonpk-default") ?: "false") == "true"
 
             // Go through the defaults and setup the default detail fields
             List<MNode> detailFieldNodeList = detailNode.children("detail-field")
@@ -847,8 +847,8 @@ class EntityDefinition {
                 MNode userInputDetailField = detailFieldNodeList.find{it.attribute("name") == nonPkFieldName }
 
                 detailFieldList.add(new MasterDetailField(nonPkFieldName,
-                        userInputDetailField.attribute("readable") ? userInputDetailField.attribute("readable") == "true" : defaultNonpkReadable,
-                        userInputDetailField.attribute("mutable") ? userInputDetailField.attribute("mutable") == "true" : defaultNonpkMutable))
+                        userInputDetailField?.attribute("readable") ? userInputDetailField.attribute("readable") == "true" : defaultNonpkReadable,
+                        userInputDetailField?.attribute("mutable") ? userInputDetailField.attribute("mutable") == "true" : defaultNonpkMutable))
             }
             MNode lastUpdatedStampDetailField = detailFieldNodeList.find{it.attribute("name") == "lastUpdatedStamp" }
             if (lastUpdatedStampDetailField != null) {
