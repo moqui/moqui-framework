@@ -1237,8 +1237,6 @@ public abstract class EntityValueBase implements EntityValue {
         if (masterDefinition == null)
             throw new EntityException("No master definition found for name [" + name + "] in entity [" + entityName + "]");
 
-//        Map<String, Object> masterOverlayMap = internalMasterOverlayMap(getEntityDefinition(), name);
-
         return internalMasterValueMap(masterDefinition.getDetailFieldList(), masterDefinition.getDetailList(), null, null);
     }
 
@@ -1283,7 +1281,7 @@ public abstract class EntityValueBase implements EntityValue {
         EntityDefinition ed = getEntityDefinition();
         // Add all primary keys for the entity
         for (EntityDefinition.MasterDetailField masterDetailField : detailFieldList) {
-            if (!masterDetailField.isReadable()) continue;
+            if (!masterDetailField.isReadable() || valueMapInternal.get(masterDetailField.getFieldName()) == null) continue;
             vMap.put(masterDetailField.getFieldName(), valueMapInternal.get(masterDetailField.getFieldName()));
         }
         vMap.put("_entity", ed.getShortOrFullEntityName());

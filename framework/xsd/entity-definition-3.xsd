@@ -355,11 +355,11 @@ along with this software (see the LICENSE.md file). If not, see
                 A name to distinguish multiple master definitions for an entity. Required when there is more than one
                 master definition for an entity.
             </xs:documentation></xs:annotation></xs:attribute>
-            <xs:attribute name="mutability" default="none">
+            <!--<xs:attribute name="mutability" default="none">
                 <xs:annotation><xs:documentation>The intended use of an entity.</xs:documentation></xs:annotation>
                 <xs:simpleType><xs:restriction base="xs:token">
                     <xs:enumeration value="none"><xs:annotation><xs:documentation>
-                        nothing is mutable by default (make mutable on each detail and field)</xs:documentation></xs:annotation></xs:enumeration>
+                        nothing is mutable by default (make mutable on each detail and field)</xs:documentation></xs:annotation></xs:enumeration>-->
                     <!-- TODO: Uncomment these when they're implemented -->
                     <!-- <xs:enumeration value="all"><xs:annotation><xs:documentation>
                         everything is mutable by default (make immutable on each detail and field)</xs:documentation></xs:annotation></xs:enumeration>
@@ -368,11 +368,23 @@ along with this software (see the LICENSE.md file). If not, see
                         when used carefully this is a good default because most simple CrUD operations involve updates to
                         detail data with many records for each parent record, but type one related entities are more
                         often for view only (such as Enumeration, StatusItem, etc)</xs:documentation></xs:annotation></xs:enumeration> -->
-                </xs:restriction></xs:simpleType>
-            </xs:attribute>
-            <xs:attribute name="include-nonpk-fields" type="boolean" default="true"><xs:annotation><xs:documentation>
-                If true all non primary key child detail fields record may be read unless they are explicitly excluded.
-                If false all non primary key child detail fields are not readable unless they are explicitly included.
+                <!--</xs:restriction></xs:simpleType>
+            </xs:attribute>-->
+            <xs:attribute name="mutable" type="boolean" default="false"><xs:annotation><xs:documentation>
+                If true related record may be modified and read for allowed fields through create/update auto-service calls with child records.
+                If false relationship data submitted will be ignored instead of persisted.
+                Defaults to false for security reasons to make this safer for direct external access.
+                If a detail relationship is not mutable, all child detail relationships are also not mutable.
+                If a detail relationship is mutable, child detail relationships are still only mutable if specified.
+            </xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="default-nonpk-readable" type="boolean" default="false"><xs:annotation><xs:documentation>
+                If true all non primary key child detail fields record may be read unless they are explicitly overridden.
+                If false all non primary key child detail fields are not readable unless they are explicitly overridden.
+                Defaults to ...?
+            </xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="default-nonpk-mutable" type="boolean" default="false"><xs:annotation><xs:documentation>
+                If true all non primary key child detail fields record may be mutable unless they are explicitly overridden.
+                If false all non primary key child detail fields are immutable unless they are explicitly overridden.
                 Defaults to ...?
             </xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
@@ -391,15 +403,20 @@ along with this software (see the LICENSE.md file). If not, see
                 The name of a master definition in the related entity to include all detail under this master.
             </xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="mutable" type="boolean" default="false"><xs:annotation><xs:documentation>
-                If true related record may be modified through create/update auto-service calls with child records.
-                If false relationship is read-only and data submitted will be ignored instead of persisted.
+                If true related record may be modified and read for allowed fields through create/update auto-service calls with child records.
+                If false relationship data submitted will be ignored instead of persisted.
                 Defaults to false for security reasons to make this safer for direct external access.
                 If a detail relationship is not mutable, all child detail relationships are also not mutable.
                 If a detail relationship is mutable, child detail relationships are still only mutable if specified.
             </xs:documentation></xs:annotation></xs:attribute>
-            <xs:attribute name="include-nonpk-fields" type="boolean" default="true"><xs:annotation><xs:documentation>
-                If true all non primary key child detail fields record may be read unless they are explicitly excluded.
-                If false all non primary key child detail fields are not readable unless they are explicitly included.
+            <xs:attribute name="default-nonpk-readable" type="boolean" default="false"><xs:annotation><xs:documentation>
+                If true all non primary key child detail fields record may be read unless they are explicitly overridden.
+                If false all non primary key child detail fields are not readable unless they are explicitly overridden.
+                Defaults to ...?
+            </xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="default-nonpk-mutable" type="boolean" default="false"><xs:annotation><xs:documentation>
+                If true all non primary key child detail fields record may be mutable unless they are explicitly overridden.
+                If false all non primary key child detail fields are immutable unless they are explicitly overridden.
                 Defaults to ...?
             </xs:documentation></xs:annotation></xs:attribute>
         </xs:complexType>
@@ -407,14 +424,13 @@ along with this software (see the LICENSE.md file). If not, see
     <xs:element name="detail-field"><xs:complexType>
         <xs:annotation><xs:documentation>
             By default all fields are included and mutable IF the detail is mutable (or overridden by the master.@mutability setting).
-            Use the field element with exclude=true to not include a field, and with immutable=true to
+            Use the field element with exclude=true to not include a field, and with mutable=false to
                 prevent a field from being changed by incoming data.
-            Included and mutable by default means excluded and immutable fields are explicit for easier auditability.
+            Included and mutable by default means readable and mutable fields are explicit for easier auditability.
         </xs:documentation></xs:annotation>
         <xs:attribute name="name" type="name-field" use="required"/>
-        <!-- TODO: Uncomment this when it's implemented -->
-        <xs:attribute name="exclude" default="false" type="boolean"/>
-        <xs:attribute name="immutable" default="false" type="boolean"/>
+        <xs:attribute name="readable" default="true" type="boolean"/>
+        <xs:attribute name="mutable" default="false" type="boolean"/>
     </xs:complexType></xs:element>
 
     <!-- ================== view-entity ===================== -->
