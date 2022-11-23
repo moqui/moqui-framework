@@ -1240,41 +1240,6 @@ public abstract class EntityValueBase implements EntityValue {
         return internalMasterValueMap(masterDefinition.getDetailFieldList(), masterDefinition.getDetailList(), null, null);
     }
 
-//    private Map<String, Object> internalMasterOverlayMap(EntityDefinition entityDefinition, String masterName) {
-//        Map<String, String> vMap = new HashMap<>(valueMapInternal.size());
-//
-//        // Add all primary keys for the entity because they're always readable
-//        for (String primaryKey : entityDefinition.pkFieldNameList) {
-//            vMap.put(primaryKey, valueMapInternal.get(primaryKey));
-//        }
-//
-//        if (masterName != null) {
-//            EntityDefinition.MasterDefinition masterDefinition = entityDefinition.getMasterDefinition(masterName)
-//        } else {
-//
-//        }
-//
-//
-//        // Only include non-primary key fields if they are readable and are defined in the master definition
-//        for (EntityDefinition.MasterDetailField masterDetailField : detailFieldList) {
-//            if (!masterDetailField.isReadable()) continue;
-//            if (entityDefinition.isPkField(masterDetailField.fieldName)) {
-//                logger.info("Primary keys are readable by default and the Master Detail Field " + masterDetailField.fieldName + " for " + entityDefinition.getFullEntityName() + " need not be included.");
-//                if (masterDetailField.isExcluded()) logger.warn("Primary key's can't be excluded from master definitions to have read and write capable data. Master Detail Field " + masterDetailField.fieldName + " for " + entityDefinition.getFullEntityName() + " is set to excluded.");
-//                continue;
-//            }
-//
-//            if (entityDefinition.isField(masterDetailField.fieldName)) {
-//                vMap.put(masterDetailField.fieldName, valueMapInternal.get(masterDetailField.fieldName));
-//            }
-//        }
-//        vMap.put("_entity", entityDefinition.getShortOrFullEntityName());
-//
-//        CollectionUtilities.removeNullsFromMap(vMap);
-//
-//        return vMap;
-//    }
-
     private Map<String, Object> internalMasterValueMap(ArrayList<EntityDefinition.MasterDetailField> detailFieldList, ArrayList<EntityDefinition.MasterDetail> detailList, Set<String> parentPkFields, EntityJavaUtil.RelationshipInfo parentRelInfo) {
         Map<String, Object> vMap = new HashMap<>(valueMapInternal.size());
 
