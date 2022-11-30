@@ -57,7 +57,7 @@ public abstract class EntityValueBase implements EntityValue {
     private static final String REFRESH_ERROR = "Error finding ${entityName} ${primaryKeys}";
 
     private String entityName;
-    final LiteStringMap<Object> valueMapInternal;
+    protected final LiteStringMap<Object> valueMapInternal;
 
     private transient EntityFacadeImpl efiTransient = null;
     private transient TransactionCache txCacheInternal = null;

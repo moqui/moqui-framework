@@ -500,6 +500,10 @@
                 object-factory="org.moqui.impl.entity.orientdb.OrientDatasourceFactory">
             <inline-other uri="plocal:${ORIENTDB_HOME}/databases/MoquiNoSql" username="admin" password="admin"/>
         </datasource>
+        <datasource group-name="logging" startup-add-missing="true"
+                object-factory="org.moqui.impl.entity.elastic.ElasticDatasourceFactory">
+            <inline-other index-prefix="logging"/>
+        </datasource>
         -->
 
         <!-- Refer to these explicitly instead of by directory name convention as is done in components.
