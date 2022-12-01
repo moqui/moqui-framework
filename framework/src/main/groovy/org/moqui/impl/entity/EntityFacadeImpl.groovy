@@ -1,12 +1,12 @@
 /*
  * This software is in the public domain under CC0 1.0 Universal plus a
  * Grant of Patent License.
- * 
+ *
  * To the extent possible under law, the author(s) have dedicated all
  * copyright and related and neighboring rights to this software to the
  * public domain worldwide. This software is distributed without any
  * warranty.
- * 
+ *
  * You should have received a copy of the CC0 Public Domain Dedication
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
@@ -1096,6 +1096,16 @@ class EntityFacadeImpl implements EntityFacade {
         return locList != null && locList.size() > 0
     }
 
+    /** This is used mostly by the service engine to quickly determine whether a noun is an entity. Called for all
+     * ServiceDefinition init to see if the noun is an entity name. Called by entity auto check if no path and verb is
+     * one of the entity-auto supported verbs. */
+    boolean isEntityDefined(String entityName, String master) {
+        if (entityName == null) return false
+        if (master == null || master.isEmpty()) return isEntityDefined(entityName)
+
+        return getEntityDefinition(entityName)?.getMasterDefinitionMap()?.containsKey(master)
+    }
+
     EntityDefinition getEntityDefinition(String entityName) {
         if (entityName == null) return null
         EntityDefinition ed = (EntityDefinition) frameworkEntityDefinitions.get(entityName)
@@ -1736,8 +1746,14 @@ class EntityFacadeImpl implements EntityFacade {
                 }
             }
         } else {
+            Map result
+            if (masterName != null && masterName.length() > 0) {
+                result = ecfi.serviceFacade.sync().name("${operation}#${lastEd.fullEntityName}\$${masterName}").parameters(parameters).call()
+            } else {
+                result = ecfi.serviceFacade.sync().name(operation, lastEd.fullEntityName).parameters(parameters).call()
+            }
             // use the entity auto service runner for other operations (create, store, update, delete)
-            Map result = ecfi.serviceFacade.sync().name(operation, lastEd.fullEntityName).parameters(parameters).call()
+
             return result
         }
     }

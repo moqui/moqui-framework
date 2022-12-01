@@ -1,12 +1,12 @@
 /*
- * This software is in the public domain under CC0 1.0 Universal plus a 
+ * This software is in the public domain under CC0 1.0 Universal plus a
  * Grant of Patent License.
- * 
+ *
  * To the extent possible under law, the author(s) have dedicated all
  * copyright and related and neighboring rights to this software to the
  * public domain worldwide. This software is distributed without any
  * warranty.
- * 
+ *
  * You should have received a copy of the CC0 Public Domain Dedication
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
@@ -314,6 +314,19 @@ class EntityAutoServiceRunner implements ServiceRunner {
     static void storeRecursive(ExecutionContextFactoryImpl ecfi, EntityFacadeImpl efi, EntityDefinition ed, Map<String, Object> parameters,
                                Map<String, Object> result, ArrayList<String> outParamNames, Map<String, Object> parentPks) {
         EntityValue newEntityValue = efi.makeValue(ed.getFullEntityName())
+
+        // Only necessary parameters should be allowed through. Sanitize parameters
+        EntityDefinition.MasterDefinition masterDefinition = ed.getMasterDefinition(parameters.get("_master") as String);
+        if (masterDefinition != null) {
+            ArrayList<EntityDefinition.MasterDetailField> detailFieldList = masterDefinition.getDetailFieldList()
+            ArrayList<EntityDefinition.MasterDetail> detailList = masterDefinition.getDetailList()
+
+            for (EntityDefinition.MasterDetailField masterDetailField : detailFieldList) {
+                if (!masterDetailField.isMutable()) {
+                    parameters.remove(masterDetailField.getFieldName())
+                }
+            }
+        }
 
         // add in all of the main entity's primary key fields, this is necessary for auto-generated, and to
         //     allow them to be left out of related records

@@ -773,7 +773,7 @@ class EntityDefinition {
                     }
                 }
 
-                detailFieldList.add(new MasterDetailField(pkFieldName, true, false))
+                detailFieldList.add(new MasterDetailField(pkFieldName, true, true))
             }
             for (String nonPkFieldName in ed.nonPkFieldNames) {
                 if (nonPkFieldName == "lastUpdatedStamp") continue
@@ -839,7 +839,7 @@ class EntityDefinition {
                     }
                 }
 
-                detailFieldList.add(new MasterDetailField(pkFieldName, true, false))
+                detailFieldList.add(new MasterDetailField(pkFieldName, true, true))
             }
             for (String nonPkFieldName in relInfo.relatedEd.nonPkFieldNames) {
                 if (nonPkFieldName == "lastUpdatedStamp") continue

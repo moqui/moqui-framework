@@ -27,6 +27,7 @@ public class ServiceCallImpl implements ServiceCall {
     protected String path = null;
     protected String verb = null;
     protected String noun = null;
+    protected String master = null;
     protected ServiceDefinition sd = null;
     protected boolean noSd = false;
     protected String serviceName = null;
@@ -42,12 +43,14 @@ public class ServiceCallImpl implements ServiceCall {
             path = sd.verb;
             verb = sd.verb;
             noun = sd.verb;
+            master = sd.verb;
             this.serviceName = sd.serviceName;
             serviceNameNoHash = sd.serviceNameNoHash;
         } else {
             path = ServiceDefinition.getPathFromName(serviceName);
             verb = ServiceDefinition.getVerbFromName(serviceName);
             noun = ServiceDefinition.getNounFromName(serviceName);
+            master = ServiceDefinition.getMasterFromName(serviceName);
             // if the service is not found must be an entity auto, but if there is a path then error
             if (path == null || path.isEmpty()) {
                 noSd = true;
