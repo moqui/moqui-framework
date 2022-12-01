@@ -40,6 +40,7 @@ along with this software (see the LICENSE.md file). If not, see
         </xs:documentation></xs:annotation>
         <xs:complexType>
             <xs:sequence>
+                <xs:element minOccurs="0" ref="description"/>
                 <xs:element minOccurs="0" ref="condition"/>
                 <xs:element ref="actions"/>
             </xs:sequence>
