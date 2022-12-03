@@ -18,6 +18,7 @@ import org.moqui.entity.EntityException;
 import org.moqui.impl.entity.*;
 import org.moqui.impl.entity.EntityJavaUtil.EntityConditionParameter;
 
+import org.moqui.util.CollectionUtilities;
 import org.moqui.util.MNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -134,6 +135,49 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
                 sql.append(" ?");
                 eqb.parameters.add(new EntityConditionParameter(fi, value, eqb));
             }
+        }
+    }
+    @Override
+    public void makeSearchFilter(List<Map<String, Object>> filterList) {
+        /*
+        EQUALS, NOT_EQUAL,
+        LESS_THAN, GREATER_THAN, LESS_THAN_EQUAL_TO, GREATER_THAN_EQUAL_TO,
+        IN, NOT_IN, BETWEEN, NOT_BETWEEN, LIKE, NOT_LIKE, IS_NULL, IS_NOT_NULL
+         */
+        Map<String, Object> filterMap = new HashMap<>();
+        switch (operator) {
+            case EQUALS:
+                filterList.add(CollectionUtilities.toHashMap("term",
+                        CollectionUtilities.toHashMap(field.fieldName,
+                                CollectionUtilities.toHashMap("value", value, "case_insensitive", ignoreCase))));
+                break;
+            case NOT_EQUAL:
+                // TODO
+                break;
+            case IN:
+                break;
+            case NOT_IN:
+                break;
+            case LIKE:
+                break;
+            case NOT_LIKE:
+                break;
+            case BETWEEN:
+                break;
+            case NOT_BETWEEN:
+                break;
+            case IS_NULL:
+                break;
+            case IS_NOT_NULL:
+                break;
+            case LESS_THAN:
+                break;
+            case LESS_THAN_EQUAL_TO:
+                break;
+            case GREATER_THAN:
+                break;
+            case GREATER_THAN_EQUAL_TO:
+                break;
         }
     }
 

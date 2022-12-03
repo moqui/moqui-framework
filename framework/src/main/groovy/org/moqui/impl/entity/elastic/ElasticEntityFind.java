@@ -22,8 +22,7 @@ import org.moqui.impl.entity.condition.EntityConditionImplBase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Map;
+import java.util.*;
 
 public class ElasticEntityFind extends EntityFindBase {
     protected static final Logger logger = LoggerFactory.getLogger(ElasticEntityValue.class);
@@ -39,6 +38,16 @@ public class ElasticEntityFind extends EntityFindBase {
         throw new UnsupportedOperationException("EntityDynamicView is not yet supported for Orient DB");
     }
 
+    Map<String, Object> makeQueryMap(EntityConditionImplBase whereCondition) {
+        List<Map<String, Object>> filterList = new ArrayList<>();
+        whereCondition.makeSearchFilter(filterList);
+        Map<String, Object> boolMap = new HashMap<>();
+        boolMap.put("filter", filterList);
+        Map<String, Object> queryMap = new HashMap<>();
+        queryMap.put("bool", boolMap);
+        return queryMap;
+    }
+
     @Override
     public EntityValueBase oneExtended(EntityConditionImplBase whereCondition, FieldInfo[] fieldInfoArray,
             EntityJavaUtil.FieldOrderOptions[] fieldOptionsArray) throws EntityException {
@@ -47,6 +56,18 @@ public class ElasticEntityFind extends EntityFindBase {
 
         edf.checkCreateDocumentIndex(ed);
         ElasticFacade.ElasticClient elasticClient = edf.getElasticClient();
+
+        // TODO FUTURE: consider building a JSON string instead of Map/List structure with lots of objects,
+        //     will perform better and have way less memory overhead, but code will be a lot more complicated
+
+        Map<String, Object> searchMap = new LinkedHashMap<>();
+        // query
+        if (whereCondition != null) searchMap.put("query", makeQueryMap(whereCondition));
+
+        // TODO: use _source to get partial documents, some possible oddness to it: https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-source-field.html
+        // TODO order by with fieldOptionsArray
+
+        Map response = elasticClient.search(edf.getIndexName(ed), searchMap);
 
         // TODO
         return null;
@@ -58,6 +79,12 @@ public class ElasticEntityFind extends EntityFindBase {
             throws EntityException {
         EntityDefinition ed = this.getEntityDef();
         if (ed.isViewEntity) throw new EntityException("View entities are not supported, Elastic/OpenSearch does not support joins");
+
+        // TODO FUTURE: consider building a JSON string instead of Map/List structure with lots of objects,
+        //     will perform better and have way less memory overhead, but code will be a lot more complicated
+
+
+        // TODO: use _source to get partial documents, some possible oddness to it: https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-source-field.html
 
         /* FOR REFERENCE:
         EntityFindBuilder efb = new EntityFindBuilder(ed, this, whereCondition, fieldInfoArray)
@@ -76,7 +103,7 @@ public class ElasticEntityFind extends EntityFindBase {
 
         // ORDER BY clause
         efb.makeOrderByClause(orderByExpanded, false)
-        // LIMIT/OFFSET clause
+        // LIMIT/OFFSET clause => from, size paramters: https://www.elastic.co/guide/en/elasticsearch/reference/current/search-search.html
         // efb.addLimitOffset(this.limit, this.offset)
         if (offset) efb.sqlTopLevel.append(" SKIP ").append(offset)
         if (limit) efb.sqlTopLevel.append(" LIMIT ").append(limit)
@@ -110,6 +137,10 @@ public class ElasticEntityFind extends EntityFindBase {
     public long countExtended(EntityConditionImplBase whereCondition, EntityConditionImplBase havingCondition, FieldInfo[] fieldInfoArray, EntityJavaUtil.FieldOrderOptions[] fieldOptionsArray) throws EntityException {
         EntityDefinition ed = this.getEntityDef();
         if (ed.isViewEntity) throw new EntityException("View entities are not supported, Elastic/OpenSearch does not support joins");
+
+        // TODO FUTURE: consider building a JSON string instead of Map/List structure with lots of objects,
+        //     will perform better and have way less memory overhead, but code will be a lot more complicated
+
 
         /* FOR REFERENCE
         EntityFindBuilder efb = new EntityFindBuilder(ed, this, whereCondition, fieldInfoArray)
