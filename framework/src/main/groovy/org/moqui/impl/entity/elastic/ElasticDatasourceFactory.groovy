@@ -79,8 +79,7 @@ class ElasticDatasourceFactory implements EntityDatasourceFactory {
         String indexName = getIndexName(ed)
         if (checkedEntityIndexSet.contains(indexName)) return true
 
-        ElasticFacade.ElasticClient elasticClient = efi.ecfi.elasticFacade.getClient(clusterName)
-        if (!elasticClient.indexExists(indexName)) return false
+        if (!getElasticClient().indexExists(indexName)) return false
 
         checkedEntityIndexSet.add(indexName)
         return true
@@ -121,7 +120,8 @@ class ElasticDatasourceFactory implements EntityDatasourceFactory {
 
     @Override
     DataSource getDataSource() {
-        throw new UnsupportedOperationException("DataSource not supported for ElasticFacade based Entity")
+        //  no DataSource for this 'db', return nothing and EntityFacade ignores it and Connection parameters will be null (in ElasticEntityValue, etc)
+        return null
     }
 
     void checkCreateDocumentIndex(EntityDefinition ed) {
@@ -135,6 +135,7 @@ class ElasticDatasourceFactory implements EntityDatasourceFactory {
         checkedEntityIndexSet.add(indexName)
     }
 
+    ElasticFacade.ElasticClient getElasticClient() { efi.ecfi.elasticFacade.getClient(clusterName) }
     String getIndexName(EntityDefinition ed) {
         return indexPrefix + ed.getTableNameLowerCase()
     }

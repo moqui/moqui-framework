@@ -13,12 +13,12 @@
  */
 package org.moqui.impl.entity.elastic;
 
+import org.moqui.Moqui;
+import org.moqui.context.ElasticFacade;
 import org.moqui.entity.EntityException;
+import org.moqui.entity.EntityFacade;
 import org.moqui.entity.EntityValue;
-import org.moqui.impl.entity.EntityDefinition;
-import org.moqui.impl.entity.EntityFacadeImpl;
-import org.moqui.impl.entity.EntityValueBase;
-import org.moqui.impl.entity.FieldInfo;
+import org.moqui.impl.entity.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,7 +52,9 @@ public class ElasticEntityValue extends EntityValueBase {
 
     public ElasticDatasourceFactory getEdf() {
         if (edfInternal == null) {
-            // TODO!
+            // not much option other than static access via Moqui object
+            EntityFacade ef = Moqui.getExecutionContextFactory().getEntity();
+            edfInternal = (ElasticDatasourceFactory) ef.getDatasourceFactory(ef.getEntityGroupName(getEntityName()));
         }
 
         return edfInternal;
@@ -80,44 +82,66 @@ public class ElasticEntityValue extends EntityValueBase {
     @Override
     public void createExtended(FieldInfo[] fieldInfoArray, Connection con) {
         EntityDefinition ed = getEntityDefinition();
-        if (ed.isViewEntity) throw new EntityException("Create not yet implemented for view-entity");
+        if (ed.isViewEntity) throw new EntityException("View entities are not supported, Elastic/OpenSearch does not support joins");
+        ElasticDatasourceFactory edf = getEdf();
 
-        getEdf().checkCreateDocumentIndex(ed);
+        edf.checkCreateDocumentIndex(ed);
+        ElasticFacade.ElasticClient elasticClient = edf.getElasticClient();
 
-        Map<String, Object> localMap = getValueMap();
-        FieldInfo[] fieldInfos = ed.entityInfo.allFieldInfoArray;
-
-        // TODO
+        String combinedId = getPrimaryKeysString();
+        elasticClient.index(edf.getIndexName(ed), combinedId, valueMapInternal);
+        setSyncedWithDb();
     }
 
     @Override
     public void updateExtended(FieldInfo[] pkFieldArray, FieldInfo[] nonPkFieldArray, Connection con) {
         EntityDefinition ed = getEntityDefinition();
-        if (ed.isViewEntity) throw new EntityException("Update not yet implemented for view-entity");
+        if (ed.isViewEntity) throw new EntityException("View entities are not supported, Elastic/OpenSearch does not support joins");
+        ElasticDatasourceFactory edf = getEdf();
 
-        getEdf().checkCreateDocumentIndex(ed);
+        edf.checkCreateDocumentIndex(ed);
+        ElasticFacade.ElasticClient elasticClient = edf.getElasticClient();
 
-        // TODO
-        // TODO NOTE: use ElasticClient.update() method, supports partial doc update, see https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-update.html
+        String combinedId = getPrimaryKeysString();
+        // use ElasticClient.update() method, supports partial doc update, see https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-update.html
+        elasticClient.update(edf.getIndexName(ed), combinedId, valueMapInternal);
+        setSyncedWithDb();
     }
 
     @Override
     public void deleteExtended(Connection con) {
         EntityDefinition ed = getEntityDefinition();
-        if (ed.isViewEntity) throw new EntityException("Delete not yet implemented for view-entity");
+        if (ed.isViewEntity) throw new EntityException("View entities are not supported, Elastic/OpenSearch does not support joins");
+        ElasticDatasourceFactory edf = getEdf();
 
-        getEdf().checkCreateDocumentIndex(ed);
+        edf.checkCreateDocumentIndex(ed);
+        ElasticFacade.ElasticClient elasticClient = edf.getElasticClient();
 
-        // TODO
+        String combinedId = getPrimaryKeysString();
+        elasticClient.delete(edf.getIndexName(ed), combinedId);
     }
 
     @Override
     public boolean refreshExtended() {
         EntityDefinition ed = getEntityDefinition();
+        if (ed.isViewEntity) throw new EntityException("View entities are not supported, Elastic/OpenSearch does not support joins");
+        ElasticDatasourceFactory edf = getEdf();
 
-        getEdf().checkCreateDocumentIndex(ed);
+        edf.checkCreateDocumentIndex(ed);
+        ElasticFacade.ElasticClient elasticClient = edf.getElasticClient();
 
-        // TODO
+        String combinedId = getPrimaryKeysString();
+        Map dbValue = elasticClient.get(edf.getIndexName(ed), combinedId);
+
+        if (dbValue == null) return false;
+
+        FieldInfo[] allFieldArray = ed.entityInfo.allFieldInfoArray;
+        for (int j = 0; j < allFieldArray.length; j++) {
+            FieldInfo fi = allFieldArray[j];
+            valueMapInternal.putByIString(fi.name, dbValue.get(fi.name), fi.index);
+        }
+
+        setSyncedWithDb();
         return true;
     }
 }

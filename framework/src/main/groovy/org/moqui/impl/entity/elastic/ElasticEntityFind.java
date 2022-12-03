@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.entity.elastic;
 
+import org.moqui.context.ElasticFacade;
 import org.moqui.entity.EntityDynamicView;
 import org.moqui.entity.EntityException;
 import org.moqui.entity.EntityListIterator;
@@ -39,10 +40,13 @@ public class ElasticEntityFind extends EntityFindBase {
     }
 
     @Override
-    public EntityValueBase oneExtended(EntityConditionImplBase whereCondition, FieldInfo[] fieldInfoArray, EntityJavaUtil.FieldOrderOptions[] fieldOptionsArray) throws EntityException {
+    public EntityValueBase oneExtended(EntityConditionImplBase whereCondition, FieldInfo[] fieldInfoArray,
+            EntityJavaUtil.FieldOrderOptions[] fieldOptionsArray) throws EntityException {
         EntityDefinition ed = this.getEntityDef();
+        if (ed.isViewEntity) throw new EntityException("View entities are not supported, Elastic/OpenSearch does not support joins");
 
         edf.checkCreateDocumentIndex(ed);
+        ElasticFacade.ElasticClient elasticClient = edf.getElasticClient();
 
         // TODO
         return null;
@@ -53,6 +57,7 @@ public class ElasticEntityFind extends EntityFindBase {
             ArrayList<String> orderByExpanded, FieldInfo[] fieldInfoArray, EntityJavaUtil.FieldOrderOptions[] fieldOptionsArray)
             throws EntityException {
         EntityDefinition ed = this.getEntityDef();
+        if (ed.isViewEntity) throw new EntityException("View entities are not supported, Elastic/OpenSearch does not support joins");
 
         /* FOR REFERENCE:
         EntityFindBuilder efb = new EntityFindBuilder(ed, this, whereCondition, fieldInfoArray)
@@ -104,6 +109,7 @@ public class ElasticEntityFind extends EntityFindBase {
     @Override
     public long countExtended(EntityConditionImplBase whereCondition, EntityConditionImplBase havingCondition, FieldInfo[] fieldInfoArray, EntityJavaUtil.FieldOrderOptions[] fieldOptionsArray) throws EntityException {
         EntityDefinition ed = this.getEntityDef();
+        if (ed.isViewEntity) throw new EntityException("View entities are not supported, Elastic/OpenSearch does not support joins");
 
         /* FOR REFERENCE
         EntityFindBuilder efb = new EntityFindBuilder(ed, this, whereCondition, fieldInfoArray)
