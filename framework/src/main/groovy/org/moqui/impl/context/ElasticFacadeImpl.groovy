@@ -477,16 +477,32 @@ class ElasticFacadeImpl implements ElasticFacade {
         @Override
         String getPitId(String index, String keepAlive) {
             if (keepAlive == null) keepAlive = "60s"
-            RestClient.RestResponse response = makeRestClient(Method.POST, index, "_pit", [keep_alive:keepAlive]).call()
+            RestClient.RestResponse response
+            if (isOpenSearch) {
+                // see: https://opensearch.org/docs/latest/opensearch/point-in-time-api#create-a-pit
+                // requires 2.4.0 or later
+                response = makeRestClient(Method.POST, index, "_search/point_in_time", [keep_alive:keepAlive]).call()
+            } else {
+                // see: https://www.elastic.co/guide/en/elasticsearch/reference/current/paginate-search-results.html#scroll-search-results
+                response = makeRestClient(Method.POST, index, "_pit", [keep_alive:keepAlive]).call()
+            }
             // System.out.println("Get PIT Response: ${response.statusCode} ${response.reasonPhrase}\n${response.text()}")
             checkResponse(response, "PIT", index)
             Map resultMap = (Map) jsonToObject(response.text())
-            return resultMap?.id
+            return isOpenSearch ? resultMap?.pit_id : resultMap?.id
         }
         @Override
         void deletePit(String pitId) {
-            RestClient.RestResponse response = makeRestClient(Method.DELETE, null, "_pit", null)
-                    .text(objectToJson([id:pitId])).call()
+            RestClient.RestResponse response
+            if (isOpenSearch) {
+                // see: https://opensearch.org/docs/latest/opensearch/point-in-time-api#delete-pits
+                // requires 2.4.0 or later
+                response = makeRestClient(Method.DELETE, null, "_search/point_in_time", null)
+                        .text(objectToJson([pit_id:[pitId]])).call()
+            } else {
+                // see: https://www.elastic.co/guide/en/elasticsearch/reference/current/paginate-search-results.html#scroll-search-results
+                response = makeRestClient(Method.DELETE, null, "_pit", null).text(objectToJson([id:pitId])).call()
+            }
             // System.out.println("Delete PIT Response: ${response.statusCode} ${response.reasonPhrase}\n${response.text()}")
             checkResponse(response, "PIT", null)
         }

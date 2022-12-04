@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.entity.elastic;
 
+import groovy.json.JsonOutput;
 import org.moqui.BaseArtifactException;
 import org.moqui.context.ArtifactExecutionInfo;
 import org.moqui.context.ElasticFacade;
@@ -142,7 +143,7 @@ public class ElasticEntityListIterator implements EntityListIterator {
         }
         if (maxResultCount != null && curFrom + curSize > maxResultCount) {
             // no more to get, return
-            if (curFrom >= resultCount) return;
+            if (curFrom >= maxResultCount) return;
             curSize = maxResultCount - curFrom;
         }
 
@@ -162,20 +163,35 @@ public class ElasticEntityListIterator implements EntityListIterator {
         // if no resultCount yet then track_total_hits (also set to false for better performance on subsequent requests)
         searchMap.put("track_total_hits", resultCount == null);
 
+        logger.info("fetchNext request: " + JsonOutput.prettyPrint(JsonOutput.toJson(searchMap)));
+
         // do the query
-        Map resultMap = elasticClient.search(edf.getIndexName(entityDefinition), searchMap);
+        Map resultMap = elasticClient.search(esPitId != null ? null : edf.getIndexName(entityDefinition), searchMap);
+
+        logger.info("fetchNext response: " + JsonOutput.prettyPrint(JsonOutput.toJson(resultMap)));
+
         Map hitsMap = (Map) resultMap.get("hits");
         List<?> hitsList = (List<?>) hitsMap.get("hits");
 
         // set resultCount if we have one
-        Integer hitsTotal = (Integer) hitsMap.get("total");
-        if (hitsTotal != null) resultCount = originalFromInt != null ? hitsTotal - originalFromInt : hitsTotal;
+        Map totalMap = (Map) hitsMap.get("total");
+        if (totalMap != null) {
+            Integer hitsTotal = (Integer) totalMap.get("value");
+            String relation = (String) totalMap.get("relation");
+
+            // TODO remove this log message, only for testing behavior
+            if (!"eq".equals(relation)) logger.warn("Got non eq total relation " + relation + " with value " + hitsTotal + " for entity " + entityDefinition.fullEntityName);
+
+            if (hitsTotal != null && "eq".equals(relation))
+                resultCount = originalFromInt != null ? hitsTotal - originalFromInt : hitsTotal;
+        }
 
         // process hits
         if (hitsList != null && hitsList.size() > 0) {
             int hitCount = hitsList.size();
             if (hitCount > fetchSize) logger.warn("In ElasticEntityListIterator got back " + hitCount + " hits with fetchSize " + fetchSize);
-            if (hitCount < fetchSize) {
+
+            if (hitCount < curSize) {
                 // we found the end
                 int calcTotal = curFrom + hitCount;
                 if (resultCount != calcTotal)
@@ -184,21 +200,25 @@ public class ElasticEntityListIterator implements EntityListIterator {
             }
 
             // do we need to make room in currentDocList?
-            int avail = CUR_LIST_MAX_SIZE - currentDocList.size();
-            if (avail < hitCount) {
-                // how many can we retain?
-                int retain = hitCount - CUR_LIST_MAX_SIZE;
-                if (retain < 0) retain = 0;
-                int remove = currentDocList.size() - retain;
-                if (retain == 0) {
-                    currentDocList.clear();
-                } else {
-                    // this is two array copies instead of potential one, but better than iterating manually to move elements or something
-                    currentDocList = new ArrayList<>(currentDocList.subList(remove, currentDocList.size()));
-                    currentDocList.ensureCapacity(CUR_LIST_MAX_SIZE);
+            if (currentListStartIndex == -1) {
+                currentListStartIndex = 0;
+            } else {
+                int avail = CUR_LIST_MAX_SIZE - currentDocList.size();
+                if (avail < hitCount) {
+                    // how many can we retain?
+                    int retain = hitCount - CUR_LIST_MAX_SIZE;
+                    if (retain < 0) retain = 0;
+                    int remove = currentDocList.size() - retain;
+                    if (retain == 0) {
+                        currentDocList.clear();
+                    } else {
+                        // this is two array copies instead of potential one, but better than iterating manually to move elements or something
+                        currentDocList = new ArrayList<>(currentDocList.subList(remove, currentDocList.size()));
+                        currentDocList.ensureCapacity(CUR_LIST_MAX_SIZE);
+                    }
+                    // update start index
+                    currentListStartIndex += remove;
                 }
-                // update start index
-                currentListStartIndex += remove;
             }
 
             // does the Jackson parser (used in ElasticFacade) use an ArrayList? probably not... Iterator overhead not too bad here anyway

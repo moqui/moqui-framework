@@ -58,7 +58,8 @@ public class RestClient {
     // NOTE: there is no constant on HttpServletResponse for 429; see RFC 6585 for details
     public static final int TOO_MANY = 429;
 
-    private static final EnumSet<Method> BODY_METHODS = EnumSet.of(Method.GET, Method.PATCH, Method.POST, Method.PUT);
+    // NOTE: DELETE doesn't normally support a body, but some APIs use it
+    private static final EnumSet<Method> BODY_METHODS = EnumSet.of(Method.GET, Method.PATCH, Method.POST, Method.PUT, Method.DELETE);
     private static final Logger logger = LoggerFactory.getLogger(RestClient.class);
 
     // Default RequestFactory (avoid new per request)
