@@ -18,6 +18,7 @@ import org.moqui.context.ArtifactExecutionInfo;
 import org.moqui.entity.*;
 import org.moqui.impl.context.TransactionCache;
 import org.moqui.impl.entity.EntityJavaUtil.FindAugmentInfo;
+import org.moqui.impl.entity.condition.EntityConditionImplBase;
 import org.moqui.util.CollectionUtilities;
 import org.moqui.util.LiteStringMap;
 import org.slf4j.Logger;
@@ -28,7 +29,6 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Map;
 
 public class EntityListIteratorImpl implements EntityListIterator {
     protected static final Logger logger = LoggerFactory.getLogger(EntityListIteratorImpl.class);
@@ -42,7 +42,7 @@ public class EntityListIteratorImpl implements EntityListIterator {
     private final EntityDefinition entityDefinition;
     protected final FieldInfo[] fieldInfoArray;
     private final int fieldInfoListSize;
-    private final EntityCondition queryCondition;
+    private final EntityConditionImplBase queryCondition;
     private final CollectionUtilities.MapOrderByComparator orderByComparator;
     /** This is needed to determine if the ResultSet is empty as cheaply as possible. */
     private boolean haveMadeValue = false;
@@ -51,7 +51,7 @@ public class EntityListIteratorImpl implements EntityListIterator {
     private final ArrayList<ArtifactExecutionInfo> artifactStack;
 
     public EntityListIteratorImpl(Connection con, ResultSet rs, EntityDefinition entityDefinition, FieldInfo[] fieldInfoArray,
-                                  EntityFacadeImpl efi, TransactionCache txCache, EntityCondition queryCondition, ArrayList<String> obf) {
+            EntityFacadeImpl efi, TransactionCache txCache, EntityConditionImplBase queryCondition, ArrayList<String> obf) {
         this.efi = efi;
         this.con = con;
         this.rs = rs;
@@ -143,19 +143,20 @@ public class EntityListIteratorImpl implements EntityListIterator {
 
     @Override public EntityValue currentEntityValue() { return currentEntityValueBase(); }
     public EntityValueBase currentEntityValueBase() {
-        EntityValueImpl newEntityValue = new EntityValueImpl(entityDefinition, efi);
         if (txcListIndex >= 0) {
             return findAugmentInfo.valueList.get(txcListIndex);
-        } else {
-            LiteStringMap<Object> valueMap = newEntityValue.valueMapInternal;
-            for (int i = 0; i < fieldInfoListSize; i++) {
-                FieldInfo fi = fieldInfoArray[i];
-                if (fi == null) break;
-                fi.getResultSetValue(rs, i + 1, valueMap, efi);
-            }
-            // if txCache in place always put in cache for future reference (onePut handles any stale from DB issues too)
-            if (txCache != null) txCache.onePut(newEntityValue, false);
         }
+
+        EntityValueImpl newEntityValue = new EntityValueImpl(entityDefinition, efi);
+        LiteStringMap<Object> valueMap = newEntityValue.valueMapInternal;
+        for (int i = 0; i < fieldInfoListSize; i++) {
+            FieldInfo fi = fieldInfoArray[i];
+            if (fi == null) break;
+            fi.getResultSetValue(rs, i + 1, valueMap, efi);
+        }
+
+        // if txCache in place always put in cache for future reference (onePut handles any stale from DB issues too)
+        if (txCache != null) txCache.onePut(newEntityValue, false);
         haveMadeValue = true;
 
         return newEntityValue;

@@ -459,6 +459,39 @@ class ElasticFacadeImpl implements ElasticFacade {
         }
 
         @Override
+        long count(String index, Map countMap) {
+            Map resultMap = countResponse(index, countMap)
+            Number count = (Number) resultMap.count
+            return count != null ? count.longValue() : 0
+        }
+        @Override
+        Map countResponse(String index, Map countMap) {
+            RestClient.RestResponse response = makeRestClient(Method.GET, index, "_count", null)
+                    .text(objectToJson(countMap)).call()
+            // System.out.println("Count Response: ${response.statusCode} ${response.reasonPhrase}\n${response.text()}")
+            checkResponse(response, "Count", index)
+            Map resultMap = (Map) jsonToObject(response.text())
+            return resultMap
+        }
+
+        @Override
+        String getPitId(String index, String keepAlive) {
+            if (keepAlive == null) keepAlive = "60s"
+            RestClient.RestResponse response = makeRestClient(Method.POST, index, "_pit", [keep_alive:keepAlive]).call()
+            // System.out.println("Get PIT Response: ${response.statusCode} ${response.reasonPhrase}\n${response.text()}")
+            checkResponse(response, "PIT", index)
+            Map resultMap = (Map) jsonToObject(response.text())
+            return resultMap?.id
+        }
+        @Override
+        void deletePit(String pitId) {
+            RestClient.RestResponse response = makeRestClient(Method.DELETE, null, "_pit", null)
+                    .text(objectToJson([id:pitId])).call()
+            // System.out.println("Delete PIT Response: ${response.statusCode} ${response.reasonPhrase}\n${response.text()}")
+            checkResponse(response, "PIT", null)
+        }
+
+        @Override
         RestClient.RestResponse call(Method method, String index, String path, Map<String, String> parameters, Object bodyJsonObject) {
             RestClient restClient = makeRestClient(method, index, path, parameters).text(objectToJson(bodyJsonObject))
             return restClient.call()
