@@ -1612,6 +1612,19 @@ class EntityFacadeImpl implements EntityFacade {
         return newEntityValue;
     }
 
+    @Override
+    void createBulk(List<EntityValue> valueList) {
+        if (valueList == null || valueList.isEmpty()) return
+
+        EntityValue firstEv = (EntityValue) valueList.get(0)
+        String groupName = getEntityGroupName(firstEv.getEntityName())
+
+        EntityDatasourceFactory datasourceFactory = getDatasourceFactory(groupName)
+        if (datasourceFactory == null) throw new EntityException("Datasource Factory not found for group " + groupName)
+
+        datasourceFactory.createBulk(valueList)
+    }
+
     final static Map<String, String> operationByMethod = [get:'find', post:'create', put:'store', patch:'update', delete:'delete']
     @Override
     Object rest(String operation, List<String> entityPath, Map parameters, boolean masterNameInPath) {
@@ -1822,32 +1835,38 @@ class EntityFacadeImpl implements EntityFacade {
 
     @Override
     EntityListIterator sqlFind(String sql, List<Object> sqlParameterList, String entityName, List<String> fieldList) {
-        if (sqlParameterList == null || fieldList == null || sqlParameterList.size() != fieldList.size())
-            throw new BaseArtifactException("For sqlFind sqlParameterList and fieldList must not be null and must be the same size")
         EntityDefinition ed = this.getEntityDefinition(entityName)
         this.entityDbMeta.checkTableRuntime(ed)
 
         Connection con = getConnection(getEntityGroupName(entityName))
         PreparedStatement ps
         try {
-            FieldInfo[] fiArray = new FieldInfo[fieldList.size()]
-            int fiArrayIndex = 0
-            for (String fieldName in fieldList) {
-                FieldInfo fi = ed.getFieldInfo(fieldName)
-                if (fi == null) throw new BaseArtifactException("Field ${fieldName} not found for entity ${entityName}")
-                fiArray[fiArrayIndex] = fi
-                fiArrayIndex++
+            FieldInfo[] fiArray
+            if (fieldList != null) {
+                fiArray = new FieldInfo[fieldList.size()]
+                int fiArrayIndex = 0
+                for (String fieldName in fieldList) {
+                    FieldInfo fi = ed.getFieldInfo(fieldName)
+                    if (fi == null) throw new BaseArtifactException("Field ${fieldName} not found for entity ${entityName}")
+                    fiArray[fiArrayIndex] = fi
+                    fiArrayIndex++
+                }
+            } else {
+                fiArray = ed.entityInfo.allFieldInfoArray
             }
 
             // create the PreparedStatement
             ps = con.prepareStatement(sql, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY)
             // set the parameter values
-            int paramIndex = 1
-            for (Object parameterValue in sqlParameterList) {
-                FieldInfo fi = (FieldInfo) fiArray[paramIndex - 1]
-                fi.setPreparedStatementValue(ps, paramIndex, parameterValue, ed, this)
-                paramIndex++
+            if (sqlParameterList != null) {
+                int paramIndex = 1
+                for (Object parameterValue in sqlParameterList) {
+                    FieldInfo fi = (FieldInfo) fiArray[paramIndex - 1]
+                    fi.setPreparedStatementValue(ps, paramIndex, parameterValue, ed, this)
+                    paramIndex++
+                }
             }
+
             // do the actual query
             long timeBefore = System.currentTimeMillis()
             ResultSet rs = ps.executeQuery()
@@ -2006,7 +2025,8 @@ class EntityFacadeImpl implements EntityFacade {
         try { ed = getEntityDefinition(entityName) } catch (EntityException e) { return null }
         // may happen if all entity names includes a DB view entity or other that doesn't really exist
         if (ed == null) return null
-        entityGroupName = ed.getEntityGroupName()
+        // always intern the group name so it can be used with an identity compare
+        entityGroupName = ed.getEntityGroupName()?.intern()
         entityGroupNameMap.put(entityName, entityGroupName)
         return entityGroupName
     }

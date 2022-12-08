@@ -13,12 +13,15 @@
  */
 package org.moqui.impl.entity.elastic
 
+import groovy.json.JsonOutput
 import groovy.transform.CompileStatic
 import org.moqui.context.ElasticFacade
 import org.moqui.entity.*
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityFacadeImpl
+import org.moqui.impl.entity.EntityValueBase
 import org.moqui.impl.entity.FieldInfo
+import org.moqui.util.LiteStringMap
 import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -121,6 +124,32 @@ class ElasticDatasourceFactory implements EntityDatasourceFactory {
     EntityFind makeEntityFind(String entityName) { return new ElasticEntityFind(efi, entityName, this) }
 
     @Override
+    void createBulk(List<EntityValue> valueList) {
+        if (valueList == null || valueList.isEmpty()) return
+        ElasticFacade.ElasticClient elasticClient = getElasticClient()
+
+        EntityValueBase firstEv = (EntityValueBase) valueList.get(0)
+        EntityDefinition ed = firstEv.getEntityDefinition()
+
+        FieldInfo[] pkFieldInfos = ed.entityInfo.pkFieldInfoArray
+        String idField = pkFieldInfos.length == 1 ? pkFieldInfos[0].name : "_id"
+
+        List<Map> mapList = new ArrayList<>(valueList.size())
+        Iterator<EntityValue> valueIterator = valueList.iterator()
+        while (valueIterator.hasNext()) {
+            EntityValueBase ev = (EntityValueBase) valueIterator.next()
+            LiteStringMap<Object> evMap = ev.getValueMap()
+            // to pass a key/id for each record it has to be in the Map, this will cause the LiteStringMap to grow
+            //     the array for the additional field, so there is a performance overhead to this
+            if (pkFieldInfos.length > 1) evMap.put("_id", ev.getPrimaryKeysString())
+            mapList.add(evMap)
+        }
+
+        checkCreateDocumentIndex(ed)
+        elasticClient.bulkIndex(getIndexName(ed), idField, mapList)
+    }
+
+    @Override
     DataSource getDataSource() {
         //  no DataSource for this 'db', return nothing and EntityFacade ignores it and Connection parameters will be null (in ElasticEntityValue, etc)
         return null
@@ -131,8 +160,11 @@ class ElasticDatasourceFactory implements EntityDatasourceFactory {
         if (checkedEntityIndexSet.contains(indexName)) return
 
         ElasticFacade.ElasticClient elasticClient = efi.ecfi.elasticFacade.getClient(clusterName)
-        if (!elasticClient.indexExists(indexName))
-            elasticClient.createIndex(indexName, makeElasticEntityMapping(ed), null)
+        if (!elasticClient.indexExists(indexName)) {
+            Map mapping = makeElasticEntityMapping(ed)
+            // logger.warn("Creating ES Index ${indexName} with mapping: ${JsonOutput.prettyPrint(JsonOutput.toJson(mapping))}")
+            elasticClient.createIndex(indexName, mapping, null)
+        }
 
         checkedEntityIndexSet.add(indexName)
     }

@@ -1516,17 +1516,17 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                     if (createListSize == 0) break
                     long startTime = System.currentTimeMillis()
                     ecfi.transactionFacade.runUseOrBegin(60, "Error saving ArtifactHits", {
+                        List<EntityValue> evList = new ArrayList<>(createListSize)
                         for (int i = 0; i < createListSize; i++) {
                             ArtifactHitInfo ahi = (ArtifactHitInfo) createList.get(i)
-                            try {
-                                EntityValue ahValue = ahi.makeAhiValue(localEcfi)
-                                ahValue.setSequencedIdPrimary()
-                                ahValue.create()
-                            } catch (Throwable t) {
-                                createList.remove(i)
-                                throw t
-                            }
+                            EntityValue ahValue = ahi.makeAhiValue(localEcfi)
+                            ahValue.setSequencedIdPrimary()
+                            evList.add(ahValue)
+                            // old approach, create call per record, too slow when ArtifactHitBin in the logging group for ElasticFacade
+                            // try { ahValue.create() } catch (Throwable t) { createList.remove(i); throw t }
                         }
+                        // new approach, use new EntityFacade.createBulk() method
+                        localEcfi.entityFacade.createBulk(evList)
                     })
                     if (isTraceEnabled) logger.trace("Created ${createListSize} ArtifactHit records in ${System.currentTimeMillis() - startTime}ms")
                     break

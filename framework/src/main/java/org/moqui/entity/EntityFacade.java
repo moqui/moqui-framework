@@ -44,7 +44,7 @@ public interface EntityFacade {
      * @return EntityValue for the named entity. 
      */
     EntityValue makeValue(String entityName);
-    
+
     /** Create an EntityFind object that can be used to specify additional options, and then to execute one or more
      * finds (queries).
      * 
@@ -54,6 +54,9 @@ public interface EntityFacade {
     EntityFind find(String entityName);
     EntityFind find(MNode entityFindNode);
     EntityValue fastFindOne(String entityName, Boolean useCache, boolean disableAuthz, Object... values);
+
+    /** Bulk create EntityValue records. All values must be for the same entity. */
+    void createBulk(List<EntityValue> valueList);
 
     /** Meant for processing entity REST requests, but useful more generally as a simple way to perform entity operations.
      *
@@ -76,8 +79,9 @@ public interface EntityFacade {
      *
      * @param sql The actual SQL to run.
      * @param sqlParameterList Parameter values that correspond with any question marks (?) in the SQL.
-     * @param entityName Name of the entity to map the results to.
+     * @param entityName Name of the entity to map the results to, may be a view-entity.
      * @param fieldList List of entity field names in order that they match columns selected in the query.
+     *                  If not specified all fields will be used in the order they are specified in the entity definition.
      * @return EntityListIterator with results of query.
      */
     EntityListIterator sqlFind(String sql, List<Object> sqlParameterList, String entityName, List<String> fieldList);
