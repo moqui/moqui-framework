@@ -332,6 +332,7 @@ class TransactionFacadeImpl implements TransactionFacade {
 
     @Override
     boolean begin(Integer timeout) {
+        if (ut == null) throw new IllegalStateException("No transaction manager in place")
         int currentStatus = ut.getStatus()
         // logger.warn("================ begin TX, currentStatus=${currentStatus}", new BaseException("beginning transaction at"))
 
@@ -388,6 +389,7 @@ class TransactionFacadeImpl implements TransactionFacade {
 
     @Override
     void commit() {
+        if (ut == null) throw new IllegalStateException("No transaction manager in place")
         TxStackInfo txStackInfo = getTxStackInfo()
         try {
             int status = ut.getStatus()
@@ -426,11 +428,13 @@ class TransactionFacadeImpl implements TransactionFacade {
             throw new TransactionException("Could not commit transaction", e)
         } finally {
             // there shouldn't be a TX around now, but if there is the commit may have failed so rollback to clean things up
-            int status = ut.getStatus()
-            if (status != Status.STATUS_NO_TRANSACTION && status != Status.STATUS_COMMITTING &&
-                    status != Status.STATUS_COMMITTED && status != Status.STATUS_ROLLING_BACK &&
-                    status != Status.STATUS_ROLLEDBACK) {
-                rollback("Commit failed, rolling back to clean up", null)
+            if (ut != null) {
+                int status = ut.getStatus()
+                if (status != Status.STATUS_NO_TRANSACTION && status != Status.STATUS_COMMITTING &&
+                        status != Status.STATUS_COMMITTED && status != Status.STATUS_ROLLING_BACK &&
+                        status != Status.STATUS_ROLLEDBACK) {
+                    rollback("Commit failed, rolling back to clean up", null)
+                }
             }
 
             txStackInfo.clearCurrent()
@@ -448,6 +452,7 @@ class TransactionFacadeImpl implements TransactionFacade {
 
     @Override
     void rollback(String causeMessage, Throwable causeThrowable) {
+        if (ut == null) throw new IllegalStateException("No transaction manager in place")
         TxStackInfo txStackInfo = getTxStackInfo()
         try {
             txStackInfo.closeTxConnections()
@@ -485,6 +490,7 @@ class TransactionFacadeImpl implements TransactionFacade {
 
     @Override
     void setRollbackOnly(String causeMessage, Throwable causeThrowable) {
+        if (ut == null) throw new IllegalStateException("No transaction manager in place")
         try {
             int status = getStatus()
             if (status != Status.STATUS_NO_TRANSACTION) {
@@ -519,6 +525,7 @@ class TransactionFacadeImpl implements TransactionFacade {
 
     @Override
     boolean suspend() {
+        if (ut == null) throw new IllegalStateException("No transaction manager in place")
         try {
             if (getStatus() == Status.STATUS_NO_TRANSACTION) {
                 logger.warn("No transaction in place so not suspending")
@@ -541,6 +548,7 @@ class TransactionFacadeImpl implements TransactionFacade {
 
     @Override
     void resume() {
+        if (ut == null) throw new IllegalStateException("No transaction manager in place")
         if (isTransactionInPlace()) {
             logger.warn("Resume with transaction in place, trying commit to close")
             commit()

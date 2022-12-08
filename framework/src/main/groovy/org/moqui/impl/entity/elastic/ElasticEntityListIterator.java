@@ -114,15 +114,15 @@ public class ElasticEntityListIterator implements EntityListIterator {
     boolean nextResult() {
         if (resultCount != null && overallIndex >= resultCount) return false;
         overallIndex++;
-        if (overallIndex > (currentListStartIndex + currentDocList.size())) {
+        if (overallIndex >= (currentListStartIndex + currentDocList.size())) {
             // make sure we aren't at the end
             if (resultCount != null && overallIndex >= resultCount) return false;
             // fetch next results
             fetchNext();
         }
 
-        // if the numbers are such that we have a result (after a fetchNext() if needed) then return true
-        return overallIndex >= currentListStartIndex && overallIndex < (currentListStartIndex + currentDocList.size());
+        // logger.warn("nextResult end resultCount " + resultCount + " overallIndex " + overallIndex + " currentListStartIndex " + currentListStartIndex + " currentDocList.size() " + currentDocList.size());
+        return hasCurrentValue();
     }
     void fetchNext() {
         if (this.closed) throw new IllegalStateException("EntityListIterator is closed, cannot fetch next results");
@@ -147,10 +147,6 @@ public class ElasticEntityListIterator implements EntityListIterator {
             curSize = maxResultCount - curFrom;
         }
 
-        // if origFromInt has a value always add it just before the query, basically a starting offset for the whole query
-        searchMap.put("from", originalFromInt != null ? curFrom + originalFromInt : curFrom);
-        searchMap.put("size", curSize);
-
         // before doing the search, see if we need a PIT ID: if we can't get all in one fetch
         if (esPitId == null && (maxResultCount == null || maxResultCount > fetchSize)) {
             esPitId = elasticClient.getPitId(edf.getIndexName(entityDefinition), esKeepAlive);
@@ -158,20 +154,34 @@ public class ElasticEntityListIterator implements EntityListIterator {
 
         // add PIT ID (pit.id, pit.keep_alive:1m (use tx length)), search_after
         if (esPitId != null) searchMap.put("pit", CollectionUtilities.toHashMap("id", esPitId, "keep_alive", esKeepAlive));
-        if (esSearchAfter != null) searchMap.put("search_after", esSearchAfter);
+        if (esSearchAfter != null) {
+            // with search_after the from field should always be zero
+            searchMap.put("search_after", esSearchAfter);
+            searchMap.put("from", 0);
+        } else {
+            // if origFromInt has a value always add it just before the query, basically a starting offset for the whole query
+            searchMap.put("from", originalFromInt != null ? curFrom + originalFromInt : curFrom);
+        }
+        searchMap.put("size", curSize);
 
         // if no resultCount yet then track_total_hits (also set to false for better performance on subsequent requests)
         searchMap.put("track_total_hits", resultCount == null);
 
-        logger.info("fetchNext request: " + JsonOutput.prettyPrint(JsonOutput.toJson(searchMap)));
+        // logger.info("fetchNext request: " + JsonOutput.prettyPrint(JsonOutput.toJson(searchMap)));
 
         // do the query
         Map resultMap = elasticClient.search(esPitId != null ? null : edf.getIndexName(entityDefinition), searchMap);
-
-        logger.info("fetchNext response: " + JsonOutput.prettyPrint(JsonOutput.toJson(resultMap)));
-
         Map hitsMap = (Map) resultMap.get("hits");
         List<?> hitsList = (List<?>) hitsMap.get("hits");
+
+        // log response without hits
+        /*
+        Map resultNoHits = new LinkedHashMap(resultMap);
+        Map hitsNoHits = new LinkedHashMap(hitsMap);
+        hitsNoHits.remove("hits");
+        resultNoHits.put("hits", hitsNoHits);
+        logger.info("fetchNext response: " + JsonOutput.prettyPrint(JsonOutput.toJson(resultNoHits)));
+        */
 
         // set resultCount if we have one
         Map totalMap = (Map) hitsMap.get("total");
@@ -235,6 +245,8 @@ public class ElasticEntityListIterator implements EntityListIterator {
                 }
             }
         }
+
+        // logger.warn("fetchNext resultCount " + resultCount + " currentListStartIndex " + currentListStartIndex + " currentDocList size " + currentDocList.size());
     }
 
     boolean previousResult() {
@@ -247,8 +259,7 @@ public class ElasticEntityListIterator implements EntityListIterator {
             fetchPrevious();
         }
 
-        // if the numbers are such that we have a result (after a fetchPrevious() if needed) then return true
-        return overallIndex >= currentListStartIndex && overallIndex < (currentListStartIndex + currentDocList.size());
+        return hasCurrentValue();
     }
     void fetchPrevious() {
         if (this.closed) throw new IllegalStateException("EntityListIterator is closed, cannot fetch previous results");
@@ -281,9 +292,19 @@ public class ElasticEntityListIterator implements EntityListIterator {
     @Override public void beforeFirst() {
         txcListIndex = -1;
         overallIndex = -1;
+        resetCurrentList();
+    }
+
+    boolean hasCurrentValue() {
+        // if the numbers are such that we have a result (after a fetchPrevious() if needed) then return true
+        return overallIndex >= currentListStartIndex && overallIndex < (currentListStartIndex + currentDocList.size());
+    }
+    void resetCurrentList() {
+        // TODO: given multi-fetch space in the current list this could be optimized to avoid future fetch if currentListStartIndex < CUR_LIST_MAX_SIZE
         if (currentListStartIndex > 0) {
-            // TODO: fetch back to zero
-            // NOTE: currentDocList has up to FETCH_SIZE * 3 docs for previous window, current window, next window (though used flexibly)
+            currentListStartIndex = -1;
+            currentDocList.clear();
+            esSearchAfter = null;
         }
     }
 
@@ -303,15 +324,12 @@ public class ElasticEntityListIterator implements EntityListIterator {
     }
     @Override public boolean first() {
         txcListIndex = -1;
-
-        if (currentListStartIndex > 0) {
-            // TODO: fetch back to zero
-            // NOTE: currentDocList has up to FETCH_SIZE * 3 docs for previous window, current window, next window (though used flexibly)
-        }
-
         overallIndex = 0;
-        // TODO return true/false if ???
-        return true;
+        if (currentListStartIndex > 0) {
+            resetCurrentList();
+            if (currentListStartIndex < 0) fetchNext();
+        }
+        return hasCurrentValue();
     }
 
     @Override public EntityValue currentEntityValue() { return currentEntityValueBase(); }
@@ -327,8 +345,10 @@ public class ElasticEntityListIterator implements EntityListIterator {
         for (int i = 0; i < fieldInfoListSize; i++) {
             FieldInfo fi = fieldInfoArray[i];
             if (fi == null) break;
-            valueMap.putByIString(fi.name, docMap.get(fi.name), fi.index);
+            Object fValue = ElasticDatasourceFactory.convertFieldValue(fi, docMap.get(fi.name));
+            valueMap.putByIString(fi.name, fValue, fi.index);
         }
+        newEntityValue.setSyncedWithDb();
 
         // if txCache in place always put in cache for future reference (onePut handles any stale from DB issues too)
         // NOTE: because of this don't use txCache for very large result sets

@@ -22,10 +22,13 @@ import org.moqui.impl.entity.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.xml.bind.DatatypeConverter;
 import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
 import java.sql.Connection;
+import java.sql.Timestamp;
+import java.util.Calendar;
 import java.util.Map;
 
 public class ElasticEntityValue extends EntityValueBase {
@@ -138,7 +141,8 @@ public class ElasticEntityValue extends EntityValueBase {
         FieldInfo[] allFieldArray = ed.entityInfo.allFieldInfoArray;
         for (int j = 0; j < allFieldArray.length; j++) {
             FieldInfo fi = allFieldArray[j];
-            valueMapInternal.putByIString(fi.name, dbValue.get(fi.name), fi.index);
+            Object fValue = ElasticDatasourceFactory.convertFieldValue(fi, dbValue.get(fi.name));
+            valueMapInternal.putByIString(fi.name, fValue, fi.index);
         }
 
         setSyncedWithDb();

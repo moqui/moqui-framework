@@ -24,6 +24,8 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import javax.sql.DataSource
+import javax.xml.bind.DatatypeConverter
+import java.sql.Timestamp
 
 /**
  * To use this:
@@ -138,6 +140,19 @@ class ElasticDatasourceFactory implements EntityDatasourceFactory {
     ElasticFacade.ElasticClient getElasticClient() { efi.ecfi.elasticFacade.getClient(clusterName) }
     String getIndexName(EntityDefinition ed) {
         return indexPrefix + ed.getTableNameLowerCase()
+    }
+
+    static Object convertFieldValue(FieldInfo fi, Object fValue) {
+        if (fi.typeValue == EntityFacadeImpl.ENTITY_TIMESTAMP) {
+            if (fValue instanceof Number) {
+                return new Timestamp(((Number) fValue).longValue())
+            } else if (fValue instanceof CharSequence) {
+                Calendar cal = DatatypeConverter.parseDateTime(fValue.toString())
+                if (cal != null) return new Timestamp(cal.getTimeInMillis())
+            }
+        }
+        // TODO: other types need a bit of handling?
+        return fValue
     }
 
     static final Map<String, String> esEntityTypeMap = [id:'keyword', 'id-long':'keyword', date:'date', time:'keyword',

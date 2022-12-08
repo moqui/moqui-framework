@@ -51,6 +51,7 @@ class ElasticFacadeImpl implements ElasticFacade {
     public static int MAX_RESPONSE_SIZE_SEARCH = 100 * 1024 * 1024
     // Request Timeout, another thing that could be configurable but can be specified via API, set to 50 to give plenty of time for TX/etc cleanup
     public static int DEFAULT_REQUEST_TIMEOUT = 50
+    public static int SMALL_OP_REQUEST_TIMEOUT = 5
 
     public final static ObjectMapper jacksonMapper = new ObjectMapper()
             .setSerializationInclusion(JsonInclude.Include.ALWAYS)
@@ -296,7 +297,7 @@ class ElasticFacadeImpl implements ElasticFacade {
         void index(String index, String _id, Map document) {
             if (index == null || index.isEmpty()) throw new IllegalArgumentException("In index document the index name may not be empty")
             if (_id == null || _id.isEmpty()) throw new IllegalArgumentException("In index document the _id may not be empty")
-            RestClient.RestResponse response = makeRestClient(Method.PUT, index, "_doc/" + _id, null)
+            RestClient.RestResponse response = makeRestClient(Method.PUT, index, "_doc/" + _id, null, SMALL_OP_REQUEST_TIMEOUT)
                     .text(objectToJson(document)).call()
             checkResponse(response, "Index document ${_id}", index)
         }
@@ -305,7 +306,7 @@ class ElasticFacadeImpl implements ElasticFacade {
         void update(String index, String _id, Map documentFragment) {
             if (index == null || index.isEmpty()) throw new IllegalArgumentException("In update document the index name may not be empty")
             if (_id == null || _id.isEmpty()) throw new IllegalArgumentException("In update document the _id may not be empty")
-            RestClient.RestResponse response = makeRestClient(Method.POST, index, "_update/" + _id, null)
+            RestClient.RestResponse response = makeRestClient(Method.POST, index, "_update/" + _id, null, SMALL_OP_REQUEST_TIMEOUT)
                     .text(objectToJson([doc:documentFragment])).call()
             checkResponse(response, "Update document ${_id}", index)
         }
@@ -314,7 +315,7 @@ class ElasticFacadeImpl implements ElasticFacade {
         void delete(String index, String _id) {
             if (index == null || index.isEmpty()) throw new IllegalArgumentException("In delete document the index name may not be empty")
             if (_id == null || _id.isEmpty()) throw new IllegalArgumentException("In delete document the _id may not be empty")
-            RestClient.RestResponse response = makeRestClient(Method.DELETE, index, "_doc/" + _id, null).call()
+            RestClient.RestResponse response = makeRestClient(Method.DELETE, index, "_doc/" + _id, null, SMALL_OP_REQUEST_TIMEOUT).call()
             if (response.statusCode == 404) {
                 logger.warn("In delete document not found in index ${index} with ID ${_id}")
             } else {
@@ -402,9 +403,13 @@ class ElasticFacadeImpl implements ElasticFacade {
                 // NOTE: this is for partial backwards compatibility for specific scenarios, remove after moqui-elasticsearch deprecate
                 path = esIndexToDdId(index) + "/" + _id
             }
-            RestClient.RestResponse response = makeRestClient(Method.GET, index, path, null).call()
-            checkResponse(response, "Get document ${_id}", index)
-            return (Map) jsonToObject(response.text())
+            RestClient.RestResponse response = makeRestClient(Method.GET, index, path, null, SMALL_OP_REQUEST_TIMEOUT).call()
+            if (response.statusCode == 404) {
+                return null
+            } else {
+                checkResponse(response, "Get document ${_id}", index)
+                return (Map) jsonToObject(response.text())
+            }
         }
         @Override
         Map getSource(String index, String _id) { return (Map) get(index, _id)?._source }
@@ -446,7 +451,7 @@ class ElasticFacadeImpl implements ElasticFacade {
         @Override
         Map validateQuery(String index, Map queryMap, boolean explain) {
             String queryJson = objectToJson([query:queryMap])
-            RestClient.RestResponse response = makeRestClient(Method.GET, index, "_validate/query", explain ? [explain:'true'] : null)
+            RestClient.RestResponse response = makeRestClient(Method.GET, index, "_validate/query", explain ? [explain:'true'] : null, SMALL_OP_REQUEST_TIMEOUT)
                     .text(queryJson).call()
             checkResponse(response, "Validate Query", index)
             String responseText = response.text()
@@ -521,11 +526,14 @@ class ElasticFacadeImpl implements ElasticFacade {
 
         @Override
         RestClient makeRestClient(Method method, String index, String path, Map<String, String> parameters) {
+            return makeRestClient(method, index, path, parameters, null)
+        }
+        RestClient makeRestClient(Method method, String index, String path, Map<String, String> parameters, Integer timeout) {
             // NOTE: don't use logger in this method, with ElasticSearchLogger in place results in infinite log feedback
             String serverIndex = prefixIndexName(index)
             // System.out.println("=== ES call index ${serverIndex} path ${path} parameters ${parameters}")
             RestClient restClient = new RestClient().withRequestFactory(requestFactory).method(method)
-                    .contentType("application/json").timeout(DEFAULT_REQUEST_TIMEOUT)
+                    .contentType("application/json").timeout(timeout != null ? timeout : DEFAULT_REQUEST_TIMEOUT)
             restClient.uri().protocol(clusterProtocol).host(clusterHost).port(clusterPort)
                     .path(serverIndex).path(path).parameters(parameters).build()
             // see https://www.elastic.co/guide/en/elasticsearch/reference/7.4/http-clients.html

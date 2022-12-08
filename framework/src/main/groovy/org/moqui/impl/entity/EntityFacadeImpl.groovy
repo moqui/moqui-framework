@@ -2213,12 +2213,30 @@ class EntityFacadeImpl implements EntityFacade {
         return outVal
     }
 
+    // Entity Field Java Types
+    public static final int ENTITY_STRING = 1
+    public static final int ENTITY_TIMESTAMP = 2
+    public static final int ENTITY_TIME = 3
+    public static final int ENTITY_DATE = 4
+    public static final int ENTITY_INTEGER = 5
+    public static final int ENTITY_LONG = 6
+    public static final int ENTITY_FLOAT = 7
+    public static final int ENTITY_DOUBLE = 8
+    public static final int ENTITY_BIG_DECIMAL = 9
+    public static final int ENTITY_BOOLEAN = 10
+    public static final int ENTITY_OBJECT = 11
+    public static final int ENTITY_BLOB = 12
+    public static final int ENTITY_CLOB = 13
+    public static final int ENTITY_UTIL_DATE = 14
+    public static final int ENTITY_COLLECTION = 15
+
     protected static final Map<String, Integer> fieldTypeIntMap = [
-            "id":1, "id-long":1, "text-indicator":1, "text-short":1, "text-medium":1, "text-intermediate":1, "text-long":1, "text-very-long":1,
-            "date-time":2, "time":3, "date":4,
-            "number-integer":6, "number-float":8,
-            "number-decimal":9, "currency-amount":9, "currency-precise":9,
-            "binary-very-long":12 ]
+            "id":ENTITY_STRING, "id-long":ENTITY_STRING, "text-indicator":ENTITY_STRING, "text-short":ENTITY_STRING,
+            "text-medium":ENTITY_STRING, "text-intermediate":ENTITY_STRING, "text-long":ENTITY_STRING, "text-very-long":ENTITY_STRING,
+            "date-time":ENTITY_TIMESTAMP, "time":ENTITY_TIME, "date":ENTITY_DATE,
+            "number-integer":ENTITY_LONG, "number-float":ENTITY_DOUBLE,
+            "number-decimal":ENTITY_BIG_DECIMAL, "currency-amount":ENTITY_BIG_DECIMAL, "currency-precise":ENTITY_BIG_DECIMAL,
+            "binary-very-long":ENTITY_BLOB ]
     protected static final Map<String, String> fieldTypeJavaMap = [
             "id":"java.lang.String", "id-long":"java.lang.String",
             "text-indicator":"java.lang.String", "text-short":"java.lang.String", "text-medium":"java.lang.String",
@@ -2228,21 +2246,21 @@ class EntityFacadeImpl implements EntityFacade {
             "number-decimal":"java.math.BigDecimal", "currency-amount":"java.math.BigDecimal", "currency-precise":"java.math.BigDecimal",
             "binary-very-long":"java.sql.Blob" ]
     protected static final Map<String, Integer> javaIntTypeMap = [
-            "java.lang.String":1, "String":1, "org.codehaus.groovy.runtime.GStringImpl":1, "char[]":1,
-            "java.sql.Timestamp":2, "Timestamp":2,
-            "java.sql.Time":3, "Time":3,
-            "java.sql.Date":4, "Date":4,
-            "java.lang.Integer":5, "Integer":5,
-            "java.lang.Long":6,"Long":6,
-            "java.lang.Float":7, "Float":7,
-            "java.lang.Double":8, "Double":8,
-            "java.math.BigDecimal":9, "BigDecimal":9,
-            "java.lang.Boolean":10, "Boolean":10,
-            "java.lang.Object":11, "Object":11,
-            "java.sql.Blob":12, "Blob":12, "byte[]":12, "java.nio.ByteBuffer":12, "java.nio.HeapByteBuffer":12,
-            "java.sql.Clob":13, "Clob":13,
-            "java.util.Date":14,
-            "java.util.ArrayList":15, "java.util.HashSet":15, "java.util.LinkedHashSet":15, "java.util.LinkedList":15]
+            "java.lang.String":ENTITY_STRING, "String":ENTITY_STRING, "org.codehaus.groovy.runtime.GStringImpl":ENTITY_STRING, "char[]":ENTITY_STRING,
+            "java.sql.Timestamp":ENTITY_TIMESTAMP, "Timestamp":ENTITY_TIMESTAMP,
+            "java.sql.Time":ENTITY_TIME, "Time":ENTITY_TIME,
+            "java.sql.Date":ENTITY_DATE, "Date":ENTITY_DATE,
+            "java.lang.Integer":ENTITY_INTEGER, "Integer":ENTITY_INTEGER,
+            "java.lang.Long":ENTITY_LONG,"Long":ENTITY_LONG,
+            "java.lang.Float":ENTITY_FLOAT, "Float":ENTITY_FLOAT,
+            "java.lang.Double":ENTITY_DOUBLE, "Double":ENTITY_DOUBLE,
+            "java.math.BigDecimal":ENTITY_BIG_DECIMAL, "BigDecimal":ENTITY_BIG_DECIMAL,
+            "java.lang.Boolean":ENTITY_BOOLEAN, "Boolean":ENTITY_BOOLEAN,
+            "java.lang.Object":ENTITY_OBJECT, "Object":ENTITY_OBJECT,
+            "java.sql.Blob":ENTITY_BLOB, "Blob":ENTITY_BLOB, "byte[]":ENTITY_BLOB, "java.nio.ByteBuffer":ENTITY_BLOB, "java.nio.HeapByteBuffer":ENTITY_BLOB,
+            "java.sql.Clob":ENTITY_CLOB, "Clob":ENTITY_CLOB,
+            "java.util.Date":ENTITY_UTIL_DATE,
+            "java.util.ArrayList":ENTITY_COLLECTION, "java.util.HashSet":ENTITY_COLLECTION, "java.util.LinkedHashSet":ENTITY_COLLECTION, "java.util.LinkedList":ENTITY_COLLECTION]
     static int getJavaTypeInt(String javaType) {
         Integer typeInt = (Integer) javaIntTypeMap.get(javaType)
         if (typeInt == null) throw new EntityException("Java type " + javaType + " not supported for entity fields")

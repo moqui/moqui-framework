@@ -78,46 +78,71 @@ public class ElasticEntityFind extends EntityFindBase {
         EntityDefinition ed = this.getEntityDef();
         if (ed.isViewEntity) throw new EntityException("Multi-entity view entities are not supported, Elastic/OpenSearch does not support joins; single-entity view entities for aggregations are not yet supported (future feature)");
 
+        edf.checkCreateDocumentIndex(ed);
+        ElasticFacade.ElasticClient elasticClient = edf.getElasticClient();
+
         // TODO FUTURE: consider building a JSON string instead of Map/List structure with lots of objects,
         //     will perform better and have way less memory overhead, but code will be a lot more complicated
 
-        // TODO
-        // TODO optimization if we have full PK: use ElasticClient.get()
-        // TODO
-
-        Map<String, Object> searchMap = new LinkedHashMap<>();
-        // query
-        if (whereCondition != null) searchMap.put("query", makeQueryMap(whereCondition));
-        // _source or fields
-        // TODO: use _source or fields to get partial documents, some possible oddness to it: https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-source-field.html
-        // sort with fieldOptionsArray
-        List<Object> sortList = makeSortList(fieldOptionsArray, ed);
-        if (sortList != null) searchMap.put("sort", sortList);
-        // size
-        searchMap.put("size", 1);
-
-        edf.checkCreateDocumentIndex(ed);
-        ElasticFacade.ElasticClient elasticClient = edf.getElasticClient();
-        Map resultMap = elasticClient.search(edf.getIndexName(ed), searchMap);
-        Map hitsMap = (Map) resultMap.get("hits");
-        List hitsList = (List) hitsMap.get("hits");
-
-        if (hitsList != null && hitsList.size() > 0) {
-            Map firstHit = (Map) hitsList.get(0);
-            if (firstHit != null) {
-                Map hitSource = (Map) firstHit.get("_source");
-                ElasticEntityValue newValue = new ElasticEntityValue(ed, efi, edf);
-                LiteStringMap<Object> valueMap = newValue.getValueMap();
-                int size = fieldInfoArray.length;
-                for (int i = 0; i < size; i++) {
-                    FieldInfo fi = fieldInfoArray[i];
-                    if (fi == null) break;
-                    valueMap.putByIString(fi.name, hitSource.get(fi.name), fi.index);
-                }
-                return newValue;
+        // optimization if we have full PK: use ElasticClient.get()
+        if (tempHasFullPk) {
+            // we may have a singleCondField/Value OR simpleAndMap with the PK
+            String combinedId;
+            if (singleCondField != null) {
+                combinedId = singleCondValue.toString();
+            } else {
+                combinedId = ed.getPrimaryKeysString(simpleAndMap);
             }
+            Map dbValue = elasticClient.get(edf.getIndexName(ed), combinedId);
+
+            if (dbValue == null) return null;
+
+            ElasticEntityValue newValue = new ElasticEntityValue(ed, efi, edf);
+            LiteStringMap<Object> valueMap = newValue.getValueMap();
+
+            FieldInfo[] allFieldArray = ed.entityInfo.allFieldInfoArray;
+            for (int j = 0; j < allFieldArray.length; j++) {
+                FieldInfo fi = allFieldArray[j];
+                Object fValue = ElasticDatasourceFactory.convertFieldValue(fi, dbValue.get(fi.name));
+                valueMap.putByIString(fi.name, fValue, fi.index);
+            }
+
+            newValue.setSyncedWithDb();
+            return newValue;
+        } else {
+            Map<String, Object> searchMap = new LinkedHashMap<>();
+            // query
+            if (whereCondition != null) searchMap.put("query", makeQueryMap(whereCondition));
+            // _source or fields
+            // TODO: use _source or fields to get partial documents, some possible oddness to it: https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-source-field.html
+            // sort with fieldOptionsArray
+            List<Object> sortList = makeSortList(fieldOptionsArray, ed);
+            if (sortList != null) searchMap.put("sort", sortList);
+            // size
+            searchMap.put("size", 1);
+
+            Map resultMap = elasticClient.search(edf.getIndexName(ed), searchMap);
+            Map hitsMap = (Map) resultMap.get("hits");
+            List hitsList = (List) hitsMap.get("hits");
+
+            if (hitsList != null && hitsList.size() > 0) {
+                Map firstHit = (Map) hitsList.get(0);
+                if (firstHit != null) {
+                    Map hitSource = (Map) firstHit.get("_source");
+                    ElasticEntityValue newValue = new ElasticEntityValue(ed, efi, edf);
+                    LiteStringMap<Object> valueMap = newValue.getValueMap();
+                    int size = fieldInfoArray.length;
+                    for (int i = 0; i < size; i++) {
+                        FieldInfo fi = fieldInfoArray[i];
+                        if (fi == null) break;
+                        valueMap.putByIString(fi.name, hitSource.get(fi.name), fi.index);
+                    }
+                    newValue.setSyncedWithDb();
+                    return newValue;
+                }
+            }
+            return null;
         }
-        return null;
     }
 
     @Override
