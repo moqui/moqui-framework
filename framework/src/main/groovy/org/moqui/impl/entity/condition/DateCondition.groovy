@@ -45,7 +45,10 @@ class DateCondition implements EntityConditionImplBase, Externalizable {
         hashCodeInternal = createHashCode()
     }
 
-    @Override void makeSqlWhere(EntityQueryBuilder eqb, EntityDefinition subMemberEd) { conditionInternal.makeSqlWhere(eqb, subMemberEd) }
+    @Override void makeSqlWhere(EntityQueryBuilder eqb, EntityDefinition subMemberEd) {
+        conditionInternal.makeSqlWhere(eqb, subMemberEd) }
+    @Override void makeSearchFilter(List<Map<String, Object>> filterList) {
+        conditionInternal.makeSearchFilter(filterList) }
 
     @Override
     void getAllAliases(Set<String> entityAliasSet, Set<String> fieldAliasSet) {

@@ -483,7 +483,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- unless WikiSpace.allowAnyHtml = Y filter the HTML -->
             <if condition="wikiSpace.allowAnyHtml != 'Y' &amp;&amp; wikiType == 'html'">
-                <script>pageText = org.jsoup.Jsoup.clean(pageText, "", org.jsoup.safety.Whitelist.relaxed(), org.moqui.impl.service.ParameterInfo.outputSettings)</script>
+                <script>pageText = org.jsoup.Jsoup.clean(pageText, "", org.jsoup.safety.Safelist.relaxed(), org.moqui.impl.service.ParameterInfo.outputSettings)</script>
             </if>
 
             <!-- do the update, then the move if applicable -->
