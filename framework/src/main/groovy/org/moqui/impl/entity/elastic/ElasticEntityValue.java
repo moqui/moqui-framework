@@ -92,6 +92,7 @@ public class ElasticEntityValue extends EntityValueBase {
         ElasticFacade.ElasticClient elasticClient = edf.getElasticClient();
 
         String combinedId = getPrimaryKeysString();
+        // logger.warn("create elastic combinedId " + combinedId + " valueMapInternal " + valueMapInternal);
         elasticClient.index(edf.getIndexName(ed), combinedId, valueMapInternal);
         setSyncedWithDb();
     }
@@ -134,8 +135,9 @@ public class ElasticEntityValue extends EntityValueBase {
         ElasticFacade.ElasticClient elasticClient = edf.getElasticClient();
 
         String combinedId = getPrimaryKeysString();
-        Map dbValue = elasticClient.get(edf.getIndexName(ed), combinedId);
-
+        Map getResponse = elasticClient.get(edf.getIndexName(ed), combinedId);
+        if (getResponse == null) return false;
+        Map dbValue = (Map) getResponse.get("_source");
         if (dbValue == null) return false;
 
         FieldInfo[] allFieldArray = ed.entityInfo.allFieldInfoArray;

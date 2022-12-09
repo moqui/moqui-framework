@@ -198,7 +198,7 @@ class ElasticSearchLogger {
                 try {
                     // long startTime = System.currentTimeMillis()
                     try {
-                        esLogger.elasticClient.bulkIndex(INDEX_NAME, DOC_TYPE, null, createList)
+                        esLogger.elasticClient.bulkIndex(INDEX_NAME, DOC_TYPE, null, createList, false)
                     } catch (Exception e) {
                         System.out.println("Error logging to ElasticSearch: ${e.toString()}")
                     }

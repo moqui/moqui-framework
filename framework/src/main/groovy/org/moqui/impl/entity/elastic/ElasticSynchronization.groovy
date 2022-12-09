@@ -23,6 +23,7 @@ import javax.transaction.Synchronization
 import javax.transaction.Transaction
 import javax.transaction.xa.XAException
 
+/** NOT YET IMPLEMENTED OR USED, may be used for future Elastic Entity transactional behavior (none so far...) */
 @CompileStatic
 class ElasticSynchronization implements Synchronization {
     protected final static Logger logger = LoggerFactory.getLogger(ElasticSynchronization.class)
@@ -43,6 +44,7 @@ class ElasticSynchronization implements Synchronization {
 
     @Override
     void afterCompletion(int status) {
+        /*
         if (status == Status.STATUS_COMMITTED) {
             try {
                 // TODO database.commit()
@@ -62,5 +64,6 @@ class ElasticSynchronization implements Synchronization {
                 // TODO database.close()
             }
         }
+        */
     }
 }

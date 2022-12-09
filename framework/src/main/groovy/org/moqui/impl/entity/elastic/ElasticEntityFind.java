@@ -49,11 +49,13 @@ public class ElasticEntityFind extends EntityFindBase {
         queryMap.put("bool", boolMap);
         return queryMap;
     }
-    List<Object> makeSortList(EntityJavaUtil.FieldOrderOptions[] fieldOptionsArray, EntityDefinition ed) {
-        if (fieldOptionsArray != null && fieldOptionsArray.length > 0) {
-            List<Object> sortList = new ArrayList<>(fieldOptionsArray.length);
-            for (int i = 0; i < fieldOptionsArray.length; i++) {
-                EntityJavaUtil.FieldOrderOptions foo = fieldOptionsArray[i];
+    List<Object> makeSortList(ArrayList<String> orderByExpanded, EntityDefinition ed) {
+        int orderByExpandedSize = orderByExpanded != null ? orderByExpanded.size() : 0;
+        if (orderByExpandedSize > 0) {
+            List<Object> sortList = new ArrayList<>(orderByExpandedSize);
+            for (int i = 0; i < orderByExpandedSize; i++) {
+                String sortField = orderByExpanded.get(i);
+                EntityJavaUtil.FieldOrderOptions foo = new EntityJavaUtil.FieldOrderOptions(sortField);
                 // to make this more fun, need to look for fields which have: keyword child field, text with no keyword (can't sort)
                 String fieldName = foo.getFieldName();
                 FieldInfo fi = ed.getFieldInfo(fieldName);
@@ -67,6 +69,7 @@ public class ElasticEntityFind extends EntityFindBase {
                     sortList.add(fieldName);
                 }
             }
+            // logger.warn("new sortList " + sortList + " from orderBy " + orderByExpanded);
             return sortList;
         }
         return null;
@@ -93,8 +96,9 @@ public class ElasticEntityFind extends EntityFindBase {
             } else {
                 combinedId = ed.getPrimaryKeysString(simpleAndMap);
             }
-            Map dbValue = elasticClient.get(edf.getIndexName(ed), combinedId);
-
+            Map getResponse = elasticClient.get(edf.getIndexName(ed), combinedId);
+            if (getResponse == null) return null;
+            Map dbValue = (Map) getResponse.get("_source");
             if (dbValue == null) return null;
 
             ElasticEntityValue newValue = new ElasticEntityValue(ed, efi, edf);
@@ -115,12 +119,10 @@ public class ElasticEntityFind extends EntityFindBase {
             if (whereCondition != null) searchMap.put("query", makeQueryMap(whereCondition));
             // _source or fields
             // TODO: use _source or fields to get partial documents, some possible oddness to it: https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-source-field.html
-            // sort with fieldOptionsArray
-            List<Object> sortList = makeSortList(fieldOptionsArray, ed);
-            if (sortList != null) searchMap.put("sort", sortList);
             // size
             searchMap.put("size", 1);
 
+            logger.warn("find one elastic searchMap " + searchMap);
             Map resultMap = elasticClient.search(edf.getIndexName(ed), searchMap);
             Map hitsMap = (Map) resultMap.get("hits");
             List hitsList = (List) hitsMap.get("hits");
@@ -159,11 +161,14 @@ public class ElasticEntityFind extends EntityFindBase {
 
         Map<String, Object> searchMap = new LinkedHashMap<>();
         // query
-        if (whereCondition != null) searchMap.put("query", makeQueryMap(whereCondition));
+        Map queryMap = whereCondition != null ? makeQueryMap(whereCondition) : null;
+        if (queryMap == null || queryMap.isEmpty())
+            queryMap = CollectionUtilities.toHashMap("match_all", Collections.EMPTY_MAP);
+        searchMap.put("query", queryMap);
         // _source or fields
         // TODO: use _source or fields to get partial documents, some possible oddness to it: https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-source-field.html
         // sort with fieldOptionsArray
-        List<Object> sortList = makeSortList(fieldOptionsArray, ed);
+        List<Object> sortList = makeSortList(orderByExpanded, ed);
         if (sortList == null) {
             // if no sort, sort by PK fields by default (for pagination over large queries a sort order is always required)
             sortList = new LinkedList<>();
@@ -181,8 +186,8 @@ public class ElasticEntityFind extends EntityFindBase {
 
         edf.checkCreateDocumentIndex(ed);
 
-        return new ElasticEntityListIterator(searchMap, ed, fieldInfoArray, edf, txCache,
-                whereCondition, orderByExpanded, fieldOptionsArray);
+        return new ElasticEntityListIterator(searchMap, ed, fieldInfoArray, fieldOptionsArray, edf, txCache,
+                whereCondition, orderByExpanded);
     }
 
     @Override
@@ -198,6 +203,7 @@ public class ElasticEntityFind extends EntityFindBase {
         Map<String, Object> countMap = new LinkedHashMap<>();
         // query
         if (whereCondition != null) countMap.put("query", makeQueryMap(whereCondition));
+        // NOTE: if no where condition don't need to add default all query map, ElasticClient.countResponse() does this (used by count())
 
         edf.checkCreateDocumentIndex(ed);
         ElasticFacade.ElasticClient elasticClient = edf.getElasticClient();

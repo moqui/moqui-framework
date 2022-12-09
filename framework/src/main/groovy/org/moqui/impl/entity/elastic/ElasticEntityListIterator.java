@@ -62,9 +62,10 @@ public class ElasticEntityListIterator implements EntityListIterator {
     private StackTraceElement[] constructStack = null;
     private final ArrayList<ArtifactExecutionInfo> artifactStack;
 
-    public ElasticEntityListIterator(Map<String, Object> searchMap, EntityDefinition entityDefinition, FieldInfo[] fieldInfoArray,
+    public ElasticEntityListIterator(Map<String, Object> searchMap, EntityDefinition entityDefinition,
+            FieldInfo[] fieldInfoArray, EntityJavaUtil.FieldOrderOptions[] fieldOptionsArray,
             ElasticDatasourceFactory edf, TransactionCache txCache, EntityConditionImplBase whereCondition,
-            ArrayList<String> obf, EntityJavaUtil.FieldOrderOptions[] fieldOptionsArray) {
+            ArrayList<String> obf) {
         this.edf = edf;
         this.efi = edf.efi;
         this.originalSearchMap = searchMap;
@@ -268,6 +269,18 @@ public class ElasticEntityListIterator implements EntityListIterator {
         throw new BaseArtifactException("ElasticEntityListIterator.fetchPrevious() TODO");
     }
 
+    boolean hasCurrentValue() {
+        // if the numbers are such that we have a result (after a fetchPrevious() if needed) then return true
+        return overallIndex >= currentListStartIndex && overallIndex < (currentListStartIndex + currentDocList.size());
+    }
+    void resetCurrentList() {
+        // TODO: given multi-fetch space in the current list this could be optimized to avoid future fetch if currentListStartIndex < CUR_LIST_MAX_SIZE
+        if (currentListStartIndex > 0) {
+            currentListStartIndex = -1;
+            currentDocList.clear();
+            esSearchAfter = null;
+        }
+    }
 
     @Override public void close() {
         if (this.closed) {
@@ -293,19 +306,6 @@ public class ElasticEntityListIterator implements EntityListIterator {
         txcListIndex = -1;
         overallIndex = -1;
         resetCurrentList();
-    }
-
-    boolean hasCurrentValue() {
-        // if the numbers are such that we have a result (after a fetchPrevious() if needed) then return true
-        return overallIndex >= currentListStartIndex && overallIndex < (currentListStartIndex + currentDocList.size());
-    }
-    void resetCurrentList() {
-        // TODO: given multi-fetch space in the current list this could be optimized to avoid future fetch if currentListStartIndex < CUR_LIST_MAX_SIZE
-        if (currentListStartIndex > 0) {
-            currentListStartIndex = -1;
-            currentDocList.clear();
-            esSearchAfter = null;
-        }
     }
 
     @Override public boolean last() {
@@ -359,13 +359,25 @@ public class ElasticEntityListIterator implements EntityListIterator {
     }
 
     @Override public int currentIndex() {
+        // NOTE: add one because this is based on the JDBC ResultSet object which is 1 based
         return overallIndex + txcListIndex + 1;
     }
     @Override public boolean absolute(final int rowNum) {
-        throw new BaseArtifactException("ElasticEntityListIterator.absolute() not currently supported");
         // TODO: somehow implement this for txcList? would need to know how many rows after last we tried to go
-        // if (txcListSize > 0) throw new EntityException("Cannot go to absolute row number when transaction cache is in place and there are augmenting creates; disable the tx cache before this operation");
-        // return rs.absolute(rowNum);
+        if (txcListSize > 0) throw new EntityException("Cannot go to absolute row number when transaction cache is in place and there are augmenting creates; disable the tx cache before this operation");
+
+        // subtract 1 to convet to zero based index
+        int internalIndex = rowNum - 1;
+        if (internalIndex >= currentListStartIndex && internalIndex < (currentListStartIndex + currentDocList.size())) {
+            overallIndex = internalIndex;
+        } else {
+            txcListIndex = -1;
+            overallIndex = internalIndex;
+            resetCurrentList();
+            fetchNext();
+        }
+
+        return hasCurrentValue();
     }
     @Override public boolean relative(final int rows) {
         throw new BaseArtifactException("ElasticEntityListIterator.relative() not currently supported");

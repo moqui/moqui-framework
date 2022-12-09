@@ -337,10 +337,10 @@ class ElasticFacadeImpl implements ElasticFacade {
         void bulk(String index, List<Map> actionSourceList) {
             if (actionSourceList == null || actionSourceList.size() == 0) return
 
-            RestClient.RestResponse response = bulkResponse(index, actionSourceList)
+            RestClient.RestResponse response = bulkResponse(index, actionSourceList, false)
             checkResponse(response, "Bulk operations", index)
         }
-        RestClient.RestResponse bulkResponse(String index, List<Map> actionSourceList) {
+        RestClient.RestResponse bulkResponse(String index, List<Map> actionSourceList, boolean refresh) {
             // NOTE: don't use logger in this method, with ElasticSearchLogger in place results in infinite log feedback
             if (actionSourceList == null || actionSourceList.size() == 0) return null
 
@@ -357,7 +357,8 @@ class ElasticFacadeImpl implements ElasticFacade {
                 jacksonMapper.writeValue(bodyWriter, entry)
                 bodyWriter.append((char) '\n')
             }
-            RestClient restClient = makeRestClient(Method.POST, index, "_bulk", null).contentType("application/x-ndjson")
+            RestClient restClient = makeRestClient(Method.POST, index, "_bulk", [refresh:(refresh ? "true" : "wait_for")])
+                    .contentType("application/x-ndjson")
             restClient.timeout(600)
             restClient.text(bodyWriter.toString())
             // System.out.println("Bulk:\n${bodyWriter.toString()}")
@@ -368,8 +369,8 @@ class ElasticFacadeImpl implements ElasticFacade {
         }
 
         @Override
-        void bulkIndex(String index, String idField, List<Map> documentList) { bulkIndex(index, null, idField, documentList) }
-        void bulkIndex(String index, String docType, String idField, List<Map> documentList) {
+        void bulkIndex(String index, String idField, List<Map> documentList) { bulkIndex(index, null, idField, documentList, false) }
+        void bulkIndex(String index, String docType, String idField, List<Map> documentList, boolean refresh) {
             List<Map> actionSourceList = new ArrayList<>(documentList.size() * 2)
             boolean hasId = idField != null && !idField.isEmpty()
             int loopIdx = 0
@@ -390,7 +391,9 @@ class ElasticFacadeImpl implements ElasticFacade {
                 actionSourceList.add(document)
                 loopIdx++
             }
-            bulk(index, actionSourceList)
+
+            RestClient.RestResponse response = bulkResponse(index, actionSourceList, refresh)
+            checkResponse(response, "Bulk operations", index)
         }
 
         @Override
@@ -471,6 +474,8 @@ class ElasticFacadeImpl implements ElasticFacade {
         }
         @Override
         Map countResponse(String index, Map countMap) {
+            if (countMap == null || countMap.isEmpty()) countMap = [query:[match_all:[:]]]
+            // System.out.println("Count Request index ${index} ${countMap}")
             RestClient.RestResponse response = makeRestClient(Method.GET, index, "_count", null)
                     .text(objectToJson(countMap)).call()
             // System.out.println("Count Response: ${response.statusCode} ${response.reasonPhrase}\n${response.text()}")
@@ -644,7 +649,7 @@ class ElasticFacadeImpl implements ElasticFacade {
                 if (curBulkDocs >= docsPerBulk) {
                     // logger.info("Bulk index batch ${batchCount}, cur docs ${curBulkDocs} of ${docListSize}, last index ${esIndexName} (for index ${_index} type ${_type})")
                     // logger.warn("last document: ${document}")
-                    RestClient.RestResponse response = bulkResponse(null, actionSourceList)
+                    RestClient.RestResponse response = bulkResponse(null, actionSourceList, false)
                     if (response.statusCode < 200 || response.statusCode >= 300) {
                         checkResponse(response, "Bulk index", null)
                         curBulkDocs = 0
@@ -666,7 +671,7 @@ class ElasticFacadeImpl implements ElasticFacade {
             }
             if (curBulkDocs > 0) {
                 // logger.info("Bulk index last, cur docs ${curBulkDocs} of ${docListSize}, last index ${esIndexName} (for index ${_index} type ${_type})")
-                RestClient.RestResponse response = bulkResponse(null, actionSourceList)
+                RestClient.RestResponse response = bulkResponse(null, actionSourceList, false)
                 checkResponse(response, "Bulk index", null)
 
                 /* don't support getting versions any more, generally waste of resources:

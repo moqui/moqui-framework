@@ -172,7 +172,7 @@ public class EntityJavaUtil {
         public boolean getDescending() { return descending; }
         Boolean getCaseUpperLower() { return caseUpperLower; }
 
-        FieldOrderOptions(String orderByName) {
+        public FieldOrderOptions(String orderByName) {
             StringBuilder fnSb = new StringBuilder(40);
             // simple first parse pass, single run through and as fast as possible
             boolean containsSpace = false;

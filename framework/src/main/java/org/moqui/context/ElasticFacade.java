@@ -63,6 +63,7 @@ public interface ElasticFacade {
         void bulk(String index, List<Map> actionSourceList);
         /** Bulk index documents with given index name and _id from the idField in each document (if idField empty don't specify ID, let ES generate) */
         void bulkIndex(String index, String idField, List<Map> documentList);
+        void bulkIndex(String index, String docType, String idField, List<Map> documentList, boolean refresh);
 
         /** Get full/wrapped single document by ID. See https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-get.html */
         Map get(String index, String _id);

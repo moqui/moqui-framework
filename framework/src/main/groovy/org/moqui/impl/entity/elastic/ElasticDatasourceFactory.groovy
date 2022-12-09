@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory
 
 import javax.sql.DataSource
 import javax.xml.bind.DatatypeConverter
+import java.sql.Time
 import java.sql.Timestamp
 
 /**
@@ -134,7 +135,7 @@ class ElasticDatasourceFactory implements EntityDatasourceFactory {
         FieldInfo[] pkFieldInfos = ed.entityInfo.pkFieldInfoArray
         String idField = pkFieldInfos.length == 1 ? pkFieldInfos[0].name : "_id"
 
-        List<Map> mapList = new ArrayList<>(valueList.size())
+        List<Map> mapList = new ArrayList<Map>(valueList.size())
         Iterator<EntityValue> valueIterator = valueList.iterator()
         while (valueIterator.hasNext()) {
             EntityValueBase ev = (EntityValueBase) valueIterator.next()
@@ -146,7 +147,7 @@ class ElasticDatasourceFactory implements EntityDatasourceFactory {
         }
 
         checkCreateDocumentIndex(ed)
-        elasticClient.bulkIndex(getIndexName(ed), idField, mapList)
+        elasticClient.bulkIndex(getIndexName(ed), (String) null, idField, (List<Map>) mapList, true)
     }
 
     @Override
@@ -182,8 +183,21 @@ class ElasticDatasourceFactory implements EntityDatasourceFactory {
                 Calendar cal = DatatypeConverter.parseDateTime(fValue.toString())
                 if (cal != null) return new Timestamp(cal.getTimeInMillis())
             }
+        } else if (fi.typeValue == EntityFacadeImpl.ENTITY_DATE) {
+            if (fValue instanceof Number) {
+                return new java.sql.Date(((Number) fValue).longValue())
+            } else if (fValue instanceof CharSequence) {
+                Calendar cal = DatatypeConverter.parseDate(fValue.toString())
+                if (cal != null) return new java.sql.Date(cal.getTimeInMillis())
+            }
+        } else if (fi.typeValue == EntityFacadeImpl.ENTITY_TIME) {
+            if (fValue instanceof Number) {
+                return new Time(((Number) fValue).longValue())
+            } else if (fValue instanceof CharSequence) {
+                Calendar cal = DatatypeConverter.parseTime(fValue.toString())
+                if (cal != null) return new Time(cal.getTimeInMillis())
+            }
         }
-        // TODO: other types need a bit of handling?
         return fValue
     }
 
