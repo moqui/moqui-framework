@@ -76,6 +76,10 @@ class FieldToFieldCondition implements EntityConditionImplBase {
         }
         if (ignoreCase && toTypeValue == 1) sql.append(")")
     }
+    @Override
+    void makeSearchFilter(List<Map<String, Object>> filterList) {
+        // TODO
+    }
 
     @Override
     boolean mapMatches(Map<String, Object> map) {

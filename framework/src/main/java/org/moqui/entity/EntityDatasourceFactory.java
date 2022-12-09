@@ -14,8 +14,8 @@
 package org.moqui.entity;
 
 import org.moqui.util.MNode;
-
 import javax.sql.DataSource;
+import java.util.List;
 
 public interface EntityDatasourceFactory {
     EntityDatasourceFactory init(EntityFacade ef, MNode datasourceNode);
@@ -25,6 +25,7 @@ public interface EntityDatasourceFactory {
     int checkAndAddAllTables();
     EntityValue makeEntityValue(String entityName);
     EntityFind makeEntityFind(String entityName);
+    void createBulk(List<EntityValue> valueList);
 
     /** Return the JDBC DataSource, if applicable. Return null if no JDBC DataSource exists for this Entity Datasource. */
     DataSource getDataSource();
