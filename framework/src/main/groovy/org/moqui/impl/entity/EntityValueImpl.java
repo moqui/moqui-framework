@@ -57,56 +57,53 @@ public class EntityValueImpl extends EntityValueBase {
     public void createExtended(FieldInfo[] fieldInfoArray, Connection con) throws SQLException {
         EntityDefinition ed = getEntityDefinition();
         EntityFacadeImpl efi = getEntityFacadeImpl();
+        if (ed.isViewEntity) throw new EntityException("Create not yet implemented for view-entity");
 
-        if (ed.isViewEntity) {
-            throw new EntityException("Create not yet implemented for view-entity");
-        } else {
-            EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi);
-            StringBuilder sql = eqb.sqlTopLevel;
-            sql.append("INSERT INTO ").append(ed.getFullTableName()).append(" (");
+        EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi);
+        StringBuilder sql = eqb.sqlTopLevel;
+        sql.append("INSERT INTO ").append(ed.getFullTableName()).append(" (");
 
-            int size = fieldInfoArray.length;
-            StringBuilder values = new StringBuilder(size*3);
+        int size = fieldInfoArray.length;
+        StringBuilder values = new StringBuilder(size*3);
 
+        for (int i = 0; i < size; i++) {
+            FieldInfo fieldInfo = fieldInfoArray[i];
+            if (fieldInfo == null) break;
+            if (i > 0) {
+                sql.append(", ");
+                values.append(", ");
+            }
+
+            sql.append(fieldInfo.getFullColumnName());
+            values.append("?");
+        }
+
+        sql.append(") VALUES (").append(values.toString()).append(")");
+
+        try {
+            efi.getEntityDbMeta().checkTableRuntime(ed);
+
+            if (con != null) eqb.useConnection(con);
+            else eqb.makeConnection(false);
+            eqb.makePreparedStatement();
             for (int i = 0; i < size; i++) {
                 FieldInfo fieldInfo = fieldInfoArray[i];
                 if (fieldInfo == null) break;
-                if (i > 0) {
-                    sql.append(", ");
-                    values.append(", ");
-                }
-
-                sql.append(fieldInfo.getFullColumnName());
-                values.append("?");
+                eqb.setPreparedStatementValue(i + 1, valueMapInternal.getByIString(fieldInfo.name, fieldInfo.index), fieldInfo);
             }
 
-            sql.append(") VALUES (").append(values.toString()).append(")");
-
-            try {
-                efi.getEntityDbMeta().checkTableRuntime(ed);
-
-                if (con != null) eqb.useConnection(con);
-                else eqb.makeConnection(false);
-                eqb.makePreparedStatement();
-                for (int i = 0; i < size; i++) {
-                    FieldInfo fieldInfo = fieldInfoArray[i];
-                    if (fieldInfo == null) break;
-                    eqb.setPreparedStatementValue(i + 1, valueMapInternal.getByIString(fieldInfo.name, fieldInfo.index), fieldInfo);
-                }
-
-                // if (ed.entityName == "Subscription") logger.warn("Create ${this.toString()} tx ${efi.getEcfi().transaction.getTransactionManager().getTransaction()} con ${eqb.connection}")
-                eqb.executeUpdate();
-                setSyncedWithDb();
-            } catch (SQLException e) {
-                String txName = "[could not get]";
-                try { txName = efi.ecfi.transactionFacade.getTransactionManager().getTransaction().toString(); }
-                catch (Exception txe) { if (logger.isTraceEnabled()) logger.trace("Error getting transaction name: " + txe.toString()); }
-                logger.warn("Error creating " + this.toString() + " tx " + txName + " con " + eqb.connection.toString() + ": " + e.toString());
-                throw e;
-            } finally {
-                try { eqb.closeAll(); }
-                catch (SQLException sqle) { logger.error("Error in JDBC close in create of " + this.toString(), sqle); }
-            }
+            // if (ed.entityName == "Subscription") logger.warn("Create ${this.toString()} tx ${efi.getEcfi().transaction.getTransactionManager().getTransaction()} con ${eqb.connection}")
+            eqb.executeUpdate();
+            setSyncedWithDb();
+        } catch (SQLException e) {
+            String txName = "[could not get]";
+            try { txName = efi.ecfi.transactionFacade.getTransactionManager().getTransaction().toString(); }
+            catch (Exception txe) { if (logger.isTraceEnabled()) logger.trace("Error getting transaction name: " + txe.toString()); }
+            logger.warn("Error creating " + this.toString() + " tx " + txName + " con " + eqb.connection.toString() + ": " + e.toString());
+            throw e;
+        } finally {
+            try { eqb.closeAll(); }
+            catch (SQLException sqle) { logger.error("Error in JDBC close in create of " + this.toString(), sqle); }
         }
     }
 
@@ -115,48 +112,45 @@ public class EntityValueImpl extends EntityValueBase {
     public void updateExtended(FieldInfo[] pkFieldArray, FieldInfo[] nonPkFieldArray, Connection con) throws SQLException {
         EntityDefinition ed = getEntityDefinition();
         final EntityFacadeImpl efi = getEntityFacadeImpl();
+        if (ed.isViewEntity) throw new EntityException("Update not yet implemented for view-entity");
 
-        if (ed.isViewEntity) {
-            throw new EntityException("Update not yet implemented for view-entity");
-        } else {
-            final EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi);
-            ArrayList<EntityConditionParameter> parameters = eqb.parameters;
-            StringBuilder sql = eqb.sqlTopLevel;
-            sql.append("UPDATE ").append(ed.getFullTableName()).append(" SET ");
+        final EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi);
+        ArrayList<EntityConditionParameter> parameters = eqb.parameters;
+        StringBuilder sql = eqb.sqlTopLevel;
+        sql.append("UPDATE ").append(ed.getFullTableName()).append(" SET ");
 
-            int size = nonPkFieldArray.length;
-            for (int i = 0; i < size; i++) {
-                FieldInfo fieldInfo = nonPkFieldArray[i];
-                if (fieldInfo == null) break;
-                if (i > 0) sql.append(", ");
-                sql.append(fieldInfo.getFullColumnName()).append("=?");
-                parameters.add(new EntityConditionParameter(fieldInfo, valueMapInternal.getByIString(fieldInfo.name, fieldInfo.index), eqb));
-            }
+        int size = nonPkFieldArray.length;
+        for (int i = 0; i < size; i++) {
+            FieldInfo fieldInfo = nonPkFieldArray[i];
+            if (fieldInfo == null) break;
+            if (i > 0) sql.append(", ");
+            sql.append(fieldInfo.getFullColumnName()).append("=?");
+            parameters.add(new EntityConditionParameter(fieldInfo, valueMapInternal.getByIString(fieldInfo.name, fieldInfo.index), eqb));
+        }
 
-            eqb.addWhereClause(pkFieldArray, valueMapInternal);
+        eqb.addWhereClause(pkFieldArray, valueMapInternal);
 
-            try {
-                efi.getEntityDbMeta().checkTableRuntime(ed);
+        try {
+            efi.getEntityDbMeta().checkTableRuntime(ed);
 
-                if (con != null) eqb.useConnection(con);
-                else eqb.makeConnection(false);
-                eqb.makePreparedStatement();
-                eqb.setPreparedStatementValues();
+            if (con != null) eqb.useConnection(con);
+            else eqb.makeConnection(false);
+            eqb.makePreparedStatement();
+            eqb.setPreparedStatementValues();
 
-                // if (ed.entityName == "Subscription") logger.warn("Update ${this.toString()} tx ${efi.getEcfi().transaction.getTransactionManager().getTransaction()} con ${eqb.connection}")
-                if (eqb.executeUpdate() == 0)
-                    throw new EntityException("Tried to update a value that does not exist [" + this.toString() + "]. SQL used was " + eqb.sqlTopLevel.toString() + ", parameters were " + eqb.parameters.toString());
-                setSyncedWithDb();
-            } catch (SQLException e) {
-                String txName = "[could not get]";
-                try { txName = efi.ecfi.transactionFacade.getTransactionManager().getTransaction().toString(); }
-                catch (Exception txe) { if (logger.isTraceEnabled()) logger.trace("Error getting transaction name: " + txe.toString()); }
-                logger.warn("Error updating " + this.toString() + " tx " + txName + " con " + eqb.connection.toString() + ": " + e.toString());
-                throw e;
-            } finally {
-                try { eqb.closeAll(); }
-                catch (SQLException sqle) { logger.error("Error in JDBC close in update of " + this.toString(), sqle); }
-            }
+            // if (ed.entityName == "Subscription") logger.warn("Update ${this.toString()} tx ${efi.getEcfi().transaction.getTransactionManager().getTransaction()} con ${eqb.connection}")
+            if (eqb.executeUpdate() == 0)
+                throw new EntityException("Tried to update a value that does not exist [" + this.toString() + "]. SQL used was " + eqb.sqlTopLevel.toString() + ", parameters were " + eqb.parameters.toString());
+            setSyncedWithDb();
+        } catch (SQLException e) {
+            String txName = "[could not get]";
+            try { txName = efi.ecfi.transactionFacade.getTransactionManager().getTransaction().toString(); }
+            catch (Exception txe) { if (logger.isTraceEnabled()) logger.trace("Error getting transaction name: " + txe.toString()); }
+            logger.warn("Error updating " + this.toString() + " tx " + txName + " con " + eqb.connection.toString() + ": " + e.toString());
+            throw e;
+        } finally {
+            try { eqb.closeAll(); }
+            catch (SQLException sqle) { logger.error("Error in JDBC close in update of " + this.toString(), sqle); }
         }
     }
 
@@ -165,35 +159,32 @@ public class EntityValueImpl extends EntityValueBase {
     public void deleteExtended(Connection con) throws SQLException {
         EntityDefinition ed = getEntityDefinition();
         EntityFacadeImpl efi = getEntityFacadeImpl();
+        if (ed.isViewEntity) throw new EntityException("Delete not implemented for view-entity");
 
-        if (ed.isViewEntity) {
-            throw new EntityException("Delete not implemented for view-entity");
-        } else {
-            EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi);
-            StringBuilder sql = eqb.sqlTopLevel;
-            sql.append("DELETE FROM ").append(ed.getFullTableName());
+        EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi);
+        StringBuilder sql = eqb.sqlTopLevel;
+        sql.append("DELETE FROM ").append(ed.getFullTableName());
 
-            FieldInfo[] pkFieldArray = ed.entityInfo.pkFieldInfoArray;
-            eqb.addWhereClause(pkFieldArray, valueMapInternal);
+        FieldInfo[] pkFieldArray = ed.entityInfo.pkFieldInfoArray;
+        eqb.addWhereClause(pkFieldArray, valueMapInternal);
 
-            try {
-                efi.getEntityDbMeta().checkTableRuntime(ed);
+        try {
+            efi.getEntityDbMeta().checkTableRuntime(ed);
 
-                if (con != null) eqb.useConnection(con);
-                else eqb.makeConnection(false);
-                eqb.makePreparedStatement();
-                eqb.setPreparedStatementValues();
-                if (eqb.executeUpdate() == 0) logger.info("Tried to delete a value that does not exist " + this.toString());
-            } catch (SQLException e) {
-                String txName = "[could not get]";
-                try { txName = efi.ecfi.transactionFacade.getTransactionManager().getTransaction().toString(); }
-                catch (Exception txe) { if (logger.isTraceEnabled()) logger.trace("Error getting transaction name: " + txe.toString()); }
-                logger.warn("Error deleting " + this.toString() + " tx " + txName + " con " + eqb.connection.toString() + ": " + e.toString());
-                throw e;
-            } finally {
-                try { eqb.closeAll(); }
-                catch (SQLException sqle) { logger.error("Error in JDBC close in delete of " + this.toString(), sqle); }
-            }
+            if (con != null) eqb.useConnection(con);
+            else eqb.makeConnection(false);
+            eqb.makePreparedStatement();
+            eqb.setPreparedStatementValues();
+            if (eqb.executeUpdate() == 0) logger.info("Tried to delete a value that does not exist " + this.toString());
+        } catch (SQLException e) {
+            String txName = "[could not get]";
+            try { txName = efi.ecfi.transactionFacade.getTransactionManager().getTransaction().toString(); }
+            catch (Exception txe) { if (logger.isTraceEnabled()) logger.trace("Error getting transaction name: " + txe.toString()); }
+            logger.warn("Error deleting " + this.toString() + " tx " + txName + " con " + eqb.connection.toString() + ": " + e.toString());
+            throw e;
+        } finally {
+            try { eqb.closeAll(); }
+            catch (SQLException sqle) { logger.error("Error in JDBC close in delete of " + this.toString(), sqle); }
         }
     }
 

@@ -28,6 +28,10 @@ public class TrueCondition implements EntityConditionImplBase {
     public TrueCondition() { }
 
     @Override public void makeSqlWhere(EntityQueryBuilder eqb, EntityDefinition subMemberEd) { eqb.sqlTopLevel.append("1=1"); }
+    @Override
+    public void makeSearchFilter(List<Map<String, Object>> filterList) {
+        // TODO how would this work in ES?
+    }
 
     @Override public boolean mapMatches(Map<String, Object> map) { return true; }
     @Override public boolean mapMatchesAny(Map<String, Object> map) { return true; }

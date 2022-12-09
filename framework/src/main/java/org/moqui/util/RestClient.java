@@ -58,7 +58,8 @@ public class RestClient {
     // NOTE: there is no constant on HttpServletResponse for 429; see RFC 6585 for details
     public static final int TOO_MANY = 429;
 
-    private static final EnumSet<Method> BODY_METHODS = EnumSet.of(Method.GET, Method.PATCH, Method.POST, Method.PUT);
+    // NOTE: DELETE doesn't normally support a body, but some APIs use it
+    private static final EnumSet<Method> BODY_METHODS = EnumSet.of(Method.GET, Method.PATCH, Method.POST, Method.PUT, Method.DELETE);
     private static final Logger logger = LoggerFactory.getLogger(RestClient.class);
 
     // Default RequestFactory (avoid new per request)
@@ -309,6 +310,8 @@ public class RestClient {
         RequestFactory tempFactory = this.isolate ? new SimpleRequestFactory() : null;
         try {
             Request request = makeRequest(tempFactory != null ? tempFactory : (overrideRequestFactory != null ? overrideRequestFactory : getDefaultRequestFactory()));
+            if (timeoutSeconds < 2) timeoutSeconds = 2;
+            request.idleTimeout(timeoutSeconds > 30 ? 30 : timeoutSeconds-1, TimeUnit.SECONDS);
             // use a FutureResponseListener so we can set the timeout and max response size (old: response = request.send(); )
             FutureResponseListener listener = new FutureResponseListener(request, maxResponseSize);
             try {

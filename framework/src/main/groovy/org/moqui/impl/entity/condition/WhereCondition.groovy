@@ -31,6 +31,10 @@ class WhereCondition implements EntityConditionImplBase {
     }
 
     @Override void makeSqlWhere(EntityQueryBuilder eqb, EntityDefinition subMemberEd) { eqb.sqlTopLevel.append(this.sqlWhereClause) }
+    @Override
+    public void makeSearchFilter(List<Map<String, Object>> filterList) {
+        throw new IllegalArgumentException("Where Condition not supported for Elastic Entity")
+    }
 
     @Override
     boolean mapMatches(Map<String, Object> map) {
