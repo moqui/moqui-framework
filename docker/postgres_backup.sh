@@ -1,13 +1,15 @@
 #!/bin/bash
 
 # This is a simple script to do a rotating backup of PostgreSQL (default once per day, retain 30 days)
+# For a complete backup solution these backup files would be copied to a remote site, potentially with a different retention pattern
 
 # Database info
 user="moqui"
 host="localhost"
 db_name="moqui"
 # Other options
-backup_path="./pgbackups"
+# a full path from root should be used for backup_path or there will be issues running via crontab
+backup_path="/opt/pgbackups"
 date=$(date +"%Y%m%d")
 backup_file=$backup_path/$db_name-$date.sql.gz
 
@@ -32,5 +34,5 @@ find $backup_path/*.sql.gz -mtime +30 -exec rm {} \;
 # gunzip < $backup_file | psql -h localhost -p 5432 -U moqui -w moqui-test
 # docker start moqui-test
 
-# example for crontab (safe edit using: 'crontab -e'), each day at midnight: 00 00 * * * /home/moqui/pgbackup.sh
+# example for crontab (safe edit using: 'crontab -e'), each day at midnight: 00 00 * * * /opt/moqui/postgres_backup.sh
 
