@@ -1,0 +1,92 @@
+# A Docker Compose application with Moqui, Postgres, OpenSearch, OpenSearch Dashboards, and virtual hosting through
+# nginx-proxy supporting multiple moqui instances on different hostnames.
+
+# Run with something like this for detached mode:
+# $ docker compose -f postgres-compose.yml -p moqui up -d
+# Or to copy runtime directories for mounted volumes, set default settings, etc use something like this:
+# $ ./compose-run.sh postgres-compose.yml
+# This sets the project/app name to 'moqui' and the network will be 'moqui_default', to be used by external moqui containers
+
+# Test locally by adding the virtual host to /etc/hosts or with something like:
+# $ curl -H "Host: moqui.local" localhost/Login
+
+# To run an additional instance of moqui run something like this (but with
+# many more arguments for volume mapping, db setup, etc):
+# $ docker run -e VIRTUAL_HOST=moqui2.local --name moqui2_local --network moqui_default moqui
+
+# To import data from the docker host using port 5432 mapped for 127.0.0.1 only use something like this:
+# $ psql -h 127.0.0.1 -p 5432 -U moqui -W moqui < pg-dump.sql
+
+version: "2"
+services:
+  nginx-proxy:
+    # For documentation on SSL and other settings see:
+    # https://github.com/jwilder/nginx-proxy
+    image: jwilder/nginx-proxy
+    container_name: nginx-proxy
+    restart: always
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      # note: .crt, .key, and .dhparam.pem files start with the domain name in VIRTUAL_HOST (ie 'moqui.local.*') or use CERT_NAME env var
+      - ./certs:/etc/nginx/certs
+      - ./nginx/my_proxy.conf:/etc/nginx/conf.d/my_proxy.conf
+    environment:
+      # use SSL_POLICY to disable TLSv1.0, etc in nginx-proxy
+      - SSL_POLICY=AWS-TLS-1-1-2017-01
+
+  moqui-database:
+    image: postgres:14.5
+    container_name: moqui-database
+    restart: always
+    ports:
+      # change this as needed to bind to any address or even comment to not expose port outside containers
+      - 127.0.0.1:5432:5432
+    volumes:
+      # edit these as needed to map configuration and data storage
+      - ./db/postgres/data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=moqui
+      - POSTGRES_DB_SCHEMA=public
+      - POSTGRES_USER=moqui
+      - POSTGRES_PASSWORD=moqui
+      # PGDATA, POSTGRES_INITDB_ARGS
+
+  moqui-search:
+    image: opensearchproject/opensearch:2.4.0
+    container_name: moqui-search
+    restart: always
+    ports:
+      # change this as needed to bind to any address or even comment to not expose port outside containers
+      - 127.0.0.1:9200:9200
+      - 127.0.0.1:9300:9300
+    volumes:
+      # edit these as needed to map configuration and data storage
+      - ./opensearch/data:/usr/share/opensearch/data
+      # - ./opensearch/config/opensearch.yml:/usr/share/opensearch/config/opensearch.yml
+      # - ./opensearch/logs:/usr/share/opensearch/logs
+    environment:
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+      - discovery.type=single-node
+      - network.host=_site_
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:2.4.0
+    container_name: opensearch-dashboards
+    links:
+      - moqui-search
+    ports:
+      - 5601:5601
+    expose:
+      - 127.0.0.1:5601:5601
+    environment:
+      OPENSEARCH_HOSTS: '["https://moqui-search:9200"]'

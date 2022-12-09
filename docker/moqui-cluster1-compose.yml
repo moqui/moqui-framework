@@ -37,7 +37,7 @@ services:
       - ./nginx/my_proxy.conf:/etc/nginx/conf.d/my_proxy.conf
     environment:
       # change this for the default host to use when accessing directly by IP, etc
-      - DEFAULT_HOST=moqui.local
+      - DEFAULT_HOST=moqui1.local
       # use SSL_POLICY to disable TLSv1.0, etc in nginx-proxy
       - SSL_POLICY=AWS-TLS-1-1-2017-01
 
@@ -47,104 +47,109 @@ services:
     command: conf=conf/MoquiProductionConf.xml
     restart: always
     links:
-     - moqui-database
-     - elasticsearch
+      - moqui-database
+      - moqui-search
     volumes:
-     - ./runtime/conf:/opt/moqui/runtime/conf
-     - ./runtime/lib:/opt/moqui/runtime/lib
-     - ./runtime/classes:/opt/moqui/runtime/classes
-     - ./runtime/ecomponent:/opt/moqui/runtime/ecomponent
-     # conf directories shared (under runtime), log/etc directories per server (runtime1, runtime2)
-     - ./runtime1/log:/opt/moqui/runtime/log
-     - ./runtime1/txlog:/opt/moqui/runtime/txlog
-     - ./runtime1/sessions:/opt/moqui/runtime/sessions
-     # this one isn't needed when not using H2/etc: - ./runtime/db:/opt/moqui/runtime/db
+      - ./runtime/conf:/opt/moqui/runtime/conf
+      - ./runtime/lib:/opt/moqui/runtime/lib
+      - ./runtime/classes:/opt/moqui/runtime/classes
+      - ./runtime/ecomponent:/opt/moqui/runtime/ecomponent
+      - ./runtime/log:/opt/moqui/runtime/log
+      - ./runtime/txlog:/opt/moqui/runtime/txlog
+      - ./runtime/sessions:/opt/moqui/runtime/sessions
+      # this one isn't needed when not using H2/etc: - ./runtime/db:/opt/moqui/runtime/db
     environment:
-     - instance_purpose=production
-     - entity_ds_db_conf=mysql8
-     - entity_ds_host=moqui-database
-     - entity_ds_port=3306
-     - entity_ds_database=moqui
-     # NOTE: using root user because for TX recovery MySQL requires the 'XA_RECOVER_ADMIN' and in version 8 that must be granted explicitly
-     - entity_ds_user=root
-     - entity_ds_password=moquiroot
-     - entity_ds_crypt_pass='MoquiDefaultPassword:CHANGEME'
-     - entity_add_missing_runtime=false
-     - entity_add_missing_startup=true
-     # CHANGE ME - note that VIRTUAL_HOST is for nginx-proxy so it picks up this container as one it should reverse proxy
-     # this can be a comma separate list of hosts like 'example.com,www.example.com'
-     - VIRTUAL_HOST=moqui1.local
-     # moqui will accept traffic from other hosts but these are the values used for URL writing when specified:
-     - webapp_http_host=moqui1.local
-     - webapp_http_port=80
-     - webapp_https_port=443
-     - webapp_https_enabled=true
-     # nginx-proxy populates X-Real-IP with remote_addr by default, better option for outer proxy than X-Forwarded-For which defaults to proxy_add_x_forwarded_for
-     - webapp_client_ip_header=X-Real-IP
-     - default_locale=en_US
-     - default_time_zone=US/Pacific
-     # settings for kibana proxy
-     - kibana_host=kibana
-      # configuration for ElasticFacade.ElasticClient, make sure moqui-elasticsearch is NOT included in the Moqui build
-     - elasticsearch_url=http://elasticsearch:9200
-     # hazelcast multicast setup
-     - hazelcast_multicast_enabled=true
-     - hazelcast_multicast_group=224.2.2.3
-     - hazelcast_multicast_port=54327
-     - hazelcast_group_name=test
-     - hazelcast_group_password=test-pass
+      - "JAVA_TOOL_OPTIONS=-Xms1024m -Xmx1024m"
+      - instance_purpose=production
+      - entity_ds_db_conf=mysql8
+      - entity_ds_host=moqui-database
+      - entity_ds_port=3306
+      - entity_ds_database=moqui
+      # NOTE: using root user because for TX recovery MySQL requires the 'XA_RECOVER_ADMIN' and in version 8 that must be granted explicitly
+      - entity_ds_user=root
+      - entity_ds_password=moquiroot
+      - entity_ds_crypt_pass='DEFAULT_CHANGE_ME!!!'
+      # configuration for ElasticFacade.ElasticClient, make sure the old moqui-elasticsearch component is NOT included in the Moqui build
+      - elasticsearch_url=https://moqui-search:9200
+      # prefix for index names, use something distinct and not 'moqui_' or 'mantle_' which match the beginning of OOTB index names
+      - elasticsearch_index_prefix=default_
+      - elasticsearch_user=admin
+      - elasticsearch_password=admin
+      # settings for kibana proxy
+      - kibana_host=opensearch-dashboards
+      # CHANGE ME - note that VIRTUAL_HOST is for nginx-proxy so it picks up this container as one it should reverse proxy
+      # this can be a comma separate list of hosts like 'example.com,www.example.com'
+      - VIRTUAL_HOST=moqui1.local
+      # moqui will accept traffic from other hosts but these are the values used for URL writing when specified:
+      - webapp_http_host=moqui1.local
+      - webapp_http_port=80
+      - webapp_https_port=443
+      - webapp_https_enabled=true
+      # nginx-proxy populates X-Real-IP with remote_addr by default, better option for outer proxy than X-Forwarded-For which defaults to proxy_add_x_forwarded_for
+      - webapp_client_ip_header=X-Real-IP
+      - default_locale=en_US
+      - default_time_zone=US/Pacific
+      # hazelcast multicast setup
+      - hazelcast_multicast_enabled=true
+      - hazelcast_multicast_group=224.2.2.3
+      - hazelcast_multicast_port=54327
+      - hazelcast_group_name=test
+      - hazelcast_group_password=test-pass
+
   moqui-server2:
     image: moqui
     container_name: moqui-server2
     command: conf=conf/MoquiProductionConf.xml
     restart: always
     links:
-     - moqui-database
-     - elasticsearch
-     - moqui-server1
+      - moqui-database
+      - moqui-search
     volumes:
-     - ./runtime/conf:/opt/moqui/runtime/conf
-     - ./runtime/lib:/opt/moqui/runtime/lib
-     - ./runtime/classes:/opt/moqui/runtime/classes
-     - ./runtime/ecomponent:/opt/moqui/runtime/ecomponent
-     # conf directories shared (under runtime), log/etc directories per server (runtime1, runtime2)
-     - ./runtime2/log:/opt/moqui/runtime/log
-     - ./runtime2/txlog:/opt/moqui/runtime/txlog
-     - ./runtime2/sessions:/opt/moqui/runtime/sessions
-     # this one isn't needed when not using H2/etc: - ./runtime/db:/opt/moqui/runtime/db
+      - ./runtime/conf:/opt/moqui/runtime/conf
+      - ./runtime/lib:/opt/moqui/runtime/lib
+      - ./runtime/classes:/opt/moqui/runtime/classes
+      - ./runtime/ecomponent:/opt/moqui/runtime/ecomponent
+      - ./runtime/log:/opt/moqui/runtime/log
+      - ./runtime/txlog:/opt/moqui/runtime/txlog
+      - ./runtime/sessions:/opt/moqui/runtime/sessions
+      # this one isn't needed when not using H2/etc: - ./runtime/db:/opt/moqui/runtime/db
     environment:
-     - instance_purpose=production
-     - entity_ds_db_conf=mysql8
-     - entity_ds_host=moqui-database
-     - entity_ds_port=3306
-     - entity_ds_database=moqui
-     # NOTE: using root user because for TX recovery MySQL requires the 'XA_RECOVER_ADMIN' and in version 8 that must be granted explicitly
-     - entity_ds_user=root
-     - entity_ds_password=moquiroot
-     - entity_ds_crypt_pass='MoquiDefaultPassword:CHANGEME'
-     - entity_add_missing_runtime=false
-     - entity_add_missing_startup=false
-     - entity_empty_db_load=none
-     # CHANGE ME - note that VIRTUAL_HOST is for nginx-proxy so it picks up this container as one it should reverse proxy
-     # this can be a comma separate list of hosts like 'example.com,www.example.com'
-     - VIRTUAL_HOST=moqui2.local
-     # moqui will accept traffic from other hosts but these are the values used for URL writing when specified:
-     - webapp_http_host=moqui2.local
-     - webapp_http_port=80
-     - webapp_https_port=443
-     - webapp_https_enabled=true
-     - default_locale=en_US
-     - default_time_zone=US/Pacific
-     # settings for kibana proxy
-     - kibana_host=kibana
-     # configuration for ElasticFacade.ElasticClient, make sure moqui-elasticsearch is NOT included in the Moqui build
-     - elasticsearch_url=http://elasticsearch:9200
-     # hazelcast multicast setup
-     - hazelcast_multicast_enabled=true
-     - hazelcast_multicast_group=224.2.2.3
-     - hazelcast_multicast_port=54327
-     - hazelcast_group_name=test
-     - hazelcast_group_password=test-pass
+      - "JAVA_TOOL_OPTIONS=-Xms1024m -Xmx1024m"
+      - instance_purpose=production
+      - entity_ds_db_conf=mysql8
+      - entity_ds_host=moqui-database
+      - entity_ds_port=3306
+      - entity_ds_database=moqui
+      # NOTE: using root user because for TX recovery MySQL requires the 'XA_RECOVER_ADMIN' and in version 8 that must be granted explicitly
+      - entity_ds_user=root
+      - entity_ds_password=moquiroot
+      - entity_ds_crypt_pass='DEFAULT_CHANGE_ME!!!'
+      # configuration for ElasticFacade.ElasticClient, make sure the old moqui-elasticsearch component is NOT included in the Moqui build
+      - elasticsearch_url=https://moqui-search:9200
+      # prefix for index names, use something distinct and not 'moqui_' or 'mantle_' which match the beginning of OOTB index names
+      - elasticsearch_index_prefix=default_
+      - elasticsearch_user=admin
+      - elasticsearch_password=admin
+      # settings for kibana proxy
+      - kibana_host=opensearch-dashboards
+      # CHANGE ME - note that VIRTUAL_HOST is for nginx-proxy so it picks up this container as one it should reverse proxy
+      # this can be a comma separate list of hosts like 'example.com,www.example.com'
+      - VIRTUAL_HOST=moqui2.local
+      # moqui will accept traffic from other hosts but these are the values used for URL writing when specified:
+      - webapp_http_host=moqui2.local
+      - webapp_http_port=80
+      - webapp_https_port=443
+      - webapp_https_enabled=true
+      # nginx-proxy populates X-Real-IP with remote_addr by default, better option for outer proxy than X-Forwarded-For which defaults to proxy_add_x_forwarded_for
+      - webapp_client_ip_header=X-Real-IP
+      - default_locale=en_US
+      - default_time_zone=US/Pacific
+      # hazelcast multicast setup
+      - hazelcast_multicast_enabled=true
+      - hazelcast_multicast_group=224.2.2.3
+      - hazelcast_multicast_port=54327
+      - hazelcast_group_name=test
+      - hazelcast_group_password=test-pass
 
   moqui-database:
     image: mysql:8.0
@@ -163,40 +168,39 @@ services:
      - MYSQL_USER=moqui
      - MYSQL_PASSWORD=moqui
 
-  elasticsearch:
-    # very important: use the '-oss' version otherwise x-pack is included and because of licensing, etc moqui instances can't join the cluster
-    image: docker.elastic.co/elasticsearch/elasticsearch-oss:7.10.2
-    container_name: elasticsearch
-    # command: elasticsearch
+  moqui-search:
+    image: opensearchproject/opensearch:2.4.0
+    container_name: moqui-search
     restart: always
     ports:
-     # change this as needed to bind to any address or even comment to not expose port outside containers
-     - 127.0.0.1:9200:9200
-     - 127.0.0.1:9300:9300
+      # change this as needed to bind to any address or even comment to not expose port outside containers
+      - 127.0.0.1:9200:9200
+      - 127.0.0.1:9300:9300
     volumes:
-     # edit these as needed to map configuration and data storage
-     - ./elasticsearch/data:/usr/share/elasticsearch/data
-     # - ./elasticsearch/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
-     # - ./elasticsearch/logs:/usr/share/elasticsearch/logs
+      # edit these as needed to map configuration and data storage
+      - ./opensearch/data:/usr/share/opensearch/data
+      # - ./opensearch/config/opensearch.yml:/usr/share/opensearch/config/opensearch.yml
+      # - ./opensearch/logs:/usr/share/opensearch/logs
     environment:
-     - "ES_JAVA_OPTS=-Xms1024m -Xmx1024m"
-     - discovery.type=single-node
-     - network.host=_site_
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+      - discovery.type=single-node
+      - network.host=_site_
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
 
-  kibana:
-    image: docker.elastic.co/kibana/kibana-oss:7.10.2
-    container_name: kibana
-    restart: always
-    ports:
-     - 127.0.0.1:5601:5601
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:2.4.0
+    container_name: opensearch-dashboards
     links:
-     - elasticsearch
-    volumes:
-     - ./kibana:/etc/kibana
+      - moqui-search
+    ports:
+      - 5601:5601
+    expose:
+      - 127.0.0.1:5601:5601
     environment:
-     # override value in kibana.yml so it can remain for other setups; NOTE: kibana may modify the kibana.yml file for this setting!
-     - ELASTICSEARCH_URL=http://elasticsearch:9200
-     - SERVER_BASEPATH=/kibana
-     # - SERVER_HOST=kibana
-     # - XPACK_SECURITY_ENABLED=false
-     # - XPACK_MONITORING_ENABLED=false
+      OPENSEARCH_HOSTS: '["https://moqui-search:9200"]'
