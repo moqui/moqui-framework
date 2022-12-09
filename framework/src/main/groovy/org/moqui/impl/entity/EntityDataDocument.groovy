@@ -182,30 +182,6 @@ class EntityDataDocument {
 
             entityDef = dynamicView.makeEntityDefinition()
         }
-
-        String makeDocId(EntityValue ev) {
-            return makeDocId(ev, primaryPkFieldNames)
-        }
-    }
-
-    static String makeDocId(EntityValue ev, ArrayList<String> primaryPkFieldNames) {
-        int primaryPkFieldNamesSize = primaryPkFieldNames.size()
-        if (primaryPkFieldNamesSize == 1) {
-            // optimization for common simple case
-            String pkFieldName = (String) primaryPkFieldNames.get(0)
-            Object pkFieldValue = ev.getNoCheckSimple(pkFieldName)
-            return ObjectUtilities.toPlainString(pkFieldValue)
-        } else {
-            StringBuilder pkCombinedSb = new StringBuilder()
-            for (int pki = 0; pki < primaryPkFieldNamesSize; pki++) {
-                String pkFieldName = (String) primaryPkFieldNames.get(pki)
-                // don't do this, always use full PK even if not all aliased in doc, probably a bad DataDocument definition: if (!fieldAliasPathMap.containsKey(pkFieldName)) continue
-                if (pkCombinedSb.length() > 0) pkCombinedSb.append("::")
-                Object pkFieldValue = ev.getNoCheckSimple(pkFieldName)
-                pkCombinedSb.append(ObjectUtilities.toPlainString(pkFieldValue))
-            }
-            return pkCombinedSb.toString()
-        }
     }
 
     EntityDefinition makeEntityDefinition(String dataDocumentId) {
@@ -312,7 +288,7 @@ class EntityDataDocument {
             logger.info("Feed dataDocumentId ${dataDocumentId} query complete (cursor opened) in ${System.currentTimeMillis() - startTimeMillis}ms")
             EntityValue ev
             while ((ev = (EntityValue) mainEli.next()) != null) {
-                String curDocId = ddi.makeDocId(ev)
+                String curDocId = ev.getPrimaryKeysString()
                 if (!curDocId.equals(lastDocId)) {
                     docCount++
 
@@ -404,7 +380,7 @@ class EntityDataDocument {
           - Map for primary entity with primaryEntityName as key
           - nested List of Maps for each related entity with aliased fields with relationship name as key
          */
-        String docId = ddi.makeDocId(ev)
+        String docId = ev.getPrimaryKeysString()
         Map<String, Object> docMap = ddi.hasAllPrimaryPks ? ((Map<String, Object>) documentMapMap.get(docId)) : (Map<String, Object>) null
         if (docMap == null) {
             // add special entries

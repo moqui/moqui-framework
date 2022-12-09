@@ -63,6 +63,7 @@ public interface ElasticFacade {
         void bulk(String index, List<Map> actionSourceList);
         /** Bulk index documents with given index name and _id from the idField in each document (if idField empty don't specify ID, let ES generate) */
         void bulkIndex(String index, String idField, List<Map> documentList);
+        void bulkIndex(String index, String docType, String idField, List<Map> documentList, boolean refresh);
 
         /** Get full/wrapped single document by ID. See https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-get.html */
         Map get(String index, String _id);
@@ -71,7 +72,7 @@ public interface ElasticFacade {
         /** Get multiple documents by ID. See https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-multi-get.html */
         List<Map> get(String index, List<String> _idList);
 
-        /** Search documents and get the plain object response back.
+        /** Search documents and get the plain object response.
          * See https://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-body.html */
         Map search(String index, Map searchMap);
         /** Search documents. Result is the list in 'hits.hits' from the plain object returned for convenience.
@@ -82,6 +83,19 @@ public interface ElasticFacade {
          * See https://www.elastic.co/guide/en/elasticsearch/reference/current/search-validate.html
          * @param queryMap Map sent to ElasticSearch as the 'query' field (should not include 'query' entry, may include 'bool', 'query_string', etc) */
         Map validateQuery(String index, Map queryMap, boolean explain);
+
+        /** Count documents and get the long int value from the response.
+         * See https://www.elastic.co/guide/en/elasticsearch/reference/current/search-count.html */
+        long count(String index, Map countMap);
+        /** Count documents and get the plain object response.
+         * See https://www.elastic.co/guide/en/elasticsearch/reference/current/search-count.html */
+        Map countResponse(String index, Map countMap);
+
+        /** Create a Point-In-Time checkpoint and get the ID
+         * See https://www.elastic.co/guide/en/elasticsearch/reference/current/paginate-search-results.html#scroll-search-results */
+        String getPitId(String index, String keepAlive);
+        /** Delete a Point-In-Time checkpoint, should always be done when finished (close operation) */
+        void deletePit(String pitId);
 
         /** Basic REST endpoint synchronous call */
         RestClient.RestResponse call(RestClient.Method method, String index, String path, Map<String, String> parameters, Object bodyJsonObject);
