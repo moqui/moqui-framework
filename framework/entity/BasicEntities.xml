@@ -85,7 +85,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="enumTypeId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
 
-        <relationship type="many" related="moqui.basic.Enumeration" short-alias="children">
+        <relationship type="many" related="moqui.basic.Enumeration" short-alias="enums">
             <key-map field-name="enumTypeId"/></relationship>
     </entity>
     <view-entity entity-name="EnumerationAndType" package="moqui.basic">
