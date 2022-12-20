@@ -1176,6 +1176,22 @@ class ScreenUrlInfo {
             if (fromMap.containsKey("lastStandalone")) toMap.put("lastStandalone", (String) fromMap.get("lastStandalone"))
             if (fromMap.containsKey("renderMode")) toMap.put("renderMode", (String) fromMap.get("renderMode"))
         }
+        Map<String, String> getPassThroughParameterMap() {
+            Map<String, String> paramMap = new HashMap<>(getParameterMap())
+            paramMap.remove("moquiFormName")
+            paramMap.remove("moquiSessionToken")
+            paramMap.remove("lastStandalone")
+            paramMap.remove("formListFindId")
+            paramMap.remove("moquiRequestStartTime")
+            paramMap.remove("webrootTT")
+            logger.warn("pass through params for ${getUrl()}: ${paramMap}")
+            return paramMap
+        }
+        UrlInstance addPassThroughParameters(UrlInstance sourceUrlInstance) {
+            if (sourceUrlInstance == null) return null
+            addParameters(sourceUrlInstance.getPassThroughParameterMap())
+            return this
+        }
 
         UrlInstance cloneUrlInstance() {
             UrlInstance ui = new UrlInstance(sui, sri, expandAliasTransition)
