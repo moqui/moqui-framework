@@ -1577,33 +1577,113 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     // ========= Active User, Screen, Entity Tracking =========
     // ========================================================
 
-    String getScreenViewId(ScreenDefinition screenDef) {
-        // view ID, defines unique view space: screen location, each required parameter, "::" separator
+    /** Expire time for active User, Screen, Entity, etc; default to 30 minutes */
+    public long activeExpireMillis = 30 * 60 * 1000
+
+    void trackScreenView(String userId, String wsSessionId, ScreenDefinition screenDef) {
+        long nowTime = System.currentTimeMillis()
         ExecutionContextImpl eci = getEci()
         String screenLocation = screenDef.getLocation()
-        StringBuilder vidBuilder = new StringBuilder(screenLocation.length() + 100)
 
-        vidBuilder.append(screenLocation)
+        ArrayList<String> parameterValues = null
+        StringBuilder cidBuilder = new StringBuilder(screenLocation.length() + 100)
+        cidBuilder.append(screenLocation)
 
         ArrayList<ScreenDefinition.ParameterItem> parmItemList = screenDef.parameterItemList
-        for (int i = 0; i < parmItemList.size(); i++) {
-            ScreenDefinition.ParameterItem parmItem = (ScreenDefinition.ParameterItem) parmItemList.get(i)
-            if (parmItem.isRequired()) {
-                String parmValue = ObjectUtilities.toPlainString(parmItem.getValue(eci))
-                // NOTE: will not be null coming from toPlainString
-                if (!parmValue.isEmpty()) vidBuilder.append("::").append(parmValue)
+        int parmItemListSize = parmItemList.size()
+        if (parmItemListSize > 0) {
+            parameterValues = new ArrayList<>()
+            for (int i = 0; i < parmItemListSize; i++) {
+                ScreenDefinition.ParameterItem parmItem = (ScreenDefinition.ParameterItem) parmItemList.get(i)
+                if (parmItem.isRequired()) {
+                    String parmValue = ObjectUtilities.toPlainString(parmItem.getValue(eci))
+                    // NOTE: will not be null coming from toPlainString
+                    if (!parmValue.isEmpty()) {
+                        parameterValues.add(parmValue)
+                        // view ID, defines unique view space: screen location, each required parameter, "::" separator
+                        cidBuilder.append("::").append(parmValue)
+                    }
+                }
+            }
+        }
+        String combinedId = cidBuilder.toString()
+
+        // manage User info first
+
+        // get or create ActiveUserInfo (should already exist, but if not create)
+        ActiveUserInfo activeUserInfo = (ActiveUserInfo) activeUserInfoMap.get(userId)
+        if (activeUserInfo == null) {
+            activeUserInfo = new ActiveUserInfo()
+            activeUserInfo.userId = userId
+            activeUserInfo.loginTime = nowTime
+        }
+
+        // remove prior screen for userId and wsSessionId
+        if (activeUserInfo.activeScreens != null) {
+            for (int usi = 0; usi < activeUserInfo.activeScreens.size(); ) {
+                ActiveUserScreenInfo userScreenInfo = (ActiveUserScreenInfo) activeUserInfo.activeScreens.get(usi)
+                // NOTE: dilemma when there is no wsSessionId and we don't know which screen was viewed before, could possibly find that in session history (in WebFacadeImpl) or something...
+                // NOTE: could do something different when there is no wsSessionId, perhaps timeout only rather than always removing?
+                if ((wsSessionId == null && userScreenInfo.wsSessionId == null) ||
+                        (wsSessionId != null && wsSessionId.equals(userScreenInfo.wsSessionId)) ||
+                        (userScreenInfo.viewTime + activeExpireMillis < nowTime)) {
+                    activeUserInfo.activeScreens.remove(usi)
+
+                    // TODO
+                    // TODO lookup ActiveScreenInfo and remove corresponding ActiveScreenUserInfo
+                } else {
+                    usi++
+                }
             }
         }
 
-        return vidBuilder.toString()
-    }
-    void trackScreenView(String userId, String wsSessionId, ScreenDefinition screenDef) {
-        // TODO remove prior screen for userId and wsSessionId, and add new one
+        // add new ActiveUserScreenInfo
+        ActiveUserScreenInfo newUserScreenInfo = new ActiveUserScreenInfo()
+        newUserScreenInfo.screenLocation = screenLocation
+        newUserScreenInfo.wsSessionId = wsSessionId
+        newUserScreenInfo.viewTime = nowTime
 
-        // TODO add or update screen user info
+        newUserScreenInfo.combinedId = combinedId
+        newUserScreenInfo.parameterValues = parameterValues
 
+        if (activeUserInfo.activeScreens == null) activeUserInfo.activeScreens = new ArrayList<>()
+        activeUserInfo.activeScreens.add(newUserScreenInfo)
+
+        // whether created just now or not always put in activeUserInfoMap to update across distributed map
+        activeUserInfoMap.put(userId, activeUserInfo)
+
+        // User info done, now onto Screen info and notification
+
+        // add or update screen user info
+        ActiveScreenInfo screenInfo = (ActiveScreenInfo) activeScreenInfoMap.get(combinedId)
+        if (screenInfo == null) {
+            screenInfo = new ActiveScreenInfo()
+            screenInfo.combinedId = combinedId
+            screenInfo.screenLocation = screenLocation
+            screenInfo.parameterValues = parameterValues
+        }
+
+        // NEEDED? if screenInfo.activeUsers != null then check for expired, perhaps other things?
+        if (screenInfo.activeUsers == null) screenInfo.activeUsers = new ArrayList<>()
+
+        ActiveScreenUserInfo newScreenUserInfo = new ActiveScreenUserInfo()
+        newScreenUserInfo.userId = userId
+        newScreenUserInfo.wsSessionId = wsSessionId
+        newScreenUserInfo.viewTime = nowTime
+        screenInfo.activeUsers.add(newScreenUserInfo)
+
+        // whether created just now or not always put in activeScreenInfoMap to update across distributed map
+        activeScreenInfoMap.put(combinedId, screenInfo)
+
+        // send notification
+        notifyActiveScreenUsers(screenInfo)
+
+        // TODO how to handle final view in session with no logout?
+        //  TODO 1. add on session close
+        //  TODO 2. add periodic scan of maps for expired entries
     }
-    void trackUserLogin(String userId, String username) {
+
+    void trackUserLogin(String userId) {
         ActiveUserInfo activeUserInfo = (ActiveUserInfo) activeUserInfoMap.get(userId)
         if (activeUserInfo != null) {
             activeUserInfo.loginTime = System.currentTimeMillis()
@@ -1612,12 +1692,12 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         } else {
             activeUserInfo = new ActiveUserInfo()
             activeUserInfo.userId = userId
-            activeUserInfo.username = username
             activeUserInfo.loginTime = System.currentTimeMillis()
             activeUserInfoMap.put(userId, activeUserInfo)
         }
     }
     void trackUserLogout(String userId) {
+        long nowTime = System.currentTimeMillis()
         ActiveUserInfo activeUserInfo = (ActiveUserInfo) activeUserInfoMap.remove(userId)
         if (activeUserInfo == null) {
             logger.warn("Logout user " + userId + " with no Active User info")
@@ -1638,7 +1718,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                     boolean modified = false
                     for (int sui = 0; sui < screenInfo.activeUsers.size(); ) {
                         ActiveScreenUserInfo screenUserInfo = (ActiveScreenUserInfo) screenInfo.activeUsers.get(sui)
-                        if (userId.equals(screenUserInfo.userId)) {
+                        if (userId.equals(screenUserInfo.userId) || (screenUserInfo.viewTime + activeExpireMillis < nowTime)) {
                             screenInfo.activeUsers.remove(sui)
                             modified = true
                         } else {

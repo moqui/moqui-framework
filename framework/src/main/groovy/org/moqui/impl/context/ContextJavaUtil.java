@@ -297,32 +297,30 @@ public class ContextJavaUtil {
 
     public static class ActiveUserInfo implements Externalizable {
         private static final long serialVersionUID = -3457599813264232524L;
-        public String userId, username;
+        public String userId;
         public long loginTime = 0;
         public ArrayList<ActiveUserScreenInfo> activeScreens = new ArrayList<>();
         @Override public void writeExternal(ObjectOutput out) throws IOException {
             out.writeUTF(userId);
-            out.writeUTF(username);
             out.writeLong(loginTime);
             out.writeObject(activeScreens);
         }
         @SuppressWarnings("unchecked")
         @Override public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
             userId = in.readUTF();
-            username = in.readUTF();
             loginTime = in.readLong();
             activeScreens = (ArrayList<ActiveUserScreenInfo>) in.readObject();
         }
     }
     public static class ActiveUserScreenInfo implements Externalizable {
         private static final long serialVersionUID = -3151413508082617062L;
-        public String combinedId, screenLocation, wsSessionId;
+        public String combinedId, screenLocation, wsSessionId = null;
         public long viewTime = 0;
-        public ArrayList<String> parameterValues;
+        public ArrayList<String> parameterValues = null;
         @Override public void writeExternal(ObjectOutput out) throws IOException {
             out.writeUTF(combinedId);
             out.writeUTF(screenLocation);
-            out.writeUTF(wsSessionId);
+            out.writeObject(wsSessionId); // wsSessionId may be null so use writeObject()
             out.writeLong(viewTime);
             out.writeObject(parameterValues);
         }
@@ -330,7 +328,7 @@ public class ContextJavaUtil {
         @Override public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
             combinedId = in.readUTF();
             screenLocation = in.readUTF();
-            wsSessionId = in.readUTF();
+            wsSessionId = (String) in.readObject();
             viewTime = in.readLong();
             parameterValues = (ArrayList<String>) in.readObject();
         }
@@ -361,12 +359,12 @@ public class ContextJavaUtil {
         public long viewTime = 0;
         @Override public void writeExternal(ObjectOutput out) throws IOException {
             out.writeUTF(userId);
-            out.writeUTF(wsSessionId);
+            out.writeObject(wsSessionId); // wsSessionId may be null so use writeObject()
             out.writeLong(viewTime);
         }
         @Override public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
             userId = in.readUTF();
-            wsSessionId = in.readUTF();
+            wsSessionId = (String) in.readObject();
             viewTime = in.readLong();
         }
     }

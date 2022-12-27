@@ -683,7 +683,7 @@ class UserFacadeImpl implements UserFacade {
 
             // add active user info to ECFI
             // note currentInfo is set in pushUserSubject() above
-            if (currentInfo != null) eci.ecfi.trackUserLogin(currentInfo.userId, currentInfo.username)
+            if (currentInfo != null) eci.ecfi.trackUserLogin(currentInfo.userId)
         } catch (SecondFactorRequiredException ae) {
             if (eci.web != null) {
                 // This makes the session realize the this user needs to verify login with an authentication factor
