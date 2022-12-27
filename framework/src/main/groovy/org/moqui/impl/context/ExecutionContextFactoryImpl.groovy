@@ -1,12 +1,12 @@
 /*
  * This software is in the public domain under CC0 1.0 Universal plus a 
  * Grant of Patent License.
- * 
+ *
  * To the extent possible under law, the author(s) have dedicated all
  * copyright and related and neighboring rights to this software to the
  * public domain worldwide. This software is distributed without any
  * warranty.
- * 
+ *
  * You should have received a copy of the CC0 Public Domain Dedication
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
@@ -32,10 +32,15 @@ import org.moqui.entity.EntityDataLoader
 import org.moqui.entity.EntityFacade
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
+import org.moqui.impl.screen.ScreenDefinition
 import org.moqui.util.CollectionUtilities
 import org.moqui.util.MClassLoader
 import org.moqui.impl.actions.XmlAction
 import org.moqui.resource.UrlResourceReference
+import org.moqui.impl.context.ContextJavaUtil.ActiveUserInfo
+import org.moqui.impl.context.ContextJavaUtil.ActiveUserScreenInfo
+import org.moqui.impl.context.ContextJavaUtil.ActiveScreenInfo
+import org.moqui.impl.context.ContextJavaUtil.ActiveScreenUserInfo
 import org.moqui.impl.context.ContextJavaUtil.ArtifactBinInfo
 import org.moqui.impl.context.ContextJavaUtil.ArtifactStatsInfo
 import org.moqui.impl.context.ContextJavaUtil.ArtifactHitInfo
@@ -68,7 +73,6 @@ import java.util.concurrent.BlockingQueue
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ScheduledFuture
-import java.util.concurrent.ScheduledThreadPoolExecutor
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
@@ -80,7 +84,7 @@ import java.util.zip.ZipInputStream
 class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected final static Logger logger = LoggerFactory.getLogger(ExecutionContextFactoryImpl.class)
     protected final static boolean isTraceEnabled = logger.isTraceEnabled()
-    
+
     private AtomicBoolean destroyed = new AtomicBoolean(false)
 
     public final long initStartTime
@@ -121,8 +125,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     private final EnumMap<ArtifactType, Boolean> artifactPersistBinByTypeEnum = new EnumMap<ArtifactType, Boolean>(ArtifactType.class)
     final ConcurrentLinkedQueue<ArtifactHitInfo> deferredHitInfoQueue = new ConcurrentLinkedQueue<ArtifactHitInfo>()
 
-    protected Map<String, Map<String, Object>> activeUserInfo
-    protected Map<String, Map<String, Object>> activeScreenInfo
+    protected Map<String, ContextJavaUtil.ActiveUserInfo> activeUserInfoMap
+    protected Map<String, ContextJavaUtil.ActiveScreenInfo> activeScreenInfoMap
 
     /** The SecurityManager for Apache Shiro */
     protected org.apache.shiro.mgt.SecurityManager internalSecurityManager
@@ -588,8 +592,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         // init the active user and screen info maps
         // TODO: add plugin support for active user and screen Maps, implement in moqui-hazelcast for distributed maps
-        activeUserInfo = new HashMap<>(100)
-        activeScreenInfo = new HashMap<>(100)
+        activeUserInfoMap = new HashMap<>(100)
+        activeScreenInfoMap = new HashMap<>(100)
     }
 
     private void postFacadeInit() {
@@ -1567,6 +1571,100 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         })
 
         statsInfo.curHitBin = new ArtifactBinInfo(statsInfo, startTime)
+    }
+
+    // ========================================================
+    // ========= Active User, Screen, Entity Tracking =========
+    // ========================================================
+
+    String getScreenViewId(ScreenDefinition screenDef) {
+        // view ID, defines unique view space: screen location, each required parameter, "::" separator
+        ExecutionContextImpl eci = getEci()
+        String screenLocation = screenDef.getLocation()
+        StringBuilder vidBuilder = new StringBuilder(screenLocation.length() + 100)
+
+        vidBuilder.append(screenLocation)
+
+        ArrayList<ScreenDefinition.ParameterItem> parmItemList = screenDef.parameterItemList
+        for (int i = 0; i < parmItemList.size(); i++) {
+            ScreenDefinition.ParameterItem parmItem = (ScreenDefinition.ParameterItem) parmItemList.get(i)
+            if (parmItem.isRequired()) {
+                String parmValue = ObjectUtilities.toPlainString(parmItem.getValue(eci))
+                // NOTE: will not be null coming from toPlainString
+                if (!parmValue.isEmpty()) vidBuilder.append("::").append(parmValue)
+            }
+        }
+
+        return vidBuilder.toString()
+    }
+    void trackScreenView(String userId, String wsSessionId, ScreenDefinition screenDef) {
+        // TODO remove prior screen for userId and wsSessionId, and add new one
+
+        // TODO add or update screen user info
+
+    }
+    void trackUserLogin(String userId, String username) {
+        ActiveUserInfo activeUserInfo = (ActiveUserInfo) activeUserInfoMap.get(userId)
+        if (activeUserInfo != null) {
+            activeUserInfo.loginTime = System.currentTimeMillis()
+            // this step is not necessary for a local map, but is for a distributed map to push out the update to the map entry
+            activeUserInfoMap.put(userId, activeUserInfo)
+        } else {
+            activeUserInfo = new ActiveUserInfo()
+            activeUserInfo.userId = userId
+            activeUserInfo.username = username
+            activeUserInfo.loginTime = System.currentTimeMillis()
+            activeUserInfoMap.put(userId, activeUserInfo)
+        }
+    }
+    void trackUserLogout(String userId) {
+        ActiveUserInfo activeUserInfo = (ActiveUserInfo) activeUserInfoMap.remove(userId)
+        if (activeUserInfo == null) {
+            logger.warn("Logout user " + userId + " with no Active User info")
+        } else {
+            // remove all screen info for user
+            if (activeUserInfo.activeScreens != null) {
+                for (int i = 0; i < activeUserInfo.activeScreens.size(); i++) {
+                    ActiveUserScreenInfo userScreenInfo = (ActiveUserScreenInfo) activeUserInfo.activeScreens.get(i)
+                    String screenCombinedId = userScreenInfo.combinedId
+
+                    ActiveScreenInfo screenInfo = (ActiveScreenInfo) activeScreenInfoMap.get(screenCombinedId)
+                    if (screenInfo == null) continue
+                    if (screenInfo.activeUsers == null) {
+                        activeScreenInfoMap.remove(screenCombinedId)
+                        continue
+                    }
+
+                    boolean modified = false
+                    for (int sui = 0; sui < screenInfo.activeUsers.size(); ) {
+                        ActiveScreenUserInfo screenUserInfo = (ActiveScreenUserInfo) screenInfo.activeUsers.get(sui)
+                        if (userId.equals(screenUserInfo.userId)) {
+                            screenInfo.activeUsers.remove(sui)
+                            modified = true
+                        } else {
+                            sui++
+                        }
+                    }
+
+                    if (modified) {
+                        if (screenInfo.activeUsers.size() == 0) {
+                            // no more active users, screen no longer active, so bye bye
+                            activeScreenInfoMap.remove(screenCombinedId)
+                        } else {
+                            // if modified put explicitly to distribute changes in distributed map
+                            activeScreenInfoMap.put(screenCombinedId, screenInfo)
+                            // notify remaining users
+                            notifyActiveScreenUsers(screenInfo)
+                        }
+                    }
+                }
+            }
+
+            // TODO FUTURE remove all entity info for user
+        }
+    }
+    void notifyActiveScreenUsers(ActiveScreenInfo screenInfo) {
+        // TODO generate actual notifications for each user (to only the wsSocketId if there is one for the user)
     }
 
     // ========================================================

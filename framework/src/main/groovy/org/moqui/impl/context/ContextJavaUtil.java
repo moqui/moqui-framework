@@ -31,6 +31,10 @@ import javax.annotation.Nonnull;
 import javax.transaction.Synchronization;
 import javax.transaction.Transaction;
 import javax.transaction.xa.XAResource;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.*;
@@ -287,6 +291,91 @@ public class ContextJavaUtil {
         }
     }
 
+    // ========================================================
+    // ========= Active User, Screen, Entity Tracking =========
+    // ========================================================
+
+    public static class ActiveUserInfo implements Externalizable {
+        private static final long serialVersionUID = -3457599813264232524L;
+        public String userId, username;
+        public long loginTime = 0;
+        public ArrayList<ActiveUserScreenInfo> activeScreens = new ArrayList<>();
+        @Override public void writeExternal(ObjectOutput out) throws IOException {
+            out.writeUTF(userId);
+            out.writeUTF(username);
+            out.writeLong(loginTime);
+            out.writeObject(activeScreens);
+        }
+        @SuppressWarnings("unchecked")
+        @Override public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
+            userId = in.readUTF();
+            username = in.readUTF();
+            loginTime = in.readLong();
+            activeScreens = (ArrayList<ActiveUserScreenInfo>) in.readObject();
+        }
+    }
+    public static class ActiveUserScreenInfo implements Externalizable {
+        private static final long serialVersionUID = -3151413508082617062L;
+        public String combinedId, screenLocation, wsSessionId;
+        public long viewTime = 0;
+        public ArrayList<String> parameterValues;
+        @Override public void writeExternal(ObjectOutput out) throws IOException {
+            out.writeUTF(combinedId);
+            out.writeUTF(screenLocation);
+            out.writeUTF(wsSessionId);
+            out.writeLong(viewTime);
+            out.writeObject(parameterValues);
+        }
+        @SuppressWarnings("unchecked")
+        @Override public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
+            combinedId = in.readUTF();
+            screenLocation = in.readUTF();
+            wsSessionId = in.readUTF();
+            viewTime = in.readLong();
+            parameterValues = (ArrayList<String>) in.readObject();
+        }
+    }
+
+    public static class ActiveScreenInfo implements Externalizable {
+        private static final long serialVersionUID = 7371464087561810025L;
+        public String combinedId, screenLocation;
+        public ArrayList<String> parameterValues;
+        public ArrayList<ActiveScreenUserInfo> activeUsers = new ArrayList<>();
+        @Override public void writeExternal(ObjectOutput out) throws IOException {
+            out.writeUTF(combinedId);
+            out.writeUTF(screenLocation);
+            out.writeObject(parameterValues);
+            out.writeObject(activeUsers);
+        }
+        @SuppressWarnings("unchecked")
+        @Override public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
+            combinedId = in.readUTF();
+            screenLocation = in.readUTF();
+            parameterValues = (ArrayList<String>) in.readObject();
+            activeUsers = (ArrayList<ActiveScreenUserInfo>) in.readObject();
+        }
+    }
+    public static class ActiveScreenUserInfo implements Externalizable {
+        private static final long serialVersionUID = 7342837295128904767L;
+        public String userId, wsSessionId;
+        public long viewTime = 0;
+        @Override public void writeExternal(ObjectOutput out) throws IOException {
+            out.writeUTF(userId);
+            out.writeUTF(wsSessionId);
+            out.writeLong(viewTime);
+        }
+        @Override public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
+            userId = in.readUTF();
+            wsSessionId = in.readUTF();
+            viewTime = in.readLong();
+        }
+    }
+
+    /* for future active entity tracking...
+    public static class ActiveEntityInfo {
+
+    }
+    */
     static class RollbackInfo {
         public String causeMessage;
         /** A rollback is often done because of another error, this represents that error. */

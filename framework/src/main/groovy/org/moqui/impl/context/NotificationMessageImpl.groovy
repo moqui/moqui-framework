@@ -85,7 +85,10 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
     @Override NotificationMessage websocketSessionId(String userId, String id) {
         if (websocketSessionIdMap == null) websocketSessionIdMap = new HashMap<>()
         Set<String> sessionIdSet = websocketSessionIdMap.get(userId)
-        if (sessionIdSet == null) sessionIdSet = new HashSet<>()
+        if (sessionIdSet == null) {
+            sessionIdSet = new HashSet<>()
+            websocketSessionIdMap.put(userId, sessionIdSet)
+        }
         sessionIdSet.add(id)
         return this
     }

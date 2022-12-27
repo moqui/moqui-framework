@@ -63,7 +63,8 @@ class ScreenDefinition {
     protected Set<String> serverStatic = null
     Long sourceLastModified = null
 
-    protected Map<String, ParameterItem> parameterByName = new HashMap<>()
+    protected Map<String, ParameterItem> parameterByName = new HashMap<>(5)
+    public final ArrayList<ParameterItem> parameterItemList = new ArrayList<>(5)
     protected boolean hasRequired = false
     protected Map<String, TransitionItem> transitionByName = new HashMap<>()
     protected Map<String, SubscreensItem> subscreensByName = new HashMap<>()
@@ -218,6 +219,7 @@ class ScreenDefinition {
         for (MNode parameterNode in screenNode.children("parameter")) {
             ParameterItem parmItem = new ParameterItem(parameterNode, location, ecfi)
             parameterByName.put(parameterNode.attribute("name"), parmItem)
+            parameterItemList.add(parmItem)
             if (parmItem.required) hasRequired = true
         }
         // prep always-actions
@@ -785,6 +787,7 @@ class ScreenDefinition {
             }
         }
         String getName() { return name }
+        boolean isRequired() { return required }
         Object getValue(ExecutionContext ec) {
             Object value = null
             if (fromFieldGroovy != null) { value = InvokerHelper.createScript(fromFieldGroovy, ec.contextBinding).run() }

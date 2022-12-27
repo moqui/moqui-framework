@@ -681,20 +681,9 @@ class UserFacadeImpl implements UserFacade {
                 eci.getWebImpl().getRequest().setAttribute("moqui.request.authenticated", "true")
             }
 
-            // add active user info to ECFI map
+            // add active user info to ECFI
             // note currentInfo is set in pushUserSubject() above
-            if (currentInfo != null) {
-                Map<String, Object> activeUserMap = eci.ecfi.activeUserInfo.get(currentInfo.userId)
-                if (activeUserMap != null) {
-                    activeUserMap.put("loginTimeMillis", System.currentTimeMillis())
-                    // this step is not necessary for a local map, but is for a distributed map to push out the update to the map entry
-                    eci.ecfi.activeUserInfo.put(currentInfo.userId, activeUserMap)
-                } else {
-                    eci.ecfi.activeUserInfo.put(currentInfo.userId,
-                            [userId:currentInfo.userId, username:currentInfo.username,
-                             loginTimeMillis:System.currentTimeMillis(), activeScreens:[]] as Map<String, Object>)
-                }
-            }
+            if (currentInfo != null) eci.ecfi.trackUserLogin(currentInfo.userId, currentInfo.username)
         } catch (SecondFactorRequiredException ae) {
             if (eci.web != null) {
                 // This makes the session realize the this user needs to verify login with an authentication factor
@@ -739,7 +728,7 @@ class UserFacadeImpl implements UserFacade {
         if (eci.getWebImpl() != null) eci.getWebImpl().runBeforeLogoutActions()
 
         // remove active user info from ECFI map
-        eci.ecfi.activeUserInfo.remove(currentInfo.userId)
+        eci.ecfi.trackUserLogout(currentInfo.userId)
 
         // pop from user stack, also calls Shiro logout()
         popUser()
