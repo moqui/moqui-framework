@@ -1,0 +1,234 @@
+[
+  [
+    [
+      "moqui.test.TestEntity",
+      [
+        {
+          "value": "MD.+S",
+          "field": "testMedium",
+          "operator": "like"
+        },
+        {
+          "value": [10, 1200000],
+          "field": "testNumberInteger",
+          "operator": "between"
+        },
+        {
+          "value": [200, 300000],
+          "field": "testNumberDecimal",
+          "operator": "not-between"
+        },
+        {
+          "value": 100,
+          "field": "testNumberDecimal",
+          "operator": "gte"
+        }
+      ],
+      {
+        "allowedFields": ["testMedium", "testNumberDecimal"],
+        "defaultListJoinOperator": "AND"
+      }
+    ],
+    []
+  ],
+  [
+    [
+      "moqui.test.TestEntity",
+      [
+        {
+          "value": "proj_MD.+S",
+          "field": "testMedium",
+          "operator": "like"
+        },
+        {
+          "value": [10, 120000],
+          "field": "testNumberInteger",
+          "operator": "between"
+        },
+        {
+          "value": [20000, 30000],
+          "field": "testNumberDecimal",
+          "operator": "not-between"
+        },
+        {
+          "value": 10,
+          "field": "testNumberDecimal",
+          "operator": "gte"
+        }
+      ],
+      {
+        "allowedFields": ["testMedium"],
+        "defaultListJoinOperator": "OR"
+      }
+    ],
+    []
+  ],
+  [
+    [
+      "moqui.test.TestEntity",
+      [
+        {
+          "value": [10, 120000],
+          "field": "testNumberInteger",
+          "operator": "between"
+        },
+        {
+          "value": [20000, 30000],
+          "field": "testNumberDecimal",
+          "operator": "not-between"
+        },
+        {
+          "value": 10,
+          "field": "testNumberDecimal",
+          "operator": "gte"
+        }
+      ],
+      {
+        "allowedFields": ["testMedium"],
+        "defaultListJoinOperator": "OR"
+      }
+    ],
+    []
+  ],
+  [
+    [
+      "moqui.test.TestEntity",
+      [
+        {
+          "value": [85000, 120000],
+          "field": "testNumberInteger",
+          "operator": "between"
+        },
+        {
+          "value": [20000, 200000],
+          "field": "testNumberDecimal",
+          "operator": "between"
+        },
+        {
+          "value": 10000,
+          "field": "testNumberDecimal",
+          "operator": "gte"
+        }
+      ],
+      {
+        "allowedFields": ["testMedium"],
+        "defaultListJoinOperator": "OR"
+      }
+    ],
+    []
+  ],
+  [
+    [
+      "moqui.test.TestEntity",
+      [
+        {
+          "value": "proj_[\\w{4;6}]",
+          "field": "testMedium",
+          "operator": "like"
+        },
+        {
+          "value": 150,
+          "field": "testNumberInteger",
+          "operator": "gte"
+        },
+        {
+          "value": 2500,
+          "field": "testNumberDecimal",
+          "operator": "lte"
+        }
+      ],
+      {
+        "allowedFields": ["testMedium"],
+        "defaultListJoinOperator": "AND"
+      }
+    ],
+    []
+  ],
+  [
+    [
+      "moqui.test.TestEntity",
+      [
+        {
+          "value": 850000,
+          "field": "testNumberInteger",
+          "operator": "gte"
+        },
+        {
+          "value": 20000,
+          "field": "testNumberDecimal",
+          "operator": "lte"
+        },
+        {
+          "value": 10000,
+          "field": "testNumberDecimal",
+          "operator": "gte"
+        }
+      ],
+      {
+        "allowedFields": ["testMedium"],
+        "defaultListJoinOperator": "AND"
+      }
+    ],
+    []
+  ],
+  [
+    [
+      "moqui.test.TestEntity",
+      [
+        {
+          "value": 90000,
+          "field": "testNumberInteger",
+          "operator": "gte"
+        },
+        {
+          "value": 1700,
+          "field": "testNumberDecimal",
+          "operator": "lte"
+        },
+        {
+          "value": 1500,
+          "field": "testNumberDecimal",
+          "operator": "gte"
+        }
+      ],
+      {
+        "allowedFields": ["testMedium"],
+        "defaultListJoinOperator": "AND"
+      }
+    ],
+    [
+      {"testMedium": "proj_SZOLOML"},
+      {"testMedium": "proj_FZDPXAG"},
+      {"testMedium": "proj_RHCGLHU"},
+      {"testMedium": "proj_XPUMLGY"},
+      {"testMedium": "proj_KPFYSJI"}
+    ]
+  ],
+  [
+    [
+      "moqui.test.TestEntity",
+      [
+        {
+          "value": 90000,
+          "field": "testNumberInteger",
+          "operator": "gte"
+        },
+        {
+          "value": 1700,
+          "field": "testNumberDecimal",
+          "operator": "lte"
+        },
+        {
+          "value": 1500,
+          "field": "testNumberDecimal",
+          "operator": "gte"
+        }
+      ],
+      {
+        "allowedFields": ["testMedium"],
+        "defaultListJoinOperator": "OR"
+      }
+    ],
+    []
+  ]
+]

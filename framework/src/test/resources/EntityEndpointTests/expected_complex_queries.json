@@ -1,0 +1,67 @@
+[
+  [
+    [
+      "moqui.basic.Enumeration",
+      [
+        {
+          "value": "ArtifactType",
+          "field": "enumTypeId"
+        },
+        {
+          "value": "Entity",
+          "field": "description"
+        },
+        {
+          "value": "ComparisonOperator",
+          "field": "enumTypeId"
+        }
+      ],
+      {
+        "complexCondition": "3"
+      }
+    ],
+    15
+  ],
+  [
+    [
+      "moqui.basic.Enumeration",
+      [
+        {
+          "value": "ArtifactType",
+          "field": "enumTypeId"
+        },
+        {
+          "value": "Entity",
+          "field": "description"
+        },
+        {
+          "value": "ComparisonOperator",
+          "field": "enumTypeId"
+        }
+      ],
+      {
+        "complexCondition": "OR(AND(1,2),3)"
+      }
+    ],
+    16
+  ],
+  [
+    [
+      "moqui.basic.Enumeration",
+      [
+        {
+          "value": "ArtifactType",
+          "field": "enumTypeId"
+        },
+        {
+          "value": "Entity",
+          "field": "description"
+        }
+      ],
+      {
+        "complexCondition": "AND(1,2)"
+      }
+    ],
+    1
+  ]
+]

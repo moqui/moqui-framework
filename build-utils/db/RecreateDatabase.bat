@@ -1,1 +1,0 @@
-cat ./RecreateDatabase.sql | docker exec -i pg psql -U postgres -d postgres

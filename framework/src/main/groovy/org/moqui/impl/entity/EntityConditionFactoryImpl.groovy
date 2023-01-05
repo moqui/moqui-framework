@@ -318,6 +318,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
             case "ENTCO_NOT_LIKE": return EntityCondition.NOT_LIKE
             case "ENTCO_IS_NULL": return EntityCondition.IS_NULL
             case "ENTCO_IS_NOT_NULL": return EntityCondition.IS_NOT_NULL
+            case "ENTCO_TEXT": return EntityCondition.TEXT
             default: return null
         }
     }
@@ -449,6 +450,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
         comparisonOperatorStringMap.put(ComparisonOperator.NOT_LIKE, "NOT LIKE")
         comparisonOperatorStringMap.put(ComparisonOperator.IS_NULL, "IS NULL")
         comparisonOperatorStringMap.put(ComparisonOperator.IS_NOT_NULL, "IS NOT NULL")
+        comparisonOperatorStringMap.put(ComparisonOperator.TEXT, "TEXT")
     }
     protected static final Map<String, ComparisonOperator> stringComparisonOperatorMap = [
             "=":ComparisonOperator.EQUALS,
@@ -497,7 +499,10 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
             "IS NULL":ComparisonOperator.IS_NULL,
 
             "is-not-null":ComparisonOperator.IS_NOT_NULL,
-            "IS NOT NULL":ComparisonOperator.IS_NOT_NULL
+            "IS NOT NULL":ComparisonOperator.IS_NOT_NULL,
+
+            "text":ComparisonOperator.TEXT,
+            "TEXT":ComparisonOperator.TEXT,
     ]
 
     static String getJoinOperatorString(JoinOperator op) { return JoinOperator.OR.is(op) ? "OR" : "AND" }

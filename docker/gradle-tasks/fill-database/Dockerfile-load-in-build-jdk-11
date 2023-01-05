@@ -4,8 +4,10 @@
 FROM openjdk:11-jdk
 ARG GRADLE_VERSION
 ARG MOQUI_CONF
+ARG PG_LOAD_SERVER
 ENV GRADLE_HOME=/opt/gradle/gradle-${GRADLE_VERSION}
 ENV PATH="/opt/gradle/gradle-${GRADLE_VERSION}/bin:${PATH}"
+ENV PG_LOAD_SERVER=${PG_LOAD_SERVER}
 
 # 2. build application, load data into database
 RUN wget https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip -P /tmp
@@ -19,7 +21,7 @@ WORKDIR /opt/moqui-source
 COPY runtime runtime/.
 COPY framework framework/.
 COPY moqui-util moqui-util/.
-COPY *.* .
+COPY *.* ./
 
 RUN gradle wrapper
 RUN ./gradlew build
@@ -28,11 +30,6 @@ RUN ./gradlew load -Dmoqui.conf.dev=${MOQUI_CONF}
 WORKDIR /opt/moqui
 RUN cp /opt/moqui-source/moqui-plus-runtime.war .
 RUN unzip moqui-plus-runtime.war
-
-# exposed as volumes for configuration purposes
-VOLUME ["/opt/moqui/runtime/conf", "/opt/moqui/runtime/lib", "/opt/moqui/runtime/classes"]
-# exposed as volumes to persist data outside the container, recommended
-VOLUME ["/opt/moqui/runtime/log", "/opt/moqui/runtime/txlog"]
 
 # Main Servlet Container Port
 EXPOSE 80

@@ -61,11 +61,10 @@ class EntityDbMeta {
      * @param groupName
      * @return
      */
-    boolean checkAllowExtraFields(String groupName) {
+    boolean allowExtraFields(String groupName) {
         MNode datasourceNode = efi.getDatasourceNode(groupName)
         String aefAttr = datasourceNode?.attribute("allow-extra-fields")
-        boolean addExtraFields = aefAttr ? "true".equals(aefAttr) : false
-        return addExtraFields
+        return aefAttr ? "true".equals(aefAttr) : false
     }
 
     /**

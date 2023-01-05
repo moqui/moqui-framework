@@ -562,27 +562,25 @@ public class EntityJavaUtil {
          */
 
         private void checkExtraFields(Map<String, Object> src, EntityValueBase dest, FieldInfo[] fieldInfoArray) {
-            boolean allowExtraFields = efi.getEntityDbMeta().checkAllowExtraFields(ed.groupName);
-            if (!allowExtraFields) return;
+            if (!efi.getEntityDbMeta().allowExtraFields(ed.groupName)) return;
 
             logger.debug("Checking extra fields when setting Entity '" + ed.fullEntityName + "' values");
+
+            // make sure primary-key fields are checked as well
+            // as the extra fields do not necessarily need to be extra
+            FieldInfo[] pks = this.pkFieldInfoArray;
 
             // which fields are extra?
             List<String> extras = new ArrayList<>();
             src.keySet().forEach(fieldToWrite -> {
                 if (Arrays.stream(fieldInfoArray).noneMatch(s-> Objects.equals(s.name, fieldToWrite))){
+                    if (Arrays.stream(pks).anyMatch(s-> Objects.equals(s.name, fieldToWrite))) return;
                     extras.add(fieldToWrite);
                 }
             });
 
+            // quit if no extras
             if (extras.isEmpty()) return;
-
-            // must check valueMapInternal against fieldInfoArray,
-            // otherwise we may have problem when calculated fields are appended later in the process
-            // e.g. 'created'
-            if (fieldInfoArray.length < dest.valueMapInternal.size()) {
-                throw new EntityException("More values in internal map, before extra fields are appended, something must have gone terribly wrong");
-            }
 
             final int[] lastIndex = {dest.valueMapInternal.getKeyArrayLength() - 1};
             extras.forEach(fieldToWrite -> {

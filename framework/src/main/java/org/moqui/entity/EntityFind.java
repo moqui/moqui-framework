@@ -15,6 +15,8 @@ package org.moqui.entity;
 
 import org.moqui.etl.SimpleEtl;
 
+import java.io.InputStream;
+import java.io.ObjectInputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -315,4 +317,8 @@ public interface EntityFind extends java.io.Serializable, SimpleEtl.Extractor {
     /** If supported by underlying data source get the text (SQL, etc) used for the find query.
      * Will have multiple values if multiple queries done with this find. */
     ArrayList<String> getQueryTextList();
+
+    /** Method returns attachment of a specified entity, is implemented for specific
+     * connector, in our case it's MongoDatabase */
+    public InputStream getAttachment();
 }

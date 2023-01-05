@@ -39,13 +39,14 @@ public interface EntityCondition extends Externalizable {
     ComparisonOperator NOT_LIKE = ComparisonOperator.NOT_LIKE;
     ComparisonOperator IS_NULL = ComparisonOperator.IS_NULL;
     ComparisonOperator IS_NOT_NULL = ComparisonOperator.IS_NOT_NULL;
+    ComparisonOperator TEXT = ComparisonOperator.TEXT;
 
     JoinOperator AND = JoinOperator.AND;
     JoinOperator OR = JoinOperator.OR;
 
     enum ComparisonOperator { EQUALS, NOT_EQUAL,
         LESS_THAN, GREATER_THAN, LESS_THAN_EQUAL_TO, GREATER_THAN_EQUAL_TO,
-        IN, NOT_IN, BETWEEN, NOT_BETWEEN, LIKE, NOT_LIKE, IS_NULL, IS_NOT_NULL }
+        IN, NOT_IN, BETWEEN, NOT_BETWEEN, LIKE, NOT_LIKE, IS_NULL, IS_NOT_NULL, TEXT }
 
     enum JoinOperator { AND, OR }
 

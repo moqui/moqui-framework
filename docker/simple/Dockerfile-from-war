@@ -4,14 +4,17 @@
 FROM openjdk:12-jdk-alpine
 MAINTAINER dataquest <info@dataquest.sk>
 
-WORKDIR /opt/moqui
+ARG DOCKER_COMPOSE_WAIT_VERSION
 
+RUN apk update && apk add netcat-openbsd curl
+
+# wait installation script
+ADD https://github.com/ufoscout/docker-compose-wait/releases/download/${DOCKER_COMPOSE_WAIT_VERSION}/wait /wait
+RUN chmod +x /wait
+
+WORKDIR /opt/moqui
 # for running from the war directly, preferred approach unzips war in advance (see docker-build.sh that does this)
-RUN apk update && \
-    apk add dos2unix
 COPY moqui-plus-runtime.war .
-COPY docker/wait-for-connectivity.sh .
-RUN dos2unix wait-for-connectivity.sh && chmod +x wait-for-connectivity.sh
 RUN unzip moqui-plus-runtime.war
 
 # exposed as volumes for configuration purposes
@@ -19,15 +22,10 @@ VOLUME ["/opt/moqui/runtime/conf", "/opt/moqui/runtime/lib", "/opt/moqui/runtime
 # exposed as volumes to persist data outside the container, recommended
 VOLUME ["/opt/moqui/runtime/log", "/opt/moqui/runtime/txlog", "/opt/moqui/runtime/sessions", "/opt/moqui/runtime/db", "/opt/moqui/runtime/elasticsearch"]
 
-
-# Main Servlet Container Port
-EXPOSE 80
-#EXPOSE 5701
-
 # this is to run from the war file directly, preferred approach unzips war file in advance
 ENTRYPOINT ["java", "-cp", ".", "MoquiStart", "port=80"]
 
-#HEALTHCHECK --interval=10s --timeout=600ms --start-period=90s CMD curl --fail http://localhost:8080 || exit 1
-HEALTHCHECK NONE
+HEALTHCHECK --interval=10s --timeout=600ms --start-period=90s CMD curl --fail http://localhost || exit 1
+
 # specify this as a default parameter if none are specified with docker exec/run, ie run production by default
 CMD ["conf=conf/MoquiTestConf.xml"]

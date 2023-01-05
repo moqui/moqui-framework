@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
+    <service verb="populate"
+            noun="EntityData"
+            method="loadFromEntity"
+            type="script"
+            location="classpath://service/dtq/rockycube/endpoint/EndpointService.groovy">
+        <in-parameters>
+            <parameter name="term" type="List"/>
+            <parameter name="index" type="Integer"/>
+            <parameter name="size" type="Integer"/>
+            <parameter name="entityName" type="String"/>
+            <parameter name="tableName" type="String"/>
+            <parameter name="orderBy" type="List"/>
+            <parameter name="args" type="Map"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="result" type="Map"/>
+        </out-parameters>
+    </service>
+
+    <service
+            verb="remove"
+            noun="EntityData"
+            method="deleteEntity"
+            type="script"
+            location="classpath://service/dtq/rockycube/endpoint/EndpointService.groovy">
+        <in-parameters>
+            <parameter name="term" type="List"/>
+            <parameter name="entityName" type="String"/>
+            <parameter name="tableName" type="String"/>
+            <parameter name="args" type="Map"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="result" type="Map"/>
+        </out-parameters>
+    </service>
+
+    <service
+            verb="update"
+            noun="EntityData"
+            method="updateEntity"
+            type="script"
+            location="classpath://service/dtq/rockycube/endpoint/EndpointService.groovy">
+        <in-parameters>
+            <parameter name="term" type="List"/>
+            <parameter name="index" type="Integer"/>
+            <parameter name="size" type="Integer"/>
+            <parameter name="entityName" type="String"/>
+            <parameter name="tableName" type="String"/>
+            <parameter name="orderBy" type="List"/>
+            <parameter name="args" type="Map"/>
+            <parameter name="data" type="Map"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="result" type="Map"/>
+        </out-parameters>
+    </service>
+
+    <service
+            verb="create"
+            noun="EntityData"
+            method="createEntity"
+            type="script"
+            location="classpath://service/dtq/rockycube/endpoint/EndpointService.groovy">
+        <in-parameters>
+            <parameter name="term" type="List"/>
+            <parameter name="index" type="Integer"/>
+            <parameter name="size" type="Integer"/>
+            <parameter name="entityName" type="String"/>
+            <parameter name="tableName" type="String"/>
+            <parameter name="orderBy" type="List"/>
+            <parameter name="args" type="Map"/>
+            <parameter name="data" type="Map"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="result" type="Map"/>
+        </out-parameters>
+    </service>
+</services>

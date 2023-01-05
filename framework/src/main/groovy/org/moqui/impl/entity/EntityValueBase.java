@@ -70,6 +70,8 @@ public abstract class EntityValueBase implements EntityValue {
     private transient boolean isFromDb = false;
     private static final String indentString = "    ";
 
+    private boolean flexibleSchema = false;
+
     /** Default constructor for deserialization ONLY. */
     public EntityValueBase() { valueMapInternal = new LiteStringMap<>().useManualIndex(); }
 
@@ -78,6 +80,7 @@ public abstract class EntityValueBase implements EntityValue {
         entityName = ed.fullEntityName;
         entityDefinitionTransient = ed;
         valueMapInternal = new LiteStringMap<>(ed.allFieldNameList.size()).useManualIndex();
+        flexibleSchema = ed.efi.getEntityDbMeta().allowExtraFields(ed.groupName);
     }
 
     @Override public void writeExternal(ObjectOutput out) throws IOException {
@@ -1528,10 +1531,17 @@ public abstract class EntityValueBase implements EntityValue {
         }
 
         // need actual DB values for various scenarios? get them here
-        if (needsAuditLog || createOnlyAny || curDataFeed || optimisticLock || hasFieldDefaults) {
+        if (needsAuditLog || createOnlyAny || curDataFeed || optimisticLock || hasFieldDefaults || flexibleSchema) {
             EntityValueBase refreshedValue = (EntityValueBase) this.cloneValue();
             refreshedValue.refresh();
-            this.setDbValueMap(refreshedValue.getValueMap());
+            if (flexibleSchema)
+            {
+                // if we have a flexible schema, just plain-copy the values from internal map
+                // to the db value map
+                dbValueMap = new LiteStringMap<>(refreshedValue.getValueMap());
+            } else {
+                this.setDbValueMap(refreshedValue.getValueMap());
+            }
         }
 
         // check/set defaults for non-pk fields, after getting dbValueMap
@@ -1574,8 +1584,11 @@ public abstract class EntityValueBase implements EntityValue {
 
             //if (ed.getEntityName() == "foo") logger.warn("================ evb.update() ${getEntityName()} nonPkFieldList=${nonPkFieldList};\nvalueMap=${valueMap};\noldValues=${oldValues}");
             if (nonPkFieldArrayIndex == 0 || (nonPkFieldArrayIndex == 1 && modifiedLastUpdatedStamp)) {
-                if (logger.isTraceEnabled()) logger.trace("Not doing update on entity with no changed non-PK fields; value=" + this.toString());
-                return this;
+                if (!flexibleSchema)
+                {
+                    if (logger.isTraceEnabled()) logger.trace("Not doing update on entity with no changed non-PK fields; value=" + this.toString());
+                    return this;
+                }
             }
 
             // do this after the empty nonPkFieldList check so that if nothing has changed then ignore the attempt to update
@@ -1790,6 +1803,11 @@ public abstract class EntityValueBase implements EntityValue {
             Object thisVal = getValue();
             Object otherVal = other.getValue();
             return thisVal == null ? otherVal == null : thisVal.equals(otherVal);
+        }
+        public boolean isMapField()
+        {
+            if (Objects.equals(fi.javaType, "java.util.HashMap")) return true;
+            return false;
         }
     }
 

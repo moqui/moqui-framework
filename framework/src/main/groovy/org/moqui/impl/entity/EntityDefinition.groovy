@@ -536,8 +536,25 @@ class EntityDefinition {
     ArrayList<String> getAllFieldNames() { return allFieldNameList }
     boolean isField(String fieldName) { return fieldInfoMap.containsKey(fieldName) }
     boolean isPkField(String fieldName) {
+        return isPkField(fieldName, false)
+    }
+
+    boolean isPkField(String fieldName, Boolean loose) {
         FieldInfo fieldInfo = fieldInfoMap.get(fieldName)
-        if (fieldInfo == null) return false
+        if (!fieldInfo && !loose) return false
+        if (!fieldInfo)
+        {
+            this.fieldNodeMap.each {it->
+                if (it.value.attributes.containsKey("column-name"))
+                {
+                    if (it.value.attribute("column-name") == fieldName)
+                    {
+                        fieldInfo = fieldInfoMap.get(it.value.attribute("name"))
+                    }
+                }
+            }
+        }
+        if (!fieldInfo) return false
         return fieldInfo.isPk
     }
 

@@ -15,7 +15,7 @@ https://logging.apache.org/log4j/2.x/manual/layouts.html#PatternLayout
     <Appenders>
         <RollingFile name="LogFile" fileName="${sys:moqui.runtime}/${sys:moqui.log.directory}/moqui.log"
                 filePattern="${sys:moqui.runtime}/${sys:moqui.log.directory}/moqui%d{yyyy-MM-dd}-%i.log">
-            <PatternLayout pattern="--- %d{yyyy-MM-dd HH:mm:ss.SSS} [%15.15t] %-5p %50.50c %x%n %m%n"/>
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [%15.15t] %-5p %50.50c %x%n %m%n"/>
             <Policies>
                 <TimeBasedTriggeringPolicy/>
                 <SizeBasedTriggeringPolicy size="10 MB"/>
@@ -24,7 +24,7 @@ https://logging.apache.org/log4j/2.x/manual/layouts.html#PatternLayout
         </RollingFile>
         <RollingFile name="ErrorFile" fileName="${sys:moqui.runtime}/${sys:moqui.log.directory}/error.log"
                 filePattern="${sys:moqui.runtime}/${sys:moqui.log.directory}/error%d{yyyy-MM-dd}-%i.log">
-            <PatternLayout pattern="--- %d{yyyy-MM-dd HH:mm:ss.SSS} [%15.15t] %-5p %50.50c [%l] %x%n %m%n"/>
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [%15.15t] %-5p %50.50c [%l] %x%n %m%n"/>
             <ThresholdFilter level="ERROR" onMatch="ACCEPT" onMismatch="DENY"/><!-- should get error and fatal -->
             <Policies>
                 <TimeBasedTriggeringPolicy/>

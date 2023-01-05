@@ -1,4 +1,4 @@
-version: "3"
+version: "3.5"
 services:
   moqui-load-server:
     image: moqui-load-server
@@ -17,6 +17,5 @@ services:
      - "8080:8080"
 
 networks:
-  dtq-int:
-    external:
-      name: dtq-int
+   dtq-int:
+     external: true

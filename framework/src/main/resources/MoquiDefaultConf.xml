@@ -43,6 +43,19 @@
     <default-property name="entity_statement_timeout" value="false"/>
     <default-property name="entity_empty_db_load" value="seed,seed-initial,install"/>
 
+    <!-- Bitronix default configuration overrides -->
+    <default-property name="bitronix.tm.server-id" value="btx-server-id"/>
+    <default-property name="bitronix.tm.timer.tx.default.timeout" value="60"/>
+
+    <!-- PY-CALC server connection details -->
+    <default-property name="py.server.host" value="http://localhost:8000"/>
+    <default-property name="py.endpoint.render" value="api/v1/calculator/render"/>
+
+    <!-- JMS Messaging connection info -->
+    <default-property name="jms.server.host" value=""/>
+    <default-property name="jms.server.operator" value=""/>
+    <default-property name="jms.server.operator.password" value=""/>
+
     <!-- Properties for a database clone; note that without overriding the transactional#clone1 datasource the default works only
         with MySQL and Postgres because of different properties on XADataSource classes of other JDBC drivers -->
     <default-property name="entity_ds_c1_disabled" value="true"/>
@@ -490,12 +503,12 @@
              not in a war/ear file or from special ClassLoaders) -->
         <!-- in framework/entity -->
         <load-entity location="classpath://entity/BasicEntities.xml"/>
+        <load-entity location="classpath://entity/SecurityEntities.xml"/>
         <load-entity location="classpath://entity/EntityEntities.xml"/>
         <load-entity location="classpath://entity/OlapEntities.xml"/>
         <load-entity location="classpath://entity/ResourceEntities.xml"/>
         <load-entity location="classpath://entity/ScreenEntities.xml"/>
         <load-entity location="classpath://entity/Screen.eecas.xml"/>
-        <load-entity location="classpath://entity/SecurityEntities.xml"/>
         <load-entity location="classpath://entity/ServerEntities.xml"/>
         <load-entity location="classpath://entity/ServiceEntities.xml"/>
         <load-entity location="classpath://entity/TestEntities.xml"/>
@@ -611,7 +624,10 @@
         -->
         <database name="h2" use-pk-constraint-names="false" use-indexes-unique="true" add-unique-as="true" default-isolation-level="ReadCommitted"
                 default-jdbc-driver="org.h2.Driver" default-xa-ds-class="org.h2.jdbcx.JdbcDataSource"
-                default-start-server-args="-tcpPort 9092 -ifExists -baseDir ${moqui_runtime}/db/h2">
+                default-start-server-args="-tcpPort 9092 -ifExists -baseDir ${moqui_runtime}/db/h2"
+                to-json-method=" " format-json-value="? FORMAT JSON">
+            <database-type sql-type-alias="s" type="jsonb" java-type="java.util.HashMap" sql-type="JSON"/>
+
             <inline-jdbc><xa-properties url="${entity_ds_url}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
         </database>
         <!-- TODO: add configuration examples -->
@@ -826,7 +842,9 @@
         <database name="postgres" lb-name="postgresql" join-style="ansi" from-lateral-style="lateral" result-fetch-size="50"
                 never-try-insert="true" default-isolation-level="ReadCommitted" use-tm-join="true" default-test-query="SELECT 1"
                 default-jdbc-driver="org.postgresql.Driver" default-xa-ds-class="org.postgresql.xa.PGXADataSource"
-                default-startup-add-missing="true" default-runtime-add-missing="false" use-binary-type-for-blob="true">
+                default-startup-add-missing="true" default-runtime-add-missing="false" use-binary-type-for-blob="true"
+                to-json-method="to_json" format-json-value="?::json"
+        >
             <!-- NOTE: when Postgres JDBC driver updated can set use-tm-join="true" -->
             <database-type type="number-float" sql-type="FLOAT8"/>
 

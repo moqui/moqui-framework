@@ -19,6 +19,7 @@ import org.moqui.BaseArtifactException
 import org.moqui.BaseException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.etl.SimpleEtl
+import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.condition.EntityConditionImplBase
@@ -1371,9 +1372,9 @@ class EntityFacadeImpl implements EntityFacade {
             if (edf instanceof EntityDatasourceFactoryImpl) {
                 EntityDatasourceFactoryImpl edfi = (EntityDatasourceFactoryImpl) edf
                 DatasourceInfo dsi = edfi.dsi
-                dsiList.add([group:groupName, uniqueName:dsi.uniqueName, database:dsi.database.attribute('name'), detail:dsi.dsDetails] as Map<String, Object>)
+                dsiList.add([group:groupName, uniqueName:dsi.uniqueName, database:dsi.database.attribute('name'), detail:dsi.dsDetails, dsFactory: edf.getClass().simpleName] as Map<String, Object>)
             } else {
-                dsiList.add([group:groupName] as Map<String, Object>)
+                dsiList.add([group:groupName, dsFactory: edf.getClass().simpleName] as Map<String, Object>)
             }
         }
         return dsiList
@@ -2302,4 +2303,17 @@ class EntityFacadeImpl implements EntityFacade {
         return qsl
     }
     void clearQueryStats() { queryStatsInfoMap.clear() }
+
+
+    // DTQ Customization
+    // allows adding extra rules related to entities (e.g. in SynchroMaster)
+    public void addNewEecaRule(String entityName, EntityEcaRule eer)
+    {
+        ArrayList<EntityEcaRule> lst = this.eecaRulesByEntityName.get(entityName)
+        if (lst == null) {
+            lst = new ArrayList<EntityEcaRule>()
+            this.eecaRulesByEntityName.put(entityName, lst)
+        }
+        lst.add(eer)
+    }
 }

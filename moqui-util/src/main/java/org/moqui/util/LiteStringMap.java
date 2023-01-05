@@ -308,7 +308,7 @@ public class LiteStringMap<V> implements Map<String, V>, Externalizable, Compara
             LiteStringMap<V> lsm = (LiteStringMap<V>) map;
             if (useManualIndex) {
                 this.lastIndex = lsm.lastIndex;
-                if (keyArray.length <= lsm.lastIndex) growArrays(lsm.lastIndex);
+                if (keyArray.length < lsm.size()) growArrays(lsm.size());
             }
             for (int i = 0; i <= lsm.lastIndex; i++) {
                 if (skipKeys != null && skipKeys.contains(lsm.keyArray[i])) continue;

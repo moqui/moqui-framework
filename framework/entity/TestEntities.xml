@@ -18,7 +18,7 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- moqui.test -->
     <!-- ========================================================= -->
 
-    <entity entity-name="TestEntity" package="moqui.test" sequence-bank-size="100">
+    <entity entity-name="TestEntity" package="moqui.test" sequence-bank-size="100" cache="never">
         <field name="testId" type="id" is-pk="true"/>
         <field name="testMedium" type="text-medium"/>
         <field name="testLong" type="text-long"/>
@@ -31,6 +31,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="testNumberFloat" type="number-float"/>
         <field name="testCurrencyAmount" type="currency-amount"/>
         <field name="testCurrencyPrecise" type="currency-precise"/>
+        <field name="testJsonField" type="jsonb"/>
     </entity>
     <entity entity-name="Foo" package="moqui.test" sequence-bank-size="100">
         <field name="fooId" type="id" is-pk="true"/>

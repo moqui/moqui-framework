@@ -4,6 +4,9 @@
 # local files
 __*
 
+# files directory
+/files
+
 # db dumps
 *.sql
 *.zip
@@ -15,6 +18,7 @@ __*
 build
 .gradle
 .shelf
+gradle.properties
 /framework/dependencies
 
 # build generated files
@@ -24,6 +28,7 @@ build
 # runtime directory (separate repository so ignore directory entirely)
 /runtime
 /execwartmp
+/wartemp
 /docker/runtime
 
 # IntelliJ IDEA files
