@@ -512,15 +512,10 @@ task load(type: JavaExec) {
     workingDir = '.'; jvmArgs = ['-server']; main = '-jar'
     args = [warName, 'load', (project.properties.containsKey('types') ? "types=${types}" : "types=all")]
 }
-task loadSeed(type: JavaExec) {
+task loadTest(type: JavaExec) {
+    description "Run Moqui to load data for testing"
     dependsOn checkRuntime, allBuildTasks
-    systemProperties = ['moqui.conf':moquiConfProduction, 'moqui.runtime':moquiRuntime]
-    workingDir = '.'; jvmArgs = ['-server']; main = '-jar'
-    args = [warName, 'load', (project.properties.containsKey('types') ? "types=${types}" : "types=seed")]
-}
-task loadSeedInitial(type: JavaExec) {
-    dependsOn checkRuntime, allBuildTasks
-    systemProperties = ['moqui.conf':moquiConfProduction, 'moqui.runtime':moquiRuntime]
+    systemProperties = ['moqui.conf':moquiConfDev, 'moqui.runtime':moquiRuntime, 'moqui.log.directory':moquiDefaulLogDirectory]
     workingDir = '.'; jvmArgs = ['-server']; main = '-jar'
     args = [warName, 'load', (project.properties.containsKey('types') ? "types=${types}" : "types=seed,seed-initial")]
 }
