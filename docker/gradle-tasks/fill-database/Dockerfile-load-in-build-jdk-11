@@ -25,7 +25,8 @@ COPY *.* ./
 
 RUN gradle wrapper
 RUN ./gradlew build
-RUN ./gradlew load -Dmoqui.conf.dev=${MOQUI_CONF}
+RUN ./gradlew load -Dmoqui.conf.dev=${MOQUI_CONF} -Ptypes=seed-initial
+RUN ./gradlew load -Dmoqui.conf.dev=${MOQUI_CONF} -Ptypes=seed
 
 WORKDIR /opt/moqui
 RUN cp /opt/moqui-source/moqui-plus-runtime.war .
