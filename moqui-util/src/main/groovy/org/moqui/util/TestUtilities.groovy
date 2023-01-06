@@ -23,7 +23,6 @@ public class TestUtilities {
         for (int i = 0; i < valuesToAppend.length; i++) {
             result[lastUsed + i] = valuesToAppend[i]
         }
-
         return result
     }
 
