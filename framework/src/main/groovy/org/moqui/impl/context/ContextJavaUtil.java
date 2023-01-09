@@ -31,6 +31,7 @@ import org.moqui.entity.EntityList;
 import org.moqui.entity.EntityValue;
 import org.moqui.impl.entity.EntityValueBase;
 import org.moqui.impl.screen.ScreenRenderImpl;
+import org.moqui.resource.ResourceReference;
 import org.moqui.util.ContextStack;
 import org.moqui.util.LiteStringMap;
 import org.moqui.util.ObjectUtilities;
@@ -586,6 +587,7 @@ public class ContextJavaUtil {
         SimpleModule module = new SimpleModule();
         module.addSerializer(GString.class, new ContextJavaUtil.GStringJsonSerializer());
         module.addSerializer(LiteStringMap.class, new ContextJavaUtil.LiteStringMapJsonSerializer());
+        module.addSerializer(ResourceReference.class, new ContextJavaUtil.ResourceReferenceJsonSerializer());
         jacksonMapper.registerModule(module);
     }
     static class GStringJsonSerializer extends StdSerializer<GString> {
@@ -624,6 +626,23 @@ public class ContextJavaUtil {
                     gen.writeObjectField(key, value);
                 }
             }
+            gen.writeEndObject();
+        }
+    }
+    static class ResourceReferenceJsonSerializer extends StdSerializer<ResourceReference> {
+        ResourceReferenceJsonSerializer() { super(ResourceReference.class); }
+        @Override public void serialize(ResourceReference resourceRef, JsonGenerator gen, SerializerProvider serializers)
+                throws IOException, JsonProcessingException {
+            if (resourceRef == null) {
+                gen.writeNull();
+                return;
+            }
+            gen.writeStartObject();
+            gen.writeObjectField("location", resourceRef.getLocation());
+            gen.writeObjectField("isDirectory", resourceRef.isDirectory());
+            gen.writeObjectField("lastModified", resourceRef.getLastModified());
+            ResourceReference.Version currentVersion = resourceRef.getCurrentVersion();
+            if (currentVersion != null) gen.writeObjectField("currentVersionName", currentVersion.getVersionName());
             gen.writeEndObject();
         }
     }

@@ -38,6 +38,17 @@ public class CollectionUtilities {
         public KeyValue(String key, Object value) { this.key = key; this.value = value; }
     }
 
+    public static HashMap<String, Object> toHashMap(Object... keyValues) {
+        if (keyValues.length % 2 != 0) throw new IllegalArgumentException("Must have even number of arguments in name, value pairs");
+        HashMap<String, Object> newMap = new HashMap<>();
+        int pairs = keyValues.length / 2;
+        for (int p = 0; p < pairs; p++) {
+            int i = p * 2;
+            newMap.put((String) keyValues[i], keyValues[i+1]);
+        }
+        return newMap;
+    }
+
     public static ArrayList<Object> getMapArrayListValues(ArrayList<Map<Object, Object>> mapList, Object key, boolean excludeNullValues) {
         if (mapList == null) return null;
         int mapListSize = mapList.size();

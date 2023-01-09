@@ -172,7 +172,7 @@ public class EntityJavaUtil {
         public boolean getDescending() { return descending; }
         Boolean getCaseUpperLower() { return caseUpperLower; }
 
-        FieldOrderOptions(String orderByName) {
+        public FieldOrderOptions(String orderByName) {
             StringBuilder fnSb = new StringBuilder(40);
             // simple first parse pass, single run through and as fast as possible
             boolean containsSpace = false;
@@ -254,7 +254,7 @@ public class EntityJavaUtil {
         private final EntityDefinition ed;
         private final EntityFacadeImpl efi;
         public final String internalEntityName, fullEntityName, shortAlias, groupName;
-        public final String tableName, schemaName, fullTableName;
+        public final String tableName, tableNameLowerCase, schemaName, fullTableName;
 
         public final EntityDatasourceFactory datasourceFactory;
         public final boolean isEntityDatasourceFactoryImpl;
@@ -308,6 +308,7 @@ public class EntityJavaUtil {
             String tableNameAttr = internalEntityNode.attribute("table-name");
             if (tableNameAttr == null || tableNameAttr.isEmpty()) tableNameAttr = EntityJavaUtil.camelCaseToUnderscored(internalEntityName);
             tableName = tableNameAttr;
+            tableNameLowerCase = tableName.toLowerCase();
             String schemaNameAttr = datasourceNode != null ? datasourceNode.attribute("schema-name") : null;
             if (schemaNameAttr != null && schemaNameAttr.length() == 0) schemaNameAttr = null;
             schemaName = schemaNameAttr;

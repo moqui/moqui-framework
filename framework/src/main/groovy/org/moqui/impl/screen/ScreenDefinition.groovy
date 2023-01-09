@@ -23,6 +23,7 @@ import org.moqui.context.ExecutionContext
 import org.moqui.context.ResourceFacade
 import org.moqui.impl.context.ContextJavaUtil
 import org.moqui.impl.entity.EntityDefinition
+import org.moqui.impl.screen.ScreenUrlInfo.UrlInstance
 import org.moqui.impl.service.ServiceDefinition
 import org.moqui.resource.ResourceReference
 import org.moqui.context.WebFacade
