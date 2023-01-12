@@ -24,6 +24,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="tableName" type="String"/>
             <parameter name="orderBy" type="List"/>
             <parameter name="args" type="Map"/>
+            <parameter name="failsafe" type="Boolean" default-value="false"/>
         </in-parameters>
         <out-parameters>
             <parameter name="result" type="Map"/>
@@ -41,6 +42,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="entityName" type="String"/>
             <parameter name="tableName" type="String"/>
             <parameter name="args" type="Map"/>
+            <parameter name="failsafe" type="Boolean" default-value="false"/>
         </in-parameters>
         <out-parameters>
             <parameter name="result" type="Map"/>
@@ -62,6 +64,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="orderBy" type="List"/>
             <parameter name="args" type="Map"/>
             <parameter name="data" type="Map"/>
+            <parameter name="failsafe" type="Boolean" default-value="false"/>
         </in-parameters>
         <out-parameters>
             <parameter name="result" type="Map"/>
@@ -83,6 +86,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="orderBy" type="List"/>
             <parameter name="args" type="Map"/>
             <parameter name="data" type="Map"/>
+            <parameter name="failsafe" type="Boolean" default-value="false"/>
         </in-parameters>
         <out-parameters>
             <parameter name="result" type="Map"/>

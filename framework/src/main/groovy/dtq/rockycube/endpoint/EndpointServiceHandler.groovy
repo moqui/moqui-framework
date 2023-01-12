@@ -548,7 +548,7 @@ class EndpointServiceHandler {
         created.create()
 
         // get result back to the caller
-        def res = [
+        return [
                 result : true,
                 message: "Records created (1)",
                 data   : [fillResultset(created)]
