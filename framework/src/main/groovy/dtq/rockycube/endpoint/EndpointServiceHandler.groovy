@@ -623,10 +623,7 @@ class EndpointServiceHandler {
         // is the cache synced?
         if (!syncMaster.getIsSynced(this.entityName)) throw new EndpointException("Entity is not synchronized, cannot proceed")
 
-        // 1. complex queries - now supported
-        // if (args[CONST_COMPLEX_CONDITION_RULE]) throw new EndpointException("Complex queries not supported for i-cache")
-
-        // 2. pagination not supported
+        // 1. pagination not supported
         if (this.inputIndex > 1) throw new EndpointException("Pagination not supported for i-cache queries")
 
         // 3. fields must be explicitly set
