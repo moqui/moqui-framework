@@ -34,7 +34,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="created" type="date-time" default="ec.user.nowTimestamp"/>
 
         <!--Index-->
-        <index name="idSrchItmIdx">
+        <index name="idSrchItmIdx" table-based-name="true">
             <index-field name="identity"/>
         </index>
     </entity>
@@ -48,12 +48,12 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one-nofk" related="dtq.rockycube.ClosureItem" fk-name="closureItemId"/>
 
         <!--Index for searching using identity-column-->
-        <index name="idSrchItmOutIdx">
+        <index name="idSrchItmOutIdx" table-based-name="true">
             <index-field name="identity"/>
         </index>
 
         <!--Index for searching using closureItemId-->
-        <index name="idClsItmIdx">
+        <index name="idClsItmIdx" table-based-name="true">
             <index-field name="closureItemId"/>
         </index>
     </entity>
