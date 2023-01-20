@@ -41,10 +41,20 @@ class JsonFieldManipulator {
     {
         // default response
         String defResponse = "?"
-        if (!dbConfigs.containsKey(group)) return defResponse
+
+        // use default setup - transactional
+        def groupName = group
+
+        if (!dbConfigs.containsKey(group))
+        {
+            if (dbConfigs.containsKey("transactional")) groupName = "transactional"
+        }
+
+        // return original, if no transactional
+        if (!groupName) return defResponse
 
         try {
-                MNode conf = dbConfigs.get(group)
+                MNode conf = dbConfigs.get(groupName)
                 String createToJsonMethod = conf.attribute("create-to-json-method");
                 String createFormatJson = conf.attribute("create-format-json-value");
                 if (!createToJsonMethod || !createFormatJson) return defResponse
