@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-2.1.xsd">
+    <!--List of closures stored-->
+    <entity entity-name="ClosureList" package="dtq.rockycube" no-update-stamp="true">
+        <field name="closureId" type="id" is-pk="true"/>
+        <field name="keyword" type="text-short" not-null="true"><description>Field that holds info on name of the closure</description></field>
+        <field name="storageAppendix" type="text-medium" not-null="true"><description>Where do we have the data stored, only the appendix of the label</description></field>
+        <field name="detailStorage" type="text-indicator" default="0"/>
+        <field name="created" type="date-time" default="ec.user.nowTimestamp"/>
+        <index name="kwrdIdx" unique="true">
+            <index-field name="keyword"/>
+        </index>
+    </entity>
+
+    <!--The fundamental part of the closure, the ITEM (budgeting-bone, project, monthly work-record, ...)-->
+    <entity entity-name="ClosureItem" package="dtq.rockycube">
+        <field name="closureItemId" type="id" is-pk="true"/>
+        <field name="identity" type="jsonb"/>
+        <field name="raw" type="jsonb"><description>Pure data chunk</description></field>
+        <field name="detail" type="jsonb"><description>Processing outcome, if closure is set to store details, details shall be published there</description></field>
+        <field name="created" type="date-time" default="ec.user.nowTimestamp"/>
+
+        <!--Index-->
+        <index name="idSrchItmIdx">
+            <index-field name="identity"/>
+        </index>
+    </entity>
+
+    <entity entity-name="ClosureItemOutput" package="dtq.rockycube">
+        <field name="closureItemDetailId" type="id" is-pk="true"/>
+        <field name="closureItemId" type="id" not-null="true"/>
+        <field name="identity" type="jsonb" not-null="true"/>
+        <field name="detail" type="jsonb" not-null="true"/>
+        <field name="created" type="date-time" default="ec.user.nowTimestamp"/>
+        <relationship type="one-nofk" related="dtq.rockycube.ClosureItem" fk-name="closureItemId"/>
+
+        <!--Index for searching using identity-column-->
+        <index name="idSrchItmOutIdx">
+            <index-field name="identity"/>
+        </index>
+
+        <!--Index for searching using closureItemId-->
+        <index name="idClsItmIdx">
+            <index-field name="closureItemId"/>
+        </index>
+    </entity>
+
+    <!--NOT IN PRODUCTION - in this approach, we have many data, each for single respective data point-->
+    <!--The data storage itself, with unlimited number of values-->
+    <!--    <entity entity-name="ClosureItemDetail" package="dtq.rockycube">-->
+    <!--        <field name="closureItemDetailId" type="id" is-pk="true"/>-->
+    <!--        <field name="closureItemId" type="id" not-null="true"/>-->
+    <!--        <field name="valueTypeId" type="id" not-null="true"/>-->
+    <!--        <field name="value" type="number-float"/>-->
+    <!--        <field name="created" type="date-time" default="ec.user.nowTimestamp"/>-->
+    <!--        <relationship type="one" related="dtq.rockycube.ClosureItem" fk-name="closureItemId"/>-->
+    <!--        <relationship type="one" title="ClosureValueType" related="moqui.basic.Enumeration">-->
+    <!--            <key-map field-name="valueTypeId" related="enumId"/>-->
+    <!--        </relationship>-->
+
+    <!--        <seed-data>-->
+    <!--            <moqui.basic.EnumerationType description="Closure Value Type" enumTypeId="ClosureValueType"/>-->
+    <!--            <moqui.basic.Enumeration enumId="amount" enumTypeId="ClosureValueType"/>-->
+    <!--            <moqui.basic.Enumeration enumId="center" enumTypeId="ClosureValueType"/>-->
+    <!--        </seed-data>-->
+    <!--    </entity>-->
+
+</entities>

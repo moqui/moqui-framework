@@ -1,12 +1,11 @@
 package dtq.rockycube.endpoint
 
-
 import com.google.gson.Gson
 import dtq.rockycube.cache.CacheQueryHandler
 import dtq.rockycube.entity.ConditionHandler
 import dtq.rockycube.entity.EntityHelper
 import dtq.synchro.SynchroMaster
-import org.apache.shiro.crypto.hash.Hash
+import dtq.rockycube.GenericUtilities
 import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
 import org.moqui.entity.EntityCondition
@@ -206,7 +205,7 @@ class EndpointServiceHandler {
 
             // special treatment for maps
             // convert HashMap, watch out if it's array
-            if (it.isMapField()) itVal = this.processField(it.value)
+            if (it.isMapField()) itVal = GenericUtilities.processField(it.value)
             recordMap.put(fieldName, itVal)
         }
 
@@ -246,27 +245,7 @@ class EndpointServiceHandler {
         return res
     }
 
-    private Object processField(Object field)
-    {
-        def res
-        def fieldClass = field.getClass().simpleName.toLowerCase()
-        switch (fieldClass)
-        {
-            case "byte[]":
-                String itStrVal = new String((byte[]) field, StandardCharsets.UTF_8)
-                def firstChar = itStrVal.substring(0,1)
-                if (firstChar == "[")
-                {
-                    res = gson.fromJson(itStrVal, ArrayList.class)
-                } else {
-                    res = gson.fromJson(itStrVal, HashMap.class)
-                }
-                break
-            default:
-                res = gson.fromJson(field.toString(), HashMap.class)
-        }
-        return res
-    }
+
 
     private boolean addField(String fieldName)
     {
@@ -660,7 +639,7 @@ class EndpointServiceHandler {
                 def fieldClass = value.getClass().simpleName
                 //logger.debug("Field [${f}][${fieldClass}]: [${fieldValue}]")
                 // byte's - that shall be a JSON
-                if (fieldClass == "byte[]") value = this.processField(value)
+                if (fieldClass == "byte[]") value = GenericUtilities.processField(value)
                 resMap.put(key, value)
             }
             res.add(resMap)

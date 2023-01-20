@@ -374,8 +374,12 @@ public class FieldInfo {
                 break;
             case 13: value = new SerialClob(rs.getClob(index)); break;
             case 14:
-            case 15: value = rs.getObject(index); break;
-            case 16: value = rs.getObject(index); break;
+            case 15:
+                value = efi.jsonFieldManipulator.entityValue(15, rs.getObject(index));
+                break;
+            case 16:
+                value = efi.jsonFieldManipulator.entityValue(16, rs.getObject(index));
+                break;
             }
         } catch (SQLException sqle) {
             logger.error("SQL Exception while getting value for field: " + name + " (" + index + ")", sqle);

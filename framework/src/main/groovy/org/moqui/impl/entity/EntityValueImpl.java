@@ -16,7 +16,6 @@ package org.moqui.impl.entity;
 import org.moqui.entity.EntityException;
 import org.moqui.entity.EntityValue;
 import org.moqui.impl.entity.EntityJavaUtil.EntityConditionParameter;
-import org.moqui.util.MNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,7 +23,6 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Map;
 
 public class EntityValueImpl extends EntityValueBase {
     protected static final Logger logger = LoggerFactory.getLogger(EntityValueImpl.class);
@@ -62,10 +60,6 @@ public class EntityValueImpl extends EntityValueBase {
         if (ed.isViewEntity) {
             throw new EntityException("Create not yet implemented for view-entity");
         } else {
-            String[] overrides = this.setJsonMethods(efi, ed.groupName);
-            String toJsonMethod = overrides[0];
-            String formatJson = overrides[1];
-
             EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi);
             StringBuilder sql = eqb.sqlTopLevel;
             sql.append("INSERT INTO ").append(ed.getFullTableName());
@@ -91,17 +85,10 @@ public class EntityValueImpl extends EntityValueBase {
                 // cycle through values and construct list of fields
                 // for those that are json, insert `cast` function
                 boolean isJsonField = fieldInfo.type.toLowerCase().contains("json");
-                if (isJsonField && formatJson.length() > 0)
-                {
-                    // for PG   `to_json(?::json)
-                    // for H2   `(? FORMAT JSON)`
-                    valuesForCast.append(toJsonMethod + "(" + formatJson + ")");
-                } else {
-                    valuesForCast.append("?");
-                }
+                valuesForCast.append(isJsonField ? efi.jsonFieldManipulator.createConditionField(ed.groupName) : "?");
             }
 
-            sql.append(") VALUES (").append(valuesForCast.toString()).append(")");
+            sql.append(") VALUES (").append(valuesForCast).append(")");
 
             try {
                 efi.getEntityDbMeta().checkTableRuntime(ed);
@@ -142,12 +129,6 @@ public class EntityValueImpl extends EntityValueBase {
         } else {
             final EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi);
 
-            // tweaking sql query when working with JSONs
-            // By default, no methods are set, all has to be set in DataSource
-            String[] overrides = this.setJsonMethods(efi, ed.groupName);
-            String toJsonMethod = overrides[0];
-            String formatJson = overrides[1];
-
             ArrayList<EntityConditionParameter> parameters = eqb.parameters;
             StringBuilder sql = eqb.sqlTopLevel;
             sql.append("UPDATE ").append(ed.getFullTableName()).append(" SET ");
@@ -162,12 +143,9 @@ public class EntityValueImpl extends EntityValueBase {
                 // treat JSON-like columns differently - override `valueCast` if parameters set
                 // must take into account also the type of database involved
                 boolean isJsonField = fieldInfo.type.toLowerCase().contains("json");
-                if (isJsonField && formatJson.length() > 0)
-                {
-                    // for PG   `to_json(?::json)
-                    // for H2   `(? FORMAT JSON)`
-                    valueCast = "=" + toJsonMethod + "(" + formatJson + ")";
-                }
+                // tweaking sql query when working with JSONs
+                // By default, no methods are set, all has to be set in DataSource
+                if (isJsonField) valueCast = "=" + efi.jsonFieldManipulator.createConditionField(ed.groupName);
                 sql.append(fieldName).append(valueCast);
                 parameters.add(new EntityConditionParameter(fieldInfo, valueMapInternal.get(fieldInfo.name), eqb));
             }
@@ -305,19 +283,5 @@ public class EntityValueImpl extends EntityValueBase {
         }
 
         return retVal;
-    }
-
-    private String[] setJsonMethods(EntityFacadeImpl efi, String groupName)
-    {
-        String[] result = new String[]{"", ""};
-        MNode databaseNode = efi.getDatabaseNode(groupName);
-        if (null != databaseNode) {
-            String over2jsonMethod = databaseNode.attribute("to-json-method");
-            if (null != over2jsonMethod) result[0] = over2jsonMethod;
-
-            String overFormatJson = databaseNode.attribute("format-json-value");
-            if (null != overFormatJson) result[1] = overFormatJson;
-        }
-        return result;
     }
 }

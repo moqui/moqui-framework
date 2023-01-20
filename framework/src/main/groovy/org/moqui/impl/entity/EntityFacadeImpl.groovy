@@ -19,7 +19,6 @@ import org.moqui.BaseArtifactException
 import org.moqui.BaseException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.etl.SimpleEtl
-import org.moqui.impl.actions.XmlAction
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.condition.EntityConditionImplBase
@@ -41,6 +40,8 @@ import org.moqui.util.SystemBinding
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.w3c.dom.Element
+
+import dtq.rockycube.connection.JsonFieldManipulator
 
 import javax.cache.Cache
 import javax.sql.DataSource
@@ -110,6 +111,8 @@ class EntityFacadeImpl implements EntityFacade {
     protected BlockingQueue<Runnable> statementWorkQueue = new ArrayBlockingQueue<>(1024);
     protected ThreadPoolExecutor statementExecutor = new ThreadPoolExecutor(5, 100, 60, TimeUnit.SECONDS, statementWorkQueue, new ExecThreadFactory());
 
+    public final JsonFieldManipulator jsonFieldManipulator
+
     EntityFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
         entityConditionFactory = new EntityConditionFactoryImpl(this)
@@ -154,6 +157,11 @@ class EntityFacadeImpl implements EntityFacade {
 
         emptyList = new EntityListImpl(this)
         emptyList.setFromCache()
+
+        // initialize JSONconditionHandler
+        this.jsonFieldManipulator = new JsonFieldManipulator(entityFacadeNode, (String groupName)-> {
+            return getDatabaseNode(groupName)
+        })
     }
     void postFacadeInit() {
         // ========== load a few things in advance so first page hit is faster in production (in dev mode will reload anyway as caches timeout)
@@ -2303,7 +2311,6 @@ class EntityFacadeImpl implements EntityFacade {
         return qsl
     }
     void clearQueryStats() { queryStatsInfoMap.clear() }
-
 
     // DTQ Customization
     // allows adding extra rules related to entities (e.g. in SynchroMaster)

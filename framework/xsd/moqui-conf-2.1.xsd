@@ -853,8 +853,9 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="default-start-server-args" type="xs:string"/>
 
             <!-- JSON related tweaks -->
-            <xs:attribute name="to-json-method" type="xs:string"/>
-            <xs:attribute name="format-json-value" type="xs:string"/>
+            <!--(create)-->
+            <xs:attribute name="create-to-json-method" type="xs:string"/>
+            <xs:attribute name="create-format-json-value" type="xs:string"/>
 
         </xs:complexType>
     </xs:element>

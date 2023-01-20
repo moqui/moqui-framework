@@ -131,7 +131,14 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
                 eqb.parameters.add(new EntityConditionParameter(fi, value2, eqb));
             } else {
                 if (ignoreCase && (value instanceof CharSequence)) value = value.toString().toUpperCase();
-                sql.append(" ?");
+                // tweaking JSON-related conditions
+                boolean isJson = fi.type.toLowerCase().contains("json");
+                if (isJson && (value instanceof Map))
+                {
+                    sql.append(eqb.efi.jsonFieldManipulator.createConditionField(curEd.groupName));
+                } else {
+                    sql.append(" ?");
+                }
                 eqb.parameters.add(new EntityConditionParameter(fi, value, eqb));
             }
         }

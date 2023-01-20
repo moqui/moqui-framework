@@ -625,7 +625,7 @@
         <database name="h2" use-pk-constraint-names="false" use-indexes-unique="true" add-unique-as="true" default-isolation-level="ReadCommitted"
                 default-jdbc-driver="org.h2.Driver" default-xa-ds-class="org.h2.jdbcx.JdbcDataSource"
                 default-start-server-args="-tcpPort 9092 -ifExists -baseDir ${moqui_runtime}/db/h2"
-                to-json-method=" " format-json-value="? FORMAT JSON">
+                create-to-json-method=" " create-format-json-value="? FORMAT JSON">
             <database-type sql-type-alias="s" type="jsonb" java-type="java.util.HashMap" sql-type="JSON"/>
 
             <inline-jdbc><xa-properties url="${entity_ds_url}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
@@ -843,7 +843,7 @@
                 never-try-insert="true" default-isolation-level="ReadCommitted" use-tm-join="true" default-test-query="SELECT 1"
                 default-jdbc-driver="org.postgresql.Driver" default-xa-ds-class="org.postgresql.xa.PGXADataSource"
                 default-startup-add-missing="true" default-runtime-add-missing="false" use-binary-type-for-blob="true"
-                to-json-method="to_json" format-json-value="?::json"
+                  create-to-json-method="to_json" create-format-json-value="?::json"
         >
             <!-- NOTE: when Postgres JDBC driver updated can set use-tm-join="true" -->
             <database-type type="number-float" sql-type="FLOAT8"/>
