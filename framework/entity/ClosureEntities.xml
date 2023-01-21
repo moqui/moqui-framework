@@ -31,6 +31,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="identity" type="jsonb"/>
         <field name="raw" type="jsonb"><description>Pure data chunk</description></field>
         <field name="detail" type="jsonb"><description>Processing outcome, if closure is set to store details, details shall be published there</description></field>
+        <field name="stats" type="jsonb"><description>Field for holding some statistics, may be suitable for some use cases</description></field>
         <field name="created" type="date-time" default="ec.user.nowTimestamp"/>
 
         <!--Index-->
