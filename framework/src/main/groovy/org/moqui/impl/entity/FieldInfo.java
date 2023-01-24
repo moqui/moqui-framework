@@ -589,12 +589,12 @@ public class FieldInfo {
                     if (value != null)
                     {
                         // convert hashmap into string (with doublequotes escaped)
+                        // VERSION 1 - works with H2
                         Gson gson = new Gson();
                         String outMap = gson.toJson(value).toString();
-
                         ps.setString(index, outMap);
                     } else {
-                        ps.setNull(index, Types.JAVA_OBJECT);
+                        ps.setNull(index, Types.NULL);
                     }
                     break;
                 }

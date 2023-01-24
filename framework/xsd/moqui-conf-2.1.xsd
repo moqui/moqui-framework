@@ -743,6 +743,7 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:complexType>
             <xs:sequence>
                 <xs:element minOccurs="0" maxOccurs="unbounded" ref="database-type"/>
+                <xs:element minOccurs="0" maxOccurs="1" ref="json-config"/>
                 <xs:element minOccurs="0" maxOccurs="1" ref="inline-jdbc"/>
             </xs:sequence>
 
@@ -874,6 +875,42 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="java-type" type="xs:string"/>
         </xs:complexType>
     </xs:element>
+    <!-- JSON related tweaks -->
+    <xs:element name="json-config">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="1" ref="create-specs"/>
+                <xs:element minOccurs="0" maxOccurs="1" ref="update-specs"/>
+                <xs:element minOccurs="0" maxOccurs="1" ref="where-specs"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="json-operator"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="create-specs">
+        <xs:complexType>
+            <xs:attribute name="to-json-method" type="xs:string"/>
+            <xs:attribute name="format-json-value" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="update-specs">
+        <xs:complexType>
+            <xs:attribute name="to-json-method" type="xs:string"/>
+            <xs:attribute name="format-json-value" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="where-specs">
+        <xs:complexType>
+            <xs:attribute name="to-json-method" type="xs:string"/>
+            <xs:attribute name="format-json-value" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="json-operator">
+        <xs:complexType>
+            <xs:attribute name="operator-type" type="xs:string"/>
+            <xs:attribute name="value-to-use" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+
 
     <!-- ================== Repository (JCR) Conf Root ==================== -->
     <xs:element name="repository-list">

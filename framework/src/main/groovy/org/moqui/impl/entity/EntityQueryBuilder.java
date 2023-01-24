@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.entity;
 
+import org.moqui.entity.EntityCondition;
 import org.moqui.entity.EntityException;
 import org.moqui.impl.entity.EntityJavaUtil.EntityConditionParameter;
 import org.moqui.impl.entity.EntityJavaUtil.FieldOrderOptions;
@@ -290,11 +291,19 @@ public class EntityQueryBuilder implements Runnable {
     public void addWhereClause(FieldInfo[] pkFieldArray, LiteStringMap valueMapInternal) {
         sqlTopLevel.append(" WHERE ");
         int sizePk = pkFieldArray.length;
+        EntityCondition.ComparisonOperator operator = EntityCondition.ComparisonOperator.EQUALS;
         for (int i = 0; i < sizePk; i++) {
             FieldInfo fieldInfo = pkFieldArray[i];
+            String groupName = fieldInfo.ed.groupName;
             if (fieldInfo == null) break;
             if (i > 0) sqlTopLevel.append(" AND ");
-            sqlTopLevel.append(fieldInfo.getFullColumnName()).append("=?");
+
+            // calculate more thoroughly in case of JSON fields
+            String operatorStr = efi.jsonFieldManipulator.findComparisonOperator(
+                    operator, fieldInfo, groupName, EntityConditionFactoryImpl.getComparisonOperatorString(operator));
+            String fc = efi.jsonFieldManipulator.fieldCondition(fieldInfo, groupName, "where", "?");
+            //
+            sqlTopLevel.append(fieldInfo.getFullColumnName()).append(operatorStr).append(fc);
             parameters.add(new EntityJavaUtil.EntityConditionParameter(fieldInfo, valueMapInternal.getByIString(fieldInfo.name, fieldInfo.index), this));
         }
     }

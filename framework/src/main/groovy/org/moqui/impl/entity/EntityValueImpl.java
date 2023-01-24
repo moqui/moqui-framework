@@ -85,7 +85,7 @@ public class EntityValueImpl extends EntityValueBase {
                 // cycle through values and construct list of fields
                 // for those that are json, insert `cast` function
                 boolean isJsonField = fieldInfo.type.toLowerCase().contains("json");
-                valuesForCast.append(isJsonField ? efi.jsonFieldManipulator.createConditionField(ed.groupName) : "?");
+                valuesForCast.append(isJsonField ? efi.jsonFieldManipulator.fieldCondition(ed.groupName) : "?");
             }
 
             sql.append(") VALUES (").append(valuesForCast).append(")");
@@ -145,7 +145,7 @@ public class EntityValueImpl extends EntityValueBase {
                 boolean isJsonField = fieldInfo.type.toLowerCase().contains("json");
                 // tweaking sql query when working with JSONs
                 // By default, no methods are set, all has to be set in DataSource
-                if (isJsonField) valueCast = "=" + efi.jsonFieldManipulator.createConditionField(ed.groupName);
+                if (isJsonField) valueCast = "=" + efi.jsonFieldManipulator.fieldCondition(ed.groupName);
                 sql.append(fieldName).append(valueCast);
                 parameters.add(new EntityConditionParameter(fieldInfo, valueMapInternal.get(fieldInfo.name), eqb));
             }

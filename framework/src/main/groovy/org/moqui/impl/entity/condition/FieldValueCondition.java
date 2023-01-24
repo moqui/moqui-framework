@@ -98,7 +98,11 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
             valueDone = true;
         }
         if (!valueDone) {
-            sql.append(EntityConditionFactoryImpl.getComparisonOperatorString(operator));
+            String operatorStr = eqb.efi.jsonFieldManipulator.findComparisonOperator(
+                    operator, fi, curEd.groupName, EntityConditionFactoryImpl.getComparisonOperatorString(operator)
+            );
+            sql.append(operatorStr);
+            // sql.append(EntityConditionFactoryImpl.getComparisonOperatorString(operator));
             if (operator == IN || operator == NOT_IN) {
                 if (value instanceof CharSequence) {
                     String valueStr = value.toString();
@@ -132,13 +136,8 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
             } else {
                 if (ignoreCase && (value instanceof CharSequence)) value = value.toString().toUpperCase();
                 // tweaking JSON-related conditions
-                boolean isJson = fi.type.toLowerCase().contains("json");
-                if (isJson && (value instanceof Map))
-                {
-                    sql.append(eqb.efi.jsonFieldManipulator.createConditionField(curEd.groupName));
-                } else {
-                    sql.append(" ?");
-                }
+                String fc = eqb.efi.jsonFieldManipulator.fieldCondition(fi, curEd.groupName, "where", " ?");
+                sql.append(fc);
                 eqb.parameters.add(new EntityConditionParameter(fi, value, eqb));
             }
         }
