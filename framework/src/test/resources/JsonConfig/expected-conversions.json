@@ -1,0 +1,38 @@
+[
+  [
+    {
+      "groupName": "transactional_postgres",
+      "operation": "update"
+    },
+    {
+      "fieldCondition": "to_json(?::json)"
+    }
+  ],
+  [
+    {
+      "groupName": "transactional_postgres",
+      "operation": "where"
+    },
+    {
+      "fieldCondition": "?"
+    }
+  ],
+  [
+    {
+      "groupName": "transactional",
+      "operation": "create"
+    },
+    {
+      "fieldCondition": "(? FORMAT JSON)"
+    }
+  ],
+  [
+    {
+      "groupName": "transactional",
+      "operation": "where"
+    },
+    {
+      "fieldCondition": "(? FORMAT JSON)"
+    }
+  ]
+]

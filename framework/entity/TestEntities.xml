@@ -33,6 +33,11 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="testCurrencyPrecise" type="currency-precise"/>
         <field name="testJsonField" type="jsonb"/>
     </entity>
+    <entity entity-name="TestEntitySpecial" package="moqui.test" sequence-bank-size="100" cache="never">
+        <field name="testId" type="jsonb" is-pk="true"/>
+        <field name="testMaps" type="jsonb"/>
+        <field name="testArrays" type="jsonb"/>
+    </entity>
     <entity entity-name="Foo" package="moqui.test" sequence-bank-size="100">
         <field name="fooId" type="id" is-pk="true"/>
         <field name="fooText" type="text-medium"/>

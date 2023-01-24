@@ -1,0 +1,15 @@
+[
+  [
+    {
+      "entityName": "moqui.test.TestEntitySpecial",
+      "data": {
+        "array": [1, 2, "3"],
+        "dict": {"attr1": 1, "attr2": [3, 4]}
+      },
+      "key": {
+        "project": 1,
+        "type": "initial"
+      }
+    }
+  ]
+]
