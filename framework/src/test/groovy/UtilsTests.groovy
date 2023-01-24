@@ -1,14 +1,23 @@
+import org.apache.commons.io.FileUtils
+import org.moqui.Moqui
+import org.moqui.entity.EntityCondition
 import org.moqui.impl.ViUtilities
+import org.moqui.impl.context.ExecutionContextFactoryImpl
+import org.moqui.impl.entity.EntityConditionFactoryImpl
+import org.moqui.impl.entity.EntityDefinition
+import org.moqui.util.MNode
 import org.moqui.util.TestUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import dtq.rockycube.connection.JsonFieldManipulator
 import spock.lang.Specification
 
 import java.time.LocalDate
-import java.util.regex.Pattern
 
 class UtilsTests extends Specification {
     protected final static Logger logger = LoggerFactory.getLogger(UtilsTests.class)
+
+    protected String[] testDir = ["src", "test", "resources"]
 
     def setupSpec() {
 
@@ -71,5 +80,58 @@ class UtilsTests extends Specification {
 
         then:
         cleaned == expectedCleaned
+    }
+
+    def test_json_config_reader()
+    {
+        when:
+
+        ExecutionContextFactoryImpl ecfi = (ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory()
+
+        def testConfFile = FileUtils.getFile(TestUtilities.extendList(testDir, (String[]) ["JsonConfig", "TestConf.xml"]))
+        MNode testConfiguration = MNode.parse(testConfFile)
+
+        // manually extract nodes that will be used in the testing
+        def entityFacade = testConfiguration.child(0)
+        def datasourceList = entityFacade.children("datasource")
+        def databaseList = testConfiguration.child(1)
+        def databaseConfigs = databaseList.children("database")
+
+        // initialize JsonFieldManipulator before running any tests
+        JsonFieldManipulator jfm = new JsonFieldManipulator(["transactional", "transactional_postgres"], (confName)-> {
+            // search in datasource list
+            def ds = datasourceList.find({it->
+                if (it.attribute("group-name") == confName) return true
+                return false
+            })
+
+            // quit if no datasource
+            if (!ds) return null
+
+            def config = databaseConfigs.find({it->
+                return it.attribute("name") == ds.attribute("database-conf-name")
+            })
+            return config
+        })
+
+        // testing itself
+        // 1. conversions
+        TestUtilities.testSingleFile((String[]) ["JsonConfig", "expected-conversions.json"], {Object processed, Object expected, Integer idx->
+            def fieldCond = jfm.fieldCondition((String) processed['groupName'], (String) processed['operation'])
+            assert fieldCond == expected['fieldCondition']
+        })
+
+        // 2. operators
+        EntityDefinition ed = ecfi.entityFacade.getEntityDefinition("moqui.test.TestEntity");
+        def calcOperator = jfm.findComparisonOperator(
+                EntityCondition.ComparisonOperator.EQUALS,
+                ed.getFieldInfo("testJsonField"),
+                "transactional",
+                EntityConditionFactoryImpl.getComparisonOperatorString(EntityCondition.ComparisonOperator.EQUALS)
+        )
+        assert calcOperator == "@>"
+
+        then:
+        true == true
     }
 }
