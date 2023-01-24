@@ -7,25 +7,31 @@ import java.nio.charset.StandardCharsets
 class GenericUtilities {
     protected static Gson gson = new Gson()
 
+    /**
+     * Process JSONB fields into standard value
+     * @param field
+     * @return
+     */
     public static Object processField(Object field)
     {
-        def res
         def fieldClass = field.getClass().simpleName.toLowerCase()
         switch (fieldClass)
         {
             case "byte[]":
                 String itStrVal = new String((byte[]) field, StandardCharsets.UTF_8)
-                def firstChar = itStrVal.substring(0,1)
-                if (firstChar == "[")
-                {
-                    res = gson.fromJson(itStrVal, ArrayList.class)
-                } else {
-                    res = gson.fromJson(itStrVal, HashMap.class)
-                }
-                break
+                return convertToComplexType(itStrVal)
             default:
-                res = gson.fromJson(field.toString(), HashMap.class)
+                return convertToComplexType(field.toString())
         }
-        return res
+    }
+
+    private static Object convertToComplexType(String incomingStr){
+        def firstChar = incomingStr.substring(0,1)
+        if (firstChar == "[")
+        {
+            return gson.fromJson(incomingStr, ArrayList.class)
+        } else {
+            return gson.fromJson(incomingStr, HashMap.class)
+        }
     }
 }
