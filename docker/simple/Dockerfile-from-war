@@ -6,7 +6,7 @@ MAINTAINER dataquest <info@dataquest.sk>
 
 ARG DOCKER_COMPOSE_WAIT_VERSION
 
-RUN apk update && apk add netcat-openbsd curl
+RUN apk update && apk add netcat-openbsd dos2unix curl
 
 # wait installation script
 ADD https://github.com/ufoscout/docker-compose-wait/releases/download/${DOCKER_COMPOSE_WAIT_VERSION}/wait /wait
@@ -26,6 +26,10 @@ VOLUME ["/opt/moqui/runtime/log", "/opt/moqui/runtime/txlog", "/opt/moqui/runtim
 ENTRYPOINT ["java", "-cp", ".", "MoquiStart", "port=80"]
 
 HEALTHCHECK --interval=10s --timeout=600ms --start-period=90s CMD curl --fail http://localhost || exit 1
+
+# scripts
+ADD docker/simple/*.sh /opt/.
+RUN dos2unix /opt/*.sh && chmod +x /opt/*.sh
 
 # specify this as a default parameter if none are specified with docker exec/run, ie run production by default
 CMD ["conf=conf/MoquiTestConf.xml"]
