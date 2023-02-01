@@ -72,13 +72,16 @@ public class FieldInfo {
         // column name: see if there is a name-replace
         String groupName = ed.getEntityGroupName();
         MNode databaseNode = ed.efi.getDatabaseNode(groupName);
-        ArrayList<MNode> nameReplaceNodes = databaseNode.children("name-replace");
-        for (int i = 0; i < nameReplaceNodes.size(); i++) {
-            MNode nameReplaceNode = nameReplaceNodes.get(i);
-            if (colNameToUse.equalsIgnoreCase(nameReplaceNode.attribute("original"))) {
-                String replaceName = nameReplaceNode.attribute("replace");
-                logger.info("Replacing column name " + colNameToUse + " with replace name " + replaceName + " for entity " + entityName);
-                colNameToUse = replaceName;
+        // some datasources do not have a database node, like the Elastic Entity one
+        if (databaseNode != null) {
+            ArrayList<MNode> nameReplaceNodes = databaseNode.children("name-replace");
+            for (int i = 0; i < nameReplaceNodes.size(); i++) {
+                MNode nameReplaceNode = nameReplaceNodes.get(i);
+                if (colNameToUse.equalsIgnoreCase(nameReplaceNode.attribute("original"))) {
+                    String replaceName = nameReplaceNode.attribute("replace");
+                    logger.info("Replacing column name " + colNameToUse + " with replace name " + replaceName + " for entity " + entityName);
+                    colNameToUse = replaceName;
+                }
             }
         }
         columnName = colNameToUse;

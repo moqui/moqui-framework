@@ -488,6 +488,12 @@
             </inline-jdbc>
         </datasource>
 
+        <!-- The logging group and datasource uses the elastic-facade.cluster configuration to talk to Elastic/OpenSearch -->
+        <datasource group-name="logging" runtime-add-missing="true" startup-add-missing="false"
+                object-factory="org.moqui.impl.entity.elastic.ElasticDatasourceFactory">
+            <inline-other index-prefix="logging-" cluster-name="default"/>
+        </datasource>
+
         <!-- The nontransactional group is in the transactional db by default. To use OrientDB use the datasource below.
             NOTE: startup-add-missing=true is required because OrientDB doesn't allow class create in a TX
             NOTE: adding more entities to the nontransactional group is a work in progress, this will not currently run,

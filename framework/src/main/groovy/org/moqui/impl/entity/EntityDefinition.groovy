@@ -512,6 +512,7 @@ class EntityDefinition {
 
     /** Returns the table name, ie table-name or converted entity-name */
     String getTableName() { return entityInfo.tableName }
+    String getTableNameLowerCase() { return entityInfo.tableNameLowerCase }
     String getFullTableName() { return entityInfo.fullTableName }
     String getSchemaName() { return entityInfo.schemaName }
 

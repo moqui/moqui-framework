@@ -61,8 +61,9 @@ abstract class EntityFindBase implements EntityFind {
     protected String singleCondField = (String) null
     protected Object singleCondValue = null
     protected Map<String, Object> simpleAndMap = (Map<String, Object>) null
-    protected EntityConditionImplBase whereEntityCondition = (EntityConditionImplBase) null
+    protected Boolean tempHasFullPk = (Boolean) null
 
+    protected EntityConditionImplBase whereEntityCondition = (EntityConditionImplBase) null
     protected EntityConditionImplBase havingEntityCondition = (EntityConditionImplBase) null
 
     protected ArrayList<String> fieldsToSelect = (ArrayList<String>) null
@@ -938,11 +939,14 @@ abstract class EntityFindBase implements EntityFind {
                 registerForUpdateLock(simpleAndMap != null ? simpleAndMap : [(singleCondField):singleCondValue])
 
             try {
+                tempHasFullPk = hasFullPk
                 newEntityValue = oneExtended(cond, fieldInfoArray, fieldOptionsArray)
             } catch (SQLException e) {
                 throw new EntitySqlException(makeErrorMsg("Error finding one", ONE_ERROR, cond, ed, ec), e)
             } catch (Exception e) {
                 throw new EntityException(makeErrorMsg("Error finding one", ONE_ERROR, cond, ed, ec), e)
+            } finally {
+                tempHasFullPk = null
             }
 
             // register lock before if we have a full pk, otherwise after
