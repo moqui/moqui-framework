@@ -1583,6 +1583,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     void trackScreenView(String userId, String wsSessionId, ScreenDefinition screenDef) {
         long nowTime = System.currentTimeMillis()
         ExecutionContextImpl eci = getEci()
+
+        // TODO: if the parent screen exists and has a tab menu, use it instead
         String screenLocation = screenDef.getLocation()
 
         ArrayList<String> parameterValues = null
