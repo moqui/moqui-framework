@@ -145,7 +145,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="allowAdmin" type="text-indicator"/>
         <field name="allowView" type="text-indicator"/>
         <field name="allowUpdate" type="text-indicator"/>
-        <relationship type="one" related="WikiSpace"/>
+        <relationship type="one" related="moqui.resource.wiki.WikiSpace"/>
         <relationship type="one-nofk" related="moqui.security.UserAccount"/>
     </entity>
     <view-entity entity-name="WikiSpaceAndUser" package="moqui.resource.wiki">
