@@ -735,7 +735,7 @@ public class ContextJavaUtil {
             return "CustomScheduledTask " + (runnable != null ? runnable.getClass().getName() : (callable != null ? callable.getClass().getName() : "[no Runnable or Callable!]"));
         }
     }
-    static class CustomScheduledExecutor extends ScheduledThreadPoolExecutor {
+    public static class CustomScheduledExecutor extends ScheduledThreadPoolExecutor {
         public CustomScheduledExecutor(int coreThreads) {
             super(coreThreads, new ScheduledThreadFactory());
         }
