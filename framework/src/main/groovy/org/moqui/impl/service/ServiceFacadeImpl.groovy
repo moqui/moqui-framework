@@ -15,6 +15,7 @@ package org.moqui.impl.service
 
 import groovy.transform.CompileStatic
 import org.moqui.impl.context.ContextJavaUtil
+import org.moqui.impl.context.ContextJavaUtil.CustomScheduledExecutor
 import org.moqui.resource.ResourceReference
 import org.moqui.context.ToolFactory
 import org.moqui.impl.context.ExecutionContextFactoryImpl
@@ -33,6 +34,7 @@ import org.slf4j.LoggerFactory
 import javax.cache.Cache
 import javax.mail.internet.MimeMessage
 import java.util.concurrent.*
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReentrantLock
 
 @CompileStatic
@@ -52,6 +54,7 @@ class ServiceFacadeImpl implements ServiceFacade {
 
     private ScheduledJobRunner jobRunner = null
     public final ThreadPoolExecutor jobWorkerPool
+    private LoadRunner loadRunner = null
 
     /** Distributed ExecutorService for async services, etc */
     protected ExecutorService distributedExecutorService = null
@@ -598,5 +601,201 @@ class ServiceFacadeImpl implements ServiceFacade {
         List<ServiceCallback> callbackList = callbackRegistry.get(serviceName)
         if (callbackList != null && callbackList.size() > 0)
             for (ServiceCallback scb in callbackList) scb.receiveEvent(context, t)
+    }
+
+    // ==========================
+    // Service LoadRunner Classes
+    // ==========================
+
+    synchronized LoadRunner getLoadRunner() {
+        if (loadRunner == null) loadRunner = new LoadRunner(ecfi)
+        return loadRunner
+    }
+
+    static class LoadRunnerServiceRunnable extends ServiceCallAsyncImpl.AsyncServiceInfo implements Runnable, Externalizable {
+        LoadRunner loadRunner
+        LoadRunnerServiceInfo serviceInfo
+        LoadRunnerServiceRunnable(String username, String serviceName, Map<String, Object> parameters,
+                LoadRunner loadRunner, LoadRunnerServiceInfo serviceInfo) {
+            super(loadRunner.ecfi, username, serviceName, parameters)
+            this.loadRunner = loadRunner
+            this.serviceInfo = serviceInfo
+        }
+        @Override void run() {
+            // TODO other parameters, maybe configurable with expanded strings?
+            String parametersExpr = serviceInfo.parametersExpr
+            Map<String, Object> parameters = [execIndex:loadRunner.execIndex.getAndIncrement()] as Map<String, Object>
+            if (parametersExpr != null && !parametersExpr.isEmpty()) {
+                try {
+                    Map<String, Object> exprMap = (Map<String, Object>) loadRunner.ecfi.getEci().resourceFacade
+                            .expression(parametersExpr, null, parameters)
+                    if (exprMap != null) parameters.putAll(exprMap)
+                } catch (Throwable t) {
+                    logger.error("Error in Service LoadRunner parameter expression: ${parametersExpr}", t)
+                }
+            }
+
+            long startTime = System.currentTimeMillis()
+            try {
+                serviceInfo.lastResult = runInternal(parameters, true)
+            } catch (Throwable t) {
+                // logged elsewhere, just swallow and count
+                serviceInfo.errorCount++
+            }
+            long endTime = System.currentTimeMillis()
+            long runTime = endTime - startTime
+            serviceInfo.runCount++
+            serviceInfo.lastRunTime = endTime
+            serviceInfo.totalTime += runTime
+            serviceInfo.totalSquaredTime += runTime * runTime
+        }
+    }
+    static class LoadRunnerServiceInfo {
+        String serviceName, parametersExpr = null
+        int targetThreads, runDelayMs, rampDelayMs
+        AtomicInteger currentThreads = new AtomicInteger(0)
+        long runCount = 0, errorCount = 0, lastRunTime = 0, beginTime = 0, totalTime = 0, totalSquaredTime = 0
+        Map lastResult = null
+        LoadRunnerServiceInfo(String serviceName, int targetThreads, int runDelayMs, int rampDelayMs) {
+            this.serviceName = serviceName
+            this.targetThreads = targetThreads
+            this.runDelayMs = runDelayMs
+            this.rampDelayMs = rampDelayMs
+        }
+        void addThread(LoadRunner loadRunner) {
+            LoadRunnerServiceRunnable runnable =
+                    new LoadRunnerServiceRunnable(null, serviceName, [:], loadRunner, this)
+            // NOTE: use scheduleWithFixedDelay so delay is wait between terminate of one and start of another, better for both short and long running test runs
+            loadRunner.scheduledExecutor.scheduleWithFixedDelay(runnable, 1, runDelayMs, TimeUnit.MILLISECONDS)
+        }
+        void addRampThread(LoadRunner loadRunner) {
+            beginTime = System.currentTimeMillis()
+            LoadRunnerRamperRunnable runnable = new LoadRunnerRamperRunnable(loadRunner, this)
+            // NOTE: use scheduleAtFixedRate so one is added each delay period regardless of how long it takes (generally not long)
+            loadRunner.scheduledExecutor.scheduleAtFixedRate(runnable, 1, rampDelayMs, TimeUnit.MILLISECONDS)
+        }
+    }
+    static class LoadRunnerRamperRunnable implements Runnable {
+        LoadRunner loadRunner
+        LoadRunnerServiceInfo serviceInfo
+        LoadRunnerRamperRunnable(LoadRunner loadRunner, LoadRunnerServiceInfo serviceInfo) {
+            this.loadRunner = loadRunner
+            this.serviceInfo = serviceInfo
+        }
+        @Override void run() {
+            if (serviceInfo.currentThreads < serviceInfo.targetThreads) {
+                serviceInfo.addThread(loadRunner)
+                // may not actually need AtomicInteger here, but for ramp down will need a list of ScheduledFuture objects and might be useful there
+                serviceInfo.currentThreads.incrementAndGet()
+            }
+            // TODO add delayed ramp-down, useful for some performance behavior patterns but usually redundant with delayed ramp up to look for elbows in the response time over time
+        }
+    }
+    static class LoadRunner {
+        ExecutionContextFactoryImpl ecfi
+        CustomScheduledExecutor scheduledExecutor = null
+        ArrayList<LoadRunnerServiceInfo> serviceInfos = new ArrayList<>()
+        int corePoolSize = 4, maxPoolSize = 8
+        AtomicInteger execIndex = new AtomicInteger(1)
+        ReentrantLock mutateLock = new ReentrantLock()
+
+        LoadRunner(ExecutionContextFactoryImpl ecfi) {
+            this.ecfi = ecfi
+        }
+
+        void setServiceInfo(String serviceName, String parametersExpr, int targetThreads, int runDelayMs, int rampDelayMs) {
+            mutateLock.lock()
+            try {
+                LoadRunnerServiceInfo serviceInfo = null
+                for (int i = 0; i < serviceInfos.size(); i++) {
+                    LoadRunnerServiceInfo curInfo = (LoadRunnerServiceInfo) serviceInfos.get(i)
+                    if (curInfo.serviceName == serviceName) serviceInfo = curInfo
+                }
+                if (serviceInfo == null) {
+                    serviceInfo = new LoadRunnerServiceInfo(serviceName, targetThreads, runDelayMs, rampDelayMs)
+                    serviceInfo.parametersExpr = parametersExpr
+
+                    serviceInfos.add(serviceInfo)
+
+                    if (scheduledExecutor != null) {
+                        // begin() already called, get this started
+                        serviceInfo.addRampThread(this)
+                    }
+                } else {
+                    serviceInfo.parametersExpr = parametersExpr
+                    serviceInfo.targetThreads = targetThreads
+                    serviceInfo.runDelayMs = runDelayMs
+                    serviceInfo.rampDelayMs = rampDelayMs
+                }
+            } finally {
+                mutateLock.unlock()
+            }
+        }
+        void begin() {
+            mutateLock.lock()
+            try {
+                // TODO set maxPoolSize to CPU count x2 or something if needed to scale the load runner itself; probably not much as services running on same system...
+                if (scheduledExecutor == null) {
+                    // restart index
+                    execIndex = new AtomicInteger(1)
+
+                    for (int i = 0; i < serviceInfos.size(); i++) {
+                        LoadRunnerServiceInfo curInfo = (LoadRunnerServiceInfo) serviceInfos.get(i)
+                        // clear out stats before start
+                        curInfo.currentThreads = new AtomicInteger(0)
+                        curInfo.runCount = 0
+                        curInfo.errorCount = 0
+                        curInfo.lastRunTime = 0
+                        curInfo.beginTime = 0
+                        curInfo.totalTime = 0
+                        curInfo.totalSquaredTime = 0
+                        curInfo.lastResult = null
+                    }
+
+                    scheduledExecutor = new CustomScheduledExecutor(corePoolSize)
+                    scheduledExecutor.setMaximumPoolSize(maxPoolSize)
+
+                    for (int i = 0; i < serviceInfos.size(); i++) {
+                        LoadRunnerServiceInfo curInfo = (LoadRunnerServiceInfo) serviceInfos.get(i)
+                        // do this once here
+                        curInfo.addThread(this)
+                        // add a schedule for the rest
+                        curInfo.addRampThread(this)
+                    }
+                }
+            } finally {
+                mutateLock.unlock()
+            }
+        }
+        void stopNow() {
+            mutateLock.lock()
+            try {
+                if (scheduledExecutor != null) {
+                    logger.info("Shutting down LoadRunner ScheduledExecutorService now")
+                    scheduledExecutor.shutdownNow()
+                    scheduledExecutor = null
+                }
+            } finally {
+                mutateLock.unlock()
+            }
+        }
+        void stopWait() {
+            mutateLock.lock()
+            try {
+                if (scheduledExecutor != null) {
+                    logger.info("Shutting down LoadRunner ScheduledExecutorService")
+                    scheduledExecutor.shutdown()
+                }
+
+                if (scheduledExecutor != null) {
+                    scheduledExecutor.awaitTermination(30, TimeUnit.SECONDS)
+                    if (scheduledExecutor.isTerminated()) logger.info("LoadRunner Scheduled executor shut down and terminated")
+                    else logger.warn("LoadRunner Scheduled executor NOT YET terminated, waited 30 seconds")
+                    scheduledExecutor = null
+                }
+            } finally {
+                mutateLock.unlock()
+            }
+        }
     }
 }
