@@ -14,6 +14,8 @@
 package org.moqui.impl.service
 
 import groovy.transform.CompileStatic
+import org.moqui.impl.context.ArtifactExecutionInfoImpl
+import org.moqui.impl.context.ArtifactExecutionInfoImpl.ArtifactTypeStats
 import org.moqui.impl.context.ContextJavaUtil
 import org.moqui.impl.context.ContextJavaUtil.CustomScheduledExecutor
 import org.moqui.resource.ResourceReference
@@ -612,19 +614,41 @@ class ServiceFacadeImpl implements ServiceFacade {
         return loadRunner
     }
 
-    static class LoadRunnerServiceRunnable extends ServiceCallAsyncImpl.AsyncServiceInfo implements Runnable, Externalizable {
+    static class LoadRunnerServiceRunnable implements Runnable {
+        ExecutionContextFactoryImpl ecfi
+        String serviceName
         LoadRunner loadRunner
         LoadRunnerServiceInfo serviceInfo
-        LoadRunnerServiceRunnable(String username, String serviceName, Map<String, Object> parameters,
-                LoadRunner loadRunner, LoadRunnerServiceInfo serviceInfo) {
-            super(loadRunner.ecfi, username, serviceName, parameters)
+
+        LoadRunnerServiceRunnable(String serviceName, LoadRunner loadRunner, LoadRunnerServiceInfo serviceInfo) {
+            this.ecfi = loadRunner.ecfi
+            this.serviceName = serviceName
             this.loadRunner = loadRunner
             this.serviceInfo = serviceInfo
         }
         @Override void run() {
-            // TODO other parameters, maybe configurable with expanded strings?
+            // check for active Transaction
+            if (getEcfi().transactionFacade.isTransactionInPlace()) {
+                logger.error("In LoadRunner service ${serviceName} a transaction is in place for thread ${Thread.currentThread().getName()}, trying to commit")
+                try {
+                    getEcfi().transactionFacade.destroyAllInThread()
+                } catch (Exception e) {
+                    logger.error("LoadRunner commit in place transaction failed for thread ${Thread.currentThread().getName()}", e)
+                }
+            }
+            // check for active ExecutionContext
+            ExecutionContextImpl activeEc = getEcfi().activeContext.get()
+            if (activeEc != null) {
+                logger.error("In LoadRunner service ${serviceName} there is already an ExecutionContext for user ${activeEc.user.username} (from ${activeEc.forThreadId}:${activeEc.forThreadName}) in this thread ${Thread.currentThread().id}:${Thread.currentThread().name}, destroying")
+                try {
+                    activeEc.destroy()
+                } catch (Throwable t) {
+                    logger.error("Error destroying LoadRunner already in place in ServiceCallAsync in thread ${Thread.currentThread().id}:${Thread.currentThread().name}", t)
+                }
+            }
+
             String parametersExpr = serviceInfo.parametersExpr
-            Map<String, Object> parameters = [execIndex:loadRunner.execIndex.getAndIncrement()] as Map<String, Object>
+            Map<String, Object> parameters = [index:loadRunner.execIndex.getAndIncrement()] as Map<String, Object>
             if (parametersExpr != null && !parametersExpr.isEmpty()) {
                 try {
                     Map<String, Object> exprMap = (Map<String, Object>) loadRunner.ecfi.getEci().resourceFacade
@@ -636,26 +660,44 @@ class ServiceFacadeImpl implements ServiceFacade {
             }
 
             long startTime = System.currentTimeMillis()
+            ExecutionContextImpl threadEci = ecfi.getEci()
             try {
-                serviceInfo.lastResult = runInternal(parameters, true)
-            } catch (Throwable t) {
-                // logged elsewhere, just swallow and count
-                serviceInfo.errorCount++
+                // always login anonymous, disable authz below
+                threadEci.userFacade.loginAnonymousIfNoUser()
+
+                // run the service
+                try {
+                    serviceInfo.lastResult = threadEci.serviceFacade.sync().name(serviceName).parameters(parameters).disableAuthz().call()
+                } catch (Throwable t) {
+                    // logged elsewhere, just count and swallow
+                    serviceInfo.errorCount++
+                }
+
+                serviceInfo.artifactTypeStats.add(threadEci.artifactExecutionFacade.getArtifactTypeStats())
+            } finally {
+                if (threadEci != null) threadEci.destroy()
             }
+
             long endTime = System.currentTimeMillis()
             long runTime = endTime - startTime
             serviceInfo.runCount++
             serviceInfo.lastRunTime = endTime
             serviceInfo.totalTime += runTime
             serviceInfo.totalSquaredTime += runTime * runTime
+            if (runTime < serviceInfo.minTime) serviceInfo.minTime = runTime
+            if (runTime > serviceInfo.maxTime) serviceInfo.maxTime = runTime
         }
     }
     static class LoadRunnerServiceInfo {
         String serviceName, parametersExpr = null
         int targetThreads, runDelayMs, rampDelayMs
         AtomicInteger currentThreads = new AtomicInteger(0)
-        long runCount = 0, errorCount = 0, lastRunTime = 0, beginTime = 0, totalTime = 0, totalSquaredTime = 0
+
+        long lastRunTime = 0, beginTime = 0, totalTime = 0, totalSquaredTime = 0, minTime = Long.MAX_VALUE, maxTime = 0
+        int runCount = 0, errorCount = 0
+        ArtifactTypeStats artifactTypeStats = new ArtifactTypeStats()
         Map lastResult = null
+
         LoadRunnerServiceInfo(String serviceName, int targetThreads, int runDelayMs, int rampDelayMs) {
             this.serviceName = serviceName
             this.targetThreads = targetThreads
@@ -663,8 +705,7 @@ class ServiceFacadeImpl implements ServiceFacade {
             this.rampDelayMs = rampDelayMs
         }
         void addThread(LoadRunner loadRunner) {
-            LoadRunnerServiceRunnable runnable =
-                    new LoadRunnerServiceRunnable(null, serviceName, [:], loadRunner, this)
+            LoadRunnerServiceRunnable runnable = new LoadRunnerServiceRunnable(serviceName, loadRunner, this)
             // NOTE: use scheduleWithFixedDelay so delay is wait between terminate of one and start of another, better for both short and long running test runs
             loadRunner.scheduledExecutor.scheduleWithFixedDelay(runnable, 1, runDelayMs, TimeUnit.MILLISECONDS)
         }
@@ -673,6 +714,12 @@ class ServiceFacadeImpl implements ServiceFacade {
             LoadRunnerRamperRunnable runnable = new LoadRunnerRamperRunnable(loadRunner, this)
             // NOTE: use scheduleAtFixedRate so one is added each delay period regardless of how long it takes (generally not long)
             loadRunner.scheduledExecutor.scheduleAtFixedRate(runnable, 1, rampDelayMs, TimeUnit.MILLISECONDS)
+        }
+        void resetStats() {
+            lastRunTime = 0; beginTime = 0; totalTime = 0; totalSquaredTime = 0; minTime = Long.MAX_VALUE; maxTime = 0
+            runCount = 0; errorCount = 0
+            artifactTypeStats = new ArtifactTypeStats()
+            lastResult = null
         }
     }
     static class LoadRunnerRamperRunnable implements Runnable {
@@ -743,13 +790,7 @@ class ServiceFacadeImpl implements ServiceFacade {
                         LoadRunnerServiceInfo curInfo = (LoadRunnerServiceInfo) serviceInfos.get(i)
                         // clear out stats before start
                         curInfo.currentThreads = new AtomicInteger(0)
-                        curInfo.runCount = 0
-                        curInfo.errorCount = 0
-                        curInfo.lastRunTime = 0
-                        curInfo.beginTime = 0
-                        curInfo.totalTime = 0
-                        curInfo.totalSquaredTime = 0
-                        curInfo.lastResult = null
+                        curInfo.resetStats()
                     }
 
                     scheduledExecutor = new CustomScheduledExecutor(corePoolSize)
