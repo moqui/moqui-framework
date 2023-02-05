@@ -218,6 +218,7 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     private String getKeyStringNoName() { return internalTypeEnum.name() + ":" + internalActionEnum.name() + ":" + actionDetail; }
 
     public static class ArtifactTypeStats {
+
         public int screenCount = 0, screenTransCount = 0, screenContentCount = 0, restPathCount = 0,
                 serviceViewCount = 0, serviceOtherCount = 0,
                 entityFindOneCount = 0, entityFindListCount = 0, entityFindIteratorCount = 0, entityFindCountCount = 0,
@@ -227,6 +228,8 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
                 entityFindOneTime = 0, entityFindListTime = 0, entityFindIteratorTime = 0, entityFindCountTime = 0,
                 entityCreateTime = 0, entityUpdateTime = 0, entityDeleteTime = 0;
         public void add(ArtifactTypeStats that) {
+            if (that == null) return;
+
             screenCount += that.screenCount; screenTransCount += that.screenTransCount;
             screenContentCount += that.screenContentCount; restPathCount += that.restPathCount;
             serviceViewCount += that.serviceViewCount; serviceOtherCount += that.serviceOtherCount;
@@ -242,6 +245,11 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
             entityFindIteratorTime += that.entityFindIteratorTime; entityFindCountTime += that.entityFindCountTime;
             entityCreateTime += that.entityCreateTime; entityUpdateTime += that.entityUpdateTime;
             entityDeleteTime += that.entityDeleteTime;
+        }
+        public ArtifactTypeStats cloneStats(ArtifactTypeStats that) {
+            ArtifactTypeStats newStats = new ArtifactTypeStats();
+            newStats.add(that);
+            return newStats;
         }
     }
     static ArtifactTypeStats getArtifactTypeStats(ArrayList<ArtifactExecutionInfoImpl> aeiiList) {
