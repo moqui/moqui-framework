@@ -76,6 +76,7 @@ public class ObjectUtilities {
             }
         }
 
+        /* commenting for now, seems to call a bunch of undesired methods, will need some work to filter them out:
         try {
             BeanInfo beanInfo = Introspector.getBeanInfo(clazz);
             PropertyDescriptor[] propertyDescriptors = beanInfo.getPropertyDescriptors();
@@ -93,6 +94,7 @@ public class ObjectUtilities {
         } catch (IntrospectionException e) {
             // nothing again
         }
+        */
 
         // this gets picked up automatically, just remove at the end, faster than checking along the way
         map.remove("class");

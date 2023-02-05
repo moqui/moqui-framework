@@ -14,6 +14,7 @@
 package org.moqui.impl.service
 
 import groovy.transform.CompileStatic
+import org.moqui.Moqui
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ArtifactExecutionInfoImpl.ArtifactTypeStats
 import org.moqui.impl.context.ContextJavaUtil
@@ -28,6 +29,7 @@ import org.moqui.impl.service.runner.RemoteJsonRpcServiceRunner
 import org.moqui.service.*
 import org.moqui.util.CollectionUtilities
 import org.moqui.util.MNode
+import org.moqui.util.ObjectUtilities
 import org.moqui.util.RestClient
 import org.moqui.util.StringUtilities
 import org.slf4j.Logger
@@ -35,6 +37,7 @@ import org.slf4j.LoggerFactory
 
 import javax.cache.Cache
 import javax.mail.internet.MimeMessage
+import java.sql.Timestamp
 import java.util.concurrent.*
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReentrantLock
@@ -614,19 +617,43 @@ class ServiceFacadeImpl implements ServiceFacade {
         return loadRunner
     }
 
-    static class LoadRunnerServiceRunnable implements Runnable {
-        ExecutionContextFactoryImpl ecfi
-        String serviceName
-        LoadRunner loadRunner
-        LoadRunnerServiceInfo serviceInfo
+    static class LoadRunnerServiceRunnable implements Runnable, Externalizable {
+        volatile ExecutionContextFactoryImpl ecfi
+        volatile LoadRunner loadRunner
+        String serviceName, parametersExpr
 
-        LoadRunnerServiceRunnable(String serviceName, LoadRunner loadRunner, LoadRunnerServiceInfo serviceInfo) {
+        LoadRunnerServiceRunnable() {
+            // init the other objects that can't be serialized
+            ecfi = (ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory()
+            loadRunner = ecfi.serviceFacade.getLoadRunner()
+        }
+        LoadRunnerServiceRunnable(String serviceName, String parametersExpr, LoadRunner loadRunner) {
+            this.loadRunner = loadRunner
             this.ecfi = loadRunner.ecfi
             this.serviceName = serviceName
-            this.loadRunner = loadRunner
-            this.serviceInfo = serviceInfo
+            this.parametersExpr = parametersExpr
         }
+
+        @Override
+        void writeExternal(ObjectOutput out) throws IOException {
+            out.writeUTF(serviceName) // never null
+            out.writeObject(parametersExpr) // may be null
+        }
+
+        @Override
+        void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
+            serviceName = objectInput.readUTF()
+            parametersExpr = objectInput.readObject()
+        }
+
         @Override void run() {
+            try {
+                runInternal()
+            } catch (Throwable t) {
+                logger.error("Error in LoadRunner service run", t)
+            }
+        }
+        void runInternal() {
             // check for active Transaction
             if (getEcfi().transactionFacade.isTransactionInPlace()) {
                 logger.error("In LoadRunner service ${serviceName} a transaction is in place for thread ${Thread.currentThread().getName()}, trying to commit")
@@ -647,6 +674,11 @@ class ServiceFacadeImpl implements ServiceFacade {
                 }
             }
 
+            LoadRunnerServiceInfo serviceInfo = loadRunner.getServiceInfo(serviceName, parametersExpr)
+            if (serviceInfo == null) {
+                logger.error("Service Info not found for ${serviceName} ${parametersExpr}, not running")
+                return
+            }
             String parametersExpr = serviceInfo.parametersExpr
             Map<String, Object> parameters = [index:loadRunner.execIndex.getAndIncrement()] as Map<String, Object>
             if (parametersExpr != null && !parametersExpr.isEmpty()) {
@@ -673,53 +705,112 @@ class ServiceFacadeImpl implements ServiceFacade {
                     serviceInfo.errorCount++
                 }
 
-                serviceInfo.artifactTypeStats.add(threadEci.artifactExecutionFacade.getArtifactTypeStats())
+                // count the run and accumulate stats
+                serviceInfo.countRun(loadRunner, startTime, System.currentTimeMillis(),
+                        threadEci.artifactExecutionFacade.getArtifactTypeStats())
             } finally {
                 if (threadEci != null) threadEci.destroy()
             }
-
-            long endTime = System.currentTimeMillis()
-            long runTime = endTime - startTime
-            serviceInfo.runCount++
-            serviceInfo.lastRunTime = endTime
-            serviceInfo.totalTime += runTime
-            serviceInfo.totalSquaredTime += runTime * runTime
-            if (runTime < serviceInfo.minTime) serviceInfo.minTime = runTime
-            if (runTime > serviceInfo.maxTime) serviceInfo.maxTime = runTime
         }
     }
-    static class LoadRunnerServiceInfo {
-        String serviceName, parametersExpr = null
-        int targetThreads, runDelayMs, rampDelayMs
-        AtomicInteger currentThreads = new AtomicInteger(0)
-
+    static class LoadRunnerServiceStats {
         long lastRunTime = 0, beginTime = 0, totalTime = 0, totalSquaredTime = 0, minTime = Long.MAX_VALUE, maxTime = 0
         int runCount = 0, errorCount = 0
         ArtifactTypeStats artifactTypeStats = new ArtifactTypeStats()
-        Map lastResult = null
-
-        LoadRunnerServiceInfo(String serviceName, int targetThreads, int runDelayMs, int rampDelayMs) {
-            this.serviceName = serviceName
-            this.targetThreads = targetThreads
-            this.runDelayMs = runDelayMs
-            this.rampDelayMs = rampDelayMs
+        Map getMap() {
+            Map newMap = [lastRunTime:lastRunTime, beginTime:beginTime, totalTime:totalTime,
+                    totalSquaredTime:totalSquaredTime, minTime:minTime, maxTime:maxTime, runCount:runCount, errorCount:errorCount] as Map<String, Object>
+            newMap.put("artifactTypeStats", ObjectUtilities.objectToMap(artifactTypeStats))
+            return newMap
         }
+    }
+    static class LoadRunnerServiceInfo extends LoadRunnerServiceStats {
+        String serviceName, parametersExpr
+        int targetThreads, runDelayMs, rampDelayMs, timeBinLength, timeBinsKeep
+        AtomicInteger currentThreads = new AtomicInteger(0)
+
+        Map lastResult = null
+        ConcurrentLinkedDeque<LoadRunnerServiceStats> timeBinList = new ConcurrentLinkedDeque<>()
+        ArrayList<ScheduledFuture> runFutures = new ArrayList<>()
+        ScheduledFuture rampFuture = null
+
+        LoadRunnerServiceInfo(String serviceName, String parametersExpr, int targetThreads,
+                int runDelayMs, int rampDelayMs, int timeBinLength, int timeBinsKeep) {
+            this.serviceName = serviceName; this.parametersExpr = parametersExpr
+            this.targetThreads = targetThreads
+            this.runDelayMs = runDelayMs; this.rampDelayMs = rampDelayMs
+            this.timeBinLength = timeBinLength; this.timeBinsKeep = timeBinsKeep
+        }
+
+        void countRun(LoadRunner loadRunner, long startTime, long endTime, ArtifactTypeStats stats) {
+            long runTime = endTime - startTime
+            // logger.info("count run ${serviceName} ${runTime} ${Thread.currentThread().name}")
+            LoadRunnerServiceStats curBin = null
+
+            // find the current time bin in a semaphore locked section, the rest is increments and can be run multithreaded
+            loadRunner.mutateLock.lock()
+            // logger.info("count run after lock ${serviceName} ${runTime} ${Thread.currentThread().name}")
+            try {
+                if (beginTime == 0) beginTime = startTime
+
+                curBin = timeBinList.isEmpty() ? null : timeBinList.getLast()
+                // create and add a new bin if there are none or if this hit is after the bin's end time (need to advance the bin)
+                if (curBin == null || curBin.beginTime + timeBinLength < startTime) {
+                    curBin = new LoadRunnerServiceStats()
+                    curBin.beginTime = startTime
+                    timeBinList.add(curBin)
+                    if (timeBinList.size() > timeBinsKeep) {
+                        LoadRunnerServiceStats removeBin = timeBinList.removeFirst()
+                        // logger.info("Removed time bin starting ${new Timestamp(removeBin.beginTime)} count ${removeBin.runCount}")
+                    }
+                }
+
+                // some exceptions, these are multiple operations and need to be in the locked section to be accurate, maybe don't need to be...
+                if (runTime < this.minTime) this.minTime = runTime
+                if (runTime > this.maxTime) this.maxTime = runTime
+                if (runTime < curBin.minTime) curBin.minTime = runTime
+                if (runTime > curBin.maxTime) curBin.maxTime = runTime
+            } finally {
+                loadRunner.mutateLock.unlock()
+                // logger.info("count run after unlock ${serviceName} ${runTime} ${Thread.currentThread().name}")
+                // loadRunner.logFutures()
+            }
+
+            // for all runs
+            this.runCount++
+            this.lastRunTime = endTime
+            this.totalTime += runTime
+            this.totalSquaredTime += runTime * runTime
+            this.artifactTypeStats.add(stats)
+
+            // same thing for just this bin
+            curBin.runCount++
+            curBin.lastRunTime = endTime
+            curBin.totalTime += runTime
+            curBin.totalSquaredTime += runTime * runTime
+            curBin.artifactTypeStats.add(stats)
+        }
+
         void addThread(LoadRunner loadRunner) {
-            LoadRunnerServiceRunnable runnable = new LoadRunnerServiceRunnable(serviceName, loadRunner, this)
+            LoadRunnerServiceRunnable runnable = new LoadRunnerServiceRunnable(serviceName, parametersExpr, loadRunner)
             // NOTE: use scheduleWithFixedDelay so delay is wait between terminate of one and start of another, better for both short and long running test runs
-            loadRunner.scheduledExecutor.scheduleWithFixedDelay(runnable, 1, runDelayMs, TimeUnit.MILLISECONDS)
+            ScheduledFuture future = loadRunner.scheduledExecutor.scheduleWithFixedDelay(runnable, 1, runDelayMs, TimeUnit.MILLISECONDS)
+            // logger.info("Added run thread runDelayMs ${runDelayMs} ${runDelayMs?.class?.name} done ${future.done} ${future.toString()}")
+            runFutures.add(future)
         }
         void addRampThread(LoadRunner loadRunner) {
+            if (rampFuture != null && !rampFuture)
             beginTime = System.currentTimeMillis()
             LoadRunnerRamperRunnable runnable = new LoadRunnerRamperRunnable(loadRunner, this)
             // NOTE: use scheduleAtFixedRate so one is added each delay period regardless of how long it takes (generally not long)
-            loadRunner.scheduledExecutor.scheduleAtFixedRate(runnable, 1, rampDelayMs, TimeUnit.MILLISECONDS)
+            rampFuture = loadRunner.scheduledExecutor.scheduleAtFixedRate(runnable, 1, rampDelayMs, TimeUnit.MILLISECONDS)
         }
         void resetStats() {
             lastRunTime = 0; beginTime = 0; totalTime = 0; totalSquaredTime = 0; minTime = Long.MAX_VALUE; maxTime = 0
             runCount = 0; errorCount = 0
             artifactTypeStats = new ArtifactTypeStats()
             lastResult = null
+            timeBinList = new ConcurrentLinkedDeque<>()
         }
     }
     static class LoadRunnerRamperRunnable implements Runnable {
@@ -738,6 +829,12 @@ class ServiceFacadeImpl implements ServiceFacade {
             // TODO add delayed ramp-down, useful for some performance behavior patterns but usually redundant with delayed ramp up to look for elbows in the response time over time
         }
     }
+    static class LoadRunnerThreadFactory implements ThreadFactory {
+        private final ThreadGroup workerGroup = new ThreadGroup("LoadRunner")
+        private final AtomicInteger threadNumber = new AtomicInteger(1)
+        Thread newThread(Runnable r) { return new Thread(workerGroup, r, "LoadRunner-" + threadNumber.getAndIncrement()) }
+    }
+
     static class LoadRunner {
         ExecutionContextFactoryImpl ecfi
         CustomScheduledExecutor scheduledExecutor = null
@@ -750,17 +847,22 @@ class ServiceFacadeImpl implements ServiceFacade {
             this.ecfi = ecfi
         }
 
-        void setServiceInfo(String serviceName, String parametersExpr, int targetThreads, int runDelayMs, int rampDelayMs) {
+        LoadRunnerServiceInfo getServiceInfo(String serviceName, String parametersExpr) {
+            for (int i = 0; i < serviceInfos.size(); i++) {
+                LoadRunnerServiceInfo curInfo = (LoadRunnerServiceInfo) serviceInfos.get(i)
+                if (curInfo.serviceName == serviceName && curInfo.parametersExpr == parametersExpr)
+                    return curInfo
+            }
+            return null
+        }
+        void setServiceInfo(String serviceName, String parametersExpr, int targetThreads, int runDelayMs,
+                int rampDelayMs, int timeBinLength, int timeBinsKeep) {
             mutateLock.lock()
             try {
-                LoadRunnerServiceInfo serviceInfo = null
-                for (int i = 0; i < serviceInfos.size(); i++) {
-                    LoadRunnerServiceInfo curInfo = (LoadRunnerServiceInfo) serviceInfos.get(i)
-                    if (curInfo.serviceName == serviceName) serviceInfo = curInfo
-                }
+                LoadRunnerServiceInfo serviceInfo = getServiceInfo(serviceName, parametersExpr)
                 if (serviceInfo == null) {
-                    serviceInfo = new LoadRunnerServiceInfo(serviceName, targetThreads, runDelayMs, rampDelayMs)
-                    serviceInfo.parametersExpr = parametersExpr
+                    serviceInfo = new LoadRunnerServiceInfo(serviceName, parametersExpr, targetThreads,
+                            runDelayMs, rampDelayMs, timeBinLength, timeBinsKeep)
 
                     serviceInfos.add(serviceInfo)
 
@@ -769,10 +871,11 @@ class ServiceFacadeImpl implements ServiceFacade {
                         serviceInfo.addRampThread(this)
                     }
                 } else {
-                    serviceInfo.parametersExpr = parametersExpr
                     serviceInfo.targetThreads = targetThreads
                     serviceInfo.runDelayMs = runDelayMs
                     serviceInfo.rampDelayMs = rampDelayMs
+                    serviceInfo.timeBinLength = timeBinLength
+                    serviceInfo.timeBinsKeep = timeBinsKeep
                 }
             } finally {
                 mutateLock.unlock()
@@ -793,14 +896,12 @@ class ServiceFacadeImpl implements ServiceFacade {
                         curInfo.resetStats()
                     }
 
-                    scheduledExecutor = new CustomScheduledExecutor(corePoolSize)
+                    scheduledExecutor = new CustomScheduledExecutor(corePoolSize, new LoadRunnerThreadFactory())
                     scheduledExecutor.setMaximumPoolSize(maxPoolSize)
 
                     for (int i = 0; i < serviceInfos.size(); i++) {
                         LoadRunnerServiceInfo curInfo = (LoadRunnerServiceInfo) serviceInfos.get(i)
-                        // do this once here
-                        curInfo.addThread(this)
-                        // add a schedule for the rest
+                        // get the ramp thread started
                         curInfo.addRampThread(this)
                     }
                 }
@@ -836,6 +937,17 @@ class ServiceFacadeImpl implements ServiceFacade {
                 }
             } finally {
                 mutateLock.unlock()
+            }
+        }
+
+        void logFutures() {
+            for (int si = 0; si < serviceInfos.size(); si++) {
+                LoadRunnerServiceInfo serviceInfo = serviceInfos.get(si)
+                logger.info("LoadRunner RAMP Future done ${serviceInfo.rampFuture?.done} canceled ${serviceInfo.rampFuture?.cancelled} ${serviceInfo.rampFuture?.toString()}")
+                for (int i = 0; i < serviceInfo.runFutures.size(); i++) {
+                    ScheduledFuture future = serviceInfo.runFutures.get(i)
+                    logger.info("LoadRunner RUN Future done ${future.done} canceled ${future.cancelled} ${future.toString()}")
+                }
             }
         }
     }
