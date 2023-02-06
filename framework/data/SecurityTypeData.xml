@@ -54,4 +54,6 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.security.UserGroupPermission userGroupId="ADMIN_ADV" userPermissionId="SQL_RUNNER_WEB" fromDate="0"/>
     <moqui.security.UserPermission userPermissionId="GROOVY_SHELL_WEB" description="Tools: Groovy Shell"/>
     <moqui.security.UserGroupPermission userGroupId="ADMIN_ADV" userPermissionId="GROOVY_SHELL_WEB" fromDate="0"/>
+    <moqui.security.UserPermission userPermissionId="SERVICE_LOAD_RUNNER" description="Tools: Service LoadRunner"/>
+    <moqui.security.UserGroupPermission userGroupId="ADMIN_ADV" userPermissionId="SERVICE_LOAD_RUNNER" fromDate="0"/>
 </entity-facade-xml>
