@@ -691,6 +691,10 @@ class ServiceFacadeImpl implements ServiceFacade {
                 }
             }
 
+            // before starting, and tracking the startTime, do a small random delay for variation in run times
+            if (serviceInfo.runDelayVaryMs != 0)
+                Thread.sleep(ThreadLocalRandom.current().nextInt(serviceInfo.runDelayVaryMs))
+
             long startTime = System.currentTimeMillis()
             ExecutionContextImpl threadEci = ecfi.getEci()
             try {
@@ -699,7 +703,8 @@ class ServiceFacadeImpl implements ServiceFacade {
 
                 // run the service
                 try {
-                    serviceInfo.lastResult = threadEci.serviceFacade.sync().name(serviceName).parameters(parameters).disableAuthz().call()
+                    serviceInfo.lastResult = threadEci.serviceFacade.sync().name(serviceName)
+                            .parameters(parameters).disableAuthz().call()
                 } catch (Throwable t) {
                     // logged elsewhere, just count and swallow
                     serviceInfo.errorCount++
@@ -726,7 +731,7 @@ class ServiceFacadeImpl implements ServiceFacade {
     }
     static class LoadRunnerServiceInfo extends LoadRunnerServiceStats {
         String serviceName, parametersExpr
-        int targetThreads, runDelayMs, rampDelayMs, timeBinLength, timeBinsKeep
+        int targetThreads, runDelayMs, runDelayVaryMs, rampDelayMs, timeBinLength, timeBinsKeep
         AtomicInteger currentThreads = new AtomicInteger(0)
 
         Map lastResult = null
@@ -735,10 +740,10 @@ class ServiceFacadeImpl implements ServiceFacade {
         ScheduledFuture rampFuture = null
 
         LoadRunnerServiceInfo(String serviceName, String parametersExpr, int targetThreads,
-                int runDelayMs, int rampDelayMs, int timeBinLength, int timeBinsKeep) {
+                int runDelayMs, int runDelayVaryMs, int rampDelayMs, int timeBinLength, int timeBinsKeep) {
             this.serviceName = serviceName; this.parametersExpr = parametersExpr
             this.targetThreads = targetThreads
-            this.runDelayMs = runDelayMs; this.rampDelayMs = rampDelayMs
+            this.runDelayMs = runDelayMs; this.runDelayVaryMs = runDelayVaryMs; this.rampDelayMs = rampDelayMs
             this.timeBinLength = timeBinLength; this.timeBinsKeep = timeBinsKeep
         }
 
@@ -839,7 +844,7 @@ class ServiceFacadeImpl implements ServiceFacade {
         ExecutionContextFactoryImpl ecfi
         CustomScheduledExecutor scheduledExecutor = null
         ArrayList<LoadRunnerServiceInfo> serviceInfos = new ArrayList<>()
-        int corePoolSize = 4, maxPoolSize = 8
+        Integer corePoolSize = 4, maxPoolSize = null
         AtomicInteger execIndex = new AtomicInteger(1)
         ReentrantLock mutateLock = new ReentrantLock()
 
@@ -856,13 +861,13 @@ class ServiceFacadeImpl implements ServiceFacade {
             return null
         }
         void setServiceInfo(String serviceName, String parametersExpr, int targetThreads, int runDelayMs,
-                int rampDelayMs, int timeBinLength, int timeBinsKeep) {
+                int runDelayVaryMs, int rampDelayMs, int timeBinLength, int timeBinsKeep) {
             mutateLock.lock()
             try {
                 LoadRunnerServiceInfo serviceInfo = getServiceInfo(serviceName, parametersExpr)
                 if (serviceInfo == null) {
                     serviceInfo = new LoadRunnerServiceInfo(serviceName, parametersExpr, targetThreads,
-                            runDelayMs, rampDelayMs, timeBinLength, timeBinsKeep)
+                            runDelayMs, runDelayVaryMs, rampDelayMs, timeBinLength, timeBinsKeep)
 
                     serviceInfos.add(serviceInfo)
 
@@ -884,7 +889,6 @@ class ServiceFacadeImpl implements ServiceFacade {
         void begin() {
             mutateLock.lock()
             try {
-                // TODO set maxPoolSize to CPU count x2 or something if needed to scale the load runner itself; probably not much as services running on same system...
                 if (scheduledExecutor == null) {
                     // restart index
                     execIndex = new AtomicInteger(1)
@@ -897,6 +901,7 @@ class ServiceFacadeImpl implements ServiceFacade {
                     }
 
                     scheduledExecutor = new CustomScheduledExecutor(corePoolSize, new LoadRunnerThreadFactory())
+                    if (maxPoolSize == null) maxPoolSize = Runtime.getRuntime().availableProcessors() * 4
                     scheduledExecutor.setMaximumPoolSize(maxPoolSize)
 
                     for (int i = 0; i < serviceInfos.size(); i++) {
