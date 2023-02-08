@@ -138,7 +138,13 @@ class ConditionHandler {
     {
         // check required fields
         if (!singleTerm.containsKey("field")) throw new EntityException("Field condition not set correctly, 'field' missing [${singleTerm}]")
-        if (!singleTerm.containsKey("value")) throw new EntityException("Field condition not set correctly, 'value' missing [${singleTerm}]")
+        if (!singleTerm.containsKey("value")){
+            // allow for specific cases - NULL-related
+            if (!singleTerm["operator"].toString().toLowerCase().contains("null"))
+            {
+                throw new EntityException("Field condition not set correctly, 'value' missing [${singleTerm}]")
+            }
+        }
 
         def compOperator = EntityCondition.ComparisonOperator.EQUALS
 
@@ -147,6 +153,16 @@ class ConditionHandler {
         {
             switch(singleTerm["operator"].toString().toLowerCase())
             {
+                case "is-null":
+                case "isnull":
+                case "null":
+                    compOperator = EntityCondition.ComparisonOperator.IS_NULL
+                    break
+                case "is-not-null":
+                case "notnull":
+                case "not-null":
+                    compOperator = EntityCondition.ComparisonOperator.IS_NOT_NULL
+                    break
                 case "=":
                 case "eq":
                 case "equal":
