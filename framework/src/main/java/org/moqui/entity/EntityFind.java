@@ -320,5 +320,5 @@ public interface EntityFind extends java.io.Serializable, SimpleEtl.Extractor {
 
     /** Method returns attachment of a specified entity, is implemented for specific
      * connector, in our case it's MongoDatabase */
-    public InputStream getAttachment();
+    public byte[] getAttachment();
 }
