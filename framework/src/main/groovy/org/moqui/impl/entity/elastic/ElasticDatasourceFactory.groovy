@@ -161,6 +161,7 @@ class ElasticDatasourceFactory implements EntityDatasourceFactory {
         if (checkedEntityIndexSet.contains(indexName)) return
 
         ElasticFacade.ElasticClient elasticClient = efi.ecfi.elasticFacade.getClient(clusterName)
+        if (elasticClient == null) throw new IllegalStateException("No ElasticClient found for cluster name " + clusterName)
         if (!elasticClient.indexExists(indexName)) {
             Map mapping = makeElasticEntityMapping(ed)
             // logger.warn("Creating ES Index ${indexName} with mapping: ${JsonOutput.prettyPrint(JsonOutput.toJson(mapping))}")
@@ -170,7 +171,11 @@ class ElasticDatasourceFactory implements EntityDatasourceFactory {
         checkedEntityIndexSet.add(indexName)
     }
 
-    ElasticFacade.ElasticClient getElasticClient() { efi.ecfi.elasticFacade.getClient(clusterName) }
+    ElasticFacade.ElasticClient getElasticClient() {
+        ElasticFacade.ElasticClient client = efi.ecfi.elasticFacade.getClient(clusterName)
+        if (client == null) throw new IllegalStateException("No ElasticClient found for cluster name " + clusterName)
+        return client
+    }
     String getIndexName(EntityDefinition ed) {
         return indexPrefix + ed.getTableNameLowerCase()
     }
