@@ -11,6 +11,15 @@ import org.slf4j.LoggerFactory
 
 import javax.cache.Cache
 
+/**
+ * SynchroMaster is a tool that helps developer reach for data of a cached-table.
+ * Primary purpose is to have a straightforward access to data that the application
+ * frequently uses. E.g. in a project-economy based application, it's access to
+ * projects list and statistics, since this data is frequently being polled, used
+ * for dashboards and likes.
+ *
+ * Besides this basic functionality, it is useful to have some statistics at hand.
+ */
 class SynchroMaster {
     public enum ActivitySemaphore {
         ACTIVE,

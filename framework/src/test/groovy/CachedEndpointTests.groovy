@@ -197,6 +197,8 @@ class CachedEndpointTests extends Specification {
         deleted == imported
     }
 
+    // test cache related statistics
+
     private HashMap executeDataLoad(String srvName, String entityName, ArrayList term, HashMap args, Long pageIndex, int pageSize)
     {
         def timeStart = new Date()
