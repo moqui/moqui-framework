@@ -210,7 +210,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
         }
 
         if (sd == null) {
-            if (sfi.isEntityAutoPattern(path, verb, noun)) {
+            if (sfi.isEntityAutoPattern(path, verb, noun, master)) {
                 try {
                     return runImplicitEntityAuto(currentParameters, secaRules, eci);
                 } finally {
@@ -595,6 +595,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
 
                 try {
                     EntityDefinition ed = eci.getEntityFacade().getEntityDefinition(noun);
+                    if (master != null && !master.isEmpty()) currentParameters.put("_master", master);
                     if ("create".equals(verb)) {
                         EntityAutoServiceRunner.createEntity(eci, ed, currentParameters, result, null);
                     } else if ("update".equals(verb)) {

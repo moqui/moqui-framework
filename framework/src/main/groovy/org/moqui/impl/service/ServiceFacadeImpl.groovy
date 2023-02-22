@@ -1,12 +1,12 @@
 /*
  * This software is in the public domain under CC0 1.0 Universal plus a
  * Grant of Patent License.
- * 
+ *
  * To the extent possible under law, the author(s) have dedicated all
  * copyright and related and neighboring rights to this software to the
  * public domain worldwide. This software is distributed without any
  * warranty.
- * 
+ *
  * You should have received a copy of the CC0 Public Domain Dedication
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
@@ -180,6 +180,12 @@ class ServiceFacadeImpl implements ServiceFacade {
         // if no path, verb is create|update|delete and noun is a valid entity name, do an implicit entity-auto
         return (path == null || path.isEmpty()) && EntityAutoServiceRunner.verbSet.contains(verb) &&
                 ecfi.entityFacade.isEntityDefined(noun)
+    }
+
+    boolean isEntityAutoPattern(String path, String verb, String noun, String master) {
+        // if no path, verb is create|update|delete and noun is a valid entity name, do an implicit entity-auto
+        return (path == null || path.isEmpty()) && EntityAutoServiceRunner.verbSet.contains(verb) &&
+                ecfi.entityFacade.isEntityDefined(noun, master)
     }
 
     ServiceDefinition getServiceDefinition(String serviceName) {

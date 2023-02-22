@@ -345,8 +345,18 @@ public class ServiceDefinition {
 
     public static String getNounFromName(String serviceName) {
         int hashIndex = serviceName.lastIndexOf('#');
+        int dollarIndex = serviceName.lastIndexOf('$');
         if (hashIndex < 0) return null;
-        return serviceName.substring(hashIndex + 1);
+        if (dollarIndex < 0)
+            return serviceName.substring(hashIndex + 1);
+        else
+            return serviceName.substring(hashIndex + 1, dollarIndex);
+    }
+
+    public static String getMasterFromName(String serviceName) {
+        int dollarIndex = serviceName.lastIndexOf('$');
+        if (dollarIndex < 0) return null;
+        return serviceName.substring(dollarIndex + 1);
     }
 
     public static ArtifactExecutionInfo.AuthzAction getVerbAuthzActionEnum(String theVerb) {

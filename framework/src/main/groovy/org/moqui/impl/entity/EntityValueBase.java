@@ -1236,12 +1236,24 @@ public abstract class EntityValueBase implements EntityValue {
         EntityDefinition.MasterDefinition masterDefinition = getEntityDefinition().getMasterDefinition(name);
         if (masterDefinition == null)
             throw new EntityException("No master definition found for name [" + name + "] in entity [" + entityName + "]");
-        return internalMasterValueMap(masterDefinition.getDetailList(), null, null);
+
+        return internalMasterValueMap(masterDefinition.getDetailFieldList(), masterDefinition.getDetailList(), null, null, masterDefinition.getName());
     }
 
-    private Map<String, Object> internalMasterValueMap(ArrayList<EntityDefinition.MasterDetail> detailList, Set<String> parentPkFields, EntityJavaUtil.RelationshipInfo parentRelInfo) {
-        Map<String, Object> vMap = new HashMap<>(valueMapInternal);
+    private Map<String, Object> internalMasterValueMap(ArrayList<EntityDefinition.MasterDetailField> detailFieldList, ArrayList<EntityDefinition.MasterDetail> detailList, Set<String> parentPkFields, EntityJavaUtil.RelationshipInfo parentRelInfo, String masterName) {
+        Map<String, Object> vMap = new HashMap<>(valueMapInternal.size());
+
+        EntityDefinition ed = getEntityDefinition();
+        // Add all primary keys for the entity
+        for (EntityDefinition.MasterDetailField masterDetailField : detailFieldList) {
+            if (!masterDetailField.isReadable() || valueMapInternal.get(masterDetailField.getFieldName()) == null) continue;
+            vMap.put(masterDetailField.getFieldName(), valueMapInternal.get(masterDetailField.getFieldName()));
+        }
+        vMap.put("_entity", ed.getShortOrFullEntityName());
+        vMap.put("_master", masterName);
+
         CollectionUtilities.removeNullsFromMap(vMap);
+
         if (parentPkFields != null) {
             if (parentRelInfo != null) {
                 // handle cases like the Product toAssocs relationship where ProductAssoc.productId != Product.productId, needs to look at relationship field map
@@ -1253,8 +1265,9 @@ public abstract class EntityValueBase implements EntityValue {
                 for (String pkField : parentPkFields) vMap.remove(pkField);
             }
         }
-        EntityDefinition ed = getEntityDefinition();
-        vMap.put("_entity", ed.getShortOrFullEntityName());
+//        logger.warn("name " + getEntityDefinition().getShortOrFullEntityName() + " before vMap " + vMap.toString());
+//        logger.warn("name " + ed.getShortOrFullEntityName() + " before vMap " + vMap.toString());
+//        logger.warn("name " + vMap.get("_entity") + " pkFields " + ed.getPkFieldNames());
 
         if (detailList != null && !detailList.isEmpty()) {
             Set<String> curPkFields = new HashSet<>(ed.getPkFieldNames());
@@ -1271,7 +1284,7 @@ public abstract class EntityValueBase implements EntityValue {
                 String entryName = relAlias != null && !relAlias.isEmpty() ? relAlias : relationshipName;
                 if (relInfo.isTypeOne) {
                     EntityValue relEv = findRelatedOne(relationshipName, null, false);
-                    if (relEv != null) vMap.put(entryName, ((EntityValueBase) relEv).internalMasterValueMap(detail.getDetailList(), curPkFields, relInfo));
+                    if (relEv != null)vMap.put(entryName, ((EntityValueBase) relEv).internalMasterValueMap(detail.getDetailFieldList(), detail.getDetailList(), curPkFields, relInfo, null));
                 } else {
                     EntityList relList = findRelated(relationshipName, null, null, null, false);
                     if (relList != null && !relList.isEmpty()) {
@@ -1279,13 +1292,16 @@ public abstract class EntityValueBase implements EntityValue {
                         int relListSize = relList.size();
                         for (int rlIndex = 0; rlIndex < relListSize; rlIndex++) {
                             EntityValue relEv = relList.get(rlIndex);
-                            plainRelList.add(((EntityValueBase) relEv).internalMasterValueMap(detail.getDetailList(), curPkFields, relInfo));
+                            plainRelList.add(((EntityValueBase) relEv).internalMasterValueMap(detail.getDetailFieldList(), detail.getDetailList(), curPkFields, relInfo, null));
                         }
+//                        logger.warn("name " + entryName + " pkFields " + curPkFields.toString() + " plainRelList " + plainRelList.toString());
                         vMap.put(entryName, plainRelList);
                     }
                 }
             }
         }
+
+//        logger.warn("name " + ed.getShortOrFullEntityName() + " after vMap " + vMap.toString());
 
         return vMap;
     }
