@@ -1,10 +1,9 @@
 package org.moqui.util;
 
 import com.google.gson.Gson
-import com.google.gson.JsonArray;
 import com.google.gson.JsonElement
-import groovy.transform.CompileStatic;
-import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.FileUtils
+
 import java.nio.charset.StandardCharsets
 import java.util.regex.Pattern;
 
@@ -124,7 +123,7 @@ public class TestUtilities {
     }
 
     // write to log - with per-line command
-    public static void dumpToDebugUsingWriter(String[] debugPath, boolean appendTimeStamp, Closure cb)
+    static void dumpToDebugUsingWriter(String[] debugPath, boolean appendTimeStamp, Closure cb)
     {
         // modify string
         if (appendTimeStamp)
@@ -137,13 +136,35 @@ public class TestUtilities {
         dumpToDebugUsingWriter(debugPath, cb)
     }
 
-    public static void dumpToDebugUsingWriter(String[] debugPath, Closure cb)
+    static void dumpToDebugUsingWriter(String[] debugPath, boolean appendTimeStamp, ByteArrayOutputStream bt)
+    {
+        // modify string
+        if (appendTimeStamp)
+        {
+            def newPath = debugPath
+            def filename = insertTimestampToFilename(debugPath.last())
+            debugPath[debugPath.length - 1] = filename
+        }
+
+        dumpToDebugUsingWriter(debugPath, bt)
+    }
+
+
+    static void dumpToDebugUsingWriter(String[] debugPath, Closure cb)
     {
         def fw = createDebugWriter(debugPath)
 
         // attempt to write using closure
         cb(fw)
 
+        fw.close();
+    }
+
+    static void dumpToDebugUsingWriter(String[] debugPath, ByteArrayOutputStream bt)
+    {
+        def fw = createDebugWriter(debugPath)
+
+        fw.write(bt.toString(StandardCharsets.UTF_8))
         fw.close();
     }
 }

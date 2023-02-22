@@ -1,6 +1,10 @@
 package dtq.rockycube
 
 import com.google.gson.Gson
+import com.google.gson.GsonBuilder
+import groovy.json.JsonOutput
+import org.moqui.context.ExecutionContext
+import org.moqui.resource.ResourceReference
 
 import java.nio.charset.StandardCharsets
 
@@ -23,6 +27,15 @@ class GenericUtilities {
             default:
                 return convertToComplexType(field.toString())
         }
+    }
+
+    /*
+     * Store file in a `tmp` directory of the backend, for debugging purposes
+     */
+    public static void debugFile(ExecutionContext ec, String fileId, Object data)
+    {
+        ResourceReference ref = ec.resource.getLocationReference("tmp")
+        ref.makeFile(fileId).putText (JsonOutput.prettyPrint(JsonOutput.toJson(data)))
     }
 
     private static Object convertToComplexType(String incomingStr){
