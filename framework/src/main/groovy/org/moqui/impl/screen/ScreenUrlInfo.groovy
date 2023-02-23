@@ -328,9 +328,10 @@ class ScreenUrlInfo {
 
             boolean allowedByServiceDefinition = false
             if (authzAction == ArtifactExecutionInfo.AUTHZA_VIEW) {
-                allowedByServiceDefinition = allowedByScreenDefinitionView || "anonymous-view".equals(sd.authenticate) || "anonymous-all".equals(sd.authenticate)
-            } else if (authzAction in [ArtifactExecutionInfo.AUTHZA_ALL, ArtifactExecutionInfo.AUTHZA_CREATE, ArtifactExecutionInfo.AUTHZA_UPDATE, ArtifactExecutionInfo.AUTHZA_DELETE])
-                allowedByServiceDefinition = allowedByScreenDefinitionAll || "anonymous-all".equals(sd.authenticate)
+                allowedByServiceDefinition = allowedByScreenDefinitionView || (sd != null && ("anonymous-view".equals(sd.authenticate) || "anonymous-all".equals(sd.authenticate)))
+            } else if (authzAction in [ArtifactExecutionInfo.AUTHZA_ALL, ArtifactExecutionInfo.AUTHZA_CREATE, ArtifactExecutionInfo.AUTHZA_UPDATE, ArtifactExecutionInfo.AUTHZA_DELETE]) {
+                allowedByServiceDefinition = allowedByScreenDefinitionAll || (sd != null && "anonymous-all".equals(sd.authenticate))
+            }
             ArtifactExecutionInfoImpl aeii = new ArtifactExecutionInfoImpl(serviceName, ArtifactExecutionInfo.AT_SERVICE, authzAction, null)
 
             ArtifactExecutionInfoImpl lastAeii = (ArtifactExecutionInfoImpl) artifactExecutionInfoStack.peekFirst()
