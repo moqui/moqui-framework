@@ -140,5 +140,15 @@ class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
     EntityFind makeEntityFind(String entityName) { return new EntityFindImpl(efi, entityName) }
 
     @Override
+    void createBulk(List<EntityValue> valueList) {
+        // basic approach, can probably do better with some JDBC tricks
+        Iterator<EntityValue> valueIterator = valueList.iterator()
+        while (valueIterator.hasNext()) {
+            EntityValue ev = (EntityValue) valueIterator.next()
+            ev.create()
+        }
+    }
+
+    @Override
     DataSource getDataSource() { return dataSource }
 }

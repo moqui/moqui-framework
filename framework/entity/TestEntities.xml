@@ -51,7 +51,7 @@ along with this software (see the LICENSE.md file). If not, see
         <alias name="score" function="sum" entity-alias="T2"/>
         <alias name="barRank" entity-alias="T2"/>
     </view-entity>
-    <entity entity-name="TestNoSqlEntity" package="moqui.test" sequence-bank-size="100" use="nontransactional" cache="never">
+    <entity entity-name="TestNoSqlEntity" package="moqui.test" sequence-bank-size="100" use="logging" group="logging" cache="never">
         <field name="testId" type="id" is-pk="true"/>
         <field name="testMedium" type="text-medium"/>
         <field name="testLong" type="text-long"/>

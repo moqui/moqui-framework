@@ -172,6 +172,10 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
         return sw.toString()
     }
 
+    ArtifactExecutionInfoImpl.ArtifactTypeStats getArtifactTypeStats() {
+        return ArtifactExecutionInfoImpl.getArtifactTypeStats(artifactExecutionInfoHistory)
+    }
+
     void logProfilingDetail() {
         if (!logger.isInfoEnabled()) return
 

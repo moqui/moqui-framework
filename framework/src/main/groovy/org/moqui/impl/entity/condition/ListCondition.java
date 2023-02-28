@@ -18,6 +18,7 @@ import org.moqui.impl.entity.EntityConditionFactoryImpl;
 import org.moqui.impl.entity.EntityDefinition;
 import org.moqui.impl.entity.EntityQueryBuilder;
 import org.moqui.entity.EntityCondition;
+import org.moqui.util.CollectionUtilities;
 
 import java.io.IOException;
 import java.io.ObjectInput;
@@ -87,6 +88,22 @@ public class ListCondition implements EntityConditionImplBase {
             condition.makeSqlWhere(eqb, subMemberEd);
         }
         if (conditionListSize > 1) sql.append(')');
+    }
+    @Override
+    public void makeSearchFilter(List<Map<String, Object>> filterList) {
+        if (conditionListSize == 0) return;
+
+        List<Map<String, Object>> childList = new ArrayList<>(conditionListSize);
+        for (int i = 0; i < conditionListSize; i++) {
+            EntityConditionImplBase condition = conditionList.get(i);
+            condition.makeSearchFilter(childList);
+        }
+
+        Map<String, Object> boolMap = new HashMap<>();
+        if (operator == AND) boolMap.put("filter", childList);
+        else boolMap.put("should", childList);
+
+        filterList.add(CollectionUtilities.toHashMap("bool", boolMap));
     }
 
     @Override

@@ -57,7 +57,7 @@ public abstract class EntityValueBase implements EntityValue {
     private static final String REFRESH_ERROR = "Error finding ${entityName} ${primaryKeys}";
 
     private String entityName;
-    final LiteStringMap<Object> valueMapInternal;
+    protected final LiteStringMap<Object> valueMapInternal;
 
     private transient EntityFacadeImpl efiTransient = null;
     private transient TransactionCache txCacheInternal = null;
@@ -634,14 +634,16 @@ public abstract class EntityValueBase implements EntityValue {
 
     @Override
     public EntityValue createOrUpdate() {
+        EntityDefinition ed = getEntityDefinition();
         boolean pkModified = false;
         if (isFromDb) {
-            pkModified = (getEntityDefinition().getPrimaryKeys(this.valueMapInternal).equals(getEntityDefinition().getPrimaryKeys(this.dbValueMap)));
+            pkModified = (ed.getPrimaryKeys(this.valueMapInternal).equals(ed.getPrimaryKeys(this.dbValueMap)));
         } else {
             // make sure PK fields with defaults are filled in BEFORE doing the refresh to see if it exists
             checkSetFieldDefaults(getEntityDefinition(), getEntityFacadeImpl().ecfi.getEci(), true);
         }
 
+        // logger.warn("createOrUpdate isFromDb " + isFromDb + " pkModified " + pkModified);
         if ((isFromDb && !pkModified) || this.cloneValue().refresh()) {
             return update();
         } else {
