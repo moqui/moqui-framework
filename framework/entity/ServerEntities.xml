@@ -196,6 +196,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="username" type="text-short"/>
         <field name="password" type="text-medium" encrypt="true"/>
         <field name="emailAddress" type="text-medium"/>
+        <field name ="authTokenCmd" type="text-medium"/>
         <relationship type="one" related="moqui.server.instance.InstanceImageType" short-alias="imageType"/>
         <relationship type="one" related="moqui.server.instance.InstanceHostType" short-alias="hostType"/>
     </entity>

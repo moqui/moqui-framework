@@ -360,21 +360,25 @@ along with this software (see the LICENSE.md file). If not, see
             restClient.jsonObject(jsonBody)
 
             try {
-                authToken = instanceImage.password
-                if (((String) instanceImage.username).equals("AWS")) {
+                authTokenPass = null
+                if (instanceImage.authTokenCmd) {
                     try {
-                        Process processCmd = Runtime.getRuntime().exec((instanceImage.password).split(" "), null)
+                        Process processCmd = Runtime.getRuntime().exec((instanceImage.authTokenCmd).split(" "), null)
                         BufferedReader readToken = new BufferedReader(new InputStreamReader(processCmd.getInputStream()))
-                        authToken = readToken.readLine()
+                        authTokenPass = readToken.readLine()
                     }
                     catch (IOException io) {
-                        authToken = null
+                        authTokenPass = null
                         ec.logger.log(ec.logger.ERROR_INT, "Error connecting to Docker host in processing aws cmd", io)
                         ec.message.addError("Error connecting to Docker host: ${io.toString()}")
                     }
+
                 }
+                else {
+                    authTokenPass = instanceImage.password
+                }
+                Map jsonAuth = [username: instanceImage.username , password: authTokenPass , email: instanceImage.emailAddress , serveraddress: instanceImage.registryLocation ]
                 //Registry-Location now using as Server-Address
-                Map jsonAuth = [username: instanceImage.username , password: authToken , email: instanceImage.emailAddress , serveraddress: instanceImage.registryLocation ]
                 String json = (String) JsonOutput.toJson(jsonAuth)
                 String authEncoded = Base64.getEncoder().encodeToString(json.getBytes())
                 Map param = [fromImage:(String) instanceImage.imageName ,repo : (String)instanceImage.imageName]
