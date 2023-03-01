@@ -37,7 +37,7 @@ class EndpointServiceHandler {
     private ExecutionContextFactoryImpl ecfi
     private EntityHelper meh
     private EntityCondition.JoinOperator defaultListJoinOper = EntityCondition.JoinOperator.OR
-    private Gson gson
+    private Gson gson = new Gson()
 
     private static String CONST_UPDATE_IF_EXISTS                = 'updateIfExists'
     private static String CONST_ALLOWED_FIELDS                  = 'allowedFields'
@@ -54,13 +54,17 @@ class EndpointServiceHandler {
     private static String CONST_DEFAULT_LIST_JOIN_OPERATOR      = 'defaultListJoinOperator'
 
     /*
+    DEFAULTS
+     */
+
+    /*
     REQUEST ATTRIBUTES
     */
     private String entityName
     private ArrayList term
     private Integer inputIndex = 1
-    private Integer pageSize
-    private ArrayList orderBy
+    private Integer pageSize = 20
+    private ArrayList orderBy = []
     private HashMap<String, Object> args
 
     // variables extracted
@@ -77,33 +81,85 @@ class EndpointServiceHandler {
         ]
     }
 
-    EndpointServiceHandler() {
+    EndpointServiceHandler(HashMap args, ArrayList term, String entityName, String tableName, Boolean failsafe)
+    {
         this.ec = Moqui.getExecutionContext()
         this.ecfi = (ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory()
         this.meh = new EntityHelper(this.ec)
-        this.gson = new Gson()
 
-        // do we have an entity?
-        // try extracting from table name
-        if (!ec.context.entityName) {
-            String tableName = ec.context.tableName ?: null
-            if (!tableName) throw new EntityException("Missing both entity and table name")
+        // fill entity name
+        this.fillEntityName(entityName, tableName)
 
-            this.ed = meh.getDefinition(tableName)
-            if (!ed) throw new EntityException("Unable to find EntityDefinition for '${tableName}'")
-            this.entityName = ed.fullEntityName
-        } else {
-            this.entityName = (String) ec.context.entityName
-        }
-
-        // initial fill
-        this.fillRequestVariables()
+        // fill
+        this.term = (ArrayList) term?:[]
+        this.args = args?:[:] as HashMap<String, Object>
 
         // subsequent calculations
         this.calculateDependencies()
 
         def ds = ec.entity.getDatasourceFactory(ed.groupName)
         dsType = ds.getClass().simpleName
+    }
+
+    EndpointServiceHandler() {
+        this.ec = Moqui.getExecutionContext()
+        this.ecfi = (ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory()
+        this.meh = new EntityHelper(this.ec)
+
+        // fill entity name
+        this.fillEntityName((String) ec.context.entityName, (String) ec.context.tableName)
+
+        // initial fill
+        this.fillRequestVariablesFromContext()
+
+        // subsequent calculations
+        this.calculateDependencies()
+
+        def ds = ec.entity.getDatasourceFactory(ed.groupName)
+        dsType = ds.getClass().simpleName
+    }
+
+    private void fillEntityName(String inputEntityName, String inputTableName)
+    {
+        // do we have an entity?
+        // try extracting from table name
+        if (!inputEntityName) {
+            String tableName = ec.context.tableName ?: null
+            if (!inputTableName) throw new EntityException("Missing both entity and table name")
+
+            this.ed = meh.getDefinition(inputTableName)
+            if (!ed) throw new EntityException("Unable to find EntityDefinition for '${inputTableName}'")
+            this.entityName = ed.fullEntityName
+        } else {
+            this.entityName = inputEntityName
+        }
+    }
+
+    private void fillRequestVariablesFromContext()
+    {
+        this.term = (ArrayList) ec.context.term?:[]
+        this.setInputIndex((Integer) ec.context.index?:1)
+        this.pageSize = (Integer) ec.context.size?:20
+        this.orderBy = (ArrayList) ec.context.orderBy?:[]
+        this.args = ec.context.args?:[:] as HashMap<String, Object>
+    }
+
+    void setInputIndex(Integer inputIndex) {
+        this.inputIndex = inputIndex
+        this.pageIndex = Math.max(inputIndex - 1, 0)
+    }
+
+    private void calculateDependencies()
+    {
+        // fill in defaults if no arguments passed
+        this.checkArgsSetup()
+
+        // query condition setup
+        this.queryCondition = this.extractQueryCondition(term)
+
+        // entity definition is a must
+        if (!this.ed) this.ed = this.meh.getDefinition(entityName)
+        if (!this.ed) throw new EntityException("Entity definition not found [${entityName?:'NOT SET'}], cannot continue with populating service output")
     }
 
     private static Object cleanMongoObjects(Object incoming)
@@ -128,6 +184,50 @@ class EndpointServiceHandler {
             return (LinkedHashMap) incoming
         } else {
             return incoming
+        }
+    }
+
+    /**
+     * Fills arguments with some defaults, should it be necessary
+     * @param args
+     */
+    private void checkArgsSetup()
+    {
+        // by default
+        //      do not overwrite
+        if (!args.containsKey(CONST_UPDATE_IF_EXISTS)) args.put(CONST_UPDATE_IF_EXISTS, false)
+
+        //      all fields are allowed
+        if (!args.containsKey(CONST_ALLOWED_FIELDS)) args.put(CONST_ALLOWED_FIELDS, '*')
+
+        //      we do not want list as output
+        if (!args.containsKey(CONST_CONVERT_OUTPUT_TO_LIST)) args.put(CONST_CONVERT_OUTPUT_TO_LIST, false)
+
+        //      we do not want timestamp fields, by default
+        if (!args.containsKey(CONST_ALLOW_TIMESTAMPS)) args.put(CONST_ALLOW_TIMESTAMPS, false)
+
+        //      let the entity manager create primary key
+        if (!args.containsKey(CONST_AUTO_CREATE_PKEY)) args.put(CONST_AUTO_CREATE_PKEY, true)
+
+        //      do not attempt to force-return an object
+        if (!args.containsKey(CONST_PREFER_OBJECT_IN_RETURN)) args.put(CONST_PREFER_OBJECT_IN_RETURN, false)
+
+        //      use iCache query only when explicitly set
+        if (!args.containsKey(CONST_ALLOW_ICACHE_QUERY)) args.put(CONST_ALLOW_ICACHE_QUERY, false)
+
+        //      default join operator change
+        if (args.containsKey(CONST_DEFAULT_LIST_JOIN_OPERATOR))
+        {
+            switch(args[CONST_DEFAULT_LIST_JOIN_OPERATOR].toString().toLowerCase())
+            {
+                case "and":
+                case "&&":
+                    this.defaultListJoinOper = EntityCondition.JoinOperator.AND
+                    break
+                case "or":
+                case "||":
+                    this.defaultListJoinOper = EntityCondition.JoinOperator.OR
+            }
         }
     }
 
@@ -245,8 +345,6 @@ class EndpointServiceHandler {
         return res
     }
 
-
-
     private boolean addField(String fieldName)
     {
         // allow timestamps? must be explicitly set
@@ -297,33 +395,6 @@ class EndpointServiceHandler {
         }
     }
 
-    private void calculateDependencies()
-    {
-        // fill in defaults if no arguments passed
-        this.checkArgsSetup()
-
-        // query condition setup
-        this.queryCondition = this.extractQueryCondition(term)
-
-        // modify index
-        this.pageIndex = Math.max(inputIndex - 1, 0)
-        logger.info("entityName/term/index/size: ${entityName}/${queryCondition}/${pageIndex}/${pageSize}")
-
-        // entity definition is a must
-        if (!this.ed) this.ed = this.meh.getDefinition(entityName)
-        if (!this.ed) throw new EntityException("Entity definition not found [${entityName?:'NOT SET'}], cannot continue with populating service output")
-    }
-
-    private void fillRequestVariables()
-    {
-        this.term = (ArrayList) ec.context.term?:[]
-        this.inputIndex = (Integer) ec.context.index?:1
-        this.pageSize = (Integer) ec.context.size?:20
-        this.orderBy = (ArrayList) ec.context.orderBy?:[]
-        this.args = ec.context.args?:[:] as HashMap<String, Object>
-//        this.fields = (ArrayList) ec.context.fields?:[]
-    }
-
     private EntityConditionImplBase extractComplexCondition(Object term, String rule)
     {
         try {
@@ -369,50 +440,6 @@ class EndpointServiceHandler {
         res['page'] = pageIndex + 1
         res['rows'] = allEntries
         return res
-    }
-
-    /**
-     * Fills arguments with some defaults, should it be necessary
-     * @param args
-     */
-    private void checkArgsSetup()
-    {
-        // by default
-        //      do not overwrite
-        if (!args.containsKey(CONST_UPDATE_IF_EXISTS)) args.put(CONST_UPDATE_IF_EXISTS, false)
-
-        //      all fields are allowed
-        if (!args.containsKey(CONST_ALLOWED_FIELDS)) args.put(CONST_ALLOWED_FIELDS, '*')
-
-        //      we do not want list as output
-        if (!args.containsKey(CONST_CONVERT_OUTPUT_TO_LIST)) args.put(CONST_CONVERT_OUTPUT_TO_LIST, false)
-
-        //      we do not want timestamp fields, by default
-        if (!args.containsKey(CONST_ALLOW_TIMESTAMPS)) args.put(CONST_ALLOW_TIMESTAMPS, false)
-
-        //      let the entity manager create primary key
-        if (!args.containsKey(CONST_AUTO_CREATE_PKEY)) args.put(CONST_AUTO_CREATE_PKEY, true)
-
-        //      do not attempt to force-return an object
-        if (!args.containsKey(CONST_PREFER_OBJECT_IN_RETURN)) args.put(CONST_PREFER_OBJECT_IN_RETURN, false)
-
-        //      use iCache query only when explicitly set
-        if (!args.containsKey(CONST_ALLOW_ICACHE_QUERY)) args.put(CONST_ALLOW_ICACHE_QUERY, false)
-
-        //      default join operator change
-        if (args.containsKey(CONST_DEFAULT_LIST_JOIN_OPERATOR))
-        {
-            switch(args[CONST_DEFAULT_LIST_JOIN_OPERATOR].toString().toLowerCase())
-            {
-                case "and":
-                case "&&":
-                    this.defaultListJoinOper = EntityCondition.JoinOperator.AND
-                    break
-                case "or":
-                case "||":
-                    this.defaultListJoinOper = EntityCondition.JoinOperator.OR
-            }
-        }
     }
 
     private void manipulateRecordId(HashMap<String, Object> record)
@@ -465,9 +492,8 @@ class EndpointServiceHandler {
         }
     }
 
-    public HashMap createEntityData()
+    public HashMap createEntityData(Object data)
     {
-        def data = ec.context.data
         // ArrayList supported, this way we can run multiple create procedures in single moment
         // if (data.getClass().simpleName.startsWith('ArrayList')) throw new EntityException("Creating multiple entities not supported")
 
@@ -493,6 +519,11 @@ class EndpointServiceHandler {
                 result : true,
                 message: "Records created/updated (${itemsCreated})"
         ]
+    }
+
+    public HashMap createEntityData()
+    {
+        return createEntityData(ec.context.data)
     }
 
     private HashMap createSingleEntity(HashMap singleEntityData) {
@@ -651,8 +682,19 @@ class EndpointServiceHandler {
         ]
     }
 
+    public HashMap fetchEntityData(Integer index, Integer size, ArrayList orderBy)
+    {
+        this.setInputIndex(index)
+        this.pageSize = size
+        this.orderBy = orderBy
+
+        return fetchEntityData()
+    }
+
     public HashMap fetchEntityData()
     {
+        logger.info("entityName/term/index/size: ${entityName}/${queryCondition}/${pageIndex}/${pageSize}")
+
         // only available when specific flag is switched
         if (args[CONST_ALLOW_ICACHE_QUERY]) {
             // SynchroMaster required
@@ -673,10 +715,9 @@ class EndpointServiceHandler {
         return this.fetchEntityData_standard()
     }
 
-    public HashMap updateEntityData()
+    public HashMap updateEntityData(HashMap<String, Object> data)
     {
-        HashMap<String, Object> updateData = ec.context.data?:[:]
-        if (updateData.isEmpty())
+        if (data.isEmpty())
         {
             return [
                     result: false,
@@ -690,7 +731,12 @@ class EndpointServiceHandler {
         logger.debug("UPDATE: entityName/term: ${entityName}/${queryCondition}")
 
         // update record
-        return this.updateSingleEntity(toUpdate, updateData)
+        return this.updateSingleEntity(toUpdate, data)
+    }
+
+    public HashMap updateEntityData()
+    {
+        return updateEntityData(ec.context.data?:[:] as HashMap<String, Object>)
     }
 
     private HashMap updateSingleEntity(EntityFind toUpdate, HashMap<String, Object> updateData){

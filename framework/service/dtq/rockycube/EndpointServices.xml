@@ -15,15 +15,17 @@ along with this software (see the LICENSE.md file). If not, see
             noun="EntityData"
             method="loadFromEntity"
             type="script"
+            no-tx-cache="true"
+            no-remember-parameters="true"
             location="classpath://service/dtq/rockycube/endpoint/EndpointService.groovy">
         <in-parameters>
-            <parameter name="term" type="List"/>
-            <parameter name="index" type="Integer"/>
-            <parameter name="size" type="Integer"/>
+            <parameter name="term" type="List" default="[]"/>
+            <parameter name="index" type="Integer" default-value="1"/>
+            <parameter name="size" type="Integer" default-value="20"/>
             <parameter name="entityName" type="String"/>
             <parameter name="tableName" type="String"/>
-            <parameter name="orderBy" type="List"/>
-            <parameter name="args" type="Map"/>
+            <parameter name="orderBy" type="List" default="[]"/>
+            <parameter name="args" type="Map" default="[:]"/>
             <parameter name="failsafe" type="Boolean" default-value="false"/>
         </in-parameters>
         <out-parameters>
@@ -38,10 +40,10 @@ along with this software (see the LICENSE.md file). If not, see
             type="script"
             location="classpath://service/dtq/rockycube/endpoint/EndpointService.groovy">
         <in-parameters>
-            <parameter name="term" type="List"/>
+            <parameter name="term" type="List" default="[]"/>
             <parameter name="entityName" type="String"/>
             <parameter name="tableName" type="String"/>
-            <parameter name="args" type="Map"/>
+            <parameter name="args" type="Map" default="[:]"/>
             <parameter name="failsafe" type="Boolean" default-value="false"/>
         </in-parameters>
         <out-parameters>
@@ -56,14 +58,11 @@ along with this software (see the LICENSE.md file). If not, see
             type="script"
             location="classpath://service/dtq/rockycube/endpoint/EndpointService.groovy">
         <in-parameters>
-            <parameter name="term" type="List"/>
-            <parameter name="index" type="Integer"/>
-            <parameter name="size" type="Integer"/>
+            <parameter name="term" type="List" default="[]"/>
             <parameter name="entityName" type="String"/>
             <parameter name="tableName" type="String"/>
-            <parameter name="orderBy" type="List"/>
-            <parameter name="args" type="Map"/>
-            <parameter name="data" type="Map"/>
+            <parameter name="args" type="Map" default="[:]"/>
+            <parameter name="data" type="Map" required="true"/>
             <parameter name="failsafe" type="Boolean" default-value="false"/>
         </in-parameters>
         <out-parameters>
@@ -78,14 +77,11 @@ along with this software (see the LICENSE.md file). If not, see
             type="script"
             location="classpath://service/dtq/rockycube/endpoint/EndpointService.groovy">
         <in-parameters>
-            <parameter name="term" type="List"/>
-            <parameter name="index" type="Integer"/>
-            <parameter name="size" type="Integer"/>
+            <parameter name="term" type="List" default="[]"/>
             <parameter name="entityName" type="String"/>
             <parameter name="tableName" type="String"/>
-            <parameter name="orderBy" type="List"/>
-            <parameter name="args" type="Map"/>
-            <parameter name="data" type="Map"/>
+            <parameter name="args" type="Map" default="[:]"/>
+            <parameter name="data" type="Map" required="true"/>
             <parameter name="failsafe" type="Boolean" default-value="false"/>
         </in-parameters>
         <out-parameters>

@@ -42,7 +42,6 @@ class ViUtilities {
         return cleaned
     }
 
-
     static final String removeNonumericCharacters(String inputValue) {
         return inputValue.replaceAll("[^\\d]", "")
     }
