@@ -66,6 +66,7 @@ class EndpointServiceHandler {
     private Integer pageSize = 20
     private ArrayList orderBy = []
     private HashMap<String, Object> args
+    private ArrayList serviceAllowedOn = new ArrayList()
 
     // variables extracted
     private EntityDefinition ed
@@ -81,14 +82,18 @@ class EndpointServiceHandler {
         ]
     }
 
-    EndpointServiceHandler(HashMap args, ArrayList term, String entityName, String tableName, Boolean failsafe)
+    EndpointServiceHandler(HashMap args, ArrayList term, String entityName, String tableName, Boolean failsafe, ArrayList serviceAllowedOn)
     {
         this.ec = Moqui.getExecutionContext()
         this.ecfi = (ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory()
         this.meh = new EntityHelper(this.ec)
+        serviceAllowedOn.each {it->this.serviceAllowedOn.add((String) it)}
 
         // fill entity name
         this.fillEntityName(entityName, tableName)
+
+        // check entity name against `allowedOn`
+        if (!this.entityAllowed()) throw new EntityException("Operation not allowed on this specific entity [${this.entityName}]")
 
         // fill
         this.term = (ArrayList) term?:[]
@@ -101,13 +106,16 @@ class EndpointServiceHandler {
         dsType = ds.getClass().simpleName
     }
 
-    EndpointServiceHandler() {
+    EndpointServiceHandler(ArrayList serviceAllowedOn) {
         this.ec = Moqui.getExecutionContext()
         this.ecfi = (ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory()
         this.meh = new EntityHelper(this.ec)
 
         // fill entity name
         this.fillEntityName((String) ec.context.entityName, (String) ec.context.tableName)
+
+        // check allowed
+        if (!this.entityAllowed()) throw new EntityException("Operation not allowed on this specific entity [${this.entityName}]")
 
         // initial fill
         this.fillRequestVariablesFromContext()
@@ -117,6 +125,15 @@ class EndpointServiceHandler {
 
         def ds = ec.entity.getDatasourceFactory(ed.groupName)
         dsType = ds.getClass().simpleName
+    }
+
+    private boolean entityAllowed()
+    {
+        if (serviceAllowedOn.empty) return true
+        return serviceAllowedOn.any{it->
+            def rec = Pattern.compile((String) it)
+            return rec.matcher(this.entityName).matches()
+        }
     }
 
     private void fillEntityName(String inputEntityName, String inputTableName)

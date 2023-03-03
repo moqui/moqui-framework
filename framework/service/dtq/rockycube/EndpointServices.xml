@@ -27,6 +27,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="orderBy" type="List" default="[]"/>
             <parameter name="args" type="Map" default="[:]"/>
             <parameter name="failsafe" type="Boolean" default-value="false"/>
+            <parameter name="serviceAllowedOn" type="List" default="[]"/>
         </in-parameters>
         <out-parameters>
             <parameter name="result" type="Map"/>
@@ -45,6 +46,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="tableName" type="String"/>
             <parameter name="args" type="Map" default="[:]"/>
             <parameter name="failsafe" type="Boolean" default-value="false"/>
+            <parameter name="serviceAllowedOn" type="List" default="[]"/>
         </in-parameters>
         <out-parameters>
             <parameter name="result" type="Map"/>
@@ -64,6 +66,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="args" type="Map" default="[:]"/>
             <parameter name="data" type="Map" required="true"/>
             <parameter name="failsafe" type="Boolean" default-value="false"/>
+            <parameter name="serviceAllowedOn" type="List" default="[]"/>
         </in-parameters>
         <out-parameters>
             <parameter name="result" type="Map"/>
@@ -83,6 +86,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="args" type="Map" default="[:]"/>
             <parameter name="data" type="Map" required="true"/>
             <parameter name="failsafe" type="Boolean" default-value="false"/>
+            <parameter name="serviceAllowedOn" type="List" default="[]"/>
         </in-parameters>
         <out-parameters>
             <parameter name="result" type="Map"/>

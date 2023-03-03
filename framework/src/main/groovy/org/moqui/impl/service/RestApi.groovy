@@ -39,6 +39,7 @@ import javax.cache.Cache
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
 import java.math.RoundingMode
+import java.util.regex.Pattern
 
 @CompileStatic
 class RestApi {
@@ -225,9 +226,29 @@ class RestApi {
 
     static class MethodService extends MethodHandler {
         String serviceName
+        ArrayList allowedEntities = new ArrayList()
         MethodService(MNode methodNode, MNode serviceNode, PathNode pathNode, ExecutionContextFactoryImpl ecfi) {
             super(methodNode, pathNode, ecfi)
             serviceName = serviceNode.attribute("name")
+            // add filter on entities, this feature requires that the developer
+            // sets entities that are allowed to be called via endpoint
+            if (serviceNode.attributes.containsKey("allowed-entities"))
+            {
+                def allowedEntitiesInput = serviceNode.attribute("allowed-entities")
+                // try to split, using comma
+                def allowed = allowedEntitiesInput.split(',')
+                allowed.each {it -> this.allowedEntities.push(it)}
+            }
+            def checkedEndpoints = System.getProperty("rest_endpoint_checked").toString().split(',')
+            def controlledCheckpoint = checkedEndpoints.any{it->
+                def recEndpointSearch = Pattern.compile(it)
+                return recEndpointSearch.matcher(serviceName).matches()
+            }
+            // do not allow those endpoints, that have greatest importance to pass without
+            // having allowed entities set
+            if (controlledCheckpoint && allowedEntities.empty) {
+                throw new MethodNotSupportedException("REST API [${pathNode.displayName}-${pathNode.name}] for service [${serviceName}] not configured properly, cannot use endpoint and not have allowed entities set")
+            }
         }
         RestResult run(List<String> pathList, ExecutionContext ec) {
             if ((requireAuthentication == null || requireAuthentication.length() == 0 || "true".equals(requireAuthentication)) &&
@@ -245,7 +266,9 @@ class RestApi {
             }
 
             try {
-                Map result = ec.getService().sync().name(serviceName).parameters(ec.context).call()
+                def res = ec.getService().sync().name(serviceName).parameters(ec.context)
+                if (!this.allowedEntities.empty) res.parameter("serviceAllowedOn", this.allowedEntities)
+                Map result = res.call()
                 ServiceDefinition.nestedRemoveNullsFromResultMap(result)
                 return new RestResult(result, null)
             } finally {
@@ -288,7 +311,6 @@ class RestApi {
                         parameters.add(propMap)
                         RestSchemaUtil.addParameterEnums(sd, parmNode, propMap)
                     }
-
                 }
             }
 
