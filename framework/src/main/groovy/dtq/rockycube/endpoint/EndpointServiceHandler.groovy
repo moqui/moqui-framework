@@ -280,7 +280,11 @@ class EndpointServiceHandler {
         // logger.info("args.allowedFields: ${args[CONST_ALLOWED_FIELDS]}")
 
         FieldInfo pkInfo = null
-        if (ed.pkFieldNames.size() == 1) pkInfo = ed.getFieldInfo(ed.pkFieldNames[0])
+
+        assert ed, "Entity definition must be available"
+
+        def pk = this.findPrimaryKey()
+        if (pk.size() == 1) pkInfo = ed.getFieldInfo((String) pk[0])
 
         single.entrySet().each { it->
             // check primary field
@@ -521,6 +525,17 @@ class EndpointServiceHandler {
         ]
     }
 
+    private ArrayList findPrimaryKey()
+    {
+        // nothing to return
+        if (!this.ed) return null
+
+        def pks = this.ed.pkFieldNames
+        if (!pks) return []
+        if (pks.size() == 0) return []
+        return pks
+    }
+
     public HashMap createEntityData()
     {
         return createEntityData(ec.context.data)
@@ -536,11 +551,11 @@ class EndpointServiceHandler {
         // otherwise perform clean write
         if (args.get(CONST_UPDATE_IF_EXISTS) && queryCondition)
         {
-            def allreadyExists = ec.entity.find(entityName).condition(queryCondition)
-            if (allreadyExists.count() == 1)
+            def alreadyExists = ec.entity.find(entityName).condition(queryCondition)
+            if (alreadyExists.count() == 1)
             {
-                return this.updateSingleEntity(allreadyExists, singleEntityData)
-            } else if (allreadyExists.count() > 1)
+                return this.updateSingleEntity(alreadyExists, singleEntityData)
+            } else if (alreadyExists.count() > 1)
             {
                 return defaultErrorResponse("Unable to perform create/update, multiple entries exist")
             }
@@ -551,7 +566,22 @@ class EndpointServiceHandler {
 
         // create primary key
         if (args[CONST_AUTO_CREATE_PKEY] == true) {
-            created.setSequencedIdPrimary()
+            // do not automatically generate, if the ID is among data provided
+            def pk = this.findPrimaryKey()
+            if (!pk){
+                // create ID manually
+                created.setSequencedIdPrimary()
+            } else if (pk.size() == 0) {
+                // create ID manually
+                created.setSequencedIdPrimary()
+            } else {
+                // create ID manually
+                // if not contained in data provided
+                if (!singleEntityData.containsKey(pk[0]))
+                {
+                    created.setSequencedIdPrimary()
+                }
+            }
         }
 
         // let it create
@@ -652,7 +682,11 @@ class EndpointServiceHandler {
 
         // now it's time to populate result
         FieldInfo pkInfo = null
-        if (ed.pkFieldNames.size() == 1) pkInfo = ed.getFieldInfo(ed.pkFieldNames[0])
+        def pk = this.findPrimaryKey()
+
+        assert ed, "Entity definition must be available"
+
+        if (pk.size() == 1) pkInfo = ed.getFieldInfo((String) pk[0])
         def res = new ArrayList()
         def fields = args[CONST_ALLOWED_FIELDS]
         resIds.each {it->
