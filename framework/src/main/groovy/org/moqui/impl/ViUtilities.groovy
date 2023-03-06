@@ -185,6 +185,25 @@ class ViUtilities {
         // return single array if no separators found
         if (validSeparators.empty) return [inputValue]
 
+        // try to separate using existing commas and evaluate brackets, to the left and to the right
+        // count brackets to the left and right
+        def sepsToRemove = []
+        for (Integer sep in validSeparators)
+        {
+            def leftPart = inputValue.substring(0, sep)
+            def rightPart = inputValue.substring(sep + 1, inputValue.length())
+            def bracketsOnLeft1 = leftPart.count('(')
+            def bracketsOnLeft2 = leftPart.count(')')
+            def bracketsOnRight1 = rightPart.count('(')
+            def bracketsOnRight2 = rightPart.count(')')
+            if (bracketsOnLeft1 == bracketsOnLeft2 && bracketsOnRight1 == bracketsOnRight2) continue
+            sepsToRemove.add(sep)
+        }
+        // remove separators that look suspicious
+        for (Integer sep in sepsToRemove) {
+            validSeparators.removeIf {it->return it == sep}
+        }
+
         // add zero as first separator - to make the cycle beneath more usable
         validSeparators.add(inputLen)
 

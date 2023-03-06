@@ -29,6 +29,9 @@ class ConditionHandler {
         def rec = Pattern.compile("^(AND|OR)\\((.+)\\)")
         def m = rec.matcher(ruleIn)
         boolean isEntireListCond = m.matches()
+        // another condition is not to be separable by comma
+        boolean separable = ViUtilities.splitWithBracketsCheck(ruleIn, ",").size() > 1
+        isEntireListCond &= !separable
         // 1. if string matches pattern from above, then it's the entire condition
         // 2. if not, than we may have a list in place
         if (!isEntireListCond)

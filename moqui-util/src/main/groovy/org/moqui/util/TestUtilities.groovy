@@ -2,7 +2,9 @@ package org.moqui.util;
 
 import com.google.gson.Gson
 import com.google.gson.JsonElement
+import groovy.json.JsonSlurper
 import org.apache.commons.io.FileUtils
+import org.apache.groovy.json.internal.LazyMap
 
 import java.nio.charset.StandardCharsets
 import java.util.regex.Pattern;
@@ -54,12 +56,19 @@ public class TestUtilities {
         }
     }
 
+    public static InputStream loadTestResource(String[] resDir)
+    {
+        String[] importFilePath = extendList(RESOURCE_PATH, resDir)
+        def is = new FileInputStream(getInputFile(importFilePath))
+        return is
+    }
+
     public static void testSingleFile(String[] resDirPath, Closure cb) throws IOException, URISyntaxException {
         String[] importFilePath = extendList(RESOURCE_PATH, resDirPath)
         FileInputStream fisImport = new FileInputStream(getInputFile(importFilePath))
 
-        Gson gson = new Gson()
-        ArrayList tests = gson.fromJson(new InputStreamReader(fisImport, StandardCharsets.UTF_8), ArrayList.class)
+        def js = new JsonSlurper()
+        ArrayList tests = js.parse(new InputStreamReader(fisImport, StandardCharsets.UTF_8)) as ArrayList
 
         // cycle through test definitions and evaluate
         tests.eachWithIndex{ ArrayList t, idx ->
@@ -73,10 +82,22 @@ public class TestUtilities {
             {
                 String[] expectedPath = extendList(RESOURCE_PATH, t[1] as String)
                 FileInputStream expValStream = new FileInputStream(getInputFile(expectedPath))
-                expectedValue = gson.fromJson(new InputStreamReader(expValStream, StandardCharsets.UTF_8), HashMap.class)
+                expectedValue = js.parse(new InputStreamReader(expValStream, StandardCharsets.UTF_8)) as HashMap
             }
-            cb(processedEntity, expectedValue, idx)
+            def proc = convertLazyMap(processedEntity as LazyMap)
+            def exp = convertLazyMap(expectedValue as LazyMap)
+
+            cb(proc, exp, idx)
         }
+    }
+
+    private static HashMap convertLazyMap(LazyMap lm)
+    {
+        def res = new HashMap()
+        for ( prop in lm ) {
+            res[prop.key] = prop.value
+        }
+        return res;
     }
 
     // create debug Writer

@@ -39,6 +39,9 @@ class UtilsTests extends Specification {
     def test_comma_splitting() {
         when:
 
+        assert ViUtilities.splitWithBracketsCheck("AND(OR(1,2,3),AND(4,5))") == ["AND(OR(1,2,3),AND(4,5))"]
+        assert ViUtilities.splitWithBracketsCheck("OR(1,2,3),AND(4,5)") == ["OR(1,2,3)", "AND(4,5)"]
+        assert ViUtilities.splitWithBracketsCheck("AND(OR(1,2,3),AND(4,5)),6") == ["AND(OR(1,2,3),AND(4,5))", "6"]
         assert ViUtilities.splitWithBracketsCheck("OR(1,AND(5,6)),AND(3,4)") == ["OR(1,AND(5,6))", "AND(3,4)"]
         assert ViUtilities.splitWithBracketsCheck("OR(1,AND(5,6)),AND(AND(11,10, OR(7,8)),4)") == ["OR(1,AND(5,6))", "AND(AND(11,10, OR(7,8)),4)"]
 

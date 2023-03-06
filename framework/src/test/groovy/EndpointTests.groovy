@@ -1,4 +1,5 @@
 import com.google.gson.Gson
+import dtq.rockycube.entity.ConditionHandler
 import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
 import org.moqui.util.TestUtilities
@@ -159,5 +160,20 @@ class EndpointTests extends Specification {
         then:
 
         rawStringWrite.data.size() == 1
+    }
+
+    def "test complex condition evaluator"() {
+        when:
+
+        def complexConditions = TestUtilities.loadTestResource((String[]) ['condition-evaluator', 'cond-complex-conditions-1.txt'])
+        def terms = TestUtilities.loadTestResource((String[]) ['condition-evaluator', 'cond-term-1.json'])
+
+        def resp = ConditionHandler.recCondition(
+                new String(complexConditions.readAllBytes(), StandardCharsets.UTF_8),
+                new Gson().fromJson(terms.newReader(), ArrayList.class)
+        )
+
+        then:
+        assert resp
     }
 }

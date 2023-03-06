@@ -13,18 +13,6 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-2.1.xsd">
-    <!--List of closures stored-->
-    <entity entity-name="ClosureList" package="dtq.rockycube" no-update-stamp="true">
-        <field name="closureId" type="id" is-pk="true"/>
-        <field name="keyword" type="text-short" not-null="true"><description>Field that holds info on name of the closure</description></field>
-        <field name="storageAppendix" type="text-medium" not-null="true"><description>Where do we have the data stored, only the appendix of the label</description></field>
-        <field name="detailStorage" type="text-indicator" default="0"/>
-        <field name="created" type="date-time" default="ec.user.nowTimestamp"/>
-        <index name="kwrdIdx" unique="true">
-            <index-field name="keyword"/>
-        </index>
-    </entity>
-
     <!--The fundamental part of the closure, the ITEM (budgeting-bone, project, monthly work-record, ...)-->
     <entity entity-name="ClosureItem" package="dtq.rockycube">
         <field name="closureItemId" type="id" is-pk="true"/>
