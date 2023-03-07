@@ -28,6 +28,7 @@ import java.sql.Timestamp;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalUnit;
 import java.util.*;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -115,7 +116,8 @@ public class ObjectUtilities {
             String regex = sb.toString().replace("_", ".").replace("%", ".*?");
             // run it...
             Pattern pattern = Pattern.compile(regex, (Pattern.CASE_INSENSITIVE | Pattern.DOTALL));
-            return pattern.matcher(value1.toString()).matches();
+            Matcher res = pattern.matcher(value1.toString());
+            return res.find();
         } else {
             return false;
         }

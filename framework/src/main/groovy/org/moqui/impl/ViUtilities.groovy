@@ -42,6 +42,29 @@ class ViUtilities {
         return cleaned
     }
 
+    public static String fixLikeCondition(String original)
+    {
+        // test
+        if (!original) return original
+
+        // `%23%`
+        def rec_both_perc = Pattern.compile("^%(.+)%")
+        def m1 = rec_both_perc.matcher(original)
+        if (m1.matches()) return m1.group(1)
+
+        // `23%`
+        def rec_trailing_perc = Pattern.compile("^(.+)%")
+        def m2 = rec_trailing_perc.matcher(original)
+        if (m2.matches()) return m2.group(1)
+
+        // `%23`
+        def rec_leading_perc = Pattern.compile("^%(.+)")
+        def m3 = rec_leading_perc.matcher(original)
+        if (m3.matches()) return m3.group(1)
+
+        return original
+    }
+
     static final String removeNonumericCharacters(String inputValue) {
         return inputValue.replaceAll("[^\\d]", "")
     }

@@ -195,10 +195,14 @@ class ConditionHandler {
                     break
                 case "like":
                     compOperator = EntityCondition.ComparisonOperator.LIKE
+                    // do not need to modify the value for regex, the ObjectUtilities will take care of it
+                    //singleTerm.value = ViUtilities.fixLikeCondition((String) singleTerm.value)
                     break
                 case "not-like":
                 case "not_like":
                     compOperator = EntityCondition.ComparisonOperator.NOT_LIKE
+                    // do not need to modify the value for regex, the ObjectUtilities will take care of it
+                    //singleTerm.value = ViUtilities.fixLikeCondition((String) singleTerm.value)
                     break
                 case "in":
                     compOperator = EntityCondition.ComparisonOperator.IN
