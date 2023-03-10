@@ -1,5 +1,6 @@
 import com.google.gson.Gson
 import dtq.rockycube.entity.ConditionHandler
+import org.apache.groovy.json.internal.LazyMap
 import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
 import org.moqui.util.TestUtilities
@@ -41,11 +42,11 @@ class EndpointTests extends Specification {
 
         TestUtilities.testSingleFile(
                 TestUtilities.extendList([testDir, "expected_complex_queries.json"] as String[]),
-                { Object processed, Object expected, Integer idx ->
+                { HashMap processed, HashMap expected, Integer idx ->
 
-                    def entity = processed[0]
-                    def term = processed[1]
-                    def args = processed[2]
+                    def entity = processed.entityName
+                    def term = processed.term
+                    def args = TestUtilities.convertLazyMap(processed.args)
 
                     // search via EndpointService
                     def enums = this.ec.service.sync()
@@ -64,7 +65,7 @@ class EndpointTests extends Specification {
                     // assert equality between JSON returned and the one set in the expected
                     assert enums
                     assert enums.data
-                    assert enums.data.size() == expected
+                    assert enums.data.size() == expected.expected
                 })
 
         then:

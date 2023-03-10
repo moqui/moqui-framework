@@ -1,8 +1,8 @@
 [
   [
-    [
-      "moqui.basic.Enumeration",
-      [
+    {
+      "entityName": "moqui.basic.Enumeration",
+      "term": [
         {
           "value": "ArtifactType",
           "field": "enumTypeId"
@@ -16,16 +16,16 @@
           "field": "enumTypeId"
         }
       ],
-      {
+      "args": {
         "complexCondition": "3"
       }
-    ],
-    15
+    },
+    {"expected": 15}
   ],
   [
-    [
-      "moqui.basic.Enumeration",
-      [
+    {
+      "entityName": "moqui.basic.Enumeration",
+      "term": [
         {
           "value": "ArtifactType",
           "field": "enumTypeId"
@@ -39,16 +39,16 @@
           "field": "enumTypeId"
         }
       ],
-      {
+      "args": {
         "complexCondition": "OR(AND(1,2),3)"
       }
-    ],
-    16
+    },
+    {"expected": 16}
   ],
   [
-    [
-      "moqui.basic.Enumeration",
-      [
+    {
+      "entityName": "moqui.basic.Enumeration",
+      "term": [
         {
           "value": "ArtifactType",
           "field": "enumTypeId"
@@ -58,10 +58,10 @@
           "field": "description"
         }
       ],
-      {
+      "args": {
         "complexCondition": "AND(1,2)"
       }
-    ],
-    1
+    },
+    {"expected": 1}
   ]
 ]

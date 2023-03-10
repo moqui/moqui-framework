@@ -91,7 +91,7 @@ public class TestUtilities {
         }
     }
 
-    private static HashMap convertLazyMap(LazyMap lm)
+    public static HashMap convertLazyMap(LazyMap lm)
     {
         def res = new HashMap()
         for ( prop in lm ) {
