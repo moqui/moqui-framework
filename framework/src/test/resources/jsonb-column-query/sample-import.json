@@ -1,0 +1,16 @@
+[
+  {
+    "entity": "moqui.test.TestJsonEntity",
+    "data": {
+      "testJsonId": {"projectId": 1, "category": "a"},
+      "testMedium": "Something useful"
+    }
+  },
+  {
+    "entity": "moqui.test.TestJsonEntity",
+    "data": {
+      "testJsonId": {"projectId": 1, "category": "a"},
+      "testMedium": "Something even more useful"
+    }
+  }
+]

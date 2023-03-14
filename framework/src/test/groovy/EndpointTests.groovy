@@ -1,6 +1,8 @@
 import com.google.gson.Gson
 import dtq.rockycube.entity.ConditionHandler
+import groovy.json.JsonSlurper
 import org.apache.groovy.json.internal.LazyMap
+import org.junit.Test
 import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
 import org.moqui.util.TestUtilities
@@ -31,7 +33,17 @@ class EndpointTests extends Specification {
     }
 
     def cleanupSpec() {
-        ec.destroy()
+        if (ec) {
+            // commit transactions
+            ec.transaction.commit()
+
+            // add some delay before turning off
+            logger.info("Delaying deconstruction of ExecutionContext, for the purpose of storing data. Without this delay, the commit would have failed.")
+            sleep(3000)
+
+            // stop it all
+            ec.destroy()
+        }
     }
 
     def test_complex_query_conditions() {
@@ -176,5 +188,38 @@ class EndpointTests extends Specification {
 
         then:
         assert resp
+    }
+
+    /**
+     * this method tests extraction of entity data using JSONB field querying
+     */
+    def "test JSON key in query"() {
+        when:
+
+        // delete all
+        ec.entity.find('moqui.test.TestJsonEntity').deleteAll()
+
+        // load test resource
+        def js =TestUtilities.loadTestResource((String[]) ['jsonb-column-query', 'sample-import.json'])
+
+        // import data so that we have something to test on
+        def importJs = new JsonSlurper().parse(js.bytes)
+        for (i in importJs)
+        {
+            def newEntity = ec.entity.makeValue(i['entity'])
+            newEntity.setAll(i['data']).setSequencedIdPrimary().create()
+
+            // creation check
+            assert newEntity
+        }
+
+        // search check
+        assert ec.entity.find('moqui.test.TestJsonEntity').condition([
+                testJsonId: [projectId: 1, category: 'a']
+        ]).count() == 1
+
+        then:
+
+        assert true
     }
 }
