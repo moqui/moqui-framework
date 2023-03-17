@@ -434,7 +434,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
         return makeCondition(condList, getJoinOperator(node.attribute("combine")))
     }
 
-    protected static final Map<ComparisonOperator, String> comparisonOperatorStringMap = new EnumMap(ComparisonOperator.class)
+    public static final Map<ComparisonOperator, String> comparisonOperatorStringMap = new EnumMap(ComparisonOperator.class)
     static {
         comparisonOperatorStringMap.put(ComparisonOperator.EQUALS, "=")
         comparisonOperatorStringMap.put(ComparisonOperator.NOT_EQUAL, "<>")
@@ -452,7 +452,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
         comparisonOperatorStringMap.put(ComparisonOperator.IS_NOT_NULL, "IS NOT NULL")
         comparisonOperatorStringMap.put(ComparisonOperator.TEXT, "TEXT")
     }
-    protected static final Map<String, ComparisonOperator> stringComparisonOperatorMap = [
+    public static final Map<String, ComparisonOperator> stringComparisonOperatorMap = [
             "=":ComparisonOperator.EQUALS,
             "equals":ComparisonOperator.EQUALS,
 

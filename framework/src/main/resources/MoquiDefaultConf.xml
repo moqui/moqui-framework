@@ -868,6 +868,7 @@
                 <create-specs to-json-method="to_json(" format-json-value="?::json"/>
                 <update-specs to-json-method="to_json(" format-json-value="?::json"/>
                 <where-specs to-json-method="" format-json-value="?::jsonb"/>
+                <nested-field syntax="{{column}}->>'{{nestedField}}'{{operator}}?"/>
                 <json-operator operator-type="equals" value-to-use="@>"/>
             </json-config>
 

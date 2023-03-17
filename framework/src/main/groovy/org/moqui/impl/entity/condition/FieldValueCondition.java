@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.entity.condition;
 
+import org.apache.commons.lang3.StringUtils;
 import org.moqui.entity.EntityCondition;
 import org.moqui.entity.EntityException;
 import org.moqui.impl.entity.*;
@@ -38,6 +39,10 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
     protected boolean ignoreCase = false;
     private int curHashCode;
 
+    // actual SQL code for the condition
+    // this one shall be used to replace the SQL with a fixed value
+    protected String sqlAppended;
+
     public FieldValueCondition() { }
     public FieldValueCondition(ConditionField field, ComparisonOperator operator, Object value) {
         this.field = field;
@@ -60,10 +65,13 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
     public Object getValue() { return value; }
     public boolean getIgnoreCase() { return ignoreCase; }
 
+    public String getSqlAppended() {return sqlAppended;}
+
     @Override
     public void makeSqlWhere(EntityQueryBuilder eqb, EntityDefinition subMemberEd) {
         @SuppressWarnings("MismatchedQueryAndUpdateOfStringBuilder")
         StringBuilder sql = eqb.sqlTopLevel;
+        String sqlAtStart = eqb.sqlTopLevel.toString();
         boolean valueDone = false;
         EntityDefinition curEd = subMemberEd != null ? subMemberEd : eqb.getMainEd();
         FieldInfo fi = field.getFieldInfo(curEd);
@@ -102,7 +110,6 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
                     operator, fi, curEd.groupName, EntityConditionFactoryImpl.getComparisonOperatorString(operator)
             );
             sql.append(operatorStr);
-            // sql.append(EntityConditionFactoryImpl.getComparisonOperatorString(operator));
             if (operator == IN || operator == NOT_IN) {
                 if (value instanceof CharSequence) {
                     String valueStr = value.toString();
@@ -141,6 +148,8 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
                 eqb.parameters.add(new EntityConditionParameter(fi, value, eqb));
             }
         }
+
+        this.sqlAppended = StringUtils.difference(sqlAtStart, sql.toString());
     }
 
     @Override

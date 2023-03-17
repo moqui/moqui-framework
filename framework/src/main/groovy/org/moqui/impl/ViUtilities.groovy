@@ -14,8 +14,8 @@
 package org.moqui.impl
 
 import dtq.rockycube.query.SqlExecutor
-import org.moqui.context.ElasticFacade
-import org.moqui.context.ExecutionContext
+import groovy.json.JsonBuilder
+import groovy.json.JsonSlurper
 import org.moqui.impl.entity.EntityJavaUtil
 
 import java.sql.Connection
@@ -67,6 +67,16 @@ class ViUtilities {
 
     static final String removeNonumericCharacters(String inputValue) {
         return inputValue.replaceAll("[^\\d]", "")
+    }
+
+    static HashMap stringToMap(String input){
+        return new JsonSlurper().parseText(input) as HashMap
+    }
+
+    static String mapToString(HashMap input){
+        def builder = new JsonBuilder()
+        builder.content = input
+        return builder.toString()
     }
 
     static LocalDate stringToDate(Object input) {

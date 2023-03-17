@@ -137,7 +137,7 @@ class ConditionHandler {
         }
     }
 
-    public static FieldValueCondition getSingleFieldCondition(HashMap singleTerm)
+    public static ExtendedFieldValueCondition getSingleFieldCondition(HashMap singleTerm)
     {
         // check required fields
         if (!singleTerm.containsKey("field")) throw new EntityException("Field condition not set correctly, 'field' missing [${singleTerm}]")
@@ -229,11 +229,14 @@ class ConditionHandler {
                     break
             }
         }
-
-        return new FieldValueCondition(
+        // using new fieldValueCondition
+        def newCond = new ExtendedFieldValueCondition(
                 new ConditionField((String) singleTerm.field),
                 compOperator,
                 (Object) singleTerm.value
         )
+        // add new feature to condition, nested field
+        if (singleTerm.containsKey('nested')) newCond.setNestedFields(singleTerm.nested as String)
+        return newCond
     }
 }

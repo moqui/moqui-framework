@@ -159,7 +159,7 @@ class EntityFacadeImpl implements EntityFacade {
         emptyList.setFromCache()
 
         // initialize JSONconditionHandler
-        this.jsonFieldManipulator = new JsonFieldManipulator(entityFacadeNode, (String groupName)-> {
+        this.jsonFieldManipulator = new JsonFieldManipulator(this, entityFacadeNode, (String groupName)-> {
             return getDatabaseNode(groupName)
         })
     }

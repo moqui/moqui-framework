@@ -24,6 +24,10 @@ class GenericUtilities {
             case "byte[]":
                 String itStrVal = new String((byte[]) field, StandardCharsets.UTF_8)
                 return convertToComplexType(itStrVal)
+            case "hashmap":
+                return field
+            case "arraylist":
+                return field
             default:
                 return convertToComplexType(field.toString())
         }

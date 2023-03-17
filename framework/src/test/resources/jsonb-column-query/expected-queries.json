@@ -1,0 +1,39 @@
+[
+  [
+    {
+      "entity": "moqui.test.TestJsonEntity",
+      "term": [
+        {"field": "testJsonId", "value": 1, "nested": "projectId"},
+        {"field": "testJsonId", "value": "a", "nested": "accountId"}
+      ]
+    },
+    {
+      "result": false,
+      "message": "Failed on fetch: Error finding count of TestJsonEntity by (testJsonId = 1 (java.lang.Integer)) OR (testJsonId = a (java.lang.String))"
+    }
+  ],
+  [
+    {
+      "entity": "moqui.test.TestJsonEntity",
+      "term": [
+        {"field": "testJsonId", "value": {"projectId": 1, "category": "a"}}
+      ]
+    },
+    {
+      "result": true,
+      "count": 2
+    }
+  ],
+  [
+    {
+      "entity": "moqui.test.TestJsonEntity",
+      "term": [
+        {"field": "testJsonId", "value": {"projectId": 1}}
+      ]
+    },
+    {
+      "result": true,
+      "count": 0
+    }
+  ]
+]

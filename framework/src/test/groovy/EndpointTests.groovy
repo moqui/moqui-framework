@@ -194,13 +194,16 @@ class EndpointTests extends Specification {
      * this method tests extraction of entity data using JSONB field querying
      */
     def "test JSON key in query"() {
+        // declared once
+        String testDir = "jsonb-column-query"
+
         when:
 
         // delete all
         ec.entity.find('moqui.test.TestJsonEntity').deleteAll()
 
         // load test resource
-        def js =TestUtilities.loadTestResource((String[]) ['jsonb-column-query', 'sample-import.json'])
+        def js =TestUtilities.loadTestResource((String[]) [testDir, 'sample-import.json'])
 
         // import data so that we have something to test on
         def importJs = new JsonSlurper().parse(js.bytes)
@@ -213,10 +216,37 @@ class EndpointTests extends Specification {
             assert newEntity
         }
 
+        // run multiple tests
+        TestUtilities.testSingleFile(
+            TestUtilities.extendList([testDir, "expected-queries.json"] as String[]),
+            { Object processed, Object expected, Integer idx ->
+                try {
+                    def endpointData = this.ec.service.sync()
+                            .name("dtq.rockycube.EndpointServices.populate#EntityData")
+                            .parameters([
+                                    entityName: processed.entity,
+                                    term      : processed.term
+                            ])
+                            .call()
+
+                    def res = endpointData.result
+                    assert expected.result == res
+                    if (res)
+                    {
+                        assert expected.count == endpointData.data.size()
+                    } else {
+                        if (expected.containsKey("message")) assert expected.message == endpointData.message
+                    }
+                } catch(Exception exc) {
+                    assert expected.result == false
+                }
+            })
+
+        // final test
         // search check
         assert ec.entity.find('moqui.test.TestJsonEntity').condition([
                 testJsonId: [projectId: 1, category: 'a']
-        ]).count() == 1
+        ]).count() == 2
 
         then:
 

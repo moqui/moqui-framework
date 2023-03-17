@@ -10,6 +10,7 @@
                 <create-specs to-json-method="(" format-json-value="? FORMAT JSON"/>
                 <update-specs to-json-method="(" format-json-value="? FORMAT JSON"/>
                 <where-specs to-json-method="(" format-json-value="? FORMAT JSON"/>
+                <nested-field syntax="{{column}}->>'{{nestedField}}'{{operator}}?"/>
                 <json-operator operator-type="equals" value-to-use="@>"/>
             </json-config>
         </database>
@@ -24,6 +25,7 @@
             <json-config>
                 <update-specs to-json-method="to_json(" format-json-value="?::json"/>
                 <where-specs to-json-method="" format-json-value="?"/>
+                <nested-field syntax="{{column}}->>'{{nestedField}}'{{operator}}?"/>
                 <json-operator operator-type="equals" value-to-use="@>"/>
             </json-config>
         </database>

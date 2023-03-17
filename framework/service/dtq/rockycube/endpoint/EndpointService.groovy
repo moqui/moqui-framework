@@ -7,6 +7,7 @@ def loadFromEntity()
     try {
         return ech.fetchEntityData(index, size, orderBy)
     } catch (Exception exc){
+        ec.logger.error("Error when fetching data: ${exc.message}")
         return [result: false, message: "Failed on fetch: ${exc.message}"]
     }
 }
@@ -18,6 +19,7 @@ def deleteEntity()
     try {
         return ech.deleteEntityData()
     } catch (Exception exc){
+        ec.logger.error("Error when deleting data: ${exc.message}")
         return [result: false, message: "Failed on delete: ${exc.message}"]
     }
 
@@ -29,6 +31,7 @@ def updateEntity()
     try {
         return ech.updateEntityData(data)
     } catch (Exception exc){
+        ec.logger.error("Error when updating data: ${exc.message}")
         return [result: false, message: "Failed on update: ${exc.message}"]
     }
 }
@@ -39,6 +42,7 @@ def createEntity()
     try {
         return ech.createEntityData(data)
     } catch (Exception exc){
+        ec.logger.error("Error when creating data: ${exc.message}")
         return [result: false, message: "Failed on create: ${exc.message}"]
     }
 }

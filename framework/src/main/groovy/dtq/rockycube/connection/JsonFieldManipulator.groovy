@@ -1,20 +1,25 @@
 package dtq.rockycube.connection
 
-import com.google.gson.Gson
 import dtq.rockycube.GenericUtilities
-import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityCondition.ComparisonOperator
+import org.moqui.entity.EntityException
 import org.moqui.impl.entity.EntityDefinition
+import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.impl.entity.FieldInfo
-import org.moqui.impl.entity.condition.FieldValueCondition
+import org.moqui.impl.entity.condition.ConditionField
 import org.moqui.util.MNode
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 
 class JsonFieldManipulator {
     private HashMap<String, MNode> dbConfigs = new HashMap<>()
-    private Gson gson = new Gson()
+    protected final static Logger logger = LoggerFactory.getLogger(this.class);
+    private EntityFacadeImpl entityFacadeImpl
 
-    JsonFieldManipulator(MNode entityFacadeNode, Closure findDatabaseNode)
+    JsonFieldManipulator(EntityFacadeImpl efi, MNode entityFacadeNode, Closure findDatabaseNode)
     {
+        this.entityFacadeImpl = efi
+
         ArrayList<MNode> dsList = entityFacadeNode.children("datasource")
         for (MNode d in dsList)
         {
@@ -24,12 +29,12 @@ class JsonFieldManipulator {
         }
     }
 
-    JsonFieldManipulator(ArrayList<String> configurations, Closure findDatabaseNode)
+    JsonFieldManipulator(EntityFacadeImpl efi, ArrayList<String> configurations, Closure findDatabaseNode)
     {
+        this.entityFacadeImpl = efi
         configurations.each {it->
             dbConfigs.put(it, (MNode) findDatabaseNode(it))
         }
-
     }
 
     public Object entityValue(int typeValue, Object value)
@@ -45,6 +50,39 @@ class JsonFieldManipulator {
                 res = value
         }
         return res
+    }
+
+    public formatNestedCondition(EntityDefinition ed, ConditionField field, ArrayList nestedFields, ComparisonOperator operator)
+    {
+        // it a JSON field at all?
+        def tp = ed.getFieldInfo(field.fieldName).type.toLowerCase()
+        if (tp != "jsonb")
+        {
+            logger.error("Cannot perform nested condition calculation on field [${field.fieldName}]")
+            throw new EntityException("Cannot perform nested condition calculation on field [${field.fieldName}]")
+        }
+
+        def syntax = this.getNestedFieldSyntax(ed.groupName).attribute("syntax")
+        if (!syntax)
+        {
+            logger.error("Nested fields syntax not defined [${ed.groupName}]")
+            throw new EntityException("Nested fields syntax not defined [${ed.groupName}]")
+        }
+
+        if (nestedFields.size() > 1)
+        {
+            logger.error("Nested fields with depth greater than 1 are not supported when creating where condition")
+            throw new EntityException("Nested fields with depth greater than 1 not supported")
+        }
+
+        // operator calculation
+        def operatorString = this.entityFacadeImpl.conditionFactoryImpl.comparisonOperatorStringMap.get(operator)
+
+        // expect something in the realm of `<nested-field syntax="{{column}}->>'{{nestedField}}'{{operator}}?"/>`
+        return syntax
+                .replace("{{column}}", field.getColumnName(ed))
+                .replace("{{nestedField}}", (String) nestedFields[0])
+                .replace("{{operator}}", operatorString)
     }
 
     /**
@@ -125,6 +163,25 @@ class JsonFieldManipulator {
     private boolean fieldIsJson(FieldInfo fi)
     {
         return fi.type.toLowerCase().contains("json")
+    }
+
+    public boolean getHasNestedFieldSetup(String group)
+    {
+        return this.getNestedFieldSyntax(group) != null
+    }
+
+    public MNode getNestedFieldSyntax(String group)
+    {
+        MNode conf = searchForDatabaseSetup(group)
+        if (!conf) return null
+
+        // do we have json-config?
+        def foundJsConf = conf.children("json-config")
+        if (foundJsConf.empty) return false
+
+        def nestedFieldSetup = foundJsConf.first().children("nested-field")
+        if (nestedFieldSetup.empty) return null
+        return nestedFieldSetup[0]
     }
 
     public String fieldCondition(FieldInfo fi, String group, String operation, String defaultNotSet=null)

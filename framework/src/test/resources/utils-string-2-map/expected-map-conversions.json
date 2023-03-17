@@ -1,0 +1,18 @@
+[
+  [
+    {
+      "inputString": "{\"projectId\":{\"data\":150}}"
+    },
+    {
+      "convertedTo": {"projectId": {"data": 150}}
+    }
+  ],
+  [
+    {
+      "inputString": "{\"projectId\": 150}"
+    },
+    {
+      "convertedTo": {"projectId": 150}
+    }
+  ]
+]
