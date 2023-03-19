@@ -169,7 +169,6 @@ class UtilsTests extends Specification {
         // converting to URL encoded string
         // def converted = URLEncoder.encode(toString, 'UTF-8')
 
-
         then:
         assert true
     }
@@ -236,6 +235,38 @@ class UtilsTests extends Specification {
 
         then:
 
+        assert true
+    }
+
+    def "test map content extraction"(){
+        when:
+        TestUtilities.testSingleFile((String[]) ["extract-map", "expected-map-conversion.json"],
+                {Object processed, Object expected, Integer idx->
+
+                    HashMap toExtract = (HashMap) processed.toExtract
+
+                    // use CollectionUtils' tool to extract from the input
+                    def extracted = CollectionUtilities.extractSingleKeyMapContent(toExtract)
+                    assert extracted == expected.extracted
+                })
+        then:
+
+        assert true
+    }
+
+    def "test record matches condition"(){
+        when:
+        TestUtilities.testSingleFile((String[]) ["condition-evaluator", "expected-condition-matches.json"],
+        {Object processed, Object expected, Integer idx->
+
+            HashMap toTest = (HashMap) processed.mapToCheck
+            HashMap conditionToUse = (HashMap) processed.condition
+
+            def res = ViUtilities.recordMatchesCondition(toTest, conditionToUse)
+            assert res == expected.result
+        })
+
+        then:
         assert true
     }
 }

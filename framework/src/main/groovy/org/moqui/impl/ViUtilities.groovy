@@ -13,10 +13,12 @@
  */
 package org.moqui.impl
 
+import dtq.rockycube.entity.ConditionHandler
 import dtq.rockycube.query.SqlExecutor
 import groovy.json.JsonBuilder
 import groovy.json.JsonSlurper
 import org.moqui.impl.entity.EntityJavaUtil
+import org.moqui.impl.entity.condition.EntityConditionImplBase
 
 import java.sql.Connection
 import org.slf4j.Logger
@@ -40,6 +42,16 @@ class ViUtilities {
             cleaned[m.group(1)] = it.value
         }
         return cleaned
+    }
+
+    // method that we shall use to determine whether the identity key conforms
+    // the allowed-key to be updated
+    public static boolean recordMatchesCondition(HashMap mapToTest, HashMap condition)
+    {
+        // create condition from the hashmap
+        EntityConditionImplBase cond = ConditionHandler.getSingleFieldCondition(condition)
+        def matches = cond.mapMatches(mapToTest)
+        return matches
     }
 
     public static String fixLikeCondition(String original)

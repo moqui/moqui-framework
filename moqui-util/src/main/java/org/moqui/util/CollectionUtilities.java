@@ -13,6 +13,7 @@
  */
 package org.moqui.util;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import groovy.util.Node;
 import groovy.util.NodeList;
 import org.codehaus.groovy.runtime.DefaultGroovyMethods;
@@ -624,5 +625,31 @@ public class CollectionUtilities {
         context.put(pageListName + "PageRangeHigh", pageRangeHigh);
 
         return context;
+    }
+
+    /**
+     * This method checks contents of a map and in case, there is a map with single key, returns the content under single key
+     * @param inputMap
+     * @return
+     */
+    public static Object extractSingleKeyMapContent(Object inputMap, boolean onEmptyReturnOriginal){
+        // return null
+        if (inputMap == null) return null;
+
+        ObjectMapper om = new ObjectMapper();
+        Map input = om.convertValue(inputMap, Map.class);
+
+        // check key count
+        if (input.keySet().size() != 1){
+            if (onEmptyReturnOriginal) return inputMap;
+            return null;
+        }
+
+        String singleKey = input.keySet().iterator().next().toString();
+        return input.get(singleKey);
+    }
+
+    public static Object extractSingleKeyMapContent(Object inputMap) {
+        return extractSingleKeyMapContent(inputMap, false);
     }
 }

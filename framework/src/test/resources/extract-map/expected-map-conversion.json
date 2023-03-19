@@ -1,0 +1,30 @@
+[
+  [
+    {
+      "toExtract": {
+        "condition": {
+          "field1": 1,
+          "field2": 2
+        }
+      }
+    },
+    {
+      "extracted": {
+        "field1": 1,
+        "field2": 2
+      }
+    }
+  ],
+  [
+    {
+      "toExtract": {
+        "condition": [
+          "item1", "item2"
+        ]
+      }
+    },
+    {
+      "extracted": ["item1", "item2"]
+    }
+  ]
+]

@@ -3,6 +3,7 @@ package dtq.rockycube
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import groovy.json.JsonOutput
+import org.apache.groovy.json.internal.LazyMap
 import org.moqui.context.ExecutionContext
 import org.moqui.resource.ResourceReference
 
