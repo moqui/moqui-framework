@@ -125,6 +125,7 @@ public class ElasticEntityListIterator implements EntityListIterator {
         // logger.warn("nextResult end resultCount " + resultCount + " overallIndex " + overallIndex + " currentListStartIndex " + currentListStartIndex + " currentDocList.size() " + currentDocList.size());
         return hasCurrentValue();
     }
+    @SuppressWarnings("unchecked")
     void fetchNext() {
         if (this.closed) throw new IllegalStateException("EntityListIterator is closed, cannot fetch next results");
 

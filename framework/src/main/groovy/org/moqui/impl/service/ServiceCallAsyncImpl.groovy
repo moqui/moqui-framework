@@ -102,6 +102,12 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
             this.serviceName = serviceName
             this.parameters = new HashMap<>(parameters)
         }
+        AsyncServiceInfo(ExecutionContextFactoryImpl ecfi, String username, String serviceName, Map<String, Object> parameters) {
+            ecfiLocal = ecfi
+            threadUsername = username
+            this.serviceName = serviceName
+            this.parameters = new HashMap<>(parameters)
+        }
 
         @Override
         void writeExternal(ObjectOutput out) throws IOException {
@@ -123,6 +129,9 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
         }
 
         Map<String, Object> runInternal() throws Exception {
+            return runInternal(null, false)
+        }
+        Map<String, Object> runInternal(Map<String, Object> parameters, boolean skipEcCheck) throws Exception {
             ExecutionContextImpl threadEci = (ExecutionContextImpl) null
             try {
                 // check for active Transaction
@@ -135,22 +144,33 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
                     }
                 }
                 // check for active ExecutionContext
-                ExecutionContextImpl activeEc = getEcfi().activeContext.get()
-                if (activeEc != null) {
-                    logger.error("In ServiceCallAsync service ${serviceName} there is already an ExecutionContext for user ${activeEc.user.username} (from ${activeEc.forThreadId}:${activeEc.forThreadName}) in this thread ${Thread.currentThread().id}:${Thread.currentThread().name}, destroying")
-                    try {
-                        activeEc.destroy()
-                    } catch (Throwable t) {
-                        logger.error("Error destroying ExecutionContext already in place in ServiceCallAsync in thread ${Thread.currentThread().id}:${Thread.currentThread().name}", t)
+                if (!skipEcCheck) {
+                    ExecutionContextImpl activeEc = getEcfi().activeContext.get()
+                    if (activeEc != null) {
+                        logger.error("In ServiceCallAsync service ${serviceName} there is already an ExecutionContext for user ${activeEc.user.username} (from ${activeEc.forThreadId}:${activeEc.forThreadName}) in this thread ${Thread.currentThread().id}:${Thread.currentThread().name}, destroying")
+                        try {
+                            activeEc.destroy()
+                        } catch (Throwable t) {
+                            logger.error("Error destroying ExecutionContext already in place in ServiceCallAsync in thread ${Thread.currentThread().id}:${Thread.currentThread().name}", t)
+                        }
                     }
                 }
 
                 threadEci = getEcfi().getEci()
-                if (threadUsername != null && threadUsername.length() > 0)
+                if (threadUsername != null && threadUsername.length() > 0) {
                     threadEci.userFacade.internalLoginUser(threadUsername, false)
+                } else {
+                    threadEci.userFacade.loginAnonymousIfNoUser()
+                }
+
+                Map<String, Object> parmsToUse = this.parameters
+                if (parameters != null) {
+                    parmsToUse = new HashMap<>(this.parameters)
+                    parmsToUse.putAll(parameters)
+                }
 
                 // NOTE: authz is disabled because authz is checked before queueing
-                Map<String, Object> result = threadEci.serviceFacade.sync().name(serviceName).parameters(parameters).disableAuthz().call()
+                Map<String, Object> result = threadEci.serviceFacade.sync().name(serviceName).parameters(parmsToUse).disableAuthz().call()
                 return result
             } catch (Throwable t) {
                 logger.error("Error in async service", t)

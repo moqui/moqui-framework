@@ -81,7 +81,7 @@
     <default-property name="kibana_host" value="127.0.0.1"/>
     <default-property name="kibana_port" value="5601"/>
 
-    <tools empty-db-load="${entity_empty_db_load}" worker-queue="65535" worker-pool-core="8" worker-pool-max="24" worker-pool-alive="60">
+    <tools empty-db-load="${entity_empty_db_load}" worker-queue="65535" worker-pool-core="16" worker-pool-max="32" worker-pool-alive="60">
         <tool-factory class="org.moqui.impl.tools.MCacheToolFactory" init-priority="03" disabled="false"/>
         <!-- Apache Commons JCS, an alternative for distributed caches (cannot be used as local cache as requires Serializable keys/values just like Hazelcast) -->
         <!-- <tool-factory class="org.moqui.impl.tools.JCSCacheToolFactory" init-priority="09" disabled="true"/> -->

@@ -695,17 +695,17 @@ public class ContextJavaUtil {
         private final AtomicInteger threadNumber = new AtomicInteger(1);
         public Thread newThread(Runnable r) { return new Thread(workerGroup, r, "MoquiScheduled-" + threadNumber.getAndIncrement()); }
     }
-    static class CustomScheduledTask<V> implements RunnableScheduledFuture<V> {
+    public static class CustomScheduledTask<V> implements RunnableScheduledFuture<V> {
         public final Runnable runnable;
         public final Callable<V> callable;
         public final RunnableScheduledFuture<V> future;
 
-        CustomScheduledTask(Runnable runnable, RunnableScheduledFuture<V> future) {
+        public CustomScheduledTask(Runnable runnable, RunnableScheduledFuture<V> future) {
             this.runnable = runnable;
             this.callable = null;
             this.future = future;
         }
-        CustomScheduledTask(Callable<V> callable, RunnableScheduledFuture<V> future) {
+        public CustomScheduledTask(Callable<V> callable, RunnableScheduledFuture<V> future) {
             this.runnable = null;
             this.callable = callable;
             this.future = future;
@@ -735,9 +735,12 @@ public class ContextJavaUtil {
             return "CustomScheduledTask " + (runnable != null ? runnable.getClass().getName() : (callable != null ? callable.getClass().getName() : "[no Runnable or Callable!]"));
         }
     }
-    static class CustomScheduledExecutor extends ScheduledThreadPoolExecutor {
+    public static class CustomScheduledExecutor extends ScheduledThreadPoolExecutor {
         public CustomScheduledExecutor(int coreThreads) {
             super(coreThreads, new ScheduledThreadFactory());
+        }
+        public CustomScheduledExecutor(int coreThreads, ThreadFactory threadFactory) {
+            super(coreThreads, threadFactory);
         }
         protected <V> RunnableScheduledFuture<V> decorateTask(Runnable r, RunnableScheduledFuture<V> task) {
             return new CustomScheduledTask<V>(r, task);
