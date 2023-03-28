@@ -17,7 +17,7 @@ IF "%moqui_conf%"=="" (
 ECHO    Running DB scripts in '%cd%'
 REM use sample config file to create databases (test one + enumerator)
 REM must also create (manually) non-moqui objects
-psql -U postgres -p 5431 -f sql/create.db.sql -v db=%db%
+psql -U postgres -p 5432 -f sql/create.db.sql -v db=%db%
 
 REM set path and change directory
 pushd ..\..

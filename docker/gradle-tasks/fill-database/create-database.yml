@@ -9,10 +9,10 @@ services:
       POSTGRES_USER: moqui
       POSTGRES_DB: moqui
       POSTGRES_PASSWORD: postgres
-      PGPORT: 5431
+      PGPORT: 5432
       POSTGRES_HOST_AUTH_METHOD: trust
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:5431" ]
+      test: [ "CMD", "curl", "-f", "http://localhost:5432" ]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -20,7 +20,7 @@ services:
     networks:
       - dtq-int
     ports:
-     - "5431:5431"
+     - "0.0.0.0:5432:5432"
 
 networks:
   dtq-int:

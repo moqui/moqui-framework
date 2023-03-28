@@ -16,7 +16,9 @@ package org.moqui.util;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.api.ContentResponse;
 import org.eclipse.jetty.client.api.Request;
+import org.eclipse.jetty.client.dynamic.HttpClientTransportDynamic;
 import org.eclipse.jetty.client.util.StringContentProvider;
+import org.eclipse.jetty.io.ClientConnector;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.apache.commons.fileupload.FileItem;
 import org.moqui.BaseException;
@@ -322,8 +324,10 @@ public class WebUtilities {
         if (contentType == null || contentType.isEmpty()) contentType = "text/plain";
         String resultString = "";
 
-        SslContextFactory sslContextFactory = new SslContextFactory.Client(true);
-        HttpClient httpClient = new HttpClient(sslContextFactory);
+        SslContextFactory.Client sslContextFactory = new SslContextFactory.Client(true);
+        ClientConnector clientConnector = new ClientConnector();
+        clientConnector.setSslContextFactory(sslContextFactory);
+        HttpClient httpClient = new HttpClient(new HttpClientTransportDynamic(clientConnector));
 
         try {
             httpClient.start();
@@ -348,8 +352,10 @@ public class WebUtilities {
     public static String simpleHttpMapRequest(String location, Map requestMap) {
         String resultString = "";
 
-        SslContextFactory sslContextFactory = new SslContextFactory.Client(true);
-        HttpClient httpClient = new HttpClient(sslContextFactory);
+        SslContextFactory.Client sslContextFactory = new SslContextFactory.Client(true);
+        ClientConnector clientConnector = new ClientConnector();
+        clientConnector.setSslContextFactory(sslContextFactory);
+        HttpClient httpClient = new HttpClient(new HttpClientTransportDynamic(clientConnector));
 
         try {
             httpClient.start();

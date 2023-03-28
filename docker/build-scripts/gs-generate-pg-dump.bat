@@ -1,6 +1,8 @@
 ECHO OFF
 ECHO "Creating database dump for purpose of having a clear and filled database"
 
+docker network create dtq-int
+
 REM get into the simple-build directory
 pushd ..\gradle-tasks\fill-database
 

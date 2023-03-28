@@ -19,6 +19,7 @@ tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:deprecation" }
 
 version = '3.0.0-rc8'
 
+apply plugin: 'java-library'
 apply plugin: 'groovy'
 apply plugin: 'war'
 // to run gradle-versions-plugin use "gradle dependencyUpdates"
@@ -31,7 +32,7 @@ buildscript {
         maven { url "https://plugins.gradle.org/m2/" }
     }
     dependencies {
-        classpath 'com.github.ben-manes:gradle-versions-plugin:0.28.0'
+        classpath 'com.github.ben-manes:gradle-versions-plugin:0.45.0'
         // uncomment to add the Error Prone compiler: classpath 'net.ltgt.gradle:gradle-errorprone-plugin:0.0.8'
     }
 }
@@ -46,8 +47,8 @@ repositories {
     mavenCentral()
 }
 
-sourceCompatibility = '1.8'
-targetCompatibility = '1.8'
+sourceCompatibility = '11'
+targetCompatibility = '11'
 archivesBaseName = 'moqui'
 
 sourceSets {
@@ -84,7 +85,8 @@ dependencies {
 
     // Bitronix Transaction Manager (the default internal tx mgr; custom build from source as 3.0.0 not yet released)
     implementation 'org.codehaus.btm:btm:3.0.0-SNAPSHOT' // Apache 2.0
-    runtimeOnly 'org.javassist:javassist:3.27.0-GA' // Apache 2.0
+    //  api 'org.codehaus.btm:btm:3.0.0-20161020' // Apache 2.0
+    runtimeOnly 'org.javassist:javassist:3.29.2-GA' // Apache 2.0
 
     // ========== Libraries from jcenter ==========
 
@@ -97,13 +99,13 @@ dependencies {
     implementation 'commons-beanutils:commons-beanutils:1.9.4' // Apache 2.0
     implementation 'commons-collections:commons-collections:3.2.2' // Apache 2.0
     implementation 'commons-digester:commons-digester:2.1' // Apache 2.0
-    implementation 'commons-fileupload:commons-fileupload:1.4' // Apache 2.0
+    implementation 'commons-fileupload:commons-fileupload:1.5' // Apache 2.0
     implementation 'commons-io:commons-io:2.8.0' // Apache 2.0
     implementation 'commons-logging:commons-logging:1.2' // Apache 2.0
     implementation 'commons-validator:commons-validator:1.7' // Apache 2.0
 
     // Cron Utils
-    implementation 'com.cronutils:cron-utils:9.1.3' // Apache 2.0
+    implementation 'com.cronutils:cron-utils:9.1.6' // Apache 2.0
 
     // Flexmark (markdown)
     implementation 'com.vladsch.flexmark:flexmark:0.64.0'
@@ -123,8 +125,8 @@ dependencies {
     // NOTE: as of Java 11 the com.sun packages no longer available so for javax.mail need full javax.activation jar (also includes javax.activation-api)
     implementation 'com.sun.activation:javax.activation:1.2.0' // CDDL 1.1
     // using websocket-api 1.0, don't update to 1.1 until used in Jetty, Tomcat, etc
-    implementation 'javax.websocket:javax.websocket-api:1.0'
-    providedCompile 'javax.servlet:javax.servlet-api:3.1.0'
+    implementation 'javax.websocket:javax.websocket-api:1.1'
+    providedCompile 'javax.servlet:javax.servlet-api:4.0.1'
     // Specs not needed by default:
     // implementation 'javax.resource:connector-api:1.5'
     // implementation 'javax.jms:jms:1.1'
@@ -133,14 +135,14 @@ dependencies {
     implementation 'com.h2database:h2:1.4.200' // MPL 2.0, EPL 1.0
 
     // PostgreSQL JDBC driver
-    implementation group: 'org.postgresql', name: 'postgresql', version: '42.2.19'
+    implementation group: 'org.postgresql', name: 'postgresql', version: '42.2.27'
 
     // Jackson Databind (JSON, etc)
-    implementation 'com.fasterxml.jackson.core:jackson-databind:2.12.1'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.12.7.1'
 
     // Jetty HTTP Client and Proxy Servlet
-    implementation 'org.eclipse.jetty:jetty-client:9.4.35.v20201120' // Apache 2.0
-    implementation 'org.eclipse.jetty:jetty-proxy:9.4.35.v20201120' // Apache 2.0
+    implementation 'org.eclipse.jetty:jetty-client:10.0.13' // Apache 2.0
+    implementation 'org.eclipse.jetty:jetty-proxy:10.0.13' // Apache 2.0
     // NOTE: update after version 9.4.18.v20190429 results in 'IllegalArgumentException: URI is not hierarchical' error, have workarounds for now catching exception in MClassLoader.getResources()
 
     // javax.mail
@@ -151,32 +153,33 @@ dependencies {
     implementation 'joda-time:joda-time:2.10.14' // Apache 2.0
 
     // JSoup (HTML parser, cleaner)
-    implementation 'org.jsoup:jsoup:1.13.1' // MIT
+    implementation 'org.jsoup:jsoup:1.15.3' // MIT
 
     // Apache Shiro
-    implementation module('org.apache.shiro:shiro-core:1.7.0') // Apache 2.0
-    implementation module('org.apache.shiro:shiro-web:1.7.0') // Apache 2.0
+    implementation module('org.apache.shiro:shiro-core:1.11.0') // Apache 2.0
+    implementation module('org.apache.shiro:shiro-web:1.11.0') // Apache 2.0
 
     // https://mvnrepository.com/artifact/org.apache.shiro/shiro-ehcache
-    implementation group: 'org.apache.shiro', name: 'shiro-ehcache', version: '1.4.0'
+    implementation group: 'org.apache.shiro', name: 'shiro-ehcache', version: '1.11.0'
 
     // https://mvnrepository.com/artifact/org.apache.directory.api/api-ldap-client-api
-    implementation group: 'org.apache.directory.api', name: 'api-ldap-client-api', version: '2.0.0.AM2'
+    implementation group: 'org.apache.directory.api', name: 'api-ldap-client-api', version: '2.1.2'
 
     // SLF4J, Log4j 2 (note Log4j 2 is used by various libraries, best not to replace it even if mostly possible with SLF4J)
-    implementation 'org.slf4j:slf4j-api:1.7.36'
-    implementation 'org.slf4j:log4j-over-slf4j:1.7.36'
-    implementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.17.2'
-    implementation 'org.apache.logging.log4j:log4j-core:2.17.2'
-    implementation 'org.apache.logging.log4j:log4j-api:2.17.2'
-    runtimeOnly 'org.apache.logging.log4j:log4j-slf4j-impl:2.17.2'
-    runtimeOnly 'org.apache.logging.log4j:log4j-jcl:2.17.2'
+    implementation 'org.slf4j:slf4j-api:2.0.7'
+    // implementation 'org.slf4j:log4j-over-slf4j:2.0.7'
+    implementation 'org.slf4j:slf4j-simple:2.0.7'
+    implementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.20.0'
+    implementation 'org.apache.logging.log4j:log4j-core:2.20.0'
+    implementation 'org.apache.logging.log4j:log4j-api:2.20.0'
+    runtimeOnly 'org.apache.logging.log4j:log4j-slf4j-impl:2.20.0'
+    runtimeOnly 'org.apache.logging.log4j:log4j-jcl:2.20.0'
 
     // SubEtha SMTP (module as depends on old javax.mail location; also uses SLF4J, activation included elsewhere)
     implementation module('org.subethamail:subethasmtp:3.1.7')
 
     // Snake YAML
-    implementation 'org.yaml:snakeyaml:1.30' // Apache 2.0
+    implementation 'org.yaml:snakeyaml:2.0' // Apache 2.0
 
     // Apache Jackrabbit - uncomment here or include elsewhere when Jackrabbit repository configurations are used
     // implementation 'org.apache.jackrabbit:jackrabbit-jcr-rmi:2.12.1' // Apache 2.0
@@ -190,7 +193,7 @@ dependencies {
 
     // Google GSON
     // https://mvnrepository.com/artifact/com.google.code.gson/gson
-    implementation group: 'com.google.code.gson', name: 'gson', version: '2.8.6'
+    implementation group: 'com.google.code.gson', name: 'gson', version: '2.8.9'
 
     // YAML
     implementation 'org.codehaus.groovy:groovy-yaml:3.0.2'
@@ -215,16 +218,15 @@ dependencies {
 
     // ========== executable war dependencies ==========
     // Jetty
-    // NOTE: update to Jetty 9.4.25.v20191220 caused issue on response.getWriter().write(String): Internal error processing request: java.lang.IllegalStateException: s=OPEN,api=BLOCKED,sc=false,e=null
-    execWarRuntimeOnly 'org.eclipse.jetty:jetty-server:9.4.43.v20210629' // Apache 2.0
-    execWarRuntimeOnly 'org.eclipse.jetty:jetty-webapp:9.4.43.v20210629' // Apache 2.0
-    execWarRuntimeOnly 'org.eclipse.jetty:jetty-jndi:9.4.43.v20210629' // Apache 2.0
-    execWarRuntimeOnly module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.4.35.v20201120') // Apache 2.0
-    execWarRuntimeOnly ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.4.43.v20210629') { // Apache 2.0
+    execWarRuntimeOnly 'org.eclipse.jetty:jetty-server:10.0.13' // Apache 2.0
+    execWarRuntimeOnly 'org.eclipse.jetty:jetty-webapp:10.0.13' // Apache 2.0
+    execWarRuntimeOnly 'org.eclipse.jetty:jetty-jndi:10.0.13' // Apache 2.0
+    execWarRuntimeOnly module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.4.51.v20230217') // Apache 2.0
+    execWarRuntimeOnly ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.4.51.v20230217') { // Apache 2.0
         exclude group: 'javax.websocket' } // we have the full websocket API, including the client one causes problems
     execWarRuntimeOnly 'javax.websocket:javax.websocket-api:1.1'
     // using 1.0, don't update to 1.1 until used in Jetty, Tomcat, etc
-    execWarRuntimeOnly ('org.eclipse.jetty.websocket:websocket-server:9.4.43.v20210629') // Apache 2.0
+    execWarRuntimeOnly ('org.eclipse.jetty.websocket:websocket-server:9.4.51.v20230217') // Apache 2.0
     // only include this if using Endpoint and MessageHandler annotations:
     // execWarRuntimeOnly ('org.eclipse.jetty:jetty-annotations:9.4.35.v20201120') // Apache 2.0
 }

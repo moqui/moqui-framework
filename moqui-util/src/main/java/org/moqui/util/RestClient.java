@@ -20,6 +20,7 @@ import org.eclipse.jetty.client.HttpClientTransport;
 import org.eclipse.jetty.client.HttpResponseException;
 import org.eclipse.jetty.client.ValidatingConnectionPool;
 import org.eclipse.jetty.client.api.*;
+import org.eclipse.jetty.client.dynamic.HttpClientTransportDynamic;
 import org.eclipse.jetty.client.http.HttpClientTransportOverHTTP;
 import org.eclipse.jetty.client.util.FutureResponseListener;
 import org.eclipse.jetty.client.util.InputStreamContentProvider;
@@ -28,6 +29,7 @@ import org.eclipse.jetty.client.util.StringContentProvider;
 import org.eclipse.jetty.http.HttpField;
 import org.eclipse.jetty.http.HttpFields;
 import org.eclipse.jetty.http.HttpHeader;
+import org.eclipse.jetty.io.ClientConnector;
 import org.eclipse.jetty.util.HttpCookieStore;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
@@ -681,9 +683,12 @@ public class RestClient {
         }
 
         public SimpleRequestFactory(boolean trustAll, boolean disableCookieManagement) {
-            SslContextFactory sslContextFactory = new SslContextFactory.Client(trustAll);
+            SslContextFactory.Client sslContextFactory = new SslContextFactory.Client(true);
             sslContextFactory.setEndpointIdentificationAlgorithm(null);
-            httpClient = new HttpClient(sslContextFactory);
+            ClientConnector clientConnector = new ClientConnector();
+            clientConnector.setSslContextFactory(sslContextFactory);
+            httpClient = new HttpClient(new HttpClientTransportDynamic(clientConnector));
+
             if (disableCookieManagement) httpClient.setCookieStore(new HttpCookieStore.Empty());
             // use a default idle timeout of 15 seconds, should be lower than server idle timeouts which will vary by server but 30 seconds seems to be common
             httpClient.setIdleTimeout(15000);
@@ -718,7 +723,7 @@ public class RestClient {
         private int queueSize = 1024;
         private long validationTimeoutMillis = 1000;
 
-        private SslContextFactory sslContextFactory = null;
+        private SslContextFactory.Client sslContextFactory = null;
         private HttpClientTransport transport = null;
         private QueuedThreadPool executor = null;
         private Scheduler scheduler = null;
@@ -726,7 +731,7 @@ public class RestClient {
         /** The required shortName is used as a prefix for thread names and should be distinct. */
         public PooledRequestFactory(String shortName) { this.shortName = shortName; }
 
-        public PooledRequestFactory with(SslContextFactory sslcf) { sslContextFactory = sslcf; return this; }
+        public PooledRequestFactory with(SslContextFactory.Client sslcf) { sslContextFactory = sslcf; return this; }
         public PooledRequestFactory with(HttpClientTransport transport) { this.transport = transport; return this; }
         public PooledRequestFactory with(QueuedThreadPool executor) { this.executor = executor; return this; }
         public PooledRequestFactory with(Scheduler scheduler) { this.scheduler = scheduler; return this; }
@@ -739,8 +744,15 @@ public class RestClient {
         public PooledRequestFactory validationTimeout(long millis) { validationTimeoutMillis = millis; return this; }
 
         public PooledRequestFactory init() {
-            if (sslContextFactory == null) sslContextFactory = new SslContextFactory.Client(true);
-            if (transport == null) transport = new HttpClientTransportOverHTTP(1);
+            if (transport == null) {
+                if (sslContextFactory == null) {
+                    sslContextFactory = new SslContextFactory.Client(true);
+                    sslContextFactory.setEndpointIdentificationAlgorithm(null);
+                }
+                ClientConnector clientConnector = new ClientConnector();
+                clientConnector.setSslContextFactory(sslContextFactory);
+                transport = new HttpClientTransportDynamic(clientConnector);
+            }
 
             if (executor == null) { executor = new QueuedThreadPool(); executor.setName(shortName + "-queue"); }
             if (scheduler == null) scheduler = new ScheduledExecutorScheduler(shortName + "-scheduler", false);
@@ -749,7 +761,7 @@ public class RestClient {
                     destination.getHttpClient().getMaxConnectionsPerDestination(), destination,
                     destination.getHttpClient().getScheduler(), validationTimeoutMillis));
 
-            httpClient = new HttpClient(transport, sslContextFactory);
+            httpClient = new HttpClient(transport);
             httpClient.setExecutor(executor);
             httpClient.setScheduler(scheduler);
             httpClient.setMaxConnectionsPerDestination(poolSize);
