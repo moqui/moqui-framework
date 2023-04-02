@@ -33,7 +33,7 @@ public class TestUtilities {
 
     public static List<JsonElement> loadTestDataIntoArray(String[] resDirPath) throws URISyntaxException, IOException {
         // load data to import from a JSON
-        String[] importFilePath = TestUtilities.extendList(RESOURCE_PATH, resDirPath)
+        String[] importFilePath = extendList(RESOURCE_PATH, resDirPath)
         FileInputStream fisImport = new FileInputStream(getInputFile(importFilePath))
 
         Gson gson = new Gson()
