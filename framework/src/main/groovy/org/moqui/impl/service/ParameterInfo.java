@@ -15,7 +15,7 @@ package org.moqui.impl.service;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
-import org.jsoup.safety.Whitelist;
+import org.jsoup.safety.Safelist;
 import org.moqui.util.MClassLoader;
 import org.moqui.impl.context.ExecutionContextImpl;
 import org.moqui.util.MNode;
@@ -272,7 +272,7 @@ public class ParameterInfo {
 
         if (indexOfLessThan >= 0) {
             if (allowSafe) {
-                return Jsoup.clean(parameterValue, "", Whitelist.relaxed(), outputSettings);
+                return Jsoup.clean(parameterValue, "", Safelist.relaxed(), outputSettings);
             } else {
                 // check for "<"; this will protect against HTML/JavaScript injection
                 eci.getMessage().addValidationError(null, namePrefix + name, sd.serviceName, eci.getL10n().localize("HTML not allowed including less-than (<), greater-than (>), etc symbols"), null);

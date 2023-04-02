@@ -18,7 +18,7 @@ SET db=moqui_bck_db
 SET user=moqui
 SET pwd=postgres
 SET host=localhost
-SET port=5431
+SET port=5432
 SET conf_file_name=MoquiDumpConf.xml
 
 ECHO Generate Docker config file '%conf_file_name%'
@@ -39,7 +39,7 @@ if %ERRORLEVEL%==0 (
 )
 
 ECHO Performing database dump
-%PGDUMP_TO_RUN% --no-owner -U moqui -p 5431 %db% > ..\db\%db%_dump.sql
+%PGDUMP_TO_RUN% --no-owner -U moqui -p 5432 %db% > ..\db\%db%_dump.sql
 
 REM create docker image of database
 pushd %docker_dir%

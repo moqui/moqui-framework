@@ -14,7 +14,7 @@ SET db=moqui_bck_db
 SET user=moqui
 SET pwd=postgres
 SET host=localhost
-SET port=5431
+SET port=5432
 SET conf_file_name=MoquiDumpConf.xml
 
 call build.app.and.database.bat %seed_info% 0 %db% %conf_file_name%
