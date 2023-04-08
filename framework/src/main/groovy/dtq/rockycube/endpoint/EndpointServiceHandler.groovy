@@ -52,6 +52,8 @@ class EndpointServiceHandler {
     // intelligent-cache query feature is used by default, if you need to set this parameter to `true`
     private static String CONST_ALLOW_ICACHE_QUERY              = 'allowICacheQuery'
     private static String CONST_DEFAULT_LIST_JOIN_OPERATOR      = 'defaultListJoinOperator'
+    // these fields shall not be squashed when converting to flatMap
+    private static String CONST_DO_NOT_SQUASH_FIELDS            = 'doNotSquashFields'
 
     /*
     DEFAULTS
@@ -246,6 +248,33 @@ class EndpointServiceHandler {
                     this.defaultListJoinOper = EntityCondition.JoinOperator.OR
             }
         }
+
+        // no fields saved from squash
+        if (!args.containsKey(CONST_DO_NOT_SQUASH_FIELDS))
+        {
+            args.put(CONST_DO_NOT_SQUASH_FIELDS, [])
+        } else {
+            // what if the argument is set as simple string `identity, whatever, ...`?
+            switch (args[CONST_DO_NOT_SQUASH_FIELDS].class.simpleName.toLowerCase())
+            {
+                case "string":
+                    // convert to list
+                    def fields = (String) args[CONST_DO_NOT_SQUASH_FIELDS]
+                    def fieldsList = fields.split(',')
+                    // pop field
+                    args.remove(CONST_DO_NOT_SQUASH_FIELDS)
+                    if (fieldsList.size() > 1)
+                    {
+                        args[CONST_DO_NOT_SQUASH_FIELDS] = fieldsList
+                    } else {
+                        args[CONST_DO_NOT_SQUASH_FIELDS] = [fields]
+                    }
+                    break
+                default:
+                    // do not do anything
+                    logger.debug("Setting `doNotSquashFields` to [${args[CONST_DO_NOT_SQUASH_FIELDS]}]")
+            }
+        }
     }
 
     // rename field if necessary
@@ -350,7 +379,25 @@ class EndpointServiceHandler {
                 return conv2List
             }
         } else if (args[CONST_CONVERT_OUTPUT_TO_FLATMAP] == true){
-            return CollectionUtilities.flattenNestedMap(sortedMap)
+            // check if we must treat `identity` field with special care
+            def savedFields = new HashMap<String, Object>()
+            for (String f in args[CONST_DO_NOT_SQUASH_FIELDS])
+            {
+                // skip to next if field not in sorted map
+                if (!sortedMap.containsKey(f)) continue
+
+                // save for later addition
+                // + pop from sorted map
+                savedFields.put(f, sortedMap[f])
+                sortedMap.remove(f)
+            }
+
+            def preliminary = CollectionUtilities.flattenNestedMap(sortedMap)
+            if (savedFields.isEmpty()) return preliminary
+
+            // store back in output in original form
+            for (k in savedFields.keySet()) preliminary.put(k, savedFields[k])
+            return preliminary
         } else {
             return sortedMap
         }
