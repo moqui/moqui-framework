@@ -282,6 +282,20 @@ public class MoquiStart {
             // NOTE DEJ20210520: now always using StartClassLoader because of breaking classloader changes in 9.4.37 (likely from https://github.com/eclipse/jetty.project/pull/5894)
             webappClass.getMethod("setClassLoader", ClassLoader.class).invoke(webapp, moquiStartLoader);
 
+            // handle webapp_session_cookie_max_age with setInitParameter (1209600 seconds is about 2 weeks 60 * 60 * 24 * 14)
+            String sessionMaxAge = System.getenv("webapp_session_cookie_max_age");
+            if (sessionMaxAge != null && !sessionMaxAge.isEmpty()) {
+                Integer maxAgeInt = null;
+                try { maxAgeInt = Integer.parseInt(sessionMaxAge); }
+                catch (Exception e) { System.out.println("Found webapp_session_cookie_max_age env var with invalid number, ignoring: " + sessionMaxAge); }
+
+                if (maxAgeInt != null) {
+                    System.out.println("Setting Servlet Session Max Age based on webapp_session_cookie_max_age " + maxAgeInt);
+                    webappClass.getMethod("setInitParameter", String.class, String.class)
+                            .invoke(webapp, "org.eclipse.jetty.servlet.MaxAge", maxAgeInt.toString());
+                }
+            }
+
             // WebSocket
             Object wsContainer = wsInitializerClass.getMethod("configure", scHandlerClass, wsInitializerConfiguratorClass).invoke(null, webapp, null);
             webappClass.getMethod("setAttribute", String.class, Object.class).invoke(webapp, "javax.websocket.server.ServerContainer", wsContainer);
