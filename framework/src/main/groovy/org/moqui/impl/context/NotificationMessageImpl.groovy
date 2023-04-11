@@ -37,6 +37,7 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
     private Set<String> userIdSet = new HashSet()
     private String userGroupId = (String) null
     private String topic = (String) null
+    private String subTopic = (String) null
     private transient EntityValue notificationTopic = (EntityValue) null
     private String messageJson = (String) null
     private transient Map<String, Object> messageMap = (Map<String, Object>) null
@@ -144,6 +145,9 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
     @Override NotificationMessage topic(String topic) { this.topic = topic; notificationTopic = null; return this }
     @Override String getTopic() { topic }
 
+    @Override String getSubTopic() { subTopic }
+    @Override NotificationMessage subTopic(String st) { subTopic = st; return this }
+
     @Override NotificationMessage message(String messageJson) { this.messageJson = messageJson; messageMap = null; return this }
     @Override NotificationMessage message(Map message) {
         this.messageMap = Collections.unmodifiableMap(message) as Map<String, Object>
@@ -169,16 +173,18 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
     @Override NotificationMessage title(String title) { titleTemplate = title; return this }
     @Override String getTitle() {
         if (titleText == null) {
-            EntityValue localNotTopic = getNotificationTopic()
-            if (localNotTopic != null) {
-                if (type == danger && localNotTopic.errorTitleTemplate) {
-                    titleText = ecfi.resource.expand((String) localNotTopic.errorTitleTemplate, "", getMessageMap(), true)
-                } else if (localNotTopic.titleTemplate) {
-                    titleText = ecfi.resource.expand((String) localNotTopic.titleTemplate, "", getMessageMap(), true)
+            if (titleTemplate != null && !titleTemplate.isEmpty())
+                titleText = ecfi.resource.expand(titleTemplate, "", getMessageMap(), true)
+            if (titleText == null || titleText.isEmpty()) {
+                EntityValue localNotTopic = getNotificationTopic()
+                if (localNotTopic != null) {
+                    if (type == danger && localNotTopic.errorTitleTemplate) {
+                        titleText = ecfi.resource.expand((String) localNotTopic.errorTitleTemplate, "", getMessageMap(), true)
+                    } else if (localNotTopic.titleTemplate) {
+                        titleText = ecfi.resource.expand((String) localNotTopic.titleTemplate, "", getMessageMap(), true)
+                    }
                 }
             }
-            if ((titleText == null || titleText.isEmpty()) && titleTemplate != null && !titleTemplate.isEmpty())
-                titleText = ecfi.resource.expand(titleTemplate, "", getMessageMap(), true)
         }
         return titleText
     }
@@ -305,7 +311,7 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
                 boolean beganTransaction = tfi.begin(null)
                 try {
                     Map createResult = ecfi.service.sync().name("create", "moqui.security.user.NotificationMessage")
-                            .parameters([topic:this.topic, userGroupId:this.userGroupId, sentDate:this.sentDate,
+                            .parameters([topic:this.topic, subTopic:this.subTopic, userGroupId:this.userGroupId, sentDate:this.sentDate,
                                     messageJson:this.getMessageJson(), titleText:this.getTitle(), linkText:this.getLink(),
                                     typeString:this.getType(), showAlert:(this.showAlert ? 'Y' : 'N')])
                             .disableAuthz().call()
@@ -450,7 +456,7 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
 
     @Override Map<String, Object> getWrappedMessageMap() {
         EntityValue localNotTopic = getNotificationTopic()
-        return [topic:topic, sentDate:sentDate, notificationMessageId:notificationMessageId, topicDescription:localNotTopic?.description,
+        return [topic:topic, subTopic:subTopic, sentDate:sentDate, notificationMessageId:notificationMessageId, topicDescription:localNotTopic?.description,
                 message:getMessageMap(), title:getTitle(), link:getLink(), type:getType(), persistOnSend:isPersistOnSend(),
                 showAlert:isShowAlert(), alertNoAutoHide:isAlertNoAutoHide()]
     }
@@ -467,6 +473,7 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
     void populateFromValue(EntityValue nmbu) {
         this.notificationMessageId = nmbu.notificationMessageId
         this.topic = nmbu.topic
+        this.subTopic = nmbu.subTopic
         this.sentDate = nmbu.getTimestamp("sentDate")
         this.userGroupId = nmbu.userGroupId
         this.messageJson = nmbu.messageJson
@@ -486,6 +493,7 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
         out.writeObject(userIdSet)
         out.writeObject(userGroupId)
         out.writeUTF(topic)
+        out.writeObject(subTopic)
         out.writeUTF(getMessageJson())
         out.writeObject(notificationMessageId)
         out.writeObject(sentDate)
@@ -500,6 +508,7 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
         userIdSet = (Set<String>) objectInput.readObject()
         userGroupId = (String) objectInput.readObject()
         topic = objectInput.readUTF()
+        subTopic = objectInput.readObject()
         messageJson = objectInput.readUTF()
         notificationMessageId = (String) objectInput.readObject()
         sentDate = (Timestamp) objectInput.readObject()

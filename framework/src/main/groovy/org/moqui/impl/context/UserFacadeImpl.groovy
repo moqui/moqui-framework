@@ -113,8 +113,10 @@ class UserFacadeImpl implements UserFacade {
             // user found in session so no login needed, but make sure hasLoggedOut != "Y"
             EntityValue userAccount = (EntityValue) null
             if (sesUsername != null && !sesUsername.isEmpty()) {
+                EntityCondition usernameCond = eci.entityFacade.getConditionFactory()
+                        .makeCondition("username", EntityCondition.ComparisonOperator.EQUALS, username).ignoreCase()
                 userAccount = eci.getEntity().find("moqui.security.UserAccount")
-                        .condition("username", sesUsername).useCache(false).disableAuthz().one()
+                        .condition(usernameCond).useCache(false).disableAuthz().one()
             }
 
             if (userAccount != null && "Y".equals(userAccount.getNoCheckSimple("hasLoggedOut"))) {
@@ -1051,8 +1053,10 @@ class UserFacadeImpl implements UserFacade {
 
             EntityValueBase ua = (EntityValueBase) null
             if (username != null && username.length() > 0) {
+                EntityCondition usernameCond = ufi.eci.entityFacade.getConditionFactory()
+                        .makeCondition("username", EntityCondition.ComparisonOperator.EQUALS, username).ignoreCase()
                 ua = (EntityValueBase) ufi.eci.getEntity().find("moqui.security.UserAccount")
-                        .condition("username", username).useCache(false).disableAuthz().one()
+                        .condition(usernameCond).useCache(false).disableAuthz().one()
             }
             if (ua != null) {
                 userAccount = ua
