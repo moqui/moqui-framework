@@ -38,6 +38,9 @@ public interface NotificationMessage extends java.io.Serializable {
     NotificationMessage topic(String topic);
     String getTopic();
 
+    NotificationMessage subTopic(String subTopic);
+    String getSubTopic();
+
     /** Set the message as a JSON String. The top-level should be a Map (JSON Object).
      * @param messageJson The message as a JSON string containing a Map (JSON Object)
      * @return Self-reference for convenience

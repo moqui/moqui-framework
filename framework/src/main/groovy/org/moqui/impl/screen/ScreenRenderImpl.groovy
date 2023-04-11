@@ -1105,6 +1105,19 @@ class ScreenRenderImpl implements ScreenRender {
         return activePath
     }
 
+    // TODO: This may not be the actual place we decided on, but due to lost work this is my best guess
+    // Get the first screen path of the parent screens with a transition specified of the currently rendered screen
+    String getScreenPathHasTransition(String transitionName) {
+        int screenPathDefListSize = screenUrlInfo.screenPathDefList.size()
+        for (int i = 0; i < screenPathDefListSize; i++) {
+            ScreenDefinition screenDef = (ScreenDefinition) screenUrlInfo.screenPathDefList.get(i)
+            if (screenDef.hasTransition(transitionName)) {
+                return '/' + screenUrlInfo.fullPathNameList.subList(0,i).join('/') + (i == 0 ? '' : '/')
+            }
+        }
+        return null
+    }
+
     String renderSubscreen() {
         // first see if there is another screen def in the list
         if (!getActiveScreenHasNext()) {
