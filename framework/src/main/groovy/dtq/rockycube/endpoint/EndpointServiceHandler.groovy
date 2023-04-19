@@ -1031,7 +1031,7 @@ class EndpointServiceHandler {
      * @param identity
      * @return
      */
-    public static ArrayList processItemsForVizualization(ExecutionContext ec, ArrayList allItems, String endpoint, HashMap args, boolean debug, String identity = null)
+    public static Object processItemsForVizualization(ExecutionContext ec, ArrayList allItems, String endpoint, HashMap args, boolean debug, String identity = null)
     {
         def pycalcHost = System.properties.get("py.server.host")
 
