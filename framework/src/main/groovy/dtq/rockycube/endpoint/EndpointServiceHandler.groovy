@@ -25,6 +25,7 @@ import org.moqui.impl.entity.condition.ListCondition
 import org.moqui.util.CollectionUtilities
 import org.moqui.util.ObjectUtilities
 import org.moqui.util.RestClient
+import org.moqui.util.StringUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -950,5 +951,124 @@ class EndpointServiceHandler {
         }
 
         return new ByteArrayInputStream(restResponse.bytes());
+    }
+
+    /**
+     * Method that runs item through PY-CALC and let it be transformed there.
+     * This is the default method to be used, with the exception of test run.
+     * @param ec
+     * @param itemToCalculate
+     * @param proceduresList
+     * @param extraParams
+     * @param cbCheckData
+     * @param debug
+     * @param identity
+     * @return
+     */
+    public static Object processItemInCalc(
+            ExecutionContext ec,
+            Object itemToCalculate,
+            ArrayList proceduresList,
+            HashMap extraParams,
+            Closure cbCheckData,
+            boolean debug,
+            String identity = null)
+    {
+        def pycalcHost = System.properties.get("py.server.host")
+
+        // set identity if not set
+        if (debug && !identity) identity = StringUtilities.getRandomString(11)
+
+        // store info for debugging purposes
+        if (debug) {
+            GenericUtilities.debugFile(ec, "closure-handler-process-items.${identity}.json", itemToCalculate)
+            GenericUtilities.debugFile(ec, "closure-handler-process-items-procedures.${identity}.json", proceduresList)
+            GenericUtilities.debugFile(ec, "closure-handler-process-items-extra.${identity}.json", extraParams)
+        }
+
+        // basic checks
+        if (!pycalcHost) throw new EndpointException("PY-CALC server host not defined")
+
+        // data prep
+        def payload = [
+                setup: [
+                        procedure: proceduresList,
+                        output_only_last: true,
+                        extra: extraParams
+                ],
+                data: itemToCalculate
+        ]
+
+        RestClient restClient = ec.service.rest().method(RestClient.POST)
+                .uri("${pycalcHost}/api/v1/calculator/execute")
+                .addHeader("Content-Type", "application/json")
+                .jsonObject(payload)
+
+        // execute
+        RestClient.RestResponse restResponse = restClient.call()
+
+        // check status code
+        if (restResponse.statusCode != 200) {
+            throw new EndpointException("Response with status ${restResponse.statusCode} returned: ${restResponse.reasonPhrase}")
+        }
+
+        // must handle all states of the response
+        def rsp = (HashMap) restResponse.jsonObject()
+
+        // use callback to check/modify response
+        if (cbCheckData) return cbCheckData(rsp)
+
+        return rsp
+    }
+
+    /**
+     * This method processes items into list, ready for vizualization
+     * @param ec
+     * @param allItems
+     * @param endpoint
+     * @param args
+     * @param debug
+     * @param identity
+     * @return
+     */
+    public static ArrayList processItemsForVizualization(ExecutionContext ec, ArrayList allItems, String endpoint, HashMap args, boolean debug, String identity = null)
+    {
+        def pycalcHost = System.properties.get("py.server.host")
+
+        // set identity if not set
+        if (debug && !identity) identity = StringUtilities.getRandomString(11)
+
+        // debug for development purposes
+        if (debug) GenericUtilities.debugFile(ec, "vizualize-items-before-calc.${identity}.json", allItems)
+
+        // pass only those arguments, that have `pycalc` prefix
+        def pyCalcArgs = ViUtilities.extractPycalcArgs(args as HashMap)
+
+        // store parameters
+        if (debug) GenericUtilities.debugFile(ec, "vizualize-items-calc-params.${identity}.json", pyCalcArgs)
+
+        RestClient restClient = ec.service.rest().method(RestClient.POST)
+                .uri("${pycalcHost}/${endpoint}")
+                .addHeader("Content-Type", "application/json")
+                .jsonObject(
+                        [
+                                data: allItems,
+                                args: pyCalcArgs
+                        ]
+                )
+        RestClient.RestResponse restResponse = restClient.call()
+
+        // check status code
+        if (restResponse.statusCode != 200) {
+            if (debug) GenericUtilities.debugFile(ec, "vizualize-items-exception.${identity}.txt", restResponse.reasonPhrase)
+
+            logger.error("Error in response from pyCalc [${restResponse.reasonPhrase}] for session [${identity}]")
+            throw new EndpointException("Response with status ${restResponse.statusCode} returned: ${restResponse.reasonPhrase}")
+        }
+
+        if (debug) GenericUtilities.debugFile(ec, "vizualize-items-after-calc.${identity}.json", restResponse.jsonObject())
+
+        HashMap response = restResponse.jsonObject() as HashMap
+        return response['data']
     }
 }

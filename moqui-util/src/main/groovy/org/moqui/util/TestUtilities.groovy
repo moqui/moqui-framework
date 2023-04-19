@@ -91,11 +91,34 @@ public class TestUtilities {
         }
     }
 
+    public static ArrayList convertArrayWithLazyMap(ArrayList lmArray)
+    {
+        def res = new ArrayList()
+        for ( prop in lmArray ) {
+            def actualValue = prop
+
+            // convert to map, even if it's deeper
+            if (actualValue.getClass() == LazyMap.class) {
+                actualValue = convertLazyMap((LazyMap) actualValue)
+            }
+            res.add(actualValue)
+        }
+        return res;
+    }
+
     public static HashMap convertLazyMap(LazyMap lm)
     {
         def res = new HashMap()
         for ( prop in lm ) {
-            res[prop.key] = prop.value
+            def actualValue = prop.value
+
+            // convert to map, even if it's deeper
+            if (actualValue.getClass() == LazyMap.class) {
+                actualValue = convertLazyMap((LazyMap) actualValue)
+            } else if (actualValue.getClass() == ArrayList.class) {
+                actualValue = convertArrayWithLazyMap((ArrayList) actualValue)
+            }
+            res[prop.key] = actualValue
         }
         return res;
     }
