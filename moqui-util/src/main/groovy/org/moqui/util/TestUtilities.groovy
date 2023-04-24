@@ -5,6 +5,7 @@ import com.google.gson.JsonElement
 import groovy.json.JsonSlurper
 import org.apache.commons.io.FileUtils
 import org.apache.groovy.json.internal.LazyMap
+import org.slf4j.Logger
 
 import java.nio.charset.StandardCharsets
 import java.util.regex.Pattern;
@@ -63,7 +64,7 @@ public class TestUtilities {
         return is
     }
 
-    public static void testSingleFile(String[] resDirPath, Closure cb) throws IOException, URISyntaxException {
+    public static void testSingleFile(String[] resDirPath, Closure cb, Logger logger=null) throws IOException, URISyntaxException {
         String[] importFilePath = extendList(RESOURCE_PATH, resDirPath)
         FileInputStream fisImport = new FileInputStream(getInputFile(importFilePath))
 
@@ -87,7 +88,9 @@ public class TestUtilities {
             def proc = convertLazyMap(processedEntity as LazyMap)
             def exp = convertLazyMap(expectedValue as LazyMap)
 
+            if (logger) logger.info("*************** Test ${idx + 1} [START ] ***************")
             cb(proc, exp, idx)
+            if (logger) logger.info("*************** Test ${idx + 1} [FINISH] ***************\n")
         }
     }
 

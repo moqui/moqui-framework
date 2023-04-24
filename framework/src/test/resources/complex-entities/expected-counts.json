@@ -4,12 +4,50 @@
       "entityName": "moqui.test.TestEntitySpecial",
       "data": {
         "array": [1, 2, "3"],
-        "dict": {"attr1": 1, "attr2": [3, 4]}
+        "dict": {"attr1": 1, "attr2": [3, 4]},
+        "searchField": {"calculation": "initial"}
       },
-      "key": {
-        "project": 1,
+      "identity": {
+        "project": 1.0,
         "type": "initial"
       }
+    },
+    {
+      "searchObject": {
+        "filterType": "HashMap",
+        "filterContent": {
+          "testId": {
+            "project": 1.0,
+            "type": "initial"
+          }
+        }
+      },
+      "count": 1
+    }
+  ],
+  [
+    {
+      "entityName": "moqui.test.TestEntitySpecial",
+      "data": {
+        "array": [1, 2, "3"],
+        "dict": {"attr1": 1, "attr2": [3, 4]},
+        "searchField": {"calculation": "initial"}
+      },
+      "identity": {
+        "project": 2.0,
+        "type": "update"
+      }
+    },
+    {
+      "searchObject": {
+        "filterType": "HashMap",
+        "filterContent": {
+          "testSearchField": {
+            "calculation": "initial"
+          }
+        }
+      },
+      "count": 2
     }
   ]
 ]

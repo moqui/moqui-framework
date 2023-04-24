@@ -1,6 +1,9 @@
 package dtq.rockycube.entity
 
 import org.moqui.context.ExecutionContext
+import org.moqui.entity.EntityCondition
+import org.moqui.entity.EntityException
+import org.moqui.entity.EntityFind
 import org.moqui.impl.ViUtilities
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityFacadeImpl
@@ -16,6 +19,28 @@ class EntityHelper {
 
         // EntityFacadeImpl
         efi = (EntityFacadeImpl) ec.getEntity()
+    }
+
+    /**
+     * Method is used to filter entity by providing it name and passing filter
+     * as an object
+     * @param ec
+     * @param entityName
+     * @param filter
+     * @return
+     */
+    public static EntityFind filterEntity(ExecutionContext ec, String entityName, Object filter){
+        switch (filter.getClass())
+        {
+            case HashMap.class:
+            case LinkedHashMap.class:
+                HashMap filterMap = (HashMap) filter
+                return ec.entity.find(entityName).condition(filterMap)
+            case EntityCondition.class:
+                return ec.entity.find(entityName).condition((EntityCondition) filter)
+            default:
+                throw new EntityException("Unsupported filter when searching in entity [${filter.getClass().name}]")
+        }
     }
 
     public static String findDatasource(ExecutionContext ec, clMatchSource)

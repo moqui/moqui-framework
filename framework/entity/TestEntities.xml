@@ -35,6 +35,7 @@ along with this software (see the LICENSE.md file). If not, see
     </entity>
     <entity entity-name="TestEntitySpecial" package="moqui.test" sequence-bank-size="100" cache="never">
         <field name="testId" type="jsonb" is-pk="true"/>
+        <field name="testSearchField" type="jsonb"/>
         <field name="testMaps" type="jsonb"/>
         <field name="testArrays" type="jsonb"/>
     </entity>
