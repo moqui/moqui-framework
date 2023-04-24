@@ -30,6 +30,9 @@ class EntityHelper {
      * @return
      */
     public static EntityFind filterEntity(ExecutionContext ec, String entityName, Object filter){
+        // if filter is NULL, return all
+        if (filter == null) return ec.entity.find(entityName)
+
         switch (filter.getClass())
         {
             case HashMap.class:
@@ -120,6 +123,4 @@ class EntityHelper {
         def recEntitySearch = Pattern.compile(searchedEntityName)
         return getDefinition(recEntitySearch, groupName)
     }
-
-
 }
