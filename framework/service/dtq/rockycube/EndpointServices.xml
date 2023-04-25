@@ -21,7 +21,7 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters>
             <parameter name="term" type="List" default="[]"/>
             <parameter name="index" type="Integer" default-value="1"/>
-            <parameter name="size" type="Integer" default-value="20"/>
+            <parameter name="size" type="Integer" default-value="100"/>
             <parameter name="entityName" type="String"/>
             <parameter name="tableName" type="String"/>
             <parameter name="orderBy" type="List" default="[]"/>
