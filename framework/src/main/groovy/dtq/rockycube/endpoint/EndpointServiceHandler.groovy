@@ -16,11 +16,8 @@ import org.moqui.entity.EntityValue
 import org.moqui.impl.ViUtilities
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.entity.EntityDefinition
-import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.impl.entity.FieldInfo
-import org.moqui.impl.entity.condition.ConditionField
 import org.moqui.impl.entity.condition.EntityConditionImplBase
-import org.moqui.impl.entity.condition.FieldValueCondition
 import org.moqui.impl.entity.condition.ListCondition
 import org.moqui.util.CollectionUtilities
 import org.moqui.util.ObjectUtilities
@@ -28,8 +25,6 @@ import org.moqui.util.RestClient
 import org.moqui.util.StringUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-
-import java.nio.charset.StandardCharsets
 import java.util.regex.Pattern
 
 class EndpointServiceHandler {
@@ -42,6 +37,7 @@ class EndpointServiceHandler {
 
     private static String CONST_UPDATE_IF_EXISTS                = 'updateIfExists'
     private static String CONST_ALLOWED_FIELDS                  = 'allowedFields'
+    private static String CONST_SORT_OUTPUT_MAP                 = 'sortOutputMap'
     private static String CONST_CONVERT_OUTPUT_TO_LIST          = 'convertToList'
     private static String CONST_ALLOW_TIMESTAMPS                = 'allowTimestamps'
     private static String CONST_AUTO_CREATE_PKEY                = 'autoCreatePrimaryKey'
@@ -276,6 +272,12 @@ class EndpointServiceHandler {
                     logger.debug("Setting `doNotSquashFields` to [${args[CONST_DO_NOT_SQUASH_FIELDS]}]")
             }
         }
+
+        // by default, sort output map
+        if (!args.containsKey(CONST_SORT_OUTPUT_MAP))
+        {
+            args.put(CONST_SORT_OUTPUT_MAP, true)
+        }
     }
 
     // rename field if necessary
@@ -322,8 +324,7 @@ class EndpointServiceHandler {
 
     private Object fillResultset(EntityValue single)
     {
-        HashMap<String, Object> res = [:]
-        HashMap<String, Object> recordMap = [:]
+        LinkedHashMap<String, Object> recordMap = [:]
         // logger.info("args.allowedFields: ${args[CONST_ALLOWED_FIELDS]}")
 
         FieldInfo pkInfo = null
@@ -361,16 +362,36 @@ class EndpointServiceHandler {
         }
 
         // handle specialities
-        this.manipulateRecordId(recordMap)
-        this.manipulateExtraFields(recordMap)
+        def modifiedOrder = false
+        modifiedOrder = this.manipulateRecordId(recordMap)
+        modifiedOrder |= this.manipulateExtraFields(recordMap)
 
-        // add to output, sorted
-        def sortedMap = recordMap.sort({m1, m2 -> m1.key <=> m2.key})
+        // add to output, sorted if necessary
+        if (args.get(CONST_SORT_OUTPUT_MAP))
+        {
+            recordMap = (HashMap) recordMap.sort({m1, m2 -> m1.key <=> m2.key})
+        } else if (!modifiedOrder) {
+            // sort using allowed columns, if set
+            // BUT ONLY IF ORDER HAS NOT BEEN MODIFIED
+            def allowedColumns = (ArrayList<String>) args.get(CONST_ALLOWED_FIELDS)
+            def onlyNames = allowedColumns.every {it->
+                return it != '*' && !it.contains('-')
+            }
+
+            // sort accordingly, using the list provided
+            LinkedHashMap sorted = new LinkedHashMap()
+            if (onlyNames){
+                allowedColumns.each {it->
+                    sorted[it] = recordMap[it]
+                }
+            }
+            recordMap = sorted
+        }
 
         // change to list, if set in such way
         if (args[CONST_CONVERT_OUTPUT_TO_LIST] == true) {
             def conv2List = []
-            sortedMap.each { it ->
+            recordMap.each { it ->
                 conv2List.push(it.value)
             }
 
@@ -385,22 +406,22 @@ class EndpointServiceHandler {
             for (String f in args[CONST_DO_NOT_SQUASH_FIELDS])
             {
                 // skip to next if field not in sorted map
-                if (!sortedMap.containsKey(f)) continue
+                if (!recordMap.containsKey(f)) continue
 
                 // save for later addition
                 // + pop from sorted map
-                savedFields.put(f, sortedMap[f])
-                sortedMap.remove(f)
+                savedFields.put(f, recordMap[f])
+                recordMap.remove(f)
             }
 
-            def preliminary = CollectionUtilities.flattenNestedMap(sortedMap)
+            def preliminary = CollectionUtilities.flattenNestedMap(recordMap)
             if (savedFields.isEmpty()) return preliminary
 
             // store back in output in original form
             for (k in savedFields.keySet()) preliminary.put(k, savedFields[k])
             return preliminary
         } else {
-            return sortedMap
+            return recordMap
         }
     }
 
@@ -511,9 +532,9 @@ class EndpointServiceHandler {
         return res
     }
 
-    private void manipulateRecordId(HashMap<String, Object> record)
+    private boolean manipulateRecordId(HashMap<String, Object> record)
     {
-        if (!args.get('renameId', null)) return
+        if (!args.get('renameId', null)) return false
 
         // modify ID to a new value
         def newIdField = args.get('renameId').toString()
@@ -526,7 +547,7 @@ class EndpointServiceHandler {
         if (occurrences != 0)
         {
             logger.error("Field exist, cannot be renamed")
-            return
+            return false
         }
 
         def idValue = null
@@ -540,17 +561,19 @@ class EndpointServiceHandler {
         if (!idValue || !idFieldName)
         {
             logger.warn("Unable to extract ID field or ID field value, probably incorrectly set request arguments")
-            return
+            return false
         }
 
         record[newIdField] = idValue
         record.remove(idFieldName)
+        return true
     }
 
-    private void manipulateExtraFields(HashMap<String, Object> record)
+    private boolean manipulateExtraFields(HashMap<String, Object> record)
     {
-        if (!args.get('removeFields', null)) return
+        if (!args.get('removeFields', null)) false
 
+        def modified = false
         def fields2remove = (ArrayList) args['removeFields']
         fields2remove.each {fld->
             if (ed.isPkField(fld)) return
@@ -558,7 +581,10 @@ class EndpointServiceHandler {
 
             // remove key
             record.remove(fld)
+
+            modified = true
         }
+        return modified
     }
 
     public HashMap createEntityData(Object data)
