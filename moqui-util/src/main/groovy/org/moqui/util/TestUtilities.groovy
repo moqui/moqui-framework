@@ -57,6 +57,22 @@ public class TestUtilities {
         }
     }
 
+    public static <T> T loadTestResource(Object resDir, Class<T> asType)
+    {
+        String[] importFilePath
+        switch (resDir.class)
+        {
+            case String.class:
+                importFilePath = extendList(RESOURCE_PATH, resDir.toString().split('/'))
+                break
+            default:
+                importFilePath = extendList(RESOURCE_PATH, (String[]) resDir)
+        }
+
+        def is = new FileInputStream(getInputFile(importFilePath))
+        return new Gson().fromJson(is.newReader(), asType)
+    }
+
     public static InputStream loadTestResource(String[] resDir)
     {
         String[] importFilePath = extendList(RESOURCE_PATH, resDir)

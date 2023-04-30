@@ -1,0 +1,12 @@
+[
+  [
+    {
+      "file": "bulk-entity/invalid/error-1.json"
+    },
+    {
+      "checksum": 0.0,
+      "rowsDiff": 0,
+      "result": false
+    }
+  ]
+]

@@ -1,6 +1,6 @@
 package dtq.rockycube.endpoint
 
-import com.google.gson.Gson
+import com.google.gson.internal.LinkedTreeMap
 import dtq.rockycube.cache.CacheQueryHandler
 import dtq.rockycube.entity.ConditionHandler
 import dtq.rockycube.entity.EntityHelper
@@ -17,7 +17,9 @@ import org.moqui.impl.ViUtilities
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.FieldInfo
+import org.moqui.impl.entity.condition.ConditionField
 import org.moqui.impl.entity.condition.EntityConditionImplBase
+import org.moqui.impl.entity.condition.FieldValueCondition
 import org.moqui.impl.entity.condition.ListCondition
 import org.moqui.util.CollectionUtilities
 import org.moqui.util.ObjectUtilities
@@ -33,7 +35,6 @@ class EndpointServiceHandler {
     private ExecutionContextFactoryImpl ecfi
     private EntityHelper meh
     private EntityCondition.JoinOperator defaultListJoinOper = EntityCondition.JoinOperator.OR
-    private Gson gson = new Gson()
 
     private static String CONST_UPDATE_IF_EXISTS                = 'updateIfExists'
     private static String CONST_ALLOWED_FIELDS                  = 'allowedFields'
@@ -51,6 +52,10 @@ class EndpointServiceHandler {
     private static String CONST_DEFAULT_LIST_JOIN_OPERATOR      = 'defaultListJoinOperator'
     // these fields shall not be squashed when converting to flatMap
     private static String CONST_DO_NOT_SQUASH_FIELDS            = 'doNotSquashFields'
+    // if this flag is set, use data field to construct query condition
+    // e.g. useful when using this class to modify data without providing
+    // explicit query conditions (BulkEntityHandler)
+    private static String CONST_SEARCH_USING_DATA_PROVIDED      = 'searchUsingDataProvided'
 
     /*
     DEFAULTS
@@ -278,6 +283,12 @@ class EndpointServiceHandler {
         {
             args.put(CONST_SORT_OUTPUT_MAP, true)
         }
+
+        // do not allow search by using data provided
+        if (!args.containsKey(CONST_SEARCH_USING_DATA_PROVIDED))
+        {
+            args.put(CONST_SEARCH_USING_DATA_PROVIDED, false)
+        }
     }
 
     // rename field if necessary
@@ -502,16 +513,26 @@ class EndpointServiceHandler {
     {
         // no Strings as term
         if (term.getClass().simpleName == "String") throw new EntityException("Unsupported type for Term: String")
+        if (term.getClass() != ArrayList.class) throw new EntityException("Term can only be initialized when being an ArrayList")
+
+        // initialize correctly, as a list
+        ArrayList<HashMap<String, Object>> arrTerm = (ArrayList<HashMap<String, Object>>) term
+
+        // short circuit to result
+        if (arrTerm.empty) return null
 
         // should there be an argument specifying how the complex condition
         // must be set, let's do it this way
         if (this.args.containsKey(CONST_COMPLEX_CONDITION_RULE)) {
-            return this.extractComplexCondition(term, this.args[CONST_COMPLEX_CONDITION_RULE] as String)
+            return this.extractComplexCondition(arrTerm, this.args[CONST_COMPLEX_CONDITION_RULE] as String)
         }
 
         // otherwise make it simple and add `OR` between all conditions
         def resListCondition = []
-        for (HashMap<String, Object> singleTerm in term) resListCondition.add(ConditionHandler.getSingleFieldCondition(singleTerm))
+        for (HashMap<String, Object> singleTerm in arrTerm) resListCondition.add(ConditionHandler.getSingleFieldCondition(singleTerm))
+        // return null if condition list is null
+        if (resListCondition.empty) return null
+        // otherwise construct a list
         return new ListCondition(resListCondition, this.defaultListJoinOper)
     }
 
@@ -596,7 +617,7 @@ class EndpointServiceHandler {
         HashMap<String, Object> lastItemResult = [:]
 
         // different for array and hashmap
-        if (data instanceof HashMap || data instanceof LinkedHashMap) {
+        if (data instanceof HashMap || data instanceof LinkedHashMap || data instanceof LinkedTreeMap) {
             lastItemResult = this.createSingleEntity(data as HashMap)
             return lastItemResult
 
@@ -639,10 +660,35 @@ class EndpointServiceHandler {
         }
 
         // update if necessary
-        // otherwise perform clean write
-        if (args.get(CONST_UPDATE_IF_EXISTS) && queryCondition)
+        // support for extraction of querycondition from data provided introduced
+        EntityConditionImplBase queryUsed = queryCondition
+        // if
+        // 1. no query is provided from the constructor
+        // 2. search using data provided is switched on
+        // 3. data provided is not empty
+        // then try to set new query condition
+        if (!queryUsed && args.get(CONST_SEARCH_USING_DATA_PROVIDED) && !singleEntityData.isEmpty())
         {
-            def alreadyExists = ec.entity.find(entityName).condition(queryCondition)
+            // search for primary key in the data
+            def pkNames = this.ed.pkFieldNames
+            if (pkNames.size() == 1)
+            {
+                def pkName = pkNames[0]
+                if (singleEntityData.containsKey(pkName)){
+                    logger.debug("Updating search query for purpose of checking existence of record with value [${[pkName: singleEntityData[pkName]]}]")
+                    queryUsed = new FieldValueCondition(
+                            new ConditionField(pkName),
+                            EntityCondition.ComparisonOperator.EQUALS,
+                            singleEntityData[pkName]
+                    )
+                }
+            }
+        }
+
+        // otherwise perform clean write
+        if (args.get(CONST_UPDATE_IF_EXISTS) && queryUsed)
+        {
+            def alreadyExists = ec.entity.find(entityName).condition(queryUsed)
             if (alreadyExists.count() == 1)
             {
                 return this.updateSingleEntity(alreadyExists, singleEntityData)

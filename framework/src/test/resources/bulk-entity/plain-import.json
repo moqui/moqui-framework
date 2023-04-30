@@ -1,0 +1,22 @@
+[
+  {
+    "testId": 100000,
+    "testNumberDecimal": 10500.25,
+    "testDate": "2023-05-01"
+  },
+  {
+    "testId": 100001,
+    "testNumberDecimal": 40.55,
+    "testDate": "2023-05-02"
+  },
+  {
+    "testId": 100002,
+    "testNumberDecimal": 220500.25,
+    "testDate": "2023-05-03"
+  },
+  {
+    "testId": 100000,
+    "testNumberDecimal": 78000.9,
+    "testDate": "2023-05-01"
+  }
+]
