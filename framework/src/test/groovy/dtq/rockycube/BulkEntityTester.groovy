@@ -41,6 +41,11 @@ class BulkEntityTester extends Specification {
         }
     }
 
+    private Long count()
+    {
+        return EntityHelper.filterEntity(ec, CONST_TEST_ENTITY, null).count()
+    }
+
     /**
      * Calculate total of the entire table
      * @return
@@ -82,30 +87,65 @@ class BulkEntityTester extends Specification {
     {
         when:
 
-        ec.logger.info("Deleted rows [${EntityHelper.filterEntity(ec, CONST_TEST_ENTITY, null).deleteAll()}]")
-
         // initialize new handler
         BulkEntityHandler handler = new BulkEntityHandler()
         handler.failsafeSwitch = true
 
-        // load seed data
-        def importData = TestUtilities.loadTestResource((String[]) ['bulk-entity', 'plain-import.json'], ArrayList.class)
-        assert handler.writeChanges(CONST_TEST_ENTITY, importData, [])['result'] == true
-
         then:
 
         TestUtilities.testSingleFile((String[]) ["bulk-entity", "expected-checksums.json"], {Object processed, Object expected, Integer idx->
-            // total before writing data
-            def totalStart = this.checksum()
+            // clean data every time
+            ec.logger.info("Deleted rows [${EntityHelper.filterEntity(ec, CONST_TEST_ENTITY, null).deleteAll()}]")
+
+            // file ID
+            def fileStamp = "${idx + 1}_${TestUtilities.formattedTimestamp()}"
+
+            def importData = TestUtilities.loadTestResource((String[]) ['bulk-entity', 'plain-import.json'], ArrayList.class)
+            assert handler.writeChanges(CONST_TEST_ENTITY, importData, [])['result'] == true
+
+            // data before test
+            TestUtilities.dumpToDebug((String[])["__temp", "test_check_totals_BEFORE_${fileStamp}.json"], {
+                return gson.toJson(importData)
+            })
+
+            // basic stats before start
+            def checksumStart = this.checksum()
+            def countStart = this.count()
 
             def testedData = TestUtilities.loadTestResource((String) processed.file, HashMap.class)
             assert !testedData.isEmpty()
 
+            // PROCEDURE ITSELF
             def res = handler.writeChanges(CONST_TEST_ENTITY, testedData.changes as ArrayList<HashMap>, testedData.deletions as ArrayList<HashMap>)
-            assert res['result'] == expected['result']
 
-            def totalEnd = this.checksum()
-            assert (totalEnd - totalStart) == expected['checksum'], "Totals after writing into target entity must be the same as expected"
+            // store output in a file, both result and entire set
+            TestUtilities.dumpToDebug((String[])["__temp", "test_check_totals_RESULT_${fileStamp}.json"], {
+                return gson.toJson(res)
+            })
+
+            // data before test
+            TestUtilities.dumpToDebug((String[])["__temp", "test_check_totals_AFTER_${fileStamp}.json"], {
+                return gson.toJson(EntityHelper.filterEntity(ec, CONST_TEST_ENTITY, null, ['testId', 'testNumberDecimal', 'testDate']).list())
+            })
+
+            def realResult = res['result']
+            assert realResult == expected['result']
+            assert res['message'] == expected['message']
+
+            def checksumEnd = this.checksum()
+            def countEnd = this.count()
+            assert (checksumEnd - checksumStart) == expected['checksum'], "Totals after writing into target entity must be the same as expected"
+            assert (countEnd - countStart) == expected['rowsDiff']
+
+            // if it's a positive result, test counts
+            if (realResult)
+            {
+                assert res['upserts'] == expected['upserts']
+                assert res['deletes'] == expected['deletes']
+            } else {
+                assert res['upsertFails'] == expected['upsertFails']
+                assert res['deleteFails'] == expected['deleteFails']
+            }
         })
 
 

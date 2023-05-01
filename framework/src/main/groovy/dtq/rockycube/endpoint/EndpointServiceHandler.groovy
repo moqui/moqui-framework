@@ -86,7 +86,7 @@ class EndpointServiceHandler {
         ]
     }
 
-    EndpointServiceHandler(HashMap args, ArrayList term, String entityName, String tableName, Boolean failsafe, ArrayList serviceAllowedOn)
+    EndpointServiceHandler(HashMap args, ArrayList term, String entityName, String tableName, ArrayList serviceAllowedOn)
     {
         this.ec = Moqui.getExecutionContext()
         this.ecfi = (ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory()
@@ -648,6 +648,32 @@ class EndpointServiceHandler {
         return pks
     }
 
+    private EntityConditionImplBase extractQueryConditionFromData(HashMap data)
+    {
+        // this thing will be returned
+        EntityConditionImplBase result
+
+        // search for primary key in the data
+        def pkNames = this.ed.pkFieldNames
+        if (pkNames.size() == 1)
+        {
+            def pkName = pkNames[0]
+            if (data.containsKey(pkName)){
+                logger.debug("Updating search query for purpose of checking existence of record with value [${[pkName: data[pkName]]}]")
+                result = new FieldValueCondition(
+                        new ConditionField(pkName),
+                        EntityCondition.ComparisonOperator.EQUALS,
+                        data[pkName]
+                )
+
+                return result
+            }
+        }
+
+        return null
+    }
+
+
     public HashMap createEntityData()
     {
         return createEntityData(ec.context.data)
@@ -669,20 +695,7 @@ class EndpointServiceHandler {
         // then try to set new query condition
         if (!queryUsed && args.get(CONST_SEARCH_USING_DATA_PROVIDED) && !singleEntityData.isEmpty())
         {
-            // search for primary key in the data
-            def pkNames = this.ed.pkFieldNames
-            if (pkNames.size() == 1)
-            {
-                def pkName = pkNames[0]
-                if (singleEntityData.containsKey(pkName)){
-                    logger.debug("Updating search query for purpose of checking existence of record with value [${[pkName: singleEntityData[pkName]]}]")
-                    queryUsed = new FieldValueCondition(
-                            new ConditionField(pkName),
-                            EntityCondition.ComparisonOperator.EQUALS,
-                            singleEntityData[pkName]
-                    )
-                }
-            }
+            queryUsed = extractQueryConditionFromData(singleEntityData)
         }
 
         // otherwise perform clean write
@@ -732,6 +745,25 @@ class EndpointServiceHandler {
         ]
     }
 
+    /**
+     * Run standard entity delete procedure, but allow the query condition to be
+     * modified if set in such condition
+     * @param data
+     * @return
+     */
+    public HashMap deleteEntityData(HashMap data)
+    {
+        if (!queryCondition && args.get(CONST_SEARCH_USING_DATA_PROVIDED) && !data.isEmpty())
+        {
+            queryCondition = extractQueryConditionFromData(data)
+        }
+        return deleteEntityData()
+    }
+
+    /**
+     * Delete data from context
+     * @return
+     */
     public HashMap deleteEntityData()
     {
         def toDeleteSearch = ec.entity.find(entityName).condition(queryCondition)

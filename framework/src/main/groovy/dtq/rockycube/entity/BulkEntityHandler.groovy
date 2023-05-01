@@ -51,14 +51,50 @@ class BulkEntityHandler {
                 [],
                 entityName,
                 null,
-                false,
                 []
         )
 
+        // some basic stats
+        def upserts = 0
+        def deletes = 0
+        def upsertFails = []
+        def deleteFails = []
+
         try {
-            changes.each {it->
-                esh.createEntityData(it)
+            // IMPORTANT
+            // store result of each respective attempt to modify data, to have a nice output data piece
+
+            // inserts/updates first
+            changes.each { it ->
+                try {
+                    def dbOperation = esh.createEntityData(it)
+                    if (dbOperation.result) {
+                        upserts += 1
+                        return
+                    }
+                } catch (Exception exc)
+                {
+                    // store info on fails
+                    upsertFails.push(exc.message)
+                }
             }
+
+            // deletes afterwards
+            deletions.each { it ->
+                try {
+                    def dbOperation = esh.deleteEntityData((HashMap) it)
+                    if (dbOperation.result) {
+                        deletes += 1
+                        return
+                    }
+                } catch (Exception exc)
+                {
+                    deleteFails.push(exc.message)
+                }
+            }
+
+            // throw exception if any of these lists are empty
+            if (!deleteFails.empty || !upsertFails.empty) throw new EntityException("Unsuccessful execution")
 
             // commit
             ec.transaction.commit()
@@ -71,13 +107,17 @@ class BulkEntityHandler {
 
             return [
                     result: false,
-                    message: "Writing changes to entities via BulkEntityHandler failed: [${exc.message}]"
+                    message: exc.message,
+                    upsertFails: upsertFails,
+                    deleteFails: deleteFails
             ]
         }
 
         return [
                 result: true,
-                message: "Operations performed [${changes.size() + deletions.size()}]"
+                message: "Operations performed successfully",
+                upserts: upserts,
+                deletes: deletes
         ]
     }
 }

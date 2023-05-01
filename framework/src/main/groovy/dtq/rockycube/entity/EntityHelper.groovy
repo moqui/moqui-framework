@@ -29,18 +29,25 @@ class EntityHelper {
      * @param filter
      * @return
      */
-    public static EntityFind filterEntity(ExecutionContext ec, String entityName, Object filter){
+    public static EntityFind filterEntity(ExecutionContext ec, String entityName, Object filter, ArrayList fields=[]){
         // if filter is NULL, return all
-        if (filter == null) return ec.entity.find(entityName)
+        if (filter == null) {
+            if (!fields.empty) return ec.entity.find(entityName).selectFields(fields)
+            return ec.entity.find(entityName)
+        }
 
         switch (filter.getClass())
         {
             case HashMap.class:
             case LinkedHashMap.class:
                 HashMap filterMap = (HashMap) filter
-                return ec.entity.find(entityName).condition(filterMap)
+                def f = ec.entity.find(entityName).condition(filterMap)
+                if (!fields.empty) return f.selectFields(fields)
+                return f
             case EntityCondition.class:
-                return ec.entity.find(entityName).condition((EntityCondition) filter)
+                def f = ec.entity.find(entityName).condition((EntityCondition) filter)
+                if (!fields.empty) return f.selectFields(fields)
+                return f
             default:
                 throw new EntityException("Unsupported filter when searching in entity [${filter.getClass().name}]")
         }
