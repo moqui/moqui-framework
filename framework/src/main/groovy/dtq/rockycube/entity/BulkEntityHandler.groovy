@@ -68,10 +68,7 @@ class BulkEntityHandler {
             changes.each { it ->
                 try {
                     def dbOperation = esh.createEntityData(it)
-                    if (dbOperation.result) {
-                        upserts += 1
-                        return
-                    }
+                    if (dbOperation.result) upserts += 1
                 } catch (Exception exc)
                 {
                     // store info on fails
@@ -83,10 +80,7 @@ class BulkEntityHandler {
             deletions.each { it ->
                 try {
                     def dbOperation = esh.deleteEntityData((HashMap) it)
-                    if (dbOperation.result) {
-                        deletes += 1
-                        return
-                    }
+                    if (dbOperation.result) deletes += 1
                 } catch (Exception exc)
                 {
                     deleteFails.push(exc.message)

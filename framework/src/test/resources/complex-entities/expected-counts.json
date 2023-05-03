@@ -3,6 +3,28 @@
     {
       "entityName": "moqui.test.TestEntitySpecial",
       "data": {
+        "array": [44, 25, "a"],
+        "dict": {"attr1": 1, "attr2": [3, 4]}
+      },
+      "identity": {
+        "project": 2.0,
+        "type": "not-initial"
+      }
+    },
+    {
+      "searchObject": {
+        "filterType": "EntityCondition",
+        "conditions": [
+          {"field": "testId", "value": {"project": 2.0, "type": "not-initial"}}
+        ]
+      },
+      "count": 1
+    }
+  ],
+  [
+    {
+      "entityName": "moqui.test.TestEntitySpecial",
+      "data": {
         "array": [1, 2, "3"],
         "dict": {"attr1": 1, "attr2": [3, 4]},
         "searchField": {"calculation": "initial"}

@@ -7,8 +7,9 @@ def loadFromEntity()
     try {
         return ech.fetchEntityData(index, size, orderBy)
     } catch (Exception exc){
-        ec.logger.error("Error when fetching data: ${exc.message}")
+        ec.logger.error("Error when fetching data [FAILSAFE option: ${failsafe}]: ${exc.message}")
         if (failsafe) return [result: false, message: "Failed on fetch: ${exc.message}"]
+        ec.message.addPublic(exc.message, 'error')
         throw exc
     }
 }
@@ -22,6 +23,7 @@ def deleteEntity()
     } catch (Exception exc){
         ec.logger.error("Error when deleting data: ${exc.message}")
         if (failsafe) return [result: false, message: "Failed on delete: ${exc.message}"]
+        ec.message.addPublic(exc.message, 'error')
         throw exc
     }
 
@@ -34,8 +36,8 @@ def updateEntity()
         return ech.updateEntityData(data)
     } catch (Exception exc){
         ec.logger.error("Error when updating data: ${exc.message}")
-
         if (failsafe) return [result: false, message: "Failed on update: ${exc.message}"]
+        ec.message.addPublic(exc.message, 'error')
         throw exc
     }
 }
@@ -47,8 +49,8 @@ def createEntity()
         return ech.createEntityData(data)
     } catch (Exception exc){
         ec.logger.error("Error when creating data: ${exc.message}")
-
         if (failsafe) return [result: false, message: "Failed on create: ${exc.message}"]
+        ec.message.addPublic(exc.message, 'error')
         throw exc
     }
 }

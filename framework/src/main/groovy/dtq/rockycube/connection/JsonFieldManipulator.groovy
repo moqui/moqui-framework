@@ -62,11 +62,20 @@ class JsonFieldManipulator {
             throw new EntityException("Cannot perform nested condition calculation on field [${field.fieldName}]")
         }
 
-        def syntax = this.getNestedFieldSyntax(ed.groupName).attribute("syntax")
-        if (!syntax)
+        def syntaxNode = this.getNestedFieldSyntax(ed.groupName)
+        if (!syntaxNode)
         {
-            logger.error("Nested fields syntax not defined [${ed.groupName}]")
-            throw new EntityException("Nested fields syntax not defined [${ed.groupName}]")
+            logger.error("Nested fields SYNTAX NODE not defined [${ed.groupName}]")
+            throw new EntityException("Nested fields SYNTAX NODE not defined [${ed.groupName}]")
+        }
+
+        def nestedFieldSyntax
+        try {
+            nestedFieldSyntax = syntaxNode.attribute("syntax")
+        } catch (Exception exception)
+        {
+            logger.error("Nested field SYNTAX not defined [${ed.groupName}]")
+            throw new EntityException("Nested field SYNTAX not defined [${ed.groupName}]")
         }
 
         if (nestedFields.size() > 1)
@@ -79,7 +88,7 @@ class JsonFieldManipulator {
         def operatorString = this.entityFacadeImpl.conditionFactoryImpl.comparisonOperatorStringMap.get(operator)
 
         // expect something in the realm of `<nested-field syntax="{{column}}->>'{{nestedField}}'{{operator}}?"/>`
-        return syntax
+        return nestedFieldSyntax
                 .replace("{{column}}", field.getColumnName(ed))
                 .replace("{{nestedField}}", (String) nestedFields[0])
                 .replace("{{operator}}", operatorString)
@@ -177,7 +186,7 @@ class JsonFieldManipulator {
 
         // do we have json-config?
         def foundJsConf = conf.children("json-config")
-        if (foundJsConf.empty) return false
+        if (foundJsConf.empty) return null
 
         def nestedFieldSetup = foundJsConf.first().children("nested-field")
         if (nestedFieldSetup.empty) return null

@@ -1,10 +1,12 @@
 package dtq.rockycube
 
-
+import dtq.rockycube.entity.ConditionHandler
 import dtq.rockycube.entity.EntityHelper
 import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
+import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityValue
+import org.moqui.impl.entity.condition.ListCondition
 import org.moqui.util.TestUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -84,7 +86,17 @@ class ComplexEntitiesTester extends Specification {
                     assert search.count() == expected["count"]
                     break
                 case "EntityCondition":
-                    throw new Exception("Testing EntityCondition setup not supported")
+                    def resListCondition = []
+                    ArrayList<HashMap> conditions = (ArrayList) expected["searchObject"]["conditions"]
+                    conditions.each {it->
+                        resListCondition.add(ConditionHandler.getSingleFieldCondition((HashMap) it))
+                    }
+                    def resCondition = new ListCondition(resListCondition, EntityCondition.JoinOperator.AND)
+                    def search = ec.entity.find(CONST_TEST_ENTITY).condition(resCondition)
+                    // error for H2 fields
+                    def count = search.count()
+                    assert count == expected["count"]
+                    break
                 default:
                     throw new Exception("Forgot to set filterType in test definition")
             }

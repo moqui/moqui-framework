@@ -537,19 +537,16 @@ class EndpointServiceHandler {
     }
 
     private HashMap fetchPaginationInfo(
-            String entityName,
             Integer pageIndex,
-            Integer pageSize,
-            EntityCondition queryCondition)
+            Integer pageSize)
     {
         def res = [:]
-        def allEntries = ec.entity.find(entityName)
-                .condition(queryCondition)
-                .count()
+        def allEntriesSearch = ec.entity.find(entityName)
+        if (queryCondition) allEntriesSearch.condition(queryCondition)
 
         res['size'] = pageSize
         res['page'] = pageIndex + 1
-        res['rows'] = allEntries
+        res['rows'] = allEntriesSearch.count()
         return res
     }
 
@@ -766,7 +763,8 @@ class EndpointServiceHandler {
      */
     public HashMap deleteEntityData()
     {
-        def toDeleteSearch = ec.entity.find(entityName).condition(queryCondition)
+        def toDeleteSearch = ec.entity.find(entityName)
+        if (queryCondition) toDeleteSearch.condition(queryCondition)
         logger.debug("DELETE: entityName/term: ${entityName}/${queryCondition}")
 
         // convert to list for message
@@ -801,13 +799,14 @@ class EndpointServiceHandler {
     private HashMap fetchEntityData_standard()
     {
         // pagination info
-        def pagination = this.fetchPaginationInfo(entityName, pageIndex, pageSize, queryCondition)
+        def pagination = this.fetchPaginationInfo(pageIndex, pageSize)
         logger.debug("pagination: ${pagination}")
 
         def evs = ec.entity.find(entityName)
-                .condition(queryCondition)
                 .limit(pageSize)
                 .offset(pageIndex * pageSize)
+
+        if (queryCondition) evs.condition(queryCondition)
 
         // order by columns
         if (orderBy) evs.orderBy(orderBy)
@@ -847,7 +846,7 @@ class EndpointServiceHandler {
         )
 
         // IDs returned
-        def resIds = qh.fetch(queryCondition)
+        def resIds = queryCondition?qh.fetch(queryCondition):qh.fetch(null)
 
         // now it's time to populate result
         FieldInfo pkInfo = null
@@ -929,8 +928,8 @@ class EndpointServiceHandler {
         }
 
         def toUpdate = ec.entity.find(entityName)
-                .condition(queryCondition)
                 .forUpdate(true)
+        if (queryCondition) toUpdate.condition(queryCondition)
         logger.debug("UPDATE: entityName/term: ${entityName}/${queryCondition}")
 
         // update record
@@ -992,6 +991,9 @@ class EndpointServiceHandler {
                     term      : term,
                     args      : args
             ]).call() as HashMap
+
+            // log error if provided by the called service
+            if (ec.message.hasError()) ec.logger.error(ec.message.getErrors()[-1])
 
             // check result
             if (!reportData) throw new EntityException("Unable to retrieve data for rendering response")

@@ -1,4 +1,5 @@
 import com.google.gson.Gson
+import dtq.rockycube.endpoint.EndpointServiceHandler
 import dtq.rockycube.entity.ConditionHandler
 import groovy.json.JsonSlurper
 import org.apache.groovy.json.internal.LazyMap
@@ -58,8 +59,15 @@ class EndpointTests extends Specification {
 
                     def entity = processed.entityName
                     def term = processed.term
-                    def args = TestUtilities.convertLazyMap(processed.args)
+                    def args = processed.args?:[:]
 
+                    // 1. directly - via handler
+                    // search querying - this section is primarily aimed at testing empty `queryCondition`
+                    def handler = new EndpointServiceHandler((HashMap) args, (ArrayList) term, (String) entity, null, [])
+                    def result = handler.fetchEntityData(0, 100, [])
+                    assert result.data.size() == expected.expected
+
+                    // 2. classic - via service
                     // search via EndpointService
                     def enums = this.ec.service.sync()
                             .name("dtq.rockycube.EndpointServices.populate#EntityData")
