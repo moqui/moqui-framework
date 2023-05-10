@@ -72,14 +72,14 @@ dependencies {
     // NOTE: Groovy 3.0.10-3.0.12 has a bug that somehow causes EntityDefinition.isViewEntity (public final boolean) to switch
     //     from true during constructor to false later on; see EntityFindBuilder.java:112-114 and EntityDefinition.groovy:50-53,94-95;
     //     for now using Boolean instead of boolean to resolve, but staying at 3.0.9 to avoid risk with other code
-    api 'org.codehaus.groovy:groovy:3.0.7' // Apache 2.0
-    api 'org.codehaus.groovy:groovy-dateutil:3.0.7' // Apache 2.0
-    api 'org.codehaus.groovy:groovy-groovysh:3.0.7' // Apache 2.0
+    api 'org.codehaus.groovy:groovy:3.0.2' // Apache 2.0
+    api 'org.codehaus.groovy:groovy-dateutil:3.0.2' // Apache 2.0
+    api 'org.codehaus.groovy:groovy-groovysh:3.0.2' // Apache 2.0
     // jline, an older version, is required by groovy-groovysh but not in its dependencies
     implementation 'jline:jline:2.14.6' // BSD
-    api 'org.codehaus.groovy:groovy-json:3.0.7' // Apache 2.0
-    api 'org.codehaus.groovy:groovy-templates:3.0.7' // Apache 2.0
-    api 'org.codehaus.groovy:groovy-xml:3.0.7' // Apache 2.0
+    api 'org.codehaus.groovy:groovy-json:3.0.2' // Apache 2.0
+    api 'org.codehaus.groovy:groovy-templates:3.0.2' // Apache 2.0
+    api 'org.codehaus.groovy:groovy-xml:3.0.2' // Apache 2.0
 
     // jansi is needed for groovydoc only, so in providedCompile (not included in war)
     compileOnly 'org.fusesource.jansi:jansi:1.18'
@@ -204,7 +204,7 @@ dependencies {
     implementation group: 'com.google.code.gson', name: 'gson', version: '2.8.9'
 
     // YAML
-    implementation 'org.codehaus.groovy:groovy-yaml:3.0.7'
+    implementation 'org.codehaus.groovy:groovy-yaml:3.0.2'
     implementation group: 'com.fasterxml.jackson.dataformat', name: 'jackson-dataformat-yaml', version: '2.14.2'
     implementation group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.14.2'
     implementation group: 'com.fasterxml.jackson.core', name: 'jackson-core', version: '2.14.2'
