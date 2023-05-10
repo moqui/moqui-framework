@@ -56,7 +56,7 @@ import javax.servlet.http.HttpServletResponse
 @CompileStatic
 class ScreenRenderImpl implements ScreenRender {
     protected final static Logger logger = LoggerFactory.getLogger(ScreenRenderImpl.class)
-    protected final static boolean isTraceEnabled = logger.isTraceEnabled()
+    protected final static Boolean isTraceEnabled = logger.isTraceEnabled()
 
     public final ScreenFacadeImpl sfi
     public final ExecutionContextImpl ec

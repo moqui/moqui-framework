@@ -50,7 +50,7 @@ class MoquiContextListener implements ServletContextListener {
     protected ExecutionContextFactoryImpl ecfi = null
 
     void contextInitialized(ServletContextEvent servletContextEvent) {
-        long initStartTime = System.currentTimeMillis()
+        Long initStartTime = System.currentTimeMillis()
 
         try {
             ServletContext sc = servletContextEvent.servletContext

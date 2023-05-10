@@ -406,7 +406,7 @@ class ServiceFacadeImpl implements ServiceFacade {
         for (ServiceEcaRule ecaRule in ruleNoIdList) {
 
             // find all matching services if the name is a pattern, otherwise just add the service name to the list
-            boolean nameIsPattern = ecaRule.nameIsPattern
+            Boolean nameIsPattern = ecaRule.nameIsPattern
             List<String> serviceNameList = new ArrayList<>()
             if (nameIsPattern) {
                 String serviceNamePattern = ecaRule.serviceName
@@ -448,7 +448,7 @@ class ServiceFacadeImpl implements ServiceFacade {
             // a service name is valid if it is not a pattern and represents a defined service or if it is a pattern and
             // matches at least one of the known service names
             String serviceName = secaNode.attribute("service")
-            boolean nameIsPattern = secaNode.attribute("name-is-pattern") == "true"
+            Boolean nameIsPattern = secaNode.attribute("name-is-pattern") == "true"
             boolean serviceDefined = false
             if (nameIsPattern) {
                 for (String ksn : knownServiceNames) {

@@ -23,7 +23,7 @@ import org.slf4j.LoggerFactory;
 /** Simple class for evaluating expressions to get System properties and environment variables by string expansion */
 public class SystemBinding extends Binding {
     private final static Logger logger = LoggerFactory.getLogger(SystemBinding.class);
-    private final static boolean isTraceEnabled = logger.isTraceEnabled();
+    private final static Boolean isTraceEnabled = logger.isTraceEnabled();
 
     private SystemBinding() { super(); }
 

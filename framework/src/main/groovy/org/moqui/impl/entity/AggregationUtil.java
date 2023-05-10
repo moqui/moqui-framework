@@ -32,7 +32,7 @@ import java.util.*;
 
 public class AggregationUtil {
     protected final static Logger logger = LoggerFactory.getLogger(AggregationUtil.class);
-    protected final static boolean isTraceEnabled = logger.isTraceEnabled();
+    protected final static Boolean isTraceEnabled = logger.isTraceEnabled();
 
     public enum AggregateFunction { MIN, MAX, SUM, AVG, COUNT, FIRST, LAST }
     private static final BigDecimal BIG_DECIMAL_TWO = new BigDecimal(2);

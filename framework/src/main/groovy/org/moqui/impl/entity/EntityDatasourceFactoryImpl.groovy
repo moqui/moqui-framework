@@ -29,7 +29,7 @@ import javax.sql.DataSource
 class EntityDatasourceFactoryImpl implements EntityDatasourceFactory {
     protected final static Logger logger = LoggerFactory.getLogger(EntityDatasourceFactoryImpl.class)
     protected final static int DS_RETRY_COUNT = 5
-    protected final static long DS_RETRY_SLEEP = 5000
+    protected final static Long DS_RETRY_SLEEP = 5000
 
     protected EntityFacadeImpl efi = null
     protected MNode datasourceNode = null

@@ -46,7 +46,7 @@ class EntityCache {
     Cache<String, Set<EntityCondition>> oneBfCache
     protected final Map<String, List<String>> cachedListViewEntitiesByMember = new HashMap<>()
 
-    protected final boolean distributedCacheInvalidate
+    protected final Boolean distributedCacheInvalidate
     /** Entity Cache Invalidate Topic */
     private SimpleTopic<EntityCacheInvalidate> entityCacheInvalidateTopic = null
 

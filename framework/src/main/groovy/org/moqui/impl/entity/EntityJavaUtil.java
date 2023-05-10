@@ -40,7 +40,7 @@ import java.util.*;
 
 public class EntityJavaUtil {
     protected final static Logger logger = LoggerFactory.getLogger(EntityJavaUtil.class);
-    protected final static boolean isTraceEnabled = logger.isTraceEnabled();
+    protected final static Boolean isTraceEnabled = logger.isTraceEnabled();
 
     private static final int saltBytes = 8;
     static String enDeCrypt(String value, boolean encrypt, EntityFacadeImpl efi) {

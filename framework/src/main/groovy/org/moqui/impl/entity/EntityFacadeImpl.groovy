@@ -63,7 +63,7 @@ import java.util.concurrent.locks.ReentrantLock
 @CompileStatic
 class EntityFacadeImpl implements EntityFacade {
     protected final static Logger logger = LoggerFactory.getLogger(EntityFacadeImpl.class)
-    protected final static boolean isTraceEnabled = logger.isTraceEnabled()
+    protected final static Boolean isTraceEnabled = logger.isTraceEnabled()
 
     public final ExecutionContextFactoryImpl ecfi
     public final EntityConditionFactoryImpl entityConditionFactory

@@ -92,4 +92,23 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="result" type="Map"/>
         </out-parameters>
     </service>
+
+    <!--BULK ENTITY HANDLER-->
+    <service
+            verb="upload"
+            noun="EntityChanges"
+            method="bulkUpload"
+            type="script"
+            location="classpath://service/dtq/rockycube/bulk/BulkChangesHandler.groovy">
+        <in-parameters>
+            <parameter name="entityName" type="String"/>
+            <parameter name="changes" type="List" required="true"/>
+            <parameter name="deletions" type="List" required="true"/>
+            <parameter name="failsafe" type="Boolean" default-value="false"/>
+            <parameter name="serviceAllowedOn" type="List" default="[]"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="result" type="Map"/>
+        </out-parameters>
+    </service>
 </services>

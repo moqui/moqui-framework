@@ -35,8 +35,8 @@ class ServiceEcaRule {
 
     protected final MNode secaNode
     public final String location, serviceName, serviceNameNoHash, when
-    public final int priority
-    protected final boolean nameIsPattern, runOnError
+    public final Integer priority
+    protected final Boolean nameIsPattern, runOnError
 
     protected final XmlAction condition
     protected final XmlAction actions

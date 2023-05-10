@@ -31,14 +31,14 @@ class BulkEntityHandler {
     void setFailsafeSwitch(boolean failsafeSwitch) {
         this.failsafeSwitch = failsafeSwitch
     }
-/**
+    /**
      * Write changes in a single transaction
      * @param entityName
      * @param changes
      * @param deletions
      * @return
      */
-    public HashMap writeChanges(String entityName, ArrayList<HashMap> changes, ArrayList<HashMap> deletions)
+    public HashMap writeChanges(String entityName, ArrayList<HashMap> changes, ArrayList<HashMap> deletions, ArrayList serviceAllowedOn)
     {
         // create transaction and launch insert inside it
         def newTxCreated = ec.transaction.begin(null)
@@ -51,7 +51,7 @@ class BulkEntityHandler {
                 [],
                 entityName,
                 null,
-                []
+                serviceAllowedOn
         )
 
         // some basic stats

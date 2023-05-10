@@ -80,11 +80,11 @@ import java.util.zip.ZipInputStream
 @CompileStatic
 class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected final static Logger logger = LoggerFactory.getLogger(ExecutionContextFactoryImpl.class)
-    protected final static boolean isTraceEnabled = logger.isTraceEnabled()
+    protected final static Boolean isTraceEnabled = logger.isTraceEnabled()
     
     private AtomicBoolean destroyed = new AtomicBoolean(false)
 
-    public final long initStartTime
+    public final Long initStartTime
     public final String initStartHex
     protected String runtimePath
     @SuppressWarnings("GrFinalVariableAccess") protected final String runtimeConfPath

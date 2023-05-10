@@ -770,7 +770,7 @@ abstract class EntityFindBase implements EntityFind {
     protected EntityValue oneInternal(ExecutionContextImpl ec, EntityDefinition ed) throws EntityException, SQLException {
         if (this.dynamicView != null) throw new EntityException("Dynamic View not supported for 'one' find.")
 
-        boolean isViewEntity = ed.isViewEntity
+        Boolean isViewEntity = ed.isViewEntity
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
 
         if (entityInfo.isInvalidViewEntity) throw new EntityException("Cannot do find for view-entity with name ${entityName} because it has no member entities or no aliased fields.")
@@ -1051,7 +1051,7 @@ abstract class EntityFindBase implements EntityFind {
         }
 
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
-        boolean isViewEntity = entityInfo.isView
+        Boolean isViewEntity = entityInfo.isView
 
         if (entityInfo.isInvalidViewEntity) throw new EntityException("Cannot do find for view-entity with name ${entityName} because it has no member entities or no aliased fields.")
 
@@ -1221,7 +1221,7 @@ abstract class EntityFindBase implements EntityFind {
         if (requireSearchFormParameters && !hasSearchFormParameters) return null
 
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
-        boolean isViewEntity = entityInfo.isView
+        Boolean isViewEntity = entityInfo.isView
 
         if (entityInfo.isInvalidViewEntity) throw new EntityException("Cannot do find for view-entity with name ${entityName} because it has no member entities or no aliased fields.")
 
@@ -1347,7 +1347,7 @@ abstract class EntityFindBase implements EntityFind {
         if (requireSearchFormParameters && !hasSearchFormParameters) return 0L
 
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
-        boolean isViewEntity = entityInfo.isView
+        Boolean isViewEntity = entityInfo.isView
 
         // there may not be a simpleAndMap, but that's all we have that can be treated directly by the EECA
         // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(ed.getFullEntityName(), simpleAndMap, "find-count", true)

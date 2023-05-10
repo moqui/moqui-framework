@@ -47,8 +47,8 @@ class EntityDefinition {
     protected final EntityFacadeImpl efi
     public final MNode internalEntityNode
     public final String fullEntityName
-    public final boolean isViewEntity
-    public final boolean isDynamicView
+    public final Boolean isViewEntity
+    public final Boolean isDynamicView
     public final String groupName
     public final EntityJavaUtil.EntityInfo entityInfo
 
