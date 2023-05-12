@@ -29,6 +29,8 @@ class GenericUtilities {
                 return field
             case "arraylist":
                 return field
+            case "nullobject":
+                return null
             default:
                 return convertToComplexType(field.toString())
         }
@@ -50,6 +52,21 @@ class GenericUtilities {
             return gson.fromJson(incomingStr, ArrayList.class)
         } else {
             return gson.fromJson(incomingStr, HashMap.class)
+        }
+    }
+
+    public static Boolean isEmpty(Object obj)
+    {
+        if (obj == null) return true
+
+        switch(obj.getClass())
+        {
+            case ArrayList.class:
+                return (obj as ArrayList).isEmpty()
+            case HashMap.class:
+                return (obj as HashMap).isEmpty()
+            default:
+                return obj.toString().size() == 0
         }
     }
 }
