@@ -13,6 +13,7 @@ def insertFromJson() {
     long recordsLoaded = edl.load(messages)
 
     ec.logger.info("Records created: [${recordsLoaded}]")
+    return [result: "Records created: [${recordsLoaded}]"]
     //ec.message.addMessage("Loaded ${recordsLoaded} records from [${source}]")
     //ec.web.session.setAttribute("DataImport.messages", messages)
 }

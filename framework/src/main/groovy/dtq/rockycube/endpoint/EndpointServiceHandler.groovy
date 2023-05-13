@@ -1166,13 +1166,13 @@ class EndpointServiceHandler {
 
         // check status code
         if (restResponse.statusCode != 200) {
-            if (debug) GenericUtilities.debugFile(ec, "vizualize-items-exception.${identity}.txt", restResponse.reasonPhrase)
+            if (debug) GenericUtilities.debugFile(ec, "vizualize-items-exception.${identity}", restResponse.reasonPhrase)
 
             logger.error("Error in response from pyCalc [${restResponse.reasonPhrase}] for session [${identity}]")
             throw new EndpointException("Response with status ${restResponse.statusCode} returned: ${restResponse.reasonPhrase}")
         }
 
-        if (debug) GenericUtilities.debugFile(ec, "vizualize-items-after-calc.${identity}.json", restResponse.jsonObject())
+        if (debug) GenericUtilities.debugFile(ec, "vizualize-items-after-calc.${identity}", restResponse.jsonObject())
 
         HashMap response = restResponse.jsonObject() as HashMap
         return response['data']

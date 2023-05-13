@@ -8,6 +8,7 @@ import org.moqui.context.ExecutionContext
 import org.moqui.resource.ResourceReference
 
 import java.nio.charset.StandardCharsets
+import java.util.regex.Pattern
 
 class GenericUtilities {
     protected static Gson gson = new Gson()
@@ -39,10 +40,33 @@ class GenericUtilities {
     /*
      * Store file in a `tmp` directory of the backend, for debugging purposes
      */
-    public static void debugFile(ExecutionContext ec, String fileId, Object data)
+    public static void debugFile(ExecutionContext ec, String fileId, Object data, Long internalCounter=0)
     {
         ResourceReference ref = ec.resource.getLocationReference("tmp")
-        ref.makeFile(fileId).putText (JsonOutput.prettyPrint(JsonOutput.toJson(data)))
+
+        // default ext
+        def defaultExt = 'json'
+        def fileName = fileId
+        def fileExtension = defaultExt
+
+        // check for extension
+        def recExt = Pattern.compile('(.+)\\.(\\w{3,4})$')
+        def m = recExt.matcher(fileName)
+        if (m.matches())
+        {
+            fileName = m.group(1)
+            fileExtension = m.group(2)
+        }
+
+        // calculate file name with counter, if provided
+        if (internalCounter > 0) {
+            fileName = "${fileName}.${internalCounter}.${fileExtension}"
+        } else {
+            fileName = "${fileName}.${fileExtension}"
+        }
+
+        if (fileExtension == 'json') ref.makeFile(fileName).putText (JsonOutput.prettyPrint(JsonOutput.toJson(data)))
+        if (fileExtension != 'json') ref.makeFile(fileName).putText (data as String)
     }
 
     private static Object convertToComplexType(String incomingStr){
@@ -67,6 +91,25 @@ class GenericUtilities {
                 return (obj as HashMap).isEmpty()
             default:
                 return obj.toString().size() == 0
+        }
+    }
+
+    /**
+     * This method processes each map using a closure, no matter if it is standalone or in an array
+     * @param inp
+     * @param cbProcess
+     */
+    public static void processEachMap(Object inp, Closure cbProcess)
+    {
+        switch(inp.getClass())
+        {
+            case ArrayList.class:
+                (inp as ArrayList).each {it->
+                    cbProcess(it)
+                }
+                break
+            default:
+                cbProcess(inp)
         }
     }
 }
