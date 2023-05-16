@@ -390,19 +390,20 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // set default System properties now that all is merged
         for (MNode defPropNode in baseConfigNode.children("default-property")) {
             String propName = defPropNode.attribute("name")
-            boolean isSecret = "true".equals(defPropNode.attribute("is-secret")) || propName.contains("pass") || propName.contains("pw") || propName.contains("key")
+            String isSecretAttr = defPropNode.attribute("is-secret")
+            boolean isSecret = !"false".equals(isSecretAttr) &&
+                    ("true".equals(isSecretAttr) || propName.contains("pass") || propName.contains("pw") || propName.contains("key"))
             if (System.getProperty(propName)) {
                 if (isSecret) {
-                    logger.info("Found pw/key property ${propName}, not setting from env var or default")
+                    logger.info("Found secret property ${propName}, not setting from env var or default")
                 } else {
                     logger.info("Found property ${propName} with value [${System.getProperty(propName)}], not setting from env var or default")
                 }
-                continue
             } else if (System.getenv(propName)) {
                 // make env vars available as Java System properties
                 System.setProperty(propName, System.getenv(propName))
                 if (isSecret) {
-                    logger.info("Setting pw/key property ${propName} from env var")
+                    logger.info("Setting secret property ${propName} from env var")
                 } else {
                     logger.info("Setting property ${propName} from env var with value [${System.getProperty(propName)}]")
                 }
@@ -411,7 +412,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                 if (valueAttr != null && !valueAttr.isEmpty()) {
                     System.setProperty(propName, SystemBinding.expand(valueAttr))
                     if (isSecret) {
-                        logger.info("Setting pw/key property ${propName} from default")
+                        logger.info("Setting secret property ${propName} from default")
                     } else {
                         logger.info("Setting property ${propName} from default with value [${System.getProperty(propName)}]")
                     }
