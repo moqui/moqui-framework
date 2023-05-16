@@ -49,9 +49,9 @@
     <default-property name="entity_ds_url" value="jdbc:h2:${moqui_runtime}/db/h2/${entity_ds_database};lock_timeout=30000"/>
     <default-property name="entity_ds_schema" value=""/>
     <default-property name="entity_ds_user" value="sa"/>
-    <default-property name="entity_ds_password" value="sa"/>
-    <default-property name="entity_ds_crypt_pass" value="MoquiDefaultPassword:CHANGEME"/>
-    <default-property name="entity_ds_crypt_pass_old" value="MoquiDefaultPassword:CHANGEME"/>
+    <default-property name="entity_ds_password" value="sa" is-secret="true"/>
+    <default-property name="entity_ds_crypt_pass" value="MoquiDefaultPassword:CHANGEME" is-secret="true"/>
+    <default-property name="entity_ds_crypt_pass_old" value="MoquiDefaultPassword:CHANGEME" is-secret="true"/>
     <default-property name="entity_add_missing_runtime" value="false"/>
     <default-property name="entity_add_missing_startup" value="true"/>
     <default-property name="entity_lock_track" value="false"/>
@@ -67,7 +67,7 @@
     <default-property name="entity_ds_c1_port" value=""/>
     <default-property name="entity_ds_c1_database" value=""/>
     <default-property name="entity_ds_c1_user" value=""/>
-    <default-property name="entity_ds_c1_password" value=""/>
+    <default-property name="entity_ds_c1_password" value="" is-secret="true"/>
 
     <!-- How often (in seconds) to check for scheduled jobs to run, set to 0 to not run scheduled jobs -->
     <default-property name="scheduled_job_check_time" value="60"/>
@@ -75,7 +75,7 @@
     <!-- ElasticSearch Client and Proxy Servlet settings -->
     <default-property name="elasticsearch_url" value="http://127.0.0.1:9200"/>
     <default-property name="elasticsearch_user" value=""/>
-    <default-property name="elasticsearch_password" value=""/>
+    <default-property name="elasticsearch_password" value="" is-secret="true"/>
     <default-property name="elasticsearch_index_prefix" value=""/>
     <!-- Kibana Proxy Servlet settings -->
     <default-property name="kibana_host" value="127.0.0.1"/>
