@@ -107,7 +107,7 @@ class EntityDbMeta {
         String schemaName = datasourceNode != null ? datasourceNode.attribute("schema-name") : null
         Set<String> groupEntityNames = efi.getAllEntityNamesInGroup(groupName)
 
-        String[] types = ["TABLE", "VIEW", "ALIAS", "SYNONYM"]
+        String[] types = ["TABLE", "VIEW", "ALIAS", "SYNONYM", "PARTITIONED TABLE"]
         Set<String> existingTableNames = new HashSet<>()
 
         boolean beganTx = useTxForMetaData ? efi.ecfi.transactionFacade.begin(300) : false
@@ -458,7 +458,7 @@ class EntityDbMeta {
                 con = efi.getConnection(groupName)
                 DatabaseMetaData dbData = con.getMetaData()
 
-                String[] types = ["TABLE", "VIEW", "ALIAS", "SYNONYM"]
+                String[] types = ["TABLE", "VIEW", "ALIAS", "SYNONYM", "PARTITIONED TABLE"]
                 tableSet1 = dbData.getTables(con.getCatalog(), ed.getSchemaName(), ed.getTableName(), types)
                 if (tableSet1.next()) {
                     dbResult = true
