@@ -2347,6 +2347,7 @@ class ScreenRenderImpl implements ScreenRender {
                 boolean active = (nextItem == subscreensItem.name)
                 Map itemMap = [name:subscreensItem.name, title:ec.resource.expand(subscreensItem.menuTitle, ""),
                                path:screenPath, pathWithParams:pathWithParams, image:image, imageType:imageType]
+                if (subscreensItem.menuInclude) itemMap.menuInclude = true
                 if (active) itemMap.active = true
                 if (screenUrlInstance.disableLink) itemMap.disableLink = true
                 subscreensList.add(itemMap)
