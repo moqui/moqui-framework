@@ -373,6 +373,16 @@ along with this software (see the LICENSE.md file). If not, see
         <alias-all entity-alias="SI"><exclude field="statusId"/></alias-all>
         <entity-condition><order-by field-name="sequenceNum"/></entity-condition>
     </view-entity>
+    <view-entity entity-name="StatusFlowTransitionFromAndTo" package="moqui.basic">
+        <member-entity entity-alias="SFT" entity-name="moqui.basic.StatusFlowTransition"/>
+        <member-entity entity-alias="SIFR" entity-name="moqui.basic.StatusItem" join-from-alias="SFT">
+            <key-map field-name="statusId" related="statusId"/></member-entity>
+        <member-entity entity-alias="SITO" entity-name="moqui.basic.StatusItem" join-from-alias="SFT">
+            <key-map field-name="toStatusId" related="statusId"/></member-entity>
+        <alias-all entity-alias="SFT"/>
+        <alias-all entity-alias="SIFR" prefix="from"><exclude field="statusId"/></alias-all>
+        <alias-all entity-alias="SITO" prefix="to"><exclude field="statusId"/></alias-all>
+    </view-entity>
 
     <!-- ========== Uom ========== -->
     <entity entity-name="Uom" package="moqui.basic" use="configuration" short-alias="uoms" cache="true">

@@ -331,6 +331,7 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.Uom abbreviation="g" description="Gram" uomId="WT_g" uomTypeEnumId="UT_WEIGHT_MEASURE"/>
     <moqui.basic.Uom abbreviation="kg" description="Kilogram" uomId="WT_kg" uomTypeEnumId="UT_WEIGHT_MEASURE"/>
     <moqui.basic.Uom abbreviation="mg" description="Milligram" uomId="WT_mg" uomTypeEnumId="UT_WEIGHT_MEASURE"/>
+    <moqui.basic.Uom abbreviation="mcg" description="Microgram" uomId="WT_mcg" uomTypeEnumId="UT_WEIGHT_MEASURE"/>
     <moqui.basic.Uom abbreviation="oz" description="Ounce (avdp)" uomId="WT_oz" uomTypeEnumId="UT_WEIGHT_MEASURE"/>
     <moqui.basic.Uom abbreviation="oz tr" description="Ounce (troy)" uomId="WT_oz_tr" uomTypeEnumId="UT_WEIGHT_MEASURE"/>
     <moqui.basic.Uom abbreviation="dwt" description="Pennyweight" uomId="WT_dwt" uomTypeEnumId="UT_WEIGHT_MEASURE"/>
@@ -346,6 +347,7 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.UomConversion uomConversionId="WT_kg_g" uomId="WT_kg" toUomId="WT_g" conversionFactor="1000"/>
     <moqui.basic.UomConversion uomConversionId="WT_kg_lb" uomId="WT_kg" toUomId="WT_lb" conversionFactor="2.2046226"/>
     <moqui.basic.UomConversion uomConversionId="WT_g_mg" uomId="WT_g" toUomId="WT_mg" conversionFactor="1000"/>
+    <moqui.basic.UomConversion uomConversionId="WT_mg_mcg" uomId="WT_mg" toUomId="WT_mcg" conversionFactor="1000"/>
     <moqui.basic.UomConversion uomConversionId="WT_g_oz" uomId="WT_g" toUomId="WT_oz" conversionFactor="0.035273962"/>
     <moqui.basic.UomConversion uomConversionId="WT_oz_lb" uomId="WT_oz" toUomId="WT_lb" conversionFactor="0.0625"/>
     <moqui.basic.UomConversion uomConversionId="WT_oz_tr_lb" uomId="WT_oz_tr" toUomId="WT_lb" conversionFactor="0.083333333"/>

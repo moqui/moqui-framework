@@ -513,6 +513,7 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="NotificationMessage" package="moqui.security.user" use="nontransactional" cache="never">
         <field name="notificationMessageId" type="id" is-pk="true"/>
         <field name="topic" type="text-medium"/>
+        <field name="subTopic" type="text-medium"/>
         <field name="userGroupId" type="id"/>
         <field name="sentDate" type="date-time"/>
         <field name="messageJson" type="text-very-long"/>

@@ -49,6 +49,7 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:complexType>
             <xs:attribute name="name" type="xs:string" use="required"/>
             <xs:attribute name="value" type="xs:string" use="required"/>
+            <xs:attribute name="is-secret" type="boolean" default="false"/>
         </xs:complexType>
     </xs:element>
 

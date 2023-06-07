@@ -77,7 +77,10 @@
     <component name="PopCommerce" group="moqui" version="2.2.0" branch="master"/>
     <component name="MarbleERP" group="moqui" version="1.0.0" branch="master"/>
     <component name="PopRestStore" group="moqui" version="1.1.0" branch="master"/>
+    <component name="WeCreate" group="moqui" version="" branch="master"/><!-- no releases yet -->
+    <!-- Moqui Web and Demo Sites -->
     <component name="moqui-org" group="moqui" version="" branch="master"/><!-- no releases -->
+    <component name="moqui-demo" group="moqui" version="" branch="master"/><!-- no releases -->
 
     <!-- Third Party Components -->
     <component name="moqui-captcha" group="shendepu" version="" branch="master"/><!-- no releases -->

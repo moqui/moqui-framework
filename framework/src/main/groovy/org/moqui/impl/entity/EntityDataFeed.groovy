@@ -633,7 +633,7 @@ class EntityDataFeed {
                                     //     entity name alone
                                     String currentRelName = backwardRelList.get(i)
                                     String currentRelEntityName = currentRelName.contains("#") ?
-                                            currentRelName.substring(0, currentRelName.indexOf("#")) :
+                                            currentRelName.substring(currentRelName.indexOf("#") + 1) :
                                             currentRelName
                                     // all values should be for the same entity, so just use the first
                                     EntityDefinition prevRelValueEd = prevRelValueList.get(0).getEntityDefinition()

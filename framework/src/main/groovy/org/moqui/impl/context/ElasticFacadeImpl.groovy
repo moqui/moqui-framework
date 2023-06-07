@@ -493,8 +493,14 @@ class ElasticFacadeImpl implements ElasticFacade {
                 // requires 2.4.0 or later
                 response = makeRestClient(Method.POST, index, "_search/point_in_time", [keep_alive:keepAlive]).call()
             } else {
-                // see: https://www.elastic.co/guide/en/elasticsearch/reference/current/paginate-search-results.html#scroll-search-results
-                response = makeRestClient(Method.POST, index, "_pit", [keep_alive:keepAlive]).call()
+                // see: https://www.elastic.co/guide/en/elasticsearch/reference/7.10/paginate-search-results.html#scroll-search-results
+                // whatever the docs say:
+                // - it doesn't work with the keep_alive parameter at all "contains unrecognized parameter: [keep_alive]"
+                // - does not work with no body "request body is required"
+                // - and it doesn't work without the doc type _doc before _pit in the path "mapping type name [_pit] can't start with '_' unless it is called [_doc]"
+                // in other words, the docs are completely wrong for ES 7.10.2
+                // response = makeRestClient(Method.POST, index, "_pit", [keep_alive:keepAlive]).call()
+                response = makeRestClient(Method.POST, index, "_doc/_pit", null).text(objectToJson([keep_alive:keepAlive])).call()
             }
             // System.out.println("Get PIT Response: ${response.statusCode} ${response.reasonPhrase}\n${response.text()}")
             checkResponse(response, "PIT", index)
@@ -510,7 +516,7 @@ class ElasticFacadeImpl implements ElasticFacade {
                 response = makeRestClient(Method.DELETE, null, "_search/point_in_time", null)
                         .text(objectToJson([pit_id:[pitId]])).call()
             } else {
-                // see: https://www.elastic.co/guide/en/elasticsearch/reference/current/paginate-search-results.html#scroll-search-results
+                // see: https://www.elastic.co/guide/en/elasticsearch/reference/7.10/paginate-search-results.html#scroll-search-results
                 response = makeRestClient(Method.DELETE, null, "_pit", null).text(objectToJson([id:pitId])).call()
             }
             // System.out.println("Delete PIT Response: ${response.statusCode} ${response.reasonPhrase}\n${response.text()}")

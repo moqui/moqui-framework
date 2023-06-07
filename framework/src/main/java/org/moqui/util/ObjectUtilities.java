@@ -18,7 +18,14 @@ import org.moqui.BaseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.beans.BeanInfo;
+import java.beans.IntrospectionException;
+import java.beans.Introspector;
+import java.beans.PropertyDescriptor;
 import java.io.*;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -53,6 +60,47 @@ public class ObjectUtilities {
         temporalUnitByUomId = tum;
     }
 
+    /** Populate a Map with public fields and Java Bean style properties (using java.beans.BeanInfo) */
+    public static Map<String, Object> objectToMap(Object bean) {
+        if (bean == null) return null;
+        Map<String, Object> map = new HashMap<>();
+
+        Class clazz = bean.getClass();
+        Field[] fields = clazz.getFields();
+        for (int fi = 0; fi < fields.length; fi++) {
+            Field field = fields[fi];
+            try {
+                map.put(field.getName(), field.get(bean));
+            } catch (IllegalAccessException e) {
+                // do nothing, maybe log at some point if we care enough and are okay with the potential performance hit
+            }
+        }
+
+        /* commenting for now, seems to call a bunch of undesired methods, will need some work to filter them out:
+        try {
+            BeanInfo beanInfo = Introspector.getBeanInfo(clazz);
+            PropertyDescriptor[] propertyDescriptors = beanInfo.getPropertyDescriptors();
+            for (int pi = 0; pi < propertyDescriptors.length; pi++) {
+                PropertyDescriptor propertyDescriptor = propertyDescriptors[pi];
+                Method readMethod = propertyDescriptor.getReadMethod();
+                if (readMethod != null) {
+                    try {
+                        map.put(propertyDescriptor.getName(), readMethod.invoke(bean));
+                    } catch (IllegalAccessException | InvocationTargetException e) {
+                        // nothing again
+                    }
+                }
+            }
+        } catch (IntrospectionException e) {
+            // nothing again
+        }
+        */
+
+        // this gets picked up automatically, just remove at the end, faster than checking along the way
+        map.remove("class");
+
+        return map;
+    }
 
     @SuppressWarnings("unchecked")
     public static Object basicConvert(Object value, final String javaType) {
