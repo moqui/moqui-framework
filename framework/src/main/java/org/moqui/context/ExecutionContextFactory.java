@@ -34,7 +34,9 @@ public interface ExecutionContextFactory {
     /** Destroy the active Execution Context. When another is requested in this thread a new one will be created. */
     void destroyActiveExecutionContext();
 
-    /** Called after construction but before registration with Moqui/Servlet, check for empty database and load configured data. */
+    /** Called after construction but before registration with Moqui/Servlet, check for empty database and load configured data.
+     * If empty-db-load is not done and on-start-load-types has a value handles that as well.
+     * Also loads type 'test' data if instance_purpose=test. */
     boolean checkEmptyDb();
     /** Destroy this ExecutionContextFactory and all resources it uses (all facades, tools, etc) */
     void destroy();
