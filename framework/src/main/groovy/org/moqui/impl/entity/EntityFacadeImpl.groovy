@@ -18,6 +18,7 @@ import org.codehaus.groovy.runtime.typehandling.GroovyCastException
 import org.moqui.BaseArtifactException
 import org.moqui.BaseException
 import org.moqui.context.ArtifactExecutionInfo
+import org.moqui.context.ExecutionContextFactory
 import org.moqui.etl.SimpleEtl
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ExecutionContextImpl
@@ -2322,5 +2323,27 @@ class EntityFacadeImpl implements EntityFacade {
             this.eecaRulesByEntityName.put(entityName, lst)
         }
         lst.add(eer)
+    }
+
+    public static EntityEcaRule createEecaCrudRule(ExecutionContextFactory ecf, EntityDefinition ed, MNode scriptNode){
+        String entityName = ed.fullEntityName
+
+        // create new MNode
+        HashMap<String, String> eecaAttrs = [:]
+        eecaAttrs.put("entity", entityName)
+        eecaAttrs.put("on-create", "true")
+        eecaAttrs.put("on-update", "true")
+        eecaAttrs.put("on-delete", "true")
+        eecaAttrs.put("run-on-error", "true")
+        MNode eecaRuleNode = new MNode("eeca", eecaAttrs)
+
+        // create new EECA rule for entity
+        def actionNode = eecaRuleNode.append("actions", [:])
+        actionNode.append(scriptNode)
+
+        logger.info("Creating CRUD EECA rule for ${entityName}")
+        // logger.debug("Script: ${scriptNode}")
+
+        return new EntityEcaRule((ExecutionContextFactoryImpl) ecf, eecaRuleNode, "")
     }
 }

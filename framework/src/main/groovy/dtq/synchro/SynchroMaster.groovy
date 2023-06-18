@@ -122,11 +122,11 @@ class SynchroMaster {
         if (this.getIsSynced(entityName))
         {
             logger.warn("Synchronized, no need to make any changes")
-            return
+            return false
         }
 
         // reload cache
-        return this.startSynchronization(ed) != ""
+        return this.startSynchronization(ed) != null
     }
 
     // initialize cache and upload data from database table
@@ -135,7 +135,7 @@ class SynchroMaster {
         String entityName = ed.fullEntityName
         def cacheName = getCacheName(entityName)
         def cache = ecf.executionContext.cache.getCache(cacheName)
-        if (!checkEntityKeys(ed)) return
+        if (!checkEntityKeys(ed)) return null
 
         // reset cache
         cache.removeAll()
@@ -161,6 +161,12 @@ class SynchroMaster {
         return cacheName
     }
 
+    /**
+     * This method creates an EntityECARule that takes care of handling events
+     * triggered by changes in Entity (passed in as variable)
+     * @param ed
+     * @return
+     */
     private EntityEcaRule createCrudRule(EntityDefinition ed){
         String entityName = ed.fullEntityName
 

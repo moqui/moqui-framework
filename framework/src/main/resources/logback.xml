@@ -28,7 +28,9 @@
     </appender>
 
     <root level="info">
-        <appender-ref ref="STDOUT" />
+        <appender-ref ref="STDOUT"  />
         <appender-ref ref="LogFile" />
     </root>
+
+    <logger name="dtq.closure.ClosureWatcher" level="DEBUG"/>
 </configuration>
