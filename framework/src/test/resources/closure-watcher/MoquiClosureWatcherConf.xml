@@ -30,8 +30,6 @@
     <default-property name="elasticsearch_index_prefix" value=""/>
     <default-property name="elasticsearch_index_prefix" value=""/>
     <default-property name="entity_add_missing_runtime" value="true"/>
-
-    <default-property name="supervised_closures" value="imported-project-budget-v3,workrecords-detailed,imported-project-budget-v2"/>
     <default-property name="closures_config_dir" value="component://moqui-projects-api/src/test/resources/closure/configs"/>
 
     <tools>

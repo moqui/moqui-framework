@@ -27,6 +27,8 @@ import org.moqui.util.RestClient
 import org.moqui.util.StringUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+
+import java.util.concurrent.Future
 import java.util.regex.Pattern
 
 class EndpointServiceHandler {
@@ -335,6 +337,7 @@ class EndpointServiceHandler {
 
     private Object fillResultset(EntityValue single)
     {
+        // we need unordered list of keys
         LinkedHashMap<String, Object> recordMap = [:]
         // logger.info("args.allowedFields: ${args[CONST_ALLOWED_FIELDS]}")
 
@@ -1105,8 +1108,14 @@ class EndpointServiceHandler {
                 data: itemToCalculate
         ]
 
+        // debug what is going to py-calc
+        if (debug) {
+            GenericUtilities.debugFile(ec, "closure-handler-process-items-to-execute.${identity}.json", payload)
+        }
+
         RestClient restClient = ec.service.rest().method(RestClient.POST)
                 .uri("${pycalcHost}/api/v1/calculator/execute")
+                .isolate(true)
                 .addHeader("Content-Type", "application/json")
                 .jsonObject(payload)
 
