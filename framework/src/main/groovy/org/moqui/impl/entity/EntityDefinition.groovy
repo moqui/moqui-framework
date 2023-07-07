@@ -77,6 +77,12 @@ class EntityDefinition {
     private boolean hasReverseRelationships = false
     private Map<String, MasterDefinition> masterDefinitionMap = null
 
+    /**
+     * Flag for indicating special entity. If set to true,
+     * the entity is a special case
+     */
+    private boolean nameDefinedEntity = false
+
     EntityDefinition(EntityFacadeImpl efi, MNode entityNode) {
         this.efi = efi
         // copy the entityNode because we may be modifying it
@@ -925,7 +931,14 @@ class EntityDefinition {
         return prettyName.toString()
     }
 
-    // used in EntityCache for view entities
+    boolean getNameDefinedEntity() {
+        return nameDefinedEntity
+    }
+
+    void setNameDefinedEntity(boolean nameDefinedEntity) {
+        this.nameDefinedEntity = nameDefinedEntity
+    }
+// used in EntityCache for view entities
     Map<String, String> getMePkFieldToAliasNameMap(String entityAlias) {
         if (mePkFieldToAliasNameMapMap == null) mePkFieldToAliasNameMapMap = new HashMap<String, Map<String, String>>()
         Map<String, String> mePkFieldToAliasNameMap = (Map<String, String>) mePkFieldToAliasNameMapMap.get(entityAlias)

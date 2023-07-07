@@ -14,6 +14,7 @@
 package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
+import org.apache.commons.lang3.RandomStringUtils
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.entity.EntityJavaUtil.RelationshipInfo
 import org.moqui.util.CollectionUtilities
@@ -564,9 +565,18 @@ class EntityDbMeta {
         }
 
         if (databaseNode.attribute("use-pk-constraint-names") != "false") {
-            String pkName = "PK_" + ed.getTableName()
-            int constraintNameClipLength = (databaseNode.attribute("constraint-name-clip-length")?:"30") as int
-            if (pkName.length() > constraintNameClipLength) pkName = pkName.substring(0, constraintNameClipLength)
+
+            String pkName = null
+            // for named-defined entity, use random string generator
+            if (!ed.nameDefinedEntity)
+            {
+                pkName = "PK_" + ed.getTableName()
+                int constraintNameClipLength = (databaseNode.attribute("constraint-name-clip-length")?:"30") as int
+                if (pkName.length() > constraintNameClipLength) pkName = pkName.substring(0, constraintNameClipLength)
+            } else {
+                pkName = "PK_" + RandomStringUtils.randomAlphanumeric(15)
+            }
+
             sql.append("CONSTRAINT ")
             if (databaseNode.attribute("use-schema-for-all") == "true") sql.append(ed.getSchemaName() ? ed.getSchemaName() + "." : "")
             sql.append(pkName)

@@ -653,6 +653,7 @@ class EntityFacadeImpl implements EntityFacade {
 
         EntityDefinition ed = (EntityDefinition) entityDefinitionCache.get(entityNameToSearch)
         if (ed != null) {
+            if (entitySuffix) ed.nameDefinedEntity = true
             return ed
         }
 
@@ -841,6 +842,7 @@ class EntityFacadeImpl implements EntityFacade {
 
         // create the new EntityDefinition
         ed = new EntityDefinition(this, entityNode)
+        if (entitySuffix) ed.nameDefinedEntity = true
 
         // cache it under entityName, fullEntityName, and short-alias
         String fullEntityName = ed.fullEntityName
@@ -2341,7 +2343,7 @@ class EntityFacadeImpl implements EntityFacade {
         def actionNode = eecaRuleNode.append("actions", [:])
         actionNode.append(scriptNode)
 
-        logger.info("Creating CRUD EECA rule for ${entityName}")
+        logger.info("Creating CRUD EECA rule for ${entityName}: [${actionNode}]")
         // logger.debug("Script: ${scriptNode}")
 
         return new EntityEcaRule((ExecutionContextFactoryImpl) ecf, eecaRuleNode, "")
