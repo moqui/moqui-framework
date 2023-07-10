@@ -574,7 +574,7 @@ class EntityDbMeta {
                 int constraintNameClipLength = (databaseNode.attribute("constraint-name-clip-length")?:"30") as int
                 if (pkName.length() > constraintNameClipLength) pkName = pkName.substring(0, constraintNameClipLength)
             } else {
-                pkName = "PK_" + RandomStringUtils.randomAlphanumeric(15)
+                pkName = "PK_" + RandomStringUtils.randomAlphanumeric(10)
             }
 
             sql.append("CONSTRAINT ")
@@ -731,7 +731,12 @@ class EntityDbMeta {
             // being created using one entity schema
             if (indexNode.attribute("table-based-name") == "true")
             {
-                sql.append("${ed.tableName}_${indexNode.attribute("name")}" )
+                if (ed.nameDefinedEntity)
+                {
+                    sql.append("${ed.tableName}_${RandomStringUtils.randomAlphanumeric(10)}" )
+                } else {
+                    sql.append("${ed.tableName}_${indexNode.attribute("name")}" )
+                }
             } else {
                 sql.append(indexNode.attribute("name"))
             }

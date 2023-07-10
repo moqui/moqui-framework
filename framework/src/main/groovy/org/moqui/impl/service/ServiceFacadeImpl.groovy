@@ -14,6 +14,8 @@
 package org.moqui.impl.service
 
 import groovy.transform.CompileStatic
+import org.moqui.context.ExecutionContextFactory
+import org.moqui.impl.entity.EntityEcaRule
 import org.moqui.resource.ResourceReference
 import org.moqui.context.ToolFactory
 import org.moqui.impl.context.ExecutionContextFactoryImpl
@@ -574,5 +576,44 @@ class ServiceFacadeImpl implements ServiceFacade {
         List<ServiceCallback> callbackList = callbackRegistry.get(serviceName)
         if (callbackList != null && callbackList.size() > 0)
             for (ServiceCallback scb in callbackList) scb.receiveEvent(context, t)
+    }
+
+    public void addNewSecaRule(ServiceEcaRule serviceEcaRule)
+    {
+        if (this.secaRulesByServiceName.containsKey(serviceEcaRule.serviceNameNoHash))
+        {
+            throw new Exception("Unsupported method when adding new SECA rule")
+        } else {
+            ArrayList<ServiceEcaRule> rules = new ArrayList<ServiceEcaRule>()
+            rules.add(serviceEcaRule)
+            this.secaRulesByServiceName.put(serviceEcaRule.serviceNameNoHash, rules)
+        }
+    }
+
+    public static ServiceEcaRule createSecaRule(
+            ExecutionContextFactory ecf,
+            String triggerService,
+            String triggerEvent,
+            MNode scriptNode,
+            MNode conditionExpression)
+    {
+        // create new MNode
+        HashMap<String, String> secaAttrs = [:]
+        secaAttrs.put("service", triggerService)
+        secaAttrs.put("when", triggerEvent)
+        secaAttrs.put("name-is-pattern", "false")
+        secaAttrs.put("run-on-error", "false")
+        secaAttrs.put("priority", "5")
+        MNode secaRuleNode = new MNode("seca", secaAttrs)
+
+        // time to setup condition
+        MNode condition = secaRuleNode.append("condition", [:])
+        condition.append(conditionExpression)
+
+        // create new EECA rule for entity
+        def actionNode = secaRuleNode.append("actions", [:])
+        actionNode.append(scriptNode)
+
+        return new ServiceEcaRule((ExecutionContextFactoryImpl) ecf, secaRuleNode, "")
     }
 }
