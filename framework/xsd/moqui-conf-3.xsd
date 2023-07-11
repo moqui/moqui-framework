@@ -49,6 +49,7 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:complexType>
             <xs:attribute name="name" type="xs:string" use="required"/>
             <xs:attribute name="value" type="xs:string" use="required"/>
+            <xs:attribute name="is-secret" type="boolean" default="false"/>
         </xs:complexType>
     </xs:element>
 
@@ -59,6 +60,14 @@ along with this software (see the LICENSE.md file). If not, see
                 Comma-separated list of data file types to load if database is empty (if there are no records in the
                 table for moqui.basic.Enumeration). Empty or 'none' means load nothing, use 'all' to load all found
                 data files regardless of type.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="on-start-load-types" type="xs:string"><xs:annotation><xs:documentation>
+                Comma-separated list of data file types to load on start. Empty or 'none' means load nothing.
+                Does not run if empty-db-load runs.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="on-start-load-components" type="xs:string"><xs:annotation><xs:documentation>
+                Comma-separated list of component names to load on start, used with on-start-load-types.
+                Does not run if empty-db-load runs.</xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="worker-queue" type="xs:integer"><xs:annotation><xs:documentation>
                 The maximum size of the worker queue.</xs:documentation></xs:annotation></xs:attribute>

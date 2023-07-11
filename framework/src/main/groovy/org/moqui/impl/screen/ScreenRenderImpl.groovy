@@ -1203,7 +1203,15 @@ class ScreenRenderImpl implements ScreenRender {
         return ""
     }
 
-    String renderSectionInclude(MNode sectionIncludeNode) {
+    MNode getSectionIncludedNode(MNode sectionIncludeNode) {
+        ScreenDefinition sd = getActiveScreenDef()
+        String sectionName = getSectionIncludeName(sectionIncludeNode)
+        ScreenSection section = sd.getSection(sectionName)
+        if (section == null) throw new BaseArtifactException("No section with name [${sectionName}] in screen [${sd.location}]")
+        return section.sectionNode
+    }
+
+    String getSectionIncludeName(MNode sectionIncludeNode) {
         String sectionLocation = sectionIncludeNode.attribute("location")
         String sectionName = sectionIncludeNode.attribute("name")
         boolean isDynamic = (sectionLocation != null && sectionLocation.contains('${')) || (sectionName != null && sectionName.contains('${'))
@@ -1214,10 +1222,13 @@ class ScreenRenderImpl implements ScreenRender {
             String cacheName = sectionLocation + "#" + sectionName
             if (sd.sectionByName.get(cacheName) == null) sd.pullSectionInclude(sectionIncludeNode)
             // logger.warn("sd.sectionByName ${sd.sectionByName}")
-            return renderSection(cacheName)
+            return cacheName
         } else {
-            return renderSection(sectionName)
+            return sectionName
         }
+    }
+    String renderSectionInclude(MNode sectionIncludeNode) {
+        renderSection(getSectionIncludeName(sectionIncludeNode))
     }
 
     MNode getFormNode(String formName) {
