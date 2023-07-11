@@ -593,6 +593,9 @@ public class CollectionUtilities {
         context.put(pageListName, pageList);
     }
     public static List paginateList(List theList, String pageListName, Map<String, Object> context) {
+        // if this exists then was already paginated so don't do a subList()
+        if (context.containsKey(pageListName + "AlreadyPaginated")) return theList;
+
         Integer pageRangeLow = (Integer) context.get(pageListName + "PageRangeLow");
         Integer pageRangeHigh = (Integer) context.get(pageListName + "PageRangeHigh");
         if (pageRangeLow == null || pageRangeHigh == null) {
@@ -619,20 +622,25 @@ public class CollectionUtilities {
         }
         if (pageSize < 0) pageSize = 20;
 
-        int count = listSize;
-        // calculate the pagination values
-        int maxIndex = (new BigDecimal(count - 1)).divide(new BigDecimal(pageSize), 0, RoundingMode.DOWN).intValue();
-        int pageRangeLow = (pageIndex * pageSize) + 1;
-        if (pageRangeLow > count) pageRangeLow = count + 1;
-        int pageRangeHigh = (pageIndex * pageSize) + pageSize;
-        if (pageRangeHigh > count) pageRangeHigh = count;
+        // NOTE: if context has a *Count field don't calc and set values, assume are already in place
+        if (context.get(pageListName + "Count") == null) {
+            int count = listSize;
+            // calculate the pagination values
+            int maxIndex = (new BigDecimal(count - 1)).divide(new BigDecimal(pageSize), 0, RoundingMode.DOWN).intValue();
+            int pageRangeLow = (pageIndex * pageSize) + 1;
+            if (pageRangeLow > count) pageRangeLow = count + 1;
+            int pageRangeHigh = (pageIndex * pageSize) + pageSize;
+            if (pageRangeHigh > count) pageRangeHigh = count;
 
-        context.put(pageListName + "Count", count);
-        context.put(pageListName + "PageIndex", pageIndex);
-        context.put(pageListName + "PageSize", pageSize);
-        context.put(pageListName + "PageMaxIndex", maxIndex);
-        context.put(pageListName + "PageRangeLow", pageRangeLow);
-        context.put(pageListName + "PageRangeHigh", pageRangeHigh);
+            context.put(pageListName + "Count", count);
+            context.put(pageListName + "PageIndex", pageIndex);
+            context.put(pageListName + "PageSize", pageSize);
+            context.put(pageListName + "PageMaxIndex", maxIndex);
+            context.put(pageListName + "PageRangeLow", pageRangeLow);
+            context.put(pageListName + "PageRangeHigh", pageRangeHigh);
+        } else {
+            context.put(pageListName + "AlreadyPaginated", true);
+        }
 
         return context;
     }
