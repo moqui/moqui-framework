@@ -1,12 +1,11 @@
 import com.google.gson.Gson
 import dtq.rockycube.endpoint.EndpointServiceHandler
 import dtq.rockycube.entity.ConditionHandler
+import dtq.rockycube.entity.EntityHelper
 import groovy.json.JsonSlurper
-import org.apache.groovy.json.internal.LazyMap
-import org.junit.Test
 import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
-import org.moqui.util.TestUtilities
+import dtq.rockycube.util.TestUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import spock.lang.Shared
@@ -199,7 +198,44 @@ class EndpointTests extends Specification {
     }
 
     /**
-     * this method tests extraction of entity data using JSONB field querying
+     * This test scenario is used to showcase functionality that allows reading
+     * from a map while using composite-fields functionality, e.g. adding 'general.salesPerson'
+     * into fields extracted from endpoint extract single field from a map stored under key 'general'
+     */
+    def "test composite fields extraction"(){
+        when:
+
+        // delete all before hand
+        EntityHelper.filterEntity(ec, 'moqui.test.TestJsonEntity', null).deleteAll()
+
+        then:
+
+        // import data from existing sample file
+        TestUtilities.executeOnEachRecord((String[]) ["jsonb-column-query", 'sample-import.json'], (String entityName, Object data)->{
+            def newEntity = ec.entity.makeValue(entityName)
+            newEntity.setAll((HashMap) data)
+                    .setSequencedIdPrimary()
+                    .create()
+        })
+
+        // load using EndpointHandler
+        TestUtilities.testSingleFile(
+                TestUtilities.extendList(["composite-field", "expected-query.json"] as String[]),
+                {Object processed, Object expected, Integer idx ->
+                    def handler = new EndpointServiceHandler(
+                            (HashMap) processed['args'],
+                            (ArrayList) processed['term'],
+                            (String) processed['entity'],
+                            null,
+                            [])
+
+                    def result = handler.fetchEntityData(0, 6, [])
+                    assert result['data'] == expected['result']
+                })
+    }
+
+    /**
+     * This method tests extraction of entity data using JSONB field querying
      */
     def "test JSON key in query"() {
         // declared once

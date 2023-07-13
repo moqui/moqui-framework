@@ -8,7 +8,7 @@ import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.condition.ConditionField
 import org.moqui.util.CollectionUtilities
 import org.moqui.util.MNode
-import org.moqui.util.TestUtilities
+import dtq.rockycube.util.TestUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import dtq.rockycube.connection.JsonFieldManipulator

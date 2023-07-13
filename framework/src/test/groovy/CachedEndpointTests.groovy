@@ -4,7 +4,7 @@ import groovy.time.TimeCategory
 import org.moqui.Moqui
 import org.moqui.entity.EntityCondition
 import org.moqui.impl.entity.EntityFacadeImpl
-import org.moqui.util.TestUtilities
+import dtq.rockycube.util.TestUtilities
 import org.moqui.context.ExecutionContext
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory

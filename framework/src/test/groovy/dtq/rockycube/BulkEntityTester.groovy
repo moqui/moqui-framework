@@ -5,7 +5,7 @@ import dtq.rockycube.entity.BulkEntityHandler
 import dtq.rockycube.entity.EntityHelper
 import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
-import org.moqui.util.TestUtilities
+import dtq.rockycube.util.TestUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import spock.lang.Shared

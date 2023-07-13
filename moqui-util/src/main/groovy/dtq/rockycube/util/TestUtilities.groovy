@@ -1,4 +1,4 @@
-package org.moqui.util;
+package dtq.rockycube.util;
 
 import com.google.gson.Gson
 import com.google.gson.JsonElement
@@ -14,6 +14,12 @@ import java.util.regex.Pattern;
 public class TestUtilities {
     public static final String[] RESOURCE_PATH = ["src", "test", "resources"]
 
+    /**
+     * Add items to an existing list
+     * @param listToExtend
+     * @param valuesToAppend
+     * @return
+     */
     public static String[] extendList(String[] listToExtend, String[] valuesToAppend) {
         String[] result = new String[listToExtend.length + valuesToAppend.length]
         for (int i = 0; i < listToExtend.length; i++) {
@@ -30,6 +36,19 @@ public class TestUtilities {
 
     public static File getInputFile(String... path) throws URISyntaxException, IOException {
         return FileUtils.getFile(path)
+    }
+
+    public static void executeOnEachRecord(String[] fromFile, Closure cbExecOnRow)
+    {
+        // load test resource
+        def js =loadTestResource(fromFile)
+
+        // import data so that we have something to test on
+        def importJs = new JsonSlurper().parse(js.bytes)
+        for (i in importJs)
+        {
+            cbExecOnRow(i['entity'], i['data'])
+        }
     }
 
     public static List<JsonElement> loadTestDataIntoArray(String[] resDirPath) throws URISyntaxException, IOException {
@@ -101,8 +120,8 @@ public class TestUtilities {
                 FileInputStream expValStream = new FileInputStream(getInputFile(expectedPath))
                 expectedValue = js.parse(new InputStreamReader(expValStream, StandardCharsets.UTF_8)) as HashMap
             }
-            def proc = convertLazyMap(processedEntity as LazyMap)
-            def exp = convertLazyMap(expectedValue as LazyMap)
+            def proc = CollectionUtils.convertLazyMap(processedEntity as LazyMap)
+            def exp = CollectionUtils.convertLazyMap(expectedValue as LazyMap)
 
             if (logger) logger.info("*************** Test ${idx + 1} [START ] ***************")
             cb(proc, exp, idx)
@@ -118,26 +137,9 @@ public class TestUtilities {
 
             // convert to map, even if it's deeper
             if (actualValue.getClass() == LazyMap.class) {
-                actualValue = convertLazyMap((LazyMap) actualValue)
+                actualValue = CollectionUtils.convertLazyMap((LazyMap) actualValue)
             }
             res.add(actualValue)
-        }
-        return res;
-    }
-
-    public static HashMap convertLazyMap(LazyMap lm)
-    {
-        def res = new HashMap()
-        for ( prop in lm ) {
-            def actualValue = prop.value
-
-            // convert to map, even if it's deeper
-            if (actualValue.getClass() == LazyMap.class) {
-                actualValue = convertLazyMap((LazyMap) actualValue)
-            } else if (actualValue.getClass() == ArrayList.class) {
-                actualValue = convertArrayWithLazyMap((ArrayList) actualValue)
-            }
-            res[prop.key] = actualValue
         }
         return res;
     }
@@ -177,7 +179,11 @@ public class TestUtilities {
         return "${origFile}_${insert}.${origExt}".toString()
     }
 
-    // write to log, for debug purposes - entire string
+    /**
+     * Write to log, for debug purposes - entire string
+     * @param debugPath
+     * @param cb
+     */
     public static void dumpToDebug(String[] debugPath, Closure cb)
     {
         def fw = createDebugWriter(debugPath)
@@ -185,7 +191,12 @@ public class TestUtilities {
         fw.close();
     }
 
-    // write to log - with per-line command
+    /**
+     * Write to log - with per-line command
+     * @param debugPath
+     * @param appendTimeStamp
+     * @param cb
+     */
     static void dumpToDebugUsingWriter(String[] debugPath, boolean appendTimeStamp, Closure cb)
     {
         // modify string
@@ -204,7 +215,6 @@ public class TestUtilities {
         // modify string
         if (appendTimeStamp)
         {
-            def newPath = debugPath
             def filename = insertTimestampToFilename(debugPath.last())
             debugPath[debugPath.length - 1] = filename
         }

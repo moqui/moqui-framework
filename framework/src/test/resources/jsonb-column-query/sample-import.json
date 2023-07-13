@@ -3,14 +3,16 @@
     "entity": "moqui.test.TestJsonEntity",
     "data": {
       "testJsonId": {"projectId": 1, "category": "a"},
-      "testMedium": "Something useful"
+      "testMedium": "Something useful",
+      "testJsonField": {"general": {"salesPerson": "Zaluzhnyi"}}
     }
   },
   {
     "entity": "moqui.test.TestJsonEntity",
     "data": {
       "testJsonId": {"projectId": 1, "category": "a"},
-      "testMedium": "Something even more useful"
+      "testMedium": "Something even more useful",
+      "testJsonField": {"general": {"salesPerson": {"name": "Zaluzhnyi"}}}
     }
   }
 ]

@@ -4,6 +4,7 @@ import com.google.gson.internal.LinkedTreeMap
 import dtq.rockycube.cache.CacheQueryHandler
 import dtq.rockycube.entity.ConditionHandler
 import dtq.rockycube.entity.EntityHelper
+import dtq.rockycube.util.CollectionUtils
 import dtq.synchro.SynchroMaster
 import dtq.rockycube.GenericUtilities
 import org.moqui.Moqui
@@ -79,6 +80,9 @@ class EndpointServiceHandler {
     private EntityConditionImplBase queryCondition
     private Integer pageIndex
     private String dsType
+
+    // specific features, e.g. composite fields - used to return data from maps
+    private ArrayList<String> compositeFields = new ArrayList<>()
 
     public static HashMap defaultErrorResponse(String message)
     {
@@ -177,6 +181,9 @@ class EndpointServiceHandler {
         // fill in defaults if no arguments passed
         this.checkArgsSetup()
 
+        // extract specific features
+        this.checkCompositeFields()
+
         // query condition setup
         this.queryCondition = this.extractQueryCondition(term)
 
@@ -207,6 +214,34 @@ class EndpointServiceHandler {
             return (LinkedHashMap) incoming
         } else {
             return incoming
+        }
+    }
+
+    /**
+     * Method checks if there are any composite fields in arguments,
+     * if they are set, specific variables are set and loaded
+     */
+    private void checkCompositeFields()
+    {
+        // no need to set it, we require all fields to be returned
+        if (args[CONST_ALLOWED_FIELDS] == '*') return
+
+        // check if there is a dot, anywhere in the list of fields
+        ArrayList<String> fieldsList = (ArrayList<String>) args[CONST_ALLOWED_FIELDS]
+        def compositeFieldsSet = fieldsList.any{String fieldName->
+            return fieldName.contains(".")
+        }
+        if (!compositeFieldsSet) return
+
+        // now we know there are some included
+        fieldsList.each {fieldName->
+            if (fieldName.contains(".")) this.compositeFields.add(fieldName)
+        }
+
+        // remove composite fields from standard list of fields, we shall
+        // treat this field differently
+        this.compositeFields.each {specialFieldName->
+            fieldsList.removeElement(specialFieldName)
         }
     }
 
@@ -377,8 +412,26 @@ class EndpointServiceHandler {
 
         // handle specialities
         def modifiedOrder = false
+
+        // 1. record ID
         modifiedOrder = this.manipulateRecordId(recordMap)
+
+        // 2. extra fields
         modifiedOrder |= this.manipulateExtraFields(recordMap)
+
+        // 3. composite fields handling
+        this.compositeFields.each {String fieldName->
+            def keyUsed = CollectionUtils.keyInUse(fieldName)
+            def foundValue = CollectionUtils.findKeyInMap((HashMap) single, fieldName, Object.class, null)
+            if (!foundValue) {
+                // insert a default value
+                recordMap.put(keyUsed, null)
+                return
+            }
+
+            // last item name to be used
+            recordMap.put(keyUsed, foundValue)
+        }
 
         // add to output, sorted if necessary
         if (args.get(CONST_SORT_OUTPUT_MAP))
@@ -449,6 +502,11 @@ class EndpointServiceHandler {
         return res
     }
 
+    /**
+     * Method that checks whether fields are allowed, specifically stamp fields
+     * @param fieldName
+     * @return
+     */
     private boolean addField(String fieldName)
     {
         // allow timestamps? must be explicitly set

@@ -1,0 +1,32 @@
+[
+  [
+    {
+      "entity": "moqui.test.TestJsonEntity",
+      "term": [{
+        "field": "testMedium",
+        "value": "Something useful"
+      }],
+      "args": {
+        "allowedFields": ["testJsonField.general.salesMan"]
+      }
+    },
+    {
+      "result": [{"salesMan": null}]
+    }
+  ],
+  [
+    {
+      "entity": "moqui.test.TestJsonEntity",
+      "term": [{
+        "field": "testMedium",
+        "value": "Something useful"
+      }],
+      "args": {
+        "allowedFields": ["testJsonField.general.salesPerson"]
+      }
+    },
+    {
+      "result": [{"salesPerson": "Zaluzhnyi"}]
+    }
+  ]
+]
