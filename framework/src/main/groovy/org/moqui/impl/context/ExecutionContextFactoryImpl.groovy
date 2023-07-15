@@ -699,70 +699,112 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         logger.info("Initialized ClassLoaders in ${System.currentTimeMillis() - startTime}ms")
     }
 
-    /** Called from MoquiContextListener.contextInitialized after ECFI init */
     @Override boolean checkEmptyDb() {
+        /* NOTE: Called from Moqui.dynamicInit() after ECFI init (which is also called from MoquiContextListener.contextInitialized()) */
         MNode toolsNode = confXmlRoot.first("tools")
         toolsNode.setSystemExpandAttributes(true)
+
+        boolean needsRestartEcfi = false
+        boolean emptyDbLoadRan = false
+
+        // if empty-db-load has a value and is not 'none' then load those
         String emptyDbLoad = toolsNode.attribute("empty-db-load")
-        if (!emptyDbLoad || emptyDbLoad == 'none') return false
+        if (emptyDbLoad && emptyDbLoad != 'none') {
+            long enumCount = getEntity().find("moqui.basic.Enumeration").disableAuthz().count()
+            if (enumCount == 0) {
+                logger.info("Found ${enumCount} Enumeration records, loading empty-db-load data types (${emptyDbLoad})")
 
-        long enumCount = getEntity().find("moqui.basic.Enumeration").disableAuthz().count()
-        if (enumCount == 0) {
-            logger.info("Found ${enumCount} Enumeration records, loading empty-db-load data types (${emptyDbLoad})")
-
-            ExecutionContext ec = getExecutionContext()
-            try {
-                ec.getArtifactExecution().disableAuthz()
-                ec.getArtifactExecution().push("loadData", ArtifactExecutionInfo.AT_OTHER, ArtifactExecutionInfo.AUTHZA_ALL, false)
-                ec.getArtifactExecution().setAnonymousAuthorizedAll()
-                ec.getUser().loginAnonymousIfNoUser()
-
-                EntityDataLoader edl = ec.getEntity().makeDataLoader()
-                if (emptyDbLoad != 'all') edl.dataTypes(new HashSet(emptyDbLoad.split(",") as List))
-
-                try {
-                    long startTime = System.currentTimeMillis()
-                    long records = edl.load()
-
-                    logger.info("Loaded [${records}] records (with types: ${emptyDbLoad}) in ${(System.currentTimeMillis() - startTime)/1000} seconds.")
-                } catch (Throwable t) {
-                    logger.error("Error loading empty DB data (with types: ${emptyDbLoad})", t)
-                }
-
-            } finally {
-                ec.destroy()
-            }
-            return true
-        } else {
-            logger.info("Found ${enumCount} Enumeration records, NOT loading empty-db-load data types (${emptyDbLoad})")
-            // if this instance_purpose is test load type 'test' data
-            if ("test".equals(System.getProperty("instance_purpose"))) {
-                logger.warn("Loading 'test' type data (instance_purpose=test)")
                 ExecutionContext ec = getExecutionContext()
                 try {
                     ec.getArtifactExecution().disableAuthz()
-                    ec.getArtifactExecution().push("loadData", ArtifactExecutionInfo.AT_OTHER, ArtifactExecutionInfo.AUTHZA_ALL, false)
+                    ec.getArtifactExecution().push("loadDataEmptyDb", ArtifactExecutionInfo.AT_OTHER, ArtifactExecutionInfo.AUTHZA_ALL, false)
                     ec.getArtifactExecution().setAnonymousAuthorizedAll()
                     ec.getUser().loginAnonymousIfNoUser()
 
                     EntityDataLoader edl = ec.getEntity().makeDataLoader()
-                    edl.dataTypes(new HashSet(['test']))
+                    if (emptyDbLoad != 'all') edl.dataTypes(new HashSet(emptyDbLoad.split(",") as List))
 
                     try {
                         long startTime = System.currentTimeMillis()
                         long records = edl.load()
 
-                        logger.info("Loaded [${records}] records (with type test) in ${(System.currentTimeMillis() - startTime)/1000} seconds.")
+                        logger.info("Loaded [${records}] records (with types from empty-db-load: ${emptyDbLoad}) in ${(System.currentTimeMillis() - startTime)/1000} seconds.")
                     } catch (Throwable t) {
-                        logger.error("Error loading empty DB data (with type test)", t)
+                        logger.error("Error loading empty DB data (with types: ${emptyDbLoad})", t)
                     }
 
                 } finally {
                     ec.destroy()
                 }
+
+                needsRestartEcfi = true
+                emptyDbLoadRan = true
+            } else {
+                logger.info("Found ${enumCount} Enumeration records, NOT loading empty-db-load data types (${emptyDbLoad})")
             }
-            return false
         }
+
+        // if on-start-load-types has a value and is not 'none' then load those
+        String onStartLoadTypes = toolsNode.attribute("on-start-load-types")
+        String onStartLoadComponents = toolsNode.attribute("on-start-load-components")
+        if (!emptyDbLoadRan && onStartLoadTypes && onStartLoadTypes != 'none') {
+            logger.info("Loading on-start-load-types data types [${onStartLoadTypes}] and components [${onStartLoadComponents ?: 'all'}]")
+
+            ExecutionContext ec = getExecutionContext()
+            try {
+                ec.getArtifactExecution().disableAuthz()
+                ec.getArtifactExecution().push("loadDataOnStart", ArtifactExecutionInfo.AT_OTHER, ArtifactExecutionInfo.AUTHZA_ALL, false)
+                ec.getArtifactExecution().setAnonymousAuthorizedAll()
+                ec.getUser().loginAnonymousIfNoUser()
+
+                EntityDataLoader edl = ec.getEntity().makeDataLoader()
+                if (onStartLoadTypes != 'all') edl.dataTypes(new HashSet(onStartLoadTypes.split(",") as List))
+                if (onStartLoadComponents && onStartLoadComponents != 'all') edl.componentNameList(onStartLoadComponents.split(",") as List)
+
+                try {
+                    long startTime = System.currentTimeMillis()
+                    long records = edl.load()
+
+                    logger.info("Loaded [${records}] records (with types from on-start-load-types: [${onStartLoadTypes}] components: [${onStartLoadComponents ?: 'all'}]) in ${(System.currentTimeMillis() - startTime)/1000} seconds.")
+                } catch (Throwable t) {
+                    logger.error("Error loading on-start DB data (with types: [${onStartLoadTypes}] components: [${onStartLoadComponents ?: 'all'}])", t)
+                }
+
+            } finally {
+                ec.destroy()
+            }
+
+            needsRestartEcfi = true
+        }
+
+        // if this instance_purpose is test load type 'test' data
+        if ("test".equals(System.getProperty("instance_purpose"))) {
+            logger.warn("Loading 'test' type data (because instance_purpose=test)")
+            ExecutionContext ec = getExecutionContext()
+            try {
+                ec.getArtifactExecution().disableAuthz()
+                ec.getArtifactExecution().push("loadDataTest", ArtifactExecutionInfo.AT_OTHER, ArtifactExecutionInfo.AUTHZA_ALL, false)
+                ec.getArtifactExecution().setAnonymousAuthorizedAll()
+                ec.getUser().loginAnonymousIfNoUser()
+
+                EntityDataLoader edl = ec.getEntity().makeDataLoader()
+                edl.dataTypes(new HashSet(['test']))
+
+                try {
+                    long startTime = System.currentTimeMillis()
+                    long records = edl.load()
+
+                    logger.info("Loaded [${records}] records (with type test) in ${(System.currentTimeMillis() - startTime)/1000} seconds.")
+                } catch (Throwable t) {
+                    logger.error("Error loading empty DB data (with type test)", t)
+                }
+
+            } finally {
+                ec.destroy()
+            }
+        }
+
+        return needsRestartEcfi
     }
 
     @Override void destroy() {
