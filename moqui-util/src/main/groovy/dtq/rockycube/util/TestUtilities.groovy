@@ -41,13 +41,12 @@ public class TestUtilities {
     public static void executeOnEachRecord(String[] fromFile, Closure cbExecOnRow)
     {
         // load test resource
-        def js =loadTestResource(fromFile)
+        def js = loadTestResource(fromFile)
 
         // import data so that we have something to test on
-        def importJs = new JsonSlurper().parse(js.bytes)
-        for (i in importJs)
-        {
-            cbExecOnRow(i['entity'], i['data'])
+        ArrayList<LazyMap> importJs = (ArrayList<LazyMap>) new JsonSlurper().parse(js.bytes)
+        importJs.eachWithIndex{ LazyMap entry, int i  ->
+            cbExecOnRow(i, entry['entity'], entry['data'])
         }
     }
 

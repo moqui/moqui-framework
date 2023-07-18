@@ -49,24 +49,21 @@ along with this software (see the LICENSE.md file). If not, see
         </index>
     </entity>
 
-    <!--NOT IN PRODUCTION - in this approach, we have many data, each for single respective data point-->
-    <!--The data storage itself, with unlimited number of values-->
-    <!--    <entity entity-name="ClosureItemDetail" package="dtq.rockycube">-->
-    <!--        <field name="closureItemDetailId" type="id" is-pk="true"/>-->
-    <!--        <field name="closureItemId" type="id" not-null="true"/>-->
-    <!--        <field name="valueTypeId" type="id" not-null="true"/>-->
-    <!--        <field name="value" type="number-float"/>-->
-    <!--        <field name="created" type="date-time" default="ec.user.nowTimestamp"/>-->
-    <!--        <relationship type="one" related="dtq.rockycube.ClosureItem" fk-name="closureItemId"/>-->
-    <!--        <relationship type="one" title="ClosureValueType" related="moqui.basic.Enumeration">-->
-    <!--            <key-map field-name="valueTypeId" related="enumId"/>-->
-    <!--        </relationship>-->
+    <entity entity-name="ClosureToItemRelation" package="dtq.rockycube">
+        <description>This table holds information about all items, that are related to this closure</description>
+        <field name="closure" type="id" is-pk="true"><description>This is the name of the closure</description></field>
+        <field name="closureItemId" type="id" is-pk="true"/>
+        <field name="created" type="date-time" default="ec.user.nowTimestamp"/>
 
-    <!--        <seed-data>-->
-    <!--            <moqui.basic.EnumerationType description="Closure Value Type" enumTypeId="ClosureValueType"/>-->
-    <!--            <moqui.basic.Enumeration enumId="amount" enumTypeId="ClosureValueType"/>-->
-    <!--            <moqui.basic.Enumeration enumId="center" enumTypeId="ClosureValueType"/>-->
-    <!--        </seed-data>-->
-    <!--    </entity>-->
+        <relationship type="one" related="dtq.rockycube.ClosureItem" fk-name="closureItemId"/>
+    </entity>
 
+    <entity entity-name="ClosureFromItemRelation" package="dtq.rockycube">
+        <description>This table holds information about items' relation to closures</description>
+        <field name="closure" type="id" is-pk="true"><description>This is the name of the closure</description></field>
+        <field name="closureItemId" type="id" is-pk="true"/>
+        <field name="created" type="date-time" default="ec.user.nowTimestamp"/>
+
+        <relationship type="one" related="dtq.rockycube.ClosureItem" fk-name="closureItemId"/>
+    </entity>
 </entities>
