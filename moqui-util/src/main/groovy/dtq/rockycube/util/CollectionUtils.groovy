@@ -1,5 +1,6 @@
 package dtq.rockycube.util
 
+import com.google.gson.internal.LinkedTreeMap
 import org.apache.groovy.json.internal.LazyMap
 
 class CollectionUtils {
@@ -66,6 +67,29 @@ class CollectionUtils {
     public static String keyInUse(String searchForKey)
     {
         return searchForKey.split('\\.')[-1]
+    }
+
+    public static <T> T findKeyInMap(Object whereToSearch, String searchForKey, Class<T> expectedType, Object defaultIfNotFound=null)
+    {
+        // convert incoming object to a map
+        switch (whereToSearch.getClass())
+        {
+            case HashMap.class:
+            case LinkedHashMap.class:
+            case LinkedTreeMap.class:
+            case LazyMap.class:
+                return findKeyInMap(
+                        (HashMap) whereToSearch,
+                        (ArrayList) searchForKey.split('\\.'),
+                        expectedType,
+                        defaultIfNotFound
+                )
+            default:
+                throw new Exception("Unable to perform search for a key in object of class [${whereToSearch.getClass().simpleName}]")
+        }
+
+
+
     }
 
     public static <T> T findKeyInMap(Map whereToSearch, String searchForKey, Class<T> expectedType, Object defaultIfNotFound=null)
