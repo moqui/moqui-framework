@@ -49,21 +49,23 @@ along with this software (see the LICENSE.md file). If not, see
         </index>
     </entity>
 
-    <entity entity-name="ClosureToItemRelation" package="dtq.rockycube">
-        <description>This table holds information about all items, that are related to this closure</description>
-        <field name="closure" type="id" is-pk="true"><description>This is the name of the closure</description></field>
+    <entity entity-name="ClosureLockItemToClosure" package="dtq.rockycube">
+        <description>Item-to-closure</description>
+        <field name="lockedBy" type="id" is-pk="true"><description>This is the name of the closure</description></field>
         <field name="closureItemId" type="id" is-pk="true"/>
+        <field name="lockingClosureItemId" type="id"/>
         <field name="created" type="date-time" default="ec.user.nowTimestamp"/>
 
-        <relationship type="one" related="dtq.rockycube.ClosureItem" fk-name="closureItemId"/>
+<!--        <relationship type="one" related="dtq.rockycube.ClosureItem" fk-name="closureItemId"/>-->
     </entity>
 
-    <entity entity-name="ClosureFromItemRelation" package="dtq.rockycube">
-        <description>This table holds information about items' relation to closures</description>
-        <field name="closure" type="id" is-pk="true"><description>This is the name of the closure</description></field>
+    <entity entity-name="ClosureLockClosureToItem" package="dtq.rockycube">
+        <description>Closure-to-item</description>
+        <field name="sourceClosure" type="id" is-pk="true"><description>This is the name of the closure</description></field>
         <field name="closureItemId" type="id" is-pk="true"/>
+        <field name="sourceClosureItemId" type="id"  is-pk="true"/>
         <field name="created" type="date-time" default="ec.user.nowTimestamp"/>
 
-        <relationship type="one" related="dtq.rockycube.ClosureItem" fk-name="closureItemId"/>
+<!--        <relationship type="one" related="dtq.rockycube.ClosureItem" fk-name="closureItemId"/>-->
     </entity>
 </entities>
