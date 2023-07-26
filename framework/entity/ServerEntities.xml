@@ -196,6 +196,9 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="username" type="text-short"/>
         <field name="password" type="text-medium" encrypt="true"/>
         <field name="emailAddress" type="text-medium"/>
+        <!-- To pull an image from a remote registryLocation, you may need to generate a token using a command example: AWS-ECR -->
+        <!-- Note: if you are using authTokenCmd to authenticate on registry then must keep the password field empty simply-->
+        <field name="authTokenCmd" type="text-medium"/>
         <relationship type="one" related="moqui.server.instance.InstanceImageType" short-alias="imageType"/>
         <relationship type="one" related="moqui.server.instance.InstanceHostType" short-alias="hostType"/>
     </entity>
