@@ -421,9 +421,18 @@ task gitStatusAll {
                 def upstreamAhead = curGrgit.log { range curGrgit.resolve.toCommit('refs/remotes/upstream/master'), curGrgit.resolve.toCommit('refs/remotes/origin/master') }
                 if (upstreamAhead) logger.lifecycle("- origin/master ${upstreamAhead.size()} commits ahead of upstream/master")
             }
-            def unpushed = curGrgit.log { range curGrgit.resolve.toCommit('refs/remotes/origin/master'), curGrgit.resolve.toCommit('HEAD') }
-            if (unpushed) logger.lifecycle("--- ${unpushed.size()} commits unpushed (ahead of origin/master)")
-            for (Commit commit in unpushed) logger.lifecycle(" - ${commit.getAbbreviatedId(8)} - ${commit.shortMessage}")
+            try {
+                def masterLatest = curGrgit.resolve.toCommit('refs/remotes/origin/master')
+                if (masterLatest == null) {
+                    logger.error("No origin/master branch exists, can't determine unpushed commits")
+                } else {
+                    def unpushed = curGrgit.log { range masterLatest, curGrgit.resolve.toCommit('HEAD') }
+                    if (unpushed) logger.lifecycle("--- ${unpushed.size()} commits unpushed (ahead of origin/master)")
+                    for (Commit commit in unpushed) logger.lifecycle(" - ${commit.getAbbreviatedId(8)} - ${commit.shortMessage}")
+                }
+            } catch (Exception e) {
+                logger.error("Error finding unpushed commits", e)
+            }
             def curStatus = curGrgit.status()
             if (curStatus.isClean()) logger.lifecycle("* nothing to commit, working directory clean")
             if (curStatus.staged.added || curStatus.staged.modified || curStatus.staged.removed) logger.lifecycle("--- Changes to be committed::")
