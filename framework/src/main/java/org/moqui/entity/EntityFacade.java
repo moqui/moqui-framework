@@ -183,5 +183,5 @@ public interface EntityFacade {
     Calendar getCalendarForTzLc();
 
     //ZMENA
-//    EntityValue setRelations(String entityName);
+    EntityValue setRelationships(String entityName);
 }

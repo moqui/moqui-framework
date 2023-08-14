@@ -1240,7 +1240,7 @@ class EntityDefinition {
     }
 
     //ZMENA
-//    void setRelationsByNamePostfix() {
-//        this.internalEntityNode.setRelationsByNamePostfix()
-//    }
+    void setRelationships() {
+        this.internalEntityNode.setRelationships()
+    }
 }

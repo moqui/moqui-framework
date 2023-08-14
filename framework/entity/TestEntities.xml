@@ -76,4 +76,13 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="intId" type="number-integer" is-pk="true"/>
         <field name="testMedium" type="text-medium"/>
     </entity>
+    <entity entity-name="TestRelationshipPerson" package="moqui.test">
+        <field name="testName" type="text-short" is-pk="true"/>
+        <field name="testSurname" type="text-short" is-pk="true"/>
+        <relationship type="one" related="TestRelationshipName"/>
+    </entity>
+    <entity entity-name="TestRelationshipName" package="moqui.test">
+        <field name="testName" type="text-short" is-pk="true"/>
+        <relationship type="many" related="TestRelationshipPerson"/>
+    </entity>
 </entities>
