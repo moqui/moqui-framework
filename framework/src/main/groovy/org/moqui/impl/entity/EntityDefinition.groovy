@@ -1238,4 +1238,9 @@ class EntityDefinition {
         if (!this.fullEntityName.equals(that.fullEntityName)) return false
         return true
     }
+
+    //ZMENA
+//    void setRelationsByNamePostfix() {
+//        this.internalEntityNode.setRelationsByNamePostfix()
+//    }
 }

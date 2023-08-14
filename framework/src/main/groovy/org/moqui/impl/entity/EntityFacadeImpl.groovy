@@ -2348,4 +2348,13 @@ class EntityFacadeImpl implements EntityFacade {
 
         return new EntityEcaRule((ExecutionContextFactoryImpl) ecf, eecaRuleNode, "")
     }
+
+    //ZMENA
+//    @Override
+//    EntityValue setRelations(String entityName) {
+//        EntityDefinition ed = getEntityDefinition(entityName)
+//        ed.setRelationsByNamePostfix()
+//        if (ed == null) throw new EntityException("No entity found with name ${entityName}")
+//        return ed.makeEntityValue()
+//    }
 }

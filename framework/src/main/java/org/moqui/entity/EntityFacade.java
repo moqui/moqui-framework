@@ -181,4 +181,7 @@ public interface EntityFacade {
     EntityValue makeValue(Element element);
 
     Calendar getCalendarForTzLc();
+
+    //ZMENA
+//    EntityValue setRelations(String entityName);
 }
