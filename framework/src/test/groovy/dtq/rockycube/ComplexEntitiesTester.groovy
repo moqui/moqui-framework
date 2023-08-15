@@ -160,9 +160,9 @@ class ComplexEntitiesTester extends Specification {
         ec.entity.setRelationships("${CONST_TEST_RELATIONSHIP_NAME}@${CONST_POSTFIX}").setAll(
                 testName: "test"
         ).create()
-        ec.entity.makeValue("${CONST_TEST_RELATIONSHIP_PERSON}@${CONST_POSTFIX}").setAll(
+        ec.entity.setRelationships("${CONST_TEST_RELATIONSHIP_PERSON}@${CONST_POSTFIX}").setAll(
                 testName: "test",
-                "testSurname": "test"
+                testSurname: "test"
         ).create()
         then:
         // search for it

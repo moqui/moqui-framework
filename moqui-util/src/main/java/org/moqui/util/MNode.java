@@ -198,7 +198,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
             MNode node = getChildrenByName().get("relationship").get(i);
             String newName = node.getAttributes().get("related") + "_" + postfix;
             node.getAttributes().put("related", newName);
-            getChildrenByName().get("relationship").set(i, deepCopy(node));
+            getChildrenByName().get("relationship").set(i, node);
         }
     }
 
