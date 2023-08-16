@@ -79,10 +79,10 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="TestRelationshipPerson" package="moqui.test">
         <field name="testName" type="text-short" is-pk="true"/>
         <field name="testSurname" type="text-short" is-pk="true"/>
-        <relationship type="one" related="TestRelationshipName"/>
+        <relationship type="one" related="moqui.test.TestRelationshipName"/>
     </entity>
     <entity entity-name="TestRelationshipName" package="moqui.test">
         <field name="testName" type="text-short" is-pk="true"/>
-        <relationship type="many" related="TestRelationshipPerson"/>
+        <relationship type="many" related="moqui.test.TestRelationshipPerson"/>
     </entity>
 </entities>

@@ -145,30 +145,26 @@ class ComplexEntitiesTester extends Specification {
     def test_changing_entity_relationships()
     {
         when:
-        // disable authz
-        this.ec.artifactExecution.disableAuthz()
+            // disable authz
+            this.ec.artifactExecution.disableAuthz()
+            //before setting relationships the entities have to exist
+            ec.entity.makeValue("${CONST_TEST_RELATIONSHIP_NAME}@${CONST_POSTFIX}")
+            ec.entity.makeValue("${CONST_TEST_RELATIONSHIP_PERSON}@${CONST_POSTFIX}")
 
-        //create new entities by using '@' in right order
-        ec.entity.makeValue("${CONST_TEST_RELATIONSHIP_NAME}@${CONST_POSTFIX}")
-        ec.entity.makeValue("${CONST_TEST_RELATIONSHIP_PERSON}@${CONST_POSTFIX}")
+            // delete all if entities already existed
+            logger.info("\nDeleted records: [${ec.entity.find("${CONST_TEST_RELATIONSHIP_PERSON}_${CONST_POSTFIX}").deleteAll()}]\n")
+            logger.info("\nDeleted records: [${ec.entity.find("${CONST_TEST_RELATIONSHIP_NAME}_${CONST_POSTFIX}").deleteAll()}]\n")
 
-        // delete all if entities already existed
-        logger.info("\nDeleted records: [${ec.entity.find("${CONST_TEST_RELATIONSHIP_PERSON}_${CONST_POSTFIX}").deleteAll()}]\n")
-        logger.info("\nDeleted records: [${ec.entity.find("${CONST_TEST_RELATIONSHIP_NAME}_${CONST_POSTFIX}").deleteAll()}]\n")
-
-        //set relationship after entities creation based on their name postfix
-        ec.entity.setRelationships("${CONST_TEST_RELATIONSHIP_NAME}@${CONST_POSTFIX}").setAll(
-                testName: "test"
-        ).create()
-        ec.entity.setRelationships("${CONST_TEST_RELATIONSHIP_PERSON}@${CONST_POSTFIX}").setAll(
-                testName: "test",
-                testSurname: "test"
-        ).create()
+            //create entities with correct relationships
+            ec.entity.makeValue("${CONST_TEST_RELATIONSHIP_NAME}@${CONST_POSTFIX}").setAll(
+                    testName: "test"
+            ).create()
+            ec.entity.makeValue("${CONST_TEST_RELATIONSHIP_PERSON}@${CONST_POSTFIX}").setAll(
+                    testName: "test",
+                    testSurname: "test"
+            ).create()
         then:
-        // search for it
-
-        def existingEntity = ec.entity.find("${CONST_TEST_RELATIONSHIP_PERSON}_${CONST_POSTFIX}").condition([testName: "test"]).one()
-        1 == 1
-
+            ec.entity.find("${CONST_TEST_RELATIONSHIP_PERSON}_${CONST_POSTFIX}").count() == 1
+            ec.entity.find("${CONST_TEST_RELATIONSHIP_NAME}_${CONST_POSTFIX}").count() == 1
     }
 }

@@ -836,7 +836,7 @@ class EntityFacadeImpl implements EntityFacade {
 
             //modify entity name
             entityNode.attributes.put("entity-name", specialEntityName)
-
+            entityNode.setRelationships()
             logger.info("Loading special entity ${specialEntityName}.")
         }
 
@@ -2347,14 +2347,5 @@ class EntityFacadeImpl implements EntityFacade {
         // logger.debug("Script: ${scriptNode}")
 
         return new EntityEcaRule((ExecutionContextFactoryImpl) ecf, eecaRuleNode, "")
-    }
-
-    // ZMENA
-    @Override
-    EntityValue setRelationships(String entityName) {
-        EntityDefinition ed = getEntityDefinition(entityName)
-        ed.setRelationships()
-        if (ed == null) throw new EntityException("No entity found with name ${entityName}")
-        return ed.makeEntityValue()
     }
 }
