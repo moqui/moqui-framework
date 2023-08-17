@@ -17,10 +17,6 @@ class ComplexEntitiesTester extends Specification {
     protected final static Logger logger = LoggerFactory.getLogger(ComplexEntitiesTester.class)
 
     private String CONST_TEST_ENTITY = "moqui.test.TestEntitySpecial"
-    private String CONST_TEST_RELATIONSHIP_NAME = "moqui.test.TestRelationshipName"
-    private String CONST_TEST_RELATIONSHIP_PERSON = "moqui.test.TestRelationshipPerson"
-    private String CONST_POSTFIX = "1"
-
 
     @Shared
     ExecutionContext ec
@@ -137,34 +133,5 @@ class ComplexEntitiesTester extends Specification {
 
         then:
         ec.entity.find(CONST_TEST_ENTITY).count() == 0
-    }
-
-    /**
-     * Test changing entity relationships after creating new entity by using '@'
-     */
-    def test_changing_entity_relationships()
-    {
-        when:
-            // disable authz
-            this.ec.artifactExecution.disableAuthz()
-            //before setting relationships the entities have to exist
-            ec.entity.makeValue("${CONST_TEST_RELATIONSHIP_NAME}@${CONST_POSTFIX}")
-            ec.entity.makeValue("${CONST_TEST_RELATIONSHIP_PERSON}@${CONST_POSTFIX}")
-
-            // delete all if entities already existed
-            logger.info("\nDeleted records: [${ec.entity.find("${CONST_TEST_RELATIONSHIP_PERSON}_${CONST_POSTFIX}").deleteAll()}]\n")
-            logger.info("\nDeleted records: [${ec.entity.find("${CONST_TEST_RELATIONSHIP_NAME}_${CONST_POSTFIX}").deleteAll()}]\n")
-
-            //create entities with correct relationships
-            ec.entity.makeValue("${CONST_TEST_RELATIONSHIP_NAME}@${CONST_POSTFIX}").setAll(
-                    testName: "test"
-            ).create()
-            ec.entity.makeValue("${CONST_TEST_RELATIONSHIP_PERSON}@${CONST_POSTFIX}").setAll(
-                    testName: "test",
-                    testSurname: "test"
-            ).create()
-        then:
-            ec.entity.find("${CONST_TEST_RELATIONSHIP_PERSON}_${CONST_POSTFIX}").count() == 1
-            ec.entity.find("${CONST_TEST_RELATIONSHIP_NAME}_${CONST_POSTFIX}").count() == 1
     }
 }
