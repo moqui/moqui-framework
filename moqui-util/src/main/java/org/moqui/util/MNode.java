@@ -186,22 +186,6 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
         if (attributes != null) attributeMap.putAll(attributes);
     }
 
-    //ZMENA
-    public void setRelationships() {
-        String entityName = attribute("entity-name");
-        if (!(entityName.contains("_") || !hasChild("relationship"))) {
-            return;
-        }
-        String postfix = entityName.split("_")[1];
-        int size = getChildrenByName().get("relationship").size();
-        for (int i = 0; i < size; i++) {
-            MNode node = getChildrenByName().get("relationship").get(i);
-            String newName = node.getAttributes().get("related") + "_" + postfix;
-            node.getAttributes().put("related", newName);
-            getChildrenByName().get("relationship").set(i, node);
-        }
-    }
-
     /* ========== Get Methods ========== */
 
     /** If name starts with an ampersand (@) then get an attribute, otherwise get a list of child nodes with the given name. */

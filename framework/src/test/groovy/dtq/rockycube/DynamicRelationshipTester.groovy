@@ -16,9 +16,10 @@ import spock.lang.Specification
 class DynamicRelationshipTester extends Specification {
     protected final static Logger logger = LoggerFactory.getLogger(DynamicRelationshipTester.class)
 
-    private String CONST_TEST_RELATIONSHIP_NAME = "moqui.test.TestRelationshipName"
-    private String CONST_TEST_RELATIONSHIP_PERSON = "moqui.test.TestRelationshipPerson"
-    private String CONST_POSTFIX = "1"
+    private String CONST_PACKAGE_NAME = "moqui.test"
+    private String CONST_TEST_RELATIONSHIP_NAME = "TestRelationshipName"
+    private String CONST_TEST_RELATIONSHIP_PERSON = "TestRelationshipPerson"
+    private String CONST_SUFFIX = "test"
 
     @Shared
     ExecutionContext ec
@@ -32,6 +33,10 @@ class DynamicRelationshipTester extends Specification {
         ec.user.loginUser('john.hardy', 'moqui')
     }
 
+    private String getEntityName(String name) {
+        return "${CONST_PACKAGE_NAME}.${name}@${CONST_SUFFIX}"
+    }
+
     /**
      * Test dynamic entity relationships after creating new entity by using '@'
      */
@@ -40,24 +45,26 @@ class DynamicRelationshipTester extends Specification {
         when:
             // disable authz
             this.ec.artifactExecution.disableAuthz()
-            //before setting relationships the entities have to exist
-            ec.entity.makeValue("${CONST_TEST_RELATIONSHIP_NAME}@${CONST_POSTFIX}")
-            ec.entity.makeValue("${CONST_TEST_RELATIONSHIP_PERSON}@${CONST_POSTFIX}")
-
-            // delete all if entities already existed
-            logger.info("\nDeleted records: [${ec.entity.find("${CONST_TEST_RELATIONSHIP_PERSON}_${CONST_POSTFIX}").deleteAll()}]\n")
-            logger.info("\nDeleted records: [${ec.entity.find("${CONST_TEST_RELATIONSHIP_NAME}_${CONST_POSTFIX}").deleteAll()}]\n")
-
-            //create entities with correct relationships
-            ec.entity.makeValue("${CONST_TEST_RELATIONSHIP_NAME}@${CONST_POSTFIX}").setAll(
+            //clean all
+            ec.entity.makeValue(getEntityName(CONST_TEST_RELATIONSHIP_NAME)).setAll(
                     testName: "test"
-            ).create()
-            ec.entity.makeValue("${CONST_TEST_RELATIONSHIP_PERSON}@${CONST_POSTFIX}").setAll(
+            ).delete()
+            ec.entity.makeValue(getEntityName(CONST_TEST_RELATIONSHIP_PERSON)).setAll(
                     testName: "test",
                     testSurname: "test"
+            ).delete()
+
+            //insert new data
+            ec.entity.makeValue(getEntityName(CONST_TEST_RELATIONSHIP_NAME)).setAll(
+                        testName: "test"
+            ).create()
+            ec.entity.makeValue(getEntityName(CONST_TEST_RELATIONSHIP_PERSON)).setAll(
+                        testName: "test",
+                        testSurname: "test"
             ).create()
         then:
-            ec.entity.find("${CONST_TEST_RELATIONSHIP_PERSON}_${CONST_POSTFIX}").count() == 1
-            ec.entity.find("${CONST_TEST_RELATIONSHIP_NAME}_${CONST_POSTFIX}").count() == 1
+            ec.entity.find("${CONST_PACKAGE_NAME}.${CONST_TEST_RELATIONSHIP_NAME}_${CONST_SUFFIX}").count() == 1
+            ec.entity.find("${CONST_PACKAGE_NAME}.${CONST_TEST_RELATIONSHIP_PERSON}_${CONST_SUFFIX}").count() == 1
+
     }
 }

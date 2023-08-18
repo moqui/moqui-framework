@@ -197,6 +197,9 @@ public interface EntityValue extends Map<String, Object>, Externalizable, Compar
      */
     EntityValue delete() throws EntityException;
 
+    //ZMENA
+   // long deleteAll() throws EntityException;
+
     /** Refreshes this value based on the record that matches the primary key.
      * @return true if a record was found, otherwise false also meaning no refresh was done
      */

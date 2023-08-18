@@ -79,7 +79,8 @@ class EntityFacadeImpl implements EntityFacade {
     static final String entityLocSingleEntryName = "ALL_ENTITIES"
     /** Map for framework entity definitions, avoid cache overhead and timeout issues */
     final HashMap<String, EntityDefinition> frameworkEntityDefinitions = new HashMap<>()
-
+    /** Map for dynamic created entity definitions based on @, avoid cache overhead and timeout issues */
+    final HashMap<String, EntityDefinition> dynamicEntityDefinitions = new HashMap<>()
     /** Sequence name (often entity name) is the key and the value is an array of 2 Longs the first is the next
      * available value and the second is the highest value reserved/cached in the bank. */
     final Cache<String, long[]> entitySequenceBankCache
@@ -657,6 +658,13 @@ class EntityFacadeImpl implements EntityFacade {
             return ed
         }
 
+        //control, if entity has not been created yet
+        ed = (EntityDefinition) dynamicEntityDefinitions.get(entityNameToSearch)
+        if (ed != null) {
+            if (entitySuffix) ed.nameDefinedEntity = true
+            return ed
+        }
+
         Map<String, List<String>> entityLocationCache = entityLocationSingleCache.get(entityLocSingleEntryName)
         if (entityLocationCache == null) entityLocationCache = loadAllEntityLocations()
 
@@ -833,10 +841,10 @@ class EntityFacadeImpl implements EntityFacade {
 
         if (entitySuffix != null) {
             String specialEntityName = entityName + "_" + entitySuffix
-
             //modify entity name
             entityNode.attributes.put("entity-name", specialEntityName)
-            entityNode.setRelationships()
+            //modify entity relationships
+            this.setDynamicRelationships(entityNode, entitySuffix)
             logger.info("Loading special entity ${specialEntityName}.")
         }
 
@@ -855,8 +863,57 @@ class EntityFacadeImpl implements EntityFacade {
             entityDefinitionCache.put(fullEntityName, ed)
             if (ed.entityInfo.shortAlias) entityDefinitionCache.put(ed.entityInfo.shortAlias, ed)
         }
+
+        //create new entity based on replaced relationship name if entity doesn't yet exist
+        if (entitySuffix != null) {
+            //cache it under the fullEntityName
+            dynamicEntityDefinitions.put(fullEntityName, ed)
+            this.createDynamicRelationships(entityNode)
+        }
         // send it on its way
         return ed
+    }
+
+    /**
+     * Set relationship entity based on suffix.
+     * We don't wanna change relationship to entity from moqui.basic package.
+     * @param entityNode    entity, which relationships are we setting
+     * @param suffix        suffix, which is added to relationships
+     */
+    private void setDynamicRelationships(MNode entityNode, String suffix) {
+        ArrayList<MNode> relationships = entityNode.getChildrenByName().get("relationship")
+        int size = entityNode.getChildrenByName().get("relationship").size()
+        for (int i = 0; i < size; i++) {
+            MNode node = relationships.get(i)
+            String name = node.attributes.get("related");
+            // we don't wanna change suffix of relationship to entity from moqui.basic package
+            if (name.contains("moqui.basic")) {
+                continue
+            }
+            //create new name based on suffix
+            // set name of relationship
+            node.attributes.put("related", name + "_" + suffix)
+            //replace relationship
+            relationships.set(i, node)
+        }
+    }
+
+    /**
+     * Create new entity based on relationship names that don't yet exist.
+     * Already created entities with suffix are stored in attribute dynamicEntityDefinition.
+     * @param entityNode    entity, which relationship entities are we creating
+     */
+    private void createDynamicRelationships(MNode entityNode) {
+        ArrayList<MNode> relationships = entityNode.getChildrenByName().get("relationship")
+        int size = entityNode.getChildrenByName().get("relationship").size()
+        for (int i = 0; i < size; i++) {
+            MNode node = relationships.get(i)
+            String name = node.attributes.get("related")
+            if (name.contains("moqui.basic") || dynamicEntityDefinitions.containsKey(name)) {
+                continue
+            }
+            ecfi.entity.makeValue(name.split('_')[0] + "@" + name.split('_')[1])
+        }
     }
 
     synchronized void createAllAutoReverseManyRelationships() {
