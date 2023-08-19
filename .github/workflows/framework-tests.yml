@@ -16,12 +16,6 @@ jobs:
           repository: dataquest-dev/moqui-runtime
           path: './runtime'
           ref: production
-      - name: Checkout moqui-basic-setup
-        uses: actions/checkout@v2
-        with:
-          repository: dataquest-dev/moqui-basic-setup
-          path: './runtime/component/moqui-basic-setup'
-          ref: master
       - name: Prep - clean database
         run: ./gradlew cleanDb
       - name: Prep - load database
