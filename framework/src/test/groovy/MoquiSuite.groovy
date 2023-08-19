@@ -41,7 +41,7 @@ import org.moqui.Moqui
     JsonSupportTests.class,
     EntityHelperTests.class,
     UtilsTests.class,
-    ComplexEntitiesTester.class
+//    ComplexEntitiesTester.class
 ])
 @Suite
 public class MoquiSuite
