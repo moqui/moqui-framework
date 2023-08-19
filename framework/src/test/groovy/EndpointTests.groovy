@@ -160,7 +160,7 @@ class EndpointTests extends Specification {
                         TestUtilities.dumpToDebug((String[])["__temp", "out.json"], {
                             return gson.toJson(result)
                         })
-                    } finally {
+                    } catch (Exception e) {
                         // no need to crash on this
                     }
 
