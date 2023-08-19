@@ -15,6 +15,7 @@ jobs:
         with:
           repository: dataquest-dev/moqui-runtime
           path: './runtime'
+          ref: production
       - name: Prep - load database
         run: ./gradlew load
       - name: Run tests
