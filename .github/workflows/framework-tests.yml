@@ -21,6 +21,7 @@ jobs:
         with:
           repository: dataquest-dev/moqui-basic-setup
           path: './runtime/component/moqui-basic-setup'
+          ref: master
       - name: Prep - clean database
         run: ./gradlew cleanDb
       - name: Prep - load database
