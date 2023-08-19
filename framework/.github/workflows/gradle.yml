@@ -1,0 +1,15 @@
+name: framework-basic-tests
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK
+        uses: actions/setup-java@v2
+        with:
+          java-version: 13
+      - name: Prep framework - load database
+        run: ./gradlew load
+      - name: Run tests
+        run: ./gradlew test --tests MoquiSuite
