@@ -9,6 +9,7 @@ jobs:
         uses: actions/setup-java@v2
         with:
           java-version: 13
+          distribution: adopt
       - name: Prep framework - load database
         run: ./gradlew load
       - name: Run tests
