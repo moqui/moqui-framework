@@ -10,7 +10,12 @@ jobs:
         with:
           java-version: 13
           distribution: adopt
-      - name: Prep framework - load database
+      - name: Checkout runtime
+        uses: actions/checkout@v2
+        with:
+          repository: dataquest-dev/moqui-runtime
+          path: './runtime'
+      - name: Prep - load database
         run: ./gradlew load
       - name: Run tests
         run: ./gradlew test --tests MoquiSuite
