@@ -187,9 +187,16 @@ public class TestUtilities {
     // write to log, for debug purposes - entire string
     public static void dumpToDebug(String[] debugPath, Closure cb)
     {
-        def fw = createDebugWriter(debugPath)
-        fw.write(cb() as String)
-        fw.close();
+        Writer fw = null
+
+        try {
+            fw = createDebugWriter(debugPath)
+            fw.write(cb() as String)
+            fw.close()
+        } catch (Exception exc) {
+            // try to close the writer
+            if (fw) try {fw.close()} catch (Exception closeWriter) {}
+        }
     }
 
     // write to log - with per-line command

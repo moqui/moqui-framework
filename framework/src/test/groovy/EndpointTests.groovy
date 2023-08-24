@@ -146,13 +146,9 @@ class EndpointTests extends Specification {
                     def result = response.data
 
                     // log and store output
-                    try {
-                        TestUtilities.dumpToDebug((String[])["__temp", "out.json"], {
-                            return gson.toJson(result)
-                        })
-                    } catch (Exception e) {
-                        // no need to crash on this
-                    }
+                    TestUtilities.dumpToDebug((String[])["__temp", "out.json"], {
+                        return gson.toJson(result)
+                    })
 
                     // assert equality between JSON returned and the one set in the expected
                     JsonAssert.setOptions(Option.IGNORING_ARRAY_ORDER, Option.IGNORING_EXTRA_FIELDS)
