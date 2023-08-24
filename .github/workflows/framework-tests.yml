@@ -1,0 +1,24 @@
+name: framework-basic-tests
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK
+        uses: actions/setup-java@v2
+        with:
+          java-version: 13
+          distribution: adopt
+      - name: Checkout runtime
+        uses: actions/checkout@v2
+        with:
+          repository: dataquest-dev/moqui-runtime
+          path: './runtime'
+          ref: production
+      - name: Prep - clean database
+        run: ./gradlew cleanDb
+      - name: Prep - load database
+        run: ./gradlew load
+      - name: Run tests
+        run: ./gradlew test --tests MoquiSuite

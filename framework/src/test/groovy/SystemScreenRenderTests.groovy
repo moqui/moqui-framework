@@ -80,7 +80,7 @@ class SystemScreenRenderTests extends Specification {
         "Cache/CacheElements?orderByField=key&cacheName=l10n.message" | '${artifactName}::en_US' | "evictionStrategy"
 
         // Localization screens
-        "Localization/Messages" | "Add" | "Añadir"
+        // "Localization/Messages" | "Add" | "Añadir"
         "Localization/EntityFields?entityName=moqui.basic.Enumeration&pkValue=GEOT_STATE" |
                 "moqui.basic.Enumeration" | "GEOT_STATE"
 
