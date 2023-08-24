@@ -31,5 +31,20 @@ along with this software (see the LICENSE.md file). If not, see
                                 partyId="JOHN_H"/>
 
     <moqui.security.UserGroupMember userGroupId="ADMIN" userId="JOHN_H" fromDate="1265184000000"/>
-    <!--<moqui.security.UserScreenTheme userId="JOHN_H" screenThemeId="DEFAULT_QUASAR" screenThemeTypeEnumId="STT_INTERNAL_QUASAR"/>-->
+
+    <!-- JOHN DOE UserAccount -->
+    <moqui.security.UserAccount userId="EX_JOHN_DOE"
+                                username="john.doe"
+                                userFullName="John Doe"
+                                currentPassword="16ac58bbfa332c1c55bd98b53e60720bfa90d394"
+                                passwordHashType="SHA"
+                                passwordHint="framework"
+                                requirePasswordChange="N"
+                                locale="sk_SK"
+                                timeZone="CET"
+                                emailAddress="sentinel@dataquest.sk"
+                                />
+
+    <moqui.security.UserGroupMember userGroupId="ADMIN" userId="JOHN_H" fromDate="1265184000000"/>
+    <moqui.security.UserGroupMember userGroupId="ADMIN" userId="EX_JOHN_DOE" fromDate="1265184000000"/>
 </entity-facade-xml>

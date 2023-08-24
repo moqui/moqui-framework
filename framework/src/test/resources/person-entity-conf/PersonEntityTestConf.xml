@@ -30,7 +30,7 @@
 
     <cache-list warm-on-start="false">
         <!-- Development Mode - expires artifact cache entries; don't use these for production, load testing, etc -->
-        <cache name="entity.definition" expire-time-idle="30"/>
+        <cache name="entity.definition" expire-time-idle="1"/>
         <!-- longer timeout since this basically looks through all files to check for new or moved entity defs -->
         <cache name="entity.location" expire-time-live="300"/>
         <cache name="entity.data.feed.info" expire-time-idle="30"/>
@@ -96,7 +96,7 @@
     <entity-facade query-stats="true">
         <!-- add datasource elements here to configure databases -->
         <load-entity location="classpath://entity/ClosureEntities.xml"/>
-        <load-entity location="classpath://entity/People.xml"/>
+        <load-entity location="classpath://src/test/resources/person-entity-conf/People.xml"/>
     </entity-facade>
 
     <repository-list>
