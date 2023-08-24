@@ -20,5 +20,13 @@ jobs:
         run: ./gradlew cleanDb
       - name: Prep - load database
         run: ./gradlew load
-      - name: Run tests
+      - name: Run tests (MoquiSuite)
         run: ./gradlew test --tests MoquiSuite
+      - name: Run tests (BulkEntityTester)
+        run: ./gradlew test --tests dtq.rockycube.BulkEntityTester
+      - name: Run tests (ComplexEntitiesTester)
+        run: ./gradlew test --tests dtq.rockycube.ComplexEntitiesTester
+      - name: Run tests (DynamicRelationshipTester)
+        run: ./gradlew test --tests dtq.rockycube.DynamicRelationshipTester
+      - name: Run tests (PersonEntityTester)
+        run: ./gradlew test --tests dtq.rockycube.PersonEntityTester
