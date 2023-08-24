@@ -122,16 +122,6 @@ class EndpointTests extends Specification {
                 TestUtilities.extendList([testDir, "expected_flatmapping.json"] as String[]),
                 { Object processed, Object expected, Integer idx ->
 
-//                    // extract path from object processed
-//                    String file = processed
-//
-//                    // import file from test resources
-//                    String[] importFilePath = TestUtilities.extendList(TestUtilities.RESOURCE_PATH, file);
-//                    FileInputStream toImport = new FileInputStream(TestUtilities.getInputFile(importFilePath))
-//
-//                    // load into hashmap
-//                    def js = gson.fromJson(new InputStreamReader(toImport, StandardCharsets.UTF_8), HashMap.class)
-
                     // create new entity
                     def newStoredJson = ec.entity.makeValue("moqui.test.TestEntity")
                             .setAll([
