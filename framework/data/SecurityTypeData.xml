@@ -31,6 +31,20 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.security.ArtifactAuthz artifactAuthzId="EntitySyncServicesADMIN" userGroupId="ADMIN" artifactGroupId="EntitySyncServices"
             authzTypeEnumId="AUTHZT_ALWAYS" authzActionEnumId="AUTHZA_ALL"/>
 
+    <!-- Basic enumeration access -->
+    <moqui.security.ArtifactGroup artifactGroupId="EnumerationAccess" description="Enumerators access"/>
+    <moqui.security.ArtifactGroupMember artifactGroupId="EnumerationAccess" artifactName="moqui.basic.Enumeration"
+                                        nameIsPattern="N" artifactTypeEnumId="AT_ENTITY" inheritAuthz="N"/>
+    <moqui.security.ArtifactAuthz artifactAuthzId="EnumerationAccessADMIN" userGroupId="ADMIN" artifactGroupId="EnumerationAccess"
+                                  authzTypeEnumId="AUTHZT_ALWAYS" authzActionEnumId="AUTHZA_ALL"/>
+
+    <!-- Access to endpoint services -->
+    <moqui.security.ArtifactGroup artifactGroupId="GenericEndpointAccess" description="Access to endpoint services"/>
+    <moqui.security.ArtifactGroupMember artifactGroupId="GenericEndpointAccess" artifactName="dtq.rockycube.EndpointServices.populate#EntityData"
+                                        nameIsPattern="N" artifactTypeEnumId="AT_SERVICE" inheritAuthz="N"/>
+    <moqui.security.ArtifactAuthz artifactAuthzId="GenericEndpointAccessADMIN" userGroupId="ADMIN" artifactGroupId="GenericEndpointAccess"
+                                  authzTypeEnumId="AUTHZT_ALWAYS" authzActionEnumId="AUTHZA_ALL"/>
+
     <!-- An artifact group for remote SystemMessage calls; members of other groups like remote API only groups would use this as well -->
     <moqui.security.ArtifactGroup artifactGroupId="SystemMessageServices" description="SystemMessage Services"/>
     <moqui.security.ArtifactGroupMember artifactGroupId="SystemMessageServices"

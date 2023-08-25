@@ -107,7 +107,7 @@ class UtilsTests extends Specification {
         def confs = this.loadTestDatasourceConfig()
 
         // initialize JsonFieldManipulator before running any tests
-        JsonFieldManipulator jfm = new JsonFieldManipulator(["transactional", "transactional_postgres"], (confName)-> {
+        JsonFieldManipulator jfm = new JsonFieldManipulator(ecfi.entityFacade, ["transactional", "transactional_postgres"], (confName)-> {
             // search in datasource list
             def ds = confs[0].find({it->
                 if (it.attribute("group-name") == confName) return true
