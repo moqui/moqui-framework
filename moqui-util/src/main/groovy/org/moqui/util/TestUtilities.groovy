@@ -92,7 +92,7 @@ public class TestUtilities {
             // [0] > com.google.gson.internal.LinkedTreeMap
             // [1] > could be a String, could be an object
 
-            // expected value may be a value itself, or a path to JSON file with value
+            // expected/processed value may be a value itself, or a path to JSON file with value
             def processedEntity = t[0]
             def expectedValue = t[1]
             if (expectedValue instanceof String)
@@ -101,6 +101,13 @@ public class TestUtilities {
                 FileInputStream expValStream = new FileInputStream(getInputFile(expectedPath))
                 expectedValue = js.parse(new InputStreamReader(expValStream, StandardCharsets.UTF_8)) as HashMap
             }
+            if (processedEntity instanceof String)
+            {
+                String[] processedPath = extendList(RESOURCE_PATH, t[0] as String)
+                FileInputStream valStream = new FileInputStream(getInputFile(processedPath))
+                processedEntity = js.parse(new InputStreamReader(valStream, StandardCharsets.UTF_8)) as HashMap
+            }
+
             def proc = convertLazyMap(processedEntity as LazyMap)
             def exp = convertLazyMap(expectedValue as LazyMap)
 
@@ -180,9 +187,16 @@ public class TestUtilities {
     // write to log, for debug purposes - entire string
     public static void dumpToDebug(String[] debugPath, Closure cb)
     {
-        def fw = createDebugWriter(debugPath)
-        fw.write(cb() as String)
-        fw.close();
+        Writer fw = null
+
+        try {
+            fw = createDebugWriter(debugPath)
+            fw.write(cb() as String)
+            fw.close()
+        } catch (Exception exc) {
+            // try to close the writer
+            if (fw) try {fw.close()} catch (Exception closeWriter) {}
+        }
     }
 
     // write to log - with per-line command

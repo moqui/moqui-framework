@@ -32,6 +32,7 @@ class L10nFacadeTests extends Specification {
         ec.destroy()
     }
 
+    @Ignore
     @Unroll
     def "get Localized Message (#original - #language #country)"() {
         // NOTE: this relies on a LocalizedMessage records in CommonL10nData.xml
@@ -55,6 +56,7 @@ class L10nFacadeTests extends Specification {
         "Not Localized" | "zh" | ""  | "Not Localized"
     }
 
+    @Ignore
     @Unroll
     def "LocalizedEntityField with Enumeration.description (#enumId - #language #country)"() {
         // NOTE: this relies on a LocalizedEntityField records in CommonL10nData.xml

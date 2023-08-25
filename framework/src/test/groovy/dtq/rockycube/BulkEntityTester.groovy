@@ -74,7 +74,7 @@ class BulkEntityTester extends Specification {
 
         // insert into entities
         def isToImport = TestUtilities.loadTestResource((String[]) ['bulk-entity', 'plain-import.json'])
-        def result = handler.writeChanges(CONST_TEST_ENTITY, gson.fromJson(isToImport.newReader(), ArrayList.class), [])
+        def result = handler.writeChanges(CONST_TEST_ENTITY, gson.fromJson(isToImport.newReader(), ArrayList.class), [], [])
         logger.info("Output: ${result}")
 
         then:
@@ -101,7 +101,7 @@ class BulkEntityTester extends Specification {
             def fileStamp = "${idx + 1}_${TestUtilities.formattedTimestamp()}"
 
             def importData = TestUtilities.loadTestResource((String[]) ['bulk-entity', 'plain-import.json'], ArrayList.class)
-            assert handler.writeChanges(CONST_TEST_ENTITY, importData, [])['result'] == true
+            assert handler.writeChanges(CONST_TEST_ENTITY, importData, [], [])['result'] == true
 
             // data before test
             TestUtilities.dumpToDebug((String[])["__temp", "test_check_totals_BEFORE_${fileStamp}.json"], {
@@ -116,7 +116,7 @@ class BulkEntityTester extends Specification {
             assert !testedData.isEmpty()
 
             // PROCEDURE ITSELF
-            def res = handler.writeChanges(CONST_TEST_ENTITY, testedData.changes as ArrayList<HashMap>, testedData.deletions as ArrayList<HashMap>)
+            def res = handler.writeChanges(CONST_TEST_ENTITY, testedData.changes as ArrayList<HashMap>, testedData.deletions as ArrayList<HashMap>, [])
 
             // store output in a file, both result and entire set
             TestUtilities.dumpToDebug((String[])["__temp", "test_check_totals_RESULT_${fileStamp}.json"], {

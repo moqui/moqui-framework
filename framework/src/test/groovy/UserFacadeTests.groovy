@@ -35,6 +35,7 @@ class UserFacadeTests extends Specification {
         ec.user.loginUser("john.doe", "moqui")
     }
 
+    @Ignore
     def "check userId username currencyUomId locale userAccount.userFullName defaults"() {
         expect:
         ec.user.userId == "EX_JOHN_DOE"

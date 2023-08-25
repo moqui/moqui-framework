@@ -1726,6 +1726,7 @@ public abstract class EntityValueBase implements EntityValue {
 
         return this;
     }
+
     public abstract void deleteExtended(Connection con) throws SQLException;
 
     @Override
