@@ -417,9 +417,13 @@ task gitStatusAll {
             def curGrgit = Grgit.open(dir: gitDir)
             logger.lifecycle("\nGit status for ${gitDir} (branch:${curGrgit.branch.current()?.name}, tracking:${curGrgit.branch.current()?.trackingBranch?.name})")
 
-            if (curGrgit.remote.list().find({ it.name == 'upstream'})) {
-                def upstreamAhead = curGrgit.log { range curGrgit.resolve.toCommit('refs/remotes/upstream/master'), curGrgit.resolve.toCommit('refs/remotes/origin/master') }
-                if (upstreamAhead) logger.lifecycle("- origin/master ${upstreamAhead.size()} commits ahead of upstream/master")
+            try {
+                if (curGrgit.remote.list().find({ it.name == 'upstream'})) {
+                    def upstreamAhead = curGrgit.log { range curGrgit.resolve.toCommit('refs/remotes/upstream/master'), curGrgit.resolve.toCommit('refs/remotes/origin/master') }
+                    if (upstreamAhead) logger.lifecycle("- origin/master ${upstreamAhead.size()} commits ahead of upstream/master")
+                }
+            } catch (Exception e) {
+                logger.error("Error finding commits ahead of upstream", e)
             }
             try {
                 def masterLatest = curGrgit.resolve.toCommit('refs/remotes/origin/master')
