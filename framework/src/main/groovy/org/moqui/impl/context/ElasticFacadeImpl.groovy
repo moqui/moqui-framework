@@ -348,7 +348,7 @@ class ElasticFacadeImpl implements ElasticFacade {
             for (Map entry in actionSourceList) {
                 // look for _index fields in each Map, if found prefix
                 if (entry.size() == 1) {
-                    Map actionMap = entry.values().first()
+                    Map actionMap = (Map) entry.values().first()
                     Object _indexVal = actionMap.get("_index")
                     if (_indexVal != null && _indexVal instanceof String) actionMap.put("_index", prefixIndexName((String) _indexVal))
                 }

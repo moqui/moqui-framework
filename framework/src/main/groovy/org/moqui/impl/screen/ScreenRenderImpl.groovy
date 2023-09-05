@@ -2070,7 +2070,8 @@ class ScreenRenderImpl implements ScreenRender {
 
         return outMap
     }
-    Map<String, Object> makeFormListMultiMap(ScreenForm.FormListRenderInfo renderInfo, ArrayList<Map<String, Object>> listObject, UrlInstance formTransitionUrl) {
+    Map<String, Object> makeFormListMultiMap(ScreenForm.FormListRenderInfo renderInfo,
+            ArrayList<Map<String, Object>> listObject, UrlInstance formTransitionUrl) {
         MNode formNode = renderInfo.getFormNode()
         Map<String, Object> outMap = new LinkedHashMap<>()
 
