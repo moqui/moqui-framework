@@ -389,7 +389,9 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="uomId" type="id" is-pk="true"/>
         <field name="uomTypeEnumId" type="id"/>
         <field name="abbreviation" type="text-short"/>
-        <field name="description" type="text-medium"/>
+        <field name="description" type="text-medium" enable-localization="true"/>
+        <field name="fractionDigits" type="number-integer"/>
+        <field name="symbol" type="text-short" enable-localization="true"/>
         <relationship type="one" title="UomType" related="moqui.basic.Enumeration" short-alias="type">
             <key-map field-name="uomTypeEnumId"/></relationship>
         <relationship type="many" related="moqui.basic.UomConversion" short-alias="conversions">
