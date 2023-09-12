@@ -211,7 +211,7 @@ class EndpointTests extends Specification {
         then:
 
         // import data from existing sample file
-        TestUtilities.executeOnEachRecord((String[]) ["jsonb-column-query", 'sample-import.json'], (String entityName, Object data)->{
+        TestUtilities.executeOnEachRecord((String[]) ["jsonb-column-query", 'sample-import.json'], (Integer idx, String entityName, Object data)->{
             def newEntity = ec.entity.makeValue(entityName)
             newEntity.setAll((HashMap) data)
                     .setSequencedIdPrimary()

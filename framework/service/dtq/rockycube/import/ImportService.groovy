@@ -8,12 +8,12 @@ def insertFromJson() {
     if (dummyFks) edl.dummyFks(true)
     if (useTryInsert) edl.useTryInsert(true)
 
-    edl.onlyCreate(true)
+    edl.onlyCreate(createOnly)
     List<String> messages = new LinkedList<>()
     long recordsLoaded = edl.load(messages)
 
     ec.logger.info("Records created: [${recordsLoaded}]")
-    return [result: "Records created: [${recordsLoaded}]"]
+    return [result: true, message: "Records created: [${recordsLoaded}]"]
     //ec.message.addMessage("Loaded ${recordsLoaded} records from [${source}]")
     //ec.web.session.setAttribute("DataImport.messages", messages)
 }

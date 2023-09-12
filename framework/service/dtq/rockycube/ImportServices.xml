@@ -23,6 +23,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="timeout" type="Integer" default="600"/>
             <parameter name="dummyFks" type="Boolean" default="true"/>
             <parameter name="useTryInsert" type="Boolean" default="false"/>
+            <parameter name="createOnly" type="Boolean" default="false"/>
         </in-parameters>
         <out-parameters>
             <parameter name="result" type="Map"/>
