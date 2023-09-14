@@ -168,7 +168,7 @@ class EntityCrud extends Specification {
         try {
             ec.entity.makeValue("moqui.test.TestEntity").setAll([testId:"FORBUPD", testMedium:"Forbid update test"]).forbidDatabaseUpdate().create()
         } catch (EntityException e) {
-            assert e.message == "Forbid update not supported on generic EntityValue"
+            assert e.message == "Forbid update (on database level) not supported on generic EntityValue"
         } catch (Exception exc) {
             assert false, "We should not get here, it means we have another problem"
         }

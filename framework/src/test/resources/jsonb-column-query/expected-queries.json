@@ -16,7 +16,7 @@
     {
       "entity": "moqui.test.TestJsonEntity",
       "term": [
-        {"field": "testJsonId", "value": {"projectId": 1, "category": "a"}}
+        {"field": "testJsonId", "value": {"category": "a", "projectId": 1}}
       ]
     },
     {

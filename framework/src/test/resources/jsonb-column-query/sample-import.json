@@ -2,7 +2,7 @@
   {
     "entity": "moqui.test.TestJsonEntity",
     "data": {
-      "testJsonId": {"projectId": 1, "category": "a"},
+      "testJsonId": {"category": "a", "projectId": 1},
       "testMedium": "Something useful",
       "testJsonField": {"general": {"salesPerson": "Zaluzhnyi"}}
     }
@@ -10,7 +10,7 @@
   {
     "entity": "moqui.test.TestJsonEntity",
     "data": {
-      "testJsonId": {"projectId": 1, "category": "a"},
+      "testJsonId": {"category": "a", "projectId": 1},
       "testMedium": "Something even more useful",
       "testJsonField": {"general": {"salesPerson": {"name": "Zaluzhnyi"}}}
     }
