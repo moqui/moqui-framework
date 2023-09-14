@@ -59,6 +59,9 @@ class EndpointServiceHandler {
     // e.g. useful when using this class to modify data without providing
     // explicit query conditions (BulkEntityHandler)
     private static String CONST_SEARCH_USING_DATA_PROVIDED      = 'searchUsingDataProvided'
+    // explicit update forbidding
+    private static String CONST_FORBID_DATABASE_UPDATE          = 'forbidDatabaseUpdate'
+
 
     /*
     DEFAULTS
@@ -325,6 +328,12 @@ class EndpointServiceHandler {
         if (!args.containsKey(CONST_SEARCH_USING_DATA_PROVIDED))
         {
             args.put(CONST_SEARCH_USING_DATA_PROVIDED, false)
+        }
+
+        // by default, not set
+        if (!args.containsKey(CONST_FORBID_DATABASE_UPDATE))
+        {
+            args.put(CONST_FORBID_DATABASE_UPDATE, false)
         }
     }
 
@@ -744,7 +753,7 @@ class EndpointServiceHandler {
         }
 
         // update if necessary
-        // support for extraction of querycondition from data provided introduced
+        // support for extraction of query condition from data provided introduced
         EntityConditionImplBase queryUsed = queryCondition
         // if
         // 1. no query is provided from the constructor
@@ -771,6 +780,9 @@ class EndpointServiceHandler {
 
         def created = ec.entity.makeValue(entityName)
                 .setAll(singleEntityData)
+
+        // explicit forbid update, on database level
+        if (args.get(CONST_FORBID_DATABASE_UPDATE)) { created.forbidDatabaseUpdate() }
 
         // create primary key
         if (args[CONST_AUTO_CREATE_PKEY] == true) {

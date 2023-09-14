@@ -1822,4 +1822,7 @@ public abstract class EntityValueBase implements EntityValue {
         @Override public void deleteExtended(Connection con) { throw new UnsupportedOperationException("Not implemented on DeletedEntityValue"); }
         @Override public boolean refreshExtended() { throw new UnsupportedOperationException("Not implemented on DeletedEntityValue"); }
     }
+
+    @Override
+    public EntityValue forbidDatabaseUpdate() {throw new EntityException("Forbid update (on database level) not supported on generic EntityValue");}
 }

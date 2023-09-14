@@ -302,4 +302,11 @@ public interface EntityValue extends Map<String, Object>, Externalizable, Compar
 
     /** List getPlainValueMap() but uses a master definition to determine which dependent/related records to get. */
     Map<String, Object> getMasterValueMap(String name);
+
+    /**
+     * This method forbid updating a document on database level. Is used in specific cases, e.g. in when writing
+     * to Document storage without wanting to overwrite already stored data
+     * @return EntityValue instance
+     */
+    EntityValue forbidDatabaseUpdate();
 }
