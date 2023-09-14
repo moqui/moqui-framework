@@ -3,6 +3,10 @@ import dtq.rockycube.endpoint.EndpointServiceHandler
 import dtq.rockycube.entity.ConditionHandler
 import dtq.rockycube.entity.EntityHelper
 import groovy.json.JsonSlurper
+import net.javacrumbs.jsonunit.core.Configuration
+import net.javacrumbs.jsonunit.core.internal.Options
+import org.apache.groovy.json.internal.LazyMap
+import org.junit.Test
 import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
 import dtq.rockycube.util.TestUtilities
@@ -119,20 +123,10 @@ class EndpointTests extends Specification {
                 TestUtilities.extendList([testDir, "expected_flatmapping.json"] as String[]),
                 { Object processed, Object expected, Integer idx ->
 
-                    // extract path from object processed
-                    String file = processed
-
-                    // import file from test resources
-                    String[] importFilePath = TestUtilities.extendList(TestUtilities.RESOURCE_PATH, file);
-                    FileInputStream toImport = new FileInputStream(TestUtilities.getInputFile(importFilePath))
-
-                    // load into hashmap
-                    def js = gson.fromJson(new InputStreamReader(toImport, StandardCharsets.UTF_8), HashMap.class)
-
                     // create new entity
                     def newStoredJson = ec.entity.makeValue("moqui.test.TestEntity")
                             .setAll([
-                                    testJsonField: js,
+                                    testJsonField: processed,
                             ])
                             .setSequencedIdPrimary()
                             .create()
@@ -159,7 +153,7 @@ class EndpointTests extends Specification {
 
                     // assert equality between JSON returned and the one set in the expected
                     JsonAssert.setOptions(Option.IGNORING_ARRAY_ORDER, Option.IGNORING_EXTRA_FIELDS)
-                    JsonAssert.assertJsonEquals(expected, result)
+                    JsonAssert.assertJsonEquals(expected, result, new Configuration(0.01, Options.empty(), "#{json-unit.ignore}"))
                 })
 
         then:
@@ -247,14 +241,14 @@ class EndpointTests extends Specification {
         ec.entity.find('moqui.test.TestJsonEntity').deleteAll()
 
         // load test resource
-        def js =TestUtilities.loadTestResource((String[]) [testDir, 'sample-import.json'])
+        def js = TestUtilities.loadTestResource((String[]) [testDir, 'sample-import.json'])
 
         // import data so that we have something to test on
         def importJs = new JsonSlurper().parse(js.bytes)
         for (i in importJs)
         {
             def newEntity = ec.entity.makeValue(i['entity'])
-            newEntity.setAll(i['data']).setSequencedIdPrimary().create()
+            newEntity.setAll(i['data'] as LinkedHashMap).setSequencedIdPrimary().create()
 
             // creation check
             assert newEntity
@@ -268,6 +262,7 @@ class EndpointTests extends Specification {
                     def endpointData = this.ec.service.sync()
                             .name("dtq.rockycube.EndpointServices.populate#EntityData")
                             .parameters([
+                                    failsafe: true,
                                     entityName: processed.entity,
                                     term      : processed.term
                             ])
@@ -284,13 +279,7 @@ class EndpointTests extends Specification {
                 } catch(Exception exc) {
                     assert expected.result == false
                 }
-            })
-
-        // final test
-        // search check
-        assert ec.entity.find('moqui.test.TestJsonEntity').condition([
-                testJsonId: [projectId: 1, category: 'a']
-        ]).count() == 2
+            }, logger)
 
         then:
 

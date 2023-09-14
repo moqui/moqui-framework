@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<entity-facade-xml type="seed">
+    <!--SYSTEM USERS initialization-->
+    <moqui.security.UserGroup userGroupId="SYSTEM_USERS" description="System users"/>
+    <moqui.security.UserGroupMember userGroupId="SYSTEM_USERS" userId="JOHN_H" fromDate="1265184000000"/>
+
+    <!-- JOHN HARDY UserAccount -->
+    <moqui.security.UserAccount userId="JOHN_H"
+                                username="john.hardy"
+                                userFullName="John M. Hardy"
+                                currentPassword="16ac58bbfa332c1c55bd98b53e60720bfa90d394"
+                                passwordHashType="SHA"
+                                passwordHint="framework"
+                                requirePasswordChange="N"
+                                locale="sk_SK"
+                                timeZone="CET"
+                                emailAddress="admin@dataquest.sk"
+                                partyId="JOHN_H"/>
+
+    <moqui.security.UserGroupMember userGroupId="ADMIN" userId="JOHN_H" fromDate="1265184000000"/>
+
+    <!-- JOHN DOE UserAccount -->
+    <moqui.security.UserAccount userId="EX_JOHN_DOE"
+                                username="john.doe"
+                                userFullName="John Doe"
+                                currentPassword="16ac58bbfa332c1c55bd98b53e60720bfa90d394"
+                                passwordHashType="SHA"
+                                passwordHint="framework"
+                                requirePasswordChange="N"
+                                locale="sk_SK"
+                                timeZone="CET"
+                                emailAddress="sentinel@dataquest.sk"
+                                />
+
+    <moqui.security.UserGroupMember userGroupId="ADMIN" userId="JOHN_H" fromDate="1265184000000"/>
+    <moqui.security.UserGroupMember userGroupId="ADMIN" userId="EX_JOHN_DOE" fromDate="1265184000000"/>
+</entity-facade-xml>

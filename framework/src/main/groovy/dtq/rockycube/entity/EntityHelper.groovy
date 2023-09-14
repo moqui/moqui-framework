@@ -4,7 +4,6 @@ import org.moqui.context.ExecutionContext
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityException
 import org.moqui.entity.EntityFind
-import org.moqui.impl.ViUtilities
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityFacadeImpl
 import java.util.regex.Pattern
@@ -72,7 +71,7 @@ class EntityHelper {
         return foundSource?foundSource.get("group"):null
     }
 
-    private <K, V> Map.Entry<K, V> foundEntity(
+    private <K, V> Map.Entry<K, V> findEntity(
             Iterator iterator,
             Pattern recSearchEntity,
             String groupName) {
@@ -102,14 +101,14 @@ class EntityHelper {
     public EntityDefinition getDefinition(Pattern recSearchEntity, String groupName = null)
     {
         // 1. search among framework entities
-        Map.Entry<String, Object> foundEntityDef = foundEntity(
+        Map.Entry<String, Object> foundEntityDef = findEntity(
                 efi.frameworkEntityDefinitions.iterator(),
                 recSearchEntity,
                 groupName)
 
         if (!foundEntityDef) {
             // 2. search in normal entities
-            foundEntityDef = foundEntity(
+            foundEntityDef = findEntity(
                     efi.entityDefinitionCache.iterator(),
                     recSearchEntity,
                     groupName)
@@ -127,7 +126,12 @@ class EntityHelper {
         def searchedEntityName = entityName
         if (match.matches()) searchedEntityName = match.group(1)
 
-        def recEntitySearch = Pattern.compile(searchedEntityName)
-        return getDefinition(recEntitySearch, groupName)
+        def entityDef = this.efi.getEntityDefinition(searchedEntityName)
+        if (!entityDef) return null
+        if (!groupName) return entityDef
+
+        // test groupName condition, otherwise return null
+        if (groupName == entityDef.groupName) return entityDef
+        return null
     }
 }

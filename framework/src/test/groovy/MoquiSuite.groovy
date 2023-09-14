@@ -13,6 +13,7 @@
  */
 
 
+import dtq.rockycube.ComplexEntitiesTester
 import org.junit.AfterClass
 import org.junit.platform.suite.api.SelectClasses
 import org.junit.platform.suite.api.Suite
@@ -39,7 +40,8 @@ import org.moqui.Moqui
     EndpointTests.class,
     JsonSupportTests.class,
     EntityHelperTests.class,
-    UtilsTests.class
+    UtilsTests.class,
+    ComplexEntitiesTester.class
 ])
 @Suite
 public class MoquiSuite

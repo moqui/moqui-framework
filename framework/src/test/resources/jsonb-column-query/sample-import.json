@@ -14,5 +14,12 @@
       "testMedium": "Something even more useful",
       "testJsonField": {"general": {"salesPerson": {"name": "Zaluzhnyi"}}}
     }
+  },
+  {
+    "entity": "moqui.test.TestJsonEntity",
+    "data": {
+      "testJsonId": {"projectId": 1},
+      "testMedium": "Something beautiful"
+    }
   }
 ]

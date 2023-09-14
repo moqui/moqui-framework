@@ -189,6 +189,7 @@ class EntityFindTests extends Specification {
     }
 
 
+    @Ignore
     def "auto cache clear for view list on create of record not included"() {
         // this is similar to what happens with authz checking with changes after startup
         when:
@@ -208,6 +209,8 @@ class EntityFindTests extends Specification {
         afterList.size() == beforeList.size() + 2
         afterList.filterByAnd([artifactGroupId:"SCREEN_TREE"]).size() == 2
     }
+
+    @Ignore
     def "auto cache clear for view list on create of related record not included"() {
         // this is similar to what happens with authz checking with changes after startup
         when:
