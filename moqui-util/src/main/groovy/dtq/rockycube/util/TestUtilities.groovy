@@ -126,8 +126,8 @@ public class TestUtilities {
                 processedEntity = js.parse(new InputStreamReader(valStream, StandardCharsets.UTF_8)) as HashMap
             }
 
-            def proc = convertLazyMap(processedEntity as LazyMap)
-            def exp = convertLazyMap(expectedValue as LazyMap)
+            def proc = CollectionUtils.convertLazyMap(processedEntity as LazyMap)
+            def exp = CollectionUtils.convertLazyMap(expectedValue as LazyMap)
 
             if (logger) logger.info("*************** Test ${idx + 1} [START ] ***************")
             cb(proc, exp, idx)

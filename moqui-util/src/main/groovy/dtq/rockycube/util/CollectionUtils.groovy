@@ -87,9 +87,6 @@ class CollectionUtils {
             default:
                 throw new Exception("Unable to perform search for a key in object of class [${whereToSearch.getClass().simpleName}]")
         }
-
-
-
     }
 
     public static <T> T findKeyInMap(Map whereToSearch, String searchForKey, Class<T> expectedType, Object defaultIfNotFound=null)
