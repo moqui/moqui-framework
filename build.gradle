@@ -936,3 +936,7 @@ task cleanPullLoad { dependsOn cleanAll, gitPullAll, load }
 task cleanPullTest { dependsOn cleanAll, gitPullAll, load, allTestTasks }
 task cleanPullCompTest { dependsOn cleanAll, gitPullAll, load, getComponentTestTasks() }
 task compTest { dependsOn getComponentTestTasks() }
+
+tasks.each {task -> configure(task) {
+    group = "moqui"
+}}
