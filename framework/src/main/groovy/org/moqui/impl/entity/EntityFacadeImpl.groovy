@@ -791,8 +791,10 @@ class EntityFacadeImpl implements EntityFacade {
                 }
             }
         }
+        //get relationships from entityNode
+        //if entityNode doesn't contain any relationships, this variable is null
+        ArrayList<MNode> relationships = entityNode.getChildrenByName().get("relationship")
         // if (entityName.endsWith("xample")) logger.warn("======== Creating Example ED entityNode=${entityNode}\nextendEntityNodes: ${extendEntityNodes}")
-
         // merge the extend-entity nodes
         for (MNode extendEntity in extendEntityNodes) {
             // if package attributes don't match, skip
@@ -809,19 +811,22 @@ class EntityFacadeImpl implements EntityFacade {
                 else entityNode.append(childOverrideNode)
             }
             // add relationship, key-map (copy over, will get child nodes too
-            ArrayList<MNode> relNodeList = extendEntity.children("relationship")
-            for (int i = 0; i < relNodeList.size(); i++) {
-                MNode copyNode = relNodeList.get(i)
-                int curNodeIndex = entityNode.children
-                        .findIndexOf({ MNode it ->
-                            String itRelated = it.attribute('related') ?: it.attribute('related-entity-name');
-                            String copyRelated = copyNode.attribute('related') ?: copyNode.attribute('related-entity-name');
-                            return it.name == "relationship" && itRelated == copyRelated &&
-                                    it.attribute('title') == copyNode.attribute('title'); })
-                if (curNodeIndex >= 0) {
-                    entityNode.children.set(curNodeIndex, copyNode)
-                } else {
-                    entityNode.append(copyNode)
+            if (relationships) {
+                ArrayList<MNode> relNodeList = extendEntity.children("relationship")
+                for (int i = 0; i < relNodeList.size(); i++) {
+                    MNode copyNode = relNodeList.get(i)
+                    int curNodeIndex = entityNode.children
+                            .findIndexOf({ MNode it ->
+                                String itRelated = it.attribute('related') ?: it.attribute('related-entity-name');
+                                String copyRelated = copyNode.attribute('related') ?: copyNode.attribute('related-entity-name');
+                                return it.name == "relationship" && itRelated == copyRelated &&
+                                        it.attribute('title') == copyNode.attribute('title');
+                            })
+                    if (curNodeIndex >= 0) {
+                        entityNode.children.set(curNodeIndex, copyNode)
+                    } else {
+                        entityNode.append(copyNode)
+                    }
                 }
             }
             // add index, index-field
@@ -844,7 +849,9 @@ class EntityFacadeImpl implements EntityFacade {
             //modify entity name
             entityNode.attributes.put("entity-name", specialEntityName)
             //modify entity relationships
-            this.setDynamicRelationships(entityNode, entitySuffix)
+            if (relationships) {
+                this.setDynamicRelationships(entityNode, entitySuffix)
+            }
             logger.info("Loading special entity ${specialEntityName}.")
         }
 
@@ -868,7 +875,9 @@ class EntityFacadeImpl implements EntityFacade {
         if (entitySuffix != null) {
             //cache it under the fullEntityName
             dynamicEntityDefinitions.put(fullEntityName, ed)
-            this.createDynamicRelationships(entityNode)
+           if (relationships) {
+               this.createDynamicRelationships(entityNode)
+           }
         }
         // send it on its way
         return ed
