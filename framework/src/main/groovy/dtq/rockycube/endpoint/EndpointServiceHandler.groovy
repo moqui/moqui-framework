@@ -144,7 +144,14 @@ class EndpointServiceHandler {
     {
         if (serviceAllowedOn.empty) return true
         return serviceAllowedOn.any{it->
-            def rec = Pattern.compile((String) it)
+            String itString = it.toString()
+            //get value which is allowed
+            def rec = Pattern.compile(itString)
+            //if rec contains *, we allow each entity which starts with value before *
+            //e.g. Test*, would match TestDocument
+            if (itString.contains("*"))
+                if (this.entityName.startsWith(itString.substring(0,itString.length() - 1))) return true
+            //else allow if the entity matches rec
             return rec.matcher(this.entityName).matches()
         }
     }
