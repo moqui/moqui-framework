@@ -791,8 +791,10 @@ class EntityFacadeImpl implements EntityFacade {
                 }
             }
         }
+        //get relationships from entityNode
+        //if entityNode doesn't contain any relationships, this variable is null
+        ArrayList<MNode> relationships = entityNode.getChildrenByName().get("relationship")
         // if (entityName.endsWith("xample")) logger.warn("======== Creating Example ED entityNode=${entityNode}\nextendEntityNodes: ${extendEntityNodes}")
-
         // merge the extend-entity nodes
         for (MNode extendEntity in extendEntityNodes) {
             // if package attributes don't match, skip
@@ -809,7 +811,7 @@ class EntityFacadeImpl implements EntityFacade {
                 else entityNode.append(childOverrideNode)
             }
             // add relationship, key-map (copy over, will get child nodes too
-            if (entityNode.getChildrenByName().get("relationship")) {
+            if (relationships) {
                 ArrayList<MNode> relNodeList = extendEntity.children("relationship")
                 for (int i = 0; i < relNodeList.size(); i++) {
                     MNode copyNode = relNodeList.get(i)
@@ -847,7 +849,7 @@ class EntityFacadeImpl implements EntityFacade {
             //modify entity name
             entityNode.attributes.put("entity-name", specialEntityName)
             //modify entity relationships
-            if (entityNode.getChildrenByName().get("relationship")) {
+            if (relationships) {
                 this.setDynamicRelationships(entityNode, entitySuffix)
             }
             logger.info("Loading special entity ${specialEntityName}.")
@@ -873,7 +875,7 @@ class EntityFacadeImpl implements EntityFacade {
         if (entitySuffix != null) {
             //cache it under the fullEntityName
             dynamicEntityDefinitions.put(fullEntityName, ed)
-           if (entityNode.getChildrenByName().get("relationship")) {
+           if (relationships) {
                this.createDynamicRelationships(entityNode)
            }
         }
@@ -889,7 +891,7 @@ class EntityFacadeImpl implements EntityFacade {
      */
     private void setDynamicRelationships(MNode entityNode, String suffix) {
         ArrayList<MNode> relationships = entityNode.getChildrenByName().get("relationship")
-        int size = entityNode.getChildrenByName().get("relationship").size()
+        int size = relationships.size()
         for (int i = 0; i < size; i++) {
             MNode node = relationships.get(i)
             String name = node.attributes.get("related");
@@ -912,7 +914,7 @@ class EntityFacadeImpl implements EntityFacade {
      */
     private void createDynamicRelationships(MNode entityNode) {
         ArrayList<MNode> relationships = entityNode.getChildrenByName().get("relationship")
-        int size = entityNode.getChildrenByName().get("relationship").size()
+        int size = relationships.size()
         for (int i = 0; i < size; i++) {
             MNode node = relationships.get(i)
             String name = node.attributes.get("related")
