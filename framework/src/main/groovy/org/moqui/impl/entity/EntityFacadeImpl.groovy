@@ -882,7 +882,7 @@ class EntityFacadeImpl implements EntityFacade {
      */
     private void setDynamicRelationships(MNode entityNode, String suffix) {
         ArrayList<MNode> relationships = entityNode.getChildrenByName().get("relationship")
-        int size = entityNode.getChildrenByName().get("relationship").size()
+        int size = relationships.size()
         for (int i = 0; i < size; i++) {
             MNode node = relationships.get(i)
             String name = node.attributes.get("related");
@@ -905,7 +905,7 @@ class EntityFacadeImpl implements EntityFacade {
      */
     private void createDynamicRelationships(MNode entityNode) {
         ArrayList<MNode> relationships = entityNode.getChildrenByName().get("relationship")
-        int size = entityNode.getChildrenByName().get("relationship").size()
+        int size = relationships.size()
         for (int i = 0; i < size; i++) {
             MNode node = relationships.get(i)
             String name = node.attributes.get("related")
