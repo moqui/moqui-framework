@@ -86,3 +86,7 @@ jar {
     manifest { attributes 'Implementation-Title': 'Moqui Utilities', 'Implementation-Version': version, 'Implementation-Vendor': 'Moqui Ecosystem' }
     from sourceSets.main.output
 }
+
+tasks.each {task -> configure(task) {
+    group = "moqui-util"
+}}

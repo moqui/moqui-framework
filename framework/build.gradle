@@ -304,3 +304,7 @@ task copyDependencies { doLast {
     copy { from configurations.runtimeOnly; into file(projectDir.absolutePath + '/dependencies') }
     copy { from configurations.testImplementation; into file(projectDir.absolutePath + '/dependencies') }
 } }
+
+tasks.each {task -> configure(task) {
+    group = "moqui-framework"
+}}
