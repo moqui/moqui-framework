@@ -13,6 +13,7 @@ class DynamicRelationshipTester extends Specification {
     private String CONST_PACKAGE_NAME = "moqui.test"
     private String CONST_TEST_RELATIONSHIP_NAME = "TestRelationshipName"
     private String CONST_TEST_RELATIONSHIP_PERSON = "TestRelationshipPerson"
+    private String CONST_TEST_BASIC_ENTITY = "TestBasicEntity"
     private String CONST_SUFFIX = "test"
 
     @Shared
@@ -60,5 +61,22 @@ class DynamicRelationshipTester extends Specification {
             ec.entity.find("${CONST_PACKAGE_NAME}.${CONST_TEST_RELATIONSHIP_NAME}_${CONST_SUFFIX}").count() == 1
             ec.entity.find("${CONST_PACKAGE_NAME}.${CONST_TEST_RELATIONSHIP_PERSON}_${CONST_SUFFIX}").count() == 1
 
+    }
+
+    def test_entity_without_relationship()
+    {
+        when:
+            // disable authz
+            this.ec.artifactExecution.disableAuthz()
+            //clean all
+            ec.entity.makeValue(getEntityName(CONST_TEST_BASIC_ENTITY)).setAll(
+                    testId: 1
+            ).delete()
+            //insert new data
+            ec.entity.makeValue(getEntityName(CONST_TEST_BASIC_ENTITY)).setAll(
+                    testId: 1
+            ).create()
+        then:
+            ec.entity.find("${CONST_PACKAGE_NAME}.${CONST_TEST_BASIC_ENTITY}_${CONST_SUFFIX}").count() == 1
     }
 }

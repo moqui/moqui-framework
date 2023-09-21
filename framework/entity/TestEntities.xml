@@ -85,4 +85,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="testName" type="text-short" is-pk="true"/>
         <relationship type="many" related="moqui.test.TestRelationshipPerson"/>
     </entity>
+
+    <entity entity-name="TestBasicEntity" package="moqui.test">
+        <field name="testId" type="id" is-pk="true"/>
+    </entity>
 </entities>
