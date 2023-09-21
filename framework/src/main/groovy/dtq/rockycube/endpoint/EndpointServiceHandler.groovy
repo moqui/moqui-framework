@@ -144,7 +144,10 @@ class EndpointServiceHandler {
     {
         if (serviceAllowedOn.empty) return true
         return serviceAllowedOn.any{it->
-            def rec = Pattern.compile((String) it)
+            String itString = it.toString()
+            def rec = Pattern.compile(itString)
+            if (itString.contains("*"))
+                if (this.entityName.startsWith(itString.substring(0,itString.length() - 1))) return true
             return rec.matcher(this.entityName).matches()
         }
     }
