@@ -277,7 +277,38 @@ class ViUtilities {
         }
     }
 
-    /*QUERY HELPERS*/
+    /**
+     * Method converts date to starting date of month
+     * @param inp
+     * @return
+     */
+    static LocalDate convertToBom(Object inp)
+    {
+        // input type check
+        if (inp.getClass() != String.class) throw new Exception("Unsupported input variable class, only String supported, but [${inp.class.simpleName}] arrived")
+
+        def conv = LocalDate.parse((String) inp)
+        return LocalDate.of(conv.year, conv.month, 1)
+    }
+
+    /**
+     * Method converts date to end date of month
+     * @param inp
+     * @return
+     */
+    static LocalDate convertToEom(Object inp)
+    {
+        return convertToBom(inp).plusMonths(1).plusDays(-1)
+    }
+
+
+    /**
+     * QUERY HELPERS - methods related to pagination procedures
+     * @param query
+     * @param pageIndex
+     * @param pageSize
+     * @return
+     */
     static String calcPagedQuery(String query, Integer pageIndex, Integer pageSize)
     {
         return SqlExecutor.calcPagedQuery(query, pageIndex, pageSize)

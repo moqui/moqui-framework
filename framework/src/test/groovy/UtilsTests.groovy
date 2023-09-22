@@ -269,4 +269,18 @@ class UtilsTests extends Specification {
         then:
         assert true
     }
+
+    def "test date-beginning and date-ending conversion"(){
+        when:
+
+        // assert that we are able to convert dates to BOM and EOM dates
+        def resultBom = LocalDate.parse('1981-03-01')
+        def resultEom = LocalDate.parse('1981-03-31')
+
+        assert resultBom == ViUtilities.convertToBom('1981-03-20')
+        assert resultEom == ViUtilities.convertToEom('1981-03-20')
+
+        then:
+        assert true
+    }
 }
