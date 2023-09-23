@@ -875,9 +875,9 @@ class EntityFacadeImpl implements EntityFacade {
         if (entitySuffix != null) {
             //cache it under the fullEntityName
             dynamicEntityDefinitions.put(fullEntityName, ed)
-           if (relationships) {
-               this.createDynamicRelationships(entityNode)
-           }
+            if (relationships) {
+                this.createDynamicRelationships(entityNode)
+            }
         }
         // send it on its way
         return ed
@@ -901,7 +901,7 @@ class EntityFacadeImpl implements EntityFacade {
             }
             //create new name based on suffix
             // set name of relationship
-            node.attributes.put("related", name + "_" + suffix)
+            node.attributes.put("related", name + "@" + suffix)
             //replace relationship
             relationships.set(i, node)
         }
@@ -921,7 +921,7 @@ class EntityFacadeImpl implements EntityFacade {
             if (name.contains("moqui.basic") || dynamicEntityDefinitions.containsKey(name)) {
                 continue
             }
-            ecfi.entity.makeValue(name.split('_')[0] + "@" + name.split('_')[1])
+            ecfi.entity.makeValue(name)
         }
     }
 

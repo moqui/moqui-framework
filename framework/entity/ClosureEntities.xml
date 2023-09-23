@@ -24,6 +24,9 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="stats" type="jsonb"><description>Field for holding some statistics, may be suitable for some use cases</description></field>
         <field name="created" type="date-time" default="ec.user.nowTimestamp"/>
 
+        <!--relationship-->
+        <relationship type="many" related="dtq.rockycube.ClosureItemOutput" short-alias="item"/>
+
         <!--Index-->
         <index name="idSrchItmIdx" table-based-name="true">
             <index-field name="identity"/>
@@ -36,7 +39,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="identity" type="jsonb" not-null="true"/>
         <field name="detail" type="jsonb" not-null="true"/>
         <field name="created" type="date-time" default="ec.user.nowTimestamp"/>
-        <relationship type="one-nofk" related="dtq.rockycube.ClosureItem" fk-name="closureItemId"/>
+        <relationship type="one" related="dtq.rockycube.ClosureItem" fk-name="closureItemId"/>
 
         <!--Index for searching using identity-column-->
         <index name="idSrchItmOutIdx" table-based-name="true">
