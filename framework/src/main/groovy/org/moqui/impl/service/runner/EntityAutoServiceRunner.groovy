@@ -533,7 +533,6 @@ class EntityAutoServiceRunner implements ServiceRunner {
             if ("*".equals(newParms.get(fieldName))) {
                 hasWildcard = true
                 newParms.remove(fieldName)
-                break
             }
         }
         if (hasWildcard) {

@@ -729,7 +729,8 @@ public class ContextJavaUtil {
 
         @Override public V get() throws InterruptedException, ExecutionException { return future.get(); }
         @Override public V get(long l, @NotNull TimeUnit timeUnit) throws InterruptedException, ExecutionException, TimeoutException {
-            return get(l, timeUnit); }
+            return future.get(l, timeUnit);
+        }
 
         @Override public String toString() {
             return "CustomScheduledTask " + (runnable != null ? runnable.getClass().getName() : (callable != null ? callable.getClass().getName() : "[no Runnable or Callable!]"));
