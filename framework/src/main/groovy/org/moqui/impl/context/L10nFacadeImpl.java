@@ -127,7 +127,8 @@ public class L10nFacadeImpl implements L10nFacade {
             currencySymbol = "";
         EntityValue uom = null;
         if (uomId != null && uomId.length() > 0) {
-            List<EntityValue> uomList = eci.getEntity().find("moqui.basic.Uom").condition("uomId", uomId).condition("uomTypeEnumId", "UT_CURRENCY_MEASURE").list();
+            List<EntityValue> uomList = eci.getEntity().find("moqui.basic.Uom").condition("uomId", uomId)
+                    .condition("uomTypeEnumId", "UT_CURRENCY_MEASURE").disableAuthz().list();
             if (uomList.size() > 0) {
                 uom = uomList.get(0);
                 String symbol = uom.getString("symbol");
