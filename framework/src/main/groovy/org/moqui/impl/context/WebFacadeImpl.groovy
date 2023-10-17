@@ -1264,10 +1264,14 @@ class WebFacadeImpl implements WebFacade {
                     return
                 }
 
-                Timestamp timestampTimestamp = new Timestamp(Long.parseLong(timestamp) * 1000)
+                Timestamp incomingTimestamp = new Timestamp(Long.parseLong(timestamp) * 1000)
+
+                // Add 10 seconds to now timestamp to allow for clock skew (10 seconds = 10000 milliseconds = 10*1000)
+                Timestamp nowTimestamp = new Timestamp(eci.user.nowTimestamp.getTime() + 10000)
                 // If timestamp was not sent in past 5 minutes, reject message (5 minutes = 300000 milliseconds = 5*60*1000)
-                if (!timestampTimestamp.before(eci.user.nowTimestamp) || !timestampTimestamp.after(new Timestamp(eci.user.nowTimestamp.getTime() - 300000))) {
-                    logger.warn("System message receive HMAC invalid timestamp ${timestamp}")
+                Timestamp beforeTimestamp = new Timestamp(nowTimestamp.getTime() - 300000)
+                if (!incomingTimestamp.before(nowTimestamp) || !incomingTimestamp.after(beforeTimestamp) ){
+                    logger.warn("System message receive HMAC invalid incoming timestamp where before timestamp ${beforeTimestamp} < incoming timestamp ${incomingTimestamp} < now timestamp ${nowTimestamp}" )
                     response.sendError(HttpServletResponse.SC_FORBIDDEN, "HMAC timestamp verification failed")
                     return
                 }
