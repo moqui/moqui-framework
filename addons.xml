@@ -52,6 +52,7 @@
     <component name="moqui-orientdb" group="moqui" version="1.0.4" branch="master"/>
     <component name="moqui-poi" group="moqui" version="1.0.1" branch="master"/>
     <component name="moqui-sftp" group="moqui" version="1.0.1" branch="master"/>
+    <component name="moqui-sso" group="moqui" version="1.0.1" branch="master"/>
     <component name="moqui-wikitext" group="moqui" version="1.0.3" branch="master"/>
 
     <component name="moqui-atomikos" group="moqui" version="1.0.0" branch="master"/><!-- not actively maintained -->
