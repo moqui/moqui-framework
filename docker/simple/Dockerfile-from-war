@@ -30,6 +30,7 @@ HEALTHCHECK --interval=10s --timeout=600ms --start-period=90s CMD curl --fail ht
 # scripts
 ADD docker/simple/*.sh /opt/.
 RUN dos2unix /opt/*.sh && chmod +x /opt/*.sh
+RUN apk add tzdata
 
 # specify this as a default parameter if none are specified with docker exec/run, ie run production by default
 CMD ["conf=conf/MoquiTestConf.xml"]
