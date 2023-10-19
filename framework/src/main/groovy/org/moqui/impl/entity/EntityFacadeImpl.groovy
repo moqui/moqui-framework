@@ -794,6 +794,9 @@ class EntityFacadeImpl implements EntityFacade {
         //get relationships from entityNode
         //if entityNode doesn't contain any relationships, this variable is null
         ArrayList<MNode> relationships = entityNode.getChildrenByName().get("relationship")
+        //get member-entities from view-entity
+        //if entityNode doesn't contain any member-entity, this variable is null
+        ArrayList<MNode> memberEntities = entityNode.getChildrenByName().get("member-entity")
         // if (entityName.endsWith("xample")) logger.warn("======== Creating Example ED entityNode=${entityNode}\nextendEntityNodes: ${extendEntityNodes}")
         // merge the extend-entity nodes
         for (MNode extendEntity in extendEntityNodes) {
@@ -852,6 +855,10 @@ class EntityFacadeImpl implements EntityFacade {
             if (relationships) {
                 this.setDynamicRelationships(entityNode, entitySuffix)
             }
+            //modify member-entities
+            if (memberEntities) {
+                this.setDynamicEntityView(entityNode, entitySuffix)
+            }
             logger.info("Loading special entity ${specialEntityName}.")
         }
 
@@ -904,6 +911,32 @@ class EntityFacadeImpl implements EntityFacade {
             node.attributes.put("related", name + "@" + suffix)
             //replace relationship
             relationships.set(i, node)
+        }
+    }
+
+    /**
+     * Set entity-names of member-entities entity based on suffix.
+     * We don't wanna change name of entity from moqui.basic package.
+     * @param entityNode    entity, which member-entities are we setting
+     * @param suffix        suffix, which is added to relationships
+     */
+    private void setDynamicEntityView(MNode entityNode, String suffix) {
+        ArrayList<MNode> memberEntities = entityNode.getChildrenByName().get("member-entity")
+        int size = memberEntities.size()
+        for (int i = 0; i < size; i++) {
+            MNode node = memberEntities.get(i)
+            String name = node.attributes.get("entity-name");
+            // we don't wanna change suffix of entity from moqui.basic package
+            if (name.contains("moqui.basic")) {
+                continue
+            }
+            String newName = name + "_" + suffix
+            //control, if entity exists
+            if (!dynamicEntityDefinitions.containsKey(newName)) {
+                throw new Exception("Entity with name: " + newName + "doesn't exist!")
+            }
+            //set name of relationship
+            node.attributes.put("entity-name", newName)
         }
     }
 
