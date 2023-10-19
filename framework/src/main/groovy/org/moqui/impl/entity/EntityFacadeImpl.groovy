@@ -852,7 +852,6 @@ class EntityFacadeImpl implements EntityFacade {
             if (relationships) {
                 this.setDynamicRelationships(entityNode, entitySuffix)
             }
-            logger.info("Loading special entity ${specialEntityName}.")
         }
 
         // create the new EntityDefinition
