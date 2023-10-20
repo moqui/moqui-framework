@@ -862,6 +862,7 @@ class EntityFacadeImpl implements EntityFacade {
             //modify entity relationships
             if (relationships) {
                 this.setDynamicRelationships(entityNode, entitySuffix)
+            }
             //modify member-entities
             if (memberEntities) {
                 this.setDynamicEntityView(entityNode, entitySuffix)
