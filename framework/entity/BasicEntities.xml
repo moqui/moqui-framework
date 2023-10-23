@@ -76,9 +76,27 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- NOTE: Enum added for Pohoda Extractor -->
             <seed-data>
-                <moqui.basic.EnumerationType description="Debit and credit type" enumTypeId="debitCredit"/>
-                <moqui.basic.Enumeration description="Debit" enumId="D" enumTypeId="debitCredit"/>
-                <moqui.basic.Enumeration description="Credit" enumId="C" enumTypeId="debitCredit"/>
+                <moqui.basic.EnumerationType description="Debit and credit type" enumTypeId="DebitCredit"/>
+                <moqui.basic.Enumeration description="Debit" enumId="D" enumTypeId="DebitCredit"/>
+                <moqui.basic.Enumeration description="Credit" enumId="C" enumTypeId="DebitCredit"/>
+            </seed-data>
+            <seed-data>
+                <moqui.basic.EnumerationType description="Activity type" enumTypeId="Activity"/>
+                <moqui.basic.Enumeration description="Active" enumId="ACTIVE" enumTypeId="Activity"/>
+                <moqui.basic.Enumeration description="Passive" enumId="PASSIVE" enumTypeId="Activity"/>
+                <moqui.basic.Enumeration description="Yes" enumId="YES" enumTypeId="Activity"/>
+                <moqui.basic.Enumeration description="No" enumId="NO" enumTypeId="Activity"/>
+            </seed-data>
+            <seed-data>
+                <moqui.basic.EnumerationType description="Performance type" enumTypeId="Performance"/>
+                <moqui.basic.Enumeration description="Costs" enumId="COSTS" enumTypeId="Performance"/>
+                <moqui.basic.Enumeration description="Revenues" enumId="REVENUES" enumTypeId="Performance"/>
+                <moqui.basic.Enumeration description="No" enumId="NO" enumTypeId="Performance"/>
+            </seed-data>
+            <seed-data>
+                <moqui.basic.EnumerationType description="Yes and No type" enumTypeId="YesNo"/>
+                <moqui.basic.Enumeration description="Yes" enumId="YES" enumTypeId="YesNo"/>
+                <moqui.basic.Enumeration description="No" enumId="NO" enumTypeId="YesNo"/>
             </seed-data>
         </seed-data>
         <master><detail relationship="type"/><detail relationship="parent"/><detail relationship="related"/></master>
