@@ -82,7 +82,7 @@ along with this software (see the LICENSE.md file). If not, see
             </seed-data>
             <seed-data>
                 <moqui.basic.EnumerationType description="Activity type" enumTypeId="Activity"/>
-                    <moqui.basic.Enumeration description="Active" enumId="ACTIVE" enumTypeId="Activity"/>
+                <moqui.basic.Enumeration description="Active" enumId="ACTIVE" enumTypeId="Activity"/>
                 <moqui.basic.Enumeration description="Passive" enumId="PASSIVE" enumTypeId="Activity"/>
                 <moqui.basic.Enumeration description="Yes" enumId="YES" enumTypeId="Activity"/>
                 <moqui.basic.Enumeration description="No" enumId="NO" enumTypeId="Activity"/>
