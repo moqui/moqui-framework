@@ -214,8 +214,13 @@ along with this software (see the LICENSE.md file). If not, see
             <entity-find-one entity-name="moqui.server.instance.AppInstance" value-field="appInstance"/>
             <set field="hostType" from="appInstance?.instanceHost?.hostType"/>
             <if condition="hostType == null"><return error="true" message="No InstanceHostType found for AppInstance with ID ${appInstanceId}"/></if>
-            <service-call name="${hostType.initService}" in-map="context" out-map="context"/>
-        </actions>
+            <!-- <service-call name="${hostType.initService}" in-map="context" out-map="context"/>-->
+            <!--For async call -->
+            <script><![CDATA[
+            import org.moqui.context.ExecutionContext
+            import java.util.concurrent.Future
+            Future<Map> instanceFuture = ec.service.async().name("${hostType.initService}").parameters([context:context,appInstanceId:appInstanceId]).callFuture()
+        ]]></script></actions>
     </service>
     <service verb="start" noun="AppInstance">
         <implements service="org.moqui.impl.InstanceServices.start#Instance"/>
@@ -281,8 +286,9 @@ along with this software (see the LICENSE.md file). If not, see
         - https://docs.docker.com/engine/security/https/
     -->
 
-    <service verb="init" noun="InstanceDocker">
+    <service verb="init" noun="InstanceDocker" transaction-timeout="1500" >
         <!-- see https://docs.docker.com/engine/reference/api/docker_remote_api_v1.24/#/create-a-container -->
+        <!-- https://docs.docker.com/engine/api/v1.24/#create-an-image -->
         <implements service="org.moqui.impl.InstanceServices.init#Instance"/>
         <actions><script><![CDATA[
             import groovy.json.JsonSlurper
@@ -290,6 +296,11 @@ along with this software (see the LICENSE.md file). If not, see
             import org.moqui.context.ExecutionContext
             import org.moqui.entity.EntityValue
             import org.moqui.util.RestClient
+            import java.util.concurrent.Future
+            import java.io.BufferedReader
+            import java.io.InputStreamReader
+            import java.io.IOException
+            import groovy.json.JsonOutput
 
             connectSuccess = null
             instanceCreated = false
@@ -349,6 +360,46 @@ along with this software (see the LICENSE.md file). If not, see
             restClient.jsonObject(jsonBody)
 
             try {
+                authTokenPass = null
+                if (instanceImage.authTokenCmd) {
+                    try {
+                        Process processCmd = Runtime.getRuntime().exec((instanceImage.authTokenCmd).split(" "), null)
+                        BufferedReader readToken = new BufferedReader(new InputStreamReader(processCmd.getInputStream()))
+                        authTokenPass = readToken.readLine()
+                    }
+                    catch (IOException io) {
+                        authTokenPass = null
+                        ec.logger.log(ec.logger.ERROR_INT, "Error connecting to Docker host in processing aws cmd", io)
+                        ec.message.addError("Error connecting to Docker host: ${io.toString()}")
+                    }
+
+                }
+                else {
+                    authTokenPass = instanceImage.password
+                }
+                Map jsonAuth = [username: instanceImage.username , password: authTokenPass , email: instanceImage.emailAddress , serveraddress: instanceImage.registryLocation ]
+                //Registry-Location now using as Server-Address
+                String json = (String) JsonOutput.toJson(jsonAuth)
+                String authEncoded = Base64.getEncoder().encodeToString(json.getBytes())
+                Map param = [fromImage:(String) instanceImage.imageName ,repo : (String)instanceImage.imageName]
+                RestClient restClientImageCreate = ec.service.rest().method("POST").addHeader((String)("X-Registry-Auth"),(String) authEncoded)
+                restClientImageCreate.uri().protocol(instanceHost.hostProtocol ? (String) instanceHost.hostProtocol : "http")
+                .host(instanceHost.hostAddress as String).port(instanceHost.adminPort ? (instanceHost.adminPort as int) : 2375)
+                .path("images").path("create")
+                .parameters(param).build()
+                restClientImageCreate.timeout(1000)
+
+                RestClient.RestResponse restResponseImageCreate = restClientImageCreate.call()
+                if (restResponseImageCreate.statusCode != 200) {
+                     ec.message.addMessage("Error Image-pull-fail problem image not-exists either or credential is wrong (${restResponseImageCreate.statusCode}): ${restResponseImageCreate.getReasonPhrase()}")
+                }
+            } catch (Exception e) {
+                connectSuccess = false
+                ec.logger.log(ec.logger.ERROR_INT, "Error connecting to Docker host", e)
+                ec.message.addError("Error connecting to Docker host: ${e.toString()}")
+            }
+
+            try {
                 RestClient.RestResponse restResponse = restClient.call()
                 connectSuccess = true
 
@@ -370,6 +421,9 @@ along with this software (see the LICENSE.md file). If not, see
                     instanceExists = true
                     ec.logger.warn("Docker container ${appInstance.instanceName} (${appInstance.instanceUuid}) conflict [${restResponse.getReasonPhrase()}]:\n${restResponse.text()}")
                     ec.message.addMessage("Docker container ${appInstance.instanceName} (${appInstance.instanceUuid}) got a conflict on create [${restResponse.getReasonPhrase()}]")
+                } else if (restResponse.statusCode == 404) {
+                    // POST /v1.24/images/create?fromImage=busybox&tag=latest HTTP/1.1
+                    ec.message.addMessage("Image not Found ,or may be Docker login fail")
                 } else {
                     ec.logger.error("Docker container ${appInstance.instanceName} (${appInstance.instanceUuid}) ERROR [${restResponse.getReasonPhrase()}]:\n${restResponse.text()}")
                     ec.message.addMessage("Error on create container for ${appInstance.instanceName} (${restResponse.statusCode}): ${restResponse.getReasonPhrase()}")

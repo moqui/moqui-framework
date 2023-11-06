@@ -49,6 +49,8 @@ import javax.servlet.ServletContext
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
 import javax.servlet.http.HttpSession
+import java.nio.charset.StandardCharsets
+import java.sql.Timestamp
 
 /** This class is a facade to easily get information from and about the web context. */
 @CompileStatic
@@ -1207,6 +1209,70 @@ class WebFacadeImpl implements WebFacade {
                 if (headerValue != signature) {
                     logger.warn("System message receive HMAC verify header value ${headerValue} calculated ${signature} did not match for remote ${systemMessageRemoteId}")
                     response.sendError(HttpServletResponse.SC_FORBIDDEN, "HMAC verify failed for remote system ${systemMessageRemoteId}")
+                    return
+                }
+
+                // login anonymous if not logged in
+                eci.userFacade.loginAnonymousIfNoUser()
+            } else if ("SmatHmacSha256Timestamp".equals(messageAuthEnumId)) {
+                // validate HMAC value from authHeaderName HTTP header using sharedSecret and messageText
+                String authHeaderName = (String) systemMessageRemote.authHeaderName
+                String sharedSecret = (String) systemMessageRemote.sharedSecret
+
+                String headerValue = request.getHeader(authHeaderName)
+                if (!headerValue) {
+                    logger.warn("System message receive HMAC verify no header ${authHeaderName} value found, for remote ${systemMessageRemoteId}")
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "No HMAC header ${authHeaderName} found for remote system ${systemMessageRemoteId}")
+                    return
+                }
+
+                // This assumes a header format like
+                // Example-Signature-Header:
+                //t=1492774577,
+                //v1=5257a869e7ecebeda32affa62cdca3fa51cad7e77a0e56ff536d0ce8e108d8bd
+                // We’ve added newlines for clarity, but a realExample-Signature-Header is on a single line.
+                String timestamp = null;
+                String incomingSignature = null;
+                String[] headerValueList = headerValue.split(",") // split on comma
+                for (String headerValueItem : headerValueList) {
+                    String key = headerValueItem.split("=")[0].trim()
+                    if ("t".equals(key))
+                        timestamp = headerValueItem.split("=")[1].trim()
+                    else if ("v1".equals(key))
+                        incomingSignature = headerValueItem.split("=")[1].trim()
+                }
+
+                // This also assumes that the signature is generated from the following concatenated strings:
+                // Timestamp in the header
+                // The character .
+                // The text body of the request
+                String signatureTextToVerify = timestamp + "." + messageText
+
+                Mac hmac = Mac.getInstance("HmacSHA256")
+                hmac.init(new SecretKeySpec(sharedSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"))
+                // NOTE: if this fails try with "ISO-8859-1"
+                byte[] hash = hmac.doFinal(signatureTextToVerify.getBytes(StandardCharsets.UTF_8));
+                String signature = ""
+                for (byte b : hash) {
+                    // Came from https://github.com/stripe/stripe-java/blob/3686feb8f2067878b7bb4619f931580a3d31bf4f/src/main/java/com/stripe/net/Webhook.java#L187
+                    signature += Integer.toString((b & 0xff) + 0x100, 16).substring(1);
+                }
+
+                if (incomingSignature != signature) {
+                    logger.warn("System message receive HMAC verify header value ${incomingSignature} calculated ${signature} did not match for remote ${systemMessageRemoteId}")
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "HMAC verify failed for remote system ${systemMessageRemoteId}")
+                    return
+                }
+
+                Timestamp incomingTimestamp = new Timestamp(Long.parseLong(timestamp) * 1000)
+
+                // Add 10 seconds to now timestamp to allow for clock skew (10 seconds = 10000 milliseconds = 10*1000)
+                Timestamp nowTimestamp = new Timestamp(eci.user.nowTimestamp.getTime() + 10000)
+                // If timestamp was not sent in past 5 minutes, reject message (5 minutes = 300000 milliseconds = 5*60*1000)
+                Timestamp beforeTimestamp = new Timestamp(nowTimestamp.getTime() - 300000)
+                if (!incomingTimestamp.before(nowTimestamp) || !incomingTimestamp.after(beforeTimestamp) ){
+                    logger.warn("System message receive HMAC invalid incoming timestamp where before timestamp ${beforeTimestamp} < incoming timestamp ${incomingTimestamp} < now timestamp ${nowTimestamp}" )
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "HMAC timestamp verification failed")
                     return
                 }
 

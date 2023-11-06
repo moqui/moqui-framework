@@ -15,6 +15,7 @@ package org.moqui.impl.context;
 
 import org.moqui.BaseArtifactException;
 import org.moqui.context.L10nFacade;
+import org.moqui.entity.EntityCondition;
 import org.moqui.entity.EntityValue;
 import org.moqui.entity.EntityFind;
 
@@ -23,6 +24,8 @@ import groovy.json.JsonOutput;
 import javax.xml.bind.DatatypeConverter;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.text.NumberFormat;
 import java.sql.Date;
 import java.sql.Time;
@@ -100,13 +103,14 @@ public class L10nFacadeImpl implements L10nFacade {
     }
 
     @Override
-    public String formatCurrency(Object amount, String uomId) { return formatCurrency(amount, uomId, null, getLocale()); }
+    public String formatCurrencyNoSymbol(Object amount, String uomId) { return formatCurrency(amount, uomId, null, getLocale(), true); }
     @Override
-    public String formatCurrency(Object amount, String uomId, Integer fractionDigits) {
-        return formatCurrency(amount, uomId, fractionDigits, getLocale());
-    }
+    public String formatCurrency(Object amount, String uomId) { return formatCurrency(amount, uomId, null, getLocale(), false); }
     @Override
-    public String formatCurrency(Object amount, String uomId, Integer fractionDigits, Locale locale) {
+    public String formatCurrency(Object amount, String uomId, Integer fractionDigits) { return formatCurrency(amount, uomId, fractionDigits, getLocale(), false); }
+    @Override
+    public String formatCurrency(Object amount, String uomId, Integer fractionDigits, Locale locale) { return formatCurrency(amount, uomId, fractionDigits, locale, false); }
+    public String formatCurrency(Object amount, String uomId, Integer fractionDigits, Locale locale, boolean hideSymbol) {
         if (amount == null) return "";
         if (amount instanceof CharSequence) {
             if (((CharSequence) amount).length() == 0) {
@@ -116,30 +120,54 @@ public class L10nFacadeImpl implements L10nFacade {
             }
         }
 
+        if (locale == null) locale = getLocale();
+        NumberFormat nf = NumberFormat.getCurrencyInstance(locale);
+        String currencySymbol = null;
+        if (hideSymbol)
+            currencySymbol = "";
+        EntityValue uom = null;
+        if (uomId != null && uomId.length() > 0) {
+            List<EntityValue> uomList = eci.getEntity().find("moqui.basic.Uom").condition("uomId", uomId)
+                    .condition("uomTypeEnumId", "UT_CURRENCY_MEASURE").disableAuthz().list();
+            if (uomList.size() > 0) {
+                uom = uomList.get(0);
+                String symbol = uom.getString("symbol");
+                if (currencySymbol == null && symbol != null)
+                    currencySymbol = symbol;
+                Object fractionDigitsField = uom.get("fractionDigits");
+                if (fractionDigits == null && fractionDigitsField != null) {
+                    if (fractionDigitsField instanceof Integer)
+                        fractionDigits = (Integer)fractionDigitsField;
+                    else if (fractionDigitsField instanceof Long)
+                        fractionDigits = ((Long)fractionDigitsField).intValue();
+                }
+            }
+        }
+
         Currency currency = null;
         if (uomId != null && uomId.length() > 0) {
             try {
                 currency = Currency.getInstance(uomId);
+                if (currencySymbol == null)
+                    currencySymbol = currency.getSymbol();
+                if (fractionDigits == null)
+                    fractionDigits = currency.getDefaultFractionDigits();
             } catch (Exception e) {
                 if (logger.isTraceEnabled()) logger.trace("Ignoring IllegalArgumentException for Currency parse: " + e.toString());
             }
         }
+        if (currencySymbol == null)
+            currencySymbol = "";
 
-        if (locale == null) locale = getLocale();
-        if (currency != null) {
-            NumberFormat nf = NumberFormat.getCurrencyInstance(locale);
-            nf.setCurrency(currency);
-            if (fractionDigits == null) fractionDigits = currency.getDefaultFractionDigits();
-            nf.setMaximumFractionDigits(fractionDigits);
-            nf.setMinimumFractionDigits(fractionDigits);
-            return nf.format(amount);
-        } else {
-            NumberFormat nf = NumberFormat.getInstance();
-            if (fractionDigits == null) fractionDigits = 2;
-            nf.setMaximumFractionDigits(fractionDigits);
-            nf.setMinimumFractionDigits(fractionDigits);
-            return nf.format(amount);
-        }
+        if (fractionDigits == null)
+            fractionDigits = 2;
+        nf.setMaximumFractionDigits(fractionDigits);
+        nf.setMinimumFractionDigits(fractionDigits);
+        DecimalFormatSymbols dfSymbols = new DecimalFormatSymbols(locale);
+        dfSymbols.setCurrencySymbol(currencySymbol);
+        ((DecimalFormat)nf).setDecimalFormatSymbols(dfSymbols);
+
+        return nf.format(amount);
     }
 
     @Override
@@ -152,10 +180,29 @@ public class L10nFacadeImpl implements L10nFacade {
     }
     @Override
     public BigDecimal roundCurrency(BigDecimal amount, String uomId, boolean precise, RoundingMode mode) {
-        Currency currency = Currency.getInstance(uomId);
-        int nDigits = currency.getDefaultFractionDigits();
-        if (precise) nDigits++;
-        return amount.setScale(nDigits, mode);
+        if (amount == null)
+            return null;
+        List<EntityValue> uomList = eci.getEntity().find("moqui.basic.Uom").condition("uomId", uomId).condition("uomTypeEnumId", "UT_CURRENCY_MEASURE").list();
+        Integer fractionDigits = null;
+        if (uomList.size() > 0) {
+            Object fractionDigitsField = uomList.get(0).get("fractionDigits");
+            if (fractionDigitsField != null) {
+                if (fractionDigitsField instanceof Integer)
+                    fractionDigits = (Integer)fractionDigitsField;
+                else if (fractionDigitsField instanceof Long)
+                    fractionDigits = ((Long)fractionDigitsField).intValue();
+            }
+        }
+        if (fractionDigits == null) {
+            Currency currency = Currency.getInstance(uomId);
+            fractionDigits = currency.getDefaultFractionDigits();
+        }
+        if (fractionDigits == null) {
+            fractionDigits = 2;
+        }
+        if (precise) fractionDigits++;
+        eci.getLogger().info("Rounding to " + fractionDigits + " digits.");
+        return amount.setScale(fractionDigits, mode);
     }
 
     @Override
