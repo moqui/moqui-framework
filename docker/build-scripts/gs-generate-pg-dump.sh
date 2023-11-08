@@ -1,5 +1,7 @@
 #! /bin/bash
 
+docker network create dtq-int
+
 # "Creating database dump for purpose of having a clear and filled database"
 # get into the simple-build directory
 # shellcheck disable=SC2164
