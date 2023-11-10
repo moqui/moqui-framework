@@ -914,11 +914,13 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         if (internalSecurityManager != null) return internalSecurityManager
 
         // allow shiro to be configured outside of resources directory
-        String shiroConfigPath = getLdapParamsNode().attribute('shiro-file-name')
+        String path = getLdapParamsNode().attribute("shiro-file-path")
+        String shiroConfigPath = path == null ? "classpath:" : new File("").getCanonicalPath() + "/" + path
+        shiroConfigPath += getLdapParamsNode().attribute('shiro-file-name')
 
         // init Apache Shiro; NOTE: init must be done here so that ecfi will be fully initialized and in the static context
         org.apache.shiro.util.Factory<org.apache.shiro.mgt.SecurityManager> factory =
-                new IniSecurityManagerFactory("classpath:${shiroConfigPath}")
+                new IniSecurityManagerFactory(shiroConfigPath)
         internalSecurityManager = factory.getInstance()
         // NOTE: setting this statically just in case something uses it, but for Moqui we'll be getting the SecurityManager from the ecfi
         SecurityUtils.setSecurityManager(internalSecurityManager)
