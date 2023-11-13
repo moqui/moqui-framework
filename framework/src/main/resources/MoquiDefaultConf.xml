@@ -291,6 +291,7 @@
         <login-key encrypt-hash-type="SHA-256" expire-hours="144"/><!-- default expire 6 days, 144 hours -->
         <login max-failures="3" disable-minutes="5" history-store="true" history-incorrect-password="false"/>
         <ldap-params shiro-file-name="shiro.ini"/>
+
     </user-facade>
 
     <transaction-facade use-transaction-cache="true" use-connection-stash="true" use-lock-track="${entity_lock_track}" use-statement-timeout="${entity_statement_timeout}">
