@@ -285,6 +285,7 @@ public class EntityListIteratorImpl implements EntityListIterator {
         } catch (SQLException e) {
             throw new EntityException("Error getting all results", e);
         } finally {
+            //TODO: Remove closeAfter with respect to try-with-resource implementation
             if (closeAfter) close();
         }
     }
