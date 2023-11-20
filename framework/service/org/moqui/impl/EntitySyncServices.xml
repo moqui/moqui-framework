@@ -239,7 +239,7 @@ along with this software (see the LICENSE.md file). If not, see
                             find.iterator().withCloseable ({resultEli ->
                                 int levels = entryMap.dependents ? 2 : 0
                                 resultEli.writeXmlText((Writer) entityWriter, null, levels)
-                            }
+                            })
                         }
                     }
 
