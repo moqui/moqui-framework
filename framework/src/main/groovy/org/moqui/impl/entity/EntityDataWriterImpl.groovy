@@ -170,9 +170,9 @@ class EntityDataWriterImpl implements EntityDataWriter {
                     EntityDefinition ed = efi.getEntityDefinition(en)
                     boolean useMaster = masterName != null && masterName.length() > 0 && ed.getMasterDefinition(masterName) != null
                     EntityFind ef = makeEntityFind(en)
-                    EntityListIterator eli = ef.iterator()
 
-                    try {
+
+                    try (EntityListIterator eli = ef.iterator()) {
                         if (!eli.hasNext()) continue
 
                         String filename = path + '/' + en + '.' + fileType.name().toLowerCase()
@@ -200,8 +200,6 @@ class EntityDataWriterImpl implements EntityDataWriter {
                         } finally {
                             pw.close()
                         }
-                    } finally {
-                        eli.close()
                     }
                 }
             } catch (Throwable t) {
@@ -248,8 +246,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
                 EntityDefinition ed = efi.getEntityDefinition(en)
                 boolean useMaster = masterName != null && masterName.length() > 0 && ed.getMasterDefinition(masterName) != null
                 EntityFind ef = makeEntityFind(en)
-                EntityListIterator eli = ef.iterator()
-                try {
+                try (EntityListIterator eli = ef.iterator()) {
                     if (!eli.hasNext()) continue
 
                     String filenameBase = tableColumnNames ? ed.getTableName() : en
@@ -274,8 +271,6 @@ class EntityDataWriterImpl implements EntityDataWriter {
                     } finally {
                         out.closeEntry()
                     }
-                } finally {
-                    eli.close()
                 }
             }
         } finally {
@@ -306,15 +301,12 @@ class EntityDataWriterImpl implements EntityDataWriter {
                     EntityDefinition ed = efi.getEntityDefinition(en)
                     boolean useMaster = masterName != null && masterName.length() > 0 && ed.getMasterDefinition(masterName) != null
                     EntityFind ef = makeEntityFind(en)
-                    EntityListIterator eli = ef.iterator()
-                    try {
+                    ef.iterator().withCloseable ({
                         EntityValue ev
                         while ((ev = eli.next()) != null) {
                             valuesWritten+= writeValue(ev, writer, useMaster)
                         }
-                    } finally {
-                        eli.close()
-                    }
+                    });
                 }
 
                 endFile(writer)
