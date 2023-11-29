@@ -236,13 +236,10 @@ along with this software (see the LICENSE.md file). If not, see
                         // ec.logger.warn("=========== get#EntitySyncData entityName=${entryMap.entityName} count=${currentCount} find=${find}")
 
                         if (currentCount > 0) {
-                            EntityListIterator resultEli = find.iterator()
-                            try {
+                            find.iterator().withCloseable ({resultEli ->
                                 int levels = entryMap.dependents ? 2 : 0
                                 resultEli.writeXmlText((Writer) entityWriter, null, levels)
-                            } finally {
-                                resultEli.close()
-                            }
+                            })
                         }
                     }
 
