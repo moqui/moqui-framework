@@ -94,13 +94,13 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
             ef.find("moqui.security.UserGroupMember")
                     .conditionDate("fromDate", "thruDate", new Timestamp(System.currentTimeMillis()))
                     .condition("userGroupId", userGroupId).disableAuthz().iterator().withCloseable ({eli ->
-            EntityValue nextValue
-            while ((nextValue = (EntityValue) eli.next()) != null) {
-                String userId = (String) nextValue.userId
-                if (checkedUserIds.contains(userId)) continue
-                checkedUserIds.add(userId)
-                if (checkUserNotify(userId, ef)) notifyUserIds.add(userId)
-            }
+                EntityValue nextValue
+                while ((nextValue = (EntityValue) eli.next()) != null) {
+                    String userId = (String) nextValue.userId
+                    if (checkedUserIds.contains(userId)) continue
+                    checkedUserIds.add(userId)
+                    if (checkUserNotify(userId, ef)) notifyUserIds.add(userId)
+                }
             })
         }
 
