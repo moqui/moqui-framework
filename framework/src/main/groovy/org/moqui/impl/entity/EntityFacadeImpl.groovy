@@ -79,6 +79,8 @@ class EntityFacadeImpl implements EntityFacade {
     static final String entityLocSingleEntryName = "ALL_ENTITIES"
     /** Map for framework entity definitions, avoid cache overhead and timeout issues */
     final HashMap<String, EntityDefinition> frameworkEntityDefinitions = new HashMap<>()
+    /** Map for dynamic created entity definitions based on @, avoid cache overhead and timeout issues */
+    final HashMap<String, EntityDefinition> dynamicEntityDefinitions = new HashMap<>()
     /** Sequence name (often entity name) is the key and the value is an array of 2 Longs the first is the next
      * available value and the second is the highest value reserved/cached in the bank. */
     final Cache<String, long[]> entitySequenceBankCache
@@ -113,12 +115,7 @@ class EntityFacadeImpl implements EntityFacade {
 
     public final JsonFieldManipulator jsonFieldManipulator
 
-    /** Map for dynamic created entity definitions based on @, avoid cache overhead and timeout issues */
-    protected HashMap<String, EntityDefinition> dynamicEntityDefinitions = new HashMap<>()
-
     EntityFacadeImpl(ExecutionContextFactoryImpl ecfi) {
-
-
         this.ecfi = ecfi
         entityConditionFactory = new EntityConditionFactoryImpl(this)
 
@@ -636,11 +633,6 @@ class EntityFacadeImpl implements EntityFacade {
 
 
     protected EntityDefinition loadEntityDefinition(String entityName) {
-        //clean dynamicEntityDefinitions
-        if (dynamicEntityDefinitions.size() == 1000) {
-            dynamicEntityDefinitions = new HashMap<>()
-        }
-
         if (entityName.contains("#")) {
             // this is a relationship name, definitely not an entity name so just return null; this happens because we
             //    check if a name is an entity name or not in various places including where relationships are checked
@@ -802,9 +794,6 @@ class EntityFacadeImpl implements EntityFacade {
         //get relationships from entityNode
         //if entityNode doesn't contain any relationships, this variable is null
         ArrayList<MNode> relationships = entityNode.getChildrenByName().get("relationship")
-        //get member-entities from view-entity
-        //if entityNode doesn't contain any member-entity, this variable is null
-        ArrayList<MNode> memberEntities = entityNode.getChildrenByName().get("member-entity")
         // if (entityName.endsWith("xample")) logger.warn("======== Creating Example ED entityNode=${entityNode}\nextendEntityNodes: ${extendEntityNodes}")
         // merge the extend-entity nodes
         for (MNode extendEntity in extendEntityNodes) {
@@ -863,10 +852,6 @@ class EntityFacadeImpl implements EntityFacade {
             if (relationships) {
                 this.setDynamicRelationships(entityNode, entitySuffix)
             }
-            //modify member-entities
-            if (memberEntities) {
-                this.setDynamicEntityView(entityNode, entitySuffix)
-            }
             logger.info("Loading special entity ${specialEntityName}.")
         }
 
@@ -916,35 +901,9 @@ class EntityFacadeImpl implements EntityFacade {
             }
             //create new name based on suffix
             // set name of relationship
-            node.attributes.put("related", name + "_" + suffix)
+            node.attributes.put("related", name + "@" + suffix)
             //replace relationship
             relationships.set(i, node)
-        }
-    }
-
-    /**
-     * Set entity-names of member-entities entity based on suffix.
-     * We don't wanna change name of entity from moqui.basic package.
-     * @param entityNode    entity, which member-entities are we setting
-     * @param suffix        suffix, which is added to relationships
-     */
-    private void setDynamicEntityView(MNode entityNode, String suffix) {
-        ArrayList<MNode> memberEntities = entityNode.getChildrenByName().get("member-entity")
-        int size = memberEntities.size()
-        for (int i = 0; i < size; i++) {
-            MNode node = memberEntities.get(i)
-            String name = node.attributes.get("entity-name");
-            // we don't wanna change suffix of entity from moqui.basic package
-            if (name.contains("moqui.basic")) {
-                continue
-            }
-            String newName = name + "_" + suffix
-            //control, if entity exists
-            if (!dynamicEntityDefinitions.containsKey(newName)) {
-                ecfi.entity.makeValue(name + "@" + suffix)
-            }
-            //set name of relationship
-            node.attributes.put("entity-name", name + "_" + suffix)
         }
     }
 
@@ -962,9 +921,7 @@ class EntityFacadeImpl implements EntityFacade {
             if (name.contains("moqui.basic") || dynamicEntityDefinitions.containsKey(name)) {
                 continue
             }
-            String[] tokenizedEntityName = name.tokenize("_")
-            String entityNameToSearch = tokenizedEntityName[0] + "@" + tokenizedEntityName[-1]
-            ecfi.entity.makeValue(entityNameToSearch)
+            ecfi.entity.makeValue(name)
         }
     }
 
