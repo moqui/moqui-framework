@@ -1157,6 +1157,7 @@ class EndpointServiceHandler {
             ArrayList proceduresList,
             HashMap extraParams,
             Closure cbCheckData,
+            boolean extractPycalcArgs,
             boolean debug,
             String identity = null)
     {
@@ -1180,7 +1181,7 @@ class EndpointServiceHandler {
                 setup: [
                         procedure: proceduresList,
                         output_only_last: true,
-                        extra: extraParams
+                        extra: extractPycalcArgs ? ViUtilities.extractPycalcArgs(extraParams) : extraParams
                 ],
                 data: itemToCalculate
         ]
@@ -1223,7 +1224,13 @@ class EndpointServiceHandler {
      * @param identity
      * @return
      */
-    public static Object processItemsForVizualization(ExecutionContext ec, ArrayList allItems, String endpoint, HashMap args, boolean debug, String identity = null)
+    public static Object processItemsForVizualization(
+            ExecutionContext ec,
+            ArrayList allItems,
+            String endpoint,
+            HashMap args,
+            boolean debug,
+            String identity = null)
     {
         def pycalcHost = System.properties.get("py.server.host")
 
