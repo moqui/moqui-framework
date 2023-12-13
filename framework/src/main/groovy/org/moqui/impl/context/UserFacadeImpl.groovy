@@ -16,6 +16,7 @@ package org.moqui.impl.context
 import groovy.transform.CompileStatic
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.AuthenticationRequiredException
+import org.moqui.context.TransactionException
 import org.moqui.entity.EntityCondition
 import org.moqui.impl.context.ArtifactExecutionInfoImpl.ArtifactAuthzCheck
 import org.moqui.impl.entity.EntityValueBase
@@ -397,7 +398,7 @@ class UserFacadeImpl implements UserFacade {
         if (up == null) {
             // try UserGroupPreference
             EntityList ugpList = eci.getEntity().find("moqui.security.UserGroupPreference")
-                    .condition("userGroupId", EntityCondition.IN, getUserGroupIdSet(userId))
+                    .condition("userGroupId", EntityCondition.IN, getUserGroupIdSet(userId, eci))
                     .condition("preferenceKey", preferenceKey).useCache(true).disableAuthz().list()
             if (ugpList != null && ugpList.size() > 0) up = ugpList.get(0)
         }
@@ -411,7 +412,7 @@ class UserFacadeImpl implements UserFacade {
         Map<String, String> prefMap = new HashMap<>()
         // start with UserGroupPreference, put UserPreference values over top to override
         EntityList ugpList = eci.getEntity().find("moqui.security.UserGroupPreference")
-                .condition("userGroupId", EntityCondition.IN, getUserGroupIdSet(userId)).disableAuthz().list()
+                .condition("userGroupId", EntityCondition.IN, getUserGroupIdSet(userId, eci)).disableAuthz().list()
         int ugpListSize = ugpList.size()
         for (int i = 0; i < ugpListSize; i++) {
             EntityValue ugp = (EntityValue) ugpList.get(i)
@@ -827,14 +828,20 @@ class UserFacadeImpl implements UserFacade {
                 .useCache(true).disableAuthz().list().filterByDate("fromDate", "thruDate", whenTimestamp)) as boolean
     }
 
+    static boolean groupExists(String groupId, ExecutionContextImpl eci) {
+        if (!groupId) return false
+        return eci.getEntity().find("moqui.security.UserGroup").condition("userGroupId", groupId)
+                .disableAuthz().list().size() > 0
+    }
+
     @Override Set<String> getUserGroupIdSet() {
         // first get the groups the user is in (cached), always add the "ALL_USERS" group to it
         if (!currentInfo.userId) return allUserGroupIdOnly
-        if (currentInfo.internalUserGroupIdSet == null) currentInfo.internalUserGroupIdSet = getUserGroupIdSet(currentInfo.userId)
+        if (currentInfo.internalUserGroupIdSet == null) currentInfo.internalUserGroupIdSet = getUserGroupIdSet(currentInfo.userId, eci)
         return currentInfo.internalUserGroupIdSet
     }
 
-    Set<String> getUserGroupIdSet(String userId) {
+    static Set<String> getUserGroupIdSet(String userId, ExecutionContextImpl eci) {
         Set<String> groupIdSet = new HashSet(allUserGroupIdOnly)
         if (userId) {
             // expand the userGroupId Set with UserGroupMember
@@ -843,6 +850,45 @@ class UserFacadeImpl implements UserFacade {
             for (EntityValue userGroupMember in ugmList) groupIdSet.add((String) userGroupMember.userGroupId)
         }
         return groupIdSet
+    }
+
+    static void addGroupMember(String groupId, String userId, ExecutionContextImpl eci) {
+        if (!userId) throw new AuthenticationRequiredException("No active user, cannot get login key")
+        if (!groupId) throw new IllegalStateException("No entered group id")
+        Map<String, Object> fields = [:]
+        fields.put("userGroupId", groupId)
+        fields.put("userId", userId)
+        fields.put("fromDate", new Timestamp(System.currentTimeMillis()))
+        boolean beganTransaction = eci.transaction.begin(null)
+        try {
+            eci.artifactExecution.disableAuthz()
+            eci.entity.makeValue("moqui.security.UserGroupMember").setAll(fields).create()
+        } catch (Throwable t) {
+            try {
+                eci.transaction.rollback(beganTransaction, "Error added new member " + userId + " to group " + groupId, t)
+                throw new TransactionException(t.getMessage())
+            } finally {
+                if (eci.transaction.isTransactionInPlace()) eci.transaction.commit(beganTransaction)
+                eci.artifactExecution.enableAuthz()
+            }
+        }
+    }
+
+    static void removeGroupMember(String groupId, String userId, ExecutionContextImpl eci) {
+        if (!userId) throw new AuthenticationRequiredException("No active user, cannot get login key")
+        if (!groupId) throw new IllegalStateException("No entered group id")
+        boolean beganTransaction = eci.transaction.begin(null)
+        try {
+            eci.entity.find("moqui.security.UserGroupMember").condition("userGroupId", groupId)
+                    .condition("userId", userId).useCache(true).disableAuthz().deleteAll()
+        } catch (Throwable t) {
+            try {
+                eci.transaction.rollback(beganTransaction, "Error added new member " + userId + " to group " + groupId, t)
+                throw new TransactionException(t.getMessage())
+            } finally {
+                if (eci.transaction.isTransactionInPlace()) eci.transaction.commit(beganTransaction)
+            }
+        }
     }
 
     ArrayList<Map<String, Object>> getArtifactTarpitCheckList(ArtifactExecutionInfo.ArtifactType artifactTypeEnum) {

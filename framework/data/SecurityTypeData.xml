@@ -15,6 +15,7 @@ along with this software (see the LICENSE.md file). If not, see
 <entity-facade-xml type="seed">
     <moqui.basic.Enumeration description="Moqui Administrators" enumId="UgtMoquiAdmin" enumTypeId="UserGroupType"/>
     <moqui.basic.Enumeration description="Remote Systems" enumId="UgtRemoteSystems" enumTypeId="UserGroupType"/>
+    <moqui.basic.Enumeration description="LDAP" enumId="UgtLDAP" enumTypeId="UserGroupType"/>
 
     <!-- An group for full-access Administrators -->
     <moqui.security.UserGroup userGroupId="ADMIN" description="Administrators (full access)" groupTypeEnumId="UgtMoquiAdmin"/>

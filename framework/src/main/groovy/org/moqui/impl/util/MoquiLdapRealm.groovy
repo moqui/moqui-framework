@@ -37,6 +37,7 @@ import org.moqui.BaseArtifactException
 import org.moqui.Moqui
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityException
+import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
 import org.moqui.impl.context.ArtifactExecutionFacadeImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
@@ -52,6 +53,7 @@ import javax.naming.NamingEnumeration;
 import javax.naming.directory.SearchResult;
 import javax.naming.directory.SearchControls;
 import javax.naming.directory.Attributes;
+import javax.naming.directory.Attribute
 import javax.naming.ldap.LdapContext
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest
@@ -59,8 +61,8 @@ import java.security.NoSuchAlgorithmException;
 import java.sql.Timestamp
 
 //exception classes
-public class MoquiPreLoginException extends AuthenticationException{
-    public MoquiPreLoginException(String errorMessage){
+public class MoquiPreLoginException extends AuthenticationException {
+    public MoquiPreLoginException(String errorMessage) {
         super(errorMessage);
     }
 
@@ -68,8 +70,9 @@ public class MoquiPreLoginException extends AuthenticationException{
         super(errorMessage, err)
     }
 }
-public class MoquiAfterLoginException extends AuthenticationException{
-    public MoquiAfterLoginException(String errorMessage){
+
+public class MoquiAfterLoginException extends AuthenticationException {
+    public MoquiAfterLoginException(String errorMessage) {
         super(errorMessage);
     }
 
@@ -103,6 +106,8 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
     private String ldapSearchBaseQuery;
     private String ldapSearchUserQueryFilter;
     private String ldapSearchUserQuery;
+    private String ldapUserFilter;
+    private String ldapDefaultGroup
 
     protected Class<? extends AuthenticationToken> authenticationTokenClass = UsernamePasswordToken.class
 
@@ -134,7 +139,8 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
             String ldapUserDnTemplate = ldapParams.attribute('user-dn-template')
             String ldapSearchBaseQueryFilter = ldapParams.attribute('search-base-query-filter')
             String ldapSearchUserQueryFilter = ldapParams.attribute('search-user-query-filter')
-
+            String ldapUserFilter = ldapParams.attribute("user-filter")
+            String ldapDefaultGroup = ldapParams.attribute("ldap-default-group")
             this.contextFactory.url = ldapPath
             this.contextFactory.systemPassword = ldapSystemUserPassword
             this.contextFactory.systemUsername = ldapSystemUsername
@@ -142,6 +148,8 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
             this.userDnTemplate = ldapUserDnTemplate
             this.ldapSearchBaseQueryFilter = ldapSearchBaseQueryFilter
             this.ldapSearchUserQueryFilter = ldapSearchUserQueryFilter
+            this.ldapUserFilter = ldapUserFilter == null ? "(cn={principal})" : ldapUserFilter;
+            this.ldapDefaultGroup = ldapDefaultGroup == null ? "LDAP Default group" : ldapDefaultGroup
         } catch (Exception e) {
             logger.error("Error setting up LDAP connection. ${e.message}")
         }
@@ -244,6 +252,7 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
      * @return the the User DN prefix to use when building a runtime User DN value or {@code null} if no
      *         {@link #getUserDnTemplate() userDnTemplate} has been configured.
      */
+
     protected String getUserDnPrefix() {
         return userDnPrefix;
     }
@@ -256,6 +265,7 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
      * @return the User DN suffix to use when building a runtime User DN value or {@code null} if no
      *         {@link #getUserDnTemplate() userDnTemplate} has been configured.
      */
+
     protected String getUserDnSuffix() {
         return userDnSuffix;
     }
@@ -286,7 +296,7 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
         return sb.toString();
     }*/
 
-    protected String getUserDn( final String principal ) throws IllegalArgumentException, IllegalStateException {
+    protected String getUserDn(final String principal) throws IllegalArgumentException, IllegalStateException {
 
         if (!StringUtils.hasText(principal)) {
             throw new IllegalArgumentException("User principal cannot be null or empty for User DN construction.");
@@ -321,11 +331,10 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
         constraints.setReturningAttributes(attrIDs);
         NamingEnumeration answer = null;
 
-        //answer = ctx.search(this.ldapSearchUserQueryFilter, "(&(objectClass=inetOrgPerson)(x-service=accountActive)(uid=" + principal + "))", constraints);
-        answer = ctx.search(this.ldapSearchUserQueryFilter, "(&(objectClass=inetOrgPerson)(cn=${principal}))", constraints);
+        answer = ctx.search(this.ldapSearchUserQueryFilter, ldapUserFilter.replace("{principal}", principal), constraints);
         if (answer.hasMore()) {
             Attributes attrs = ((SearchResult) answer.next()).getAttributes();
-            user_uid =  attrs.get("cn").toString().substring(attrIDs[0].length() + 2).trim()
+            user_uid = attrs.get("cn").toString().substring(attrIDs[0].length() + 2).trim()
         } else {
             logger.error("Invalid user")
         }
@@ -357,31 +366,27 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
 
     public static HashMap<String, String> getUserLdapData(LdapContext ctx, String searchBase, String domainWithUser) {
         HashMap<String, String> userDataMap = new HashMap<>()
-        String userName = domainWithUser.substring(domainWithUser.indexOf('\\') +1 );
-        try
-        {
+        String userName = domainWithUser.substring(domainWithUser.indexOf('\\') + 1);
+        try {
             NamingEnumeration<SearchResult> userData = queryLdapData(ctx, searchBase, userName);
-            userDataMap = extractUserLdapData( userData );
+            userDataMap = extractUserLdapData(userData);
         }
-        catch(Exception e)
-        {
+        catch (Exception e) {
             //throw new RuntimeException(e)
         }
 
         return userDataMap
     }
 
-    private static NamingEnumeration<SearchResult> queryLdapData(LdapContext ctx, String searchBase, String username) throws Exception  {
+    private static NamingEnumeration<SearchResult> queryLdapData(LdapContext ctx, String searchBase, String username) throws Exception {
         String filter = "(&(objectClass=inetOrgPerson)(x-service=accountActive)(uid=" + username + "))";
         SearchControls searchCtls = new SearchControls();
         searchCtls.setSearchScope(SearchControls.SUBTREE_SCOPE);
         NamingEnumeration<SearchResult> answer = null;
-        try
-        {
+        try {
             answer = ctx.search(searchBase, filter, searchCtls);
         }
-        catch (Exception e)
-        {
+        catch (Exception e) {
             logger.error("Error searching LDAP for " + filter);
             throw e;
         }
@@ -389,13 +394,12 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
         return answer;
     }
 
-    private static HashMap<String, String> extractUserLdapData( NamingEnumeration<SearchResult> userData ) throws Exception  {
+    private static HashMap<String, String> extractUserLdapData(NamingEnumeration<SearchResult> userData) throws Exception {
         HashMap<String, String> contactData = new HashMap<>()
 
-        try  {
+        try {
             // getting only the first result if we have more than one
-            if (userData.hasMoreElements())
-            {
+            if (userData.hasMoreElements()) {
                 SearchResult sr = userData.nextElement();
                 Attributes attributes = sr.getAttributes();
 
@@ -404,12 +408,11 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
                 contactData.put("ldapUid", attributes.get(AD_ATTR_NAME_UID).get().toString());
                 contactData.put("ldapFullName",
                         attributes.get(AD_ATTR_NAME_USER_GIVEN_NAME).get().toString() + ' ' +
-                        attributes.get(AD_ATTR_NAME_USER_SURNAME).get().toString()
+                                attributes.get(AD_ATTR_NAME_USER_SURNAME).get().toString()
                 );
             }
         }
-        catch (Exception e)
-        {
+        catch (Exception e) {
             logger.error("Error fetching data on LDAP contact. ${e.message}");
         }
 
@@ -566,19 +569,137 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
         String userId = null;
 
         try {
-            //pre-login operations - fetch account data, do not continue when not defined
-            newUserAccount = loginPrePassword(eci, (String) token.principal);
-            userId = newUserAccount.getString("userId")
-
-            //LDAP
-            // check the password (credentials for this case)
+            //set cretendtials to get information from LDAP (used to be master password, not anymore)
+            this.contextFactory.systemPassword = token.getCredentials()
+            this.contextFactory.systemUsername = token.getPrincipal()
             info = queryForAuthenticationInfo(token, this.getContextFactory());
-
+            String name = token.principal
+            try {
+                newUserAccount = loginPrePassword(eci, name);
+            } catch (UnknownAccountException uae) {
+                boolean authzWasDisabled
+                boolean wasIn = false
+                try {
+                    wasIn = true
+//                  create account here
+                    Map<String, Object> fields = [:]
+                    authzWasDisabled = eci.artifactExecution.disableAuthz()
+                    String user_uid = "unknown_user";
+                    String fullName = ""
+                    String mail = ""
+                    SearchControls constraints = new SearchControls();
+                    constraints.setSearchScope(SearchControls.SUBTREE_SCOPE);
+                    String attrIDs = "cn";
+                    constraints.setReturningAttributes(new String[]{attrIDs, "givenName", "sn", "mail"})
+                    LdapContext ctx = this.getContextFactory().getSystemLdapContext();
+                    NamingEnumeration answer = ctx.search(this.ldapSearchUserQueryFilter, ldapUserFilter.replace("{principal}", name), constraints);
+                    if (answer.hasMore()) {
+                        Attributes attrs = ((SearchResult) answer.next()).getAttributes();
+                        user_uid = attrs.get("cn").toString().substring(3).trim()
+                        fullName = attrs.get("givenName").toString().substring(11).trim()
+                        fullName += " " + attrs.get("sn").toString().substring(3).trim()
+                        mail = attrs.get("mail")
+                        if (mail != null)
+                            mail = mail.toString().substring(6).trim()
+                    }
+                    eci.transaction.begin(null)
+                    fields.put("userId", name)
+                    fields.put("username", name)
+                    fields.put("userFullName", fullName)
+                    fields.put("ldapUid", user_uid)
+                    // here we count on the fact, that users log in with their email, therefore name IS an email.
+                    // If not, this condition is indeed wrong
+                    fields.put("emailAddress", mail == null ? name : mail)
+                    eci.entity.makeValue("moqui.security.UserAccount").setAll(fields).create()
+                    eci.transaction.commit()
+                    newUserAccount = loginPrePassword(eci, name)
+                } catch (Exception e) {
+                    println e
+                } finally {
+                    if (wasIn) {
+                        // cannot, stop the warning
+                        if (!authzWasDisabled) {
+                            eci.artifactExecution.enableAuthz();
+                        }
+                    }
+                }
+            }
+            userId = newUserAccount.getString("userId")
             //post-login operations - mostly logs
             loginPostPassword(eci, newUserAccount)
 
-            successful = true;
+            //if userAccount has LDAP uuid, control if LDAP groups match moqui groups
+            if (newUserAccount.getString("ldapUid")) {
+                //get moqui groups whose is user member
+                Set<String> moquiUserGroups = UserFacadeImpl.getUserGroupIdSet(userId, ecfi.eci)
+                //get all moqui groups whose are type LDAP
+                Set<String> moquiLdapGroups = new HashSet()
+                if (userId) {
+                    // expand the userGroupId Set with LDAP type
+                    EntityList ugmList = eci.getEntity().find("moqui.security.UserGroup").condition("groupTypeEnumId", "UgtLDAP")
+                            .useCache(true).disableAuthz().list()
+                    for (EntityValue userGroupMember in ugmList) moquiLdapGroups.add((String) userGroupMember.userGroupId)
+                }
+                //create intersection between LDAP groups and user member groups
+                moquiUserGroups.retainAll(moquiLdapGroups)
+                // LDAP groups
+                Set<String> ldapUserGroups = new HashSet()
+                //Domain Users group is default for all ldap users
+                ldapUserGroups.add(ldapDefaultGroup)
+                eci.artifactExecution.disableAuthz()
+                SearchControls constraints = new SearchControls();
+                constraints.setSearchScope(SearchControls.SUBTREE_SCOPE)
+                //find group in attribute memberOf
+                constraints.setReturningAttributes(new String[]{userId, "memberOf"})
+                LdapContext ctx = this.getContextFactory().getSystemLdapContext()
+                NamingEnumeration answer = ctx.search(this.ldapSearchUserQueryFilter, ldapUserFilter.replace("{principal}", name), constraints)
+                Attributes attrs = ((SearchResult) answer.next()).getAttributes()
+                eci.artifactExecution.enableAuthz()
+                Attribute memberOf = attrs.get("memberof")
+                if (memberOf) {
+                    for (int i = 0; i < memberOf.size(); i++) {
+                        //get name of the group
+                        String groupName = memberOf.get(i).toString().split(',')[0].split('=')[1]
+                        ldapUserGroups.add(groupName)
+                    }
+                }
+                //control if ldap groups match moqui groups
+                for (String ldapGroupId: ldapUserGroups) {
+                    if (!moquiUserGroups.contains(ldapGroupId)) {
+                        //control if ldap group doesn't exists
+                        if (!UserFacadeImpl.groupExists(ldapGroupId,  ecfi.eci)) {
+                            //create group
+                            Map<String, Object> fields = [:]
+                            fields.put("userGroupId", ldapGroupId)
+                            fields.put("description", "LDAP users")
+                            fields.put("groupTypeEnumId", "UgtLDAP")
+                            boolean beganTransaction = eci.transaction.begin(null)
+                            try {
+                                eci.artifactExecution.disableAuthz()
+                                eci.entity.makeValue("moqui.security.UserGroup").setAll(fields).create()
+                            } catch (Throwable t) {
+                                try {
+                                    eci.transaction.rollback(beganTransaction, "Error creating new group " + ldapGroupId, t)
+                                } finally {
+                                    if (eci.transaction.isTransactionInPlace()) eci.transaction.commit(beganTransaction)
+                                    eci.artifactExecution.enableAuthz()
+                                }
+                            }
+                        }
+                        //add user to moqui group
+                        UserFacadeImpl.addGroupMember(ldapGroupId, userId, ecfi.eci)
+                    }
+                    //ldap group exists in moqui
+                    moquiUserGroups.remove(ldapGroupId)
+                }
 
+                //remove a user from groups who is no longer a member
+                for (String moquiGroupId: moquiUserGroups) {
+                    //remove user from group
+                    UserFacadeImpl.removeGroupMember(moquiGroupId, userId, ecfi.eci)
+                }
+            }
+            successful = true;
         } catch (AuthenticationNotSupportedException e) {
             String msg = "Unsupported configured authentication mechanism. ${e.message}";
             throw new UnsupportedAuthenticationMechanismException(msg, e);
@@ -593,8 +714,9 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
             throw new AuthenticationException("Unable to perform post-login operations.", e)
         } finally {
             loginAfterAlways(eci, userId, token.credentials as String, successful)
+            this.contextFactory.systemPassword = null
+            this.contextFactory.systemUsername = null
         }
-
         return info;
     }
 
