@@ -1,12 +1,9 @@
 package dtq.rockycube
 
 import com.google.gson.Gson
-import com.google.gson.GsonBuilder
 import groovy.json.JsonOutput
-import org.apache.groovy.json.internal.LazyMap
 import org.moqui.context.ExecutionContext
 import org.moqui.resource.ResourceReference
-
 import java.nio.charset.StandardCharsets
 import java.util.regex.Pattern
 
@@ -91,6 +88,18 @@ class GenericUtilities {
                 return (obj as HashMap).isEmpty()
             default:
                 return obj.toString().size() == 0
+        }
+    }
+
+    public static long length(Object obj) {
+        if (obj.getClass().isArray()) {
+            return (obj as ArrayList).size()
+        } else if (obj.getClass() == ArrayList.class){
+            return (obj as ArrayList).size()
+        } else if (obj.getClass() == LinkedHashMap.class){
+            return (obj as LinkedHashMap).keySet().size()
+        } else {
+            return -1
         }
     }
 

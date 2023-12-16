@@ -38,6 +38,9 @@ out
 *.iws
 *.iml
 
+# lib files
+/lib
+
 # Eclipse files (and some general ones also used by Eclipse)
 .metadata
 bin
