@@ -98,6 +98,19 @@ public class TestUtilities {
         return is
     }
 
+    public static Object loadTestResourceJs(String[] resDir)
+    {
+        def is = loadTestResource(resDir)
+        def gson = new Gson()
+        def js
+        try {
+            js = gson.fromJson(new InputStreamReader(is, StandardCharsets.UTF_8), HashMap.class)
+        } catch (Exception exc) {
+            js = gson.fromJson(new InputStreamReader(is, StandardCharsets.UTF_8), ArrayList.class)
+        }
+        return js
+    }
+
     public static void testSingleFile(String[] resDirPath, Closure cb, Logger logger=null) throws IOException, URISyntaxException {
         String[] importFilePath = extendList(RESOURCE_PATH, resDirPath)
         FileInputStream fisImport = new FileInputStream(getInputFile(importFilePath))
