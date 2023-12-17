@@ -100,6 +100,11 @@ public class TestUtilities {
         return is
     }
 
+    public static Object loadTestResourceJs(String resDir)
+    {
+        return loadTestResourceJs((String []) resDir.split('/'))
+    }
+
     public static Object loadTestResourceJs(String[] resDir)
     {
         def is = loadTestResource(resDir)
@@ -108,6 +113,7 @@ public class TestUtilities {
         try {
             js = gson.fromJson(new InputStreamReader(is, StandardCharsets.UTF_8), HashMap.class)
         } catch (Exception exc) {
+            is = loadTestResource(resDir)
             js = gson.fromJson(new InputStreamReader(is, StandardCharsets.UTF_8), ArrayList.class)
         }
         return js
