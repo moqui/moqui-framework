@@ -38,7 +38,7 @@ public class TestUtilities {
         return FileUtils.getFile(path)
     }
 
-    public static void executeOnEachRecord(String[] fromFile, Closure cbExecOnRow)
+    public static void executeOnEachRecord(String[] fromFile, Closure cbExecOnRow, logger=null)
     {
         // load test resource
         def js = loadTestResource(fromFile)
@@ -46,7 +46,9 @@ public class TestUtilities {
         // import data so that we have something to test on
         ArrayList<LazyMap> importJs = (ArrayList<LazyMap>) new JsonSlurper().parse(js.bytes)
         importJs.eachWithIndex{ LazyMap entry, int i  ->
+            if (logger) logger.info("*************** Test ${i + 1} [START ] ***************")
             cbExecOnRow(i, entry['entity'], entry['data'])
+            if (logger) logger.info("*************** Test ${i + 1} [FINISH] ***************\n")
         }
     }
 
