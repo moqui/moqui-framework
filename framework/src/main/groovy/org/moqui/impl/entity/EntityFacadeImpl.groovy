@@ -921,7 +921,10 @@ class EntityFacadeImpl implements EntityFacade {
             if (name.contains("moqui.basic") || dynamicEntityDefinitions.containsKey(name)) {
                 continue
             }
-            ecfi.entity.makeValue(name)
+
+            String[] tokenizedEntityName = name.split("_", 2)
+            String entityNameToSearch = tokenizedEntityName[0] + "@" + tokenizedEntityName[-1]
+            ecfi.entity.makeValue(entityNameToSearch)
         }
     }
 

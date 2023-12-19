@@ -691,7 +691,7 @@ public class RestClient {
 
             if (disableCookieManagement) httpClient.setCookieStore(new HttpCookieStore.Empty());
             // use a default idle timeout of 15 seconds, should be lower than server idle timeouts which will vary by server but 30 seconds seems to be common
-            httpClient.setIdleTimeout(15000);
+            httpClient.setIdleTimeout(45000);
             try { httpClient.start(); } catch (Exception e) { throw new BaseException("Error starting HTTP client", e); }
         }
 

@@ -16,6 +16,10 @@ def loadFromEntity()
 
 def deleteEntity()
 {
+    // set term using identity field
+    // the condition will be calculated inside ESH
+    if (identity) args.put('identitySearch', identity)
+
     EndpointServiceHandler ech = new EndpointServiceHandler(args, term, entityName, tableName, serviceAllowedOn)
     // ec.logger.debug("Executing deleteEntity method")
     try {
@@ -31,6 +35,10 @@ def deleteEntity()
 
 def updateEntity()
 {
+    // set term using identity field
+    // the condition will be calculated inside ESH
+    if (identity) args.put('identitySearch', identity)
+
     EndpointServiceHandler ech = new EndpointServiceHandler(args, term, entityName, tableName, serviceAllowedOn)
     try {
         return ech.updateEntityData(data)

@@ -61,7 +61,8 @@ class EndpointServiceHandler {
     private static String CONST_SEARCH_USING_DATA_PROVIDED      = 'searchUsingDataProvided'
     // explicit update forbidding
     private static String CONST_FORBID_DATABASE_UPDATE          = 'forbidDatabaseUpdate'
-
+    // field that stores identity ID, it shall be used to create a condition term
+    private static String CONST_IDENTITY_ID_FOR_SEARCH          = 'identitySearch'
 
     /*
     DEFAULTS
@@ -341,6 +342,20 @@ class EndpointServiceHandler {
         if (!args.containsKey(CONST_FORBID_DATABASE_UPDATE))
         {
             args.put(CONST_FORBID_DATABASE_UPDATE, false)
+        }
+
+        // set term from args, if `identity` passed in
+        if (args.containsKey(CONST_IDENTITY_ID_FOR_SEARCH))
+        {
+            // only supported for single primary key entities
+            def hasSinglePrimaryKey = this.ed.pkFieldNames.size() == 1
+            if (this.term.empty && hasSinglePrimaryKey)
+            {
+                this.term.add([field: this.ed.pkFieldNames[0], value: args[CONST_IDENTITY_ID_FOR_SEARCH]])
+            }
+
+            // remove from args, no need to store it
+            args.remove(CONST_IDENTITY_ID_FOR_SEARCH)
         }
     }
 
@@ -1193,7 +1208,9 @@ class EndpointServiceHandler {
 
         RestClient restClient = ec.service.rest().method(RestClient.POST)
                 .uri("${pycalcHost}/api/v1/calculator/execute")
-                .isolate(true)
+                .timeout(60)
+                .retry(2, 10)
+                .maxResponseSize(20 * 1024 * 1024)
                 .addHeader("Content-Type", "application/json")
                 .jsonObject(payload)
 
@@ -1224,6 +1241,7 @@ class EndpointServiceHandler {
      * @param identity
      * @return
      */
+
     public static Object processItemsForVizualization(
             ExecutionContext ec,
             ArrayList allItems,
@@ -1231,6 +1249,7 @@ class EndpointServiceHandler {
             HashMap args,
             boolean debug,
             String identity = null)
+
     {
         def pycalcHost = System.properties.get("py.server.host")
 
