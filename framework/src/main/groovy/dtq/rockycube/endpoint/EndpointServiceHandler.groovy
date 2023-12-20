@@ -1169,7 +1169,7 @@ class EndpointServiceHandler {
     public static Object processItemInCalc(
             ExecutionContext ec,
             Object itemToCalculate,
-            ArrayList proceduresList,
+            Object proceduresList,
             HashMap extraParams,
             Closure cbCheckData,
             boolean extractPycalcArgs,
@@ -1208,11 +1208,12 @@ class EndpointServiceHandler {
 
         RestClient restClient = ec.service.rest().method(RestClient.POST)
                 .uri("${pycalcHost}/api/v1/calculator/execute")
-                .timeout(60)
+                .timeout(480)
                 .retry(2, 10)
                 .maxResponseSize(20 * 1024 * 1024)
                 .addHeader("Content-Type", "application/json")
                 .jsonObject(payload)
+                .isolate(true)
 
         // execute
         RestClient.RestResponse restResponse = restClient.call()
