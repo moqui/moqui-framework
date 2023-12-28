@@ -97,7 +97,7 @@ class EntityHelperTests extends Specification {
 
         def ed = efi.getEntityDefinition("moqui.screen.form.DbFormFieldAttribute@231227")
         StringBuilder sb = new StringBuilder()
-        EntityDbMeta.obfuscateName(ed, sb)
+        EntityDbMeta.obfuscateName("SOMETHING", ed, sb)
 
         then:
 

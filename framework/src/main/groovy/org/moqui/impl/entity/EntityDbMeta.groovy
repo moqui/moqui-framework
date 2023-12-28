@@ -827,6 +827,9 @@ class EntityDbMeta {
             // logger.warn("Index for entity [${ed.getFullEntityName()}], title=${title}, commonChars=${commonChars}, indexName=${indexName}")
             // logger.warn("Index for entity [${ed.getFullEntityName()}], relatedEntityName=${relatedEntityName}, relEndCommonChars=${relEndCommonChars}, indexName=${indexName}")
         }
+        // method to give constraint a unique name, once it is a multiple-instance-entity
+        if (ed.isMultipleInstanceEntity) obfuscateName("idx", ed, indexName)
+
         shrinkName(indexName, constraintNameClipLength - 3)
         indexName.insert(0, "IDX")
         return indexName.toString()
@@ -1218,8 +1221,8 @@ class EntityDbMeta {
             }
             // logger.warn("ed.getFullEntityName()=${ed.entityName}, title=${title}, commonChars=${commonChars}, constraintName=${constraintName}")
         }
-        // method to give constraint a unique name, once it is a name-defined-entity
-        if (ed.isMultipleInstanceEntity) obfuscateName(ed, constraintName)
+        // method to give constraint a unique name, once it is a multiple-instance entity
+        if (ed.isMultipleInstanceEntity) obfuscateName("CST", ed, constraintName)
 
         shrinkName(constraintName, constraintNameClipLength)
         return constraintName.toString()
@@ -1245,10 +1248,13 @@ class EntityDbMeta {
      * @param name
      * @return
      */
-    static void obfuscateName(EntityDefinition ed, StringBuilder name)
+    static void obfuscateName(String prefix, EntityDefinition ed, StringBuilder name)
     {
-        def basicName = ed.fullTableName.substring(0, 14)
-        def newName = "${basicName}_${RandomStringUtils.randomAlphanumeric(15)}"
+        // test the length of prefix
+        if (prefix.size() < 3) throw new EntityException("Cannot compute database component name with the used prefix, minimum length of prefix is 3")
+
+        def basicName = ed.fullTableName.substring(0, 12)
+        def newName = "${prefix.toUpperCase().substring(0, 2)}_${basicName}_${RandomStringUtils.randomAlphanumeric(14)}"
         if (name.length() > 0){
             name.replace(0, name.length() - 1, newName)
         } else {
