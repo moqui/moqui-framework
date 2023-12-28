@@ -19,7 +19,7 @@ jobs:
       - name: Checkout moqui-closure-api
         uses: actions/checkout@v2
         with:
-          repository: git@github.com:dataquest-dev/moqui-closure-api.git
+          repository: dataquest-dev/moqui-closure-api
           ssh-key: ${{ secrets.DK_MOQUI_CLOSURE_API }}
           path: './runtime/component/moqui-closure-api'
           ref: master
