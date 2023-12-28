@@ -17,6 +17,7 @@ import org.moqui.entity.EntityCondition;
 import org.moqui.entity.EntityException;
 import org.moqui.impl.entity.EntityJavaUtil.EntityConditionParameter;
 import org.moqui.impl.entity.EntityJavaUtil.FieldOrderOptions;
+import org.moqui.impl.entity.condition.EntityConditionImplBase;
 import org.moqui.util.LiteStringMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,6 +27,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
@@ -305,6 +307,72 @@ public class EntityQueryBuilder implements Runnable {
             //
             sqlTopLevel.append(fieldInfo.getFullColumnName()).append(operatorStr).append(fc);
             parameters.add(new EntityJavaUtil.EntityConditionParameter(fieldInfo, valueMapInternal.getByIString(fieldInfo.name, fieldInfo.index), this));
+        }
+    }
+
+    /**
+     * Method allows adding custom fields to query, without all checks that
+     * would be otherwise executed
+     * @param columns
+     */
+    public void addSelectMultipleTable(ArrayList<String> columns)
+    {
+        for (int i = 0; i < columns.size(); i++) {
+            if (i > 0) sqlTopLevel.append(", ");
+
+            // table alias + column
+            String[] split = columns.get(i).split("\\.");
+            String tableName = split[0];
+            String correctColName = EntityJavaUtil.camelCaseToUnderscored(split[1]);
+
+            sqlTopLevel.append(tableName).append(".").append(correctColName);
+        }
+    }
+
+    /**
+     * Primitive method that adds anything to SQL
+     * @param script
+     */
+    public void addManualScript(String sqlCommand, String script)
+    {
+        sqlTopLevel.append(" ").append(sqlCommand.toUpperCase()).append(" ").append(script);
+    }
+
+    /**
+     * Method fixes conditions inside generated SQL script and puts `table1` prefix
+     * before each field.
+     * @param conditions
+     * @param joinCondition
+     */
+    public void fixWhereMultipleTableCondition(EntityConditionImplBase conditions, String joinCondition)
+    {
+        // find where the WHERE starts and exchange the fields used
+        // iterate through individual fields
+        HashMap<String, Object> conditionMap = new HashMap<>();
+        boolean hasCondition = conditions != null;
+        if (hasCondition) {
+            conditions.populateMap(conditionMap);
+
+            // starting point of WHERE clause
+            int startOfWhere = sqlTopLevel.indexOf(" WHERE ");
+            if (startOfWhere == -1) return;
+            int endOf = sqlTopLevel.length() - 1;
+            String actualWhere = sqlTopLevel.substring(startOfWhere, endOf);
+
+            for (String k: conditionMap.keySet())
+            {
+                String corrCol = EntityJavaUtil.camelCaseToUnderscored(k);
+                actualWhere = actualWhere.replace(corrCol, "table1." + corrCol);
+            }
+
+            sqlTopLevel.replace(startOfWhere, endOf, actualWhere);
+        }
+
+        // if has join condition, append it as well
+        if (joinCondition != null)
+        {
+            if (hasCondition) sqlTopLevel.append(" and ").append(joinCondition);
+            if (!hasCondition) sqlTopLevel.append(" WHERE ").append(joinCondition);
         }
     }
 }

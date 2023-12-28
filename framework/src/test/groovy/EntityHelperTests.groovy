@@ -1,4 +1,7 @@
 import dtq.rockycube.entity.EntityHelper
+import org.moqui.impl.entity.EntityDbMeta
+import org.moqui.impl.entity.EntityFacadeImpl
+
 import java.time.LocalDate
 import junit.framework.Test
 import org.moqui.Moqui
@@ -20,12 +23,18 @@ class EntityHelperTests extends Specification {
     ExecutionContext ec
 
     @Shared
+    EntityFacadeImpl efi
+
+    @Shared
     EntityHelper helper
 
     def setupSpec() {
         // init the framework, get the ec
         ec = Moqui.getExecutionContext()
         ec.user.loginUser('john.hardy', 'moqui')
+
+        // initialize EFI
+        efi = (EntityFacadeImpl) ec.entity
 
         // initialize tools for searching among entities
         helper = new EntityHelper(ec)
@@ -81,5 +90,17 @@ class EntityHelperTests extends Specification {
 
         then:
         1 == 1
+    }
+
+    def "test entity name obfuscation"() {
+        when:
+
+        def ed = efi.getEntityDefinition("moqui.screen.form.DbFormFieldAttribute@231227")
+        StringBuilder sb = new StringBuilder()
+        EntityDbMeta.obfuscateName(ed, sb)
+
+        then:
+
+        assert sb.length() == 30
     }
 }

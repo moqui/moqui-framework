@@ -567,8 +567,10 @@ class EntityDbMeta {
         if (databaseNode.attribute("use-pk-constraint-names") != "false") {
 
             String pkName = null
-            // for named-defined entity, use random string generator
-            if (!ed.nameDefinedEntity)
+            // for multiple-instance type entity, use random string generator
+            // this way, the indexes for respective tables use unique names
+            // and the create procedure does not fail
+            if (!ed.isMultipleInstanceEntity)
             {
                 pkName = "PK_" + ed.getTableName()
                 int constraintNameClipLength = (databaseNode.attribute("constraint-name-clip-length")?:"30") as int
@@ -731,7 +733,7 @@ class EntityDbMeta {
             // being created using one entity schema
             if (indexNode.attribute("table-based-name") == "true")
             {
-                if (ed.nameDefinedEntity)
+                if (ed.isMultipleInstanceEntity)
                 {
                     sql.append("${ed.tableName}_${RandomStringUtils.randomAlphanumeric(10)}" )
                 } else {
@@ -1216,6 +1218,9 @@ class EntityDbMeta {
             }
             // logger.warn("ed.getFullEntityName()=${ed.entityName}, title=${title}, commonChars=${commonChars}, constraintName=${constraintName}")
         }
+        // method to give constraint a unique name, once it is a name-defined-entity
+        if (ed.isMultipleInstanceEntity) obfuscateName(ed, constraintName)
+
         shrinkName(constraintName, constraintNameClipLength)
         return constraintName.toString()
     }
@@ -1230,6 +1235,24 @@ class EntityDbMeta {
             if (name.length() > maxLength) {
                 name.delete(maxLength-1, name.length())
             }
+        }
+    }
+
+    /**
+     * Method is used to change the name of constraint in a situation
+     * when multiple-instance-entity is being taken care of. In such
+     * case we do not want to use standard names
+     * @param name
+     * @return
+     */
+    static void obfuscateName(EntityDefinition ed, StringBuilder name)
+    {
+        def basicName = ed.fullTableName.substring(0, 14)
+        def newName = "${basicName}_${RandomStringUtils.randomAlphanumeric(15)}"
+        if (name.length() > 0){
+            name.replace(0, name.length() - 1, newName)
+        } else {
+            name.append(newName)
         }
     }
 

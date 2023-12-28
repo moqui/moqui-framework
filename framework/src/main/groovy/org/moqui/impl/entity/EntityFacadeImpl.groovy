@@ -654,14 +654,14 @@ class EntityFacadeImpl implements EntityFacade {
 
         EntityDefinition ed = (EntityDefinition) entityDefinitionCache.get(entityNameToSearch)
         if (ed != null) {
-            if (entitySuffix) ed.nameDefinedEntity = true
+            if (entitySuffix) ed.isMultipleInstanceEntity = true
             return ed
         }
 
         //control, if entity has not been created yet
         ed = (EntityDefinition) dynamicEntityDefinitions.get(entityNameToSearch)
         if (ed != null) {
-            if (entitySuffix) ed.nameDefinedEntity = true
+            if (entitySuffix) ed.isMultipleInstanceEntity = true
             return ed
         }
 
@@ -857,7 +857,7 @@ class EntityFacadeImpl implements EntityFacade {
 
         // create the new EntityDefinition
         ed = new EntityDefinition(this, entityNode)
-        if (entitySuffix) ed.nameDefinedEntity = true
+        if (entitySuffix) ed.isMultipleInstanceEntity = true
 
         // cache it under entityName, fullEntityName, and short-alias
         String fullEntityName = ed.fullEntityName

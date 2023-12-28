@@ -78,10 +78,12 @@ class EntityDefinition {
     private Map<String, MasterDefinition> masterDefinitionMap = null
 
     /**
-     * Flag for indicating special entity. If set to true,
-     * the entity is a special case
+     * Flag for indicating a special entity. If set to true,
+     * the entity can have multiple instances of itself, being distinguished
+     * by a suffix.
+     * For example: LedgerDocument@231227_153001
      */
-    private boolean nameDefinedEntity = false
+    private boolean multipleInstanceEntity = false
 
     EntityDefinition(EntityFacadeImpl efi, MNode entityNode) {
         this.efi = efi
@@ -931,12 +933,12 @@ class EntityDefinition {
         return prettyName.toString()
     }
 
-    boolean getNameDefinedEntity() {
-        return nameDefinedEntity
+    boolean getIsMultipleInstanceEntity() {
+        return multipleInstanceEntity
     }
 
-    void setNameDefinedEntity(boolean nameDefinedEntity) {
-        this.nameDefinedEntity = nameDefinedEntity
+    void setIsMultipleInstanceEntity(boolean isMultipleInsEntity) {
+        this.multipleInstanceEntity = isMultipleInsEntity
     }
 // used in EntityCache for view entities
     Map<String, String> getMePkFieldToAliasNameMap(String entityAlias) {

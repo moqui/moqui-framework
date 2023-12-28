@@ -1206,6 +1206,12 @@ class EndpointServiceHandler {
             GenericUtilities.debugFile(ec, "closure-handler-process-items-to-execute.${identity}.json", payload)
         }
 
+        // use specific RequestFactory, with custom timeouts
+        // timeout is set by settings
+        def prop = (String) System.properties.get("py.server.request.timeout", 45000)
+        def calcTimeout = prop.toLong()
+        def customTimeoutReqFactory = new RestClient.SimpleRequestFactory(calcTimeout)
+
         RestClient restClient = ec.service.rest().method(RestClient.POST)
                 .uri("${pycalcHost}/api/v1/calculator/execute")
                 .timeout(480)
@@ -1213,7 +1219,7 @@ class EndpointServiceHandler {
                 .maxResponseSize(20 * 1024 * 1024)
                 .addHeader("Content-Type", "application/json")
                 .jsonObject(payload)
-                .isolate(true)
+                .withRequestFactory(customTimeoutReqFactory)
 
         // execute
         RestClient.RestResponse restResponse = restClient.call()

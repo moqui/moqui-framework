@@ -678,11 +678,15 @@ public class RestClient {
     public static class SimpleRequestFactory implements RequestFactory {
         private final HttpClient httpClient;
 
-        public SimpleRequestFactory() {
-            this(true, false);
+        public SimpleRequestFactory(long defaultIdleTimeout) {
+            this(true, false, defaultIdleTimeout);
         }
 
-        public SimpleRequestFactory(boolean trustAll, boolean disableCookieManagement) {
+        public SimpleRequestFactory() {
+            this(true, false, -1);
+        }
+
+        public SimpleRequestFactory(boolean trustAll, boolean disableCookieManagement, long defaultIdleTimeout) {
             SslContextFactory.Client sslContextFactory = new SslContextFactory.Client(true);
             sslContextFactory.setEndpointIdentificationAlgorithm(null);
             ClientConnector clientConnector = new ClientConnector();
@@ -691,7 +695,7 @@ public class RestClient {
 
             if (disableCookieManagement) httpClient.setCookieStore(new HttpCookieStore.Empty());
             // use a default idle timeout of 15 seconds, should be lower than server idle timeouts which will vary by server but 30 seconds seems to be common
-            httpClient.setIdleTimeout(45000);
+            httpClient.setIdleTimeout(defaultIdleTimeout == -1 ? 15000: defaultIdleTimeout);
             try { httpClient.start(); } catch (Exception e) { throw new BaseException("Error starting HTTP client", e); }
         }
 
