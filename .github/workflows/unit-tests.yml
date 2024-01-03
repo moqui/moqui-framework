@@ -1,4 +1,4 @@
-name: framework-basic-tests
+name: specific unit-tests
 on: [push]
 jobs:
   unit-tests:
