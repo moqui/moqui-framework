@@ -108,6 +108,7 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
     private String ldapSearchUserQuery;
     private String ldapUserFilter;
     private String ldapDefaultGroup
+    private String groupMemberAttr;
 
     protected Class<? extends AuthenticationToken> authenticationTokenClass = UsernamePasswordToken.class
 
@@ -141,6 +142,7 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
             String ldapSearchUserQueryFilter = ldapParams.attribute('search-user-query-filter')
             String ldapUserFilter = ldapParams.attribute("user-filter")
             String ldapDefaultGroup = ldapParams.attribute("ldap-default-group")
+            String groupMemberAttr = ldapParams.attribute("group-member-attribute")
             this.contextFactory.url = ldapPath
             this.contextFactory.systemPassword = ldapSystemUserPassword
             this.contextFactory.systemUsername = ldapSystemUsername
@@ -150,6 +152,7 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
             this.ldapSearchUserQueryFilter = ldapSearchUserQueryFilter
             this.ldapUserFilter = ldapUserFilter == null ? "(cn={principal})" : ldapUserFilter;
             this.ldapDefaultGroup = ldapDefaultGroup == null ? "LDAP Default group" : ldapDefaultGroup
+            this.groupMemberAttr = groupMemberAttr == null ? "memberOf" : groupMemberAttr
         } catch (Exception e) {
             logger.error("Error setting up LDAP connection. ${e.message}")
         }
@@ -295,6 +298,12 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
         }
         return sb.toString();
     }*/
+
+    private String composeDn(final String principal) {
+        String prefix = getUserDnPrefix()
+        String suffix = getUserDnSuffix()
+        return prefix + principal + suffix
+    }
 
     protected String getUserDn(final String principal) throws IllegalArgumentException, IllegalStateException {
 
@@ -571,7 +580,7 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
         try {
             //set cretendtials to get information from LDAP (used to be master password, not anymore)
             this.contextFactory.systemPassword = token.getCredentials()
-            this.contextFactory.systemUsername = token.getPrincipal()
+            this.contextFactory.systemUsername = composeDn(token.getPrincipal().toString());
             info = queryForAuthenticationInfo(token, this.getContextFactory());
             String name = token.principal
             try {
@@ -650,16 +659,16 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
                 SearchControls constraints = new SearchControls();
                 constraints.setSearchScope(SearchControls.SUBTREE_SCOPE)
                 //find group in attribute memberOf
-                constraints.setReturningAttributes(new String[]{userId, "memberOf"})
+                constraints.setReturningAttributes(new String[]{userId, groupMemberAttr})
                 LdapContext ctx = this.getContextFactory().getSystemLdapContext()
                 NamingEnumeration answer = ctx.search(this.ldapSearchUserQueryFilter, ldapUserFilter.replace("{principal}", name), constraints)
                 Attributes attrs = ((SearchResult) answer.next()).getAttributes()
                 eci.artifactExecution.enableAuthz()
-                Attribute memberOf = attrs.get("memberof")
+                Attribute memberOf = attrs.get(groupMemberAttr)
                 if (memberOf) {
                     for (int i = 0; i < memberOf.size(); i++) {
-                        //get name of the group
-                        String groupName = memberOf.get(i).toString().split(',')[0].split('=')[1]
+                        //get (the whole) name of the group
+                        String groupName = memberOf.get(i).toString()
                         ldapUserGroups.add(groupName)
                     }
                 }
@@ -751,7 +760,7 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
         LdapContext ctx = null;
         try {
             if (!(token instanceof ForceLoginToken)) {
-                ctx = ldapContextFactory.getLdapContext(principal, credentials);
+                ctx = this.getContextFactory().getSystemLdapContext();
 
                 //context was opened successfully, which means their credentials were valid.  Return the AuthenticationInfo:
                 return createAuthenticationInfo((AuthenticationToken) token, principal, credentials, ctx);
