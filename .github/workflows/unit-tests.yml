@@ -15,7 +15,7 @@ jobs:
         with:
           repository: dataquest-dev/moqui-runtime
           path: './runtime'
-          ref: production
+          ref: dtq-dev
       - name: Prep - clean database
         run: ./gradlew cleanDb
       - name: Prep - load database
