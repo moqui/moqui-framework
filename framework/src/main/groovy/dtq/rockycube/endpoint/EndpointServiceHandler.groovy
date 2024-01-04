@@ -1077,7 +1077,38 @@ class EndpointServiceHandler {
 
         // set new values
         updateData.each {it->
-            mod.set((String) it.key, it.value)
+            def col = (String) it.key
+            def val = it.value
+            def fi = ed.getFieldInfo(col)
+
+            // for the case the column is unknown
+            // either a mishap or a MongoDatabase
+            if (!fi)
+            {
+                mod.set(col, val)
+                return
+            }
+
+            switch (fi.typeValue)
+            {
+                case 5:
+                    val = val.toString().toInteger()
+                    break
+                case 6:
+                    val = val.toString().toLong()
+                    break
+                case 7:
+                    val = val.toString().toFloat()
+                    break
+                case 8:
+                    val = val.toString().toDouble()
+                    break
+                case 9:
+                    val = val.toString().toBigDecimal()
+                    break
+            }
+            // store in map that shall be used to set values in the DB
+            mod.set(col, val)
         }
 
         // save

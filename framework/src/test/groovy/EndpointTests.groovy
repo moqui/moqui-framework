@@ -10,6 +10,7 @@ import org.junit.Test
 import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
 import dtq.rockycube.util.TestUtilities
+import org.moqui.entity.EntityException
 import org.moqui.entity.EntityValue
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -162,7 +163,49 @@ class EndpointTests extends Specification {
         1 == 1
     }
 
-    def "test writing string into date"() {
+    def "test writing string into decimal"() {
+        when:
+
+        def decimalWrite = this.ec.service.sync()
+                .name("dtq.rockycube.EndpointServices.create#EntityData")
+                .parameters([
+                        entityName: "moqui.test.TestEntity",
+                        data      : [testNumberDecimal: 500, testNumberInteger: 10]
+                ])
+                .call()
+
+        then:
+
+        assert decimalWrite.data.size() == 1
+
+        def id = decimalWrite.data[0]['testId']
+
+        // now, update the record with string
+        def decimalUpdate = this.ec.service.sync()
+                .name("dtq.rockycube.EndpointServices.update#EntityData")
+                .parameters([
+                        entityName: "moqui.test.TestEntity",
+                        term      : [[field: 'testId', value: id]],
+                        data      : [testNumberDecimal: "200.01", testNumberInteger: "50"]
+                ])
+                .call()
+
+        assert decimalUpdate.result
+
+        // update with error
+        def decimalUpdateError = this.ec.service.sync()
+                .name("dtq.rockycube.EndpointServices.update#EntityData")
+                .parameters([
+                        entityName: "moqui.test.TestEntity",
+                        term      : [[field: 'testId', value: id]],
+                        data      : [testNumberDecimalllll: "200.01"]
+                ])
+                .call()
+
+        assert this.ec.message.errorsString == "The field name testNumberDecimalllll is not valid for entity moqui.test.TestEntity\n"
+    }
+
+    def "test update of numeric field with string"() {
         when:
 
         def rawStringWrite = this.ec.service.sync()
