@@ -15,14 +15,14 @@ jobs:
         with:
           repository: dataquest-dev/moqui-runtime
           path: './runtime'
-          ref: production
+          ref: dtq-dev
       - name: Checkout moqui-closure-api
         uses: actions/checkout@v2
         with:
           repository: dataquest-dev/moqui-closure-api
           ssh-key: ${{ secrets.DK_MOQUI_CLOSURE_API }}
           path: './runtime/component/moqui-closure-api'
-          ref: master
+          ref: dtq-dev
       - name: Prep - clean database
         run: ./gradlew cleanDb
       - name: Prep - load database
@@ -44,14 +44,14 @@ jobs:
         with:
           repository: dataquest-dev/moqui-runtime
           path: './runtime'
-          ref: production
+          ref: dtq-dev
       - name: Checkout moqui-acc-extractor
         uses: actions/checkout@v2
         with:
           repository: dataquest-dev/moqui-acc-extractor
           ssh-key: ${{ secrets.DK_MOQUI_ACC_EXTRACTOR }}
           path: './runtime/component/moqui-acc-extractor'
-          ref: main
+          ref: dtq-dev
       - name: Prep - clean database
         run: ./gradlew cleanDb
       - name: Prep - load database
@@ -73,14 +73,14 @@ jobs:
         with:
           repository: dataquest-dev/moqui-runtime
           path: './runtime'
-          ref: production
+          ref: dtq-dev
       - name: Checkout moqui-projects-api
         uses: actions/checkout@v2
         with:
           repository: dataquest-dev/moqui-projects-api
           ssh-key: ${{ secrets.DK_MOQUI_PROJECTS_API }}
           path: './runtime/component/moqui-projects-api'
-          ref: master
+          ref: dtq-dev
       - name: Prep - clean database
         run: ./gradlew cleanDb
       - name: Prep - load database
@@ -102,28 +102,28 @@ jobs:
         with:
           repository: dataquest-dev/moqui-runtime
           path: './runtime'
-          ref: production
+          ref: dtq-dev
       - name: Checkout moqui-closure-api
         uses: actions/checkout@v2
         with:
           repository: dataquest-dev/moqui-closure-api
           ssh-key: ${{ secrets.DK_MOQUI_CLOSURE_API }}
           path: './runtime/component/moqui-closure-api'
-          ref: master
+          ref: dtq-dev
       - name: Checkout moqui-acc-extractor
         uses: actions/checkout@v2
         with:
           repository: dataquest-dev/moqui-acc-extractor
           ssh-key: ${{ secrets.DK_MOQUI_ACC_EXTRACTOR }}
           path: './runtime/component/moqui-acc-extractor'
-          ref: main
+          ref: dtq-dev
       - name: Checkout moqui-projects-api
         uses: actions/checkout@v2
         with:
           repository: dataquest-dev/moqui-projects-api
           ssh-key: ${{ secrets.DK_MOQUI_PROJECTS_API }}
           path: './runtime/component/moqui-projects-api'
-          ref: master
+          ref: dtq-dev
       - name: Prep - clean database
         run: ./gradlew cleanDb
       - name: Prep - load database
