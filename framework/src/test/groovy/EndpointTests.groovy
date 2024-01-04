@@ -29,14 +29,16 @@ class EndpointTests extends Specification {
     ExecutionContext ec
 
     def setup() {
-        // initialize Gson
-        this.gson = new Gson()
+        this.ec.message.clearErrors()
     }
 
     def setupSpec() {
         // init the framework, get the ec
         ec = Moqui.getExecutionContext()
         ec.user.loginUser('john.hardy', 'moqui')
+
+        // initialize Gson
+        this.gson = new Gson()
     }
 
     def cleanupSpec() {
@@ -205,7 +207,7 @@ class EndpointTests extends Specification {
         assert this.ec.message.errorsString == "The field name testNumberDecimalllll is not valid for entity moqui.test.TestEntity\n"
     }
 
-    def "test update of numeric field with string"() {
+    def "test writing string into date"() {
         when:
 
         def rawStringWrite = this.ec.service.sync()
