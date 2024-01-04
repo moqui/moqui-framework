@@ -224,7 +224,7 @@ class EndpointTests extends Specification {
                         failsafe: true,
                         entityName: "moqui.test.TestEntity",
                         term: [[field: 'testId', value: 'special-1']],
-                        args: [allowTimestamps: true, timeZoneInDates: false]
+                        args: [allowTimestamps: true, timeZoneInDatesFormat: "yyyy-MM-dd"]
                 ])
                 .call()
 

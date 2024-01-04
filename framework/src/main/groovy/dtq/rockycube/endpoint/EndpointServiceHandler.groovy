@@ -64,8 +64,8 @@ class EndpointServiceHandler {
     private static String CONST_FORBID_DATABASE_UPDATE          = 'forbidDatabaseUpdate'
     // field that stores identity ID, it shall be used to create a condition term
     private static String CONST_IDENTITY_ID_FOR_SEARCH          = 'identitySearch'
-    // do we need timezone information? by default, certainly not
-    private static String CONST_TIMEZONE_INFO                   = 'timeZoneInDates'
+    // do we need timezone information?
+    private static String CONST_TIMEZONE_INFO_FORMAT            = 'timeZoneInDatesFormat'
     /*
     DEFAULTS
      */
@@ -359,12 +359,6 @@ class EndpointServiceHandler {
             // remove from args, no need to store it
             args.remove(CONST_IDENTITY_ID_FOR_SEARCH)
         }
-
-        // no timezone by default
-        if (!args.containsKey(CONST_TIMEZONE_INFO))
-        {
-            args.put(CONST_TIMEZONE_INFO, true)
-        }
     }
 
     // rename field if necessary
@@ -412,11 +406,17 @@ class EndpointServiceHandler {
     private Object treatTZFieldValue(Object incoming)
     {
         if (incoming.getClass() != Timestamp.class) return incoming
+        if (!this.args.containsKey(CONST_TIMEZONE_INFO_FORMAT)) return incoming
 
-        if (this.args[CONST_TIMEZONE_INFO]) return incoming
-        def ts = (Timestamp) incoming
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
-        return ts.toLocalDateTime().format(formatter)
+        // make sure this does not fail
+        try {
+            def ts = (Timestamp) incoming
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern((String) this.args[CONST_TIMEZONE_INFO_FORMAT])
+            return ts.toLocalDateTime().format(formatter)
+        } catch (Exception exc) {
+            logger.error("Error while converting Timestamp to a custom format: ${exc.message}")
+        }
+        return incoming
     }
 
     private Object fillResultset(EntityValue single)
