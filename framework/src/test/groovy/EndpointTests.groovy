@@ -10,6 +10,7 @@ import org.junit.Test
 import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
 import dtq.rockycube.util.TestUtilities
+import org.moqui.entity.EntityValue
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import spock.lang.Shared
@@ -17,6 +18,7 @@ import spock.lang.Specification
 import net.javacrumbs.jsonunit.JsonAssert
 import net.javacrumbs.jsonunit.core.Option
 import java.nio.charset.StandardCharsets
+import java.sql.Timestamp
 
 class EndpointTests extends Specification {
     protected final static Logger logger = LoggerFactory.getLogger(EndpointTests.class)
@@ -175,6 +177,68 @@ class EndpointTests extends Specification {
 
         rawStringWrite.data.size() == 1
     }
+
+    // we do not want TZ in the output
+    def "test returning no time-zone information"() {
+        when:
+
+        EntityHelper.filterEntity(ec, 'moqui.test.TestEntity', null).deleteAll()
+
+        def rawStringWrite = this.ec.service.sync()
+                .name("dtq.rockycube.EndpointServices.create#EntityData")
+                .parameters([
+                        entityName: "moqui.test.TestEntity",
+                        data      : [testDate: '2022-01-12', testId: 'special-1'],
+                        args      : [autoCreatePrimaryKey: false]
+                ])
+                .call()
+
+        then:
+
+        // TIMESTAMP
+        // read with time-zone and then with no time-zone - see the difference
+        def edWithTs = this.ec.service.sync()
+                .name("dtq.rockycube.EndpointServices.populate#EntityData")
+                .parameters([
+                        failsafe: true,
+                        entityName: "moqui.test.TestEntity",
+                        term: [[field: 'testId', value: 'special-1']],
+                        args: [allowTimestamps: true]
+                ])
+                .call()
+
+        assert edWithTs.result
+        def dataWithTs = (ArrayList) edWithTs.data
+        assert dataWithTs.size() == 1
+
+        dataWithTs.each { it ->
+            def lus = it['lastUpdatedStamp']
+            logger.info("lastUpdatedStamp: [${lus}] ${lus.getClass().simpleName}")
+            assert lus.getClass() == Timestamp.class
+        }
+
+        // SIMPLE DATE
+        def edWithoutTs = this.ec.service.sync()
+                .name("dtq.rockycube.EndpointServices.populate#EntityData")
+                .parameters([
+                        failsafe: true,
+                        entityName: "moqui.test.TestEntity",
+                        term: [[field: 'testId', value: 'special-1']],
+                        args: [allowTimestamps: true, timeZoneInDates: false]
+                ])
+                .call()
+
+        assert edWithoutTs.result
+        def dataWithoutTs = (ArrayList) edWithoutTs.data
+        assert dataWithoutTs.size() == 1
+
+        dataWithoutTs.each { it ->
+            def lus = it['lastUpdatedStamp']
+            logger.info("lastUpdatedStamp: [${lus}] ${lus.getClass().simpleName}")
+            assert lus.getClass() == String.class
+        }
+    }
+
 
     def "test complex condition evaluator"() {
         when:

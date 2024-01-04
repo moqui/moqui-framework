@@ -29,7 +29,8 @@ import org.moqui.util.StringUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
-import java.util.concurrent.Future
+import java.sql.Timestamp
+import java.time.format.DateTimeFormatter
 import java.util.regex.Pattern
 
 class EndpointServiceHandler {
@@ -63,7 +64,8 @@ class EndpointServiceHandler {
     private static String CONST_FORBID_DATABASE_UPDATE          = 'forbidDatabaseUpdate'
     // field that stores identity ID, it shall be used to create a condition term
     private static String CONST_IDENTITY_ID_FOR_SEARCH          = 'identitySearch'
-
+    // do we need timezone information? by default, certainly not
+    private static String CONST_TIMEZONE_INFO                   = 'timeZoneInDates'
     /*
     DEFAULTS
      */
@@ -357,6 +359,12 @@ class EndpointServiceHandler {
             // remove from args, no need to store it
             args.remove(CONST_IDENTITY_ID_FOR_SEARCH)
         }
+
+        // no timezone by default
+        if (!args.containsKey(CONST_TIMEZONE_INFO))
+        {
+            args.put(CONST_TIMEZONE_INFO, true)
+        }
     }
 
     // rename field if necessary
@@ -401,6 +409,16 @@ class EndpointServiceHandler {
         return false
     }
 
+    private Object treatTZFieldValue(Object incoming)
+    {
+        if (incoming.getClass() != Timestamp.class) return incoming
+
+        if (this.args[CONST_TIMEZONE_INFO]) return incoming
+        def ts = (Timestamp) incoming
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+        return ts.toLocalDateTime().format(formatter)
+    }
+
     private Object fillResultset(EntityValue single)
     {
         // we need unordered list of keys
@@ -433,7 +451,7 @@ class EndpointServiceHandler {
             }
 
             // value and it's class
-            def itVal = it.value
+            def itVal = treatTZFieldValue(it.value)
 
             // special treatment for maps
             // convert HashMap, watch out if it's array
