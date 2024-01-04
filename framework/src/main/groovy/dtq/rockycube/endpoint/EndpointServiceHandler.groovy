@@ -1089,24 +1089,32 @@ class EndpointServiceHandler {
                 return
             }
 
-            switch (fi.typeValue)
-            {
-                case 5:
-                    val = val.toString().toInteger()
-                    break
-                case 6:
-                    val = val.toString().toLong()
-                    break
-                case 7:
-                    val = val.toString().toFloat()
-                    break
-                case 8:
-                    val = val.toString().toDouble()
-                    break
-                case 9:
-                    val = val.toString().toBigDecimal()
-                    break
+            // now we attempt to convert incoming value to the respective type
+            // if the conversion fails, do not propagate the exception, just log it
+            // let the exception be handled by the DB driver
+            try {
+                switch (fi.typeValue)
+                {
+                    case 5:
+                        val = val.toString().toInteger()
+                        break
+                    case 6:
+                        val = val.toString().toLong()
+                        break
+                    case 7:
+                        val = val.toString().toFloat()
+                        break
+                    case 8:
+                        val = val.toString().toDouble()
+                        break
+                    case 9:
+                        val = val.toString().toBigDecimal()
+                        break
+                }
+            } catch (Exception conversion){
+                logger.error("Error converting value in updateSingleEntity method: ${conversion.message}")
             }
+
             // store in map that shall be used to set values in the DB
             mod.set(col, val)
         }

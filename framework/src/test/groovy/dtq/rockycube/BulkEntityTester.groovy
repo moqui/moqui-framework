@@ -146,7 +146,8 @@ class BulkEntityTester extends Specification {
                 assert res['upsertFails'] == expected['upsertFails']
                 assert res['deleteFails'] == expected['deleteFails']
             }
-        })
+        },
+        logger)
 
 
 
