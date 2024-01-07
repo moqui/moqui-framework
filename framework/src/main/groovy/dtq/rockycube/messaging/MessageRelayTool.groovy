@@ -3,7 +3,6 @@ package dtq.rockycube.messaging
 import com.google.gson.Gson
 import dtq.rockycube.stomp.HttpHeaders
 import dtq.rockycube.stomp.StompHeaders
-import dtq.rockycube.stomp.frame.Frame
 import dtq.rockycube.stomp.listener.ConnectedListener
 import org.moqui.context.ExecutionContext
 
