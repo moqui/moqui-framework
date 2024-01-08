@@ -4,20 +4,20 @@ jobs:
   closure-api-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK
-        uses: actions/setup-java@v2
+        uses: actions/setup-java@v4
         with:
           java-version: 13
           distribution: adopt
       - name: Checkout runtime
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           repository: dataquest-dev/moqui-runtime
           path: './runtime'
           ref: dtq-dev
       - name: Checkout moqui-closure-api
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           repository: dataquest-dev/moqui-closure-api
           ssh-key: ${{ secrets.DK_MOQUI_CLOSURE_API }}
@@ -33,20 +33,20 @@ jobs:
   acc-extractor-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK
-        uses: actions/setup-java@v2
+        uses: actions/setup-java@v4
         with:
           java-version: 13
           distribution: adopt
       - name: Checkout runtime
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           repository: dataquest-dev/moqui-runtime
           path: './runtime'
           ref: dtq-dev
       - name: Checkout moqui-acc-extractor
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           repository: dataquest-dev/moqui-acc-extractor
           ssh-key: ${{ secrets.DK_MOQUI_ACC_EXTRACTOR }}
@@ -62,20 +62,20 @@ jobs:
   projects-api-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK
-        uses: actions/setup-java@v2
+        uses: actions/setup-java@v4
         with:
           java-version: 13
           distribution: adopt
       - name: Checkout runtime
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           repository: dataquest-dev/moqui-runtime
           path: './runtime'
           ref: dtq-dev
       - name: Checkout moqui-projects-api
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           repository: dataquest-dev/moqui-projects-api
           ssh-key: ${{ secrets.DK_MOQUI_PROJECTS_API }}
@@ -91,34 +91,34 @@ jobs:
   all-components-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up JDK
-        uses: actions/setup-java@v2
+        uses: actions/setup-java@v4
         with:
           java-version: 13
           distribution: adopt
       - name: Checkout runtime
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           repository: dataquest-dev/moqui-runtime
           path: './runtime'
           ref: dtq-dev
       - name: Checkout moqui-closure-api
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           repository: dataquest-dev/moqui-closure-api
           ssh-key: ${{ secrets.DK_MOQUI_CLOSURE_API }}
           path: './runtime/component/moqui-closure-api'
           ref: dtq-dev
       - name: Checkout moqui-acc-extractor
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           repository: dataquest-dev/moqui-acc-extractor
           ssh-key: ${{ secrets.DK_MOQUI_ACC_EXTRACTOR }}
           path: './runtime/component/moqui-acc-extractor'
           ref: dtq-dev
       - name: Checkout moqui-projects-api
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           repository: dataquest-dev/moqui-projects-api
           ssh-key: ${{ secrets.DK_MOQUI_PROJECTS_API }}
