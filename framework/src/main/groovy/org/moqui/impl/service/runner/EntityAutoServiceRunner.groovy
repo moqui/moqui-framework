@@ -447,7 +447,10 @@ class EntityAutoServiceRunner implements ServiceRunner {
             result.put("statusChanged", !(lookedUpValue.getNoCheckSimple("statusId") == parameters.get("statusId")))
             // logger.warn("========= oldStatusId=${result.oldStatusId}, statusChanged=${result.statusChanged}, lookedUpValue.statusId=${lookedUpValue.statusId}, parameters.statusId=${parameters.statusId}, lookedUpValue=${lookedUpValue}")
         }
-
+        //Only check the StatusFlowTransition if the entity belongs to the same entity group
+        if (ed.getEntityGroupName() != efi.getEntityDefinition("moqui.basic.StatusFlowTransition").getEntityGroupName()) {
+            return
+        }
         // do the StatusValidChange check
         String parameterStatusId = (String) parameters.get("statusId")
         if (parameterStatusId) {
