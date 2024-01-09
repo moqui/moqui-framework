@@ -130,3 +130,11 @@ jobs:
         run: ./gradlew load
       - name: Run unit tests on all components
         run: ./gradlew compTest
+      - name: trigger integration tests in aston-stack
+        run: |
+          curl -H "Accept: application/vnd.github.everest-preview+json" \
+          -H "Authorization: token ${{ secrets.TESTS_ACTION_DISPATCH }}" \
+          --request POST \
+          https://api.github.com/repos/dataquest-dev/\
+          aston-stack/actions/workflows/qa_tests.yml/dispatches \
+          --data "{\"ref\":\"refs/heads/dtq-dev\"}"
