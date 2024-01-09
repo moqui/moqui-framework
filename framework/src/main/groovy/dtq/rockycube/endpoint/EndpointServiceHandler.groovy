@@ -851,7 +851,7 @@ class EndpointServiceHandler {
         return [
                 result : true,
                 message: "Records created (1)",
-                data   : [fillResultset(created)]
+                data   : args[CONST_PREFER_OBJECT_IN_RETURN] ? fillResultset(created) : [fillResultset(created)]
         ]
     }
 
@@ -1125,7 +1125,7 @@ class EndpointServiceHandler {
         return [
                 result : true,
                 message: "Records updated (1)",
-                data   : [fillResultset(mod)]
+                data   : args[CONST_PREFER_OBJECT_IN_RETURN] ? fillResultset(mod) : [fillResultset(mod)]
         ]
     }
 
