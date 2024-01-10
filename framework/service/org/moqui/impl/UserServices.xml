@@ -33,36 +33,25 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="loggedIn" type="Boolean"/>
         </out-parameters>
         <actions>
-            <if condition="ec.web?.sessionAttributes?.moquiPreAuthcUsername">
-                <then>
-                    <!-- already pre-auth'ed, verify code below -->
-                    <set field="username" from="ec.web?.sessionAttributes?.moquiPreAuthcUsername"/>
-                </then>
-                <else>
-                    <!-- no pre-auth, try logging in (pre-auth if 2nd factor required) -->
-                    <set field="loggedIn" from="ec.user.loginUser(username, password)"/>
-                </else>
-            </if>
-            <if condition="ec.web.sessionAttributes.moquiAuthcFactorRequired">
-                <then>
-                    <if condition="code">
-                        <then>
-                            <service-call name="org.moqui.impl.UserServices.validate#ExternalUserAuthcCode"
-                                    in-map="[code:code]"
-                                    out-map="validateOut"/>
-                            <if condition="validateOut.verified">
-                                <then>
-                                    <set field="loggedIn" from="ec.user.internalLoginUser(validateOut.username)"/>
-                                </then>
-                                <else>
-                                    <message type="danger" public="true">Authentication code is not valid</message>
-                                </else>
-                            </if>
-                        </then>
-                        <else>
-                            <service-call name="org.moqui.impl.UserServices.get#ExternalUserAuthcFactorInfo" out-map="context"/>
-                        </else>
-                    </if>
+            <if condition="ec.web?.sessionAttributes?.moquiPreAuthcUsername"><then>
+                <!-- already pre-auth'ed, verify code below -->
+                <set field="username" from="ec.web?.sessionAttributes?.moquiPreAuthcUsername"/>
+            </then><else>
+                <!-- no pre-auth, try logging in (pre-auth if 2nd factor required) -->
+                <set field="loggedIn" from="ec.user.loginUser(username, password)"/>
+            </else></if>
+            <if condition="ec.web.sessionAttributes.moquiAuthcFactorRequired"><then>
+                <if condition="code"><then>
+                    <service-call name="org.moqui.impl.UserServices.validate#ExternalUserAuthcCode"
+                            in-map="[code:code]" out-map="validateOut"/>
+                    <if condition="validateOut.verified"><then>
+                        <set field="loggedIn" from="ec.user.internalLoginUser(validateOut.username)"/>
+                    </then><else>
+                        <message type="danger" public="true">Authentication code is not valid</message>
+                    </else></if>
+                </then><else>
+                    <service-call name="org.moqui.impl.UserServices.get#ExternalUserAuthcFactorInfo" out-map="context"/>
+                </else></if>
             </then></if>
         </actions>
     </service>
