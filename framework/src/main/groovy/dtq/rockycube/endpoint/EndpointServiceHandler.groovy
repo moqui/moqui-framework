@@ -1231,6 +1231,7 @@ class EndpointServiceHandler {
             Closure cbCheckData,
             boolean extractPycalcArgs,
             boolean debug,
+            String processingId = null,
             String identity = null)
     {
         def pycalcHost = System.properties.get("py.server.host")
@@ -1253,7 +1254,8 @@ class EndpointServiceHandler {
                 setup: [
                         procedure: proceduresList,
                         output_only_last: true,
-                        extra: extractPycalcArgs ? ViUtilities.extractPycalcArgs(extraParams) : extraParams
+                        extra: extractPycalcArgs ? ViUtilities.extractPycalcArgs(extraParams) : extraParams,
+                        proc_id: processingId
                 ],
                 data: itemToCalculate
         ]
