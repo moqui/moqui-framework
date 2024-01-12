@@ -791,9 +791,14 @@ class UserFacadeImpl implements UserFacade {
         String hashedKey = eci.ecfi.getSimpleHash(loginKey, "", eci.ecfi.getLoginKeyHashType(), false)
         Timestamp fromDate = getNowTimestamp()
         long thruTime = fromDate.getTime() + Math.round(expireHours * 60*60*1000)
+        /*
+            TODO:deepak: Set the require new transaction false, we are getting lock wait timeout exception at second login attempt
+            Will check and discuss this with community
+        */
+
         eci.serviceFacade.sync().name("create", "moqui.security.UserLoginKey")
                 .parameters([loginKey:hashedKey, userId:userId, fromDate:fromDate, thruDate:new Timestamp(thruTime)])
-                .disableAuthz().requireNewTransaction(true).call()
+                .disableAuthz().requireNewTransaction(false).call()
 
         // clean out expired keys
         eci.entity.find("moqui.security.UserLoginKey").condition("userId", userId)
