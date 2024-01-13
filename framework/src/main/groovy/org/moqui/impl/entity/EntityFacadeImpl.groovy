@@ -852,7 +852,15 @@ class EntityFacadeImpl implements EntityFacade {
             if (relationships) {
                 this.setDynamicRelationships(entityNode, entitySuffix)
             }
-            logger.info("Loading special entity ${specialEntityName}.")
+
+            // support for handling entities with set `table_name`
+            def tableNameSet = entityNode.attribute("table-name")
+            if (tableNameSet){
+                tableNameSet = "${tableNameSet}_${EntityJavaUtil.camelCaseToUnderscored(entitySuffix)}".toString()
+                entityNode.attributes.replace("table-name", tableNameSet)
+            }
+            // log
+            logger.debug("Loading special entity ${specialEntityName}.")
         }
 
         // create the new EntityDefinition

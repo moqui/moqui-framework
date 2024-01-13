@@ -1253,7 +1253,7 @@ class EntityDbMeta {
         // test the length of prefix
         if (prefix.size() < 3) throw new EntityException("Cannot compute database component name with the used prefix, minimum length of prefix is 3")
 
-        def basicName = ed.fullTableName.substring(0, 12)
+        def basicName = ed.fullTableName.substring(0, Math.min(12, ed.fullTableName.length()))
         def newName = "${prefix.toUpperCase().substring(0, 2)}_${basicName}_${RandomStringUtils.randomAlphanumeric(14)}"
         if (name.length() > 0){
             name.replace(0, name.length() - 1, newName)

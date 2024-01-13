@@ -14,7 +14,7 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-2.1.xsd">
     <!--The fundamental part of the closure, the ITEM (budgeting-bone, project, monthly work-record, ...)-->
-    <entity entity-name="ClosureItem" package="dtq.rockycube">
+    <entity entity-name="ClosureItem" package="dtq.rockycube" table-name="CL_I">
         <field name="closureItemId" type="id" is-pk="true"/>
         <field name="identity" type="jsonb"/>
         <field name="externalIdentity" type="jsonb"><description>The external identity of the specific data, e.g. the ID of project calculation</description></field>
@@ -33,7 +33,7 @@ along with this software (see the LICENSE.md file). If not, see
         </index>
     </entity>
 
-    <entity entity-name="ClosureItemOutput" package="dtq.rockycube">
+    <entity entity-name="ClosureItemOutput" package="dtq.rockycube" table-name="CL_I_OUT">
         <field name="closureItemDetailId" type="id" is-pk="true"/>
         <field name="closureItemId" type="id" not-null="true"/>
         <field name="identity" type="jsonb" not-null="true"/>
@@ -52,7 +52,7 @@ along with this software (see the LICENSE.md file). If not, see
         </index>
     </entity>
 
-    <entity entity-name="ClosureLockItemToClosure" package="dtq.rockycube">
+    <entity entity-name="ClosureLockItemToClosure" package="dtq.rockycube" table-name="CL_LCK_ITC">
         <description>Item-to-closure</description>
         <field name="lockedBy" type="id" is-pk="true"><description>This is the name of the closure</description></field>
         <field name="closureItemId" type="id" is-pk="true"/>
@@ -62,7 +62,7 @@ along with this software (see the LICENSE.md file). If not, see
 <!--        <relationship type="one" related="dtq.rockycube.ClosureItem" fk-name="closureItemId"/>-->
     </entity>
 
-    <entity entity-name="ClosureLockClosureToItem" package="dtq.rockycube">
+    <entity entity-name="ClosureLockClosureToItem" package="dtq.rockycube" table-name="CL_LCK_CTI">
         <description>Closure-to-item</description>
         <field name="sourceClosure" type="id" is-pk="true"><description>This is the name of the closure</description></field>
         <field name="closureItemId" type="id" is-pk="true"/>
