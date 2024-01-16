@@ -59,6 +59,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest
 import java.security.NoSuchAlgorithmException;
 import java.sql.Timestamp
+import java.util.regex.Pattern
 
 //exception classes
 public class MoquiPreLoginException extends AuthenticationException {
@@ -653,6 +654,8 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
                 moquiUserGroups.retainAll(moquiLdapGroups)
                 // LDAP groups
                 Set<String> ldapUserGroups = new HashSet()
+                // LDAP group full names
+                HashMap<String, String> ldapGroupFullNames = new HashMap<>()
                 //Domain Users group is default for all ldap users
                 ldapUserGroups.add(ldapDefaultGroup)
                 eci.artifactExecution.disableAuthz()
@@ -666,10 +669,21 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
                 eci.artifactExecution.enableAuthz()
                 Attribute memberOf = attrs.get(groupMemberAttr)
                 if (memberOf) {
+                    def recNameExtraction = Pattern.compile("^CN=([\\w\\d\\s]+),OU=")
                     for (int i = 0; i < memberOf.size(); i++) {
-                        //get (the whole) name of the group
+                        // get (the whole) name of the group
+                        // IMPORTANT - cannot use the entire name of group, the length
+                        // of string is too big to fit into the "ID" fields of respective
+                        // tables
                         String groupName = memberOf.get(i).toString()
-                        ldapUserGroups.add(groupName)
+
+                        // clean up the name
+                        def m = recNameExtraction.matcher(groupName)
+                        if (!m.find()) throw new Exception("Unable to extract group name")
+
+                        // add to list of full names
+                        ldapGroupFullNames.put(m.group(1), groupName)
+                        ldapUserGroups.add(m.group(1))
                     }
                 }
                 //control if ldap groups match moqui groups
@@ -680,7 +694,7 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
                             //create group
                             Map<String, Object> fields = [:]
                             fields.put("userGroupId", ldapGroupId)
-                            fields.put("description", "LDAP users")
+                            fields.put("description", "LDAP users - ${ldapGroupFullNames.get(ldapGroupId)}")
                             fields.put("groupTypeEnumId", "UgtLDAP")
                             boolean beganTransaction = eci.transaction.begin(null)
                             try {
