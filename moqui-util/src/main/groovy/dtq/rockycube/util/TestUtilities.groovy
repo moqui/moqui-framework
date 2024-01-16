@@ -176,6 +176,11 @@ public class TestUtilities {
     {
         // log and store output
         String[] debugFilePath = extendList(RESOURCE_PATH, debugTo)
+
+        // create parent directory
+        File outputFile = FileUtils.getFile(debugFilePath)
+        if (!outputFile.parentFile.exists()) outputFile.parentFile.mkdirs()
+
         FileOutputStream debug = new FileOutputStream(getInputFile(debugFilePath))
         return new OutputStreamWriter(debug, StandardCharsets.UTF_8)
     }
