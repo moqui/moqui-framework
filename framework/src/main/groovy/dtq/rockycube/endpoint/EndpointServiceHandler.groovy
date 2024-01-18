@@ -40,6 +40,11 @@ class EndpointServiceHandler {
     private EntityHelper meh
     private EntityCondition.JoinOperator defaultListJoinOper = EntityCondition.JoinOperator.OR
 
+    // attribute to allow writing to entities with companyId as an additional suffix (multi-company support)
+    // if this string is filled-in, change the entityName used everywhere in the class
+    private String companyId = null
+
+    // customizing the calls to backend
     private static String CONST_UPDATE_IF_EXISTS                = 'updateIfExists'
     private static String CONST_ALLOWED_FIELDS                  = 'allowedFields'
     private static String CONST_SORT_OUTPUT_MAP                 = 'sortOutputMap'
@@ -105,6 +110,9 @@ class EndpointServiceHandler {
         this.meh = new EntityHelper(this.ec)
         serviceAllowedOn.each {it->this.serviceAllowedOn.add((String) it)}
 
+        // companyId inside context
+        if (ec.context.containsKey('companyId')) this.companyId = ec.context.companyId
+
         // fill entity name
         this.fillEntityName(entityName, tableName)
 
@@ -126,6 +134,9 @@ class EndpointServiceHandler {
         this.ec = Moqui.getExecutionContext()
         this.ecfi = (ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory()
         this.meh = new EntityHelper(this.ec)
+
+        // companyId inside context
+        if (ec.context.containsKey('companyId')) this.companyId = ec.context.companyId
 
         // fill entity name
         this.fillEntityName((String) ec.context.entityName, (String) ec.context.tableName)
@@ -172,6 +183,12 @@ class EndpointServiceHandler {
             this.entityName = ed.fullEntityName
         } else {
             this.entityName = inputEntityName
+        }
+
+        // set suffix
+        if (this.companyId) {
+            logger.debug("Company ID [${this.companyId}] is being used when working with entity: ${this.entityName}")
+            this.entityName = "${this.entityName}@${this.companyId}"
         }
     }
 

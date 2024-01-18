@@ -395,6 +395,58 @@ class EndpointTests extends Specification {
     }
 
     def "test endpoint handling of multiple companies"(){
+        when:
+
+        // clean up
+        EntityHelper.filterEntity(ec, 'moqui.test.TestEntity@abcd', null)
+
+        def write = this.ec.service.sync()
+                .name("dtq.rockycube.EndpointServices.create#EntityData")
+                .parameters([
+                        companyId : 'abcd',
+                        entityName: "moqui.test.TestEntity",
+                        data      : [testNumberDecimal: 500, testNumberInteger: 10],
+                        args      : [preferObjectInReturn: true]
+                ])
+                .call()
+
+        def createdId = write.data['testId']
+
+        assert EntityHelper.filterEntity(ec, 'moqui.test.TestEntity@abcd', [testId: createdId]).count() == 1
+
+        // update
+        def update = this.ec.service.sync()
+                .name("dtq.rockycube.EndpointServices.update#EntityData")
+                .parameters([
+                        companyId : 'abcd',
+                        entityName: "moqui.test.TestEntity",
+                        term      : [[field: 'testId', value: createdId]],
+                        data      : [testNumberDecimal: 5000],
+                        args      : [preferObjectInReturn: true]
+                ])
+                .call()
+
+        assert update.result == true
+        assert EntityHelper.filterEntity(ec, 'moqui.test.TestEntity@abcd', [testId: createdId]).one()['testNumberDecimal'] == 5000
+
+        // read
+
+        // delete
+        def delete = this.ec.service.sync()
+                .name("dtq.rockycube.EndpointServices.remove#EntityData")
+                .parameters([
+                        companyId : 'abcd',
+                        entityName: "moqui.test.TestEntity",
+                        term      : [[field: 'testId', value: createdId]]
+                ])
+                .call()
+
+        assert EntityHelper.filterEntity(ec, 'moqui.test.TestEntity@abcd', [testId: createdId]).count() == 0
+
+        then:
+
+        delete.result == true
+        write.result == true
 
     }
 }

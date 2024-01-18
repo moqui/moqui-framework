@@ -19,6 +19,7 @@ along with this software (see the LICENSE.md file). If not, see
             no-remember-parameters="true"
             location="classpath://service/dtq/rockycube/endpoint/EndpointService.groovy">
         <in-parameters>
+            <parameter name="companyId" type="String" default-value="null"/>
             <parameter name="term" type="List" default="[]"/>
             <parameter name="index" type="Integer" default-value="1"/>
             <parameter name="size" type="Integer" default-value="100"/>
@@ -41,6 +42,7 @@ along with this software (see the LICENSE.md file). If not, see
             type="script"
             location="classpath://service/dtq/rockycube/endpoint/EndpointService.groovy">
         <in-parameters>
+            <parameter name="companyId" type="String" default-value="null"/>
             <parameter name="term" type="List" default="[]"/>
             <parameter name="entityName" type="String"/>
             <parameter name="tableName" type="String"/>
@@ -61,6 +63,7 @@ along with this software (see the LICENSE.md file). If not, see
             type="script"
             location="classpath://service/dtq/rockycube/endpoint/EndpointService.groovy">
         <in-parameters>
+            <parameter name="companyId" type="String" default-value="null"/>
             <parameter name="term" type="List" default="[]"/>
             <parameter name="entityName" type="String"/>
             <parameter name="tableName" type="String"/>
@@ -82,6 +85,7 @@ along with this software (see the LICENSE.md file). If not, see
             type="script"
             location="classpath://service/dtq/rockycube/endpoint/EndpointService.groovy">
         <in-parameters>
+            <parameter name="companyId" type="String" default-value="null"/>
             <parameter name="term" type="List" default="[]"/>
             <parameter name="entityName" type="String"/>
             <parameter name="tableName" type="String"/>
