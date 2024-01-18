@@ -73,7 +73,7 @@ class BulkEntityTester extends Specification {
         BulkEntityHandler handler = new BulkEntityHandler()
 
         // insert into entities
-        def isToImport = TestUtilities.loadTestResource((String[]) ['bulk-entity', 'plain-import.json'])
+        def isToImport = TestUtilities.loadTestResource((String[]) ['BulkEntity', 'plain-import.json'])
         def result = handler.writeChanges(CONST_TEST_ENTITY, gson.fromJson(isToImport.newReader(), ArrayList.class), [], [])
         logger.info("Output: ${result}")
 
@@ -93,14 +93,14 @@ class BulkEntityTester extends Specification {
 
         then:
 
-        TestUtilities.testSingleFile((String[]) ["bulk-entity", "expected-checksums.json"], {Object processed, Object expected, Integer idx->
+        TestUtilities.testSingleFile((String[]) ["BulkEntity", "expected-checksums.json"], {Object processed, Object expected, Integer idx->
             // clean data every time
             ec.logger.info("Deleted rows [${EntityHelper.filterEntity(ec, CONST_TEST_ENTITY, null).deleteAll()}]")
 
             // file ID
             def fileStamp = "${idx + 1}_${TestUtilities.formattedTimestamp()}"
 
-            def importData = TestUtilities.loadTestResource((String[]) ['bulk-entity', 'plain-import.json'], ArrayList.class)
+            def importData = TestUtilities.loadTestResource((String[]) ['BulkEntity', 'plain-import.json'], ArrayList.class)
             assert handler.writeChanges(CONST_TEST_ENTITY, importData, [], [])['result'] == true
 
             // data before test

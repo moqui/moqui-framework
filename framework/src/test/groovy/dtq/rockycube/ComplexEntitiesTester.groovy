@@ -65,13 +65,13 @@ class ComplexEntitiesTester extends Specification {
         logger.info("\nDeleted records: [${ec.entity.find(CONST_TEST_ENTITY).deleteAll()}]\n")
 
         // 2. import test data
-        TestUtilities.testSingleFile((String[]) ["complex-entities", "expected-counts.json"], { Object processed, Object expected, Integer idx ->
+        TestUtilities.testSingleFile((String[]) ['ComplexEntities', "complex-entities", "expected-counts.json"], { Object processed, Object expected, Integer idx ->
             def newEntity = this.createNewItem((HashMap) processed)
             assert newEntity, "Entity must be created"
         })
 
         // run through all entities and perform search
-        TestUtilities.testSingleFile((String[]) ["complex-entities", "expected-counts.json"], { Object processed, Object expected, Integer idx ->
+        TestUtilities.testSingleFile((String[]) ['ComplexEntities', "complex-entities", "expected-counts.json"], { Object processed, Object expected, Integer idx ->
             switch (expected["searchObject"]["filterType"])
             {
                 case "HashMap":
@@ -118,7 +118,7 @@ class ComplexEntitiesTester extends Specification {
         // delete all
         logger.info("\nDeleted records: [${ec.entity.find(CONST_TEST_ENTITY).deleteAll()}]\n")
 
-        TestUtilities.testSingleFile((String[]) ["complex-entities", "expected-counts.json"], { Object processed, Object expected, Integer idx ->
+        TestUtilities.testSingleFile((String[]) ["ComplexEntities", "complex-entities", "expected-counts.json"], { Object processed, Object expected, Integer idx ->
             def newEntity = this.createNewItem((HashMap) processed)
             assert newEntity, "Entity must be created"
 

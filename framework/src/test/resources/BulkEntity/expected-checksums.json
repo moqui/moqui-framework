@@ -1,7 +1,7 @@
 [
   [
     {
-      "file": "bulk-entity/standard/only-delete-1.json"
+      "file": "BulkEntity/standard/only-delete-1.json"
     },
     {
       "checksum": -78000.0,
@@ -14,7 +14,7 @@
   ],
   [
     {
-      "file": "bulk-entity/invalid/error-1.json"
+      "file": "BulkEntity/invalid/error-1.json"
     },
     {
       "checksum": 0.0,

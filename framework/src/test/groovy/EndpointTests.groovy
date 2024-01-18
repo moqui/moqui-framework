@@ -59,7 +59,7 @@ class EndpointTests extends Specification {
         when:
 
         // declared once
-        String testDir = "EntityEndpointTests"
+        String testDir = "EntityEndpoint"
 
         TestUtilities.testSingleFile(
                 TestUtilities.extendList([testDir, "expected_complex_queries.json"] as String[]),
@@ -122,7 +122,7 @@ class EndpointTests extends Specification {
         ec.artifactExecution.disableAuthz()
 
         // declared once
-        String testDir = "EntityEndpointTests"
+        String testDir = "EntityEndpoint"
 
         TestUtilities.testSingleFile(
                 TestUtilities.extendList([testDir, "expected_flatmapping.json"] as String[]),
@@ -284,12 +284,11 @@ class EndpointTests extends Specification {
         }
     }
 
-
     def "test complex condition evaluator"() {
         when:
 
-        def complexConditions = TestUtilities.loadTestResource((String[]) ['condition-evaluator', 'cond-complex-conditions-1.txt'])
-        def terms = TestUtilities.loadTestResource((String[]) ['condition-evaluator', 'cond-term-1.json'])
+        def complexConditions = TestUtilities.loadTestResource((String[]) ['EntityEndpoint', 'condition-evaluator', 'cond-complex-conditions-1.txt'])
+        def terms = TestUtilities.loadTestResource((String[]) ['EntityEndpoint', 'condition-evaluator', 'cond-term-1.json'])
 
         def resp = ConditionHandler.recCondition(
                 new String(complexConditions.readAllBytes(), StandardCharsets.UTF_8),
@@ -314,7 +313,7 @@ class EndpointTests extends Specification {
         then:
 
         // import data from existing sample file
-        TestUtilities.executeOnEachRecord((String[]) ["jsonb-column-query", 'sample-import.json'], (Integer idx, String entityName, Object data)->{
+        TestUtilities.executeOnEachRecord((String[]) ['EntityEndpoint', "jsonb-column-query", 'sample-import.json'], (Integer idx, String entityName, Object data)->{
             def newEntity = ec.entity.makeValue(entityName)
             newEntity.setAll((HashMap) data)
                     .setSequencedIdPrimary()
@@ -323,7 +322,7 @@ class EndpointTests extends Specification {
 
         // load using EndpointHandler
         TestUtilities.testSingleFile(
-                TestUtilities.extendList(["composite-field", "expected-query.json"] as String[]),
+                TestUtilities.extendList(['EntityEndpoint', "composite-field", "expected-query.json"] as String[]),
                 {Object processed, Object expected, Integer idx ->
                     def handler = new EndpointServiceHandler(
                             (HashMap) processed['args'],
@@ -350,7 +349,7 @@ class EndpointTests extends Specification {
         ec.entity.find('moqui.test.TestJsonEntity').deleteAll()
 
         // load test resource
-        def js = TestUtilities.loadTestResource((String[]) [testDir, 'sample-import.json'])
+        def js = TestUtilities.loadTestResource((String[]) ['EntityEndpoint', testDir, 'sample-import.json'])
 
         // import data so that we have something to test on
         def importJs = new JsonSlurper().parse(js.bytes)
@@ -365,7 +364,7 @@ class EndpointTests extends Specification {
 
         // run multiple tests
         TestUtilities.testSingleFile(
-            TestUtilities.extendList([testDir, "expected-queries.json"] as String[]),
+            TestUtilities.extendList(['EntityEndpoint', testDir, "expected-queries.json"] as String[]),
             { Object processed, Object expected, Integer idx ->
                 try {
                     def endpointData = this.ec.service.sync()
@@ -393,5 +392,9 @@ class EndpointTests extends Specification {
         then:
 
         assert true
+    }
+
+    def "test endpoint handling of multiple companies"(){
+
     }
 }

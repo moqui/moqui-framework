@@ -89,7 +89,7 @@ class UtilsTests extends Specification {
 
     // helper method loading configuration
     public Tuple<ArrayList<MNode>> loadTestDatasourceConfig(){
-        def testConfFile = FileUtils.getFile(TestUtilities.extendList(testDir, (String[]) ["JsonConfig", "TestConf.xml"]))
+        def testConfFile = FileUtils.getFile(TestUtilities.extendList(testDir, (String[]) ["Utils", "JsonConfig", "TestConf.xml"]))
         MNode testConfiguration = MNode.parse(testConfFile)
 
         // manually extract nodes that will be used in the testing
@@ -127,7 +127,7 @@ class UtilsTests extends Specification {
 
         // testing itself
         // 1. conversions
-        TestUtilities.testSingleFile((String[]) ["JsonConfig", "expected-conversions.json"], {Object processed, Object expected, Integer idx->
+        TestUtilities.testSingleFile((String[]) ["Utils", "JsonConfig", "expected-conversions.json"], {Object processed, Object expected, Integer idx->
             def fieldCond = jfm.fieldCondition((String) processed['groupName'], (String) processed['operation'])
             assert fieldCond == expected['fieldCondition']
         })
@@ -153,14 +153,14 @@ class UtilsTests extends Specification {
         when:
 
         // from map to string
-        TestUtilities.testSingleFile((String[]) ["utils-string-2-map", "expected-string-conversions.json"],
+        TestUtilities.testSingleFile((String[]) ["Utils", "utils-string-2-map", "expected-string-conversions.json"],
                 {Object processed, Object expected, Integer idx->
                     def conv = ViUtilities.mapToString((HashMap) processed.inputMap)
                     assert conv == expected.convertedTo
                 })
 
         // from string to map
-        TestUtilities.testSingleFile((String[]) ["utils-string-2-map", "expected-map-conversions.json"],
+        TestUtilities.testSingleFile((String[]) ["Utils", "utils-string-2-map", "expected-map-conversions.json"],
                 {Object processed, Object expected, Integer idx->
                     def conv = ViUtilities.stringToMap(processed.inputString)
                     assert conv == expected.convertedTo
@@ -199,7 +199,7 @@ class UtilsTests extends Specification {
             return config
         })
 
-        TestUtilities.testSingleFile((String[]) ["JsonConfig", "expected-nested-field-queries.json"],
+        TestUtilities.testSingleFile((String[]) ["Utils", "JsonConfig", "expected-nested-field-queries.json"],
                 {Object processed, Object expected, Integer idx->
 
                     EntityDefinition ed = ecfi.entityFacade.getEntityDefinition(processed.entityName)
@@ -240,7 +240,7 @@ class UtilsTests extends Specification {
 
     def "test map content extraction"(){
         when:
-        TestUtilities.testSingleFile((String[]) ["extract-map", "expected-map-conversion.json"],
+        TestUtilities.testSingleFile((String[]) ["Utils", "extract-map", "expected-map-conversion.json"],
                 {Object processed, Object expected, Integer idx->
 
                     HashMap toExtract = (HashMap) processed.toExtract
@@ -256,7 +256,7 @@ class UtilsTests extends Specification {
 
     def "test record matches condition"(){
         when:
-        TestUtilities.testSingleFile((String[]) ["condition-evaluator", "expected-condition-matches.json"],
+        TestUtilities.testSingleFile((String[]) ["EntityEndpoint", "condition-evaluator", "expected-condition-matches.json"],
         {Object processed, Object expected, Integer idx->
 
             HashMap toTest = (HashMap) processed.mapToCheck

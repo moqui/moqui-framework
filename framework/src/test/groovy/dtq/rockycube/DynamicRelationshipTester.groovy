@@ -21,7 +21,7 @@ class DynamicRelationshipTester extends Specification {
 
     def setupSpec() {
         // set other conf - this configuration contains definition of Closure-related entities
-        System.setProperty("moqui.conf", "../framework/src/test/resources/dynamic-relationship/DynamicRelationshipConf.xml")
+        System.setProperty("moqui.conf", "../framework/src/test/resources/DynamicRelationships/DynamicRelationshipConf.xml")
 
         // init the framework, get the ec
         ec = Moqui.getExecutionContext()

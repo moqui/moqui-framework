@@ -67,7 +67,7 @@ class CachedEndpointTests extends Specification {
 
         // 3. perform few queries with different conditions set
         TestUtilities.testSingleFile(
-                ["CacheRelatedTests", "expected_cache_queries.json"] as String[],
+                ["CacheRelated", "expected_cache_queries.json"] as String[],
                 { Object processed, Object expected, Integer idx ->
                     def ntt = processed[0]
                     def term = processed[1]
@@ -144,7 +144,7 @@ class CachedEndpointTests extends Specification {
 
         // 2. perform queries with different conditions set
         TestUtilities.testSingleFile(
-                ["CacheRelatedTests", "expected_query_comparison.json"] as String[],
+                ["CacheRelated", "expected_query_comparison.json"] as String[],
                 { Object processed, Object expected, Integer idx ->
                     def ntt = (String) processed[0]
                     def term = (ArrayList) processed[1]
@@ -227,7 +227,7 @@ class CachedEndpointTests extends Specification {
         Long created = 0
         def idList = []
 
-        TestUtilities.readFileLines(["CacheRelatedTests", fileName] as String[], ";", { String[] values ->
+        TestUtilities.readFileLines(["CacheRelated", fileName] as String[], ";", { String[] values ->
             // logger.info("Values: ${values.join("+")}")
             def idUsed = values[0]
             if (idList.contains(idUsed))
