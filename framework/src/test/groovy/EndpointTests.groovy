@@ -394,40 +394,63 @@ class EndpointTests extends Specification {
         assert true
     }
 
+    /**
+     * This test is a good example of how creating inter-connected entities work, along
+     * with ID creation
+     * @return
+     */
     def "test endpoint handling of multiple companies"(){
         when:
 
-        // clean up
-        EntityHelper.filterEntity(ec, 'moqui.test.TestEntity@abcd', null)
+        // clean up, items first
+        EntityHelper.filterEntity(ec, 'moqui.test.InvoiceItem@abcd', null).deleteAll()
+        EntityHelper.filterEntity(ec, 'moqui.test.Invoice@abcd', null).deleteAll()
 
-        def write = this.ec.service.sync()
+        // create a testing invoice
+        def invoice = this.ec.service.sync()
                 .name("dtq.rockycube.EndpointServices.create#EntityData")
                 .parameters([
                         companyId : 'abcd',
-                        entityName: "moqui.test.TestEntity",
-                        data      : [testNumberDecimal: 500, testNumberInteger: 10],
+                        entityName: "moqui.test.Invoice",
+                        data      : [docNumber: 'prva faktura'],
+                        args      : [preferObjectInReturn: true]
+                ])
+                .call()
+        assert invoice.result == true
+        def invoiceId = invoice.data['invoiceId']
+        def createService = "dtq.rockycube.EndpointServices.create#EntityData"
+        def writeFirst = this.ec.service.sync()
+                .name("dtq.rockycube.EndpointServices.create#EntityData")
+                .parameters([
+                        companyId : 'abcd',
+                        entityName: "moqui.test.InvoiceItem",
+                        data      : [invoiceId: invoiceId, value: 500],
                         args      : [preferObjectInReturn: true]
                 ])
                 .call()
 
-        def createdId = write.data['testId']
+        def data2 = [companyId : 'abcd', entityName: "moqui.test.InvoiceItem", data: [invoiceId: invoiceId, value: 200]]
+        def data3 = [companyId : 'abcd', entityName: "moqui.test.InvoiceItem", data: [invoiceId: invoiceId, value: 300]]
+        this.ec.service.sync().name(createService).parameters(data2).call()
+        this.ec.service.sync().name(createService).parameters(data3).call()
 
-        assert EntityHelper.filterEntity(ec, 'moqui.test.TestEntity@abcd', [testId: createdId]).count() == 1
+        def invoiceItemId = writeFirst.data['invoiceItemId']
+        assert EntityHelper.filterEntity(ec, 'moqui.test.InvoiceItem@abcd', [invoiceItemId: invoiceItemId]).count() == 1
 
         // update
         def update = this.ec.service.sync()
                 .name("dtq.rockycube.EndpointServices.update#EntityData")
                 .parameters([
                         companyId : 'abcd',
-                        entityName: "moqui.test.TestEntity",
-                        term      : [[field: 'testId', value: createdId]],
-                        data      : [testNumberDecimal: 5000],
+                        entityName: "moqui.test.InvoiceItem",
+                        term      : [[field: 'invoiceItemId', value: invoiceItemId]],
+                        data      : [value: 5000],
                         args      : [preferObjectInReturn: true]
                 ])
                 .call()
 
         assert update.result == true
-        assert EntityHelper.filterEntity(ec, 'moqui.test.TestEntity@abcd', [testId: createdId]).one()['testNumberDecimal'] == 5000
+        assert EntityHelper.filterEntity(ec, 'moqui.test.InvoiceItem@abcd', [invoiceItemId: invoiceItemId]).one()['value'] == 5000
 
         // read
 
@@ -436,17 +459,17 @@ class EndpointTests extends Specification {
                 .name("dtq.rockycube.EndpointServices.remove#EntityData")
                 .parameters([
                         companyId : 'abcd',
-                        entityName: "moqui.test.TestEntity",
-                        term      : [[field: 'testId', value: createdId]]
+                        entityName: "moqui.test.InvoiceItem",
+                        term      : [[field: 'invoiceItemId', value: invoiceItemId]]
                 ])
                 .call()
 
-        assert EntityHelper.filterEntity(ec, 'moqui.test.TestEntity@abcd', [testId: createdId]).count() == 0
+        assert EntityHelper.filterEntity(ec, 'moqui.test.InvoiceItem@abcd', [invoiceItemId: invoiceItemId]).count() == 0
 
         then:
 
         delete.result == true
-        write.result == true
+        writeFirst.result == true
 
     }
 }

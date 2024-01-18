@@ -89,4 +89,18 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="TestBasicEntity" package="moqui.test">
         <field name="testId" type="id" is-pk="true"/>
     </entity>
+
+    <!-- a more suitable relationships testing entity -->
+    <entity entity-name="Invoice" package="moqui.test">
+        <field name="invoiceId" type="id" is-pk="true"/>
+        <field name="docNumber" type="text-short"/>
+        <relationship type="many" related="moqui.test.InvoiceItem"/>
+    </entity>
+
+    <entity entity-name="InvoiceItem" package="moqui.test">
+        <field name="invoiceItemId" type="id" is-pk="true"/>
+        <field name="invoiceId" type="id" is-pk="true"/>
+        <field name="value" type="number-decimal"/>
+        <relationship type="one" related="moqui.test.Invoice"/>
+    </entity>
 </entities>
