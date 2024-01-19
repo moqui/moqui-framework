@@ -21,8 +21,8 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.security.ArtifactGroupMember artifactGroupId="TestAccess" artifactName="org.moqui.search.EntitySearchServices.fetch#ListedData" nameIsPattern="N" artifactTypeEnumId="AT_SERVICE"/>
 
     <moqui.security.ArtifactGroupMember artifactGroupId="TestAccess" artifactName="/test/testEntity" nameIsPattern="N" artifactTypeEnumId="AT_REST_PATH"/>
-    <moqui.security.ArtifactGroupMember artifactGroupId="TestAccess" artifactName="moqui.test.TestEntity.+" nameIsPattern="Y" artifactTypeEnumId="AT_ENTITY"/>
-    <moqui.security.ArtifactGroupMember artifactGroupId="TestAccess" artifactName="moqui.test.Invoice.+" nameIsPattern="Y" artifactTypeEnumId="AT_ENTITY"/>
+    <moqui.security.ArtifactGroupMember artifactGroupId="TestAccess" artifactName="moqui.test.TestEntity(?:.+)?" nameIsPattern="Y" artifactTypeEnumId="AT_ENTITY"/>
+    <moqui.security.ArtifactGroupMember artifactGroupId="TestAccess" artifactName="moqui.test.Invoice(?:.+)?" nameIsPattern="Y" artifactTypeEnumId="AT_ENTITY"/>
     <moqui.security.ArtifactGroupMember artifactGroupId="TestAccess" artifactName="moqui.test.InvoiceItem.+" nameIsPattern="Y" artifactTypeEnumId="AT_ENTITY"/>
     <moqui.security.ArtifactGroupMember artifactGroupId="TestAccess" artifactName="moqui.test.TestJsonEntity" nameIsPattern="N" artifactTypeEnumId="AT_ENTITY"/>
     <moqui.security.ArtifactGroupMember artifactGroupId="TestAccess" artifactName="moqui.test.TestEntitySpecial" nameIsPattern="N" artifactTypeEnumId="AT_ENTITY"/>
