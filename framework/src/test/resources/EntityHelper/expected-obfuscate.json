@@ -1,0 +1,20 @@
+[
+  [
+    {
+      "entityName": "moqui.screen.form.DbFormFieldAttribute@231227",
+      "prefix": ""
+    },
+    {
+      "finalLength": 26
+    }
+  ],
+  [
+    {
+      "entityName": "moqui.screen.form.DbFormFieldAttribute@231227",
+      "prefix": "SOMETHING"
+    },
+    {
+      "finalLength": 30
+    }
+  ]
+]

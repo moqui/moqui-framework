@@ -139,7 +139,7 @@ class SqlExecutor {
             }
         } else {
             stmt = conn.createStatement()
-            def rowsAffected = stmt.executeUpdate(queryMod as String)
+            def rowsAffected = stmt.executeUpdate(query as String)
             logger.debug("Query altered ${rowsAffected} rows")
         }
 
@@ -185,6 +185,28 @@ class SqlExecutor {
 
         // check pagination and remove if none provided
         if (result.pagination == [:]) result.remove('pagination')
+
+        return result
+    }
+
+    static ArrayList execute(
+            Connection conn,
+            Logger logger,
+            String query)
+    {
+        def stmt = conn.createStatement()
+        def queryResult = stmt.execute(query as String)
+        logger.debug("Query result: ${queryResult}")
+
+        if (!queryResult) return []
+
+        def result = []
+        def rs = stmt.resultSet
+        while (rs.next()) {
+            String val1 = rs.getString(1)
+            result.add(val1)
+        }
+        rs.close()
 
         return result
     }

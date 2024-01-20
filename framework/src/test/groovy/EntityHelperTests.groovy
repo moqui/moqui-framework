@@ -1,4 +1,5 @@
 import dtq.rockycube.entity.EntityHelper
+import dtq.rockycube.util.TestUtilities
 import org.moqui.impl.entity.EntityDbMeta
 import org.moqui.impl.entity.EntityFacadeImpl
 
@@ -95,12 +96,18 @@ class EntityHelperTests extends Specification {
     def "test entity name obfuscation"() {
         when:
 
-        def ed = efi.getEntityDefinition("moqui.screen.form.DbFormFieldAttribute@231227")
-        StringBuilder sb = new StringBuilder()
-        EntityDbMeta.obfuscateName("SOMETHING", ed, sb)
+        TestUtilities.testSingleFile((String[]) ["EntityHelper", "expected-obfuscate.json"], {Object processed, Object expected, Integer idx->
+            def ed = efi.getEntityDefinition((String) processed['entityName'])
+            StringBuilder sb = new StringBuilder()
+            EntityDbMeta.obfuscateName((String) processed['prefix'], ed, sb)
+
+            logger.info("Obfuscation result: ${sb.toString()}")
+
+            assert sb.length() == expected['finalLength']
+        }, logger)
 
         then:
 
-        assert sb.length() == 30
+        assert true
     }
 }

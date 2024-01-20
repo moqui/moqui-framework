@@ -65,6 +65,9 @@ def custMoquiConfDev = System.properties['moqui.conf.dev']
 def custMoquiConfProduction = System.properties['moqui.conf.production']
 def custMoquiLogDirectory = System.properties['moqui.log.directory']
 
+// check if running in parallel mode
+if (project.hasProperty('org.gradle.parallel')) logger.lifecycle("[org.gradle.parallel: ${project.property('org.gradle.parallel')}")
+
 logger.lifecycle("Custom command line arguments:")
 logger.lifecycle("  (custom) moqui.conf.production: ${custMoquiConfProduction?:'not set'}")
 logger.lifecycle("  (custom) moqui.conf.dev: ${custMoquiConfDev?:'not set'}")

@@ -828,7 +828,7 @@ class EntityDbMeta {
             // logger.warn("Index for entity [${ed.getFullEntityName()}], relatedEntityName=${relatedEntityName}, relEndCommonChars=${relEndCommonChars}, indexName=${indexName}")
         }
         // method to give constraint a unique name, once it is a multiple-instance-entity
-        if (ed.isMultipleInstanceEntity) obfuscateName("idx", ed, indexName)
+        if (ed.isMultipleInstanceEntity) obfuscateName(null, ed, indexName)
 
         shrinkName(indexName, constraintNameClipLength - 3)
         indexName.insert(0, "IDX")
@@ -1250,16 +1250,25 @@ class EntityDbMeta {
      */
     static void obfuscateName(String prefix, EntityDefinition ed, StringBuilder name)
     {
-        // test the length of prefix
-        if (prefix.size() < 3) throw new EntityException("Cannot compute database component name with the used prefix, minimum length of prefix is 3")
+        def basicName = ed.tableName.substring(0, Math.min(12, ed.tableName.length()))
+        def randomCharsCount = 30 - (prefix? 4 : 5) - basicName.length()
 
-        def basicName = ed.fullTableName.substring(0, Math.min(12, ed.fullTableName.length()))
-        def newName = "${prefix.toUpperCase().substring(0, 2)}_${basicName}_${RandomStringUtils.randomAlphanumeric(14)}"
+        String newName
+        if (prefix)
+        {
+            newName = "${prefix.toUpperCase().substring(0, 2)}_${basicName}_${RandomStringUtils.randomAlphanumeric(randomCharsCount)}"
+        } else {
+            newName = "${basicName}_${RandomStringUtils.randomAlphanumeric(randomCharsCount)}"
+        }
+
+        // replace in StringBuilder
         if (name.length() > 0){
             name.replace(0, name.length() - 1, newName)
         } else {
             name.append(newName)
         }
+
+        assert newName.length() == (prefix ? 30 : 26)
     }
 
     final ReentrantLock sqlLock = new ReentrantLock()

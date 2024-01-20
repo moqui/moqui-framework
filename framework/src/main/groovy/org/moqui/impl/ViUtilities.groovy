@@ -331,6 +331,13 @@ class ViUtilities {
             Integer pageIndex = 1,
             Integer pageSize = 20)
     {
-        return SqlExecutor.executeQuery(conn, logger,query, pageIndex, pageSize)
+        return SqlExecutor.executeQuery(conn, logger, query, pageIndex, pageSize)
+    }
+
+    static ArrayList execute(
+            Connection conn,
+            Logger logger,
+            String query){
+        return SqlExecutor.execute(conn, logger, query)
     }
 }
