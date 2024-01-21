@@ -17,6 +17,7 @@ import org.moqui.entity.EntityValue
 import org.moqui.impl.ViUtilities
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.entity.EntityDefinition
+import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.impl.entity.FieldInfo
 import org.moqui.impl.entity.condition.ConditionField
 import org.moqui.impl.entity.condition.EntityConditionImplBase
@@ -36,7 +37,7 @@ import java.util.regex.Pattern
 class EndpointServiceHandler {
     protected final static Logger logger = LoggerFactory.getLogger(EndpointServiceHandler.class);
     private ExecutionContext ec
-    private ExecutionContextFactoryImpl ecfi
+    private EntityFacadeImpl efi
     private EntityHelper meh
     private EntityCondition.JoinOperator defaultListJoinOper = EntityCondition.JoinOperator.OR
 
@@ -89,7 +90,7 @@ class EndpointServiceHandler {
     // variables extracted
     private EntityDefinition ed
     private EntityConditionImplBase queryCondition
-    private Integer pageIndex
+    private Integer pageIndex = 0
     private String dsType
 
     // specific features, e.g. composite fields - used to return data from maps
@@ -103,10 +104,10 @@ class EndpointServiceHandler {
         ]
     }
 
-    EndpointServiceHandler(HashMap args, ArrayList term, String entityName, String tableName, ArrayList serviceAllowedOn)
+    EndpointServiceHandler(ExecutionContext executionContext, HashMap args, ArrayList term, String entityName, String tableName, ArrayList serviceAllowedOn)
     {
-        this.ec = Moqui.getExecutionContext()
-        this.ecfi = (ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory()
+        this.ec = executionContext ?: Moqui.getExecutionContext()
+        this.efi = (EntityFacadeImpl) this.ec.entity
         this.meh = new EntityHelper(this.ec)
         serviceAllowedOn.each {it->this.serviceAllowedOn.add((String) it)}
 
@@ -128,11 +129,13 @@ class EndpointServiceHandler {
 
         def ds = ec.entity.getDatasourceFactory(ed.groupName)
         dsType = ds.getClass().simpleName
+
+        logger.info("Username when initializing ESH: ${ec.user.username}")
     }
 
-    EndpointServiceHandler(ArrayList serviceAllowedOn) {
-        this.ec = Moqui.getExecutionContext()
-        this.ecfi = (ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory()
+    EndpointServiceHandler(ExecutionContext executionContext) {
+        this.ec = executionContext ?: Moqui.getExecutionContext()
+        this.efi = (EntityFacadeImpl) this.ec.entity
         this.meh = new EntityHelper(this.ec)
 
         // companyId inside context
@@ -668,7 +671,7 @@ class EndpointServiceHandler {
             Integer pageSize)
     {
         def res = [:]
-        def allEntriesSearch = ec.entity.find(entityName)
+        def allEntriesSearch = efi.find(entityName)
         if (queryCondition) allEntriesSearch.condition(queryCondition)
 
         res['size'] = pageSize
@@ -932,7 +935,7 @@ class EndpointServiceHandler {
         def pagination = this.fetchPaginationInfo(pageIndex, pageSize)
         logger.debug("pagination: ${pagination}")
 
-        def evs = ec.entity.find(entityName)
+        def evs = efi.find(entityName)
                 .limit(pageSize)
                 .offset(pageIndex * pageSize)
 

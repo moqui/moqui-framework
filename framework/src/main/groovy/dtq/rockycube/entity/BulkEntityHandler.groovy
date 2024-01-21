@@ -47,6 +47,7 @@ class BulkEntityHandler {
         // initialize service handler that will serve as a manipulator of
         // data throughout this procedure
         EndpointServiceHandler esh = new EndpointServiceHandler(
+                ec,
                 [updateIfExists:true, searchUsingDataProvided:true],
                 [],
                 entityName,

@@ -8,6 +8,7 @@ import net.javacrumbs.jsonunit.core.internal.Options
 import org.apache.groovy.json.internal.LazyMap
 import org.junit.Test
 import org.moqui.Moqui
+import org.moqui.context.ArtifactAuthorizationException
 import org.moqui.context.ExecutionContext
 import dtq.rockycube.util.TestUtilities
 import org.moqui.entity.EntityException
@@ -71,7 +72,7 @@ class EndpointTests extends Specification {
 
                     // 1. directly - via handler
                     // search querying - this section is primarily aimed at testing empty `queryCondition`
-                    def handler = new EndpointServiceHandler((HashMap) args, (ArrayList) term, (String) entity, null, [])
+                    def handler = new EndpointServiceHandler(ec, (HashMap) args, (ArrayList) term, (String) entity, null, [])
                     def result = handler.fetchEntityData(0, 100, [])
                     assert result.data.size() == expected.expected
 
@@ -325,6 +326,7 @@ class EndpointTests extends Specification {
                 TestUtilities.extendList(['EntityEndpoint', "composite-field", "expected-query.json"] as String[]),
                 {Object processed, Object expected, Integer idx ->
                     def handler = new EndpointServiceHandler(
+                            ec,
                             (HashMap) processed['args'],
                             (ArrayList) processed['term'],
                             (String) processed['entity'],
@@ -471,5 +473,37 @@ class EndpointTests extends Specification {
         delete.result == true
         writeFirst.result == true
 
+    }
+
+    def "test different contexts handling in initialization"(){
+        when:
+
+        // login using john.doe
+        ec.user.loginUser('john.doe', 'moqui')
+
+        try {
+            def esh = new EndpointServiceHandler(ec, [:], [], 'moqui.test.TestEntity', null, [])
+        } catch(ArtifactAuthorizationException exc) {
+            assert exc.message == 'User john.doe is not authorized for View on Entity moqui.test.TestEntity'
+        } catch (Exception ignored) {
+            assert false
+        }
+
+
+        // login using john.hardy himself
+        ec.user.loginUser('john.hardy', 'moqui')
+
+        try {
+            def esh = new EndpointServiceHandler(ec, [:], [], 'moqui.test.TestEntity', null, [])
+            assert esh.fetchEntityData()['result'] == true
+        } catch(ArtifactAuthorizationException ignored) {
+            assert false
+        } catch (Exception ignored) {
+            assert false
+        }
+
+        then:
+
+        1 == 1
     }
 }
