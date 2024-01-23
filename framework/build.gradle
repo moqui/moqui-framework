@@ -221,7 +221,7 @@ dependencies {
     testImplementation 'org.hamcrest:hamcrest-core:2.2' // BSD 3-Clause
 
     // testing JSON
-    testImplementation group: 'net.javacrumbs.json-unit', name: 'json-unit', version: '2.28.0'
+    testImplementation group: 'net.javacrumbs.json-unit', name: 'json-unit', version: '2.38.0'
 
     // ========== executable war dependencies ==========
     // Jetty
