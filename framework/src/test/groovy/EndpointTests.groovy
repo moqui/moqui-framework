@@ -72,7 +72,7 @@ class EndpointTests extends Specification {
 
                     // 1. directly - via handler
                     // search querying - this section is primarily aimed at testing empty `queryCondition`
-                    def handler = new EndpointServiceHandler(ec, (HashMap) args, (ArrayList) term, (String) entity, null, [])
+                    def handler = new EndpointServiceHandler(ec, null, (HashMap) args, (ArrayList) term, (String) entity, null, [])
                     def result = handler.fetchEntityData(0, 100, [])
                     assert result.data.size() == expected.expected
 
@@ -327,6 +327,7 @@ class EndpointTests extends Specification {
                 {Object processed, Object expected, Integer idx ->
                     def handler = new EndpointServiceHandler(
                             ec,
+                            null,
                             (HashMap) processed['args'],
                             (ArrayList) processed['term'],
                             (String) processed['entity'],
@@ -482,7 +483,7 @@ class EndpointTests extends Specification {
         ec.user.loginUser('john.doe', 'moqui')
 
         try {
-            def esh = new EndpointServiceHandler(ec, [:], [], 'moqui.test.TestEntity', null, [])
+            def esh = new EndpointServiceHandler(ec, null, [:], [], 'moqui.test.TestEntity', null, [])
         } catch(ArtifactAuthorizationException exc) {
             assert exc.message == 'User john.doe is not authorized for View on Entity moqui.test.TestEntity'
         } catch (Exception ignored) {
@@ -494,7 +495,7 @@ class EndpointTests extends Specification {
         ec.user.loginUser('john.hardy', 'moqui')
 
         try {
-            def esh = new EndpointServiceHandler(ec, [:], [], 'moqui.test.TestEntity', null, [])
+            def esh = new EndpointServiceHandler(ec, null, [:], [], 'moqui.test.TestEntity', null, [])
             assert esh.fetchEntityData()['result'] == true
         } catch(ArtifactAuthorizationException ignored) {
             assert false

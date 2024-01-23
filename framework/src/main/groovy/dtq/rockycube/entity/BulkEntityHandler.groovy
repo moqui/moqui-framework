@@ -16,6 +16,7 @@ class BulkEntityHandler {
     protected final static Logger logger = LoggerFactory.getLogger(BulkEntityHandler.class);
     private ExecutionContext ec
     private ExecutionContextFactoryImpl ecfi
+    private String companyId = null
     private boolean failsafeSwitch = false
 
     BulkEntityHandler()
@@ -48,6 +49,7 @@ class BulkEntityHandler {
         // data throughout this procedure
         EndpointServiceHandler esh = new EndpointServiceHandler(
                 ec,
+                this.companyId,
                 [updateIfExists:true, searchUsingDataProvided:true],
                 [],
                 entityName,

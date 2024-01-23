@@ -104,15 +104,20 @@ class EndpointServiceHandler {
         ]
     }
 
-    EndpointServiceHandler(ExecutionContext executionContext, HashMap args, ArrayList term, String entityName, String tableName, ArrayList serviceAllowedOn)
+    EndpointServiceHandler(
+            ExecutionContext executionContext,
+            String companyId,
+            HashMap args,
+            ArrayList term,
+            String entityName,
+            String tableName,
+            ArrayList serviceAllowedOn)
     {
         this.ec = executionContext ?: Moqui.getExecutionContext()
+        this.companyId = companyId
         this.efi = (EntityFacadeImpl) this.ec.entity
         this.meh = new EntityHelper(this.ec)
         serviceAllowedOn.each {it->this.serviceAllowedOn.add((String) it)}
-
-        // companyId inside context
-        if (ec.context.containsKey('companyId')) this.companyId = ec.context.companyId
 
         // fill entity name
         this.fillEntityName(entityName, tableName)
@@ -133,13 +138,11 @@ class EndpointServiceHandler {
         logger.info("Username when initializing ESH: ${ec.user.username}")
     }
 
-    EndpointServiceHandler(ExecutionContext executionContext) {
+    EndpointServiceHandler(ExecutionContext executionContext, String companyId) {
         this.ec = executionContext ?: Moqui.getExecutionContext()
         this.efi = (EntityFacadeImpl) this.ec.entity
+        this.companyId = companyId
         this.meh = new EntityHelper(this.ec)
-
-        // companyId inside context
-        if (ec.context.containsKey('companyId')) this.companyId = ec.context.companyId
 
         // fill entity name
         this.fillEntityName((String) ec.context.entityName, (String) ec.context.tableName)

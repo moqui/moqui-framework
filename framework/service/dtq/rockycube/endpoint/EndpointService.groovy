@@ -2,7 +2,7 @@ import dtq.rockycube.endpoint.EndpointServiceHandler
 
 def loadFromEntity()
 {
-    EndpointServiceHandler ech = new EndpointServiceHandler(ec, args, term, entityName, tableName, serviceAllowedOn)
+    EndpointServiceHandler ech = new EndpointServiceHandler(ec, companyId, args, term, entityName, tableName, serviceAllowedOn)
     // ec.logger.debug("Executing loadFromEntity method")
     try {
         return ech.fetchEntityData(index, size, orderBy)
@@ -20,7 +20,7 @@ def deleteEntity()
     // the condition will be calculated inside ESH
     if (identity) args.put('identitySearch', identity)
 
-    EndpointServiceHandler ech = new EndpointServiceHandler(ec, args, term, entityName, tableName, serviceAllowedOn)
+    EndpointServiceHandler ech = new EndpointServiceHandler(ec, companyId, args, term, entityName, tableName, serviceAllowedOn)
     // ec.logger.debug("Executing deleteEntity method")
     try {
         return ech.deleteEntityData()
@@ -39,7 +39,7 @@ def updateEntity()
     // the condition will be calculated inside ESH
     if (identity) args.put('identitySearch', identity)
 
-    EndpointServiceHandler ech = new EndpointServiceHandler(ec, args, term, entityName, tableName, serviceAllowedOn)
+    EndpointServiceHandler ech = new EndpointServiceHandler(ec, companyId, args, term, entityName, tableName, serviceAllowedOn)
     try {
         return ech.updateEntityData(data)
     } catch (Exception exc){
@@ -52,7 +52,7 @@ def updateEntity()
 
 def createEntity()
 {
-    EndpointServiceHandler ech = new EndpointServiceHandler(ec, args, term, entityName, tableName, serviceAllowedOn)
+    EndpointServiceHandler ech = new EndpointServiceHandler(ec, companyId, args, term, entityName, tableName, serviceAllowedOn)
     try {
         return ech.createEntityData(data)
     } catch (Exception exc){
