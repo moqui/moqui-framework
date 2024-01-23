@@ -135,7 +135,7 @@ class EndpointServiceHandler {
         def ds = ec.entity.getDatasourceFactory(ed.groupName)
         dsType = ds.getClass().simpleName
 
-        logger.info("Username when initializing ESH: ${ec.user.username}")
+        logger.debug("Username when initializing ESH: ${ec.user.username}")
     }
 
     EndpointServiceHandler(ExecutionContext executionContext, String companyId) {
