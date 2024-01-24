@@ -20,7 +20,10 @@ import spock.lang.Specification
 import net.javacrumbs.jsonunit.JsonAssert
 import net.javacrumbs.jsonunit.core.Option
 import java.nio.charset.StandardCharsets
+import java.sql.Date
 import java.sql.Timestamp
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 class EndpointTests extends Specification {
     protected final static Logger logger = LoggerFactory.getLogger(EndpointTests.class)
@@ -219,9 +222,57 @@ class EndpointTests extends Specification {
                 ])
                 .call()
 
+        def createdId = (String) rawStringWrite['data'][0]['testId']
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern('yyyy-MM-dd')
+        LocalDate ld = LocalDate.parse('2022-03-18', formatter);
+
+        // update 1. - with time
+        def rawStringUpdate1 = this.ec.service.sync()
+                .name("dtq.rockycube.EndpointServices.update#EntityData")
+                .parameters([
+                        entityName: "moqui.test.TestEntity",
+                        term      : [[field: 'testId', value: createdId]],
+                        data      : [testDate: '2022-03-18 00:00:00']
+                ])
+                .call()
+
+        assert rawStringUpdate1.data[0]['testDate'] == Date.valueOf(ld)
+
+        // update 2. - no time
+        def rawStringUpdate2 = this.ec.service.sync()
+                .name("dtq.rockycube.EndpointServices.update#EntityData")
+                .parameters([
+                        entityName: "moqui.test.TestEntity",
+                        term      : [[field: 'testId', value: createdId]],
+                        data      : [testDate: '2022-03-18']
+                ])
+                .call()
+
+        assert rawStringUpdate2.data[0]['testDate'] == Date.valueOf(ld)
+
+        // test reading
+        def readFormatted1 = this.ec.service.sync()
+                .name("dtq.rockycube.EndpointServices.populate#EntityData")
+                .parameters([
+                        entityName: "moqui.test.TestEntity",
+                        term      : [[field: 'testId', value: createdId]],
+                        args      : [
+                                        requiredDateFormat: 'MM.yy',
+                                        'timeZoneInDatesFormat': 'dd.MM.yyyy',
+                                        'allowTimestamps': true
+                        ]
+                ])
+                .call()
+
+        def today = ec.user.nowTimestamp.toLocalDateTime()
+        def tf = DateTimeFormatter.ofPattern('dd.MM.yyyy')
+
         then:
 
         rawStringWrite.data.size() == 1
+        rawStringUpdate2.data.size() == 1
+        readFormatted1.data[0]['testDate'] == '03.22'
+        readFormatted1.data[0]['lastUpdatedStamp'] == today.format(tf)
     }
 
     // we do not want TZ in the output

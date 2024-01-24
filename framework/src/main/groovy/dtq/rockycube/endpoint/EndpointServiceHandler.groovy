@@ -15,7 +15,6 @@ import org.moqui.entity.EntityFind
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
 import org.moqui.impl.ViUtilities
-import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.impl.entity.FieldInfo
@@ -30,7 +29,9 @@ import org.moqui.util.StringUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import java.sql.Date
 import java.sql.Timestamp
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.regex.Pattern
 
@@ -71,7 +72,8 @@ class EndpointServiceHandler {
     // field that stores identity ID, it shall be used to create a condition term
     private static String CONST_IDENTITY_ID_FOR_SEARCH          = 'identitySearch'
     // do we need timezone information?
-    private static String CONST_TIMEZONE_INFO_FORMAT            = 'timeZoneInDatesFormat'
+    private static String CONST_REQ_TIMEZONE_FORMAT             = 'timeZoneInDatesFormat'
+    private static String CONST_REQ_DATE_FIELD_FORMAT           = 'requiredDateFormat'
     /*
     DEFAULTS
      */
@@ -382,6 +384,8 @@ class EndpointServiceHandler {
             // remove from args, no need to store it
             args.remove(CONST_IDENTITY_ID_FOR_SEARCH)
         }
+
+        //
     }
 
     // rename field if necessary
@@ -426,18 +430,39 @@ class EndpointServiceHandler {
         return false
     }
 
-    private Object treatTZFieldValue(Object incoming)
+    /**
+     * Converts date fields to either formatted string (DATE) or local-date (TZ), otherwise returns original value
+     * @param incoming
+     * @return
+     */
+    private Object sanitizeDates(Object incoming)
     {
-        if (incoming.getClass() != Timestamp.class) return incoming
-        if (!this.args.containsKey(CONST_TIMEZONE_INFO_FORMAT)) return incoming
+        // only for those two types
+        if (incoming.getClass() != Date.class && incoming.getClass() != Timestamp.class) return incoming
 
-        // make sure this does not fail
-        try {
-            def ts = (Timestamp) incoming
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern((String) this.args[CONST_TIMEZONE_INFO_FORMAT])
-            return ts.toLocalDateTime().format(formatter)
-        } catch (Exception exc) {
-            logger.error("Error while converting Timestamp to a custom format: ${exc.message}")
+        switch (incoming.getClass())
+        {
+            case Date.class:
+                if (!this.args.containsKey(CONST_REQ_DATE_FIELD_FORMAT)) return incoming
+                try {
+                    def dt = (Date) incoming
+                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern((String) this.args[CONST_REQ_DATE_FIELD_FORMAT])
+                    def ld = dt.toLocalDate()
+                    return ld.format(formatter)
+                } catch (Exception exc) {
+                    logger.error("Error while converting Date to a custom format: ${exc.message}")
+                }
+                return incoming
+            case Timestamp.class:
+                if (!this.args.containsKey(CONST_REQ_TIMEZONE_FORMAT)) return incoming
+                try {
+                    def ts = (Timestamp) incoming
+                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern((String) this.args[CONST_REQ_TIMEZONE_FORMAT])
+                    return ts.toLocalDateTime().format(formatter)
+                } catch (Exception exc) {
+                    logger.error("Error while converting Timestamp to a custom format: ${exc.message}")
+                }
+                return incoming
         }
         return incoming
     }
@@ -474,7 +499,7 @@ class EndpointServiceHandler {
             }
 
             // value and it's class
-            def itVal = treatTZFieldValue(it.value)
+            def itVal = sanitizeDates(it.value)
 
             // special treatment for maps
             // convert HashMap, watch out if it's array
@@ -1118,6 +1143,12 @@ class EndpointServiceHandler {
             try {
                 switch (fi.typeValue)
                 {
+                    case 4:
+                        def pt = 'yyyy-MM-dd HH:mm:ss'
+                        if (val.toString().length() == 10) pt = 'yyyy-MM-dd'
+                        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pt)
+                        LocalDate ld = LocalDate.parse(val.toString(), formatter);
+                        val = Date.valueOf(ld)
                     case 5:
                         val = val.toString().toInteger()
                         break
