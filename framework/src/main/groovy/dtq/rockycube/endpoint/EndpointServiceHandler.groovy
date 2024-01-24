@@ -582,7 +582,7 @@ class EndpointServiceHandler {
     private boolean addField(String fieldName)
     {
         // allow timestamps? must be explicitly set
-        def timestamps = ["lastUpdatedStamp", "creationTime"]
+        def timestamps = ["lastUpdatedStamp", "creationTime", "created"]
         if (timestamps.contains(fieldName)) return args[CONST_ALLOW_TIMESTAMPS]
         // otherwise use this method
         return fieldAllowed(args[CONST_ALLOWED_FIELDS], fieldName)
