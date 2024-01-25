@@ -14,6 +14,7 @@
 package org.moqui.impl.util
 
 import groovy.transform.CompileStatic
+import org.apache.directory.api.ldap.model.exception.LdapException
 import org.apache.shiro.authc.credential.AllowAllCredentialsMatcher;
 import org.apache.shiro.authz.AuthorizationException;
 import org.apache.shiro.authz.AuthorizationInfo;
@@ -57,7 +58,8 @@ import javax.naming.directory.Attribute
 import javax.naming.ldap.LdapContext
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest
-import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchAlgorithmException
+import java.security.cert.LDAPCertStoreParameters;
 import java.sql.Timestamp
 import java.util.regex.Pattern
 
@@ -599,8 +601,7 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
                     String mail = ""
                     SearchControls constraints = new SearchControls();
                     constraints.setSearchScope(SearchControls.SUBTREE_SCOPE);
-                    String attrIDs = "cn";
-                    constraints.setReturningAttributes(new String[]{attrIDs, "givenName", "sn", "mail"})
+                    constraints.setReturningAttributes(new String[]{"cn", "givenName", "sn", "mail"})
                     LdapContext ctx = this.getContextFactory().getSystemLdapContext();
                     NamingEnumeration answer = ctx.search(this.ldapSearchUserQueryFilter, ldapUserFilter.replace("{principal}", name), constraints);
                     if (answer.hasMore()) {
@@ -627,7 +628,6 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
                     println e
                 } finally {
                     if (wasIn) {
-                        // cannot, stop the warning
                         if (!authzWasDisabled) {
                             eci.artifactExecution.enableAuthz();
                         }
@@ -658,6 +658,7 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
                 HashMap<String, String> ldapGroupFullNames = new HashMap<>()
                 //Domain Users group is default for all ldap users
                 ldapUserGroups.add(ldapDefaultGroup)
+                ldapGroupFullNames.put(ldapDefaultGroup, "LDAP default group")
                 eci.artifactExecution.disableAuthz()
                 SearchControls constraints = new SearchControls();
                 constraints.setSearchScope(SearchControls.SUBTREE_SCOPE)
@@ -669,37 +670,52 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
                 eci.artifactExecution.enableAuthz()
                 Attribute memberOf = attrs.get(groupMemberAttr)
                 if (memberOf) {
-                    def recNameExtraction = Pattern.compile("^CN=([\\w\\d\\s]+),OU=")
                     for (int i = 0; i < memberOf.size(); i++) {
                         // get (the whole) name of the group
                         // IMPORTANT - cannot use the entire name of group, the length
                         // of string is too big to fit into the "ID" fields of respective
                         // tables
-                        String groupName = memberOf.get(i).toString()
-
+                        String fullGroupName = memberOf.get(i).toString()
                         // clean up the name
-                        def m = recNameExtraction.matcher(groupName)
-                        if (!m.find()) throw new Exception("Unable to extract group name")
-
+                        String finalName = fullGroupName
+                        if (finalName.contains("="))
+                            finalName = finalName.substring(finalName.indexOf('=') + 1)
+                        if (finalName.contains(','))
+                            finalName = finalName.substring(0, finalName.indexOf(','))
+                        if (finalName.isEmpty())
+                            finalName = fullGroupName
+                        // trim to db attribute length
+                        if (finalName.length() > 40)
+                            finalName = finalName.substring(0, 40);
                         // add to list of full names
-                        ldapGroupFullNames.put(m.group(1), groupName)
-                        ldapUserGroups.add(m.group(1))
+                        if (ldapUserGroups.contains(finalName)) {
+                            logger.error("Duplicate group names! Cannot have two groups with the same" +
+                                    " cn=NAME,dn=domain.... Please rename groups in LDAP.")
+                            throw new LdapException("duplicate group names! Cannot have two groups with the same" +
+                                    " cn=NAME,dn=domain.... Please rename groups in LDAP.")
+                        }
+                        ldapGroupFullNames.put(finalName, fullGroupName)
+                        ldapUserGroups.add(finalName)
                     }
                 }
                 //control if ldap groups match moqui groups
-                for (String ldapGroupId: ldapUserGroups) {
+                for (String ldapGroupId : ldapUserGroups) {
                     if (!moquiUserGroups.contains(ldapGroupId)) {
                         //control if ldap group doesn't exists
-                        if (!UserFacadeImpl.groupExists(ldapGroupId,  ecfi.eci)) {
+                        boolean exists = eci.getEntity().find("moqui.security.UserGroup")
+                                .condition("externalId", ldapGroupFullNames.get(ldapGroupId))
+                                .disableAuthz().list().size() > 0
+                        if (!exists) {
                             //create group
                             Map<String, Object> fields = [:]
                             fields.put("userGroupId", ldapGroupId)
-                            fields.put("description", "LDAP users - ${ldapGroupFullNames.get(ldapGroupId)}")
+                            fields.put("externalId", ldapGroupFullNames.get(ldapGroupId))
                             fields.put("groupTypeEnumId", "UgtLDAP")
                             boolean beganTransaction = eci.transaction.begin(null)
                             try {
                                 eci.artifactExecution.disableAuthz()
                                 eci.entity.makeValue("moqui.security.UserGroup").setAll(fields).create()
+                                eci.transaction.commit()
                             } catch (Throwable t) {
                                 try {
                                     eci.transaction.rollback(beganTransaction, "Error creating new group " + ldapGroupId, t)
@@ -707,6 +723,8 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
                                     if (eci.transaction.isTransactionInPlace()) eci.transaction.commit(beganTransaction)
                                     eci.artifactExecution.enableAuthz()
                                 }
+                            } finally {
+                                eci.artifactExecution.enableAuthz()
                             }
                         }
                         //add user to moqui group
@@ -715,9 +733,8 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
                     //ldap group exists in moqui
                     moquiUserGroups.remove(ldapGroupId)
                 }
-
                 //remove a user from groups who is no longer a member
-                for (String moquiGroupId: moquiUserGroups) {
+                for (String moquiGroupId : moquiUserGroups) {
                     //remove user from group
                     UserFacadeImpl.removeGroupMember(moquiGroupId, userId, ecfi.eci)
                 }
