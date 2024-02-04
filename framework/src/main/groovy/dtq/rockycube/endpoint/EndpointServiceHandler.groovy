@@ -537,19 +537,28 @@ class EndpointServiceHandler {
         } else if (!modifiedOrder) {
             // sort using allowed columns, if set
             // BUT ONLY IF ORDER HAS NOT BEEN MODIFIED
-            def allowedColumns = (ArrayList<String>) args.get(CONST_ALLOWED_FIELDS)
+            def argAllowed = args.get(CONST_ALLOWED_FIELDS)
+            def allowedColumns = new ArrayList<String>()
+            if (argAllowed.class == String.class && argAllowed.toString() == '*')
+            {
+                allowedColumns.add('*')
+            } else {
+                (ArrayList<String>) args.get(CONST_ALLOWED_FIELDS).each {String col->
+                    allowedColumns.add(col)
+                }
+            }
             def onlyNames = allowedColumns.every {it->
                 return it != '*' && !it.contains('-')
             }
 
             // sort accordingly, using the list provided
-            LinkedHashMap sorted = new LinkedHashMap()
             if (onlyNames){
+                LinkedHashMap sorted = new LinkedHashMap()
                 allowedColumns.each {it->
                     sorted[it] = recordMap[it]
                 }
+                recordMap = sorted
             }
-            recordMap = sorted
         }
 
         // change to list, if set in such way

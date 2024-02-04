@@ -15,6 +15,7 @@ class CollectionUtils {
     public static <T> T findKeyInMap(Map whereToSearch, ArrayList searchFor, Class<T> expectedType, Object defaultIfNotFound=null){
         if (searchFor.empty) return defaultIfNotFound as T
         def keyUsed = searchFor[0]
+        if (keyUsed == '*') return whereToSearch.asType(expectedType)
         if (!whereToSearch.containsKey(keyUsed)) return defaultIfNotFound as T
 
         // this is it
@@ -48,7 +49,7 @@ class CollectionUtils {
             try {
                 def casted = originalValue.asType(expectedType)
                 return casted
-            } catch (Exception exc){
+            } catch (Exception ignored){
                 return defaultIfNotFound as T
             }
         }
@@ -66,7 +67,13 @@ class CollectionUtils {
      */
     public static String keyInUse(String searchForKey)
     {
-        return searchForKey.split('\\.')[-1]
+        def keys = searchForKey.split('\\.')
+
+        // if there is an asterisk?
+        if (keys.size() > 1) if (keys[-1] == '*') return keys[-2]
+
+        // otherwise return last item
+        return keys[-1]
     }
 
     public static <T> T findKeyInMap(Object whereToSearch, String searchForKey, Class<T> expectedType, Object defaultIfNotFound=null)
@@ -104,9 +111,9 @@ class CollectionUtils {
      * @param lm
      * @return
      */
-    public static HashMap convertLazyMap(LazyMap lm)
+    public static LinkedHashMap convertLazyMap(LazyMap lm)
     {
-        def res = new HashMap()
+        def res = new LinkedHashMap()
         for ( prop in lm ) {
             def actualValue = prop.value
 
@@ -118,6 +125,6 @@ class CollectionUtils {
             }
             res[prop.key] = actualValue
         }
-        return res;
+        return res
     }
 }
