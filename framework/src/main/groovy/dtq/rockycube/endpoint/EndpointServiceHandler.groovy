@@ -1348,7 +1348,13 @@ class EndpointServiceHandler {
 
         // check status code
         if (restResponse.statusCode != 200) {
-            throw new EndpointException("Response with status ${restResponse.statusCode} returned: ${restResponse.reasonPhrase}")
+            def errMessage = "Response with status ${restResponse.statusCode} returned: ${restResponse.reasonPhrase}"
+            // display more info depending on what is being returned
+            if (restResponse.headers().containsKey('x-exception-detail'))
+            {
+                errMessage = restResponse.headerFirst('x-exception-detail')
+            }
+            throw new EndpointException(errMessage)
         }
 
         // must handle all states of the response
