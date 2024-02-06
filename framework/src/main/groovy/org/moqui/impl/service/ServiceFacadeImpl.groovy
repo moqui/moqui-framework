@@ -578,11 +578,12 @@ class ServiceFacadeImpl implements ServiceFacade {
             for (ServiceCallback scb in callbackList) scb.receiveEvent(context, t)
     }
 
-    public void addNewSecaRule(ServiceEcaRule serviceEcaRule)
+    public void addNewSecaRule(ServiceEcaRule serviceEcaRule, boolean allowDuplicates = false)
     {
         if (this.secaRulesByServiceName.containsKey(serviceEcaRule.serviceNameNoHash))
         {
-            throw new Exception("Unsupported method when adding new SECA rule")
+            // if needed, throw an exception
+            if (!allowDuplicates) throw new Exception("Unsupported method when adding new SECA rule")
         } else {
             ArrayList<ServiceEcaRule> rules = new ArrayList<ServiceEcaRule>()
             rules.add(serviceEcaRule)
