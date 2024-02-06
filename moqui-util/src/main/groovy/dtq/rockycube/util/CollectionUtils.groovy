@@ -5,6 +5,33 @@ import org.apache.groovy.json.internal.LazyMap
 
 class CollectionUtils {
     /**
+     * Return class type
+     * @param whereToSearch
+     * @param searchFor
+     * @return
+     */
+    public static Class<?> checkClassInMap(Map whereToSearch, ArrayList searchFor) {
+        if (searchFor.empty) return null
+        def keyUsed = searchFor[0]
+        if (!whereToSearch.containsKey(keyUsed)) return null
+
+        // this is it
+        // we have the key
+        def isLastStep = searchFor.size() == 1
+        if (isLastStep) {
+            def originalValue = whereToSearch.get(keyUsed)
+            return originalValue.getClass()
+        }
+        ArrayList newSearchFor = searchFor.clone() as ArrayList
+        newSearchFor.remove(0)
+        return checkClassInMap(whereToSearch.get(keyUsed) as LazyMap, newSearchFor)
+    }
+
+    public static Class<?> checkClassInMap(Map whereToSearch, String searchFor) {
+        return checkClassInMap(whereToSearch, (ArrayList) searchFor.split('\\.'))
+    }
+
+    /**
      * Search for a keyword inside a LazyMap, supports nested objects
      * @param whereToSearch
      * @param searchFor
