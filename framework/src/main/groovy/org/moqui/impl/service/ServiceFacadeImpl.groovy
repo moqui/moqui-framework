@@ -588,6 +588,7 @@ class ServiceFacadeImpl implements ServiceFacade {
             ArrayList<ServiceEcaRule> rules = new ArrayList<ServiceEcaRule>()
             rules.add(serviceEcaRule)
             this.secaRulesByServiceName.put(serviceEcaRule.serviceNameNoHash, rules)
+            logger.debug("Adding SECA rule: ${serviceEcaRule.serviceNameNoHash}")
         }
     }
 

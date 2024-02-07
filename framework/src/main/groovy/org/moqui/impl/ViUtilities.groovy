@@ -17,9 +17,12 @@ import dtq.rockycube.entity.ConditionHandler
 import dtq.rockycube.query.SqlExecutor
 import groovy.json.JsonBuilder
 import groovy.json.JsonSlurper
+import org.apache.groovy.json.internal.LazyMap
 import org.moqui.impl.entity.EntityJavaUtil
 import org.moqui.impl.entity.condition.EntityConditionImplBase
+import org.moqui.jcache.MCache
 
+import javax.cache.Cache
 import java.sql.Connection
 import org.slf4j.Logger
 
@@ -301,6 +304,39 @@ class ViUtilities {
         return convertToBom(inp).plusMonths(1).plusDays(-1)
     }
 
+    /**
+     * Method that logs contents of a Map or Cache into multiple rows, making
+     * it more understandable
+     * @param subjectToLog
+     * @param keyword
+     * @param loggerToUse
+     */
+    static void logContent(Object subjectToLog, String keyword, Logger loggerToUse)
+    {
+        def s = subjectToLog.getClass()
+
+        loggerToUse.info("Logging content of [${keyword}] of class: ${s.simpleName}")
+
+        switch (subjectToLog.getClass())
+        {
+            case HashMap.class:
+            case LinkedHashMap.class:
+            case LazyMap.class:
+                LinkedHashMap t = (LinkedHashMap) subjectToLog
+                t.keySet().eachWithIndex {k, int idx->
+                    loggerToUse.info("[${idx + 1}] ${k}: ${t[k]}")
+                }
+                break
+            case MCache.class:
+                MCache m = (MCache) subjectToLog
+                m.entryList.eachWithIndex{ Cache.Entry entry, int idx ->
+                    loggerToUse.info("[${idx + 1}] ${entry.key}: ${entry.value}")
+                }
+                break
+            default:
+                loggerToUse.warn("Unsupporting ContentLogging for ${s.simpleName}")
+        }
+    }
 
     /**
      * QUERY HELPERS - methods related to pagination procedures
