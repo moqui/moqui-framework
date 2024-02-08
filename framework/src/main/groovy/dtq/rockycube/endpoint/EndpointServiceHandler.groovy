@@ -74,6 +74,7 @@ class EndpointServiceHandler {
     // do we need timezone information?
     private static String CONST_REQ_TIMEZONE_FORMAT             = 'timeZoneInDatesFormat'
     private static String CONST_REQ_DATE_FIELD_FORMAT           = 'requiredDateFormat'
+    private static String CONST_CREATE_OR_UPDATE                = 'requiredCreateOrUpdate'
     /*
     DEFAULTS
      */
@@ -386,6 +387,9 @@ class EndpointServiceHandler {
         }
 
         //
+        if (!args.containsKey(CONST_CREATE_OR_UPDATE)) {
+            args.put(CONST_CREATE_OR_UPDATE, false)
+        }
     }
 
     // rename field if necessary
@@ -885,24 +889,29 @@ class EndpointServiceHandler {
         if (args[CONST_AUTO_CREATE_PKEY] == true) {
             // do not automatically generate, if the ID is among data provided
             def pk = this.findPrimaryKey()
-            if (!pk){
+            if (!pk) {
                 // create ID manually
                 created.setSequencedIdPrimary()
+            } else if (pk.size() == 1) {
+                if (!singleEntityData.containsKey(pk[0])) created.setSequencedIdPrimary()
             } else if (pk.size() == 0) {
                 // create ID manually
                 created.setSequencedIdPrimary()
-            } else {
+            } else if (pk.size() == 2) {
                 // create ID manually
                 // if not contained in data provided
-                if (!singleEntityData.containsKey(pk[0]))
-                {
-                    created.setSequencedIdPrimary()
-                }
+                if (!singleEntityData.containsKey(pk[0])) created.setSequencedIdPrimary()
+                if (!singleEntityData.containsKey(pk[1])) created.setSequencedIdSecondary()
             }
         }
 
         // let it create
-        created.create()
+        if (args[CONST_CREATE_OR_UPDATE] == true)
+        {
+            created.createOrUpdate()
+        } else {
+            created.create()
+        }
 
         // get result back to the caller
         return [
@@ -1101,6 +1110,12 @@ class EndpointServiceHandler {
                 .forUpdate(true)
         if (queryCondition) toUpdate.condition(queryCondition)
         logger.debug("UPDATE: entityName/term: ${entityName}/${queryCondition}")
+
+        // one more derail, allow for record creation
+        if (args[CONST_CREATE_OR_UPDATE])
+        {
+            return this.createSingleEntity(data)
+        }
 
         // update record
         return this.updateSingleEntity(toUpdate, data)
