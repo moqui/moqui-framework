@@ -7,6 +7,7 @@ import dtq.rockycube.entity.EntityHelper
 import dtq.rockycube.util.CollectionUtils
 import dtq.synchro.SynchroMaster
 import dtq.rockycube.GenericUtilities
+import org.apache.commons.lang3.RandomStringUtils
 import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
 import org.moqui.entity.EntityCondition
@@ -75,6 +76,7 @@ class EndpointServiceHandler {
     private static String CONST_REQ_TIMEZONE_FORMAT             = 'timeZoneInDatesFormat'
     private static String CONST_REQ_DATE_FIELD_FORMAT           = 'requiredDateFormat'
     private static String CONST_CREATE_OR_UPDATE                = 'requiredCreateOrUpdate'
+    private static String CONST_GENERATE_RANDOM_SECONDARY       = 'generateRandomSecondary'
     /*
     DEFAULTS
      */
@@ -386,9 +388,14 @@ class EndpointServiceHandler {
             args.remove(CONST_IDENTITY_ID_FOR_SEARCH)
         }
 
-        //
+        // create/update
         if (!args.containsKey(CONST_CREATE_OR_UPDATE)) {
             args.put(CONST_CREATE_OR_UPDATE, false)
+        }
+
+        // do we need random secondaryId? By default, not exactly
+        if (!args.containsKey(CONST_GENERATE_RANDOM_SECONDARY)) {
+            args.put(CONST_GENERATE_RANDOM_SECONDARY, false)
         }
     }
 
@@ -432,6 +439,74 @@ class EndpointServiceHandler {
         }
 
         return false
+    }
+
+    /**
+     * This method cleans up data that is about to be stored in database.
+     * Is used for both create and update scenarios
+     * @param ev
+     * @param sourceData
+     */
+    private void sanitizeEntityValue(EntityValue ev, HashMap sourceData, boolean force)
+    {
+        sourceData.each {it->
+            def col = (String) it.key
+            def val = it.value
+            def fi = ed.getFieldInfo(col)
+
+            // for the case the column is unknown
+            // either a mishap shall occur or a MongoDatabase is in place
+            if (!fi)
+            {
+                // quit if not forced mode
+                if (!force) return
+
+                // modify entity data
+                if (ev) ev.set(col, val)
+                return
+            } else {
+                // for safer mode, let's quit
+                if (fi.isPk && !force) return
+            }
+
+            // now we attempt to convert incoming value to the respective type
+            // if the conversion fails, do not propagate the exception, just log it
+            // let the exception be handled by the DB driver
+            try {
+                switch (fi.typeValue)
+                {
+                    case 4:
+                        def pt = 'yyyy-MM-dd HH:mm:ss'
+                        if (val.toString().length() == 10) pt = 'yyyy-MM-dd'
+                        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pt)
+                        LocalDate ld = LocalDate.parse(val.toString(), formatter);
+                        val = Date.valueOf(ld)
+                        break
+                    case 5:
+                        val = val.toString().toInteger()
+                        break
+                    case 6:
+                        val = val.toString().toLong()
+                        break
+                    case 7:
+                        val = val.toString().toFloat()
+                        break
+                    case 8:
+                        val = val.toString().toDouble()
+                        break
+                    case 9:
+                        val = val.toString().toBigDecimal()
+                        break
+                }
+            } catch (Exception conversion){
+                logger.error("Error converting value in sanitizeEntityValue method: ${conversion.message}")
+            }
+
+            // store in map that shall be used to set values in the DB
+            // if no entity data, modify the sourceMap
+            if (ev) ev.set(col, val)
+            if (!ev) sourceData.replace(col, val)
+        }
     }
 
     /**
@@ -879,6 +954,9 @@ class EndpointServiceHandler {
             }
         }
 
+        // sanitize (differently that in update) HashMap
+        this.sanitizeEntityValue(null, singleEntityData, false)
+
         def created = ec.entity.makeValue(entityName)
                 .setAll(singleEntityData)
 
@@ -887,6 +965,15 @@ class EndpointServiceHandler {
 
         // create primary key
         if (args[CONST_AUTO_CREATE_PKEY] == true) {
+            // helper function that creates secondary ID
+            def createSecondaryId = {EntityValue itemBeingCreated, String secondaryIdField-> {
+                if (args.get(CONST_GENERATE_RANDOM_SECONDARY)) {
+                    itemBeingCreated.set(secondaryIdField, RandomStringUtils.randomAlphanumeric(5))
+                } else {
+                    itemBeingCreated.setSequencedIdSecondary()
+                }
+            }}
+
             // do not automatically generate, if the ID is among data provided
             def pk = this.findPrimaryKey()
             if (!pk) {
@@ -894,14 +981,20 @@ class EndpointServiceHandler {
                 created.setSequencedIdPrimary()
             } else if (pk.size() == 1) {
                 if (!singleEntityData.containsKey(pk[0])) created.setSequencedIdPrimary()
+                if (singleEntityData.containsKey(pk[0])) if (!singleEntityData[pk[0]]) created.setSequencedIdPrimary()
             } else if (pk.size() == 0) {
                 // create ID manually
                 created.setSequencedIdPrimary()
             } else if (pk.size() == 2) {
                 // create ID manually
                 // if not contained in data provided
-                if (!singleEntityData.containsKey(pk[0])) created.setSequencedIdPrimary()
-                if (!singleEntityData.containsKey(pk[1])) created.setSequencedIdSecondary()
+                // must check more than simple `containsKey`, the value under key may be null
+                if (!singleEntityData.containsKey(pk[0])) createSecondaryId(created, (String) pk[0])
+                if (singleEntityData.containsKey(pk[0])) if (!singleEntityData[pk[0]]) createSecondaryId(created, (String) pk[0])
+
+                // the same for second PK
+                if (!singleEntityData.containsKey(pk[1])) createSecondaryId(created, (String) pk[1])
+                if (singleEntityData.containsKey(pk[1])) if (!singleEntityData[pk[1]]) createSecondaryId(created, (String) pk[1])
             }
         }
 
@@ -1147,55 +1240,8 @@ class EndpointServiceHandler {
 
         def mod = toUpdate.one()
 
-        // set new values
-        updateData.each {it->
-            def col = (String) it.key
-            def val = it.value
-            def fi = ed.getFieldInfo(col)
-
-            // for the case the column is unknown
-            // either a mishap or a MongoDatabase
-            if (!fi)
-            {
-                mod.set(col, val)
-                return
-            }
-
-            // now we attempt to convert incoming value to the respective type
-            // if the conversion fails, do not propagate the exception, just log it
-            // let the exception be handled by the DB driver
-            try {
-                switch (fi.typeValue)
-                {
-                    case 4:
-                        def pt = 'yyyy-MM-dd HH:mm:ss'
-                        if (val.toString().length() == 10) pt = 'yyyy-MM-dd'
-                        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pt)
-                        LocalDate ld = LocalDate.parse(val.toString(), formatter);
-                        val = Date.valueOf(ld)
-                    case 5:
-                        val = val.toString().toInteger()
-                        break
-                    case 6:
-                        val = val.toString().toLong()
-                        break
-                    case 7:
-                        val = val.toString().toFloat()
-                        break
-                    case 8:
-                        val = val.toString().toDouble()
-                        break
-                    case 9:
-                        val = val.toString().toBigDecimal()
-                        break
-                }
-            } catch (Exception conversion){
-                logger.error("Error converting value in updateSingleEntity method: ${conversion.message}")
-            }
-
-            // store in map that shall be used to set values in the DB
-            mod.set(col, val)
-        }
+        // sanitize values
+        this.sanitizeEntityValue(mod, updateData, true)
 
         // save
         mod.update()

@@ -225,6 +225,7 @@ class EndpointTests extends Specification {
         def createdId = (String) rawStringWrite['data'][0]['testId']
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern('yyyy-MM-dd')
         LocalDate ld = LocalDate.parse('2022-03-18', formatter);
+        LocalDate ld19 = LocalDate.parse('2022-03-19', formatter);
 
         // update 1. - with time
         def rawStringUpdate1 = this.ec.service.sync()
@@ -249,6 +250,20 @@ class EndpointTests extends Specification {
                 .call()
 
         assert rawStringUpdate2.data[0]['testDate'] == Date.valueOf(ld)
+
+        // update 3. - using create/update mode
+        def rawStringUpdate3 = this.ec.service.sync()
+                .name("dtq.rockycube.EndpointServices.update#EntityData")
+                .parameters([
+                        entityName: "moqui.test.TestEntity",
+                        term      : [[field: 'testId', value: createdId]],
+                        data      : [testDate: '2022-03-19 00:00:00'],
+                        args      : [requiredCreateOrUpdate: true]
+                ])
+                .call()
+
+        assert rawStringUpdate3.data[0]['testDate'] == Date.valueOf(ld19)
+
 
         // test reading
         def readFormatted1 = this.ec.service.sync()
