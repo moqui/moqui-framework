@@ -39,31 +39,36 @@ class GenericUtilities {
      */
     public static void debugFile(ExecutionContext ec, String fileId, Object data, Long internalCounter=0)
     {
-        ResourceReference ref = ec.resource.getLocationReference("tmp")
+        try {
+            ResourceReference ref = ec.resource.getLocationReference("tmp")
 
-        // default ext
-        def defaultExt = 'json'
-        def fileName = fileId
-        def fileExtension = defaultExt
+            // default ext
+            def defaultExt = 'json'
+            def fileName = fileId
+            def fileExtension = defaultExt
 
-        // check for extension
-        def recExt = Pattern.compile('(.+)\\.(\\w{3,4})$')
-        def m = recExt.matcher(fileName)
-        if (m.matches())
-        {
-            fileName = m.group(1)
-            fileExtension = m.group(2)
+            // check for extension
+            def recExt = Pattern.compile('(.+)\\.(\\w{3,4})$')
+            def m = recExt.matcher(fileName)
+            if (m.matches())
+            {
+                fileName = m.group(1)
+                fileExtension = m.group(2)
+            }
+
+            // calculate file name with counter, if provided
+            if (internalCounter > 0) {
+                fileName = "${fileName}.${internalCounter}.${fileExtension}"
+            } else {
+                fileName = "${fileName}.${fileExtension}"
+            }
+
+            if (fileExtension == 'json') ref.makeFile(fileName).putText (JsonOutput.prettyPrint(JsonOutput.toJson(data)))
+            if (fileExtension != 'json') ref.makeFile(fileName).putText (data as String)
+        } catch (Exception exc) {
+            ec.logger.error("Cannot debug-store file: ${exc}")
         }
 
-        // calculate file name with counter, if provided
-        if (internalCounter > 0) {
-            fileName = "${fileName}.${internalCounter}.${fileExtension}"
-        } else {
-            fileName = "${fileName}.${fileExtension}"
-        }
-
-        if (fileExtension == 'json') ref.makeFile(fileName).putText (JsonOutput.prettyPrint(JsonOutput.toJson(data)))
-        if (fileExtension != 'json') ref.makeFile(fileName).putText (data as String)
     }
 
     private static Object convertToComplexType(String incomingStr){
