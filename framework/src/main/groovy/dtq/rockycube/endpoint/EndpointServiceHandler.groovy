@@ -476,6 +476,8 @@ class EndpointServiceHandler {
                 switch (fi.typeValue)
                 {
                     case 4:
+                        if (val.toString() == ''){ val = null; break }
+
                         def pt = 'yyyy-MM-dd HH:mm:ss'
                         if (val.toString().length() == 10) pt = 'yyyy-MM-dd'
                         DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pt)
@@ -514,8 +516,16 @@ class EndpointServiceHandler {
      * @param incoming
      * @return
      */
-    private Object sanitizeDates(Object incoming)
+    private Object sanitizeDates(Object incoming, FieldInfo fi)
     {
+        // fix null in dates
+        if (fi != null)
+        {
+            if ((fi.typeValue == 2 || fi.typeValue == 3 || fi.typeValue == 4) && incoming.toString() == '') {
+                return null
+            }
+        }
+
         // only for those two types
         if (incoming.getClass() != Date.class && incoming.getClass() != Timestamp.class) return incoming
 
@@ -578,7 +588,7 @@ class EndpointServiceHandler {
             }
 
             // value and it's class
-            def itVal = sanitizeDates(it.value)
+            def itVal = sanitizeDates(it.value, pkInfo)
 
             // special treatment for maps
             // convert HashMap, watch out if it's array
