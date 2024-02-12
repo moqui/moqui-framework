@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.entity;
 
+import org.apache.groovy.json.internal.LazyMap;
 import org.moqui.BaseArtifactException;
 import org.moqui.entity.EntityException;
 import org.moqui.impl.context.L10nFacadeImpl;
@@ -32,6 +33,9 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.sql.*;
 import java.util.*;
+import java.util.stream.Collectors;
+
+import static dtq.rockycube.util.CollectionUtils.convertLazyMap;
 
 public class FieldInfo {
     protected final static Logger logger = LoggerFactory.getLogger(FieldInfo.class);
@@ -584,15 +588,33 @@ public class FieldInfo {
                 case 13: if (value != null) { ps.setClob(index, (Clob) value); } else { ps.setNull(index, Types.CLOB); } break;
                 case 14: if (value != null) { ps.setTimestamp(index, (Timestamp) value); } else { ps.setNull(index, Types.TIMESTAMP); } break;
                 // TODO: is this the best way to do collections and such?
-                case 15: if (value != null) { ps.setObject(index, value, Types.JAVA_OBJECT); } else { ps.setNull(index, Types.JAVA_OBJECT); } break;
+                case 15:
+                    if (value != null) {
+                        ps.setObject(index, value, Types.JAVA_OBJECT);
+                    } else {
+                        ps.setNull(index, Types.JAVA_OBJECT);
+                    } break;
                 case 16:
-                    if (value != null)
-                    {
-                        // convert hashmap into string (with doublequotes escaped)
-                        // VERSION 1 - works with H2
+                    if (value != null) {
                         Gson gson = new Gson();
-                        String outMap = gson.toJson(value).toString();
+                        TreeMap treeMap;
+                        if (value.getClass() == HashMap.class) {
+                            treeMap = new TreeMap<>((HashMap<?, ?>) value);
+                        } else if (value.getClass() == LazyMap.class) {
+                            treeMap = new TreeMap<>((LinkedHashMap<?, ?>) convertLazyMap((LazyMap) value));
+                        } else if (value.getClass() == LinkedHashMap.class) {
+                            treeMap = new TreeMap<>((LinkedHashMap<?, ?>) value);
+                        } else {
+                            String outMap = gson.toJson(value).toString();
+                            ps.setString(index, outMap);
+                            break;
+                        }
+
+                        // convert object into string (with doublequotes escaped)
+                        // VERSION 1 - works with H2
+                        String outMap = gson.toJson(treeMap).toString();
                         ps.setString(index, outMap);
+
                     } else {
                         ps.setNull(index, Types.NULL);
                     }
