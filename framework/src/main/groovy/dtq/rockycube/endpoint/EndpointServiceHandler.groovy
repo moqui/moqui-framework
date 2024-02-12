@@ -989,8 +989,8 @@ class EndpointServiceHandler {
                 // create ID manually
                 // if not contained in data provided
                 // must check more than simple `containsKey`, the value under key may be null
-                if (!singleEntityData.containsKey(pk[0])) createSecondaryId(created, (String) pk[0])
-                if (singleEntityData.containsKey(pk[0])) if (!singleEntityData[pk[0]]) createSecondaryId(created, (String) pk[0])
+                if (!singleEntityData.containsKey(pk[0])) created.setSequencedIdPrimary()
+                if (singleEntityData.containsKey(pk[0])) if (!singleEntityData[pk[0]]) created.setSequencedIdPrimary()
 
                 // the same for second PK
                 if (!singleEntityData.containsKey(pk[1])) createSecondaryId(created, (String) pk[1])
