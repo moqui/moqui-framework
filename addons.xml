@@ -95,7 +95,8 @@
     <component name="moqui-easyexcel" group="chunlinyao" version="" branch="master"/><!-- no releases -->
     <component name="OFBizToMantle" group="jonesde" version="" branch="master"/><!-- no releases -->
     <component name="ServiceJobMonitor" group="tailorsoft" version="" branch="master"/><!-- no releases -->
-    <component name="Sales" group="xolvegroup" version="" branch="master"/><!-- no releases -->
+    <component name="Sales" group="xolvegroup" version="" branch="main"/><!-- no releases -->
+    <component name="WorkManagement" group="xolvegroup" version="" branch="main"/><!-- no releases -->
 
     <!-- Component Sets -->
     <!-- NOTE: using these component sets is NOT recommended, with so many components doing
