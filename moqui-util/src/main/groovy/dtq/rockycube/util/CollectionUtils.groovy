@@ -2,6 +2,7 @@ package dtq.rockycube.util
 
 import com.google.gson.internal.LinkedTreeMap
 import org.apache.groovy.json.internal.LazyMap
+import org.codehaus.groovy.runtime.GStringImpl
 
 class CollectionUtils {
     /**
@@ -131,6 +132,62 @@ class CollectionUtils {
                 expectedType,
                 defaultIfNotFound
         )
+    }
+
+    /**
+     * This method searches in map, but also supports search using symlinks,
+     * where the first part of the `searchForKey` is modified by search in
+     * a list of sym links.
+     * @param whereToSearch
+     * @param replaceFirstKey
+     * @param searchForKey
+     * @param expectedType
+     * @param defaultIfNotFound
+     * @return
+     */
+    public static <T> T findKeyInMap(
+            Map whereToSearch,
+            Closure ftorSearchAlternativeKey,
+            Object searchForKey,
+            Class<T> expectedType,
+            Object defaultIfNotFound=null)
+    {
+        // check searchForKey's class
+        ArrayList modSearchForKey
+        switch (searchForKey.getClass())
+        {
+            case String.class:
+            case GStringImpl.class:
+                def s = (String) searchForKey
+                modSearchForKey = s.split('\\.')
+                break
+            case ArrayList.class:
+                modSearchForKey = (ArrayList) searchForKey
+                break
+            default:
+                throw new Exception("Search for key in with symlink support failed on searchForKey - unsupported class [${searchForKey.getClass().toString()}]")
+        }
+
+        // if the class matches, return it right away
+        // or if the `ftor` does not exist
+        if (checkClassInMap(whereToSearch, modSearchForKey) == expectedType || ftorSearchAlternativeKey == null)
+        {
+            return findKeyInMap(
+                    whereToSearch,
+                    modSearchForKey,
+                    expectedType,
+                    defaultIfNotFound
+            )
+        }
+
+        // construct new key that will be used for search
+        def newRootKey = ftorSearchAlternativeKey(modSearchForKey[0])
+        // if no alternate key is found, return default
+        if (!newRootKey) return defaultIfNotFound as T
+
+        def alternateKey = (ArrayList) modSearchForKey.clone()
+        alternateKey[0] = newRootKey
+        return findKeyInMap(whereToSearch, alternateKey, expectedType, defaultIfNotFound)
     }
 
     /**
