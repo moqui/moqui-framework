@@ -170,7 +170,7 @@ class CollectionUtils {
 
         // if the class matches, return it right away
         // or if the `ftor` does not exist
-        if (checkClassInMap(whereToSearch, modSearchForKey) == expectedType || ftorSearchAlternativeKey == null)
+        if (checkClassInMap(whereToSearch, modSearchForKey))
         {
             return findKeyInMap(
                     whereToSearch,
@@ -178,6 +178,9 @@ class CollectionUtils {
                     expectedType,
                     defaultIfNotFound
             )
+        } else {
+            // nothing found so far and no setup to search using alternative key
+            if (ftorSearchAlternativeKey == null) return defaultIfNotFound as T
         }
 
         // construct new key that will be used for search
