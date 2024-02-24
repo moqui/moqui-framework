@@ -107,7 +107,7 @@
     <component-set name="apps" components="HiveMind,PopCommerce,PopRestStore,MarbleERP"/>
     <component-set name="ecosystem" sets="framework,mantle,apps"/>
 
-    <component-set name="demo" components="example,HiveMind,PopCommerce,PopRestStore,MarbleERP"/>
+    <component-set name="demo" components="moqui-poi,moqui-demo,example,HiveMind,PopCommerce,PopRestStore,MarbleERP"/>
     <component-set name="popc" components="PopCommerce,PopRestStore"/>
 
     <!-- Release builds:
