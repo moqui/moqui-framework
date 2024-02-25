@@ -1366,18 +1366,18 @@ class EndpointServiceHandler {
             boolean extractPycalcArgs,
             boolean debug,
             String processingId = null,
-            String identity = null)
+            String sessionId = null)
     {
         def pycalcHost = System.properties.get("py.server.host")
 
-        // set identity if not set
-        if (debug && !identity) identity = StringUtilities.getRandomString(11)
+        // set sessionId if not set
+        if (debug && !sessionId) sessionId = StringUtilities.getRandomString(11)
 
         // store info for debugging purposes
         if (debug) {
-            GenericUtilities.debugFile(ec, "closure-handler-process-items.${identity}.json", itemToCalculate)
-            GenericUtilities.debugFile(ec, "closure-handler-process-items-procedures.${identity}.json", proceduresList)
-            GenericUtilities.debugFile(ec, "closure-handler-process-items-extra.${identity}.json", extraParams)
+            GenericUtilities.debugFile(ec, "process-items.${sessionId}.json", itemToCalculate)
+            GenericUtilities.debugFile(ec, "process-items-procedures.${sessionId}.json", proceduresList)
+            GenericUtilities.debugFile(ec, "process-items-extra.${sessionId}.json", extraParams)
         }
 
         // basic checks
@@ -1389,14 +1389,15 @@ class EndpointServiceHandler {
                         procedure: proceduresList,
                         output_only_last: true,
                         extra: extractPycalcArgs ? ViUtilities.extractPycalcArgs(extraParams) : extraParams,
-                        proc_id: processingId
+                        proc_id: processingId,
+                        session_id: sessionId
                 ],
                 data: itemToCalculate
         ]
 
         // debug what is going to py-calc
         if (debug) {
-            GenericUtilities.debugFile(ec, "closure-handler-process-items-to-execute.${identity}.json", payload)
+            GenericUtilities.debugFile(ec, "c-h-process-items-to-execute.${sessionId}.json", payload)
         }
 
         // use specific RequestFactory, with custom timeouts

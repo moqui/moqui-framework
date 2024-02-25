@@ -3,6 +3,7 @@ package dtq.rockycube.util;
 import com.google.gson.Gson
 import com.google.gson.JsonElement
 import groovy.json.JsonSlurper
+import groovy.yaml.YamlSlurper
 import org.apache.commons.io.FileUtils
 import org.apache.groovy.json.internal.LazyMap
 import org.slf4j.Logger
@@ -154,6 +155,17 @@ public class TestUtilities {
             cb(proc, exp, idx)
             if (logger) logger.info("*************** Test ${idx + 1} [FINISH] ***************\n")
         }
+    }
+
+    public static readYamlToLazyMap(String resDir) {
+        String[] processedPath = resDir.toString().split('/')
+        return readYamlToLazyMap(processedPath)
+    }
+
+    public static readYamlToLazyMap(String[] resDir) {
+        def isYml = loadTestResource(resDir)
+        def yamlMap = new YamlSlurper().parse(isYml) as LazyMap
+        return yamlMap
     }
 
     public static ArrayList convertArrayWithLazyMap(ArrayList lmArray)
