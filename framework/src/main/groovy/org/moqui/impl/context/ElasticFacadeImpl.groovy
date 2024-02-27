@@ -695,13 +695,23 @@ class ElasticFacadeImpl implements ElasticFacade {
             if (index == null) return null
             index = index.trim()
             if (index.isEmpty()) return null
-            return indexPrefix != null && !index.startsWith(indexPrefix) ? indexPrefix.concat(index) : index
+            // handle comma separated index names
+            return index.split(",").collect({
+                it = it.trim()
+                return indexPrefix != null && !it.startsWith(indexPrefix) ? indexPrefix.concat(it) : it
+            }).join(",")
+            // return indexPrefix != null && !index.startsWith(indexPrefix) ? indexPrefix.concat(index) : index
         }
         String unprefixIndexName(String index) {
             if (index == null) return null
             index = index.trim()
             if (index.isEmpty()) return null
-            return indexPrefix != null && index.startsWith(indexPrefix) ? index.substring(indexPrefix.length()) : index
+            // handle comma separated index names
+            return index.split(",").collect({
+                it = it.trim()
+                return indexPrefix != null && it.startsWith(indexPrefix) ? it.substring(indexPrefix.length()) : it
+            }).join(",")
+            // return indexPrefix != null && index.startsWith(indexPrefix) ? index.substring(indexPrefix.length()) : index
         }
     }
 
