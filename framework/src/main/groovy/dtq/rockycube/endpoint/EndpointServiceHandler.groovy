@@ -8,6 +8,7 @@ import dtq.rockycube.util.CollectionUtils
 import dtq.synchro.SynchroMaster
 import dtq.rockycube.GenericUtilities
 import org.apache.commons.lang3.RandomStringUtils
+import org.apache.groovy.json.internal.LazyMap
 import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
 import org.moqui.entity.EntityCondition
@@ -870,7 +871,7 @@ class EndpointServiceHandler {
         HashMap<String, Object> lastItemResult = [:]
 
         // different for array and hashmap
-        if (data instanceof HashMap || data instanceof LinkedHashMap || data instanceof LinkedTreeMap) {
+        if (data instanceof HashMap || data instanceof LinkedHashMap || data instanceof LinkedTreeMap || data instanceof LazyMap) {
             lastItemResult = this.createSingleEntity(data as HashMap)
             return lastItemResult
 
