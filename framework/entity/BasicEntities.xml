@@ -333,7 +333,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="description" type="text-medium"/>
         <relationship type="one" related="moqui.basic.StatusType" short-alias="type"/>
         <seed-data>
-            <moqui.basic.StatusFlow statusFlowId="Default" description="Default status flow across entire system."/>
+            <moqui.basic.StatusFlow statusFlowId="Default" description="系统默认状态流。"/>
         </seed-data>
     </entity>
     <entity entity-name="StatusFlowItem" package="moqui.basic" use="configuration">

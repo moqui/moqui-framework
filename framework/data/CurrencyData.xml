@@ -18,7 +18,7 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.Uom abbreviation="BTC" description="Bitcoin" uomId="BTC" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
     <moqui.basic.Uom abbreviation="CRC" description="Costa Rica Colon" uomId="CRC" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
     <moqui.basic.Uom abbreviation="COP" description="Colombian Peso" uomId="COP" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
-    <moqui.basic.Uom abbreviation="CNY" description="Chinese Yuan Renminbi" uomId="CNY" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="CNY" description="人民币" uomId="CNY" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
     <moqui.basic.Uom abbreviation="CLP" description="Chilean Peso" uomId="CLP" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
     <moqui.basic.Uom abbreviation="CHF" description="Swiss Franc" uomId="CHF" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
     <moqui.basic.Uom abbreviation="CDP" description="Santo Domiongo" uomId="CDP" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
