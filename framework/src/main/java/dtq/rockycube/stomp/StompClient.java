@@ -495,7 +495,11 @@ public class StompClient {
 	public void send(String destination, Object body) {
 		send(destination, null, frameConverter.toString(body));
 	}
-	
+
+	public void send(String destination, StompHeaders stompHeaders, Object body) {
+		send(destination, stompHeaders, frameConverter.toString(body));
+	}
+
 	public void send(String destination, StompHeaders stompHeaders, String body) {
 		Map<String, String> headers = new TreeMap<String, String>();
 		headers.put("destination", destination);
