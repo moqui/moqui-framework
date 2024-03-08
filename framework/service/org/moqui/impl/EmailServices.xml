@@ -26,6 +26,7 @@ along with this software (see the LICENSE.md file). If not, see
     </service>
     <service verb="send" noun="EmailMessage" type="script" location="classpath://org/moqui/impl/sendEmailMessage.groovy">
         <in-parameters><parameter name="emailMessageId" required="true"/></in-parameters>
+        <out-parameters><parameter name="messageId"/></out-parameters>
     </service>
 
     <service verb="poll" noun="EmailServer" authenticate="anonymous-all" type="script" transaction-timeout="600"
@@ -102,4 +103,63 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" in-map="context"/>
         </actions>
     </service>
+
+    <service verb="send" noun="PendingEmails">
+        <in-parameters>
+            <parameter name="maxLookBackDays" type="Integer" default="5"/>
+            <parameter name="maxSendAttempts" type="Integer" default="3"/>
+            <parameter name="minRetryDelaySeconds" type="Integer" default="90*60"/>
+            <parameter name="maxBatchSize" type="Integer" default="100"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="pendingTotal" type="Integer"/>
+            <parameter name="pendingToAttempt" type="Integer"/>
+            <parameter name="sendAttempts" type="Integer"/>
+            <parameter name="sendSuccessful" type="Integer"/>
+            <parameter name="sendFailed" type="Integer"/>
+        </out-parameters>
+        <actions>
+            <set field="sendAttempts" from="0"/>
+            <set field="sendSuccessful" from="0"/>
+            <set field="sendFailed" from="0"/>
+            <script>
+                Calendar cal = Calendar.instance
+                cal.add(Calendar.DAY_OF_MONTH, -maxLookBackDays)
+                emailUpdateFromDate = new Timestamp(cal.timeInMillis)
+                cal.setTimeInMillis(ec.user.nowTimestamp.time)
+                cal.add(Calendar.SECOND, -minRetryDelaySeconds)
+                lastAttemptThruDate = new Timestamp(cal.timeInMillis)
+            </script>
+            <entity-find-count entity-name="moqui.basic.email.EmailMessage" count-field="pendingTotal">
+                <econdition field-name="statusId" value="ES_READY"/>
+                <econdition field-name="lastUpdatedStamp" operator="greater-equals" from="emailUpdateFromDate"/>
+                <econdition field-name="sendAttemptCount" operator="less" from="maxSendAttempts" or-null="true"/>
+            </entity-find-count>
+            <entity-find-count entity-name="moqui.basic.email.EmailMessage" count-field="pendingToAttempt">
+                <econdition field-name="statusId" value="ES_READY"/>
+                <econdition field-name="lastUpdatedStamp" operator="greater-equals" from="emailUpdateFromDate"/>
+                <econdition field-name="lastSendAttemptDate" operator="less-equals" from="lastAttemptThruDate" or-null="true"/>
+                <econdition field-name="sendAttemptCount" operator="less" from="maxSendAttempts" or-null="true"/>
+            </entity-find-count>
+            <if condition="pendingToAttempt &gt; maxBatchSize"><set field="pendingToAttempt" from="maxBatchSize"/></if>
+            <entity-find entity-name="moqui.basic.email.EmailMessage" list="pendingList" limit="maxBatchSize">
+                <econdition field-name="statusId" value="ES_READY"/>
+                <econdition field-name="lastUpdatedStamp" operator="greater-equals" from="emailUpdateFromDate"/>
+                <econdition field-name="lastSendAttemptDate" operator="less-equals" from="lastAttemptThruDate" or-null="true"/>
+                <econdition field-name="sendAttemptCount" operator="less" from="maxSendAttempts" or-null="true"/>
+                <select-field field-name="emailMessageId,lastSendAttemptDate,lastUpdatedStamp,sendAttemptCount"/>
+                <order-by field-name="lastSendAttemptDate nulls first,lastUpdatedStamp,sendAttemptCount nulls first"/>
+            </entity-find>
+            <iterate list="pendingList" entry="pendingEmail">
+                <set field="sendAttempts" from="sendAttempts+1"/>
+                <service-call name="org.moqui.impl.EmailServices.send#EmailMessage" in-map="[emailMessageId:pendingEmail.emailMessageId]" out-map="sendResult" out-map-add-to-existing="false"/>
+                <if condition="sendResult.messageId"><then>
+                    <set field="sendSuccessful" from="sendSuccessful+1"/>
+                </then><else>
+                    <set field="sendFailed" from="sendFailed+1"/>
+                </else></if>
+            </iterate>
+        </actions>
+    </service>
+
 </services>
