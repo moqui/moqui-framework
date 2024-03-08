@@ -292,7 +292,7 @@ along with this software (see the LICENSE.md file). If not, see
         <index name="USERACCT_USERNAME" unique="true"><index-field name="username"/></index>
         <index name="USERACCT_EMAILADDR" unique="true"><index-field name="emailAddress"/></index>
         <seed-data>
-            <moqui.security.UserAccount userId="_NA_" username="_NA_" userFullName="Not Applicable" currentPassword="" disabled="Y"/>
+            <moqui.security.UserAccount userId="_NA_" username="_NA_" userFullName="不可用" currentPassword="" disabled="Y"/>
         </seed-data>
     </entity>
     <view-entity entity-name="UserAccountAndGroup" package="moqui.security">
