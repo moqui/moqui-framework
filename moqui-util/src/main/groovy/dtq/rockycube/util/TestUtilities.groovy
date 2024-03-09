@@ -53,9 +53,33 @@ public class TestUtilities {
         }
     }
 
+    /**
+     * Method that takes care of the resource path in case 'test-integration' is
+     * used.
+     */
+    static setResourcePath(String[] resDirPath){
+        String[] res
+
+        // replace `test` part of the array with `test-integration` if present
+        if (resDirPath[0] == ('test-integration'))
+        {
+            String[] modPath = RESOURCE_PATH
+            modPath.eachWithIndex {it, int idx ->
+                if (it != 'test') return
+                modPath[idx] = 'test-integration'
+            }
+            // modify the array, we want the first item to be removed
+            String[] modifiedResDir = resDirPath.findAll {return it!='test-integration'}
+            res = extendList(modPath, modifiedResDir)
+        } else {
+            // load data to import from a JSON
+            res = extendList(RESOURCE_PATH, resDirPath)
+        }
+        return res
+    }
+
     public static List<JsonElement> loadTestDataIntoArray(String[] resDirPath) throws URISyntaxException, IOException {
-        // load data to import from a JSON
-        String[] importFilePath = extendList(RESOURCE_PATH, resDirPath)
+        String[] importFilePath = setResourcePath(resDirPath)
         FileInputStream fisImport = new FileInputStream(getInputFile(importFilePath))
 
         Gson gson = new Gson()
@@ -63,7 +87,7 @@ public class TestUtilities {
     }
 
     public static void readFileLines(String[] resDirPath, String separator, Closure cb){
-        String[] importFilePath = extendList(RESOURCE_PATH, resDirPath)
+        String[] importFilePath = setResourcePath(resDirPath)
         FileInputStream fisImport = new FileInputStream(getInputFile(importFilePath))
 
         def is = new InputStreamReader(fisImport, StandardCharsets.UTF_8)
@@ -84,10 +108,10 @@ public class TestUtilities {
         switch (resDir.class)
         {
             case String.class:
-                importFilePath = extendList(RESOURCE_PATH, resDir.toString().split('/'))
+                importFilePath = setResourcePath(resDir.toString().split('/'))
                 break
             default:
-                importFilePath = extendList(RESOURCE_PATH, (String[]) resDir)
+                importFilePath = setResourcePath((String[]) resDir)
         }
 
         def is = new FileInputStream(getInputFile(importFilePath))
@@ -96,7 +120,7 @@ public class TestUtilities {
 
     public static InputStream loadTestResource(String[] resDir)
     {
-        String[] importFilePath = extendList(RESOURCE_PATH, resDir)
+        String[] importFilePath = setResourcePath(resDir)
         def is = new FileInputStream(getInputFile(importFilePath))
         return is
     }
@@ -121,7 +145,7 @@ public class TestUtilities {
     }
 
     public static void testSingleFile(String[] resDirPath, Closure cb, Logger logger=null) throws IOException, URISyntaxException {
-        String[] importFilePath = extendList(RESOURCE_PATH, resDirPath)
+        String[] importFilePath = setResourcePath(resDirPath)
         FileInputStream fisImport = new FileInputStream(getInputFile(importFilePath))
 
         def js = new JsonSlurper()
@@ -137,13 +161,13 @@ public class TestUtilities {
             def expectedValue = t[1]
             if (expectedValue instanceof String)
             {
-                String[] expectedPath = extendList(RESOURCE_PATH, t[1] as String)
+                String[] expectedPath = setResourcePath(t[1] as String)
                 FileInputStream expValStream = new FileInputStream(getInputFile(expectedPath))
                 expectedValue = js.parse(new InputStreamReader(expValStream, StandardCharsets.UTF_8)) as HashMap
             }
             if (processedEntity instanceof String)
             {
-                String[] processedPath = extendList(RESOURCE_PATH, t[0] as String)
+                String[] processedPath = setResourcePath(t[0] as String)
                 FileInputStream valStream = new FileInputStream(getInputFile(processedPath))
                 processedEntity = js.parse(new InputStreamReader(valStream, StandardCharsets.UTF_8)) as HashMap
             }
@@ -187,7 +211,7 @@ public class TestUtilities {
     private static Writer createDebugWriter(String[] debugTo)
     {
         // log and store output
-        String[] debugFilePath = extendList(RESOURCE_PATH, debugTo)
+        String[] debugFilePath = setResourcePath(debugTo)
 
         // create parent directory
         File outputFile = FileUtils.getFile(debugFilePath)
