@@ -5,7 +5,7 @@ def loadFromEntity()
     EndpointServiceHandler ech = new EndpointServiceHandler(ec, companyId, args, term, entityName, tableName, serviceAllowedOn)
     // ec.logger.debug("Executing loadFromEntity method")
     try {
-        return ech.fetchEntityData(index, size, orderBy)
+        result = ech.fetchEntityData(index, size, orderBy)
     } catch (Exception exc){
         ec.logger.error("Error when fetching data [FAILSAFE option: ${failsafe}]: ${exc.message}")
         if (failsafe) return [result: false, message: "Failed on fetch: ${exc.message}"]

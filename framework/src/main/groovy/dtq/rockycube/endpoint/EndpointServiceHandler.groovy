@@ -78,6 +78,10 @@ class EndpointServiceHandler {
     private static String CONST_REQ_DATE_FIELD_FORMAT           = 'requiredDateFormat'
     private static String CONST_CREATE_OR_UPDATE                = 'requiredCreateOrUpdate'
     private static String CONST_GENERATE_RANDOM_SECONDARY       = 'generateRandomSecondary'
+    // add _entity to output (e.g. when we need to create a JSON for importing)
+    private static String CONST_INCLUDE_ENTITY_NAME             = 'includeEntityName'
+    // if set to true, only data gets returned, no pagination included
+    private static String CONST_LEAN_OUTPUT                     = 'leanOutput'
     /*
     DEFAULTS
      */
@@ -398,6 +402,21 @@ class EndpointServiceHandler {
         if (!args.containsKey(CONST_GENERATE_RANDOM_SECONDARY)) {
             args.put(CONST_GENERATE_RANDOM_SECONDARY, false)
         }
+
+        // by default, do not put entity name into the result
+        if (!args.containsKey(CONST_INCLUDE_ENTITY_NAME)) {
+            args.put(CONST_INCLUDE_ENTITY_NAME, false)
+        } else {
+            if (args[CONST_INCLUDE_ENTITY_NAME]) {
+                args.put(CONST_LEAN_OUTPUT, true)
+            }
+        }
+
+        // lean output switch, by default to false
+        if (!args.containsKey(CONST_LEAN_OUTPUT))
+        {
+            args.put(CONST_LEAN_OUTPUT, false)
+        }
     }
 
     // rename field if necessary
@@ -649,6 +668,11 @@ class EndpointServiceHandler {
                 }
                 recordMap = sorted
             }
+        }
+
+        // entity-name
+        if (args[CONST_INCLUDE_ENTITY_NAME] == true) {
+            recordMap.put('_entity', entityName)
         }
 
         // change to list, if set in such way
@@ -1079,12 +1103,10 @@ class EndpointServiceHandler {
     }
 
     // fetch Entity data using `standard entity model`
-    private HashMap fetchEntityData_standard()
+    private Object fetchEntityData_standard()
     {
-        // pagination info
-        def pagination = this.fetchPaginationInfo(pageIndex, pageSize)
-        logger.debug("pagination: ${pagination}")
-
+        // we do not need pagination info at all times
+        def useLeanOutput = args[CONST_LEAN_OUTPUT]
         def evs = efi.find(entityName)
                 .limit(pageSize)
                 .offset(pageIndex * pageSize)
@@ -1096,13 +1118,23 @@ class EndpointServiceHandler {
 
         // update pagination info, so that count of rows being displayed is returned
         def result = evs.list()
-        pagination['displayed'] = result.size()
+        if (!useLeanOutput) {
 
-        return [
-                result: true,
-                data: this.fillResultset(result),
-                pagination: pagination
-        ]
+            // pagination info
+            def pagination = this.fetchPaginationInfo(pageIndex, pageSize)
+            pagination['displayed'] = result.size()
+            logger.debug("pagination: ${pagination}")
+
+            return [
+                    result    : true,
+                    data      : this.fillResultset(result),
+                    pagination: pagination
+            ]
+        } else {
+            // cannot use `returnObject` flag
+            args[CONST_PREFER_OBJECT_IN_RETURN] = false
+            return (ArrayList) this.fillResultset(result)
+        }
     }
 
     // fetch Entity data using `intelligent cache model`
@@ -1167,7 +1199,7 @@ class EndpointServiceHandler {
         ]
     }
 
-    public HashMap fetchEntityData(Integer index, Integer size, ArrayList orderBy)
+    public Object fetchEntityData(Integer index, Integer size, ArrayList orderBy)
     {
         this.setInputIndex(index)
         this.pageSize = size
@@ -1176,7 +1208,7 @@ class EndpointServiceHandler {
         return fetchEntityData()
     }
 
-    public HashMap fetchEntityData()
+    public Object fetchEntityData()
     {
         logger.info("entityName/term/index/size: ${entityName}/${queryCondition}/${pageIndex}/${pageSize}")
 

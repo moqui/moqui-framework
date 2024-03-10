@@ -76,7 +76,7 @@ class EndpointTests extends Specification {
                     // 1. directly - via handler
                     // search querying - this section is primarily aimed at testing empty `queryCondition`
                     def handler = new EndpointServiceHandler(ec, null, (HashMap) args, (ArrayList) term, (String) entity, null, [])
-                    def result = handler.fetchEntityData(0, 100, [])
+                    def result = (HashMap) handler.fetchEntityData(0, 100, [])
                     assert result.data.size() == expected.expected
 
                     // 2. classic - via service
@@ -400,7 +400,7 @@ class EndpointTests extends Specification {
                             null,
                             [])
 
-                    def result = handler.fetchEntityData(0, 6, [])
+                    def result = (HashMap) handler.fetchEntityData(0, 6, [])
                     assert result['data'] == expected['result']
                 })
     }
