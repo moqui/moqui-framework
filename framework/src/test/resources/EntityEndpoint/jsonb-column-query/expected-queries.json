@@ -9,7 +9,7 @@
     },
     {
       "result": false,
-      "message": "Failed on fetch: Error finding count of TestJsonEntity by (testJsonId = 1 (java.lang.Integer)) OR (testJsonId = a (java.lang.String))"
+      "message": "Failed on fetch: Error finding list of TestJsonEntity by (testJsonId = 1 (java.lang.Integer)) OR (testJsonId = a (java.lang.String))"
     }
   ],
   [
