@@ -61,8 +61,8 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="many" related="moqui.basic.EnumGroupMember" short-alias="groupMembers">
             <key-map field-name="enumId" related="enumGroupEnumId"/></relationship>
         <seed-data>
-            <moqui.basic.EnumerationType enumTypeId="_NA_" description="Not Applicable"/>
-            <moqui.basic.Enumeration enumId="_NA_" enumTypeId="_NA_" description="Not Applicable"/>
+            <moqui.basic.EnumerationType enumTypeId="_NA_" description="不可用"/>
+            <moqui.basic.Enumeration enumId="_NA_" enumTypeId="_NA_" description="不可用"/>
 
             <moqui.basic.EnumerationType description="Boolean (Yes/No)" enumTypeId="BooleanYN"/>
             <moqui.basic.Enumeration description="Yes" enumId="BlY" enumTypeId="BooleanYN"/>
@@ -179,7 +179,7 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="geoId" related="toGeoId"/></relationship>
         <seed-data>
             <!-- A placeholder for when there is no Geo -->
-            <moqui.basic.Geo geoId="_NA_" geoName="Not Applicable" geoCodeAlpha3="_NA" geoCodeAlpha2="_N"/>
+            <moqui.basic.Geo geoId="_NA_" geoName="不可用" geoCodeAlpha3="_NA" geoCodeAlpha2="_N"/>
 
             <!-- =========================== Geo Type Data ============================ -->
             <moqui.basic.EnumerationType description="Geo Type" enumTypeId="GeoType"/>
@@ -307,8 +307,8 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="many" related="moqui.basic.StatusFlowTransition" short-alias="toTransitions">
             <key-map field-name="statusId" related="toStatusId"/></relationship>
         <seed-data>
-            <moqui.basic.StatusType statusTypeId="_NA_" description="Not Applicable"/>
-            <moqui.basic.StatusItem statusId="_NA_" statusTypeId="_NA_" description="Not Applicable"/>
+            <moqui.basic.StatusType statusTypeId="_NA_" description="不可用"/>
+            <moqui.basic.StatusItem statusId="_NA_" statusTypeId="_NA_" description="不可用"/>
         </seed-data>
         <master>
             <detail relationship="type"/>
