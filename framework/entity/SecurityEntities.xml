@@ -109,7 +109,7 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Allow" enumId="AUTHZT_ALLOW" enumTypeId="AuthzType"/>
             <moqui.basic.Enumeration description="Deny (overrides Allow)" enumId="AUTHZT_DENY" enumTypeId="AuthzType"/>
             <moqui.basic.Enumeration description="Always Allow (overrides Deny)" enumId="AUTHZT_ALWAYS" enumTypeId="AuthzType"/>
-            <!-- needed? <moqui.basic.Enumeration description="Not Applicable" enumId="AUTHZT_NA" enumTypeId="AuthzType"/> -->
+            <!-- needed? <moqui.basic.Enumeration description="不可用" enumId="AUTHZT_NA" enumTypeId="AuthzType"/> -->
 
             <moqui.basic.EnumerationType description="Authorization Action" enumTypeId="AuthzAction"/>
             <moqui.basic.Enumeration description="View" enumCode="VIEW" enumId="AUTHZA_VIEW" enumTypeId="AuthzAction"/>
