@@ -83,8 +83,8 @@ services:
       - webapp_https_enabled=true
       # nginx-proxy populates X-Real-IP with remote_addr by default, better option for outer proxy than X-Forwarded-For which defaults to proxy_add_x_forwarded_for
       - webapp_client_ip_header=X-Real-IP
-      - default_locale=en_US
-      - default_time_zone=US/Pacific
+      - default_locale=zh_CN
+      - default_time_zone=Asia/Shanghai
 
   moqui-database:
     image: mysql:8.0
