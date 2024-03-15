@@ -80,6 +80,7 @@ class EndpointServiceHandler {
     private static String CONST_GENERATE_RANDOM_SECONDARY       = 'generateRandomSecondary'
     // add _entity to output (e.g. when we need to create a JSON for importing)
     private static String CONST_INCLUDE_ENTITY_NAME             = 'includeEntityName'
+    private static String CONST_INCLUDE_ENDPOINT_SERVICE_NAME   = 'includeEndpointServiceName'
     // if set to true, only data gets returned, no pagination included
     private static String CONST_LEAN_OUTPUT                     = 'leanOutput'
     /*
@@ -412,6 +413,15 @@ class EndpointServiceHandler {
             }
         }
 
+        // use entity service name instead of entity-name
+        if (!args.containsKey(CONST_INCLUDE_ENDPOINT_SERVICE_NAME)) {
+            args.put(CONST_INCLUDE_ENDPOINT_SERVICE_NAME, false)
+        } else {
+            if (args[CONST_INCLUDE_ENDPOINT_SERVICE_NAME]) {
+                args.put(CONST_LEAN_OUTPUT, true)
+            }
+        }
+
         // lean output switch, by default to false
         if (!args.containsKey(CONST_LEAN_OUTPUT))
         {
@@ -673,6 +683,11 @@ class EndpointServiceHandler {
         // entity-name
         if (args[CONST_INCLUDE_ENTITY_NAME] == true) {
             recordMap.put('_entity', entityName)
+        } else if (args[CONST_INCLUDE_ENDPOINT_SERVICE_NAME] == true) {
+            LinkedHashMap<String, Object> newRecordMap = [data: recordMap]
+            newRecordMap.put('_entity', 'dtq.rockycube.EndpointServices.create#EntityData')
+            newRecordMap.put('entityName', entityName)
+            recordMap = newRecordMap
         }
 
         // change to list, if set in such way

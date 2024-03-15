@@ -2,6 +2,7 @@ package dtq.rockycube.entity
 
 import org.moqui.context.ExecutionContext
 import org.moqui.entity.EntityCondition
+import org.moqui.entity.EntityDataLoader
 import org.moqui.entity.EntityException
 import org.moqui.entity.EntityFind
 import org.moqui.impl.entity.EntityDefinition
@@ -133,5 +134,15 @@ class EntityHelper {
         // test groupName condition, otherwise return null
         if (groupName == entityDef.groupName) return entityDef
         return null
+    }
+
+    public static long importEntityFromJson(
+            ExecutionContext ec,
+            String jsonText,
+            List<String> messages) {
+        EntityDataLoader edl = ec.entity.makeDataLoader()
+        edl.jsonText(jsonText)
+        edl.onlyCreate(false)
+        return edl.load(messages)
     }
 }
