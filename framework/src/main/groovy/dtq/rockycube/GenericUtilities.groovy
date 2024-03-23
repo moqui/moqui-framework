@@ -34,11 +34,23 @@ class GenericUtilities {
         }
     }
 
-    /*
-     * Store file in a `tmp` directory of the backend, for debugging purposes
+    /**
+     * Shared debug procedure. Method should be used by all methods of this
+     * class, to make sure procedureId is used to create file name wherever
+     * possible.
+     * @param ec
+     * @param processingId
+     * @param fileId
+     * @param data
+     * @param internalCounter
      */
-    public static void debugFile(ExecutionContext ec, String fileId, Object data, Long internalCounter=0)
-    {
+    public static void debugFile(
+            ExecutionContext ec,
+            String processingId,
+            String sessionId,
+            String fileId,
+            Object data,
+            Long internalCounter=0) {
         try {
             ResourceReference ref = ec.resource.getLocationReference("tmp")
 
@@ -63,12 +75,25 @@ class GenericUtilities {
                 fileName = "${fileName}.${fileExtension}"
             }
 
+            // use processing ID if present
+            fileName = sessionId ? "${sessionId}.${fileName}" : "nos.${fileName}"
+            fileName = processingId ? "${processingId}.${fileName}" : "nop.${fileName}"
+
             if (fileExtension == 'json') ref.makeFile(fileName).putText (JsonOutput.prettyPrint(JsonOutput.toJson(data)))
             if (fileExtension != 'json') ref.makeFile(fileName).putText (data as String)
         } catch (Exception exc) {
             ec.logger.error("Cannot debug-store file: ${exc}")
         }
+    }
 
+
+    /*
+     * Store file in a `tmp` directory of the backend, for debugging purposes.
+     * For situations when no processingId and sessionId is set.
+     */
+    public static void debugFile(ExecutionContext ec, String fileId, Object data, Long internalCounter=0)
+    {
+        debugFile(ec, null, null, fileId, data, internalCounter)
     }
 
     private static Object convertToComplexType(String incomingStr){

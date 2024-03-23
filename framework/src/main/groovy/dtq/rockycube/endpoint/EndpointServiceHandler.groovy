@@ -37,6 +37,8 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.regex.Pattern
 
+import static dtq.rockycube.GenericUtilities.debugFile
+
 class EndpointServiceHandler {
     protected final static Logger logger = LoggerFactory.getLogger(EndpointServiceHandler.class);
     private ExecutionContext ec
@@ -1423,9 +1425,9 @@ class EndpointServiceHandler {
 
         // store info for debugging purposes
         if (debug) {
-            GenericUtilities.debugFile(ec, "process-items.${sessionId}.json", itemToCalculate)
-            GenericUtilities.debugFile(ec, "process-items-procedures.${sessionId}.json", proceduresList)
-            GenericUtilities.debugFile(ec, "process-items-extra.${sessionId}.json", extraParams)
+            debugFile(ec, processingId, sessionId, "process-items.json", itemToCalculate)
+            debugFile(ec, processingId, sessionId, "process-items-procedures.json", proceduresList)
+            debugFile(ec, processingId, sessionId, "process-items-extra.json", extraParams)
         }
 
         // basic checks
@@ -1445,7 +1447,7 @@ class EndpointServiceHandler {
 
         // debug what is going to py-calc
         if (debug) {
-            GenericUtilities.debugFile(ec, "c-h-process-items-to-execute.${sessionId}.json", payload)
+            debugFile(ec, processingId, sessionId, "c-h-process-items-to-execute.json", payload)
         }
 
         // use specific RequestFactory, with custom timeouts
@@ -1512,13 +1514,13 @@ class EndpointServiceHandler {
         if (debug && !identity) identity = StringUtilities.getRandomString(11)
 
         // debug for development purposes
-        if (debug) GenericUtilities.debugFile(ec, "vizualize-items-before-calc.${identity}.json", allItems)
+        if (debug) debugFile(ec, null, null, "vizualize-items-before-calc.${identity}.json", allItems)
 
         // pass only those arguments, that have `pycalc` prefix
         def pyCalcArgs = ViUtilities.extractPycalcArgs(args as HashMap)
 
         // store parameters
-        if (debug) GenericUtilities.debugFile(ec, "vizualize-items-calc-params.${identity}.json", pyCalcArgs)
+        if (debug) debugFile(ec, null, null, "vizualize-items-calc-params.${identity}.json", pyCalcArgs)
 
         RestClient restClient = ec.service.rest().method(RestClient.POST)
                 .uri("${pycalcHost}/${endpoint}")
@@ -1533,13 +1535,13 @@ class EndpointServiceHandler {
 
         // check status code
         if (restResponse.statusCode != 200) {
-            if (debug) GenericUtilities.debugFile(ec, "vizualize-items-exception.${identity}", restResponse.reasonPhrase)
+            if (debug) debugFile(ec, null, null, "vizualize-items-exception.${identity}", restResponse.reasonPhrase)
 
             logger.error("Error in response from pyCalc [${restResponse.reasonPhrase}] for session [${identity}]")
             throw new EndpointException("Response with status ${restResponse.statusCode} returned: ${restResponse.reasonPhrase}")
         }
 
-        if (debug) GenericUtilities.debugFile(ec, "vizualize-items-after-calc.${identity}", restResponse.jsonObject())
+        if (debug) debugFile(ec, null, null, "vizualize-items-after-calc.${identity}", restResponse.jsonObject())
 
         HashMap response = restResponse.jsonObject() as HashMap
         return response['data']
