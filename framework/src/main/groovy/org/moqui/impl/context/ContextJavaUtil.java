@@ -22,6 +22,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import groovy.lang.GString;
 import org.codehaus.groovy.runtime.StringGroovyMethods;
 import org.jetbrains.annotations.NotNull;
@@ -44,9 +45,12 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.*;
+import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.Date;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -581,6 +585,52 @@ public class ContextJavaUtil {
             .enable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS).enable(SerializationFeature.INDENT_OUTPUT)
             .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
             .configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true);
+
+    /**
+     * Serializer for avoiding timestamps in dates
+     */
+    public final static ObjectMapper NoTimestampsObjectMapper =
+            new ObjectMapper()
+                    .registerModule(new JavaTimeModule())
+                    .setSerializationInclusion(JsonInclude.Include.ALWAYS)
+                    .enable(SerializationFeature.INDENT_OUTPUT)
+                    .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+                    .configure(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS, true)
+                    .configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true);
+
+    static {
+        SimpleModule module = new SimpleModule();
+        module.addSerializer(Timestamp.class, new ContextJavaUtil.TsSerializer());
+        module.addSerializer(java.sql.Date.class, new ContextJavaUtil.DtSerializer());
+        module.addSerializer(GString.class, new ContextJavaUtil.GStringJsonSerializer());
+        module.addSerializer(LiteStringMap.class, new ContextJavaUtil.LiteStringMapJsonSerializer());
+        NoTimestampsObjectMapper.registerModule(module);
+    }
+
+    /**
+     * This serializer takes incoming Timestamp and converts it into a string in standard timestamp format
+     */
+    static class TsSerializer extends StdSerializer<Timestamp> {
+        protected TsSerializer() { super(Timestamp.class); }
+
+        @Override
+        public void serialize(Timestamp value, JsonGenerator gen, com.fasterxml.jackson.databind.SerializerProvider provider) throws IOException {
+            gen.writeString(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(value));
+        }
+    }
+
+    /**
+     * This serializer takes care of java.sql.Date. Not sure if we have many cases of such instance
+     */
+    static class DtSerializer extends StdSerializer<java.sql.Date> {
+        protected DtSerializer() { super(java.sql.Date.class); }
+
+        @Override
+        public void serialize(java.sql.Date value, JsonGenerator gen, com.fasterxml.jackson.databind.SerializerProvider provider) throws IOException {
+            gen.writeString(new SimpleDateFormat("dd.MM.yyyy").format(value));
+        }
+    }
+
     static {
         // Jackson custom serializers, etc
         SimpleModule module = new SimpleModule();

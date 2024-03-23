@@ -148,6 +148,10 @@ public class TestUtilities {
         String[] importFilePath = setResourcePath(resDirPath)
         FileInputStream fisImport = new FileInputStream(getInputFile(importFilePath))
 
+        // allow limiter on test
+        def limiter = System.getProperty('test.file.limiter', '-1').toInteger()
+        if (logger && limiter > 0) logger.info("test.file.limiter set to [${limiter}]")
+
         def js = new JsonSlurper()
         ArrayList tests = js.parse(new InputStreamReader(fisImport, StandardCharsets.UTF_8)) as ArrayList
 
@@ -155,6 +159,12 @@ public class TestUtilities {
         tests.eachWithIndex{ ArrayList t, idx ->
             // [0] > com.google.gson.internal.LinkedTreeMap
             // [1] > could be a String, could be an object
+
+            // stop processing if limiter reached
+            if (limiter > 0) if (limiter <= idx) {
+                if (logger) logger.info("Limiting test execution with limiter [${limiter} <= ${idx}]")
+                return
+            }
 
             // expected/processed value may be a value itself, or a path to JSON file with value
             def processedEntity = t[0]

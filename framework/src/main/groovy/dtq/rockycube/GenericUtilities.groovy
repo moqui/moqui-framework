@@ -24,6 +24,7 @@ class GenericUtilities {
                 String itStrVal = new String((byte[]) field, StandardCharsets.UTF_8)
                 return convertToComplexType(itStrVal)
             case "hashmap":
+            case "lazymap":
                 return field
             case "arraylist":
                 return field

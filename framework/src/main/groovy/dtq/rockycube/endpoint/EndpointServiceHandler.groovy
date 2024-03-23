@@ -1460,7 +1460,7 @@ class EndpointServiceHandler {
                 .uri("${pycalcHost}/api/v1/calculator/execute")
                 .timeout(480)
                 .retry(2, 10)
-                .maxResponseSize(20 * 1024 * 1024)
+                .maxResponseSize(50 * 1024 * 1024)
                 .addHeader("Content-Type", "application/json")
                 .jsonObject(payload)
                 .withRequestFactory(customTimeoutReqFactory)
