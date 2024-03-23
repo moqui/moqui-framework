@@ -136,6 +136,8 @@ dependencies {
     // implementation 'javax.resource:connector-api:1.5'
     // implementation 'javax.jms:jms:1.1'
 
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.11.2'
+
     // H2 Database
 //    implementation 'com.h2database:h2:1.4.200' // MPL 2.0, EPL 1.0
     api 'com.h2database:h2:2.1.214' // MPL 2.0, EPL 1.0

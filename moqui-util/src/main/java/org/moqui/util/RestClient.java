@@ -13,6 +13,7 @@
  */
 package org.moqui.util;
 
+import com.google.gson.Gson;
 import groovy.json.JsonBuilder;
 import groovy.json.JsonSlurper;
 import org.eclipse.jetty.client.HttpClient;
@@ -180,16 +181,8 @@ public class RestClient {
             return text(bodyJsonObject.toString());
         }
 
-        JsonBuilder jb = new JsonBuilder();
-        if (bodyJsonObject instanceof Map) {
-            jb.call((Map) bodyJsonObject);
-        } else if (bodyJsonObject instanceof List) {
-            jb.call((List) bodyJsonObject);
-        } else {
-            jb.call((Object) bodyJsonObject);
-        }
-
-        return text(jb.toString());
+        Gson gson = new Gson();
+        return text(gson.toJson(bodyJsonObject));
     }
 
     /** Set the body text as XML from a MNode */

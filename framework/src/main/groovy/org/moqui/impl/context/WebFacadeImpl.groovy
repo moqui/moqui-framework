@@ -705,7 +705,12 @@ class WebFacadeImpl implements WebFacade {
         }
 
         // logger.warn("========== Sending JSON for object: ${responseObj}")
-        if (responseObj != null) jsonStr = ContextJavaUtil.jacksonMapper.writeValueAsString(responseObj)
+        if (responseObj != null) {
+            // support serializing timestamps as strings
+            def jsonWriteFormat = requestAttributes.get('jsonWriteFormat', 'default')
+            jsonStr = jsonWriteFormat=='no-timestamps' ? ContextJavaUtil.NoTimestampsObjectMapper.writeValueAsString(responseObj)
+                    : ContextJavaUtil.jacksonMapper.writeValueAsString(responseObj)
+        }
 
         if (!jsonStr) return
 

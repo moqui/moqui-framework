@@ -87,7 +87,6 @@ abstract class EntityFindBase implements EntityFind {
 
     protected ArrayList<String> queryTextList = new ArrayList<>()
 
-
     EntityFindBase(EntityFacadeImpl efi, String entityName) {
         this.efi = efi
         this.entityName = entityName
