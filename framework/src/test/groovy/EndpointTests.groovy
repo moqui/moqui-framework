@@ -5,14 +5,10 @@ import dtq.rockycube.entity.EntityHelper
 import groovy.json.JsonSlurper
 import net.javacrumbs.jsonunit.core.Configuration
 import net.javacrumbs.jsonunit.core.internal.Options
-import org.apache.groovy.json.internal.LazyMap
-import org.junit.Test
 import org.moqui.Moqui
 import org.moqui.context.ArtifactAuthorizationException
 import org.moqui.context.ExecutionContext
 import dtq.rockycube.util.TestUtilities
-import org.moqui.entity.EntityException
-import org.moqui.entity.EntityValue
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import spock.lang.Shared
