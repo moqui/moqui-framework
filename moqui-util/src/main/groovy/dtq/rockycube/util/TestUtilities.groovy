@@ -137,7 +137,7 @@ public class TestUtilities {
         def js
         try {
             js = gson.fromJson(new InputStreamReader(is, StandardCharsets.UTF_8), HashMap.class)
-        } catch (Exception exc) {
+        } catch (Exception ignored) {
             is = loadTestResource(resDir)
             js = gson.fromJson(new InputStreamReader(is, StandardCharsets.UTF_8), ArrayList.class)
         }
