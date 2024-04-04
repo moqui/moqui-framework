@@ -2,6 +2,7 @@ package dtq.rockycube
 
 import com.google.gson.Gson
 import groovy.json.JsonOutput
+import org.apache.groovy.json.internal.LazyMap
 import org.moqui.context.ExecutionContext
 import org.moqui.resource.ResourceReference
 import java.nio.charset.StandardCharsets
@@ -115,6 +116,8 @@ class GenericUtilities {
         {
             case ArrayList.class:
                 return (obj as ArrayList).isEmpty()
+            case LinkedHashMap.class:
+            case LazyMap.class:
             case HashMap.class:
                 return (obj as HashMap).isEmpty()
             default:

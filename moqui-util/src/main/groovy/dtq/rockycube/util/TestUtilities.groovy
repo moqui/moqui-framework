@@ -325,4 +325,39 @@ public class TestUtilities {
         fw.write(bt.toString(StandardCharsets.UTF_8))
         fw.close();
     }
+
+    /**
+     * Helper method to test counts of records in specified entities
+     * @param filePath
+     * @param fieldName
+     * @param cbCheckFtor
+     */
+    static void testTuples(String filePath, String fieldName, Closure cbCheckFtor) {
+        def f = loadTestResourceJs(filePath)
+        if (f instanceof ArrayList) assert false
+        if (!(f as HashMap).containsKey(fieldName)) assert false
+        def l = (ArrayList<Tuple>) f[fieldName]
+
+        l.eachWithIndex{ def entry, int i ->
+            cbCheckFtor((String) entry.get(0), (Integer) entry.get(1))
+        }
+    }
+
+    static void testRunFtorOnMap(String filePath, String fieldName, Closure cbCheckMapFtor) {
+        def f = loadTestResourceJs(filePath)
+        if (f instanceof ArrayList) assert false
+        if (!(f as HashMap).containsKey(fieldName)) assert false
+        def l = (ArrayList<HashMap>) f[fieldName]
+
+        l.eachWithIndex{ def entry, int i ->
+            cbCheckMapFtor(entry)
+        }
+    }
+
+    static void testRunFtorOnArray(ArrayList<HashMap> checkDefinitions, Closure cbCheckMapFtor) {
+        checkDefinitions.eachWithIndex{ def entry, int i ->
+            cbCheckMapFtor(entry)
+        }
+
+    }
 }
