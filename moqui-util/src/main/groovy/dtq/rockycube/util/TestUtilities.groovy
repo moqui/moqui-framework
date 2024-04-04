@@ -9,6 +9,8 @@ import org.apache.groovy.json.internal.LazyMap
 import org.slf4j.Logger
 
 import java.nio.charset.StandardCharsets
+import java.nio.file.Path
+import java.nio.file.Paths
 import java.util.regex.Pattern;
 
 
@@ -120,6 +122,11 @@ public class TestUtilities {
 
     public static InputStream loadTestResource(String[] resDir)
     {
+        def fileExists = FileUtils.getFile(resDir).exists()
+        if (fileExists) {
+            return new FileInputStream(getInputFile(resDir))
+        }
+
         String[] importFilePath = setResourcePath(resDir)
         def is = new FileInputStream(getInputFile(importFilePath))
         return is
