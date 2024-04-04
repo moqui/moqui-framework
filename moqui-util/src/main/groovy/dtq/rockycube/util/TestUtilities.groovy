@@ -9,6 +9,9 @@ import org.apache.groovy.json.internal.LazyMap
 import org.slf4j.Logger
 
 import java.nio.charset.StandardCharsets
+import java.nio.file.DirectoryIteratorException
+import java.nio.file.DirectoryStream
+import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.regex.Pattern;
@@ -366,5 +369,26 @@ public class TestUtilities {
             cbCheckMapFtor(entry)
         }
 
+    }
+
+    /**
+     * Find names of all files inside a directory
+     * @param resDir
+     * @return
+     */
+    static findAllFilesInDirectory(String[] resDir) {
+        String[] importDirectory = setResourcePath(resDir)
+        Path dir = Paths.get(FileUtils.getFile(importDirectory).absolutePath)
+        def files = []
+
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
+            for (Path file: stream) {
+                System.out.println(file.getFileName())
+                files.add(file.toAbsolutePath().toString())
+            }
+        } catch (IOException | DirectoryIteratorException x) {
+            System.err.println(x);
+        }
+        return files
     }
 }
