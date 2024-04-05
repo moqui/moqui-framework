@@ -368,7 +368,6 @@ public class TestUtilities {
         checkDefinitions.eachWithIndex{ def entry, int i ->
             cbCheckMapFtor(entry)
         }
-
     }
 
     /**
