@@ -1433,6 +1433,9 @@ class EndpointServiceHandler {
         // basic checks
         if (!pycalcHost) throw new EndpointException("PY-CALC server host not defined")
 
+        // if the incoming data is InputStream, encode it to Base64
+        boolean encodeToBase64 = itemToCalculate instanceof InputStream
+
         // data prep
         def payload = [
                 setup: [
@@ -1442,7 +1445,7 @@ class EndpointServiceHandler {
                         proc_id: processingId,
                         session_id: sessionId
                 ],
-                data: itemToCalculate
+                data: encodeToBase64 ? Base64.encoder.encodeToString((itemToCalculate as InputStream).getBytes()) : itemToCalculate
         ]
 
         // debug what is going to py-calc
