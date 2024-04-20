@@ -212,6 +212,11 @@ public class TestUtilities {
         return yamlMap
     }
 
+    public static readYamlToLazyMap(InputStream is) {
+        def yamlMap = new YamlSlurper().parse(is) as LazyMap
+        return yamlMap
+    }
+
     public static ArrayList convertArrayWithLazyMap(ArrayList lmArray)
     {
         def res = new ArrayList()
