@@ -1,8 +1,10 @@
 package dtq.rockycube.query
 
 import groovy.json.JsonSlurper
+import org.moqui.resource.ResourceReference
 import org.slf4j.Logger
 import java.sql.Connection
+import java.sql.ResultSetMetaData
 
 class SqlExecutor {
     protected static int maxLimit = 500
@@ -144,7 +146,7 @@ class SqlExecutor {
         }
 
         // close statement
-        if (stmt != null) { try { stmt.close() } catch (Exception e) { /* Ignore */ } }
+        if (stmt != null) { try { stmt.close() } catch (Exception ignored) { /* Ignore */ } }
 
         // manipulate result into a map
         HashMap<String, Object> result = new HashMap<>()
@@ -189,6 +191,39 @@ class SqlExecutor {
         return result
     }
 
+    /**
+     * Same function as below, with the difference that it allows replacement of parameters inside
+     * query.
+     * @param conn
+     * @param logger
+     * @param queryFile
+     * @param params
+     * @return
+     */
+    static ArrayList execute(
+            Connection conn,
+            Logger logger,
+            ResourceReference queryFile,
+            HashMap params=[:]) {
+        def isReader = queryFile.openStream().newReader("UTF-8")
+        StringBuilder textBuilder = new StringBuilder();
+        String line;
+        while ((line = isReader.readLine()) != null) {
+            textBuilder.append(line);
+            textBuilder.append('\n');
+        }
+
+        String query = textBuilder.toString();
+        return execute(conn, logger, (String) query)
+    }
+
+    /**
+     * Execute SQL query and return JSON
+     * @param conn
+     * @param logger
+     * @param query
+     * @return
+     */
     static ArrayList execute(
             Connection conn,
             Logger logger,
@@ -197,17 +232,21 @@ class SqlExecutor {
         def stmt = conn.createStatement()
         def queryResult = stmt.execute(query as String)
         logger.debug("Query result: ${queryResult}")
-
         if (!queryResult) return []
-
         def result = []
         def rs = stmt.resultSet
+        ResultSetMetaData rsmd = rs.getMetaData()
+        int numColumns = rsmd.getColumnCount()
+
         while (rs.next()) {
-            String val1 = rs.getString(1)
-            result.add(val1)
+            def record = [:]
+            for (int i = 1; i <= numColumns; i++) {
+                String column_name = rsmd.getColumnName(i)
+                record[column_name] = rs.getObject(column_name)
+            }
+            result.add(record)
         }
         rs.close()
-
         return result
     }
 }
