@@ -214,4 +214,29 @@ class CollectionUtils {
         }
         return res
     }
+
+    /**
+     * Perform a modification on value, where key matches my search condition
+     * @param values
+     * @param map
+     * @param keyToFind
+     */
+    public static void performOperationOnKey(Map<?, ?> map, Object keyToFind, Closure cbModFtor) {
+        for (Map.Entry<?, ?> entry : map.entrySet()) {
+            if (entry.getKey() == keyToFind) {
+                def newVal = cbModFtor(entry)
+                entry.setValue(newVal)
+            }
+            if (entry.getValue() instanceof Map<?, ?>) {
+                performOperationOnKey((Map<?, ?>) entry.getValue(), keyToFind, cbModFtor);
+            }
+            if (entry.getValue() instanceof List<?>) {
+                for (Object item : (List<?>) entry.getValue()) {
+                    if (item instanceof Map<?, ?>) {
+                        performOperationOnKey((Map<?, ?>) item, keyToFind, cbModFtor);
+                    }
+                }
+            }
+        }
+    }
 }
