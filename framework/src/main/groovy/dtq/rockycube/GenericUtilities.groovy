@@ -4,12 +4,41 @@ import com.google.gson.Gson
 import groovy.json.JsonOutput
 import org.apache.groovy.json.internal.LazyMap
 import org.moqui.context.ExecutionContext
+import org.moqui.context.TemplateRenderer
+import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.resource.ResourceReference
 import java.nio.charset.StandardCharsets
 import java.util.regex.Pattern
 
 class GenericUtilities {
     protected static Gson gson = new Gson()
+
+
+    /**
+     * This method expects, there is an FTL template provided,
+     * subsequently, using the context, the template is rendered
+     * @param conn
+     * @param logger
+     * @param queryFile
+     * @param params
+     * @return
+     */
+    static void renderTemplate(
+            ExecutionContext ec,
+            String templateFile,
+            StringWriter sw,
+            HashMap params) {
+
+        // add to parameters
+        ec.context.put('parameters', params)
+
+        def ecfi = (ExecutionContextFactoryImpl) ec.factory
+        TemplateRenderer templateRenderer = ecfi.resourceFacade.ftlTemplateRenderer
+        templateRenderer.render(templateFile, sw)
+
+        // remove from parameters
+        ec.context.remove('parameters')
+    }
 
     /**
      * Process JSONB fields into standard value
