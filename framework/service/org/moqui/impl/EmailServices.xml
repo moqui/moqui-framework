@@ -134,12 +134,16 @@ along with this software (see the LICENSE.md file). If not, see
                 <econdition field-name="statusId" value="ES_READY"/>
                 <econdition field-name="lastUpdatedStamp" operator="greater-equals" from="emailUpdateFromDate"/>
                 <econdition field-name="sendAttemptCount" operator="less" from="maxSendAttempts" or-null="true"/>
+                <econdition field-name="fromAddress" operator="is-not-null"/>
+                <econdition field-name="toAddresses" operator="is-not-null"/>
             </entity-find-count>
             <entity-find-count entity-name="moqui.basic.email.EmailMessage" count-field="pendingToAttempt">
                 <econdition field-name="statusId" value="ES_READY"/>
                 <econdition field-name="lastUpdatedStamp" operator="greater-equals" from="emailUpdateFromDate"/>
                 <econdition field-name="lastSendAttemptDate" operator="less-equals" from="lastAttemptThruDate" or-null="true"/>
                 <econdition field-name="sendAttemptCount" operator="less" from="maxSendAttempts" or-null="true"/>
+                <econdition field-name="fromAddress" operator="is-not-null"/>
+                <econdition field-name="toAddresses" operator="is-not-null"/>
             </entity-find-count>
             <if condition="pendingToAttempt &gt; maxBatchSize"><set field="pendingToAttempt" from="maxBatchSize"/></if>
             <entity-find entity-name="moqui.basic.email.EmailMessage" list="pendingList" limit="maxBatchSize">
@@ -147,6 +151,8 @@ along with this software (see the LICENSE.md file). If not, see
                 <econdition field-name="lastUpdatedStamp" operator="greater-equals" from="emailUpdateFromDate"/>
                 <econdition field-name="lastSendAttemptDate" operator="less-equals" from="lastAttemptThruDate" or-null="true"/>
                 <econdition field-name="sendAttemptCount" operator="less" from="maxSendAttempts" or-null="true"/>
+                <econdition field-name="fromAddress" operator="is-not-null"/>
+                <econdition field-name="toAddresses" operator="is-not-null"/>
                 <select-field field-name="emailMessageId,lastSendAttemptDate,lastUpdatedStamp,sendAttemptCount"/>
                 <order-by field-name="lastSendAttemptDate nulls first,lastUpdatedStamp,sendAttemptCount nulls first"/>
             </entity-find>
