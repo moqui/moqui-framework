@@ -203,8 +203,7 @@ class SqlExecutor {
     static ArrayList execute(
             Connection conn,
             Logger logger,
-            ResourceReference queryFile,
-            HashMap params=[:]) {
+            ResourceReference queryFile) {
         def isReader = queryFile.openStream().newReader("UTF-8")
         StringBuilder textBuilder = new StringBuilder();
         String line;
