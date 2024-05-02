@@ -223,7 +223,11 @@ class CollectionUtils {
      */
     public static void performOperationOnKey(Map<?, ?> map, Object keyToFind, Closure cbModFtor) {
         for (Map.Entry<?, ?> entry : map.entrySet()) {
-            if (entry.getKey() == keyToFind) {
+            // allow to perform operation even in case when there is no key used
+            if (!keyToFind) {
+                def newVal = cbModFtor(entry)
+                entry.setValue(newVal)
+            } else if (entry.getKey() == keyToFind) {
                 def newVal = cbModFtor(entry)
                 entry.setValue(newVal)
             }
