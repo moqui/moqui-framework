@@ -17,6 +17,7 @@ import org.moqui.context.ArtifactExecutionInfo;
 import org.moqui.context.ExecutionContext;
 import org.moqui.context.ExecutionContextFactory;
 import org.moqui.entity.EntityDataLoader;
+import org.moqui.resource.ResourceReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -145,6 +146,16 @@ public class Moqui {
         if (argMap.containsKey("raw") || argMap.containsKey("disable-eeca")) edl.disableEntityEca(true);
         if (argMap.containsKey("raw") || argMap.containsKey("disable-audit-log")) edl.disableAuditLog(true);
         if (argMap.containsKey("raw") || argMap.containsKey("disable-data-feed")) edl.disableDataFeed(true);
+
+        // if there is a directory argument inside, use it to load all files within the directory
+        if (argMap.containsKey("directory")) {
+            ResourceReference rr = ec.getResource().getLocationReference(argMap.get("directory"));
+            rr.getChildren().forEach(path -> {
+                String l = path.getLocation();
+                logger.info("Loading file [" + l + "] to list of files being loaded");
+                edl.location(l);
+            });
+        }
 
         // do the data load
         try {
