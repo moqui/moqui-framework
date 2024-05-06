@@ -153,8 +153,12 @@ public class Moqui {
             // must be filled, otherwise raise an exception
             if (Objects.equals(argMap.get("directory"), "none")) throw new IOException("No directory set, cannot load files");
 
+            // directory to load from
+            String directory = argMap.get("directory");
+            logger.info("Loading files from directory [" + directory + "]");
+
             // use resource-reference to list all files
-            ResourceReference rr = ec.getResource().getLocationReference(argMap.get("directory"));
+            ResourceReference rr = ec.getResource().getLocationReference(directory);
             rr.getChildren().forEach(path -> {
                 String l = path.getLocation();
                 logger.info("Loading file [" + l + "] to list of files being loaded");
