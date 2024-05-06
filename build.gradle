@@ -521,7 +521,7 @@ task loadFiles(type: JavaExec) {
     dependsOn checkRuntime, allBuildTasks
     systemProperties = ['moqui.conf':moquiConfDev, 'moqui.runtime':moquiRuntime, 'moqui.log.directory':moquiDefaulLogDirectory]
     workingDir = '.'; jvmArgs = ['-server']; main = '-jar'
-    args = [warName, 'load', "directory=${directory}"]
+    args = [warName, 'load', (project.properties.containsKey('directory') ? "directory=${directory}" : "directory=none")]
 }
 
 task loadTest(type: JavaExec) {
