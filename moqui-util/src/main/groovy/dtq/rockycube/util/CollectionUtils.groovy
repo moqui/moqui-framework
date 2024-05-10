@@ -219,28 +219,48 @@ class CollectionUtils {
      * Perform a modification on value, where key matches my search condition
      * @param values
      * @param map
-     * @param keyToFind
      */
-    public static void performOperationOnKey(Map<?, ?> map, Object keyToFind, Closure cbModFtor) {
-        for (Map.Entry<?, ?> entry : map.entrySet()) {
-            // allow to perform operation even in case when there is no key used
-            if (!keyToFind) {
-                def newVal = cbModFtor(entry)
-                entry.setValue(newVal)
-            } else if (entry.getKey() == keyToFind) {
-                def newVal = cbModFtor(entry)
-                entry.setValue(newVal)
+    public static Object getModifiedVersion(Object value, Closure cbModFtor) {
+        if (value instanceof Map<?, ?>) {
+            Map<?, ?> map = (Map<?, ?>) value;
+            Map<Object, Object> newMap = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                newMap.put(entry.getKey(), getModifiedVersion(entry.getValue(), cbModFtor));
             }
-            if (entry.getValue() instanceof Map<?, ?>) {
-                performOperationOnKey((Map<?, ?>) entry.getValue(), keyToFind, cbModFtor);
+            return newMap;
+        } else if (value instanceof List<?>) {
+            List<?> list = (List<?>)value;
+            List<Object> newList = new ArrayList<>();
+            for (Object item : list) {
+                newList.add(getModifiedVersion(item, cbModFtor));
             }
-            if (entry.getValue() instanceof List<?>) {
-                for (Object item : (List<?>) entry.getValue()) {
-                    if (item instanceof Map<?, ?>) {
-                        performOperationOnKey((Map<?, ?>) item, keyToFind, cbModFtor);
-                    }
+            return newList;
+        } else {
+            return cbModFtor(value);
+        }
+    }
+
+    public static Object getModifiedVersion(Object value, String search, Closure cbModFtor) {
+        if (value instanceof Map<?, ?>) {
+            Map<?, ?> map = (Map<?, ?>) value;
+            Map<Object, Object> newMap = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                if (search == entry.getKey()) {
+                    newMap.put(entry.getKey(), cbModFtor(entry.value));
+                } else {
+                    newMap.put(entry.getKey(), getModifiedVersion(entry.getValue(), search, cbModFtor))
                 }
             }
+            return newMap;
+        } else if (value instanceof List<?>) {
+            List<?> list = (List<?>)value;
+            List<Object> newList = new ArrayList<>();
+            for (Object item : list) {
+                newList.add(getModifiedVersion(item, search, cbModFtor));
+            }
+            return newList;
+        } else {
+            return value;
         }
     }
 }

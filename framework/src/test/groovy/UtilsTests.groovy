@@ -1,3 +1,4 @@
+import com.google.gson.Gson
 import dtq.rockycube.util.CollectionUtils
 import org.apache.commons.io.FileUtils
 import org.moqui.Moqui
@@ -16,6 +17,9 @@ import dtq.rockycube.connection.JsonFieldManipulator
 import spock.lang.Specification
 
 import java.time.LocalDate
+import java.util.regex.Pattern
+
+import static dtq.rockycube.util.CollectionUtils.getModifiedVersion
 
 class UtilsTests extends Specification {
     protected final static Logger logger = LoggerFactory.getLogger(UtilsTests.class)
@@ -303,6 +307,94 @@ class UtilsTests extends Specification {
                     assert ret == (HashMap) expected['result']
                 },
                 logger)
+        then:
+
+        assert true
+    }
+
+    /**
+     * Test replacement of <param_XXX> inside a map
+     */
+    def test_recursive_replace() {
+        when:
+
+        def gson = new Gson()
+
+        TestUtilities.testSingleFile((String[]) ["Utils", "recursive-replace", "expected-replace-results.json"], {Object processed, Object expected, Integer idx->
+            // convert file to map
+            def f = (String) processed['filename']
+            def js = null
+
+            if (f.endsWith('yml')) {
+                def is = TestUtilities.loadTestResource(f)
+                js = TestUtilities.readYamlToLazyMap(is)
+            } else {
+                js = TestUtilities.loadTestResourceJs(f)
+            }
+
+            def recParam = Pattern.compile('<param_(.+)>')
+            def converted = getModifiedVersion(
+                    js as Map,
+                    (val)->{
+                        def m = recParam.matcher((String) val)
+                        def containsParams = m.matches()
+                        if (!containsParams) return val
+                        return "found"
+            })
+
+            // store as file
+            assert converted
+
+            TestUtilities.dumpToDebug((String[])["__temp", "Utils", "recursive-replace", "${(idx + 1).toString().padLeft(3, "0")}.output.json"], {
+                return gson.toJson(converted)
+            })
+
+            def exp = TestUtilities.loadTestResourceJs((String) expected['filename'])
+            // JsonAssert.assertJsonEquals(exp, converted)
+            assert converted == exp
+        })
+
+        then:
+
+        assert true
+    }
+
+    /**
+     * This time using search as well
+     */
+    def test_recursive_replace_w_search() {
+        when:
+
+        def gson = new Gson()
+
+        TestUtilities.testSingleFile((String[]) ["Utils", "recursive-replace", "expected-replace-w-search-results.json"], {Object processed, Object expected, Integer idx->
+            // convert file to map
+            def f = (String) processed['filename']
+            def js = null
+
+            if (f.endsWith('yml')) {
+                def is = TestUtilities.loadTestResource(f)
+                js = TestUtilities.readYamlToLazyMap(is)
+            } else {
+                js = TestUtilities.loadTestResourceJs(f)
+            }
+
+            def converted = getModifiedVersion(js as Map, "stats", (val)-> {
+                return "none"
+            })
+
+            // store as file
+            assert converted
+
+            TestUtilities.dumpToDebug((String[])["__temp", "Utils", "recursive-replace-w-search", "${(idx + 1).toString().padLeft(3, "0")}.output.json"], {
+                return gson.toJson(converted)
+            })
+
+            def exp = TestUtilities.loadTestResourceJs((String) expected['filename'])
+            // JsonAssert.assertJsonEquals(exp, converted)
+            assert converted == exp
+        })
+
         then:
 
         assert true
