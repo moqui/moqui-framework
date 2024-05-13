@@ -5,6 +5,7 @@ import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityDataLoader
 import org.moqui.entity.EntityException
 import org.moqui.entity.EntityFind
+import org.moqui.impl.entity.EntityDbMeta
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityFacadeImpl
 import java.util.regex.Pattern
@@ -144,5 +145,19 @@ class EntityHelper {
         edl.jsonText(jsonText)
         edl.onlyCreate(false)
         return edl.load(messages)
+    }
+
+    /**
+     * This method is used to check/create table in a database, mostly to make sure table exists before using it
+     * @param ec
+     * @param entityName
+     * @param groupName
+     * @return
+     */
+    public static boolean checkRuntime(ExecutionContext ec, String entityName) {
+        def efi = (EntityFacadeImpl) ec.getEntity()
+        def edb = new EntityDbMeta(efi)
+        def edn = efi.getEntityDefinition(entityName)
+        return edb.internalCheckTable(edn, false)
     }
 }
