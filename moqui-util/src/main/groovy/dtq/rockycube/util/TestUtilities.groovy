@@ -394,7 +394,11 @@ public class TestUtilities {
             System.err.println(x);
         }
         // sort
-        files.sort()
+        files.sort { a, b ->
+            def aNumber = a.find(/^(\d+)/)?.toInteger() ?: Integer.MAX_VALUE
+            def bNumber = b.find(/^(\d+)/)?.toInteger() ?: Integer.MAX_VALUE
+            aNumber <=> bNumber
+        }
 
         return files
     }
