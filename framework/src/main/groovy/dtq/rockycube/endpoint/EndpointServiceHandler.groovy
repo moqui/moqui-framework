@@ -194,7 +194,6 @@ class EndpointServiceHandler {
         // do we have an entity?
         // try extracting from table name
         if (!inputEntityName) {
-            String tableName = ec.context.tableName ?: null
             if (!inputTableName) throw new EntityException("Missing both entity and table name")
 
             this.ed = meh.getDefinition(inputTableName)
@@ -207,7 +206,14 @@ class EndpointServiceHandler {
         // set suffix
         if (this.companyId) {
             logger.debug("Company ID [${this.companyId}] is being used when working with entity: ${this.entityName}")
-            this.entityName = "${this.entityName}@${this.companyId}"
+
+            // if entityName contains `@`, modify entity name
+            // correct pattern is `<entityName>@<appendix>__<companyId>`
+            if (this.entityName.contains('@')){
+                this.entityName = "${this.entityName}__${this.companyId}"
+            } else {
+                this.entityName = "${this.entityName}@${this.companyId}"
+            }
         }
     }
 
