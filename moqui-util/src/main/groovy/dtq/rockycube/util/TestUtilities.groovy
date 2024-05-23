@@ -393,6 +393,9 @@ public class TestUtilities {
         } catch (IOException | DirectoryIteratorException x) {
             System.err.println(x);
         }
+        // sort
+        files.sort()
+
         return files
     }
 }
