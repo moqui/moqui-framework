@@ -13,16 +13,16 @@ jobs:
       - name: Checkout runtime
         uses: actions/checkout@v4
         with:
-          repository: dataquest-dev/moqui-runtime
+          repository: rovnanik-sk/moqui-runtime
           path: './runtime'
-          ref: dtq-dev
+          ref: rsk-dev
       - name: Checkout moqui-closure-api
         uses: actions/checkout@v4
         with:
-          repository: dataquest-dev/moqui-closure-api
+          repository: rovnanik-sk/moqui-closure-api
           ssh-key: ${{ secrets.DK_MOQUI_CLOSURE_API }}
           path: './runtime/component/moqui-closure-api'
-          ref: dtq-dev
+          ref: rsk-dev
       - name: Prep - clean database
         run: ./gradlew cleanDb
       - name: Prep - load database
@@ -42,16 +42,16 @@ jobs:
       - name: Checkout runtime
         uses: actions/checkout@v4
         with:
-          repository: dataquest-dev/moqui-runtime
+          repository: rovnanik-sk/moqui-runtime
           path: './runtime'
-          ref: dtq-dev
+          ref: rsk-dev
       - name: Checkout moqui-acc-extractor
         uses: actions/checkout@v4
         with:
-          repository: dataquest-dev/moqui-acc-extractor
+          repository: rovnanik-sk/moqui-acc-extractor
           ssh-key: ${{ secrets.DK_MOQUI_ACC_EXTRACTOR }}
           path: './runtime/component/moqui-acc-extractor'
-          ref: dtq-dev
+          ref: rsk-dev
       - name: Prep - clean database
         run: ./gradlew cleanDb
       - name: Prep - load database
@@ -71,16 +71,16 @@ jobs:
       - name: Checkout runtime
         uses: actions/checkout@v4
         with:
-          repository: dataquest-dev/moqui-runtime
+          repository: rovnanik-sk/moqui-runtime
           path: './runtime'
-          ref: dtq-dev
+          ref: rsk-dev
       - name: Checkout moqui-projects-api
         uses: actions/checkout@v4
         with:
-          repository: dataquest-dev/moqui-projects-api
+          repository: rovnanik-sk/moqui-projects-api
           ssh-key: ${{ secrets.DK_MOQUI_PROJECTS_API }}
           path: './runtime/component/moqui-projects-api'
-          ref: dtq-dev
+          ref: rsk-dev
       - name: Prep - clean database
         run: ./gradlew cleanDb
       - name: Prep - load database
@@ -100,30 +100,30 @@ jobs:
       - name: Checkout runtime
         uses: actions/checkout@v4
         with:
-          repository: dataquest-dev/moqui-runtime
+          repository: rovnanik-sk/moqui-runtime
           path: './runtime'
-          ref: dtq-dev
+          ref: rsk-dev
       - name: Checkout moqui-closure-api
         uses: actions/checkout@v4
         with:
-          repository: dataquest-dev/moqui-closure-api
+          repository: rovnanik-sk/moqui-closure-api
           ssh-key: ${{ secrets.DK_MOQUI_CLOSURE_API }}
           path: './runtime/component/moqui-closure-api'
-          ref: dtq-dev
+          ref: rsk-dev
       - name: Checkout moqui-acc-extractor
         uses: actions/checkout@v4
         with:
-          repository: dataquest-dev/moqui-acc-extractor
+          repository: rovnanik-sk/moqui-acc-extractor
           ssh-key: ${{ secrets.DK_MOQUI_ACC_EXTRACTOR }}
           path: './runtime/component/moqui-acc-extractor'
-          ref: dtq-dev
+          ref: rsk-dev
       - name: Checkout moqui-projects-api
         uses: actions/checkout@v4
         with:
-          repository: dataquest-dev/moqui-projects-api
+          repository: rovnanik-sk/moqui-projects-api
           ssh-key: ${{ secrets.DK_MOQUI_PROJECTS_API }}
           path: './runtime/component/moqui-projects-api'
-          ref: dtq-dev
+          ref: rsk-dev
       - name: Prep - clean database
         run: ./gradlew cleanDb
       - name: Prep - load database
@@ -135,6 +135,6 @@ jobs:
           curl -H "Accept: application/vnd.github.everest-preview+json" \
           -H "Authorization: token ${{ secrets.TESTS_ACTION_DISPATCH }}" \
           --request POST \
-          https://api.github.com/repos/dataquest-dev/\
+          https://api.github.com/repos/rovnanik-sk/\
           aston-stack/actions/workflows/qa_tests.yml/dispatches \
-          --data "{\"ref\":\"refs/heads/dtq-dev\"}"
+          --data "{\"ref\":\"refs/heads/rsk-dev\"}"

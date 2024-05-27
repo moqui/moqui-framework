@@ -13,9 +13,9 @@ jobs:
       - name: Checkout runtime
         uses: actions/checkout@v2
         with:
-          repository: dataquest-dev/moqui-runtime
+          repository: rovnanik-sk/moqui-runtime
           path: './runtime'
-          ref: dtq-dev
+          ref: rsk-dev
       - name: Prep - clean database
         run: ./gradlew cleanDb
       - name: Prep - load database
