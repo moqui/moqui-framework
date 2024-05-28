@@ -393,10 +393,12 @@ public class TestUtilities {
         } catch (IOException | DirectoryIteratorException x) {
             System.err.println(x);
         }
-        // sort
+        // sort file names, not file paths
         files.sort { a, b ->
-            def aNumber = a.find(/^(\d+)/)?.toInteger() ?: Integer.MAX_VALUE
-            def bNumber = b.find(/^(\d+)/)?.toInteger() ?: Integer.MAX_VALUE
+            def aFile = new File(a)
+            def bFile = new File(b)
+            def aNumber = aFile.name.find(/^(\d+)/)?.toInteger() ?: Integer.MAX_VALUE
+            def bNumber = bFile.name.find(/^(\d+)/)?.toInteger() ?: Integer.MAX_VALUE
             aNumber <=> bNumber
         }
 
