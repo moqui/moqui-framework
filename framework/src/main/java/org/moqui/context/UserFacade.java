@@ -105,6 +105,12 @@ public interface UserFacade {
     String getLoginKey();
     String getLoginKey(float expireHours);
 
+    /** Authenticate a user and make active using a SSO access token
+     * @param ssoAccessToken the accessToken provided by the SSO server
+     * @param ssoAuthFlowId the (optional) authFlowId for identifying the SSO server
+     */
+    boolean loginSsoToken(String ssoAccessToken, String ssoAuthFlowId);
+
     /** If no user is logged in consider an anonymous user logged in. For internal purposes to run things that require authentication. */
     boolean loginAnonymousIfNoUser();
 
