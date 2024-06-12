@@ -4,6 +4,8 @@ import com.google.gson.internal.LinkedTreeMap
 import org.apache.groovy.json.internal.LazyMap
 import org.codehaus.groovy.runtime.GStringImpl
 
+import java.util.stream.Collectors
+
 class CollectionUtils {
     /**
      * Return class type
@@ -262,5 +264,18 @@ class CollectionUtils {
         } else {
             return value;
         }
+    }
+
+    static def sortAndConvertMap(HashMap original) {
+        Map sortedMap = original.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        Map.Entry::getValue,
+                        (oldValue, newValue) -> oldValue,
+                        LinkedHashMap::new
+                ))
+
+        return sortedMap
     }
 }
