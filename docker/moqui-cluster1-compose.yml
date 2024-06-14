@@ -169,7 +169,7 @@ services:
      - MYSQL_PASSWORD=moqui
 
   moqui-search:
-    image: opensearchproject/opensearch:2.4.0
+    image: opensearchproject/opensearch:2.14.0
     container_name: moqui-search
     restart: always
     ports:
@@ -194,7 +194,7 @@ services:
         hard: 65536
 
   opensearch-dashboards:
-    image: opensearchproject/opensearch-dashboards:2.4.0
+    image: opensearchproject/opensearch-dashboards:2.14.0
     container_name: opensearch-dashboards
     links:
       - moqui-search
