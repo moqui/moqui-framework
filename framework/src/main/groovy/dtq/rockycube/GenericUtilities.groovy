@@ -12,8 +12,6 @@ import java.util.regex.Pattern
 
 class GenericUtilities {
     protected static Gson gson = new Gson()
-
-
     /**
      * This method expects, there is an FTL template provided,
      * subsequently, using the context, the template is rendered
@@ -183,5 +181,14 @@ class GenericUtilities {
             default:
                 cbProcess(inp)
         }
+    }
+
+    /**
+     * Checks if object is of type InputStream
+     * @param object
+     * @return
+     */
+    public static boolean isInputStream(Object object) {
+        return object instanceof FileInputStream || object instanceof ByteArrayInputStream || object instanceof BufferedInputStream
     }
 }
