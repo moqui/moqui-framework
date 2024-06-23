@@ -58,7 +58,7 @@
     <default-property name="jms.server.operator" value=""/>
     <default-property name="jms.server.operator.password" value=""/>
 
-    <default-property name="rest_endpoint_checked" value="dtq.rockycube.EndpointServices.*"/>
+    <default-property name="rest_endpoint_checked" value="ars.rockycube.EndpointServices.*"/>
 
     <!-- Properties for a database clone; note that without overriding the transactional#clone1 datasource the default works only
         with MySQL and Postgres because of different properties on XADataSource classes of other JDBC drivers -->

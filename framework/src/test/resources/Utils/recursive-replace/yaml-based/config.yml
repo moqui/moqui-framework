@@ -17,7 +17,7 @@ initial:
         - 5
     fillFormData:
       - 1:
-          entity: dtq.plan.PlannedPersonnel
+          entity: ars.plan.PlannedPersonnel
           term:
             - field: planId
               value: <param_planId>
@@ -41,7 +41,7 @@ initial:
             timeZoneInDatesFormat: 'yyyy-MM-dd'
           companyId: true
       - 2:
-          entity: dtq.plan.PlannedVehicle
+          entity: ars.plan.PlannedVehicle
           term:
             - field: planId
               value: <param_planId>
@@ -69,7 +69,7 @@ initial:
             requiredDateFormat: 'yyyy-MM-dd'
             timeZoneInDatesFormat: 'yyyy-MM-dd'
       - 3:
-          entity: dtq.plan.PlannedActivity
+          entity: ars.plan.PlannedActivity
           term:
             - field: planId
               value: <param_planId>
@@ -79,7 +79,7 @@ initial:
             requiredDateFormat: 'yyyy-MM-dd'
             timeZoneInDatesFormat: 'yyyy-MM-dd'
       - 4:
-          entity: dtq.plan.PlannedAction
+          entity: ars.plan.PlannedAction
           term:
             - field: planId
               value: <param_planId>

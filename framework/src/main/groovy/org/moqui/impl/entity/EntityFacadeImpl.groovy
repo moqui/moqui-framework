@@ -42,7 +42,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.w3c.dom.Element
 
-import dtq.rockycube.connection.JsonFieldManipulator
+import ars.rockycube.connection.JsonFieldManipulator
 
 import javax.cache.Cache
 import javax.sql.DataSource

@@ -1,10 +1,10 @@
 import com.google.gson.Gson
-import dtq.synchro.SynchroMaster
+import ars.synchro.SynchroMaster
 import groovy.time.TimeCategory
 import org.moqui.Moqui
 import org.moqui.entity.EntityCondition
 import org.moqui.impl.entity.EntityFacadeImpl
-import dtq.rockycube.util.TestUtilities
+import ars.rockycube.util.TestUtilities
 import org.moqui.context.ExecutionContext
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -77,7 +77,7 @@ class CachedEndpointTests extends Specification {
                     def pageIndex = 1
                     if (processed.size() >=4 ) pageIndex = processed[3]
 
-                    def reportData = ec.service.sync().name("dtq.rockycube.EndpointServices.populate#EntityData").parameters([
+                    def reportData = ec.service.sync().name("ars.rockycube.EndpointServices.populate#EntityData").parameters([
                             entityName: ntt,
                             term      : term,
                             args      : args,
@@ -158,7 +158,7 @@ class CachedEndpointTests extends Specification {
                     // 1. one using entity-cache
                     // 2. the other using old method - the entity loader
 
-                    def srvName = "dtq.rockycube.EndpointServices.populate#EntityData"
+                    def srvName = "ars.rockycube.EndpointServices.populate#EntityData"
                     def argsCache = (HashMap) args
                     argsCache.put("allowICacheQuery", true)
 

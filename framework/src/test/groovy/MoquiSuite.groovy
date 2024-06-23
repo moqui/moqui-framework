@@ -13,7 +13,7 @@
  */
 
 
-import dtq.rockycube.ComplexEntitiesTester
+import ars.rockycube.ComplexEntitiesTester
 import org.junit.AfterClass
 import org.junit.platform.suite.api.SelectClasses
 import org.junit.platform.suite.api.Suite

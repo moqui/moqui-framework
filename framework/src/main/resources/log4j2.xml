@@ -63,8 +63,8 @@ https://logging.apache.org/log4j/2.x/manual/layouts.html#PatternLayout
         <!-- show SQL generated for crud ops: -->
         <Logger name="org.moqui.impl.entity.EntityQueryBuilder" level="${sys:moqui.logger.level.entity_query}"/>
 
-        <!-- dtq custom loggers -->
-        <Logger name="dtq.closure.ClosureHandler" level="${sys:moqui.logger.level.closure}"/>
+        <!-- ars custom loggers -->
+        <Logger name="ars.closure.ClosureHandler" level="${sys:moqui.logger.level.closure}"/>
 
         <Logger name="org.moqui" level="info"/>
 

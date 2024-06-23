@@ -26,7 +26,7 @@
             "fillFormData": [
                 {
                     "1": {
-                        "entity": "dtq.plan.PlannedPersonnel",
+                        "entity": "ars.plan.PlannedPersonnel",
                         "term": [
                             {
                                 "field": "planId",
@@ -58,7 +58,7 @@
                 },
                 {
                     "2": {
-                        "entity": "dtq.plan.PlannedVehicle",
+                        "entity": "ars.plan.PlannedVehicle",
                         "term": [
                             {
                                 "field": "planId",
@@ -94,7 +94,7 @@
                 },
                 {
                     "3": {
-                        "entity": "dtq.plan.PlannedActivity",
+                        "entity": "ars.plan.PlannedActivity",
                         "term": [
                             {
                                 "field": "planId",
@@ -111,7 +111,7 @@
                 },
                 {
                     "4": {
-                        "entity": "dtq.plan.PlannedAction",
+                        "entity": "ars.plan.PlannedAction",
                         "term": [
                             {
                                 "field": "planId",
