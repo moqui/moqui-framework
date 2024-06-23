@@ -1,20 +1,15 @@
-import dtq.rockycube.entity.EntityHelper
-import dtq.rockycube.util.TestUtilities
+import ars.rockycube.entity.EntityHelper
+import ars.rockycube.util.TestUtilities
 import org.moqui.impl.entity.EntityDbMeta
 import org.moqui.impl.entity.EntityFacadeImpl
-
-import java.time.LocalDate
-import junit.framework.Test
 import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
-import org.moqui.impl.ViUtilities
 import org.moqui.impl.entity.EntityDefinition
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import spock.lang.Shared
 import spock.lang.Specification
 
-import java.time.LocalDate
 import java.util.regex.Pattern
 
 class EntityHelperTests extends Specification {

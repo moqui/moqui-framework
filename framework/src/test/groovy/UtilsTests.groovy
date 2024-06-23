@@ -1,5 +1,5 @@
 import com.google.gson.Gson
-import dtq.rockycube.util.CollectionUtils
+import ars.rockycube.util.CollectionUtils
 import org.apache.commons.io.FileUtils
 import org.moqui.Moqui
 import org.moqui.entity.EntityCondition
@@ -10,16 +10,16 @@ import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.condition.ConditionField
 import org.moqui.util.CollectionUtilities
 import org.moqui.util.MNode
-import dtq.rockycube.util.TestUtilities
+import ars.rockycube.util.TestUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import dtq.rockycube.connection.JsonFieldManipulator
+import ars.rockycube.connection.JsonFieldManipulator
 import spock.lang.Specification
 
 import java.time.LocalDate
 import java.util.regex.Pattern
 
-import static dtq.rockycube.util.CollectionUtils.getModifiedVersion
+import static ars.rockycube.util.CollectionUtils.getModifiedVersion
 
 class UtilsTests extends Specification {
     protected final static Logger logger = LoggerFactory.getLogger(UtilsTests.class)

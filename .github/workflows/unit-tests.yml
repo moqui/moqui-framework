@@ -23,12 +23,12 @@ jobs:
       - name: Run tests (MoquiSuite)
         run: ./gradlew test --tests MoquiSuite
       - name: Run tests (BulkEntityTester)
-        run: ./gradlew test --tests dtq.rockycube.BulkEntityTester
+        run: ./gradlew test --tests ars.rockycube.BulkEntityTester
       - name: Run tests (ComplexEntitiesTester)
-        run: ./gradlew test --tests dtq.rockycube.ComplexEntitiesTester
+        run: ./gradlew test --tests ars.rockycube.ComplexEntitiesTester
       - name: Run tests (DynamicRelationshipTester)
-        run: ./gradlew test --tests dtq.rockycube.DynamicRelationshipTester
+        run: ./gradlew test --tests ars.rockycube.DynamicRelationshipTester
       - name: Run tests (PersonEntityTester)
-        run: ./gradlew test --tests dtq.rockycube.PersonEntityTester
+        run: ./gradlew test --tests ars.rockycube.PersonEntityTester
       - name: Run tests (SmartFindTester)
-        run: ./gradlew test --tests dtq.rockycube.SmartFindTester
+        run: ./gradlew test --tests ars.rockycube.SmartFindTester

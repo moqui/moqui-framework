@@ -1,5 +1,5 @@
 import com.google.gson.Gson
-import dtq.rockycube.entity.EntityHelper
+import ars.rockycube.entity.EntityHelper
 import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
 import org.moqui.impl.ViUtilities

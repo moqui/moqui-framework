@@ -41,7 +41,7 @@ along with this software (see the LICENSE.md file). If not, see
 
     <!-- Access to endpoint services -->
     <moqui.security.ArtifactGroup artifactGroupId="GenericEndpointAccess" description="Access to endpoint services"/>
-    <moqui.security.ArtifactGroupMember artifactGroupId="GenericEndpointAccess" artifactName="dtq.rockycube.EndpointServices.populate#EntityData"
+    <moqui.security.ArtifactGroupMember artifactGroupId="GenericEndpointAccess" artifactName="ars.rockycube.EndpointServices.populate#EntityData"
                                         nameIsPattern="N" artifactTypeEnumId="AT_SERVICE" inheritAuthz="N"/>
     <moqui.security.ArtifactAuthz artifactAuthzId="GenericEndpointAccessADMIN" userGroupId="ADMIN" artifactGroupId="GenericEndpointAccess"
                                   authzTypeEnumId="AUTHZT_ALWAYS" authzActionEnumId="AUTHZA_ALL"/>

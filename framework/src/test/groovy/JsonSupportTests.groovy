@@ -2,7 +2,7 @@ import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import dtq.rockycube.entity.EntityHelper
+import ars.rockycube.entity.EntityHelper
 
 import spock.lang.Shared
 import spock.lang.Specification
@@ -70,7 +70,7 @@ class JsonSupportTests extends Specification {
         assert newStoredJson
 
         // load JSON via EndpointService
-        def response = ec.service.sync().name("dtq.rockycube.EndpointServices.populate#EntityData").disableAuthz().parameters([
+        def response = ec.service.sync().name("ars.rockycube.EndpointServices.populate#EntityData").disableAuthz().parameters([
                 entityName: "moqui.test.TestEntity",
                 term      : [[field:'testId', value:newStoredJson.testId]]
         ]).call() as HashMap

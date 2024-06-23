@@ -33,9 +33,8 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.sql.*;
 import java.util.*;
-import java.util.stream.Collectors;
 
-import static dtq.rockycube.util.CollectionUtils.convertLazyMap;
+import static ars.rockycube.util.CollectionUtils.convertLazyMap;
 
 public class FieldInfo {
     protected final static Logger logger = LoggerFactory.getLogger(FieldInfo.class);

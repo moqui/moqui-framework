@@ -13,8 +13,8 @@
  */
 package org.moqui.impl
 
-import dtq.rockycube.entity.ConditionHandler
-import dtq.rockycube.query.SqlExecutor
+import ars.rockycube.entity.ConditionHandler
+import ars.rockycube.query.SqlExecutor
 import groovy.json.JsonBuilder
 import groovy.json.JsonSlurper
 import org.apache.groovy.json.internal.LazyMap
