@@ -1,25 +1,6 @@
 {
-    "keyword": "plan-impact",
-    "storageAppendix": "plan_cost_estimate",
-    "symlinks": {
-        "initial": "preProcessed"
-    },
-    "detailProcessing": {
-        "initial": {
-            "type": "calc",
-            "procedure": "procedures.first"
-        }
-    },
-    "procedures": {
-        "first": {
-            "a": "ext.ast.budget.simple_budget_aggregator"
-        }
-    },
     "initial": {
         "filler": {
-            "mergeStrategy": {
-                "type": "mix"
-            },
             "fillFormData": [
                 {
                     "1": {
@@ -27,7 +8,7 @@
                         "term": [
                             {
                                 "field": "planId",
-                                "value": "not-found-in-context"
+                                "value": "02"
                             }
                         ],
                         "args": {
@@ -59,7 +40,7 @@
                         "term": [
                             {
                                 "field": "planId",
-                                "value": "not-found-in-context"
+                                "value": "unknown_plan"
                             }
                         ],
                         "companyId": true,
@@ -95,7 +76,7 @@
                         "term": [
                             {
                                 "field": "planId",
-                                "value": "not-found-in-context"
+                                "value": "default_value"
                             }
                         ],
                         "companyId": true,
@@ -112,7 +93,7 @@
                         "term": [
                             {
                                 "field": "planId",
-                                "value": "not-found-in-context"
+                                "value": "1"
                             }
                         ],
                         "companyId": true,
@@ -140,8 +121,5 @@
                 }
             ]
         }
-    },
-    "updating": {
-        "allowOverwrite": true
     }
 }

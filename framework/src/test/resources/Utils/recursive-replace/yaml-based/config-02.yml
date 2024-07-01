@@ -1,24 +1,11 @@
-keyword: plan-impact
-storageAppendix: plan_cost_estimate
-symlinks:
-  initial: preProcessed
-detailProcessing:
-  initial:
-    type: calc
-    procedure: procedures.first
-procedures:
-  first:
-    a: ext.ast.budget.simple_budget_aggregator
 initial:
   filler:
-    mergeStrategy:
-      type: mix
     fillFormData:
       - 1:
           entity: ars.plan.PlannedPersonnel
           term:
             - field: planId
-              value: <param_planId>
+              value: <param_planId?:02>
           args:
             allowTimestamps: false
             allowedFields:
@@ -42,7 +29,7 @@ initial:
           entity: ars.plan.PlannedVehicle
           term:
             - field: planId
-              value: <param_planId>
+              value: <param_planId?:unknown_plan>
           companyId: true
           args:
             allowTimestamps: false
@@ -70,7 +57,7 @@ initial:
           entity: ars.plan.PlannedActivity
           term:
             - field: planId
-              value: <param_planId>
+              value: <param_planId?:default_value>
           companyId: true
           args:
             allowTimestamps: false
@@ -80,7 +67,7 @@ initial:
           entity: ars.plan.PlannedAction
           term:
             - field: planId
-              value: <param_planId>
+              value: <param_planId?:1>
           companyId: true
           args:
             allowTimestamps: false
@@ -94,5 +81,3 @@ initial:
           companyId: false
           args:
             allowTimestamps: false
-updating:
-  allowOverwrite: true

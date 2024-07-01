@@ -1,5 +1,7 @@
 import com.google.gson.Gson
 import ars.rockycube.util.CollectionUtils
+import com.google.gson.GsonBuilder
+import net.javacrumbs.jsonunit.core.Option
 import org.apache.commons.io.FileUtils
 import org.moqui.Moqui
 import org.moqui.entity.EntityCondition
@@ -15,6 +17,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import ars.rockycube.connection.JsonFieldManipulator
 import spock.lang.Specification
+import net.javacrumbs.jsonunit.JsonAssert
 
 import java.time.LocalDate
 import java.util.regex.Pattern
@@ -318,8 +321,12 @@ class UtilsTests extends Specification {
     def test_recursive_replace() {
         when:
 
-        def gson = new Gson()
+        def gson = new GsonBuilder().setPrettyPrinting().create()
 
+        // mimic a context, for searching
+        def contextToSearchIn = [:]
+
+        // iterate
         TestUtilities.testSingleFile((String[]) ["Utils", "recursive-replace", "expected-replace-results.json"], {Object processed, Object expected, Integer idx->
             // convert file to map
             def f = (String) processed['filename']
@@ -339,20 +346,42 @@ class UtilsTests extends Specification {
                         def m = recParam.matcher((String) val)
                         def containsParams = m.matches()
                         if (!containsParams) return val
-                        return "found"
+
+                        // check for default value if nothing is found among passed parameters
+                        def paramName = m.group(1)
+
+                        // return value from the context, if there is such
+                        if (contextToSearchIn.containsKey(paramName)) return "found"
+
+                        // check for default value inside the parameter's name
+                        // split the paramName using the `elvis` operator and return the default value
+                        if (paramName.contains('?:')){
+                            def p = paramName.split('/?:')
+                            return p[1]
+                        }
+
+                        return "not-found-in-context"
             })
 
             // store as file
             assert converted
 
+            // store result in a JSON
             TestUtilities.dumpToDebug((String[])["__temp", "Utils", "recursive-replace", "${(idx + 1).toString().padLeft(3, "0")}.output.json"], {
                 return gson.toJson(converted)
             })
 
+            // expected
             def exp = TestUtilities.loadTestResourceJs((String) expected['filename'])
-            // JsonAssert.assertJsonEquals(exp, converted)
-            assert converted == exp
-        })
+
+            // store expected in a JSON
+            TestUtilities.dumpToDebug((String[])["__temp", "Utils", "recursive-replace", "${(idx + 1).toString().padLeft(3, "0")}.expected.json"], {
+                return gson.toJson(exp)
+            })
+
+            JsonAssert.setOptions(Option.IGNORING_ARRAY_ORDER, Option.IGNORING_EXTRA_FIELDS)
+            JsonAssert.assertJsonEquals(exp, converted)
+        }, logger)
 
         then:
 
