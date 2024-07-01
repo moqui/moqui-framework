@@ -4,7 +4,7 @@
             "fillFormData": [
                 {
                     "1": {
-                        "entity": "ars.plan.PlannedPersonnel",
+                        "location": "file:///home/monthly-closure/add-ons.json",
                         "term": [
                             {
                                 "field": "planId",

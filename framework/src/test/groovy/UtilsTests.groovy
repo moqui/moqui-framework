@@ -356,7 +356,7 @@ class UtilsTests extends Specification {
                         // check for default value inside the parameter's name
                         // split the paramName using the `elvis` operator and return the default value
                         if (paramName.contains('?:')){
-                            def p = paramName.split('/?:')
+                            def p = paramName.split("\\?:")
                             return p[1]
                         }
 
