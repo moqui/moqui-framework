@@ -971,14 +971,14 @@ task createComponent {
                     def myaddonsFile = file('myaddons.xml')
                     if (myaddonsFile.exists()){
                         // Iterate through myaddons file and delete the lines that are </addons>
-                        def iterator = myaddonsFile.readLines().iterator()
+                        // Read the lines from the file
+                        def lines = myaddonsFile.readLines()
 
-                        while (iterator.hasNext()) {
-                            def line = iterator.next()
-                            if (line.contains("</addons>")) {
-                                iterator.remove()
-                            }
-                        }
+                        // Filter out the lines that contain </addons>
+                        def filteredLines = lines.findAll { !it.contains("</addons>") }
+
+                        // Write the filtered lines back to the file
+                        myaddonsFile.text = filteredLines.join('\n')
                     } else {
                         println "myaddons.xml not found. Creating one\nEnter repository github (g), github-ssh (GS), bitbucket (b), or bitbucket-ssh (bs)"
                         def repositoryInput = System.in.newReader().readLine()
