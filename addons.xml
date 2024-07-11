@@ -39,6 +39,7 @@
 
     <!-- Example Component -->
     <component name="example" group="moqui" version="3.0.0" branch="master"/>
+    <component name="start" group="moqui" version="1.0.0" branch="master"/>
 
     <!-- Moqui Tool Components -->
     <component name="moqui-aws" group="moqui" version="1.1.0" branch="master"/>
