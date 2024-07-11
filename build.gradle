@@ -944,19 +944,21 @@ task createComponent {
 
                     def grgit = Grgit.init(dir: newComponent.path)
                     grgit.add(patterns: ['.'])
-//                    grgit.commit(message: 'Initial commit', sign: false)
+                    // Can't get signing to work easily. If signing works well then might as well commit
+//                    grgit.commit(message: 'Initial commit')
                     println "Selected yes, so git is initialized\n"
-//                    println "To push to remote repository, type the git remote url or enter to skip"
-//                    def remoteUrl = System.in.newReader().readLine()
-//                    if (remoteUrl != '') {
-//                        grgit.remote.add(name: 'origin', url: remoteUrl)
-//                        def branch = grgit.branch.current().name
-//                        grgit.push(remote: 'origin', refsOrSpecs: [':refs/branch/'+branch])
-//                    }
+                    println "To setup the git remote origin, type the git remote url or enter to skip"
+                    def remoteUrl = System.in.newReader().readLine()
+                    if (remoteUrl != '') {
+                        grgit.remote.add(name: 'origin', url: remoteUrl)
+                        println "Run the following to push the git repository:\ncd runtime/component/${component} && git commit -m 'Initial commit' && git push && cd ../../.."
+                    } else {
+                        println "Run the following to push the git repository:\ncd runtime/component/${component} && git commit -m 'Initial commit' && git remote add origin git@github.com:yourgroup/${component} && git push && cd ../../.."
+                    }
                 } else if (gitInput == 'n' || gitInput == 'N') {
                     new File(newComponent, '.git').deleteDir()
                     println "Selected no, so git is not initialized\n"
-                    println "Run the following to initialize git repository:\ncd runtime/component/${component} && git init && git add . && git commit -m 'Initial commit' && cd ../../.."
+                    println "Run the following to push the git repository:\ncd runtime/component/${component} && git commit -m 'Initial commit' && git remote add origin git@github.com:yourgroup/${component} && git push && cd ../../.."
                 } else {
                     println "Invalid input. Try again"
                     newComponent.deleteDir()
