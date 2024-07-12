@@ -901,13 +901,17 @@ task createComponent {
                 print "\n\n"
                 println "Select rest api (r), screens (s), or both (B):"
                 def componentInput = System.in.newReader().readLine()
-                logger.warn("componentInput: ${componentInput}")
-                logger.warn("componentInput: ${componentInput == ''}")
 
                 if (componentInput == 'r') {
                     new File(newComponent, 'screen').deleteDir()
                     new File(newComponent, 'template').deleteDir()
                     new File(newComponent, 'data/AppSeedData.xml').delete()
+                    new File(newComponent, 'MoquiConf.xml').delete()
+                    def moquiConf = new File(newComponent, 'MoquiConf.xml')
+                    moquiConf.append("<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n" +
+                            "<!-- No copyright or license for configuration file, details here are not considered a creative work. -->\n" +
+                            "<moqui-conf xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:noNamespaceSchemaLocation=\"http://moqui.org/xsd/moqui-conf-3.xsd\">\n" +
+                            "</moqui-conf>")
                     println "Selected rest api so, deleted screen, template, and AppSeedData.xml\n"
                 } else if (componentInput == 's') {
                     new File(newComponent, "services/${component}.rest.xml").delete()
