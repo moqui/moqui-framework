@@ -179,7 +179,7 @@ class UserFacadeImpl implements UserFacade {
             if (ssoAuthFlowId)
                 ssoAuthFlowId = ssoAuthFlowId.trim()
             if (!ssoAccessToken.isEmpty() && !"null".equals(ssoAccessToken) && !"undefined".equals(ssoAccessToken))
-                this.loginSsoToken(ssoAccessToken, ssoAuthFlowId)
+                this.loginSsoToken(ssoAccessToken, ssoAuthFlowId, request, response)
         }
         if (currentInfo.username == null && secureParameters.authUsername) {
             // try the Moqui-specific parameters for instant login
@@ -811,13 +811,13 @@ class UserFacadeImpl implements UserFacade {
         return loginKey
     }
 
-    @Override boolean loginSsoToken(String ssoAccessToken, String ssoAuthFlowId) {
+    @Override boolean loginSsoToken(String ssoAccessToken, String ssoAuthFlowId, HttpServletRequest request, HttpServletResponse response) {
         if (eci.resourceFacade.ssoTokenHandlerFactory == null) {
             eci.logger.error("No SingleSignOnTokenLoginHandler ToolFactory configured, cannot handle SsoToken login")
             return false
         }
         final SingleSignOnTokenLoginHandler ssoTokenLoginHandler = eci.resourceFacade.ssoTokenHandlerFactory.getInstance()
-        return ssoTokenLoginHandler.handleSsoLoginToken(eci, ssoAccessToken, ssoAuthFlowId)
+        return ssoTokenLoginHandler.handleSsoLoginToken(eci, request, response, ssoAccessToken, ssoAuthFlowId)
     }
 
     @Override boolean loginAnonymousIfNoUser() {

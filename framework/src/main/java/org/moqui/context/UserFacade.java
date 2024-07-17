@@ -15,6 +15,8 @@ package org.moqui.context;
 
 import org.moqui.entity.EntityValue;
 
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.sql.Timestamp;
 import java.util.*;
 
@@ -109,7 +111,7 @@ public interface UserFacade {
      * @param ssoAccessToken the accessToken provided by the SSO server
      * @param ssoAuthFlowId the (optional) authFlowId for identifying the SSO server
      */
-    boolean loginSsoToken(String ssoAccessToken, String ssoAuthFlowId);
+    boolean loginSsoToken(String ssoAccessToken, String ssoAuthFlowId, HttpServletRequest request, HttpServletResponse response);
 
     /** If no user is logged in consider an anonymous user logged in. For internal purposes to run things that require authentication. */
     boolean loginAnonymousIfNoUser();
