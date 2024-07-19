@@ -570,7 +570,7 @@ class RestApi {
         PathNode parent
         List<String> fullPathList = []
         Set<String> pathParameters = new LinkedHashSet<String>()
-        String trackArtifactHit
+        Boolean trackArtifactHit
 
         int childPaths = 0
         int childMethods = 0
@@ -590,7 +590,7 @@ class RestApi {
             fullPathList.add(isId ? "{${name}}".toString() : name)
             if (isId) pathParameters.add(name)
             requireAuthentication = node.attribute("require-authentication") ?: parent?.requireAuthentication ?: "true"
-            trackArtifactHit = node.attribute("track-artifact-hit") ?: parent?.trackArtifactHit ?: "false"
+            trackArtifactHit = node.attribute("track-artifact-hit") ?: parent?.trackArtifactHit ?: false
 
             for (MNode childNode in node.children) {
                 if (childNode.name == "method") {
@@ -660,7 +660,7 @@ class RestApi {
                 loggedInAnonymous = ec.userFacade.loginAnonymousIfNoUser()
             }
 
-            aei.setTrackArtifactHit("true".equals(trackArtifactHit))
+            aei.setTrackArtifactHit(trackArtifactHit)
             aei.setAuthzReqdAndIsAccess(!loggedInAnonymous, true)
 
             try {
