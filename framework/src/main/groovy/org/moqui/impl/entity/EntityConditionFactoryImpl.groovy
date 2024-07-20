@@ -99,6 +99,12 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
     EntityCondition makeConditionToField(String fieldName, ComparisonOperator operator, String toFieldName) {
         return new FieldToFieldCondition(new ConditionField(fieldName), operator, new ConditionField(toFieldName))
     }
+    @Override
+    EntityCondition makeConditionToField(String fieldName, ComparisonOperator operator, String toFieldName, Object value) {
+        // TODO: This needs some work
+        return null
+        // return new FieldToFieldCondition(new ConditionField(fieldName), operator, new ConditionField(toFieldName))
+    }
 
     @Override
     EntityCondition makeCondition(List<EntityCondition> conditionList) {
@@ -316,6 +322,9 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
             case "ENTCO_NOT_BETWEEN": return EntityCondition.NOT_BETWEEN
             case "ENTCO_LIKE": return EntityCondition.LIKE
             case "ENTCO_NOT_LIKE": return EntityCondition.NOT_LIKE
+            case "ENTCO_BEGINS_FIELD": return EntityCondition.BEGINS_FIELD
+            case "ENTCO_ENDS_FIELD": return EntityCondition.ENDS_FIELD
+            case "ENTCO_CONTAINS_FIELD": return EntityCondition.CONTAINS_FIELD
             case "ENTCO_IS_NULL": return EntityCondition.IS_NULL
             case "ENTCO_IS_NOT_NULL": return EntityCondition.IS_NOT_NULL
             default: return null
@@ -361,8 +370,27 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
         if (efi.ecfi.resourceFacade.condition(ignore, null)) return null
 
         if (toFieldName != null && toFieldName.length() > 0) {
-            EntityCondition ec = makeConditionToField(fieldName, getComparisonOperator(operator), toFieldName)
+            EntityCondition ec = null;
+            ComparisonOperator compOp = getComparisonOperator(operator)
+            if (compOp == ComparisonOperator.BEGINS_FIELD || compOp == ComparisonOperator.ENDS_FIELD || compOp == ComparisonOperator.CONTAINS_FIELD) {
+                Object condValue
+                if (value != null && value.length() > 0) {
+                    // NOTE: have to convert value (if needed) later on because we don't know which entity/field this is for, or change to pass in entity?
+                    condValue = value
+                } else {
+                    condValue = fromObj
+                }
+                logger.warn(value)
+                logger.warn(fromObj.toString())
+                logger.warn(condValue.toString())
+
+                // TODO: This also needs some work!
+                ec = makeConditionWhere("'moc.elgoog.fdsa' LIKE prefix || '%'")
+            } else {
+                ec = makeConditionToField(fieldName, compOp, toFieldName)
+            }
             if (ignoreCase) ec.ignoreCase()
+
             return ec
         } else {
             Object condValue
@@ -492,6 +520,15 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
 
             "not-like":ComparisonOperator.NOT_LIKE,
             "NOT LIKE":ComparisonOperator.NOT_LIKE,
+
+            "begins-field":ComparisonOperator.BEGINS_FIELD,
+            "BEGINS FIELD":ComparisonOperator.BEGINS_FIELD,
+
+            "ends-field":ComparisonOperator.ENDS_FIELD,
+            "ENDS FIELD":ComparisonOperator.ENDS_FIELD,
+
+            "contains-field":ComparisonOperator.CONTAINS_FIELD,
+            "CONTAINS FIELD":ComparisonOperator.CONTAINS_FIELD,
 
             "is-null":ComparisonOperator.IS_NULL,
             "IS NULL":ComparisonOperator.IS_NULL,

@@ -26,6 +26,9 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.Enumeration description="not-between" enumCode="NOT_BETWEEN" enumId="ENTCO_NOT_BETWEEN" enumTypeId="ComparisonOperator"/>
     <moqui.basic.Enumeration description="like" enumCode="LIKE" enumId="ENTCO_LIKE" enumTypeId="ComparisonOperator"/>
     <moqui.basic.Enumeration description="not-like" enumCode="NOT_LIKE" enumId="ENTCO_NOT_LIKE" enumTypeId="ComparisonOperator"/>
+    <moqui.basic.Enumeration description="begins-field" enumCode="BEGINS_FIELD" enumId="ENTCO_BEGINS_FIELD" enumTypeId="ComparisonOperator"/>
+    <moqui.basic.Enumeration description="ends-field" enumCode="ENDS_FIELD" enumId="ENTCO_ENDS_FIELD" enumTypeId="ComparisonOperator"/>
+    <moqui.basic.Enumeration description="contains-field" enumCode="CONTAINS_FIELD" enumId="ENTCO_CONTAINS_FIELD" enumTypeId="ComparisonOperator"/>
     <moqui.basic.Enumeration description="is-null" enumCode="IS_NULL" enumId="ENTCO_IS_NULL" enumTypeId="ComparisonOperator"/>
     <moqui.basic.Enumeration description="is-not-null" enumCode="IS_NOT_NULL" enumId="ENTCO_IS_NOT_NULL" enumTypeId="ComparisonOperator"/>
 </entity-facade-xml>

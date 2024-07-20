@@ -37,6 +37,9 @@ public interface EntityCondition extends Externalizable {
     ComparisonOperator NOT_BETWEEN = ComparisonOperator.NOT_BETWEEN;
     ComparisonOperator LIKE = ComparisonOperator.LIKE;
     ComparisonOperator NOT_LIKE = ComparisonOperator.NOT_LIKE;
+    ComparisonOperator BEGINS_FIELD = ComparisonOperator.BEGINS_FIELD;
+    ComparisonOperator ENDS_FIELD = ComparisonOperator.ENDS_FIELD;
+    ComparisonOperator CONTAINS_FIELD = ComparisonOperator.CONTAINS_FIELD;
     ComparisonOperator IS_NULL = ComparisonOperator.IS_NULL;
     ComparisonOperator IS_NOT_NULL = ComparisonOperator.IS_NOT_NULL;
 
@@ -45,6 +48,7 @@ public interface EntityCondition extends Externalizable {
 
     enum ComparisonOperator { EQUALS, NOT_EQUAL,
         LESS_THAN, GREATER_THAN, LESS_THAN_EQUAL_TO, GREATER_THAN_EQUAL_TO,
+        BEGINS_FIELD, ENDS_FIELD, CONTAINS_FIELD,
         IN, NOT_IN, BETWEEN, NOT_BETWEEN, LIKE, NOT_LIKE, IS_NULL, IS_NOT_NULL }
 
     enum JoinOperator { AND, OR }

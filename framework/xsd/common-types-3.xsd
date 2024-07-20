@@ -103,6 +103,9 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:enumeration value="not-between"/>
         <xs:enumeration value="like"/>
         <xs:enumeration value="not-like"/>
+        <xs:enumeration value="begins-field"/>
+        <xs:enumeration value="ends-field"/>
+        <xs:enumeration value="contains-field"/>
         <xs:enumeration value="is-null"/>
         <xs:enumeration value="is-not-null"/>
     </xs:restriction></xs:simpleType>
