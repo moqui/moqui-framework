@@ -62,7 +62,7 @@ along with this software (see the LICENSE.md file). If not, see
     <Geo geoCodeAlpha3="CAF" geoCodeAlpha2="CF" geoId="CAF" geoName="Central African Republic" geoCodeNumeric="140" geoTypeEnumId="GEOT_COUNTRY"/>
     <Geo geoCodeAlpha3="TCD" geoCodeAlpha2="TD" geoId="TCD" geoName="Chad" geoCodeNumeric="148" geoTypeEnumId="GEOT_COUNTRY"/>
     <Geo geoCodeAlpha3="CHL" geoCodeAlpha2="CL" geoId="CHL" geoName="Chile" geoCodeNumeric="152" geoTypeEnumId="GEOT_COUNTRY"/>
-    <Geo geoCodeAlpha3="CHN" geoCodeAlpha2="CN" geoId="CHN" geoName="China" geoCodeNumeric="156" geoTypeEnumId="GEOT_COUNTRY"/>
+    <Geo geoCodeAlpha3="CHN" geoCodeAlpha2="CN" geoId="CHN" geoName="中国" geoCodeNumeric="156" geoTypeEnumId="GEOT_COUNTRY"/>
     <Geo geoCodeAlpha3="CXR" geoCodeAlpha2="CX" geoId="CXR" geoName="Christmas Island" geoCodeNumeric="162" geoTypeEnumId="GEOT_COUNTRY"/>
     <Geo geoCodeAlpha3="CCK" geoCodeAlpha2="CC" geoId="CCK" geoName="Cocos (keeling) Islands" geoCodeNumeric="166" geoTypeEnumId="GEOT_COUNTRY"/>
     <Geo geoCodeAlpha3="COL" geoCodeAlpha2="CO" geoId="COL" geoName="Colombia" geoCodeNumeric="170" geoTypeEnumId="GEOT_COUNTRY"/>

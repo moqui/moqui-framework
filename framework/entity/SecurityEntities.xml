@@ -109,7 +109,7 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Allow" enumId="AUTHZT_ALLOW" enumTypeId="AuthzType"/>
             <moqui.basic.Enumeration description="Deny (overrides Allow)" enumId="AUTHZT_DENY" enumTypeId="AuthzType"/>
             <moqui.basic.Enumeration description="Always Allow (overrides Deny)" enumId="AUTHZT_ALWAYS" enumTypeId="AuthzType"/>
-            <!-- needed? <moqui.basic.Enumeration description="Not Applicable" enumId="AUTHZT_NA" enumTypeId="AuthzType"/> -->
+            <!-- needed? <moqui.basic.Enumeration description="不可用" enumId="AUTHZT_NA" enumTypeId="AuthzType"/> -->
 
             <moqui.basic.EnumerationType description="Authorization Action" enumTypeId="AuthzAction"/>
             <moqui.basic.Enumeration description="View" enumCode="VIEW" enumId="AUTHZA_VIEW" enumTypeId="AuthzAction"/>
@@ -292,7 +292,7 @@ along with this software (see the LICENSE.md file). If not, see
         <index name="USERACCT_USERNAME" unique="true"><index-field name="username"/></index>
         <index name="USERACCT_EMAILADDR" unique="true"><index-field name="emailAddress"/></index>
         <seed-data>
-            <moqui.security.UserAccount userId="_NA_" username="_NA_" userFullName="Not Applicable" currentPassword="" disabled="Y"/>
+            <moqui.security.UserAccount userId="_NA_" username="_NA_" userFullName="不可用" currentPassword="" disabled="Y"/>
         </seed-data>
     </entity>
     <view-entity entity-name="UserAccountAndGroup" package="moqui.security">

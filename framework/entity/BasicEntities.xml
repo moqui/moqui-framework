@@ -61,23 +61,23 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="many" related="moqui.basic.EnumGroupMember" short-alias="groupMembers">
             <key-map field-name="enumId" related="enumGroupEnumId"/></relationship>
         <seed-data>
-            <moqui.basic.EnumerationType enumTypeId="_NA_" description="Not Applicable"/>
-            <moqui.basic.Enumeration enumId="_NA_" enumTypeId="_NA_" description="Not Applicable"/>
+            <moqui.basic.EnumerationType enumTypeId="_NA_" description="不可用"/>
+            <moqui.basic.Enumeration enumId="_NA_" enumTypeId="_NA_" description="不可用"/>
 
-            <moqui.basic.EnumerationType description="Boolean (Yes/No)" enumTypeId="BooleanYN"/>
-            <moqui.basic.Enumeration description="Yes" enumId="BlY" enumTypeId="BooleanYN"/>
-            <moqui.basic.Enumeration description="No" enumId="BlN" enumTypeId="BooleanYN"/>
+            <moqui.basic.EnumerationType description="布尔 (是/否)" enumTypeId="BooleanYN"/>
+            <moqui.basic.Enumeration description="是" enumId="BlY" enumTypeId="BooleanYN"/>
+            <moqui.basic.Enumeration description="否" enumId="BlN" enumTypeId="BooleanYN"/>
 
             <!-- NOTE: It is very important that these remain in the sequence order (1-Monday through 7-Sunday)
                  so that ZDT calculations (which return ISO8601 values for the day of the week) work properly. -->
-            <moqui.basic.EnumerationType description="Day of Week" enumTypeId="DayOfWeek"/>
-            <moqui.basic.Enumeration description="Monday" enumId="DowMonday" sequenceNum="1" enumCode="MONDAY" enumTypeId="DayOfWeek"/>
-            <moqui.basic.Enumeration description="Tuesday" enumId="DowTuesday" sequenceNum="2" enumCode="TUESDAY" enumTypeId="DayOfWeek"/>
-            <moqui.basic.Enumeration description="Wednesday" enumId="DowWednesday" sequenceNum="3" enumCode="WEDNESDAY" enumTypeId="DayOfWeek"/>
-            <moqui.basic.Enumeration description="Thursday" enumId="DowThursday" sequenceNum="4" enumCode="THURSDAY" enumTypeId="DayOfWeek"/>
-            <moqui.basic.Enumeration description="Friday" enumId="DowFriday" sequenceNum="5" enumCode="FRIDAY" enumTypeId="DayOfWeek"/>
-            <moqui.basic.Enumeration description="Saturday" enumId="DowSaturday" sequenceNum="6" enumCode="SATURDAY" enumTypeId="DayOfWeek"/>
-            <moqui.basic.Enumeration description="Sunday" enumId="DowSunday" sequenceNum="7" enumCode="SUNDAY" enumTypeId="DayOfWeek"/>
+            <moqui.basic.EnumerationType description="一周中的某一天" enumTypeId="DayOfWeek"/>
+            <moqui.basic.Enumeration description="周一" enumId="DowMonday" sequenceNum="1" enumCode="MONDAY" enumTypeId="DayOfWeek"/>
+            <moqui.basic.Enumeration description="周二" enumId="DowTuesday" sequenceNum="2" enumCode="TUESDAY" enumTypeId="DayOfWeek"/>
+            <moqui.basic.Enumeration description="周三" enumId="DowWednesday" sequenceNum="3" enumCode="WEDNESDAY" enumTypeId="DayOfWeek"/>
+            <moqui.basic.Enumeration description="周四" enumId="DowThursday" sequenceNum="4" enumCode="THURSDAY" enumTypeId="DayOfWeek"/>
+            <moqui.basic.Enumeration description="周五" enumId="DowFriday" sequenceNum="5" enumCode="FRIDAY" enumTypeId="DayOfWeek"/>
+            <moqui.basic.Enumeration description="周六" enumId="DowSaturday" sequenceNum="6" enumCode="SATURDAY" enumTypeId="DayOfWeek"/>
+            <moqui.basic.Enumeration description="周日" enumId="DowSunday" sequenceNum="7" enumCode="SUNDAY" enumTypeId="DayOfWeek"/>
         </seed-data>
         <master><detail relationship="type"/><detail relationship="parent"/><detail relationship="related"/></master>
     </entity>
@@ -179,7 +179,7 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="geoId" related="toGeoId"/></relationship>
         <seed-data>
             <!-- A placeholder for when there is no Geo -->
-            <moqui.basic.Geo geoId="_NA_" geoName="Not Applicable" geoCodeAlpha3="_NA" geoCodeAlpha2="_N"/>
+            <moqui.basic.Geo geoId="_NA_" geoName="不可用" geoCodeAlpha3="_NA" geoCodeAlpha2="_N"/>
 
             <!-- =========================== Geo Type Data ============================ -->
             <moqui.basic.EnumerationType description="Geo Type" enumTypeId="GeoType"/>
@@ -307,8 +307,8 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="many" related="moqui.basic.StatusFlowTransition" short-alias="toTransitions">
             <key-map field-name="statusId" related="toStatusId"/></relationship>
         <seed-data>
-            <moqui.basic.StatusType statusTypeId="_NA_" description="Not Applicable"/>
-            <moqui.basic.StatusItem statusId="_NA_" statusTypeId="_NA_" description="Not Applicable"/>
+            <moqui.basic.StatusType statusTypeId="_NA_" description="不可用"/>
+            <moqui.basic.StatusItem statusId="_NA_" statusTypeId="_NA_" description="不可用"/>
         </seed-data>
         <master>
             <detail relationship="type"/>
@@ -333,7 +333,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="description" type="text-medium"/>
         <relationship type="one" related="moqui.basic.StatusType" short-alias="type"/>
         <seed-data>
-            <moqui.basic.StatusFlow statusFlowId="Default" description="Default status flow across entire system."/>
+            <moqui.basic.StatusFlow statusFlowId="Default" description="系统默认状态流。"/>
         </seed-data>
     </entity>
     <entity entity-name="StatusFlowItem" package="moqui.basic" use="configuration">
