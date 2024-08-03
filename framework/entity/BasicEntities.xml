@@ -554,6 +554,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="toUserId" type="id"/>
         <field name="emailTemplateId" type="id"><description>For outgoing messages that came from an EmailTemplate.</description></field>
         <field name="emailServerId" type="id"/>
+        <field name="sendAttemptCount" type="number-integer"/>
+        <field name="lastSendAttemptDate" type="date-time"/>
 
         <relationship type="one" title="EmailMessage" related="moqui.basic.StatusItem" short-alias="status"/>
         <relationship type="one" title="EmailType" related="moqui.basic.Enumeration" short-alias="type">
