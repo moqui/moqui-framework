@@ -169,6 +169,7 @@
         <artifact-stats type="AT_XML_SCREEN_TRANS" persist-bin="true" persist-hit="true"/>
         <artifact-stats type="AT_SERVICE" persist-bin="true" persist-hit="false"/>
         <artifact-stats type="AT_ENTITY" persist-bin="false"/>
+        <artifact-stats type="AT_REST_PATH" persist-bin="false" persist-hit="false"/>
     </server-stats>
 
     <webapp-list>
