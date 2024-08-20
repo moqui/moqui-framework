@@ -1,3 +1,5 @@
+## 注意：国内用户如需运行环境，为了避免有些依赖环境访问网络不畅，建议vpn设定为全局模式，待下载完毕后可改为规则模式。
+
 ## Welcome to Moqui Framework
 
 [![license](https://img.shields.io/badge/license-CC0%201.0%20Universal-blue.svg)](https://github.com/moqui/moqui-framework/blob/master/LICENSE.md)
