@@ -75,6 +75,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
     char csvDelimiter = ','
     char csvCommentStart = '#'
     char csvQuoteChar = '"'
+    char csvEscapeChar = '\\'
 
     String csvEntityName = null
     List<String> csvFieldNames = null
@@ -925,6 +926,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                     .withSkipHeaderRecord(true) // TODO: remove this? does it even do anything?
                     .withIgnoreEmptyLines(true)
                     .withIgnoreSurroundingSpaces(true)
+                    .withEscape(edli.csvEscapeChar)
                     .parse(reader)
 
             Iterator<CSVRecord> iterator = parser.iterator()
