@@ -1,3 +1,4 @@
+
 # gradle/build files
 build
 .gradle
@@ -13,7 +14,18 @@ build
 /docker/runtime
 /docker/db
 /docker/elasticsearch/data/nodes
-/docker/opensearch/data/nodes
+/docker/opensearch/data/nodes/*
+!/docker/opensearch/data/nodes/README
+/docker/acme.sh
+/docker/nginx/conf.d
+/docker/nginx/vhost.d
+/docker/nginx/html
+## Do not want to accidentally commit production certificates https://www.theregister.com/2024/07/25/data_from_deleted_github_repos/
+/docker/certs
+!/docker/certs/moqui1.local.*
+!/docker/certs/moqui2.local.*
+!/docker/certs/moqui.local.*
+!/docker/certs/README
 
 # IntelliJ IDEA files
 .idea
