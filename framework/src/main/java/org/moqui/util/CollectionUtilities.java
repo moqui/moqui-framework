@@ -460,6 +460,39 @@ public class CollectionUtilities {
         return outMap;
     }
 
+    public static Map<String, String> flattenNestedMapWithKeys(Map<String, Object> theMap) {
+        return flattenNestedMapWithKeys(theMap, "");
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, String> flattenNestedMapWithKeys(Map<String, Object> theMap, String parentKey) {
+        Map<String, String> output = new LinkedHashMap<>();
+
+        if (theMap == null) return output;
+
+        for (Map.Entry<String, Object> entry : theMap.entrySet()) {
+            String key = entry.getKey();
+            Object value = entry.getValue();
+            String newKey = parentKey.isEmpty() ? key : parentKey + "[" + key + "]";
+
+            if (value instanceof Map) {
+                output.putAll(flattenNestedMapWithKeys((Map<String, Object>) value, newKey));
+            } else if (value instanceof Collection) {
+                int index = 0;
+                for (Object colValue : (Collection<?>) value) {
+                    if (colValue instanceof Map) {
+                        output.putAll(flattenNestedMapWithKeys((Map<String, Object>) colValue, newKey + "[" + index + "]"));
+                    } else {
+                        output.put(newKey + "[" + index + "]", colValue.toString());
+                    }
+                    index++;
+                }
+            } else {
+                output.put(newKey, value.toString());
+            }
+        }
+        return output;
+    }
     @SuppressWarnings("unchecked")
     public static void mergeNestedMap(Map<Object, Object> baseMap, Map<Object, Object> overrideMap, boolean overrideEmpty) {
         if (baseMap == null || overrideMap == null) return;
