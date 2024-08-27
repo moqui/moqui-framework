@@ -5,6 +5,8 @@ lsof -i:8080 | grep java
 根据进程查看运行位置  
 lsof -p 11550 | grep cwd  
 或者 pwdx 11550  
+生产环境中需要借助vpn更新依赖环境  
+terminal控制台中运行xcjs  
 
 
 ## Welcome to Moqui Framework
