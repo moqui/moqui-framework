@@ -49,7 +49,17 @@
     <component name="moqui-fop" group="heguangyong" version="1.1.3" branch="master"/>
     <!-- Example Component -->
     <component name="example" group="heguangyong" version="3.0.0" branch="master"/>
+    <component name="start" group="heguangyong" version="1.0.0" branch="master"/>
+
     <!-- heguangyong Tool Components -->
+    <component name="moqui-camel" group="heguangyong" version="1.0.4" branch="master"/>
+    <component name="moqui-image" group="heguangyong" version="" branch="master"/><!-- no releases yet -->
+    <component name="moqui-poi" group="heguangyong" version="1.0.1" branch="master"/>
+    <component name="moqui-sso" group="heguangyong" version="1.0.1" branch="master"/>
     <component name="moqui-wikitext" group="heguangyong" version="1.0.3" branch="master"/>
 
+
+
+
+    <component group="" name="" branch="master"/>
 </addons>
