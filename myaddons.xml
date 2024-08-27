@@ -42,7 +42,6 @@
     <component name="PopRestStore" group="heguangyong" version="1.1.0" branch="master"/>
     <!-- heguangyong Web and Demo Sites -->
     <component name="moqui-org" group="heguangyong" version="" branch="master"/>
-    <component name="flower-auction" group="heguangyong" version="" branch="main"/>
     <!-- Mantle Business Artifact and Integration Components -->
     <component name="mantle-udm" group="heguangyong" version="2.2.0" branch="master"/>
     <component name="mantle-usl" group="heguangyong" version="2.2.0" branch="master"/>
