@@ -157,8 +157,12 @@ class GenericUtilities {
             return (obj as ArrayList).size()
         } else if (obj.getClass() == ArrayList.class){
             return (obj as ArrayList).size()
+        } else if (obj.getClass() == HashMap.class){
+            return (obj as HashMap).keySet().size()
         } else if (obj.getClass() == LinkedHashMap.class){
             return (obj as LinkedHashMap).keySet().size()
+        } else if (obj.getClass() == LazyMap.class){
+            return (obj as LazyMap).keySet().size()
         } else {
             return -1
         }
@@ -190,5 +194,30 @@ class GenericUtilities {
      */
     public static boolean isInputStream(Object object) {
         return object instanceof FileInputStream || object instanceof ByteArrayInputStream || object instanceof BufferedInputStream
+    }
+
+
+    public static HashMap extractStatistics(Object input){
+        def len = length(input)
+
+        try {
+            if (input instanceof ArrayList) return [rows: len]
+
+            switch (input.getClass()) {
+                case LinkedHashMap.class:
+                    def stats = (input as LinkedHashMap).get('stats', [:]) as HashMap
+                    stats.put('rows', len)
+                    return stats
+                case HashMap.class:
+                    def stats = (input as HashMap).get('stats', [:]) as HashMap
+                    stats.put('rows', len)
+                    return stats
+                case LazyMap.class:
+                    def stats = new HashMap<>((input as LazyMap).get('stats', [:]) as LazyMap)
+                    stats.put('rows', len)
+                    return stats
+            }
+        } catch (Exception ignored){}
+        return [rows: len]
     }
 }

@@ -1455,9 +1455,7 @@ class EndpointServiceHandler {
         ]
 
         // debug what is going to py-calc
-        if (debug) {
-            debugFile(ec, processingId, sessionId, "c-h-process-items-to-execute.json", payload)
-        }
+        if (debug) debugFile(ec, processingId, sessionId, "c-h-process-items-to-execute.json", payload)
 
         // use specific RequestFactory, with custom timeouts
         // timeout is set by settings
@@ -1491,8 +1489,18 @@ class EndpointServiceHandler {
         // must handle all states of the response
         def rsp = (HashMap) restResponse.jsonObject()
 
+        // debug what has come out of the processing
+        if (debug) debugFile(ec, processingId, sessionId, "c-h-process-items-result.json", restResponse.jsonObject())
+
         // use callback to check/modify response
-        if (cbCheckData) return cbCheckData(rsp)
+        if (cbCheckData) {
+            rsp = cbCheckData(rsp)
+
+            // another layer of processing
+            if (debug) debugFile(ec, processingId, sessionId, "c-h-process-items-result-mod.json", rsp)
+
+            return cbCheckData(rsp)
+        }
 
         return rsp
     }
