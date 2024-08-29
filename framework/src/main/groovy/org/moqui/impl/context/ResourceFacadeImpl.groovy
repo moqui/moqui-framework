@@ -24,6 +24,7 @@ import org.moqui.impl.context.runner.JavaxScriptRunner
 import org.moqui.impl.context.runner.XmlActionsScriptRunner
 import org.moqui.impl.entity.EntityValueBase
 import org.moqui.jcache.MCache
+import org.moqui.security.SingleSignOnTokenLoginHandler
 import org.moqui.util.ContextBinding
 import org.moqui.util.ContextStack
 import org.moqui.util.MNode
@@ -59,6 +60,7 @@ class ResourceFacadeImpl implements ResourceFacade {
 
     final FtlTemplateRenderer ftlTemplateRenderer
     final XmlActionsScriptRunner xmlActionsScriptRunner
+    protected final ToolFactory<SingleSignOnTokenLoginHandler> ssoTokenHandlerFactory = null
 
     // the groovy Script object is not thread safe, so have one per thread per expression; can be reused as thread is reused
     protected final ThreadLocal<Map<String, Script>> threadScriptByExpression = new ThreadLocal<>()
@@ -162,6 +164,16 @@ class ResourceFacadeImpl implements ResourceFacade {
                 }
             } catch (Exception e) {
                 logger.error("Error getting JCR Repository ${repositoryNode.attribute("name")}: ${e.toString()}")
+            }
+        }
+
+        MNode userFacadeNode = ecfi.confXmlRoot.first("user-facade")
+        if (userFacadeNode.attribute("sso-access-token-handler-factory")) {
+            ssoTokenHandlerFactory = ecfi.getToolFactory(userFacadeNode.attribute("sso-access-token-handler-factory"))
+            if (ssoTokenHandlerFactory != null) {
+                logger.info("Using sso-access-token-handler-factory ${userFacadeNode.attribute("sso-access-token-handler-factory")} (${ssoTokenHandlerFactory.class.name})")
+            } else {
+                logger.warn("Could not find sso-access-token-handler-factory with name ${userFacadeNode.attribute("sso-access-token-handler-factory")}")
             }
         }
     }

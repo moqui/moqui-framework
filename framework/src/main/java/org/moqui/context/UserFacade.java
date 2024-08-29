@@ -15,6 +15,8 @@ package org.moqui.context;
 
 import org.moqui.entity.EntityValue;
 
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.sql.Timestamp;
 import java.util.*;
 
@@ -104,6 +106,12 @@ public interface UserFacade {
     /** Get a login key for the active user. By default expires in the number of hours configured in the Conf XML file in: user-facade.login-key.@expire-hours */
     String getLoginKey();
     String getLoginKey(float expireHours);
+
+    /** Authenticate a user and make active using a SSO access token
+     * @param ssoAccessToken the accessToken provided by the SSO server
+     * @param ssoAuthFlowId the (optional) authFlowId for identifying the SSO server
+     */
+    boolean loginSsoToken(String ssoAccessToken, String ssoAuthFlowId, HttpServletRequest request, HttpServletResponse response);
 
     /** If no user is logged in consider an anonymous user logged in. For internal purposes to run things that require authentication. */
     boolean loginAnonymousIfNoUser();
