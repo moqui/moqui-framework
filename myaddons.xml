@@ -59,6 +59,6 @@
 
     <!-- WeChat public account OpenAI GPT service   -->
     <component  name="moqui-wechat" group="heguangyong" version="" branch="master"/>
-    <component  name="moqui-openaigpt" group="heguangyong" version="" branch="master"/>
+    <component  name="moqui-openai" group="heguangyong" version="" branch="master"/>
 
 </addons>
