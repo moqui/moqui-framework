@@ -1498,8 +1498,6 @@ class EndpointServiceHandler {
 
             // another layer of processing
             if (debug) debugFile(ec, processingId, sessionId, "c-h-process-items-result-mod.json", rsp)
-
-            return cbCheckData(rsp)
         }
 
         return rsp
