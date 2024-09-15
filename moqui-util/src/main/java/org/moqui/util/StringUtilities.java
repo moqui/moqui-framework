@@ -608,4 +608,18 @@ public class StringUtilities {
                 return false;
         }
     }
+
+    /**
+     * Method to check if record ID is UUID or not
+     * @param recordId ID
+     * @return true/false
+     */
+    public static boolean isUUID(String recordId) {
+        try {
+            UUID uuid = UUID.fromString(recordId);
+            return true;
+        } catch (ClassCastException e) {
+            return false;
+        }
+    }
 }
