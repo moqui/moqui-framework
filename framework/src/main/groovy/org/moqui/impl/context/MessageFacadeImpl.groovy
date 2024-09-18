@@ -144,9 +144,9 @@ class MessageFacadeImpl implements MessageFacade {
 
     @Override
     void clearAll() {
+        clearErrors()
         if (messageList != null) messageList.clear()
         if (publicMessageList != null) publicMessageList.clear()
-        clearErrors()
     }
     @Override
     void clearErrors() {
