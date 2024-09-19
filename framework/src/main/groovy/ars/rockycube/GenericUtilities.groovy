@@ -1,6 +1,7 @@
 package ars.rockycube
 
 import com.google.gson.Gson
+import com.google.gson.JsonParseException
 import groovy.json.JsonOutput
 import org.apache.groovy.json.internal.LazyMap
 import org.moqui.context.ExecutionContext
@@ -219,5 +220,30 @@ class GenericUtilities {
             }
         } catch (Exception ignored){}
         return [rows: len]
+    }
+
+    private static boolean isFirstCharBracketOrBrace(InputStream is) {
+        is.mark(1)  // Mark the current position in the input stream
+        int firstByte = is.read()
+        if (firstByte == -1) {
+            throw new IOException("InputStream is empty")
+        }
+        char firstChar = (char) firstByte
+        is.reset()  // Reset to the marked position
+        return firstChar == '[' || firstChar == '{'
+    }
+
+    public static convertStreamToJs(InputStream is){
+        def js
+        try {
+            if (isFirstCharBracketOrBrace(is)) {
+                js = gson.fromJson(is.newReader("UTF-8"), ArrayList.class)
+            } else {
+                js = gson.fromJson(is.newReader("UTF-8"), HashMap.class)
+            }
+        } catch (Exception ignored) {
+            throw new JsonParseException("Unable to convert file to JSON")
+        }
+        return js
     }
 }
