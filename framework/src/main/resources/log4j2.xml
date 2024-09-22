@@ -56,6 +56,9 @@ https://logging.apache.org/log4j/2.x/manual/layouts.html#PatternLayout
         <Logger name="com.atomikos" level="warn"/>
         <Logger name="bitronix" level="warn"/>
         <Logger name="cz.vutbr" level="warn"/><!-- cssbox -->
+        <Logger name="i.github.o.OllamaAPI" level="OFF" additivity="false">
+            <AppenderRef ref="Console"/>
+        </Logger>
 
         <!-- show Groovy generated from XML Actions: -->
         <Logger name="org.moqui.impl.actions.XmlAction" level="${sys:moqui.logger.level.xml_action}"/>
