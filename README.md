@@ -35,27 +35,4 @@ java -jar moqui.war：运行 moqui.war 文件。> moqui.log 2>&1：将输出和�
 执行这个命令后，你可以使用 tail -f moqui.log 来查看程序的输出日志。如果你想停止这个进程，可以使用 ps aux | grep java 来查找进程的 PID，然后使用 kill <PID> 来终止。
 
 
-## 公众号AI集成
-
-- [x] 从本地请求ollama测试  
-  ```
-  curl http://localhost:11434/api/generate -d '{
-  "model": "llama3.1",
-  "prompt":"Why is the sky blue?"
-  }'
-  ```
-- [x] 从服务器请求ollama测试  
-  ```
-  ssh -R 11434:localhost:11434 root@192.168.0.141   
-  curl http://localhost:11434/api/generate -d '{
-  "model": "llama3.1",
-  "prompt": "Why is the sky blue?"
-  }' -H "Content-Type: application/json"
-  ```
-- [x] 从moqui-wechat请求ollama测试  
-  运行测试脚本
-  ```
-  ./gradlew :runtime:component:moqui-wechat:test --info
-  ```
-
 
