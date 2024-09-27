@@ -1,0 +1,23 @@
+{
+    "formData": [
+        {
+            "name": "Elizabeth",
+            "_entity": "sample-list"
+        },
+        {
+            "name": "Paul",
+            "_entity": "sample-list"
+        },
+        {
+            "name": "Lucy",
+            "_entity": "sample-list"
+        },
+        {
+            "name": "Eve",
+            "_entity": "sample-list"
+        }
+    ],
+    "layers": [
+        
+    ]
+}
