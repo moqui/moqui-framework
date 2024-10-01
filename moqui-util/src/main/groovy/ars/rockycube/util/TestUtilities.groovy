@@ -376,6 +376,18 @@ public class TestUtilities {
     }
 
     /**
+     * Method that provides information on whether a directory exists
+     * @param resDir
+     * @return
+     */
+    static boolean checkDirectoryExists(String[] resDir) {
+        String[] checkDir = setResourcePath(resDir)
+        Path dir = Paths.get(FileUtils.getFile(checkDir).absolutePath)
+
+        return Files.exists(dir) && Files.isDirectory(dir)
+    }
+
+    /**
      * Find names of all files inside a directory
      * @param resDir
      * @return
