@@ -199,27 +199,38 @@ class GenericUtilities {
 
 
     public static HashMap extractStatistics(Object input){
-        def len = length(input)
+        // easy for the array
+        if (input instanceof ArrayList) return [rows: length(input)]
 
+        // specialities supported
+        // 1. if the map contains formData, calculate it on the `formData`key
         try {
-            if (input instanceof ArrayList) return [rows: len]
+            def stats = [:]
 
             switch (input.getClass()) {
                 case LinkedHashMap.class:
-                    def stats = (input as LinkedHashMap).get('stats', [:]) as HashMap
-                    stats.put('rows', len)
+                    stats.put('rows', mapSize(input as HashMap))
                     return stats
                 case HashMap.class:
-                    def stats = (input as HashMap).get('stats', [:]) as HashMap
-                    stats.put('rows', len)
+                    stats.put('rows', mapSize(input as HashMap))
                     return stats
                 case LazyMap.class:
-                    def stats = new HashMap<>((input as LazyMap).get('stats', [:]) as LazyMap)
-                    stats.put('rows', len)
+                    stats.put('rows', mapSize(input as LazyMap))
                     return stats
             }
         } catch (Exception ignored){}
-        return [rows: len]
+        return [rows: -1]
+    }
+
+    private static long mapSize(Map input)
+    {
+        def len = 0
+        if (input.containsKey('formData')) {
+            len = length(input['formData'])
+        } else {
+            len = length(input)
+        }
+        return len
     }
 
     private static boolean isFirstCharBracketOrBrace(InputStream is) {

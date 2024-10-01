@@ -1472,8 +1472,31 @@ class EndpointServiceHandler {
                 .jsonObject(payload)
                 .withRequestFactory(customTimeoutReqFactory)
 
+        def resp = handlePyCalcResponse(ec, restClient)
+
+        // must handle all states of the response
+        def rsp = (HashMap) resp.jsonObject()
+
+        // debug what has come out of the processing
+        if (debug) debugFile(ec, processingId, sessionId, "c-h-process-items-result.json", resp.jsonObject())
+
+        // use callback to check/modify response
+        if (cbCheckData) {
+            rsp = cbCheckData(rsp)
+
+            // another layer of processing
+            if (debug) debugFile(ec, processingId, sessionId, "c-h-process-items-result-mod.json", rsp)
+        }
+
+        return rsp
+    }
+
+    private static RestClient.RestResponse handlePyCalcResponse(
+            ExecutionContext ec,
+            RestClient rc)
+    {
         // execute
-        RestClient.RestResponse restResponse = restClient.call()
+        RestClient.RestResponse restResponse = rc.call()
 
         // check status code
         if (restResponse.statusCode != 200) {
@@ -1485,22 +1508,7 @@ class EndpointServiceHandler {
             }
             throw new EndpointException(errMessage)
         }
-
-        // must handle all states of the response
-        def rsp = (HashMap) restResponse.jsonObject()
-
-        // debug what has come out of the processing
-        if (debug) debugFile(ec, processingId, sessionId, "c-h-process-items-result.json", restResponse.jsonObject())
-
-        // use callback to check/modify response
-        if (cbCheckData) {
-            rsp = cbCheckData(rsp)
-
-            // another layer of processing
-            if (debug) debugFile(ec, processingId, sessionId, "c-h-process-items-result-mod.json", rsp)
-        }
-
-        return rsp
+        return restResponse
     }
 
     /**
@@ -1546,19 +1554,44 @@ class EndpointServiceHandler {
                                 args: pyCalcArgs
                         ]
                 )
-        RestClient.RestResponse restResponse = restClient.call()
+        def resp = handlePyCalcResponse(ec, restClient)
 
-        // check status code
-        if (restResponse.statusCode != 200) {
-            if (debug) debugFile(ec, null, null, "vizualize-items-exception.${identity}", restResponse.reasonPhrase)
-
-            logger.error("Error in response from pyCalc [${restResponse.reasonPhrase}] for session [${identity}]")
-            throw new EndpointException("Response with status ${restResponse.statusCode} returned: ${restResponse.reasonPhrase}")
-        }
-
-        if (debug) debugFile(ec, null, null, "vizualize-items-after-calc.${identity}", restResponse.jsonObject())
-
-        HashMap response = restResponse.jsonObject() as HashMap
+        HashMap response = resp.jsonObject() as HashMap
         return response['data']
+    }
+
+    /**
+     * Fetch file from Sharepoint
+     * @param ec
+     * @param credentials - shall be used to initialize the connection to Sharepoint (e.g. tenantId, clientId, clientSecret)
+     * @param location - where is the file located
+     * @param contentType - JSON?
+     * @return
+     */
+    public static byte[] fetchFileFromSharepoint(
+            ExecutionContext ec,
+            HashMap credentials,
+            HashMap location)
+    {
+        def pycalcHost = System.properties.get("py.server.host")
+        if (!pycalcHost) throw new EndpointException("PY-CALC server host not defined")
+
+        // data prep
+        def payload = [credentials: credentials, location:location]
+        def customTimeoutReqFactory = new RestClient.SimpleRequestFactory()
+
+        RestClient restClient = ec.service.rest().method(RestClient.POST)
+                .uri("${pycalcHost}/api/v1/utility/sharepoint/fetch-bytes")
+                .timeout(480)
+                .retry(2, 10)
+                .maxResponseSize(50 * 1024 * 1024)
+                .jsonObject(payload)
+                .withRequestFactory(customTimeoutReqFactory)
+
+        // execute
+        def resp = handlePyCalcResponse(ec, restClient)
+
+        // return bytes
+        return resp.bytes()
     }
 }

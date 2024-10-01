@@ -1,3 +1,4 @@
+import ars.rockycube.GenericUtilities
 import com.google.gson.Gson
 import ars.rockycube.util.CollectionUtils
 import com.google.gson.GsonBuilder
@@ -422,6 +423,24 @@ class UtilsTests extends Specification {
             def exp = TestUtilities.loadTestResourceJs((String) expected['filename'])
             // JsonAssert.assertJsonEquals(exp, converted)
             assert converted == exp
+        })
+
+        then:
+
+        assert true
+    }
+
+    /**
+     * Unit-testing calculation of statistics chunks
+     */
+    def test_statistics_calculation(){
+        when:
+
+        TestUtilities.testSingleFile((String[]) ['Utils', "stats-calculation", "expected-stats-calc.json"], { Object processed, Object expected, Integer idx ->
+            def incoming = TestUtilities.loadTestResourceJs(processed['filename'])
+            def result = GenericUtilities.extractStatistics(incoming)
+
+            assert result == expected['result']
         })
 
         then:
