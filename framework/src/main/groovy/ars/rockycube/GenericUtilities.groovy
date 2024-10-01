@@ -257,4 +257,19 @@ class GenericUtilities {
         }
         return js
     }
+
+    /**
+     * Load credentials from System environment
+     * @return
+     */
+    public static HashMap loadSharepointCredentialsFromEnv() {
+        def tid = System.getenv('RS_MS_TENANT_ID')
+        def cid = System.getenv('RS_MS_CLIENT_ID')
+        def cs = System.getenv('RS_MS_CLIENT_SECRET')
+
+        if (tid && cid && cs){
+            return [tenantId: tid, clientId: cid, clientSecret: cs]
+        }
+        return [:]
+    }
 }
