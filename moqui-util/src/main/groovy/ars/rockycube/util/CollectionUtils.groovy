@@ -3,7 +3,6 @@ package ars.rockycube.util
 import com.google.gson.internal.LinkedTreeMap
 import org.apache.groovy.json.internal.LazyMap
 import org.codehaus.groovy.runtime.GStringImpl
-
 import java.util.stream.Collectors
 
 class CollectionUtils {
@@ -215,6 +214,40 @@ class CollectionUtils {
             res[prop.key] = actualValue
         }
         return res
+    }
+
+    public static LazyMap convertLinkedHashMapToLazyMap(LinkedHashMap<Object, Object> linkedHashMap, Closure<Object> closure) {
+        LazyMap lazyMap = new LazyMap();
+
+        for (Map.Entry<Object, Object> entry : linkedHashMap.entrySet()) {
+            Object key = entry.getKey();
+            Object value = entry.getValue();
+
+            // Convert nested LinkedHashMap or ArrayList to LazyMap
+            if (value instanceof LinkedHashMap) {
+                value = convertLinkedHashMapToLazyMap((LinkedHashMap<Object, Object>) value, closure);
+            } else if (value instanceof ArrayList) {
+                value = convertArrayListToLazyMap((ArrayList<Object>) value, closure);
+            }
+            lazyMap.put(key, value);
+        }
+
+        return lazyMap;
+    }
+
+    public static ArrayList<Object> convertArrayListToLazyMap(ArrayList<Object> list, Closure<Object> closure) {
+        ArrayList<Object> newList = new ArrayList<>();
+
+        for (Object item : list) {
+            if (item instanceof LinkedHashMap) {
+                item = convertLinkedHashMapToLazyMap((LinkedHashMap<Object, Object>) item, closure);
+            } else if (item instanceof ArrayList) {
+                item = convertArrayListToLazyMap((ArrayList<Object>) item, closure);
+            }
+            newList.add(item);
+        }
+
+        return newList;
     }
 
     /**
