@@ -216,6 +216,21 @@ class CollectionUtils {
         return res
     }
 
+    /**
+     * Converting LinkedHashMap to LazyMap with default function
+     * @param linkedHashMap
+     * @return
+     */
+    public static LazyMap convertLinkedHashMapToLazyMap(LinkedHashMap<Object, Object> linkedHashMap) {
+        return convertLinkedHashMapToLazyMap(linkedHashMap, {key -> return null})
+    }
+
+    /**
+     * Converting Map, this time with custom missing-key function
+     * @param linkedHashMap
+     * @param closure
+     * @return
+     */
     public static LazyMap convertLinkedHashMapToLazyMap(LinkedHashMap<Object, Object> linkedHashMap, Closure<Object> closure) {
         LazyMap lazyMap = new LazyMap();
 
@@ -231,7 +246,6 @@ class CollectionUtils {
             }
             lazyMap.put(key, value);
         }
-
         return lazyMap;
     }
 
@@ -248,6 +262,19 @@ class CollectionUtils {
         }
 
         return newList;
+    }
+
+    /**
+     * Used for merging two maps in a light mode - sets value in a map, only if it's a new key
+     * @param map1
+     * @param map2
+     */
+    public static <K, V> void updateMapWithMissingKeys(Map<K, V> map1, Map<K, V> map2) {
+        for (Map.Entry<K, V> entry : map2.entrySet()) {
+            if (!map1.containsKey(entry.getKey())) {
+                map1.put(entry.getKey(), entry.getValue());
+            }
+        }
     }
 
     /**
