@@ -150,7 +150,9 @@ class ScreenRenderImpl implements ScreenRender {
     @Override ScreenRender saveHistory(boolean sh) { this.saveHistory = sh; return this }
 
     @Override
-    void render(HttpServletRequest request, HttpServletResponse response) {
+    void 
+    render(HttpServletRequest request, HttpServletResponse response) {
+        logger.info("------------------------- ScreenRenerImpl.groovy, render(HttpServletRequest request, HttpServletResponse response) Rendering HTTP Request---------------------------");
         if (rendering) throw new IllegalStateException("This screen render has already been used")
         rendering = true
         this.request = request
@@ -277,6 +279,7 @@ class ScreenRenderImpl implements ScreenRender {
     }
 
     protected void internalRender() {
+        logger.info("--------------- ScreenRenderImpl.groovy, Running Internal Render, this will call rest/s1 of rest.xml ------------------------------");
         // make sure this (sri) is in the context before running actions or rendering screens
         ec.contextStack.put("sri", this)
 

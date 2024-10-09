@@ -50,6 +50,7 @@ class MoquiServlet extends HttpServlet {
 
     @Override
     void service(HttpServletRequest request, HttpServletResponse response) {
+        logger.info("------------- Running void service() from MoquiServlet.groovy, triggered by Http Request on Jetty Server ----------")
         ExecutionContextFactoryImpl ecfi = (ExecutionContextFactoryImpl) getServletContext().getAttribute("executionContextFactory")
         String webappName = getInitParameter("moqui-name") ?: getServletContext().getInitParameter("moqui-name")
 
@@ -101,7 +102,7 @@ class MoquiServlet extends HttpServlet {
         }
         // get a new ExecutionContext
         ExecutionContextImpl ec = ecfi.getEci()
-
+        logger.info("------------- Running void service() from MoquiServlet.groovy, Creating new execution context ----------")
         /** NOTE to set render settings manually do something like this, but it is not necessary to set these things
          * for a web page render because if we call render(request, response) it can figure all of this out as defaults
          *
@@ -111,10 +112,13 @@ class MoquiServlet extends HttpServlet {
 
         ScreenRenderImpl sri = null
         try {
+            logger.info("------------- Running void service() from MoquiServlet.groovy, Calling intiWebFacade ----------")
             ec.initWebFacade(webappName, request, response)
             ec.web.requestAttributes.put("moquiRequestStartTime", startTime)
 
+            logger.info("------------- Running void service() from MoquiServlet.groovy, creating object of Screen Render ----------")
             sri = (ScreenRenderImpl) ec.screenFacade.makeRender().saveHistory(true)
+            logger.info("------------- Running void service() from MoquiServlet.groovy, Calling ScreenRenderImpl render(HttpServletRequest request, HttpServletResponse response) ----------")
             sri.render(request, response)
         } catch (AuthenticationRequiredException e) {
             logger.warn("Web Unauthorized (no authc): " + e.message)

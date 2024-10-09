@@ -170,6 +170,7 @@ public class ExecutionContextImpl implements ExecutionContext {
 
     @Override
     public void initWebFacade(@Nonnull String webappMoquiName, @Nonnull HttpServletRequest request, @Nonnull HttpServletResponse response) {
+        logger.info("------------- ExecutionContextImpl.java , initializing web facade  -----------------")
         WebFacadeImpl wfi = new WebFacadeImpl(webappMoquiName, request, response, this);
         webFacade = wfi;
         webFacadeImpl = wfi;

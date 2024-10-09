@@ -1029,6 +1029,7 @@ class WebFacadeImpl implements WebFacade {
     void handleServiceRestCall(List<String> extraPathNameList) {
         ContextStack parmStack = (ContextStack) getParameters()
 
+        logger.info("====================== Service REst for post")
         logger.info("Service REST for ${request.getMethod()} to ${request.getPathInfo()} headers ${request.headerNames.collect()} parameters ${getRequestParameters().keySet()}")
 
         // check for login, etc error messages
@@ -1069,6 +1070,7 @@ class WebFacadeImpl implements WebFacade {
                     parmStack.putAll((Map) bodyListObj)
                     eci.contextStack.push(parmStack)
 
+                    logger.info("---------------- calling rest api run with params =-----"+extraPathNameList.toString());
                     RestApi.RestResult restResult = eci.serviceFacade.restApi.run(extraPathNameList, eci)
                     responseList.add(restResult.responseObj ?: [:])
 
@@ -1088,6 +1090,7 @@ class WebFacadeImpl implements WebFacade {
                 }
             } else {
                 eci.contextStack.push(parmStack)
+                logger.info("---------------- 2 calling rest api run with params =-----"+extraPathNameList.toString());
                 RestApi.RestResult restResult = eci.serviceFacade.restApi.run(extraPathNameList, eci)
                 eci.contextStack.pop()
                 response.addIntHeader('X-Run-Time-ms', (System.currentTimeMillis() - startTime) as int)
@@ -1102,6 +1105,7 @@ class WebFacadeImpl implements WebFacade {
                     // NOTE: This will always respond with 200 OK, consider using 201 Created (for successful POST, create PUT)
                     //     and 204 No Content (for DELETE and other when no content is returned)
                     sendJsonResponse(restResult.responseObj)
+                    logger.info("------------------- Sends rest result repsonse ")
                 }
             }
         } catch (AuthenticationRequiredException e) {

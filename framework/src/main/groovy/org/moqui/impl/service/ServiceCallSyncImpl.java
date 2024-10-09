@@ -57,6 +57,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
 
     @Override
     public Map<String, Object> call() {
+        logger.info("--------------------------------------- Service CAll Sync IMPL =------------------------------");
         ExecutionContextFactoryImpl ecfi = sfi.ecfi;
         ExecutionContextImpl eci = ecfi.getEci();
 

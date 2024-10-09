@@ -105,6 +105,7 @@ class RestApi {
     RestResult run(List<String> pathList, ExecutionContextImpl ec) {
         if (pathList == null || pathList.size() == 0) throw new ResourceNotFoundException("Cannot run REST service with no path")
         String firstPath = pathList[0]
+        logger.info("------------- RestApi.groovy Getting Root Resource node for this path ---------------"+firstPath)
         ResourceNode resourceNode = getRootResourceNode(firstPath)
         return resourceNode.visit(pathList, 0, ec)
     }
@@ -230,6 +231,7 @@ class RestApi {
             serviceName = serviceNode.attribute("name")
         }
         RestResult run(List<String> pathList, ExecutionContext ec) {
+            logger.info("--------------------------- RestApi.groovy, static Class MethodService Running run method from method handler ------------------------");
             if ((requireAuthentication == null || requireAuthentication.length() == 0 || "true".equals(requireAuthentication)) &&
                     !ec.getUser().getUsername()) {
                 throw new AuthenticationRequiredException("User must be logged in to call service ${serviceName}")
@@ -245,6 +247,7 @@ class RestApi {
             }
 
             try {
+                logger.info("--------------------- RestApi.groovy, static Class MethodService, calling ServiceCallSyncImpl.java call() which finally runs the service ---------------")
                 Map result = ec.getService().sync().name(serviceName).parameters(ec.context).call()
                 ServiceDefinition.nestedRemoveNullsFromResultMap(result)
                 return new RestResult(result, null)
@@ -679,6 +682,7 @@ class RestApi {
                     if (idNode != null && idNode.allowExtraPath && methodMap.get(getCurrentMethod(ec)) == null) {
                         return idNode.visit(pathList, nextPathIndex, ec)
                     }
+                    logger.info("------------------- RestApi.groovy running runByMethod ------"+pathList);
                     return runByMethod(pathList, ec)
                 }
             } finally {
@@ -754,7 +758,7 @@ class RestApi {
             super(node, parent, ecfi, false)
         }
         RestResult visit(List<String> pathList, int pathIndex, ExecutionContextImpl ec) {
-            // logger.info("Visit resource ${name}")
+             logger.info("----------------------------------- RestApi.groovy Visit resource ${name} (keeps visiting until finds leaf node)")
             // visit child or run here
             return visitChildOrRun(pathList, pathIndex, ec)
         }
