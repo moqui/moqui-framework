@@ -80,6 +80,7 @@ class EndpointServiceHandler {
     private static String CONST_REQ_DATE_FIELD_FORMAT           = 'requiredDateFormat'
     private static String CONST_CREATE_OR_UPDATE                = 'requiredCreateOrUpdate'
     private static String CONST_GENERATE_RANDOM_SECONDARY       = 'generateRandomSecondary'
+    private static String CONST_GENERATE_UUID_PRIMARY           = 'generateUUID'
     // add _entity to output (e.g. when we need to create a JSON for importing)
     private static String CONST_INCLUDE_ENTITY_NAME             = 'includeEntityName'
     private static String CONST_INCLUDE_ENDPOINT_SERVICE_NAME   = 'includeEndpointServiceName'
@@ -405,6 +406,11 @@ class EndpointServiceHandler {
         // create/update
         if (!args.containsKey(CONST_CREATE_OR_UPDATE)) {
             args.put(CONST_CREATE_OR_UPDATE, false)
+        }
+
+        // random primary?
+        if (!args.containsKey(CONST_GENERATE_UUID_PRIMARY)) {
+            args.put(CONST_GENERATE_UUID_PRIMARY, false)
         }
 
         // do we need random secondaryId? By default, not exactly
@@ -1023,10 +1029,19 @@ class EndpointServiceHandler {
 
         // create primary key
         if (args[CONST_AUTO_CREATE_PKEY] == true) {
+            // create ID - either incremental counter (by Moqui) or generated UUID
+            def createPrimaryId = {EntityValue itemCreated, String primaryIdField-> {
+                if (args.get(CONST_GENERATE_UUID_PRIMARY)) {
+                    itemCreated.set(primaryIdField, UUID.randomUUID())
+                } else {
+                    created.setSequencedIdPrimary()
+                }
+            }}
+
             // helper function that creates secondary ID
             def createSecondaryId = {EntityValue itemBeingCreated, String secondaryIdField-> {
                 if (args.get(CONST_GENERATE_RANDOM_SECONDARY)) {
-                    itemBeingCreated.set(secondaryIdField, RandomStringUtils.randomAlphanumeric(5))
+                    itemBeingCreated.set(secondaryIdField, RandomStringUtils.randomAlphanumeric(10))
                 } else {
                     itemBeingCreated.setSequencedIdSecondary()
                 }
@@ -1035,20 +1050,18 @@ class EndpointServiceHandler {
             // do not automatically generate, if the ID is among data provided
             def pk = this.findPrimaryKey()
             if (!pk) {
-                // create ID manually
-                created.setSequencedIdPrimary()
+                throw new EndpointException("Cannot create ID for a record, that has no entity definition")
             } else if (pk.size() == 1) {
-                if (!singleEntityData.containsKey(pk[0])) created.setSequencedIdPrimary()
-                if (singleEntityData.containsKey(pk[0])) if (!singleEntityData[pk[0]]) created.setSequencedIdPrimary()
+                if (!singleEntityData.containsKey(pk[0])) createPrimaryId(created, (String) pk[0])
+                if (singleEntityData.containsKey(pk[0])) if (!singleEntityData[pk[0]]) createPrimaryId(created, (String) pk[0])
             } else if (pk.size() == 0) {
-                // create ID manually
-                created.setSequencedIdPrimary()
+                throw new EndpointException("Cannot create ID for a record, that has no primary keys in definition")
             } else if (pk.size() == 2) {
                 // create ID manually
                 // if not contained in data provided
                 // must check more than simple `containsKey`, the value under key may be null
-                if (!singleEntityData.containsKey(pk[0])) created.setSequencedIdPrimary()
-                if (singleEntityData.containsKey(pk[0])) if (!singleEntityData[pk[0]]) created.setSequencedIdPrimary()
+                if (!singleEntityData.containsKey(pk[0])) createPrimaryId(created, (String) pk[0])
+                if (singleEntityData.containsKey(pk[0])) if (!singleEntityData[pk[0]]) createPrimaryId(created, (String) pk[0])
 
                 // the same for second PK
                 if (!singleEntityData.containsKey(pk[1])) createSecondaryId(created, (String) pk[1])
