@@ -630,12 +630,15 @@ task plusRuntimeWarTemp {
             from fileTree(dir: '.', include: moquiRuntime+'/**',
                     excludes: [
                             moquiRuntime+'/component/**/src/test/*',
+                            moquiRuntime+'/component/**/src/test-integration/*',
+                            moquiRuntime+'/component/**/build/*',
                             moquiRuntime+'/component/**/tools/*',
                             '**/*.jar',
                             '**/build',
                             moquiRuntime+'/classes/**',
                             moquiRuntime+'/lib/**',
                             moquiRuntime+'/log/**',
+                            moquiRuntime+'/tmp/**',
                             moquiRuntime+'/sessions/**'
                     ])
             into file('wartemp')
