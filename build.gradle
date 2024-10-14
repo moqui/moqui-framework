@@ -35,7 +35,7 @@ def moquiRuntime = 'runtime'
 
 def moquiConfDev = 'conf/MoquiDevConf.xml'
 def moquiConfProduction = 'conf/MoquiProductionConf.xml'
-def moquiDefaulLogDirectory = 'log'
+def moquiDefaulLogDirectory = null
 
 def allCleanTasks = getTasksByName('clean', true)
 def allBuildTasks = getTasksByName('build', true)
