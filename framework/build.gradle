@@ -149,8 +149,8 @@ dependencies {
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.12.7.1'
 
     // Jetty HTTP Client and Proxy Servlet
-    implementation 'org.eclipse.jetty:jetty-client:10.0.13' // Apache 2.0
-    implementation 'org.eclipse.jetty:jetty-proxy:10.0.13' // Apache 2.0
+    implementation 'org.eclipse.jetty:jetty-client:10.0.16' // Apache 2.0
+    implementation 'org.eclipse.jetty:jetty-proxy:10.0.16' // Apache 2.0
     // NOTE: update after version 9.4.18.v20190429 results in 'IllegalArgumentException: URI is not hierarchical' error, have workarounds for now catching exception in MClassLoader.getResources()
 
     // javax.mail
@@ -227,9 +227,9 @@ dependencies {
 
     // ========== executable war dependencies ==========
     // Jetty
-    execWarRuntimeOnly 'org.eclipse.jetty:jetty-server:10.0.13' // Apache 2.0
-    execWarRuntimeOnly 'org.eclipse.jetty:jetty-webapp:10.0.13' // Apache 2.0
-    execWarRuntimeOnly 'org.eclipse.jetty:jetty-jndi:10.0.13' // Apache 2.0
+    execWarRuntimeOnly 'org.eclipse.jetty:jetty-server:10.0.16' // Apache 2.0
+    execWarRuntimeOnly 'org.eclipse.jetty:jetty-webapp:10.0.16' // Apache 2.0
+    execWarRuntimeOnly 'org.eclipse.jetty:jetty-jndi:10.0.16' // Apache 2.0
     execWarRuntimeOnly module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.4.51.v20230217') // Apache 2.0
     execWarRuntimeOnly ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.4.51.v20230217') { // Apache 2.0
         exclude group: 'javax.websocket' } // we have the full websocket API, including the client one causes problems
