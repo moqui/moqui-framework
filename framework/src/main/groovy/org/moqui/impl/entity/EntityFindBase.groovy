@@ -13,7 +13,6 @@
  */
 package org.moqui.impl.entity
 
-import groovy.transform.CompileStatic
 import org.moqui.BaseException
 import org.moqui.context.ArtifactAuthorizationException
 import org.moqui.context.ArtifactExecutionInfo
@@ -39,7 +38,6 @@ import java.sql.ResultSet
 import java.sql.SQLException
 import java.sql.Timestamp
 
-@CompileStatic
 abstract class EntityFindBase implements EntityFind {
     protected final static Logger logger = LoggerFactory.getLogger(EntityFindBase.class)
 

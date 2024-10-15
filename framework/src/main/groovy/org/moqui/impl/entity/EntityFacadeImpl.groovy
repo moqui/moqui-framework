@@ -13,7 +13,7 @@
  */
 package org.moqui.impl.entity
 
-import groovy.transform.CompileStatic
+import groovy.transform.TypeChecked
 import org.codehaus.groovy.runtime.typehandling.GroovyCastException
 import org.moqui.BaseArtifactException
 import org.moqui.BaseException
@@ -61,7 +61,8 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.Lock
 import java.util.concurrent.locks.ReentrantLock
 
-@CompileStatic
+
+@TypeChecked
 class EntityFacadeImpl implements EntityFacade {
     protected final static Logger logger = LoggerFactory.getLogger(EntityFacadeImpl.class)
     protected final static Boolean isTraceEnabled = logger.isTraceEnabled()
@@ -644,7 +645,7 @@ class EntityFacadeImpl implements EntityFacade {
         String entityNameToSearch = entityName
 
         if (entityName.contains("@")) {
-            String[] tokenizedEntityName = entityName.tokenize("@")
+            List<String> tokenizedEntityName = entityName.tokenize("@")
             entitySuffix = tokenizedEntityName[-1]
             entityName = tokenizedEntityName[0]
             entityNameToSearch = entityName + "_" + entitySuffix

@@ -13,7 +13,6 @@
  */
 package org.moqui.impl.entity
 
-import groovy.transform.CompileStatic
 import org.moqui.BaseArtifactException
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityCondition.ComparisonOperator
@@ -29,7 +28,6 @@ import org.slf4j.LoggerFactory
 
 import java.sql.Timestamp
 
-@CompileStatic
 class EntityConditionFactoryImpl implements EntityConditionFactory {
     protected final static Logger logger = LoggerFactory.getLogger(EntityConditionFactoryImpl.class)
 
