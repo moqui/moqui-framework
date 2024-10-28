@@ -94,21 +94,17 @@ public class FtlTemplateRenderer implements TemplateRenderer {
         }
 
         Template newTemplate;
-        Reader templateReader = null;
 
-        InputStream is = ecfi.resourceFacade.getLocationStream(location);
+        try (InputStream is = ecfi.resourceFacade.getLocationStream(location)) {
         if (is == null) throw new BaseArtifactException("Template not found at " + location);
 
-        try {
-            templateReader = new InputStreamReader(is, StandardCharsets.UTF_8);
+        try (Reader templateReader = new InputStreamReader(is, StandardCharsets.UTF_8);) {
             newTemplate = new Template(location, templateReader, getFtlConfiguration());
         } catch (Exception e) {
             throw new BaseArtifactException("Error while initializing template at " + location, e);
-        } finally {
-            if (templateReader != null) {
-                try { templateReader.close(); }
-                catch (Exception e) { logger.error("Error closing template reader", e); }
-            }
+        }
+        } catch (IOException e) {
+            throw new BaseArtifactException("Template not found at " + location);
         }
 
         if (!hasVersion) templateFtlLocationCache.put(location, newTemplate);

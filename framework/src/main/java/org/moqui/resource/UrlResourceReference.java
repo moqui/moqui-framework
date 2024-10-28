@@ -198,10 +198,8 @@ public class UrlResourceReference extends ResourceReference {
         File curFile = getFile();
         if (!curFile.getParentFile().exists()) curFile.getParentFile().mkdirs();
         // now write the text to the file and close it
-        try {
-            Writer fw = new OutputStreamWriter(new FileOutputStream(curFile), StandardCharsets.UTF_8);
+        try (Writer fw = new OutputStreamWriter(new FileOutputStream(curFile), StandardCharsets.UTF_8);) {
             fw.write(text);
-            fw.close();
             this.exists = null;
         } catch (IOException e) {
             throw new BaseException("Error writing text to file " + curFile.getAbsolutePath(), e);
@@ -217,11 +215,9 @@ public class UrlResourceReference extends ResourceReference {
         File curFile = getFile();
         if (!curFile.getParentFile().exists()) curFile.getParentFile().mkdirs();
 
-        try {
-            OutputStream os = new FileOutputStream(curFile);
+        try (OutputStream os = new FileOutputStream(curFile)) {
             ObjectUtilities.copyStream(stream, os);
             stream.close();
-            os.close();
             this.exists = null;
         } catch (IOException e) {
             throw new BaseException("Error writing stream to file " + curFile.getAbsolutePath(), e);

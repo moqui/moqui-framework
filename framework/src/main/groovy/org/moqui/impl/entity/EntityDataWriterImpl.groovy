@@ -103,11 +103,11 @@ class EntityDataWriterImpl implements EntityDataWriter {
             efi.ecfi.executionContext.message.addError('Cannot write to single CSV file with multiple entity names')
             return 0
         }
-
-        PrintWriter pw = new PrintWriter(outFile)
+        int valuesWritten
+        try (PrintWriter pw = new PrintWriter(outFile)) {
         // NOTE: don't have to do anything different here for different file types, writer() method will handle that
-        int valuesWritten = this.writer(pw)
-        pw.close()
+            valuesWritten = this.writer(pw)
+        }
         efi.ecfi.executionContext.message.addMessage(efi.ecfi.resource.expand('Wrote ${valuesWritten} records to file ${filename}', '', [valuesWritten:valuesWritten, filename:filename]))
         return valuesWritten
     }
@@ -130,9 +130,9 @@ class EntityDataWriterImpl implements EntityDataWriter {
             return 0
         }
 
-        ZipOutputStream out = new ZipOutputStream(new FileOutputStream(zipFile))
-        try {
-            PrintWriter pw = new PrintWriter(out)
+
+        try (ZipOutputStream out = new ZipOutputStream(new FileOutputStream(zipFile))
+            PrintWriter pw = new PrintWriter(out)) {
             ZipEntry e = new ZipEntry(filenameWithinZip)
             out.putNextEntry(e)
             try {
@@ -143,8 +143,6 @@ class EntityDataWriterImpl implements EntityDataWriter {
             } finally {
                 out.closeEntry()
             }
-        } finally {
-            out.close()
         }
     }
 
@@ -185,8 +183,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
                         }
                         outFile.createNewFile()
 
-                        PrintWriter pw = new PrintWriter(outFile)
-                        try {
+                        try (PrintWriter pw = new PrintWriter(outFile)) {
                             startFile(pw, ed)
 
                             int curValuesWritten = 0
@@ -199,8 +196,6 @@ class EntityDataWriterImpl implements EntityDataWriter {
 
                             efi.ecfi.getEci().message.addMessage(efi.ecfi.resource.expand('Wrote ${curValuesWritten} records to file ${filename}','',[curValuesWritten:curValuesWritten,filename:filename]))
                             valuesWritten += curValuesWritten
-                        } finally {
-                            pw.close()
                         }
                     }
                 }
@@ -240,9 +235,10 @@ class EntityDataWriterImpl implements EntityDataWriter {
         if (dependentLevels > 0) efi.createAllAutoReverseManyRelationships()
 
         int valuesWritten = 0
-        ZipOutputStream out = new ZipOutputStream(outputStream)
-        try {
-            PrintWriter pw = new PrintWriter(out)
+
+        try (ZipOutputStream out = new ZipOutputStream(outputStream)
+             PrintWriter pw = new PrintWriter(out)) {
+
             for (String en in entityNames) {
                 if (skipEntityNames.contains(en)) continue
                 EntityDefinition ed = efi.getEntityDefinition(en)
@@ -275,8 +271,6 @@ class EntityDataWriterImpl implements EntityDataWriter {
                     }
                 }
             }
-        } finally {
-            out.close()
         }
         return valuesWritten
     }

@@ -46,7 +46,7 @@ class JackrabbitRunToolFactory implements ToolFactory<Process> {
         Properties jackrabbitProperties = new Properties()
         URL jackrabbitProps = this.class.getClassLoader().getResource("jackrabbit_moqui.properties")
         if (jackrabbitProps != null) {
-            InputStream is = jackrabbitProps.openStream(); jackrabbitProperties.load(is); is.close();
+            try (InputStream is = jackrabbitProps.openStream()) { jackrabbitProperties.load(is); }
         }
 
         String jackrabbitWorkingDir = System.getProperty("moqui.jackrabbit_working_dir")
@@ -99,14 +99,10 @@ class JackrabbitRunToolFactory implements ToolFactory<Process> {
     ExecutionContextFactory getEcf() { return ecf }
 
     private static boolean hostAvailabilityCheck(String hostname, int port) {
-        Socket s = null
-        try {
-            s = new Socket(hostname, port)
+        try (Socket s = new Socket(hostname, port)) {
             return true
         } catch (IOException e ) {
             /* ignore */
-        } finally {
-            if (s != null) try { s.close() } catch (Exception e) {}
         }
         return false
     }

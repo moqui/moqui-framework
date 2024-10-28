@@ -495,38 +495,30 @@ public class MClassLoader extends ClassLoader {
     }
     @SuppressWarnings("ThrowFromFinallyBlock")
     private byte[] getJarEntryBytes(JarFile jarFile, JarEntry je) throws IOException {
-        DataInputStream dis = null;
         byte[] jeBytes = null;
-        try {
             long lSize = je.getSize();
             if (lSize <= 0 || lSize >= Integer.MAX_VALUE)
                 throw new IllegalArgumentException("Size [" + lSize + "] not valid for jar entry [" + je + "]");
             jeBytes = new byte[(int) lSize];
-            InputStream is = jarFile.getInputStream(je);
-            dis = new DataInputStream(is);
+            try (InputStream is = jarFile.getInputStream(je);
+            DataInputStream dis = new DataInputStream(is)) {
             dis.readFully(jeBytes);
-        } finally {
-            if (dis != null) dis.close();
-        }
+            }
         return jeBytes;
     }
 
     @SuppressWarnings("ThrowFromFinallyBlock")
     private byte[] getFileBytes(File classFile) throws IOException {
-        DataInputStream dis = null;
         byte[] jeBytes = null;
-        try {
             long lSize = classFile.length();
             if (lSize <= 0  ||  lSize >= Integer.MAX_VALUE) {
                 throw new IllegalArgumentException("Size [" + lSize + "] not valid for classpath file [" + classFile + "]");
             }
             jeBytes = new byte[(int)lSize];
-            InputStream is = new FileInputStream(classFile);
-            dis = new DataInputStream(is);
+            try (InputStream is = new FileInputStream(classFile);
+                 DataInputStream dis = new DataInputStream(is);) {
             dis.readFully(jeBytes);
-        } finally {
-            if (dis != null) dis.close();
-        }
+            }
         return jeBytes;
     }
 

@@ -72,15 +72,11 @@ class XmlActionsScriptRunner implements ScriptRunner {
 
         String templateLocation = ecfi.confXmlRoot.first("resource-facade").attribute("xml-actions-template-location")
         Template newTemplate = null
-        Reader templateReader = null
-        try {
-            templateReader = new InputStreamReader(ecfi.resourceFacade.getLocationStream(templateLocation))
+        try (Reader templateReader = new InputStreamReader(ecfi.resourceFacade.getLocationStream(templateLocation))) {
             newTemplate = new Template(templateLocation, templateReader,
                     ecfi.resourceFacade.ftlTemplateRenderer.getFtlConfiguration())
         } catch (Exception e) {
             logger.error("Error while initializing XMLActions template at [${templateLocation}]", e)
-        } finally {
-            if (templateReader != null) templateReader.close()
         }
         xmlActionsTemplate = newTemplate
     }

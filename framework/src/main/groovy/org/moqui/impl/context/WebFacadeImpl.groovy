@@ -827,23 +827,17 @@ class WebFacadeImpl implements WebFacade {
             response.setHeader("Content-Disposition", "attachment; filename=\"${rr.getFileName()}\"; filename*=utf-8''${StringUtilities.encodeAsciiFilename(rr.getFileName())}")
         }
         if (contentType == null || contentType.isEmpty() || ResourceReference.isBinaryContentType(contentType)) {
-            InputStream is = rr.openStream()
+            try (InputStream is = rr.openStream()) {
             if (is == null) {
                 logger.warn("Sending not found response, openStream returned null for location: ${location}")
                 response.sendError(HttpServletResponse.SC_NOT_FOUND, "Resource not found at ${location}")
                 return
             }
 
-            try {
-                OutputStream os = response.outputStream
-                try {
+            try (OutputStream os = response.outputStream) {
                     int totalLen = ObjectUtilities.copyStream(is, os)
                     logger.info("Streamed ${totalLen} bytes from location ${location}")
-                } finally {
-                    os.close()
-                }
-            } finally {
-                is.close()
+            }
             }
         } else {
             String rrText = rr.getText()
@@ -1386,8 +1380,7 @@ class WebFacadeImpl implements WebFacade {
         // first send the empty image
         response.setContentType('image/png')
         response.setHeader("Content-Disposition", "inline")
-        OutputStream os = response.outputStream
-        try { os.write(trackingPng) } finally { os.close() }
+        try (OutputStream os = response.outputStream) { os.write(trackingPng) }
         // mark the message viewed
         try {
             String emailMessageId = (String) eci.contextStack.get("emailMessageId")

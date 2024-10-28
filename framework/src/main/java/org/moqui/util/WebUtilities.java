@@ -292,11 +292,11 @@ public class WebUtilities {
 
     /** Looks for byte patterns for Windows Portable Executable (4d5a), Linux ELF (7f454c46), Java class (cafebabe), macOS (feedface) */
     public static boolean isExecutable(FileItem item) throws IOException {
-        InputStream is = item.getInputStream();
-        byte[] bytes = new byte[4];
-        is.read(bytes, 0, 4);
-        is.close();
-        return isExecutable(bytes);
+        try (InputStream is = item.getInputStream()) {
+            byte[] bytes = new byte[4];
+            is.read(bytes, 0, 4);
+            return isExecutable(bytes);
+        }
     }
     /** Looks for byte patterns for Windows Portable Executable (4d5a), Linux ELF (7f454c46), Java class (cafebabe), macOS (feedface) */
     public static boolean isExecutable(byte[] bytes) {
@@ -406,10 +406,8 @@ public class WebUtilities {
         /* for testing purposes only, don't enable by default: */
         // logger.warn("Test ser " + name + "(" + (value != null ? value.getClass().getName() : "") + ":" + (value != null && value.getClass().getClassLoader() != null ? value.getClass().getClassLoader().getClass().getName() : "") + ")" + " value: " + value);
         if (value == null) return true;
-        try {
-            ObjectOutputStream out = new ObjectOutputStream(new ByteArrayOutputStream());
+        try (ObjectOutputStream out = new ObjectOutputStream(new ByteArrayOutputStream());) {
             out.writeObject(value);
-            out.close();
             return true;
         } catch (IOException e) {
             logger.warn("Tried to set session attribute [" + name + "] with non-serializable value of type " + value.getClass().getName(), e);

@@ -354,19 +354,13 @@ public class FieldInfo {
                     logger.warn("Got byte array back empty for serialized Object with length [" + originalBytes.length + "] for field [" + name + "] (" + index + ")");
                 }
                 if (binaryInput != null) {
-                    ObjectInputStream inStream = null;
-                    try {
-                        inStream = new ObjectInputStream(binaryInput);
+
+                    try (ObjectInputStream inStream = new ObjectInputStream(binaryInput)) {
                         obj = inStream.readObject();
                     } catch (IOException ex) {
                         if (logger.isTraceEnabled()) logger.trace("Unable to read BLOB from input stream for field [" + name + "] (" + index + "): " + ex.toString());
                     } catch (ClassNotFoundException ex) {
                         if (logger.isTraceEnabled()) logger.trace("Class not found: Unable to cast BLOB data to an Java object for field [" + name + "] (" + index + "); most likely because it is a straight byte[], so just using the raw bytes: " + ex.toString());
-                    } finally {
-                        if (inStream != null) {
-                            try { inStream.close(); }
-                            catch (IOException e) { logger.error("Unable to close binary input stream for field [" + name + "] (" + index + "): " + e.toString(), e); }
-                        }
                     }
                 }
                 if (obj != null) {
@@ -548,17 +542,14 @@ public class FieldInfo {
                 case 10: if (value != null) { ps.setBoolean(index, (Boolean) value); } else { ps.setNull(index, Types.BOOLEAN); } break;
                 case 11:
                     if (value != null) {
-                        try {
-                            ByteArrayOutputStream os = new ByteArrayOutputStream();
-                            ObjectOutputStream oos = new ObjectOutputStream(os);
+                        try (ByteArrayOutputStream os = new ByteArrayOutputStream();
+                             ObjectOutputStream oos = new ObjectOutputStream(os);) {
                             oos.writeObject(value);
-                            oos.close();
                             byte[] buf = os.toByteArray();
-                            os.close();
 
-                            ByteArrayInputStream is = new ByteArrayInputStream(buf);
+                            try (ByteArrayInputStream is = new ByteArrayInputStream(buf)) {
                             ps.setBinaryStream(index, is, buf.length);
-                            is.close();
+                            }
                         } catch (IOException ex) {
                             throw new EntityException("Error setting serialized object, for field " + entityName + "." + name, ex);
                         }

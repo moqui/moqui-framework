@@ -164,7 +164,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // get the MoquiInit.properties file
         Properties moquiInitProperties = new Properties()
         URL initProps = this.class.getClassLoader().getResource("MoquiInit.properties")
-        if (initProps != null) { InputStream is = initProps.openStream(); moquiInitProperties.load(is); is.close() }
+        if (initProps != null) { try(InputStream is = initProps.openStream()) { moquiInitProperties.load(is);} }
 
         // if there is a system property use that, otherwise from the properties file
         runtimePath = System.getProperty("moqui.runtime")
@@ -517,9 +517,10 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         try {
             if (confSaveFile.exists()) confSaveFile.delete()
             if (!confSaveFile.parentFile.exists()) confSaveFile.parentFile.mkdirs()
-            FileWriter fw = new FileWriter(confSaveFile)
+            try (FileWriter fw = new FileWriter(confSaveFile)) {
             fw.write(confXmlRoot.toString())
-            fw.close()
+            }
+
         } catch (Exception e) {
             logger.warn("Could not save ${confSaveFile.absolutePath} file: ${e.toString()}")
         }
@@ -1346,8 +1347,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                     String targetDirLocation = zipFile.getParent()
                     logger.info("Expanding component archive ${zipRr.getFileName()} to ${targetDirLocation}")
 
-                    ZipInputStream zipIn = new ZipInputStream(zipRr.openStream())
-                    try {
+                    try (ZipInputStream zipIn = new ZipInputStream(zipRr.openStream())) {
                         ZipEntry entry = zipIn.getNextEntry()
                         // iterates over entries in the zip file
                         while (entry != null) {
@@ -1357,14 +1357,13 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                                 File dir = new File(filePath)
                                 dir.mkdir()
                             } else {
-                                OutputStream os = new FileOutputStream(filePath)
+                                try (OutputStream os = new FileOutputStream(filePath)) {
                                 ObjectUtilities.copyStream(zipIn, os)
+                                }
                             }
                             zipIn.closeEntry()
                             entry = zipIn.getNextEntry()
                         }
-                    } finally {
-                        zipIn.close()
                     }
                 }
 

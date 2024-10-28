@@ -238,9 +238,7 @@ public class ObjectUtilities {
     public static String getStreamText(InputStream is) { return getStreamText(is, StandardCharsets.UTF_8); }
     public static String getStreamText(InputStream is, Charset charset) {
         if (is == null) return null;
-        Reader r = null;
-        try {
-            r = new InputStreamReader(new BufferedInputStream(is), charset);
+        try (Reader r = new InputStreamReader(new BufferedInputStream(is), charset);) {
 
             StringBuilder sb = new StringBuilder();
             char[] buf = new char[4096];
@@ -249,12 +247,6 @@ public class ObjectUtilities {
             return sb.toString();
         } catch (IOException e) {
             throw new BaseException("Error getting stream text", e);
-        } finally {
-            try {
-                if (r != null) r.close();
-            } catch (IOException e) {
-                logger.warn("Error in close after reading text from stream", e);
-            }
         }
     }
 

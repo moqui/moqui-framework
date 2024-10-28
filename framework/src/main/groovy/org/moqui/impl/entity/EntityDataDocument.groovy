@@ -55,13 +55,12 @@ class EntityDataDocument {
             efi.ecfi.getEci().message.addError(efi.ecfi.resource.expand('File ${filename} already exists.','',[filename:filename]))
             return 0
         }
-
-        PrintWriter pw = new PrintWriter(outFile)
-
+        int valuesWritten
+        try (PrintWriter pw = new PrintWriter(outFile)) {
         pw.write("[\n")
-        int valuesWritten = writeDocumentsToWriter(pw, dataDocumentIds, condition, fromUpdateStamp, thruUpdatedStamp, prettyPrint)
+        valuesWritten = writeDocumentsToWriter(pw, dataDocumentIds, condition, fromUpdateStamp, thruUpdatedStamp, prettyPrint)
         pw.write("{}\n]\n")
-        pw.close()
+        }
         efi.ecfi.getEci().message.addMessage(efi.ecfi.resource.expand('Wrote ${valuesWritten} documents to file ${filename}','',[valuesWritten:valuesWritten,filename:filename]))
         return valuesWritten
     }
@@ -85,11 +84,11 @@ class EntityDataDocument {
             }
             outFile.createNewFile()
 
-            PrintWriter pw = new PrintWriter(outFile)
+            try (PrintWriter pw = new PrintWriter(outFile)) {
             pw.write("[\n")
             valuesWritten += writeDocumentsToWriter(pw, [dataDocumentId], condition, fromUpdateStamp, thruUpdatedStamp, prettyPrint)
             pw.write("{}\n]\n")
-            pw.close()
+            }
             efi.ecfi.getEci().message.addMessage(efi.ecfi.resource.expand('Wrote ${valuesWritten} records to file ${filename}','',[valuesWritten:valuesWritten, filename:filename]))
         }
 

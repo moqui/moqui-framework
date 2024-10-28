@@ -44,19 +44,15 @@ public class FlatXmlExtractor implements SimpleEtl.Extractor {
             logger.warn("Resource does not exist, not extracting data from " + (resourceRef != null ? resourceRef.getLocation() : "[null ResourceReference]"));
             return;
         }
-        InputStream is = resourceRef.openStream();
-        if (is == null) return;
 
-        try {
+        try (InputStream is = resourceRef.openStream();) {
+            if (is == null) return;
             FlatXmlHandler xmlHandler = new FlatXmlHandler(this);
             XMLReader reader = SAXParserFactory.newInstance().newSAXParser().getXMLReader();
             reader.setContentHandler(xmlHandler);
             reader.parse(new InputSource(is));
         } catch (Exception e) {
             throw new BaseException("Error parsing XML from " + resourceRef.getLocation(), e);
-        } finally {
-            try { is.close(); }
-            catch (IOException e) { logger.error("Error closing XML stream from " + resourceRef.getLocation(), e); }
         }
 
     }

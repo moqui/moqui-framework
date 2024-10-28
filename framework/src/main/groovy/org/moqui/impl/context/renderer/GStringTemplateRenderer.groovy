@@ -74,15 +74,11 @@ class GStringTemplateRenderer implements TemplateRenderer {
         if (theTemplate) return theTemplate
 
         Template newTemplate = null
-        Reader templateReader = null
-        try {
-            templateReader = new InputStreamReader(ecfi.resourceFacade.getLocationStream(location))
+        try (Reader templateReader = new InputStreamReader(ecfi.resourceFacade.getLocationStream(location))) {
             GStringTemplateEngine gste = new GStringTemplateEngine()
             newTemplate = gste.createTemplate(templateReader)
         } catch (Exception e) {
             throw new BaseArtifactException("Error while initializing template at [${location}]", e)
-        } finally {
-            if (templateReader != null) templateReader.close()
         }
 
         if (newTemplate) templateGStringLocationCache.put(location, newTemplate)

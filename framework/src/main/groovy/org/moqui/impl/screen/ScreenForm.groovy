@@ -1215,13 +1215,10 @@ class ScreenForm {
             } else if ("list-options".equals(childNode.name)) {
                 Object listObject = ec.resource.expression(childNode.attribute('list'), null)
                 if (listObject instanceof EntityListIterator) {
-                    EntityListIterator eli
-                    try {
-                        eli = (EntityListIterator) listObject
+
+                    try (EntityListIterator eli = (EntityListIterator) listObject) {
                         EntityValue ev
                         while ((ev = eli.next()) != null) addFieldOption(options, fieldNode, childNode, ev, ec)
-                    } finally {
-                        eli.close()
                     }
                 } else {
                     String keyAttr = childNode.attribute("key")

@@ -295,21 +295,15 @@ class EntityDataLoaderImpl implements EntityDataLoader {
 
             // load the CSV text in its own transaction
             if (this.csvText) {
-                InputStream csvInputStream = new ByteArrayInputStream(csvText.getBytes("UTF-8"))
-                try {
+                try (InputStream csvInputStream = new ByteArrayInputStream(csvText.getBytes("UTF-8"))) {
                     tf.runUseOrBegin(transactionTimeout, "Error loading CSV entity data", { ech.loadFile("csvText", csvInputStream) })
-                } finally {
-                    if (csvInputStream != null) csvInputStream.close()
                 }
             }
 
             // load the JSON text in its own transaction
             if (this.jsonText) {
-                InputStream jsonInputStream = new ByteArrayInputStream(jsonText.getBytes("UTF-8"))
-                try {
+                try (InputStream jsonInputStream = new ByteArrayInputStream(jsonText.getBytes("UTF-8"))) {
                     tf.runUseOrBegin(transactionTimeout, "Error loading JSON entity data", { ejh.loadFile("jsonText", jsonInputStream) })
-                } finally {
-                    if (jsonInputStream != null) jsonInputStream.close()
                 }
             }
 
@@ -336,12 +330,11 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         TransactionFacade tf = efi.ecfi.transactionFacade
         boolean beganTransaction = tf.begin(transactionTimeout)
         try {
-            InputStream inputStream = null
-            try {
+
+            try (InputStream inputStream = efi.ecfi.resourceFacade.getLocationStream(location)) {
                 logger.info("Loading entity data from ${location}")
                 long beforeTime = System.currentTimeMillis()
 
-                inputStream = efi.ecfi.resourceFacade.getLocationStream(location)
                 if (inputStream == null) throw new BaseException("Data file not found at ${location}")
 
                 long recordsLoaded = 0
@@ -421,8 +414,6 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                 }
             } catch (TypeToSkipException e) {
                 // nothing to do, this just stops the parsing when we know the file is not in the types we want
-            } finally {
-                if (inputStream != null) inputStream.close()
             }
         } catch (Throwable t) {
             tf.rollback(beganTransaction, "Error loading entity data", t)

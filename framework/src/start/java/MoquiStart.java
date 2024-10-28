@@ -434,7 +434,7 @@ public class MoquiStart {
         if (useProperties) {
             moquiInitProperties = new Properties();
             URL initProps = cl.getResource("MoquiInit.properties");
-            if (initProps != null) { InputStream is = initProps.openStream(); moquiInitProperties.load(is); is.close(); }
+            if (initProps != null) { try (InputStream is = initProps.openStream()) { moquiInitProperties.load(is);} }
         }
 
         // before doing anything else make sure the moqui.runtime system property exists (needed for config of various things)
@@ -692,32 +692,26 @@ public class MoquiStart {
             if (tempDir.mkdir()) tempDir.deleteOnExit();
             File file = File.createTempFile("moqui_temp", tempName, tempDir);
             file.deleteOnExit();
-            BufferedOutputStream os = null;
-            try {
-                os = new BufferedOutputStream(new FileOutputStream(file));
+            try (BufferedOutputStream os = new BufferedOutputStream(new FileOutputStream(file));) {
                 os.write(jeBytes);
-            } finally {
-                if (os != null) os.close();
             }
             return file;
         }
 
         @SuppressWarnings("ThrowFromFinallyBlock")
         private byte[] getJarEntryBytes(JarFile jarFile, JarEntry je) throws IOException {
-            DataInputStream dis = null;
+
             byte[] jeBytes = null;
-            try {
                 long lSize = je.getSize();
                 if (lSize <= 0  ||  lSize >= Integer.MAX_VALUE) {
                     throw new IllegalArgumentException("Size [" + lSize + "] not valid for war entry [" + je + "]");
                 }
                 jeBytes = new byte[(int)lSize];
-                InputStream is = jarFile.getInputStream(je);
-                dis = new DataInputStream(is);
+                try (InputStream is = jarFile.getInputStream(je);
+                     DataInputStream dis = new DataInputStream(is)) {
                 dis.readFully(jeBytes);
-            } finally {
-                if (dis != null) dis.close();
-            }
+                }
+
             return jeBytes;
         }
 
