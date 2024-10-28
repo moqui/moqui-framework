@@ -723,15 +723,14 @@ along with this software (see the LICENSE.md file). If not, see
                 dbUserExists = false
 
                 javax.sql.XAConnection testXaCon = null
-                java.sql.Connection testCon = null
                 try {
                     testXaCon = ec.entity.getConfConnection(adminMap)
-                    testCon = testXaCon.getConnection()
-                    dbConnectSuccess = true
+                    try (java.sql.Connection testCon = testXaCon.getConnection()) {
+                        dbConnectSuccess = true
+                    }
                 } catch (Exception e) {
                     logger.warn("Test connection failed", e)
                 } finally {
-                    if (testCon != null) testCon.close()
                     if (testXaCon != null) testXaCon.close()
                 }
 
@@ -804,15 +803,14 @@ along with this software (see the LICENSE.md file). If not, see
                 dbUserExists = false
 
                 javax.sql.XAConnection testXaCon = null
-                java.sql.Connection testCon = null
                 try {
                     testXaCon = ec.entity.getConfConnection(adminMap)
-                    testCon = testXaCon.getConnection()
+                    try (java.sql.Connection testCon = testXaCon.getConnection()) {
                     dbConnectSuccess = true
+                    }
                 } catch (Exception e) {
                     logger.warn("Test connection to Postgres failed", e)
                 } finally {
-                    if (testCon != null) testCon.close()
                     if (testXaCon != null) testXaCon.close()
                 }
 
