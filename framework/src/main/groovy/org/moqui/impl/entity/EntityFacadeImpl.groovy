@@ -1276,16 +1276,13 @@ class EntityFacadeImpl implements EntityFacade {
         int records = 0
         ecfi.transactionFacade.runRequireNew(30, "Error in DB meta data change", false, true, {
             XAConnection xacon = null
-            Connection con = null
-            Statement stmt = null
             try {
                 xacon = getConfConnection(confMap)
-                con = xacon.getConnection()
-                stmt = con.createStatement()
+                try (Connection con = xacon.getConnection()
+                Statement stmt = con.createStatement()) {
                 records = stmt.executeUpdate(sql.toString())
+                }
             } finally {
-                if (stmt != null) stmt.close()
-                if (con != null) con.close()
                 if (xacon != null) xacon.close()
             }
         })
@@ -1311,20 +1308,15 @@ class EntityFacadeImpl implements EntityFacade {
     long runSqlCountConf(CharSequence from, CharSequence where, Map<String, String> confMap) {
         StringBuilder sqlSb = new StringBuilder("SELECT COUNT(*) FROM ").append(from).append(" WHERE ").append(where)
         XAConnection xacon = null
-        Connection con = null
-        Statement stmt = null
-        ResultSet rs = null
         try {
             xacon = getConfConnection(confMap)
-            con = xacon.getConnection()
-            stmt = con.createStatement()
-            rs = stmt.executeQuery(sqlSb.toString())
+            try (Connection con = xacon.getConnection()
+            Statement stmt = con.createStatement()
+            ResultSet rs = stmt.executeQuery(sqlSb.toString())) {
             if (rs.next()) return rs.getLong(1)
+            }
             return 0
         } finally {
-            if (stmt != null) stmt.close()
-            if (rs != null) rs.close()
-            if (con != null) con.close()
             if (xacon != null) xacon.close()
         }
     }
@@ -1572,12 +1564,8 @@ class EntityFacadeImpl implements EntityFacade {
 
         // run the SQL now that it is built
         EntityValueBase newEntityValue = (EntityValueBase) null
-        Connection connection = (Connection) null
-        PreparedStatement ps = (PreparedStatement) null
-        ResultSet rs = (ResultSet) null
-        try {
-            connection = getConnection(ed.getEntityGroupName())
-            ps = connection.prepareStatement(finalSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)
+        try (Connection connection = getConnection(ed.getEntityGroupName())
+            PreparedStatement ps = connection.prepareStatement(finalSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)) {
             for (int i = 0; i < pkSize; i++) {
                 FieldInfo fi = (FieldInfo) pkFieldInfoArray[i]
                 Object fieldValue = values[i]
@@ -1586,7 +1574,7 @@ class EntityFacadeImpl implements EntityFacade {
 
             boolean queryStats = getQueryStats()
             long beforeQuery = queryStats ? System.nanoTime() : 0
-            rs = ps.executeQuery()
+            try (ResultSet rs = ps.executeQuery()) {
             if (queryStats) saveQueryStats(ed, finalSql, System.nanoTime() - beforeQuery, false)
 
             if (rs.next()) {
@@ -1599,14 +1587,9 @@ class EntityFacadeImpl implements EntityFacade {
                     fi.getResultSetValue(rs, i + 1, valueMap, this)
                 }
             }
+            }
         } catch (SQLException e) {
             throw new EntityException("Error finding value", e);
-        } finally {
-            try {
-                if (ps != null) ps.close()
-                if (rs != null) rs.close()
-                if (connection != null) connection.close();
-            } catch (SQLException sqle) { throw new EntityException("Error finding value", sqle); }
         }
 
         return newEntityValue;
