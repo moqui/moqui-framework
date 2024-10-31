@@ -8,8 +8,10 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v3
         with:
-          java-version: 11
+          java-version: 11.0.13+8
           distribution: temurin
+      - name: Check Java version
+        run: java --version
       - name: Checkout runtime
         uses: actions/checkout@v2
         with:
