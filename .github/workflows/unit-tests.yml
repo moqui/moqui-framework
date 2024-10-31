@@ -8,7 +8,7 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v3
         with:
-          java-version: 11.0.13+8
+          java-version: 13.0.2
           distribution: temurin
       - name: Check Java version
         run: java --version
