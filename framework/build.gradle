@@ -140,7 +140,7 @@ dependencies {
 
     // H2 Database
 //    implementation 'com.h2database:h2:1.4.200' // MPL 2.0, EPL 1.0
-    api 'com.h2database:h2:2.2.220' // MPL 2.0, EPL 1.0
+    api 'com.h2database:h2:2.1.210' // MPL 2.0, EPL 1.0
 
     // PostgreSQL JDBC driver
     implementation group: 'org.postgresql', name: 'postgresql', version: '42.7.2'
