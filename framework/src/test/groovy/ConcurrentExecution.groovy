@@ -28,7 +28,7 @@ class ConcurrentExecution {
         ExecutorService executor = Executors.newFixedThreadPool(threads)
         CyclicBarrier barrier = new CyclicBarrier(threads)
 
-        def futures = []
+        ArrayList<Future> futures = []
         for (int i = 0; i < threads; i++) {
             futures.add(executor.submit(new Callable() {
                 public def call() throws Exception {
