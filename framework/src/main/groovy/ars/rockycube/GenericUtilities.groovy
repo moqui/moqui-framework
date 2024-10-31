@@ -244,6 +244,11 @@ class GenericUtilities {
         return firstChar == '[' || firstChar == '{'
     }
 
+    /**
+     * Method that converts InputStream to either map or list
+     * @param is
+     * @return
+     */
     public static convertStreamToJs(InputStream is){
         def js
         try {
