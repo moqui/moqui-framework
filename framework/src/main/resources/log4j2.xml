@@ -15,7 +15,7 @@ https://logging.apache.org/log4j/2.x/manual/layouts.html#PatternLayout
     </Properties>
     <Appenders>
         <RollingFile name="LogFile" fileName="${sys:moqui.log.directory}/moqui.log"
-                filePattern="${sys:moqui.runtime}/${sys:moqui.log.directory}/moqui%d{yyyy-MM-dd}-%i.log">
+                filePattern="${sys:moqui.log.directory}/moqui%d{yyyy-MM-dd}-%i.log">
             <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [%15.15t] %-5p %50.50c %x%n %m%n"/>
             <Policies>
                 <TimeBasedTriggeringPolicy/>
