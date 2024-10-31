@@ -1574,6 +1574,24 @@ class EndpointServiceHandler {
     }
 
     /**
+     * Fetch items from a Sharepoint list, provided we have credentials
+     * @param ec
+     * @param credentials
+     * @param location
+     * @return
+     */
+    public static ArrayList fetchItemsFromSpList(
+            ExecutionContext ec,
+            HashMap credentials,
+            HashMap location) {
+
+        // use existing method and return bytes
+        def b = fetchBytesFromSharepoint(ec, credentials, location, 'api/v1/utility/sharepoint/fetch-list')
+
+        return (ArrayList) b.jsonObject()
+    }
+
+    /**
      * Fetch file from Sharepoint
      * @param ec
      * @param credentials - shall be used to initialize the connection to Sharepoint (e.g. tenantId, clientId, clientSecret)
@@ -1581,10 +1599,11 @@ class EndpointServiceHandler {
      * @param contentType - JSON?
      * @return
      */
-    public static byte[] fetchFileFromSharepoint(
+    public static RestClient.RestResponse fetchBytesFromSharepoint(
             ExecutionContext ec,
             HashMap credentials,
-            HashMap location)
+            HashMap location,
+            String endpoint='api/v1/utility/sharepoint/fetch-bytes')
     {
         def pycalcHost = System.properties.get("py.server.host")
         if (!pycalcHost) throw new EndpointException("PY-CALC server host not defined")
@@ -1594,7 +1613,7 @@ class EndpointServiceHandler {
         def customTimeoutReqFactory = new RestClient.SimpleRequestFactory()
 
         RestClient restClient = ec.service.rest().method(RestClient.POST)
-                .uri("${pycalcHost}/api/v1/utility/sharepoint/fetch-bytes")
+                .uri("${pycalcHost}/${endpoint}")
                 .timeout(480)
                 .retry(2, 10)
                 .maxResponseSize(50 * 1024 * 1024)
@@ -1605,6 +1624,6 @@ class EndpointServiceHandler {
         def resp = handlePyCalcResponse(ec, restClient)
 
         // return bytes
-        return resp.bytes()
+        return resp
     }
 }
