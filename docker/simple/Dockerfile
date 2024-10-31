@@ -1,8 +1,8 @@
 # Builds a minimal docker image with openjdk and moqui with various volumes for configuration and persisted data outside the container
 # NOTE: add components, build and if needed load data before building a docker image with this
 
-FROM openjdk:8-jdk
-MAINTAINER Moqui Framework <moqui@googlegroups.com>
+FROM openjdk:17-jdk-alpine
+MAINTAINER Michal Rovnanik <michal@rovnanik.sk>
 
 WORKDIR /opt/moqui
 

@@ -15,6 +15,7 @@ package org.moqui.impl.util
 
 import groovy.json.JsonBuilder
 import groovy.transform.CompileStatic
+import groovy.transform.TypeChecked
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityNotFoundException
 import org.moqui.entity.EntityValue
@@ -38,7 +39,7 @@ import org.yaml.snakeyaml.Yaml
 
 import javax.servlet.http.HttpServletResponse
 
-@CompileStatic
+@TypeChecked
 class RestSchemaUtil {
     protected final static Logger logger = LoggerFactory.getLogger(RestSchemaUtil.class)
 
@@ -122,6 +123,7 @@ class RestSchemaUtil {
         return null
     }
 
+    @CompileStatic
     static Map getJsonSchema(EntityDefinition ed, boolean pkOnly, boolean standalone, Map<String, Object> definitionsMap, String schemaUri, String linkPrefix,
                       String schemaLinkPrefix, boolean nestRelationships, String masterName, MasterDetail masterDetail) {
         String name = ed.getShortOrFullEntityName()
@@ -582,7 +584,7 @@ class RestSchemaUtil {
 
         if (extraPathNameList.size() == 0) {
             List allRefList = []
-            Map definitionsMap = [:]
+            Map<String, Object> definitionsMap = [:]
             definitionsMap.put('paginationParameters', jsonPaginationParameters)
             Map rootMap = ['$schema':'http://json-schema.org/draft-04/hyper-schema#', title:'Moqui Entity REST API',
                     anyOf:allRefList, definitions:definitionsMap]

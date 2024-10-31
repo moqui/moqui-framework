@@ -16,7 +16,7 @@ package org.moqui.impl.screen
 import freemarker.template.Template
 import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
-import groovy.transform.CompileStatic
+import groovy.transform.TypeChecked
 import org.moqui.BaseArtifactException
 import org.moqui.BaseException
 import org.moqui.context.*
@@ -53,7 +53,7 @@ import org.slf4j.LoggerFactory
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
 
-@CompileStatic
+@TypeChecked
 class ScreenRenderImpl implements ScreenRender {
     protected final static Logger logger = LoggerFactory.getLogger(ScreenRenderImpl.class)
     protected final static Boolean isTraceEnabled = logger.isTraceEnabled()
@@ -2156,7 +2156,10 @@ class ScreenRenderImpl implements ScreenRender {
         // if no user theme see if group a user is in has a theme
         if (themeId == null || themeId.length() == 0) {
             // use reverse alpha so ALL_USERS goes last...
-            List<String> userGroupIdSet = new ArrayList(new TreeSet(ec.user.getUserGroupIdSet())).reverse(true)
+            //List<String> userGroupIdSet = new ArrayList(new TreeSet(ec.user.getUserGroupIdSet())).reverse(true)
+            Set<String> orderedUserGroupIds = new TreeSet<>(ec.user.getUserGroupIdSet())
+            List<String> userGroupIdSet = new ArrayList<>(orderedUserGroupIds)
+            userGroupIdSet.reverse(true)
             EntityList groupThemeList = entityFacade.find("moqui.security.UserGroupScreenTheme")
                     .condition("userGroupId", "in", userGroupIdSet).condition("screenThemeTypeEnumId", stteId)
                     .orderBy("sequenceNum,-userGroupId").useCache(true).disableAuthz().list()
