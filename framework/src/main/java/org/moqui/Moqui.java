@@ -17,10 +17,12 @@ import org.moqui.context.ArtifactExecutionInfo;
 import org.moqui.context.ExecutionContext;
 import org.moqui.context.ExecutionContextFactory;
 import org.moqui.entity.EntityDataLoader;
+import org.moqui.resource.ResourceReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.servlet.ServletContext;
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 
@@ -113,7 +115,7 @@ public class Moqui {
     /** This method is meant to be run from a command-line interface and handle data loading in a generic way.
      * @param argMap Arguments, generally from command line, to configure this data load.
      */
-    public static void loadData(Map<String, String> argMap) {
+    public static void loadData(Map<String, String> argMap) throws IOException {
         if (argMap.containsKey("raw") || argMap.containsKey("no-fk-create"))
             System.setProperty("entity_disable_fk_create", "true");
 
@@ -145,6 +147,24 @@ public class Moqui {
         if (argMap.containsKey("raw") || argMap.containsKey("disable-eeca")) edl.disableEntityEca(true);
         if (argMap.containsKey("raw") || argMap.containsKey("disable-audit-log")) edl.disableAuditLog(true);
         if (argMap.containsKey("raw") || argMap.containsKey("disable-data-feed")) edl.disableDataFeed(true);
+
+        // if there is a directory argument inside, use it to load all files within the directory
+        if (argMap.containsKey("directory")) {
+            // must be filled, otherwise raise an exception
+            if (Objects.equals(argMap.get("directory"), "none")) throw new IOException("No directory set, cannot load files");
+
+            // directory to load from
+            String directory = argMap.get("directory");
+            logger.info("Loading files from directory [" + directory + "]");
+
+            // use resource-reference to list all files
+            ResourceReference rr = ec.getResource().getLocationReference(directory);
+            rr.getChildren().forEach(path -> {
+                String l = path.getLocation();
+                logger.info("Loading file [" + l + "] to list of files being loaded");
+                edl.location(l);
+            });
+        }
 
         // do the data load
         try {

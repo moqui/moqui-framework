@@ -1,0 +1,39 @@
+[
+  [
+    {
+      "whereToLook": {
+        "testNumberInteger": null,
+        "testDateTime": null,
+        "testCurrencyAmount": null,
+        "testJsonId": {
+          "category": "a",
+          "projectId": 1.0
+        },
+        "testIndicator": null,
+        "testNumberFloat": null,
+        "testNumberDecimal": null,
+        "testJsonField": {
+          "general": {
+            "salesPerson": "Zaluzhnyi",
+            "location": "UA"
+          }
+        },
+        "testMedium": "Something useful",
+        "testLong": null,
+        "lastUpdatedStamp": "2024-02-04T09:56:17+0000",
+        "testCurrencyPrecise": null,
+        "testId": "100505",
+        "testTime": null,
+        "testDate": null
+      },
+      "searchKey": "testJsonField.general.*"
+    },
+    {
+      "key": "general",
+      "result": {
+        "salesPerson": "Zaluzhnyi",
+        "location": "UA"
+      }
+    }
+  ]
+]

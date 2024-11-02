@@ -170,4 +170,9 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:enumeration value="force-cache"><xs:annotation><xs:documentation>Like force-new with a
             transaction cache in place like the cache option.</xs:documentation></xs:annotation></xs:enumeration>
     </xs:restriction></xs:simpleType>
+
+    <xs:simpleType name="name-format"><xs:restriction base="xs:token">
+        <xs:enumeration value="Underscored"/>
+        <xs:enumeration value="camelCase"/>
+    </xs:restriction></xs:simpleType>
 </xs:schema>

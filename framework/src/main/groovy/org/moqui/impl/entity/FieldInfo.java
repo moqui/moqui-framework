@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.entity;
 
+import org.apache.groovy.json.internal.LazyMap;
 import org.moqui.BaseArtifactException;
 import org.moqui.entity.EntityException;
 import org.moqui.impl.context.L10nFacadeImpl;
@@ -22,6 +23,8 @@ import org.moqui.util.MNode;
 import org.moqui.util.ObjectUtilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.google.gson.Gson;
+
 
 import javax.sql.rowset.serial.SerialBlob;
 import javax.sql.rowset.serial.SerialClob;
@@ -30,6 +33,8 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.sql.*;
 import java.util.*;
+
+import static ars.rockycube.util.CollectionUtils.convertLazyMap;
 
 public class FieldInfo {
     protected final static Logger logger = LoggerFactory.getLogger(FieldInfo.class);
@@ -67,6 +72,8 @@ public class FieldInfo {
         conditionField = new ConditionField(this);
         // column name from attribute or underscored name, may have override per DB
         String columnNameAttr = fnAttrs.get("column-name");
+
+        /* DISABLED FUNCTIONALITY
         String colNameToUse = columnNameAttr != null && columnNameAttr.length() > 0 ? columnNameAttr :
                 EntityJavaUtil.camelCaseToUnderscored(name);
         // column name: see if there is a name-replace
@@ -85,16 +92,18 @@ public class FieldInfo {
             }
         }
         columnName = colNameToUse;
+        */
 
+        columnName = columnNameAttr != null && !columnNameAttr.isEmpty() ? columnNameAttr : ed.efi.getEntityDbMeta().formattedComponentName(ed.groupName, name);
         defaultStr = fnAttrs.get("default");
 
         String typeAttr = fnAttrs.get("type");
-        if ((typeAttr == null || typeAttr.length() == 0) && (fieldNode.hasChild("complex-alias") || fieldNode.hasChild("case")) && fnAttrs.get("function") != null) {
+        if ((typeAttr == null || typeAttr.isEmpty()) && (fieldNode.hasChild("complex-alias") || fieldNode.hasChild("case")) && fnAttrs.get("function") != null) {
             // this is probably a calculated value, just default to number-decimal
             typeAttr = "number-decimal";
         }
         type = typeAttr;
-        if (type != null && type.length() > 0) {
+        if (type != null && !type.isEmpty()) {
             String fieldJavaType = ed.efi.getFieldJavaType(type, ed);
             javaType = fieldJavaType != null ? fieldJavaType : "String";
             typeValue = EntityFacadeImpl.getJavaTypeInt(javaType);
@@ -107,7 +116,7 @@ public class FieldInfo {
         enableLocalization = "true".equals(fnAttrs.get("enable-localization"));
         isSimple = !enableLocalization;
         String createOnlyAttr = fnAttrs.get("create-only");
-        createOnly = createOnlyAttr != null && createOnlyAttr.length() > 0 ?
+        createOnly = createOnlyAttr != null && !createOnlyAttr.isEmpty() ?
                 "true".equals(fnAttrs.get("create-only")) :
                 "true".equals(ed.internalEntityNode.attribute("create-only"));
         isLastUpdatedStamp = "lastUpdatedStamp".equals(name);
@@ -133,7 +142,7 @@ public class FieldInfo {
             aliasFieldName = fieldAttr != null && !fieldAttr.isEmpty() ? fieldAttr : name;
             MNode tempMembEntNode = null;
             String entityAlias = fieldNode.attribute("entity-alias");
-            if (entityAlias != null && entityAlias.length() > 0) {
+            if (entityAlias != null && !entityAlias.isEmpty()) {
                 entityAliasUsedSet.add(entityAlias);
                 tempMembEntNode = ed.memberEntityAliasMap.get(entityAlias);
             }
@@ -143,7 +152,7 @@ public class FieldInfo {
             for (int i = 0; i < cafListSize; i++) {
                 MNode cafNode = cafList.get(i);
                 String cafEntityAlias = cafNode.attribute("entity-alias");
-                if (cafEntityAlias != null && cafEntityAlias.length() > 0) entityAliasUsedSet.add(cafEntityAlias);
+                if (cafEntityAlias != null && !cafEntityAlias.isEmpty()) entityAliasUsedSet.add(cafEntityAlias);
             }
             if (tempMembEntNode == null && entityAliasUsedSet.size() == 1) {
                 String singleEntityAlias = entityAliasUsedSet.iterator().next();
@@ -238,6 +247,7 @@ public class FieldInfo {
                     break;
             // better way for Collection (15)? maybe parse comma separated, but probably doesn't make sense in the first place
                 case 15: outValue = value; break;
+                case 16: outValue = value; break;
                 default: outValue = value; break;
             }
         } catch (IllegalArgumentException e) {
@@ -391,7 +401,12 @@ public class FieldInfo {
                 break;
             case 13: value = new SerialClob(rs.getClob(index)); break;
             case 14:
-            case 15: value = rs.getObject(index); break;
+            case 15:
+                value = efi.jsonFieldManipulator.entityValue(15, rs.getObject(index));
+                break;
+            case 16:
+                value = efi.jsonFieldManipulator.entityValue(16, rs.getObject(index));
+                break;
             }
         } catch (SQLException sqle) {
             logger.error("SQL Exception while getting value for field: " + name + " (" + index + ")", sqle);
@@ -606,7 +621,37 @@ public class FieldInfo {
                 case 13: if (value != null) { ps.setClob(index, (Clob) value); } else { ps.setNull(index, Types.CLOB); } break;
                 case 14: if (value != null) { ps.setTimestamp(index, (Timestamp) value); } else { ps.setNull(index, Types.TIMESTAMP); } break;
                 // TODO: is this the best way to do collections and such?
-                case 15: if (value != null) { ps.setObject(index, value, Types.JAVA_OBJECT); } else { ps.setNull(index, Types.JAVA_OBJECT); } break;
+                case 15:
+                    if (value != null) {
+                        ps.setObject(index, value, Types.JAVA_OBJECT);
+                    } else {
+                        ps.setNull(index, Types.JAVA_OBJECT);
+                    } break;
+                case 16:
+                    if (value != null) {
+                        Gson gson = new Gson();
+                        TreeMap treeMap;
+                        if (value.getClass() == HashMap.class) {
+                            treeMap = new TreeMap<>((HashMap<?, ?>) value);
+                        } else if (value.getClass() == LazyMap.class) {
+                            treeMap = new TreeMap<>((LinkedHashMap<?, ?>) convertLazyMap((LazyMap) value));
+                        } else if (value.getClass() == LinkedHashMap.class) {
+                            treeMap = new TreeMap<>((LinkedHashMap<?, ?>) value);
+                        } else {
+                            String outMap = gson.toJson(value).toString();
+                            ps.setString(index, outMap);
+                            break;
+                        }
+
+                        // convert object into string (with doublequotes escaped)
+                        // VERSION 1 - works with H2
+                        String outMap = gson.toJson(treeMap);
+                        ps.setString(index, outMap);
+
+                    } else {
+                        ps.setNull(index, Types.NULL);
+                    }
+                    break;
                 }
             }
         } catch (SQLException sqle) {

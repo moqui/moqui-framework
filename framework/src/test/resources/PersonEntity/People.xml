@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-2.1.xsd">
+
+    <entity entity-name="Person" package="ars.test">
+        <field name="oscis" type="id" is-pk="true"/>
+        <field name="name" type="text-medium"/>
+        <field name="surname" type="text-medium"/>
+        <field name="since" type="date"/>
+        <field name="thru" type="date"/>
+        <relationship type="many" related="ars.test.PersonToTeam">
+            <key-map field-name="oscis"/>
+        </relationship>
+        <relationship type="many" related="ars.test.PersonToRate">
+            <key-map field-name="oscis"/>
+        </relationship>
+    </entity>
+
+    <entity entity-name="PersonToTeam" package="ars.test">
+        <field name="personTeamId" type="id" is-pk="true"/>
+        <field name="oscis" type="id"/>
+        <field name="team" type="text-medium"/>
+        <field name="since" type="date"/>
+        <field name="thru" type="date"/>
+        <relationship type="one" related="ars.test.Person">
+            <key-map field-name="oscis"/>
+        </relationship>
+    </entity>
+
+    <entity entity-name="PersonToRate" package="ars.test">
+        <field name="personRateId" type="id" is-pk="true"/>
+        <field name="oscis" type="id"/>
+        <field name="rate" type="number-float"/>
+        <field name="since" type="date"/>
+        <field name="thru" type="date"/>
+        <relationship type="one" related="ars.test.Person">
+            <key-map field-name="oscis"/>
+        </relationship>
+    </entity>
+</entities>

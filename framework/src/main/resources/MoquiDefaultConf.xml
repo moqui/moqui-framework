@@ -12,8 +12,8 @@
 
     <!-- Locale and Time Zone Properties -->
     <default-property name="default_locale" value="en_US"/>
-    <default-property name="default_time_zone" value="US/Pacific"/>
-    <default-property name="database_time_zone" value="US/Pacific"/>
+    <default-property name="default_time_zone" value="CET"/>
+    <default-property name="database_time_zone" value="CET"/>
 
     <!-- Web App Properties -->
     <default-property name="webapp_http_host" value=""/>
@@ -46,19 +46,36 @@
     <default-property name="entity_ds_host" value="127.0.0.1"/>
     <default-property name="entity_ds_port" value=""/>
     <default-property name="entity_ds_database" value="moqui"/>
-    <default-property name="entity_ds_url" value="jdbc:h2:${moqui_runtime}/db/h2/${entity_ds_database};lock_timeout=30000"/>
-    <default-property name="entity_ds_schema" value=""/>
+    <default-property name="entity_ds_url" value="jdbc:h2:${moqui_runtime}/db/h2/${entity_ds_database};lock_timeout=30000;NON_KEYWORDS=VALUE"/>
+    <default-property name="entity_ds_schema" value="public"/>
     <default-property name="entity_ds_user" value="sa"/>
     <default-property name="entity_ds_password" value="sa" is-secret="true"/>
     <default-property name="entity_ds_crypt_pass" value="MoquiDefaultPassword:CHANGEME" is-secret="true"/>
     <default-property name="entity_ds_crypt_pass_old" value="MoquiDefaultPassword:CHANGEME" is-secret="true"/>
     <default-property name="entity_add_missing_runtime" value="false"/>
     <default-property name="entity_add_missing_startup" value="true"/>
+    <default-property name="entity_add_missing_startup" value="true"/>
+    <default-property name="entity_use_schema_for_all" value="true"/>
     <default-property name="entity_lock_track" value="false"/>
     <default-property name="entity_statement_timeout" value="false"/>
     <default-property name="entity_empty_db_load" value="seed,seed-initial,install"/>
     <default-property name="entity_on_start_load_types" value="none"/>
     <default-property name="entity_on_start_load_components" value=""/>
+
+    <!-- Bitronix default configuration overrides -->
+    <default-property name="bitronix.tm.server-id" value="btx-server-id"/>
+    <default-property name="bitronix.tm.timer.tx.default.timeout" value="60"/>
+
+    <!-- PY-CALC server connection details -->
+    <default-property name="py.server.host" value="http://localhost:8000"/>
+    <default-property name="py.endpoint.render" value="api/v1/calculator/render"/>
+
+    <!-- JMS Messaging connection info -->
+    <default-property name="jms.server.host" value=""/>
+    <default-property name="jms.server.operator" value=""/>
+    <default-property name="jms.server.operator.password" value=""/>
+
+    <default-property name="rest_endpoint_checked" value="ars.rockycube.EndpointServices.*"/>
 
     <!-- Properties for a database clone; note that without overriding the transactional#clone1 datasource the default works only
         with MySQL and Postgres because of different properties on XADataSource classes of other JDBC drivers -->
@@ -196,10 +213,10 @@
             -->
 
             <!-- ElasticSearch Request Log Filter (log requests directly to ElasticSearch) -->
-            <filter name="ElasticRequestLogFilter" class="org.moqui.impl.webapp.ElasticRequestLogFilter" async-supported="true">
-                <url-pattern>/*</url-pattern>
-                <dispatcher>REQUEST</dispatcher>
-            </filter>
+<!--            <filter name="ElasticRequestLogFilter" class="org.moqui.impl.webapp.ElasticRequestLogFilter" async-supported="true">-->
+<!--                <url-pattern>/*</url-pattern>-->
+<!--                <dispatcher>REQUEST</dispatcher>-->
+<!--            </filter>-->
             <!-- ElasticSearch and Kibana auth filters, see below for proxy servlets on the same url-pattern -->
             <filter name="ElasticAuthFilter" class="org.moqui.impl.webapp.MoquiAuthFilter" async-supported="true">
                 <init-param name="permission" value="ElasticRemote"/>
@@ -275,8 +292,8 @@
             <response-header type="cors-preflight" name="Vary" value="Origin"/>
             <response-header type="cors-preflight" name="Access-Control-Allow-Credentials" value="true"/>
             <!-- doesn't seem these are needed, allowed by default: ,Authorization,Referrer,User-Agent -->
-            <response-header type="cors-preflight" name="Access-Control-Allow-Headers" add="true"
-                    value="Accept,Accept-Encoding,Content-Type,Content-Encoding,Origin,X-Requested-With,Access-Control-Request-Method,Access-Control-Request-Headers,api_key,login_key,X-HTTP-Method-Override,moquiSessionToken,SessionToken,X-CSRF-Token,Authorization"/>
+            <response-header type="cors-preflight" name="Access-Control-Allow-Headers"
+                    value="Accept,Accept-Encoding,Content-Type,Content-Encoding,Origin,X-Requested-With,Access-Control-Request-Method,Access-Control-Request-Headers,api_key,login_key,X-HTTP-Method-Override,moquiSessionToken,SessionToken,X-CSRF-Token,Authorization,X-Requested-By-User,X-Requested-By-User,X-User-Specific-Message"/>
             <!-- TODO: would be nice to handle this differently, ie dynamically based on preflight request path -->
             <response-header type="cors-preflight" name="Access-Control-Allow-Methods" add="true" value="GET,PUT,POST,PATCH,DELETE,OPTIONS"/>
             <response-header type="cors-preflight" name="Access-Control-Max-Age" value="3600"/>
@@ -295,6 +312,7 @@
                   history-limit="5" change-weeks="104" email-require-change="false" email-expire-hours="48"/>
         <login-key encrypt-hash-type="SHA-256" expire-hours="144"/><!-- default expire 6 days, 144 hours -->
         <login max-failures="3" disable-minutes="5" history-store="true" history-incorrect-password="false"/>
+        <ldap-params shiro-file-name="shiro.ini"/>
     </user-facade>
 
     <transaction-facade use-transaction-cache="true" use-connection-stash="true" use-lock-track="${entity_lock_track}" use-statement-timeout="${entity_statement_timeout}">
@@ -327,6 +345,7 @@
 
         <resource-reference scheme="classpath" class="org.moqui.resource.ClasspathResourceReference"/>
         <resource-reference scheme="component" class="org.moqui.impl.context.reference.ComponentResourceReference"/>
+        <resource-reference scheme="rdf" class="org.moqui.resource.RuntimeDirectoryResourceReference"/>
         <resource-reference scheme="content" class="org.moqui.impl.context.reference.ContentResourceReference"/>
         <resource-reference scheme="dbresource" class="org.moqui.impl.context.reference.DbResourceReference"/>
 
@@ -466,7 +485,7 @@
             few extra so 120 connections in the main pool.
         -->
         <datasource group-name="transactional" database-conf-name="${entity_ds_db_conf}" schema-name="${entity_ds_schema}"
-                runtime-add-missing="${entity_add_missing_runtime}" startup-add-missing="${entity_add_missing_startup}">
+                runtime-add-missing="${entity_add_missing_runtime}" startup-add-missing="${entity_add_missing_startup}" use-schema-for-all="${entity_use_schema_for_all}">
             <!-- by default no inline-jdbc or jndi-jdbc elements, use default from database conf -->
         </datasource>
 
@@ -517,6 +536,7 @@
              not in a war/ear file or from special ClassLoaders) -->
         <!-- in framework/entity -->
         <load-entity location="classpath://entity/BasicEntities.xml"/>
+        <load-entity location="classpath://entity/SecurityEntities.xml"/>
         <load-entity location="classpath://entity/EntityEntities.xml"/>
         <load-entity location="classpath://entity/OlapEntities.xml"/>
         <load-entity location="classpath://entity/ResourceEntities.xml"/>
@@ -526,6 +546,7 @@
         <load-entity location="classpath://entity/ServerEntities.xml"/>
         <load-entity location="classpath://entity/ServiceEntities.xml"/>
         <load-entity location="classpath://entity/TestEntities.xml"/>
+        <load-entity location="classpath://entity/ClosureEntities.xml"/>
         <!-- in framework/data -->
         <load-data location="classpath://data/CommonL10nData.xml"/>
         <load-data location="classpath://data/CurrencyData.xml"/>
@@ -635,11 +656,19 @@
             <inline-jdbc jdbc-uri="jdbc:h2:${moqui_runtime}/db/h2/moqui;lock_timeout=30000" jdbc-username="sa" jdbc-password="sa"/>
         </datasource>
         -->
-        <database name="h2" use-pk-constraint-names="false" use-indexes-unique="true" add-unique-as="true" default-isolation-level="ReadCommitted"
-                default-jdbc-driver="org.h2.Driver" default-xa-ds-class="org.h2.jdbcx.JdbcDataSource"
-                default-start-server-args="-tcpPort 9092 -ifExists -baseDir ${moqui_runtime}/db/h2">
+        <database name="h2" use-pk-constraint-names="false" use-indexes-unique="true" add-unique-as="true" use-schema-for-all="true" default-isolation-level="ReadCommitted"
+                  default-jdbc-driver="org.h2.Driver" default-xa-ds-class="org.h2.jdbcx.JdbcDataSource"
+                default-start-server-args="-tcpPort 9092 -ifExists -baseDir ${moqui_runtime}/db/h2"
+                create-to-json-method=" " create-format-json-value="? FORMAT JSON">
+            <database-type sql-type-alias="s" type="jsonb" java-type="java.util.HashMap" sql-type="JSON"/>
             <!-- 'VALUE' is a reserved word in H2 starting with version 2.0.202 -->
             <name-replace original="VALUE" replace="THE_VALUE"/>
+            <json-config>
+                <create-specs to-json-method="(" format-json-value="? FORMAT JSON"/>
+                <update-specs to-json-method="(" format-json-value="? FORMAT JSON"/>
+                <where-specs to-json-method="(" format-json-value="? FORMAT JSON"/>
+            </json-config>
+
             <inline-jdbc><xa-properties url="${entity_ds_url}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
         </database>
         <!-- TODO: add configuration examples -->
@@ -825,6 +854,22 @@
                     URL="jdbc:oracle:thin:@${entity_ds_host}:${entity_ds_port?:'1521'}:${entity_ds_database}"/></inline-jdbc>
         </database>
 
+        <database name="mongodb"
+            use-pk-constraint-names="false"
+            default-isolation-level="ReadCommitted"
+            default-jdbc-driver="com.mongodb.MongoClient"
+            default-xa-ds-class="com.mongodb.client.jndi.MongoClientFactory">
+
+            <database-type type="jsonb" java-type="java.util.HashMap" sql-type="BSON"/>
+
+            <inline-jdbc pool-maxsize="140">
+                <xa-properties
+                        user="${entity_ds_user}"
+                        password="${entity_ds_password}"
+                        URL="jdbc:mongodb:@${entity_ds_host}:${entity_ds_port?:'27017'}:${entity_ds_database}"/>
+            </inline-jdbc>
+        </database>
+
         <!-- for future reference (OrientDB with JDBC driver): <database name="orientdb"
                 use-pk-constraint-names="false" default-isolation-level="ReadCommitted"
                 default-jdbc-driver="com.orientechnologies.orient.jdbc.OrientJdbcDriver"
@@ -845,7 +890,9 @@
                 never-try-insert="true" default-isolation-level="ReadCommitted" use-tm-join="true" default-test-query="SELECT 1"
                 constraint-name-clip-length="60"
                 default-jdbc-driver="org.postgresql.Driver" default-xa-ds-class="org.postgresql.xa.PGXADataSource"
-                default-startup-add-missing="true" default-runtime-add-missing="false" use-binary-type-for-blob="true">
+                default-startup-add-missing="true" default-runtime-add-missing="false" use-binary-type-for-blob="true"
+                  create-to-json-method="to_json" create-format-json-value="?::json"
+        >
             <!-- NOTE: when Postgres JDBC driver updated can set use-tm-join="true" -->
             <database-type type="number-float" sql-type="FLOAT8"/>
 
@@ -855,6 +902,16 @@
             <database-type type="text-very-long" sql-type="TEXT"/>
 
             <database-type type="binary-very-long" sql-type="BYTEA"/>
+
+            <database-type type="jsonb" java-type="java.util.HashMap" sql-type="JSONB"/>
+
+            <json-config>
+                <create-specs to-json-method="to_json(" format-json-value="?::json"/>
+                <update-specs to-json-method="to_json(" format-json-value="?::json"/>
+                <where-specs to-json-method="" format-json-value="?::jsonb"/>
+                <nested-field syntax="{{column}}->>'{{nestedField}}'{{operator}}?"/>
+                <json-operator operator-type="equals" value-to-use="@>"/>
+            </json-config>
 
             <!-- default max connections for PostgreSQL is 100 -->
             <inline-jdbc pool-maxsize="90"><xa-properties serverName="${entity_ds_host}" portNumber="${entity_ds_port?:'5432'}"

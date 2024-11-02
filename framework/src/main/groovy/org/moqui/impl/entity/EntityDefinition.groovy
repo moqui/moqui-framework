@@ -79,6 +79,14 @@ class EntityDefinition {
     private boolean hasReverseRelationships = false
     private Map<String, MasterDefinition> masterDefinitionMap = null
 
+    /**
+     * Flag for indicating a special entity. If set to true,
+     * the entity can have multiple instances of itself, being distinguished
+     * by a suffix.
+     * For example: LedgerDocument@231227_153001
+     */
+    private boolean multipleInstanceEntity = false
+
     EntityDefinition(EntityFacadeImpl efi, MNode entityNode) {
         this.efi = efi
         // copy the entityNode because we may be modifying it
@@ -522,13 +530,34 @@ class EntityDefinition {
         return fieldInfo.getFullColumnName()
     }
 
+    String getUsage(){
+        return this.internalEntityNode.attribute("use")
+    }
+
     ArrayList<String> getPkFieldNames() { return pkFieldNameList }
     ArrayList<String> getNonPkFieldNames() { return nonPkFieldNameList }
     ArrayList<String> getAllFieldNames() { return allFieldNameList }
     boolean isField(String fieldName) { return fieldInfoMap.containsKey(fieldName) }
     boolean isPkField(String fieldName) {
+        return isPkField(fieldName, false)
+    }
+
+    boolean isPkField(String fieldName, Boolean loose) {
         FieldInfo fieldInfo = fieldInfoMap.get(fieldName)
-        if (fieldInfo == null) return false
+        if (!fieldInfo && !loose) return false
+        if (!fieldInfo)
+        {
+            this.fieldNodeMap.each {it->
+                if (it.value.attributes.containsKey("column-name"))
+                {
+                    if (it.value.attribute("column-name") == fieldName)
+                    {
+                        fieldInfo = fieldInfoMap.get(it.value.attribute("name"))
+                    }
+                }
+            }
+        }
+        if (!fieldInfo) return false
         return fieldInfo.isPk
     }
 
@@ -899,7 +928,14 @@ class EntityDefinition {
         return prettyName.toString()
     }
 
-    // used in EntityCache for view entities
+    boolean getIsMultipleInstanceEntity() {
+        return multipleInstanceEntity
+    }
+
+    void setIsMultipleInstanceEntity(boolean isMultipleInsEntity) {
+        this.multipleInstanceEntity = isMultipleInsEntity
+    }
+// used in EntityCache for view entities
     Map<String, String> getMePkFieldToAliasNameMap(String entityAlias) {
         if (mePkFieldToAliasNameMapMap == null) mePkFieldToAliasNameMapMap = new HashMap<String, Map<String, String>>()
         Map<String, String> mePkFieldToAliasNameMap = (Map<String, String>) mePkFieldToAliasNameMapMap.get(entityAlias)

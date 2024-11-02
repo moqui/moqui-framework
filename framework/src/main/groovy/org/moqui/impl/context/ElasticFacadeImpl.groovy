@@ -20,8 +20,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.module.SimpleModule
 import groovy.json.JsonOutput
-import groovy.transform.CompileStatic
-
+import groovy.transform.TypeChecked
 import org.moqui.BaseException
 import org.moqui.context.ElasticFacade
 import org.moqui.entity.EntityException
@@ -42,7 +41,7 @@ import org.slf4j.LoggerFactory
 import java.sql.Timestamp
 import java.util.concurrent.Future
 
-@CompileStatic
+@TypeChecked
 class ElasticFacadeImpl implements ElasticFacade {
     private final static Logger logger = LoggerFactory.getLogger(ElasticFacadeImpl.class)
     private final static Set<String> docSkipKeys = new HashSet<>(Arrays.asList("_index", "_type", "_id", "_timestamp"))

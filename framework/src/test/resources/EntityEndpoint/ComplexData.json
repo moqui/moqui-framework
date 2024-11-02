@@ -1,0 +1,20 @@
+{
+  "general": {
+    "woLabel": "EAM - dodanie",
+    "endCustomer": "Real Estate",
+    "seller": "B. Martin",
+    "center": "EAM",
+    "revenueCalculationType": "podľa fakturácie (priebežne)",
+    "changes": "",
+    "costsTotal": 2500.8,
+    "costsWork": 544.8,
+    "costsRisk": 0,
+    "revenuesTotal": 4.173E+4,
+    "erOwnRatio": 0.8642429820524621,
+    "profit": 5135.2,
+    "costs3P": 1.95E+3,
+    "startDate": "2021-09-15",
+    "epochStartDate": 1631664000000
+  },
+  "id": "100052"
+}

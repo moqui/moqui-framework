@@ -31,6 +31,13 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="testNumberFloat" type="number-float"/>
         <field name="testCurrencyAmount" type="currency-amount"/>
         <field name="testCurrencyPrecise" type="currency-precise"/>
+        <field name="testJsonField" type="jsonb"/>
+    </entity>
+    <entity entity-name="TestEntitySpecial" package="moqui.test" sequence-bank-size="100">
+        <field name="testId" type="jsonb" is-pk="true"/>
+        <field name="testSearchField" type="jsonb"/>
+        <field name="testMaps" type="jsonb"/>
+        <field name="testArrays" type="jsonb"/>
     </entity>
     <entity entity-name="Foo" package="moqui.test" sequence-bank-size="100">
         <field name="fooId" type="id" is-pk="true"/>
@@ -68,5 +75,32 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="TestIntPk" package="moqui.test">
         <field name="intId" type="number-integer" is-pk="true"/>
         <field name="testMedium" type="text-medium"/>
+    </entity>
+    <entity entity-name="TestRelationshipPerson" package="moqui.test">
+        <field name="testName" type="text-short" is-pk="true"/>
+        <field name="testSurname" type="text-short" is-pk="true"/>
+        <relationship type="one" related="moqui.test.TestRelationshipName"/>
+    </entity>
+    <entity entity-name="TestRelationshipName" package="moqui.test">
+        <field name="testName" type="text-short" is-pk="true"/>
+        <relationship type="many" related="moqui.test.TestRelationshipPerson"/>
+    </entity>
+
+    <entity entity-name="TestBasicEntity" package="moqui.test">
+        <field name="testId" type="id" is-pk="true"/>
+    </entity>
+
+    <!-- a more suitable relationships testing entity -->
+    <entity entity-name="Invoice" package="moqui.test">
+        <field name="invoiceId" type="id" is-pk="true"/>
+        <field name="docNumber" type="text-short"/>
+        <relationship type="many" related="moqui.test.InvoiceItem"/>
+    </entity>
+
+    <entity entity-name="InvoiceItem" package="moqui.test">
+        <field name="invoiceItemId" type="id" is-pk="true"/>
+        <field name="invoiceId" type="id" is-pk="true"/>
+        <field name="value" type="number-decimal"/>
+        <relationship type="one" related="moqui.test.Invoice"/>
     </entity>
 </entities>

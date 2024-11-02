@@ -1,0 +1,140 @@
+name: whole-component tests
+on: [push,workflow_dispatch]
+jobs:
+  closure-api-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: 13
+          distribution: adopt
+      - name: Checkout runtime
+        uses: actions/checkout@v4
+        with:
+          repository: rovnanik-sk/moqui-runtime
+          path: './runtime'
+          ref: rsk-dev
+      - name: Checkout moqui-closure-api
+        uses: actions/checkout@v4
+        with:
+          repository: rovnanik-sk/moqui-closure-api
+          ssh-key: ${{ secrets.DK_MOQUI_CLOSURE_API }}
+          path: './runtime/component/moqui-closure-api'
+          ref: rsk-dev
+      - name: Prep - clean database
+        run: ./gradlew cleanDb
+      - name: Prep - load database
+        run: ./gradlew load
+      - name: Run unit tests on all components
+        run: ./gradlew compTest
+
+  acc-extractor-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: 13
+          distribution: adopt
+      - name: Checkout runtime
+        uses: actions/checkout@v4
+        with:
+          repository: rovnanik-sk/moqui-runtime
+          path: './runtime'
+          ref: rsk-dev
+      - name: Checkout moqui-acc-extractor
+        uses: actions/checkout@v4
+        with:
+          repository: rovnanik-sk/moqui-acc-extractor
+          ssh-key: ${{ secrets.DK_MOQUI_ACC_EXTRACTOR }}
+          path: './runtime/component/moqui-acc-extractor'
+          ref: rsk-dev
+      - name: Prep - clean database
+        run: ./gradlew cleanDb
+      - name: Prep - load database
+        run: ./gradlew load
+      - name: Run unit tests on all components
+        run: ./gradlew compTest
+
+  projects-api-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: 13
+          distribution: adopt
+      - name: Checkout runtime
+        uses: actions/checkout@v4
+        with:
+          repository: rovnanik-sk/moqui-runtime
+          path: './runtime'
+          ref: rsk-dev
+      - name: Checkout moqui-projects-api
+        uses: actions/checkout@v4
+        with:
+          repository: rovnanik-sk/moqui-projects-api
+          ssh-key: ${{ secrets.DK_MOQUI_PROJECTS_API }}
+          path: './runtime/component/moqui-projects-api'
+          ref: rsk-dev
+      - name: Prep - clean database
+        run: ./gradlew cleanDb
+      - name: Prep - load database
+        run: ./gradlew load
+      - name: Run unit tests on all components
+        run: ./gradlew compTest
+
+  all-components-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: 13
+          distribution: adopt
+      - name: Checkout runtime
+        uses: actions/checkout@v4
+        with:
+          repository: rovnanik-sk/moqui-runtime
+          path: './runtime'
+          ref: rsk-dev
+      - name: Checkout moqui-closure-api
+        uses: actions/checkout@v4
+        with:
+          repository: rovnanik-sk/moqui-closure-api
+          ssh-key: ${{ secrets.DK_MOQUI_CLOSURE_API }}
+          path: './runtime/component/moqui-closure-api'
+          ref: rsk-dev
+      - name: Checkout moqui-acc-extractor
+        uses: actions/checkout@v4
+        with:
+          repository: rovnanik-sk/moqui-acc-extractor
+          ssh-key: ${{ secrets.DK_MOQUI_ACC_EXTRACTOR }}
+          path: './runtime/component/moqui-acc-extractor'
+          ref: rsk-dev
+      - name: Checkout moqui-projects-api
+        uses: actions/checkout@v4
+        with:
+          repository: rovnanik-sk/moqui-projects-api
+          ssh-key: ${{ secrets.DK_MOQUI_PROJECTS_API }}
+          path: './runtime/component/moqui-projects-api'
+          ref: rsk-dev
+      - name: Prep - clean database
+        run: ./gradlew cleanDb
+      - name: Prep - load database
+        run: ./gradlew load
+      - name: Run unit tests on all components
+        run: ./gradlew compTest
+      - name: trigger integration tests in aston-stack
+        run: |
+          curl -H "Accept: application/vnd.github.everest-preview+json" \
+          -H "Authorization: token ${{ secrets.TESTS_ACTION_DISPATCH }}" \
+          --request POST \
+          https://api.github.com/repos/rovnanik-sk/\
+          aston-stack/actions/workflows/qa_tests.yml/dispatches \
+          --data "{\"ref\":\"refs/heads/rsk-dev\"}"

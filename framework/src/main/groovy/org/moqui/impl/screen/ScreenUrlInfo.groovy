@@ -14,6 +14,7 @@
 package org.moqui.impl.screen
 
 import groovy.transform.CompileStatic
+import groovy.transform.TypeChecked
 import org.moqui.BaseArtifactException
 import org.moqui.BaseException
 import org.moqui.context.ArtifactExecutionInfo
@@ -42,7 +43,7 @@ import org.slf4j.LoggerFactory
 import javax.cache.Cache
 import javax.servlet.http.HttpServletRequest
 
-@CompileStatic
+@TypeChecked
 class ScreenUrlInfo {
     protected final static Logger logger = LoggerFactory.getLogger(ScreenUrlInfo.class)
 
@@ -877,7 +878,7 @@ class ScreenUrlInfo {
         if (startsWithSlash && screenPath.startsWith("//")) {
             // find the screen by name
             String trimmedFromPath = screenPath.substring(2)
-            ArrayList<String> originalPathNameList = new ArrayList<String>(trimmedFromPath.split("/") as List)
+            ArrayList<String> originalPathNameList = new ArrayList<String>(Arrays.asList(trimmedFromPath.split("/")))
             originalPathNameList = cleanupPathNameList(originalPathNameList, inlineParameters)
 
             if (sfi.screenFindPathCache.containsKey(screenPath)) {

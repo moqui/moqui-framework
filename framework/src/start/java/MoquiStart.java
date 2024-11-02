@@ -192,6 +192,7 @@ public class MoquiStart {
             if (threadsStr != null && threadsStr.length() > 0) threads = Integer.parseInt(threadsStr);
 
             System.out.println("Running Jetty server on port " + port + " max threads " + threads + " with args [" + argMap + "]");
+            System.out.println("Moqui Logging Directory: " + System.getProperty("moqui.log.directory"));
 
             Class<?> serverClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.Server");
             Class<?> handlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.Handler");
@@ -488,6 +489,29 @@ public class MoquiStart {
             System.out.println("Determined conf by default (dev conf file): " + confPath);
         }
         if (confPath != null && !confPath.isEmpty()) System.setProperty("moqui.conf", confPath);
+
+        // set logging directory
+        String logDir = argMap.get("log");
+        if (logDir != null && !logDir.isEmpty()) {
+            System.out.println("Determined log directory from log argument: " + logDir);
+        } else {
+            logDir = System.getProperty("moqui.log.directory", null);
+        }
+
+        // handle missing value of logging directory
+        // 1. if there is nothing, set it to Moqui runtime + log
+        // 2. if is set, either append to Moqui runtime directory, if does not start with a `/`
+        // 3. or set completely to a new value
+        if (logDir == null) {
+            // set log directory to where Moqui runtime is running, if nothing is set
+            System.setProperty("moqui.log.directory", System.getProperty("moqui.runtime") + "/log");
+        } else {
+            if (logDir.startsWith("/")) {
+                System.setProperty("moqui.log.directory", logDir);
+            } else {
+                System.setProperty("moqui.log.directory", System.getProperty("moqui.runtime") + "/" + logDir);
+            }
+        }
     }
 
     private static Process checkStartElasticSearch() {

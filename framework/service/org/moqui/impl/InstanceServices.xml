@@ -346,6 +346,10 @@ along with this software (see the LICENSE.md file). If not, see
                 hostConfigMap.put(hostConf.hostConfigName, hostConfigValue)
             }
 
+            List<String> bindList = []
+            for (Map vol in appInstance.vols) if (vol.mountPoint && vol.volumeName) bindList.add("${vol.volumeName}:${vol.mountPoint}")
+            if (bindList) hostConfigMap.Binds = bindList
+
             Map jsonBody = [Image: instanceImage.imageName, Env: envList, HostConfig: hostConfigMap]
             String initCommand = appInstance.initCommand ?: instanceImageType.defaultInitCommand
             if (initCommand) jsonBody.Cmd = initCommand

@@ -1,0 +1,35 @@
+[
+  {
+    "label": "id-like",
+    "value": "projekt%",
+    "field": "projectId",
+    "operator": "like"
+  },
+  {
+    "label": "label-like",
+    "value": "projekt%",
+    "field": "label",
+    "operator": "like"
+  },
+  {
+    "label": "customer-like",
+    "value": "projekt%",
+    "field": "customer",
+    "operator": "like"
+  },
+  {
+    "value": "EAM",
+    "field": "center",
+    "operator": "="
+  },
+  {
+    "value": "closed",
+    "field": "status",
+    "operator": "not-equal"
+  },
+  {
+    "label": "has a budget",
+    "field": "currentGrossProfit",
+    "operator": "not-null"
+  }
+]

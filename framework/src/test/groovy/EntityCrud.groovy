@@ -159,4 +159,24 @@ class EntityCrud extends Specification {
         deSerVal.testNumberDecimal == 12.34
         deSerVal.testDateTime == nowStamp
     }
+
+    def "update forbidden on generic entity"() {
+        when:
+        ec.entity.makeValue("moqui.test.TestEntity").setAll([testId:"FORBUPD", testMedium:"Forbid update test"]).create()
+        EntityValue testEntity = ec.entity.find("moqui.test.TestEntity").condition("testId", "FORBUPD").one()
+        assert testEntity
+
+        // attempt to update it
+        try {
+            ec.entity.makeValue("moqui.test.TestEntity").setAll([testId:"FORBUPD", testMedium:"Forbid update test"]).forbidDatabaseUpdate().create()
+        } catch (EntityException e) {
+            assert e.message == "Forbid update (on database level) not supported on generic EntityValue"
+        } catch (Exception exc) {
+            assert false, "We should not get here, it means we have another problem"
+        }
+
+        then:
+        // if the test manages to get passed here, we are good to go
+        1 == 1
+    }
 }

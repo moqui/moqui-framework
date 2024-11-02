@@ -80,11 +80,11 @@ import java.util.zip.ZipInputStream
 @CompileStatic
 class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected final static Logger logger = LoggerFactory.getLogger(ExecutionContextFactoryImpl.class)
-    protected final static boolean isTraceEnabled = logger.isTraceEnabled()
+    protected final static Boolean isTraceEnabled = logger.isTraceEnabled()
     
     private AtomicBoolean destroyed = new AtomicBoolean(false)
 
-    public final long initStartTime
+    public final Long initStartTime
     public final String initStartHex
     protected String runtimePath
     @SuppressWarnings("GrFinalVariableAccess") protected final String runtimeConfPath
@@ -969,9 +969,14 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     org.apache.shiro.mgt.SecurityManager getSecurityManager() {
         if (internalSecurityManager != null) return internalSecurityManager
 
+        // allow shiro to be configured outside of resources directory
+        String path = getLdapParamsNode().attribute("shiro-file-path")
+        String shiroConfigPath = path == null ? "classpath:" : new File("").getCanonicalPath() + "/" + path
+        shiroConfigPath += getLdapParamsNode().attribute('shiro-file-name')
+
         // init Apache Shiro; NOTE: init must be done here so that ecfi will be fully initialized and in the static context
         org.apache.shiro.util.Factory<org.apache.shiro.mgt.SecurityManager> factory =
-                new IniSecurityManagerFactory("classpath:shiro.ini")
+                new IniSecurityManagerFactory(shiroConfigPath)
         internalSecurityManager = factory.getInstance()
         // NOTE: setting this statically just in case something uses it, but for Moqui we'll be getting the SecurityManager from the ecfi
         SecurityUtils.setSecurityManager(internalSecurityManager)
@@ -1645,6 +1650,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             ufBaseNode.mergeSingleChild(ufOverrideNode, "password")
             ufBaseNode.mergeSingleChild(ufOverrideNode, "login-key")
             ufBaseNode.mergeSingleChild(ufOverrideNode, "login")
+            ufBaseNode.mergeSingleChild(ufOverrideNode, "ldap-params")
         }
 
         if (overrideNode.hasChild("transaction-facade")) {
@@ -1786,6 +1792,10 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     MNode getWebappNode(String webappName) { return confXmlRoot.first("webapp-list")
             .first({ MNode it -> it.name == "webapp" && it.attribute("name") == webappName }) }
+
+    MNode getLdapParamsNode() {
+        return confXmlRoot.first("user-facade").first({MNode it -> it.name == "ldap-params"})
+    }
 
     WebappInfo getWebappInfo(String webappName) {
         WebappInfo wi = webappInfoMap.get(webappName)

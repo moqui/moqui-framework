@@ -23,7 +23,6 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Map;
 
 public class EntityValueImpl extends EntityValueBase {
     protected static final Logger logger = LoggerFactory.getLogger(EntityValueImpl.class);
@@ -61,7 +60,10 @@ public class EntityValueImpl extends EntityValueBase {
 
         EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi);
         StringBuilder sql = eqb.sqlTopLevel;
-        sql.append("INSERT INTO ").append(ed.getFullTableName()).append(" (");
+        sql.append("INSERT INTO ").append(ed.getFullTableName());
+
+        sql.append(" (");
+        StringBuilder valuesForCast = new StringBuilder();
 
         int size = fieldInfoArray.length;
         StringBuilder values = new StringBuilder(size*3);
@@ -72,13 +74,19 @@ public class EntityValueImpl extends EntityValueBase {
             if (i > 0) {
                 sql.append(", ");
                 values.append(", ");
+                valuesForCast.append(", ");
             }
 
             sql.append(fieldInfo.getFullColumnName());
             values.append("?");
+
+            // cycle through values and construct list of fields
+            // for those that are json, insert `cast` function
+            boolean isJsonField = fieldInfo.type.toLowerCase().contains("json");
+            valuesForCast.append(isJsonField ? efi.jsonFieldManipulator.fieldCondition(ed.groupName) : "?");
         }
 
-        sql.append(") VALUES (").append(values.toString()).append(")");
+        sql.append(") VALUES (").append(valuesForCast).append(")");
 
         try {
             efi.getEntityDbMeta().checkTableRuntime(ed);
@@ -124,8 +132,16 @@ public class EntityValueImpl extends EntityValueBase {
             FieldInfo fieldInfo = nonPkFieldArray[i];
             if (fieldInfo == null) break;
             if (i > 0) sql.append(", ");
-            sql.append(fieldInfo.getFullColumnName()).append("=?");
-            parameters.add(new EntityConditionParameter(fieldInfo, valueMapInternal.getByIString(fieldInfo.name, fieldInfo.index), eqb));
+            String fieldName = fieldInfo.getFullColumnName();
+            String valueCast = "=?";
+            // treat JSON-like columns differently - override `valueCast` if parameters set
+            // must take into account also the type of database involved
+            boolean isJsonField = fieldInfo.type.toLowerCase().contains("json");
+            // tweaking sql query when working with JSONs
+            // By default, no methods are set, all has to be set in DataSource
+            if (isJsonField) valueCast = "=" + efi.jsonFieldManipulator.fieldCondition(ed.groupName);
+            sql.append(fieldName).append(valueCast);
+            parameters.add(new EntityConditionParameter(fieldInfo, valueMapInternal.get(fieldInfo.name), eqb));
         }
 
         eqb.addWhereClause(pkFieldArray, valueMapInternal);
@@ -144,13 +160,19 @@ public class EntityValueImpl extends EntityValueBase {
             setSyncedWithDb();
         } catch (SQLException e) {
             String txName = "[could not get]";
-            try { txName = efi.ecfi.transactionFacade.getTransactionManager().getTransaction().toString(); }
-            catch (Exception txe) { if (logger.isTraceEnabled()) logger.trace("Error getting transaction name: " + txe.toString()); }
+            try {
+                txName = efi.ecfi.transactionFacade.getTransactionManager().getTransaction().toString();
+            } catch (Exception txe) {
+                if (logger.isTraceEnabled()) logger.trace("Error getting transaction name: " + txe.toString());
+            }
             logger.warn("Error updating " + this.toString() + " tx " + txName + " con " + eqb.connection.toString() + ": " + e.toString());
             throw e;
         } finally {
-            try { eqb.closeAll(); }
-            catch (SQLException sqle) { logger.error("Error in JDBC close in update of " + this.toString(), sqle); }
+            try {
+                eqb.closeAll();
+            } catch (SQLException sqle) {
+                logger.error("Error in JDBC close in update of " + this.toString(), sqle);
+            }
         }
     }
 
@@ -183,8 +205,10 @@ public class EntityValueImpl extends EntityValueBase {
             logger.warn("Error deleting " + this.toString() + " tx " + txName + " con " + eqb.connection.toString() + ": " + e.toString());
             throw e;
         } finally {
-            try { eqb.closeAll(); }
-            catch (SQLException sqle) { logger.error("Error in JDBC close in delete of " + this.toString(), sqle); }
+            try { eqb.closeAll();
+            } catch (SQLException sqle) {
+                logger.error("Error in JDBC close in delete of " + this.toString(), sqle);
+            }
         }
     }
 

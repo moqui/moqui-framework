@@ -13,11 +13,12 @@
  */
 package org.moqui.impl.entity
 
-import groovy.transform.CompileStatic
+import groovy.transform.TypeChecked
 import org.codehaus.groovy.runtime.typehandling.GroovyCastException
 import org.moqui.BaseArtifactException
 import org.moqui.BaseException
 import org.moqui.context.ArtifactExecutionInfo
+import org.moqui.context.ExecutionContextFactory
 import org.moqui.etl.SimpleEtl
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ExecutionContextImpl
@@ -41,6 +42,8 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.w3c.dom.Element
 
+import ars.rockycube.connection.JsonFieldManipulator
+
 import javax.cache.Cache
 import javax.sql.DataSource
 import javax.sql.XAConnection
@@ -58,7 +61,8 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.Lock
 import java.util.concurrent.locks.ReentrantLock
 
-@CompileStatic
+
+@TypeChecked
 class EntityFacadeImpl implements EntityFacade {
     protected final static Logger logger = LoggerFactory.getLogger(EntityFacadeImpl.class)
     protected final static boolean isTraceEnabled = logger.isTraceEnabled()
@@ -76,7 +80,8 @@ class EntityFacadeImpl implements EntityFacade {
     static final String entityLocSingleEntryName = "ALL_ENTITIES"
     /** Map for framework entity definitions, avoid cache overhead and timeout issues */
     final HashMap<String, EntityDefinition> frameworkEntityDefinitions = new HashMap<>()
-
+    /** Map for dynamic created entity definitions based on @, avoid cache overhead and timeout issues */
+    final HashMap<String, EntityDefinition> dynamicEntityDefinitions = new HashMap<>()
     /** Sequence name (often entity name) is the key and the value is an array of 2 Longs the first is the next
      * available value and the second is the highest value reserved/cached in the bank. */
     final Cache<String, long[]> entitySequenceBankCache
@@ -108,6 +113,8 @@ class EntityFacadeImpl implements EntityFacade {
     }
     protected BlockingQueue<Runnable> statementWorkQueue = new ArrayBlockingQueue<>(1024);
     protected ThreadPoolExecutor statementExecutor = new ThreadPoolExecutor(5, 100, 60, TimeUnit.SECONDS, statementWorkQueue, new ExecThreadFactory());
+
+    public final JsonFieldManipulator jsonFieldManipulator
 
     EntityFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
@@ -153,6 +160,11 @@ class EntityFacadeImpl implements EntityFacade {
 
         emptyList = new EntityListImpl(this)
         emptyList.setFromCache()
+
+        // initialize JSONconditionHandler
+        this.jsonFieldManipulator = new JsonFieldManipulator(this, entityFacadeNode, (String groupName)-> {
+            return getDatabaseNode(groupName)
+        })
     }
     void postFacadeInit() {
         // ========== load a few things in advance so first page hit is faster in production (in dev mode will reload anyway as caches timeout)
@@ -629,8 +641,31 @@ class EntityFacadeImpl implements EntityFacade {
             return null
         }
 
-        EntityDefinition ed = (EntityDefinition) entityDefinitionCache.get(entityName)
-        if (ed != null) return ed
+        /*variables required for handling special entities - e.g. reporting tables distinguished by date*/
+        String entitySuffix = null
+        String entityNameToSearch = entityName
+
+        if (entityName.contains("@")) {
+            List<String> tokenizedEntityName = entityName.tokenize("@")
+            entitySuffix = tokenizedEntityName[-1]
+            entityName = tokenizedEntityName[0]
+            entityNameToSearch = entityName + "_" + entitySuffix
+
+            // logger.debug("Special entity being loaded ${entityName} with suffix ${entitySuffix}.")
+        }
+
+        EntityDefinition ed = (EntityDefinition) entityDefinitionCache.get(entityNameToSearch)
+        if (ed != null) {
+            if (entitySuffix) ed.isMultipleInstanceEntity = true
+            return ed
+        }
+
+        //control, if entity has not been created yet
+        ed = (EntityDefinition) dynamicEntityDefinitions.get(entityNameToSearch)
+        if (ed != null) {
+            if (entitySuffix) ed.isMultipleInstanceEntity = true
+            return ed
+        }
 
         Map<String, List<String>> entityLocationCache = entityLocationSingleCache.get(entityLocSingleEntryName)
         if (entityLocationCache == null) entityLocationCache = loadAllEntityLocations()
@@ -758,6 +793,9 @@ class EntityFacadeImpl implements EntityFacade {
                 }
             }
         }
+        //get relationships from entityNode
+        //if entityNode doesn't contain any relationships, this variable is null
+        ArrayList<MNode> relationships = entityNode.getChildrenByName().get("relationship")
         // if (entityName.endsWith("xample")) logger.warn("======== Creating Example ED entityNode=${entityNode}\nextendEntityNodes: ${extendEntityNodes}")
 
         // merge the extend-entity nodes
@@ -776,19 +814,22 @@ class EntityFacadeImpl implements EntityFacade {
                 else entityNode.append(childOverrideNode)
             }
             // add relationship, key-map (copy over, will get child nodes too
-            ArrayList<MNode> relNodeList = extendEntity.children("relationship")
-            for (int i = 0; i < relNodeList.size(); i++) {
-                MNode copyNode = relNodeList.get(i)
-                int curNodeIndex = entityNode.children
-                        .findIndexOf({ MNode it ->
-                            String itRelated = it.attribute('related') ?: it.attribute('related-entity-name');
-                            String copyRelated = copyNode.attribute('related') ?: copyNode.attribute('related-entity-name');
-                            return it.name == "relationship" && itRelated == copyRelated &&
-                                    it.attribute('title') == copyNode.attribute('title'); })
-                if (curNodeIndex >= 0) {
-                    entityNode.children.set(curNodeIndex, copyNode)
-                } else {
-                    entityNode.append(copyNode)
+            if (relationships) {
+                ArrayList<MNode> relNodeList = extendEntity.children("relationship")
+                for (int i = 0; i < relNodeList.size(); i++) {
+                    MNode copyNode = relNodeList.get(i)
+                    int curNodeIndex = entityNode.children
+                            .findIndexOf({ MNode it ->
+                                String itRelated = it.attribute('related') ?: it.attribute('related-entity-name');
+                                String copyRelated = copyNode.attribute('related') ?: copyNode.attribute('related-entity-name');
+                                return it.name == "relationship" && itRelated == copyRelated &&
+                                        it.attribute('title') == copyNode.attribute('title');
+                            })
+                    if (curNodeIndex >= 0) {
+                        entityNode.children.set(curNodeIndex, copyNode)
+                    } else {
+                        entityNode.append(copyNode)
+                    }
                 }
             }
             // add index, index-field
@@ -806,8 +847,29 @@ class EntityFacadeImpl implements EntityFacade {
             for (MNode copyNode in extendEntity.children("master")) entityNode.append(copyNode)
         }
 
+        if (entitySuffix != null) {
+            String specialEntityName = entityName + "_" + entitySuffix
+            //modify entity name
+            entityNode.attributes.put("entity-name", specialEntityName)
+            //modify entity relationships
+            if (relationships) {
+                this.setDynamicRelationships(entityNode, entitySuffix)
+            }
+
+            // support for handling entities with set `table_name`
+            def tableNameSet = entityNode.attribute("table-name")
+            if (tableNameSet){
+                tableNameSet = "${tableNameSet}_${EntityJavaUtil.camelCaseToUnderscored(entitySuffix)}".toString()
+                entityNode.attributes.replace("table-name", tableNameSet)
+            }
+            // log
+            logger.debug("Loading special entity ${specialEntityName}.")
+        }
+
         // create the new EntityDefinition
         ed = new EntityDefinition(this, entityNode)
+        if (entitySuffix) ed.isMultipleInstanceEntity = true
+
         // cache it under entityName, fullEntityName, and short-alias
         String fullEntityName = ed.fullEntityName
         if (fullEntityName.startsWith("moqui.")) {
@@ -819,8 +881,62 @@ class EntityFacadeImpl implements EntityFacade {
             entityDefinitionCache.put(fullEntityName, ed)
             if (ed.entityInfo.shortAlias) entityDefinitionCache.put(ed.entityInfo.shortAlias, ed)
         }
+
+        //create new entity based on replaced relationship name if entity doesn't yet exist
+        if (entitySuffix != null) {
+            //cache it under the fullEntityName
+            dynamicEntityDefinitions.put(fullEntityName, ed)
+            if (relationships) {
+                this.createDynamicRelationships(entityNode)
+            }
+        }
         // send it on its way
         return ed
+    }
+
+    /**
+     * Set relationship entity based on suffix.
+     * We don't wanna change relationship to entity from moqui.basic package.
+     * @param entityNode    entity, which relationships are we setting
+     * @param suffix        suffix, which is added to relationships
+     */
+    private void setDynamicRelationships(MNode entityNode, String suffix) {
+        ArrayList<MNode> relationships = entityNode.getChildrenByName().get("relationship")
+        int size = relationships.size()
+        for (int i = 0; i < size; i++) {
+            MNode node = relationships.get(i)
+            String name = node.attributes.get("related");
+            // we don't wanna change suffix of relationship to entity from moqui.basic package
+            if (name.contains("moqui.basic")) {
+                continue
+            }
+            //create new name based on suffix
+            // set name of relationship
+            node.attributes.put("related", name + "@" + suffix)
+            //replace relationship
+            relationships.set(i, node)
+        }
+    }
+
+    /**
+     * Create new entity based on relationship names that don't yet exist.
+     * Already created entities with suffix are stored in attribute dynamicEntityDefinition.
+     * @param entityNode    entity, which relationship entities are we creating
+     */
+    private void createDynamicRelationships(MNode entityNode) {
+        ArrayList<MNode> relationships = entityNode.getChildrenByName().get("relationship")
+        int size = relationships.size()
+        for (int i = 0; i < size; i++) {
+            MNode node = relationships.get(i)
+            String name = node.attributes.get("related")
+            if (name.contains("moqui.basic") || dynamicEntityDefinitions.containsKey(name)) {
+                continue
+            }
+
+            String[] tokenizedEntityName = name.split("_", 2)
+            String entityNameToSearch = tokenizedEntityName[0] + "@" + tokenizedEntityName[-1]
+            ecfi.entity.makeValue(entityNameToSearch)
+        }
     }
 
     synchronized void createAllAutoReverseManyRelationships() {
@@ -1347,9 +1463,9 @@ class EntityFacadeImpl implements EntityFacade {
             if (edf instanceof EntityDatasourceFactoryImpl) {
                 EntityDatasourceFactoryImpl edfi = (EntityDatasourceFactoryImpl) edf
                 DatasourceInfo dsi = edfi.dsi
-                dsiList.add([group:groupName, uniqueName:dsi.uniqueName, database:dsi.database.attribute('name'), detail:dsi.dsDetails] as Map<String, Object>)
+                dsiList.add([group:groupName, uniqueName:dsi.uniqueName, database:dsi.database.attribute('name'), detail:dsi.dsDetails, dsFactory: edf.getClass().simpleName] as Map<String, Object>)
             } else {
-                dsiList.add([group:groupName] as Map<String, Object>)
+                dsiList.add([group:groupName, dsFactory: edf.getClass().simpleName] as Map<String, Object>)
             }
         }
         return dsiList
@@ -2053,6 +2169,10 @@ class EntityFacadeImpl implements EntityFacade {
         if (newCon != null) newCon = tfi.stashTxConnection(groupToUse, newCon)
         return newCon
     }
+    @Override
+    Boolean hasConnection(String groupName) {
+        return datasourceFactoryByGroupMap.containsKey(groupName)
+    }
 
     @Override EntityDataLoader makeDataLoader() { return new EntityDataLoaderImpl(this) }
     @Override EntityDataWriter makeDataWriter() { return new EntityDataWriterImpl(this) }
@@ -2249,6 +2369,7 @@ class EntityFacadeImpl implements EntityFacade {
     public static final int ENTITY_CLOB = 13
     public static final int ENTITY_UTIL_DATE = 14
     public static final int ENTITY_COLLECTION = 15
+    public static final int ENTITY_MAP = 16
 
     protected static final Map<String, Integer> fieldTypeIntMap = [
             "id":ENTITY_STRING, "id-long":ENTITY_STRING, "text-indicator":ENTITY_STRING, "text-short":ENTITY_STRING,
@@ -2256,7 +2377,8 @@ class EntityFacadeImpl implements EntityFacade {
             "date-time":ENTITY_TIMESTAMP, "time":ENTITY_TIME, "date":ENTITY_DATE,
             "number-integer":ENTITY_LONG, "number-float":ENTITY_DOUBLE,
             "number-decimal":ENTITY_BIG_DECIMAL, "currency-amount":ENTITY_BIG_DECIMAL, "currency-precise":ENTITY_BIG_DECIMAL,
-            "binary-very-long":ENTITY_BLOB ]
+            "binary-very-long":ENTITY_BLOB,
+            "jsonb": ENTITY_MAP]
     protected static final Map<String, String> fieldTypeJavaMap = [
             "id":"java.lang.String", "id-long":"java.lang.String",
             "text-indicator":"java.lang.String", "text-short":"java.lang.String", "text-medium":"java.lang.String",
@@ -2264,7 +2386,8 @@ class EntityFacadeImpl implements EntityFacade {
             "date-time":"java.sql.Timestamp", "time":"java.sql.Time", "date":"java.sql.Date",
             "number-integer":"java.lang.Long", "number-float":"java.lang.Double",
             "number-decimal":"java.math.BigDecimal", "currency-amount":"java.math.BigDecimal", "currency-precise":"java.math.BigDecimal",
-            "binary-very-long":"java.sql.Blob" ]
+            "binary-very-long":"java.sql.Blob",
+            "jsonb": "java.util.HashMap"]
     protected static final Map<String, Integer> javaIntTypeMap = [
             "java.lang.String":ENTITY_STRING, "String":ENTITY_STRING, "org.codehaus.groovy.runtime.GStringImpl":ENTITY_STRING, "char[]":ENTITY_STRING,
             "java.sql.Timestamp":ENTITY_TIMESTAMP, "Timestamp":ENTITY_TIMESTAMP,
@@ -2280,7 +2403,8 @@ class EntityFacadeImpl implements EntityFacade {
             "java.sql.Blob":ENTITY_BLOB, "Blob":ENTITY_BLOB, "byte[]":ENTITY_BLOB, "java.nio.ByteBuffer":ENTITY_BLOB, "java.nio.HeapByteBuffer":ENTITY_BLOB,
             "java.sql.Clob":ENTITY_CLOB, "Clob":ENTITY_CLOB,
             "java.util.Date":ENTITY_UTIL_DATE,
-            "java.util.ArrayList":ENTITY_COLLECTION, "java.util.HashSet":ENTITY_COLLECTION, "java.util.LinkedHashSet":ENTITY_COLLECTION, "java.util.LinkedList":ENTITY_COLLECTION]
+            "java.util.ArrayList":ENTITY_COLLECTION, "java.util.HashSet":ENTITY_COLLECTION, "java.util.LinkedHashSet":ENTITY_COLLECTION, "java.util.LinkedList":ENTITY_COLLECTION,
+            "java.util.HashMap": ENTITY_MAP]
     static int getJavaTypeInt(String javaType) {
         Integer typeInt = (Integer) javaIntTypeMap.get(javaType)
         if (typeInt == null) throw new EntityException("Java type " + javaType + " not supported for entity fields")
@@ -2309,4 +2433,38 @@ class EntityFacadeImpl implements EntityFacade {
         return qsl
     }
     void clearQueryStats() { queryStatsInfoMap.clear() }
+
+    // DTQ Customization
+    // allows adding extra rules related to entities (e.g. in SynchroMaster)
+    public void addNewEecaRule(String entityName, EntityEcaRule eer)
+    {
+        ArrayList<EntityEcaRule> lst = this.eecaRulesByEntityName.get(entityName)
+        if (lst == null) {
+            lst = new ArrayList<EntityEcaRule>()
+            this.eecaRulesByEntityName.put(entityName, lst)
+        }
+        lst.add(eer)
+    }
+
+    public static EntityEcaRule createEecaCrudRule(ExecutionContextFactory ecf, EntityDefinition ed, MNode scriptNode){
+        String entityName = ed.fullEntityName
+
+        // create new MNode
+        HashMap<String, String> eecaAttrs = [:]
+        eecaAttrs.put("entity", entityName)
+        eecaAttrs.put("on-create", "true")
+        eecaAttrs.put("on-update", "true")
+        eecaAttrs.put("on-delete", "true")
+        eecaAttrs.put("run-on-error", "true")
+        MNode eecaRuleNode = new MNode("eeca", eecaAttrs)
+
+        // create new EECA rule for entity
+        def actionNode = eecaRuleNode.append("actions", [:])
+        actionNode.append(scriptNode)
+
+        logger.info("Creating CRUD EECA rule for ${entityName}: [${actionNode}]")
+        // logger.debug("Script: ${scriptNode}")
+
+        return new EntityEcaRule((ExecutionContextFactoryImpl) ecf, eecaRuleNode, "")
+    }
 }

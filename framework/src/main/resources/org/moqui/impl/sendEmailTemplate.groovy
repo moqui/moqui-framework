@@ -61,6 +61,14 @@ try {
     webappName = (String) emailTemplate.webappName ?: "webroot"
     webHostName = (String) emailTemplate.webHostName
 
+    logger.info("subjectTopics: ${subjectTopics}")
+
+    if (subjectTopics) {
+        subject = ec.resource.expand((String) emailTemplate.subject, "", subjectTopics)
+    } else {
+        subject = ec.resource.expand((String) emailTemplate.subject, "")
+    }
+
     // create an moqui.basic.email.EmailMessage record with info about this sent message
     // NOTE: can do anything with? purposeEnumId
     if (createEmailMessage) {

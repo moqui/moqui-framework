@@ -39,7 +39,7 @@ import java.util.concurrent.ConcurrentHashMap
 @CompileStatic
 class TransactionFacadeImpl implements TransactionFacade {
     protected final static Logger logger = LoggerFactory.getLogger(TransactionFacadeImpl.class)
-    protected final static boolean isTraceEnabled = logger.isTraceEnabled()
+    protected final static Boolean isTraceEnabled = logger.isTraceEnabled()
 
     protected final ExecutionContextFactoryImpl ecfi
 
@@ -190,7 +190,7 @@ class TransactionFacadeImpl implements TransactionFacade {
     Object runRequireNew(Integer timeout, String rollbackMessage, Closure closure) {
         return runRequireNew(timeout, rollbackMessage, true, true, closure)
     }
-    protected final static boolean requireNewThread = true
+    protected final static Boolean requireNewThread = true
     Object runRequireNew(Integer timeout, String rollbackMessage, boolean beginTx, boolean threadReuseEci, Closure closure) {
         Object result = null
         if (requireNewThread) {

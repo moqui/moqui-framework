@@ -1,0 +1,43 @@
+# Builds a minimal docker image with openjdk and moqui with various volumes for configuration and persisted data outside the container
+# NOTE: add components, build and if needed load data before building a docker image with this
+
+FROM openjdk:17-jdk-alpine as base
+MAINTAINER dataquest <admin@rovnanik.sk>
+
+ARG DOCKER_COMPOSE_WAIT_VERSION
+
+RUN apk update && apk add netcat-openbsd dos2unix curl
+
+# wait installation script
+ADD https://github.com/ufoscout/docker-compose-wait/releases/download/${DOCKER_COMPOSE_WAIT_VERSION}/wait /wait
+RUN chmod +x /wait
+
+WORKDIR /opt/moqui
+# for running from the war directly, preferred approach unzips war in advance (see docker-build.sh that does this)
+COPY moqui-plus-runtime.war /tmp/moqui/.
+RUN unzip /tmp/moqui/moqui-plus-runtime.war -d /opt/moqui
+
+# Copy scripts and make them executable in the build stage
+ADD docker/simple/*.sh /opt/.
+RUN dos2unix /opt/*.sh && chmod +x /opt/*.sh
+
+FROM openjdk:17-jdk-alpine
+RUN apk add tzdata
+COPY --from=base /wait /wait
+COPY --from=base /opt/moqui /opt/moqui
+COPY --from=base /opt/*.sh /opt/.
+
+WORKDIR /opt/moqui
+
+# exposed as volumes for configuration purposes
+VOLUME ["/opt/moqui/runtime/conf", "/opt/moqui/runtime/lib", "/opt/moqui/runtime/classes", "/opt/moqui/runtime/ecomponent"]
+# exposed as volumes to persist data outside the container, recommended
+VOLUME ["/opt/moqui/runtime/log", "/opt/moqui/runtime/txlog", "/opt/moqui/runtime/sessions", "/opt/moqui/runtime/db", "/opt/moqui/runtime/elasticsearch"]
+
+# this is to run from the war file directly, preferred approach unzips war file in advance
+ENTRYPOINT ["java", "-cp", ".", "MoquiStart", "port=80"]
+
+HEALTHCHECK --interval=10s --timeout=600ms --start-period=90s CMD curl --fail http://localhost || exit 1
+
+# specify this as a default parameter if none are specified with docker exec/run, ie run production by default
+CMD ["conf=conf/MoquiTestConf.xml"]

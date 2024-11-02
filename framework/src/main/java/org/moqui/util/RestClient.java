@@ -21,7 +21,6 @@ import org.eclipse.jetty.client.HttpResponseException;
 import org.eclipse.jetty.client.ValidatingConnectionPool;
 import org.eclipse.jetty.client.api.*;
 import org.eclipse.jetty.client.dynamic.HttpClientTransportDynamic;
-import org.eclipse.jetty.client.http.HttpClientTransportOverHTTP;
 import org.eclipse.jetty.client.util.*;
 import org.eclipse.jetty.http.HttpField;
 import org.eclipse.jetty.http.HttpFields;
@@ -543,14 +542,14 @@ public class RestClient {
             uriSb.append(path);
 
             String query = parametersMapToString(parameters);
-            if (query != null && query.length() > 0) uriSb.append('?').append(query);
+            if (query != null && !query.isEmpty()) uriSb.append('?').append(query);
 
             return rci.uri(uriSb.toString());
         }
     }
 
     public static String parametersMapToString(Map<String, ?> parameters) throws UnsupportedEncodingException {
-        if (parameters == null || parameters.size() == 0) return null;
+        if (parameters == null || parameters.isEmpty()) return null;
         StringBuilder query = new StringBuilder();
         for (Map.Entry<String, ?> parm : parameters.entrySet()) {
             if (query.length() > 0) query.append("&");
@@ -690,11 +689,15 @@ public class RestClient {
     public static class SimpleRequestFactory implements RequestFactory {
         private final HttpClient httpClient;
 
-        public SimpleRequestFactory() {
-            this(true, false);
+        public SimpleRequestFactory(long defaultIdleTimeout) {
+            this(true, false, defaultIdleTimeout);
         }
 
-        public SimpleRequestFactory(boolean trustAll, boolean disableCookieManagement) {
+        public SimpleRequestFactory() {
+            this(true, false, -1);
+        }
+
+        public SimpleRequestFactory(boolean trustAll, boolean disableCookieManagement, long defaultIdleTimeout) {
             SslContextFactory.Client sslContextFactory = new SslContextFactory.Client(true);
             sslContextFactory.setEndpointIdentificationAlgorithm(null);
             ClientConnector clientConnector = new ClientConnector();
@@ -703,7 +706,7 @@ public class RestClient {
 
             if (disableCookieManagement) httpClient.setCookieStore(new HttpCookieStore.Empty());
             // use a default idle timeout of 15 seconds, should be lower than server idle timeouts which will vary by server but 30 seconds seems to be common
-            httpClient.setIdleTimeout(15000);
+            httpClient.setIdleTimeout(defaultIdleTimeout == -1 ? 15000: defaultIdleTimeout);
             try { httpClient.start(); } catch (Exception e) { throw new BaseException("Error starting HTTP client", e); }
         }
 

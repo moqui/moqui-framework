@@ -40,6 +40,7 @@ def moquiRuntime = 'runtime'
 
 def moquiConfDev = 'conf/MoquiDevConf.xml'
 def moquiConfProduction = 'conf/MoquiProductionConf.xml'
+def moquiDefaulLogDirectory = null
 
 def allCleanTasks = getTasksByName('clean', true)
 def allBuildTasks = getTasksByName('build', true)
@@ -60,6 +61,26 @@ def getDefaultPropertyKeys() {
     for (Node defaultProperty in confXml.'default-property') { defaultProperties << defaultProperty.'@name' }
     defaultProperties
 }
+allTestTasks.each {
+    it.systemProperties << System.properties.subMap(getDefaultPropertyKeys())
+}
+
+// =================================
+def custMoquiConfDev = System.properties['moqui.conf.dev']
+def custMoquiConfProduction = System.properties['moqui.conf.production']
+def custMoquiLogDirectory = System.properties['moqui.log.directory']
+
+// check if running in parallel mode
+if (project.hasProperty('org.gradle.parallel')) logger.lifecycle("[org.gradle.parallel: ${project.property('org.gradle.parallel')}]")
+
+logger.lifecycle("Custom command line arguments:")
+logger.lifecycle("  (custom) moqui.conf.production: ${custMoquiConfProduction?:'not set'}")
+logger.lifecycle("  (custom) moqui.conf.dev: ${custMoquiConfDev?:'not set'}")
+logger.lifecycle("  (custom) moqui.log.directory: ${custMoquiLogDirectory?:'not set'}")
+
+if (custMoquiConfProduction) { moquiConfProduction = custMoquiConfProduction }
+if (custMoquiConfDev) { moquiConfDev = custMoquiConfDev }
+if (custMoquiLogDirectory) { moquiDefaulLogDirectory = custMoquiLogDirectory }
 
 // ========== clean tasks ==========
 
@@ -618,7 +639,6 @@ task gitMergeAll {
 }
 
 // ========== run tasks ==========
-
 task run(type: JavaExec) {
     dependsOn checkRuntime, allBuildTasks, cleanTempDir
     workingDir = '.'; jvmArgs = ['-server', '-XX:-OmitStackTraceInFastThrow']
@@ -626,35 +646,54 @@ task run(type: JavaExec) {
     // NOTE: this is a hack, using -jar instead of a class name, and then the first argument is the name of the jar file
     main = '-jar'; args = [warName]
 }
+
+task runNewPort(type: JavaExec) {
+    dependsOn getRuntime, allBuildTasks, cleanTempDir
+    workingDir = '.'; jvmArgs = ['-server', '-XX:-OmitStackTraceInFastThrow']
+    systemProperties = ['moqui.conf':moquiConfDev, 'moqui.runtime':moquiRuntime]
+    // NOTE: this is a hack, using -jar instead of a class name, and then the first argument is the name of the jar file
+    main = '-jar';
+    def argList = [warName]
+    if (project.properties.containsKey('newPort')) {
+        logger.debug("Set to run on port: ${newPort}")
+        argList.add("port=${newPort}")
+    }
+    args = argList
+}
+
 task runProduction(type: JavaExec) {
     dependsOn checkRuntime, allBuildTasks, cleanTempDir
     workingDir = '.'; jvmArgs = ['-server', '-Xms1024M']
-    systemProperties = ['moqui.conf':moquiConfProduction, 'moqui.runtime':moquiRuntime]
+    systemProperties = ['moqui.conf':moquiConfProduction, 'moqui.runtime':moquiRuntime, 'moqui.log.directory':moquiDefaulLogDirectory]
     main = '-jar'; args = [warName]
 }
 
 task load(type: JavaExec) {
     description "Run Moqui to load data; to specify data types use something like: gradle load -Ptypes=seed,seed-initial,install"
     dependsOn checkRuntime, allBuildTasks
-    systemProperties = ['moqui.conf':moquiConfDev, 'moqui.runtime':moquiRuntime]
+    systemProperties = ['moqui.conf':moquiConfDev, 'moqui.runtime':moquiRuntime, 'moqui.log.directory':moquiDefaulLogDirectory]
     workingDir = '.'; jvmArgs = ['-server']; main = '-jar'
     args = [warName, 'load', (project.properties.containsKey('types') ? "types=${types}" : "types=all")]
 }
-task loadSeed(type: JavaExec) {
+
+task loadFiles(type: JavaExec) {
+    description "Run Moqui to load data from specified directory, will run through all files in specified directory"
     dependsOn checkRuntime, allBuildTasks
-    systemProperties = ['moqui.conf':moquiConfProduction, 'moqui.runtime':moquiRuntime]
+    systemProperties = ['moqui.conf':moquiConfDev, 'moqui.runtime':moquiRuntime, 'moqui.log.directory':moquiDefaulLogDirectory]
     workingDir = '.'; jvmArgs = ['-server']; main = '-jar'
-    args = [warName, 'load', (project.properties.containsKey('types') ? "types=${types}" : "types=seed")]
+    args = [warName, 'load', (project.properties.containsKey('directory') ? "directory=${directory}" : "directory=none")]
 }
-task loadSeedInitial(type: JavaExec) {
+
+task loadTest(type: JavaExec) {
+    description "Run Moqui to load data for testing"
     dependsOn checkRuntime, allBuildTasks
-    systemProperties = ['moqui.conf':moquiConfProduction, 'moqui.runtime':moquiRuntime]
+    systemProperties = ['moqui.conf':moquiConfDev, 'moqui.runtime':moquiRuntime, 'moqui.log.directory':moquiDefaulLogDirectory]
     workingDir = '.'; jvmArgs = ['-server']; main = '-jar'
     args = [warName, 'load', (project.properties.containsKey('types') ? "types=${types}" : "types=seed,seed-initial")]
 }
 task loadProduction(type: JavaExec) {
     dependsOn checkRuntime, allBuildTasks
-    systemProperties = ['moqui.conf':moquiConfProduction, 'moqui.runtime':moquiRuntime]
+    systemProperties = ['moqui.conf':moquiConfProduction, 'moqui.runtime':moquiRuntime, 'moqui.log.directory':moquiDefaulLogDirectory]
     workingDir = '.'; jvmArgs = ['-server']; main = '-jar'
     args = [warName, 'load', (project.properties.containsKey('types') ? "types=${types}" : "types=seed,seed-initial,install")]
 }
@@ -775,8 +814,20 @@ task plusRuntimeWarTemp {
         // copy runtime directory (with a few exceptions) into a runtime directory in the war
         copy {
             from fileTree(dir: '.', include: moquiRuntime+'/**',
-                    excludes: ['**/*.jar', '**/build', moquiRuntime+'/classes/**', moquiRuntime+'/lib/**', moquiRuntime+'/log/**', moquiRuntime+'/sessions/**'])
-            into wartempFile
+                    excludes: [
+                            moquiRuntime+'/component/**/src/test/*',
+                            moquiRuntime+'/component/**/src/test-integration/*',
+                            moquiRuntime+'/component/**/build/*',
+                            moquiRuntime+'/component/**/tools/*',
+                            '**/*.jar',
+                            '**/build',
+                            moquiRuntime+'/classes/**',
+                            moquiRuntime+'/lib/**',
+                            moquiRuntime+'/log/**',
+                            moquiRuntime+'/tmp/**',
+                            moquiRuntime+'/sessions/**'
+                    ])
+            into file('wartemp')
         }
         // copy the jar files from runtime/lib
         copy { from fileTree(dir: moquiRuntime+'/lib', include: '**/*.jar').files into 'wartemp/WEB-INF/lib' }
@@ -1278,3 +1329,7 @@ task cleanPullLoad { dependsOn cleanAll, gitPullAll, load }
 task cleanPullTest { dependsOn cleanAll, gitPullAll, load, allTestTasks }
 task cleanPullCompTest { dependsOn cleanAll, gitPullAll, load, getComponentTestTasks() }
 task compTest { dependsOn getComponentTestTasks() }
+
+tasks.each {task -> configure(task) {
+    group = "moqui"
+}}

@@ -85,6 +85,10 @@ public class LiteStringMap<V> implements Map<String, V>, Externalizable, Compara
     }
     public LiteStringMap<V> useManualIndex() { useManualIndex = true; return this; }
 
+    public int getKeyArrayLength() {
+        return keyArray.length;
+    }
+
     public int findIndex(String keyOrig) {
         if (keyOrig == null) return -1;
         return findIndexIString(internString(keyOrig));
@@ -108,7 +112,7 @@ public class LiteStringMap<V> implements Map<String, V>, Externalizable, Compara
     public int findIndexIString(String key) {
         for (int i = 0; i <= lastIndex; i++) {
             // all strings in keyArray should be interned, only added via put()
-            if (keyArray[i] == key) return i;
+            if (Objects.equals(keyArray[i], key)) return i;
         }
         return -1;
     }
@@ -304,7 +308,7 @@ public class LiteStringMap<V> implements Map<String, V>, Externalizable, Compara
             LiteStringMap<V> lsm = (LiteStringMap<V>) map;
             if (useManualIndex) {
                 this.lastIndex = lsm.lastIndex;
-                if (keyArray.length <= lsm.lastIndex) growArrays(lsm.lastIndex);
+                if (keyArray.length < lsm.size()) growArrays(lsm.size());
             }
             for (int i = 0; i <= lsm.lastIndex; i++) {
                 if (skipKeys != null && skipKeys.contains(lsm.keyArray[i])) continue;

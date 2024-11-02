@@ -30,7 +30,7 @@ import java.util.Map;
 
 public class EntityFindImpl extends EntityFindBase {
     protected static final Logger logger = LoggerFactory.getLogger(EntityFindImpl.class);
-    protected static final boolean isTraceEnabled = logger.isTraceEnabled();
+    protected static final Boolean isTraceEnabled = logger.isTraceEnabled();
 
     public EntityFindImpl(EntityFacadeImpl efi, String entityName) { super(efi, entityName); }
     public EntityFindImpl(EntityFacadeImpl efi, EntityDefinition ed) { super(efi, ed); }

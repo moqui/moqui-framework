@@ -13,7 +13,6 @@
  */
 package org.moqui.impl.entity
 
-import groovy.transform.CompileStatic
 import org.moqui.BaseException
 import org.moqui.context.ArtifactAuthorizationException
 import org.moqui.context.ArtifactExecutionInfo
@@ -39,7 +38,6 @@ import java.sql.ResultSet
 import java.sql.SQLException
 import java.sql.Timestamp
 
-@CompileStatic
 abstract class EntityFindBase implements EntityFind {
     protected final static Logger logger = LoggerFactory.getLogger(EntityFindBase.class)
 
@@ -88,7 +86,6 @@ abstract class EntityFindBase implements EntityFind {
 
     protected ArrayList<String> queryTextList = new ArrayList<>()
 
-
     EntityFindBase(EntityFacadeImpl efi, String entityName) {
         this.efi = efi
         this.entityName = entityName
@@ -106,6 +103,10 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override EntityFind entity(String name) { entityName = name; return this }
     @Override String getEntity() { return entityName }
+
+    protected boolean allowExtraField() {
+        return efi.entityDbMeta.allowExtraFields(entityDef.groupName)
+    }
 
     // ======================== Conditions (Where and Having) =================
 
@@ -132,7 +133,10 @@ abstract class EntityFindBase implements EntityFind {
     EntityFind condition(String fieldName, EntityCondition.ComparisonOperator operator, Object value) {
         EntityDefinition ed = getEntityDef()
         FieldInfo fi = ed.getFieldInfo(fieldName)
-        if (fi == null) throw new EntityException("Field ${fieldName} not found on entity ${entityName}, cannot add condition")
+        if (fi == null) {
+            if (!allowExtraField()) throw new EntityException("Field ${fieldName} not found on entity ${entityName}, cannot add condition")
+            return condition(new FieldValueCondition(new ConditionField(fieldName), operator, value))
+        }
         if (operator == null) operator = EntityCondition.EQUALS
         if (ed.isViewEntity && fi.fieldNode.attribute("function")) {
             return havingCondition(new FieldValueCondition(fi.conditionField, operator, value))
@@ -275,8 +279,12 @@ abstract class EntityFindBase implements EntityFind {
             ConditionField cf
             if (localEd != null) {
                 FieldInfo fi = localEd.getFieldInfo(singleCondField)
-                if (fi == null) throw new EntityException("Error in find, field ${singleCondField} does not exist in entity ${localEd.getFullEntityName()}")
-                cf = fi.conditionField
+                if (fi == null){
+                    if (!allowExtraField()) throw new EntityException("Error in find, field ${singleCondField} does not exist in entity ${localEd.getFullEntityName()}")
+                    cf = new ConditionField(singleCondField)
+                } else {
+                    cf = fi.conditionField
+                }
             } else {
                 cf = new ConditionField(singleCondField)
             }
@@ -295,8 +303,13 @@ abstract class EntityFindBase implements EntityFind {
                 ConditionField cf
                 if (localEd != null) {
                     FieldInfo fi = localEd.getFieldInfo((String) samEntry.getKey())
-                    if (fi == null) throw new EntityException("Error in find, field ${samEntry.getKey()} does not exist in entity ${localEd.getFullEntityName()}")
-                    cf = fi.conditionField
+                    if (fi == null){
+                        if (!allowExtraField()) throw new EntityException("Error in find, field ${samEntry.getKey()} does not exist in entity ${localEd.getFullEntityName()}")
+
+                        cf = new ConditionField(samEntry.key)
+                    } else {
+                        cf = fi.conditionField
+                    }
                 } else {
                     cf = new ConditionField((String) samEntry.key)
                 }
@@ -755,7 +768,7 @@ abstract class EntityFindBase implements EntityFind {
     protected EntityValue oneInternal(ExecutionContextImpl ec, EntityDefinition ed) throws EntityException, SQLException {
         if (this.dynamicView != null) throw new EntityException("Dynamic View not supported for 'one' find.")
 
-        boolean isViewEntity = ed.isViewEntity
+        Boolean isViewEntity = ed.isViewEntity
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
 
         if (entityInfo.isInvalidViewEntity) throw new EntityException("Cannot do find for view-entity with name ${entityName} because it has no member entities or no aliased fields.")
@@ -1039,7 +1052,7 @@ abstract class EntityFindBase implements EntityFind {
         }
 
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
-        boolean isViewEntity = entityInfo.isView
+        Boolean isViewEntity = entityInfo.isView
 
         if (entityInfo.isInvalidViewEntity) throw new EntityException("Cannot do find for view-entity with name ${entityName} because it has no member entities or no aliased fields.")
 
@@ -1208,7 +1221,7 @@ abstract class EntityFindBase implements EntityFind {
         if (requireSearchFormParameters && !hasSearchFormParameters) return null
 
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
-        boolean isViewEntity = entityInfo.isView
+        Boolean isViewEntity = entityInfo.isView
 
         if (entityInfo.isInvalidViewEntity) throw new EntityException("Cannot do find for view-entity with name ${entityName} because it has no member entities or no aliased fields.")
 
@@ -1334,7 +1347,7 @@ abstract class EntityFindBase implements EntityFind {
         if (requireSearchFormParameters && !hasSearchFormParameters) return 0L
 
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
-        boolean isViewEntity = entityInfo.isView
+        Boolean isViewEntity = entityInfo.isView
 
         // there may not be a simpleAndMap, but that's all we have that can be treated directly by the EECA
         // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(ed.getFullEntityName(), simpleAndMap, "find-count", true)
@@ -1516,4 +1529,10 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override
     ArrayList<String> getQueryTextList() { return queryTextList }
+
+    @Override
+    public byte[] getAttachment()
+    {
+        throw new EntityException("Method must be supported on connectorFactory level");
+    }
 }

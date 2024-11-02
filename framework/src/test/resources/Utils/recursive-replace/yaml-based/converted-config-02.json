@@ -1,0 +1,125 @@
+{
+    "initial": {
+        "filler": {
+            "fillFormData": [
+                {
+                    "1": {
+                        "location": "file:///home/monthly-closure/add-ons.json",
+                        "term": [
+                            {
+                                "field": "planId",
+                                "value": "02"
+                            }
+                        ],
+                        "args": {
+                            "allowTimestamps": false,
+                            "allowedFields": [
+                                "brutto",
+                                "calculation",
+                                "contractType",
+                                "team",
+                                "extra",
+                                "name",
+                                "planId",
+                                "plannedPersonnelId",
+                                "since",
+                                "surname",
+                                "thru",
+                                "variablePayRate",
+                                "_entity"
+                            ],
+                            "requiredDateFormat": "yyyy-MM-dd",
+                            "timeZoneInDatesFormat": "yyyy-MM-dd"
+                        },
+                        "companyId": true
+                    }
+                },
+                {
+                    "2": {
+                        "entity": "ars.plan.PlannedVehicle",
+                        "term": [
+                            {
+                                "field": "planId",
+                                "value": "unknown_plan"
+                            }
+                        ],
+                        "companyId": true,
+                        "args": {
+                            "allowTimestamps": false,
+                            "allowedFields": [
+                                "accidentInsurance",
+                                "accountingId",
+                                "driver",
+                                "fuel",
+                                "insurance",
+                                "isPrivate",
+                                "maintenance",
+                                "monthsInUse",
+                                "name",
+                                "other",
+                                "planId",
+                                "plannedVehicleId",
+                                "purchaseValue",
+                                "since",
+                                "tax",
+                                "thru",
+                                "_entity"
+                            ],
+                            "requiredDateFormat": "yyyy-MM-dd",
+                            "timeZoneInDatesFormat": "yyyy-MM-dd"
+                        }
+                    }
+                },
+                {
+                    "3": {
+                        "entity": "ars.plan.PlannedActivity",
+                        "term": [
+                            {
+                                "field": "planId",
+                                "value": "default_value"
+                            }
+                        ],
+                        "companyId": true,
+                        "args": {
+                            "allowTimestamps": false,
+                            "requiredDateFormat": "yyyy-MM-dd",
+                            "timeZoneInDatesFormat": "yyyy-MM-dd"
+                        }
+                    }
+                },
+                {
+                    "4": {
+                        "entity": "ars.plan.PlannedAction",
+                        "term": [
+                            {
+                                "field": "planId",
+                                "value": "1"
+                            }
+                        ],
+                        "companyId": true,
+                        "args": {
+                            "allowTimestamps": false,
+                            "requiredDateFormat": "yyyy-MM-dd",
+                            "timeZoneInDatesFormat": "yyyy-MM-dd"
+                        }
+                    }
+                },
+                {
+                    "5": {
+                        "entity": "moqui.basic.Enumeration",
+                        "term": [
+                            {
+                                "field": "enumTypeId",
+                                "value": "PlanConfigValuesType"
+                            }
+                        ],
+                        "companyId": false,
+                        "args": {
+                            "allowTimestamps": false
+                        }
+                    }
+                }
+            ]
+        }
+    }
+}

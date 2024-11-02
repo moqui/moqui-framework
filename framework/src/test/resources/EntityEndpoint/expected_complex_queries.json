@@ -1,0 +1,83 @@
+[
+  [
+    {
+      "entityName": "moqui.basic.Enumeration",
+      "term": [],
+      "args": {"sortOutputMap": false}
+    },
+    {"expected": 100}
+  ],
+  [
+    {
+      "entityName": "moqui.basic.Enumeration",
+      "term": [],
+      "args": {}
+    },
+    {"expected": 100}
+  ],
+  [
+    {
+      "entityName": "moqui.basic.Enumeration",
+      "term": [
+        {
+          "value": "ArtifactType",
+          "field": "enumTypeId"
+        },
+        {
+          "value": "Entity",
+          "field": "description"
+        },
+        {
+          "value": "ComparisonOperator",
+          "field": "enumTypeId"
+        }
+      ],
+      "args": {
+        "complexCondition": "3"
+      }
+    },
+    {"expected": 15}
+  ],
+  [
+    {
+      "entityName": "moqui.basic.Enumeration",
+      "term": [
+        {
+          "value": "ArtifactType",
+          "field": "enumTypeId"
+        },
+        {
+          "value": "Entity",
+          "field": "description"
+        },
+        {
+          "value": "ComparisonOperator",
+          "field": "enumTypeId"
+        }
+      ],
+      "args": {
+        "complexCondition": "OR(AND(1,2),3)"
+      }
+    },
+    {"expected": 16}
+  ],
+  [
+    {
+      "entityName": "moqui.basic.Enumeration",
+      "term": [
+        {
+          "value": "ArtifactType",
+          "field": "enumTypeId"
+        },
+        {
+          "value": "Entity",
+          "field": "description"
+        }
+      ],
+      "args": {
+        "complexCondition": "AND(1,2)"
+      }
+    },
+    {"expected": 1}
+  ]
+]

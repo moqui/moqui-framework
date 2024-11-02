@@ -1,0 +1,330 @@
+[
+  [
+    [
+      "moqui.test.TestEntity",
+      [
+        {
+          "value": "proj_[\\w]",
+          "field": "testMedium",
+          "operator": "like"
+        },
+        {
+          "value": 150,
+          "field": "testNumberInteger",
+          "operator": "gte"
+        },
+        {
+          "value": 2500,
+          "field": "testNumberDecimal",
+          "operator": "lte"
+        }
+      ],
+      {
+        "allowICacheQuery": "true",
+        "allowedFields": ["testMedium"],
+        "defaultListJoinOperator": "AND"
+      }
+    ],
+    [
+      {"testMedium": "proj_A"},
+      {"testMedium": "proj_C"},
+      {"testMedium": "proj_D"}
+    ]
+  ],
+  [
+    [
+      "moqui.test.TestEntity",
+      [
+        {
+          "value": "proj_[\\w]",
+          "field": "testMedium",
+          "operator": "like"
+        },
+        {
+          "value": 2000,
+          "field": "testNumberInteger",
+          "operator": "gt"
+        }
+      ],
+      {
+        "allowICacheQuery": "true",
+        "allowedFields": ["testMedium"],
+        "defaultListJoinOperator": "AND"
+      }
+    ],
+    [
+      {"testMedium": "proj_E"}
+    ]
+  ],
+  [
+    [
+      "moqui.test.TestEntity",
+      [
+        {
+          "value": "proj_[\\w]",
+          "field": "testMedium",
+          "operator": "like"
+        },
+        {
+          "value": ["proj_C", "proj_D", "proj_E"],
+          "field": "testMedium",
+          "operator": "not-in"
+        }
+      ],
+      {
+        "allowICacheQuery": "true",
+        "allowedFields": ["testMedium"],
+        "defaultListJoinOperator": "AND"
+      }
+    ],
+    [
+      {"testMedium": "proj_A"},
+      {"testMedium": "proj_B"},
+      {"testMedium": "proj_F"}
+    ]
+  ],
+  [
+    [
+      "moqui.test.TestEntity",
+      [
+        {
+          "value": ["proj_C"],
+          "field": "testMedium",
+          "operator": "in"
+        }
+      ],
+      {
+        "allowICacheQuery": "true",
+        "allowedFields": ["testMedium"]
+      }
+    ],
+    [
+      {"testMedium": "proj_C"}
+    ]
+  ],
+  [
+    [
+      "moqui.test.TestEntity",
+      [
+        {
+          "value": "proj_[A|D|E|F]",
+          "field": "testMedium",
+          "operator": "not-like"
+        },
+        {
+          "value": "proj_[B|C]",
+          "field": "testMedium",
+          "operator": "like"
+        }
+      ],
+      {
+        "allowICacheQuery": "true",
+        "allowedFields": ["testMedium"],
+        "defaultListJoinOperator": "AND"
+      }
+    ],
+    [
+      {"testMedium": "proj_B"},
+      {"testMedium": "proj_C"}
+    ]
+  ],
+  [
+    [
+      "moqui.test.TestEntity",
+      [
+        {
+          "value": "proj_A",
+          "field": "testMedium",
+          "operator": "not-equal"
+        },
+        {
+          "value": "proj_[B|C]",
+          "field": "testMedium",
+          "operator": "like"
+        }
+      ],
+      {
+        "allowICacheQuery": "true",
+        "allowedFields": ["testMedium"],
+        "defaultListJoinOperator": "AND"
+      }
+    ],
+    [
+      {"testMedium": "proj_B"},
+      {"testMedium": "proj_C"}
+    ]
+  ],
+  [
+    [
+      "moqui.test.TestEntity",
+      [
+        {
+          "value": "proj_.+",
+          "field": "testMedium",
+          "operator": "like"
+        }
+      ],
+      {
+        "allowICacheQuery": "true",
+        "allowedFields": ["testMedium"],
+        "defaultListJoinOperator": "AND"
+      }
+    ],
+    [
+      {"testMedium": "proj_A"},
+      {"testMedium": "proj_B"},
+      {"testMedium": "proj_C"},
+      {"testMedium": "proj_D"},
+      {"testMedium": "proj_E"},
+      {"testMedium": "proj_F"}
+    ]
+  ],
+  [
+    [
+      "moqui.test.TestEntity",
+      [
+        {
+          "value": "proj_A",
+          "field": "testMedium"
+        },
+        {
+          "value": "proj_B",
+          "field": "testMedium"
+        }
+      ],
+      {
+        "allowICacheQuery": "true",
+        "allowedFields": ["testMedium"],
+        "defaultListJoinOperator": "AND"
+      }
+    ],
+    []
+  ],
+  [
+    [
+      "moqui.test.TestEntity",
+      [
+        {
+          "value": "proj_A",
+          "field": "testMedium"
+        },
+        {
+          "value": "proj_B",
+          "field": "testMedium"
+        }
+      ],
+      {
+        "allowICacheQuery": "true",
+        "allowedFields": ["testMedium"]
+      }
+    ],
+    [
+      {"testMedium": "proj_A"},
+      {"testMedium": "proj_B"}
+    ]
+  ],
+  [
+    [
+      "moqui.test.TestEntity",
+      [
+        {
+          "value": "proj_A",
+          "field": "testMedium"
+        }
+      ],
+      {
+        "allowICacheQuery": "true"
+      }
+    ],
+    ["Fields to retrieve must be explicitly set"]
+  ],
+  [
+    [
+      "moqui.test.TestEntity",
+      [
+        {
+          "value": "proj_A",
+          "field": "testMedium"
+        }
+      ],
+      {
+        "allowICacheQuery": "true",
+        "allowedFields": ["testMedium"]
+      }
+    ],
+    [{"testMedium": "proj_A"}]
+  ],
+  [
+    [
+      "moqui.test.Foo",
+      [],
+      {
+        "allowICacheQuery": "true"
+      }
+    ],
+    ["Entity is not synced in a cache"]
+  ],
+  [
+    [
+      "moqui.test.TestEntity",
+      [
+        {
+          "value": "proj_A",
+          "field": "testMedium"
+        }
+      ],
+      {
+        "allowICacheQuery": "true"
+      },
+      2
+    ],
+    ["Pagination not supported for i-cache queries"]
+  ],
+  [
+    [
+      "moqui.test.TestEntity",
+      [
+        {
+          "value": "ArtifactType",
+          "field": "enumTypeId"
+        },
+        {
+          "value": "Entity",
+          "field": "description"
+        },
+        {
+          "value": "ComparisonOperator",
+          "field": "enumTypeId"
+        }
+      ],
+      {
+        "allowICacheQuery": "true",
+        "complexCondition": "AND(1,2,3)"
+      }
+    ],
+    ["Complex queries not supported for i-cache"]
+  ],
+  [
+    [
+      "moqui.basic.TestEntity",
+      [
+        {
+          "value": "ArtifactType",
+          "field": "enumTypeId"
+        },
+        {
+          "value": "Entity",
+          "field": "description"
+        },
+        {
+          "value": "ComparisonOperator",
+          "field": "enumTypeId"
+        }
+      ],
+      {
+        "allowICacheQuery": "true"
+      }
+    ],
+    ["Entity definition not found [moqui.basic.TestEntity], cannot continue with populating service output"]
+  ]
+]

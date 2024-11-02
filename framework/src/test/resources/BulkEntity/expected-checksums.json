@@ -1,0 +1,28 @@
+[
+  [
+    {
+      "file": "BulkEntity/standard/only-delete-1.json"
+    },
+    {
+      "checksum": -78000.0,
+      "rowsDiff": -1,
+      "result": true,
+      "message": "Operations performed successfully",
+      "upserts": 0,
+      "deletes": 1
+    }
+  ],
+  [
+    {
+      "file": "BulkEntity/invalid/error-1.json"
+    },
+    {
+      "checksum": 0.0,
+      "rowsDiff": 0,
+      "result": false,
+      "message": "Unsuccessful execution",
+      "upsertFails": ["Error updating TestEntity [testId:100000.0]: text value could not be converted [22018]"],
+      "deleteFails": []
+    }
+  ]
+]

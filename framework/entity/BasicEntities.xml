@@ -78,6 +78,31 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Friday" enumId="DowFriday" sequenceNum="5" enumCode="FRIDAY" enumTypeId="DayOfWeek"/>
             <moqui.basic.Enumeration description="Saturday" enumId="DowSaturday" sequenceNum="6" enumCode="SATURDAY" enumTypeId="DayOfWeek"/>
             <moqui.basic.Enumeration description="Sunday" enumId="DowSunday" sequenceNum="7" enumCode="SUNDAY" enumTypeId="DayOfWeek"/>
+
+            <!-- NOTE: Enum added for Pohoda Extractor -->
+            <seed-data>
+                <moqui.basic.EnumerationType description="Debit and credit type" enumTypeId="DebitCredit"/>
+                <moqui.basic.Enumeration description="Debit" enumId="D" enumTypeId="DebitCredit"/>
+                <moqui.basic.Enumeration description="Credit" enumId="C" enumTypeId="DebitCredit"/>
+            </seed-data>
+            <seed-data>
+                <moqui.basic.EnumerationType description="Activity type" enumTypeId="Activity"/>
+                <moqui.basic.Enumeration description="Active" enumId="ACTIVE" enumTypeId="Activity"/>
+                <moqui.basic.Enumeration description="Passive" enumId="PASSIVE" enumTypeId="Activity"/>
+                <moqui.basic.Enumeration description="Yes" enumId="YES" enumTypeId="Activity"/>
+                <moqui.basic.Enumeration description="No" enumId="NO" enumTypeId="Activity"/>
+            </seed-data>
+            <seed-data>
+                <moqui.basic.EnumerationType description="Performance type" enumTypeId="Performance"/>
+                <moqui.basic.Enumeration description="Costs" enumId="COSTS" enumTypeId="Performance"/>
+                <moqui.basic.Enumeration description="Revenues" enumId="REVENUES" enumTypeId="Performance"/>
+                <moqui.basic.Enumeration description="No" enumId="NO" enumTypeId="Performance"/>
+            </seed-data>
+            <seed-data>
+                <moqui.basic.EnumerationType description="Yes and No type" enumTypeId="YesNo"/>
+                <moqui.basic.Enumeration description="Yes" enumId="YES" enumTypeId="YesNo"/>
+                <moqui.basic.Enumeration description="No" enumId="NO" enumTypeId="YesNo"/>
+            </seed-data>
         </seed-data>
         <master><detail relationship="type"/><detail relationship="parent"/><detail relationship="related"/></master>
     </entity>
@@ -538,7 +563,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="emailTypeEnumId" type="id"/>
         <field name="sentDate" type="date-time"/>
         <field name="receivedDate" type="date-time"/>
-        <field name="subject" type="text-medium"/>
+        <field name="subject" type="text-long"/>
         <field name="body" type="text-very-long"/>
         <field name="bodyText" type="text-very-long"><description>The plain text variation of the body</description></field>
         <!-- Removed because unused and causes row size to be too long (in MySQL, others?): <field name="note" type="text-long"/> -->

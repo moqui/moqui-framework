@@ -13,7 +13,6 @@
  */
 package org.moqui.impl.entity
 
-import groovy.transform.CompileStatic
 import org.moqui.BaseArtifactException
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityCondition.ComparisonOperator
@@ -29,7 +28,6 @@ import org.slf4j.LoggerFactory
 
 import java.sql.Timestamp
 
-@CompileStatic
 class EntityConditionFactoryImpl implements EntityConditionFactory {
     protected final static Logger logger = LoggerFactory.getLogger(EntityConditionFactoryImpl.class)
 
@@ -318,6 +316,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
             case "ENTCO_NOT_LIKE": return EntityCondition.NOT_LIKE
             case "ENTCO_IS_NULL": return EntityCondition.IS_NULL
             case "ENTCO_IS_NOT_NULL": return EntityCondition.IS_NOT_NULL
+            case "ENTCO_TEXT": return EntityCondition.TEXT
             default: return null
         }
     }
@@ -433,7 +432,7 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
         return makeCondition(condList, getJoinOperator(node.attribute("combine")))
     }
 
-    protected static final Map<ComparisonOperator, String> comparisonOperatorStringMap = new EnumMap(ComparisonOperator.class)
+    public static final Map<ComparisonOperator, String> comparisonOperatorStringMap = new EnumMap(ComparisonOperator.class)
     static {
         comparisonOperatorStringMap.put(ComparisonOperator.EQUALS, "=")
         comparisonOperatorStringMap.put(ComparisonOperator.NOT_EQUAL, "<>")
@@ -449,8 +448,9 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
         comparisonOperatorStringMap.put(ComparisonOperator.NOT_LIKE, "NOT LIKE")
         comparisonOperatorStringMap.put(ComparisonOperator.IS_NULL, "IS NULL")
         comparisonOperatorStringMap.put(ComparisonOperator.IS_NOT_NULL, "IS NOT NULL")
+        comparisonOperatorStringMap.put(ComparisonOperator.TEXT, "TEXT")
     }
-    protected static final Map<String, ComparisonOperator> stringComparisonOperatorMap = [
+    public static final Map<String, ComparisonOperator> stringComparisonOperatorMap = [
             "=":ComparisonOperator.EQUALS,
             "equals":ComparisonOperator.EQUALS,
 
@@ -497,7 +497,10 @@ class EntityConditionFactoryImpl implements EntityConditionFactory {
             "IS NULL":ComparisonOperator.IS_NULL,
 
             "is-not-null":ComparisonOperator.IS_NOT_NULL,
-            "IS NOT NULL":ComparisonOperator.IS_NOT_NULL
+            "IS NOT NULL":ComparisonOperator.IS_NOT_NULL,
+
+            "text":ComparisonOperator.TEXT,
+            "TEXT":ComparisonOperator.TEXT,
     ]
 
     static String getJoinOperatorString(JoinOperator op) { return JoinOperator.OR.is(op) ? "OR" : "AND" }

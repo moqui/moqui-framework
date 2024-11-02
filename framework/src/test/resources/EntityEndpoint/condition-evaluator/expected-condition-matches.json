@@ -1,0 +1,38 @@
+[
+  [
+    {
+      "mapToCheck": {"projectBudget": 50000.0},
+      "condition": {"field": "projectBudget", "value": 50000.0, "operator": "gt"}
+    },
+    {
+      "result": false
+    }
+  ],
+  [
+    {
+      "mapToCheck": {"projectBudget": 50000.0},
+      "condition": {"field": "projectBudget", "value": 50000.0, "operator": "gte"}
+    },
+    {
+      "result": true
+    }
+  ],
+  [
+    {
+      "mapToCheck": {"projectId": "simply best"},
+      "condition": {"field": "projectId", "value": "%best%", "operator": "like"}
+    },
+    {
+      "result": true
+    }
+  ],
+  [
+    {
+      "mapToCheck": {"projectId": "simply best"},
+      "condition": {"field": "projectId", "value": "better", "operator": "equals"}
+    },
+    {
+      "result": false
+    }
+  ]
+]

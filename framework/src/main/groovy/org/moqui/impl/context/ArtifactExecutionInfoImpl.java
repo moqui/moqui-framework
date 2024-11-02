@@ -517,7 +517,7 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
         public ArtifactType artifactType;
         public AuthzAction authzAction;
         public AuthzType authzType;
-        public boolean nameIsPattern, inheritAuthz;
+        public Boolean nameIsPattern, inheritAuthz;
         public ArtifactAuthzCheck(EntityValueBase aacvEvb) {
             Map<String, Object> aacvMap = aacvEvb.getValueMap();
             userGroupId = (String) aacvMap.get("userGroupId");

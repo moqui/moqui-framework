@@ -1,7 +1,24 @@
+# separate addons file to add/override components
+# myaddons.xml
+
+# local files
+__*
+
+# files directory
+/files
+
+# db dumps
+*.sql
+*.zip
+
+# temp or backup files
+*.old
 
 # gradle/build files
 build
 .gradle
+.shelf
+gradle.properties
 /framework/dependencies
 
 # build generated files
@@ -11,6 +28,7 @@ build
 # runtime directory (separate repository so ignore directory entirely)
 /runtime
 /execwartmp
+/wartemp
 /docker/runtime
 /docker/db
 /docker/elasticsearch/data/nodes
@@ -33,6 +51,9 @@ out
 *.ipr
 *.iws
 *.iml
+
+# lib files
+/lib
 
 # Eclipse files (and some general ones also used by Eclipse)
 .metadata
@@ -67,3 +88,6 @@ Desktop.ini
 
 # Linux auto files
 *~
+
+# Log files
+*.log

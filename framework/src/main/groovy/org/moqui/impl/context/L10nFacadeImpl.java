@@ -365,8 +365,15 @@ public class L10nFacadeImpl implements L10nFacade {
         return calendarValidator.format(input, format, locale, tz);
     }
 
-    @Override public BigDecimal parseNumber(String input, String format) {
-        return bigDecimalValidator.validate(input, format, getLocale()); }
+    @Override
+    public BigDecimal parseNumber(String input, String format) {
+        return bigDecimalValidator.validate(input, format, getLocale());
+    }
+
+    public BigDecimal parseNumber(String input, String format, Locale locale) {
+        return bigDecimalValidator.validate(input, format, locale);
+    }
+
     @Override public String formatNumber(Number input, String format, Locale locale) {
         if (locale == null) locale = getLocale();
         if (format == null || format.isEmpty()) {
@@ -386,6 +393,11 @@ public class L10nFacadeImpl implements L10nFacade {
     public String format(Object value, String format) {
         return this.format(value, format, getLocale(), getTimeZone());
     }
+
+    public String format(Object value, String format, Locale locale) {
+        return this.format(value, format, locale, getTimeZone());
+    }
+
     @Override
     public String format(Object value, String format, Locale locale, TimeZone tz) {
         if (value == null) return "";

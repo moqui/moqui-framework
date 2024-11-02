@@ -40,7 +40,7 @@ import java.util.*;
 
 public class EntityJavaUtil {
     protected final static Logger logger = LoggerFactory.getLogger(EntityJavaUtil.class);
-    protected final static boolean isTraceEnabled = logger.isTraceEnabled();
+    protected final static Boolean isTraceEnabled = logger.isTraceEnabled();
 
     private static final int saltBytes = 8;
     static String enDeCrypt(String value, boolean encrypt, EntityFacadeImpl efi) {
@@ -485,7 +485,7 @@ public class EntityJavaUtil {
             }
         }
 
-        void setFieldsEv(Map<String, Object> src, EntityValueBase dest, Boolean pks) {
+        public void setFieldsEv(Map<String, Object> src, EntityValueBase dest, Boolean pks) {
             // like above with setIfEmpty=true, namePrefix=null, pks=null
             if (src == null || dest == null) return;
 
@@ -536,6 +536,9 @@ public class EntityJavaUtil {
                     }
                 }
             }
+
+            // DTQ@MR - customization to enable writing undefined values into entity
+            this.checkExtraFields(src, dest, fieldInfoArray);
         }
 
         public Map<String, Object> cloneMapRemoveFields(Map<String, Object> theMap, Boolean pks) {
@@ -549,6 +552,44 @@ public class EntityJavaUtil {
                 newMap.remove(fi.name);
             }
             return newMap;
+        }
+
+        /**
+         * We may allow writing of additional fields into entity, should
+         * the datasource allow for such feature - this applies especially for Non-SQL databases, e.g. MongoDB
+         * @param src source map holding data we want to write
+         * @param dest destination entity
+         * @param fieldInfoArray fields list
+         */
+
+        private void checkExtraFields(Map<String, Object> src, EntityValueBase dest, FieldInfo[] fieldInfoArray) {
+            if (!efi.getEntityDbMeta().allowExtraFields(ed.groupName)) return;
+
+            logger.debug("Checking extra fields when setting Entity '" + ed.fullEntityName + "' values");
+
+            // make sure primary-key fields are checked as well
+            // as the extra fields do not necessarily need to be extra
+            FieldInfo[] pks = this.pkFieldInfoArray;
+
+            // which fields are extra?
+            List<String> extras = new ArrayList<>();
+            src.keySet().forEach(fieldToWrite -> {
+                if (Arrays.stream(fieldInfoArray).noneMatch(s-> Objects.equals(s.name, fieldToWrite))){
+                    if (Arrays.stream(pks).anyMatch(s-> Objects.equals(s.name, fieldToWrite))) return;
+                    extras.add(fieldToWrite);
+                }
+            });
+
+            // quit if no extras
+            if (extras.isEmpty()) return;
+
+            final int[] lastIndex = {dest.valueMapInternal.getKeyArrayLength() - 1};
+            extras.forEach(fieldToWrite -> {
+                // when inserting values to internal value map, we should also
+                // modify the entity info, so that it reflects the changes in indices
+                dest.valueMapInternal.putByIString(fieldToWrite, src.get(fieldToWrite), lastIndex[0] + 1);
+                lastIndex[0] += 1;
+            });
         }
     }
 

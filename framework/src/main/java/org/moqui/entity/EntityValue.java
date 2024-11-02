@@ -19,8 +19,10 @@ import org.w3c.dom.Element;
 
 import javax.sql.rowset.serial.SerialBlob;
 import java.io.Externalizable;
+import java.io.FileInputStream;
 import java.io.Writer;
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -104,6 +106,16 @@ public interface EntityValue extends Map<String, Object>, Externalizable, Compar
      * @return reference to this for convenience
      */
     EntityValue setString(String name, String value);
+
+    /**
+     * Method is currently supported for MongoDB only.
+     *
+     * @param file The file to upload itself
+     * @param fileName File name required, so that the metadata can be saved along
+     * @param metadata Additional metadata to fill together with data
+     * @return
+     */
+    EntityValue setAttachment(FileInputStream file, String fileName, HashMap<String, Object> metadata);
 
     Boolean getBoolean(String name);
 
@@ -291,4 +303,11 @@ public interface EntityValue extends Map<String, Object>, Externalizable, Compar
 
     /** List getPlainValueMap() but uses a master definition to determine which dependent/related records to get. */
     Map<String, Object> getMasterValueMap(String name);
+
+    /**
+     * This method forbid updating a document on database level. Is used in specific cases, e.g. in when writing
+     * to Document storage without wanting to overwrite already stored data
+     * @return EntityValue instance
+     */
+    EntityValue forbidDatabaseUpdate();
 }

@@ -1,0 +1,25 @@
+[
+  {
+    "entity": "moqui.test.TestJsonEntity",
+    "data": {
+      "testJsonId": {"category": "a", "projectId": 1},
+      "testMedium": "Something useful",
+      "testJsonField": {"general": {"salesPerson": "Zaluzhnyi", "location": "UA"}}
+    }
+  },
+  {
+    "entity": "moqui.test.TestJsonEntity",
+    "data": {
+      "testJsonId": {"category": "a", "projectId": 1},
+      "testMedium": "Something even more useful",
+      "testJsonField": {"general": {"salesPerson": {"name": "Zaluzhnyi", "location": "UA"}}}
+    }
+  },
+  {
+    "entity": "moqui.test.TestJsonEntity",
+    "data": {
+      "testJsonId": {"projectId": 1},
+      "testMedium": "Something beautiful"
+    }
+  }
+]

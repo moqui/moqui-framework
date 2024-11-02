@@ -1,0 +1,147 @@
+{
+    "keyword": "plan-impact",
+    "storageAppendix": "plan_cost_estimate",
+    "symlinks": {
+        "initial": "preProcessed"
+    },
+    "detailProcessing": {
+        "initial": {
+            "type": "calc",
+            "procedure": "procedures.first"
+        }
+    },
+    "procedures": {
+        "first": {
+            "a": "ext.ast.budget.simple_budget_aggregator"
+        }
+    },
+    "initial": {
+        "filler": {
+            "mergeStrategy": {
+                "type": "mix"
+            },
+            "fillFormData": [
+                {
+                    "1": {
+                        "entity": "ars.plan.PlannedPersonnel",
+                        "term": [
+                            {
+                                "field": "planId",
+                                "value": "not-found-in-context"
+                            }
+                        ],
+                        "args": {
+                            "allowTimestamps": false,
+                            "allowedFields": [
+                                "brutto",
+                                "calculation",
+                                "contractType",
+                                "team",
+                                "extra",
+                                "name",
+                                "planId",
+                                "plannedPersonnelId",
+                                "since",
+                                "surname",
+                                "thru",
+                                "variablePayRate",
+                                "_entity"
+                            ],
+                            "requiredDateFormat": "yyyy-MM-dd",
+                            "timeZoneInDatesFormat": "yyyy-MM-dd"
+                        },
+                        "companyId": true
+                    }
+                },
+                {
+                    "2": {
+                        "entity": "ars.plan.PlannedVehicle",
+                        "term": [
+                            {
+                                "field": "planId",
+                                "value": "not-found-in-context"
+                            }
+                        ],
+                        "companyId": true,
+                        "args": {
+                            "allowTimestamps": false,
+                            "allowedFields": [
+                                "accidentInsurance",
+                                "accountingId",
+                                "driver",
+                                "fuel",
+                                "insurance",
+                                "isPrivate",
+                                "maintenance",
+                                "monthsInUse",
+                                "name",
+                                "other",
+                                "planId",
+                                "plannedVehicleId",
+                                "purchaseValue",
+                                "since",
+                                "tax",
+                                "thru",
+                                "_entity"
+                            ],
+                            "requiredDateFormat": "yyyy-MM-dd",
+                            "timeZoneInDatesFormat": "yyyy-MM-dd"
+                        }
+                    }
+                },
+                {
+                    "3": {
+                        "entity": "ars.plan.PlannedActivity",
+                        "term": [
+                            {
+                                "field": "planId",
+                                "value": "not-found-in-context"
+                            }
+                        ],
+                        "companyId": true,
+                        "args": {
+                            "allowTimestamps": false,
+                            "requiredDateFormat": "yyyy-MM-dd",
+                            "timeZoneInDatesFormat": "yyyy-MM-dd"
+                        }
+                    }
+                },
+                {
+                    "4": {
+                        "entity": "ars.plan.PlannedAction",
+                        "term": [
+                            {
+                                "field": "planId",
+                                "value": "not-found-in-context"
+                            }
+                        ],
+                        "companyId": true,
+                        "args": {
+                            "allowTimestamps": false,
+                            "requiredDateFormat": "yyyy-MM-dd",
+                            "timeZoneInDatesFormat": "yyyy-MM-dd"
+                        }
+                    }
+                },
+                {
+                    "5": {
+                        "entity": "moqui.basic.Enumeration",
+                        "term": [
+                            {
+                                "field": "enumTypeId",
+                                "value": "PlanConfigValuesType"
+                            }
+                        ],
+                        "companyId": false,
+                        "args": {
+                            "allowTimestamps": false
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "updating": {
+        "allowOverwrite": true
+    }
+}

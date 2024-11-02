@@ -13,6 +13,7 @@
  */
 package org.moqui.context;
 
+import java.io.Serializable;
 import java.io.Writer;
 import java.math.BigDecimal;
 import java.util.Collections;

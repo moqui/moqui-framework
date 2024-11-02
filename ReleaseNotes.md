@@ -133,6 +133,8 @@ https://github.com/moqui/moqui-framework/compare/v2.1.1...v2.1.2
 - Service include for refactoring, etc with new services.service-include element
 - RestClient now supports retry on timeout for call() and 429 (velocity) return for callFuture()
 - The general worker thread pool now checks for an active ExecutionContext after each run to make sure destroyed
+<<<<<<< HEAD
+=======
 - CORS preflight OPTIONS request and CORS actual request handling in MoquiServlet
     - headers configured using cors-preflight and cors-actual types in webapp.response-header elements with default headers in MoquiDefaultConf.xml
     - allowed origins configured with the webapp.@allow-origins attribute which defaults the value of the 'webapp_allow_origins'
@@ -142,11 +144,15 @@ https://github.com/moqui/moqui-framework/compare/v2.1.1...v2.1.2
 - Added minRetryTime to ServiceJob to avoid immediate and excessive retries
 - New Gradle tasks for managing git tags
 - Support for read only clone datasource configuration and use (if available) in entity finds
+>>>>>>> 69620aafbd4a96315ddedbdf5ac7bfc5ec0307bd
 
 ### Bug Fixes
 
 - Issue with DataFeed Runnable not destroying the ExecutionContext causing errors to bleed over
+<<<<<<< HEAD
+=======
 - Fix double content type header in RestClient in certain scenarios
+>>>>>>> 69620aafbd4a96315ddedbdf5ac7bfc5ec0307bd
 
 ## Release 2.1.1 - 29 Nov 2018
 

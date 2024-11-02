@@ -115,6 +115,7 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- Screen Themes -->
             <moqui.basic.EnumerationType description="Screen Theme Type" enumTypeId="ScreenThemeType"/>
             <moqui.basic.Enumeration description="Internal Applications" enumId="STT_INTERNAL" enumTypeId="ScreenThemeType" enumCode="DEFAULT"/>
+            <moqui.basic.Enumeration description="Internal Applications - Quasar" enumId="STT_INTERNAL_QUASAR" enumTypeId="ScreenThemeType" enumCode="QUASAR"/>
             <moqui.basic.Enumeration description="Public Web Site/etc" enumId="STT_PUBLIC" enumTypeId="ScreenThemeType" enumCode="PUBLIC"/>
             <moqui.basic.Enumeration description="Error Screens" enumId="STT_ERROR" enumTypeId="ScreenThemeType" enumCode="ERROR"/>
 

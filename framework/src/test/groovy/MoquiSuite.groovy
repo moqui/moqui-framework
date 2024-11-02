@@ -12,6 +12,8 @@
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
 
+
+import ars.rockycube.ComplexEntitiesTester
 import org.junit.jupiter.api.AfterAll
 import org.junit.platform.suite.api.SelectClasses
 import org.junit.platform.suite.api.Suite
@@ -21,10 +23,28 @@ import org.moqui.Moqui
 // for JUnit 5 Jupiter annotations see: https://junit.org/junit5/docs/current/user-guide/index.html#writing-tests-annotations
 
 @Suite
-@SelectClasses([ CacheFacadeTests.class, EntityCrud.class, EntityFindTests.class, EntityNoSqlCrud.class,
-        L10nFacadeTests.class, MessageFacadeTests.class, ResourceFacadeTests.class, ServiceCrudImplicit.class,
-        ServiceFacadeTests.class, SubSelectTests.class, TransactionFacadeTests.class, UserFacadeTests.class,
-        SystemScreenRenderTests.class, ToolsRestApiTests.class, ToolsScreenRenderTests.class])
+@SelectClasses([
+        CacheFacadeTests.class,
+        EntityCrud.class,
+        EntityFindTests.class,
+        EntityNoSqlCrud.class,
+        L10nFacadeTests.class,
+        MessageFacadeTests.class,
+        ResourceFacadeTests.class,
+        ServiceCrudImplicit.class,
+        ServiceFacadeTests.class,
+        SubSelectTests.class,
+        TransactionFacadeTests.class,
+        UserFacadeTests.class,
+        SystemScreenRenderTests.class,
+        ToolsRestApiTests.class,
+        ToolsScreenRenderTests.class,
+        EndpointTests.class,
+        JsonSupportTests.class,
+        EntityHelperTests.class,
+        UtilsTests.class,
+        ComplexEntitiesTester.class
+])
 class MoquiSuite {
     @AfterAll
     static void destroyMoqui() {

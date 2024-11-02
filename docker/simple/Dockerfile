@@ -2,6 +2,8 @@
 # NOTE: add components, build and if needed load data before building a docker image with this
 ARG RUNTIME_IMAGE=eclipse-temurin:11-jdk
 FROM ${RUNTIME_IMAGE}
+# currently working for RSK
+# FROM openjdk:17-jdk-alpine
 MAINTAINER Moqui Framework <moqui@googlegroups.com>
 
 WORKDIR /opt/moqui
@@ -40,12 +42,12 @@ VOLUME ["/opt/moqui/runtime/log", "/opt/moqui/runtime/txlog", "/opt/moqui/runtim
 
 # Main Servlet Container Port
 EXPOSE 80
-# Search HTTP Port
-EXPOSE 9200
-# Search Cluster (TCP Transport) Port
-EXPOSE 9300
+# ElasticSearch HTTP Port
+#EXPOSE 9200
+# ElasticSearch Cluster (TCP Transport) Port
+#EXPOSE 9300
 # Hazelcast Cluster Port
-EXPOSE 5701
+#EXPOSE 5701
 
 # this is to run from the war file directly, preferred approach unzips war file in advance
 # ENTRYPOINT ["java", "-jar", "moqui.war"]

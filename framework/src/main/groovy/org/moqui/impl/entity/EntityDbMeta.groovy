@@ -14,6 +14,7 @@
 package org.moqui.impl.entity
 
 import groovy.transform.CompileStatic
+import org.apache.commons.lang3.RandomStringUtils
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.entity.EntityJavaUtil.RelationshipInfo
 import org.moqui.util.CollectionUtilities
@@ -54,6 +55,42 @@ class EntityDbMeta {
         if (ecfi.getEci().artifactExecutionFacade.entityFkCreateDisabled()) return false
         if ("true".equals(SystemBinding.getPropOrEnv("entity_disable_fk_create"))) return false
         return true
+    }
+
+    /**
+     * Do we allow extra fields to be created in this datasource? e.g. MongoDB
+     * @param groupName
+     * @return
+     */
+    boolean allowExtraFields(String groupName) {
+        MNode datasourceNode = efi.getDatasourceNode(groupName)
+        String aefAttr = datasourceNode?.attribute("allow-extra-fields")
+        return aefAttr ? "true".equals(aefAttr) : false
+    }
+
+    /**
+     * Method for proper table/column name formatting, used in EntityField
+     * @param groupName
+     * @param componentName
+     * @return
+     */
+    String formattedComponentName(String groupName, String componentName)
+    {
+        MNode datasourceNode = efi.getDatasourceNode(groupName)
+        String tnfAttr = datasourceNode?.attribute("table-name-format")
+
+        if (!tnfAttr) return EntityJavaUtil.camelCaseToUnderscored(componentName)
+
+        switch (tnfAttr) {
+            case "Underscored":
+                return EntityJavaUtil.camelCaseToUnderscored(componentName)
+                break
+            case "camelCase":
+                return componentName
+                break
+            default:
+                return EntityJavaUtil.camelCaseToUnderscored(componentName)
+        }
     }
 
     boolean checkTableRuntime(EntityDefinition ed) {
@@ -532,9 +569,20 @@ class EntityDbMeta {
         }
 
         if (databaseNode.attribute("use-pk-constraint-names") != "false") {
-            String pkName = "PK_" + ed.getTableName()
-            int constraintNameClipLength = (databaseNode.attribute("constraint-name-clip-length")?:"30") as int
-            if (pkName.length() > constraintNameClipLength) pkName = pkName.substring(0, constraintNameClipLength)
+
+            String pkName = null
+            // for multiple-instance type entity, use random string generator
+            // this way, the indexes for respective tables use unique names
+            // and the create procedure does not fail
+            if (!ed.isMultipleInstanceEntity)
+            {
+                pkName = "PK_" + ed.getTableName()
+                int constraintNameClipLength = (databaseNode.attribute("constraint-name-clip-length")?:"30") as int
+                if (pkName.length() > constraintNameClipLength) pkName = pkName.substring(0, constraintNameClipLength)
+            } else {
+                pkName = "PK_" + RandomStringUtils.randomAlphanumeric(10)
+            }
+
             sql.append("CONSTRAINT ")
             if (databaseNode.attribute("use-schema-for-all") == "true") sql.append(ed.getSchemaName() ? ed.getSchemaName() + "." : "")
             sql.append(pkName)
@@ -684,7 +732,23 @@ class EntityDbMeta {
             }
             sql.append("INDEX ")
             if (databaseNode.attribute("use-schema-for-all") == "true") sql.append(ed.getSchemaName() ? ed.getSchemaName() + "." : "")
-            sql.append(indexNode.attribute("name")).append(" ON ").append(ed.getFullTableName())
+
+            // index name, but use table name not to mix indexes on tables
+            // being created using one entity schema
+            if (indexNode.attribute("table-based-name") == "true")
+            {
+                if (ed.isMultipleInstanceEntity)
+                {
+                    sql.append("${ed.tableName}_${RandomStringUtils.randomAlphanumeric(10)}" )
+                } else {
+                    sql.append("${ed.tableName}_${indexNode.attribute("name")}" )
+                }
+            } else {
+                sql.append(indexNode.attribute("name"))
+            }
+
+            // full table name
+            sql.append(" ON ").append(ed.getFullTableName())
 
             sql.append(" (")
             boolean isFirst = true
@@ -775,6 +839,9 @@ class EntityDbMeta {
             // logger.warn("Index for entity [${ed.getFullEntityName()}], title=${title}, commonChars=${commonChars}, indexName=${indexName}")
             // logger.warn("Index for entity [${ed.getFullEntityName()}], relatedEntityName=${relatedEntityName}, relEndCommonChars=${relEndCommonChars}, indexName=${indexName}")
         }
+        // method to give constraint a unique name, once it is a multiple-instance-entity
+        if (ed.isMultipleInstanceEntity) obfuscateName(null, ed, indexName)
+
         shrinkName(indexName, constraintNameClipLength - 3)
         indexName.insert(0, "IDX")
         return indexName.toString()
@@ -1166,6 +1233,9 @@ class EntityDbMeta {
             }
             // logger.warn("ed.getFullEntityName()=${ed.entityName}, title=${title}, commonChars=${commonChars}, constraintName=${constraintName}")
         }
+        // method to give constraint a unique name, once it is a multiple-instance entity
+        if (ed.isMultipleInstanceEntity) obfuscateName("CST", ed, constraintName)
+
         shrinkName(constraintName, constraintNameClipLength)
         return constraintName.toString()
     }
@@ -1181,6 +1251,36 @@ class EntityDbMeta {
                 name.delete(maxLength-1, name.length())
             }
         }
+    }
+
+    /**
+     * Method is used to change the name of constraint in a situation
+     * when multiple-instance-entity is being taken care of. In such
+     * case we do not want to use standard names
+     * @param name
+     * @return
+     */
+    static void obfuscateName(String prefix, EntityDefinition ed, StringBuilder name)
+    {
+        def basicName = ed.tableName.substring(0, Math.min(12, ed.tableName.length()))
+        def randomCharsCount = 30 - (prefix? 4 : 5) - basicName.length()
+
+        String newName
+        if (prefix)
+        {
+            newName = "${prefix.toUpperCase().substring(0, 2)}_${basicName}_${RandomStringUtils.randomAlphanumeric(randomCharsCount)}"
+        } else {
+            newName = "${basicName}_${RandomStringUtils.randomAlphanumeric(randomCharsCount)}"
+        }
+
+        // replace in StringBuilder
+        if (name.length() > 0){
+            name.replace(0, name.length() - 1, newName)
+        } else {
+            name.append(newName)
+        }
+
+        assert newName.length() == (prefix ? 30 : 26)
     }
 
     final ReentrantLock sqlLock = new ReentrantLock()

@@ -57,6 +57,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:enumeration value="text-long"/>
             <xs:enumeration value="text-very-long"/>
             <xs:enumeration value="binary-very-long"/>
+            <xs:enumeration value="jsonb"/>
         </xs:restriction>
     </xs:simpleType>
 
@@ -104,6 +105,8 @@ along with this software (see the LICENSE.md file). If not, see
                     <xs:enumeration value="configuration"><xs:annotation><xs:documentation>framework and application
                         configuration data; eventual consistency is okay; typically cached</xs:documentation></xs:annotation></xs:enumeration>
                     <xs:enumeration value="analytical"><xs:annotation><xs:documentation>analytical entities with data
+                        typically derived from transactional data</xs:documentation></xs:annotation></xs:enumeration>
+                    <xs:enumeration value="file"><xs:annotation><xs:documentation>analytical entities with data
                         typically derived from transactional data</xs:documentation></xs:annotation></xs:enumeration>
                     <xs:enumeration value="logging"><xs:annotation><xs:documentation>entities used for logging with
                         non-transactional data that is generated in high volumes and used mostly for auditing and analytics</xs:documentation></xs:annotation></xs:enumeration>
@@ -277,6 +280,7 @@ along with this software (see the LICENSE.md file). If not, see
             </xs:sequence>
             <xs:attribute name="name" type="xs:string" use="required"/>
             <xs:attribute name="unique" default="false" type="boolean"/>
+            <xs:attribute name="table-based-name" default="false" type="boolean"/>
         </xs:complexType>
     </xs:element>
     <xs:element name="index-field">

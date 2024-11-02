@@ -1,0 +1,36 @@
+name: specific unit-tests
+on: [push]
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          java-version: 17
+          distribution: adopt
+      - name: Check Java version
+        run: java --version
+      - name: Checkout runtime
+        uses: actions/checkout@v2
+        with:
+          repository: rovnanik-sk/moqui-runtime
+          path: './runtime'
+          ref: rsk-dev
+      - name: Prep - clean database
+        run: ./gradlew cleanDb
+      - name: Prep - load database
+        run: ./gradlew load
+      - name: Run tests (MoquiSuite)
+        run: ./gradlew test --tests MoquiSuite
+      - name: Run tests (BulkEntityTester)
+        run: ./gradlew test --tests ars.rockycube.BulkEntityTester
+      - name: Run tests (ComplexEntitiesTester)
+        run: ./gradlew test --tests ars.rockycube.ComplexEntitiesTester
+      - name: Run tests (DynamicRelationshipTester)
+        run: ./gradlew test --tests ars.rockycube.DynamicRelationshipTester
+      - name: Run tests (PersonEntityTester)
+        run: ./gradlew test --tests ars.rockycube.PersonEntityTester
+      - name: Run tests (SmartFindTester)
+        run: ./gradlew test --tests ars.rockycube.SmartFindTester

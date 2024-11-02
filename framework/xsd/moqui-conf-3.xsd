@@ -334,6 +334,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element minOccurs="0" ref="password"/>
                 <xs:element minOccurs="0" ref="login-key"/>
                 <xs:element minOccurs="0" ref="login"/>
+                <xs:element minOccurs="0" ref="ldap-params"/>
             </xs:sequence>
         </xs:complexType>
     </xs:element>
@@ -390,6 +391,19 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:annotation><xs:documentation>Store records of login attempts?</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="history-incorrect-password" type="boolean" default="true">
                 <xs:annotation><xs:documentation>Store incorrect passwords in login attempt history?</xs:documentation></xs:annotation></xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="ldap-params">
+        <xs:complexType>
+            <xs:attribute name="shiro-file-name" type="xs:string" default="shiro.ini">
+                <xs:annotation><xs:documentation>Name of the shiro ini file to be used.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="ldap-path" type="xs:string"/>
+            <xs:attribute name="system-user" type="xs:string"/>
+            <xs:attribute name="system-user-password" type="xs:string"/>
+            <xs:attribute name="user-dn-template" type="xs:string"/>
+            <xs:attribute name="search-base-query-filter" type="xs:string"/>
+            <xs:attribute name="search-user-query-filter" type="xs:string"/>
         </xs:complexType>
     </xs:element>
     <!-- Future security settings:
@@ -660,6 +674,14 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="startup-add-missing" default="false" type="boolean-expandable"/>
             <xs:attribute name="runtime-add-missing" default="true" type="boolean-expandable"/>
             <xs:attribute name="runtime-add-fks" default="true" type="boolean-expandable"/>
+            <xs:attribute name="use-schema-for-all" default="false" type="boolean-expandable"/>
+            <xs:attribute name="allow-extra-fields" default="false" type="boolean-expandable">
+                <xs:annotation><xs:documentation>E.g. used for MongoDB datasource to allow adding fields outside entity definition scope - fields that are not set in the EntityDefinition XML.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="table-name-format" default="Underscored" type="name-format">
+                <xs:annotation><xs:documentation>Default table name format - underscored, camelCase.</xs:documentation></xs:annotation>
+            </xs:attribute>
+
             <xs:attribute name="object-factory" type="xs:string" default="org.moqui.impl.entity.EntityDatasourceFactoryImpl">
                 <xs:annotation><xs:documentation>The references class must implement the
                     org.moqui.entity.EntityDatasourceFactory interface.</xs:documentation></xs:annotation>
@@ -752,6 +774,7 @@ along with this software (see the LICENSE.md file). If not, see
                     <xs:attribute name="original" type="name-plain" use="required"/>
                     <xs:attribute name="replace" type="name-plain" use="required"/>
                 </xs:complexType></xs:element>
+                <xs:element minOccurs="0" maxOccurs="1" ref="json-config"/>
                 <xs:element minOccurs="0" maxOccurs="1" ref="inline-jdbc"/>
             </xs:sequence>
 
@@ -860,6 +883,12 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="default-runtime-add-missing" type="boolean"/>
             <xs:attribute name="default-runtime-add-fks" type="boolean"/>
             <xs:attribute name="default-start-server-args" type="xs:string"/>
+
+            <!-- JSON related tweaks -->
+            <!--(create)-->
+            <xs:attribute name="create-to-json-method" type="xs:string"/>
+            <xs:attribute name="create-format-json-value" type="xs:string"/>
+
         </xs:complexType>
     </xs:element>
     <xs:element name="dictionary-type">
@@ -877,6 +906,48 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="java-type" type="xs:string"/>
         </xs:complexType>
     </xs:element>
+    <!-- JSON related tweaks -->
+    <xs:element name="json-config">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="1" ref="create-specs"/>
+                <xs:element minOccurs="0" maxOccurs="1" ref="update-specs"/>
+                <xs:element minOccurs="0" maxOccurs="1" ref="where-specs"/>
+                <xs:element minOccurs="0" maxOccurs="1" ref="nested-field"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="json-operator"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="create-specs">
+        <xs:complexType>
+            <xs:attribute name="to-json-method" type="xs:string"/>
+            <xs:attribute name="format-json-value" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="update-specs">
+        <xs:complexType>
+            <xs:attribute name="to-json-method" type="xs:string"/>
+            <xs:attribute name="format-json-value" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="where-specs">
+        <xs:complexType>
+            <xs:attribute name="to-json-method" type="xs:string"/>
+            <xs:attribute name="format-json-value" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="json-operator">
+        <xs:complexType>
+            <xs:attribute name="operator-type" type="xs:string"/>
+            <xs:attribute name="value-to-use" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="nested-field">
+        <xs:complexType>
+            <xs:attribute name="syntax" type="xs:string" use="required"/>
+        </xs:complexType>
+    </xs:element>
+
 
     <!-- ================== Repository (JCR) Conf Root ==================== -->
     <xs:element name="repository-list">

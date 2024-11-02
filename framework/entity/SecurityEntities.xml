@@ -269,7 +269,10 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="locale" type="text-short"/>
         <field name="timeZone" type="text-short"/>
         <field name="externalUserId" type="text-medium"/>
-        <field name="emailAddress" type="text-medium" enable-audit-log="update">
+        <field name="ldapUid" type="text-medium"/>
+        <field name="ldapFullName" type="text-medium"/>
+        <field name="ldapLastUpdate" type="time"/>
+        <field name="emailAddress" type="text-medium">
             <description>The email address to use for forgot password emails and other system messages.</description></field>
         <field name="ipAllowed" type="text-medium">
             <description>If specified only allow login from matching IP4 address. Comma separated patterns where each pattern has 4
@@ -336,6 +339,7 @@ along with this software (see the LICENSE.md file). If not, see
     </entity>
     <entity entity-name="UserGroup" package="moqui.security" use="configuration" short-alias="userGroups">
         <field name="userGroupId" type="id" is-pk="true"/>
+        <field name="externalId" type="text-medium"/>
         <field name="description" type="text-medium"/>
         <field name="groupTypeEnumId" type="id"/>
         <field name="ipAllowed" type="text-medium"><description>See UserAccout.ipAllowed</description></field>
@@ -348,6 +352,9 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="userGroupId"/></relationship>
         <relationship type="many" related="moqui.security.ArtifactAuthz" short-alias="authz">
             <key-map field-name="userGroupId"/></relationship>
+        <index name="unique_external_id" unique="true">
+            <index-field name="externalId"/>
+        </index>
         <seed-data>
             <moqui.basic.EnumerationType description="User Group Type" enumTypeId="UserGroupType"/>
         </seed-data>

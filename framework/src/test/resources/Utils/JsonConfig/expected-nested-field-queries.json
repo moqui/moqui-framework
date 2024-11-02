@@ -1,0 +1,48 @@
+[
+  [
+    {
+      "entityName": "moqui.test.TestJsonEntity",
+      "fieldName": "testMedium",
+      "nestedFields": ["projectId"],
+      "operator": ">"
+    },
+    {
+      "result": false,
+      "exception": "Cannot perform nested condition calculation on field [testMedium]"
+    }
+  ],
+  [
+    {
+      "entityName": "moqui.test.TestJsonEntity",
+      "fieldName": "testJsonId",
+      "nestedFields": ["projectId"],
+      "operator": ">"
+    },
+    {
+      "result": true,
+      "modifiedCondition": "TEST_JSON_ID->>'projectId'>?"
+    }
+  ],
+  [
+    {
+      "entityName": "moqui.test.TestJsonEntity",
+      "fieldName": "testJsonId",
+      "nestedFields": ["projectId", "deep"]
+    },
+    {
+      "result": false,
+      "exception": "Nested fields with depth greater than 1 not supported"
+    }
+  ],
+  [
+    {
+      "entityName": "moqui.test.TestJsonEntity",
+      "fieldName": "testJsonId",
+      "nestedFields": ["projectId"]
+    },
+    {
+      "result": true,
+      "modifiedCondition": "TEST_JSON_ID->>'projectId'=?"
+    }
+  ]
+]
