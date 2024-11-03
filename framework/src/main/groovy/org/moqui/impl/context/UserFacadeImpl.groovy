@@ -860,6 +860,17 @@ class UserFacadeImpl implements UserFacade {
         return currentInfo.internalUserGroupIdSet
     }
 
+    Set<String> getUserGroupIdSet(String userId) {
+        Set<String> groupIdSet = new HashSet(allUserGroupIdOnly)
+        if (userId) {
+            // expand the userGroupId Set with UserGroupMember
+            EntityList ugmList = this.eci.getEntity().find("moqui.security.UserGroupMember").condition("userId", userId)
+                    .useCache(true).disableAuthz().list().filterByDate(null, null, null)
+            for (EntityValue userGroupMember in ugmList) groupIdSet.add((String) userGroupMember.userGroupId)
+        }
+        return groupIdSet
+    }
+
     static Set<String> getUserGroupIdSet(String userId, ExecutionContextImpl eci) {
         Set<String> groupIdSet = new HashSet(allUserGroupIdOnly)
         if (userId) {
