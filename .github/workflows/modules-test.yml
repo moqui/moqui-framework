@@ -8,7 +8,7 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
-          java-version: 13
+          java-version: 11
           distribution: adopt
       - name: Checkout runtime
         uses: actions/checkout@v4
