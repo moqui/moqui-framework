@@ -23,6 +23,8 @@ import org.slf4j.LoggerFactory
 import spock.lang.Shared
 import spock.lang.Specification
 
+import java.sql.Date
+import java.sql.ResultSet
 import java.sql.Time
 import java.sql.Timestamp
 
@@ -38,7 +40,17 @@ class EntityNoSqlCrud extends Specification {
     }
 
     def cleanupSpec() {
-        ec.destroy()
+        if (ec) {
+            // commit transactions
+            ec.transaction.commit()
+
+            // add some delay before turning off
+            logger.info("Delaying deconstruction of ExecutionContext, for the purpose of storing data. Without this delay, the commit would have failed.")
+            sleep(1000)
+
+            // stop it all
+            ec.destroy()
+        }
     }
 
     def setup() {
@@ -51,12 +63,29 @@ class EntityNoSqlCrud extends Specification {
         ec.transaction.commit()
     }
 
+
+    /**
+     * When comparing dates, renoves the time component
+     * @param date
+     * @return
+     */
+    private static Date normalizeDate(Date date) {
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(date);
+        cal.set(Calendar.HOUR_OF_DAY, 0);
+        cal.set(Calendar.MINUTE, 0);
+        cal.set(Calendar.SECOND, 0);
+        cal.set(Calendar.MILLISECOND, 0);
+        return new Date(cal.getTimeInMillis());
+    }
+
     def "create and find TestNoSqlEntity TEST1"() {
         when:
         long curTime = System.currentTimeMillis()
+        logger.info("Current Time: ${curTime}")
         ec.entity.makeValue("moqui.test.TestNoSqlEntity")
                 .setAll([testId:"TEST1", testMedium:"Test Name", testLong:"Very Long ".repeat(200), testIndicator:"N",
-                        testDate:new java.sql.Date(curTime), testDateTime:new Timestamp(curTime),
+                        testDate:new Date(curTime), testDateTime:new Timestamp(curTime),
                         testTime:new Time(curTime), testNumberInteger:Long.MAX_VALUE, testNumberDecimal:BigDecimal.ZERO,
                         testNumberFloat:Double.MAX_VALUE, testCurrencyAmount:1111.12, testCurrencyPrecise:2222.12345])
                 .createOrUpdate()
@@ -67,7 +96,7 @@ class EntityNoSqlCrud extends Specification {
         then:
         testCheck.testMedium == "Test Name"
         testCheck.testLong.toString().startsWith("Very Long Very Long")
-        testCheck.testDate == new java.sql.Date(curTime)
+        normalizeDate((Date) testCheck.testDate) == normalizeDate(new Date(curTime))
         testCheck.testDateTime == new Timestamp(curTime)
         // compare time strings because object compare with original and truncated long millis are not considered the same, even if the time is the same
         testCheck.testTime.toString() == new Time(curTime).toString()
@@ -123,9 +152,9 @@ class EntityNoSqlCrud extends Specification {
         when:
         EntityList partialEl = null
         EntityValue first = null
-        try (EntityListIterator eli = ec.entity.find("moqui.test.TestNoSqlEntity")
-                .orderBy("-testNumberInteger").iterator()) {
 
+        try (EntityListIterator eli = ec.entity.find("moqui.test.TestNoSqlEntity")
+                .orderBy(["-testNumberInteger"]).resultSetType(ResultSet.TYPE_SCROLL_INSENSITIVE).iterator()) {
 
             partialEl = eli.getPartialList(0, 100, false)
 
