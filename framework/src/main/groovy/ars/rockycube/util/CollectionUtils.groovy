@@ -238,6 +238,11 @@ class CollectionUtils {
             Object key = entry.getKey();
             Object value = entry.getValue();
 
+            // convert to string
+            if (key.getClass() == Integer.class) key = key.toString()
+            if (key.getClass() == Double.class) key = key.toString()
+            if (key.getClass() == BigDecimal.class) key = key.toString()
+
             // Convert nested LinkedHashMap or ArrayList to LazyMap
             if (value instanceof LinkedHashMap) {
                 value = convertLinkedHashMapToLazyMap((LinkedHashMap<Object, Object>) value, closure);
