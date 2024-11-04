@@ -345,12 +345,15 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         URL defaultConfUrl = this.class.getClassLoader().getResource("MoquiDefaultConf.xml")
         if (defaultConfUrl == null) throw new IllegalArgumentException("Could not find MoquiDefaultConf.xml file on the classpath")
-        MNode newConfigXmlRoot = MNode.parse(defaultConfUrl.toString(), defaultConfUrl.newInputStream())
+        //MNode newConfigXmlRoot = MNode.parse(defaultConfUrl.toString(), defaultConfUrl.newInputStream())
+        try (InputStream is = defaultConfUrl.newInputStream()) {
+        MNode newConfigXmlRoot = MNode.parse(defaultConfUrl.toString(), is)
 
         // just merge the component configuration, needed before component init is done
         mergeConfigComponentNodes(newConfigXmlRoot, runtimeConfXmlRoot)
 
         return newConfigXmlRoot
+        }
     }
     protected void initComponents(MNode baseConfigNode) {
         File versionJsonFile = new File(runtimePath + "/version.json")
