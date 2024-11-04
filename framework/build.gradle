@@ -269,9 +269,11 @@ test {
     testLogging.showStandardStreams = true; testLogging.showExceptions = true
     maxParallelForks 1
 
+    // set log directory to runtime/log, with the option to customize it
+    def logDir = project.hasProperty('moqui.log.directory') ? project.property('moqui.log.directory') : 'log'
     systemProperty 'moqui.runtime', '../runtime'
     systemProperty 'moqui.conf', 'conf/MoquiDevConf.xml'
-    systemProperty 'moqui.log.directory', 'log'
+    systemProperty 'moqui.log.directory', projectDir.absolutePath + '/../runtime/' + logDir
     systemProperty 'moqui.init.static', 'true'
 
     classpath += files(sourceSets.main.output.classesDirs); classpath += files(projectDir.absolutePath)

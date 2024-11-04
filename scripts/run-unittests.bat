@@ -21,46 +21,53 @@ if %errorlevel% neq 0 (
 )
 
 REM MoquiSuite
-call gradlew test --tests MoquiSuite
+call gradlew test --tests MoquiSuite -Pmoqui.log.directory=log/moqui-suite-logs
 if %errorlevel% neq 0 (
     echo "Error: gradlew test --tests MoquiSuite failed"
+    popd
     exit /b %errorlevel%
 )
 
 REM BulkEntityTester
-call gradlew test --tests ars.rockycube.BulkEntityTester
+call gradlew test --tests ars.rockycube.BulkEntityTester -Pmoqui.log.directory=log/bulk-entity
 if %errorlevel% neq 0 (
     echo "Error: gradlew test --tests ars.rockycube.BulkEntityTester failed"
+    popd
     exit /b %errorlevel%
 )
 
 REM ComplexEntitiesTester
-call gradlew test --tests ars.rockycube.ComplexEntitiesTester
+call gradlew test --tests ars.rockycube.ComplexEntitiesTester -Pmoqui.log.directory=log/complex-entities
 if %errorlevel% neq 0 (
     echo "Error: gradlew test --tests ars.rockycube.ComplexEntitiesTester failed"
+    popd
     exit /b %errorlevel%
 )
 
-REM ComplexEntitiesTester
-call gradlew test --tests ars.rockycube.DynamicRelationshipTester
+REM DynamicRelationshipTester
+call gradlew test -Pmoqui.log.directory=log/dynamic-relationships --tests ars.rockycube.DynamicRelationshipTester
 if %errorlevel% neq 0 (
     echo "Error: gradlew test --tests ars.rockycube.DynamicRelationshipTester failed"
+    popd
     exit /b %errorlevel%
 )
 
-REM ComplexEntitiesTester
-call gradlew test --tests ars.rockycube.PersonEntityTester
+REM PersonEntityTester
+call gradlew test --tests ars.rockycube.PersonEntityTester -Pmoqui.log.directory=log/person-entity
 if %errorlevel% neq 0 (
     echo "Error: gradlew test --tests ars.rockycube.PersonEntityTester failed"
+    popd
     exit /b %errorlevel%
 )
 
-REM ComplexEntitiesTester
-call gradlew test --tests ars.rockycube.SmartFindTester
+REM SmartFindTester
+call gradlew test --tests ars.rockycube.SmartFindTester -Pmoqui.log.directory=log/smart-find
 if %errorlevel% neq 0 (
     echo "Error: gradlew test --tests ars.rockycube.SmartFindTester failed"
+    popd
     exit /b %errorlevel%
 )
 
 echo "All tasks executed successfully"
+popd
 pause
