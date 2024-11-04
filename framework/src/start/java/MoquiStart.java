@@ -502,7 +502,7 @@ public class MoquiStart {
         // 1. if there is nothing, set it to Moqui runtime + log
         // 2. if is set, either append to Moqui runtime directory, if does not start with a `/`
         // 3. or set completely to a new value
-        if (logDir == null) {
+        if (logDir == null || logDir.isEmpty()) {
             // set log directory to where Moqui runtime is running, if nothing is set
             System.setProperty("moqui.log.directory", System.getProperty("moqui.runtime") + "/log");
         } else {

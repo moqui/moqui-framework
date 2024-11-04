@@ -4,6 +4,9 @@
 # local files
 __*
 
+# do not add custom scripts to git
+scripts/config.bat
+
 # files directory
 /files
 

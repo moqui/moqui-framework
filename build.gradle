@@ -671,31 +671,31 @@ task runProduction(type: JavaExec) {
 task load(type: JavaExec) {
     description "Run Moqui to load data; to specify data types use something like: gradle load -Ptypes=seed,seed-initial,install"
     dependsOn checkRuntime, allBuildTasks
-    systemProperties = ['moqui.conf':moquiConfDev, 'moqui.runtime':moquiRuntime, 'moqui.log.directory':moquiDefaulLogDirectory]
+    systemProperties = ['moqui.conf':moquiConfDev, 'moqui.runtime':moquiRuntime]
     workingDir = '.'; jvmArgs = ['-server']; main = '-jar'
-    args = [warName, 'load', (project.properties.containsKey('types') ? "types=${types}" : "types=all")]
+    args = [warName, 'load', (project.properties.containsKey('types') ? "types=${types}" : "types=all"), 'log=log/load']
 }
 
 task loadFiles(type: JavaExec) {
     description "Run Moqui to load data from specified directory, will run through all files in specified directory"
     dependsOn checkRuntime, allBuildTasks
-    systemProperties = ['moqui.conf':moquiConfDev, 'moqui.runtime':moquiRuntime, 'moqui.log.directory':moquiDefaulLogDirectory]
+    systemProperties = ['moqui.conf':moquiConfDev, 'moqui.runtime':moquiRuntime]
     workingDir = '.'; jvmArgs = ['-server']; main = '-jar'
-    args = [warName, 'load', (project.properties.containsKey('directory') ? "directory=${directory}" : "directory=none")]
+    args = [warName, 'load', (project.properties.containsKey('directory') ? "directory=${directory}" : "directory=none"), 'log=log/load']
 }
 
 task loadTest(type: JavaExec) {
     description "Run Moqui to load data for testing"
     dependsOn checkRuntime, allBuildTasks
-    systemProperties = ['moqui.conf':moquiConfDev, 'moqui.runtime':moquiRuntime, 'moqui.log.directory':moquiDefaulLogDirectory]
+    systemProperties = ['moqui.conf':moquiConfDev, 'moqui.runtime':moquiRuntime]
     workingDir = '.'; jvmArgs = ['-server']; main = '-jar'
-    args = [warName, 'load', (project.properties.containsKey('types') ? "types=${types}" : "types=seed,seed-initial")]
+    args = [warName, 'load', (project.properties.containsKey('types') ? "types=${types}" : "types=seed,seed-initial"), 'log=log/load']
 }
 task loadProduction(type: JavaExec) {
     dependsOn checkRuntime, allBuildTasks
-    systemProperties = ['moqui.conf':moquiConfProduction, 'moqui.runtime':moquiRuntime, 'moqui.log.directory':moquiDefaulLogDirectory]
+    systemProperties = ['moqui.conf':moquiConfProduction, 'moqui.runtime':moquiRuntime]
     workingDir = '.'; jvmArgs = ['-server']; main = '-jar'
-    args = [warName, 'load', (project.properties.containsKey('types') ? "types=${types}" : "types=seed,seed-initial,install")]
+    args = [warName, 'load', (project.properties.containsKey('types') ? "types=${types}" : "types=seed,seed-initial,install"), 'log=log/load']
 }
 
 task saveDb { doLast {
