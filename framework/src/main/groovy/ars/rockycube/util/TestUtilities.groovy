@@ -2,6 +2,7 @@ package ars.rockycube.util;
 
 import com.google.gson.Gson
 import com.google.gson.JsonElement
+import com.google.gson.reflect.TypeToken
 import groovy.json.JsonSlurper
 import groovy.yaml.YamlSlurper
 import org.apache.commons.io.FileUtils
@@ -146,10 +147,10 @@ public class TestUtilities {
         def gson = new Gson()
         def js
         try {
-            js = gson.fromJson(new InputStreamReader(is, StandardCharsets.UTF_8), HashMap.class)
+            js = gson.fromJson(new InputStreamReader(is, StandardCharsets.UTF_8), new TypeToken<LinkedHashMap<String, Object>>(){}.getType())
         } catch (Exception ignored) {
             is = loadTestResource(resDir)
-            js = gson.fromJson(new InputStreamReader(is, StandardCharsets.UTF_8), ArrayList.class)
+            js = gson.fromJson(new InputStreamReader(is, StandardCharsets.UTF_8), new TypeToken<ArrayList<Object>>(){}.getType())
         }
         return js
     }
