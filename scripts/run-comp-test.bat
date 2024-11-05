@@ -1,7 +1,7 @@
 @echo off
 
 REM Define the list of repositories and their branches
-set "repos=git@github.com:rovnanik-sk/moqui-closure-api.git#add/multi-closure-exec"
+set "repos=git@github.com:rovnanik-sk/moqui-closure-api.git#rsk-dev,git@github.com:rovnanik-sk/moqui-acc-extractor.git#rsk-dev,git@github.com:rovnanik-sk/moqui-projects-api.git#rsk-dev"
 
 REM Set JAVA_HOME to JAVA 11
 call config.bat
