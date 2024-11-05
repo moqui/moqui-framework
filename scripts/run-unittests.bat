@@ -6,6 +6,8 @@ call config.bat
 REM move one directory up
 pushd ..
 
+echo WHEN RUNNING UNIT-TESTS, check if there are any components left in the runtime/components directory, their presence may cause errors
+
 REM Clean database
 call gradlew cleanDb
 if %errorlevel% neq 0 (
