@@ -20,7 +20,6 @@ WORKDIR /opt/moqui-source
 # can easily copy all necessary files
 COPY runtime runtime/.
 COPY framework framework/.
-COPY moqui-util moqui-util/.
 COPY *.* ./
 
 RUN gradle wrapper
