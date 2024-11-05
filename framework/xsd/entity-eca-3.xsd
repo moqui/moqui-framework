@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+    <xs:include schemaLocation="xml-actions-3.xsd"/>
+
+    <xs:element name="eecas">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="eeca"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="eeca">
+        <xs:annotation><xs:documentation>
+            Triggered by entity operations such a create, update, delete, and find. If condition (optional) evaluates
+            to true then the actions are run.
+
+            Entity ECAs are meant for maintenance of data derived from other entities. Entity ECAs should NOT generally
+            be used for triggering business processes, Service ECA rules are a much better tool for that.
+
+            For create, update, and delete operations the context coming in will be the current context plus the entity
+            value's fields added to the context for convenience in reading, and a "entityValue" variable for the actual
+            EntityValue object.
+        </xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="description"/>
+                <xs:element minOccurs="0" ref="condition"/>
+                <xs:element ref="actions"/>
+            </xs:sequence>
+            <xs:attribute name="id" type="xs:string">
+                <xs:annotation><xs:documentation>Optional but recommended. If another EECA rule has the same id it will override
+                    any previously found with that id to change behavior or disable by override with empty actions.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="entity" type="name-full" use="required"/>
+            <xs:attribute name="on-create" default="false" type="boolean"/>
+            <xs:attribute name="on-update" default="false" type="boolean"/>
+            <xs:attribute name="on-delete" default="false" type="boolean"/>
+            <!-- Find EECA rules are deprecated because never used and have a substantial performance hit
+            <xs:attribute name="on-find-one" default="false" type="boolean"/>
+            <xs:attribute name="on-find-list" default="false" type="boolean"/>
+            <xs:attribute name="on-find-iterator" default="false" type="boolean"/>
+            <xs:attribute name="on-find-count" default="false" type="boolean"/>
+            -->
+            <xs:attribute name="run-before" default="false" type="boolean">
+                <xs:annotation><xs:documentation>If false (default) runs after the entity operation. If true runs before
+                    the operation.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="run-on-error" default="false" type="boolean"/>
+            <xs:attribute name="get-entire-entity" default="false" type="boolean">
+                <xs:annotation><xs:documentation>Get the entire entity before running the actions for update and delete
+                    operations and add unset values to field values from the operation.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="get-original-value" default="false" type="boolean">
+                <xs:annotation><xs:documentation>Adds an 'originalValue' field to the context with the value from the
+                    database if called before the entity operation and is a update or delete.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="set-results" default="false" type="boolean">
+                <xs:annotation><xs:documentation>If true loop through field names and set on the entity values any values added
+                    to the context in the actions or in a Map returned from actions.</xs:documentation></xs:annotation>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+</xs:schema>

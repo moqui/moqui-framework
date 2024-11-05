@@ -59,8 +59,9 @@ abstract class EntityFindBase implements EntityFind {
     protected String singleCondField = (String) null
     protected Object singleCondValue = null
     protected Map<String, Object> simpleAndMap = (Map<String, Object>) null
-    protected EntityConditionImplBase whereEntityCondition = (EntityConditionImplBase) null
+    protected Boolean tempHasFullPk = (Boolean) null
 
+    protected EntityConditionImplBase whereEntityCondition = (EntityConditionImplBase) null
     protected EntityConditionImplBase havingEntityCondition = (EntityConditionImplBase) null
 
     protected ArrayList<String> fieldsToSelect = (ArrayList<String>) null
@@ -951,11 +952,14 @@ abstract class EntityFindBase implements EntityFind {
                 registerForUpdateLock(simpleAndMap != null ? simpleAndMap : [(singleCondField):singleCondValue])
 
             try {
+                tempHasFullPk = hasFullPk
                 newEntityValue = oneExtended(cond, fieldInfoArray, fieldOptionsArray)
             } catch (SQLException e) {
                 throw new EntitySqlException(makeErrorMsg("Error finding one", ONE_ERROR, cond, ed, ec), e)
             } catch (Exception e) {
                 throw new EntityException(makeErrorMsg("Error finding one", ONE_ERROR, cond, ed, ec), e)
+            } finally {
+                tempHasFullPk = null
             }
 
             // register lock before if we have a full pk, otherwise after
@@ -1158,18 +1162,17 @@ abstract class EntityFindBase implements EntityFind {
             }
 
             // call the abstract method
-            EntityListIterator eli
-            try { eli = iteratorExtended(queryWhereCondition, havingCondition, orderByExpanded, fieldInfoArray, fieldOptionsArray) }
+            try (EntityListIterator eli = iteratorExtended(queryWhereCondition, havingCondition, orderByExpanded, fieldInfoArray, fieldOptionsArray)) {
+                MNode databaseNode = this.efi.getDatabaseNode(ed.getEntityGroupName())
+                if (limit != null && databaseNode != null && "cursor".equals(databaseNode.attribute("offset-style"))) {
+                    el = (EntityListImpl) eli.getPartialList(offset != null ? offset : 0, limit, false)
+                } else {
+                    el = (EntityListImpl) eli.getCompleteList(false);
+                }
+            }
             catch (SQLException e) { throw new EntitySqlException(makeErrorMsg("Error finding list of", LIST_ERROR, queryWhereCondition, ed, ec), e) }
             catch (ArtifactAuthorizationException e) { throw e }
             catch (Exception e) { throw new EntityException(makeErrorMsg("Error finding list of", LIST_ERROR, queryWhereCondition, ed, ec), e) }
-
-            MNode databaseNode = this.efi.getDatabaseNode(ed.getEntityGroupName())
-            if (limit != null && databaseNode != null && "cursor".equals(databaseNode.attribute("offset-style"))) {
-                el = (EntityListImpl) eli.getPartialList(offset != null ? offset : 0, limit, true)
-            } else {
-                el = (EntityListImpl) eli.getCompleteList(true)
-            }
 
             // register lock after because we can't before, don't know which records will be returned
             if (forUpdate && !isViewEntity && efi.ecfi.transactionFacade.getUseLockTrack()) {
@@ -1438,7 +1441,7 @@ abstract class EntityFindBase implements EntityFind {
                                 FieldInfo[] fieldInfoArray, FieldOrderOptions[] fieldOptionsArray) throws SQLException
 
     @Override
-    long updateAll(Map<String, ?> fieldsToSet) {
+    long updateAll(Map<String, Object> fieldsToSet) {
         boolean enableAuthz = disableAuthz ? !efi.ecfi.getEci().artifactExecutionFacade.disableAuthz() : false
         try {
             return updateAllInternal(fieldsToSet)
@@ -1446,7 +1449,7 @@ abstract class EntityFindBase implements EntityFind {
             if (enableAuthz) efi.ecfi.getEci().artifactExecutionFacade.enableAuthz()
         }
     }
-    protected long updateAllInternal(Map<String, ?> fieldsToSet) {
+    protected long updateAllInternal(Map<String, Object> fieldsToSet) {
         // NOTE: this code isn't very efficient, but will do the trick and cause all EECAs to be fired
         // NOTE: consider expanding this to do a bulk update in the DB if there are no EECAs for the entity
 
@@ -1455,9 +1458,7 @@ abstract class EntityFindBase implements EntityFind {
 
         this.useCache(false)
         long totalUpdated = 0
-        EntityListIterator eli = (EntityListIterator) null
-        try {
-            eli = iterator()
+        iterator().withCloseable ({eli ->
             EntityValue value
             while ((value = eli.next()) != null) {
                 value.putAll(fieldsToSet)
@@ -1467,9 +1468,7 @@ abstract class EntityFindBase implements EntityFind {
                     totalUpdated++
                 }
             }
-        } finally {
-            if (eli != null) eli.close()
-        }
+        })
         return totalUpdated
     }
 
@@ -1504,33 +1503,27 @@ abstract class EntityFindBase implements EntityFind {
             }
         } else {
             this.resultSetConcurrency(ResultSet.CONCUR_UPDATABLE)
-            EntityListIterator eli = (EntityListIterator) null
-            try {
-                eli = iterator()
+            iterator().withCloseable ({eli->
+
                 while (eli.next() != null) {
                     // no longer need to clear cache, eli.remove() does that
                     eli.remove()
                     totalDeleted++
                 }
-            } finally {
-                if (eli != null) eli.close()
-            }
+            })
         }
         return totalDeleted
     }
 
     @Override
     void extract(SimpleEtl etl) {
-        EntityListIterator eli = iterator()
-        try {
+        try (EntityListIterator eli = iterator()) {
             EntityValue ev
             while ((ev = eli.next()) != null) {
                 etl.processEntry(ev)
             }
         } catch (StopException e) {
             logger.warn("EntityFind extract stopped on: " + (e.getCause()?.toString() ?: e.toString()))
-        } finally {
-            eli.close()
         }
     }
 

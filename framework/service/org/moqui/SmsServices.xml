@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-3.xsd">
+    <service verb="send" noun="SmsMessage" authenticate="anonymous-view">
+        <in-parameters>
+            <parameter name="countryCode" default-value="1"/>
+            <parameter name="areaCode"/>
+            <parameter name="contactNumber" required="true">
+                <description>If there is a single string for phone number pass it here, may include a country code if begins with '+'</description></parameter>
+            <parameter name="message" required="true"/>
+            <parameter name="isPromotional" default="false" type="Boolean"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="successful" type="Boolean"/>
+            <parameter name="messageId"/>
+            <parameter name="errorMessage"/>
+        </out-parameters>
+        <actions>
+            <log level="warn" message="No SMS implementation in place, attempt to send SMS message [${message}] to ${countryCode}-${areaCode}-${contactNumber}"/>
+            <return type="danger" message="No SMS implementation in place, not sending message"/>
+        </actions>
+    </service>
+</services>

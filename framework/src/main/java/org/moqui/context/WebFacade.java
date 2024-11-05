@@ -67,6 +67,8 @@ public interface WebFacade {
     List<MessageInfo> getSavedPublicMessages();
     List<String> getSavedErrors();
     List<ValidationError> getSavedValidationErrors();
+    /** Get saved (in session) and current MessageFacade validation errors for the given field name, if null returns all errors; if no errors found returns null */
+    List<ValidationError> getFieldValidationErrors(String fieldName);
 
     /** A list of recent screen requests to show to a user (does not include requests to transitions or standalone screens).
      * Map contains 'name' (screen name plus up to 2 parameter values), 'url' (full URL with parameters),

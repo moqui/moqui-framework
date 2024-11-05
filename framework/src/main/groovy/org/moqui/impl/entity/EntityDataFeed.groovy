@@ -633,7 +633,7 @@ class EntityDataFeed {
                                     //     entity name alone
                                     String currentRelName = backwardRelList.get(i)
                                     String currentRelEntityName = currentRelName.contains("#") ?
-                                            currentRelName.substring(0, currentRelName.indexOf("#")) :
+                                            currentRelName.substring(currentRelName.indexOf("#") + 1) :
                                             currentRelName
                                     // all values should be for the same entity, so just use the first
                                     EntityDefinition prevRelValueEd = prevRelValueList.get(0).getEntityDefinition()
@@ -710,7 +710,7 @@ class EntityDataFeed {
 
                 ArrayList primaryPkValueList = new ArrayList<Map<String, Object>>(primaryPkFieldValues)
                 int primaryPkValueListSize = primaryPkValueList.size()
-                int chunkSize = 500
+                int chunkSize = 200
                 for (int outer = 0; outer < primaryPkValueListSize; ) {
                     int remaining = primaryPkValueListSize - outer
                     int curSize = remaining > chunkSize ? chunkSize : remaining

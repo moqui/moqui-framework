@@ -97,7 +97,7 @@ class ToolsScreenRenderTests extends Specification {
         "Entity/DataExport/EntityExport?entityNames=moqui.test.TestEntity&dependentLevels=1&fileType=JSON&output=browser" | "Test Name A" | "testMedium"
         "Entity/DataExport/EntityExport?entityNames=moqui.test.TestEntity&dependentLevels=1&fileType=XML&output=browser" | "Test Name A" | "testMedium"
         "Entity/DataImport" | "" | ""
-        "Entity/SqlRunner?groupName=transactional&sql=SELECT * FROM TEST_ENTITY" | "Test Name A" | ""
+        // test admin user no longer has access to this by default: "Entity/SqlRunner?groupName=transactional&sql=SELECT * FROM TEST_ENTITY" | "Test Name A" | ""
         // run with very few baseCalls so it doesn't take too long
         "Entity/SpeedTest?baseCalls=10" | "" | ""
 
@@ -107,7 +107,7 @@ class ToolsScreenRenderTests extends Specification {
         "Service/ServiceDetail?serviceName=org.moqui.impl.UserServices.create#UserAccount" |
                 "moqui.security.UserAccount.username" | """ec.service.sync().name(&quot;create#moqui.security.UserAccount&quot;)"""
         "Service/ServiceRun?serviceName=org.moqui.impl.UserServices.create#UserAccount" |
-                "User Full Name" | "Cron String"
+                "User Full Name" | "Run Service"
         // run the service, then make sure it ran
         "Service/ServiceRun/run?serviceName=org.moqui.impl.UserServices.create#UserAccount&username=ScreenTest&newPassword=moqui1!!&newPasswordVerify=moqui1!!&userFullName=Screen Test User&emailAddress=screen@test.com" | "" | ""
         "Entity/DataEdit/EntityDataFind?username=ScreenTest&selectedEntity=moqui.security.UserAccount" |

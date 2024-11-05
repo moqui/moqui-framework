@@ -1,0 +1,947 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+    <xs:include schemaLocation="common-types-3.xsd"/>
+    <xs:include schemaLocation="xml-actions-3.xsd"/>
+    <xs:include schemaLocation="xml-form-3.xsd"/>
+
+    <!-- ================ Shared Elements ================ -->
+    <xs:group name="section-elements"><xs:sequence>
+        <xs:element ref="condition" minOccurs="0"/>
+        <xs:element ref="actions" minOccurs="0"/>
+        <xs:element ref="widgets"/>
+        <xs:element ref="fail-widgets" minOccurs="0"/>
+    </xs:sequence></xs:group>
+    <xs:group name="widget-elements"><xs:choice>
+        <xs:element ref="AllWidgets"/>
+        <xs:element ref="StandaloneFields"/>
+        <!-- allow additional elements without validation to facilitate extension by adding only FTL macros -->
+        <xs:any minOccurs="0" maxOccurs="unbounded" processContents="skip"/>
+    </xs:choice></xs:group>
+
+    <!-- ================ Screen - root elements ================ -->
+    <xs:complexType name="screen-base">
+        <xs:attribute name="standalone" type="boolean" default="false">
+            <xs:annotation><xs:documentation>
+                If set to true this screen will be rendered without rendering any parent screens. It can still be
+                referred to as a subscreen of its parent, but when rendered the parent will not run, the rendering
+                will start at this screen. Any non-standalone children will still be treated as normal subscreens.
+            </xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="default-menu-title" type="xs:string"/>
+        <xs:attribute name="default-menu-index" type="xs:nonNegativeInteger"/>
+        <xs:attribute name="default-menu-include" type="boolean" default="true">
+            <xs:annotation><xs:documentation>
+                Set this to false to not automatically appear in the parent's subscreens menu based on the directory
+                it is in. If true this screen will automatically be included in the parent's subscreens menu.
+            </xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="menu-image" type="xs:string"/>
+        <xs:attribute name="menu-image-type" default="url-screen">
+            <xs:simpleType>
+                <xs:restriction base="xs:token">
+                    <xs:enumeration value="url-screen"/>
+                    <xs:enumeration value="url-plain"/>
+                    <xs:enumeration value="icon"><xs:annotation><xs:documentation>Icon name, actually an icon
+                        style used in an 'i' element in HTML output.</xs:documentation></xs:annotation></xs:enumeration>
+                </xs:restriction>
+            </xs:simpleType>
+        </xs:attribute>
+
+        <xs:attribute name="require-authentication" type="authc-options" default="true"/>
+        <!-- TABLED, not to be part of 1.0: <xs:attribute name="require-certificate" default="false" type="boolean"/> -->
+        <xs:attribute name="begin-transaction" type="boolean" default="false">
+            <xs:annotation><xs:documentation>
+                Begin a transaction for the screen render if there is not one already in place.
+                Most screens don't need this, but it is useful for greater data consistency in certain cases.
+            </xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="transaction-timeout" type="xs:int">
+            <xs:annotation><xs:documentation>
+                The timeout for the screen render transaction, in seconds. Defaults to global transaction timeout default (usually 60s).
+
+                This value is only used if a screen in the rendered screen path begins a transaction. If multiple screens in the
+                render path have a timeout the highest will be used.
+
+                This is not intended for interactive screen rendering as the HTTP request or gateway will generally timeout first
+                anyway but is useful for background rendered screens for large reports and such.
+            </xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="include-child-content" type="boolean" default="false">
+            <xs:annotation><xs:documentation>
+                False by default, meaning that child content is sent to the client as they are and nothing else with
+                it. If true then the child content is included in this screen as if it were a subscreen.
+            </xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="screen-theme-type-enum-id" type="xs:string" default="STT_INTERNAL"/>
+        <xs:attribute name="track-artifact-hit" type="boolean" default="true">
+            <xs:annotation><xs:documentation>If set to false no ArtifactHit or ArtifactHitBin data will be kept for
+                this screen and for any content or transitions under the screen.</xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="history" type="boolean" default="true">
+            <xs:annotation><xs:documentation>If set to false this screen will not be saved in the screen/URL history.</xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="login-path" type="xs:string" default="/Login">
+            <xs:annotation><xs:documentation>If specified will be used as the login screen path for this screen and
+                any subscreens, otherwise defaults to "/Login".</xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="allow-extra-path" type="boolean" default="false">
+            <xs:annotation><xs:documentation>If set to true arbitrary path elements following this screen's path are allowed.
+                Default is false and an exception will be thrown if there is an extra path element that does not match a
+                subscreen, transition, or content (file) below the screen.</xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="render-modes" type="xs:string" default="all">
+            <xs:annotation><xs:documentation>
+                The render mode(s) this screen supports. Can be any valid render mode. The default value of "all" will allow all
+                render modes, so specify one or more specific render modes to limit how the screen may be rendered. Default supported
+                modes include: text, html, js, vuet, xsl-fo, xml, and csv. Values can be comma separated to apply to multiple render modes.
+            </xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="server-static" type="xs:string">
+            <xs:annotation><xs:documentation>
+                The render modes where the results of this screen are always the same and the screen render results may be cached (on server and/or client).
+                This applies to all screens that are designed for client rendering when the screen is written to fully support it (filling in data with additional requests).
+                Placeholder screens are automatically server static, ie with just subscreens-panel, subscreens-active, and subscreens-menu elements.
+                Can be any valid render mode. Default supported modes include: text, html, js, vuet, xsl-fo, xml, and csv.
+                Values can be comma separated to apply to multiple render modes. A value of "all" will apply to all render modes.
+            </xs:documentation></xs:annotation>
+        </xs:attribute>
+    </xs:complexType>
+
+    <xs:element name="screen"><xs:annotation>
+        <xs:documentation>
+            The screen is the basic unit of a user interface defines how data, logic, and visual elements fit together.
+
+            Screen filenames should be camel-cased and start with an upper-case letter (whereas transitions should
+            start with a lower-case letter).
+        </xs:documentation>
+    </xs:annotation><xs:complexType><xs:complexContent><xs:extension base="screen-base">
+        <!-- NOTE: screen element attributes come from screen-base that this is an extension of -->
+        <xs:sequence>
+            <xs:element ref="macro-template" minOccurs="0" maxOccurs="unbounded"/>
+            <xs:element ref="web-settings" minOccurs="0"/>
+            <xs:element ref="parameter" minOccurs="0" maxOccurs="unbounded">
+                <xs:annotation><xs:documentation>
+                    These are the parameters the screen expects or allows to be passed in, and where the calling
+                    screen can get them from by default (usually just default to the same from, but can be a
+                    static value for default or whatever).
+
+                    Individual transition, transition.*-response and other elements can override where the parameter
+                    comes from with their own parameter sub-elements.
+                </xs:documentation></xs:annotation>
+            </xs:element>
+            <xs:element ref="always-actions" minOccurs="0"/>
+            <xs:choice minOccurs="0" maxOccurs="unbounded">
+                <xs:element ref="transition"/>
+                <xs:element ref="transition-include"/>
+            </xs:choice>
+            <xs:element ref="subscreens" minOccurs="0"/>
+            <xs:element ref="pre-actions" minOccurs="0"/>
+            <xs:group ref="section-elements"/>
+        </xs:sequence>
+    </xs:extension></xs:complexContent></xs:complexType></xs:element>
+
+    <xs:element name="screen-extend"><xs:annotation>
+        <xs:documentation>
+            The root element of a file under the 'screen-extend' directory in a component using a path and filename that matches
+            the path and filename of the screen to extend. The path can match by the path under the 'screen' directory or by the
+            full path following the protocol/scheme of the location URI (ie everything after ://).
+        </xs:documentation>
+    </xs:annotation><xs:complexType><xs:complexContent><xs:extension base="screen-base">
+        <!-- NOTE: screen element attributes come from screen-base that this is an extension of -->
+        <xs:sequence>
+            <xs:element ref="parameter" minOccurs="0" maxOccurs="unbounded"/>
+
+            <xs:choice minOccurs="0" maxOccurs="unbounded">
+                <xs:element ref="transition"/>
+                <xs:element ref="transition-include"/>
+            </xs:choice>
+            <xs:element ref="subscreens" minOccurs="0"/>
+
+            <xs:element name="actions-extend" minOccurs="0" maxOccurs="unbounded"><xs:complexType>
+                <xs:group minOccurs="0" maxOccurs="unbounded" ref="AllOperations"/>
+                <xs:attribute name="type" default="actions"><xs:simpleType><xs:restriction base="xs:token">
+                    <xs:enumeration value="always-actions"/>
+                    <xs:enumeration value="pre-actions"/>
+                    <xs:enumeration value="actions"/>
+                </xs:restriction></xs:simpleType></xs:attribute>
+                <xs:attribute name="when" default="after"><xs:simpleType><xs:restriction base="xs:token">
+                    <xs:enumeration value="before"/>
+                    <xs:enumeration value="after"/>
+                    <xs:enumeration value="replace"/>
+                </xs:restriction></xs:simpleType></xs:attribute>
+            </xs:complexType></xs:element>
+            <xs:element name="widgets-extend" minOccurs="0" maxOccurs="unbounded"><xs:annotation><xs:documentation>
+                This is a simple, generic way to insert widget elements into various places in existing screens.
+                Add widgets before or after all elements where name here matches the name or id attributes match.
+            </xs:documentation></xs:annotation><xs:complexType>
+                <xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/>
+                <xs:attribute name="name" type="xs:string" use="required"><xs:annotation><xs:documentation>
+                    Match against name or id attributes on elements in the base screen (being extended).
+                </xs:documentation></xs:annotation></xs:attribute>
+                <xs:attribute name="where" default="before"><xs:simpleType><xs:restriction base="xs:token">
+                    <xs:enumeration value="before"/>
+                    <!-- FUTURE: semantics are more complex, vary by element: <xs:enumeration value="prepend"/><xs:enumeration value="append"/> -->
+                    <xs:enumeration value="after"/>
+                </xs:restriction></xs:simpleType></xs:attribute>
+            </xs:complexType></xs:element>
+
+            <xs:choice minOccurs="0" maxOccurs="unbounded">
+                <!-- forms merged by name -->
+                <xs:element ref="form-single"/>
+                <xs:element ref="form-list"/>
+
+                <!-- section, section-iterate override by name -->
+                <xs:element ref="section"/>
+                <xs:element ref="section-iterate"/>
+                <!-- FUTURE container, container-box 'slots' like toolbar, body, body-nopad and before, prepend, append, after - or support somehow in widgets-extend? -->
+            </xs:choice>
+        </xs:sequence>
+    </xs:extension></xs:complexContent></xs:complexType></xs:element>
+
+    <xs:element name="macro-template"><xs:annotation>
+        <xs:documentation>
+            A location here will override the settings in the moqui-conf.screen-facade.screen-text-output, but will be
+            overridden by a value set with the ScreenRender.macroTemplate() method.
+        </xs:documentation>
+    </xs:annotation><xs:complexType>
+        <xs:attribute name="type" type="xs:string" use="required">
+            <xs:annotation><xs:documentation>
+                Can be anything. Default supported values include: text, html, xsl-fo, xml, and csv.
+            </xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="location" type="xs:string" use="required"/>
+    </xs:complexType></xs:element>
+    <xs:element name="web-settings"><xs:complexType>
+        <xs:attribute name="allow-web-request" default="true" type="boolean"/>
+        <xs:attribute name="require-encryption" default="true" type="boolean"/>
+        <xs:attribute name="mime-type" type="xs:string" default="text/html"/>
+        <xs:attribute name="character-encoding" type="xs:string" default="UTF-8"/>
+        <!-- TABLED, not to be part of 1.0: <xs:attribute name="http-no-cache" default="false" type="boolean"/> -->
+        <!-- NOTE: Right now we send some cache headers, could add config for cache headers for screen,
+             static screen content, template screen content -->
+    </xs:complexType></xs:element>
+    <xs:element name="always-actions"><xs:annotation>
+        <xs:documentation>These actions always run when this screen appears in a screen path, including
+            both screen rendering and transition running. One difference between this and the pre-actions element is
+            that this runs before transitions are processed while pre-actions do not. The always-actions also run for
+            all screens in a path while the pre-actions only run for screens that will be rendered.</xs:documentation>
+    </xs:annotation><xs:complexType>
+        <xs:group minOccurs="0" maxOccurs="unbounded" ref="AllOperations"/>
+    </xs:complexType></xs:element>
+    <xs:element name="pre-actions"><xs:annotation>
+        <xs:documentation>These actions run before any of the screens (this screen or any parent screens)
+            are rendered, allowing you to set parameters used by parent screens or other general reasons.</xs:documentation>
+    </xs:annotation><xs:complexType>
+        <xs:group minOccurs="0" maxOccurs="unbounded" ref="AllOperations"/>
+    </xs:complexType></xs:element>
+
+    <!-- ================ Transition ================ -->
+    <xs:element name="transition"><xs:complexType>
+        <xs:sequence>
+            <xs:element ref="parameter" minOccurs="0" maxOccurs="unbounded">
+                <xs:annotation><xs:documentation>
+                    These are the parameters the transition expects or allows to be passed in, and where the calling
+                    screen can get them from by default (usually just default to the same from, but can be a
+                    static value for default or whatever).
+
+                    These are in addition to the screen.parameter values. Individual transition.*-response and other
+                    elements can override where the parameter comes from with their own parameter sub-elements.
+                </xs:documentation></xs:annotation>
+            </xs:element>
+            <xs:element ref="path-parameter" minOccurs="0" maxOccurs="unbounded">
+                <xs:annotation><xs:documentation>
+                    These are additional path elements after the transition's path element. The values will be added
+                    to the web parameters based on the order of these path-elements.
+                </xs:documentation></xs:annotation>
+            </xs:element>
+            <xs:element ref="condition" minOccurs="0">
+                <xs:annotation><xs:documentation>
+                    This condition is run wherever this transition is referenced in the screen to see if the
+                    transition is available (otherwise the button/link/etc is disabled).
+                </xs:documentation></xs:annotation>
+            </xs:element>
+            <xs:element ref="service-call" minOccurs="0">
+                <xs:annotation><xs:documentation>
+                    In most cases the best way to handle input for a transition is with a single service. To do
+                    that use this element instead of an actions element.
+
+                    If an actions element is also specified the actions will be run after the service-call.
+
+                    This will automatically have an in-map=true. To get the same effect inside the actions
+                    element just use in-map=true.
+                </xs:documentation></xs:annotation>
+            </xs:element>
+            <xs:element ref="actions" minOccurs="0">
+                <xs:annotation><xs:documentation>
+                    When this transition is followed these actions are run.
+                    If a service-call element is also used that will be run before these actions.
+
+                    After the actions are run it goes to the url that this transition goes to (through
+                    client-side redirect, dynamic update of a screen area, etc).
+                </xs:documentation></xs:annotation>
+            </xs:element>
+            <xs:element ref="conditional-response" minOccurs="0" maxOccurs="unbounded">
+                <xs:annotation><xs:documentation>
+                    If there are multiple transition-response sub-elements the first one whose condition evaluates
+                    to true will be the one used. If no conditional responses match, the default-response will be
+                    used.
+                </xs:documentation></xs:annotation>
+            </xs:element>
+            <xs:element ref="default-response">
+                <xs:annotation><xs:documentation>
+                    This response must always be defined and is the response that will be used if there is no error
+                    in the actions, and if none of the conditions in conditional responses evaluate to true.
+                </xs:documentation></xs:annotation>
+            </xs:element>
+            <xs:element ref="error-response" minOccurs="0">
+                <xs:annotation><xs:documentation>
+                    If there is an error in evaluating the actions on this transition then the error-response will
+                    be used and the transition-response element(s) will be ignored.
+
+                    If there are actions and there is no error-response defined then the default error response
+                    will be used.
+                </xs:documentation></xs:annotation>
+            </xs:element>
+        </xs:sequence>
+        <xs:attribute name="name" type="name-package" use="required">
+            <xs:annotation><xs:documentation>
+                Transition names should be camel-cased and start with a lower-case letter (whereas screen filenames
+                and subscreens-item names start with a upper-case letter).
+
+                The transition name is used in link and other elements in place of URLs when going to another
+                screen within this application. The transition name will appear briefly as the URL before the
+                redirect is done for the transition response.
+            </xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="method" default="any">
+            <xs:simpleType>
+                <xs:restriction base="xs:token">
+                    <xs:enumeration value="any"/>
+                    <xs:enumeration value="get"/>
+                    <xs:enumeration value="put"/>
+                    <xs:enumeration value="post"/>
+                    <xs:enumeration value="delete"/>
+                </xs:restriction>
+            </xs:simpleType>
+        </xs:attribute>
+        <xs:attribute name="begin-transaction" type="boolean" default="true">
+            <xs:annotation><xs:documentation>Begin a transaction for the screen transition action run if there is
+                not one already in place.</xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="read-only" type="boolean" default="false">
+            <xs:annotation><xs:documentation>Declare that this transition does only read operations to skip the
+                check for insecure parameters.</xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="require-session-token" default="true" type="boolean"><xs:annotation><xs:documentation>
+            If not false (default true) moquiSessionToken (from ec.web.sessionToken) must be passed to this
+            transition for all requests in a session after the first.</xs:documentation></xs:annotation></xs:attribute>
+    </xs:complexType></xs:element>
+    <xs:element name="path-parameter"><xs:complexType>
+        <xs:attribute name="name" type="name-parameter" use="required"/>
+    </xs:complexType></xs:element>
+    <xs:element name="conditional-response"><xs:complexType>
+        <xs:sequence>
+            <xs:element ref="condition" minOccurs="0"/>
+            <xs:element ref="parameter" minOccurs="0" maxOccurs="unbounded">
+                <xs:annotation><xs:documentation>
+                    These parameters will be used when redirecting to the url or other activating of the target
+                    screen.
+
+                    Each screen has a list of expected parameters so this is only necessary when you need to
+                    override where the parameter value comes from (default defined in the parameter tag under the
+                    screen) or to pass additional parameters.
+                </xs:documentation></xs:annotation>
+            </xs:element>
+        </xs:sequence>
+        <xs:attributeGroup ref="attlist.response"/>
+    </xs:complexType></xs:element>
+    <xs:element name="default-response"><xs:complexType>
+        <xs:sequence>
+            <xs:element ref="parameter" minOccurs="0" maxOccurs="unbounded">
+                <xs:annotation><xs:documentation>
+                    These parameters will be used when redirecting to the url or other activating of the target
+                    screen.
+
+                    Each screen has a list of expected parameters so this is only necessary when you need to
+                    override where the parameter value comes from (default defined in the parameter tag under the
+                    screen) or to pass additional parameters.
+                </xs:documentation></xs:annotation>
+            </xs:element>
+        </xs:sequence>
+        <xs:attributeGroup ref="attlist.response"/>
+    </xs:complexType></xs:element>
+    <xs:element name="error-response"><xs:complexType>
+        <xs:sequence>
+            <xs:element ref="parameter" minOccurs="0" maxOccurs="unbounded">
+                <xs:annotation><xs:documentation>
+                    These parameters will be used when redirecting to the url or other activating of the target
+                    screen.
+
+                    Each screen has a list of expected parameters so this is only necessary when you need to
+                    override where the parameter value comes from (default defined in the parameter tag under the
+                    screen) or to pass additional parameters.
+                </xs:documentation></xs:annotation>
+            </xs:element>
+        </xs:sequence>
+        <xs:attributeGroup ref="attlist.response"/>
+    </xs:complexType></xs:element>
+    <xs:attributeGroup name="attlist.response">
+        <xs:attribute name="type" default="url">
+            <xs:simpleType>
+                <xs:restriction base="xs:token">
+                    <xs:enumeration value="none"/>
+                    <xs:enumeration value="screen-last">
+                        <xs:annotation><xs:documentation>
+                            Go to the screen from the last request (via screen history) unless there is a saved one
+                            from some previous request (using the save-current-screen attribute, done automatically for
+                            login). If neither available will go to the default screen (just to root with whatever
+                            defaults are setup for each subscreen).
+                        </xs:documentation></xs:annotation>
+                    </xs:enumeration>
+                    <xs:enumeration value="screen-last-noparam"/>
+                    <xs:enumeration value="url"/>
+                </xs:restriction>
+            </xs:simpleType>
+        </xs:attribute>
+        <xs:attribute name="url" type="xs:string">
+            <xs:annotation><xs:documentation>
+                The URL to follow in response, based on the url-type. The default url-type is "screen-path" which means
+                the value here is a path from the current screen to the desired screen, transition, or sub-screen content.
+
+                Use "." to represent the current screen, and ".." to represent the parent screen on the runtime
+                screen path. The ".." can be used multiple times, such as "../.." to get to the parent screen of the
+                parent screen (the grand-parent screen).
+
+                If the screen-path type url starts with a "/" it will be relative to the root screen instead of relative
+                to the current screen. If it starts with a "//" it will be relative to the root screen and a sparse
+                path, meaning that each path item specified will be searched for under the previous and does not have
+                to be a direct subscreen.
+
+                If the url-type is "plain" then this can be any valid URL (relative on current domain or absolute).
+            </xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="url-type" default="screen-path">
+            <xs:simpleType>
+                <xs:restriction base="xs:token">
+                    <xs:enumeration value="screen-path">
+                        <xs:annotation><xs:documentation>URI to another screen, either relative or from server root.
+                            See documentation on url attribute for more details.</xs:documentation></xs:annotation>
+                    </xs:enumeration>
+                    <xs:enumeration value="plain"/>
+                </xs:restriction>
+            </xs:simpleType>
+        </xs:attribute>
+        <xs:attribute name="parameter-map" type="xs:string">
+            <xs:annotation><xs:documentation>Just like the parameter subelement can be used to specify parameters to
+                pass with the redirect.</xs:documentation></xs:annotation>
+        </xs:attribute>
+        <!-- deferred for future version, pending finding a good reason that it is needed:
+        <xs:attribute name="save-last-screen" default="false" type="boolean">
+            <xs:annotation><xs:documentation>
+                Saves the last (previous) screen's path and parameters for future use, generally with the screen-last type of
+                response.
+            </xs:documentation></xs:annotation>
+        </xs:attribute> -->
+        <xs:attribute name="save-current-screen" default="false" type="boolean">
+            <xs:annotation><xs:documentation>Save the current screen's path and parameters for future use, generally
+                with the screen-last type of response.</xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="save-parameters" default="false" type="boolean">
+            <xs:annotation><xs:documentation>Save the current parameters (and request attributes) before doing a
+                redirect so that the screen rendered after the redirect renders in a context similar to the original
+                request to the transition.</xs:documentation></xs:annotation>
+        </xs:attribute>
+    </xs:attributeGroup>
+
+    <xs:element name="transition-include"><xs:complexType>
+        <xs:attribute name="name" type="name-package" use="required"/>
+        <xs:attribute name="location" type="xs:string" use="required"/>
+        <xs:attribute name="method" type="xs:string"/>
+    </xs:complexType></xs:element>
+
+    <!-- ================ Subscreens ================ -->
+    <xs:element name="subscreens"><xs:annotation>
+        <xs:documentation>
+            Declare subscreens for this screen. One subscreen at a time is active, based on the "screen path" used to
+            access this screen. The parent screen (this screen) will be the current element in the screen path and the
+            next screen path element will be the name of the subscreen of this screen to use.
+
+            If there is no additional element in the screen path or the next element is not a valid subscreen-item.name
+            then the default-item will be the active subscreen. 
+
+            There are four ways to add subscreens to a screen (in order of override):
+
+            1. for screens within a single application by directory structure:
+                create a directory in the directory where the parent screen is named the same as
+                the parent screen's filename and put XML Screen files in that directory (name=filename up to .xml,
+                title=screen.default-title, location=parent screen minus filename plus directory and filename for
+                subscreen)
+            2. for including screens that are part of another application, or shared and not in any application:
+                subscreens-item elements below the screen.subscreens element (this element)
+            3. for adding screens or changing order and title of screens to an existing application:
+                screen-facade.screen and subscreens-item elements in the Moqui Conf XML file including MoquiConf.xml in
+                a component; this subscreens-item element is much like the subscreens.subscreens-item element
+            4. for adding screens, removing screens, or changing order and title of screens to an existing application:
+                a record in the moqui.screen.SubscreensItem entity
+
+            There are two visual elements (widgets) that come from the subscreens, a menu and the active subscreen.
+            Those are included with the widgets using the "subscreens-menu" and "subscreens-active" elements, or the
+            "subscreens-panel" element.
+        </xs:documentation>
+    </xs:annotation><xs:complexType>
+        <xs:sequence>
+            <xs:element ref="conditional-default" minOccurs="0" maxOccurs="unbounded"/>
+            <xs:element ref="subscreens-item" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+        <xs:attribute name="default-item" type="xs:string"><xs:annotation><xs:documentation>
+            The name of the default subscreen-item. Used when then screen-path ends on this screen so we
+            know which subscreen-item to activate.
+
+            If empty the first subscreen-item will be the default.
+        </xs:documentation></xs:annotation></xs:attribute>
+        <xs:attribute name="always-use-full-path" type="boolean" default="false"/>
+    </xs:complexType></xs:element>
+    <xs:element name="conditional-default"><xs:complexType>
+        <xs:attribute name="condition" type="xs:string" use="required">
+            <xs:annotation><xs:documentation>Groovy condition expression (evaluates to a boolean) used to determine
+                if the specified subscreens item is the one to use by default instead of the on specified in the
+                subscreens.@default-item attribute.</xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="item" type="xs:string" use="required">
+            <xs:annotation><xs:documentation>The subscreens item to make the default.</xs:documentation></xs:annotation>
+        </xs:attribute>
+    </xs:complexType></xs:element>
+    <xs:element name="subscreens-item"><xs:annotation><xs:documentation>
+        One way to add a subscreen. This is most commonly used to refer to a subscreen that is located in another
+        application, another part of this application, that is not in any application and is meant to be shared,
+        or is in a different type of location than the parent screen.
+
+        One subscreens-item is active at a time, meaning that screen is shown and the tab/etc for that screen is
+        highlighted.
+    </xs:documentation></xs:annotation><xs:complexType>
+        <xs:attribute name="name" type="name-plain" use="required"><xs:annotation><xs:documentation>
+            The name of the subscreens item for use in the screen path. The screen path element following the
+            one for the parent screen of the item will match on this name.
+
+            Subscreen Item names should be camel-cased and start with a upper-case letter (just like screen
+            filenames start with a upper-case letter).
+        </xs:documentation></xs:annotation></xs:attribute>
+        <xs:attribute name="location" type="xs:string"><xs:annotation><xs:documentation>
+            Subscreen location can include various prefixes to support including from a file, http, component,
+            or a content repository.
+
+            If empty defaults to the value of the name attribute under the current screen (in the directory
+            with the same name as the current screen), and can be a screen or sub-content.
+        </xs:documentation></xs:annotation></xs:attribute>
+        <xs:attribute name="menu-title" type="xs:string"/>
+        <xs:attribute name="menu-index" type="xs:positiveInteger"><xs:annotation><xs:documentation>
+            If specified this item will be inserted in existing list of subscreens at this index (1-based).
+            If empty this item will be added to the end of the list (after the directory load, before the
+            entity load).
+        </xs:documentation></xs:annotation></xs:attribute>
+        <xs:attribute name="menu-include" type="boolean" default="true"/>
+        <xs:attribute name="no-sub-path" type="boolean" default="false"><xs:annotation><xs:documentation>
+            If true the sub-screens of the sub-screen may be referenced directly under this screen, skipping the screen path element
+            for the sub-screen.
+        </xs:documentation></xs:annotation></xs:attribute>
+        <!-- no longer supported, may support again in the future (see ScreenDefinition.SubscreensItem.getDisable(), not used anywhere)
+        <xs:attribute name="disable-when" type="xs:string">
+            <xs:annotation><xs:documentation>This condition is run the subscreens menu is rendered to see if the
+                item is available (otherwise the button/link/etc is disabled).</xs:documentation></xs:annotation>
+        </xs:attribute>
+        -->
+    </xs:complexType></xs:element>
+    <xs:element name="subscreens-menu" substitutionGroup="AllWidgets"><xs:complexType>
+        <xs:attribute name="type" default="tab">
+            <xs:simpleType><xs:restriction base="xs:token">
+                <xs:enumeration value="tab"/>
+                <xs:enumeration value="popup"/>
+            </xs:restriction></xs:simpleType>
+        </xs:attribute>
+        <xs:attribute name="id" type="xs:string" use="required"/>
+        <xs:attribute name="title" type="xs:string"/>
+        <xs:attribute name="width" type="xs:string"/>
+        <xs:attribute name="header-menus-id" type="xs:string" default="header-menus"/>
+    </xs:complexType></xs:element>
+    <xs:element name="subscreens-active" substitutionGroup="AllWidgets"><xs:complexType>
+        <xs:attribute name="id" type="xs:string" use="optional"/>
+    </xs:complexType></xs:element>
+    <xs:element name="subscreens-panel" substitutionGroup="AllWidgets"><xs:complexType>
+        <xs:attribute name="type" default="tab">
+            <xs:simpleType><xs:restriction base="xs:token">
+                <xs:enumeration value="tab"/>
+                <xs:enumeration value="popup"/>
+                <!-- TABLED, not to be part of 1.0: <xs:enumeration value="stack"/> -->
+                <!-- TABLED, not to be part of 1.0: <xs:enumeration value="wizard"/> -->
+            </xs:restriction></xs:simpleType>
+        </xs:attribute>
+        <xs:attribute name="id" type="xs:string" use="required"/>
+        <xs:attribute name="title" type="xs:string"/>
+        <xs:attribute name="header-menus-id" type="xs:string" default="header-menus"/>
+    </xs:complexType></xs:element>
+
+    <!-- ================ Sections ================ -->
+    <xs:element name="section" substitutionGroup="AllWidgets"><xs:complexType>
+        <xs:group ref="section-elements"/>
+        <xs:attribute name="name" type="name-plain" use="required">
+            <xs:annotation><xs:documentation>A name for the section, used for reference within the screen.
+                Must be specified and must be unique within the screen.</xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="condition" type="xs:string">
+            <xs:annotation><xs:documentation>A condition expression, just like the section.condition.expression
+                element but more concise.</xs:documentation></xs:annotation>
+        </xs:attribute>
+    </xs:complexType></xs:element>
+    <xs:element name="section-iterate" substitutionGroup="AllWidgets"><xs:complexType>
+        <xs:group ref="section-elements"/>
+        <xs:attribute name="name" type="name-plain" use="required">
+            <xs:annotation><xs:documentation>
+                A name for the section, used for external reference within the screen.
+            </xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="list" type="xs:string" use="required">
+            <xs:annotation><xs:documentation>
+                The name of the field that contains the list to iterate over.
+            </xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="entry" type="xs:string" use="required">
+            <xs:annotation><xs:documentation>
+                The name of the field that will contain each entry as we iterate through the list.
+            </xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="key" type="xs:string">
+            <xs:annotation><xs:documentation>
+                If list points to a Map or List of MapEntry the key will be put where this refers to, the value
+                where the entry attribute refers to.
+            </xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="condition" type="xs:string">
+            <xs:annotation><xs:documentation>A condition expression, just like the section-iterate.condition.expression
+                element but more concise.</xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="paginate" type="boolean" default="false">
+            <xs:annotation><xs:documentation>Indicate if this section is paginated or not, false by default.</xs:documentation></xs:annotation>
+        </xs:attribute>
+    </xs:complexType></xs:element>
+
+    <xs:element name="widgets"><xs:complexType>
+        <xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/></xs:complexType></xs:element>
+    <xs:element name="fail-widgets"><xs:complexType>
+        <xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/></xs:complexType></xs:element>
+
+    <xs:element name="section-include" substitutionGroup="AllWidgets"><xs:complexType>
+        <xs:attribute name="name" type="name-plain" use="required">
+            <xs:annotation><xs:documentation>
+                A name for the section, used for reference within the screen.
+                Must be specified and must be unique within the screen.
+            </xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="location" type="xs:string" use="required">
+            <xs:annotation><xs:documentation>
+                Location of the screen containing the section to include.
+            </xs:documentation></xs:annotation>
+        </xs:attribute>
+    </xs:complexType></xs:element>
+
+    <!-- ================ Containers ================ -->
+    <xs:element name="container" substitutionGroup="AllWidgets"><xs:complexType>
+        <xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:attribute name="id" type="xs:string"/>
+        <xs:attribute name="style" type="xs:string"/>
+        <xs:attribute name="type" default="div"><xs:simpleType><xs:restriction base="xs:token">
+            <xs:enumeration value="div"/><xs:enumeration value="span"/>
+            <xs:enumeration value="ul"/><xs:enumeration value="ol"/><xs:enumeration value="li"/>
+            <xs:enumeration value="dl"/><xs:enumeration value="dd"/>
+            <xs:enumeration value="header"/><xs:enumeration value="footer"/>
+            <xs:enumeration value="code"/><xs:enumeration value="pre"/>
+            <xs:enumeration value="hr"/><xs:enumeration value="i"/>
+        </xs:restriction></xs:simpleType></xs:attribute>
+    </xs:complexType></xs:element>
+
+    <xs:element name="container-box" substitutionGroup="AllWidgets"><xs:complexType>
+        <xs:sequence>
+            <xs:element name="box-header"><xs:complexType>
+                <xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/>
+                <xs:attribute name="title" type="xs:string"/>
+            </xs:complexType></xs:element>
+            <xs:element name="box-toolbar" minOccurs="0"><xs:complexType>
+                <xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/></xs:complexType></xs:element>
+            <xs:element name="box-body" minOccurs="0"><xs:complexType>
+                <xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/>
+                <xs:attribute name="height" type="xs:string"/></xs:complexType></xs:element>
+            <xs:element name="box-body-nopad" minOccurs="0"><xs:complexType>
+                <xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/></xs:complexType></xs:element>
+        </xs:sequence>
+        <xs:attribute name="id" type="xs:string"/>
+        <xs:attribute name="type" type="color-context" default="default"/>
+        <xs:attribute name="initial" default="open"><xs:simpleType><xs:restriction base="xs:token">
+            <xs:enumeration value="open"/><xs:enumeration value="closed"/>
+            <!-- for future, save state in UserPreference: <xs:enumeration value="user"/> -->
+        </xs:restriction></xs:simpleType></xs:attribute>
+    </xs:complexType></xs:element>
+
+    <xs:element name="container-row" substitutionGroup="AllWidgets"><xs:annotation>
+        <xs:documentation>A responsive 12-column grid row. For the concept and one possible
+            implementation see http://getbootstrap.com/css/#grid</xs:documentation>
+    </xs:annotation><xs:complexType>
+        <xs:sequence><xs:element ref="row-col" maxOccurs="unbounded"/></xs:sequence>
+        <xs:attribute name="id" type="xs:string"/>
+        <xs:attribute name="style" type="xs:string"/>
+    </xs:complexType></xs:element>
+    <xs:element name="row-col"><xs:complexType>
+        <xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:attribute name="lg" type="xs:nonNegativeInteger"/>
+        <xs:attribute name="md" type="xs:nonNegativeInteger"/>
+        <xs:attribute name="sm" type="xs:nonNegativeInteger"/>
+        <xs:attribute name="xs" type="xs:nonNegativeInteger"/>
+        <xs:attribute name="style" type="xs:string"/>
+    </xs:complexType></xs:element>
+
+    <xs:element name="container-panel" substitutionGroup="AllWidgets"><xs:annotation>
+        <xs:documentation>
+            This panel can have up to five areas: header, left, center, right, footer. Only the center area is required.
+            This can be re-used within the different areas as well, usually just the center area but could be used to
+            split up even the header and footer.
+
+            If there is an id for the outer container, and each area will have an automatic id as well (with a suffix
+            of: _header, _left, _center, _right, _footer).
+        </xs:documentation>
+    </xs:annotation><xs:complexType>
+        <xs:sequence>
+            <xs:element ref="panel-header" minOccurs="0"/>
+            <xs:element ref="panel-left" minOccurs="0"/>
+            <xs:element ref="panel-center"/>
+            <xs:element ref="panel-right" minOccurs="0"/>
+            <xs:element ref="panel-footer" minOccurs="0"/>
+        </xs:sequence>
+        <xs:attribute name="id" type="xs:string"/>
+    </xs:complexType></xs:element>
+    <xs:attributeGroup name="attlist.panel.header-footer">
+        <xs:attribute name="closable" default="true" type="boolean"/>
+        <xs:attribute name="resizable" default="false" type="boolean"/>
+        <xs:attribute name="spacing" type="xs:string" default="5"/>
+        <xs:attribute name="size" type="xs:string" default="auto"/>
+        <xs:attribute name="size-min" type="xs:float"/>
+        <xs:attribute name="size-max" type="xs:float"/>
+    </xs:attributeGroup>
+    <xs:attributeGroup name="attlist.panel.left-right">
+        <xs:attribute name="closable" default="true" type="boolean"/>
+        <xs:attribute name="resizable" default="true" type="boolean"/>
+        <xs:attribute name="spacing" type="xs:string" default="5"/>
+        <xs:attribute name="size" type="xs:string" default="180"/>
+        <xs:attribute name="size-min" type="xs:float"/>
+        <xs:attribute name="size-max" type="xs:float"/>
+    </xs:attributeGroup>
+    <xs:element name="panel-header"><xs:complexType>
+        <xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:attributeGroup ref="attlist.panel.header-footer"/>
+    </xs:complexType></xs:element>
+    <xs:element name="panel-left"><xs:complexType>
+        <xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:attributeGroup ref="attlist.panel.left-right"/>
+    </xs:complexType></xs:element>
+    <xs:element name="panel-center"><xs:complexType>
+        <xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/></xs:complexType></xs:element>
+    <xs:element name="panel-right"><xs:complexType>
+        <xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:attributeGroup ref="attlist.panel.left-right"/>
+    </xs:complexType></xs:element>
+    <xs:element name="panel-footer"><xs:complexType>
+        <xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:attributeGroup ref="attlist.panel.header-footer"/>
+    </xs:complexType></xs:element>
+
+    <xs:element name="container-dialog" substitutionGroup="AllWidgets"><xs:annotation>
+        <xs:documentation>The contents start out hidden with only a button with the button-text on it.
+            When the button is clicked on a dialog opens to show the contents.</xs:documentation>
+    </xs:annotation><xs:complexType>
+        <xs:group ref="widget-elements" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:attribute name="id" type="xs:string" use="required"/>
+        <xs:attribute name="button-text" type="xs:string" use="required"/>
+        <xs:attribute name="button-style" type="xs:string"/>
+        <xs:attribute name="title" type="xs:string"/>
+        <xs:attribute name="width" type="xs:string" default="760"/>
+        <xs:attribute name="height" type="xs:string" default="600"/>
+        <xs:attribute name="condition" type="xs:string"/>
+        <xs:attribute name="type" type="color-context" default="primary"/>
+        <xs:attribute name="icon" type="xs:string"/>
+    </xs:complexType></xs:element>
+
+    <xs:element name="dynamic-dialog" substitutionGroup="StandaloneFields"><xs:annotation>
+        <xs:documentation>When the button is pressed the dialog contents are loaded from the server at
+            the given transition.</xs:documentation>
+    </xs:annotation><xs:complexType>
+        <xs:sequence><xs:element minOccurs="0" maxOccurs="unbounded" ref="parameter"/></xs:sequence>
+        <xs:attribute name="id" type="xs:string" use="required"/>
+        <xs:attribute name="button-text" type="xs:string" use="required"/>
+        <xs:attribute name="button-style" type="xs:string"/>
+        <xs:attribute name="title" type="xs:string"/>
+        <xs:attribute name="width" type="xs:string" default="760"/>
+        <xs:attribute name="height" type="xs:string" default="600"/>
+        <xs:attribute name="transition" type="xs:string" use="required"/>
+        <xs:attribute name="parameter-map" type="xs:string"><xs:annotation><xs:documentation>A Map to get parameter
+            names and values from in addition to the parameter sub-elements.</xs:documentation></xs:annotation></xs:attribute>
+        <xs:attribute name="condition" type="xs:string"/>
+        <xs:attribute name="type" type="color-context" default="primary"/>
+        <xs:attribute name="icon" type="xs:string"/>
+    </xs:complexType></xs:element>
+    <xs:element name="dynamic-container" substitutionGroup="StandaloneFields"><xs:annotation>
+        <xs:documentation>Container contents are immediately loaded from the server at the given
+            transition. Contents may be reloaded based on other actions such as background form submissions.</xs:documentation>
+    </xs:annotation><xs:complexType>
+        <xs:sequence><xs:element minOccurs="0" maxOccurs="unbounded" ref="parameter"/></xs:sequence>
+        <xs:attribute name="id" type="xs:string" use="required"/>
+        <xs:attribute name="transition" type="xs:string" use="required"/>
+        <xs:attribute name="parameter-map" type="xs:string"><xs:annotation><xs:documentation>A Map to get parameter
+            names and values from in addition to the parameter sub-elements.</xs:documentation></xs:annotation></xs:attribute>
+    </xs:complexType></xs:element>
+
+    <xs:element name="button-menu" substitutionGroup="StandaloneFields"><xs:complexType>
+        <xs:sequence>
+            <xs:choice maxOccurs="unbounded">
+                <xs:element ref="link"/>
+                <xs:element ref="label"/>
+                <xs:element ref="dynamic-dialog"/>
+                <xs:element ref="container-dialog"/>
+            </xs:choice>
+        </xs:sequence>
+        <xs:attribute name="text" type="xs:string"/>
+        <xs:attribute name="text-map" type="xs:string">
+            <xs:annotation><xs:documentation>An expression that evaluates to a Map in the context that will be used
+                in addition to the context when expanding the @text value.</xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="encode" type="boolean" default="true">
+            <xs:annotation><xs:documentation>
+                If true text will be encoded so that it does not interfere with markup of the target output.
+
+                For example, if output is HTML then data presented will be HTML encoded so that all
+                HTML-specific characters are escaped.
+            </xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="icon" type="xs:string"><xs:annotation>
+            <xs:documentation>Icon name, actually an icon style used in an 'i' element in HTML output.</xs:documentation></xs:annotation></xs:attribute>
+        <xs:attribute name="badge" type="xs:string"><xs:annotation>
+            <xs:documentation>Text to put in a badge on the right side</xs:documentation></xs:annotation></xs:attribute>
+        <xs:attribute name="tooltip" type="xs:string"/>
+        <xs:attribute name="btn-type" type="color-context" default="primary"/>
+        <xs:attribute name="condition" type="xs:string"><xs:annotation><xs:documentation>
+            If specified and evaluates to false link is not rendered.</xs:documentation></xs:annotation></xs:attribute>
+    </xs:complexType></xs:element>
+
+
+    <!-- ================ Includes ================ -->
+    <!-- possible good idea, but not implementing in 1.0; should use render-mode.text instead
+    <xs:element name="include-content" substitutionGroup="AllWidgets">
+        <xs:complexType>
+            <xs:attribute name="content-path" type="xs:string"/>
+            <xs:attribute name="sub-content-key" type="xs:string" use="optional"/>
+            <xs:attribute name="xml-escape" default="false" type="boolean"/>
+        </xs:complexType>
+    </xs:element>
+    -->
+    <xs:element name="include-screen" substitutionGroup="AllWidgets"><xs:complexType>
+        <xs:attribute name="location" type="xs:string" use="required"/>
+        <xs:attribute name="share-scope" default="false" type="boolean"/>
+    </xs:complexType></xs:element>
+
+    <!-- ============== Tree ============== -->
+    <!-- Based on jstree, see http://www.jstree.com/docs/json/ -->
+    <xs:element name="tree" substitutionGroup="AllWidgets"><xs:complexType>
+        <xs:sequence>
+            <xs:element minOccurs="0" maxOccurs="unbounded" ref="parameter"><xs:annotation><xs:documentation>
+                The parameters are for remote request of sub-nodes for a node when lazy loading and are in the
+                context of the initial rendering of the tree in the screen.</xs:documentation></xs:annotation></xs:element>
+            <xs:element maxOccurs="unbounded" ref="tree-node"/>
+            <xs:element maxOccurs="unbounded" ref="tree-sub-node"/>
+        </xs:sequence>
+        <xs:attribute type="xs:string" name="name" use="required"/>
+        <xs:attribute type="xs:string" name="transition">
+            <xs:annotation><xs:documentation>If not specified uses actions/${tree.@name}</xs:documentation></xs:annotation></xs:attribute>
+        <xs:attribute type="xs:string" name="open-path" use="optional"/>
+        <!-- <xs:attribute type="xs:string" name="open-depth" default="0"/> -->
+    </xs:complexType></xs:element>
+    <xs:element name="tree-node"><xs:complexType>
+        <xs:sequence>
+            <xs:element minOccurs="0" ref="condition"/>
+            <xs:element minOccurs="0" ref="actions"/>
+            <xs:choice>
+                <xs:element ref="link"/>
+                <xs:element ref="label"/>
+            </xs:choice>
+            <xs:element minOccurs="0" maxOccurs="unbounded" ref="tree-sub-node"/>
+        </xs:sequence>
+        <xs:attribute type="xs:string" name="name" use="required"/>
+    </xs:complexType></xs:element>
+    <xs:element name="tree-sub-node"><xs:complexType>
+        <xs:sequence>
+            <xs:element minOccurs="0" ref="actions"/>
+        </xs:sequence>
+        <xs:attribute type="xs:string" name="node-name" use="required"/>
+        <xs:attribute type="xs:string" name="list" use="required"/>
+    </xs:complexType></xs:element>
+
+    <!-- ============== Render Mode Elements =============== -->
+    <xs:element name="render-mode" substitutionGroup="AllWidgets"><xs:complexType>
+        <xs:choice maxOccurs="unbounded">
+            <xs:element ref="text"/>
+            <!-- the gwt and swing elements are just placeholders for now, won't be implemented in this version -->
+            <!-- <xs:element ref="gwt"/> -->
+            <!-- <xs:element ref="swing"/> -->
+        </xs:choice>
+    </xs:complexType></xs:element>
+    
+    <!-- ============== Text Specific Elements =============== -->
+    <xs:element name="text" substitutionGroup="AllWidgets"><xs:complexType>
+        <xs:simpleContent>
+            <xs:extension base="xs:string">
+                <xs:attribute name="type" type="xs:string" default="any">
+                    <xs:annotation><xs:documentation>
+                        Can be any valid render mode. Default supported modes include: text, html, vuet, xsl-fo, xml, and csv.
+                        Values can be comma separated to apply to multiple render modes.
+                        A value of "any" will cause it to be used if no other element matches the current output type.
+                    </xs:documentation></xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="location" type="xs:string">
+                    <xs:annotation><xs:documentation>
+                        This is the template or text file location and can be any location supported by the Resource
+                        Facade including file, http, component, content, etc.
+                    </xs:documentation></xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="template" type="boolean" default="true">
+                    <xs:annotation><xs:documentation>
+                        Interpret the text at the location as an FTL or other template?
+                        Supports any template type supported by the Resource Facade.
+                        Defaults to true, set to false if you want the text included literally.
+                    </xs:documentation></xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="encode" default="false" type="boolean">
+                    <xs:annotation><xs:documentation>
+                        If true the text will be encoded so that it does not interfere with markup of the target output.
+                        Templates ignore this setting and are never encoded.
+
+                        For example, if output is HTML then data presented will be HTML encoded so that all
+                        HTML-specific characters are escaped.
+                    </xs:documentation></xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="no-boundary-comment" type="boolean" default="false">
+                    <xs:annotation><xs:documentation>
+                        Defaults to false. If true won't ever put boundary comments before this (for opening ?xml tag, etc).
+                    </xs:documentation></xs:annotation>
+                </xs:attribute>
+            </xs:extension>
+        </xs:simpleContent>
+    </xs:complexType></xs:element>
+</xs:schema>

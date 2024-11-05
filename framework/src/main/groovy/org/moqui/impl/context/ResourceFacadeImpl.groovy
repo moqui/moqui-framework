@@ -19,6 +19,7 @@ import org.moqui.BaseArtifactException
 import org.moqui.context.*
 import org.moqui.impl.context.reference.BaseResourceReference
 import org.moqui.impl.context.renderer.FtlTemplateRenderer
+import org.moqui.impl.context.renderer.NoTemplateRenderer
 import org.moqui.impl.context.runner.JavaxScriptRunner
 import org.moqui.impl.context.runner.XmlActionsScriptRunner
 import org.moqui.impl.entity.EntityValueBase
@@ -254,6 +255,8 @@ class ResourceFacadeImpl implements ResourceFacade {
     }
 
     @Override InputStream getLocationStream(String location) {
+        if (location == null) return null
+
         int hashIdx = location.indexOf("#")
         String versionName = null
         if (hashIdx > 0) {
@@ -267,6 +270,8 @@ class ResourceFacadeImpl implements ResourceFacade {
     }
 
     @Override String getLocationText(String location, boolean cache) {
+        if (location == null) return ""
+
         int hashIdx = location.indexOf("#")
         String versionName = (hashIdx > 0 && (hashIdx+1) < location.length()) ? location.substring(hashIdx+1) : null
 
@@ -334,9 +339,14 @@ class ResourceFacadeImpl implements ResourceFacade {
         }
     }
 
-    @Override void template(String location, Writer writer) {
+    @Override void template(String location, Writer writer) { template(location, writer, null) }
+    @Override void template(String location, Writer writer, String defaultExtension) {
         // NOTE: let version fall through to tr.render() and getLocationText()
         TemplateRenderer tr = getTemplateRendererByLocation(location)
+        if ((tr == null || tr instanceof NoTemplateRenderer) && defaultExtension != null && !defaultExtension.isEmpty())
+            tr = getTemplateRendererByLocation(defaultExtension)
+        // logger.info("location ${location} defaultExtension ${defaultExtension} tr ${tr?.class?.name}")
+
         if (tr != null) {
             tr.render(location, writer)
         } else {
@@ -344,6 +354,11 @@ class ResourceFacadeImpl implements ResourceFacade {
             String text = getLocationText(location, true)
             if (text) writer.write(text)
         }
+    }
+    @Override String template(String location, String defaultExtension) {
+        StringWriter sw = new StringWriter()
+        template(location, sw, defaultExtension)
+        return sw.toString()
     }
 
     static final Set<String> binaryExtensions = new HashSet<>(["png", "jpg", "jpeg", "gif", "pdf", "doc", "docx", "xsl", "xslx"])

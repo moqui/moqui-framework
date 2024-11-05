@@ -70,17 +70,40 @@ public class FieldInfo {
         // NOTE: intern a must here for use with LiteStringMap, without this all sorts of bad behavior, not finding any fields sort of thing
         name = nameAttr.intern();
         conditionField = new ConditionField(this);
+        // column name from attribute or underscored name, may have override per DB
         String columnNameAttr = fnAttrs.get("column-name");
-        columnName = columnNameAttr != null && columnNameAttr.length() > 0 ? columnNameAttr : ed.efi.getEntityDbMeta().formattedComponentName(ed.groupName, name);
+
+        /* DISABLED FUNCTIONALITY
+        String colNameToUse = columnNameAttr != null && columnNameAttr.length() > 0 ? columnNameAttr :
+                EntityJavaUtil.camelCaseToUnderscored(name);
+        // column name: see if there is a name-replace
+        String groupName = ed.getEntityGroupName();
+        MNode databaseNode = ed.efi.getDatabaseNode(groupName);
+        // some datasources do not have a database node, like the Elastic Entity one
+        if (databaseNode != null) {
+            ArrayList<MNode> nameReplaceNodes = databaseNode.children("name-replace");
+            for (int i = 0; i < nameReplaceNodes.size(); i++) {
+                MNode nameReplaceNode = nameReplaceNodes.get(i);
+                if (colNameToUse.equalsIgnoreCase(nameReplaceNode.attribute("original"))) {
+                    String replaceName = nameReplaceNode.attribute("replace");
+                    logger.info("Replacing column name " + colNameToUse + " with replace name " + replaceName + " for entity " + entityName);
+                    colNameToUse = replaceName;
+                }
+            }
+        }
+        columnName = colNameToUse;
+        */
+
+        columnName = columnNameAttr != null && !columnNameAttr.isEmpty() ? columnNameAttr : ed.efi.getEntityDbMeta().formattedComponentName(ed.groupName, name);
         defaultStr = fnAttrs.get("default");
 
         String typeAttr = fnAttrs.get("type");
-        if ((typeAttr == null || typeAttr.length() == 0) && (fieldNode.hasChild("complex-alias") || fieldNode.hasChild("case")) && fnAttrs.get("function") != null) {
+        if ((typeAttr == null || typeAttr.isEmpty()) && (fieldNode.hasChild("complex-alias") || fieldNode.hasChild("case")) && fnAttrs.get("function") != null) {
             // this is probably a calculated value, just default to number-decimal
             typeAttr = "number-decimal";
         }
         type = typeAttr;
-        if (type != null && type.length() > 0) {
+        if (type != null && !type.isEmpty()) {
             String fieldJavaType = ed.efi.getFieldJavaType(type, ed);
             javaType = fieldJavaType != null ? fieldJavaType : "String";
             typeValue = EntityFacadeImpl.getJavaTypeInt(javaType);
@@ -93,7 +116,7 @@ public class FieldInfo {
         enableLocalization = "true".equals(fnAttrs.get("enable-localization"));
         isSimple = !enableLocalization;
         String createOnlyAttr = fnAttrs.get("create-only");
-        createOnly = createOnlyAttr != null && createOnlyAttr.length() > 0 ?
+        createOnly = createOnlyAttr != null && !createOnlyAttr.isEmpty() ?
                 "true".equals(fnAttrs.get("create-only")) :
                 "true".equals(ed.internalEntityNode.attribute("create-only"));
         isLastUpdatedStamp = "lastUpdatedStamp".equals(name);
@@ -119,7 +142,7 @@ public class FieldInfo {
             aliasFieldName = fieldAttr != null && !fieldAttr.isEmpty() ? fieldAttr : name;
             MNode tempMembEntNode = null;
             String entityAlias = fieldNode.attribute("entity-alias");
-            if (entityAlias != null && entityAlias.length() > 0) {
+            if (entityAlias != null && !entityAlias.isEmpty()) {
                 entityAliasUsedSet.add(entityAlias);
                 tempMembEntNode = ed.memberEntityAliasMap.get(entityAlias);
             }
@@ -129,7 +152,7 @@ public class FieldInfo {
             for (int i = 0; i < cafListSize; i++) {
                 MNode cafNode = cafList.get(i);
                 String cafEntityAlias = cafNode.attribute("entity-alias");
-                if (cafEntityAlias != null && cafEntityAlias.length() > 0) entityAliasUsedSet.add(cafEntityAlias);
+                if (cafEntityAlias != null && !cafEntityAlias.isEmpty()) entityAliasUsedSet.add(cafEntityAlias);
             }
             if (tempMembEntNode == null && entityAliasUsedSet.size() == 1) {
                 String singleEntityAlias = entityAliasUsedSet.iterator().next();
@@ -147,6 +170,7 @@ public class FieldInfo {
         }
     }
 
+    /** Full column name for complex finds on view entities; plain entity column names are never expanded */
     public String getFullColumnName() {
         if (fullColumnNameInternal != null) return fullColumnNameInternal;
         return ed.efi.ecfi.resourceFacade.expand(expandColumnName, "", null, false);
@@ -572,10 +596,20 @@ public class FieldInfo {
                         ps.setBytes(index, valueBb.array());
                     } else if (value instanceof Blob) {
                         Blob valueBlob = (Blob) value;
-                        // calling setBytes instead of setBlob
+                        // calling setBytes instead of setBlob - old github.com/moqui/moqui repo issue #28 with Postgres JDBC driver
                         // ps.setBlob(index, (Blob) value)
                         // Blob blb = value
-                        ps.setBytes(index, valueBlob.getBytes(1, (int) valueBlob.length()));
+                        try {
+                            ps.setBytes(index, valueBlob.getBytes(1, (int) valueBlob.length()));
+                        } catch (Exception bytesExc) {
+                            // try ps.setBlob for larger byte arrays that H2 throws an exception for
+                            try {
+                                ps.setBlob(index, valueBlob);
+                            } catch (Exception blobExc) {
+                                // throw the original exception from setBytes()
+                                throw bytesExc;
+                            }
+                        }
                     } else {
                         if (value != null) {
                             throw new EntityException("Type not supported for BLOB field: " + value.getClass().getName() + ", for field " + entityName + "." + name);
@@ -611,7 +645,7 @@ public class FieldInfo {
 
                         // convert object into string (with doublequotes escaped)
                         // VERSION 1 - works with H2
-                        String outMap = gson.toJson(treeMap).toString();
+                        String outMap = gson.toJson(treeMap);
                         ps.setString(index, outMap);
 
                     } else {

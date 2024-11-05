@@ -16,6 +16,7 @@ package org.moqui.context;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.Timestamp;
+import java.util.Calendar;
 import java.util.Locale;
 import java.util.TimeZone;
 
@@ -40,11 +41,16 @@ public interface L10nFacade {
      * @param uomId The uomId (ISO currency code), required.
      * @param fractionDigits Number of digits after the decimal point to display. If null defaults to number defined
      *                       by java.util.Currency.defaultFractionDigits() for the specified currency in uomId.
+     * @param locale Locale to use for formatting.
+     * @param hideSymbol option to hide the Symbol of the currency and only display the number formatted according
+     *                   to locale.
      * @return The formatted currency amount.
      */
+    String formatCurrency(Object amount, String uomId, Integer fractionDigits, Locale locale, boolean hideSymbol);
+    String formatCurrency(Object amount, String uomId, Integer fractionDigits, Locale locale);
     String formatCurrency(Object amount, String uomId, Integer fractionDigits);
     String formatCurrency(Object amount, String uomId);
-    String formatCurrency(Object amount, String uomId, Integer fractionDigits, Locale locale);
+    String formatCurrencyNoSymbol(Object amount, String uomId);
 
     /** Round currency according to the currency's specified amount of digits and rounding method.
      * @param amount The amount in BigDecimal to be rounded.
@@ -73,6 +79,8 @@ public interface L10nFacade {
     Timestamp parseTimestamp(String input, String format);
     Timestamp parseTimestamp(String input, String format, Locale locale, TimeZone timeZone);
     java.util.Calendar parseDateTime(String input, String format);
+    String formatDateTime(Calendar input, String format, Locale locale, TimeZone tz);
 
     java.math.BigDecimal parseNumber(String input, String format);
+    String formatNumber(Number input, String format, Locale locale);
 }

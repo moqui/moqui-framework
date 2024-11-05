@@ -12,21 +12,20 @@ You should have received a copy of the CC0 Public Domain Dedication
 along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
-<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-2.1.xsd">
+<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-3.xsd">
 
     <!-- ========================================================= -->
     <!-- moqui.server -->
     <!-- ========================================================= -->
 
-    <entity entity-name="ArtifactHit" package="moqui.server" use="nontransactional"
-            cache="never" sequence-bank-size="100">
+    <entity entity-name="ArtifactHit" package="moqui.server" use="logging" cache="never" sequence-bank-size="100">
         <field name="hitId" type="id" is-pk="true"/>
         <field name="visitId" type="id"/>
         <field name="userId" type="id"/>
         <field name="artifactType" type="text-medium"/>
         <field name="artifactSubType" type="text-medium"/>
-        <field name="artifactName" type="text-medium"><description>The name of the artifact hit. For XML Screens
-            request it is "${webapp-name}.${screen-path}"</description></field>
+        <field name="artifactName" type="text-medium">
+            <description>The name of the artifact hit. For XML Screen request it is "${webapp-name}.${screen-path}"</description></field>
         <field name="parameterString" type="text-long"/>
         <field name="startDateTime" type="date-time"/>
         <field name="runningTimeMillis" type="number-float"/>
@@ -43,8 +42,17 @@ along with this software (see the LICENSE.md file). If not, see
         <index name="ARTIFACT_HIT_VST"><index-field name="visitId"/></index>
         <index name="ARTIFACT_HIT_USR"><index-field name="userId"/></index>
     </entity>
-    <entity entity-name="ArtifactHitBin" package="moqui.server" use="nontransactional"
-            cache="never" sequence-bank-size="100">
+    <!-- to use Elastic/OpenSearch for ArtifactHit: add to logging group which is configured by default to use the 'default' cluster via ElasticFacade -->
+    <!-- TODO: make sure this is commented this before merging!! (not great as default config) -->
+    <!-- <extend-entity entity-name="ArtifactHit" package="moqui.server" group="logging"/> -->
+    <!--
+        TODO for migration:
+        - somehow have ArtifactHitDb always in 'transactional' group to read from and write to ArtifactHit in the logging group
+        - some way to clone entity to new name, with different group/etc?
+        - or some way to do entity operations and override the group name at runtime? might be handy for other things too...
+    -->
+
+    <entity entity-name="ArtifactHitBin" package="moqui.server" use="nontransactional" cache="never" sequence-bank-size="100">
         <field name="hitBinId" type="id" is-pk="true"/>
         <field name="artifactType" type="text-medium"/>
         <field name="artifactSubType" type="text-medium"/>
@@ -108,9 +116,9 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="thruDate" type="date-time"/>
         <relationship type="one-nofk" related="moqui.server.Visitor"/>
         <relationship type="one-nofk" related="moqui.security.UserAccount"/>
-        <relationship type="one-nofk" title="ClientIpStateProv" related="Geo">
+        <relationship type="one-nofk" title="ClientIpStateProv" related="moqui.basic.Geo">
             <key-map field-name="clientIpStateProvGeoId" related="geoId"/></relationship>
-        <relationship type="one-nofk" title="ClientIpCountry" related="Geo">
+        <relationship type="one-nofk" title="ClientIpCountry" related="moqui.basic.Geo">
             <key-map field-name="clientIpCountryGeoId" related="geoId"/></relationship>
         <!-- expensive for updates <index name="VisitThruIndex" unique="false"><index-field name="thruDate"/></index> -->
         <index name="VISIT_USER_ACC"><index-field name="userId"/></index>
@@ -188,6 +196,9 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="username" type="text-short"/>
         <field name="password" type="text-medium" encrypt="true"/>
         <field name="emailAddress" type="text-medium"/>
+        <!-- To pull an image from a remote registryLocation, you may need to generate a token using a command example: AWS-ECR -->
+        <!-- Note: if you are using authTokenCmd to authenticate on registry then must keep the password field empty simply-->
+        <field name="authTokenCmd" type="text-medium"/>
         <relationship type="one" related="moqui.server.instance.InstanceImageType" short-alias="imageType"/>
         <relationship type="one" related="moqui.server.instance.InstanceHostType" short-alias="hostType"/>
     </entity>

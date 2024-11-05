@@ -12,7 +12,7 @@ You should have received a copy of the CC0 Public Domain Dedication
 along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
-<eecas xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-eca-2.1.xsd">
+<eecas xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-eca-3.xsd">
     <eeca id="DbFormCache" entity="moqui.screen.form.DbForm" on-create="true" on-update="true" on-delete="true">
         <actions><script>ec.cache.getCache('screen.form.db.node').remove(formId)</script></actions></eeca>
     <eeca id="DbFormFieldCache" entity="moqui.screen.form.DbFormField" on-create="true" on-update="true" on-delete="true">

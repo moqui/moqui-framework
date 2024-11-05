@@ -23,6 +23,7 @@ import org.moqui.context.ExecutionContext
 import org.moqui.context.ResourceFacade
 import org.moqui.impl.context.ContextJavaUtil
 import org.moqui.impl.entity.EntityDefinition
+import org.moqui.impl.screen.ScreenUrlInfo.UrlInstance
 import org.moqui.impl.service.ServiceDefinition
 import org.moqui.resource.ResourceReference
 import org.moqui.context.WebFacade
@@ -85,6 +86,114 @@ class ScreenDefinition {
 
     ScreenDefinition(ScreenFacadeImpl sfi, MNode screenNode, String location) {
         this.sfi = sfi
+
+        // merge screen-extend (before using anything from screenNode)
+        int locationSepLoc = location.indexOf("://")
+        String locPath = locationSepLoc == -1 ? location : location.substring(locationSepLoc + 3)
+        String locPathAfterScreen = null
+        int locPathScreenLoc = locPath.indexOf("/screen/")
+        if (locPathScreenLoc >= 0) locPathAfterScreen = locPath.substring(locPathScreenLoc + 8)
+
+        // search components for screen-extend files
+        ArrayList<MNode> screenExtendNodeList = new ArrayList<>()
+        for (String componentLoc in sfi.ecfi.getComponentBaseLocations().values()) {
+            ResourceReference screenExtendRr = sfi.ecfi.resourceFacade.getLocationReference(componentLoc + "/screen-extend")
+            if (!screenExtendRr.supportsExists()) {
+                logger.warn("For screen-extend skipping component that does not support exists check: ${componentLoc}")
+                continue
+            }
+            // continue to next component if screen-extend directory does not exist (quit early)
+            if (!screenExtendRr.exists) continue
+
+            // try the after '/screen/' path after the full path so that different screens with the same after-screen path can be distinguished
+            ResourceReference matchingRr = screenExtendRr.findChildFile(locPath)
+            if (!matchingRr.exists && locPathAfterScreen != null)
+                matchingRr = screenExtendRr.findChildFile(locPathAfterScreen)
+            // still found nothing? move along
+            if (!matchingRr.exists) continue
+
+            logger.info("Found screen-extend at ${matchingRr.location} for screen at ${location}")
+            MNode screenExtendNode = MNode.parse(matchingRr)
+            screenExtendNodeList.add(screenExtendNode)
+        }
+        // merge/etc screen-extend nodes from files
+        Map<String, ArrayList<MNode>> extendDescendantsMap = new HashMap<>()
+        for (int seIdx = 0; seIdx < screenExtendNodeList.size(); seIdx++) {
+            MNode screenExtendNode = (MNode) screenExtendNodeList.get(seIdx)
+            // NOTE: form-single, form-list merged below; various others overridden below (section, section-iterate)
+            screenExtendNode.descendants(scanWidgetNames, extendDescendantsMap)
+
+            // start with attributes and simple override by name/id elements
+            screenNode.attributes.putAll(screenExtendNode.attributes)
+            screenNode.mergeChildrenByKey(screenExtendNode, "parameter", "name", null)
+            screenNode.mergeChildrenByKey(screenExtendNode, "transition", "name", null)
+            screenNode.mergeChildrenByKey(screenExtendNode, "transition-include", "name", null)
+
+            MNode overrideSubscreensNode = screenExtendNode.first("subscreens")
+            if (overrideSubscreensNode != null) {
+                MNode baseSubscreensNode = screenNode.first("subscreens")
+                if (baseSubscreensNode == null) {
+                    screenNode.append(overrideSubscreensNode.deepCopy(screenNode))
+                } else {
+                    baseSubscreensNode.mergeNodeWithChildKey(overrideSubscreensNode, "subscreens-item", "name", null)
+                }
+            }
+
+            ArrayList<MNode> actionsExtendNodeList = screenExtendNode.children("actions-extend")
+            for (int i = 0; i < actionsExtendNodeList.size(); i++) {
+                MNode actionsExtendNode = (MNode) actionsExtendNodeList.get(i)
+                String typeName = actionsExtendNode.attribute("type") ?: "actions"
+                MNode curActionsNode = screenNode.first(typeName)
+                if (curActionsNode == null) curActionsNode = screenNode.append(typeName, null)
+
+                String when = actionsExtendNode.attribute("when")
+                if ("replace".equals(when)) {
+                    curActionsNode.removeAll()
+                    curActionsNode.appendAll(actionsExtendNode.children, true)
+                } else if ("before".equals(when)) {
+                    curActionsNode.appendAll(actionsExtendNode.children, 0, true)
+                } else {
+                    // default to "after"
+                    curActionsNode.appendAll(actionsExtendNode.children, true)
+                }
+            }
+
+            ArrayList<MNode> widgetsExtendNodeList = screenExtendNode.children("widgets-extend")
+            for (int weIdx = 0; weIdx < widgetsExtendNodeList.size(); weIdx++) {
+                // need any explicit support? form-single, form-list, section, section-iterate, container (id), container-box (id), container-dialog (id), dynamic-dialog (id)
+                // for now just look for any matching name or id attribute and go for it
+
+                MNode widgetsExtendNode = (MNode) widgetsExtendNodeList.get(weIdx)
+                String extendName = widgetsExtendNode.attribute("name")
+                if (extendName == null || extendName.isEmpty()) continue
+
+                ArrayList<MNode> matchingNodes = screenNode.breadthFirst({ MNode it ->
+                    extendName.equals(it.attribute("name")) || extendName.equals(it.attribute("id")) })
+                // logger.warn("widgets-extend name=${extendName} matchingNodes ${matchingNodes}")
+                for (int mnIdx = 0; mnIdx < matchingNodes.size(); mnIdx++) {
+                    MNode matchingNode = (MNode) matchingNodes.get(mnIdx)
+                    MNode matchParent = matchingNode.getParent()
+                    if (matchParent == null) {
+                        logger.warn("In screen-extend no parent found for element ${matchingNode.name} name=${matchingNode.attribute('name')} id=${matchingNode.attribute('id')} in target screen at ${location}")
+                        continue
+                    }
+                    int childIdx = matchParent.firstIndex(matchingNode)
+                    if (childIdx == -1) {
+                        logger.warn("In screen-extend could not find index for element ${matchingNode.name} name=${matchingNode.attribute('name')} id=${matchingNode.attribute('id')} in target screen at ${location}")
+                        continue
+                    }
+                    // if where=after (default before) then add 1 to childIdx
+                    if ("after".equals(widgetsExtendNode.attribute("where"))) childIdx++
+
+                    // ready to go, append cloned widgets-extend child nodes
+                    matchParent.appendAll(widgetsExtendNode.children, childIdx, true)
+                }
+            }
+        }
+
+        // if (screenExtendNodeList.size() > 0) logger.warn("after extend of screen at ${location}:\n${screenNode.toString()}")
+
+        // init screen def fields
         this.screenNode = screenNode
         subscreensNode = screenNode.first("subscreens")
         webSettingsNode = screenNode.first("web-settings")
@@ -160,22 +269,47 @@ class ScreenDefinition {
         if (rootSection != null && rootSection.widgets != null) {
             Map<String, ArrayList<MNode>> descMap = rootSection.widgets.widgetsNode.descendants(scanWidgetNames)
             // get all of the other sections by name
-            for (MNode sectionNode in descMap.get('section'))
-                sectionByName.put(sectionNode.attribute("name"), new ScreenSection(ecfi, sectionNode, "${location}.section\$${sectionNode.attribute("name")}"))
-            for (MNode sectionNode in descMap.get('section-iterate'))
-                sectionByName.put(sectionNode.attribute("name"), new ScreenSection(ecfi, sectionNode, "${location}.section_iterate\$${sectionNode.attribute("name")}"))
-            for (MNode sectionNode in descMap.get('section-include')) pullSectionInclude(sectionNode)
+            for (MNode sectionNode in descMap.get('section')) {
+                String sectionName = sectionNode.attribute("name")
+                // get last matching node, is replace/override
+                ArrayList<MNode> extendNodes = extendDescendantsMap.get("section")
+                Integer replaceIndex = extendNodes?.findLastIndexOf({ it.attribute("name") == sectionName })
+                MNode useNode = (replaceIndex != null && replaceIndex != -1) ? extendNodes.get(replaceIndex) : sectionNode
+                sectionByName.put(sectionName, new ScreenSection(ecfi, useNode, "${location}.section\$${sectionName}"))
+            }
+            for (MNode sectionNode in descMap.get('section-iterate')) {
+                String sectionName = sectionNode.attribute("name")
+                ArrayList<MNode> extendNodes = extendDescendantsMap.get("section-iterate")
+                Integer replaceIndex = extendNodes?.findLastIndexOf({ it.attribute("name") == sectionName })
+                MNode useNode = (replaceIndex != null && replaceIndex != -1) ? extendNodes.get(replaceIndex) : sectionNode
+                sectionByName.put(sectionName, new ScreenSection(ecfi, useNode, "${location}.section_iterate\$${sectionName}"))
+            }
+            for (MNode sectionNode in descMap.get('section-include')) {
+                String sectionLocation = sectionNode.attribute("location")
+                String sectionName = sectionNode.attribute("name")
+                boolean isDynamic = (sectionLocation != null && sectionLocation.contains('${')) || (sectionName != null && sectionName.contains('${'))
+                // if the section-include is dynamic then don't pull it now, do at runtime based on dynamic name and location
+                if (!isDynamic) pullSectionInclude(sectionNode)
+            }
 
             // get all forms by name
-            for (MNode formNode in descMap.get('form-single')) {
-                ScreenForm newForm = new ScreenForm(ecfi, this, formNode, "${location}.form_single\$${formNode.attribute("name")}")
+            for (MNode formNode in descMap.get("form-single")) {
+                String formName = formNode.attribute("name")
+                List<MNode> extendList = extendDescendantsMap.get("form-single")
+                if (extendList != null) extendList = extendList.findAll({ it.attribute("name") == formName })
+
+                ScreenForm newForm = new ScreenForm(ecfi, this, formNode, extendList, "${location}.form_single\$${formName}")
                 if (newForm.extendsScreenLocation != null) dependsOnScreenLocations.add(newForm.extendsScreenLocation)
-                formByName.put(formNode.attribute("name"), newForm)
+                formByName.put(formName, newForm)
             }
             for (MNode formNode in descMap.get('form-list')) {
-                ScreenForm newForm = new ScreenForm(ecfi, this, formNode, "${location}.form_list\$${formNode.attribute("name")}")
+                String formName = formNode.attribute("name")
+                List<MNode> extendList = extendDescendantsMap.get("form-list")
+                if (extendList != null) extendList = extendList.findAll({it.attribute("name") == formName})
+
+                ScreenForm newForm = new ScreenForm(ecfi, this, formNode, extendList, "${location}.form_list\$${formName}")
                 if (newForm.extendsScreenLocation != null) dependsOnScreenLocations.add(newForm.extendsScreenLocation)
-                formByName.put(formNode.attribute("name"), newForm)
+                formByName.put(formName, newForm)
             }
 
             // get all trees by name
@@ -206,18 +340,27 @@ class ScreenDefinition {
         if (logger.isTraceEnabled()) logger.trace("Loaded screen at [${location}] in [${(System.currentTimeMillis()-startTime)/1000}] seconds")
     }
 
-    void pullSectionInclude(MNode sectionNode) {
-        String location = sectionNode.attribute("location")
-        String sectionName = sectionNode.attribute("name")
+    void pullSectionInclude(MNode sectionIncludeNode) {
+        String location = sectionIncludeNode.attribute("location")
+        String sectionName = sectionIncludeNode.attribute("name")
+        boolean isDynamic = (location != null && location.contains('${')) || (sectionName != null && sectionName.contains('${'))
+        String cacheName = null
+        if (isDynamic) {
+            location = sfi.ecfi.resourceFacade.expandNoL10n(location, null)
+            sectionName = sfi.ecfi.resourceFacade.expandNoL10n(sectionName, null)
+            // get fullName for sectionByName cache before checking location for # so that matches what ScreenRenderImpl.renderSectionInclude() does
+            cacheName = location + "#" + sectionName
+        }
         if (location.contains('#')) {
             sectionName = location.substring(location.indexOf('#') + 1)
             location = location.substring(0, location.indexOf('#'))
         }
+        if (!isDynamic) cacheName = sectionName
 
         ScreenDefinition includeScreen = sfi.getEcfi().screenFacade.getScreenDefinition(location)
         ScreenSection includeSection = includeScreen?.getSection(sectionName)
-        if (includeSection == null) throw new BaseArtifactException("Could not find section [${sectionNode.attribute("name")} to include at location [${sectionNode.attribute("location")}]")
-        sectionByName.put(sectionNode.attribute("name"), includeSection)
+        if (includeSection == null) throw new BaseArtifactException("Could not find section ${sectionName} to include at location ${location}")
+        sectionByName.put(cacheName, includeSection)
         dependsOnScreenLocations.add(location)
 
         Map<String, ArrayList<MNode>> descMap = includeSection.sectionNode.descendants(

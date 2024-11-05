@@ -20,7 +20,7 @@ import java.util.ListIterator;
  * Entity Cursor List Iterator for Handling Cursored Database Results
  */
 @SuppressWarnings("unused")
-public interface EntityListIterator extends ListIterator<EntityValue> {
+public interface EntityListIterator extends ListIterator<EntityValue>, AutoCloseable {
 
     /** Close the underlying ResultSet and Connection. This must ALWAYS be called when done with an EntityListIterator. */
     void close() throws EntityException;

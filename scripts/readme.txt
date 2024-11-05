@@ -1,0 +1,1 @@
+Create your own config.bat with path to custom Java 11 JDK

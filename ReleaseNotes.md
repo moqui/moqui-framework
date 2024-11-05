@@ -1,31 +1,70 @@
 
+
 # Moqui Framework Release Notes
 
-## Release 3.0.0 - Not Yet Released
+## Release 3.1.0 - Not Yet Released
 
-Moqui Framework 3.0.0 is a major new feature and bug fix release.
+Moqui Framework 3.1.0 is a minor new feature and bug fix release with no changes that are not backward compatible.
 
-In this release the old moqui-elasticsearch component with embedded ElasticSearch is no longer supported. Instead the new
-ElasticFacade is included in the framework as a client to an external ElasticSearch instance which can be installed in
-runtime/elasticsearch and automatically started/stopped in a separate process by the MoquiStart class (executable WAR, not when
-WAR file dropped into Servlet container).
+### New Features
 
-For a complete list of changes see:
+- Updated Docker Compose files to use more recent recommended configurations, and scripts to use 'docker compose' for
+  the Docker Compose Plugin instead of 'docker-compose' for the old separate package
+- Entity Datasource implementation for Elastic/OpenSearch using the ElasticFacade
+  - supports CrUD operations, filtered finds, and large find result handling with a paginating EntityListIterator
+  - does not currently support view entities as Elastic/OpenSearch do not support any sort of joins; some view entity
+    support may be added for single-member view entities, or perhaps multi-member with nested documents in some way
+  - intended primarily for logging type data with the ArtifactHit as the main test case, which can now be put in the 
+    new `logging` entity group to put ArtifactHit data in Elastic/OpenSearch instead of the transactional database
+
+## Release 3.0.0 - 31 May 2022
+
+Moqui Framework 3.0.0 is a major new feature and bug fix release with some changes that are not backward compatible.
+
+Java 11 is now the minimum Java version required. For development and deployment make sure Java 11 is installed
+(such as openjdk-11-jdk or adoptopenjdk-11-openj9 on Linux), active (on Linux use 'sudo update-alternatives --config java'),
+and that JAVA_HOME is set to the Java 11 JDK install path (for openjdk-11-jdk on Linux: /usr/lib/jvm/java-11-openjdk-amd64).
+
+In this release the old moqui-elasticsearch component with embedded ElasticSearch is no longer supported. Instead, the new
+ElasticFacade is included in the framework as a client to an external OpenSearch or ElasticSearch instance which can be 
+installed in runtime/opensearch or runtime/elasticsearch and automatically started/stopped in a separate process by the
+MoquiStart class (executable WAR, not when WAR file dropped into Servlet container).
+
+For search the recommended versions for this release are OpenSearch 1.3.1 (https://opensearch.org/) or ElasticSearch 7.10.2.
+For ElasticSearch this is the last version released under the Apache 2.0 license).
+
+Now that JavaScript/CSS minify and certain other issues with tools have been resolved, Gradle 7+ is supported.   
+
+This is a brief summary of the changes since the last release, for a complete list see the commit log:
 
 https://github.com/moqui/moqui-framework/compare/v2.1.3...v3.0.0
 
 ### Non Backward Compatible Changes
 
+- Java 11 is now required, updated from Java 8
+- Updated Spock to 2.1 and with that update now using JUnit Platform and JUnit 5 (Jupiter); with this update old JUnit 4
+  test annotations and such are supported, but JUnit 4 TestSuite implementations need to be updated to use the new 
+  JUnit Platform and Jupiter annotations
 - Library updates have been done that conflict with ElasticSearch making it impossible to run embedded
 - XMLRPC support had been partly removed years ago, is now completely removed
-- CUPS4J library no longer included in moqui-framework
+- CUPS4J library no longer included in moqui-framework, use the moqui-cups component to add this functionality
 - Network printing services (org.moqui.impl.PrintServices) are now mostly placeholders that return error messages if used, CUPS4J
-  library and services that depend on it are now in the moqui-cups tool component 
+  library and services that depend on it are now in the moqui-cups tool component
+- H2 has non-backward compatible changes, including VALUE now being a reserved word; the Moqui Conf XML file now supports
+  per-database entity and field name substitution to handle this and similar future issues; the main issue this cannot
+  solve is with older H2 database files that have columns named VALUE, these may need to be changes to THE_VALUE using
+  an older version of H2 before updating (this is less common as H2 databases are not generally retained long-term) 
 
 ### New Features
 
-- Recommended Gradle version is 5.6.4 (at least Gradle 5+ but not Gradle 6+ for compatibility with current plugins)
-- Java versions 8 and 11 supported (compiles to Java 8 bytecode by default, does not use any Java 11 language constructs or API)
+- Recommended Gradle version is 7+ with updates to support the latest versions of Gradle
+- Updated Jetty to version 10 (which requires Java 11 or later)
+- MFA support for login and update password in screens and REST API with factors including authc code by email and SMS, 
+  TOTP code (via authenticator app), backup codes; can set a flag on UserGroup to require second factor for all users in
+  the group, and if any user has any additional factor enable then a second factor will be required
+- Various security updates including vulnerabilities in 3rd party libraries (including Log4j, Jackson, Shiro, Jetty), 
+  and some in Moqui itself including XSS vulnerabilities in certain error cases and other framework generated 
+  messages/responses based on testing with OWASP Zap and two commercial third party reviews (done by larger Moqui users)
 - Optimization for startup-add-missing to get meta data for all tables and columns instead of per entity for much faster startup
   when enabled; default for runtime-add-missing is now 'false' and startup-add-missing is now 'true' for all DBs including H2
 - View Entity find improvements
@@ -34,6 +73,17 @@ https://github.com/moqui/moqui-framework/compare/v2.1.3...v3.0.0
     sub-select is commonly used in view entities
   - entity find SQL improvements for view entities where a member entity links to another member-entity with a function on a join field
   - support entity-condition in view-entity used as a sub-select, was being ignored before
+- Improvements to DataDocument generation for a DataFeed to handle very large database tables to feed to ES or elsewhere,
+  including chunking and excluding service parameters from the per ExecutionContext instance service call history  
+- DataFeed and DataDocument support for manual delete of documents and automatic delete on primary entity record delete
+- Scheduled screen render to send regular reports to users by email (simple email with CSV or XSLT attachment) using 
+  saved finds on any form-list based screen
+- For entity field encryption default to PBEWithHmacSHA256AndAES_128 instead of PBEWithMD5AndDES, and add configuration
+  options for old field encrypt settings (algo, key, etc) to support changing settings, with a service to re-encrypt all 
+  encrypted fields on all records, or can re-encrypt only when data is touched (as long as all old settings are retained,
+  the framework will attempt decrypt with each)
+- Groovy Shell screen added to the Tools app (with special permission), an interactive Groovy Console for testing in 
+  various environments and for fixing certain production issues
 
 ### Bug Fixes
 

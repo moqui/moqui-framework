@@ -19,6 +19,7 @@ import org.moqui.entity.EntityException;
 import org.moqui.impl.entity.*;
 import org.moqui.impl.entity.EntityJavaUtil.EntityConditionParameter;
 
+import org.moqui.util.CollectionUtilities;
 import org.moqui.util.MNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -110,11 +111,15 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
                     operator, fi, curEd.groupName, EntityConditionFactoryImpl.getComparisonOperatorString(operator)
             );
             sql.append(operatorStr);
-            if (operator == IN || operator == NOT_IN) {
+            // for IN/BETWEEN change string to collection
+            if (operator == IN || operator == NOT_IN || operator == BETWEEN || operator == NOT_BETWEEN)
+                // @todo - CHECK IF IS CORRECT TO USE
+                // value = valueToCollection(value);
                 if (value instanceof CharSequence) {
                     String valueStr = value.toString();
                     if (valueStr.contains(",")) value = Arrays.asList(valueStr.split(","));
                 }
+            if (operator == IN || operator == NOT_IN) {
                 if (value instanceof Collection) {
                     sql.append(" (");
                     boolean isFirst = true;
@@ -150,6 +155,118 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
         }
 
         this.sqlAppended = StringUtils.difference(sqlAtStart, sql.toString());
+    }
+    Object valueToCollection(Object value) {
+        if (value instanceof CharSequence) {
+            String valueStr = value.toString();
+            // note: used to do this, now always put in List: if (valueStr.contains(","))
+            value = Arrays.asList(valueStr.split(","));
+        }
+        // TODO: any other useful types to convert?
+        return value;
+    }
+    @Override
+    public void makeSearchFilter(List<Map<String, Object>> filterList) {
+        boolean isNot = false;
+        switch (operator) {
+            case NOT_EQUAL:
+                isNot = true;
+            case EQUALS:
+                Map<String, Object> termMap = CollectionUtilities.toHashMap("term",
+                    CollectionUtilities.toHashMap(field.fieldName,
+                        CollectionUtilities.toHashMap("value", value, "case_insensitive", ignoreCase)));
+                if (isNot) {
+                    filterList.add(CollectionUtilities.toHashMap("bool",
+                            CollectionUtilities.toHashMap("must_not", termMap)));
+                } else {
+                    filterList.add(termMap);
+                }
+                break;
+            case NOT_IN:
+                isNot = true;
+            case IN:
+                value = valueToCollection(value);
+                Map<String, Object> termsMap = CollectionUtilities.toHashMap("terms",
+                    CollectionUtilities.toHashMap(field.fieldName, value));
+                if (isNot) {
+                    filterList.add(CollectionUtilities.toHashMap("bool",
+                            CollectionUtilities.toHashMap("must_not", termsMap)));
+                } else {
+                    filterList.add(termsMap);
+                }
+                break;
+            case NOT_LIKE:
+                isNot = true;
+            case LIKE:
+                // this won't be quite the same as SQL, but close:
+                // - % => * same, zero to many of any char
+                // - _ => ? not same, _ is one of any char while ? is zero to one of any char
+                if (value instanceof CharSequence) {
+                    String valueStr = value.toString();
+                    valueStr = valueStr.replaceAll("%", "*");
+                    valueStr = valueStr.replaceAll("_", "?");
+                    value = valueStr;
+                }
+                Map<String, Object> wildcardMap = CollectionUtilities.toHashMap("wildcard",
+                    CollectionUtilities.toHashMap(field.fieldName,
+                        CollectionUtilities.toHashMap("value", value)));
+                if (isNot) {
+                    filterList.add(CollectionUtilities.toHashMap("bool",
+                            CollectionUtilities.toHashMap("must_not", wildcardMap)));
+                } else {
+                    filterList.add(wildcardMap);
+                }
+                break;
+            case NOT_BETWEEN:
+                isNot = true;
+            case BETWEEN:
+                value = valueToCollection(value);
+                if (value instanceof Collection && ((Collection) value).size() == 2) {
+                    Iterator iterator = ((Collection) value).iterator();
+                    Object value1 = iterator.next();
+                    Object value2 = iterator.next();
+
+                    Map<String, Object> rangeMap = CollectionUtilities.toHashMap("range",
+                        CollectionUtilities.toHashMap(field.fieldName,
+                            CollectionUtilities.toHashMap("gte", value1, "lte", value2)));
+                    if (isNot) {
+                        filterList.add(CollectionUtilities.toHashMap("bool",
+                                CollectionUtilities.toHashMap("must_not", rangeMap)));
+                    } else {
+                        filterList.add(rangeMap);
+                    }
+                } else {
+                    throw new IllegalArgumentException("BETWEEN requires a Collection type value with 2 entries");
+                }
+                break;
+            case IS_NULL:
+                filterList.add(CollectionUtilities.toHashMap("bool",
+                    CollectionUtilities.toHashMap("must_not",
+                        CollectionUtilities.toHashMap("exists",
+                            CollectionUtilities.toHashMap("field", field.fieldName)))));
+                break;
+            case IS_NOT_NULL:
+                filterList.add(CollectionUtilities.toHashMap("exists",
+                    CollectionUtilities.toHashMap("field", field.fieldName)));
+                break;
+            case LESS_THAN:
+            case LESS_THAN_EQUAL_TO:
+            case GREATER_THAN:
+            case GREATER_THAN_EQUAL_TO:
+                filterList.add(CollectionUtilities.toHashMap("range",
+                    CollectionUtilities.toHashMap(field.fieldName,
+                        CollectionUtilities.toHashMap(getElasticOperator(), value))));
+                break;
+        }
+    }
+    String getElasticOperator() {
+        switch (operator) {
+            case LESS_THAN: return "lt";
+            case LESS_THAN_EQUAL_TO: return "lte";
+            case GREATER_THAN: return "gt";
+            case GREATER_THAN_EQUAL_TO: return "gte";
+            default: return null;
+        }
     }
 
     @Override

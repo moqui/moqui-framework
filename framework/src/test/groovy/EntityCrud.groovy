@@ -48,7 +48,9 @@ class EntityCrud extends Specification {
 
     def "create and find TestEntity CRDTST1"() {
         when:
-        ec.entity.makeValue("moqui.test.TestEntity").setAll([testId:"CRDTST1", testMedium:"Test Name"]).create()
+        ec.entity.makeValue("moqui.test.TestEntity")
+                .setAll([testId:"CRDTST1", testMedium:"Test Name", lastUpdatedStamp:ec.user.nowTimestamp])
+                .create()
         EntityValue testEntity = ec.entity.find("moqui.test.TestEntity").condition("testId", "CRDTST1").one()
 
         then:

@@ -182,29 +182,23 @@ class EntityDataDocument {
 
             entityDef = dynamicView.makeEntityDefinition()
         }
-
         String makeDocId(EntityValue ev) {
-            return makeDocId(ev, primaryPkFieldNames)
-        }
-    }
-
-    static String makeDocId(EntityValue ev, ArrayList<String> primaryPkFieldNames) {
-        int primaryPkFieldNamesSize = primaryPkFieldNames.size()
-        if (primaryPkFieldNamesSize == 1) {
-            // optimization for common simple case
-            String pkFieldName = (String) primaryPkFieldNames.get(0)
-            Object pkFieldValue = ev.getNoCheckSimple(pkFieldName)
-            return ObjectUtilities.toPlainString(pkFieldValue)
-        } else {
-            StringBuilder pkCombinedSb = new StringBuilder()
-            for (int pki = 0; pki < primaryPkFieldNamesSize; pki++) {
-                String pkFieldName = (String) primaryPkFieldNames.get(pki)
-                // don't do this, always use full PK even if not all aliased in doc, probably a bad DataDocument definition: if (!fieldAliasPathMap.containsKey(pkFieldName)) continue
-                if (pkCombinedSb.length() > 0) pkCombinedSb.append("::")
+            if (primaryPkFieldNamesSize == 1) {
+                // optimization for common simple case
+                String pkFieldName = (String) primaryPkFieldNames.get(0)
                 Object pkFieldValue = ev.getNoCheckSimple(pkFieldName)
-                pkCombinedSb.append(ObjectUtilities.toPlainString(pkFieldValue))
+                return ObjectUtilities.toPlainString(pkFieldValue)
+            } else {
+                StringBuilder pkCombinedSb = new StringBuilder()
+                for (int pki = 0; pki < primaryPkFieldNamesSize; pki++) {
+                    String pkFieldName = (String) primaryPkFieldNames.get(pki)
+                    // don't do this, always use full PK even if not all aliased in doc, probably a bad DataDocument definition: if (!fieldAliasPathMap.containsKey(pkFieldName)) continue
+                    if (pkCombinedSb.length() > 0) pkCombinedSb.append("::")
+                    Object pkFieldValue = ev.getNoCheckSimple(pkFieldName)
+                    pkCombinedSb.append(ObjectUtilities.toPlainString(pkFieldValue))
+                }
+                return pkCombinedSb.toString()
             }
-            return pkCombinedSb.toString()
         }
     }
 
@@ -307,8 +301,7 @@ class EntityDataDocument {
         // do the one big query
         String lastDocId = null
         int docCount = 0
-        EntityListIterator mainEli = mainFind.iterator()
-        try {
+        try (EntityListIterator mainEli = mainFind.iterator()) {
             logger.info("Feed dataDocumentId ${dataDocumentId} query complete (cursor opened) in ${System.currentTimeMillis() - startTimeMillis}ms")
             EntityValue ev
             while ((ev = (EntityValue) mainEli.next()) != null) {
@@ -351,7 +344,6 @@ class EntityDataDocument {
                 efi.ecfi.serviceFacade.sync().name(feedReceiveServiceName).parameter("documentList", documentMapList).call()
             }
         } finally {
-            mainEli.close()
             logger.info("Feed dataDocumentId ${dataDocumentId} feed complete and cursor closed in ${System.currentTimeMillis() - startTimeMillis}ms")
         }
 
@@ -372,16 +364,14 @@ class EntityDataDocument {
         ArrayList<Map> documentMapList = ddi.hasAllPrimaryPks ? null : new ArrayList<Map>()
 
         // do the one big query
-        EntityListIterator mainEli = mainFind.iterator()
-        try {
+
+        mainFind.iterator().withCloseable ({mainEli->
             EntityValue ev
             while ((ev = (EntityValue) mainEli.next()) != null) {
                 // logger.warn("=========== DataDocument query result for ${dataDocumentId}: ${ev}")
                 mergeValueToDocMap(ev, ddi, documentMapMap, documentMapList, docTsString)
             }
-        } finally {
-            mainEli.close()
-        }
+        })
 
         // make the actual list and return it
         if (ddi.hasAllPrimaryPks) {
@@ -405,6 +395,7 @@ class EntityDataDocument {
           - nested List of Maps for each related entity with aliased fields with relationship name as key
          */
         String docId = ddi.makeDocId(ev)
+        // logger.warn("DataDoc record PKs string: " + docId)
         Map<String, Object> docMap = ddi.hasAllPrimaryPks ? ((Map<String, Object>) documentMapMap.get(docId)) : (Map<String, Object>) null
         if (docMap == null) {
             // add special entries

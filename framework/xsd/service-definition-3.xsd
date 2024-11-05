@@ -1,0 +1,435 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+    <xs:include schemaLocation="common-types-3.xsd"/>
+    <xs:include schemaLocation="xml-actions-3.xsd"/>
+
+    <!-- root element -->
+    <xs:element name="services">
+        <xs:complexType>
+            <xs:choice minOccurs="0" maxOccurs="unbounded">
+                <xs:element ref="service-include"/>
+                <xs:element ref="service"/>
+            </xs:choice>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="service-include">
+        <xs:complexType>
+            <xs:attribute name="verb" type="name-field" use="required"/>
+            <xs:attribute name="noun" type="name-upper"/>
+            <xs:attribute name="location" type="xs:string" use="required"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="service">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="description"/>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="implements"/>
+                <xs:element minOccurs="0" ref="in-parameters"/>
+                <xs:element minOccurs="0" ref="out-parameters"/>
+                <xs:element minOccurs="0" ref="actions"/>
+            </xs:sequence>
+            <xs:attribute name="verb" type="name-field" use="required">
+                <xs:annotation><xs:documentation>
+                    This can be any verb, and will often be one of: create, update, store, delete, or find. The full name of
+                    the service will be: "${path}.${verb}#${noun}". The verb is required and the noun is optional so if
+                    there is no noun the service name will be just the verb.
+                </xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="noun" type="name-upper" use="optional">
+                <xs:annotation><xs:documentation>
+                    For entity-auto services this should be a valid entity name. In many other cases an entity name is
+                    the best way to describe what is being acted on, but this can really be anything.
+                </xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="displayName" type="xs:string" use="optional"/>
+            <xs:attribute name="type" default="inline">
+                <xs:annotation><xs:documentation>
+                    The service type specifies how the service is implemented. Additional types can be added by
+                    implementing the org.moqui.impl.service.ServiceRunner interface and adding an
+                    service-facade.service-type element in the Moqui Conf XML file. The default value is inline
+                    meaning the service implementation is under the service.actions element.
+                </xs:documentation></xs:annotation>
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <xs:enumeration value="inline"/>
+                        <xs:enumeration value="entity-auto"/>
+                        <xs:enumeration value="script"/>
+                        <xs:enumeration value="java"/>
+                        <xs:enumeration value="interface"/>
+                        <xs:enumeration value="remote-json-rpc"/>
+                        <xs:enumeration value="remote-rest"/>
+                        <xs:enumeration value="camel"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="location" type="xs:string" use="optional">
+                <xs:annotation><xs:documentation>The location of the service. For scripts this is the Resource Facade
+                    location of the file. For Java class methods this is the full class name. For remote services this
+                    is the URL of the remote service. Instead of an actual location can also refer to a pre-defined
+                    location from the service-facade.service-location element in the Moqui Conf XML file. This is
+                    especially useful for remote service URLs.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="method" type="xs:string" use="optional">
+                <xs:annotation><xs:documentation>The method within the location, if applicable to the service type.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="authenticate" default="true">
+                <xs:annotation><xs:documentation>
+                    If not set to false (true by default) a user must be logged in to run this service. If the
+                    service is running in an ExecutionContext with a user logged in that will qualify. If not then
+                    either a "authUserAccount" parameter or the "authUsername" AND "authPassword" parameters must be
+                    specified and must contain valid values for a user of the system.
+
+                    If the "authUserAccount" parameter or the "authUsername" AND "authPassword" parameters are passed
+                    in they will be used for the service call even if a user is logged in to the ExecutionContext that
+                    the service is running in.
+
+                    If set to anonymous-all or anonymous-view then not only will authentication not be required, but this
+                    service will run as if authorized (using the _NA_ UserAccount) for all actions or for view-only.
+                </xs:documentation></xs:annotation>
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <xs:enumeration value="true"/>
+                        <xs:enumeration value="false"/>
+                        <xs:enumeration value="anonymous-all"/>
+                        <xs:enumeration value="anonymous-view"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="authz-action">
+                <xs:annotation><xs:documentation>
+                    The authz action to use when checking authorization for this service (using ArtifactAuthz records).
+                    If not specified defaults to all unless the verb corresponds to an authz action.
+                </xs:documentation></xs:annotation>
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <xs:enumeration value="view"/>
+                        <xs:enumeration value="create"/>
+                        <xs:enumeration value="update"/>
+                        <xs:enumeration value="delete"/>
+                        <xs:enumeration value="all"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="allow-remote" type="boolean" default="false">
+                <xs:annotation><xs:documentation>Defaults to false meaning this service cannot be called through remote
+                    interfaces such as JSON-RPC and XML-RPC. If set to true it can be. Before settings to true make sure
+                    the service is adequately secured (for authentication and authorization).</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="validate" type="boolean" default="true">
+                <xs:annotation><xs:documentation>Defaults to true. Set to false to not validate input parameters, and
+                    not automatically remove unspecified parameters.</xs:documentation></xs:annotation>
+            </xs:attribute>
+
+            <xs:attribute name="no-remember-parameters" type="boolean" default="false">
+                <xs:annotation><xs:documentation>
+                    If true do not remember parameters in ArtifactExecutionFacade history and stack, important for service calls
+                    with large parameters that should be de-referenced for GC before ExecutionContext is destroyed.
+
+                    Note that this attribute can be used on interface service definitions (service.@type=interface) and if true
+                    will be cause all services that implement the interface to have this set to true to disable parameter remember.
+                </xs:documentation></xs:annotation>
+            </xs:attribute>
+
+            <xs:attribute name="transaction" default="use-or-begin" type="transaction-options"/>
+            <xs:attribute name="transaction-timeout" type="xs:int">
+                <xs:annotation><xs:documentation>
+                    The timeout for the transaction, in seconds. Defaults to global transaction timeout default (usually 60s).
+                    This value is only used if this service begins a transaction (force-new, force-cache, or
+                    use-or-begin or cache and there is no other transaction already in place).
+                </xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="no-tx-cache" type="boolean" default="false"><xs:annotation><xs:documentation>
+                If true and a TransactionCache is active flush and remove it before calling the service.</xs:documentation></xs:annotation></xs:attribute>
+
+            <!-- not supported by Atomikos/etc right now, consider for later:
+            <xs:attribute name="transaction-isolation" type="isolation-level" use="optional">
+                <xs:annotation><xs:documentation>
+                    The transaction isolation level to use if a transaction is begun when calling this service.
+                </xs:documentation></xs:annotation>
+            </xs:attribute>
+            -->
+            <!-- Tabled for now, not to be part of 1.0: <xs:attribute name="max-retry" type="xs:int" default="-1"/> -->
+            <xs:attribute name="semaphore" default="none">
+                <xs:annotation><xs:documentation>
+                    Intended for use in long-running services (usually scheduled). This uses a record in the database
+                    to "lock" the service so that only one instance of it can run against a given database at any
+                    given time.
+                </xs:documentation></xs:annotation>
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <xs:enumeration value="none"/>
+                        <xs:enumeration value="fail"/>
+                        <xs:enumeration value="wait"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="semaphore-name" type="xs:string">
+                <xs:annotation><xs:documentation>Defaults to the service name, use the same name on multiple services to share a semaphore</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="semaphore-timeout" type="xs:int" default="120">
+                <xs:annotation><xs:documentation>When waiting how long before timing out, in seconds. Defaults to 120s.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="semaphore-sleep" type="xs:int" default="5">
+                <xs:annotation><xs:documentation>When waiting how long to sleep between checking the semaphore, in seconds. Defaults to 5s.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="semaphore-ignore" type="xs:int" default="3600">
+                <xs:annotation><xs:documentation>Ignore existing semaphores after this time, in seconds. Defaults to 3600s (1 hour).</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="semaphore-parameter" type="xs:string">
+                <xs:annotation><xs:documentation>
+                    The name of a parameter to use for distinct semaphores for the same services.
+                    The parameter should be required in the service, though a single null semaphore is supported.
+                    This should not be used for IDs of transactional records, better to lock directly on those records (find with for update).
+                </xs:documentation></xs:annotation>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="in-parameters">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:choice minOccurs="0" maxOccurs="unbounded">
+                    <xs:element ref="auto-parameters"/>
+                    <xs:element ref="parameter"/>
+                </xs:choice>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="out-parameters">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:choice minOccurs="0" maxOccurs="unbounded">
+                    <xs:element ref="auto-parameters"/>
+                    <xs:element ref="parameter"/>
+                </xs:choice>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="implements">
+        <xs:complexType>
+            <xs:attribute name="service" type="xs:string" use="required"/>
+            <xs:attribute name="required" type="boolean" use="optional">
+                <xs:annotation><xs:documentation>If set to true or false all parameters inherited have that value for
+                    the required attribute.</xs:documentation></xs:annotation>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="auto-parameters">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="exclude" minOccurs="0" maxOccurs="unbounded"><xs:complexType>
+                    <xs:attribute name="field-name" type="name-field" use="required"/></xs:complexType></xs:element>
+            </xs:sequence>
+            <xs:attribute name="entity-name" type="name-full"/>
+            <xs:attribute name="include" default="all">
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <xs:enumeration value="pk"/>
+                        <xs:enumeration value="nonpk"/>
+                        <xs:enumeration value="all"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+            <xs:attributeGroup ref="attlist.parameter-general"/>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="ParameterValidations" abstract="true"/>
+    <xs:element name="parameter">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" ref="description"/>
+                <xs:choice minOccurs="0" maxOccurs="unbounded">
+                    <xs:element ref="auto-parameters"/>
+                    <xs:element ref="parameter">
+                        <xs:annotation><xs:documentation>Nested parameters are for List, Map, Node, etc type parameters.</xs:documentation></xs:annotation>
+                    </xs:element>
+                </xs:choice>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="ParameterValidations">
+                    <xs:annotation><xs:documentation>To override the default message for each just add the message
+                        inside the element.</xs:documentation></xs:annotation>
+                </xs:element>
+            </xs:sequence>
+            <xs:attribute name="name" type="name-parameter" use="required">
+                <xs:annotation><xs:documentation>The name of the parameter, matches against the key of an entry in the
+                    parameters Map passed into or returned from the service.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="type" type="xs:string" default="String">
+                <xs:annotation><xs:documentation>The type of the attribute, a full Java class name or one of the common
+                    Java API classes (including String, Timestamp, Time, Date, Integer, Long, Float, Double, BigDecimal,
+                    BigInteger, Boolean, Object, Blob, Clob, Collection, List, Map, Set, Node).</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="format" type="xs:string">
+                <xs:annotation><xs:documentation>
+                    Used only when the parameter is passed in as a String but the type is
+                    something other than String to convert to that type.
+
+                    For date/time uses standard Java format strings described here:
+                    http://download.oracle.com/javase/6/docs/api/java/text/SimpleDateFormat.html
+                </xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="default" type="xs:string">
+                <xs:annotation><xs:documentation>The field or expression specified will be used for the parameter if
+                    no value is passed in (only used if required=false). Like default-value but is an field name or
+                    expression instead of a text value. If both this and default-value are specified this will be
+                    evaluated first and only if empty will default-value be used.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="default-value" type="xs:string">
+                <xs:annotation><xs:documentation>The text value specified will be used for the parameter if no value is
+                    passed in (only used if required=false). If both this and default are specified default will be
+                    evaluated first and this will only be used if default evaluates to an empty value.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="entity-name" type="name-full">
+                <xs:annotation><xs:documentation>Optional name of an entity with a field that this parameter is
+                    associated with.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="field-name" type="name-field">
+                <xs:annotation><xs:documentation>Optional field name within the named entity that this parameter is
+                    associated with. Most useful for form fields defined automatically from the service parameter.
+                    This is automatically populated when parameters are defined automatically with the auto-parameters
+                    element.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attributeGroup ref="attlist.parameter-general"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:attributeGroup name="attlist.parameter-general">
+        <xs:attribute name="required" default="false">
+            <xs:simpleType>
+                <xs:restriction base="xs:token">
+                    <xs:enumeration value="true"/>
+                    <xs:enumeration value="false"/>
+                    <xs:enumeration value="disabled">
+                        <xs:annotation><xs:documentation>Behave the same as if the parameter did not exist, useful when
+                            overriding a previously defined parameter.</xs:documentation></xs:annotation>
+                    </xs:enumeration>
+                </xs:restriction>
+            </xs:simpleType>
+        </xs:attribute>
+        <xs:attribute name="allow-html" default="none">
+            <xs:annotation><xs:documentation>
+                Applies only to String fields. Only checked for incoming parameters (meant for validating input from
+                users, other systems, etc). Defaults to "none" meaning no HTML is allowed (will result in an error
+                message).
+
+                If some HTML is desired then use "safe" which will follow the rules in the antisamy-esapi.xml file.
+                This should be safe for both internal and public users.
+
+                In rare cases when users are trusted or it is not a sensitive field the "any" option may be used to not
+                check the HTML content at all.
+            </xs:documentation></xs:annotation>
+            <xs:simpleType>
+                <xs:restriction base="xs:token">
+                    <xs:enumeration value="any"/>
+                    <xs:enumeration value="safe"/>
+                    <xs:enumeration value="none"/>
+                </xs:restriction>
+            </xs:simpleType>
+        </xs:attribute>
+    </xs:attributeGroup>
+
+    <xs:element name="val-or" substitutionGroup="ParameterValidations">
+        <xs:complexType>
+            <xs:sequence><xs:element minOccurs="0" maxOccurs="unbounded" ref="ParameterValidations"/></xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="val-and" substitutionGroup="ParameterValidations">
+        <xs:complexType>
+            <xs:sequence><xs:element minOccurs="0" maxOccurs="unbounded" ref="ParameterValidations"/></xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="val-not" substitutionGroup="ParameterValidations">
+        <xs:complexType>
+            <xs:sequence><xs:element minOccurs="0" maxOccurs="unbounded" ref="ParameterValidations"/></xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="matches" substitutionGroup="ParameterValidations">
+        <xs:annotation><xs:documentation>Validate the current parameter against the regular expression specified in the
+            regexp attribute.</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:attribute name="regexp" type="xs:string" use="required"/>
+            <xs:attribute name="message" type="xs:string" use="required"/>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="number-range" substitutionGroup="ParameterValidations">
+        <xs:annotation><xs:documentation>Validate the number within the min and max range.</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:attribute name="min" type="xs:decimal">
+                <xs:annotation><xs:documentation>To pass number must be greater than or equal to this value.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="min-include-equals" type="boolean" default="true">
+                <xs:annotation><xs:documentation>Should the range include equal to the min number? Defaults to true.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="max" type="xs:decimal">
+                <xs:annotation><xs:documentation>To pass number must be less than this value.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="max-include-equals" type="boolean" default="false">
+                <xs:annotation><xs:documentation>Should the range include equal to the max number? Defaults to false (exclusive).</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="message" type="xs:string"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="number-integer" substitutionGroup="ParameterValidations"/>
+    <xs:element name="number-decimal" substitutionGroup="ParameterValidations"/>
+
+    <xs:element name="text-length" substitutionGroup="ParameterValidations">
+        <xs:annotation><xs:documentation>Validate that the length of the text is within the min and max range.</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:attribute name="min" type="xs:nonNegativeInteger"/>
+            <xs:attribute name="max" type="xs:nonNegativeInteger"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="text-email" substitutionGroup="ParameterValidations">
+        <xs:annotation><xs:documentation>Validate that the text is a valid email address.</xs:documentation></xs:annotation></xs:element>
+    <xs:element name="text-url" substitutionGroup="ParameterValidations">
+        <xs:annotation><xs:documentation>Validate that the text is a valid URL.</xs:documentation></xs:annotation></xs:element>
+    <xs:element name="text-letters" substitutionGroup="ParameterValidations">
+        <xs:annotation><xs:documentation>Validate that the text contains only letters.</xs:documentation></xs:annotation></xs:element>
+    <xs:element name="text-digits" substitutionGroup="ParameterValidations">
+        <xs:annotation><xs:documentation>Validate that the text contains only digits.</xs:documentation></xs:annotation></xs:element>
+
+    <xs:element name="time-range" substitutionGroup="ParameterValidations">
+        <xs:annotation><xs:documentation>Validate that the date/time is within the before and after range, using the specified format.</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:attribute name="after" type="xs:string"><xs:annotation><xs:documentation>Can be date/time string, or
+                "now" to compare to the current time.</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="before" type="xs:string"><xs:annotation><xs:documentation>Can be date/time string, or
+                "now" to compare to the current time.</xs:documentation></xs:annotation></xs:attribute>
+            <xs:attribute name="format" type="xs:string"><xs:annotation><xs:documentation>If the value is a String
+                instead of Date/Time/Timestamp, specify the format for conversion here.</xs:documentation></xs:annotation></xs:attribute>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="credit-card" substitutionGroup="ParameterValidations">
+        <xs:annotation><xs:documentation>Validate that the text is a valid credit card number using Luhn MOD-10 and if
+            specified for the given card types.</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:attribute name="types" type="xs:string">
+                <xs:annotation><xs:documentation>
+                    A comma-separated list of the types of credit card to allow. The available options include:
+                        visa,mastercard,amex,discover,dinersclub
+
+                    If empty defaults to allow any type of card (ie doesn't check the card type, just checks the number
+                    using the Luhn MOD-10 checksum).
+
+                    NOTE: removed with updated for Validator 1.4.0: enroute, jcb, solo, switch, visaelectron
+                </xs:documentation></xs:annotation>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+</xs:schema>

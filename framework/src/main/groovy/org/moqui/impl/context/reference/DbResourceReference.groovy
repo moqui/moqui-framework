@@ -39,7 +39,7 @@ class DbResourceReference extends BaseResourceReference {
     String resourceId = (String) null
 
     DbResourceReference() { }
-    
+
     @Override ResourceReference init(String location, ExecutionContextFactoryImpl ecf) {
         this.ecf = ecf
         this.location = location
@@ -97,7 +97,7 @@ class DbResourceReference extends BaseResourceReference {
 
         // allow parentResourceId to be null for the root
         EntityList childList = ecf.entity.find("moqui.resource.DbResource").condition([parentResourceId:dbr?.resourceId])
-                .orderBy("filename").useCache(true).list()
+                .orderBy("filename").useCache(true).disableAuthz().list()
         for (EntityValue child in childList) {
             String childLoc = getPath() ? "${location}/${child.filename}" : "${location}${child.filename}"
             dirEntries.add(new DbResourceReference().init(childLoc, child, ecf))
@@ -114,7 +114,7 @@ class DbResourceReference extends BaseResourceReference {
         if (dbr == null) return 0
         if ("Y".equals(dbr.isFile)) {
             EntityValue dbrf = ecf.entity.find("moqui.resource.DbResourceFile").condition("resourceId", resourceId)
-                    .selectField("lastUpdatedStamp").useCache(false).one()
+                    .selectField("lastUpdatedStamp").useCache(false).disableAuthz().one()
             if (dbrf != null) return dbrf.getTimestamp("lastUpdatedStamp").getTime()
         }
         return dbr.getTimestamp("lastUpdatedStamp").getTime()
@@ -140,6 +140,9 @@ class DbResourceReference extends BaseResourceReference {
         SerialBlob sblob = new SerialBlob(baos.toByteArray())
         this.putObject(sblob)
     }
+    @Override void putBytes(byte[] bytes) {
+        this.putObject(new SerialBlob(bytes))
+    }
 
     protected void putObject(Object fileObj) {
         EntityValue dbrf = getDbResourceFile()
@@ -159,11 +162,11 @@ class DbResourceReference extends BaseResourceReference {
 
             // lock the parentResourceId
             ecf.entity.find("moqui.resource.DbResource").condition("resourceId", parentResourceId)
-                    .selectField("lastUpdatedStamp").forUpdate(true).one()
+                    .selectField("lastUpdatedStamp").forUpdate(true).disableAuthz().one()
             // do a query by name to see if it exists
             EntityValue existingValue = ecf.entity.find("moqui.resource.DbResource")
                     .condition("parentResourceId", parentResourceId).condition("filename", filename)
-                    .useCache(false).list().getFirst()
+                    .useCache(false).disableAuthz().list().getFirst()
             if (existingValue != null) {
                 resourceId = existingValue.resourceId
                 dbrf = getDbResourceFile()
@@ -171,34 +174,41 @@ class DbResourceReference extends BaseResourceReference {
             } else {
                 // now write the DbResource and DbResourceFile records
                 Map createDbrResult = ecf.service.sync().name("create", "moqui.resource.DbResource")
-                        .parameters([parentResourceId:parentResourceId, filename:filename, isFile:"Y"]).call()
+                        .parameters([parentResourceId:parentResourceId, filename:filename, isFile:"Y"])
+                        .disableAuthz().call()
                 resourceId = createDbrResult.resourceId
                 String versionName = "01"
                 ecf.service.sync().name("create", "moqui.resource.DbResourceFile")
                         .parameters([resourceId:resourceId, mimeType:getContentType(), versionName:versionName,
-                                     rootVersionName:versionName, fileData:fileObj]).call()
+                                     rootVersionName:versionName, fileData:fileObj])
+                        .disableAuthz().call()
                 ExecutionContextImpl eci = ecf.getEci()
+                // NOTE: no fileData, for non-diff only past versions
                 ecf.service.sync().name("create", "moqui.resource.DbResourceFileHistory")
-                        .parameters([resourceId:resourceId, versionDate:eci.userFacade.nowTimestamp, userId:eci.userFacade.userId,
-                                     isDiff:"N"]).call() // NOTE: no fileData, for non-diff only past versions
+                        .parameters([resourceId:resourceId, versionDate:eci.userFacade.nowTimestamp,
+                                     userId:eci.userFacade.userId, isDiff:"N"])
+                        .disableAuthz().call()
             }
         }
     }
     protected void makeNextVersion(EntityValue dbrf, Object newFileObj) {
         String currentVersionName = dbrf.versionName
         if (currentVersionName != null && !currentVersionName.isEmpty()) {
-            EntityValue currentDbrfHistory = ecf.entityFacade.find("moqui.resource.DbResourceFileHistory").condition("resourceId", resourceId)
-                    .condition("versionName", currentVersionName).useCache(false).one()
+            EntityValue currentDbrfHistory = ecf.entityFacade.find("moqui.resource.DbResourceFileHistory")
+                    .condition("resourceId", resourceId).condition("versionName", currentVersionName)
+                    .useCache(false).disableAuthz().one()
             if (currentDbrfHistory != null) {
                 currentDbrfHistory.set("fileData", dbrf.fileData)
                 currentDbrfHistory.update()
             }
         }
         ExecutionContextImpl eci = ecf.getEci()
+        // NOTE: no fileData, for non-diff only past versions
         Map createOut = ecf.service.sync().name("create", "moqui.resource.DbResourceFileHistory")
                 .parameters([resourceId:resourceId, previousVersionName:currentVersionName,
                              versionDate:eci.userFacade.nowTimestamp, userId:eci.userFacade.userId,
-                             isDiff:"N"]).call()  // NOTE: no fileData, for non-diff only past versions
+                             isDiff:"N"])
+                .disableAuthz().call()
         String newVersionName = createOut.versionName
         if (!dbrf.rootVersionName) dbrf.rootVersionName = currentVersionName ?: newVersionName
         dbrf.versionName = newVersionName
@@ -215,18 +225,19 @@ class DbResourceReference extends BaseResourceReference {
 
                 EntityValue directoryValue = ecf.entity.find("moqui.resource.DbResource")
                         .condition("parentResourceId", parentResourceId).condition("filename", filename)
-                        .useCache(true).list().getFirst()
+                        .useCache(true).disableAuthz().list().getFirst()
                 if (directoryValue == null) {
                     if (create) {
                         // trying a create so lock the parent, then query again to make sure it doesn't exist
                         ecf.entity.find("moqui.resource.DbResource").condition("resourceId", parentResourceId)
-                                .selectField("lastUpdatedStamp").forUpdate(true).one()
+                                .selectField("lastUpdatedStamp").forUpdate(true).disableAuthz().one()
                         directoryValue = ecf.entity.find("moqui.resource.DbResource")
                                 .condition("parentResourceId", parentResourceId).condition("filename", filename)
-                                .useCache(false).list().getFirst()
+                                .useCache(false).disableAuthz().list().getFirst()
                         if (directoryValue == null) {
                             Map createResult = ecf.service.sync().name("create", "moqui.resource.DbResource")
-                                    .parameters([parentResourceId:parentResourceId, filename:filename, isFile:"N"]).call()
+                                    .parameters([parentResourceId:parentResourceId, filename:filename, isFile:"N"])
+                                    .disableAuthz().call()
                             parentResourceId = createResult.resourceId
                             // logger.warn("=============== put text to ${location}, created dir ${filename}")
                         }
@@ -304,8 +315,9 @@ class DbResourceReference extends BaseResourceReference {
     @Override Version getVersion(String versionName) {
         String resourceId = getDbResourceId()
         if (resourceId == null) return null
-        return makeVersion(ecf.entityFacade.find("moqui.resource.DbResourceFileHistory").condition("resourceId", resourceId)
-                .condition("versionName", versionName).useCache(false).one())
+        return makeVersion(ecf.entityFacade.find("moqui.resource.DbResourceFileHistory")
+                .condition("resourceId", resourceId).condition("versionName", versionName)
+                .useCache(false).disableAuthz().one())
     }
     @Override Version getCurrentVersion() {
         EntityValue dbrf = getDbResourceFile()
@@ -321,7 +333,8 @@ class DbResourceReference extends BaseResourceReference {
         String resourceId = getDbResourceId()
         if (resourceId == null) return new ArrayList<>()
         EntityList dbrfHistoryList = ecf.entityFacade.find("moqui.resource.DbResourceFileHistory")
-                .condition("resourceId", resourceId).orderBy("-versionDate").useCache(false).list()
+                .condition("resourceId", resourceId).orderBy("-versionDate")
+                .useCache(false).disableAuthz().list()
         int dbrfHistorySize = dbrfHistoryList.size()
         ArrayList<Version> verList = new ArrayList<>(dbrfHistorySize)
         for (int i = 0; i < dbrfHistorySize; i++) {
@@ -334,7 +347,8 @@ class DbResourceReference extends BaseResourceReference {
         String resourceId = getDbResourceId()
         if (resourceId == null) return new ArrayList<>()
         EntityList dbrfHistoryList = ecf.entityFacade.find("moqui.resource.DbResourceFileHistory")
-                .condition("resourceId", resourceId).condition("previousVersionName", versionName).useCache(false).list()
+                .condition("resourceId", resourceId).condition("previousVersionName", versionName)
+                .useCache(false).disableAuthz().list()
         int dbrfHistorySize = dbrfHistoryList.size()
         ArrayList<Version> verList = new ArrayList<>(dbrfHistorySize)
         for (int i = 0; i < dbrfHistorySize; i++) {
@@ -377,8 +391,10 @@ class DbResourceReference extends BaseResourceReference {
         List<String> filenameList = new ArrayList<>(Arrays.asList(getPath().split("/")))
         String lastResourceId = null
         for (String filename in filenameList) {
-            EntityValue curDbr = ecf.entityFacade.find("moqui.resource.DbResource").condition("parentResourceId", lastResourceId)
-                    .condition("filename", filename).useCache(true).one()
+            EntityValue curDbr = ecf.entityFacade.find("moqui.resource.DbResource")
+                    .condition("parentResourceId", lastResourceId)
+                    .condition("filename", filename).useCache(true)
+                    .disableAuthz().one()
             if (curDbr == null) return null
             lastResourceId = curDbr.resourceId
         }
@@ -390,19 +406,19 @@ class DbResourceReference extends BaseResourceReference {
     EntityValue getDbResource(boolean useCache) {
         String resourceId = getDbResourceId()
         if (resourceId == null) return null
-        return ecf.entityFacade.fastFindOne("moqui.resource.DbResource", useCache, false, resourceId)
+        return ecf.entityFacade.fastFindOne("moqui.resource.DbResource", useCache, true, resourceId)
     }
     EntityValue getDbResourceFile() {
         String resourceId = getDbResourceId()
         if (resourceId == null) return null
         // don't cache this, can be big and will be cached below this as text if needed
-        return ecf.entityFacade.fastFindOne("moqui.resource.DbResourceFile", false, false, resourceId)
+        return ecf.entityFacade.fastFindOne("moqui.resource.DbResourceFile", false, true, resourceId)
     }
     EntityValue getDbResourceFileHistory(String versionName) {
         if (versionName == null) return null
         String resourceId = getDbResourceId()
         if (resourceId == null) return null
         // don't cache this, can be big and will be cached below this as text if needed
-        return ecf.entityFacade.fastFindOne("moqui.resource.DbResourceFileHistory", false, false, resourceId, versionName)
+        return ecf.entityFacade.fastFindOne("moqui.resource.DbResourceFileHistory", false, true, resourceId, versionName)
     }
 }

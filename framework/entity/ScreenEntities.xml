@@ -12,7 +12,7 @@ You should have received a copy of the CC0 Public Domain Dedication
 along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
-<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-2.1.xsd">
+<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-3.xsd">
     <!-- ========================================================= -->
     <!-- moqui.screen -->
     <!-- ========================================================= -->
@@ -140,6 +140,7 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.EnumerationType description="Screen Theme Resource Type" enumTypeId="ScreenThemeResourceType"/>
             <moqui.basic.Enumeration description="Style Sheet (CSS) URL" enumId="STRT_STYLESHEET" enumTypeId="ScreenThemeResourceType"/>
             <moqui.basic.Enumeration description="Script URL" enumId="STRT_SCRIPT" enumTypeId="ScreenThemeResourceType"/>
+            <moqui.basic.Enumeration description="Script Footer URL" enumId="STRT_SCRIPT_FOOTER" enumTypeId="ScreenThemeResourceType"/>
             <moqui.basic.Enumeration description="Shortcut Icon URL" enumId="STRT_SHORTCUT_ICON" enumTypeId="ScreenThemeResourceType"/>
             <moqui.basic.Enumeration description="Header Logo URL" enumId="STRT_HEADER_LOGO" enumTypeId="ScreenThemeResourceType"/>
             <moqui.basic.Enumeration description="Header Title" enumId="STRT_HEADER_TITLE" enumTypeId="ScreenThemeResourceType"/>
@@ -318,6 +319,8 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="DbFormField" package="moqui.screen.form" use="configuration">
         <field name="formId" type="id" is-pk="true"/>
         <field name="fieldName" type="text-medium" is-pk="true"/>
+        <field name="condition" type="text-medium">
+            <description>Only show this field if the condition evaluates to true (Groovy expression)</description></field>
         <field name="entryName" type="text-medium"/>
         <field name="title" type="text-medium"/>
         <field name="tooltip" type="text-medium"/>
@@ -326,7 +329,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="layoutSequenceNum" type="number-integer"/>
         <field name="isRequired" type="text-indicator"/>
 
-        <field name="printPageNumber" type="number-integer"><description>Defaults to 1, ie one page/section for all fields if nothing higher than 1 is specified.</description></field>
+        <field name="printPageNumber" type="number-integer">
+            <description>Defaults to 1, ie one page/section for all fields if nothing higher than 1 is specified.</description></field>
         <field name="printTop" type="text-short"/>
         <field name="printLeft" type="text-short"/>
         <field name="printBottom" type="text-short"/>

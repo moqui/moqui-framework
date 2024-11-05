@@ -13,8 +13,10 @@
  */
 package org.moqui.entity;
 
+import java.io.OutputStream;
 import java.io.Writer;
 import java.sql.Timestamp;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -27,10 +29,12 @@ public interface EntityDataWriter {
 
     FileType XML = FileType.XML;
     FileType JSON = FileType.JSON;
+    FileType CSV = FileType.CSV;
 
-    enum FileType { XML, JSON }
+    enum FileType { XML, JSON, CSV }
 
     EntityDataWriter fileType(FileType ft);
+    EntityDataWriter fileType(String ft);
 
     /** Specify the name of an entity to query and export. Data is queried and exporting from entities in the order they
      * are added by calling this or entityNames() multiple times.
@@ -38,14 +42,21 @@ public interface EntityDataWriter {
      * @return Reference to this for convenience.
      */
     EntityDataWriter entityName(String entityName);
-
     /** A List of entity names to query and export. Data is queried and exporting from entities in the order they are
      * specified in this list and other calls to this or entityName().
      * @param entityNames The list of entity names
      * @return Reference to this for convenience.
      */
-    EntityDataWriter entityNames(List<String> entityNames);
-    /** Write data from all entities. When set other entity names are excluded instead of included. */
+    EntityDataWriter entityNames(Collection<String> entityNames);
+
+    EntityDataWriter skipEntityName(String entityName);
+    EntityDataWriter skipEntityNames(Collection<String> enList);
+
+    /**
+     * Add all entities to entity names.
+     * For backward compatibility (before the skip entity names feature), if any entity names were specified before
+     * calling this they are excluded from all entities instead of included.
+     */
     EntityDataWriter allEntities();
 
     /** Should the dependent records of each record be written? If set will include 2 levels of dependents by default,
@@ -89,6 +100,11 @@ public interface EntityDataWriter {
      */
     EntityDataWriter thruDate(Timestamp thruDate);
 
+    /** Write Date, Time, and Timestamp fields in ISO format instead of millis since epoch integer; currently only supported for CSV */
+    EntityDataWriter isoDateTime(boolean iso);
+    /** Write table and column names instead of entity and field names; currently only supported for CSV */
+    EntityDataWriter tableColumnNames(boolean tcn);
+
     /** Write all results to a single file.
      * @param filename The path and name of the file to write values to
      * @return Count of values written
@@ -100,7 +116,10 @@ public interface EntityDataWriter {
      * @return Count of values written
      */
     int directory(String path);
+    /** Write to a directory in a zip file located at zipFilename */
     int zipDirectory(String pathWithinZip, String zipFilename);
+    /** Write to a directory in a zip file in an OutputStream; NOTE: closes OutputStream when done */
+    int zipDirectory(String pathWithinZip, OutputStream outputStream);
     /** Write the results to a Writer.
      * @param writer The Writer to write to
      * @return Count of values written

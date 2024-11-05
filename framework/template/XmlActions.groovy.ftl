@@ -15,6 +15,8 @@ import static org.moqui.util.ObjectUtilities.*
 import static org.moqui.util.CollectionUtilities.*
 import static org.moqui.util.StringUtilities.*
 import java.sql.Timestamp
+import java.sql.Time
+import java.time.*
 // these are in the context by default: ExecutionContext ec, Map<String, Object> context, Map<String, Object> result
 <#visit xmlActionsRoot/>
 
@@ -47,6 +49,7 @@ return;
     if (true) {
         <#if handleResult>def call_service_result = </#if>ec.service.<#if isAsync>async()<#else>sync()</#if><#rt>
             <#t>.name("${.node.@name}")<#if .node["@async"]?if_exists == "distribute">.distribute(true)</#if>
+            <#t><#if !isAsync && .node["@disable-authz"]?if_exists == "true">.disableAuthz()</#if>
             <#t><#if !isAsync && .node["@multi"]?if_exists == "true">.multi(true)</#if><#if !isAsync && .node["@multi"]?if_exists == "parameter">.multi(ec.web?.requestParameters?._isMulti == "true")</#if>
             <#t><#if !isAsync && .node["@transaction"]?has_content><#if .node["@transaction"] == "ignore">.ignoreTransaction(true)<#elseif .node["@transaction"] == "force-new" || .node["@transaction"] == "force-cache">.requireNewTransaction(true)</#if>
             <#t><#if !isAsync && .node["@transaction-timeout"]?has_content>.transactionTimeout(${.node["@transaction-timeout"]})</#if>
@@ -191,8 +194,25 @@ ${.node}
     </#if>
 </#macro>
 <#macro "entity-find-count">
-    ${.node["@count-field"]} = ec.entity.find("${.node["@entity-name"]}")<#if .node["@cache"]?has_content>.useCache(${.node["@cache"]})</#if><#if .node["@distinct"]?has_content>.distinct(${.node["@distinct"]})</#if><#list .node["select-field"] as sf>.selectField("${sf["@field-name"]}")</#list>
-            <#list .node["date-filter"] as df>.condition(<#visit df/>)</#list><#list .node["econdition"] as econd>.condition(<#visit econd/>)</#list><#list .node["econditions"] as ecs>.condition(<#visit ecs/>)</#list><#list .node["econdition-object"] as eco>.condition(<#visit eco/>)</#list><#if .node["having-econditions"]?has_content><#list .node["having-econditions"]["*"] as havingCond>.havingCondition(<#visit havingCond/>)</#list></#if>.count()
+    <#if .node["search-form-inputs"]?has_content>
+        <#assign sfiNode = .node["search-form-inputs"][0]>
+        <#if sfiNode["default-parameters"]?has_content><#assign sfiDpNode = sfiNode["default-parameters"][0]>
+            Map efSfiDefParams = [<#list sfiDpNode?keys as dpName>${dpName}:"""${sfiDpNode["@" + dpName]}"""<#if dpName_has_next>, </#if></#list>]
+        <#else>
+            Map efSfiDefParams = null
+        </#if>
+    </#if>
+    ${.node["@count-field"]} = ec.entity.find("${.node["@entity-name"]}")
+        <#t><#if .node["@cache"]?has_content>.useCache(${.node["@cache"]})</#if>
+        <#t><#if .node["@distinct"]?has_content>.distinct(${.node["@distinct"]})</#if>
+        <#t><#if .node["search-form-inputs"]?has_content>.searchFormMap(${"ec.context"}, efSfiDefParams, "${sfiNode["@skip-fields"]!("")}", null, false)</#if>
+        <#t><#list .node["select-field"] as sf>.selectField("${sf["@field-name"]}")</#list>
+        <#t><#list .node["date-filter"] as df>.condition(<#visit df/>)</#list>
+        <#t><#list .node["econdition"] as econd>.condition(<#visit econd/>)</#list>
+        <#t><#list .node["econditions"] as ecs>.condition(<#visit ecs/>)</#list>
+        <#t><#list .node["econdition-object"] as eco>.condition(<#visit eco/>)</#list>
+        <#t><#if .node["having-econditions"]?has_content><#list .node["having-econditions"]["*"] as havingCond>.havingCondition(<#visit havingCond/>)</#list></#if>
+        <#lt>.count()
 </#macro>
 <#-- =================== entity-find sub-elements =================== -->
 <#macro "date-filter">(org.moqui.entity.EntityCondition) ec.entity.conditionFactory.makeConditionDate("${.node["@from-field-name"]!("fromDate")}", "${.node["@thru-field-name"]!("thruDate")}", <#if .node["@valid-date"]?has_content>${.node["@valid-date"]} as java.sql.Timestamp<#else>null</#if>, ${.node["@ignore-if-empty"]!("false")}, "${.node["@ignore"]!"false"}")</#macro>
@@ -252,18 +272,26 @@ ${.node}
             <#recurse/>
             ${.node["@entry"]}_index++
         }
-    } else {
+    } else <#-- note no opening curly brace, will turn into "else if" with if below -->
     </#if>
-        ${.node["@entry"]}_index = 0
-        _${.node["@entry"]}Iterator = ${.node["@list"]}.iterator()
-        while (_${.node["@entry"]}Iterator.hasNext()) {
+    if (true) {
+        int ${.node["@entry"]}_index = 0
+        Iterator _${.node["@entry"]}Iterator = ${.node["@list"]}.iterator()
+        // behave differently for EntityListIterator, avoid using hasNext()
+        boolean ${.node["@entry"]}IsEli = (_${.node["@entry"]}Iterator instanceof org.moqui.entity.EntityListIterator)
+        while (${.node["@entry"]}IsEli || _${.node["@entry"]}Iterator.hasNext()) {
             ${.node["@entry"]} = _${.node["@entry"]}Iterator.next()
-            ${.node["@entry"]}_has_next = _${.node["@entry"]}Iterator.hasNext()
+            if (${.node["@entry"]}IsEli && ${.node["@entry"]} == null) break
+            if (!${.node["@entry"]}IsEli) ${.node["@entry"]}_has_next = _${.node["@entry"]}Iterator.hasNext()
+
+            // begin iterator internal block
             <#recurse/>
+            // end iterator internal block for list ${.node["@list"]}
+
             ${.node["@entry"]}_index++
         }
-        if (${.node["@list"]} instanceof org.moqui.entity.EntityListIterator) ${.node["@list"]}.close()
-    <#if .node["@key"]?has_content>}</#if>
+        if(${.node["@entry"]}IsEli) _${.node["@entry"]}Iterator.close()
+    }
 </#macro>
 <#macro message>
     <#if .node["@error"]?has_content && .node["@error"] == "true">

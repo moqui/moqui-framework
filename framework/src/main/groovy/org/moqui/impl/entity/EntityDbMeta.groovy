@@ -144,7 +144,7 @@ class EntityDbMeta {
         String schemaName = datasourceNode != null ? datasourceNode.attribute("schema-name") : null
         Set<String> groupEntityNames = efi.getAllEntityNamesInGroup(groupName)
 
-        String[] types = ["TABLE", "VIEW", "ALIAS", "SYNONYM"]
+        String[] types = ["TABLE", "VIEW", "ALIAS", "SYNONYM", "PARTITIONED TABLE"]
         Set<String> existingTableNames = new HashSet<>()
 
         boolean beganTx = useTxForMetaData ? efi.ecfi.transactionFacade.begin(300) : false
@@ -156,7 +156,7 @@ class EntityDbMeta {
 
                 ResultSet tableSet = null
                 try {
-                    tableSet = dbData.getTables(null, schemaName, "%", types)
+                    tableSet = dbData.getTables(con.getCatalog(), schemaName, "%", types)
                     while (tableSet.next()) {
                         String tableName = tableSet.getString('TABLE_NAME')
                         existingTableNames.add(tableName)
@@ -170,7 +170,7 @@ class EntityDbMeta {
                 Map<String, Set<String>> existingColumnsByTable = new HashMap<>()
                 ResultSet colSet = null
                 try {
-                    colSet = dbData.getColumns(null, schemaName, "%", "%")
+                    colSet = dbData.getColumns(con.getCatalog(), schemaName, "%", "%")
                     while (colSet.next()) {
                         String tableName = colSet.getString("TABLE_NAME")
                         String colName = colSet.getString("COLUMN_NAME")
@@ -246,7 +246,7 @@ class EntityDbMeta {
                 }
 
                 if (remainingTableNames.size() > 0)
-                    logger.info("Found unknown tables in database for group ${groupName}: ${remainingTableNames}")
+                    logger.warn("Found unknown tables in database for group ${groupName}: ${remainingTableNames}")
             } finally {
                 if (con != null) con.close()
             }
@@ -320,7 +320,6 @@ class EntityDbMeta {
                                 try {
                                     ikSet = dbData.getImportedKeys(null, schemaName, fkTable.toLowerCase())
                                     while (ikSet.next()) {
-                                        gotIkResults = true
                                         String pkTable = ikSet.getString("PKTABLE_NAME")
                                         String fkCol = ikSet.getString("FKCOLUMN_NAME")
                                         Map<String, Set<String>> fkInfo = (Map<String, Set<String>>) fkInfoByFkTable.get(fkTable)
@@ -493,16 +492,21 @@ class EntityDbMeta {
             ResultSet tableSet2 = null
             boolean beganTx = useTxForMetaData ? efi.ecfi.transactionFacade.begin(5) : false
             try {
-                con = efi.getConnection(groupName)
+                try {
+                    con = efi.getConnection(groupName)
+                } catch (EntityException ee) {
+                    logger.warn("Could not get connection so treating entity ${ed.fullEntityName} in group ${groupName} as table does not exist: ${ee.toString()}")
+                    return false
+                }
                 DatabaseMetaData dbData = con.getMetaData()
 
-                String[] types = ["TABLE", "VIEW", "ALIAS", "SYNONYM"]
-                tableSet1 = dbData.getTables(null, ed.getSchemaName(), ed.getTableName(), types)
+                String[] types = ["TABLE", "VIEW", "ALIAS", "SYNONYM", "PARTITIONED TABLE"]
+                tableSet1 = dbData.getTables(con.getCatalog(), ed.getSchemaName(), ed.getTableName(), types)
                 if (tableSet1.next()) {
                     dbResult = true
                 } else {
                     // try lower case, just in case DB is case sensitive
-                    tableSet2 = dbData.getTables(null, ed.getSchemaName(), ed.getTableName().toLowerCase(), types)
+                    tableSet2 = dbData.getTables(con.getCatalog(), ed.getSchemaName(), ed.getTableName().toLowerCase(), types)
                     if (tableSet2.next()) {
                         dbResult = true
                     } else {
@@ -620,7 +624,7 @@ class EntityDbMeta {
 
             ArrayList<FieldInfo> fieldInfos = new ArrayList<>(ed.allFieldInfoList)
             int fieldCount = fieldInfos.size()
-            colSet1 = dbData.getColumns(null, ed.getSchemaName(), ed.getTableName(), "%")
+            colSet1 = dbData.getColumns(con.getCatalog(), ed.getSchemaName(), ed.getTableName(), "%")
             if (colSet1.isClosed()) {
                 logger.error("Tried to get columns for entity ${ed.getFullEntityName()} but ResultSet was closed!")
                 return new ArrayList<FieldInfo>()
@@ -639,7 +643,7 @@ class EntityDbMeta {
 
             if (fieldInfos.size() == fieldCount) {
                 // try lower case table name
-                colSet2 = dbData.getColumns(null, ed.getSchemaName(), ed.getTableName().toLowerCase(), "%")
+                colSet2 = dbData.getColumns(con.getCatalog(), ed.getSchemaName(), ed.getTableName().toLowerCase(), "%")
                 if (colSet2.isClosed()) {
                     logger.error("Tried to get columns for entity ${ed.getFullEntityName()} but ResultSet was closed!")
                     return new ArrayList<FieldInfo>()
@@ -706,7 +710,7 @@ class EntityDbMeta {
         String groupName = ed.getEntityGroupName()
         MNode databaseNode = efi.getDatabaseNode(groupName)
 
-        if (databaseNode.attribute("use-indexes") == "false") return
+        if (databaseNode.attribute("use-indexes") == "false") return 0
 
         int constraintNameClipLength = (databaseNode.attribute("constraint-name-clip-length")?:"30") as int
 
@@ -717,7 +721,7 @@ class EntityDbMeta {
             if (checkIdxExists) {
                 Boolean idxExists = indexExists(ed, indexName, indexNode.children("index-field").collect {it.attribute('name')})
                 if (idxExists != null && idxExists) {
-                    if (logger.traceEnabled) logger.trace("Not creating index ${indexName} for entity ${ed.getFullEntityName()} because it already exists.")
+                    if (logger.infoEnabled) logger.info("Not creating index ${indexName} for entity ${ed.getFullEntityName()} because it already exists.")
                     continue
                 }
             }
@@ -754,12 +758,17 @@ class EntityDbMeta {
             }
             sql.append(")")
 
-            runSqlUpdate(sql, groupName, sharedCon)
-            created ++
+            Integer curCreated = runSqlUpdate(sql, groupName, sharedCon)
+            if (curCreated != null) {
+                if (logger.infoEnabled) logger.info("Created index ${indexName} for entity ${ed.getFullEntityName()}")
+                created ++
+            }
         }
 
         // do fk auto indexes
-        if (databaseNode.attribute("use-foreign-key-indexes") == "false") return
+        // nothing after fk indexes to return now if disabled
+        if (databaseNode.attribute("use-foreign-key-indexes") == "false") return created
+
         for (RelationshipInfo relInfo in ed.getRelationshipsInfo(false)) {
             if (relInfo.type != "one") continue
 
@@ -767,7 +776,7 @@ class EntityDbMeta {
             if (checkIdxExists) {
                 Boolean idxExists = indexExists(ed, indexName, relInfo.keyMap.keySet())
                 if (idxExists != null && idxExists) {
-                    if (logger.traceEnabled) logger.trace("Not creating index ${indexName} for entity ${ed.getFullEntityName()} because it already exists.")
+                    if (logger.infoEnabled) logger.info("Not creating index ${indexName} for entity ${ed.getFullEntityName()} because it already exists.")
                     continue
                 }
             }
@@ -785,8 +794,11 @@ class EntityDbMeta {
             sql.append(")")
 
             // logger.warn("====== create relationship index [${indexName}] for entity [${ed.getFullEntityName()}]")
-            runSqlUpdate(sql, groupName, sharedCon)
-            created ++
+            Integer curCreated = runSqlUpdate(sql, groupName, sharedCon)
+            if (curCreated != null) {
+                if (logger.infoEnabled) logger.info("Created index ${indexName} for entity ${ed.getFullEntityName()}")
+                created ++
+            }
         }
         return created
     }
@@ -887,11 +899,11 @@ class EntityDbMeta {
             ikSet1 = dbData.getIndexInfo(null, ed.getSchemaName(), ed.getTableName(), false, true)
             while (ikSet1.next()) {
                 String idxName = ikSet1.getString("INDEX_NAME")
-                if (idxName != indexName && idxName != indexName.toLowerCase()) continue
+                if (idxName.toLowerCase() != indexName.toLowerCase()) continue
                 String idxCol = ikSet1.getString("COLUMN_NAME")
                 for (String fn in fieldNames) {
                     String fnColName = ed.getColumnName(fn)
-                    if (fnColName == idxCol || fnColName.toLowerCase() == idxCol) {
+                    if (fnColName.toLowerCase() == idxCol.toLowerCase()) {
                         fieldNames.remove(fn)
                         break
                     }
@@ -902,11 +914,11 @@ class EntityDbMeta {
                 ikSet2 = dbData.getIndexInfo(null, ed.getSchemaName(), ed.getTableName().toLowerCase(), false, true)
                 while (ikSet2.next()) {
                     String idxName = ikSet2.getString("INDEX_NAME")
-                    if (idxName != indexName && idxName != indexName.toLowerCase()) continue
+                    if (idxName.toLowerCase() != indexName.toLowerCase()) continue
                     String idxCol = ikSet2.getString("COLUMN_NAME")
                     for (String fn in fieldNames) {
                         String fnColName = ed.getColumnName(fn)
-                        if (fnColName ==  idxCol || fnColName.toLowerCase() ==  idxCol) {
+                        if (fnColName.toLowerCase() == idxCol.toLowerCase()) {
                             fieldNames.remove(fn)
                             break
                         }

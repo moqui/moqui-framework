@@ -12,14 +12,14 @@ You should have received a copy of the CC0 Public Domain Dedication
 along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
-<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-3.xsd">
     <service verb="get" noun="WikiPageInfoById">
         <in-parameters><parameter name="wikiPageId"/></in-parameters>
         <out-parameters>
             <parameter name="wikiSpaceId"/>
             <parameter name="pagePath"/>
             <parameter name="wikiSpace" type="org.moqui.entity.EntityValue"/>
-            <parameter name="pageReference" type="org.moqui.content.ResourceReference"/>
+            <parameter name="pageReference" type="org.moqui.resource.ResourceReference"/>
             <parameter name="attachmentList" type="List"><parameter name="attachmentInfo" type="Map">
                 <parameter name="filename"/><parameter name="contentType"/><parameter name="lastModified" type="Long"/>
             </parameter></parameter>
@@ -42,6 +42,10 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters>
             <parameter name="wikiSpaceId" required="true"/>
             <parameter name="pagePath"/><!-- not required because for root page will be empty -->
+            <parameter name="pagePathList" type="List">
+                <description>Alternative to pagePath when caller has a list of path elements (instead of forward slash separated string)</description>
+                <parameter name="pathElement" type="String"/>
+            </parameter>
             <parameter name="versionName"><description>Meant for testing, get this version instead of published.
                 To eliminate exposure of non-published versions explicitly set this to null.</description></parameter>
             <parameter name="getPageText" type="Boolean" default="true"/>
@@ -59,6 +63,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <field-map field-name="wikiSpaceId"/></entity-find-one>
             <if condition="wikiSpace == null"><return message="No space found with ID ${wikiSpaceId}"/></if>
 
+            <if condition="pagePathList &amp;&amp; !pagePath"><set field="pagePath" from="pagePathList.join('/')"/></if>
             <entity-find entity-name="moqui.resource.wiki.WikiPage" list="wikiPageList" cache="true">
                 <econdition field-name="wikiSpaceId"/><econdition field-name="pagePath" from="pagePath ?: null"/></entity-find>
             <set field="wikiPage" from="wikiPageList ? wikiPageList[0] : null"/>
@@ -149,9 +154,9 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="wikiSpace" type="org.moqui.entity.EntityValue"/>
             <parameter name="wikiPage" type="org.moqui.entity.EntityValue"/>
             <parameter name="rootPageLocation"/>
-            <parameter name="rootPageRef"/>
+            <parameter name="rootPageRef" type="org.moqui.resource.ResourceReference"/>
             <parameter name="spaceRootName"/>
-            <parameter name="pageReference" type="org.moqui.content.ResourceReference"/>
+            <parameter name="pageReference" type="org.moqui.resource.ResourceReference"/>
         </out-parameters>
         <actions>
             <if condition="wikiPageId">
@@ -319,7 +324,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="pagePath"><description>Not required, is empty for the space root page. Can be a wikiPageId or the page path within the space.</description></parameter>
             <parameter name="filename"><description>If not specified last segment of pagePath will be used</description></parameter>
         </in-parameters>
-        <out-parameters><parameter name="attachmentReference" type="org.moqui.content.ResourceReference"/></out-parameters>
+        <out-parameters><parameter name="attachmentReference" type="org.moqui.resource.ResourceReference"/></out-parameters>
         <actions>
             <set field="pathList" from="pagePath ? pagePath.split('/') as List : []"/>
             <!-- <log level="warn" message="begin wikiSpaceId ${wikiSpaceId} pagePath ${pagePath} filename ${filename} pathList ${pathList}"/> -->
@@ -371,7 +376,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="pagePath"><description>Not required, is empty for the space root page. Can be a wikiPageId or the page path within the space.</description></parameter>
             <parameter name="attachmentFile" type="org.apache.commons.fileupload.FileItem"/>
         </in-parameters>
-        <out-parameters><parameter name="attachmentReference" type="org.moqui.content.ResourceReference"/></out-parameters>
+        <out-parameters><parameter name="attachmentReference" type="org.moqui.resource.ResourceReference"/></out-parameters>
         <actions>
             <if condition="attachmentFile == null"><return message="No attachment uploaded"/></if>
             <set field="filename" from="attachmentFile.getName()"/>
@@ -478,7 +483,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- unless WikiSpace.allowAnyHtml = Y filter the HTML -->
             <if condition="wikiSpace.allowAnyHtml != 'Y' &amp;&amp; wikiType == 'html'">
-                <script>pageText = org.jsoup.Jsoup.clean(pageText, "", org.jsoup.safety.Whitelist.relaxed(), org.moqui.impl.service.ParameterInfo.outputSettings)</script>
+                <script>pageText = org.jsoup.Jsoup.clean(pageText, "", org.jsoup.safety.Safelist.relaxed(), org.moqui.impl.service.ParameterInfo.outputSettings)</script>
             </if>
 
             <!-- do the update, then the move if applicable -->
@@ -495,7 +500,7 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="wikiPageHistoryMap" from="[wikiPageId:wikiPageId, userId:ec.user.userId, changeDateTime:ec.user.nowTimestamp, versionName:versionName]"/>
 
             <!-- move the page if applicable -->
-            <set field="origParentPath" from="pagePath.contains('/') ? pagePath.substring(0, pagePath.lastIndexOf('/')) : null"/>
+            <set field="origParentPath" from="pagePath.contains('/') ? pagePath.substring(0, pagePath.lastIndexOf('/')) : ''"/>
             <set field="origPageName" from="pagePath.contains('/') ? pagePath.substring(pagePath.lastIndexOf('/')+1) : pagePath"/>
             <!-- TODO: support change of wikiType too -->
             <if condition="pageName &amp;&amp; (origParentPath != parentPath || origPageName != pageName)">
@@ -503,10 +508,12 @@ along with this software (see the LICENSE.md file). If not, see
                 <!-- move the page file -->
                 <set field="rootPageDirRef" from="rootPageRef.findMatchingDirectory()"/>
                 <set field="newPageLocation" value="${rootPageDirRef.location}${parentPath ? '/' + parentPath : ''}/${pageName}.${wikiType}"/>
+                <log message="update#WikiPage move page ${pageReference.location} to ${newPageLocation}"/>
                 <script>pageReference.move(newPageLocation)</script>
                 <!-- move the page's corresponding directory -->
                 <set field="pageDirReference" from="pageReference.findMatchingDirectory()"/>
                 <set field="newPageDirLocation" value="${rootPageDirRef.location}${parentPath ? '/' + parentPath : ''}/${pageName}"/>
+                <log message="update#WikiPage move directory ${pageDirReference.location} to ${newPageDirLocation}"/>
                 <script>pageDirReference.move(newPageDirLocation)</script>
 
                 <!-- save the old path in the WikiPageHistory (before the pagePath is set to the new path) -->

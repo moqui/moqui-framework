@@ -22,6 +22,8 @@ import org.apache.commons.fileupload.FileItem
 import org.apache.commons.fileupload.FileItemFactory
 import org.apache.commons.fileupload.disk.DiskFileItemFactory
 import org.apache.commons.fileupload.servlet.ServletFileUpload
+import org.apache.commons.io.IOUtils
+import org.apache.commons.io.output.StringBuilderWriter
 import org.moqui.context.*
 import org.moqui.context.MessageFacade.MessageInfo
 import org.moqui.entity.EntityNotFoundException
@@ -48,6 +50,8 @@ import javax.servlet.ServletContext
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
 import javax.servlet.http.HttpSession
+import java.nio.charset.StandardCharsets
+import java.sql.Timestamp
 
 import com.google.gson.Gson
 
@@ -129,13 +133,11 @@ class WebFacadeImpl implements WebFacade {
         String contentType = request.getHeader("Content-Type")
         if (ResourceReference.isTextContentType(contentType)) {
             // read the body first to make sure it isn't empty, better support clients that pass a Content-Type but no content (even though they shouldn't)
-            StringBuilder bodyBuilder = new StringBuilder()
             BufferedReader reader = request.getReader()
-            if (reader != null) {
-                String curLine
-                while ((curLine = reader.readLine()) != null) bodyBuilder.append(curLine)
-            }
-            if (bodyBuilder.length() > 0) {
+            StringBuilderWriter bodyBuilder = new StringBuilderWriter()
+            if (reader != null) IOUtils.copyLarge(reader, bodyBuilder)
+
+            if (bodyBuilder.builder.length() > 0) {
                 String bodyString = bodyBuilder.toString()
                 requestBodyText = bodyString
                 multiPartParameters = new HashMap()
@@ -288,16 +290,17 @@ class WebFacadeImpl implements WebFacade {
         }
 
         ScreenUrlInfo.UrlInstance urlInstance = urlInstanceOrig.cloneUrlInstance()
-        // ignore the page index for history
+        // instead of ignoring page index for history (old approach), retain but exclude in history duplicate search
         urlInstance.getParameterMap().remove("pageIndex")
         // logger.warn("======= parameters: ${urlInstance.getParameterMap()}")
-        String urlWithParams = urlInstance.getUrlWithParams()
+        String urlWithAllParams = urlInstanceOrig.getUrlWithParams()
+        String urlWithParamsNoPageIndex = urlInstance.getUrlWithParams()
         String urlNoParams = urlInstance.getUrl()
         // logger.warn("======= urlWithParams: ${urlWithParams}")
 
         // if is the same as last screen skip it
         Map firstItem = screenHistoryList.size() > 0 ? screenHistoryList.get(0) : null
-        if (firstItem != null && firstItem.url == urlWithParams) return
+        if (firstItem != null && firstItem.url == urlWithParamsNoPageIndex) return
 
         String targetMenuName = targetScreen.getDefaultMenuName()
 
@@ -344,11 +347,11 @@ class WebFacadeImpl implements WebFacade {
             Iterator<Map> screenHistoryIter = screenHistoryList.iterator()
             while (screenHistoryIter.hasNext()) {
                 Map screenHistory = screenHistoryIter.next()
-                if (screenHistory.url == urlWithParams) screenHistoryIter.remove()
+                if (screenHistory.urlNoPageIndex == urlWithParamsNoPageIndex) screenHistoryIter.remove()
             }
             // add to history list
-            screenHistoryList.add(0, [name:nameBuilder.toString(), url:urlWithParams, urlNoParams:urlNoParams,
-                    path:urlInstance.path, pathWithParams:urlInstance.pathWithParams,
+            screenHistoryList.add(0, [name:nameBuilder.toString(), url:urlWithAllParams, urlNoParams:urlNoParams,
+                    urlNoPageIndex:urlWithParamsNoPageIndex, path:urlInstance.path, pathWithParams:urlInstance.pathWithParams,
                     image:sui.menuImage, imageType:sui.menuImageType, screenLocation:targetScreen.getLocation()])
             // trim the list if needed; keep 40, whatever uses it may display less
             while (screenHistoryList.size() > 40) screenHistoryList.remove(40)
@@ -484,7 +487,12 @@ class WebFacadeImpl implements WebFacade {
         String servletPath = request.getServletPath()
         // subtract 1 to exclude empty string before leading '/' that will always be there
         int servletPathSize = servletPath.isEmpty() ? 0 : (servletPath.split("/").length - 1)
-        ArrayList<String> pathList = StringUtilities.pathStringToList(reqURI, servletPathSize)
+
+        // exclude context path segments
+        String contextPath = request.getContextPath()
+        int contextPathSize = contextPath.isEmpty() ? 0 : (contextPath.split("/").length - 1)
+
+        ArrayList<String> pathList = StringUtilities.pathStringToList(reqURI, servletPathSize + contextPathSize)
         // logger.warn("pathInfo ${request.getPathInfo()} servletPath ${servletPath} reqURI ${request.getRequestURI()} pathList ${pathList}")
         return pathList
     }
@@ -666,6 +674,23 @@ class WebFacadeImpl implements WebFacade {
     @Override List<MessageInfo> getSavedPublicMessages() { return savedPublicMessages }
     @Override List<String> getSavedErrors() { return savedErrors }
     @Override List<ValidationError> getSavedValidationErrors() { return savedValidationErrors }
+    @Override List<ValidationError> getFieldValidationErrors(String fieldName) {
+        List<ValidationError> errorList = null
+        if (savedValidationErrors != null && savedValidationErrors.size() > 0) {
+            for (ValidationError ve in savedValidationErrors) if (fieldName == null || fieldName.equals(ve.field)) {
+                if (errorList == null) errorList = new ArrayList<ValidationError>(5)
+                errorList.add(ve)
+            }
+        }
+        List<ValidationError> mfErrorList = eci.messageFacade.getValidationErrors()
+        if (mfErrorList != null && mfErrorList.size() > 0) {
+            for (ValidationError ve in mfErrorList) if (fieldName == null || fieldName.equals(ve.field)) {
+                if (errorList == null) errorList = new ArrayList<ValidationError>(5)
+                errorList.add(ve)
+            }
+        }
+        return errorList
+    }
 
     @Override
     void sendJsonResponse(Object responseObj) { sendJsonResponseInternal(responseObj, eci, request, response, requestAttributes) }
@@ -782,9 +807,9 @@ class WebFacadeImpl implements WebFacade {
         response.setContentLength(length)
 
         if (!filename) {
-            response.addHeader("Content-Disposition", "inline")
+            response.setHeader("Content-Disposition", "inline")
         } else {
-            response.addHeader("Content-Disposition", "attachment; filename=\"${filename}\"; filename*=utf-8''${StringUtilities.encodeAsciiFilename(filename)}")
+            response.setHeader("Content-Disposition", "attachment; filename=\"${filename}\"; filename*=utf-8''${StringUtilities.encodeAsciiFilename(filename)}")
         }
 
         try {
@@ -814,16 +839,16 @@ class WebFacadeImpl implements WebFacade {
         String contentType = rr.getContentType()
         if (contentType) response.setContentType(contentType)
         if (inline) {
-            response.addHeader("Content-Disposition", "inline")
+            response.setHeader("Content-Disposition", "inline")
 
             WebappInfo webappInfo = eci.ecfi.getWebappInfo(eci.webImpl?.webappMoquiName)
             if (webappInfo != null) {
                 webappInfo.addHeaders("web-resource-inline", response)
             } else {
-                response.addHeader("Cache-Control", "max-age=86400, must-revalidate, public")
+                response.setHeader("Cache-Control", "max-age=86400, must-revalidate, public")
             }
         } else {
-            response.addHeader("Content-Disposition", "attachment; filename=\"${fileName?:rr.getFileName()}\"; filename*=utf-8''${StringUtilities.encodeAsciiFilename(fileName?:rr.getFileName())}")
+            response.setHeader("Content-Disposition", "attachment; filename=\"${fileName?:rr.getFileName()}\"; filename*=utf-8''${StringUtilities.encodeAsciiFilename(fileName?:rr.getFileName())}")
         }
         if (contentType == null || contentType.isEmpty() || ResourceReference.isBinaryContentType(contentType)) {
             InputStream is = rr.openStream()
@@ -1213,6 +1238,70 @@ class WebFacadeImpl implements WebFacade {
 
                 // login anonymous if not logged in
                 eci.userFacade.loginAnonymousIfNoUser()
+            } else if ("SmatHmacSha256Timestamp".equals(messageAuthEnumId)) {
+                // validate HMAC value from authHeaderName HTTP header using sharedSecret and messageText
+                String authHeaderName = (String) systemMessageRemote.authHeaderName
+                String sharedSecret = (String) systemMessageRemote.sharedSecret
+
+                String headerValue = request.getHeader(authHeaderName)
+                if (!headerValue) {
+                    logger.warn("System message receive HMAC verify no header ${authHeaderName} value found, for remote ${systemMessageRemoteId}")
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "No HMAC header ${authHeaderName} found for remote system ${systemMessageRemoteId}")
+                    return
+                }
+
+                // This assumes a header format like
+                // Example-Signature-Header:
+                //t=1492774577,
+                //v1=5257a869e7ecebeda32affa62cdca3fa51cad7e77a0e56ff536d0ce8e108d8bd
+                // We’ve added newlines for clarity, but a realExample-Signature-Header is on a single line.
+                String timestamp = null;
+                String incomingSignature = null;
+                String[] headerValueList = headerValue.split(",") // split on comma
+                for (String headerValueItem : headerValueList) {
+                    String key = headerValueItem.split("=")[0].trim()
+                    if ("t".equals(key))
+                        timestamp = headerValueItem.split("=")[1].trim()
+                    else if ("v1".equals(key))
+                        incomingSignature = headerValueItem.split("=")[1].trim()
+                }
+
+                // This also assumes that the signature is generated from the following concatenated strings:
+                // Timestamp in the header
+                // The character .
+                // The text body of the request
+                String signatureTextToVerify = timestamp + "." + messageText
+
+                Mac hmac = Mac.getInstance("HmacSHA256")
+                hmac.init(new SecretKeySpec(sharedSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"))
+                // NOTE: if this fails try with "ISO-8859-1"
+                byte[] hash = hmac.doFinal(signatureTextToVerify.getBytes(StandardCharsets.UTF_8));
+                String signature = ""
+                for (byte b : hash) {
+                    // Came from https://github.com/stripe/stripe-java/blob/3686feb8f2067878b7bb4619f931580a3d31bf4f/src/main/java/com/stripe/net/Webhook.java#L187
+                    signature += Integer.toString((b & 0xff) + 0x100, 16).substring(1);
+                }
+
+                if (incomingSignature != signature) {
+                    logger.warn("System message receive HMAC verify header value ${incomingSignature} calculated ${signature} did not match for remote ${systemMessageRemoteId}")
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "HMAC verify failed for remote system ${systemMessageRemoteId}")
+                    return
+                }
+
+                Timestamp incomingTimestamp = new Timestamp(Long.parseLong(timestamp) * 1000)
+
+                // Add 10 seconds to now timestamp to allow for clock skew (10 seconds = 10000 milliseconds = 10*1000)
+                Timestamp nowTimestamp = new Timestamp(eci.user.nowTimestamp.getTime() + 10000)
+                // If timestamp was not sent in past 5 minutes, reject message (5 minutes = 300000 milliseconds = 5*60*1000)
+                Timestamp beforeTimestamp = new Timestamp(nowTimestamp.getTime() - 300000)
+                if (!incomingTimestamp.before(nowTimestamp) || !incomingTimestamp.after(beforeTimestamp) ){
+                    logger.warn("System message receive HMAC invalid incoming timestamp where before timestamp ${beforeTimestamp} < incoming timestamp ${incomingTimestamp} < now timestamp ${nowTimestamp}" )
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "HMAC timestamp verification failed")
+                    return
+                }
+
+                // login anonymous if not logged in
+                eci.userFacade.loginAnonymousIfNoUser()
             } else if (!"SmatNone".equals(messageAuthEnumId)) {
                 logger.error("Got system message for remote ${systemMessageRemoteId} with unsupported messageAuthEnumId ${messageAuthEnumId}, returning error")
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Remote system ${systemMessageRemoteId} auth configuration not valid")
@@ -1320,7 +1409,7 @@ class WebFacadeImpl implements WebFacade {
     void viewEmailMessage() {
         // first send the empty image
         response.setContentType('image/png')
-        response.addHeader("Content-Disposition", "inline")
+        response.setHeader("Content-Disposition", "inline")
         OutputStream os = response.outputStream
         try { os.write(trackingPng) } finally { os.close() }
         // mark the message viewed

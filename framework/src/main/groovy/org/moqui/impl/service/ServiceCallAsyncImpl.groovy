@@ -44,7 +44,7 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
     ServiceCallAsync name(String p, String v, String n) { serviceNameInternal(p, v, n); return this }
 
     @Override
-    ServiceCallAsync parameters(Map<String, ?> map) { parameters.putAll(map); return this }
+    ServiceCallAsync parameters(Map<String, Object> map) { parameters.putAll(map); return this }
     @Override
     ServiceCallAsync parameter(String name, Object value) { parameters.put(name, value); return this }
 
@@ -90,15 +90,21 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
     }
 
     static class AsyncServiceInfo implements Externalizable {
-        transient ExecutionContextFactoryImpl ecfi
+        transient ExecutionContextFactoryImpl ecfiLocal
         String threadUsername
         String serviceName
         Map<String, Object> parameters
 
         AsyncServiceInfo() { }
         AsyncServiceInfo(ExecutionContextImpl eci, String serviceName, Map<String, Object> parameters) {
-            ecfi = eci.ecfi
+            ecfiLocal = eci.ecfi
             threadUsername = eci.userFacade.username
+            this.serviceName = serviceName
+            this.parameters = new HashMap<>(parameters)
+        }
+        AsyncServiceInfo(ExecutionContextFactoryImpl ecfi, String username, String serviceName, Map<String, Object> parameters) {
+            ecfiLocal = ecfi
+            threadUsername = username
             this.serviceName = serviceName
             this.parameters = new HashMap<>(parameters)
         }
@@ -118,19 +124,53 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
         }
 
         ExecutionContextFactoryImpl getEcfi() {
-            if (ecfi == null) ecfi = (ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory()
-            return ecfi
+            if (ecfiLocal == null) ecfiLocal = (ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory()
+            return ecfiLocal
         }
 
         Map<String, Object> runInternal() throws Exception {
+            return runInternal(null, false)
+        }
+        Map<String, Object> runInternal(Map<String, Object> parameters, boolean skipEcCheck) throws Exception {
             ExecutionContextImpl threadEci = (ExecutionContextImpl) null
             try {
+                // check for active Transaction
+                if (getEcfi().transactionFacade.isTransactionInPlace()) {
+                    logger.error("In ServiceCallAsync service ${serviceName} a transaction is in place for thread ${Thread.currentThread().getName()}, trying to commit")
+                    try {
+                        getEcfi().transactionFacade.destroyAllInThread()
+                    } catch (Exception e) {
+                        logger.error("ServiceCallAsync commit in place transaction failed for thread ${Thread.currentThread().getName()}", e)
+                    }
+                }
+                // check for active ExecutionContext
+                if (!skipEcCheck) {
+                    ExecutionContextImpl activeEc = getEcfi().activeContext.get()
+                    if (activeEc != null) {
+                        logger.error("In ServiceCallAsync service ${serviceName} there is already an ExecutionContext for user ${activeEc.user.username} (from ${activeEc.forThreadId}:${activeEc.forThreadName}) in this thread ${Thread.currentThread().id}:${Thread.currentThread().name}, destroying")
+                        try {
+                            activeEc.destroy()
+                        } catch (Throwable t) {
+                            logger.error("Error destroying ExecutionContext already in place in ServiceCallAsync in thread ${Thread.currentThread().id}:${Thread.currentThread().name}", t)
+                        }
+                    }
+                }
+
                 threadEci = getEcfi().getEci()
-                if (threadUsername != null && threadUsername.length() > 0)
+                if (threadUsername != null && threadUsername.length() > 0) {
                     threadEci.userFacade.internalLoginUser(threadUsername, false)
+                } else {
+                    threadEci.userFacade.loginAnonymousIfNoUser()
+                }
+
+                Map<String, Object> parmsToUse = this.parameters
+                if (parameters != null) {
+                    parmsToUse = new HashMap<>(this.parameters)
+                    parmsToUse.putAll(parameters)
+                }
 
                 // NOTE: authz is disabled because authz is checked before queueing
-                Map<String, Object> result = threadEci.serviceFacade.sync().name(serviceName).parameters(parameters).disableAuthz().call()
+                Map<String, Object> result = threadEci.serviceFacade.sync().name(serviceName).parameters(parmsToUse).disableAuthz().call()
                 return result
             } catch (Throwable t) {
                 logger.error("Error in async service", t)

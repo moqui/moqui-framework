@@ -28,7 +28,7 @@ public interface ServiceCallSpecial extends ServiceCall {
     ServiceCallSpecial name(String path, String verb, String noun);
 
     /** Map of name, value pairs that make up the context (in parameters) passed to the service. */
-    ServiceCallSpecial parameters(Map<String, ?> context);
+    ServiceCallSpecial parameters(Map<String, Object> context);
 
     /** Single name, value pairs to put in the context (in parameters) passed to the service. */
     ServiceCallSpecial parameter(String name, Object value);

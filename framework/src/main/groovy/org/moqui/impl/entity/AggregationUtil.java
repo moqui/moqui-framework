@@ -101,6 +101,15 @@ public class AggregationUtil {
                     originalCount++;
                 }
             }
+        } else if (listObj instanceof Map) {
+            Iterator listIter = (Iterator) ((Map<?, ?>) listObj).entrySet().iterator();
+            int i = 0;
+            while (listIter.hasNext()) {
+                Object curObject = listIter.next();
+                processAggregateOriginal(curObject, resultList, includeFields, groupRows, totalsMap, i, listIter.hasNext(), makeSubList, eci);
+                i++;
+                originalCount++;
+            }
         } else if (listObj instanceof Iterator) {
             Iterator listIter = (Iterator) listObj;
             int i = 0;

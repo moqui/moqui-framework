@@ -8,24 +8,27 @@ https://logging.apache.org/log4j/2.x/manual/layouts.html#PatternLayout
         <!-- the ${sys:moqui.runtime} expansion fails under Tomcat/etc as moqui.runtime isn't set before Log4J2
             initializes (like with MoquiStart.java), so specify a default property here -->
         <Property name="moqui.runtime">moqui_logs</Property>
+        <Property name="moqui.log.directory">log</Property>
         <Property name="moqui.logger.level.xml_action">info</Property>
         <Property name="moqui.logger.level.entity_find">info</Property>
         <Property name="moqui.logger.level.entity_query">info</Property>
+        <!-- set log4j2.formatMsgNoLookups=true for log string based vulnerability -->
+        <Property name="log4j2.formatMsgNoLookups">true</Property>
         <Property name="moqui.logger.level.closure">info</Property>
     </Properties>
     <Appenders>
-        <RollingFile name="LogFile" fileName="${sys:moqui.log.directory}/moqui.log"
-                filePattern="${sys:moqui.log.directory}/moqui%d{yyyy-MM-dd}-%i.log">
-            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [%15.15t] %-5p %50.50c %x%n %m%n"/>
+        <RollingFile name="LogFile" fileName="${moqui.log.directory}/moqui.log"
+                filePattern="${moqui.log.directory}/moqui%d{yyyy-MM-dd}-%i.log">
+            <PatternLayout pattern="--- %d{yyyy-MM-dd HH:mm:ss.SSS} [%15.15t] %-5p %50.50c %x%n %m%n"/>
             <Policies>
                 <TimeBasedTriggeringPolicy/>
                 <SizeBasedTriggeringPolicy size="10 MB"/>
             </Policies>
             <DefaultRolloverStrategy max="20"/>
         </RollingFile>
-        <RollingFile name="ErrorFile" fileName="${sys:moqui.log.directory}/error.log"
-                filePattern="${sys:moqui.log.directory}/error%d{yyyy-MM-dd}-%i.log">
-            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [%15.15t] %-5p %50.50c [%l] %x%n %m%n"/>
+        <RollingFile name="ErrorFile" fileName="${moqui.log.directory}/error.log"
+                filePattern="${moqui.log.directory/error%d{yyyy-MM-dd}-%i.log">
+            <PatternLayout pattern="--- %d{yyyy-MM-dd HH:mm:ss.SSS} [%15.15t] %-5p %50.50c [%l] %x%n %m%n"/>
             <ThresholdFilter level="ERROR" onMatch="ACCEPT" onMismatch="DENY"/><!-- should get error and fatal -->
             <Policies>
                 <TimeBasedTriggeringPolicy/>
@@ -34,15 +37,15 @@ https://logging.apache.org/log4j/2.x/manual/layouts.html#PatternLayout
             <DefaultRolloverStrategy max="20"/>
         </RollingFile>
         <MoquiLog4jAppender name="MoquiSubscribers"/>
+        <Console name="STDOUT" target="SYSTEM_OUT">
+            <PatternLayout pattern="%highlight{%d{HH:mm:ss.SSS} %5p %12.12t %38.38c{1.9.1.}} %m%n"/>
+        </Console>
         <Async name="AsyncLog">
             <AppenderRef ref="STDOUT"/>
             <AppenderRef ref="LogFile"/>
             <AppenderRef ref="ErrorFile"/>
             <AppenderRef ref="MoquiSubscribers"/>
         </Async>
-        <Console name="STDOUT" target="SYSTEM_OUT">
-            <PatternLayout pattern="%highlight{%d{yyyy-MM-dd HH:mm:ss.SSS} %5p %12.12t %38.38c{1.9.1.}} %m%n"/>
-        </Console>
     </Appenders>
     <Loggers>
         <Logger name="org.apache" level="warn"/>

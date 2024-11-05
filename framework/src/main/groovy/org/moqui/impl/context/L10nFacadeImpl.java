@@ -15,12 +15,17 @@ package org.moqui.impl.context;
 
 import org.moqui.BaseArtifactException;
 import org.moqui.context.L10nFacade;
+import org.moqui.entity.EntityCondition;
 import org.moqui.entity.EntityValue;
 import org.moqui.entity.EntityFind;
+
+import groovy.json.JsonOutput;
 
 import javax.xml.bind.DatatypeConverter;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.text.NumberFormat;
 import java.sql.Date;
 import java.sql.Time;
@@ -98,13 +103,14 @@ public class L10nFacadeImpl implements L10nFacade {
     }
 
     @Override
-    public String formatCurrency(Object amount, String uomId) { return formatCurrency(amount, uomId, null, getLocale()); }
+    public String formatCurrencyNoSymbol(Object amount, String uomId) { return formatCurrency(amount, uomId, null, getLocale(), true); }
     @Override
-    public String formatCurrency(Object amount, String uomId, Integer fractionDigits) {
-        return formatCurrency(amount, uomId, fractionDigits, getLocale());
-    }
+    public String formatCurrency(Object amount, String uomId) { return formatCurrency(amount, uomId, null, getLocale(), false); }
     @Override
-    public String formatCurrency(Object amount, String uomId, Integer fractionDigits, Locale locale) {
+    public String formatCurrency(Object amount, String uomId, Integer fractionDigits) { return formatCurrency(amount, uomId, fractionDigits, getLocale(), false); }
+    @Override
+    public String formatCurrency(Object amount, String uomId, Integer fractionDigits, Locale locale) { return formatCurrency(amount, uomId, fractionDigits, locale, false); }
+    public String formatCurrency(Object amount, String uomId, Integer fractionDigits, Locale locale, boolean hideSymbol) {
         if (amount == null) return "";
         if (amount instanceof CharSequence) {
             if (((CharSequence) amount).length() == 0) {
@@ -114,22 +120,54 @@ public class L10nFacadeImpl implements L10nFacade {
             }
         }
 
-        Currency currency = uomId != null && uomId.length() > 0 ? Currency.getInstance(uomId) : null;
         if (locale == null) locale = getLocale();
-        if (currency != null) {
-            NumberFormat nf = NumberFormat.getCurrencyInstance(locale);
-            nf.setCurrency(currency);
-            if (fractionDigits == null) fractionDigits = currency.getDefaultFractionDigits();
-            nf.setMaximumFractionDigits(fractionDigits);
-            nf.setMinimumFractionDigits(fractionDigits);
-            return nf.format(amount);
-        } else {
-            NumberFormat nf = NumberFormat.getInstance();
-            if (fractionDigits == null) fractionDigits = 2;
-            nf.setMaximumFractionDigits(fractionDigits);
-            nf.setMinimumFractionDigits(fractionDigits);
-            return nf.format(amount);
+        NumberFormat nf = NumberFormat.getCurrencyInstance(locale);
+        String currencySymbol = null;
+        if (hideSymbol)
+            currencySymbol = "";
+        EntityValue uom = null;
+        if (uomId != null && uomId.length() > 0) {
+            List<EntityValue> uomList = eci.getEntity().find("moqui.basic.Uom").condition("uomId", uomId)
+                    .condition("uomTypeEnumId", "UT_CURRENCY_MEASURE").disableAuthz().list();
+            if (uomList.size() > 0) {
+                uom = uomList.get(0);
+                String symbol = uom.getString("symbol");
+                if (currencySymbol == null && symbol != null)
+                    currencySymbol = symbol;
+                Object fractionDigitsField = uom.get("fractionDigits");
+                if (fractionDigits == null && fractionDigitsField != null) {
+                    if (fractionDigitsField instanceof Integer)
+                        fractionDigits = (Integer)fractionDigitsField;
+                    else if (fractionDigitsField instanceof Long)
+                        fractionDigits = ((Long)fractionDigitsField).intValue();
+                }
+            }
         }
+
+        Currency currency = null;
+        if (uomId != null && uomId.length() > 0) {
+            try {
+                currency = Currency.getInstance(uomId);
+                if (currencySymbol == null)
+                    currencySymbol = currency.getSymbol();
+                if (fractionDigits == null)
+                    fractionDigits = currency.getDefaultFractionDigits();
+            } catch (Exception e) {
+                if (logger.isTraceEnabled()) logger.trace("Ignoring IllegalArgumentException for Currency parse: " + e.toString());
+            }
+        }
+        if (currencySymbol == null)
+            currencySymbol = "";
+
+        if (fractionDigits == null)
+            fractionDigits = 2;
+        nf.setMaximumFractionDigits(fractionDigits);
+        nf.setMinimumFractionDigits(fractionDigits);
+        DecimalFormatSymbols dfSymbols = new DecimalFormatSymbols(locale);
+        dfSymbols.setCurrencySymbol(currencySymbol);
+        ((DecimalFormat)nf).setDecimalFormatSymbols(dfSymbols);
+
+        return nf.format(amount);
     }
 
     @Override
@@ -142,10 +180,29 @@ public class L10nFacadeImpl implements L10nFacade {
     }
     @Override
     public BigDecimal roundCurrency(BigDecimal amount, String uomId, boolean precise, RoundingMode mode) {
-        Currency currency = Currency.getInstance(uomId);
-        int nDigits = currency.getDefaultFractionDigits();
-        if (precise) nDigits++;
-        return amount.setScale(nDigits, mode);
+        if (amount == null)
+            return null;
+        List<EntityValue> uomList = eci.getEntity().find("moqui.basic.Uom").condition("uomId", uomId).condition("uomTypeEnumId", "UT_CURRENCY_MEASURE").list();
+        Integer fractionDigits = null;
+        if (uomList.size() > 0) {
+            Object fractionDigitsField = uomList.get(0).get("fractionDigits");
+            if (fractionDigitsField != null) {
+                if (fractionDigitsField instanceof Integer)
+                    fractionDigits = (Integer)fractionDigitsField;
+                else if (fractionDigitsField instanceof Long)
+                    fractionDigits = ((Long)fractionDigitsField).intValue();
+            }
+        }
+        if (fractionDigits == null) {
+            Currency currency = Currency.getInstance(uomId);
+            fractionDigits = currency.getDefaultFractionDigits();
+        }
+        if (fractionDigits == null) {
+            fractionDigits = 2;
+        }
+        if (precise) fractionDigits++;
+        eci.getLogger().info("Rounding to " + fractionDigits + " digits.");
+        return amount.setScale(fractionDigits, mode);
     }
 
     @Override
@@ -217,7 +274,7 @@ public class L10nFacadeImpl implements L10nFacade {
 
         // try interpreting the String as a long
         try {
-            Long lng = Long.valueOf(input);
+            long lng = Long.parseLong(input);
             return new java.sql.Date(lng);
         } catch (NumberFormatException e) {
             if (logger.isTraceEnabled()) logger.trace("Ignoring NumberFormatException for Date parse: " + e.toString());
@@ -262,9 +319,9 @@ public class L10nFacadeImpl implements L10nFacade {
         // long values are pretty common, so if there are no special characters try that first (fast to check)
         if (cal == null) {
             int nonDigits = ObjectUtilities.countChars(input, false, true, true);
-            if (nonDigits == 0) {
+            if (nonDigits == 0 || (nonDigits == 1 && input.startsWith("-"))) {
                 try {
-                    Long lng = Long.valueOf(input);
+                    long lng = Long.parseLong(input);
                     return new Timestamp(lng);
                 } catch (NumberFormatException e) {
                     if (logger.isTraceEnabled()) logger.trace("Ignoring NumberFormatException for Timestamp parse: " + e.toString());
@@ -302,7 +359,7 @@ public class L10nFacadeImpl implements L10nFacade {
 
     @Override public Calendar parseDateTime(String input, String format) {
         return calendarValidator.validate(input, format, getLocale(), getTimeZone()); }
-    public String formatDateTime(Calendar input, String format, Locale locale, TimeZone tz) {
+    @Override public String formatDateTime(Calendar input, String format, Locale locale, TimeZone tz) {
         if (locale == null) locale = getLocale();
         if (tz == null) tz = getTimeZone();
         return calendarValidator.format(input, format, locale, tz);
@@ -317,9 +374,19 @@ public class L10nFacadeImpl implements L10nFacade {
         return bigDecimalValidator.validate(input, format, locale);
     }
 
-    public String formatNumber(Number input, String format, Locale locale) {
+    @Override public String formatNumber(Number input, String format, Locale locale) {
         if (locale == null) locale = getLocale();
-        return bigDecimalValidator.format(input, format, locale);
+        if (format == null || format.isEmpty()) {
+            // BigDecimalValidator defaults to 3 decimal digits, if no format specified we don't want to truncate so small, use better defaults
+            NumberFormat nf = locale != null ? NumberFormat.getNumberInstance(locale) : NumberFormat.getNumberInstance();
+            nf.setMinimumFractionDigits(0);
+            nf.setMaximumFractionDigits(12);
+            nf.setMinimumIntegerDigits(1);
+            nf.setGroupingUsed(true);
+            return nf.format(input);
+        } else {
+            return bigDecimalValidator.format(input, format, locale);
+        }
     }
 
     @Override
@@ -336,7 +403,7 @@ public class L10nFacadeImpl implements L10nFacade {
         if (value == null) return "";
         if (locale == null) locale = getLocale();
         if (tz == null) tz = getTimeZone();
-        Class valueClass = value.getClass();
+        Class<?> valueClass = value.getClass();
         if (valueClass == String.class) return (String) value;
         if (valueClass == Timestamp.class) return formatTimestamp((Timestamp) value, format, locale, tz);
         if (valueClass == java.util.Date.class) return formatTimestamp((java.util.Date) value, format, locale, tz);
@@ -346,6 +413,11 @@ public class L10nFacadeImpl implements L10nFacade {
         if (value instanceof Number) return formatNumber((Number) value, format, locale);
         // Calendar is an abstract class, so must use instanceof here as well
         if (value instanceof Calendar) return formatDateTime((Calendar) value, format, locale, tz);
+        // support formatting of Map and Collection using JSON
+        if (value instanceof Map || value instanceof Collection) {
+            String json = JsonOutput.toJson(value);
+            return (json.length() > 128) ? JsonOutput.prettyPrint(json) : json;
+        }
         return value.toString();
     }
 }

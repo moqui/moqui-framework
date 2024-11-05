@@ -447,4 +447,94 @@ class UtilsTests extends Specification {
 
         assert true
     }
+
+    /**
+     * Converting map to LazyMap fails, if the keys provided are numeric, not string - this test contains integer as key
+     */
+    def test_hashmap_conversion_to_lazymap_with_integer(){
+        when:
+
+        def conf = [
+                keyword           : "online-sxl-extract",
+                hasDetailedStorage: true,
+                storageAppendix   : "nothing_to_store",
+                detailProcessing  : [
+                        initial: [
+                                type: "clean-processing"
+                        ]
+                ],
+                initial           : [
+                        filler: [
+                                mergeStrategy: [
+                                        type: "Simplify"
+                                ],
+                                fillFormData : [
+                                        [
+                                                1: [
+                                                        list         : "teams",
+                                                        "sp-location": [
+                                                                sharepointUrl: "https://rovnaniksk.sharepoint.com",
+                                                                site         : "/sites/CML/Billing",
+                                                                list         : "sxl_enum_teams",
+                                                                fields       : ["Title", "ID"]
+                                                        ]
+                                                ]
+                                        ]
+                                ]
+                        ]
+                ]
+        ]
+
+        // convert it
+        def conv = CollectionUtils.convertLinkedHashMapToLazyMap(conf)
+
+        then:
+
+        assert conv
+    }
+
+    /**
+     * The same as above, this time with double
+     */
+    def test_hashmap_conversion_to_lazymap_with_double(){
+        when:
+
+        def conf = [
+                keyword           : "online-sxl-extract",
+                hasDetailedStorage: true,
+                storageAppendix   : "nothing_to_store",
+                detailProcessing  : [
+                        initial: [
+                                type: "clean-processing"
+                        ]
+                ],
+                initial           : [
+                        filler: [
+                                mergeStrategy: [
+                                        type: "Simplify"
+                                ],
+                                fillFormData : [
+                                        [
+                                                2.0: [
+                                                        list         : "teams",
+                                                        "sp-location": [
+                                                                sharepointUrl: "https://rovnaniksk.sharepoint.com",
+                                                                site         : "/sites/CML/Billing",
+                                                                list         : "sxl_enum_teams",
+                                                                fields       : ["Title", "ID"]
+                                                        ]
+                                                ]
+                                        ]
+                                ]
+                        ]
+                ]
+        ]
+
+        // convert it
+        def conv = CollectionUtils.convertLinkedHashMapToLazyMap(conf)
+
+        then:
+
+        assert conv
+    }
 }
