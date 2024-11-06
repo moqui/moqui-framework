@@ -14,7 +14,7 @@
 package org.moqui.util;
 
 import groovy.json.JsonBuilder;
-import groovy.json.JsonSlurper;
+import groovy.json.JsonSlurperClassic;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.HttpClientTransport;
 import org.eclipse.jetty.client.HttpResponseException;
@@ -442,7 +442,7 @@ public class RestClient {
         /** Parse the response as JSON and return an Object */
         public Object jsonObject() {
             try {
-                return new JsonSlurper().parseText(text());
+                return new JsonSlurperClassic().parseText(text());
             } catch (Throwable t) {
                 throw new BaseException("Error parsing JSON response from request to " + rci.uriString, t);
             }
