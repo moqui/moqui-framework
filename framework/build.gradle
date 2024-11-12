@@ -87,7 +87,7 @@ dependencies {
     // ========== Local (flatDir) libraries in framework/lib ==========
 
     // Bitronix Transaction Manager (the default internal tx mgr; custom build from source as 3.0.0 not yet released)
-    api 'org.codehaus.btm:btm:3.0.0-20161020' // Apache 2.0
+    api 'org.codehaus.btm:btm:3.0.0-SNAPSHOT' // Apache 2.0
     runtimeOnly 'org.javassist:javassist:3.29.2-GA' // Apache 2.0
 
     // ========== General Libraries from Maven Central ==========
