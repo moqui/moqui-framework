@@ -40,4 +40,4 @@ ENTRYPOINT ["java", "-cp", ".", "MoquiStart", "port=80"]
 HEALTHCHECK --interval=10s --timeout=600ms --start-period=90s CMD curl --fail http://localhost || exit 1
 
 # specify this as a default parameter if none are specified with docker exec/run, ie run production by default
-CMD ["conf=conf/MoquiTestConf.xml"]
+CMD ["conf=conf/MoquiProdConf.xml"]
