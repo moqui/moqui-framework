@@ -570,6 +570,7 @@ class RestApi {
         PathNode parent
         List<String> fullPathList = []
         Set<String> pathParameters = new LinkedHashSet<String>()
+        Boolean trackArtifactHit
 
         int childPaths = 0
         int childMethods = 0
@@ -589,6 +590,7 @@ class RestApi {
             fullPathList.add(isId ? "{${name}}".toString() : name)
             if (isId) pathParameters.add(name)
             requireAuthentication = node.attribute("require-authentication") ?: parent?.requireAuthentication ?: "true"
+            trackArtifactHit = node.attribute("track-artifact-hit") ?: parent?.trackArtifactHit ?: false
 
             for (MNode childNode in node.children) {
                 if (childNode.name == "method") {
@@ -645,8 +647,6 @@ class RestApi {
             // push onto artifact stack, check authz
             String curPath = getFullPathName([])
             ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(curPath, ArtifactExecutionInfo.AT_REST_PATH, getActionFromMethod(ec), null)
-            // for now don't track/count artifact hits for REST path
-            aei.setTrackArtifactHit(false)
             // NOTE: consider setting parameters on aei, but don't like setting entire context, currently used for entity/service calls
             ec.artifactExecutionFacade.pushInternal(aei, !moreInPath ?
                     (requireAuthentication == null || requireAuthentication.length() == 0 || "true".equals(requireAuthentication)) : false, true)
@@ -659,6 +659,9 @@ class RestApi {
                 ec.artifactExecutionFacade.setAnonymousAuthorizedView()
                 loggedInAnonymous = ec.userFacade.loginAnonymousIfNoUser()
             }
+
+            aei.setTrackArtifactHit(trackArtifactHit)
+            aei.setAuthzReqdAndIsAccess(!loggedInAnonymous, true)
 
             try {
                 if (moreInPath) {
