@@ -27,6 +27,7 @@ import org.moqui.impl.entity.condition.ListCondition
 import org.moqui.util.CollectionUtilities
 import org.moqui.util.ObjectUtilities
 import org.moqui.util.RestClient
+import org.moqui.util.RestClient.RestResponse
 import org.moqui.util.StringUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -1472,7 +1473,7 @@ class EndpointServiceHandler {
 
         // use specific RequestFactory, with custom timeouts
         // timeout is set by settings
-        def prop = (String) System.properties.get("py.server.request.timeout", 45000)
+        def prop = (String) System.getProperty("py.server.request.timeout", '45000')
         def calcTimeout = prop.toLong()
         def customTimeoutReqFactory = new RestClient.SimpleRequestFactory(calcTimeout)
 
@@ -1485,7 +1486,8 @@ class EndpointServiceHandler {
                 .jsonObject(payload)
                 .withRequestFactory(customTimeoutReqFactory)
 
-        def resp = handlePyCalcResponse(ec, restClient)
+        RestResponse resp = restClient.call()
+        checkPyCalcResponse(resp)
 
         // must handle all states of the response
         def rsp = (HashMap) resp.jsonObject()
@@ -1504,12 +1506,12 @@ class EndpointServiceHandler {
         return rsp
     }
 
-    private static RestClient.RestResponse handlePyCalcResponse(
-            ExecutionContext ec,
-            RestClient rc)
-    {
-        // execute
-        RestClient.RestResponse restResponse = rc.call()
+    /**
+     * Method checks response from PY-CALC and throws an error, should
+     * en unexpected response arrive
+     * @param restResponse
+     */
+    private static void checkPyCalcResponse(RestResponse restResponse) {
 
         // check status code
         if (restResponse.statusCode != 200) {
@@ -1521,7 +1523,6 @@ class EndpointServiceHandler {
             }
             throw new EndpointException(errMessage)
         }
-        return restResponse
     }
 
     /**
@@ -1567,7 +1568,8 @@ class EndpointServiceHandler {
                                 args: pyCalcArgs
                         ]
                 )
-        def resp = handlePyCalcResponse(ec, restClient)
+        RestResponse resp = restClient.call()
+        checkPyCalcResponse(resp)
 
         HashMap response = resp.jsonObject() as HashMap
         return response['data']
@@ -1586,34 +1588,58 @@ class EndpointServiceHandler {
             HashMap location) {
 
         // use existing method and return bytes
-        def b = fetchBytesFromSharepoint(ec, credentials, location, 'api/v1/utility/sharepoint/fetch-list')
+        def b = sendJsonToSharepoint(ec, credentials, location, 'api/v1/utility/sharepoint/fetch-list')
 
         return (ArrayList) b.jsonObject()
     }
 
     /**
-     * Fetch file from Sharepoint
+     * Import data to Sharepoint via py-calc call, supports content as a list
      * @param ec
-     * @param credentials - shall be used to initialize the connection to Sharepoint (e.g. tenantId, clientId, clientSecret)
-     * @param location - where is the file located
-     * @param contentType - JSON?
+     * @param credentials
+     * @param location
+     * @param content
+     * @param method
      * @return
      */
-    public static RestClient.RestResponse fetchBytesFromSharepoint(
+    public static RestResponse genericSendJsonToSharepoint(
             ExecutionContext ec,
             HashMap credentials,
             HashMap location,
-            String endpoint='api/v1/utility/sharepoint/fetch-bytes')
-    {
+            String endpoint,
+            ArrayList content,
+            RestClient.Method method
+    ) {
         def pycalcHost = System.properties.get("py.server.host")
         if (!pycalcHost) throw new EndpointException("PY-CALC server host not defined")
 
-        // data prep
-        def payload = [credentials: credentials, location:location]
-        def customTimeoutReqFactory = new RestClient.SimpleRequestFactory()
+        // timeout
+        def prop = (String) System.getProperty("py.server.request.timeout", '45000')
+        def calcTimeout = prop.toLong()
 
-        RestClient restClient = ec.service.rest().method(RestClient.POST)
+        // check if we can use the caller's request headers here
+        // it may be a sound solution to pass configuration parameters
+        // from Apache Camel and use them to customize the next call
+        def headerNames = ec.web.request.headerNames
+        Map<String, String> selectedHeaders = new HashMap()
+        headerNames.each {
+            if (it.startsWith("ARS")) {
+                ec.logger.debug("Using header for subsequent call: ${it}")
+                selectedHeaders[it] = ec.web.request.getHeader(it)
+            }
+        }
+        ec.logger.info("ARS headers used: ${selectedHeaders}")
+
+        // data prep
+        // @todo consider moving credentials to header
+        HashMap<String, Object> payload = [credentials: credentials, location:location]
+        // add content if provided
+        if (content) if (!content.empty) payload.put('data', content)
+        def customTimeoutReqFactory = new RestClient.SimpleRequestFactory(calcTimeout)
+
+        RestClient restClient = ec.service.rest().method(method)
                 .uri("${pycalcHost}/${endpoint}")
+                .addHeaders(selectedHeaders)
                 .timeout(480)
                 .retry(2, 10)
                 .maxResponseSize(50 * 1024 * 1024)
@@ -1621,9 +1647,28 @@ class EndpointServiceHandler {
                 .withRequestFactory(customTimeoutReqFactory)
 
         // execute
-        def resp = handlePyCalcResponse(ec, restClient)
+        RestResponse resp = restClient.call()
+        checkPyCalcResponse(resp)
 
-        // return bytes
+        // return response
         return resp
+    }
+
+    /**
+     * Call against SharePoint API using JSON
+     * @param ec
+     * @param credentials - shall be used to initialize the connection to Sharepoint (e.g. tenantId, clientId, clientSecret)
+     * @param location - where is the file located
+     * @param contentType - JSON?
+     * @return
+     */
+    public static RestResponse sendJsonToSharepoint(
+            ExecutionContext ec,
+            HashMap credentials,
+            HashMap location,
+            String endpoint='api/v1/utility/sharepoint/fetch-bytes',
+            RestClient.Method method = RestClient.Method.POST)
+    {
+        return genericSendJsonToSharepoint(ec, credentials, location, endpoint, null, method)
     }
 }
