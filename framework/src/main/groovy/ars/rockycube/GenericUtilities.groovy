@@ -233,7 +233,7 @@ class GenericUtilities {
         return len
     }
 
-    private static boolean isFirstCharBracketOrBrace(InputStream is) {
+    private static boolean isFirstCharBracket(InputStream is) {
         is.mark(1)  // Mark the current position in the input stream
         int firstByte = is.read()
         if (firstByte == -1) {
@@ -241,7 +241,7 @@ class GenericUtilities {
         }
         char firstChar = (char) firstByte
         is.reset()  // Reset to the marked position
-        return firstChar == '[' || firstChar == '{'
+        return firstChar == '['
     }
 
     /**
@@ -252,7 +252,7 @@ class GenericUtilities {
     public static convertStreamToJs(InputStream is){
         def js
         try {
-            if (isFirstCharBracketOrBrace(is)) {
+            if (isFirstCharBracket(is)) {
                 js = gson.fromJson(is.newReader("UTF-8"), ArrayList.class)
             } else {
                 js = gson.fromJson(is.newReader("UTF-8"), HashMap.class)
