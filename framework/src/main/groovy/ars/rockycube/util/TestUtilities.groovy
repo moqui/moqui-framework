@@ -408,10 +408,12 @@ public class TestUtilities {
         }
         // sort file names, not file paths
         files.sort { a, b ->
-            def aFile = new File(a)
-            def bFile = new File(b)
-            def aNumber = aFile.name.find(/^(\d+)/)?.toInteger() ?: Integer.MAX_VALUE
-            def bNumber = bFile.name.find(/^(\d+)/)?.toInteger() ?: Integer.MAX_VALUE
+            def getNumber = { fileName ->
+                def matcher = fileName =~ /(\d+)/
+                matcher.find() ? matcher[0][1].toInteger() : Integer.MAX_VALUE
+            }
+            def aNumber = getNumber(new File(a).name)
+            def bNumber = getNumber(new File(b).name)
             aNumber <=> bNumber
         }
 
