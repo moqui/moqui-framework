@@ -1620,15 +1620,18 @@ class EndpointServiceHandler {
         // check if we can use the caller's request headers here
         // it may be a sound solution to pass configuration parameters
         // from Apache Camel and use them to customize the next call
-        def headerNames = ec.web.request.headerNames
         Map<String, String> selectedHeaders = new HashMap()
-        headerNames.each {
-            if (it.startsWith("ARS")) {
-                ec.logger.debug("Using header for subsequent call: ${it}")
-                selectedHeaders[it] = ec.web.request.getHeader(it)
+        if (ec.web) {
+            def headerNames = ec.web.request.headerNames
+            headerNames.each {
+                if (it.startsWith("ARS")) {
+                    ec.logger.debug("Using header for subsequent call: ${it}")
+                    selectedHeaders[it] = ec.web.request.getHeader(it)
+                }
             }
         }
-        ec.logger.info("ARS headers used: ${selectedHeaders}")
+
+        ec.logger.debug("ARS headers used: ${selectedHeaders}")
 
         // data prep
         // @todo consider moving credentials to header
