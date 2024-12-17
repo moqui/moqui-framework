@@ -28,7 +28,7 @@ import java.util.ArrayList;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
-public class EntityQueryBuilder implements Runnable {
+public class EntityQueryBuilder implements Runnable, AutoCloseable {
     protected static final Logger logger = LoggerFactory.getLogger(EntityQueryBuilder.class);
     static final boolean isDebugEnabled = logger.isDebugEnabled();
 
@@ -191,6 +191,11 @@ public class EntityQueryBuilder implements Runnable {
         return rowsUpdated;
     }
 
+    @Override
+    public void close() throws SQLException {
+        // do nothing! see closeInternal
+        closeAll();
+    }
     /** NOTE: this should be called in a finally clause to make sure things are closed */
     void closeAll() throws SQLException {
         if (ps != null) {

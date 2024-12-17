@@ -59,7 +59,7 @@ public class EntityValueImpl extends EntityValueBase {
         EntityFacadeImpl efi = getEntityFacadeImpl();
         if (ed.isViewEntity) throw new EntityException("Create not yet implemented for view-entity");
 
-        EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi);
+        try (EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi)) {
         StringBuilder sql = eqb.sqlTopLevel;
         sql.append("INSERT INTO ").append(ed.getFullTableName()).append(" (");
 
@@ -80,7 +80,7 @@ public class EntityValueImpl extends EntityValueBase {
 
         sql.append(") VALUES (").append(values.toString()).append(")");
 
-        try {
+        //try {
             efi.getEntityDbMeta().checkTableRuntime(ed);
 
             if (con != null) eqb.useConnection(con);
@@ -99,12 +99,12 @@ public class EntityValueImpl extends EntityValueBase {
             String txName = "[could not get]";
             try { txName = efi.ecfi.transactionFacade.getTransactionManager().getTransaction().toString(); }
             catch (Exception txe) { if (logger.isTraceEnabled()) logger.trace("Error getting transaction name: " + txe.toString()); }
-            logger.warn("Error creating " + this.toString() + " tx " + txName + " con " + eqb.connection.toString() + ": " + e.toString());
+            //logger.warn("Error creating " + this.toString() + " tx " + txName + " con " + eqb.connection.toString() + ": " + e.toString());
             throw e;
-        } finally {
+        } /*finally {
             try { eqb.closeAll(); }
             catch (SQLException sqle) { logger.error("Error in JDBC close in create of " + this.toString(), sqle); }
-        }
+        }*/
     }
 
     @SuppressWarnings("MismatchedQueryAndUpdateOfStringBuilder")
@@ -114,7 +114,7 @@ public class EntityValueImpl extends EntityValueBase {
         final EntityFacadeImpl efi = getEntityFacadeImpl();
         if (ed.isViewEntity) throw new EntityException("Update not yet implemented for view-entity");
 
-        final EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi);
+        try (final EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi)) {
         ArrayList<EntityConditionParameter> parameters = eqb.parameters;
         StringBuilder sql = eqb.sqlTopLevel;
         sql.append("UPDATE ").append(ed.getFullTableName()).append(" SET ");
@@ -130,7 +130,7 @@ public class EntityValueImpl extends EntityValueBase {
 
         eqb.addWhereClause(pkFieldArray, valueMapInternal);
 
-        try {
+        //try {
             efi.getEntityDbMeta().checkTableRuntime(ed);
 
             if (con != null) eqb.useConnection(con);
@@ -146,12 +146,12 @@ public class EntityValueImpl extends EntityValueBase {
             String txName = "[could not get]";
             try { txName = efi.ecfi.transactionFacade.getTransactionManager().getTransaction().toString(); }
             catch (Exception txe) { if (logger.isTraceEnabled()) logger.trace("Error getting transaction name: " + txe.toString()); }
-            logger.warn("Error updating " + this.toString() + " tx " + txName + " con " + eqb.connection.toString() + ": " + e.toString());
+            //logger.warn("Error updating " + this.toString() + " tx " + txName + " con " + eqb.connection.toString() + ": " + e.toString());
             throw e;
-        } finally {
+        } /*finally {
             try { eqb.closeAll(); }
             catch (SQLException sqle) { logger.error("Error in JDBC close in update of " + this.toString(), sqle); }
-        }
+        }*/
     }
 
     @SuppressWarnings("MismatchedQueryAndUpdateOfStringBuilder")
@@ -161,14 +161,14 @@ public class EntityValueImpl extends EntityValueBase {
         EntityFacadeImpl efi = getEntityFacadeImpl();
         if (ed.isViewEntity) throw new EntityException("Delete not implemented for view-entity");
 
-        EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi);
+        try (EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi)) {
         StringBuilder sql = eqb.sqlTopLevel;
         sql.append("DELETE FROM ").append(ed.getFullTableName());
 
         FieldInfo[] pkFieldArray = ed.entityInfo.pkFieldInfoArray;
         eqb.addWhereClause(pkFieldArray, valueMapInternal);
 
-        try {
+        //try {
             efi.getEntityDbMeta().checkTableRuntime(ed);
 
             if (con != null) eqb.useConnection(con);
@@ -180,12 +180,12 @@ public class EntityValueImpl extends EntityValueBase {
             String txName = "[could not get]";
             try { txName = efi.ecfi.transactionFacade.getTransactionManager().getTransaction().toString(); }
             catch (Exception txe) { if (logger.isTraceEnabled()) logger.trace("Error getting transaction name: " + txe.toString()); }
-            logger.warn("Error deleting " + this.toString() + " tx " + txName + " con " + eqb.connection.toString() + ": " + e.toString());
+            //logger.warn("Error deleting " + this.toString() + " tx " + txName + " con " + eqb.connection.toString() + ": " + e.toString());
             throw e;
-        } finally {
+        } /*finally {
             try { eqb.closeAll(); }
             catch (SQLException sqle) { logger.error("Error in JDBC close in delete of " + this.toString(), sqle); }
-        }
+        }*/
     }
 
     @SuppressWarnings("MismatchedQueryAndUpdateOfStringBuilder")
@@ -203,8 +203,8 @@ public class EntityValueImpl extends EntityValueBase {
         FieldInfo[] pkFieldArray = entityInfo.pkFieldInfoArray;
         FieldInfo[] allFieldArray = entityInfo.allFieldInfoArray;
         // NOTE: even if there are no non-pk fields do a refresh in order to see if the record exists or not
-
-        EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi);
+        boolean retVal = false;
+        try (EntityQueryBuilder eqb = new EntityQueryBuilder(ed, efi)) {
         ArrayList<EntityConditionParameter> parameters = eqb.parameters;
         StringBuilder sql = eqb.sqlTopLevel;
         sql.append("SELECT ");
@@ -220,8 +220,8 @@ public class EntityValueImpl extends EntityValueBase {
             parameters.add(new EntityConditionParameter(fi, valueMapInternal.getByIString(fi.name, fi.index), eqb));
         }
 
-        boolean retVal = false;
-        try {
+
+        //try {
             // don't check create, above tableExists check is done:
             // efi.getEntityDbMeta().checkTableRuntime(ed)
             // if this is a view-entity and any table in it exists check/create all or will fail with optional members, etc
@@ -249,12 +249,12 @@ public class EntityValueImpl extends EntityValueBase {
             String txName = "[could not get]";
             try { txName = efi.ecfi.transactionFacade.getTransactionManager().getTransaction().toString(); }
             catch (Exception txe) { if (logger.isTraceEnabled()) logger.trace("Error getting transaction name: " + txe.toString()); }
-            logger.warn("Error finding " + this.toString() + " tx " + txName + " con " + eqb.connection.toString() + ": " + e.toString());
+            //logger.warn("Error finding " + this.toString() + " tx " + txName + " con " + eqb.connection.toString() + ": " + e.toString());
             throw e;
-        } finally {
+        } /*finally {
             try { eqb.closeAll(); }
             catch (SQLException sqle) { logger.error("Error in JDBC close in refresh of " + this.toString(), sqle); }
-        }
+        }*/
 
         return retVal;
     }
