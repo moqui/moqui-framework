@@ -2,7 +2,7 @@
 # NOTE: add components, build and if needed load data before building a docker image with this
 
 FROM eclipse-temurin:11-jdk as base
-MAINTAINER dataquest <admin@rovnanik.sk>
+MAINTAINER rovnanik.sk <admin@rovnanik.sk>
 
 ARG DOCKER_COMPOSE_WAIT_VERSION
 
