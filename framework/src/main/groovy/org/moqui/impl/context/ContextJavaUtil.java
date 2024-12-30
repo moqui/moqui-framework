@@ -14,8 +14,10 @@
 package org.moqui.impl.context;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -580,8 +582,17 @@ public class ContextJavaUtil {
         */
     }
 
+    // Adjust the maximum string length
+    static StreamReadConstraints customStreamReadConstraints = StreamReadConstraints.builder()
+            .maxStringLength(50000000) // Set the maximum string length to a higher value
+            .build();
 
-    public final static ObjectMapper jacksonMapper = new ObjectMapper()
+    // Create a JsonFactory with the custom StreamReadConstraints
+    static JsonFactory jsonFactory = JsonFactory.builder()
+            .streamReadConstraints(customStreamReadConstraints)
+            .build();
+
+    public final static ObjectMapper jacksonMapper = new ObjectMapper(jsonFactory)
             .setSerializationInclusion(JsonInclude.Include.ALWAYS)
             .enable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
             .enable(SerializationFeature.INDENT_OUTPUT)
