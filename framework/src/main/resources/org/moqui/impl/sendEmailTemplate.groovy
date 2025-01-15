@@ -19,8 +19,11 @@ For JavaMail JavaDocs see: https://javamail.java.net/nonav/docs/api/index.html
 
 import org.apache.commons.mail.DefaultAuthenticator
 import org.apache.commons.mail.HtmlEmail
+import org.moqui.context.ExecutionContext
+import org.moqui.context.TemplateRenderer
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
+import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 
 import javax.activation.DataSource
@@ -82,16 +85,28 @@ try {
         emailMessageId = cemResults.emailMessageId
     }
 
-    // prepare the html message
-    def bodyRender = ec.screen.makeRender().rootScreen((String) emailTemplate.bodyScreenLocation)
-            .webappName(webappName).renderMode("html")
-    String bodyHtml = bodyRender.render()
+    // RSK - enhancement - allow direct FTL rendering, instead of using only the `ScreenRender`
+    String bodyHtml = null
+    String bodyText = null
 
-    // prepare the alternative plain text message
-    // render screen with renderMode=text for this
-    def bodyTextRender = ec.screen.makeRender().rootScreen((String) emailTemplate.bodyScreenLocation)
-            .webappName(webappName).renderMode("text")
-    String bodyText = bodyTextRender.render()
+    // decide using screen definition file extension, whether to
+    // use direct FTL render or the original way
+    String screenDefPath = (String) emailTemplate.bodyScreenLocation
+    if (screenDefPath.endsWith('.ftl'))
+    {
+        bodyHtml = prepareHtmlBodyFromFtl(ec, screenDefPath)
+    } else {
+        // prepare the html message
+        def bodyRender = ec.screen.makeRender().rootScreen(screenDefPath)
+                .webappName(webappName).renderMode("html")
+        bodyHtml = bodyRender.render()
+
+        // prepare the alternative plain text message
+        // render screen with renderMode=text for this
+        def bodyTextRender = ec.screen.makeRender().rootScreen(screenDefPath)
+                .webappName(webappName).renderMode("text")
+        bodyText = bodyTextRender.render()
+    }
 
     if (emailMessageId) {
         ec.service.sync().name("update", "moqui.basic.email.EmailMessage").requireNewTransaction(true)
@@ -343,4 +358,20 @@ static boolean isDomainAllowed(String emailAddress, ArrayList<String> toDomainLi
         }
     }
     return domainAllowed
+}
+
+/**
+ * Based on RSK customization, this method prepares an HTML body from an FTL template
+ * @param ec
+ * @param screenDefPath
+ * @return
+ */
+static String prepareHtmlBodyFromFtl(ExecutionContext ec, String screenDefPath) {
+    def ecfi = (ExecutionContextFactoryImpl) ec.factory
+    StringWriter sw = new StringWriter()
+    TemplateRenderer templateRenderer = ecfi.resourceFacade.ftlTemplateRenderer
+    templateRenderer.render(screenDefPath, sw)
+
+    // return
+    return sw.toString()
 }
