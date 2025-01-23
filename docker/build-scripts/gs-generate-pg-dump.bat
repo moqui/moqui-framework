@@ -23,7 +23,7 @@ REM run DUMP script
 type DumpDatabase.sql | docker exec -i dev-postgres su postgres
 
 REM kill 'em
-docker-compose -p pg-dump -f create-database.yml down --rmi local -v
+docker compose -p pg-dump -f create-database.yml down --rmi local -v
 
 REM return back to original dir
 popd

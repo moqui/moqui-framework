@@ -1,4 +1,4 @@
-#! /bin/bash
+#!/bin/bash
 
 docker network create ars-int
 
@@ -12,7 +12,8 @@ docker compose -p pg-dump   -f create-database.yml build --no-cache
 docker compose -p pg-dump   -f create-database.yml up -d
 
 # store IP of host in order to use it for db import later on
-ip4=$(/sbin/ip -o -4 addr list eth0 | awk '{print $4}' | cut -d/ -f1)
+ip4=$(/sbin/ip -o -4 addr list | awk '!/ lo / {print $4; exit}' | cut -d/ -f1)
+echo "Connecting to PG_LOAD_SERVER: $ip4"
 
 # 2. run application component (inside separate component as well) - this is the component that is being built
 # this will actually initialize the database, without running the component
