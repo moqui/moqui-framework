@@ -6,7 +6,7 @@ MAINTAINER rovnanik.sk <admin@rovnanik.sk>
 
 ARG DOCKER_COMPOSE_WAIT_VERSION
 
-RUN apt-get update && apt-get install unzip netcat-openbsd dos2unix curl -y
+RUN apk update && apk add unzip netcat-openbsd dos2unix curl
 
 # wait installation script
 ADD https://github.com/ufoscout/docker-compose-wait/releases/download/${DOCKER_COMPOSE_WAIT_VERSION}/wait /wait
@@ -21,8 +21,8 @@ RUN unzip /tmp/moqui/moqui-plus-runtime.war -d /opt/moqui
 ADD docker/simple/*.sh /opt/.
 RUN dos2unix /opt/*.sh && chmod +x /opt/*.sh
 
-FROM eclipse-temurin:11-jdk
-RUN apt-get install tzdata -y
+FROM eclipse-temurin:11-jre-alpine
+RUN apk add tzdata
 COPY --from=base /wait /wait
 COPY --from=base /opt/moqui /opt/moqui
 COPY --from=base /opt/*.sh /opt/.

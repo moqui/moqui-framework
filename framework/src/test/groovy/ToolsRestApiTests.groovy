@@ -32,7 +32,6 @@ class ToolsRestApiTests extends Specification {
 
     def setupSpec() {
         ec = Moqui.getExecutionContext()
-        def e = Moqui.executionContextFactory
         ec.user.loginUser("john.doe", "moqui")
         screenTest = ec.screen.makeTest().baseScreenPath("rest")
     }

@@ -12,10 +12,10 @@ services:
     command: ["java", "-cp", ".", "MoquiStart", "port=8080"]
     restart: always
     networks:
-      - dtq-int
+      - ars-int
     ports:
      - "8080:8080"
 
 networks:
-   dtq-int:
+   ars-int:
      external: true

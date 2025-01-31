@@ -2434,7 +2434,7 @@ class EntityFacadeImpl implements EntityFacade {
     }
     void clearQueryStats() { queryStatsInfoMap.clear() }
 
-    // DTQ Customization
+    // ARS Customization
     // allows adding extra rules related to entities (e.g. in SynchroMaster)
     public void addNewEecaRule(String entityName, EntityEcaRule eer)
     {

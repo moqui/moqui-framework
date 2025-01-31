@@ -1,6 +1,6 @@
 #! /bin/bash
 
-docker network create dtq-int
+docker network create ars-int
 
 # "Creating database dump for purpose of having a clear and filled database"
 # get into the simple-build directory
