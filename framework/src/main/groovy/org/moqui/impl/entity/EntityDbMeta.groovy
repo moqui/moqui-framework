@@ -468,14 +468,21 @@ class EntityDbMeta {
     }
 
     boolean tableExists(EntityDefinition ed) {
+        def performDbCheck = ed.isMultipleInstanceEntity
+        // check in database for special entities
+        if (performDbCheck) return tableExistsInternal(ed)
+
         Boolean exists = entityTablesExist.get(ed.getFullEntityName())
         if (exists != null) return exists.booleanValue()
 
         return tableExistsInternal(ed)
     }
     synchronized boolean tableExistsInternal(EntityDefinition ed) {
-        Boolean exists = entityTablesExist.get(ed.getFullEntityName())
-        if (exists != null) return exists.booleanValue()
+        def performDbCheck = ed.isMultipleInstanceEntity
+        if (!performDbCheck) {
+            Boolean exists = entityTablesExist.get(ed.getFullEntityName())
+            if (exists != null) return exists.booleanValue()
+        }
 
         Boolean dbResult = null
         if (ed.isViewEntity) {
