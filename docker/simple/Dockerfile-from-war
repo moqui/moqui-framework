@@ -1,8 +1,8 @@
 # Builds a minimal docker image with openjdk and moqui with various volumes for configuration and persisted data outside the container
 # NOTE: add components, build and if needed load data before building a docker image with this
 
-FROM eclipse-temurin:11-jdk-alpine as base
-MAINTAINER dataquest <admin@rovnanik.sk>
+FROM eclipse-temurin:11-jdk as base
+MAINTAINER rovnanik.sk <admin@rovnanik.sk>
 
 ARG DOCKER_COMPOSE_WAIT_VERSION
 
