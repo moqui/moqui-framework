@@ -58,7 +58,7 @@ class UtilsTests extends Specification {
 
         then:
         // str1 == 'CL_I_OUT_ENTSOE_REPORT_01__CZ12345678'
-        str2 == 'ENTSOE_REPORT_01_C_12345678'
+        str2 == 'ENTSOE_REPORT_01__C_12345678'
     }
 
     def test_comma_splitting() {
