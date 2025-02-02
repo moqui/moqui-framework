@@ -271,10 +271,10 @@ test {
 
     // set log directory to runtime/log, with the option to customize it
     def logDir = project.hasProperty('moqui.log.directory') ? project.property('moqui.log.directory') : 'log'
-    systemProperty 'moqui.runtime', '../runtime'
+    systemProperty 'moqui.runtime', projectDir.absolutePath + '/runtime'
     systemProperty 'moqui.conf', 'conf/MoquiDevConf.xml'
     systemProperty 'moqui.init.static', 'true'
-    systemProperty 'moqui.log.directory', projectDir.absolutePath + '/../runtime/' + logDir
+    systemProperty 'moqui.log.directory', projectDir.absolutePath + '/runtime/' + logDir
 
     classpath += files(sourceSets.main.output.classesDirs); classpath += files(projectDir.absolutePath)
     // filter out classpath entries that don't exist (gradle adds a bunch of these), or ElasticSearch JarHell will blow up

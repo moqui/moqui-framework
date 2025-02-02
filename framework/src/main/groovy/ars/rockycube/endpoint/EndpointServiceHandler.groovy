@@ -1405,7 +1405,7 @@ class EndpointServiceHandler {
                 .addHeader("Content-Type", "application/json")
                 .addBodyParameter("template", template)
                 .jsonObject(data)
-        RestClient.RestResponse restResponse = restClient.call()
+        RestResponse restResponse = restClient.call()
 
         // check status code
         if (restResponse.statusCode != 200) {
@@ -1435,10 +1435,13 @@ class EndpointServiceHandler {
             Closure cbCheckData,
             boolean extractPycalcArgs,
             boolean debug,
-            String processingId = null,
             String sessionId = null)
     {
         def pycalcHost = System.properties.get("py.server.host")
+
+        // if there is a procHistoryId in the request, use it
+        def execHistoryId = ec.web ? ec.web.request.getHeader("ARS-execHistoryId") : null
+        def processingId = ec.web ? ec.web.request.getHeader("ARS-processingId") : 'nop'
 
         // set sessionId if not set
         if (debug && !sessionId) sessionId = StringUtilities.getRandomString(11)
@@ -1475,16 +1478,20 @@ class EndpointServiceHandler {
         // timeout is set by settings
         def prop = (String) System.getProperty("py.server.request.timeout", '45000')
         def calcTimeout = prop.toLong()
-        def customTimeoutReqFactory = new RestClient.SimpleRequestFactory(calcTimeout)
+
+        // pass ARS headers further down-stream
+        HashMap<String, String> headers = new HashMap()
+        headers.put("Content-Type", "application/json")
+        if (execHistoryId) headers.put("ARS-execHistoryId", execHistoryId)
+        if (processingId) headers.put("ARS-processingId", processingId)
 
         RestClient restClient = ec.service.rest().method(RestClient.POST)
                 .uri("${pycalcHost}/api/v1/calculator/execute")
-                .timeout(480)
+                .timeout(calcTimeout/1000 as int)
                 .retry(2, 10)
                 .maxResponseSize(50 * 1024 * 1024)
-                .addHeader("Content-Type", "application/json")
+                .addHeaders(headers)
                 .jsonObject(payload)
-                .withRequestFactory(customTimeoutReqFactory)
 
         RestResponse resp = restClient.call()
         checkPyCalcResponse(resp)
