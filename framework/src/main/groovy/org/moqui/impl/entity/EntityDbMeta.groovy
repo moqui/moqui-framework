@@ -469,10 +469,13 @@ class EntityDbMeta {
 
     boolean tableExists(EntityDefinition ed) {
         def performDbCheck = ed.isMultipleInstanceEntity
+        Boolean exists = entityTablesExist.get(ed.getFullEntityName())
+        // if table exists in `entityTableExist`
+        if (exists && performDbCheck) return true
+
         // check in database for special entities
         if (performDbCheck) return tableExistsInternal(ed)
 
-        Boolean exists = entityTablesExist.get(ed.getFullEntityName())
         if (exists != null) return exists.booleanValue()
 
         return tableExistsInternal(ed)

@@ -10,6 +10,7 @@ import org.moqui.impl.ViUtilities
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.entity.EntityConditionFactoryImpl
 import org.moqui.impl.entity.EntityDefinition
+import org.moqui.impl.entity.EntityJavaUtil
 import org.moqui.impl.entity.condition.ConditionField
 import org.moqui.util.CollectionUtilities
 import org.moqui.util.MNode
@@ -45,6 +46,19 @@ class UtilsTests extends Specification {
 
         then:
         1 == 1
+    }
+
+    def test_camelCase_conversion() {
+        when:
+
+        // IT IS NOT FEASIBLE TO TRANSFORM `camelCaseToUnderscored` method to cover specifically
+        // cases of ClosureItem tables, this functionality has been moved aside
+        // def str1 = EntityJavaUtil.camelCaseToUnderscored('cl_i_out_entsoe_report_01__CZ12345678')
+        def str2 = EntityJavaUtil.camelCaseToUnderscored('entsoe_report_01_C_12345678')
+
+        then:
+        // str1 == 'CL_I_OUT_ENTSOE_REPORT_01__CZ12345678'
+        str2 == 'ENTSOE_REPORT_01__C_12345678'
     }
 
     def test_comma_splitting() {
