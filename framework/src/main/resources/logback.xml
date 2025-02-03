@@ -1,18 +1,9 @@
 <configuration debug="false">
-    <Properties>
-        <!-- the ${sys:moqui.runtime} expansion fails under Tomcat/etc as moqui.runtime isn't set before Log4J2
-            initializes (like with MoquiStart.java), so specify a default property here -->
-        <Property name="moqui.runtime">moqui_logs</Property>
-        <Property name="moqui.log.directory">../runtime/log</Property>
-        <Property name="moqui.logger.level.xml_action">info</Property>
-        <Property name="moqui.logger.level.closure">info</Property>
-    </Properties>
-
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <!-- encoders are  by default assigned the type
              ch.qos.logback.classic.encoder.PatternLayoutEncoder -->
-        <encoder>
-            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} -%kvp- %msg%n</pattern>
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight(%-5level) %-36.36logger -%kvp- %msg%n</pattern>
         </encoder>
     </appender>
 
@@ -30,14 +21,61 @@
             <maxHistory>30</maxHistory>
         </rollingPolicy>
 
-        <encoder>
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
             <charset>UTF-8</charset>
-            <pattern>%d %-4relative [%thread] %-5level %logger{35} - %msg%n</pattern>
+            <pattern>%d %-4relative [%thread] %highlight(%-5level) %-36.36logger - %msg%n</pattern>
         </encoder>
     </appender>
+
+    <appender name="ErrorFile" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${moqui.log.directory}/moqui-error-logback.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <!-- daily rollover. Make sure the path matches the one in the file element or else
+             the rollover logs are placed in the working directory. -->
+            <fileNamePattern>${moqui.log.directory}/moqui-error-logback%d{yyyy-MM-dd}-%i.log</fileNamePattern>
+
+            <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+                <maxFileSize>5MB</maxFileSize>
+            </timeBasedFileNamingAndTriggeringPolicy>
+            <!-- keep 30 days' worth of history -->
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+
+        <!-- Use ThresholdFilter here -->
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <charset>UTF-8</charset>
+            <pattern>%d %-4relative [%thread] %highlight(%-5level) %-36.36logger - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="org.moqui" level="info"/>
+    <logger name="org.apache" level="warn"/>
+    <logger name="org.apache.fop.fo.extensions.svg.SVGElementMapping" level="fatal"/>
+    <logger name="freemarker" level="warn"/>
+    <logger name="org.elasticsearch" level="warn"/>
+    <logger name="org.drools" level="info"/>
+    <logger name="atomikos" level="warn"/>
+    <logger name="com.atomikos" level="warn"/>
+    <logger name="bitronix" level="warn"/>
+    <logger name="cz.vutbr" level="warn"/><!-- cssbox -->
+
+    <!-- show Groovy generated from XML Actions: -->
+    <logger name="org.moqui.impl.actions.XmlAction" level="info"/>
+    <!-- show SQL generated for finds: -->
+    <logger name="org.moqui.impl.entity.EntityFindBuilder" level="info"/>
+    <!-- show SQL generated for crud ops: -->
+    <logger name="org.moqui.impl.entity.EntityQueryBuilder" level="info"/>
+
+    <!-- ars custom loggers -->
+    <logger name="ars.closure.ClosureHandler" level="${sys:moqui.logger.level.closure}"/>
 
     <root level="info">
         <appender-ref ref="STDOUT"  />
         <appender-ref ref="LogFile" />
+        <appender-ref ref="ErrorFile" />
     </root>
 </configuration>
