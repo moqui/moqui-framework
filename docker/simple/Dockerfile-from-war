@@ -17,6 +17,10 @@ WORKDIR /opt/moqui
 COPY moqui-plus-runtime.war /tmp/moqui/.
 RUN unzip /tmp/moqui/moqui-plus-runtime.war -d /opt/moqui
 
+# remove all configurations from /opt/runtime/conf
+RUN rm -rf /opt/moqui/runtime/conf && mkdir /opt/moqui/runtime/conf
+RUN ls -las /opt/moqui/runtime/conf
+
 # Copy scripts and make them executable in the build stage
 ADD docker/simple/*.sh /opt/.
 RUN dos2unix /opt/*.sh && chmod +x /opt/*.sh
