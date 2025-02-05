@@ -1,3 +1,3 @@
 #!/bin/sh
 
-java -cp . MoquiStart conf=conf/MoquiProductionConf.xml
+java -cp . MoquiStart conf=conf/MoquiProdConf.xml

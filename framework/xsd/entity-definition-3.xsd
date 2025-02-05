@@ -90,6 +90,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="entity-name" type="name-upper" use="required"/>
             <xs:attribute name="package" type="name-package" use="required"/>
             <xs:attribute name="table-name" type="xs:string"/>
+            <xs:attribute name="schema-name" type="xs:string"/>
             <xs:attribute name="group" type="name-plain" use="optional"/>
             <xs:attribute name="use" default="transactional">
                 <xs:annotation><xs:documentation>The intended use of an entity.</xs:documentation></xs:annotation>
