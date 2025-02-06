@@ -311,6 +311,11 @@ public class EntityJavaUtil {
             tableNameLowerCase = tableName.toLowerCase();
             String schemaNameAttr = datasourceNode != null ? datasourceNode.attribute("schema-name") : null;
             if (schemaNameAttr != null && schemaNameAttr.length() == 0) schemaNameAttr = null;
+            // allow overriding of schema-name on the entity level
+            boolean hasSchema = internalEntityNode.attribute("schema-name") != null && !internalEntityNode.attribute("schema-name").isEmpty();
+            if (hasSchema) {
+                schemaNameAttr = internalEntityNode.attribute("schema-name");
+            }
             schemaName = schemaNameAttr;
             if (databaseNode == null || !"false".equals(databaseNode.attribute("use-schemas"))) {
                 fullTableName = schemaName != null ? schemaName + "." + tableNameAttr : tableNameAttr;

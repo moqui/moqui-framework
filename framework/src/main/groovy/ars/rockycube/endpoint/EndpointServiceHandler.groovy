@@ -861,6 +861,17 @@ class EndpointServiceHandler {
         return res
     }
 
+    /**
+     * Generic method that returns count
+     * @return
+     */
+    public Long fetchCount()
+    {
+        def allEntriesSearch = efi.find(entityName)
+        if (queryCondition) allEntriesSearch.condition(queryCondition)
+        return allEntriesSearch.count()
+    }
+
     private boolean manipulateRecordId(HashMap<String, Object> record)
     {
         if (!args.get('renameId', null)) return false

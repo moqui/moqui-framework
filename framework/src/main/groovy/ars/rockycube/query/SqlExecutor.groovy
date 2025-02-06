@@ -3,6 +3,8 @@ package ars.rockycube.query
 import groovy.json.JsonSlurper
 import org.moqui.resource.ResourceReference
 import org.slf4j.Logger
+
+import java.sql.CallableStatement
 import java.sql.Connection
 import java.sql.ResultSetMetaData
 
@@ -188,6 +190,96 @@ class SqlExecutor {
         // check pagination and remove if none provided
         if (result.pagination == [:]) result.remove('pagination')
 
+        return result
+    }
+
+    /**
+     *
+     * @param conn
+     * @param logger
+     * @param storedProcedureName
+     * @param inputParameters
+     * @param outputParameterTypes
+     * @return
+     */
+    static HashMap<String, Object> executeStoredProcedure(
+            Connection conn,
+            Logger logger,
+            String storedProcedureName,
+            List<Object> inputParameters = [],
+            List<Integer> outputParameterTypes = []
+    ) {
+        CallableStatement callableStmt = null
+        HashMap<String, Object> result = new HashMap<>()
+
+        try {
+            // Construct the stored procedure call string
+            StringBuilder procedureCall = new StringBuilder("call ")
+            procedureCall.append(storedProcedureName).append("(")
+
+            // Add placeholders for input and output parameters correctly.
+            int totalParameters = outputParameterTypes.size() + inputParameters.size()
+            procedureCall.append("?,".repeat(totalParameters))
+
+            if (totalParameters > 0) { // Remove the trailing comma if there are parameters
+                procedureCall.deleteCharAt(procedureCall.length() - 1)
+            }
+            procedureCall.append(")")
+
+            // Prepare the CallableStatement
+            callableStmt = conn.prepareCall(procedureCall.toString())
+
+            // Register OUT parameters
+            for (int i = 0; i < outputParameterTypes.size(); i++) {
+                callableStmt.registerOutParameter(i + 1, outputParameterTypes.get(i))
+            }
+
+            // Set IN parameters
+            for (int i = 0; i < inputParameters.size(); i++) {
+                callableStmt.setObject(outputParameterTypes.size() + i + 1, inputParameters.get(i))
+            }
+
+            // Execute the stored procedure
+            boolean hasResultSet = callableStmt.execute()
+
+            // Collect OUT parameter results
+            HashMap<String, Object> outputResults = new HashMap<>()
+            for (int i = 0; i < outputParameterTypes.size(); i++) {
+                outputResults.put("outParam${i + 1}", callableStmt.getObject(i + 1))
+            }
+
+            // Collect result set if available
+            if (hasResultSet) {
+                def resultSet = callableStmt.getResultSet()
+                def resultRecords = []
+                while (resultSet.next()) {
+                    def record = [:]
+                    def metaData = resultSet.getMetaData()
+                    for (int i = 1; i <= metaData.getColumnCount(); i++) {
+                        record[metaData.getColumnName(i)] = resultSet.getObject(i)
+                    }
+                    resultRecords.add(record)
+                }
+                result.put("resultSet", resultRecords)
+            }
+
+            // Add OUT parameter results to the final result
+            result.put("outputParameters", outputResults)
+
+            logger.info("Stored procedure executed successfully: ${storedProcedureName}")
+        } catch (Exception e) {
+            logger.error("Error executing stored procedure: ${e.message}", e)
+            throw e
+        } finally {
+            // Close the CallableStatement
+            if (callableStmt != null) {
+                try {
+                    callableStmt.close()
+                } catch (Exception ignored) {
+                    // Ignore
+                }
+            }
+        }
         return result
     }
 

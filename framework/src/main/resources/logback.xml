@@ -68,7 +68,7 @@
     <!-- show SQL generated for finds: -->
     <logger name="org.moqui.impl.entity.EntityFindBuilder" level="info"/>
     <!-- show SQL generated for crud ops: -->
-    <logger name="org.moqui.impl.entity.EntityQueryBuilder" level="info"/>
+    <logger name="org.moqui.impl.entity.EntityQueryBuilder" level="debug"/>
 
     <!-- ars custom loggers -->
     <logger name="ars.closure.ClosureHandler" level="${sys:moqui.logger.level.closure}"/>

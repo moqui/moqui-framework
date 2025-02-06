@@ -156,7 +156,9 @@ class EntityDbMeta {
 
                 ResultSet tableSet = null
                 try {
-                    tableSet = dbData.getTables(con.getCatalog(), schemaName, "%", types)
+                    // RSK fix - do not use schema when searching for table names, we may have table
+                    // names outside the standard `public` scheme
+                    tableSet = dbData.getTables(con.getCatalog(), null, "%", types)
                     while (tableSet.next()) {
                         String tableName = tableSet.getString('TABLE_NAME')
                         existingTableNames.add(tableName)

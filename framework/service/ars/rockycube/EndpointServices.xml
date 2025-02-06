@@ -10,7 +10,7 @@ You should have received a copy of the CC0 Public Domain Dedication
 along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
-<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-3.xsd">
     <service verb="populate"
                 noun="EntityData"
                 method="loadFromEntity"
@@ -116,4 +116,22 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="result" type="Map"/>
         </out-parameters>
     </service>
+
+    <!--EXECUTE STORED PROCEDURE-->
+    <service
+            verb="launch"
+            noun="StoredProcedure"
+            method="launchWithParams"
+            type="script"
+            location="classpath://service/ars/rockycube/sp/ProcHandler.groovy">
+        <in-parameters>
+            <parameter name="procedureName" type="String"/>
+            <parameter name="connectionName" type="String"/>
+            <parameter name="closureItemId" type="String"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="result" type="Map"/>
+        </out-parameters>
+    </service>
+
 </services>
