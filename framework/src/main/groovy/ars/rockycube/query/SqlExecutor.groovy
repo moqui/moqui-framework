@@ -214,11 +214,17 @@ class SqlExecutor {
 
         try {
             // Construct the stored procedure call string
-            StringBuilder procedureCall = new StringBuilder("{")
-            procedureCall.append("?," * outputParameterTypes.size()) // Add placeholders for OUT parameters
-            procedureCall.append("?," * inputParameters.size()) // Add placeholders for IN parameters
-            procedureCall.deleteCharAt(procedureCall.length() - 1) // Remove trailing comma
-            procedureCall.insert(0, "{call " + storedProcedureName + "(").append(")}")
+            StringBuilder procedureCall = new StringBuilder("call ")
+            procedureCall.append(storedProcedureName).append("(")
+
+            // Add placeholders for input and output parameters correctly.
+            int totalParameters = outputParameterTypes.size() + inputParameters.size()
+            procedureCall.append("?,".repeat(totalParameters))
+
+            if (totalParameters > 0) { // Remove the trailing comma if there are parameters
+                procedureCall.deleteCharAt(procedureCall.length() - 1)
+            }
+            procedureCall.append(")")
 
             // Prepare the CallableStatement
             callableStmt = conn.prepareCall(procedureCall.toString())
@@ -274,7 +280,6 @@ class SqlExecutor {
                 }
             }
         }
-
         return result
     }
 
