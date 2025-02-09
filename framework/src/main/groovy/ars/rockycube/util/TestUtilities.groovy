@@ -1,11 +1,13 @@
 package ars.rockycube.util;
 
 import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 import com.google.gson.JsonElement
 import com.google.gson.reflect.TypeToken
 import groovy.json.JsonSlurper
 import groovy.yaml.YamlSlurper
 import org.apache.commons.io.FileUtils
+import org.apache.commons.lang3.RandomStringUtils
 import org.apache.groovy.json.internal.LazyMap
 import org.slf4j.Logger
 
@@ -323,7 +325,6 @@ public class TestUtilities {
         dumpToDebugUsingWriter(debugPath, bt)
     }
 
-
     static void dumpToDebugUsingWriter(String[] debugPath, Closure cb)
     {
         def fw = createDebugWriter(debugPath)
@@ -389,6 +390,15 @@ public class TestUtilities {
     }
 
     /**
+     * Delete directory
+     * @param resDir
+     */
+    static void deleteDir(String[] resDir) {
+        if (!checkDirectoryExists(resDir)) return
+        FileUtils.getFile(setResourcePath(resDir)).deleteDir()
+    }
+
+    /**
      * Find names of all files inside a directory
      * @param resDir
      * @return
@@ -418,5 +428,29 @@ public class TestUtilities {
         }
 
         return files
+    }
+
+    /**
+     * Helper method that stores temporary output
+     * @param output
+     * @param filePrefix
+     * @param clearBeforeWriting
+     * @return
+     */
+    public static void storeInTempDir(Object output, String[] dir, String filePrefix, boolean clearBeforeWriting=false) {
+        // first check, if debug is turned on
+        def isDebugEnabled = Boolean.valueOf(System.getenv("DEBUG") ?: "false")
+        if (!isDebugEnabled) return
+
+        // cleanup first
+        if (clearBeforeWriting) deleteDir(dir)
+
+        def rnd = RandomStringUtils.randomAlphanumeric(10)
+        String[] filePath = (String[]) dir + "${filePrefix}.${rnd}.json".toString()
+
+        dumpToDebug(filePath, {
+            Gson gs = new GsonBuilder().setPrettyPrinting().create()
+            return gs.toJson(output)
+        })
     }
 }
