@@ -95,7 +95,7 @@
 
     <entity-facade query-stats="true">
         <!-- add datasource elements here to configure databases -->
-        <load-entity location="classpath://entity/ClosureEntities.xml"/>
+        <load-entity location="classpath://src/test/resources/conf/entity/ClosureEntities.xml"/>
         <load-entity location="classpath://src/test/resources/PersonEntity/People.xml"/>
     </entity-facade>
 
