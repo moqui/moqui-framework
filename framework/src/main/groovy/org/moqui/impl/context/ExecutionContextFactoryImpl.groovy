@@ -234,11 +234,14 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         screenFacade = new ScreenFacadeImpl(this)
         logger.info("Screen Facade initialized")
 
-        postFacadeInit()
-
-        // NOTE: ElasticFacade init after postFacadeInit() so finds embedded from moqui-elasticsearch if present, can move up once moqui-elasticsearch deprecated
+        /**
+         * NOTE: Moved ElasticFacade init before postFacadeInit() as the moqui-elasticsearch component is not being used.
+         * Before this change, the ElasticFacade was initialized after the postFacadeInit() method.
+         */
         elasticFacade = new ElasticFacadeImpl(this)
         logger.info("Elastic Facade initialized")
+
+        postFacadeInit()
 
         logger.info("Execution Context Factory initialized in ${(System.currentTimeMillis() - initStartTime)/1000} seconds")
     }
