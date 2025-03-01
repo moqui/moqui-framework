@@ -111,6 +111,11 @@ class EndpointServiceHandler {
     // specific features, e.g. composite fields - used to return data from maps
     private ArrayList<String> compositeFields = new ArrayList<>()
 
+    // debug mode
+    private static debug() {
+        return "dev".equals(System.getProperty("instance_purpose"))
+    }
+
     public static HashMap defaultErrorResponse(String message)
     {
         return [
@@ -1434,7 +1439,6 @@ class EndpointServiceHandler {
      * @param proceduresList
      * @param extraParams
      * @param cbCheckData
-     * @param debug
      * @param identity
      * @return
      */
@@ -1445,7 +1449,6 @@ class EndpointServiceHandler {
             HashMap extraParams,
             Closure cbCheckData,
             boolean extractPycalcArgs,
-            boolean debug,
             String sessionId = null)
     {
         def pycalcHost = System.properties.get("py.server.host")
@@ -1455,10 +1458,10 @@ class EndpointServiceHandler {
         def processingId = ec.web ? ec.web.request.getHeader("ARS-processingId") : 'nop'
 
         // set sessionId if not set
-        if (debug && !sessionId) sessionId = StringUtilities.getRandomString(11)
+        if (debug() && !sessionId) sessionId = StringUtilities.getRandomString(11)
 
         // store info for debugging purposes
-        if (debug) {
+        if (debug()) {
             debugFile(ec, processingId, sessionId, "process-items.json", itemToCalculate)
             debugFile(ec, processingId, sessionId, "process-items-procedures.json", proceduresList)
             debugFile(ec, processingId, sessionId, "process-items-extra.json", extraParams)
@@ -1483,7 +1486,7 @@ class EndpointServiceHandler {
         ]
 
         // debug what is going to py-calc
-        if (debug) debugFile(ec, processingId, sessionId, "c-h-process-items-to-execute.json", payload)
+        if (debug()) debugFile(ec, processingId, sessionId, "c-h-process-items-to-execute.json", payload)
 
         // use specific RequestFactory, with custom timeouts
         // timeout is set by settings
@@ -1511,14 +1514,14 @@ class EndpointServiceHandler {
         def rsp = (HashMap) resp.jsonObject()
 
         // debug what has come out of the processing
-        if (debug) debugFile(ec, processingId, sessionId, "c-h-process-items-result.json", resp.jsonObject())
+        if (debug()) debugFile(ec, processingId, sessionId, "c-h-process-items-result.json", resp.jsonObject())
 
         // use callback to check/modify response
         if (cbCheckData) {
             rsp = cbCheckData(rsp)
 
             // another layer of processing
-            if (debug) debugFile(ec, processingId, sessionId, "c-h-process-items-result-mod.json", rsp)
+            if (debug()) debugFile(ec, processingId, sessionId, "c-h-process-items-result-mod.json", rsp)
         }
 
         return rsp
