@@ -313,7 +313,6 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
     }
 
     protected String getUserDn(final String principal) throws IllegalArgumentException, IllegalStateException {
-
         if (!StringUtils.hasText(principal)) {
             throw new IllegalArgumentException("User principal cannot be null or empty for User DN construction.");
         }
@@ -588,7 +587,7 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
             //set credentials to get information from LDAP (used to be master password, not anymore)
             this.contextFactory.systemPassword = token.getCredentials()
             this.contextFactory.systemUsername = composeDn(token.getPrincipal().toString());
-            info = queryForAuthenticationInfo(token, this.getContextFactory());
+            info = queryForAuthenticationInfo(token, this.contextFactory);
             String name = token.principal
             try {
                 newUserAccount = loginPrePassword(eci, name);
