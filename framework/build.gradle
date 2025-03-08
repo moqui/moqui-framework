@@ -166,11 +166,33 @@ dependencies {
     api 'org.jsoup:jsoup:1.17.1' // MIT
 
     // Apache Shiro
-    api module('org.apache.shiro:shiro-core:1.13.0') // Apache 2.0
-    api module('org.apache.shiro:shiro-web:1.13.0') // Apache 2.0
+    api ('org.apache.shiro:shiro-core:1.13.0') {
+        exclude group: 'org.apache.shiro', module: 'shiro-config-ogdl'
+        exclude group: 'org.apache.shiro', module: 'shiro-crypto-cipher'
+        exclude group: 'org.apache.shiro', module: 'shiro-crypto-core'
+        exclude group: 'org.apache.shiro', module: 'shiro-crypto-hash'
+        exclude group: 'org.apache.shiro', module: 'shiro-lang'
+        exclude group: 'org.apache.shiro', module: 'shiro-cache'
+        exclude group: 'org.apache.shiro', module: 'shiro-config-core'
+        exclude group: 'org.apache.shiro', module: 'shiro-event'
+    }  // Apache 2.0
+    api ('org.apache.shiro:shiro-web:1.13.0') {
+        exclude group: 'org.apache.shiro', module: 'shiro-config-ogdl'
+        exclude group: 'org.apache.shiro', module: 'shiro-crypto-cipher'
+        exclude group: 'org.apache.shiro', module: 'shiro-crypto-core'
+        exclude group: 'org.apache.shiro', module: 'shiro-crypto-hash'
+        exclude group: 'org.apache.shiro', module: 'shiro-lang'
+        exclude group: 'org.apache.shiro', module: 'shiro-cache'
+        exclude group: 'org.apache.shiro', module: 'shiro-config-core'
+        exclude group: 'org.apache.shiro', module: 'shiro-event'
+    } // Apache 2.0
 
     // https://mvnrepository.com/artifact/org.apache.shiro/shiro-ehcache
-    implementation group: 'org.apache.shiro', name: 'shiro-ehcache', version: '1.13.0'
+    implementation (group: 'org.apache.shiro', name: 'shiro-ehcache', version: '1.13.0') {
+        exclude group: 'org.apache.shiro', module: 'shiro-lang'
+        exclude group: 'org.apache.shiro', module: 'shiro-cache'
+        exclude group: 'org.apache.shiro', module: 'shiro-config-core'
+    }
 
     // https://mvnrepository.com/artifact/org.apache.directory.api/api-ldap-client-api
     implementation group: 'org.apache.directory.api', name: 'api-ldap-client-api', version: '2.1.2'
