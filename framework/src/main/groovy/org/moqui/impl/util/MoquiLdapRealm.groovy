@@ -44,6 +44,10 @@ import org.moqui.impl.context.ArtifactExecutionFacadeImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.UserFacadeImpl
+import org.moqui.impl.entity.condition.ConditionField
+import org.moqui.impl.entity.condition.EntityConditionImplBase
+import org.moqui.impl.entity.condition.FieldValueCondition
+import org.moqui.impl.entity.condition.ListCondition
 import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -334,7 +338,7 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
         * User logs in with his {@link principal} (username) but login needs to be performed with his cn instead
         *    => translate username to cn
         */
-        LdapContext ctx = this.getContextFactory().getSystemLdapContext();
+        LdapContext ctx = this.contextFactory.getSystemLdapContext()
         String user_uid = "";
 
         SearchControls constraints = new SearchControls();
@@ -477,7 +481,7 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
 
         //check information on the account and possibly update with data in LDAP
         if (!newUserAccount.externalUserId) {
-            logger.warn("External ID not defined, shall set contact data from LDAP.")
+            logger.debug("External ID not defined, shall set contact data from LDAP.")
 
             try {
                 LdapContext ctx = this.contextFactory.getSystemLdapContext()
@@ -493,7 +497,7 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
                     this.ecfi.serviceFacade.sync().name("update", "moqui.security.UserAccount")
                             .parameters(userLdapData).disableAuthz().call()
 
-                    logger.warn("Updated UserAccount record: ${newUserAccount.userId}")
+                    logger.debug("Updated UserAccount record: ${newUserAccount.userId}")
                 }
 
             } catch (Exception e) {
@@ -581,7 +585,7 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
         String userId = null;
 
         try {
-            //set cretendtials to get information from LDAP (used to be master password, not anymore)
+            //set credentials to get information from LDAP (used to be master password, not anymore)
             this.contextFactory.systemPassword = token.getCredentials()
             this.contextFactory.systemUsername = composeDn(token.getPrincipal().toString());
             info = queryForAuthenticationInfo(token, this.getContextFactory());
@@ -602,7 +606,8 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
                     SearchControls constraints = new SearchControls();
                     constraints.setSearchScope(SearchControls.SUBTREE_SCOPE);
                     constraints.setReturningAttributes(new String[]{"cn", "givenName", "sn", "mail"})
-                    LdapContext ctx = this.getContextFactory().getSystemLdapContext();
+                    LdapContext ctx = this.contextFactory.getSystemLdapContext()
+
                     NamingEnumeration answer = ctx.search(this.ldapSearchUserQueryFilter, ldapUserFilter.replace("{principal}", name), constraints);
                     if (answer.hasMore()) {
                         Attributes attrs = ((SearchResult) answer.next()).getAttributes();
@@ -701,9 +706,16 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
                 //control if ldap groups match moqui groups
                 for (String ldapGroupId : ldapUserGroups) {
                     if (!moquiUserGroups.contains(ldapGroupId)) {
+                        // must check both fields, originally was only checking `externalId`
+                        // but it tend to fail on primary key check when creating new record
+                        ArrayList<EntityConditionImplBase> conditions = new ArrayList()
+                        conditions.add(new FieldValueCondition(new ConditionField("userGroupId"), EntityCondition.EQUALS, ldapGroupId))
+                        conditions.add(new FieldValueCondition(new ConditionField("externalId"), EntityCondition.EQUALS, ldapGroupFullNames.get(ldapGroupId)))
+                        def cplConditions = new ListCondition(conditions, EntityCondition.JoinOperator.OR)
+
                         //control if ldap group doesn't exists
                         boolean exists = eci.getEntity().find("moqui.security.UserGroup")
-                                .condition("externalId", ldapGroupFullNames.get(ldapGroupId))
+                                .condition(cplConditions)
                                 .disableAuthz().list().size() > 0
                         if (!exists) {
                             //create group
@@ -742,16 +754,24 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
             successful = true;
         } catch (AuthenticationNotSupportedException e) {
             String msg = "Unsupported configured authentication mechanism. ${e.message}";
+            logger.error(msg, e)
             throw new UnsupportedAuthenticationMechanismException(msg, e);
         } catch (javax.naming.AuthenticationException e) {
-            throw new AuthenticationException("LDAP authentication failed. ${e.message}", e);
+            String msg = "LDAP authentication failed. ${e.message}"
+            logger.error(msg, e)
+            throw new AuthenticationException(msg, e);
         } catch (NamingException e) {
             String msg = "LDAP naming error while attempting to authenticate user. ${e.message}";
+            logger.error(msg, e)
             throw new AuthenticationException(msg, e);
         } catch (MoquiPreLoginException e) {
-            throw new AuthenticationException("Unable to retrieve account information, not proceeding to LDAP authentication.", e)
+            String msg = "Unable to retrieve account information, not proceeding to LDAP authentication."
+            logger.error(msg, e)
+            throw new AuthenticationException(msg, e)
         } catch (MoquiAfterLoginException e) {
-            throw new AuthenticationException("Unable to perform post-login operations.", e)
+            String msg = "Unable to perform post-login operations."
+            logger.error(msg, e)
+            throw new AuthenticationException(msg, e)
         } finally {
             loginAfterAlways(eci, userId, token.credentials as String, successful)
             this.contextFactory.systemPassword = null
