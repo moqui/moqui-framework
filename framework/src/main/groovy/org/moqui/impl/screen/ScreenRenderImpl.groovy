@@ -2289,7 +2289,7 @@ class ScreenRenderImpl implements ScreenRender {
         return iconClass
     }
 
-    List<Map> getMenuData(ArrayList<String> pathNameList) {
+    List<Map> getMenuData(ArrayList<String> pathNameList, boolean isQapps2=false) {
         if (!ec.user.userId) { ec.web.sendJsonError(401, "Authentication required", null); return null }
         ScreenUrlInfo fullUrlInfo = ScreenUrlInfo.getScreenUrlInfo(this, rootScreenDef, pathNameList, null, 0)
         if (!fullUrlInfo.targetExists) { ec.web.sendJsonError(404, "Screen not found for path ${pathNameList}", null); return null }
@@ -2368,6 +2368,10 @@ class ScreenRenderImpl implements ScreenRender {
                     image = buildUrl(image).url
 
                 boolean active = (nextItem == subscreensItem.name)
+                if (isQapps2) {
+                    screenPath = screenPath.replaceFirst("/apps", "/qapps2")
+                    pathWithParams = pathWithParams.replaceFirst("/apps", "/qapps2")
+                }
                 Map itemMap = [name:subscreensItem.name, title:ec.resource.expand(subscreensItem.menuTitle, ""),
                                path:screenPath, pathWithParams:pathWithParams, image:image, imageType:imageType]
                 if (subscreensItem.menuInclude) itemMap.menuInclude = true
@@ -2389,6 +2393,11 @@ class ScreenRenderImpl implements ScreenRender {
             if (image != null && !image.isEmpty() && (imageType == null || imageType.isEmpty() || "url-screen".equals(imageType)))
                 image = buildUrl(image).url
             String menuTitle = ec.l10n.localize(curSsi.menuTitle) ?: curScreen.getDefaultMenuName()
+
+            if (isQapps2) {
+                curScreenPath = curScreenPath.replaceFirst("/apps", "/qapps2")
+                curPathWithParams = curPathWithParams.replaceFirst("/apps", "/qapps2")
+            }
 
             menuDataList.add([name:pathItem, title:menuTitle, subscreens:subscreensList, path:curScreenPath,
                     pathWithParams:curPathWithParams, hasTabMenu:curScreen.hasTabMenu(), renderModes:curScreen.renderModes, image:image, imageType:imageType])
@@ -2439,7 +2448,12 @@ class ScreenRenderImpl implements ScreenRender {
             int extraPathListSize = extraPathList.size()
             for (int i = 0; i < extraPathListSize; i++) extraPathList.set(i, StringUtilities.urlEncodeIfNeeded((String) extraPathList.get(i)))
         }
-        Map lastMap = [name:lastPathItem, title:lastTitle, path:lastPath, pathWithParams:currentPath.toString(),
+        String lastPathWithParams = currentPath.toString()
+        if (isQapps2) {
+            lastPath = lastPath.replaceFirst("/apps", "/qapps2")
+            lastPathWithParams = lastPathWithParams.replaceFirst("/apps", "/qapps2")
+        }
+        Map lastMap = [name:lastPathItem, title:lastTitle, path:lastPath, pathWithParams:lastPathWithParams,
                 image:lastImage, imageType:lastImageType, extraPathList:extraPathList, screenDocList:screenDocList,
                 renderModes:fullUrlInfo.targetScreen.renderModes, savedFinds:savedFindsList]
         menuDataList.add(lastMap)
