@@ -53,6 +53,30 @@ class EntityDynamicViewImpl implements EntityDynamicView {
         }
         return this
     }
+    EntityDynamicView addMemberEntity(String entityAlias, String entityName, String joinFromAlias, Boolean joinOptional,
+                                      Map<String, String> entityKeyMaps, Map<String, String> entityConditions, String subSelect) {
+        MNode memberEntity = entityNode.append("member-entity", ["entity-alias":entityAlias, "entity-name":entityName])
+        if (joinFromAlias) {
+            memberEntity.attributes.put("join-from-alias", joinFromAlias)
+            memberEntity.attributes.put("join-optional", (joinOptional ? "true" : "false"))
+        }
+        if (entityKeyMaps) for (Map.Entry<String, String> keyMapEntry in entityKeyMaps.entrySet()) {
+            memberEntity.append("key-map", ["field-name":keyMapEntry.getKey(), "related":keyMapEntry.getValue()])
+        }
+        // Add entity-condition if provided
+        if (entityConditions && !entityConditions.isEmpty()) {
+            MNode entityCondition = memberEntity.append("entity-condition", null)
+            for (Map.Entry<String, String> keyValueEntry in entityConditions.entrySet()) {
+                entityCondition.append("econdition", ["entity-alias": entityAlias, "field-name": keyValueEntry.getKey(), "value": keyValueEntry.getValue()])
+            }
+        }
+        // Handle subSelect
+        if (subSelect) {
+            memberEntity.attributes.put("sub-select", subSelect)
+        }
+
+        return this
+    }
 
     @Override
     EntityDynamicView addRelationshipMember(String entityAlias, String joinFromAlias, String relationshipName,
