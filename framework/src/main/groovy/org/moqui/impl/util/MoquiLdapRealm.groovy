@@ -757,7 +757,7 @@ class MoquiLdapRealm extends AuthorizingRealm implements Realm, Authorizer {
             throw new UnsupportedAuthenticationMechanismException(msg, e);
         } catch (javax.naming.AuthenticationException e) {
             String msg = "LDAP authentication failed. ${e.message}"
-            logger.error(msg, e)
+            logger.error(msg)
             throw new AuthenticationException(msg, e);
         } catch (NamingException e) {
             String msg = "LDAP naming error while attempting to authenticate user. ${e.message}";
