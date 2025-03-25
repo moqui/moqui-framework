@@ -57,7 +57,6 @@
     <component name="moqui-sso" group="heguangyong" version="1.0.1" branch="master"/>
     <component name="moqui-wikitext" group="heguangyong" version="1.0.3" branch="master"/>
 
-    <!-- WeChat public account with OpenAI GPT service   -->
-    <component  name="moqui-wechat" group="heguangyong" version="" branch="master"/>
+    <component  name="moqui-mcp" group="heguangyong" version="" branch="master"/>
 
 </addons>
