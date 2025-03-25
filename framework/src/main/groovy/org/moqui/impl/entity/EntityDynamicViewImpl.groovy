@@ -147,4 +147,16 @@ class EntityDynamicViewImpl implements EntityDynamicView {
         }
         return this
     }
+    EntityDynamicView addWhereConditions(List<Map<String, String>> conditions) {
+        if (!conditions || conditions.isEmpty()) return this
+        String nodeName = "entity-condition"
+        if (!entityNode.hasChild(nodeName)) {
+            entityNode.append(nodeName, null)
+        }
+        MNode conditionNode = entityNode.first(nodeName)
+        conditions.each { cond ->
+            conditionNode.append("econdition", ["entity-alias": cond["entity-alias"] ?: "", "field-name"  : cond["field-name"] ?: "", "operator"    : cond["operator"] ?: "equals", "value"       : cond["value"] ?: ""] as Map<String, String>)
+        }
+        return this
+    }
 }
