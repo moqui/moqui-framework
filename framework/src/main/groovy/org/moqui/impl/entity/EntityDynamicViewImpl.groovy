@@ -43,15 +43,7 @@ class EntityDynamicViewImpl implements EntityDynamicView {
     @Override
     EntityDynamicView addMemberEntity(String entityAlias, String entityName, String joinFromAlias, Boolean joinOptional,
                                       Map<String, String> entityKeyMaps) {
-        MNode memberEntity = entityNode.append("member-entity", ["entity-alias":entityAlias, "entity-name":entityName])
-        if (joinFromAlias) {
-            memberEntity.attributes.put("join-from-alias", joinFromAlias)
-            memberEntity.attributes.put("join-optional", (joinOptional ? "true" : "false"))
-        }
-        if (entityKeyMaps) for (Map.Entry<String, String> keyMapEntry in entityKeyMaps.entrySet()) {
-            memberEntity.append("key-map", ["field-name":keyMapEntry.getKey(), "related":keyMapEntry.getValue()])
-        }
-        return this
+        return addMemberEntity(entityAlias, entityName, joinFromAlias, joinOptional, entityKeyMaps, null, null)
     }
     EntityDynamicView addMemberEntity(String entityAlias, String entityName, String joinFromAlias, Boolean joinOptional,
                                       Map<String, String> entityKeyMaps, Map<String, String> entityConditions, String subSelect) {
@@ -144,18 +136,6 @@ class EntityDynamicViewImpl implements EntityDynamicView {
         MNode viewLink = entityNode.append("relationship", ["type":type, "title":title, "related":relatedEntityName])
         for (Map.Entry<String, String> keyMapEntry in entityKeyMaps.entrySet()) {
             viewLink.append("key-map", ["field-name":keyMapEntry.getKey(), "related":keyMapEntry.getValue()])
-        }
-        return this
-    }
-    EntityDynamicView addWhereConditions(List<Map<String, String>> conditions) {
-        if (!conditions || conditions.isEmpty()) return this
-        String nodeName = "entity-condition"
-        if (!entityNode.hasChild(nodeName)) {
-            entityNode.append(nodeName, null)
-        }
-        MNode conditionNode = entityNode.first(nodeName)
-        conditions.each { cond ->
-            conditionNode.append("econdition", ["entity-alias": cond["entity-alias"] ?: "", "field-name"  : cond["field-name"] ?: "", "operator"    : cond["operator"] ?: "equals", "value"       : cond["value"] ?: ""] as Map<String, String>)
         }
         return this
     }

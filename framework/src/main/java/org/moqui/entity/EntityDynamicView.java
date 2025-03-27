@@ -29,6 +29,8 @@ public interface EntityDynamicView {
 
     EntityDynamicView addMemberEntity(String entityAlias, String entityName, String joinFromAlias,
                                              Boolean joinOptional, Map<String, String> entityKeyMaps);
+    EntityDynamicView addMemberEntity(String entityAlias, String entityName, String joinFromAlias, Boolean joinOptional,
+                                      Map<String, String> entityKeyMaps, Map<String, String> entityConditions, String subSelect);
 
     EntityDynamicView addRelationshipMember(String entityAlias, String joinFromAlias, String relationshipName,
                                                    Boolean joinOptional);
