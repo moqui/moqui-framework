@@ -71,7 +71,7 @@ services:
   moqui-server:
     image: moqui
     container_name: moqui-server
-    command: conf=conf/MoquiProductionConf.xml no-run-es
+    command: conf=conf/MoquiProductionConf.xml no-run-es --add-opens=java.base/java.lang=ALL-UNNAMED
     restart: always
     links:
       - moqui-database

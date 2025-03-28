@@ -1,13 +1,13 @@
 #! /bin/bash
 
-echo "Usage: docker-build.sh [<moqui directory like ../..>] [<group/name:tag>] [<runtime image like eclipse-temurin:11-jdk>]"
+echo "Usage: docker-build.sh [<moqui directory like ../..>] [<group/name:tag>] [<runtime image like eclipse-temurin:17-jdk>]"
 
 MOQUI_HOME="${1:-../..}"
 NAME_TAG="${2:-moqui}"
-RUNTIME_IMAGE="${3:-eclipse-temurin:11-jdk}"
+RUNTIME_IMAGE="${3:-eclipse-temurin:17-jdk}"
 
 if [ ! "$1" ]; then
-  echo "Usage: docker-build.sh [<moqui directory like ../..>] [<group/name:tag>] [<runtime image like eclipse-temurin:11-jdk>]"
+  echo "Usage: docker-build.sh [<moqui directory like ../..>] [<group/name:tag>] [<runtime image like eclipse-temurin:17-jdk>]"
 else
   echo "Running: docker-build.sh $MOQUI_HOME $NAME_TAG $RUNTIME_IMAGE"
 fi
