@@ -2289,8 +2289,8 @@ class ScreenRenderImpl implements ScreenRender {
         return iconClass
     }
 
-    List<Map> getMenuData(ArrayList<String> pathNameList, boolean isQapps2=false) {
-        if (!ec.user.userId) { ec.web.sendJsonError(401, "Authentication required", null); return null }
+    List<Map> getMenuData(ArrayList<String> pathNameList, String qvt2Path, String screenMountedPath, Boolean requireUser=true) {
+        if (!ec.user.userId && requireUser) { ec.web.sendJsonError(401, "Authentication required", null); return null }
         ScreenUrlInfo fullUrlInfo = ScreenUrlInfo.getScreenUrlInfo(this, rootScreenDef, pathNameList, null, 0)
         if (!fullUrlInfo.targetExists) { ec.web.sendJsonError(404, "Screen not found for path ${pathNameList}", null); return null }
         UrlInstance fullUrlInstance = fullUrlInfo.getInstance(this, null)
@@ -2368,9 +2368,9 @@ class ScreenRenderImpl implements ScreenRender {
                     image = buildUrl(image).url
 
                 boolean active = (nextItem == subscreensItem.name)
-                if (isQapps2) {
-                    screenPath = screenPath.replaceFirst("/apps", "/qapps2")
-                    pathWithParams = pathWithParams.replaceFirst("/apps", "/qapps2")
+                if (qvt2Path != null && qvt2Path != "" && screenPath.startsWith("/"+screenMountedPath)) {
+                    screenPath = screenPath.replaceFirst(screenMountedPath, qvt2Path)
+                    pathWithParams = pathWithParams.replaceFirst(screenMountedPath, qvt2Path)
                 }
                 Map itemMap = [name:subscreensItem.name, title:ec.resource.expand(subscreensItem.menuTitle, ""),
                                path:screenPath, pathWithParams:pathWithParams, image:image, imageType:imageType]
@@ -2394,9 +2394,9 @@ class ScreenRenderImpl implements ScreenRender {
                 image = buildUrl(image).url
             String menuTitle = ec.l10n.localize(curSsi.menuTitle) ?: curScreen.getDefaultMenuName()
 
-            if (isQapps2) {
-                curScreenPath = curScreenPath.replaceFirst("/apps", "/qapps2")
-                curPathWithParams = curPathWithParams.replaceFirst("/apps", "/qapps2")
+            if (qvt2Path != null && qvt2Path != "" && curScreenPath.startsWith("/"+screenMountedPath)) {
+                curScreenPath = curScreenPath.replaceFirst(screenMountedPath, qvt2Path)
+                curPathWithParams = curPathWithParams.replaceFirst(screenMountedPath, qvt2Path)
             }
 
             menuDataList.add([name:pathItem, title:menuTitle, subscreens:subscreensList, path:curScreenPath,
@@ -2449,9 +2449,9 @@ class ScreenRenderImpl implements ScreenRender {
             for (int i = 0; i < extraPathListSize; i++) extraPathList.set(i, StringUtilities.urlEncodeIfNeeded((String) extraPathList.get(i)))
         }
         String lastPathWithParams = currentPath.toString()
-        if (isQapps2) {
-            lastPath = lastPath.replaceFirst("/apps", "/qapps2")
-            lastPathWithParams = lastPathWithParams.replaceFirst("/apps", "/qapps2")
+        if (qvt2Path != null && qvt2Path != "" && lastPath.startsWith("/"+screenMountedPath)) {
+            lastPath = lastPath.replaceFirst(screenMountedPath, qvt2Path)
+            lastPathWithParams = lastPathWithParams.replaceFirst(screenMountedPath, qvt2Path)
         }
         Map lastMap = [name:lastPathItem, title:lastTitle, path:lastPath, pathWithParams:lastPathWithParams,
                 image:lastImage, imageType:lastImageType, extraPathList:extraPathList, screenDocList:screenDocList,
@@ -2460,6 +2460,7 @@ class ScreenRenderImpl implements ScreenRender {
         // not needed: screenStatic:fullUrlInfo.targetScreen.isServerStatic(renderMode)
 
         // for (Map info in menuDataList) logger.warn("menu data item: ${info}")
+        return menuDataList
         return menuDataList
     }
 }

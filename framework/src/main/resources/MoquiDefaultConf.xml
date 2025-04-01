@@ -388,7 +388,7 @@
         <screen-text-output type="qjs2" mime-type="application/javascript" always-standalone="true"
                 macro-template-location="template/screen-macro/DefaultScreenMacros.plain.ftl"/>
         <screen-text-output type="qvt2" mime-type="text/html" always-standalone="true"
-                macro-template-location="template/screen-macro/DefaultScreenMacros.qvt.ftl"/>
+                macro-template-location="template/screen-macro/DefaultScreenMacros.qvt2.ftl"/>
         <screen-text-output type="qvue2" mime-type="text/html" always-standalone="true"
                 macro-template-location="template/screen-macro/DefaultScreenMacros.plain.ftl"/>
     </screen-facade>
