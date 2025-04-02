@@ -1,12 +1,12 @@
 /*
  * This software is in the public domain under CC0 1.0 Universal plus a
  * Grant of Patent License.
- * 
+ *
  * To the extent possible under law, the author(s) have dedicated all
  * copyright and related and neighboring rights to this software to the
  * public domain worldwide. This software is distributed without any
  * warranty.
- * 
+ *
  * You should have received a copy of the CC0 Public Domain Dedication
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
@@ -28,12 +28,12 @@ public interface EntityDynamicView {
     EntityDynamicView setEntityName(String entityName);
 
     EntityDynamicView addMemberEntity(String entityAlias, String entityName, String joinFromAlias,
-                                             Boolean joinOptional, Map<String, String> entityKeyMaps);
+                                      Boolean joinOptional, Map<String, String> entityKeyMaps);
     EntityDynamicView addMemberEntity(String entityAlias, String entityName, String joinFromAlias, Boolean joinOptional,
-                                      Map<String, String> entityKeyMaps, Map<String, String> entityConditions, String subSelect);
+                                      Map<String, String> entityKeyMaps, List<Map<String, String>> entityConditions, String subSelect);
 
     EntityDynamicView addRelationshipMember(String entityAlias, String joinFromAlias, String relationshipName,
-                                                   Boolean joinOptional);
+                                            Boolean joinOptional);
 
     List<MNode> getMemberEntityNodes();
 
@@ -44,6 +44,11 @@ public interface EntityDynamicView {
     /** Add an alias, full detail. All parameters can be null except entityAlias and name. */
     EntityDynamicView addAlias(String entityAlias, String name, String field, String function);
 
+    EntityDynamicView addAlias(String entityAlias, String name, String field, String function, String defaultDisplay, String isAggregate);
+
     EntityDynamicView addRelationship(String type, String title, String relatedEntityName,
-                                             Map<String, String> entityKeyMaps);
+                                      Map<String, String> entityKeyMaps);
+    EntityDynamicView addWhereConditions(List<Map<String, Object>> conditions);
+
+    EntityDynamicView addHavingConditions(List<Map<String, Object>> havingConditions);
 }
