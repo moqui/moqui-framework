@@ -22,7 +22,7 @@ COPY runtime runtime/.
 COPY framework framework/.
 COPY *.* ./
 # we do not want this file to be here
-RUN rm gradle.properties
+RUN test -f gradle.properties && rm gradle.properties || echo "gradle.properties does not exist, skipping removal"
 
 # execute wrapper
 RUN gradle wrapper
