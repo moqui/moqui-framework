@@ -1,6 +1,7 @@
 #!/bin/bash
 
-docker network create ars-int
+# Ensure the network is created only if it does not already exist
+docker network inspect ars-int >/dev/null 2>&1 || docker network create ars-int
 
 # "Creating database dump for purpose of having a clear and filled database"
 # get into the simple-build directory
