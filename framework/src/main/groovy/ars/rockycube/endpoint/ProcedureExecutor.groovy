@@ -9,14 +9,14 @@ import org.slf4j.LoggerFactory
 class ProcedureExecutor {
     protected final static Logger logger = LoggerFactory.getLogger(ProcedureExecutor.class);
 
-    public static HashMap executeProcedureWithParams(String connectionName, String procedureName, String closureItemId) {
+    public static HashMap executeProcedureWithParams(String connectionName, String procedureName, String companyId, String closureItemId) {
         ExecutionContext ec = Moqui.getExecutionContext()
 
-        logger.info("Executing procedure: ${procedureName}")
+        logger.debug("Executing procedure: ${procedureName}")
 
         // execute the procedure via ViUtilities
         def conn = ec.entity.getConnection(connectionName)
-        def res = SqlExecutor.executeStoredProcedure(conn, logger, procedureName, [closureItemId])
+        def res = SqlExecutor.executeStoredProcedure(conn, logger, procedureName, [companyId, closureItemId])
 
         return [result: true]
     }
