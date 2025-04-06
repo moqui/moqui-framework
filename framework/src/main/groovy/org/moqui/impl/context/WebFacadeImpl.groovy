@@ -729,6 +729,13 @@ class WebFacadeImpl implements WebFacade {
             }
         }
 
+        // if this response is not meant as a traditional REST API output
+        // but rather a workaround, let us stop it here, this feature
+        // has been introduced with the need to provide plain/text response
+        // by the means of REST API - on behalf of Rezolv-Energy
+        def textViaRest = (boolean) requestAttributes.get('textViaRest', false)
+        if (textViaRest) return
+
         // logger.warn("========== Sending JSON for object: ${responseObj}")
         if (responseObj != null) {
             // support serializing timestamps as strings
