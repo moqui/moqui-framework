@@ -1,24 +1,23 @@
-<configuration debug="false">
+<configuration debug="true">
+    <statusListener class="ch.qos.logback.core.status.OnConsoleStatusListener" />
+
+    <!-- Console Appender -->
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-        <!-- encoders are  by default assigned the type
-             ch.qos.logback.classic.encoder.PatternLayoutEncoder -->
         <encoder>
             <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} -%kvp- %msg%n</pattern>
         </encoder>
     </appender>
 
+    <!-- Rolling File Appender -->
     <appender name="LogFile" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${moqui.log.directory}/moqui-test-logback.log</file>
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <!-- daily rollover. Make sure the path matches the one in the file element or else
-             the rollover logs are placed in the working directory. -->
-            <fileNamePattern>${moqui.log.directory}/moqui-test-logback%d{yyyy-MM-dd}-%i.log</fileNamePattern>
 
-            <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
-                <maxFileSize>5MB</maxFileSize>
-            </timeBasedFileNamingAndTriggeringPolicy>
-            <!-- keep 30 days' worth of history -->
+        <!-- Corrected and valid rolling policy -->
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${moqui.log.directory}/moqui-test-logback-%d{yyyy-MM-dd}-%i.log</fileNamePattern>
+            <maxFileSize>5MB</maxFileSize>
             <maxHistory>30</maxHistory>
+            <totalSizeCap>100MB</totalSizeCap>
         </rollingPolicy>
 
         <encoder>
@@ -27,8 +26,9 @@
         </encoder>
     </appender>
 
+    <!-- Root Logger -->
     <root level="info">
-        <appender-ref ref="STDOUT"  />
+        <appender-ref ref="STDOUT" />
         <appender-ref ref="LogFile" />
     </root>
 </configuration>
