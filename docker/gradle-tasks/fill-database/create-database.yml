@@ -21,7 +21,3 @@ services:
       - ars-int
     ports:
      - "0.0.0.0:5432:5432"
-
-networks:
-  ars-int:
-    external: true
