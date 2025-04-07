@@ -19,7 +19,7 @@ echo "Connecting to PG_LOAD_SERVER: $ip4"
 # 2. run application component (inside separate component as well) - this is the component that is being built
 # this will actually initialize the database, without running the component
 # docker compose -p moqui-fill -f fill-database.yml build --no-cache --build-arg PG_LOAD_SERVER="$ip4"
-docker compose -p moqui-fill -f fill-database.yml build --no-cache --build-arg PG_LOAD_SERVER="localhost"
+docker compose -p moqui-fill -f fill-database.yml build --no-cache --build-arg PG_LOAD_SERVER="host.docker.internal"
 
 # run DUMP script
 cat ./DumpDatabase.sql | docker exec -i dev-postgres su root
