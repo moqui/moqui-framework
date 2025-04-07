@@ -11,5 +11,6 @@ services:
     container_name: moqui-load-server
     command: ["java", "-cp", ".", "MoquiStart", "port=8080"]
     restart: always
+    network_mode: host
     ports:
      - "8080:8080"
