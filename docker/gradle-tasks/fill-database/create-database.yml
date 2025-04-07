@@ -17,6 +17,5 @@ services:
       timeout: 10s
       retries: 5
     restart: always
-    network_mode: host
     ports:
      - "5432:5432"
