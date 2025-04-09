@@ -22,7 +22,7 @@ COPY runtime runtime/.
 COPY framework framework/.
 COPY *.* ./
 # we do not want this file to be here
-RUN rm gradle.properties
+RUN rm -f gradle.properties
 
 # execute wrapper
 RUN gradle wrapper

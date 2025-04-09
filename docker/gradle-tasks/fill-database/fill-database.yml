@@ -7,15 +7,9 @@ services:
       dockerfile: docker/gradle-tasks/fill-database/Dockerfile-load-in-build-jdk-11
       args:
         MOQUI_CONF: conf/MoquiLoadConf.xml
-        GRADLE_VERSION: 7.4.1
+        GRADLE_VERSION: 8.5
     container_name: moqui-load-server
     command: ["java", "-cp", ".", "MoquiStart", "port=8080"]
     restart: always
-    networks:
-      - ars-int
     ports:
      - "8080:8080"
-
-networks:
-   ars-int:
-     external: true

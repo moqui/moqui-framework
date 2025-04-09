@@ -127,6 +127,7 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters>
             <parameter name="procedureName" type="String"/>
             <parameter name="connectionName" type="String"/>
+            <parameter name="companyId" type="String"/>
             <parameter name="closureItemId" type="String"/>
         </in-parameters>
         <out-parameters>
