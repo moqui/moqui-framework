@@ -1,6 +1,12 @@
 #!/bin/bash
 
-docker network create ars-int
+# docker networking
+if ! docker network ls | grep -q "ars-int"; then
+  docker network create ars-int
+  echo "Docker network 'ars-int' created."
+else
+  echo "Docker network 'ars-int' already exists."
+fi
 
 # "Creating database dump for purpose of having a clear and filled database"
 # get into the simple-build directory
@@ -8,8 +14,8 @@ docker network create ars-int
 pushd ../gradle-tasks/fill-database
 
 # 1. create database server (inside separate component) and fill it
-docker compose -p pg-dump   -f create-database.yml build --no-cache
-docker compose -p pg-dump   -f create-database.yml up -d
+docker compose -p pg-dump -f create-database.yml build --no-cache
+docker compose -p pg-dump -f create-database.yml up -d
 
 # store IP of host in order to use it for db import later on
 ip4=$(/sbin/ip -o -4 addr list | awk '!/ lo / {print $4; exit}' | cut -d/ -f1)

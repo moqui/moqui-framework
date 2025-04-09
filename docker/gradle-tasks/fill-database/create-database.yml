@@ -5,6 +5,7 @@ services:
     container_name: dev-postgres
     volumes:
       - ./../../db/dump:/tmp
+      - ./dump2:/tmp2
     environment:
       POSTGRES_USER: moqui
       POSTGRES_DB: moqui
