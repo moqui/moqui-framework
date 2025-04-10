@@ -21,6 +21,7 @@ echo "Connecting to PG_LOAD_SERVER: $ip4"
 docker compose -p moqui-fill -f fill-database.yml build --no-cache --build-arg PG_LOAD_SERVER="$ip4"
 
 # run DUMP script
+echo "Running DB DUMP"
 cat ./DumpDatabase.sql | docker exec -i dev-postgres su root
 
 # kill containers
