@@ -877,7 +877,7 @@ class ScreenUrlInfo {
         if (startsWithSlash && screenPath.startsWith("//")) {
             // find the screen by name
             String trimmedFromPath = screenPath.substring(2)
-            ArrayList<String> originalPathNameList = new ArrayList<String>(trimmedFromPath.split("/") as List)
+            ArrayList<String> originalPathNameList = new ArrayList<String>(Arrays.asList(trimmedFromPath.split("/")))
             originalPathNameList = cleanupPathNameList(originalPathNameList, inlineParameters)
 
             if (sfi.screenFindPathCache.containsKey(screenPath)) {
