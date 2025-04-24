@@ -1,7 +1,6 @@
 import ars.rockycube.endpoint.EndpointServiceHandler
 
-def loadFromEntity()
-{
+def loadFromEntity(){
     EndpointServiceHandler ech = new EndpointServiceHandler(ec, companyId, args, term, entityName, tableName, serviceAllowedOn)
     // ec.logger.debug("Executing loadFromEntity method")
     try {
@@ -14,8 +13,7 @@ def loadFromEntity()
     }
 }
 
-def deleteEntity()
-{
+def deleteEntity(){
     // set term using identity field
     // the condition will be calculated inside ESH
     if (identity) args.put('identitySearch', identity)
@@ -33,8 +31,7 @@ def deleteEntity()
 
 }
 
-def updateEntity()
-{
+def updateEntity(){
     // set term using identity field
     // the condition will be calculated inside ESH
     if (identity) args.put('identitySearch', identity)
@@ -50,8 +47,7 @@ def updateEntity()
     }
 }
 
-def createEntity()
-{
+def createEntity(){
     EndpointServiceHandler ech = new EndpointServiceHandler(ec, companyId, args, term, entityName, tableName, serviceAllowedOn)
     try {
         return ech.createEntityData(data)
