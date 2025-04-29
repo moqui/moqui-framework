@@ -1,6 +1,7 @@
 #!/bin/bash
 
-docker network create ars-int
+# Ensure the network is created only if it does not already exist
+docker network inspect ars-int >/dev/null 2>&1 || docker network create ars-int
 
 # "Creating database dump for purpose of having a clear and filled database"
 # get into the simple-build directory
@@ -20,6 +21,7 @@ echo "Connecting to PG_LOAD_SERVER: $ip4"
 docker compose -p moqui-fill -f fill-database.yml build --no-cache --build-arg PG_LOAD_SERVER="$ip4"
 
 # run DUMP script
+echo "Running DB DUMP"
 cat ./DumpDatabase.sql | docker exec -i dev-postgres su root
 
 # kill containers

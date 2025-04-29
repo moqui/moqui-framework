@@ -34,6 +34,35 @@ along with this software (see the LICENSE.md file). If not, see
         </out-parameters>
     </service>
 
+    <service verb="query"
+             noun="EntityData"
+    >
+        <in-parameters>
+            <parameter name="query" type="String" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="result"/>
+        </out-parameters>
+        <actions>
+            <script>
+                <![CDATA[
+                    import ars.rockycube.query.SqlExecutor
+
+                    // make sure this service is not running in production mode
+                    if (!"dev".equals(System.getProperty("instance_purpose"))) {
+                        throw new Exception("Method cannot be executed in other than dev/test environment")
+                    }
+
+                    def conn = ec.entity.getConnection("data_storage")
+                    def queryResult = SqlExecutor.execute(conn, logger, query)
+
+                    result.put('result', true)
+                    result.put('data', queryResult)
+                ]]>
+            </script>
+        </actions>
+    </service>
+
     <service
             verb="remove"
             noun="EntityData"
@@ -127,6 +156,7 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters>
             <parameter name="procedureName" type="String"/>
             <parameter name="connectionName" type="String"/>
+            <parameter name="companyId" type="String"/>
             <parameter name="closureItemId" type="String"/>
         </in-parameters>
         <out-parameters>

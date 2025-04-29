@@ -277,4 +277,28 @@ class GenericUtilities {
         }
         return [:]
     }
+
+    /**
+     * Converts simple array to a CSV
+     * @param list
+     * @return
+     */
+    static String convertToCsv(ArrayList<HashMap> list) {
+        if (list == null || list.isEmpty()) {
+            return ""
+        }
+
+        // Get headers from the keys of the first HashMap
+        def headers = list[0].keySet().collect { header -> "\"${header}\"" }.join(",")
+
+        // Convert each HashMap to a comma-separated string of values
+        def rows = list.collect { row ->
+            row.values().collect { value ->
+                value instanceof Number ? value.toString() : "\"${value}\""
+            }.join(",")
+        }
+
+        // Combine headers and rows
+        return (headers + System.lineSeparator() + rows.join(System.lineSeparator()))
+    }
 }

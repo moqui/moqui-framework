@@ -17,11 +17,5 @@ services:
       timeout: 10s
       retries: 5
     restart: always
-    networks:
-      - ars-int
     ports:
-     - "0.0.0.0:5432:5432"
-
-networks:
-  ars-int:
-    external: true
+     - "5432:5432"
