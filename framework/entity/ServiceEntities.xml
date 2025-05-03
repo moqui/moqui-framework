@@ -194,7 +194,7 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="parentMessageId" related="systemMessageId"/></relationship>
         <relationship type="one" title="Ack" related="moqui.service.message.SystemMessage" short-alias="ackMessage">
             <key-map field-name="ackMessageId" related="systemMessageId"/></relationship>
-        <relationship type="one" title="Trigger" related="moqui.server.Visit" short-alias="triggerVisit">
+        <relationship type="one-nofk" title="Trigger" related="moqui.server.Visit" short-alias="triggerVisit">
             <key-map field-name="triggerVisitId"/></relationship>
 
         <relationship type="many" related="moqui.service.message.SystemMessageError" short-alias="errors">
