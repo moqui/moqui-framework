@@ -33,7 +33,7 @@ public interface EntityDynamicView {
                                              Map<String, String> entityKeyMaps, List<Map<String, String>> entityConditions, String subSelect);
 
     EntityDynamicView addRelationshipMember(String entityAlias, String joinFromAlias, String relationshipName,
-                                             Boolean joinOptional);
+                                                   Boolean joinOptional);
 
     List<MNode> getMemberEntityNodes();
 
