@@ -28,12 +28,12 @@ public interface EntityDynamicView {
     EntityDynamicView setEntityName(String entityName);
 
     EntityDynamicView addMemberEntity(String entityAlias, String entityName, String joinFromAlias,
-                                      Boolean joinOptional, Map<String, String> entityKeyMaps);
+                                             Boolean joinOptional, Map<String, String> entityKeyMaps);
     EntityDynamicView addMemberEntity(String entityAlias, String entityName, String joinFromAlias, Boolean joinOptional,
-                                      Map<String, String> entityKeyMaps, List<Map<String, String>> entityConditions, String subSelect);
+                                             Map<String, String> entityKeyMaps, List<Map<String, String>> entityConditions, String subSelect);
 
     EntityDynamicView addRelationshipMember(String entityAlias, String joinFromAlias, String relationshipName,
-                                            Boolean joinOptional);
+                                             Boolean joinOptional);
 
     List<MNode> getMemberEntityNodes();
 
@@ -47,7 +47,7 @@ public interface EntityDynamicView {
     EntityDynamicView addAlias(String entityAlias, String name, String field, String function, String defaultDisplay, String isAggregate);
 
     EntityDynamicView addRelationship(String type, String title, String relatedEntityName,
-                                      Map<String, String> entityKeyMaps);
+                                             Map<String, String> entityKeyMaps);
     EntityDynamicView addWhereConditions(List<Map<String, Object>> conditions);
 
     EntityDynamicView addHavingConditions(List<Map<String, Object>> havingConditions);
