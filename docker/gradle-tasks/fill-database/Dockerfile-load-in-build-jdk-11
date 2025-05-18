@@ -21,8 +21,9 @@ WORKDIR /opt/moqui-source
 COPY runtime runtime/.
 COPY framework framework/.
 COPY *.* ./
+
 # we do not want this file to be here
-RUN test -f gradle.properties && rm gradle.properties || echo "gradle.properties does not exist, skipping removal"
+RUN [ ! -f gradle.properties ] || rm gradle.properties
 
 # execute wrapper
 RUN gradle wrapper
