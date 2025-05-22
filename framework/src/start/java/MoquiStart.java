@@ -507,7 +507,7 @@ public class MoquiStart {
         try {
             String[] command;
             if (isWindows) {
-                command = new String[] {"cmd.exe", "/c", "bin\\" + baseName + "-windows-install.bat"};
+                command = new String[] {"cmd.exe", "/c", "opensearch-windows-install.bat"};
             } else {
                 command = new String[] {"./opensearch-tar-install.sh"};
                 try {
