@@ -82,8 +82,6 @@ class GenericUtilities {
             Object data,
             Long internalCounter=0) {
         try {
-            ResourceReference ref = ec.resource.getLocationReference("tmp")
-
             // default ext
             def defaultExt = 'json'
             def fileName = fileId
@@ -109,13 +107,41 @@ class GenericUtilities {
             fileName = sessionId ? "${sessionId}.${fileName}" : "nos.${fileName}"
             fileName = processingId ? "${processingId}.${fileName}" : "nop.${fileName}"
 
-            if (fileExtension == 'json') ref.makeFile(fileName).putText (JsonOutput.prettyPrint(JsonOutput.toJson(data)))
-            if (fileExtension != 'json') ref.makeFile(fileName).putText (data as String)
+            // run internal method
+            storeFileLocally(ec, null, "${fileName}.${fileExtension}".toString(), data)
         } catch (Exception exc) {
             ec.logger.error("Cannot debug-store file: ${exc}")
         }
     }
 
+    /**
+     * Method for storing file into local file system, by default it shall write to
+     * `tmp` directory
+     * @param ec
+     * @param location
+     * @param fileName
+     * @param data
+     */
+    public static void storeFileLocally(
+            ExecutionContext ec, String location, String fileName, Object data){
+
+        // if not provided, assume we are going to write to `tmp`
+        if (!location) location = "tmp"
+        ResourceReference ref = ec.resource.getLocationReference(location)
+
+        // check if the file is JSON and act accordingly
+        def fileExtension = null
+        def recExt = Pattern.compile('(.+)\\.(\\w{3,4})$')
+        def m = recExt.matcher(fileName)
+        if (m.matches())
+        {
+            fileName = m.group(1)
+            fileExtension = m.group(2)
+        }
+
+        if (fileExtension == 'json') ref.makeFile(fileName).putText (JsonOutput.prettyPrint(JsonOutput.toJson(data)))
+        if (fileExtension != 'json') ref.makeFile(fileName).putText (data as String)
+    }
 
     /*
      * Store file in a `tmp` directory of the backend, for debugging purposes.
