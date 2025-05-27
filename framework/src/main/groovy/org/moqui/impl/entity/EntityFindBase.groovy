@@ -583,11 +583,11 @@ abstract class EntityFindBase implements EntityFind {
     }
     @Override
     EntityFind orderBy(List<String> orderByFieldNames) {
-        if (!orderByFieldNames) return this
+        if (orderByFieldNames == null || orderByFieldNames.size() == 0) return this
         if (orderByFieldNames instanceof RandomAccess) {
             // avoid creating an iterator if possible
             int listSize = orderByFieldNames.size()
-            for (int i = 0; i < listSize; i++) orderBy(orderByFieldNames.get(i))
+            for (int i = 0; i < listSize; i++) orderBy((String) orderByFieldNames.get(i))
         } else {
             for (String orderByFieldName in orderByFieldNames) orderBy(orderByFieldName)
         }
@@ -1481,6 +1481,7 @@ abstract class EntityFindBase implements EntityFind {
         this.useCache(false)
         long totalDeleted = 0
         if (useEvDelete) {
+            // TODO: use EntityListIterator to avoid OutOfMemoryError
             EntityList el = list()
             int elSize = el.size()
             for (int i = 0; i < elSize; i++) {
