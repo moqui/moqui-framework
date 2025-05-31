@@ -12,6 +12,7 @@ import org.moqui.impl.entity.EntityConditionFactoryImpl
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityJavaUtil
 import org.moqui.impl.entity.condition.ConditionField
+import org.moqui.resource.ResourceReference
 import org.moqui.util.CollectionUtilities
 import org.moqui.util.MNode
 import ars.rockycube.util.TestUtilities
@@ -459,6 +460,47 @@ class UtilsTests extends Specification {
 
         then:
 
+        assert true
+    }
+
+    /**
+     * This method is used both in tests and in closure, when data needs to be stored locally.
+     * One of the tasks is to support storing data in Moqui's `tmp` directory
+     */
+    def test_storing_file_locally(){
+        when:
+
+        // initialize moqui
+        def ec = Moqui.getExecutionContext()
+        ec.user.loginUser("john.hardy", "moqui")
+        ec.artifactExecution.disableAuthz()
+
+        TestUtilities.testSingleFile((String[]) ['Utils', "file-storage", "expected-files-stored.json"], { Object processed, Object expected, Integer idx ->
+            // test definition
+            HashMap testDef = (HashMap) processed
+            HashMap testExp = (HashMap) expected
+
+            // 0. delete the file from the expected location, it may have been stored there before this test
+            def toDelete = ec.resource.getLocationReference((String) testExp['expected'])
+            toDelete.delete()
+
+            // 1. load file from the test definition
+            def cis = TestUtilities.loadTestResource((String) testDef['filename'])
+
+            // 2. store it
+            def written = GenericUtilities.storeFileLocally(ec, (String) testDef['storeLocation'], (String) testDef['file'], cis)
+
+            // 3. test whether it's saved in the expected location
+            def exp = ec.resource.getLocationReference((String) testExp['expected'])
+
+            assert exp.exists
+            assert (Long) exp.openStream().bytes.length == written
+        })
+
+
+        then:
+
+        // assertions are executed above
         assert true
     }
 

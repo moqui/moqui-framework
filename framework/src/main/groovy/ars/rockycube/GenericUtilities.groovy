@@ -122,7 +122,7 @@ class GenericUtilities {
      * @param fileName
      * @param data
      */
-    public static void storeFileLocally(
+    public static Long storeFileLocally(
             ExecutionContext ec, String location, String fileName, Object data){
 
         // if not provided, assume we are going to write to `tmp`
@@ -133,14 +133,32 @@ class GenericUtilities {
         def fileExtension = null
         def recExt = Pattern.compile('(.+)\\.(\\w{3,4})$')
         def m = recExt.matcher(fileName)
-        if (m.matches())
-        {
+        if (m.matches()) {
             fileName = m.group(1)
             fileExtension = m.group(2)
         }
 
-        if (fileExtension == 'json') ref.makeFile(fileName).putText (JsonOutput.prettyPrint(JsonOutput.toJson(data)))
-        if (fileExtension != 'json') ref.makeFile(fileName).putText (data as String)
+        // prepare the return value
+        def newFileName = "${fileName}.${fileExtension}"
+
+        if (fileExtension == 'json') {
+            if (isInputStream(data)) {
+                ref.makeFile(newFileName).putStream((InputStream) data)
+            } else {
+                ref.makeFile(newFileName).putText(JsonOutput.prettyPrint(JsonOutput.toJson(data)))
+            }
+        }
+        if (fileExtension != 'json') {
+            // check for type, InputStream must be treated differently
+            if (isInputStream(data)) {
+                ref.makeFile(newFileName).putText(data.getText('UTF-8'))
+            } else {
+                ref.makeFile(newFileName).putText(data as String)
+            }
+        }
+
+        def created = ref.findChildFile(newFileName)
+        return created.size
     }
 
     /*
