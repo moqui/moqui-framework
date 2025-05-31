@@ -1,0 +1,32 @@
+[
+  [
+    {
+      "filename": "Utils/stats-calculation/proc-output/nop.nos.calc-stats-input-after.dCB2xWeu.json",
+      "storeLocation": "/tmp",
+      "file": "file-03.json"
+    },
+    {
+      "expected": "/tmp/file-03.json"
+    }
+  ],
+  [
+    {
+      "filename": "Utils/stats-calculation/proc-output/nop.nos.calc-stats-input-after.dCB2xWeu.json",
+      "storeLocation": null,
+      "file": "file-02.json"
+    },
+    {
+      "expected": "tmp/file-02.json"
+    }
+  ],
+  [
+    {
+      "filename": "Utils/stats-calculation/proc-output/nop.nos.calc-stats-input-after.dCB2xWeu.json",
+      "storeLocation": "tmp",
+      "file": "file-01.json"
+    },
+    {
+      "expected": "tmp/file-01.json"
+    }
+  ]
+]
