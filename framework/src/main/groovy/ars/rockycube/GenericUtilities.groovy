@@ -115,6 +115,19 @@ class GenericUtilities {
     }
 
     /**
+     * Method to create a copy of an InputStream
+     * @param theOneToCopy
+     * @return
+     */
+    public static InputStream copyInputStream(InputStream theOneToCopy) {
+        def inputStream = (InputStream) theOneToCopy
+        inputStream.mark(Integer.MAX_VALUE)
+        def copiedStream = new ByteArrayInputStream(inputStream.readAllBytes())
+        inputStream.reset()
+        return copiedStream
+    }
+
+    /**
      * Method for storing file into local file system, by default it shall write to
      * `tmp` directory
      * @param ec
@@ -143,7 +156,7 @@ class GenericUtilities {
 
         if (fileExtension == 'json') {
             if (isInputStream(data)) {
-                ref.makeFile(newFileName).putStream((InputStream) data)
+                ref.makeFile(newFileName).putStream(copyInputStream((InputStream) data))
             } else {
                 ref.makeFile(newFileName).putText(JsonOutput.prettyPrint(JsonOutput.toJson(data)))
             }
@@ -151,7 +164,7 @@ class GenericUtilities {
         if (fileExtension != 'json') {
             // check for type, InputStream must be treated differently
             if (isInputStream(data)) {
-                ref.makeFile(newFileName).putText(data.getText('UTF-8'))
+                ref.makeFile(newFileName).putText((copyInputStream((InputStream) data)).getText('UTF-8'))
             } else {
                 ref.makeFile(newFileName).putText(data as String)
             }
