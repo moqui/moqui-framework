@@ -134,7 +134,9 @@ dependencies {
     api 'javax.cache:cache-api:1.1.1'
     api 'javax.jcr:jcr:2.0'
     // jaxb-api no longer included in Java 9 and later, also tested with openjdk-8
-    api module('javax.xml.bind:jaxb-api:2.3.1') // CDDL 1.1
+    api('javax.xml.bind:jaxb-api:2.3.1') { // CDDL 1.1
+        transitive = false
+    }
     // NOTE: javax.activation:javax.activation-api is required by jaxb-api, has classes same as old 2012 javax.activation:activation used by javax.mail
     // NOTE: as of Java 11 the com.sun packages no longer available so for javax.mail need full javax.activation jar (also includes javax.activation-api)
     api 'com.sun.activation:javax.activation:1.2.0' // CDDL 1.1
@@ -160,7 +162,9 @@ dependencies {
 
     // javax.mail
     // NOTE: javax.mail depends on 'javax.activation:activation' which is the old package for 'javax.activation:javax.activation-api' used by jaxb-api
-    api module('com.sun.mail:javax.mail:1.6.2') // CDDL
+    api('com.sun.mail:javax.mail:1.6.2') { // CDDL
+        transitive = false
+    }
 
     // Joda Time (used by elasticsearch, aws)
     api 'joda-time:joda-time:2.13.1' // Apache 2.0
@@ -169,8 +173,12 @@ dependencies {
     api 'org.jsoup:jsoup:1.19.1' // MIT
 
     // Apache Shiro
-    api module('org.apache.shiro:shiro-core:1.13.0') // Apache 2.0
-    api module('org.apache.shiro:shiro-web:1.13.0') // Apache 2.0
+    api('org.apache.shiro:shiro-core:1.13.0') { // Apache 2.0
+        transitive = false
+    }
+    api('org.apache.shiro:shiro-web:1.13.0') { // Apache 2.0
+        transitive = false
+    }
 
     // SLF4J, Log4j 2 (note Log4j 2 is used by various libraries, best not to replace it even if mostly possible with SLF4J)
     api 'org.slf4j:slf4j-api:2.0.17'
@@ -180,7 +188,9 @@ dependencies {
     runtimeOnly 'org.apache.logging.log4j:log4j-slf4j2-impl:2.24.3'
 
     // SubEtha SMTP (module as depends on old javax.mail location; also uses SLF4J, activation included elsewhere)
-    api module('org.subethamail:subethasmtp:3.1.7')
+    api('org.subethamail:subethasmtp:3.1.7') {
+        transitive = false
+    }
 
     // Snake YAML
     api 'org.yaml:snakeyaml:2.4' // Apache 2.0
@@ -237,7 +247,7 @@ test {
     useJUnitPlatform()
     testLogging { events "passed", "skipped", "failed" }
     testLogging.showStandardStreams = true; testLogging.showExceptions = true
-    maxParallelForks 1
+    maxParallelForks = 1
 
     dependsOn cleanTest
     include '**/*MoquiSuite.class'
@@ -272,7 +282,7 @@ war {
     from(fileTree(dir: projectDir.parentFile, includes: ['MoquiInit.properties'])) { into 'WEB-INF/classes' }
     // this excludes the classes in sourceSets.main.output (better to have the jar file built above)
     classpath = configurations.runtimeClasspath - configurations.providedCompile
-    classpath file(jar.archivePath)
+    classpath jar.archiveFile.get().asFile
 
     // put start classes and Jetty jars in the root of the war file for the executable war/jar mode of operation
     from sourceSets.start.output
