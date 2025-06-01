@@ -1462,7 +1462,13 @@ class EndpointServiceHandler {
 
         // store info for debugging purposes
         if (debug()) {
-            debugFile(ec, processingId, sessionId, "process-items.json", itemToCalculate)
+            if (itemToCalculate instanceof InputStream) {
+                byte[] content = ((InputStream) itemToCalculate).bytes
+                debugFile(ec, processingId, sessionId, "process-items.json", new ByteArrayInputStream(content))
+                itemToCalculate = new ByteArrayInputStream(content)
+            } else {
+                debugFile(ec, processingId, sessionId, "process-items.json", itemToCalculate)
+            }
             debugFile(ec, processingId, sessionId, "process-items-procedures.json", proceduresList)
             debugFile(ec, processingId, sessionId, "process-items-extra.json", extraParams)
         }
@@ -1474,7 +1480,7 @@ class EndpointServiceHandler {
         boolean encodeToBase64 = itemToCalculate instanceof InputStream
 
         // data prep
-        def payload = [
+        LinkedHashMap<String, Object> payload = [
                 setup: [
                         procedure: proceduresList,
                         output_only_last: true,
@@ -1482,8 +1488,30 @@ class EndpointServiceHandler {
                         proc_id: processingId,
                         session_id: sessionId
                 ],
-                data: encodeToBase64 ? Base64.encoder.encodeToString((itemToCalculate as InputStream).getBytes()) : itemToCalculate
+                data: null
         ]
+
+        if (encodeToBase64) {
+            switch (itemToCalculate.getClass()){
+                case FileInputStream.class:
+                    def b = (itemToCalculate as FileInputStream).bytes
+                    payload.put('data', Base64.encoder.encodeToString(b))
+                    break
+                case InputStream.class:
+                    def b = (itemToCalculate as InputStream).bytes
+                    payload.put('data', Base64.encoder.encodeToString(b))
+                    break
+                case ByteArrayInputStream.class:
+                    def b = (itemToCalculate as ByteArrayInputStream).bytes
+                    payload.put('data', Base64.encoder.encodeToString(b))
+                    break
+                default:
+                    throw new EndpointException("Unsupported class [${itemToCalculate.getClass()}] for Base64 encoding of payload")
+            }
+
+        } else {
+            payload['data'] = itemToCalculate
+        }
 
         // debug what is going to py-calc
         if (debug()) debugFile(ec, processingId, sessionId, "c-h-process-items-to-execute.json", payload)
