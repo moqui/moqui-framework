@@ -252,7 +252,7 @@ task stopElasticSearch { doLast {
 
 // ========== development tasks ==========
 task setupIntellij {
-    description "Adds all XML catalog items to intellij to enable autocomplete"
+    description = "Adds all XML catalog items to intellij to enable autocomplete"
     doLast {
         def ideaDir = "${rootDir}/.idea"
         def parser = new XmlSlurper()
@@ -318,14 +318,14 @@ getTasksByName('test', true).each {
 // ========== check/update tasks ==========
 
 task getRuntime {
-    description "If the runtime directory does not exist get it using settings in myaddons.xml or addons.xml; also check default components in myaddons.xml (addons.@default) and download any missing"
+    description = "If the runtime directory does not exist get it using settings in myaddons.xml or addons.xml; also check default components in myaddons.xml (addons.@default) and download any missing"
     doLast { checkRuntimeDirAndDefaults(project.hasProperty('locationType') ? locationType : null) }
 }
 task checkRuntime { doLast {
     if (!file('runtime').exists()) throw new GradleException("Required 'runtime' directory not found. Use 'gradle getRuntime' or 'gradle getComponent' or manually clone the moqui-runtime repository. This must be done in a separate Gradle run before a build so Gradle can find and run build tasks.")
 } }
 task gitPullAll {
-    description "Do a git pull to update moqui, runtime, and each installed component (for each where a .git directory is found)"
+    description = "Do a git pull to update moqui, runtime, and each installed component (for each where a .git directory is found)"
     doLast {
         // framework and runtime
         if (file(".git").exists()) { doGitPullWithStatus(file('.').path) }
@@ -355,7 +355,7 @@ def doGitPullWithStatus(def gitDir) {
     }
 }
 task gitCheckoutAll {
-    description "Do a git checkout on moqui, runtime, and each installed component (for each where a .git directory is found); use -Pbranch= (required) to specify a branch, use -Pcreate=true to create branches with the given name"
+    description = "Do a git checkout on moqui, runtime, and each installed component (for each where a .git directory is found); use -Pbranch= (required) to specify a branch, use -Pcreate=true to create branches with the given name"
     doLast {
         if (!project.hasProperty('branch')) throw new InvalidUserDataException("No branch property specified (use -Pbranch=...)")
         String curBranch = branch
@@ -406,7 +406,7 @@ task gitCheckoutAll {
     }
 }
 task gitStatusAll {
-    description "Do a git status to check moqui, runtime, and each installed component (for each where a .git directory is found)"
+    description = "Do a git status to check moqui, runtime, and each installed component (for each where a .git directory is found)"
     doLast {
         List<String> gitDirectories = []
         if (file(".git").exists()) gitDirectories.add(file('.').path)
@@ -451,7 +451,7 @@ task gitStatusAll {
     }
 }
 task gitUpstreamAll {
-    description "Do a git pull upstream:master for moqui, runtime, and each installed component (for each where a .git directory is found and has a remote called upstream)"
+    description = "Do a git pull upstream:master for moqui, runtime, and each installed component (for each where a .git directory is found and has a remote called upstream)"
     doLast {
         String remoteName = project.hasProperty('remote') ? remote : 'upstream'
 
@@ -474,7 +474,7 @@ task gitUpstreamAll {
 }
 
 task gitTagAll {
-    description "Do a git add or remove tag on the currently checked out commit in moqui, runtime, and each installed component"
+    description = "Do a git add or remove tag on the currently checked out commit in moqui, runtime, and each installed component"
     doLast {
         def tagName = (project.hasProperty('tag')) ? tag : null;
         def tagMessage = (project.hasProperty('message')) ? message : null;
@@ -531,7 +531,7 @@ task gitTagAll {
     }
 }
 task gitDiffTagsAll {
-    description "Do a git diff between two tags in the currently checked out branch in moqui, runtime, and each installed component"
+    description = "Do a git diff between two tags in the currently checked out branch in moqui, runtime, and each installed component"
     doLast {
         if (!project.hasProperty('taga') || taga == null)
             throw new InvalidUserDataException("No taga property specified (use -Ptaga=...)")
@@ -570,7 +570,7 @@ task gitDiffTagsAll {
 }
 
 task gitMergeAll {
-    description "Do a git diff between two tags in the currently checked out branch in moqui, runtime, and each installed component"
+    description = "Do a git diff between two tags in the currently checked out branch in moqui, runtime, and each installed component"
     doLast {
         def branchName = (project.hasProperty('branch')) ? branch : null;
         def tagName = (project.hasProperty('tag')) ? tag : null;
@@ -634,7 +634,7 @@ task runProduction(type: JavaExec) {
 }
 
 task load(type: JavaExec) {
-    description "Run Moqui to load data; to specify data types use something like: gradle load -Ptypes=seed,seed-initial,install"
+    description = "Run Moqui to load data; to specify data types use something like: gradle load -Ptypes=seed,seed-initial,install"
     dependsOn checkRuntime, allBuildTasks
     systemProperties = ['moqui.conf':moquiConfDev, 'moqui.runtime':moquiRuntime]
     workingDir = '.'; jvmArgs = ['-server']; main = '-jar'
@@ -693,12 +693,12 @@ task saveDb { doLast {
     }
 } }
 task loadSave {
-    description "Clean all, build and load, then save database (H2, Derby), OrientDB, and OpenSearch/ElasticSearch files; to be used before reloadSave"
+    description = "Clean all, build and load, then save database (H2, Derby), OrientDB, and OpenSearch/ElasticSearch files; to be used before reloadSave"
     dependsOn cleanAll, load, saveDb
 }
 
 task reloadSave {
-    description "After a loadSave clean database (H2, Derby), OrientDB, and ElasticSearch files and reload from saved copy"
+    description = "After a loadSave clean database (H2, Derby), OrientDB, and ElasticSearch files and reload from saved copy"
     dependsOn cleanTempDir, cleanDb, cleanLog, cleanSessions
     dependsOn allBuildTasks
     doLast {
@@ -812,7 +812,7 @@ task plusRuntimeWarTemp {
     }
 }
 task addRuntime(type: Zip) {
-    description "Create moqui-plus-runtime.war file from the moqui.war file and the runtime directory embedded in it"
+    description = "Create moqui-plus-runtime.war file from the moqui.war file and the runtime directory embedded in it"
     dependsOn checkRuntime, allBuildTasks, plusRuntimeWarTemp
 
     archiveFileName = plusRuntimeName
@@ -836,7 +836,7 @@ task addRuntimeTomcat {
 // ========== component tasks ==========
 
 task getDefaults {
-    description "Get a component using specified location type, also check/get all components it depends on; requires component property; locationType property optional (defaults to git if there is a .git directory, otherwise to current)"
+    description = "Get a component using specified location type, also check/get all components it depends on; requires component property; locationType property optional (defaults to git if there is a .git directory, otherwise to current)"
     doLast {
         String curLocationType = file('.git').exists() ? 'git' : 'current'
         if (project.hasProperty('locationType')) curLocationType = locationType
@@ -844,7 +844,7 @@ task getDefaults {
     }
 }
 task getComponent {
-    description "Get a component using specified location type, also check/get all components it depends on; requires component property; locationType property optional (defaults to git if there is a .git directory, otherwise to current)"
+    description = "Get a component using specified location type, also check/get all components it depends on; requires component property; locationType property optional (defaults to git if there is a .git directory, otherwise to current)"
     doLast {
         String curLocationType = file('.git').exists() ? 'git' : 'current'
         if (project.hasProperty('locationType')) curLocationType = locationType
@@ -1031,23 +1031,23 @@ task createComponent {
     }
 }
 task getCurrent {
-    description "Get the current archive for a component, also check each component it depends on and if not present get its current archive; requires component property"
+    description = "Get the current archive for a component, also check each component it depends on and if not present get its current archive; requires component property"
     doLast { getComponentTop('current') }
 }
 task getRelease {
-    description "Get the release archive for a component, also check each component it depends on and if not present get its configured release archive; requires component property"
+    description = "Get the release archive for a component, also check each component it depends on and if not present get its configured release archive; requires component property"
     doLast { getComponentTop('release') }
 }
 task getBinary {
-    description "Get the binary release archive for a component, also check each component it depends on and if not present get its configured release archive; requires component property"
+    description = "Get the binary release archive for a component, also check each component it depends on and if not present get its configured release archive; requires component property"
     doLast { getComponentTop('binary') }
 }
 task getGit {
-    description "Clone the git repository for a component, also check each component it depends on and if not present clone its git repository; requires component property"
+    description = "Clone the git repository for a component, also check each component it depends on and if not present clone its git repository; requires component property"
     doLast { getComponentTop('git') }
 }
 task getDepends {
-    description "Check/Get all dependencies for all components in runtime/component; locationType property optional (defaults to git if there is a .git directory, otherwise to current)"
+    description = "Check/Get all dependencies for all components in runtime/component; locationType property optional (defaults to git if there is a .git directory, otherwise to current)"
     doLast {
         String curLocationType = file('.git').exists() ? 'git' : 'current'
         if (project.hasProperty('locationType')) curLocationType = locationType
@@ -1056,7 +1056,7 @@ task getDepends {
 }
 
 task getComponentSet {
-    description "Gets all components in the specied componentSet using specified location type, also check/get all components it depends on; requires -Pcomponent property; -PlocationType property optional (defaults to git if there is a .git directory, otherwise to current)"
+    description = "Gets all components in the specied componentSet using specified location type, also check/get all components it depends on; requires -Pcomponent property; -PlocationType property optional (defaults to git if there is a .git directory, otherwise to current)"
     doLast {
         String curLocationType = file('.git').exists() ? 'git' : 'current'
         if (project.hasProperty('locationType')) curLocationType = locationType
@@ -1069,12 +1069,12 @@ task getComponentSet {
 }
 
 task zipComponents {
-    description "Create a .zip archive file for each component in runtime/component"
+    description = "Create a .zip archive file for each component in runtime/component"
     dependsOn allBuildTasks
     doLast { for (File compDir in findComponentDirs()) createComponentZip(compDir) }
 }
 task zipComponent {
-    description "Create a .zip archive file a single component in runtime/component; requires component property"
+    description = "Create a .zip archive file a single component in runtime/component; requires component property"
     dependsOn allBuildTasks
     doLast {
         if (!project.hasProperty('component')) throw new InvalidUserDataException("No component property specified")
