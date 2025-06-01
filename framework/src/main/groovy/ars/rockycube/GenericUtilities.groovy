@@ -119,11 +119,14 @@ class GenericUtilities {
      * @param theOneToCopy
      * @return
      */
-    public static InputStream copyInputStream(InputStream theOneToCopy) {
-        def inputStream = (InputStream) theOneToCopy
-        inputStream.mark(Integer.MAX_VALUE)
-        def copiedStream = new ByteArrayInputStream(inputStream.readAllBytes())
-        inputStream.reset()
+    static InputStream copyInputStream(InputStream theOneToCopy) {
+        if (!(theOneToCopy.markSupported())) {
+            // Wrap the InputStream with BufferedInputStream to enable mark/reset
+            theOneToCopy = new BufferedInputStream(theOneToCopy)
+        }
+        theOneToCopy.mark(Integer.MAX_VALUE)  // Mark at the beginning of the stream
+        def copiedStream = new ByteArrayInputStream(theOneToCopy.readAllBytes())
+        theOneToCopy.reset()  // Reset to the marked position
         return copiedStream
     }
 
