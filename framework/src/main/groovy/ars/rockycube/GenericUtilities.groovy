@@ -138,9 +138,9 @@ class GenericUtilities {
             fileExtension = m.group(2)
         }
 
-        // prepare the return value
         def newFileName = "${fileName}.${fileExtension}"
 
+        // support storing both object and InputStream
         if (fileExtension == 'json') {
             if (isInputStream(data)) {
                 ref.makeFile(newFileName).putStream((InputStream) data)
