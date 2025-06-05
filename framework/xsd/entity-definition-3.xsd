@@ -45,6 +45,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:enumeration value="date"/>
             <xs:enumeration value="time"/>
             <xs:enumeration value="date-time"/>
+            <xs:enumeration value="date-time-tz"/>
             <xs:enumeration value="number-integer"/>
             <xs:enumeration value="number-decimal"/>
             <xs:enumeration value="number-float"/>
