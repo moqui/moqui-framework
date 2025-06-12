@@ -98,9 +98,9 @@ class GenericUtilities {
 
             // calculate file name with counter, if provided
             if (internalCounter > 0) {
-                fileName = "${fileName}.${internalCounter}.${fileExtension}"
+                fileName = "${fileName}.${internalCounter}"
             } else {
-                fileName = "${fileName}.${fileExtension}"
+                fileName = "${fileName}"
             }
 
             // use processing ID if present
@@ -344,5 +344,37 @@ class GenericUtilities {
 
         // Combine headers and rows
         return (headers + System.lineSeparator() + rows.join(System.lineSeparator()))
+    }
+
+    /**
+     * Expands values in a map by applying a transformation function
+     * @param sourceMap Source map to process
+     * @param valueProcessor Closure that processes each value
+     * @return New map with processed values
+     */
+    public static LinkedHashMap expandMapValues(LinkedHashMap sourceMap, Closure valueProcessor) {
+        def result = new LinkedHashMap()
+        sourceMap.each { key, value ->
+            if (value instanceof Map) {
+                result[key] = expandMapValues(value as LinkedHashMap, valueProcessor)
+            } else if (value instanceof List) {
+                result[key] = value.collect { item ->
+                    item instanceof Map ? expandMapValues(item as LinkedHashMap, valueProcessor) : valueProcessor(item)
+                }
+            } else {
+                // only strings get expanded
+                if (value.getClass() != String.class) {
+                    result[key] = value
+                    return
+                }
+                // is it set to be expanded
+                if (!value.toString().contains('${')) {
+                    result[key] = value
+                    return
+                }
+                result[key] = valueProcessor(value)
+            }
+        }
+        return result
     }
 }
