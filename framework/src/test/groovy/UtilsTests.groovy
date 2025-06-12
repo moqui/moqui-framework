@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder
 import net.javacrumbs.jsonunit.core.Option
 import org.apache.commons.io.FileUtils
 import org.moqui.Moqui
+import org.moqui.context.ExecutionContext
 import org.moqui.entity.EntityCondition
 import org.moqui.impl.ViUtilities
 import org.moqui.impl.context.ExecutionContextFactoryImpl
@@ -548,6 +549,44 @@ class UtilsTests extends Specification {
 
         assert conv
     }
+
+    /**
+     * Testing function that allows expansion of individual items in a hashmap
+     */
+    def test_map_items_expand() {
+        when:
+
+        def ec = Moqui.getExecutionContext()
+        ec.user.loginUser('john.hardy', 'moqui')
+
+        def context = [lastRun: '2025-06-10']
+        def mapInQuestion = [
+                cutoff: "\${context['lastRun']}",
+                standardValue: 1000,
+                stringValue: "not to be messed with",
+                myList: ["a", [changeThis: "\${context['lastRun']}"]]
+        ]
+
+        def converted = GenericUtilities.expandMapValues(
+                mapInQuestion,
+                { String value ->
+                    ec.resource.expand(value, "", context)
+                })
+
+        then:
+
+        assert converted == [
+                cutoff: '2025-06-10',
+                standardValue: 1000,
+                stringValue: 'not to be messed with',
+                myList:
+                        [
+                                'a',
+                                [changeThis:'2025-06-10']
+                        ]
+        ]
+    }
+
 
     /**
      * The same as above, this time with double
