@@ -26,6 +26,7 @@ build
 !/docker/certs/moqui2.local.*
 !/docker/certs/moqui.local.*
 !/docker/certs/README
+/docker/opensearch/config/certs/*.pem
 
 # IntelliJ IDEA files
 .idea

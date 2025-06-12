@@ -17,7 +17,11 @@ RUNTIME_IMAGE="${3:-eclipse-temurin:11-jdk}"
 #   - add a top level volumes: tag with conf: below
 #   - remove the next block of if statements from this file and you should be good to go
 search_name=opensearch
-if [ -d runtime/opensearch/bin ]; then search_name=opensearch;
+if [ -d runtime/opensearch/bin ]; 
+then 
+  search_name=opensearch;
+  # Generate self-signed certificates for OpenSearch
+  $MOQUI_HOME/docker/opensearch/autogen_selfsigned_certs.sh opensearch/config/certs;
 elif [ -d runtime/elasticsearch/bin ]; then search_name=elasticsearch;
 fi
 if [ ! -e runtime ]; then mkdir runtime; fi
