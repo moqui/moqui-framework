@@ -3,12 +3,14 @@ package ars.rockycube
 import com.google.gson.Gson
 import com.google.gson.JsonParseException
 import groovy.json.JsonOutput
+import org.apache.commons.lang3.RandomStringUtils
 import org.apache.groovy.json.internal.LazyMap
 import org.moqui.context.ExecutionContext
 import org.moqui.context.TemplateRenderer
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.resource.ResourceReference
 import java.nio.charset.StandardCharsets
+import java.util.concurrent.atomic.AtomicLong
 import java.util.regex.Pattern
 
 class GenericUtilities {
@@ -38,6 +40,9 @@ class GenericUtilities {
         // remove from parameters
         ec.context.remove('parameters')
     }
+
+    // global, thread-safe counter accessible across all method calls
+    private static final AtomicLong globalFileCounter = new AtomicLong(0)
 
     /**
      * Process JSONB fields into standard value
@@ -133,12 +138,22 @@ class GenericUtilities {
         def fileExtension = null
         def recExt = Pattern.compile('(.+)\\.(\\w{3,4})$')
         def m = recExt.matcher(fileName)
-        if (m.matches()) {
-            fileName = m.group(1)
-            fileExtension = m.group(2)
+        if (!m.matches()) { throw new IOException("Invalid input - unable to determine file name for storing file locally") }
+
+        fileName = m.group(1)
+        fileExtension = m.group(2)
+
+        // support random file naming
+        if (fileName == "*") {
+            fileName = RandomStringUtils.randomAlphanumeric(10)
+        } else if (fileName.endsWith("*")) {
+            fileName = "${fileName.substring(0, fileName.length() - 2)}-${RandomStringUtils.randomAlphanumeric(10)}}"
         }
 
         def newFileName = "${fileName}.${fileExtension}"
+
+        // add counter to the file-name
+        newFileName = "${globalFileCounter.incrementAndGet().toString().padLeft(3, '0')}-${newFileName}"
 
         // support storing both object and InputStream
         if (fileExtension == 'json') {
