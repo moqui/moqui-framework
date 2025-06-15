@@ -331,6 +331,32 @@ class CollectionUtils {
         }
     }
 
+    public static Object getModifiedVersionGeneric(Object value, Closure<Tuple2<Boolean, Object>> cbModFtor) {
+        if (value instanceof Map<?, ?>) {
+            Map<?, ?> map = (Map<?, ?>) value;
+            Map<Object, Object> newMap = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                Tuple2<Boolean, Object> valueModified = cbModFtor(entry.key, entry.value)
+                
+                if (valueModified.v1) {
+                    newMap.put(entry.key, valueModified.v2);
+                } else {
+                    newMap.put(entry.key, getModifiedVersionGeneric(entry.value, cbModFtor))
+                }
+            }
+            return newMap;
+        } else if (value instanceof List<?>) {
+            List<?> list = (List<?>)value;
+            List<Object> newList = new ArrayList<>();
+            for (Object item : list) {
+                newList.add(getModifiedVersionGeneric(item, cbModFtor));
+            }
+            return newList;
+        } else {
+            return value;
+        }
+    }
+
     static def sortAndConvertMap(HashMap original) {
         Map sortedMap = original.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
