@@ -14,6 +14,7 @@
 package org.moqui.impl.entity
 
 import groovy.json.JsonBuilder
+import groovy.transform.CompileStatic
 import org.moqui.entity.EntityValue
 import org.moqui.util.ObjectUtilities
 
@@ -35,6 +36,7 @@ import java.time.format.DateTimeFormatter
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
+@CompileStatic
 class EntityDataWriterImpl implements EntityDataWriter {
     private final static Logger logger = LoggerFactory.getLogger(EntityDataWriterImpl.class)
 
@@ -170,9 +172,9 @@ class EntityDataWriterImpl implements EntityDataWriter {
                     EntityDefinition ed = efi.getEntityDefinition(en)
                     boolean useMaster = masterName != null && masterName.length() > 0 && ed.getMasterDefinition(masterName) != null
                     EntityFind ef = makeEntityFind(en)
-                    EntityListIterator eli = ef.iterator()
 
-                    try {
+
+                    try (EntityListIterator eli = ef.iterator()) {
                         if (!eli.hasNext()) continue
 
                         String filename = path + '/' + en + '.' + fileType.name().toLowerCase()
@@ -200,8 +202,6 @@ class EntityDataWriterImpl implements EntityDataWriter {
                         } finally {
                             pw.close()
                         }
-                    } finally {
-                        eli.close()
                     }
                 }
             } catch (Throwable t) {
@@ -248,8 +248,7 @@ class EntityDataWriterImpl implements EntityDataWriter {
                 EntityDefinition ed = efi.getEntityDefinition(en)
                 boolean useMaster = masterName != null && masterName.length() > 0 && ed.getMasterDefinition(masterName) != null
                 EntityFind ef = makeEntityFind(en)
-                EntityListIterator eli = ef.iterator()
-                try {
+                try (EntityListIterator eli = ef.iterator()) {
                     if (!eli.hasNext()) continue
 
                     String filenameBase = tableColumnNames ? ed.getTableName() : en
@@ -274,8 +273,6 @@ class EntityDataWriterImpl implements EntityDataWriter {
                     } finally {
                         out.closeEntry()
                     }
-                } finally {
-                    eli.close()
                 }
             }
         } finally {
@@ -289,7 +286,13 @@ class EntityDataWriterImpl implements EntityDataWriter {
     int writer(Writer writer) {
         if (dependentLevels > 0) efi.createAllAutoReverseManyRelationships()
 
-        LinkedHashSet<String> activeEntityNames = skipEntityNames.size() > 0 ? entityNames - skipEntityNames : entityNames
+        LinkedHashSet<String> activeEntityNames
+        if (skipEntityNames.size() == 0) {
+            activeEntityNames = entityNames
+        } else {
+            activeEntityNames = new LinkedHashSet<>(entityNames)
+            activeEntityNames.removeAll(skipEntityNames)
+        }
         EntityDefinition singleEd = null
         if (activeEntityNames.size() == 1) singleEd = efi.getEntityDefinition(activeEntityNames.first())
 
@@ -305,15 +308,11 @@ class EntityDataWriterImpl implements EntityDataWriter {
                 for (String en in activeEntityNames) {
                     EntityDefinition ed = efi.getEntityDefinition(en)
                     boolean useMaster = masterName != null && masterName.length() > 0 && ed.getMasterDefinition(masterName) != null
-                    EntityFind ef = makeEntityFind(en)
-                    EntityListIterator eli = ef.iterator()
-                    try {
+                    try (EntityListIterator eli = makeEntityFind(en).iterator()) {
                         EntityValue ev
                         while ((ev = eli.next()) != null) {
                             valuesWritten+= writeValue(ev, writer, useMaster)
                         }
-                    } finally {
-                        eli.close()
                     }
                 }
 

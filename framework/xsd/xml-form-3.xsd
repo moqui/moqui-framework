@@ -897,6 +897,10 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:annotation><xs:documentation>Specifies the currency uomId (ISO code) used to format the value.
             Will only format as currency if this is specified.</xs:documentation></xs:annotation>
         </xs:attribute>
+        <xs:attribute name="currency-hide-symbol" default="false" type="xs:string">
+            <xs:annotation><xs:documentation>When currency-unit-field has value, defines whether currency symbol will be
+            hidden or displayed normally.</xs:documentation></xs:annotation>
+        </xs:attribute>
         <xs:attribute name="format" type="xs:string">
             <xs:annotation><xs:documentation>Used to format the output of Number/Time/Date/Timestamp/etc objects.
                 With auto-fields-service will inherit from service parameter.</xs:documentation></xs:annotation>
@@ -1087,6 +1091,10 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:attribute name="editor-theme" type="xs:string">
             <xs:annotation><xs:documentation>If applicable for the editor-type a screenThemeId for the CSS
                 (resourceTypeEnumId=STRT_STYLESHEET) files to use for the editor context, defaults to active screen theme.</xs:documentation></xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="autogrow" default="false" type="boolean">
+            <xs:annotation><xs:documentation>Auto-grow the text area to fit the contents;
+                currently only supported in qvt mode (Vue + Quasar)</xs:documentation></xs:annotation>
         </xs:attribute>
     </xs:complexType></xs:element>
     <xs:element name="text-find" substitutionGroup="SubFields"><xs:complexType>

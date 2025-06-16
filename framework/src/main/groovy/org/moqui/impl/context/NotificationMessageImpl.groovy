@@ -20,10 +20,8 @@ import org.moqui.BaseArtifactException
 import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
 import org.moqui.context.NotificationMessage
-import org.moqui.context.NotificationMessage.NotificationType
 import org.moqui.entity.EntityFacade
 import org.moqui.entity.EntityList
-import org.moqui.entity.EntityListIterator
 import org.moqui.entity.EntityValue
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -93,16 +91,17 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
 
         // notify by group, skipping users already notified
         if (userGroupId) {
-            EntityListIterator eli = ef.find("moqui.security.UserGroupMember")
+            ef.find("moqui.security.UserGroupMember")
                     .conditionDate("fromDate", "thruDate", new Timestamp(System.currentTimeMillis()))
-                    .condition("userGroupId", userGroupId).disableAuthz().iterator()
-            EntityValue nextValue
-            while ((nextValue = (EntityValue) eli.next()) != null) {
-                String userId = (String) nextValue.userId
-                if (checkedUserIds.contains(userId)) continue
-                checkedUserIds.add(userId)
-                if (checkUserNotify(userId, ef)) notifyUserIds.add(userId)
-            }
+                    .condition("userGroupId", userGroupId).disableAuthz().iterator().withCloseable ({eli ->
+                EntityValue nextValue
+                while ((nextValue = (EntityValue) eli.next()) != null) {
+                    String userId = (String) nextValue.userId
+                    if (checkedUserIds.contains(userId)) continue
+                    checkedUserIds.add(userId)
+                    if (checkUserNotify(userId, ef)) notifyUserIds.add(userId)
+                }
+            })
         }
 
         // add all users subscribed to all messages on the topic

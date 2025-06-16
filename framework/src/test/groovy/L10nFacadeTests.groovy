@@ -98,7 +98,7 @@ class L10nFacadeTests extends Specification {
         ec.l10n.formatCurrency(new BigDecimal("12.34"), "USD", 2) == '$12.34'
         ec.l10n.formatCurrency(new BigDecimal("43.21"), "GBP", 2) in ["GBP43.21", "£43.21"]
         ec.user.setLocale(Locale.UK)
-        ec.l10n.formatCurrency(new BigDecimal("12.34"), "USD", 2) in ["USD12.34", 'US$12.34']
+        ec.l10n.formatCurrency(new BigDecimal("12.34"), "USD", 2) in ["USD12.34", '$12.34']
         ec.l10n.formatCurrency(new BigDecimal("43.21"), "GBP", 2) == "\u00A343.21"
 
         cleanup:

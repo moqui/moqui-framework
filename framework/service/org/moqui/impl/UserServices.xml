@@ -22,6 +22,40 @@ along with this software (see the LICENSE.md file). If not, see
         <actions><script>ec.user.setPreference(preferenceKey, preferenceValue)</script></actions>
     </service>
 
+    <service verb="login" noun="UserAccount" authenticate="anonymous-all" allow-remote="false">
+        <implements service="org.moqui.impl.UserServices.get#ExternalUserAuthcFactorInfo"/>
+        <in-parameters>
+            <parameter name="username"/>
+            <parameter name="password"/>
+            <parameter name="code"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="loggedIn" type="Boolean"/>
+        </out-parameters>
+        <actions>
+            <if condition="ec.web?.sessionAttributes?.moquiPreAuthcUsername"><then>
+                <!-- already pre-auth'ed, verify code below -->
+                <set field="username" from="ec.web?.sessionAttributes?.moquiPreAuthcUsername"/>
+            </then><else>
+                <!-- no pre-auth, try logging in (pre-auth if 2nd factor required) -->
+                <set field="loggedIn" from="ec.user.loginUser(username, password)"/>
+            </else></if>
+            <if condition="ec.web.sessionAttributes.moquiAuthcFactorRequired"><then>
+                <if condition="code"><then>
+                    <service-call name="org.moqui.impl.UserServices.validate#ExternalUserAuthcCode"
+                            in-map="[code:code]" out-map="validateOut"/>
+                    <if condition="validateOut.verified"><then>
+                        <set field="loggedIn" from="ec.user.internalLoginUser(validateOut.username)"/>
+                    </then><else>
+                        <message type="danger" public="true">Authentication code is not valid</message>
+                    </else></if>
+                </then><else>
+                    <service-call name="org.moqui.impl.UserServices.get#ExternalUserAuthcFactorInfo" out-map="context"/>
+                </else></if>
+            </then></if>
+        </actions>
+    </service>
+
     <service verb="create" noun="UserAccount" authenticate="anonymous-all" allow-remote="false">
         <in-parameters>
             <auto-parameters entity-name="moqui.security.UserAccount" include="nonpk"><exclude field-name="currentPassword"/>
@@ -377,7 +411,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <field-map field-name="toAddresses" from="userAccount.emailAddress"/>
                 <field-map field-name="bodyParameters" from="bodyParameters + [userAccount:userAccount, resetPassword:resetPassword]"/>
             </service-call>
-            <message public="true" type="success">A reset password was sent by email to ${userAccount.emailAddress}. This password may only be used to change your password. Your current password is still valid.</message>
+            <message public="true" type="success">A reset password was sent to the email of username ${userAccount.username}. This password may only be used to change your password. Your current password is still valid.</message>
             <if condition="userAccount.requirePasswordChange == 'Y'"><message public="true" type="info">You must change your password before login.</message></if>
         </actions>
     </service>

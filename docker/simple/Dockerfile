@@ -22,8 +22,8 @@ ARG search_name=opensearch
 
 RUN if [ -d runtime/opensearch/bin ]; then echo "Installing OpenSearch User"; \
       search_name=opensearch; \
-      groupadd -g 1000 opensearch && \
-      useradd -u 1000 -g 1000 -G 0 -d /opt/moqui/runtime/opensearch opensearch && \
+      groupadd -g 1000 opensearch 2>/dev/null || echo "group 1000 already exists" && \
+      useradd -u 1000 -g 1000 -G 0 -d /opt/moqui/runtime/opensearch opensearch 2>/dev/null || echo "user 1000 already exists" && \
       chmod 0775 /opt/moqui/runtime/opensearch && \
       chown -R 1000:0 /opt/moqui/runtime/opensearch; \
     elif [ -d runtime/elasticsearch/bin ]; then echo "Installing ElasticSearch User"; \

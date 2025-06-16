@@ -417,13 +417,26 @@ task gitStatusAll {
             def curGrgit = Grgit.open(dir: gitDir)
             logger.lifecycle("\nGit status for ${gitDir} (branch:${curGrgit.branch.current()?.name}, tracking:${curGrgit.branch.current()?.trackingBranch?.name})")
 
-            if (curGrgit.remote.list().find({ it.name == 'upstream'})) {
-                def upstreamAhead = curGrgit.log { range curGrgit.resolve.toCommit('refs/remotes/upstream/master'), curGrgit.resolve.toCommit('refs/remotes/origin/master') }
-                if (upstreamAhead) logger.lifecycle("- origin/master ${upstreamAhead.size()} commits ahead of upstream/master")
+            try {
+                if (curGrgit.remote.list().find({ it.name == 'upstream'})) {
+                    def upstreamAhead = curGrgit.log { range curGrgit.resolve.toCommit('refs/remotes/upstream/master'), curGrgit.resolve.toCommit('refs/remotes/origin/master') }
+                    if (upstreamAhead) logger.lifecycle("- origin/master ${upstreamAhead.size()} commits ahead of upstream/master")
+                }
+            } catch (Exception e) {
+                logger.error("Error finding commits ahead of upstream", e)
             }
-            def unpushed = curGrgit.log { range curGrgit.resolve.toCommit('refs/remotes/origin/master'), curGrgit.resolve.toCommit('HEAD') }
-            if (unpushed) logger.lifecycle("--- ${unpushed.size()} commits unpushed (ahead of origin/master)")
-            for (Commit commit in unpushed) logger.lifecycle(" - ${commit.getAbbreviatedId(8)} - ${commit.shortMessage}")
+            try {
+                def masterLatest = curGrgit.resolve.toCommit('refs/remotes/origin/master')
+                if (masterLatest == null) {
+                    logger.error("No origin/master branch exists, can't determine unpushed commits")
+                } else {
+                    def unpushed = curGrgit.log { range masterLatest, curGrgit.resolve.toCommit('HEAD') }
+                    if (unpushed) logger.lifecycle("--- ${unpushed.size()} commits unpushed (ahead of origin/master)")
+                    for (Commit commit in unpushed) logger.lifecycle(" - ${commit.getAbbreviatedId(8)} - ${commit.shortMessage}")
+                }
+            } catch (Exception e) {
+                logger.error("Error finding unpushed commits", e)
+            }
             def curStatus = curGrgit.status()
             if (curStatus.isClean()) logger.lifecycle("* nothing to commit, working directory clean")
             if (curStatus.staged.added || curStatus.staged.modified || curStatus.staged.removed) logger.lifecycle("--- Changes to be committed::")
@@ -836,6 +849,185 @@ task getComponent {
         String curLocationType = file('.git').exists() ? 'git' : 'current'
         if (project.hasProperty('locationType')) curLocationType = locationType
         getComponentTop(curLocationType)
+    }
+}
+task createComponent {
+    description "Create a new component. Set new component name with -Pcomponent=new_component_name (based on the moqui start component here: https://github.com/moqui/start)"
+    doLast {
+        String curLocationType = file('.git').exists() ? 'git' : 'current'
+        if (project.hasProperty('locationType')) curLocationType = locationType
+
+        if (project.hasProperty('component')) {
+            checkRuntimeDirAndDefaults(curLocationType)
+            Set compsChecked = new TreeSet()
+
+            def startComponentName = 'start'
+
+            File componentDir = getComponent(startComponentName, curLocationType, parseAddons(), parseMyaddons(), compsChecked)
+            if (componentDir?.exists()) {
+                logger.lifecycle("Got component start, dependent components checked: ${compsChecked}")
+
+                def newComponent = file("runtime/component/${component}")
+                def renameSuccessful = componentDir.renameTo(newComponent)
+                if (!renameSuccessful) {
+                    logger.error("Failed to rename component start to ${component}. Try removing the existing component directory first or giving this program write permissions.")
+                } else {
+                    logger.lifecycle("Renamed component start to ${component}")
+                }
+
+                print "Updated file: "
+                newComponent.eachFileRecurse(groovy.io.FileType.FILES) { file ->
+                    try {
+                        // If file name is startComponentName.* rename to component.*
+                        if (file.name.startsWith(startComponentName)) {
+                            String newFileName = (file.name - startComponentName)
+                            newFileName = component + newFileName
+                            File newFile = new File(file.parent, newFileName)
+                            file.renameTo(newFile)
+                            file = newFile
+                            print "${file.path - newComponent.path - '/'}, "
+                        }
+
+                        String content = file.text
+                        if (content.contains(startComponentName)) {
+                            content = content.replaceAll(startComponentName, component)
+                            file.text = content
+                            print "${file.path - newComponent.path - '/'}, "
+                        }
+                    } catch (IOException e) {
+                        println "Error processing file ${file.path}: ${e.message}"
+                    }
+                }
+                print "\n\n"
+                println "Select rest api (r), screens (s), or both (B):"
+                def componentInput = System.in.newReader().readLine()
+
+                if (componentInput == 'r') {
+                    new File(newComponent, 'screen').deleteDir()
+                    new File(newComponent, 'template').deleteDir()
+                    new File(newComponent, 'data/AppSeedData.xml').delete()
+                    new File(newComponent, 'MoquiConf.xml').delete()
+                    def moquiConf = new File(newComponent, 'MoquiConf.xml')
+                    moquiConf.append("<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n" +
+                            "<!-- No copyright or license for configuration file, details here are not considered a creative work. -->\n" +
+                            "<moqui-conf xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:noNamespaceSchemaLocation=\"http://moqui.org/xsd/moqui-conf-3.xsd\">\n" +
+                            "</moqui-conf>")
+                    println "Selected rest api so, deleted screen, template, and AppSeedData.xml\n"
+                } else if (componentInput == 's') {
+                    new File(newComponent, "services/${component}.rest.xml").delete()
+                    new File(newComponent, 'data/ApiSeedData.xml').delete()
+                    println "Selected screens so, deleted rest api and ApiSeedData.xml\n"
+                } else if (componentInput == 'b' || componentInput == 'B' || componentInput == '') {
+                    println "Selected both rest api and screens\n"
+                } else {
+                    println "Invalid input. Try again"
+                    newComponent.deleteDir()
+                    return
+                }
+
+                println "Are you going to code or test in groovy or java [y/N]"
+                def codeInput = System.in.newReader().readLine()
+
+                if (codeInput == 'y' || codeInput == 'Y') {
+                    println "Keeping src folder\n"
+                } else if (codeInput == 'n' || codeInput == 'N' || codeInput == '') {
+                    new File(newComponent, 'src').deleteDir()
+                    new File(newComponent, 'build.grade').delete()
+                    println "Selected no so, deleted src and build.grade\n"
+                } else {
+                    println "Invalid input. Try again"
+                    newComponent.deleteDir()
+                    return
+                }
+
+                println "Setup a git repository [Y/n]"
+                def gitInput = System.in.newReader().readLine()
+                if (gitInput == 'y' || gitInput == 'Y' || gitInput == '') {
+                    new File(newComponent, '.git').deleteDir()
+                    // Setup git repository
+
+                    def grgit = Grgit.init(dir: newComponent.path)
+                    grgit.add(patterns: ['.'])
+                    // Can't get signing to work easily. If signing works well then might as well commit
+//                    grgit.commit(message: 'Initial commit')
+                    println "Selected yes, so git is initialized\n"
+                    println "To setup the git remote origin, type the git remote url or enter to skip"
+                    def remoteUrl = System.in.newReader().readLine()
+                    if (remoteUrl != '') {
+                        grgit.remote.add(name: 'origin', url: remoteUrl)
+                        println "Run the following to push the git repository:\ncd runtime/component/${component} && git commit -m 'Initial commit' && git push && cd ../../.."
+                    } else {
+                        println "Run the following to push the git repository:\ncd runtime/component/${component} && git commit -m 'Initial commit' && git remote add origin git@github.com:yourgroup/${component} && git push && cd ../../.."
+                    }
+                } else if (gitInput == 'n' || gitInput == 'N') {
+                    new File(newComponent, '.git').deleteDir()
+                    println "Selected no, so git is not initialized\n"
+                    println "Run the following to push the git repository:\ncd runtime/component/${component} && git commit -m 'Initial commit' && git remote add origin git@github.com:yourgroup/${component} && git push && cd ../../.."
+                } else {
+                    println "Invalid input. Try again"
+                    newComponent.deleteDir()
+                    return
+                }
+
+                println "Add to myaddons.xml [Y/n]"
+                def myaddonsInput = System.in.newReader().readLine()
+                if (myaddonsInput == 'y' || myaddonsInput == 'Y' || myaddonsInput == '') {
+                    def myaddonsFile = file('myaddons.xml')
+                    if (myaddonsFile.exists()){
+                        // Iterate through myaddons file and delete the lines that are </addons>
+                        // Read the lines from the file
+                        def lines = myaddonsFile.readLines()
+
+                        // Filter out the lines that contain </addons>
+                        def filteredLines = lines.findAll { !it.contains("</addons>") }
+
+                        // Write the filtered lines back to the file
+                        myaddonsFile.text = filteredLines.join('\n')
+                    } else {
+                        println "myaddons.xml not found. Creating one\nEnter repository github (g), github-ssh (GS), bitbucket (b), or bitbucket-ssh (bs)"
+                        def repositoryInput = System.in.newReader().readLine()
+                        myaddonsFile.append("<addons default-repository=\"")
+                        if (repositoryInput == 'g' || repositoryInput == 'G') {
+                            myaddonsFile.append('github')
+                        } else if (repositoryInput == 'gs' || repositoryInput == 'GS' || repositoryInput == '') {
+                            myaddonsFile.append('github-ssh')
+                        } else if (repositoryInput == 'b' || repositoryInput == 'B') {
+                            myaddonsFile.append('bitbucket')
+                        } else if (repositoryInput == 'bs' || repositoryInput == 'BS') {
+                            myaddonsFile.append('bitbucket-ssh')
+                        } else {
+                            println "Invalid input. Setting to github-ssh"
+                            myaddonsFile.append('github-ssh')
+                        }
+                        myaddonsFile.append("\">")
+                    }
+
+                    println "Enter the component git repository group"
+                    def groupInput = System.in.newReader().readLine()
+
+                    println "Enter the component git repository name"
+                    def nameInput = System.in.newReader().readLine()
+
+                    // get git branch
+                    def grgit = Grgit.open(dir: newComponent.path)
+                    def branch = grgit.branch.current().name
+
+                    myaddonsFile.append("\n    <component group=\"${groupInput}\" name=\"${nameInput}\" branch=\"${branch}\"/>")
+                    myaddonsFile.append("\n</addons>")
+
+                } else if (myaddonsInput == 'n' || myaddonsInput == 'N') {
+                    println "Selected no, so component not added to myaddons.xml\n"
+                } else {
+                    println "Invalid input. Try again"
+                    newComponent.deleteDir()
+                    return
+                }
+
+            }
+        } else {
+            throw new InvalidUserDataException("No component property specified")
+        }
+
     }
 }
 task getCurrent {

@@ -121,12 +121,11 @@ class EntityNoSqlCrud extends Specification {
 
     def "ELI find TestNoSqlEntity"() {
         when:
-        EntityListIterator eli
         EntityList partialEl = null
         EntityValue first = null
-        try {
-            eli = ec.entity.find("moqui.test.TestNoSqlEntity")
-                    .orderBy("-testNumberInteger").iterator()
+        try (EntityListIterator eli = ec.entity.find("moqui.test.TestNoSqlEntity")
+                .orderBy("-testNumberInteger").iterator()) {
+
 
             partialEl = eli.getPartialList(0, 100, false)
 
@@ -134,10 +133,7 @@ class EntityNoSqlCrud extends Specification {
             first = eli.next()
         } catch (Exception e) {
             logger.error("partialEl error", e)
-        } finally {
-            if (eli != null) eli.close()
         }
-
         // logger.warn("partialEl.size() ${partialEl.size()} first value ${first}")
 
         then:

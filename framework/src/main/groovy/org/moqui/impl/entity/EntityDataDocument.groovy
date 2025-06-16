@@ -301,8 +301,7 @@ class EntityDataDocument {
         // do the one big query
         String lastDocId = null
         int docCount = 0
-        EntityListIterator mainEli = mainFind.iterator()
-        try {
+        try (EntityListIterator mainEli = mainFind.iterator()) {
             logger.info("Feed dataDocumentId ${dataDocumentId} query complete (cursor opened) in ${System.currentTimeMillis() - startTimeMillis}ms")
             EntityValue ev
             while ((ev = (EntityValue) mainEli.next()) != null) {
@@ -345,7 +344,6 @@ class EntityDataDocument {
                 efi.ecfi.serviceFacade.sync().name(feedReceiveServiceName).parameter("documentList", documentMapList).call()
             }
         } finally {
-            mainEli.close()
             logger.info("Feed dataDocumentId ${dataDocumentId} feed complete and cursor closed in ${System.currentTimeMillis() - startTimeMillis}ms")
         }
 
@@ -366,16 +364,14 @@ class EntityDataDocument {
         ArrayList<Map> documentMapList = ddi.hasAllPrimaryPks ? null : new ArrayList<Map>()
 
         // do the one big query
-        EntityListIterator mainEli = mainFind.iterator()
-        try {
+
+        mainFind.iterator().withCloseable ({mainEli->
             EntityValue ev
             while ((ev = (EntityValue) mainEli.next()) != null) {
                 // logger.warn("=========== DataDocument query result for ${dataDocumentId}: ${ev}")
                 mergeValueToDocMap(ev, ddi, documentMapMap, documentMapList, docTsString)
             }
-        } finally {
-            mainEli.close()
-        }
+        })
 
         // make the actual list and return it
         if (ddi.hasAllPrimaryPks) {

@@ -383,6 +383,7 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration enumId="SmatNone" description="No Auth" enumTypeId="SystemMessageAuthType"/>
             <moqui.basic.Enumeration enumId="SmatLogin" description="User Login (basic, api_key, etc)" enumTypeId="SystemMessageAuthType"/>
             <moqui.basic.Enumeration enumId="SmatHmacSha256" description="HMAC SHA-256" enumTypeId="SystemMessageAuthType"/>
+            <moqui.basic.Enumeration enumId="SmatHmacSha256Timestamp" description="HMAC SHA-256 with Timestamp" enumTypeId="SystemMessageAuthType"/>
         </seed-data>
     </entity>
     <entity entity-name="SystemMessageEnumMap" package="moqui.service.message" use="configuration">
