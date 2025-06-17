@@ -489,14 +489,15 @@ class UtilsTests extends Specification {
             def cis = TestUtilities.loadTestResource((String) testDef['filename'])
 
             // 2. store it
-            def written = GenericUtilities.storeFileLocally(ec, (String) testDef['storeLocation'], (String) testDef['file'], cis)
+            def ignoreCounter = testDef.get('ignoreCounter', false)
+            def written = GenericUtilities.storeFileLocally(ec, (String) testDef['storeLocation'], (String) testDef['file'], cis, ignoreCounter)
 
             // 3. test whether it's saved in the expected location
             def exp = ec.resource.getLocationReference((String) testExp['expected'])
 
             assert exp.exists
             assert (Long) exp.openStream().bytes.length == written
-        })
+        }, logger)
 
 
         then:
