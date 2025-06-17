@@ -28,5 +28,16 @@
     {
       "expected": "tmp/003-file-01.json"
     }
+  ],
+  [
+    {
+      "filename": "Utils/stats-calculation/proc-output/nop.nos.calc-stats-input-after.dCB2xWeu.json",
+      "storeLocation": "tmp",
+      "file": "file-04.json",
+      "ignoreCounter": true
+    },
+    {
+      "expected": "tmp/file-04.json"
+    }
   ]
 ]
