@@ -128,7 +128,7 @@ class GenericUtilities {
      * @param data
      */
     public static Long storeFileLocally(
-            ExecutionContext ec, String location, String fileName, Object data){
+            ExecutionContext ec, String location, String fileName, Object data, Boolean ignoreCounter=false){
 
         // if not provided, assume we are going to write to `tmp`
         if (!location) location = "tmp"
@@ -153,7 +153,9 @@ class GenericUtilities {
         def newFileName = "${fileName}.${fileExtension}"
 
         // add counter to the file-name
-        newFileName = "${globalFileCounter.incrementAndGet().toString().padLeft(3, '0')}-${newFileName}"
+        if (!ignoreCounter) {
+            newFileName = "${globalFileCounter.incrementAndGet().toString().padLeft(3, '0')}-${newFileName}"
+        }
 
         // support storing both object and InputStream
         if (fileExtension == 'json') {
