@@ -6,7 +6,7 @@
       "file": "file-03.json"
     },
     {
-      "expected": "/tmp/file-03.json"
+      "expected": "/tmp/001-file-03.json"
     }
   ],
   [
@@ -16,7 +16,7 @@
       "file": "file-02.json"
     },
     {
-      "expected": "tmp/file-02.json"
+      "expected": "tmp/002-file-02.json"
     }
   ],
   [
@@ -26,7 +26,7 @@
       "file": "file-01.json"
     },
     {
-      "expected": "tmp/file-01.json"
+      "expected": "tmp/003-file-01.json"
     }
   ]
 ]
