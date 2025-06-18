@@ -8,6 +8,10 @@ import java.sql.CallableStatement
 import java.sql.Connection
 import java.sql.ResultSetMetaData
 
+import java.util.Calendar
+import java.util.GregorianCalendar
+import java.util.TimeZone
+
 class SqlExecutor {
     protected static int maxLimit = 500
 
@@ -333,7 +337,12 @@ class SqlExecutor {
             def record = [:]
             for (int i = 1; i <= numColumns; i++) {
                 String column_name = rsmd.getColumnName(i)
-                record[column_name] = rs.getObject(column_name)
+                if (column_name.endsWith("utc")) {
+                    Calendar cal = new GregorianCalendar(TimeZone.getTimeZone("UTC"));
+                    record[column_name] = rs.getTimestamp(i, cal);
+                } else {
+                    record[column_name] = rs.getObject(column_name);
+                }
             }
             result.add(record)
         }
