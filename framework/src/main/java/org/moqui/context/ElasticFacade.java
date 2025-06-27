@@ -39,12 +39,20 @@ public interface ElasticFacade {
         /** Returns a Map with the response from ElasticSearch for GET on the root path with ES server info */
         Map getServerInfo();
 
+        /** Returns a Map of the settings from the Search provider */
+        Map getClusterSettingInfo();
+        /** Returns a Map of all the settings and sets the settings of the cluster */
+        Map putClusterSettingInfo(Map settings);
+
         /** Returns true if index or alias exists. See https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-exists.html */
         boolean indexExists(String index);
         /** Returns true if alias exists. See https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-alias-exists.html */
         boolean aliasExists(String alias);
         /** Create an index with optional document mapping and alias. See https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-create-index.html */
         void createIndex(String index, Map docMapping, String alias);
+        /** Get the map of an index with flat_settings set to true by default. See: https://docs.opensearch.org/docs/2.19/api-reference/index-apis/get-index/ */
+        Map<String, Object> getIndex(String index);
+        Map<String, Object> getIndex(String index, Boolean flat_settings);
         /** Put document mapping on an existing index. See https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-put-mapping.html */
         void putMapping(String index, Map docMapping);
         /** Delete an index. See https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-delete-index.html */
@@ -97,6 +105,40 @@ public interface ElasticFacade {
         /** Delete a Point-In-Time checkpoint, should always be done when finished (close operation) */
         void deletePit(String pitId);
 
+        /** Create a search model. Assumes that auto deploy is enabled: https://docs.opensearch.org/docs/2.19/ml-commons-plugin/cluster-settings/#enable-auto-deploy
+         * @param modelId The search model ID to create
+         * @return The external model ID
+        */
+        Map<String, Object> createModel(String modelId);
+        /** Get model information by model ID
+         * @param externalModelId The model ID to get information for
+         * @return Map containing model information
+         */
+        Map<String, Object> getModel(String externalModelId);
+        /** Create a search model group
+         * @param modelGroupId The search model group ID to create
+         * @return The external model group ID
+        */
+        Map<String, Object> createModelGroup(String modelGroupId);
+
+        /** Get task information by task ID
+         * @param taskId The task ID to get information for
+         * @return Map containing task information
+         */
+        Map<String, Object> getMlTask(String taskId);
+        /** Get task information by task ID with optional timeout and waitForCompletion parameters
+         * @param taskId The task ID to get information for
+         * @param timeout The timeout for the task in seconds (default 600s)
+         * @return Map containing task information
+         */
+        Map<String, Object> getMlTask(String taskId, Integer timeout);
+
+        /** Create a pipeline for processing documents
+         * @param pipelineId The pipeline ID to create
+         * @return Map containing pipeline information
+         */
+        Map<String, Object> createPipeline(String pipelineId);
+
         /** Basic REST endpoint synchronous call */
         RestClient.RestResponse call(RestClient.Method method, String index, String path, Map<String, String> parameters, Object bodyJsonObject);
         /** Basic REST endpoint future (asynchronous) call */
@@ -121,5 +163,10 @@ public interface ElasticFacade {
         String objectToJson(Object jsonObject);
         /** Convert JSON String to Object (generally Map or List) using internal ElasticSearch specific settings */
         Object jsonToObject(String jsonString);
+
+        /** Get whether vector search is enabled */
+        Boolean getEnableVectorSearch();
+        /** Get whether using OpenSearch vs ElasticSearch */
+        Boolean getIsOpenSearch();
     }
 }

@@ -157,7 +157,7 @@ class EntityDataDocument {
             primaryPkFieldNamesSize = primaryPkFieldNames.size()
 
             AtomicBoolean hasExprMut = new AtomicBoolean(false)
-            populateFieldTreeAndAliasPathMap(dataDocumentFieldList, primaryPkFieldNames, fieldTree, fieldAliasPathMap, hasExprMut, false)
+            populateFieldTreeAndAliasPathMap(dataDocumentFieldList, primaryPkFieldNames, fieldTree, fieldAliasPathMap, hasExprMut, false, efi)
             hasExpressionField = hasExprMut.get()
 
             for (int pki = 0; pki < primaryPkFieldNames.size(); pki++) {
@@ -499,8 +499,20 @@ class EntityDataDocument {
         return fieldPathElementList
     }
     static void populateFieldTreeAndAliasPathMap(EntityList dataDocumentFieldList, List<String> primaryPkFieldNames,
-                                          Map<String, Object> fieldTree, Map<String, String> fieldAliasPathMap, AtomicBoolean hasExprMut, boolean allPks) {
+                                          Map<String, Object> fieldTree, Map<String, String> fieldAliasPathMap, AtomicBoolean hasExprMut, boolean allPks,
+                                          EntityFacadeImpl efi) {
+        String dataDocumentId = dataDocumentFieldList.find { EntityValue it -> it.dataDocumentId != null }?.dataDocumentId as String
+        if (dataDocumentId == null) {
+            throw new EntityException("DataDocument field list does not have a dataDocumentId")
+        }
+        EntityList processorList = efi.find("PipelineProcessorTextEmbedding").condition("dataDocumentId",dataDocumentId)
+            .condition("vectorFieldSeqId", "in", dataDocumentFieldList*.fieldSeqId).list()
         for (EntityValue dataDocumentField in dataDocumentFieldList) {
+            // moqui should essentially ignore fields that have a modelId as most of the logic is in the search provider
+            if (processorList*.vectorFieldSeqId.contains(dataDocumentField.fieldSeqId)) {
+                logger.warn("PipelineProcessorTextEmbedding found for dataDocumentId ${dataDocumentId} vectorFieldSeqId ${dataDocumentField.fieldSeqId}")
+                continue
+            }
             String fieldPath = (String) dataDocumentField.getNoCheckSimple("fieldPath")
             ArrayList<String> fieldPathElementList = fieldPathToList(fieldPath)
             Map currentTree = fieldTree

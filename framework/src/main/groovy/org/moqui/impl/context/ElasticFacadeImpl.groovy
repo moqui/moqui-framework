@@ -166,9 +166,11 @@ class ElasticFacadeImpl implements ElasticFacade {
         private final int clusterPort
         private RestClient.PooledRequestFactory requestFactory
         private Map serverInfo = (Map) null
+        private Map settingsInfo = (Map) null
         private String esVersion = (String) null
         private boolean esVersionUnder7 = false
         private boolean isOpenSearch = false
+        private boolean enableVectorSearch = false
 
         ElasticClientImpl(MNode clusterNode, ExecutionContextFactoryImpl ecfi) {
             this.ecfi = ecfi
@@ -178,6 +180,7 @@ class ElasticFacadeImpl implements ElasticFacade {
             this.clusterUser = clusterNode.attribute("user")
             this.clusterPassword = clusterNode.attribute("password")
             this.indexPrefix = clusterNode.attribute("index-prefix")
+            this.enableVectorSearch = clusterNode.attribute("enable-vector-search") == "true"
             String urlTemp = clusterNode.attribute("url")
             if (urlTemp.endsWith("/")) urlTemp = urlTemp.substring(0, urlTemp.length() - 1)
             this.clusterUrl = urlTemp
@@ -221,6 +224,27 @@ class ElasticFacadeImpl implements ElasticFacade {
                     break
                 }
             }
+
+            if (enableVectorSearch) {
+                settingsInfo = getClusterSettingInfo();
+                if (settingsInfo?.persistent) {
+                    if (settingsInfo.persistent["plugins.ml_commons.only_run_on_ml_node"] == null ||
+                            settingsInfo.persistent["plugins.ml_commons.model_access_control_enabled"] == null ||
+                            settingsInfo.persistent["plugins.ml_commons.native_memory_threshold"] == null) {
+                        putClusterSettingInfo([persistent: [
+                                'plugins.ml_commons.only_run_on_ml_node': 'false',
+                                'plugins.ml_commons.model_access_control_enabled': 'true',
+                                'plugins.ml_commons.native_memory_threshold': '99'
+                        ]])
+                    }
+                } else {
+                    putClusterSettingInfo([persistent: [
+                            'plugins.ml_commons.only_run_on_ml_node': 'false',
+                            'plugins.ml_commons.model_access_control_enabled': 'true',
+                            'plugins.ml_commons.native_memory_threshold': '99'
+                    ]])
+                }
+            }
         }
 
         @Override String getClusterName() { return clusterName }
@@ -234,6 +258,23 @@ class ElasticFacadeImpl implements ElasticFacade {
             RestClient.RestResponse response = makeRestClient(Method.GET, null, null, null).call()
             checkResponse(response, "Server info", null)
             return (Map) jsonToObject(response.text())
+        }
+
+        @Override
+        Map getClusterSettingInfo() {
+            RestClient.RestResponse response = makeRestClient(Method.GET, null, '_cluster/settings', null).call()
+            checkResponse(response, "Setting info", null)
+            settingsInfo = (Map) jsonToObject(response.text())
+            return settingsInfo
+        }
+        @Override
+        Map putClusterSettingInfo(Map settings) {
+            RestClient restClient = makeRestClient(Method.PUT, null, '_cluster/settings', null)
+            restClient.text(objectToJson(settings))
+            RestClient.RestResponse response = restClient.call()
+            checkResponse(response, "Put settings", null)
+            settingsInfo = (Map) jsonToObject(response.text())
+            return settingsInfo
         }
 
         @Override
@@ -276,8 +317,27 @@ class ElasticFacadeImpl implements ElasticFacade {
             checkResponse(response, "Create index", index)
         }
         @Override
+        Map<String, Object> getIndex(String index) {
+            getIndex(index, true)
+        }
+        Map<String, Object> getIndex(String index, Boolean flat_settings) {
+            if (index == null || index.isEmpty()) throw new IllegalArgumentException("Index name required")
+            RestClient client = makeRestClient(Method.GET, index, null, null)
+            if (flat_settings) client.jsonObject(["flat_settings":flat_settings])
+            RestClient.RestResponse response = client.call()
+            if (response.statusCode == 200) {
+                Map<String, Object> indexMap = (Map<String, Object>) jsonToObject(response.text())
+                if (indexMap.containsKey(index)) {
+                    indexMap = (Map<String, Object>) indexMap[index]
+                }
+                return indexMap
+            } else {
+                return null
+            }
+        }
+        @Override
         void putMapping(String index, Map docMapping) { putMapping(index, null, docMapping) }
-        void putMapping(String index, String docType, Map docMapping) {
+        void putMapping(String index, String docType, Map docMapping) { 
             if (!docMapping) throw new IllegalArgumentException("Mapping may not be empty for put mapping")
             // NOTE: this is for ES 7.0+ only, before that mapping needed to be named in the path
             String path = esVersionUnder7 ? "_mapping/" + (docType?:'_doc') : "_mapping"
@@ -524,6 +584,248 @@ class ElasticFacadeImpl implements ElasticFacade {
         }
 
         @Override
+        Map<String, Object> createModel(String modelId) {
+            if (!enableVectorSearch) throw new BaseException("Vector search is not enabled")
+
+            EntityValue searchModel = ecfi.entity.find("moqui.entity.document.SearchModel").condition("modelId", modelId).one()
+            if (!searchModel) throw new BaseException("Search model not found")
+            Map modelGroup = null
+            if (searchModel.modelGroupId) {
+                modelGroup = createModelGroup(searchModel.modelGroupId as String)
+            }
+
+            EntityValue modelFormatEnum = ecfi.entity.find("moqui.basic.Enumeration").condition("enumId", searchModel.modelFormatEnumId).one()
+            if (!modelFormatEnum) throw new BaseException("Model format enum ${searchModel.modelFormatEnumId} not found")
+            EntityValue functionNameEnum = null
+            if (searchModel.functionNameEnumId) {
+                functionNameEnum = ecfi.entity.find("moqui.basic.Enumeration").condition("enumId", searchModel.functionNameEnumId).one()
+                if (!functionNameEnum) throw new BaseException("Function name enum ${searchModel.functionNameEnumId} not found")
+            }
+
+            // Create a new search model with the same name as the template
+            RestClient restClient = makeRestClient(Method.POST, null, "_plugins/_ml/models/_register?deploy=true", null)
+            Map modelMap = [name:searchModel.name, model_format:modelFormatEnum.enumCode]
+            if (modelGroup?.externalModelGroupId) modelMap.model_group_id = modelGroup.externalModelGroupId
+            if (functionNameEnum?.enumCode) modelMap.function_name = functionNameEnum.enumCode
+            if (searchModel.url) modelMap.url = searchModel.url
+            if (searchModel.version) modelMap.version = searchModel.version
+            logger.warn("Creating model with ${modelMap}")
+            restClient.text(objectToJson(modelMap))
+            RestClient.RestResponse response = restClient.call()
+            checkResponse(response, "Create model", null)
+            Map modelDeployMap = (Map) jsonToObject(response.text())
+
+            Map outMap = searchModel.getPlainValueMap(1)
+
+            if (searchModel.isTemplate == "Y") {
+                EntityList modelList = ecfi.entity.find("SearchModel").condition("templateModelId",searchModel.modelId).limit(1).orderBy("-lastUpdatedStamp").list()
+                if (modelList.size() > 0) {
+                    outMap = modelList.getFirst().getPlainValueMap(1)
+                } else {
+                    Map taskMap = ecfi.service.sync().name("create#moqui.entity.document.SearchTask").parameter("externalTaskId", modelDeployMap.task_id).call()
+                    outMap.taskId = modelDeployMap.task_id
+
+                    Map getTaskMap = null
+                    long startTime = System.currentTimeMillis()
+                    long endTime = startTime + (1 * 60 * 1000) // 1 minutes in milliseconds
+                    while (System.currentTimeMillis() < endTime) {
+                        getTaskMap = getMlTask(modelDeployMap.task_id as String)
+                        // Starts out as CREATED
+                        if (getTaskMap.state != taskMap.state) {
+                            taskMap.state = getTaskMap.state
+                            taskMap.taskType = getTaskMap.task_type
+                            ecfi.service.sync().name("update#moqui.entity.document.SearchTask").parameters(taskMap).call()
+                        }
+                        if ((getTaskMap.task_type == "REGISTER_MODEL" && getTaskMap.state == "COMPLETED") || (getTaskMap.state == "DEPLOYED") || getTaskMap.state == "FAILED") {
+                            logger.warn("Model creation task ${modelDeployMap.task_id} done: ${getTaskMap}")
+                            break
+                        }
+                        if ((System.currentTimeMillis() - startTime) % 2000 < 500) {
+                            logger.warn("Model deploying ${((System.currentTimeMillis() - startTime)/(endTime - startTime))*100}% / 100% in task ${modelDeployMap.task_id} state ${getTaskMap.state} modelDeploy ${modelDeployMap} getTask ${getTaskMap}")
+                        }
+                        sleep(500) // Sleep for 0.5 seconds
+                    }
+
+                    if (getTaskMap.model_id) {
+                        outMap.externalModelId = getTaskMap.model_id
+                        // Get the model details
+                        RestClient modelClient = makeRestClient(Method.GET, null, "_plugins/_ml/models/${getTaskMap.model_id}", null)
+                        RestClient.RestResponse modelResponse = null;
+                        Map getModelMap = null;
+                        while (System.currentTimeMillis() < endTime) {
+                            modelResponse = modelClient.call()
+                            checkResponse(modelResponse, "Get model", null)
+                            getModelMap = (Map) jsonToObject(modelResponse.text())
+                            if (getModelMap.model_state == "DEPLOYED") {
+                                break
+                            }
+
+                            Map filteredModelMap = [:]
+                            if (getModelMap.model_state) filteredModelMap.model_state = getModelMap.model_state
+                            if (getModelMap.name) filteredModelMap.name = getModelMap.name
+                            if (getModelMap.model_group_id) filteredModelMap.model_group_id = getModelMap.model_group_id
+                            if (getModelMap.model_format) filteredModelMap.model_format = getModelMap.model_format
+                            if (getModelMap.model_content_size_in_bytes) {
+                                double sizeInMB = (getModelMap.model_content_size_in_bytes as BigDecimal) / (1024.0 * 1024.0)
+                                filteredModelMap.model_content_size_in_MB = String.format("%.2f", sizeInMB)
+                            }
+                            if (getModelMap.model_id) filteredModelMap.model_id = getModelMap.model_id
+                            if ((System.currentTimeMillis() - startTime) % 2000 < 500) {
+                                logger.warn("Model deploying ${((System.currentTimeMillis() - startTime)/(endTime - startTime))*100}% / 100% in waiting for model to be deployed ${filteredModelMap}")
+                            }
+                            sleep(500) // Sleep for 0.5 seconds
+                        }
+
+                        long dimension = (getModelMap.model_config as Map).embedding_dimension as long
+                        Map newModelMap = ecfi.service.sync().name("create#moqui.entity.document.SearchModel").parameters(searchModel + [modelId:null,isTemplate:"N",
+                            templateModelId:searchModel.modelId, externalModelId:getTaskMap.model_id,state:getModelMap.model_state,dimension:dimension]).call()
+                        outMap.modelId = newModelMap.modelId
+                        outMap.status = getModelMap.model_state
+                        outMap.dimension = dimension
+
+                        EntityList textEmbeddingList = ecfi.entity.find("PipelineProcessorTextEmbedding").condition("modelId",searchModel.modelId).list()
+                        for (EntityValue textEmbedding in textEmbeddingList) {
+                            textEmbedding.modelId = newModelMap.modelId
+                            textEmbedding.update()
+                        }
+
+                        logger.info("Created model ${searchModel.name} with external ID ${getTaskMap.model_id} with status ${modelDeployMap.status}")
+                    }
+                }
+            } else {
+                logger.info("Updated model ${searchModel.modelId} with external ID ${modelDeployMap.model_id} with status ${modelDeployMap.status}")
+            }
+
+            return outMap
+        }
+
+        @Override
+        Map<String, Object> getModel(String externalModelId) {
+            if (!enableVectorSearch) throw new BaseException("Vector search is not enabled")
+
+            RestClient restClient = makeRestClient(Method.GET, null, "_plugins/_ml/models/${externalModelId}", null)
+            RestClient.RestResponse response = restClient.call()
+            checkResponse(response, "Get model", null)
+            return (Map) jsonToObject(response.text())
+        }
+
+        @Override
+        Map<String, Object> createModelGroup(String modelGroupId) {
+            if (!enableVectorSearch) throw new BaseException("Vector search is not enabled")
+
+            EntityValue searchModelGroup = ecfi.entity.find("moqui.entity.document.SearchModelGroup").condition("modelGroupId", modelGroupId)
+                .forUpdate(true).one()
+            if (!searchModelGroup) throw new BaseException("Search model group not found")
+
+            if (!searchModelGroup.externalModelGroupId) {
+                RestClient restClient = makeRestClient(Method.POST, null, "_plugins/_ml/model_groups/_register", null)
+                restClient.text(objectToJson([name:searchModelGroup.name]))
+
+                RestClient.RestResponse response = restClient.call()
+                checkResponse(response, "Create model group", null)
+                Map resultMap = (Map) jsonToObject(response.text())
+                logger.info("Created model group ${searchModelGroup.name} with external ID ${resultMap.model_group_id}")
+                searchModelGroup.externalModelGroupId = resultMap.model_group_id
+                searchModelGroup.status = resultMap.status
+                searchModelGroup.update()
+            } else {
+                logger.warn("External model group ID ${searchModelGroup.externalModelGroupId} is already created")
+                return searchModelGroup
+            }
+
+            return searchModelGroup
+        }
+
+        @Override
+        Map<String, Object> getMlTask(String taskId) {
+            return getMlTask(taskId, null)
+        }
+        Map<String, Object> getMlTask(String taskId, Integer timeout) {
+            if (!enableVectorSearch) throw new BaseException("Vector search is not enabled")
+            if (!taskId) throw new IllegalArgumentException("Task ID required")
+
+            RestClient restClient = makeRestClient(Method.GET, null, "_plugins/_ml/tasks/${taskId}", null)
+            restClient.timeout((timeout ? timeout : 600))
+            RestClient.RestResponse response = restClient.call()
+            checkResponse(response, "Get task", null)
+            return (Map) jsonToObject(response.text())
+        }
+
+        @Override
+        Map<String, Object> createPipeline(String pipelineId) {
+            if (!enableVectorSearch) throw new BaseException("Vector search is not enabled")
+
+            EntityValue pipeline = ecfi.entity.find("moqui.entity.document.SearchPipeline")
+                    .condition("pipelineId", pipelineId)
+                    .forUpdate(true)
+                    .one()
+            if (!pipeline) throw new BaseException("Pipeline not found")
+
+            if (!pipeline.externalPipelineId) {
+                // Get all processors for this pipeline
+                EntityList processors = ecfi.entity.find("moqui.entity.document.SearchPipelineProcessor")
+                        .condition("pipelineId", pipelineId)
+                        .orderBy("processorSeqId")
+                        .list()
+
+                List<Map> processorsList = []
+                for (EntityValue processor in processors) {
+                    Map processorMap = [:]
+                    
+                    // Handle text embedding processor type
+                    if (processor.processorTypeEnumId == "SpptTextEmbedding") {
+                        EntityValue textEmbedding = ecfi.entity.find("moqui.entity.document.PipelineProcessorTextEmbedding")
+                                .condition("processorId", processor.processorId)
+                                .one()
+                        if (textEmbedding) {
+                            EntityValue inputField = textEmbedding.inputField as EntityValue
+                            EntityValue vectorField = textEmbedding.vectorField as EntityValue
+                            EntityValue model = textEmbedding.searchModel as EntityValue
+                            if (!model) {
+                                throw new BaseException("Search model ${textEmbedding.modelId} not found on text embedding [${textEmbedding.processorId}] for data document [${textEmbedding.dataDocumentId}]")
+                            }
+                            String model_id = model.externalModelId
+                            if (model_id == null) {
+                                throw new BaseException("External Model ID ${model_id} not found on text embedding processorId [${textEmbedding.processorId}] for data document [${textEmbedding.dataDocumentId}]")
+                            }
+                            processorMap.text_embedding = [
+                                model_id: model_id,
+                                field_map: [(inputField.fieldNameAlias?:inputField.fieldPath):vectorField.fieldNameAlias?:vectorField.fieldPath],
+                                ignore_failure:processor.ignoreFailure == "N" ? false : true
+                            ]
+                        }
+                    }
+
+                    // if (processor.onFailureProcessorId) {
+                        // processorMap.on_failure = [:]  // Would need additional logic to handle on_failure processors
+                    // }
+
+                    if (!processorMap.isEmpty()) processorsList.add(processorMap)
+                }
+
+                RestClient restClient = makeRestClient(Method.PUT, null, "_ingest/pipeline/${pipeline.name}", null)
+                Map<String, Object> pipelineMap = [
+                    processors: processorsList
+                ] as Map<String, Object>
+                String pipelineJson = objectToJson(pipelineMap)
+//                logger.warn("Creating pipeline ${pipeline.name} with ${pipelineJson}")
+                restClient.text(pipelineJson)
+                RestClient.RestResponse response = restClient.call()
+
+                checkResponse(response, "Create pipeline", null)
+                Map resultMap = (Map) jsonToObject(response.text())
+//                logger.info("Created pipeline ${pipeline.name} with ID ${pipelineId}")
+                pipeline.externalPipelineId = pipelineId
+                pipeline.update()
+            } else {
+                logger.warn("External pipeline ID ${pipeline.externalPipelineId} is already created")
+                return pipeline
+            }
+
+            return pipeline
+        }
+
+        @Override
         RestClient.RestResponse call(Method method, String index, String path, Map<String, String> parameters, Object bodyJsonObject) {
             RestClient restClient = makeRestClient(method, index, path, parameters).text(objectToJson(bodyJsonObject))
             return restClient.call()
@@ -579,9 +881,48 @@ class ElasticFacadeImpl implements ElasticFacade {
             String esIndexName = ddIdToEsIndex(dataDocumentId)
 
             // logger.warn("========== Checking index ${esIndexName} with alias ${indexName} , hasIndex=${hasIndex}")
-            boolean hasIndex = indexExists(esIndexName)
+            // Instead of using getIndex and get settings separately, we should use getIndex to do both in one call
+            Map<String, Object> indexMap = getIndex(esIndexName)
+            Map<String, Object> settings = indexMap?.settings as Map<String, Object> ?: [:]
+            boolean hasIndex = indexMap != null
+            boolean changedSettings = false
             Map docMapping = makeElasticSearchMapping(dataDocumentId, ecfi)
-            Map settings = null
+            Map pipelineMapping = makeElasticSearchPipelineMapping(dataDocumentId, docMapping, ecfi)
+
+            if (enableVectorSearch) {
+                if (isOpenSearch) {
+                    if (hasIndex) {
+                        if (!settings.containsKey("index.knn") && !settings.containsKey("default_pipeline")) {
+                            settings["index.knn"] = true
+                            changedSettings = true
+                        }
+                    } else {
+                        settings["index.knn"] = true
+                        changedSettings = true
+                    }
+                    List pipelines = pipelineMapping.pipelines as List
+                    if (pipelines.size() > 0) {
+                        Map pipeline = (pipelines[0] as Map)
+                        settings["default_pipeline"] = pipeline.name
+                        if (pipelines.size() > 1) {
+                            logger.warn("Multiple pipelines found for data document ${dataDocumentId}, only the first pipeline '${pipeline.name}' will be used as the default pipeline")
+                        }
+                        changedSettings = true
+                    }
+                    Map parameters = pipelineMapping.parameters as Map
+                    if (parameters.size() > 0) {
+                        for (Map.Entry<String, Map> parameterEntry in parameters.entrySet()) {
+                            String fieldName = parameterEntry.key
+                            Map parameterConfig = parameterEntry.value
+                            // Add the vector field configuration to the document mapping
+                            docMapping.properties[fieldName] = parameterConfig
+                            logger.warn("Adding parameter ${fieldName} with config ${parameterConfig} to index ${esIndexName}")
+                        }
+                    }
+                } else {
+                    throw new BaseException("Vector search is not supported for ElasticSearch")
+                }
+            }
 
             if (manualMappingServiceName) {
                 def serviceResult = ecfi.service.sync().name(manualMappingServiceName).parameter('mapping', docMapping).call()
@@ -589,9 +930,12 @@ class ElasticFacadeImpl implements ElasticFacade {
                 settings = (Map) serviceResult.settings
             }
 
-            if (hasIndex) {
+            if (hasIndex && !changedSettings) {
                 logger.info("Updating ElasticSearch index ${esIndexName} for ${dataDocumentId} document mapping")
                 putMapping(esIndexName, dataDocumentId, docMapping)
+            } else if (hasIndex && changedSettings) {
+                logger.info("Updating ElasticSearch index and settings for ${esIndexName} for ${dataDocumentId} document mapping")
+                createIndex(esIndexName, dataDocumentId, docMapping, indexName, settings)
             } else {
                 logger.info("Creating ElasticSearch index ${esIndexName} for ${dataDocumentId} with alias ${indexName} and adding document mapping")
                 createIndex(esIndexName, dataDocumentId, docMapping, indexName, settings)
@@ -712,6 +1056,13 @@ class ElasticFacadeImpl implements ElasticFacade {
                 return indexPrefix != null && it.startsWith(indexPrefix) ? it.substring(indexPrefix.length()) : it
             }).join(",")
             // return indexPrefix != null && index.startsWith(indexPrefix) ? index.substring(indexPrefix.length()) : index
+        }
+
+        Boolean getEnableVectorSearch() {
+            return enableVectorSearch
+        }
+        Boolean getIsOpenSearch() {
+            return isOpenSearch
         }
     }
 
@@ -834,8 +1185,13 @@ class ElasticFacadeImpl implements ElasticFacade {
                     rootProperties.put(fieldName, makePropertyMap(null, mappingType ?: 'double', sortable))
                 } else {
                     FieldInfo fieldInfo = primaryEd.getFieldInfo(fieldPath)
-                    if (fieldInfo == null) throw new EntityException("Could not find field [${fieldPath}] for entity [${primaryEd.getFullEntityName()}] in DataDocument [${dataDocumentId}]")
-                    rootProperties.put(fieldName, makePropertyMap(fieldInfo.type, mappingType, sortable))
+                    if (fieldInfo == null) {
+                        EntityList processorList = ecfi.entity.find("PipelineProcessorTextEmbedding").condition("dataDocumentId",dataDocumentId)
+                            .condition("vectorFieldSeqId", dataDocumentField.fieldSeqId).list()
+                        if (processorList.size() == 0)
+                            throw new EntityException("Could not find field [${fieldPath}] for entity [${primaryEd.getFullEntityName()}] in DataDocument [${dataDocumentId}]")
+                    }
+                    rootProperties.put(fieldName, makePropertyMap(fieldInfo?.type?:"", mappingType, sortable))
                     if (remainingPkFields.contains(fieldPath)) remainingPkFields.remove(fieldPath)
                 }
 
@@ -896,6 +1252,38 @@ class ElasticFacadeImpl implements ElasticFacade {
         if (logger.isTraceEnabled()) logger.trace("Generated ElasticSearch mapping for ${dataDocumentId}: \n${JsonOutput.prettyPrint(JsonOutput.toJson(mappingMap))}")
 
         return mappingMap
+    }
+    static Map makeElasticSearchPipelineMapping(String dataDocumentId, Map docMapping, ExecutionContextFactoryImpl ecfi) {
+        // For each type of Pipeline Processor supported, match the DataDocument
+        EntityList textEmbeddingList = ecfi.entityFacade.find("moqui.entity.document.PipelineProcessorTextEmbedding")
+                .condition("dataDocumentId", dataDocumentId).list()
+
+        Map<String, Object> outMap = [parameters: [:], pipelines: []] as Map<String, Object>
+
+        for (EntityValue textEmbedding in textEmbeddingList) {
+            if (textEmbedding.modelId) {
+                Map modelMap = ecfi.elastic.default.createModel(textEmbedding.modelId as String)
+                EntityValue processor = ecfi.entity.find("moqui.entity.document.SearchPipelineProcessor").condition("processorId", textEmbedding.processorId).one()
+                if (!processor) throw new EntityException("Could not find processor [${textEmbedding.processorId}] for data document [${dataDocumentId}]")
+                EntityValue pipeline = ecfi.entity.find("moqui.entity.document.SearchPipeline").condition("pipelineId", processor.pipelineId).one()
+                if (!pipeline) throw new EntityException("Could not find pipeline [${processor.pipelineId}] for data document [${dataDocumentId}]")
+                // TODO: Only allow one pipeline per data document, because you can only have one default pipeline per search index
+                Map pipelineMap = ecfi.elastic.default.createPipeline(pipeline.pipelineId as String)
+                
+                (outMap.pipelines as List<Map<String, Object>>).add(pipelineMap)
+                
+                EntityValue vectorField = textEmbedding.vectorField as EntityValue
+                String fieldName = vectorField.fieldNameAlias ?: vectorField.fieldPath
+                Map<String, Object> parameterMap = [
+                    type: "knn_vector",
+                    dimension: modelMap.dimension,
+                    space_type: "l2"
+                ]
+                (outMap.parameters as Map<String, Object>).put(fieldName, parameterMap)
+            }
+        }
+
+        return outMap
     }
     static Map makePropertyMap(String fieldType, String mappingType, String sortable) {
         if (!mappingType) mappingType = esTypeMap.get(fieldType) ?: 'text'

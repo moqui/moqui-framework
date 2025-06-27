@@ -199,7 +199,156 @@ along with this software (see the LICENSE.md file). If not, see
         <member-relationship entity-alias="DDOC" join-from-alias="DDUG" relationship="document"/>
         <alias-all entity-alias="DDOC"/><alias-all entity-alias="DDUG"/>
     </view-entity>
+    <entity entity-name="SearchModelGroup" package="moqui.entity.document">
+        <description>A OpenSearch model group see: https://docs.opensearch.org/docs/latest/ml-commons-plugin/api/model-group-apis/register-model-group/</description>
+        <field name="modelGroupId" type="id" is-pk="true"/>
+        <field name="name" type="text-short"/>
+        <field name="status" type="id"/>
+        <field name="externalModelGroupId" type="id"/>
 
+        <index name="SRCHMDLGRP_EXT_ID_IDX"><index-field name="externalModelGroupId"/></index>
+        <seed-data>
+            <moqui.entity.document.SearchModelGroup modelGroupId="DEFAULT_MOQUI_LOCAL" name="Default Moqui Local Models"/>
+        </seed-data>
+    </entity>
+    <!-- For third party embedding connectors see: https://docs.opensearch.org/docs/latest/ml-commons-plugin/remote-models/connectors/#cohere-connector -->
+    <entity entity-name="SearchModel" package="moqui.entity.document">
+        <description>A OpenSearch model see: https://docs.opensearch.org/docs/latest/ml-commons-plugin/api/model-apis/register-model/</description>
+        <field name="modelId" type="id" is-pk="true"/>
+        <field name="name" type="text-short"/>
+        <field name="description" type="text-medium"/>
+        <field name="version" type="text-short"/>
+        <field name="modelFormatEnumId" type="id"/>
+        <field name="functionNameEnumId" type="id"/>
+        <field name="url" type="text-medium"><description>The URL that contains the model.</description></field>
+        <field name="externalModelId" type="id"/>
+        <field name="state" type="id"><description>The state of the model</description></field>
+        <field name="isTemplate" type="text-indicator"><description>If Y the model is a template and can be used to create a new model.</description></field>
+        <field name="templateModelId" type="id"><description>The modelId of the template model to use for this model.</description></field>
+        <field name="modelGroupId" type="id"/>
+        <field name="dimension" type="number-integer"/>
+
+        <relationship type="one" title="SearchModelTypeFormat" related="moqui.basic.Enumeration" short-alias="modelFormat">
+            <key-map field-name="modelFormatEnumId"/></relationship>
+        <relationship type="one" title="SearchModelTypeFunction" related="moqui.basic.Enumeration" short-alias="function">
+            <key-map field-name="functionNameEnumId"/></relationship>
+        <relationship type="one" title="SearchModelGroup" related="moqui.entity.document.SearchModelGroup" short-alias="group">
+            <key-map field-name="modelGroupId"/></relationship>
+
+        <index name="SRCHMDL_EXT_ID_IDX"><index-field name="externalModelId"/></index>
+        <seed-data>
+            <moqui.basic.EnumerationType description="Search Model Format Type" enumTypeId="ModelFormatType"/>
+            <moqui.basic.Enumeration description="Torch Script" enumId="MfotTorchScript" enumCode="TORCH_SCRIPT" enumTypeId="ModelFormatType"/>
+            <moqui.basic.Enumeration description="ONNX" enumId="MfotOnnx" enumCode="ONNX" enumTypeId="ModelFormatType"/>
+
+            <moqui.basic.EnumerationType description="Search Model Function Type" enumTypeId="ModelFunctionType"/>
+            <moqui.basic.Enumeration description="Text Embedding" enumId="MfutTextEmbedding" enumCode="TEXT_EMBEDDING" enumTypeId="ModelFunctionType"/>
+            <moqui.basic.Enumeration description="Sparse Encoding" enumId="MfutSparseEncoding" enumCode="SPARSE_ENCODING" enumTypeId="ModelFunctionType"/>
+            <moqui.basic.Enumeration description="Sparse Tokenize" enumId="MfutSparseTokenize" enumCode="SPARSE_TOKENIZE" enumTypeId="ModelFunctionType"/>
+            <moqui.basic.Enumeration description="Text Similarity" enumId="MfutTextSimilarity" enumCode="TEXT_SIMILARITY" enumTypeId="ModelFunctionType"/>
+            <moqui.basic.Enumeration description="Question Answering" enumId="MfutQuestionAnswering" enumCode="QUESTION_ANSWERING" enumTypeId="ModelFunctionType"/>
+
+            <moqui.entity.document.SearchModel modelId="huggingface/all-mpnet-base-v2" name="huggingface/sentence-transformers/all-mpnet-base-v2" isTemplate="Y" version="1.0.2" modelFormatEnumId="MfotOnnx" description="Recommended model for lightweight text embedding" />
+        </seed-data>
+    </entity>
+    <entity entity-name="SearchTask" package="moqui.entity.document">
+        <description>A OpenSearch task to keep track of tasks for status of various operations: https://docs.opensearch.org/docs/2.19/api-reference/tasks/tasks/</description>
+        <field name="taskId" type="id" is-pk="true"/>
+        <field name="taskType" type="text-short"/>
+        <field name="state" type="text-short"/>
+        <field name="externalTaskId" type="id"/>
+
+        <index name="SEARCH_TASK" unique="true"><index-field name="externalTaskId"/></index>
+    </entity>
+    <entity entity-name="SearchPipeline" package="moqui.entity.document">
+        <field name="pipelineId" type="id" is-pk="true"/>
+        <field name="name" type="text-short"/>
+        <field name="externalPipelineId" type="id"/>
+
+        <index name="SRCHPIPE_EXT_ID_IDX"><index-field name="externalPipelineId"/></index>
+    </entity>
+    <entity entity-name="SearchPipelineProcessor" package="moqui.entity.document">
+        <description>Similar to ContactMech where each instance of the SearchPipelineProcessor can have a different mechanism.
+The processorTypeEnumId is used to determine the mechanism. See for types: https://docs.opensearch.org/docs/2.19/ingest-pipelines/processors/index-processors/ </description>
+        <field name="processorId" type="id" is-pk="true"/>
+        <field name="processorSeqId" type="id"><description>Used to order the processors in the pipeline.</description></field>
+        <field name="pipelineId" type="id"/>
+        <field name="processorTypeEnumId" type="id"/>
+        <field name="ignoreFailure" type="text-indicator"><description>If Y the pipeline will continue if the processor fails.</description></field>
+        <field name="onFailureProcessorId" type="id"/>
+
+        <relationship type="one" related="moqui.entity.document.SearchPipeline" short-alias="pipeline"/>
+        <relationship type="one" title="SearchPipelineProcessorType" related="moqui.basic.Enumeration" short-alias="processorType">
+            <key-map field-name="processorTypeEnumId"/></relationship>
+        <relationship type="one" related="moqui.entity.document.SearchPipelineProcessor" short-alias="onFailureProcessor">
+            <key-map field-name="onFailureProcessorId"/></relationship>
+
+        <seed-data>
+            <moqui.basic.EnumerationType description="Search Pipeline Processor Type" enumTypeId="SearchPipelineProcessorType"/>
+            <moqui.basic.Enumeration description="Generates vector embeddings from text fields for semantic search" enumId="SpptTextEmbedding" enumCode="text_embedding" enumTypeId="SearchPipelineProcessorType"/>
+            <!-- Commenting out all processors that aren't implemented yet
+            <moqui.basic.Enumeration enumId="SpptAppend" enumCode="append" enumTypeId="SearchPipelineProcessorType" description="Adds one or more values to a field in a document"/>
+            <moqui.basic.Enumeration enumId="SpptBytes" enumCode="bytes" enumTypeId="SearchPipelineProcessorType" description="Converts a human-readable byte value to its value in bytes"/>
+            <moqui.basic.Enumeration enumId="SpptCommunityId" enumCode="community_id" enumTypeId="SearchPipelineProcessorType" description="Generates a community ID flow hash algorithm for the network flow tuples"/>
+            <moqui.basic.Enumeration enumId="SpptConvert" enumCode="convert" enumTypeId="SearchPipelineProcessorType" description="Changes the data type of a field in a document"/>
+            <moqui.basic.Enumeration enumId="SpptCopy" enumCode="copy" enumTypeId="SearchPipelineProcessorType" description="Copies an entire object in an existing field to another field"/>
+            <moqui.basic.Enumeration enumId="SpptCsv" enumCode="csv" enumTypeId="SearchPipelineProcessorType" description="Extracts CSVs and stores them as individual fields in a document"/>
+            <moqui.basic.Enumeration enumId="SpptDate" enumCode="date" enumTypeId="SearchPipelineProcessorType" description="Parses dates from fields and then uses the date or timestamp as the timestamp for a document"/>
+            <moqui.basic.Enumeration enumId="SpptDateIndexName" enumCode="date_index_name" enumTypeId="SearchPipelineProcessorType" description="Indexes documents into time-based indexes based on a date or timestamp field in a document"/>
+            <moqui.basic.Enumeration enumId="SpptDissect" enumCode="dissect" enumTypeId="SearchPipelineProcessorType" description="Extracts structured fields from a text field using a defined pattern"/>
+            <moqui.basic.Enumeration enumId="SpptDotExpander" enumCode="dot_expander" enumTypeId="SearchPipelineProcessorType" description="Expands a field with dots into an object field"/>
+            <moqui.basic.Enumeration enumId="SpptDrop" enumCode="drop" enumTypeId="SearchPipelineProcessorType" description="Drops a document without indexing it or raising any errors"/>
+            <moqui.basic.Enumeration enumId="SpptFail" enumCode="fail" enumTypeId="SearchPipelineProcessorType" description="Raises an exception and stops the execution of a pipeline"/>
+            <moqui.basic.Enumeration enumId="SpptFingerprint" enumCode="fingerprint" enumTypeId="SearchPipelineProcessorType" description="Generates a hash value for either certain specified fields or all fields in a document"/>
+            <moqui.basic.Enumeration enumId="SpptForeach" enumCode="foreach" enumTypeId="SearchPipelineProcessorType" description="Allows for another processor to be applied to each element of an array or an object field in a document"/>
+            <moqui.basic.Enumeration enumId="SpptGeoip" enumCode="geoip" enumTypeId="SearchPipelineProcessorType" description="Adds information about the geographical location of an IP address"/>
+            <moqui.basic.Enumeration enumId="SpptGeojsonFeature" enumCode="geojson-feature" enumTypeId="SearchPipelineProcessorType" description="Indexes GeoJSON data into a geospatial field"/>
+            <moqui.basic.Enumeration enumId="SpptGrok" enumCode="grok" enumTypeId="SearchPipelineProcessorType" description="Parses and structures unstructured data using pattern matching"/>
+            <moqui.basic.Enumeration enumId="SpptGsub" enumCode="gsub" enumTypeId="SearchPipelineProcessorType" description="Replaces or deletes substrings within a string field of a document"/>
+            <moqui.basic.Enumeration enumId="SpptHtmlStrip" enumCode="html_strip" enumTypeId="SearchPipelineProcessorType" description="Removes HTML tags from a text field and returns the plain text content"/>
+            <moqui.basic.Enumeration enumId="SpptIp2Geo" enumCode="ip2geo" enumTypeId="SearchPipelineProcessorType" description="Adds information about the geographical location of an IPv4 or IPv6 address"/>
+            <moqui.basic.Enumeration enumId="SpptJoin" enumCode="join" enumTypeId="SearchPipelineProcessorType" description="Concatenates each element of an array into a single string using a separator character between each element"/>
+            <moqui.basic.Enumeration enumId="SpptJson" enumCode="json" enumTypeId="SearchPipelineProcessorType" description="Converts a JSON string into a structured JSON object"/>
+            <moqui.basic.Enumeration enumId="SpptKv" enumCode="kv" enumTypeId="SearchPipelineProcessorType" description="Automatically parses key-value pairs in a field"/>
+            <moqui.basic.Enumeration enumId="SpptLowercase" enumCode="lowercase" enumTypeId="SearchPipelineProcessorType" description="Converts text in a specific field to lowercase letters"/>
+            <moqui.basic.Enumeration enumId="SpptPipeline" enumCode="pipeline" enumTypeId="SearchPipelineProcessorType" description="Runs an inner pipeline"/>
+            <moqui.basic.Enumeration enumId="SpptRemove" enumCode="remove" enumTypeId="SearchPipelineProcessorType" description="Removes fields from a document"/>
+            <moqui.basic.Enumeration enumId="SpptRemoveByPattern" enumCode="remove_by_pattern" enumTypeId="SearchPipelineProcessorType" description="Removes fields from a document by field pattern"/>
+            <moqui.basic.Enumeration enumId="SpptRename" enumCode="rename" enumTypeId="SearchPipelineProcessorType" description="Renames an existing field"/>
+            <moqui.basic.Enumeration enumId="SpptScript" enumCode="script" enumTypeId="SearchPipelineProcessorType" description="Runs an inline or stored script on incoming documents"/>
+            <moqui.basic.Enumeration enumId="SpptSet" enumCode="set" enumTypeId="SearchPipelineProcessorType" description="Sets the value of a field to a specified value"/>
+            <moqui.basic.Enumeration enumId="SpptSort" enumCode="sort" enumTypeId="SearchPipelineProcessorType" description="Sorts the elements of an array in ascending or descending order"/>
+            <moqui.basic.Enumeration enumId="SpptSparseEncoding" enumCode="sparse_encoding" enumTypeId="SearchPipelineProcessorType" description="Generates a sparse vector/token and weights from text fields for neural sparse search using sparse retrieval"/>
+            <moqui.basic.Enumeration enumId="SpptSplit" enumCode="split" enumTypeId="SearchPipelineProcessorType" description="Splits a field into an array using a separator character"/>
+            <moqui.basic.Enumeration enumId="SpptTextChunking" enumCode="text_chunking" enumTypeId="SearchPipelineProcessorType" description="Splits long documents into smaller chunks"/>
+            <moqui.basic.Enumeration enumId="SpptTextImageEmbedding" enumCode="text_image_embedding" enumTypeId="SearchPipelineProcessorType" description="Generates combined vector embeddings from text and image fields for multimodal neural search"/>
+            <moqui.basic.Enumeration enumId="SpptTrim" enumCode="trim" enumTypeId="SearchPipelineProcessorType" description="Removes leading and trailing white space from a string field"/>
+            <moqui.basic.Enumeration enumId="SpptUppercase" enumCode="uppercase" enumTypeId="SearchPipelineProcessorType" description="Converts text in a specific field to uppercase letters"/>
+            <moqui.basic.Enumeration enumId="SpptUrldecode" enumCode="urldecode" enumTypeId="SearchPipelineProcessorType" description="Decodes a string from URL-encoded format"/>
+            <moqui.basic.Enumeration enumId="SpptUserAgent" enumCode="user_agent" enumTypeId="SearchPipelineProcessorType" description="Extracts details from the user agent sent by a browser to its web requests"/>
+            -->
+        </seed-data>
+    </entity>
+    <entity entity-name="PipelineProcessorTextEmbedding" package="moqui.entity.document">
+        <description>A specific type of SearchPipelineProcessor that generates vector embeddings from text fields for semantic search</description>
+        <field name="processorId" type="id" is-pk="true"/>
+        <field name="modelId" type="id"/>
+        <field name="dataDocumentId" type="id"/>
+        <!-- This assumes that there can only be one field to process from and one field to store the processed data to. -->
+        <field name="inputFieldSeqId" type="id"><description>The fieldSeqId of the field to process from. See: https://docs.opensearch.org/docs/2.19/ingest-pipelines/processors/text-embedding/</description></field>
+        <field name="vectorFieldSeqId" type="id"><description>The fieldSeqId of the field to store the processed data to. See: https://docs.opensearch.org/docs/2.19/ingest-pipelines/processors/text-embedding/</description></field>
+
+        <relationship type="one" title="PipelineProcessor" related="moqui.entity.document.SearchPipelineProcessor" short-alias="processor">
+            <key-map field-name="processorId"/></relationship>
+       <relationship type="one" title="SearchModel" related="moqui.entity.document.SearchModel" short-alias="searchModel">
+           <key-map field-name="modelId"/></relationship>
+       <relationship type="one" related="moqui.entity.document.DataDocument" short-alias="dataDocument">
+           <key-map field-name="dataDocumentId"/></relationship>
+       <relationship type="one" related="moqui.entity.document.DataDocumentField" title="Input" short-alias="inputField">
+           <key-map field-name="dataDocumentId"/><key-map field-name="inputFieldSeqId" related="fieldSeqId"/></relationship>
+       <relationship type="one" related="moqui.entity.document.DataDocumentField" title="Vector" short-alias="vectorField">
+           <key-map field-name="dataDocumentId"/><key-map field-name="vectorFieldSeqId" related="fieldSeqId"/></relationship>
+    </entity>
 
     <!-- ========================================================= -->
     <!-- moqui.entity.feed -->
