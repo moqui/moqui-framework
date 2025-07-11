@@ -507,13 +507,13 @@ public class MoquiStart {
         try {
             String[] command;
             if (isWindows) {
-                command = new String[] {"cmd.exe", "/c", "bin\\" + baseName + ".bat"};
+                command = new String[] {"cmd.exe", "/c", "opensearch-windows-install.bat"};
             } else {
-                command = new String[]{"./bin/" + baseName};
+                command = new String[] {"./opensearch-tar-install.sh"};
                 try {
                     boolean elasticsearchOwner = Files.getOwner(Paths.get(runtimePath, baseName)).getName().equals(baseName);
                     boolean suAble = Runtime.getRuntime().exec(new String[]{"/bin/su", "-c", "/bin/true", baseName}).waitFor() == 0;
-                    if (elasticsearchOwner && suAble) command = new String[]{"su", "-c", "./bin/" + baseName, baseName};
+                    if (elasticsearchOwner && suAble) command = new String[]{"su", "-c", "./opensearch-tar-install.sh", baseName};
                 } catch (IOException e) {}
             }
             ProcessBuilder pb = new ProcessBuilder(command);

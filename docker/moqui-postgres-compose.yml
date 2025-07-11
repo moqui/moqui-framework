@@ -104,7 +104,7 @@ services:
      # PGDATA, POSTGRES_INITDB_ARGS
 
   moqui-search:
-    image: opensearchproject/opensearch:2.4.0
+    image: opensearchproject/opensearch:2.19.2
     container_name: moqui-search
     restart: always
     ports:
@@ -116,10 +116,25 @@ services:
       - ./opensearch/data:/usr/share/opensearch/data
       # - ./opensearch/config/opensearch.yml:/usr/share/opensearch/config/opensearch.yml
       # - ./opensearch/logs:/usr/share/opensearch/logs
+      - ./opensearch/config/certs:/usr/share/opensearch/config/certs
     environment:
       - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
       - discovery.type=single-node
       - network.host=_site_
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=MoquiSearch123!
+      - DISABLE_INSTALL_DEMO_CONFIG=true
+      # OpenSearch security settings
+      - plugins.security.ssl.http.enabled=true
+      - plugins.security.ssl.http.pemcert_filepath=certs/admin.pem
+      - plugins.security.ssl.http.pemkey_filepath=certs/admin-key.pem
+      - plugins.security.ssl.http.pemtrustedcas_filepath=certs/root-ca.pem
+      - plugins.security.ssl.transport.enabled=true
+      - plugins.security.ssl.transport.pemcert_filepath=certs/admin.pem
+      - plugins.security.ssl.transport.pemkey_filepath=certs/admin-key.pem
+      - plugins.security.ssl.transport.pemtrustedcas_filepath=certs/root-ca.pem
+      - plugins.security.allow_default_init_securityindex=true
+      - plugins.security.ssl.http.enabled_protocols=TLSv1.2,TLSv1.3
+      - plugins.security.ssl.transport.enabled_protocols=TLSv1.2,TLSv1.3
     ulimits:
       memlock:
         soft: -1
@@ -128,14 +143,14 @@ services:
         soft: 65536
         hard: 65536
 
-  opensearch-dashboards:
-    image: opensearchproject/opensearch-dashboards:2.4.0
-    container_name: opensearch-dashboards
-    links:
-     - moqui-search
-    ports:
-      - 5601:5601
-    expose:
-      - 127.0.0.1:5601:5601
-    environment:
-      OPENSEARCH_HOSTS: '["https://moqui-search:9200"]'
+  # opensearch-dashboards:
+  #   image: opensearchproject/opensearch-dashboards:2.1
+  #   container_name: opensearch-dashboards
+  #   links:
+  #     - moqui-search
+  #   ports:
+  #     - 5601:5601
+  #   expose:
+  #     - 127.0.0.1:5601:5601
+  #   environment:
+  #     OPENSEARCH_HOSTS: '["https://moqui-search:9200"]'

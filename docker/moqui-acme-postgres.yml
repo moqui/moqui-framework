@@ -33,9 +33,9 @@ services:
     volumes:
       - /var/run/docker.sock:/tmp/docker.sock:ro
       - /etc/localtime:/etc/localtime:ro
-      # note: .crt, .key, and .dhparam.pem files start with the domain name in VIRTUAL_HOST (ie 'acetousk.com.*') or use CERT_NAME env var
+      # note: .crt, .key, and .dhparam.pem files start with the domain name in VIRTUAL_HOST (ie 'moqui.org.*') or use CERT_NAME env var
       - ./certs:/etc/nginx/certs
-      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/my_proxy.conf:/etc/nginx/conf.d/my_proxy.conf
       - ./nginx/vhost.d:/etc/nginx/vhost.d
       - ./nginx/html:/usr/share/nginx/html
     environment:
@@ -54,7 +54,6 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /etc/localtime:/etc/localtime:ro
       - ./certs:/etc/nginx/certs
-      - ./nginx/conf.d:/etc/nginx/conf.d
       - ./nginx/vhost.d:/etc/nginx/vhost.d
       - ./nginx/html:/usr/share/nginx/html
       - ./acme.sh:/etc/acme.sh
@@ -63,8 +62,6 @@ services:
     environment:
       # TODO: For production change this to your email
       - DEFAULT_EMAIL=mail@yourdomain.tld
-      # TODO: For production change this to false
-      - LETSENCRYPT_TEST=true
     depends_on:
       - nginx-proxy
 
@@ -107,6 +104,8 @@ services:
       # this can be a comma separate list of hosts like 'example.com,www.example.com'
       - VIRTUAL_HOST=moqui.local
       - LETSENCRYPT_HOST=moqui.local
+      # TODO: For production change this to false
+      - LETSENCRYPT_TEST=true
       # moqui will accept traffic from other hosts but these are the values used for URL writing when specified:
       # - webapp_http_host=moqui.local
       - webapp_http_port=80
@@ -141,7 +140,7 @@ services:
       default:
 
   moqui-search:
-    image: opensearchproject/opensearch:2.4.0
+    image: opensearchproject/opensearch:2.19.2
     container_name: moqui-search
     restart: always
     ports:
@@ -151,13 +150,28 @@ services:
     volumes:
       - /etc/localtime:/etc/localtime:ro
       # edit these as needed to map configuration and data storage
-      - ./opensearch/data/nodes:/usr/share/opensearch/data/nodes
+      - ./opensearch/data:/usr/share/opensearch/data
       # - ./opensearch/config/opensearch.yml:/usr/share/opensearch/config/opensearch.yml
       # - ./opensearch/logs:/usr/share/opensearch/logs
+      - ./opensearch/config/certs:/usr/share/opensearch/config/certs
     environment:
       - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
       - discovery.type=single-node
       - network.host=_site_
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=MoquiSearch123!
+      - DISABLE_INSTALL_DEMO_CONFIG=true
+      # OpenSearch security settings
+      - plugins.security.ssl.http.enabled=true
+      - plugins.security.ssl.http.pemcert_filepath=certs/admin.pem
+      - plugins.security.ssl.http.pemkey_filepath=certs/admin-key.pem
+      - plugins.security.ssl.http.pemtrustedcas_filepath=certs/root-ca.pem
+      - plugins.security.ssl.transport.enabled=true
+      - plugins.security.ssl.transport.pemcert_filepath=certs/admin.pem
+      - plugins.security.ssl.transport.pemkey_filepath=certs/admin-key.pem
+      - plugins.security.ssl.transport.pemtrustedcas_filepath=certs/root-ca.pem
+      - plugins.security.allow_default_init_securityindex=true
+      - plugins.security.ssl.http.enabled_protocols=TLSv1.2,TLSv1.3
+      - plugins.security.ssl.transport.enabled_protocols=TLSv1.2,TLSv1.3
     ulimits:
       memlock:
         soft: -1
@@ -165,23 +179,22 @@ services:
       nofile:
         soft: 65536
         hard: 65536
+    depends_on:
+      - acme-companion
     networks:
       proxy-tier:
 
-  opensearch-dashboards:
-    image: opensearchproject/opensearch-dashboards:2.4.0
-    container_name: opensearch-dashboards
-    volumes:
-      - /etc/localtime:/etc/localtime:ro
-    links:
-      - moqui-search
-    ports:
-      - 127.0.0.1:5601:5601
-    environment:
-      OPENSEARCH_HOSTS: '["https://moqui-search:9200"]'
-    networks:
-      default:
-      proxy-tier:
+  # opensearch-dashboards:
+  #   image: opensearchproject/opensearch-dashboards:2.19.2
+  #   container_name: opensearch-dashboards
+  #   links:
+  #     - moqui-search
+  #   ports:
+  #     - 5601:5601
+  #   expose:
+  #     - 127.0.0.1:5601:5601
+  #   environment:
+  #     OPENSEARCH_HOSTS: '["https://moqui-search:9200"]'
 
 networks:
   proxy-tier:
