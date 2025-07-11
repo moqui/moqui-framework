@@ -180,7 +180,7 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
     @Override
     public ArtifactExecutionInfo getParent() { return parentAeii; }
     @Override
-    public BigDecimal getPercentOfParentTime() { return parentAeii != null && endTimeNanos != 0 ?
+    public BigDecimal getPercentOfParentTime() { return parentAeii != null && endTimeNanos != 0 && parentAeii.endTimeNanos != 0 ?
         new BigDecimal((getRunningTime() / parentAeii.getRunningTime()) * 100).setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO; }
 
 
