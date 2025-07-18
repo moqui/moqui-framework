@@ -69,8 +69,7 @@ public class TestUtilities {
         String[] res
 
         // replace `test` part of the array with `test-integration` if present
-        if (resDirPath[0] == ('test-integration'))
-        {
+        if (resDirPath[0] == ('test-integration')) {
             String[] modPath = RESOURCE_PATH
             modPath.eachWithIndex {it, int idx ->
                 if (it != 'test') return
@@ -84,6 +83,34 @@ public class TestUtilities {
             res = extendList(RESOURCE_PATH, resDirPath)
         }
         return res
+    }
+
+    /**
+     * Extract path from a provided string. E.g. `proc-caller/exp.json` is converted to `test-integration/proc-caller/exp.json`
+     * @param path
+     * @param parentDir
+     * @return
+     */
+    public static String[] splitPath(String path, String parentDir=null) {
+        String[] splitResult = path.split('/')
+        if (parentDir != null) {
+            String[] result = new String[splitResult.length + 1]
+            result[0] = parentDir
+            System.arraycopy(splitResult, 0, result, 1, splitResult.length)
+            return result
+        }
+        return splitResult
+    }
+
+    public static Object loadExpected(Object expectedValue, String parentDir=null) {
+        if (expectedValue instanceof String) {
+            def js = new JsonSlurper()
+
+            String[] expectedPath = setResourcePath(splitPath(expectedValue as String, parentDir))
+            FileInputStream expValStream = new FileInputStream(getInputFile(expectedPath))
+            return js.parse(new InputStreamReader(expValStream, StandardCharsets.UTF_8))
+        }
+        return expectedValue
     }
 
     public static List<JsonElement> loadTestDataIntoArray(String[] resDirPath) throws URISyntaxException, IOException {
@@ -140,7 +167,7 @@ public class TestUtilities {
 
     public static Object loadTestResourceJs(String resDir)
     {
-        return loadTestResourceJs((String []) resDir.split('/'))
+        return loadTestResourceJs(splitPath(resDir))
     }
 
     public static Object loadTestResourceJs(String[] resDir)
@@ -182,14 +209,12 @@ public class TestUtilities {
             // expected/processed value may be a value itself, or a path to JSON file with value
             def processedEntity = t[0]
             def expectedValue = t[1]
-            if (expectedValue instanceof String)
-            {
+            if (expectedValue instanceof String) {
                 String[] expectedPath = setResourcePath(t[1] as String)
                 FileInputStream expValStream = new FileInputStream(getInputFile(expectedPath))
                 expectedValue = js.parse(new InputStreamReader(expValStream, StandardCharsets.UTF_8)) as HashMap
             }
-            if (processedEntity instanceof String)
-            {
+            if (processedEntity instanceof String) {
                 String[] processedPath = setResourcePath(t[0] as String)
                 FileInputStream valStream = new FileInputStream(getInputFile(processedPath))
                 processedEntity = js.parse(new InputStreamReader(valStream, StandardCharsets.UTF_8)) as HashMap
@@ -205,7 +230,7 @@ public class TestUtilities {
     }
 
     public static readYamlToLazyMap(String resDir) {
-        String[] processedPath = resDir.toString().split('/')
+        String[] processedPath = splitPath(resDir.toString())
         return readYamlToLazyMap(processedPath)
     }
 
