@@ -38,7 +38,7 @@ along with this software (see the LICENSE.md file). If not, see
              noun="EntityData"
     >
         <in-parameters>
-            <parameter name="query" type="String" required="true"/>
+            <parameter name="query" type="String" required="true" allow-html="any"/>
         </in-parameters>
         <out-parameters>
             <parameter name="result"/>
