@@ -633,4 +633,19 @@ class UtilsTests extends Specification {
 
         assert conv
     }
+
+    def test_convert_string_to_zoned(){
+        when:
+
+        def skDate1 = GenericUtilities.parseZonedDateTime("1981-03-20T18:55Z[Europe/Bratislava]")
+        assert skDate1
+        assert GenericUtilities.formatZonedDatetime(skDate1) == '1981-03-20 19:55:00+01:00'
+
+        def utcDate1 = GenericUtilities.parseZonedDateTime("2025-05-01T00:00Z[UTC]")
+        assert GenericUtilities.formatZonedDatetime(utcDate1) == '2025-05-01 00:00:00Z'
+
+        then:
+
+        assert true
+    }
 }
