@@ -10,6 +10,10 @@ import org.moqui.context.TemplateRenderer
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.resource.ResourceReference
 import java.nio.charset.StandardCharsets
+import java.time.ZoneId
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
 import java.util.concurrent.atomic.AtomicLong
 import java.util.regex.Pattern
 
@@ -393,5 +397,52 @@ class GenericUtilities {
             }
         }
         return result
+    }
+
+    /**
+     * Parses a string in the format `2025-05-01T00:00Z[UTC]` into a ZonedDateTime.
+     * The zone is extracted manually from the text inside the square brackets.
+     *
+     * @param input the date-time string to parse, in the format `yyyy-MM-dd'T'HH:mmX[ZoneId]`.
+     * @return the parsed ZonedDateTime.
+     * @throws IllegalArgumentException if the input format is invalid.
+     */
+    public static ZonedDateTime parseZonedDateTime(String input) {
+        try {
+            // Extract the zone enclosed in square brackets
+            int zoneStart = input.indexOf('[');
+            int zoneEnd = input.indexOf(']');
+
+            // Validate the zone part
+            if (zoneStart == -1 || zoneEnd == -1 || zoneEnd <= zoneStart + 1) {
+                throw new IllegalArgumentException("Invalid format: ZoneId must be enclosed in square brackets");
+            }
+
+            // Extract ZoneId and clean up the input
+            String zoneId = input.substring(zoneStart + 1, zoneEnd);
+            String dateTimeWithoutZone = input.substring(0, zoneStart);
+
+            // Handle UTC special case
+            if ("UTC".equals(zoneId)) {
+                zoneId = "Z"; // Equate UTC to the 'Z' ISO-8601 designator
+            }
+
+            // Parse the date-time without brackets using two steps
+            ZonedDateTime zonedDateTime = ZonedDateTime.parse(dateTimeWithoutZone,
+                    DateTimeFormatter.ISO_DATE_TIME.withZone(ZoneId.of(zoneId.equals("Z") ? "UTC" : zoneId)));
+
+            return zonedDateTime;
+        } catch (DateTimeParseException | IllegalArgumentException e) {
+            throw new IllegalArgumentException("Failed to parse input string: " + input, e);
+        }
+    }
+
+    /**
+     * Simple conversion into String, of a ZonedDateTime input
+     * @param input
+     * @return
+     */
+    public static String formatZonedDatetime(ZonedDateTime input) {
+        return input.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ssXXX"))
     }
 }
