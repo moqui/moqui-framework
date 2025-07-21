@@ -6,8 +6,11 @@ if ss -tuln | grep ':5432'; then
     exit 1
 fi
 
+echo "Executing dump in [$PWD]"
+
 if [ ! -d "$PWD/../db/dump" ]; then
-  echo "Unable to find dump directory"
+  echo "Unable to find dump directory, need to create it"
+  mkdir -p "$PWD/../db/dump"
 fi
 
 # create postgres database
