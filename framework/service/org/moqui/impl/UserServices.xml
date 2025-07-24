@@ -87,7 +87,7 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="create#moqui.security.UserAccount" out-map="context" in-map="context"/>
             <service-call name="org.moqui.impl.UserServices.update#PasswordInternal" out-map="updateOut"
                 in-map="[userId:userId, newPassword:newPassword, newPasswordVerify:newPasswordVerify,
-                    requirePasswordChange:requirePasswordChange]"/>
+                    requirePasswordChange:requirePasswordChange,disabled:disabled]"/>
             <if condition="updateOut.updateSuccessful &amp;&amp; !ec.message.hasError()"><then>
                 <message public="true" type="success">Account created with username ${username}</message>
             </then><else-if condition="updateOut.passwordIssues">
@@ -257,6 +257,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="newPassword" required="true"/>
             <parameter name="newPasswordVerify" required="true"/>
             <parameter name="requirePasswordChange" default-value="N"/>
+            <parameter name="disabled" default-value="N"/>
         </in-parameters>
         <out-parameters>
             <parameter name="passwordIssues" type="Boolean"/>
@@ -347,7 +348,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <field-map field-name="passwordSetDate" from="ec.user.nowTimestamp"/>
                 <field-map field-name="requirePasswordChange"/>
                 <field-map field-name="resetPassword" from="null"/>
-                <field-map field-name="disabled" value="N"/>
+                <field-map field-name="disabled" from="disabled"/>
             </service-call>
             <set field="updateSuccessful" from="true"/>
         </actions>
