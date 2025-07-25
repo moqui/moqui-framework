@@ -785,8 +785,8 @@ class EntityDbMeta {
 
             try (ResultSet ikSet1 = dbData.getIndexInfo(null, ed.getSchemaName(), ed.getTableName(), false, true)) {
             while (ikSet1.next()) {
-                String idxName = ikSet1.getString("INDEX_NAME")
-                if (idxName.toLowerCase() != indexName.toLowerCase()) continue
+                String dbIdxName = ikSet1.getString("INDEX_NAME")
+                if (dbIdxName == null || dbIdxName.toLowerCase() != indexName.toLowerCase()) continue
                 String idxCol = ikSet1.getString("COLUMN_NAME")
                 for (String fn in fieldNames) {
                     String fnColName = ed.getColumnName(fn)
@@ -801,8 +801,8 @@ class EntityDbMeta {
                 // try with lower case table name
                 try (ResultSet ikSet2 = dbData.getIndexInfo(null, ed.getSchemaName(), ed.getTableName().toLowerCase(), false, true)) {
                 while (ikSet2.next()) {
-                    String idxName = ikSet2.getString("INDEX_NAME")
-                    if (idxName.toLowerCase() != indexName.toLowerCase()) continue
+                    String dbIdxName = ikSet2.getString("INDEX_NAME")
+                    if (dbIdxName == null || dbIdxName.toLowerCase() != indexName.toLowerCase()) continue
                     String idxCol = ikSet2.getString("COLUMN_NAME")
                     for (String fn in fieldNames) {
                         String fnColName = ed.getColumnName(fn)

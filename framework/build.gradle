@@ -27,7 +27,7 @@ buildscript {
         maven { url "https://plugins.gradle.org/m2/" }
     }
     dependencies {
-        classpath 'com.github.ben-manes:gradle-versions-plugin:0.50.0'
+        classpath 'com.github.ben-manes:gradle-versions-plugin:0.52.0'
         // uncomment to add the Error Prone compiler: classpath 'net.ltgt.gradle:gradle-errorprone-plugin:0.0.8'
     }
 }
@@ -68,9 +68,10 @@ tasks.withType(GroovyCompile) { options.compilerArgs << "-proc:none" }
 // NOTE: for dependency types and 'api' definition see: https://docs.gradle.org/current/userguide/java_library_plugin.html
 dependencies {
     // Groovy
-    // NOTE: Groovy 3.0.10-3.0.18 has a bug that somehow causes EntityDefinition.isViewEntity (public final boolean) to switch
+    // OLD NOTE (watch out for): Groovy 3.0.10-3.0.18 has a bug that somehow causes EntityDefinition.isViewEntity (public final boolean) to switch
     //     from true during constructor to false later on; see EntityFindBuilder.java:112-114 and EntityDefinition.groovy:50-53,94-95;
     //     for now using Boolean instead of boolean to resolve, but staying at 3.0.9 to avoid risk with other code
+    // Now using latest Groovy in 3 series (with code adjustments as needed)
     api 'org.codehaus.groovy:groovy:3.0.19' // Apache 2.0
     api 'org.codehaus.groovy:groovy-dateutil:3.0.19' // Apache 2.0
     api 'org.codehaus.groovy:groovy-groovysh:3.0.19' // Apache 2.0
@@ -93,18 +94,18 @@ dependencies {
     // ========== General Libraries from Maven Central ==========
 
     // Apache Commons
-    api 'org.apache.commons:commons-csv:1.10.0' // Apache 2.0
+    api 'org.apache.commons:commons-csv:1.14.0' // Apache 2.0
     // NOTE: commons-email depends on com.sun.mail:javax.mail, included below, so use module() here to not get dependencies
     api module('org.apache.commons:commons-email:1.5') // Apache 2.0
-    api 'org.apache.commons:commons-lang3:3.14.0' // Apache 2.0; used by cron-utils
-    api 'commons-beanutils:commons-beanutils:1.9.4' // Apache 2.0
-    api 'commons-codec:commons-codec:1.16.0' // Apache 2.0
+    api 'org.apache.commons:commons-lang3:3.17.0' // Apache 2.0; used by cron-utils
+    api 'commons-beanutils:commons-beanutils:1.10.1' // Apache 2.0
+    api 'commons-codec:commons-codec:1.18.0' // Apache 2.0
     api 'commons-collections:commons-collections:3.2.2' // Apache 2.0
     api 'commons-digester:commons-digester:2.1' // Apache 2.0
     api 'commons-fileupload:commons-fileupload:1.5' // Apache 2.0
-    api 'commons-io:commons-io:2.15.1' // Apache 2.0
-    api 'commons-logging:commons-logging:1.3.0' // Apache 2.0
-    api 'commons-validator:commons-validator:1.8.0' // Apache 2.0
+    api 'commons-io:commons-io:2.18.0' // Apache 2.0
+    api 'commons-logging:commons-logging:1.3.5' // Apache 2.0
+    api 'commons-validator:commons-validator:1.9.0' // Apache 2.0
 
     // Cron Utils
     api 'com.cronutils:cron-utils:9.2.1' // Apache 2.0
@@ -116,10 +117,10 @@ dependencies {
 
     // Freemarker
     // Remember to change the version number in FtlTemplateRenderer and MNode class when upgrading
-    api 'org.freemarker:freemarker:2.3.32' // Apache 2.0
+    api 'org.freemarker:freemarker:2.3.34' // Apache 2.0
 
     // H2 Database
-    api 'com.h2database:h2:2.2.224' // MPL 2.0, EPL 1.0
+    api 'com.h2database:h2:2.3.232' // MPL 2.0, EPL 1.0
 
     // Java Specifications
     api 'javax.transaction:jta:1.1'
@@ -144,38 +145,38 @@ dependencies {
     api 'com.beust:jcommander:1.82'
 
     // Jackson Databind (JSON, etc)
-    api 'com.fasterxml.jackson.core:jackson-databind:2.16.0'
+    api 'com.fasterxml.jackson.core:jackson-databind:2.18.3'
 
     // Jetty HTTP Client and Proxy Servlet
-    api 'org.eclipse.jetty:jetty-client:10.0.18' // Apache 2.0
-    api 'org.eclipse.jetty:jetty-proxy:10.0.18' // Apache 2.0
+    api 'org.eclipse.jetty:jetty-client:10.0.25' // Apache 2.0
+    api 'org.eclipse.jetty:jetty-proxy:10.0.25' // Apache 2.0
 
     // javax.mail
     // NOTE: javax.mail depends on 'javax.activation:activation' which is the old package for 'javax.activation:javax.activation-api' used by jaxb-api
     api module('com.sun.mail:javax.mail:1.6.2') // CDDL
 
     // Joda Time (used by elasticsearch, aws)
-    api 'joda-time:joda-time:2.12.5' // Apache 2.0
+    api 'joda-time:joda-time:2.13.1' // Apache 2.0
 
     // JSoup (HTML parser, cleaner)
-    api 'org.jsoup:jsoup:1.17.1' // MIT
+    api 'org.jsoup:jsoup:1.19.1' // MIT
 
     // Apache Shiro
     api module('org.apache.shiro:shiro-core:1.13.0') // Apache 2.0
     api module('org.apache.shiro:shiro-web:1.13.0') // Apache 2.0
 
     // SLF4J, Log4j 2 (note Log4j 2 is used by various libraries, best not to replace it even if mostly possible with SLF4J)
-    api 'org.slf4j:slf4j-api:2.0.9'
-    implementation 'org.apache.logging.log4j:log4j-core:2.22.0'
-    implementation 'org.apache.logging.log4j:log4j-api:2.22.0'
-    runtimeOnly 'org.apache.logging.log4j:log4j-jcl:2.22.0'
-    runtimeOnly 'org.apache.logging.log4j:log4j-slf4j2-impl:2.22.0'
+    api 'org.slf4j:slf4j-api:2.0.17'
+    implementation 'org.apache.logging.log4j:log4j-core:2.24.3'
+    implementation 'org.apache.logging.log4j:log4j-api:2.24.3'
+    runtimeOnly 'org.apache.logging.log4j:log4j-jcl:2.24.3'
+    runtimeOnly 'org.apache.logging.log4j:log4j-slf4j2-impl:2.24.3'
 
     // SubEtha SMTP (module as depends on old javax.mail location; also uses SLF4J, activation included elsewhere)
     api module('org.subethamail:subethasmtp:3.1.7')
 
     // Snake YAML
-    api 'org.yaml:snakeyaml:2.2' // Apache 2.0
+    api 'org.yaml:snakeyaml:2.4' // Apache 2.0
 
     // Apache Jackrabbit - uncomment here or include elsewhere when Jackrabbit repository configurations are used
     // api 'org.apache.jackrabbit:jackrabbit-jcr-rmi:2.12.1' // Apache 2.0
@@ -190,11 +191,11 @@ dependencies {
     // ========== test dependencies ==========
 
     // junit-platform-launcher is a dependency from spock-core, included explicitly to get more recent version as needed
-    testImplementation 'org.junit.platform:junit-platform-launcher:1.10.1'
+    testImplementation 'org.junit.platform:junit-platform-launcher:1.12.1'
     // junit-platform-suite required for test suites to specify test class order, etc
-    testImplementation 'org.junit.platform:junit-platform-suite:1.10.1'
+    testImplementation 'org.junit.platform:junit-platform-suite:1.12.1'
     // junit-jupiter-api for using JUnit directly, not generally needed for Spock based tests
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.1'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.12.1'
     // Spock Framework
     testImplementation platform("org.spockframework:spock-bom:2.1-groovy-3.0") // Apache 2.0
     testImplementation 'org.spockframework:spock-core:2.1-groovy-3.0' // Apache 2.0
@@ -203,16 +204,16 @@ dependencies {
 
     // ========== executable war dependencies ==========
     // Jetty
-    execWarRuntimeOnly 'org.eclipse.jetty:jetty-server:10.0.18' // Apache 2.0
-    execWarRuntimeOnly 'org.eclipse.jetty:jetty-webapp:10.0.18' // Apache 2.0
-    execWarRuntimeOnly 'org.eclipse.jetty:jetty-jndi:10.0.18' // Apache 2.0
-    execWarRuntimeOnly 'org.eclipse.jetty.websocket:websocket-javax-server:10.0.18' // Apache 2.0
-    execWarRuntimeOnly ('org.eclipse.jetty.websocket:websocket-javax-client:10.0.18') { // Apache 2.0
+    execWarRuntimeOnly 'org.eclipse.jetty:jetty-server:10.0.25' // Apache 2.0
+    execWarRuntimeOnly 'org.eclipse.jetty:jetty-webapp:10.0.25' // Apache 2.0
+    execWarRuntimeOnly 'org.eclipse.jetty:jetty-jndi:10.0.25' // Apache 2.0
+    execWarRuntimeOnly 'org.eclipse.jetty.websocket:websocket-javax-server:10.0.25' // Apache 2.0
+    execWarRuntimeOnly ('org.eclipse.jetty.websocket:websocket-javax-client:10.0.25') { // Apache 2.0
         exclude group: 'javax.websocket' } // we have the full websocket API, including the client one causes problems
     execWarRuntimeOnly 'javax.websocket:javax.websocket-api:1.1'
-    execWarRuntimeOnly ('org.eclipse.jetty.websocket:websocket-jetty-server:10.0.18') // Apache 2.0
+    execWarRuntimeOnly ('org.eclipse.jetty.websocket:websocket-jetty-server:10.0.25') // Apache 2.0
     // only include this if using Endpoint and MessageHandler annotations:
-    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:10.0.18') // Apache 2.0
+    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:10.0.25') // Apache 2.0
     execWarRuntimeOnly 'org.apache.logging.log4j:log4j-slf4j18-impl:2.18.0'
 }
 

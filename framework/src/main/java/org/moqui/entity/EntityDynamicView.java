@@ -29,6 +29,8 @@ public interface EntityDynamicView {
 
     EntityDynamicView addMemberEntity(String entityAlias, String entityName, String joinFromAlias,
                                              Boolean joinOptional, Map<String, String> entityKeyMaps);
+    EntityDynamicView addMemberEntity(String entityAlias, String entityName, String joinFromAlias, Boolean joinOptional,
+                                             Map<String, String> entityKeyMaps, List<Map<String, String>> entityConditions, String subSelect);
 
     EntityDynamicView addRelationshipMember(String entityAlias, String joinFromAlias, String relationshipName,
                                                    Boolean joinOptional);
@@ -42,6 +44,11 @@ public interface EntityDynamicView {
     /** Add an alias, full detail. All parameters can be null except entityAlias and name. */
     EntityDynamicView addAlias(String entityAlias, String name, String field, String function);
 
+    EntityDynamicView addAlias(String entityAlias, String name, String field, String function, String defaultDisplay, String isAggregate);
+
     EntityDynamicView addRelationship(String type, String title, String relatedEntityName,
                                              Map<String, String> entityKeyMaps);
+    EntityDynamicView addWhereConditions(List<Map<String, Object>> conditions);
+
+    EntityDynamicView addHavingConditions(List<Map<String, Object>> havingConditions);
 }

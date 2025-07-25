@@ -54,6 +54,9 @@ nbdist
 nbactions.xml
 nb-configuration.xml
 
+# VSCode files
+.vscode
+
 # OSX auto files
 .DS_Store
 .AppleDouble
