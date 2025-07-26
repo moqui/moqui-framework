@@ -54,8 +54,7 @@ class SynchroMaster {
             this.syncedCaches.add(cacheName)
 
             // if we have entity in our map, extend the list
-            if (syncedEntities.containsKey(sourceEntity))
-            {
+            if (syncedEntities.containsKey(sourceEntity)) {
                 def existingCaches = syncedEntities.get(sourceEntity)
                 existingCaches.add(cacheName)
                 syncedEntities.replace(sourceEntity, existingCaches)
@@ -68,18 +67,16 @@ class SynchroMaster {
         }
     }
 
-    private static String getCacheName(String entityName)
-    {
+    private static String getCacheName(String entityName) {
         return "i.cache.${entityName}"
     }
 
-    Cache getEntityCache(String entityName){
+    Cache getEntityCache(String entityName) {
         if (!syncedEntities.containsKey(entityName)) throw new SynchroException("No such entity is being cached")
         return this.ecf.cache.getCache(getCacheName(entityName))
     }
 
-    boolean getEntityIsSynced(String entityName)
-    {
+    boolean getEntityIsSynced(String entityName) {
         return this.syncedEntities.containsKey(entityName)
     }
 
