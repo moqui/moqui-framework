@@ -2218,7 +2218,7 @@ class ScreenRenderImpl implements ScreenRender {
         // if no user theme see if group a user is in has a theme
         if (themeId == null || themeId.length() == 0) {
             // use reverse alpha so ALL_USERS goes last...
-            List<String> userGroupIdSet = new ArrayList(new TreeSet(ec.user.getUserGroupIdSet())).reverse(true)
+            List<String> userGroupIdSet = new ArrayList<String>(new TreeSet<String>(ec.user.getUserGroupIdSet())).reverse(true)
             EntityList groupThemeList = entityFacade.find("moqui.security.UserGroupScreenTheme")
                     .condition("userGroupId", "in", userGroupIdSet).condition("screenThemeTypeEnumId", stteId)
                     .orderBy("sequenceNum,-userGroupId").useCache(true).disableAuthz().list()
