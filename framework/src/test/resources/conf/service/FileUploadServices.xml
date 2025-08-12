@@ -1,0 +1,23 @@
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-3.xsd">
+    <service verb="save" noun="ContentFile">
+        <in-parameters>
+            <parameter name="fileId" required="true"/>
+            <parameter name="file" type="org.apache.commons.fileupload.FileItem" required="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="contentLocation"/></out-parameters>
+        <actions>
+            <set field="filename" from="contentFile.getName()"/>
+            <set field="contentRoot" from="ec.user.getPreference('mantle.content.root') ?: 'dbresource://mantle/content'"/>
+            <set field="contentLocation" value="${contentRoot}/invoice/${invoiceId}/content_${invoiceContentId}/${filename}"/>
+
+            <set field="docRr" from="ec.resource.getLocationReference(contentLocation)"/>
+            <script>
+                fileStream = contentFile.getInputStream()
+                try { docRr.putStream(fileStream) } finally { fileStream.close() }
+            </script>
+
+            <if condition="saveContentLocation"><service-call name="update#mantle.account.invoice.InvoiceContent"
+                                                              in-map="[invoiceContentId:invoiceContentId, contentLocation:contentLocation]"/></if>
+        </actions>
+    </service>
+</services>
