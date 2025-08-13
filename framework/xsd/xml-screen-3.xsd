@@ -402,7 +402,9 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:attribute name="type" default="url">
             <xs:simpleType>
                 <xs:restriction base="xs:token">
-                    <xs:enumeration value="none"/>
+                    <xs:enumeration value="none">
+                        <xs:annotation><xs:documentation>No response, do nothing aside from the transition actions.</xs:documentation></xs:annotation>
+                    </xs:enumeration>
                     <xs:enumeration value="screen-last">
                         <xs:annotation><xs:documentation>
                             Go to the screen from the last request (via screen history) unless there is a saved one
@@ -411,8 +413,12 @@ along with this software (see the LICENSE.md file). If not, see
                             defaults are setup for each subscreen).
                         </xs:documentation></xs:annotation>
                     </xs:enumeration>
-                    <xs:enumeration value="screen-last-noparam"/>
-                    <xs:enumeration value="url"/>
+                    <xs:enumeration value="screen-last-noparam">
+                        <xs:annotation><xs:documentation>Like screen-last but don’t pass through any parameters.</xs:documentation></xs:annotation>
+                    </xs:enumeration>
+                    <xs:enumeration value="url">
+                        <xs:annotation><xs:documentation>Redirect to the URL specified in the url attribute, of url-type</xs:documentation></xs:annotation>
+                    </xs:enumeration>
                 </xs:restriction>
             </xs:simpleType>
         </xs:attribute>
