@@ -139,7 +139,7 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.Uom abbreviation="PLZ" description="Poland" uomId="PLZ" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
     <moqui.basic.Uom abbreviation="PYG" description="Paraguayan Guarani" uomId="PYG" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
     <moqui.basic.Uom abbreviation="QAR" description="Qatar Riyal" uomId="QAR" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
-    <moqui.basic.Uom abbreviation="ROL" description="Romanian Leu" uomId="ROL" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="RON" description="Romanian Leu" uomId="RON" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
     <moqui.basic.Uom abbreviation="RUR" description="Russian Rouble" uomId="RUR" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
     <moqui.basic.Uom abbreviation="RWF" description="Rwanda Franc" uomId="RWF" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
     <moqui.basic.Uom abbreviation="SAR" description="Saudi Riyal" uomId="SAR" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
