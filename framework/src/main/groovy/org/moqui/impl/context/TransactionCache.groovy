@@ -440,7 +440,6 @@ class TransactionCache implements Synchronization {
     }
 
     void flushCache(boolean clearRead) {
-        Map<String, Connection> connectionByGroup = new HashMap<>()
         try {
             int writeInfoListSize = writeInfoList.size()
             if (writeInfoListSize > 0) {
@@ -456,12 +455,7 @@ class TransactionCache implements Synchronization {
                 for (int i = 0; i < writeInfoListSize; i++) {
                     EntityWriteInfo ewi = (EntityWriteInfo) writeInfoList.get(i)
                     String groupName = ewi.evb.getEntityDefinition().getEntityGroupName()
-                    Connection con = connectionByGroup.get(groupName)
-                    if (con == null) {
-                        con = efi.getConnection(groupName)
-                        connectionByGroup.put(groupName, con)
-                    }
-
+                    try (Connection con =  efi.getConnection(groupName)) {
                     if (ewi.writeMode.is(WriteMode.CREATE)) {
                         ewi.evb.basicCreate(con)
                         createCount++
@@ -471,6 +465,7 @@ class TransactionCache implements Synchronization {
                     } else {
                         ewi.evb.basicUpdate(con)
                         updateCount++
+                    }
                     }
                 }
                 if (logger.isDebugEnabled()) logger.debug("Flushed TransactionCache in ${System.currentTimeMillis() - startTime}ms: ${createCount} creates, ${updateCount} updates, ${deleteCount} deletes, ${readOneCache.size()} read entries, ${readListCache.size()} entities with list cache")
@@ -489,9 +484,6 @@ class TransactionCache implements Synchronization {
         } catch (Throwable t) {
             logger.error("Error writing values from TransactionCache: ${t.toString()}", t)
             throw new XAException("Error writing values from TransactionCache: + ${t.toString()}")
-        } finally {
-            // now close connections
-            for (Connection con in connectionByGroup.values()) con.close()
         }
     }
 
