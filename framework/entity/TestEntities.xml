@@ -110,6 +110,7 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="TestFile" package="ars.rockycube.test">
         <field name="fileId" type="id" is-pk="true"/>
         <field name="externalGuid" type="text-long"/>
+        <field name="path" type="text-medium"/>
         <field name="file" type="binary-very-long"/>
     </entity>
 </entities>
