@@ -151,7 +151,8 @@ class RestApi {
         Map<String, Object> swaggerMap = [swagger:'2.0',
             info:[title:(resourceNode.displayName ?: "Service REST API (${fullBasePath})"),
                   version:(resourceNode.version ?: '1.0'), description:(resourceNode.description ?: '')],
-            host:hostName, basePath:fullBasePath.toString(), schemes:schemes,
+//                导入apifox中不需要这几个参数，会导致异常，无法测试
+//            host:hostName, basePath:fullBasePath.toString(), schemes:schemes,
             securityDefinitions:[basicAuth:[type:'basic', description:'HTTP Basic Authentication'],
                 api_key:[type:"apiKey", name:"api_key", in:"header", description:'HTTP Header api_key']],
             consumes:['application/json', 'multipart/form-data'], produces:['application/json'],
