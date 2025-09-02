@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-3.xsd">
+    <service verb="download"
+             noun="TemplateFile">
+        <in-parameters>
+            <parameter name="contractType" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="result" type="Map"/>
+        </out-parameters>
+        <actions>
+            <script>
+                <![CDATA[
+                    def contentLocation = null
+
+                    switch(contractType) {
+                        case 'fProject':
+                            contentLocation = 'component://moqui-framework-excel-generation/templates/VRZ_realizacia_v19_0.xlsm'
+                            break
+                        case 'fMicroProject':
+                            contentLocation = 'component://moqui-framework-excel-generation/templates/VRZ_SmallBusinessCase_v21_0.xlsm'
+                            break
+                        case 'fServiceContract':
+                            contentLocation = 'component://moqui-framework-excel-generation/templates/VRZ_ServisnaZmluva_v19_0.xlsm'
+                            break
+                        default:
+                            throw new Exception("Unable to set template location for specified contract type [${contractType}]")
+                    }
+
+                    def res = ec.resource.getLocationReference(contentLocation)
+                    // comment out this section to work in a mode where bytes are returned
+                    result.put('data', res)
+                    return result
+
+                    // mark attributes to stop fully processing the JSON output, since this is going
+                    // through `sendJsonResponseInternal`
+                    def rq = ec.web.requestAttributes
+                    rq.put('textViaRest', true)
+
+                    // return
+                    try {
+                        OutputStream os = response.outputStream
+                        int totalLen = ObjectUtilities.copyStream(res.openStream(), os)
+                        is.close()
+                        try {
+                            // pass
+                        } finally {
+                            os.close()
+                        }
+                    } finally {}
+
+                    // return response back to frontend as inline content
+                    if (inline) response.addHeader("Content-Disposition", "inline")
+
+                    // set content type
+                    response.setContentType("application/octet-stream")
+                ]]>
+            </script>
+        </actions>
+    </service>
+
+    <service verb="generate"
+             noun="ExcelFile">
+        <in-parameters>
+            <parameter name="contractType" required="true"/>
+            <parameter name="values" type="Map"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="result" type="Map"/>
+        </out-parameters>
+        <actions>
+            <script>
+                <![CDATA[
+                    import ars.rockycube.excel.Manipulator
+
+                    def contentLocation = null
+
+                    switch(contractType) {
+                        case 'fProject':
+                            contentLocation = 'component://moqui-framework-excel-generation/templates/VRZ_realizacia_v19_0.xlsm'
+                            break
+                        case 'fMicroProject':
+                            contentLocation = 'component://moqui-framework-excel-generation/templates/VRZ_SmallBusinessCase_v21_0.xlsm'
+                            break
+                        case 'fServiceContract':
+                            contentLocation = 'component://moqui-framework-excel-generation/templates/VRZ_ServisnaZmluva_v19_0.xlsm'
+                            break
+                        default:
+                            throw new Exception("Unable to set template location for specified contract type [${contractType}]")
+                    }
+
+                    def tmpl = ec.resource.getLocationReference(contentLocation)
+                    def res = Manipulator.modifyXlsm(tmpl.openStream(), values)
+
+                    result.put('data', res)
+                    return result
+                ]]>
+            </script>
+        </actions>
+    </service>
+</services>
