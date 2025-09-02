@@ -10,6 +10,8 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import javax.cache.Cache
+import javax.cache.configuration.Configuration
+import javax.cache.configuration.MutableConfiguration
 
 /**
  * SynchroMaster is a tool that helps developer reach for data of a cached-table.
@@ -131,7 +133,9 @@ class SynchroMaster {
     {
         String entityName = ed.fullEntityName
         def cacheName = getCacheName(entityName)
-        def cache = ecf.executionContext.cache.getCache(cacheName)
+
+        // this is where the cache is created (with default configuration)
+        def cache = ecf.executionContext.cache.getLocalCache(cacheName)
         if (!checkEntityKeys(ed)) return null
 
         // reset cache
