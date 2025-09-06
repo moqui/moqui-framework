@@ -154,7 +154,8 @@ class RestApi {
 //                导入apifox中不需要这几个参数，会导致异常，无法测试
 //            host:hostName, basePath:fullBasePath.toString(), schemes:schemes,
             securityDefinitions:[basicAuth:[type:'basic', description:'HTTP Basic Authentication'],
-                api_key:[type:"apiKey", name:"api_key", in:"header", description:'HTTP Header api_key']],
+                api_key:[type:"apiKey", name:"api_key", in:"header", description:'HTTP Header api_key'],
+                jwtAuth:[type:"apiKey", name:"Authorization", in:"header", description:'JWT Token (format: Bearer <token>)']],
             consumes:['application/json', 'multipart/form-data'], produces:['application/json'],
         ]
 
@@ -305,7 +306,7 @@ class RestApi {
             if (swaggerMap.tags && pathNode.fullPathList.size() > 1) curMap.put("tags", [pathNode.fullPathList[1]])
             curMap.putAll([summary:(serviceNode.attribute("displayName") ?: "${sd.verb} ${sd.noun}".toString()),
                            description:serviceNode.first("description")?.text,
-                           security:[[basicAuth:[]], [api_key:[]]], parameters:parameters, responses:responses])
+                           security:[[basicAuth:[]], [api_key:[]], [jwtAuth:[]]], parameters:parameters, responses:responses])
             resourceMap.put(method, curMap)
         }
 
@@ -483,7 +484,7 @@ class RestApi {
             if (masterName) summary = summary + " (master: " + masterName + ")"
             if (swaggerMap.tags && pathNode.fullPathList.size() > 1) curMap.put("tags", [pathNode.fullPathList[1]])
             curMap.putAll([summary:summary, description:ed.getEntityNode().first("description")?.text,
-                           security:[[basicAuth:[]], [api_key:[]]], parameters:parameters, responses:responses])
+                           security:[[basicAuth:[]], [api_key:[]], [jwtAuth:[]]], parameters:parameters, responses:responses])
             resourceMap.put(method, curMap)
 
             // add a definition for entity fields
