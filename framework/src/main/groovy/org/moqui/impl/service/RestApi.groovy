@@ -144,20 +144,21 @@ class RestApi {
         ResourceNode resourceNode = getRootResourceNode(rootResourceName)
 
         StringBuilder fullBasePath = new StringBuilder(basePath)
-        for (String rootPath in rootPathList) fullBasePath.append('/').append(rootPath)
         Map<String, Map> paths = [:]
         // NOTE: using LinkedHashMap though TreeMap would be nice as saw odd behavior where TreeMap.put() did nothing
         Map<String, Map> definitions = new LinkedHashMap<String, Map>()
         Map<String, Object> swaggerMap = [swagger:'2.0',
             info:[title:(resourceNode.displayName ?: "Service REST API (${fullBasePath})"),
                   version:(resourceNode.version ?: '1.0'), description:(resourceNode.description ?: '')],
-//                导入apifox中不需要这几个参数，会导致异常，无法测试
-//            host:hostName, basePath:fullBasePath.toString(), schemes:schemes,
+            host:hostName, basePath:fullBasePath.toString(), schemes:schemes,
             securityDefinitions:[basicAuth:[type:'basic', description:'HTTP Basic Authentication'],
                 api_key:[type:"apiKey", name:"api_key", in:"header", description:'HTTP Header api_key'],
                 jwtAuth:[type:"apiKey", name:"Authorization", in:"header", description:'JWT Token (format: Bearer <token>)']],
             consumes:['application/json', 'multipart/form-data'], produces:['application/json'],
         ]
+        
+        // Debug logging
+        logger.info("Setting Swagger host: ${hostName}, basePath: ${fullBasePath.toString()}, schemes: ${schemes}")
 
         // add tags for 2nd level resources
         if (rootPathList.size() >= 1) {
@@ -696,7 +697,17 @@ class RestApi {
 
             // if we have method handlers add this, otherwise just do children
             if (rootPathList.size() - 1 <= curIndex && methodMap) {
-                String curPath = getFullPathName(rootPathList)
+                StringBuilder pathBuilder = new StringBuilder()
+                // Add the root paths first
+                for (int i = 0; i < rootPathList.size(); i++) {
+                    pathBuilder.append('/').append(rootPathList.get(i))
+                }
+                // Then add the remaining path elements
+                for (int i = rootPathList.size(); i < fullPathList.size(); i++) {
+                    String pathItem = fullPathList.get(i)
+                    pathBuilder.append('/').append(pathItem)
+                }
+                String curPath = pathBuilder.toString()
 
                 Map<String, Map<String, Object>> rsMap = [:]
                 for (MethodHandler mh in methodMap.values()) mh.addToSwaggerMap(swaggerMap, rsMap)
@@ -711,6 +722,11 @@ class RestApi {
 
         String getFullPathName(List<String> rootPathList) {
             StringBuilder curPath = new StringBuilder()
+            // Add the root paths first
+            for (int i = 0; i < rootPathList.size(); i++) {
+                curPath.append('/').append(rootPathList.get(i))
+            }
+            // Then add the remaining path elements
             for (int i = rootPathList.size(); i < fullPathList.size(); i++) {
                 String pathItem = fullPathList.get(i)
                 curPath.append('/').append(pathItem)
