@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-3.xsd">
+    <service verb="login" noun="Jwt">
+        <in-parameters>
+            <parameter name="username" required="true"/>
+            <parameter name="password" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="token"/>
+        </out-parameters>
+        <actions>
+            <script>
+                import org.moqui.jwt.JwtAuthService
+                token = JwtAuthService.login(username, password)
+            </script>
+        </actions>
+    </service>
+    
+    <service verb="verify" noun="JwtToken">
+        <in-parameters>
+            <parameter name="token" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="userId"/>
+            <parameter name="valid" type="Boolean"/>
+        </out-parameters>
+        <actions>
+            <script>
+                import org.moqui.jwt.JwtAuthService
+                userId = JwtAuthService.verifyToken(token)
+                valid = userId != null
+            </script>
+        </actions>
+    </service>
+</services>
