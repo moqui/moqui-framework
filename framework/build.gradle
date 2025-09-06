@@ -144,6 +144,9 @@ dependencies {
     // dev.samstevens.totp:totp depends on com.google.zxing:javase which depends on com.beust:jcommander, but an older version with a CVE, so specify latest to fix
     api 'com.beust:jcommander:1.82'
 
+    // JWT Auth0
+    api 'com.auth0:java-jwt:4.4.0' // MIT
+
     // Jackson Databind (JSON, etc)
     api 'com.fasterxml.jackson.core:jackson-databind:2.18.3'
 
