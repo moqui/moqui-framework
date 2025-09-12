@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/moqui-component-3.xsd"
+           name="netdisk" version="1.0.0">
+    <!-- Base dependency for any Moqui component -->
+    <depends-on component="moqui-base" version="3.0.0"/>
+
+    <!-- Resource paths for the netdisk component -->
+    <entity-facade-xml-path location="entity/NetdiskEntities.xml"/>
+    <service-facade-xml-path location="service/netdisk"/>
+    <screen-facade-xml-path location="screen/netdisk"/>
+</component>

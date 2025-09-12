@@ -1,6 +1,7 @@
 
 # gradle/build files
 build
+gradle.properties
 .gradle
 /framework/dependencies
 
