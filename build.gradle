@@ -25,7 +25,12 @@ buildscript {
 // Not needed for explicit use, causes problems when not from git repo: plugins { id 'org.ajoberstar.grgit' version 'x.y.z' }
 
 // Run headless so GradleWorkerMain does not steal focus (mostly a macOS annoyance)
-allprojects { tasks.withType(JavaForkOptions) { jvmArgs '-Djava.awt.headless=true' } }
+allprojects {
+    tasks.withType(JavaForkOptions) { jvmArgs '-Djava.awt.headless=true' }
+    // Set default encoding to UTF-8 for Java/Groovy compilation to avoid issues with non-ASCII characters in source files
+    tasks.withType(JavaCompile) { options.encoding = 'UTF-8' }
+    tasks.withType(GroovyCompile) { options.encoding = 'UTF-8' }
+}
 
 import org.ajoberstar.grgit.*
 
