@@ -59,4 +59,5 @@
 
     <component  name="moqui-mcp" group="heguangyong" version="" branch="master"/>
 
+    <component name="netdisk" group="heguangyong"  branch="master"/>
 </addons>
