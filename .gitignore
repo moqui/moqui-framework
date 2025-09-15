@@ -71,3 +71,15 @@ Desktop.ini
 
 # Linux auto files
 *~
+/runtime/component/mantle-usl/bin/test/AccountingActivities.groovy
+/runtime/component/mantle-usl/bin/test/AssetReservationMultipleThreads.groovy
+/runtime/component/mantle-usl/bin/test/MantleUslSuite.groovy
+/runtime/component/mantle-usl/bin/test/OrderProcureToPayBasicFlow.groovy
+/runtime/component/mantle-usl/bin/test/OrderTenantAccess.groovy
+/runtime/component/mantle-usl/bin/test/OrderToCashBasicFlow.groovy
+/runtime/component/mantle-usl/bin/test/OrderToCashTime.groovy
+/runtime/component/mantle-usl/bin/test/RestApiTests.groovy
+/runtime/component/mantle-usl/bin/test/ReturnToResponseBasicFlow.groovy
+/runtime/component/mantle-usl/bin/test/WorkPlanToCashBasicFlow.groovy
+/.gitattributes
+/gradle/wrapper/gradle-7.4.1-bin.zip
