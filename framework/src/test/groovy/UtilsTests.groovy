@@ -637,12 +637,43 @@ class UtilsTests extends Specification {
     def test_convert_string_to_zoned(){
         when:
 
+        // ZoneId in brackets (Europe/Bratislava)
         def skDate1 = GenericUtilities.parseZonedDateTime("1981-03-20T18:55Z[Europe/Bratislava]")
         assert skDate1
         assert GenericUtilities.formatZonedDatetime(skDate1) == '1981-03-20 19:55:00+01:00'
 
+        // Special case UTC
         def utcDate1 = GenericUtilities.parseZonedDateTime("2025-05-01T00:00Z[UTC]")
         assert GenericUtilities.formatZonedDatetime(utcDate1) == '2025-05-01 00:00:00Z'
+
+        // Plain Z (UTC)
+        def zDate = GenericUtilities.parseZonedDateTime("2025-09-17T12:30Z")
+        assert GenericUtilities.formatZonedDatetime(zDate) == '2025-09-17 12:30:00Z'
+
+        // Offset +02:00
+        def plusOffset = GenericUtilities.parseZonedDateTime("2025-09-17T12:30+02:00")
+        assert GenericUtilities.formatZonedDatetime(plusOffset) == '2025-09-17 12:30:00+02:00'
+
+        // Offset with seconds -05:30
+        def minusOffsetSeconds = GenericUtilities.parseZonedDateTime("2025-09-17T12:30:45-05:30")
+        assert GenericUtilities.formatZonedDatetime(minusOffsetSeconds) == '2025-09-17 12:30:45-05:30'
+
+        // Offset + ZoneId (Europe/Bratislava)
+        def zoneBratislava = GenericUtilities.parseZonedDateTime("2025-09-17T12:30+02:00[Europe/Bratislava]")
+        assert GenericUtilities.formatZonedDatetime(zoneBratislava) == '2025-09-17 12:30:00+02:00'
+
+        // Negative offset + ZoneId (America/Los_Angeles)
+        def zoneLA = GenericUtilities.parseZonedDateTime("2025-09-17T12:30-07:00[America/Los_Angeles]")
+        assert GenericUtilities.formatZonedDatetime(zoneLA) == '2025-09-17 12:30:00-07:00'
+
+        // Invalid input, should fail
+        def invalidInputExceptionThrown = false
+        try {
+            GenericUtilities.parseZonedDateTime("2025-09-17 12:30") // missing zone / invalid format
+        } catch (IllegalArgumentException e) {
+            invalidInputExceptionThrown = true
+        }
+        assert invalidInputExceptionThrown
 
         then:
 
