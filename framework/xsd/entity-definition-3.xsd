@@ -173,6 +173,7 @@ along with this software (see the LICENSE.md file). If not, see
             </xs:sequence>
             <xs:attribute name="entity-name" type="name-upper" use="required"/>
             <xs:attribute name="package" type="name-package" use="required"/>
+            <xs:attribute name="schema-name" type="name-package" use="optional" default="public"/>
             <xs:attribute name="package-name" use="prohibited"><xs:annotation><xs:documentation>
                 Deprecated, use package attribute</xs:documentation></xs:annotation></xs:attribute>
             <xs:attribute name="table-name" type="xs:string"/>
