@@ -131,3 +131,7 @@ Desktop.ini
 /runtime/component/moqui-mcp/lib/okio-jvm-3.6.0.jar
 /runtime/component/moqui-mcp/lib/opennlp-tools-1.9.4.jar
 /runtime/component/moqui-mcp/lib/retrofit-2.9.0.jar
+/startup.log
+/startup3.log
+/startup2.log
+/cookies.txt
