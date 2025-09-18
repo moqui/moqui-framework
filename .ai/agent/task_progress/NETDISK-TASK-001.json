@@ -1,12 +1,12 @@
 {
-  "task_id": "NETDISK-TASK-001",
+  "task_id": "MINIO-TASK-001",
   "task_name": "开发存储桶管理服务",
-  "milestone": "NETDISK-MS-001",
+  "milestone": "MINIO-MS-001",
   "assignee": {
     "user_id": "USER002",
     "username": "developer",
-    "role": "NETDISK_DEVELOPER",
-    "position": "NetdiskProgrammer"
+    "role": "MINIO_DEVELOPER",
+    "position": "MinioProgrammer"
   },
   "status": "in_progress",
   "priority": 1,
@@ -39,12 +39,12 @@
   },
   "code_changes": [
     {
-      "file": "runtime/component/netdisk/entity/Entities.xml",
+      "file": "runtime/component/minio/entity/Entities.xml",
       "status": "completed",
-      "description": "定义了netdisk.Bucket实体"
+      "description": "定义了minio.Bucket实体"
     },
     {
-      "file": "runtime/component/netdisk/service/Services.xml", 
+      "file": "runtime/component/minio/service/Services.xml",
       "status": "in_progress",
       "description": "正在实现存储桶管理服务"
     }
