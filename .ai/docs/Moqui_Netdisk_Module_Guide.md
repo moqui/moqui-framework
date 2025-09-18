@@ -49,9 +49,9 @@ moqui.security.user.NotificationTopic: Notification configurations.
 
 
 Example Content:<moqui.entity.document.DataDocumentLink dataDocumentId="MantleWikiPage" linkSeqId="21" linkSet="minio" label="Wiki Page" urlType="screen" linkUrl="/apps/minio/wiki/${wikiSpaceId}/${pagePath?:''}"/>
-<moqui.basic.email.EmailTemplate emailTemplateId="MINIO_WIKI_PAGE_UPDATE" description="Minio 维基页面更新通知" emailServerId="SYSTEM" bodyScreenLocation="component://minio/screen/WikiPageUpdateNotification.xml" subject="Wiki Page Updated: ${document.wikiSpaceId}/${document.pagePath}"/>
+<moqui.basic.email.EmailTemplate emailTemplateId="MINIO_WIKI_PAGE_UPDATE" description="Minio 维基页面更新通知" emailServerId="SYSTEM" bodyScreenLocation="component://moqui-minio/screen/WikiPageUpdateNotification.xml" subject="Wiki Page Updated: ${document.wikiSpaceId}/${document.pagePath}"/>
 <moqui.security.user.NotificationTopic topic="MantleWikiPage" linkTemplate="/vapps/minio/wiki/${wikiSpaceId}/${pagePath?:''}"/>
-<moqui.basic.email.EmailTemplate emailTemplateId="MINIO_TASK_UPDATE" description="Minio 任务更新通知" emailServerId="SYSTEM" bodyScreenLocation="component://minio/screen/TaskUpdateNotification.xml" subject="Task Updated: ${workEffort.workEffortName}"/>
+<moqui.basic.email.EmailTemplate emailTemplateId="MINIO_TASK_UPDATE" description="Minio 任务更新通知" emailServerId="SYSTEM" bodyScreenLocation="component://moqui-minio/screen/TaskUpdateNotification.xml" subject="Task Updated: ${workEffort.workEffortName}"/>
 
 
 
@@ -148,7 +148,7 @@ Milestone 1: Storage Bucket Management (MINIO-MS-001, 2025-09-14 to 2025-09-28)
 Task 1.1: Perfect Storage Bucket Quota Function (MINIO-TASK-004, Priority 1)
 Role: Developer (USER002, MINIO_DEVELOPER)
 iFlow Prompt: Step3.Programmer_Agent.md
-Instruction: Implement 5GB quota check in MinIO, update MinioServices.xml for bucket creation/listing/deletion with quota validation. Use Moqui service at component://minio/service/minio/MinioServices.xml. Commit code to runtime/component/minio/.
+Instruction: Implement 5GB quota check in MinIO, update MinioServices.xml for bucket creation/listing/deletion with quota validation. Use Moqui service at component://moqui-minio/service/minio/MinioServices.xml. Commit code to runtime/component/minio/.
 Dependencies: MINIO-TASK-001 (Develop Storage Bucket Service)
 Metaphor: Ensure "file cabinet drawers" (buckets) have a 5GB capacity limit.
 Estimated Time: 10 hours
@@ -157,7 +157,7 @@ Estimated Time: 10 hours
 Task 1.2: Optimize Storage Bucket Interface (MINIO-TASK-005, Priority 2)
 Role: Developer (USER002, MINIO_DEVELOPER)
 iFlow Prompt: Step3.Programmer_Agent.md
-Instruction: Enhance Moqui screen at component://minio/screen/minio/BucketManagement.xml for intuitive bucket creation/listing/deletion. Ensure alignment with MinioL10nData.xml (e.g., "存储管理"). Commit to runtime/component/minio/.
+Instruction: Enhance Moqui screen at component://moqui-minio/screen/minio/BucketManagement.xml for intuitive bucket creation/listing/deletion. Ensure alignment with MinioL10nData.xml (e.g., "存储管理"). Commit to runtime/component/minio/.
 Dependencies: MINIO-TASK-001
 Metaphor: Make "file cabinet labels" (interface) clear and user-friendly.
 Estimated Time: 8 hours
@@ -253,7 +253,7 @@ Estimated Time: 5 hours
 Task 3.4: Configure Task Update Notifications (MINIO-TASK-015, Priority 3)
 Role: Admin (USER001, MINIO_ADMIN)
 iFlow Prompt: Step1.PM_Agent.md
-Instruction: Configure notifications for task/Wiki updates in component://minio/screen/TaskUpdateNotification.xml. Test at http://localhost:8080/apps/minio/Dashboard.
+Instruction: Configure notifications for task/Wiki updates in component://moqui-minio/screen/TaskUpdateNotification.xml. Test at http://localhost:8080/apps/minio/Dashboard.
 Dependencies: None
 Metaphor: Set up "community announcement board" for updates.
 Estimated Time: 6 hours
