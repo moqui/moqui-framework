@@ -416,7 +416,6 @@
         <service-file location="classpath://service/org/moqui/impl/UserServices.xml"/>
         <service-file location="classpath://service/org/moqui/impl/WikiServices.xml"/>
         <service-file location="classpath://service/org/moqui/search/SearchServices.xml"/>
-        <service-file location="classpath://service/org/moqui/jwt/TestServices.xml"/>
     </service-facade>
 
     <elastic-facade>

@@ -56,8 +56,6 @@
     <component name="moqui-poi" group="heguangyong" version="1.0.1" branch="master"/>
     <component name="moqui-sso" group="heguangyong" version="1.0.1" branch="master"/>
     <component name="moqui-wikitext" group="heguangyong" version="1.0.3" branch="master"/>
-
-    <component  name="moqui-mcp" group="heguangyong" version="" branch="master"/>
-
-    <component name="Minio" group="heguangyong" version="" branch="master"/>
+    <component name="moqui-mcp" group="heguangyong" version="" branch="master"/>
+    <component name="moqui-minio" group="heguangyong" version="" branch="master"/>
 </addons>
