@@ -252,29 +252,34 @@ void stopSearch(String moquiRuntime) {
     ports.each { port ->
         try {
             if (System.getProperty('os.name').toLowerCase().contains('windows')) {
-                def proc = "netstat -ano".execute()
+                // 备用方法：使用 netstat
+                def proc = "cmd /c netstat -ano | findstr :${port}".execute()
                 proc.waitFor()
                 def lines = proc.text.split('\n')
 
                 lines.each { line ->
                     if (line.contains(":${port}") && line.contains('LISTENING')) {
                         def parts = line.trim().split(/\s+/)
-                        if (parts.length >= 5) {
+                        if (parts.length >= 5 && parts[4].isNumber()) {
                             def pid = parts[4]
                             logger.lifecycle("Stopping ${serviceName} process using port ${port}, PID: ${pid}")
+                            // 重定向输出避免乱码
                             exec {
                                 commandLine 'taskkill', '/F', '/PID', pid
                                 ignoreExitValue true
+                                standardOutput = new ByteArrayOutputStream() // 忽略输出
+                                errorOutput = new ByteArrayOutputStream()    // 忽略错误输出
                             }
                             processKilled = true
                         }
                     }
                 }
             } else {
+                // Unix/Linux 保持不变
                 def proc = "lsof -ti:${port}".execute()
                 proc.waitFor()
                 def pid = proc.text.trim()
-                if (pid) {
+                if (pid && pid.isNumber()) {
                     logger.lifecycle("Stopping ${serviceName} process using port ${port}, PID: ${pid}")
                     exec {
                         commandLine 'kill', '-9', pid
@@ -284,48 +289,59 @@ void stopSearch(String moquiRuntime) {
                 }
             }
         } catch (Exception e) {
-            logger.debug("No process found on port ${port}")
+            logger.debug("Error checking port ${port}: ${e.message}")
         }
     }
 
     // 如果通过端口没找到进程，再尝试 pid 文件方式
     if (!processKilled && pidFile.exists() && binFile.exists()) {
-        String pid = pidFile.getText().trim()
-        logger.lifecycle("Stopping ${serviceName} installed in ${workDir} with pid ${pid}")
         try {
-            if (System.getProperty('os.name').toLowerCase().contains('windows')) {
-                exec {
-                    commandLine 'taskkill', '/F', '/PID', pid
-                    ignoreExitValue true
+            String pid = pidFile.getText().trim()
+            if (pid && pid.isNumber()) {
+                logger.lifecycle("Stopping ${serviceName} installed in ${workDir} with pid ${pid}")
+                if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+                    exec {
+                        commandLine 'taskkill', '/F', '/PID', pid
+                        ignoreExitValue true
+                        standardOutput = new ByteArrayOutputStream()
+                        errorOutput = new ByteArrayOutputStream()
+                    }
+                } else {
+                    exec {
+                        commandLine 'kill', pid
+                        ignoreExitValue true
+                    }
                 }
-            } else {
-                exec {
-                    commandLine 'kill', pid
-                    ignoreExitValue true
-                }
+                processKilled = true
             }
-            processKilled = true
         } catch (Exception e) {
             logger.warn("Failed to stop ${serviceName} by PID: ${e.message}")
         }
     }
 
     // 等待进程完全停止
+    Thread.sleep(3000)
+
+    // 清理锁定文件和目录
+    try {
+        def dataDir = file(workDir + '/data')
+        if (dataDir.exists()) {
+            dataDir.deleteDir()
+            logger.lifecycle("Cleaned up ${serviceName} data directory")
+        }
+
+        if (pidFile.exists()) {
+            pidFile.delete()
+            logger.lifecycle("Removed pid file")
+        }
+    } catch (Exception e) {
+        logger.warn("Failed to cleanup files: ${e.message}")
+    }
+
     if (processKilled) {
-        Thread.sleep(2000)
-    }
-
-    // 清理 pid 文件
-    if (pidFile.exists()) {
-        pidFile.delete()
-    }
-
-    // 给出停止状态反馈
-    if (!processKilled) {
-        if (!pidFile.exists()) logger.lifecycle("Not Stopping ${serviceName} installed in ${workDir}, no pid file found and no process on ports ${ports}")
-        if (!binFile.exists()) logger.lifecycle("Not Stopping ${serviceName}, no ${workDir}/bin directory found")
-    } else {
         logger.lifecycle("${serviceName} stopped successfully")
+    } else {
+        logger.lifecycle("${serviceName} stop procedure completed (no process found)")
     }
 }
 task stopElasticSearch { doLast {
