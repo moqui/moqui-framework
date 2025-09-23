@@ -1,14 +1,14 @@
 #! /bin/bash
 
 if [[ ! $1 ]]; then
-  echo "Usage: ./compose-up.sh <docker compose file> [<moqui directory like ..>] [<runtime image like eclipse-temurin:11-jdk>]"
+  echo "Usage: ./compose-up.sh <docker compose file> [<moqui directory like ..>] [<runtime image like eclipse-temurin:17-jdk>]"
   exit 1
 fi
 
 COMP_FILE="${1}"
 MOQUI_HOME="${2:-..}"
 NAME_TAG=moqui
-RUNTIME_IMAGE="${3:-eclipse-temurin:11-jdk}"
+RUNTIME_IMAGE="${3:-eclipse-temurin:17-jdk}"
 
 # Note: If you don't have access to your conf directory while running this:
 #   This will make it so that your docker/conf directory no longer has your configuration files in it.

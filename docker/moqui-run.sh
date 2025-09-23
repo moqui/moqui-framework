@@ -1,11 +1,11 @@
 #! /bin/bash
 
-echo "Usage: moqui-run.sh [<moqui directory like ..>] [<group/name:tag>] [<runtime image like eclipse-temurin:11-jdk>]"
+echo "Usage: moqui-run.sh [<moqui directory like ..>] [<group/name:tag>] [<runtime image like eclipse-temurin:17-jdk>]"
 echo
 
 MOQUI_HOME="${1:-..}"
 NAME_TAG="${2:-moqui}"
-RUNTIME_IMAGE="${3:-eclipse-temurin:11-jdk}"
+RUNTIME_IMAGE="${3:-eclipse-temurin:17-jdk}"
 
 search_name=opensearch
 if [ -d "$MOQUI_HOME/runtime/opensearch/bin" ]; then search_name=opensearch;

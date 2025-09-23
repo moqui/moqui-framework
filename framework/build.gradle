@@ -262,7 +262,7 @@ war {
     destinationDirectory = projectDir.parentFile
     archiveFileName = 'moqui.war'
     // add MoquiInit.properties to the WEB-INF/classes dir for the deployed war mode of operation
-    from(fileTree(dir: destinationDir, includes: ['MoquiInit.properties'])) { into 'WEB-INF/classes' }
+    from(fileTree(dir: destinationDirectory, includes: ['MoquiInit.properties'])) { into 'WEB-INF/classes' }
     // this excludes the classes in sourceSets.main.output (better to have the jar file built above)
     classpath = configurations.runtimeClasspath - configurations.providedCompile
     classpath file(jar.archivePath)
