@@ -261,7 +261,7 @@ public class TestUtilities {
     }
 
     // create debug Writer
-    private static Writer createDebugWriter(String[] debugTo)
+    public static Writer createDebugWriter(String[] debugTo)
     {
         // log and store output
         String[] debugFilePath = setResourcePath(debugTo)
@@ -366,6 +366,14 @@ public class TestUtilities {
 
         fw.write(bt.toString(StandardCharsets.UTF_8))
         fw.close();
+    }
+
+    static void dumpToDebugUsingFile(String[] debugPath, ByteArrayOutputStream bt)
+    {
+        def outputStream = new FileOutputStream(new File(debugPath.join(File.separator)))
+
+        bt.writeTo(outputStream)
+        outputStream.close();
     }
 
     /**

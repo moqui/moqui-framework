@@ -10,6 +10,8 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import javax.cache.Cache
+import javax.cache.configuration.Configuration
+import javax.cache.configuration.MutableConfiguration
 
 /**
  * SynchroMaster is a tool that helps developer reach for data of a cached-table.
@@ -54,8 +56,7 @@ class SynchroMaster {
             this.syncedCaches.add(cacheName)
 
             // if we have entity in our map, extend the list
-            if (syncedEntities.containsKey(sourceEntity))
-            {
+            if (syncedEntities.containsKey(sourceEntity)) {
                 def existingCaches = syncedEntities.get(sourceEntity)
                 existingCaches.add(cacheName)
                 syncedEntities.replace(sourceEntity, existingCaches)
@@ -68,18 +69,16 @@ class SynchroMaster {
         }
     }
 
-    private static String getCacheName(String entityName)
-    {
+    private static String getCacheName(String entityName) {
         return "i.cache.${entityName}"
     }
 
-    Cache getEntityCache(String entityName){
+    Cache getEntityCache(String entityName) {
         if (!syncedEntities.containsKey(entityName)) throw new SynchroException("No such entity is being cached")
         return this.ecf.cache.getCache(getCacheName(entityName))
     }
 
-    boolean getEntityIsSynced(String entityName)
-    {
+    boolean getEntityIsSynced(String entityName) {
         return this.syncedEntities.containsKey(entityName)
     }
 
@@ -134,7 +133,9 @@ class SynchroMaster {
     {
         String entityName = ed.fullEntityName
         def cacheName = getCacheName(entityName)
-        def cache = ecf.executionContext.cache.getCache(cacheName)
+
+        // this is where the cache is created (with default configuration)
+        def cache = ecf.executionContext.cache.getLocalCache(cacheName)
         if (!checkEntityKeys(ed)) return null
 
         // reset cache

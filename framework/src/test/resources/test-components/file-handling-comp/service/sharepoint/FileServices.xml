@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-3.xsd">
+    <service verb="upload"
+             noun="File">
+        <in-parameters>
+            <parameter name="docGuid" required="true"/>
+            <parameter name="hostUrl" required="true" allow-html="safe"/>
+            <parameter name="path" required="true" allow-html="any"/>
+            <parameter name="entity" required="true"/>
+            <parameter name="file" required="true" type="org.apache.commons.fileupload.FileItem"/>
+        </in-parameters>
+        <out-parameters>
+        </out-parameters>
+        <actions>
+            <script>
+                <![CDATA[
+                    def b = file.getInputStream().readAllBytes()
+
+                    def result = ec.service.sync().name("create#${entity}")
+                        .parameters([
+                                docGuid: docGuid,
+                                name: file.name,
+                                path: path,
+                                size: b.length,
+                                file: b
+                        ])
+                        .call()
+
+                    // create output map
+                    def output = [
+                        "d": [
+                            "__metadata": [
+                                "id": "${result.fileId}",
+                                "uri": null,
+                                "type": "SP.SafeBackend.Attachment"
+                            ],
+                            "RelatedSPGUID": docGuid,
+                            "OriginRequest": path,
+                            "FileName": file.name,
+                            "FileNameAsPath": [:],
+                            "ServerRelativePath": [
+                                "__metadata": [
+                                    "type": "SP.ResourcePath"
+                                ],
+                                "DecodedUrl": "${hostUrl}/attachments/${result.fileId}"
+                            ],
+                            "ServerRelativeUrl": "${hostUrl}/attachments/${result.fileId}"
+                        ]
+                    ]
+
+                    return output
+                ]]>
+            </script>
+        </actions>
+    </service>
+
+    <service verb="fetch"
+             noun="Bytes">
+        <in-parameters>
+            <parameter name="entity" required="true"/>
+            <parameter name="docGuid" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="result" type="Map"/>
+        </out-parameters>
+        <actions>
+            <script>
+                <![CDATA[
+                    import ars.rockycube.entity.EntityHelper
+
+                    def eh = new EntityHelper(ec)
+                    def result = [:]
+                    result.put('data', eh.getEntityByteContent(entity, ["docGuid": docGuid]))
+                    return result
+                ]]>
+            </script>
+        </actions>
+    </service>
+</services>

@@ -8,6 +8,8 @@ import org.moqui.entity.EntityFind
 import org.moqui.impl.entity.EntityDbMeta
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityFacadeImpl
+
+import javax.sql.rowset.serial.SerialBlob
 import java.util.regex.Pattern
 
 class EntityHelper {
@@ -20,6 +22,34 @@ class EntityHelper {
 
         // EntityFacadeImpl
         efi = (EntityFacadeImpl) ec.getEntity()
+    }
+
+    /**
+     * Extract BLOB content from an entity
+     * @param fullEntityName
+     * @param conditionMap
+     * @return
+     */
+    public InputStream getEntityByteContent(String fullEntityName, Map<String, Object> conditionMap){
+        def search = ec.entity.find(fullEntityName).condition(conditionMap)
+        if (search.count() == 0) throw new EntityException("No records found, cannot return Entity's byte content")
+        if (search.count() > 1) throw new EntityException("Multiple records found, cannot pick which record to return byte content from")
+        def document = search.one()
+
+        // search for BLOB field
+        def ed = efi.getEntityDefinition(fullEntityName)
+
+        def blobFields = ed.allFieldNames.findAll {String fieldName ->
+            def fi = ed.getFieldInfo(fieldName)
+            return fi.javaType.toLowerCase() == 'java.sql.blob'
+        }
+
+        // Take first blob field
+        def blobFieldName = blobFields ? blobFields.get(0) : null
+        if (!blobFieldName) throw new EntityException("No BLOB field found.")
+
+        SerialBlob blob = document.get(blobFieldName)
+        return blob.getBinaryStream()
     }
 
     /**
