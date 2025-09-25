@@ -45,7 +45,15 @@ class EndpointCaller {
 
         // store info for debugging purposes
         if (debug()) {
-            debugFile(ec, processingId, sessionId, "process-items.json", itemToCalculate)
+            // have to be careful to treat InputStream when storing the output, or
+            // we may end up having it closed
+            if (itemToCalculate instanceof InputStream) {
+                byte[] content = ((InputStream) itemToCalculate).bytes
+                debugFile(ec, processingId, sessionId, "process-items.json", new ByteArrayInputStream(content))
+                itemToCalculate = new ByteArrayInputStream(content)
+            } else {
+                debugFile(ec, processingId, sessionId, "process-items.json", itemToCalculate)
+            }
             debugFile(ec, processingId, sessionId, "process-items-procedures.json", proceduresList)
             debugFile(ec, processingId, sessionId, "process-items-extra.json", extraParams)
         }
