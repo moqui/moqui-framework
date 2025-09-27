@@ -7,6 +7,63 @@
 Field cannot be empty (for field Bucket ID of service Minio Services Create Bucket)
 ```
 
+## 最新问题记录：存储桶详情页面设计优化
+
+### 设计决策
+选择"混合优化方案"：列表页面集成详细信息 + 直接文件管理
+
+### 设计原则
+- **直接高效**：用户点击"文件管理"直接进入文件操作界面
+- **信息完整**：在列表页面展示核心统计信息，无需额外导航
+- **实时准确**：从MinIO实时获取文件统计，保证数据准确性
+
+### 实现要点
+
+1. **前端优化**：
+   - 存储使用显示：`已用/总量 GB` 格式
+   - 添加使用率百分比显示
+   - 添加文件数量统计
+   - 操作按钮：文件管理(主要) + 编辑 + 删除
+
+2. **后端增强**：
+   - 实时统计MinIO中的文件数量和大小
+   - 智能更新数据库usedStorage（差异>1KB时更新）
+   - 保持数据库与实际存储同步
+
+3. **用户体验**：
+   - 一键进入文件管理界面
+   - 关键信息一目了然
+   - 减少页面跳转层次
+
+### 核心代码实现
+
+**前端统计信息显示**：
+```xml
+<field name="quotaLimit">
+    <header-field title="${ec.l10n.localize('存储使用')}"/>
+    <default-field>
+        <display text="${ec.l10n.format((usedStorage ?: 0) / (1024*1024*1024), '#,##0.##')} / ${ec.l10n.format(quotaLimit / (1024*1024*1024), '#,##0.#')} GB"/>
+    </default-field>
+</field>
+```
+
+**后端实时统计**：
+```java
+// 实时统计文件信息
+for (Result<Item> result : objects) {
+    Item item = result.get();
+    if (!item.isDir()) {
+        fileCount++;
+        actualUsedStorage += item.size();
+    }
+}
+```
+
+**关键要点**：
+- 性能考虑：仅在bucket存在时进行文件统计
+- 数据一致性：智能同步数据库与实际存储
+- 用户体验：直接操作，减少导航层次
+
 ## 最新问题记录：描述字段保存丢失
 
 ### 问题现象
