@@ -15,12 +15,10 @@ https://logging.apache.org/log4j/2.x/manual/layouts.html#PatternLayout
         <Property name="log4j2.formatMsgNoLookups">true</Property>
     </Properties>
     <Appenders>
-        <File name="DebugLogFile" fileName="${sys:moqui.runtime}/log/debug.log">
-            <PatternLayout pattern="%d{HH:mm:ss.SSS} %-5level %-20.20logger{20} %msg%n"/>
-        </File>
         <RollingFile name="LogFile" fileName="${sys:moqui.runtime}/log/moqui.log"
                 filePattern="${sys:moqui.runtime}/log/moqui%d{yyyy-MM-dd}-%i.log">
-            <PatternLayout pattern="--- %d{yyyy-MM-dd HH:mm:ss.SSS} [%15.15t] %-5p %50.50c %x%n %m%n"/>
+<!--            <PatternLayout pattern="-&#45;&#45; %d{yyyy-MM-dd HH:mm:ss.SSS} [%15.15t] %-5p %50.50c %x%n %m%n"/>-->
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} %-5level %-20.20logger{20} %msg%n"/>
             <Policies>
                 <TimeBasedTriggeringPolicy/>
                 <SizeBasedTriggeringPolicy size="10 MB"/>
