@@ -7,6 +7,116 @@
 Field cannot be empty (for field Bucket ID of service Minio Services Create Bucket)
 ```
 
+## 最新问题记录：描述字段保存丢失
+
+### 问题现象
+创建存储桶时，描述字段输入内容但保存到数据库时丢失
+
+### 根因分析
+Java服务实现中缺少description参数的处理：
+1. 未从parameters中获取description值
+2. 保存到数据库时未设置description字段
+
+### 解决方案
+在MinioServiceRunner.java的createBucket方法中添加：
+
+1. **获取参数**：
+```java
+String description = (String) parameters.get("description");
+```
+
+2. **保存到数据库**：
+```java
+ec.getEntity().makeValue("moqui.minio.Bucket")
+        .set("bucketId", bucketId)
+        .set("userId", userId)
+        .set("bucketName", bucketName)
+        .set("description", description)  // 添加这行
+        .set("quotaLimit", quotaLimit)
+        // ... 其他字段
+        .create();
+```
+
+3. **日志记录**：
+```java
+ec.getLogger().info("成功创建 MinIO bucket: bucketId=" + bucketId +
+        ", userId=" + userId + ", bucketName=" + bucketName +
+        ", description=" + description);
+```
+
+**关键要点**：
+- 表单字段正确，但Java服务实现不完整
+- 必须在服务方法中显式获取和处理每个参数
+- 建议在日志中记录关键字段值以便调试
+
+## 最新问题记录：创建者显示null null
+
+### 问题现象
+在存储桶列表中，创建者列显示为"null null"
+
+### 根因分析
+使用了错误的实体字段名称：
+```xml
+<!-- ❌ 错误：UserAccount实体中没有firstName和lastName字段 -->
+<display-entity entity-name="moqui.security.UserAccount" text="${firstName} ${lastName}"/>
+```
+
+### 解决方案
+使用正确的字段名称和回退逻辑：
+```xml
+<!-- ✅ 正确：使用实际存在的字段，并添加回退逻辑 -->
+<display-entity entity-name="moqui.security.UserAccount"
+                text="${userFullName ?: username ?: userId}"
+                key-field-name="userId"/>
+```
+
+**关键要点**：
+- 必须指定`key-field-name="userId"`来建立正确的实体关联
+- 使用`userFullName ?: username ?: userId`提供多级回退
+- 标题从"创建者ID"改为"创建者"更符合显示内容
+
+## 最新问题记录：S3命名规范验证
+
+### 问题现象
+创建存储桶时输入'T-001'抛出异常：
+```
+bucket name 'T-001' does not follow Amazon S3 standards
+```
+
+### 解决方案
+1. **后端验证**：在MinioServiceRunner.java中添加S3命名规则验证方法
+```java
+// 验证S3存储桶命名规则
+private static boolean isValidS3BucketName(String bucketName) {
+    if (bucketName == null || bucketName.length() < 3 || bucketName.length() > 63) {
+        return false;
+    }
+    // 只能包含小写字母、数字和连字符
+    if (!bucketName.matches("^[a-z0-9-]+$")) {
+        return false;
+    }
+    // 不能以连字符开头或结尾
+    if (bucketName.startsWith("-") || bucketName.endsWith("-")) {
+        return false;
+    }
+    // 不能包含连续的连字符
+    if (bucketName.contains("--")) {
+        return false;
+    }
+    return true;
+}
+```
+
+2. **前端提示**：在表单中添加用户友好的提示信息
+```xml
+<field name="bucketId">
+    <default-field title="${ec.l10n.localize('存储桶ID')}">
+        <text-line size="30" maxlength="63"/>
+        <label text="只能包含小写字母、数字和连字符(-)，3-63字符，不能以连字符开头或结尾" type="p" style="text-muted"/>
+    </default-field>
+</field>
+```
+
 ## 问题分析过程
 
 ### 1. 初步排查
