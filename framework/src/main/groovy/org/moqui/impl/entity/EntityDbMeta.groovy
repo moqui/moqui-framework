@@ -141,6 +141,9 @@ class EntityDbMeta {
 
         MNode datasourceNode = efi.getDatasourceNode(groupName)
         // MNode databaseNode = efi.getDatabaseNode(groupName)
+
+        // RSK note - do not use schema (in datasource configuraion) if you have table
+        // names outside the standard `public` schema
         String schemaName = datasourceNode != null ? datasourceNode.attribute("schema-name") : null
         Set<String> groupEntityNames = efi.getAllEntityNamesInGroup(groupName)
 
@@ -156,9 +159,7 @@ class EntityDbMeta {
 
                 ResultSet tableSet = null
                 try {
-                    // RSK fix - do not use schema when searching for table names, we may have table
-                    // names outside the standard `public` scheme
-                    tableSet = dbData.getTables(con.getCatalog(), null, "%", types)
+                    tableSet = dbData.getTables(con.getCatalog(), schemaName, "%", types)
                     while (tableSet.next()) {
                         String tableName = tableSet.getString('TABLE_NAME')
                         existingTableNames.add(tableName)
@@ -567,6 +568,11 @@ class EntityDbMeta {
             String javaType = fi.javaType
 
             sql.append(fi.columnName).append(" ").append(sqlType)
+
+            // Support auto generated columns (e.g. when not filled by Moqui, but )
+            if (fi.isPk && fieldNode.attribute("auto-generated") == "true") {
+                sql.append(" GENERATED ALWAYS AS IDENTITY ")
+            }
 
             if ("String" == javaType || "java.lang.String" == javaType) {
                 if (databaseNode.attribute("character-set")) sql.append(" CHARACTER SET ").append(databaseNode.attribute("character-set"))

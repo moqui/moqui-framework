@@ -1036,6 +1036,11 @@ class EndpointServiceHandler {
         if (args[CONST_AUTO_CREATE_PKEY] == true) {
             // create ID - either incremental counter (by Moqui) or generated UUID
             def createPrimaryId = {EntityValue itemCreated, String primaryIdField-> {
+                // IMPORTANT: will treat this feature in EntityValueBase instead
+                // may be auto-generated
+                // boolean isAutoGen = this.ed.getFieldInfo(primaryIdField).fieldNode.attribute("auto-generated") == "true"
+                // if (isAutoGen) return
+
                 if (args.get(CONST_GENERATE_UUID_PRIMARY)) {
                     itemCreated.set(primaryIdField, UUID.randomUUID())
                 } else {
@@ -1045,6 +1050,10 @@ class EndpointServiceHandler {
 
             // helper function that creates secondary ID
             def createSecondaryId = {EntityValue itemBeingCreated, String secondaryIdField-> {
+                // IMPORTANT: will treat this feature in EntityValueBase instead
+                // boolean isAutoGen = this.ed.getFieldInfo(secondaryIdField).fieldNode.attribute("auto-generated") == "true"
+                // if (isAutoGen) return
+
                 if (args.get(CONST_GENERATE_RANDOM_SECONDARY)) {
                     itemBeingCreated.set(secondaryIdField, RandomStringUtils.randomAlphanumeric(10))
                 } else {

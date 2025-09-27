@@ -565,6 +565,7 @@
         <dictionary-type type="date-time-tz" java-type="java.sql.Timestamp" default-sql-type="TIMESTAMPTZ"/>
 
         <dictionary-type type="number-integer" java-type="java.lang.Long" default-sql-type="NUMERIC(20,0)"/>
+        <dictionary-type type="number-bigint" java-type="java.lang.Long" default-sql-type="NUMERIC(20,0)"/>
         <dictionary-type type="number-decimal" java-type="java.math.BigDecimal" default-sql-type="NUMERIC(26,6)"/>
         <dictionary-type type="number-float" java-type="java.lang.Double" default-sql-type="DOUBLE"/>
 
@@ -894,6 +895,7 @@
                   create-to-json-method="to_json" create-format-json-value="?::json"
         >
             <!-- NOTE: when Postgres JDBC driver updated can set use-tm-join="true" -->
+            <database-type type="number-bigint" sql-type="BIGINT"/>
             <database-type type="number-float" sql-type="FLOAT8"/>
 
             <database-type type="text-medium" sql-type="TEXT"/>
