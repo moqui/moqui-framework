@@ -23,6 +23,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Objects;
 
 public class EntityValueImpl extends EntityValueBase {
     protected static final Logger logger = LoggerFactory.getLogger(EntityValueImpl.class);
@@ -68,10 +69,15 @@ public class EntityValueImpl extends EntityValueBase {
         int size = fieldInfoArray.length;
         StringBuilder values = new StringBuilder(size*3);
 
+        ArrayList<FieldInfo> createdCols = new ArrayList<>();
         for (int i = 0; i < size; i++) {
             FieldInfo fieldInfo = fieldInfoArray[i];
             if (fieldInfo == null) break;
-            if (i > 0) {
+            // support not writing any value if a column is auto-generated
+            if (Objects.equals(fieldInfo.fieldNode.attribute("auto-generated"), "true")) continue;
+
+            // treat commas for multiple valued queries
+            if (i > 0 && !createdCols.isEmpty()) {
                 sql.append(", ");
                 values.append(", ");
                 valuesForCast.append(", ");
@@ -84,6 +90,9 @@ public class EntityValueImpl extends EntityValueBase {
             // for those that are json, insert `cast` function
             boolean isJsonField = fieldInfo.type.toLowerCase().contains("json");
             valuesForCast.append(isJsonField ? efi.jsonFieldManipulator.fieldCondition(ed.groupName) : "?");
+
+            // increase
+            createdCols.add(fieldInfo);
         }
 
         sql.append(") VALUES (").append(valuesForCast).append(")");
@@ -94,9 +103,9 @@ public class EntityValueImpl extends EntityValueBase {
             if (con != null) eqb.useConnection(con);
             else eqb.makeConnection(false);
             eqb.makePreparedStatement();
-            for (int i = 0; i < size; i++) {
-                FieldInfo fieldInfo = fieldInfoArray[i];
-                if (fieldInfo == null) break;
+            for (int i = 0; i < createdCols.size(); i++) {
+                FieldInfo fieldInfo = createdCols.get(i);
+                if (fieldInfo == null) continue;
                 eqb.setPreparedStatementValue(i + 1, valueMapInternal.getByIString(fieldInfo.name, fieldInfo.index), fieldInfo);
             }
 
