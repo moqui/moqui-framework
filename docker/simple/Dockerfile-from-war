@@ -33,6 +33,9 @@ COPY --from=base /opt/*.sh /opt/.
 
 WORKDIR /opt/moqui
 
+# create directory for upload
+RUN mkdir -p /mnt/data/upload
+
 # this is to run from the war file directly, preferred approach unzips war file in advance
 ENTRYPOINT ["java", "-cp", ".", "MoquiStart", "port=80"]
 
