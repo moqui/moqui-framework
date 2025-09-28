@@ -41,4 +41,4 @@ For comprehensive documentation of Moqui Framework see the wiki based documentat
 
 ## Community Components
 
-- [moqui-minio](https://github.com/heguangyong/moqui-minio): A MinIO integration component for Moqui, providing bucket management, file upload/download, signature validation, and UI screens. Licensed under CC0 1.0 Universal.
+- [moqui-minio](https://github.com/heguangyong/moqui-minio): Enterprise-grade MinIO integration component for Moqui, featuring full bucket management, object operations, ElFinder-based file manager with Chinese UI, permission control, audit logging, and high-performance connection pooling. Licensed under CC0 1.0 Universal.
