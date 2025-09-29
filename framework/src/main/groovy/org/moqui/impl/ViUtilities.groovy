@@ -118,6 +118,12 @@ class ViUtilities {
         return null
     }
 
+    static String epochToTimestamp(Long epoch) {
+        if (!epoch) return null
+        def date = new Date(epoch * 1000)
+        return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(date)
+    }
+
     public static String formattedTimestamp()
     {
         def date = new Date()

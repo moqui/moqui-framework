@@ -123,16 +123,18 @@ class FileUploadTester extends Specification {
         assert result
 
         // load the contents
+        def fileInfo = new HashMap<String, Object>()
         def content = this.ec.service.sync().name("sharepoint.FileServices.fetch#Bytes")
                 .disableAuthz()
                 .parameters([
                         docGuid: "1111-22222-333333",
-                        entity: "ars.rockycube.test.ProjectFile"
+                        entity: "ars.rockycube.test.ProjectFile",
+                        fileInfo: fileInfo
                 ])
                 .call()
 
         assert content
-        def storedContent = content['data']
-        assert storedContent.size() == rr.size
+        ByteArrayInputStream storedContent = (ByteArrayInputStream) content['data']
+        assert storedContent.bytes.length == rr.size
     }
 }

@@ -26,25 +26,49 @@ class EntityHelper {
 
     /**
      * Extract BLOB content from an entity
+     * TESTED in Framework - `test file upload - using a service (obo IPS)`
      * @param fullEntityName
      * @param conditionMap
+     * @param fileInfo - fill a map with additional info on the file being fetched
+     * @param disableAuthz - no authorization checks
      * @return
      */
-    public InputStream getEntityByteContent(String fullEntityName, Map<String, Object> conditionMap){
-        def search = ec.entity.find(fullEntityName).condition(conditionMap)
+    public InputStream getEntityByteContent(
+            String fullEntityName,
+            Map<String, Object> conditionMap,
+            Map<String, Object> fileInfo = null,
+            boolean disableAuthz=false){
+        EntityFind search = null
+        // allow disabling authorization for special cases
+        // BE SURE TO CHECK AUTHORIZATION BEFOREHAND
+        if (disableAuthz) {
+            search = ec.entity.find(fullEntityName).condition(conditionMap).disableAuthz()
+        } else {
+            search = ec.entity.find(fullEntityName).condition(conditionMap)
+        }
         if (search.count() == 0) throw new EntityException("No records found, cannot return Entity's byte content")
         if (search.count() > 1) throw new EntityException("Multiple records found, cannot pick which record to return byte content from")
         def document = search.one()
 
         // search for BLOB field
         def ed = efi.getEntityDefinition(fullEntityName)
+        def doFillFileInfo = fileInfo != null
 
         def blobFields = ed.allFieldNames.findAll {String fieldName ->
             def fi = ed.getFieldInfo(fieldName)
-            return fi.javaType.toLowerCase() == 'java.sql.blob'
+            def javaSqlBlobType = 'java.sql.blob'
+            boolean isBlob = fi.javaType.toLowerCase() == javaSqlBlobType
+
+            // fill information about the file
+            if (doFillFileInfo && !isBlob) {
+                fileInfo.put(fieldName, document.get(fieldName))
+            }
+
+            return isBlob
         }
 
         // Take first blob field
+        if (blobFields.size() > 1) ec.logger.warn("More BLOB fields found.")
         def blobFieldName = blobFields ? blobFields.get(0) : null
         if (!blobFieldName) throw new EntityException("No BLOB field found.")
 
