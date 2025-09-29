@@ -71,6 +71,7 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters>
             <parameter name="entity" required="true"/>
             <parameter name="docGuid" required="true"/>
+            <parameter name="fileInfo" type="Map"/>
         </in-parameters>
         <out-parameters>
             <parameter name="result" type="Map"/>
@@ -82,7 +83,7 @@ along with this software (see the LICENSE.md file). If not, see
 
                     def eh = new EntityHelper(ec)
                     def result = [:]
-                    result.put('data', eh.getEntityByteContent(entity, ["docGuid": docGuid]))
+                    result.put('data', eh.getEntityByteContent(entity, ["docGuid": docGuid], fileInfo))
                     return result
                 ]]>
             </script>

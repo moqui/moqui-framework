@@ -7,6 +7,7 @@ import org.moqui.context.ExecutionContext
 import org.moqui.entity.EntityException
 import org.moqui.util.ObjectUtilities
 import org.moqui.util.RestClient
+import org.moqui.util.StringUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -20,21 +21,22 @@ class RenderedResponse {
      * is stored in ARS backend, rather than in SharePoint. This method returns the contents
      * in a response, e.g. for REST API bound frontend calls
      */
-    public static sendEntityByteContentResponse(String fullEntityName, Map<String, Object> conditionMap, boolean inline) {
+    public static sendEntityByteContentResponse(String fullEntityName, Map<String, Object> conditionMap, boolean disableAuthz, boolean inline) {
         // initialize EC
         def ec = Moqui.getExecutionContext()
         def response = ec.web.response
 
         // display tokens
         def request = ec.web.request
-        ec.logger.info( request.headerNames.toList().join(','))
+        ec.logger.debug(request.headerNames.toList().join(','))
 
         // search for the entity
         def eh = new EntityHelper(ec)
+        def fileInfo = new HashMap<String, Object>()
 
         try {
             OutputStream os = response.outputStream
-            def is = eh.getEntityByteContent(fullEntityName, (Map<String, Object>) conditionMap)
+            def is = eh.getEntityByteContent(fullEntityName, (Map<String, Object>) conditionMap, fileInfo, disableAuthz)
 
             int totalLen = ObjectUtilities.copyStream(is, os)
             is.close()
@@ -48,7 +50,12 @@ class RenderedResponse {
         }
 
         // return response back to frontend as inline content
-        if (inline) response.addHeader("Content-Disposition", "inline")
+        if (inline) {
+            response.setHeader("Content-Disposition", "inline")
+        } else {
+            def filename = fileInfo.containsKey('name') ? fileInfo.get('name') : 'unknown.file'
+            response.setHeader("Content-Disposition", "attachment; filename=\"${filename}\"; filename*=utf-8''${StringUtilities.encodeAsciiFilename(filename)}")
+        }
 
         // set content type
         // response.setContentType("application/octet-stream")

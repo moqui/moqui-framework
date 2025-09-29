@@ -734,7 +734,11 @@ class WebFacadeImpl implements WebFacade {
         // has been introduced with the need to provide plain/text response
         // by the means of REST API - on behalf of Rezolv-Energy
         def textViaRest = (boolean) requestAttributes.get('textViaRest', false)
-        if (textViaRest) return
+        if (textViaRest) {
+            eci.logger.info("Headers [C]: ${response.headerNames}")
+            eci.logger.info("Header [Content-Disposition]: ${response.getHeader('Content-Disposition')}")
+            return
+        }
 
         // logger.warn("========== Sending JSON for object: ${responseObj}")
         if (responseObj != null) {
@@ -1123,7 +1127,6 @@ class WebFacadeImpl implements WebFacade {
                 eci.contextStack.pop()
                 response.addIntHeader('X-Run-Time-ms', (System.currentTimeMillis() - startTime) as int)
                 restResult.setHeaders(response)
-
                 if (eci.message.hasError()) {
                     // if error return that
                     String errorsString = eci.message.errorsString

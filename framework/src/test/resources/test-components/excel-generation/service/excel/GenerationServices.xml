@@ -23,6 +23,9 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <script>
                 <![CDATA[
+                    import org.moqui.util.StringUtilities
+                    import org.moqui.util.ObjectUtilities
+
                     def contentLocation = null
 
                     switch(contractType) {
@@ -51,8 +54,9 @@ along with this software (see the LICENSE.md file). If not, see
 
                     // return
                     try {
-                        OutputStream os = response.outputStream
-                        int totalLen = ObjectUtilities.copyStream(res.openStream(), os)
+                        InputStream is = res.openStream()
+                        OutputStream os = ec.web.response.outputStream
+                        int totalLen = ObjectUtilities.copyStream(is, os)
                         is.close()
                         try {
                             // pass
@@ -62,10 +66,10 @@ along with this software (see the LICENSE.md file). If not, see
                     } finally {}
 
                     // return response back to frontend as inline content
-                    if (inline) response.addHeader("Content-Disposition", "inline")
+                    if (inline) ec.web.response.addHeader("Content-Disposition", "inline")
 
                     // set content type
-                    response.setContentType("application/octet-stream")
+                    ec.web.response.setContentType("application/octet-stream")
                 ]]>
             </script>
         </actions>

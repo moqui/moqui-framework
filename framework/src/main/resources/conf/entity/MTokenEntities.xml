@@ -18,6 +18,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="storage" type="text-short" not-null="true" create-only="true"/>
         <field name="keyword" type="text-medium" not-null="true" create-only="true"/>
         <field name="tokenValue" type="text-long" not-null="true"/>
+        <field name="jwt" type="jsonb" not-null="true"/>
+        <field name="expiration" type="date-time"/>
         <field name="created" type="date-time" default="ec.user.nowTimestamp"/>
 
         <index name="idxTokenSearch" unique="true">
