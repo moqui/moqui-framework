@@ -104,6 +104,8 @@ public class RestClient {
     private boolean timeoutRetry = false;
     private RequestFactory overrideRequestFactory = null;
     private boolean isolate = false;
+    private InputStream inputStream = null;
+    // ========== Instance Fields ==========
 
     public RestClient() { }
 
@@ -231,6 +233,12 @@ public class RestClient {
     public RestClient addFilePart(String name, String fileName, InputStream streamContent) {
         return addFilePart(name, fileName, new InputStreamRequestContent(streamContent), null);
     }
+    /** Add Bytes to body **/
+    public RestClient body(InputStream streamContent) {
+        inputStream = streamContent;
+        return this;
+    }
+
     /** Add file part using Jetty ContentProvider.
      * WARNING: This uses Jetty HTTP Client API objects and may change over time, do not use if alternative will work.
      */
@@ -359,6 +367,8 @@ public class RestClient {
         } else if (bodyText != null && !bodyText.isEmpty()) {
             request.body(new StringRequestContent(contentType, bodyText, charset));
             // not needed, set by call to request.content() with passed contentType: request.header(HttpHeader.CONTENT_TYPE, contentType);
+        } else if (inputStream != null) {
+            request.body(new InputStreamRequestContent(inputStream));
         }
 
         request.accept(acceptContentType != null && !acceptContentType.isEmpty() ? acceptContentType : contentType);
