@@ -40,7 +40,7 @@ class RequestValidator {
 
         //  logger.info("Incoming request's headers: [${ec.web.request.headerNames.toList()}]")
         this.tokenIdentity = req.getHeader('X-Token-Id')
-        logger.info("X-Token-Id: ${this.tokenIdentity}")
+        logger.debug("X-Token-Id: ${this.tokenIdentity}")
         if (!this.tokenIdentity) throw new Exception("Token identity not found in headers of the Request")
     }
 
