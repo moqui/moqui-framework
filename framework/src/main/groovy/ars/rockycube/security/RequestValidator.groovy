@@ -61,7 +61,7 @@ class RequestValidator {
         // quit early
         if (this.isTest) return true
 
-        logger.warn("Checking request on path [${ec.web.request.pathInfo}]")
+        logger.debug("Checking request on path [${ec.web.request.pathInfo}]")
         // logger.warn("Checking token with ID [${this.tokenIdentity}]")
 
         // 1. search for the token
