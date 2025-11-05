@@ -16,6 +16,7 @@ import java.io.*;
 import java.lang.reflect.Array;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -748,7 +749,7 @@ public class MoquiStart {
                     try {
                         String jarFileName = jarFile.getName();
                         if (jarFileName.contains("\\")) jarFileName = jarFileName.replace('\\', '/');
-                        URL resourceUrl = new URL("jar:file:" + jarFileName + "!/" + jarEntry);
+                        URL resourceUrl = URI.create("jar:file:" + jarFileName + "!/" + jarEntry).toURL();
                         resourceCache.put(resourceName, resourceUrl);
                         return resourceUrl;
                     } catch (MalformedURLException e) {
@@ -775,7 +776,7 @@ public class MoquiStart {
                     try {
                         String jarFileName = jarFile.getName();
                         if (jarFileName.contains("\\")) jarFileName = jarFileName.replace('\\', '/');
-                        urlList.add(new URL("jar:file:" + jarFileName + "!/" + jarEntry));
+                        urlList.add(URI.create("jar:file:" + jarFileName + "!/" + jarEntry).toURL());
                     } catch (MalformedURLException e) {
                         System.out.println("Error making URL for [" + resourceName + "] in jar [" + jarFile + "] in war file [" + wrapperUrl + "]: " + e.toString());
                     }
@@ -874,7 +875,7 @@ public class MoquiStart {
             String seal = mf.getMainAttributes().getValue(Attributes.Name.SEALED);
             if (seal == null) return null;
             try {
-                return new URL(seal);
+                return URI.create(seal).toURL();
             } catch (MalformedURLException e) {
                 return null;
             }

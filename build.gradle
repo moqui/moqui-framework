@@ -24,6 +24,9 @@ buildscript {
 // Run headless so GradleWorkerMain does not steal focus (mostly a macOS annoyance)
 allprojects { tasks.withType(JavaForkOptions) { jvmArgs '-Djava.awt.headless=true' } }
 
+import groovy.util.Node
+import groovy.xml.XmlParser
+import groovy.xml.XmlSlurper
 import org.ajoberstar.grgit.*
 
 defaultTasks 'build'
