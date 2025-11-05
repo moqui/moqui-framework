@@ -1,7 +1,7 @@
 # Builds a minimal docker image with openjdk and moqui with various volumes for configuration and persisted data outside the container
 # NOTE: add components, build and if needed load data before building a docker image with this
 
-FROM openjdk:13-jdk-alpine as base
+FROM eclipse-temurin:11-jdk-alpine as base
 MAINTAINER rovnanik.sk <admin@rovnanik.sk>
 
 ARG DOCKER_COMPOSE_WAIT_VERSION
@@ -25,7 +25,7 @@ RUN ls -las /opt/moqui/runtime/conf
 ADD docker/simple/*.sh /opt/.
 RUN dos2unix /opt/*.sh && chmod +x /opt/*.sh
 
-FROM openjdk:13-alpine
+FROM eclipse-temurin:11-alpine
 RUN apk add tzdata
 COPY --from=base /wait /wait
 COPY --from=base /opt/moqui /opt/moqui

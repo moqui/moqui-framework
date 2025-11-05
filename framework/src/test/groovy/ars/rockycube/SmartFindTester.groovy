@@ -1,15 +1,19 @@
 package ars.rockycube
 
 import ars.entity.SmartFind
+import ars.rockycube.query.SqlExecutor
 import ars.rockycube.entity.ConditionHandler
 import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
+import org.moqui.entity.EntityValue
 import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.impl.entity.condition.EntityConditionImplBase
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import spock.lang.Shared
 import spock.lang.Specification
+
+import java.sql.Timestamp
 
 class SmartFindTester extends Specification {
     protected final static Logger logger = LoggerFactory.getLogger(SmartFindTester.class)
@@ -65,5 +69,37 @@ class SmartFindTester extends Specification {
 
         then:
         assert res.size() == 2
+    }
+
+    /**
+     * Test converting dates when loading using SqlExecutor
+     */
+    def test_sql_date_conversion(){
+        when:
+
+        // create sample data chunk
+        ec.entity.makeValue("moqui.test.TestEntity")
+                .setAll([testId:"SQL_CONV", testMedium:"Test Name", testDate: ec.user.nowTimestamp, lastUpdatedStamp:ec.user.nowTimestamp])
+                .createOrUpdate()
+        EntityValue testEntity = ec.entity.find("moqui.test.TestEntity").condition("testId", "SQL_CONV").one()
+        assert testEntity
+
+        // prepare SQL connector
+        def conn = ec.entity.getConnection("transactional")
+
+        // load records
+        def sqlScript = "Select test_date, last_updated_stamp from test_entity where test_id = 'SQL_CONV'"
+        ec.logger.info("SQL: ${sqlScript}")
+        def withTimestamp = SqlExecutor.execute(conn, logger, sqlScript)
+        def asStrings = SqlExecutor.execute(conn, logger, sqlScript, [columns:[last_updated_stamp:[dateToString:true]]])
+
+
+        then:
+        withTimestamp.size() == 1
+        asStrings.size() == 1
+
+        //
+        assert withTimestamp.get(0)["LAST_UPDATED_STAMP"].getClass() == Timestamp.class
+        assert asStrings.get(0)["LAST_UPDATED_STAMP"].getClass() == String.class
     }
 }
