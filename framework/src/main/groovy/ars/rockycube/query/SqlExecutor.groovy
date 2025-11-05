@@ -7,10 +7,32 @@ import org.slf4j.Logger
 import java.sql.CallableStatement
 import java.sql.Connection
 import java.sql.ResultSetMetaData
+import java.sql.Timestamp
 
-import java.util.Calendar
-import java.util.GregorianCalendar
-import java.util.TimeZone
+class ColumnConfiguration {
+    private boolean dateToString = false
+    private String columnName = null
+
+    ColumnConfiguration(String columnName, HashMap conf) {
+        this.columnName = columnName.toLowerCase()
+
+        // quit if conf is empty
+        if (conf.isEmpty()) return
+
+        if (conf.containsKey(this.columnName)) {
+            def colConf = (HashMap) conf.getOrDefault(this.columnName, [:])
+            this.dateToString = colConf.getOrDefault('dateToString', false)
+        }
+    }
+
+    String getColumnName() {
+        return columnName
+    }
+
+    boolean getDateToString() {
+        return dateToString
+    }
+}
 
 class SqlExecutor {
     protected static int maxLimit = 500
@@ -317,12 +339,14 @@ class SqlExecutor {
      * @param conn
      * @param logger
      * @param query
+     * @param kwargs - Parameters that help in customizing the conversion from SQL to ArrayList
      * @return
      */
     static ArrayList execute(
             Connection conn,
             Logger logger,
-            String query)
+            String query,
+            HashMap kwargs=[:])
     {
         def stmt = conn.createStatement()
         def queryResult = stmt.execute(query as String)
@@ -333,15 +357,33 @@ class SqlExecutor {
         ResultSetMetaData rsmd = rs.getMetaData()
         int numColumns = rsmd.getColumnCount()
 
+        // allow customization using kwargs
+        HashMap colsConf = [:]
+        boolean columnSetupPresent = kwargs.containsKey('columns')
+        columnSetupPresent &= kwargs.get('columns') instanceof Map
+        if (columnSetupPresent) colsConf = (HashMap) kwargs.get('columns')
+
         while (rs.next()) {
             def record = [:]
             for (int i = 1; i <= numColumns; i++) {
-                String column_name = rsmd.getColumnName(i)
-                if (column_name.endsWith("utc")) {
+                String columnName = rsmd.getColumnName(i)
+                // original functionality has priority
+                if (columnName.endsWith("utc")) {
                     Calendar cal = new GregorianCalendar(TimeZone.getTimeZone("UTC"));
-                    record[column_name] = rs.getTimestamp(i, cal);
+                    record[columnName] = rs.getTimestamp(i, cal);
                 } else {
-                    record[column_name] = rs.getObject(column_name);
+                    def colValue = rs.getObject(columnName);
+
+                    // if it's Timestamp, allow custom handling
+                    if (colValue instanceof Timestamp) {
+                        def colConf = new ColumnConfiguration(columnName, colsConf)
+                        if (colConf.dateToString) {
+                            record[columnName] = (colValue as Timestamp).format("yyyy-MM-dd");
+                            continue
+                        }
+                    }
+
+                    record[columnName] = colValue;
                 }
             }
             result.add(record)
