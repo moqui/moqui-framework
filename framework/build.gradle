@@ -24,7 +24,7 @@ apply plugin: 'com.github.ben-manes.versions'
 buildscript {
     repositories {
         mavenCentral()
-        maven { url = "https://plugins.gradle.org/m2/" }
+        maven { url = 'https://plugins.gradle.org/m2/' }
     }
     dependencies {
         classpath 'com.github.ben-manes:gradle-versions-plugin:0.52.0'
@@ -92,8 +92,8 @@ dependencies {
 
     // ========== Local (flatDir) libraries in framework/lib ==========
 
-    // Bitronix Transaction Manager (the default internal tx mgr; custom build from source as 3.0.0 not yet released)
-    api 'org.codehaus.btm:btm:3.0.0-20161020' // Apache 2.0
+    // Bitronix Transaction Manager, a modernized fork
+    api 'com.github.moqui.bitronix:btm:4.0.0-BETA1' // Apache 2.0
     runtimeOnly 'org.javassist:javassist:3.29.2-GA' // Apache 2.0
 
     // ========== General Libraries from Maven Central ==========
@@ -130,7 +130,7 @@ dependencies {
     api 'com.h2database:h2:2.3.232' // MPL 2.0, EPL 1.0
 
     // Java Specifications
-    api 'javax.transaction:jta:1.1'
+    api 'jakarta.transaction:jakarta.transaction-api:2.0.1'
     api 'javax.cache:cache-api:1.1.1'
     api 'javax.jcr:jcr:2.0'
     // jaxb-api no longer included in Java 9 and later, also tested with openjdk-8

@@ -22,7 +22,14 @@ buildscript {
 // Not needed for explicit use, causes problems when not from git repo: plugins { id 'org.ajoberstar.grgit' version 'x.y.z' }
 
 // Run headless so GradleWorkerMain does not steal focus (mostly a macOS annoyance)
-allprojects { tasks.withType(JavaForkOptions) { jvmArgs '-Djava.awt.headless=true' } }
+allprojects {
+    tasks.withType(JavaForkOptions) {
+        jvmArgs '-Djava.awt.headless=true'
+    }
+    repositories {
+        maven { url = "https://jitpack.io" }
+    }
+}
 
 import groovy.util.Node
 import groovy.xml.XmlParser
