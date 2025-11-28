@@ -1,7 +1,7 @@
 # Builds a minimal docker image with openjdk and moqui with various volumes for configuration and persisted data outside the container
 # NOTE: add components, build and if needed load data before building a docker image with this
 
-FROM eclipse-temurin:11-jdk-alpine as base
+FROM docker.io/library/eclipse-temurin:11-jdk-alpine as base
 MAINTAINER rovnanik.sk <admin@rovnanik.sk>
 
 ARG DOCKER_COMPOSE_WAIT_VERSION
@@ -14,8 +14,9 @@ RUN chmod +x /wait
 
 WORKDIR /opt/moqui
 # for running from the war directly, preferred approach unzips war in advance (see docker-build.sh that does this)
-COPY moqui-plus-runtime.war /tmp/moqui/.
-RUN unzip /tmp/moqui/moqui-plus-runtime.war -d /opt/moqui
+RUN mkdir -p /tmp/moqui
+COPY moqui-plus-runtime.war /tmp/moqui/moqui-plus-runtime.war
+RUN unzip /tmp/moqui/moqui-plus-runtime.war -d .
 
 # remove all configurations from /opt/runtime/conf
 RUN rm -rf /opt/moqui/runtime/conf && mkdir /opt/moqui/runtime/conf
