@@ -103,8 +103,8 @@ dependencies {
         // NOTE: commons-email depends on com.sun.mail:javax.mail, so excluding transitive dependencies
         transitive = false
     }
-    api 'org.apache.commons:commons-lang3:3.17.0' // Apache 2.0; used by cron-utils
-    api 'commons-beanutils:commons-beanutils:1.10.1' // Apache 2.0
+    api 'org.apache.commons:commons-lang3:3.18.0' // Apache 2.0; used by cron-utils
+    api 'commons-beanutils:commons-beanutils:1.11.0' // Apache 2.0
     api 'commons-codec:commons-codec:1.18.0' // Apache 2.0
     api 'commons-collections:commons-collections:3.2.2' // Apache 2.0
     api 'commons-digester:commons-digester:2.1' // Apache 2.0
