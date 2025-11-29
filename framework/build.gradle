@@ -272,6 +272,10 @@ jar {
     from fileTree(dir: projectDir.absolutePath, includes: ['data/**', 'entity/**', 'screen/**', 'service/**', 'template/**']) // 'xsd/**'
 }
 
+tasks.test {
+    inputs.files(tasks.jar)
+}
+
 war {
     dependsOn jar
     // put the war file in the parent directory, ie the moqui dir instead of the framework dir
