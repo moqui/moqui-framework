@@ -29,9 +29,9 @@ import org.moqui.impl.entity.EntityJavaUtil.WriteMode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
-import javax.transaction.Synchronization
-import javax.transaction.xa.XAException
+import jakarta.transaction.Synchronization
 import java.sql.Connection
+import javax.transaction.xa.XAException
 
 /** This is a per-transaction cache that basically pretends to be the database for the scope of the transaction.
  * Test your code well when using this as it doesn't support everything.
