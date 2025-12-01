@@ -642,8 +642,9 @@ class UserFacadeImpl implements UserFacade {
             return false
         }
 
-        // if there is a web session invalidate it so there is a new session for the login (prevent Session Fixation attacks)
-        if (eci.getWebImpl() != null) eci.getWebImpl().makeNewSession()
+        // NOTE: Session regeneration moved to internalLoginToken() AFTER successful authentication
+        // to prevent session fixation attacks (CWE-384). Creating new session before auth creates
+        // a window where attacker could obtain the new session ID.
 
         UsernamePasswordToken token = new UsernamePasswordToken(username, password, true)
         return internalLoginToken(username, token)
@@ -675,6 +676,10 @@ class UserFacadeImpl implements UserFacade {
             // do this first so that the rest will be done as this user
             // just in case there is already a user authenticated push onto a stack to remember
             pushUserSubject(loginSubject)
+
+            // SECURITY: Regenerate session AFTER successful authentication to prevent session fixation (CWE-384)
+            // This ensures any pre-auth session ID known to an attacker is invalidated
+            if (eci.getWebImpl() != null) eci.getWebImpl().makeNewSession()
 
             // after successful login trigger the after-login actions
             if (eci.getWebImpl() != null) {
