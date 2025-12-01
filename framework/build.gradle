@@ -19,6 +19,10 @@ apply plugin: 'groovy'
 apply plugin: 'war'
 // to run gradle-versions-plugin use "gradle dependencyUpdates"
 apply plugin: 'com.github.ben-manes.versions'
+// JaCoCo for test coverage reporting (CICD-002)
+apply plugin: 'jacoco'
+// OWASP Dependency-Check for security scanning (CICD-003)
+apply plugin: 'org.owasp.dependencycheck'
 // uncomment to add the Error Prone compiler; not enabled by default (doesn't work on Travis CI)
 // apply plugin: 'net.ltgt.errorprone'
 buildscript {
@@ -28,6 +32,7 @@ buildscript {
     }
     dependencies {
         classpath 'com.github.ben-manes:gradle-versions-plugin:0.52.0'
+        classpath 'org.owasp:dependency-check-gradle:12.1.0'
         // uncomment to add the Error Prone compiler: classpath 'net.ltgt.gradle:gradle-errorprone-plugin:0.0.8'
     }
 }
@@ -282,6 +287,52 @@ war {
     // setup the manifest for the executable war/jar mode
     manifest { attributes 'Implementation-Title': 'Moqui Start', 'Implementation-Vendor': 'Moqui Ecosystem',
             'Implementation-Version': version, 'Main-Class': 'MoquiStart' }
+}
+
+// ========== JaCoCo Test Coverage Configuration (CICD-002) ==========
+jacoco {
+    toolVersion = "0.8.12"
+}
+
+test {
+    finalizedBy jacocoTestReport
+}
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true
+        html.required = true
+        csv.required = false
+    }
+}
+
+jacocoTestCoverageVerification {
+    violationRules {
+        rule {
+            limit {
+                // Minimum 20% coverage to start, increase over time (CICD-005)
+                minimum = 0.20
+            }
+        }
+    }
+}
+
+// ========== OWASP Dependency-Check Configuration (CICD-003) ==========
+dependencyCheck {
+    // Fail build on CVSS >= 7 (High severity)
+    failBuildOnCVSS = 7.0
+    // Output formats
+    formats = ['HTML', 'JSON']
+    // Suppress known false positives (create this file as needed)
+    // suppressionFile = 'config/owasp-suppressions.xml'
+    // Skip dev dependencies
+    skipConfigurations = ['testImplementation', 'testRuntimeOnly']
+    // NVD API settings (optional, for faster scans)
+    nvd {
+        // Register for free API key at https://nvd.nist.gov/developers/request-an-api-key
+        // apiKey = System.getenv('NVD_API_KEY')
+    }
 }
 
 task copyDependencies { doLast {
