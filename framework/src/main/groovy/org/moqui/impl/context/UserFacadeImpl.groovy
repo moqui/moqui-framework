@@ -161,12 +161,15 @@ class UserFacadeImpl implements UserFacade {
                 logger.warn("For HTTP Basic Authorization got malformed credentials string (missing colon separator)")
             }
         }
+        // SECURITY (SEC-008): Accept API keys from headers only, never from URL query parameters
+        // URL parameters can leak via referrer headers, browser history, and server logs (CWE-598)
         if (currentInfo.username == null && (request.getHeader("api_key") || request.getHeader("login_key"))) {
             String loginKey = request.getHeader("api_key") ?: request.getHeader("login_key")
             loginKey = loginKey.trim()
             if (loginKey != null && !loginKey.isEmpty() && !"null".equals(loginKey) && !"undefined".equals(loginKey))
                 this.loginUserKey(loginKey)
         }
+        // SECURITY: secureParameters excludes URL query parameters (body params only), which is safe
         if (currentInfo.username == null && (secureParameters.api_key || secureParameters.login_key)) {
             String loginKey = secureParameters.api_key ?: secureParameters.login_key
             loginKey = loginKey.trim()
@@ -174,8 +177,7 @@ class UserFacadeImpl implements UserFacade {
                 this.loginUserKey(loginKey)
         }
         if (currentInfo.username == null && secureParameters.authUsername) {
-            // try the Moqui-specific parameters for instant login
-            // if we have credentials coming in anywhere other than URL parameters, try logging in
+            // Moqui-specific parameters for instant login (from request body only, not URL)
             String authUsername = secureParameters.authUsername
             String authPassword = secureParameters.authPassword
             this.loginUser(authUsername, authPassword)
@@ -293,26 +295,16 @@ class UserFacadeImpl implements UserFacade {
                 logger.warn("For HTTP Basic Authorization got malformed credentials string (missing colon separator)")
             }
         }
+        // SECURITY (SEC-008): Accept API keys ONLY from headers, never from URL parameters
+        // URL parameters can leak via referrer headers, browser history, and server logs (CWE-598)
         if (currentInfo.username == null && (headers.api_key || headers.login_key)) {
             String loginKey = headers.api_key ? headers.api_key.get(0) : (headers.login_key ? headers.login_key.get(0) : null)
             loginKey = loginKey.trim()
             if (loginKey != null && !loginKey.isEmpty() && !"null".equals(loginKey) && !"undefined".equals(loginKey))
                 this.loginUserKey(loginKey)
         }
-        if (currentInfo.username == null && (parameters.api_key || parameters.login_key)) {
-            String loginKey = parameters.api_key ? parameters.api_key.get(0) : (parameters.login_key ? parameters.login_key.get(0) : null)
-            loginKey = loginKey.trim()
-            // SECURITY: Removed debug logging of login_key (CWE-532)
-            if (loginKey != null && !loginKey.isEmpty() && !"null".equals(loginKey) && !"undefined".equals(loginKey))
-                this.loginUserKey(loginKey)
-        }
-        if (currentInfo.username == null && parameters.authUsername) {
-            // try the Moqui-specific parameters for instant login
-            // if we have credentials coming in anywhere other than URL parameters, try logging in
-            String authUsername = parameters.authUsername.get(0)
-            String authPassword = parameters.authPassword ? parameters.authPassword.get(0) : null
-            this.loginUser(authUsername, authPassword)
-        }
+        // SECURITY (SEC-008): Removed authentication via URL parameters - use headers or request body only
+        // Parameters api_key, login_key, authUsername, authPassword are no longer accepted from URL
     }
     void initFromHttpSession(HttpSession session) {
         this.session = session
