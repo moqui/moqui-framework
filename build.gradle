@@ -621,14 +621,33 @@ task gitMergeAll {
 
 task run(type: JavaExec) {
     dependsOn checkRuntime, allBuildTasks, cleanTempDir
-    workingDir = '.'; jvmArgs = ['-server', '-XX:-OmitStackTraceInFastThrow']
+    workingDir = '.'; jvmArgs = ['-server', '-XX:-OmitStackTraceInFastThrow',
+        // Java 9+ module system opens for Bitronix Transaction Manager and other reflection-based libraries
+        '--add-opens', 'java.base/java.lang=ALL-UNNAMED',
+        '--add-opens', 'java.base/java.lang.reflect=ALL-UNNAMED',
+        '--add-opens', 'java.base/java.util=ALL-UNNAMED',
+        '--add-opens', 'java.base/java.util.concurrent=ALL-UNNAMED',
+        '--add-opens', 'java.base/java.net=ALL-UNNAMED',
+        '--add-opens', 'java.base/java.io=ALL-UNNAMED',
+        '--add-opens', 'java.base/sun.nio.ch=ALL-UNNAMED',
+        '--add-opens', 'java.base/sun.security.ssl=ALL-UNNAMED',
+        '--add-opens', 'java.base/java.security=ALL-UNNAMED']
     systemProperties = ['moqui.conf':moquiConfDev, 'moqui.runtime':moquiRuntime]
     // NOTE: this is a hack, using -jar instead of a class name, and then the first argument is the name of the jar file
     main = '-jar'; args = [warName]
 }
 task runProduction(type: JavaExec) {
     dependsOn checkRuntime, allBuildTasks, cleanTempDir
-    workingDir = '.'; jvmArgs = ['-server', '-Xms1024M']
+    workingDir = '.'; jvmArgs = ['-server', '-Xms1024M',
+        '--add-opens', 'java.base/java.lang=ALL-UNNAMED',
+        '--add-opens', 'java.base/java.lang.reflect=ALL-UNNAMED',
+        '--add-opens', 'java.base/java.util=ALL-UNNAMED',
+        '--add-opens', 'java.base/java.util.concurrent=ALL-UNNAMED',
+        '--add-opens', 'java.base/java.net=ALL-UNNAMED',
+        '--add-opens', 'java.base/java.io=ALL-UNNAMED',
+        '--add-opens', 'java.base/sun.nio.ch=ALL-UNNAMED',
+        '--add-opens', 'java.base/sun.security.ssl=ALL-UNNAMED',
+        '--add-opens', 'java.base/java.security=ALL-UNNAMED']
     systemProperties = ['moqui.conf':moquiConfProduction, 'moqui.runtime':moquiRuntime]
     main = '-jar'; args = [warName]
 }
@@ -637,25 +656,45 @@ task load(type: JavaExec) {
     description "Run Moqui to load data; to specify data types use something like: gradle load -Ptypes=seed,seed-initial,install"
     dependsOn checkRuntime, allBuildTasks
     systemProperties = ['moqui.conf':moquiConfDev, 'moqui.runtime':moquiRuntime]
-    workingDir = '.'; jvmArgs = ['-server']; main = '-jar'
+    workingDir = '.'; jvmArgs = ['-server',
+        '--add-opens', 'java.base/java.lang=ALL-UNNAMED',
+        '--add-opens', 'java.base/java.lang.reflect=ALL-UNNAMED',
+        '--add-opens', 'java.base/java.util=ALL-UNNAMED',
+        '--add-opens', 'java.base/java.util.concurrent=ALL-UNNAMED',
+        '--add-opens', 'java.base/java.net=ALL-UNNAMED',
+        '--add-opens', 'java.base/java.io=ALL-UNNAMED',
+        '--add-opens', 'java.base/sun.nio.ch=ALL-UNNAMED',
+        '--add-opens', 'java.base/sun.security.ssl=ALL-UNNAMED',
+        '--add-opens', 'java.base/java.security=ALL-UNNAMED']; main = '-jar'
     args = [warName, 'load', (project.properties.containsKey('types') ? "types=${types}" : "types=all")]
 }
+// Common JVM args for Java 9+ module system compatibility
+def java9PlusOpens = [
+    '--add-opens', 'java.base/java.lang=ALL-UNNAMED',
+    '--add-opens', 'java.base/java.lang.reflect=ALL-UNNAMED',
+    '--add-opens', 'java.base/java.util=ALL-UNNAMED',
+    '--add-opens', 'java.base/java.util.concurrent=ALL-UNNAMED',
+    '--add-opens', 'java.base/java.net=ALL-UNNAMED',
+    '--add-opens', 'java.base/java.io=ALL-UNNAMED',
+    '--add-opens', 'java.base/sun.nio.ch=ALL-UNNAMED',
+    '--add-opens', 'java.base/sun.security.ssl=ALL-UNNAMED',
+    '--add-opens', 'java.base/java.security=ALL-UNNAMED']
 task loadSeed(type: JavaExec) {
     dependsOn checkRuntime, allBuildTasks
     systemProperties = ['moqui.conf':moquiConfProduction, 'moqui.runtime':moquiRuntime]
-    workingDir = '.'; jvmArgs = ['-server']; main = '-jar'
+    workingDir = '.'; jvmArgs = ['-server'] + java9PlusOpens; main = '-jar'
     args = [warName, 'load', (project.properties.containsKey('types') ? "types=${types}" : "types=seed")]
 }
 task loadSeedInitial(type: JavaExec) {
     dependsOn checkRuntime, allBuildTasks
     systemProperties = ['moqui.conf':moquiConfProduction, 'moqui.runtime':moquiRuntime]
-    workingDir = '.'; jvmArgs = ['-server']; main = '-jar'
+    workingDir = '.'; jvmArgs = ['-server'] + java9PlusOpens; main = '-jar'
     args = [warName, 'load', (project.properties.containsKey('types') ? "types=${types}" : "types=seed,seed-initial")]
 }
 task loadProduction(type: JavaExec) {
     dependsOn checkRuntime, allBuildTasks
     systemProperties = ['moqui.conf':moquiConfProduction, 'moqui.runtime':moquiRuntime]
-    workingDir = '.'; jvmArgs = ['-server']; main = '-jar'
+    workingDir = '.'; jvmArgs = ['-server'] + java9PlusOpens; main = '-jar'
     args = [warName, 'load', (project.properties.containsKey('types') ? "types=${types}" : "types=seed,seed-initial,install")]
 }
 
