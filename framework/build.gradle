@@ -165,6 +165,9 @@ dependencies {
     api module('org.apache.shiro:shiro-core:1.13.0') // Apache 2.0
     api module('org.apache.shiro:shiro-web:1.13.0') // Apache 2.0
 
+    // BCrypt password hashing (SEC-002: modern password hashing)
+    api 'at.favre.lib:bcrypt:0.10.2' // Apache 2.0
+
     // SLF4J, Log4j 2 (note Log4j 2 is used by various libraries, best not to replace it even if mostly possible with SLF4J)
     api 'org.slf4j:slf4j-api:2.0.17'
     implementation 'org.apache.logging.log4j:log4j-core:2.24.3'
@@ -232,7 +235,7 @@ test {
     testLogging.showStandardStreams = true; testLogging.showExceptions = true
     maxParallelForks 1
 
-    dependsOn cleanTest
+    dependsOn cleanTest, jar
     include '**/*MoquiSuite.class'
 
     systemProperty 'moqui.runtime', '../runtime'
@@ -262,10 +265,10 @@ war {
     destinationDirectory = projectDir.parentFile
     archiveFileName = 'moqui.war'
     // add MoquiInit.properties to the WEB-INF/classes dir for the deployed war mode of operation
-    from(fileTree(dir: destinationDir, includes: ['MoquiInit.properties'])) { into 'WEB-INF/classes' }
+    from(fileTree(dir: destinationDirectory.get().asFile, includes: ['MoquiInit.properties'])) { into 'WEB-INF/classes' }
     // this excludes the classes in sourceSets.main.output (better to have the jar file built above)
     classpath = configurations.runtimeClasspath - configurations.providedCompile
-    classpath file(jar.archivePath)
+    classpath file(jar.archiveFile.get().asFile)
 
     // put start classes and Jetty jars in the root of the war file for the executable war/jar mode of operation
     from sourceSets.start.output

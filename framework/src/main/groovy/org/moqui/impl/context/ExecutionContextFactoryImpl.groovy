@@ -18,6 +18,8 @@ import groovy.transform.CompileStatic
 import org.apache.logging.log4j.LogManager
 import org.apache.logging.log4j.core.LoggerContext
 import org.apache.shiro.SecurityUtils
+import org.apache.shiro.authc.AuthenticationInfo
+import org.apache.shiro.authc.AuthenticationToken
 import org.apache.shiro.authc.credential.CredentialsMatcher
 import org.apache.shiro.authc.credential.HashedCredentialsMatcher
 import org.apache.shiro.config.IniSecurityManagerFactory
@@ -35,6 +37,7 @@ import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
 import org.moqui.util.CollectionUtilities
 import org.moqui.util.MClassLoader
+import org.moqui.util.PasswordHasher
 import org.moqui.impl.actions.XmlAction
 import org.moqui.resource.UrlResourceReference
 import org.moqui.impl.context.ContextJavaUtil.ArtifactBinInfo
@@ -978,28 +981,88 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         return internalSecurityManager
     }
-    CredentialsMatcher getCredentialsMatcher(String hashType, boolean isBase64) {
-        HashedCredentialsMatcher hcm = new HashedCredentialsMatcher()
-        if (hashType) {
-            hcm.setHashAlgorithmName(hashType)
-        } else {
-            hcm.setHashAlgorithmName(getPasswordHashType())
+    /**
+     * BCrypt CredentialsMatcher implementation for Shiro integration.
+     * Verifies passwords hashed with BCrypt algorithm.
+     */
+    private static class BcryptCredentialsMatcher implements CredentialsMatcher {
+        @Override
+        boolean doCredentialsMatch(AuthenticationToken token, AuthenticationInfo info) {
+            String submittedPassword = new String((char[]) token.getCredentials())
+            String storedHash = (String) info.getCredentials()
+            return PasswordHasher.verifyBcrypt(submittedPassword, storedHash)
         }
+    }
+
+    /** Cached BCrypt credentials matcher instance */
+    private static final CredentialsMatcher bcryptMatcher = new BcryptCredentialsMatcher()
+
+    /**
+     * Get the appropriate credentials matcher for the given hash type.
+     * For BCrypt, returns a specialized matcher. For legacy algorithms, returns Shiro's HashedCredentialsMatcher.
+     */
+    CredentialsMatcher getCredentialsMatcher(String hashType, boolean isBase64) {
+        String effectiveHashType = hashType ?: getPasswordHashType()
+
+        // Use BCrypt matcher for BCrypt hashes
+        if (PasswordHasher.HASH_TYPE_BCRYPT.equalsIgnoreCase(effectiveHashType)) {
+            return bcryptMatcher
+        }
+
+        // Legacy hash algorithms use Shiro's HashedCredentialsMatcher
+        HashedCredentialsMatcher hcm = new HashedCredentialsMatcher()
+        hcm.setHashAlgorithmName(effectiveHashType)
         // in Shiro this defaults to true, which is the default unless UserAccount.passwordBase64 = 'Y'
         hcm.setStoredCredentialsHexEncoded(!isBase64)
         return hcm
     }
+
     // NOTE: may not be used
     static String getRandomSalt() { return StringUtilities.getRandomString(8) }
+
+    /**
+     * Get the configured password hash type. Defaults to BCRYPT for security.
+     * Can be overridden in MoquiConf.xml: user-facade > password > encrypt-hash-type
+     */
     String getPasswordHashType() {
         MNode passwordNode = confXmlRoot.first("user-facade").first("password")
-        return passwordNode.attribute("encrypt-hash-type") ?: "SHA-256"
+        // Default to BCRYPT for new installations; legacy configs can override to SHA-256 for backward compatibility
+        return passwordNode.attribute("encrypt-hash-type") ?: PasswordHasher.HASH_TYPE_BCRYPT
     }
-    // NOTE: used in UserServices.xml
-    String getSimpleHash(String source, String salt) { return getSimpleHash(source, salt, getPasswordHashType(), false) }
+
+    /**
+     * Hash a password using the default algorithm (BCrypt) with auto-generated salt.
+     * NOTE: Used in UserServices.xml
+     */
+    String getSimpleHash(String source, String salt) {
+        return getSimpleHash(source, salt, getPasswordHashType(), false)
+    }
+
+    /**
+     * Hash a password using the specified algorithm.
+     * For BCrypt: salt parameter is ignored (BCrypt generates its own salt).
+     * For legacy algorithms: uses the provided salt with Shiro's SimpleHash.
+     */
     String getSimpleHash(String source, String salt, String hashType, boolean isBase64) {
-        SimpleHash simple = new SimpleHash(hashType ?: getPasswordHashType(), source, salt)
+        String effectiveHashType = hashType ?: getPasswordHashType()
+
+        // Use BCrypt for BCRYPT hash type
+        if (PasswordHasher.HASH_TYPE_BCRYPT.equalsIgnoreCase(effectiveHashType)) {
+            // BCrypt includes salt in the hash output, ignore the salt parameter
+            return PasswordHasher.hashWithBcrypt(source)
+        }
+
+        // Legacy algorithms use Shiro's SimpleHash
+        SimpleHash simple = new SimpleHash(effectiveHashType, source, salt)
         return isBase64 ? simple.toBase64() : simple.toHex()
+    }
+
+    /**
+     * Check if a password hash should be upgraded to BCrypt.
+     * Call after successful authentication to determine if re-hashing is needed.
+     */
+    boolean shouldUpgradePasswordHash(String currentHashType) {
+        return PasswordHasher.shouldUpgradeHash(currentHashType)
     }
 
     String getLoginKeyHashType() {
