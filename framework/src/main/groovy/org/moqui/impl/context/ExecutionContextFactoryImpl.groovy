@@ -22,7 +22,7 @@ import org.apache.shiro.authc.AuthenticationInfo
 import org.apache.shiro.authc.AuthenticationToken
 import org.apache.shiro.authc.credential.CredentialsMatcher
 import org.apache.shiro.authc.credential.HashedCredentialsMatcher
-import org.apache.shiro.config.IniSecurityManagerFactory
+import org.apache.shiro.mgt.DefaultSecurityManager
 import org.apache.shiro.crypto.hash.SimpleHash
 import org.codehaus.groovy.control.CompilationUnit
 import org.codehaus.groovy.control.CompilerConfiguration
@@ -38,6 +38,7 @@ import org.moqui.entity.EntityValue
 import org.moqui.util.CollectionUtilities
 import org.moqui.util.MClassLoader
 import org.moqui.util.PasswordHasher
+import org.moqui.impl.util.MoquiShiroRealm
 import org.moqui.impl.actions.XmlAction
 import org.moqui.resource.UrlResourceReference
 import org.moqui.impl.context.ContextJavaUtil.ArtifactBinInfo
@@ -972,10 +973,16 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     org.apache.shiro.mgt.SecurityManager getSecurityManager() {
         if (internalSecurityManager != null) return internalSecurityManager
 
-        // init Apache Shiro; NOTE: init must be done here so that ecfi will be fully initialized and in the static context
-        org.apache.shiro.util.Factory<org.apache.shiro.mgt.SecurityManager> factory =
-                new IniSecurityManagerFactory("classpath:shiro.ini")
-        internalSecurityManager = factory.getInstance()
+        // init Apache Shiro programmatically (Shiro 2.x removed IniSecurityManagerFactory)
+        // NOTE: init must be done here so that ecfi will be fully initialized and in the static context
+        DefaultSecurityManager securityManager = new DefaultSecurityManager()
+
+        // Create and configure the MoquiShiroRealm
+        MoquiShiroRealm moquiRealm = new MoquiShiroRealm()
+        securityManager.setRealm(moquiRealm)
+
+        internalSecurityManager = securityManager
+
         // NOTE: setting this statically just in case something uses it, but for Moqui we'll be getting the SecurityManager from the ecfi
         SecurityUtils.setSecurityManager(internalSecurityManager)
 

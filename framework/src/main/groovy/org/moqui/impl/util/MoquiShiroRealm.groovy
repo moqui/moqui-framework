@@ -21,7 +21,7 @@ import org.apache.shiro.authz.Permission
 import org.apache.shiro.authz.UnauthorizedException
 import org.apache.shiro.realm.Realm
 import org.apache.shiro.subject.PrincipalCollection
-import org.apache.shiro.util.SimpleByteSource
+import org.apache.shiro.lang.util.SimpleByteSource
 import org.moqui.BaseArtifactException
 import org.moqui.Moqui
 import org.moqui.context.PasswordChangeRequiredException

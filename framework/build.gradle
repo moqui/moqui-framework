@@ -161,9 +161,14 @@ dependencies {
     // JSoup (HTML parser, cleaner)
     api 'org.jsoup:jsoup:1.19.1' // MIT
 
-    // Apache Shiro
-    api module('org.apache.shiro:shiro-core:1.13.0') // Apache 2.0
-    api module('org.apache.shiro:shiro-web:1.13.0') // Apache 2.0
+    // Apache Shiro - upgraded to 2.0.6 for security fixes (SHIRO-001)
+    api module('org.apache.shiro:shiro-core:2.0.6') // Apache 2.0
+    api module('org.apache.shiro:shiro-web:2.0.6') // Apache 2.0
+    // Shiro 2.x split modules - need these for compatibility
+    api 'org.apache.shiro:shiro-crypto-hash:2.0.6' // Apache 2.0
+    api 'org.apache.shiro:shiro-crypto-cipher:2.0.6' // Apache 2.0
+    api 'org.apache.shiro:shiro-cache:2.0.6' // Apache 2.0
+    api 'org.apache.shiro:shiro-event:2.0.6' // Apache 2.0
 
     // BCrypt password hashing (SEC-002: modern password hashing)
     api 'at.favre.lib:bcrypt:0.10.2' // Apache 2.0
