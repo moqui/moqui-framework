@@ -219,12 +219,9 @@ class UserFacadeImpl implements UserFacade {
                 }
                 if (cookieVisitorId) {
                     // whether it existed or not, add it again to keep it fresh; stale cookies get thrown away
-                    Cookie visitorCookie = new Cookie("moqui.visitor", cookieVisitorId)
-                    visitorCookie.setMaxAge(60 * 60 * 24 * 365)
-                    visitorCookie.setPath("/")
-                    visitorCookie.setHttpOnly(true)
-                    if (request.isSecure()) visitorCookie.setSecure(true)
-                    response.addCookie(visitorCookie)
+                    // Use SameSite=Lax for CSRF protection (SEC-007)
+                    WebUtilities.addCookieWithSameSiteLax(response, "moqui.visitor", cookieVisitorId,
+                            60 * 60 * 24 * 365, "/", true, request.isSecure())
 
                     session.setAttribute("moqui.visitorId", cookieVisitorId)
                 }
