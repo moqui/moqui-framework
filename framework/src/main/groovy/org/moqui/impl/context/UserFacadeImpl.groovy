@@ -157,7 +157,8 @@ class UserFacadeImpl implements UserFacade {
                 String password = basicAuthAsString.substring(indexOfColon + 1)
                 this.loginUser(username, password)
             } else {
-                logger.warn("For HTTP Basic Authorization got bad credentials string. Base64 encoded is [${basicAuthEncoded}] and after decoding is [${basicAuthAsString}].")
+                // SECURITY: Don't log credentials - only log that parsing failed (CWE-532)
+                logger.warn("For HTTP Basic Authorization got malformed credentials string (missing colon separator)")
             }
         }
         if (currentInfo.username == null && (request.getHeader("api_key") || request.getHeader("login_key"))) {
@@ -291,7 +292,8 @@ class UserFacadeImpl implements UserFacade {
                 String password = basicAuthAsString.substring(basicAuthAsString.indexOf(":") + 1)
                 this.loginUser(username, password)
             } else {
-                logger.warn("For HTTP Basic Authorization got bad credentials string. Base64 encoded is [${basicAuthEncoded}] and after decoding is [${basicAuthAsString}].")
+                // SECURITY: Don't log credentials - only log that parsing failed (CWE-532)
+                logger.warn("For HTTP Basic Authorization got malformed credentials string (missing colon separator)")
             }
         }
         if (currentInfo.username == null && (headers.api_key || headers.login_key)) {
@@ -303,7 +305,7 @@ class UserFacadeImpl implements UserFacade {
         if (currentInfo.username == null && (parameters.api_key || parameters.login_key)) {
             String loginKey = parameters.api_key ? parameters.api_key.get(0) : (parameters.login_key ? parameters.login_key.get(0) : null)
             loginKey = loginKey.trim()
-            logger.warn("loginKey2 ${loginKey}")
+            // SECURITY: Removed debug logging of login_key (CWE-532)
             if (loginKey != null && !loginKey.isEmpty() && !"null".equals(loginKey) && !"undefined".equals(loginKey))
                 this.loginUserKey(loginKey)
         }
