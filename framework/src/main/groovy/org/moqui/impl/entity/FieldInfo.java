@@ -20,6 +20,7 @@ import org.moqui.impl.entity.condition.ConditionField;
 import org.moqui.util.LiteStringMap;
 import org.moqui.util.MNode;
 import org.moqui.util.ObjectUtilities;
+import org.moqui.util.SafeDeserialization;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -354,14 +355,18 @@ public class FieldInfo {
                     logger.warn("Got byte array back empty for serialized Object with length [" + originalBytes.length + "] for field [" + name + "] (" + index + ")");
                 }
                 if (binaryInput != null) {
+                    // SEC-009: Use safe deserialization with class filtering to prevent CWE-502
                     ObjectInputStream inStream = null;
                     try {
-                        inStream = new ObjectInputStream(binaryInput);
+                        inStream = SafeDeserialization.createSafeObjectInputStream(binaryInput);
                         obj = inStream.readObject();
                     } catch (IOException ex) {
                         if (logger.isTraceEnabled()) logger.trace("Unable to read BLOB from input stream for field [" + name + "] (" + index + "): " + ex.toString());
                     } catch (ClassNotFoundException ex) {
                         if (logger.isTraceEnabled()) logger.trace("Class not found: Unable to cast BLOB data to an Java object for field [" + name + "] (" + index + "); most likely because it is a straight byte[], so just using the raw bytes: " + ex.toString());
+                    } catch (InvalidClassException ex) {
+                        // Blocked class by SafeDeserialization filter
+                        logger.warn("Blocked deserialization of potentially unsafe class for field [" + name + "] (" + index + "): " + ex.toString());
                     } finally {
                         if (inStream != null) {
                             try { inStream.close(); }
