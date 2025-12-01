@@ -21,7 +21,7 @@ import org.moqui.Moqui
 // for JUnit 5 Jupiter annotations see: https://junit.org/junit5/docs/current/user-guide/index.html#writing-tests-annotations
 
 @Suite
-@SelectClasses([ CacheFacadeTests.class, EntityCrud.class, EntityFindTests.class, EntityNoSqlCrud.class,
+@SelectClasses([ MNodeSecurityTests.class, CacheFacadeTests.class, EntityCrud.class, EntityFindTests.class, EntityNoSqlCrud.class,
         L10nFacadeTests.class, MessageFacadeTests.class, ResourceFacadeTests.class, ServiceCrudImplicit.class,
         ServiceFacadeTests.class, SubSelectTests.class, TransactionFacadeTests.class, UserFacadeTests.class,
         SystemScreenRenderTests.class, ToolsRestApiTests.class, ToolsScreenRenderTests.class])
