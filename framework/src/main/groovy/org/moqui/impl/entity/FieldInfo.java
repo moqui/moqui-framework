@@ -360,13 +360,13 @@ public class FieldInfo {
                     try {
                         inStream = SafeDeserialization.createSafeObjectInputStream(binaryInput);
                         obj = inStream.readObject();
+                    } catch (InvalidClassException ex) {
+                        // SEC-009: Blocked class by SafeDeserialization filter
+                        logger.warn("Blocked deserialization of potentially unsafe class for field [" + name + "] (" + index + "): " + ex.toString());
                     } catch (IOException ex) {
                         if (logger.isTraceEnabled()) logger.trace("Unable to read BLOB from input stream for field [" + name + "] (" + index + "): " + ex.toString());
                     } catch (ClassNotFoundException ex) {
                         if (logger.isTraceEnabled()) logger.trace("Class not found: Unable to cast BLOB data to an Java object for field [" + name + "] (" + index + "); most likely because it is a straight byte[], so just using the raw bytes: " + ex.toString());
-                    } catch (InvalidClassException ex) {
-                        // Blocked class by SafeDeserialization filter
-                        logger.warn("Blocked deserialization of potentially unsafe class for field [" + name + "] (" + index + "): " + ex.toString());
                     } finally {
                         if (inStream != null) {
                             try { inStream.close(); }
