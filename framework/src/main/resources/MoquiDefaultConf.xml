@@ -584,6 +584,7 @@
         <dictionary-type type="text-very-long" java-type="java.lang.String" default-sql-type="CLOB"/>
 
         <dictionary-type type="binary-very-long" java-type="java.sql.Blob" default-sql-type="BLOB"/>
+        <dictionary-type type="boolean" java-type="java.lang.Boolean"/>
 
         <!--
         * DB2:
@@ -904,6 +905,7 @@
             <database-type type="text-very-long" sql-type="TEXT"/>
 
             <database-type type="binary-very-long" sql-type="BYTEA"/>
+            <database-type type="boolean" sql-type="BIT"/>
 
             <database-type type="jsonb" java-type="java.util.HashMap" sql-type="JSONB"/>
 
