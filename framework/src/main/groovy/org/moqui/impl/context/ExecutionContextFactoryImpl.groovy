@@ -1060,7 +1060,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
 
         // Legacy algorithms use Shiro's SimpleHash
-        SimpleHash simple = new SimpleHash(effectiveHashType, source, salt)
+        // Shiro 2.x requires non-null salt, use empty string for null salt (legacy compatibility)
+        SimpleHash simple = new SimpleHash(effectiveHashType, source, salt ?: "")
         return isBase64 ? simple.toBase64() : simple.toHex()
     }
 
