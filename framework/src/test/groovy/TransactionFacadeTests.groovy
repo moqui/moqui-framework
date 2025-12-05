@@ -18,6 +18,7 @@ import java.sql.Statement
 import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
 
+import spock.lang.Ignore
 import spock.lang.Shared
 import spock.lang.Specification
 

@@ -30,7 +30,7 @@ import javax.naming.Context
 import javax.naming.InitialContext
 import javax.naming.NamingException
 import javax.sql.XAConnection
-import javax.transaction.*
+import jakarta.transaction.*
 import javax.transaction.xa.XAException
 import javax.transaction.xa.XAResource
 import java.sql.*

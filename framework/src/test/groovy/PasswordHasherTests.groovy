@@ -139,11 +139,12 @@ class PasswordHasherTests extends Specification {
 
     def "BCrypt with special characters should work"() {
         given: "Passwords with special characters"
+        // Note: BCrypt has a 72-byte limit, so we test a long password within that limit
         def passwords = [
             "password with spaces",
             "p@ssw0rd!#\$%^&*()",
             "unicodePassword\u00e9\u00e8\u00ea",
-            "very long password " * 10
+            "a" * 71  // BCrypt max is 72 bytes
         ]
 
         expect: "All should hash and verify correctly"

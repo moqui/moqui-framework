@@ -299,7 +299,8 @@
 
     <transaction-facade use-transaction-cache="true" use-connection-stash="true" use-lock-track="${entity_lock_track}" use-statement-timeout="${entity_statement_timeout}">
         <!-- Use this for the internal transaction manager (not through JNDI) -->
-        <transaction-internal class="org.moqui.impl.context.TransactionInternalBitronix"/>
+        <!-- DEP-006: Replaced Bitronix with Narayana JTA for Java 21 compatibility -->
+        <transaction-internal class="org.moqui.impl.context.TransactionInternalNarayana"/>
 
         <!-- If this is not present the default JNDI server will be used -->
         <!-- <server-jndi context-provider-url="rmi://127.0.0.1:1099"

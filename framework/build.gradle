@@ -47,8 +47,8 @@ repositories {
     mavenCentral()
 }
 
-sourceCompatibility = 11
-targetCompatibility = 11
+sourceCompatibility = 21
+targetCompatibility = 21
 archivesBaseName = 'moqui'
 
 sourceSets {
@@ -92,12 +92,14 @@ dependencies {
     // Findbugs need only during compile (used by freemarker and various moqui classes)
     compileOnly 'com.google.code.findbugs:annotations:3.0.1'
 
-    // ========== Local (flatDir) libraries in framework/lib ==========
+    // ========== Transaction Manager ==========
 
-    // Bitronix Transaction Manager (the default internal tx mgr; custom build from source as 3.0.0 not yet released)
-    api 'org.codehaus.btm:btm:3.0.0-20161020' // Apache 2.0
-    runtimeOnly 'org.javassist:javassist:3.29.2-GA' // Apache 2.0
-
+    // Narayana Transaction Manager (replaces Bitronix for Java 21 compatibility)
+    // DEP-006: Replaced Bitronix 3.0.0 with Narayana 7.3.3 for Java 21 support
+    api 'org.jboss.narayana.jta:jta:7.3.3.Final'
+    api 'org.jboss:jboss-transaction-spi:8.0.0.Final'
+    // HikariCP for connection pooling (used with Narayana)
+    api 'com.zaxxer:HikariCP:6.2.1'
     // ========== General Libraries from Maven Central ==========
 
     // Apache Commons
@@ -106,11 +108,11 @@ dependencies {
     // NOTE: commons-email depends on com.sun.mail:javax.mail, included below, so use module() here to not get dependencies
     api module('org.apache.commons:commons-email:1.6.0') // Apache 2.0
     api 'org.apache.commons:commons-lang3:3.18.0' // Apache 2.0; used by cron-utils
-    api 'commons-beanutils:commons-beanutils:1.10.1' // Apache 2.0
+    api 'commons-beanutils:commons-beanutils:1.11.0' // Apache 2.0
     api 'commons-codec:commons-codec:1.18.0' // Apache 2.0
     api 'commons-collections:commons-collections:3.2.2' // Apache 2.0
     api 'commons-digester:commons-digester:2.1' // Apache 2.0
-    api 'commons-fileupload:commons-fileupload:1.5' // Apache 2.0
+    api 'commons-fileupload:commons-fileupload:1.6.0' // Apache 2.0
     api 'commons-io:commons-io:2.18.0' // Apache 2.0
     api 'commons-logging:commons-logging:1.3.5' // Apache 2.0
     api 'commons-validator:commons-validator:1.9.0' // Apache 2.0
@@ -132,7 +134,8 @@ dependencies {
     api 'com.h2database:h2:2.4.240' // MPL 2.0, EPL 1.0
 
     // Java Specifications
-    api 'javax.transaction:jta:1.1'
+    // DEP-006: Updated to Jakarta EE for Java 21 / Narayana compatibility
+    api 'jakarta.transaction:jakarta.transaction-api:2.0.1'
     api 'javax.cache:cache-api:1.1.1'
     api 'javax.jcr:jcr:2.0'
     // jaxb-api no longer included in Java 9 and later, also tested with openjdk-8

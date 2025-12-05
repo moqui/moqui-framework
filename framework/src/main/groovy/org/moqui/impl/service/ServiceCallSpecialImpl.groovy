@@ -17,11 +17,11 @@ import groovy.transform.CompileStatic
 import org.moqui.BaseArtifactException
 import org.moqui.service.ServiceException
 
-import javax.transaction.Synchronization
-import javax.transaction.Transaction
+import jakarta.transaction.Synchronization
+import jakarta.transaction.Transaction
 import javax.transaction.xa.XAException
-import javax.transaction.TransactionManager
-import javax.transaction.Status
+import jakarta.transaction.TransactionManager
+import jakarta.transaction.Status
 
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.service.ServiceCallSpecial

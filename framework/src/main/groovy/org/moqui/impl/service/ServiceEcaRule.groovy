@@ -20,11 +20,11 @@ import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.util.MNode
 import org.moqui.util.StringUtilities
 
-import javax.transaction.Synchronization
+import jakarta.transaction.Synchronization
 import javax.transaction.xa.XAException
-import javax.transaction.Transaction
-import javax.transaction.Status
-import javax.transaction.TransactionManager
+import jakarta.transaction.Transaction
+import jakarta.transaction.Status
+import jakarta.transaction.TransactionManager
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory

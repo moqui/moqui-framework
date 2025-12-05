@@ -20,6 +20,7 @@ import org.moqui.entity.EntityListIterator
 import org.moqui.entity.EntityValue
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import spock.lang.Ignore
 import spock.lang.Shared
 import spock.lang.Specification
 
