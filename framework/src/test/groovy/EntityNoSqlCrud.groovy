@@ -27,6 +27,7 @@ import spock.lang.Specification
 import java.sql.Time
 import java.sql.Timestamp
 
+@Ignore("Requires OpenSearch/ElasticSearch to be running")
 class EntityNoSqlCrud extends Specification {
     protected final static Logger logger = LoggerFactory.getLogger(EntityNoSqlCrud.class)
 
