@@ -47,6 +47,7 @@ repositories {
     mavenCentral()
 }
 
+// Java 21 compatibility (JAVA21-001)
 sourceCompatibility = 21
 targetCompatibility = 21
 archivesBaseName = 'moqui'
@@ -61,14 +62,17 @@ groovydoc {
     source = sourceSets.main.allSource
 }
 
-// tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:unchecked" }
-// tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:deprecation" }
-// tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:unchecked" }
-// tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:deprecation" }
-
-// Log4J has annotation processors, disable to avoid warning
-tasks.withType(JavaCompile) { options.compilerArgs << "-proc:none" }
-tasks.withType(GroovyCompile) { options.compilerArgs << "-proc:none" }
+// Enable compiler warnings for code quality (JAVA21-002)
+tasks.withType(JavaCompile) {
+    options.compilerArgs << "-Xlint:unchecked"
+    options.compilerArgs << "-Xlint:deprecation"
+    options.compilerArgs << "-proc:none"  // Log4J has annotation processors, disable to avoid warning
+}
+tasks.withType(GroovyCompile) {
+    options.compilerArgs << "-Xlint:unchecked"
+    options.compilerArgs << "-Xlint:deprecation"
+    options.compilerArgs << "-proc:none"
+}
 
 // NOTE: for dependency types and 'api' definition see: https://docs.gradle.org/current/userguide/java_library_plugin.html
 dependencies {

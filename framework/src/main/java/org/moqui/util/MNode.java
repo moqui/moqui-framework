@@ -53,10 +53,13 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
     /**
      * Creates a secure SAXParserFactory with XXE protections enabled.
      * This prevents XML External Entity (XXE) attacks by:
-     * - Disabling DOCTYPE declarations entirely
      * - Disabling external general and parameter entities
      * - Disabling external DTD loading
      * - Disabling XInclude processing
+     *
+     * Note: DOCTYPE declarations are allowed for internal entity definitions
+     * used in Moqui config files. This is secure because external entities
+     * are still disabled, preventing XXE attacks.
      *
      * @return A securely configured SAXParserFactory
      * @see <a href="https://cheatsheetseries.owasp.org/cheatsheets/XML_External_Entity_Prevention_Cheat_Sheet.html">OWASP XXE Prevention</a>
@@ -65,16 +68,17 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
         try {
             SAXParserFactory factory = SAXParserFactory.newInstance();
 
-            // Disable DOCTYPE declarations entirely (most secure option)
-            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            // Note: We allow DOCTYPE for internal entity definitions used in config files
+            // This is safe because we disable all external entity resolution below
+            // factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
 
-            // Disable external general entities
+            // Disable external general entities (prevents XXE file disclosure/SSRF)
             factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
 
-            // Disable external parameter entities
+            // Disable external parameter entities (prevents XXE attacks)
             factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
 
-            // Disable external DTD loading
+            // Disable external DTD loading (prevents XXE via DTD)
             factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
 
             // Disable XInclude processing
