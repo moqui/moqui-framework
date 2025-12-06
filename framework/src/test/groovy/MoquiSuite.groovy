@@ -25,7 +25,7 @@ import org.moqui.Moqui
         CacheFacadeTests.class, EntityCrud.class, EntityFindTests.class, EntityFacadeCharacterizationTests.class, EntityNoSqlCrud.class,
         L10nFacadeTests.class, MessageFacadeTests.class, ResourceFacadeTests.class, ServiceCrudImplicit.class,
         ServiceFacadeTests.class, ServiceFacadeCharacterizationTests.class, SubSelectTests.class, TimezoneTest.class, TransactionFacadeTests.class, UserFacadeTests.class,
-        SystemScreenRenderTests.class, ToolsRestApiTests.class, ToolsScreenRenderTests.class])
+        ScreenFacadeCharacterizationTests.class, SystemScreenRenderTests.class, ToolsRestApiTests.class, ToolsScreenRenderTests.class])
 class MoquiSuite {
     @AfterAll
     static void destroyMoqui() {
