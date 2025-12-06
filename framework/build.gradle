@@ -51,7 +51,6 @@ java {
     sourceCompatibility = 21
     targetCompatibility = 21
 }
-archivesBaseName = 'moqui'
 
 base {
     archivesName.set('moqui')
@@ -114,8 +113,8 @@ dependencies {
     // Apache Commons
     // DEP-005: Updated Apache Commons libraries to latest versions
     api 'org.apache.commons:commons-csv:1.14.0' // Apache 2.0
-    // NOTE: commons-email depends on com.sun.mail:javax.mail, included below, so use module() here to not get dependencies
-    api module('org.apache.commons:commons-email:1.6.0') // Apache 2.0
+    // NOTE: commons-email depends on javax.mail, use transitive=false to avoid pulling in javax namespace
+    api('org.apache.commons:commons-email:1.6.0') { transitive = false } // Apache 2.0
     api 'org.apache.commons:commons-lang3:3.18.0' // Apache 2.0; used by cron-utils
     api 'commons-beanutils:commons-beanutils:1.11.0' // Apache 2.0
     api 'commons-codec:commons-codec:1.18.0' // Apache 2.0
@@ -152,11 +151,12 @@ dependencies {
     }
     // NOTE: javax.activation:javax.activation-api is required by jaxb-api, has classes same as old 2012 javax.activation:activation used by javax.mail
     // NOTE: as of Java 11 the com.sun packages no longer available so for javax.mail need full javax.activation jar (also includes javax.activation-api)
-    api 'com.sun.activation:javax.activation:1.2.0' // CDDL 1.1
-    api 'javax.websocket:javax.websocket-api:1.1'
+    // JETTY-001: Updated to Jakarta EE 10 APIs for Jetty 12 compatibility
+    api 'jakarta.activation:jakarta.activation-api:2.1.3' // EDL 1.0
+    api 'jakarta.websocket:jakarta.websocket-api:2.1.1'
     // TODO: this should be compileOnlyApi, but that was not included in Gradle 5... so cannot have excluded from
     //     runtime in a single way for Gradle 5 and 7; for now leaving in api, not desirable because we don't want it in the war file
-    api 'javax.servlet:javax.servlet-api:4.0.1'
+    api 'jakarta.servlet:jakarta.servlet-api:6.0.0'
     // Specs not needed by default:
     // api 'javax.resource:connector-api:1.5'
     // api 'javax.jms:jms:1.1'
@@ -171,12 +171,13 @@ dependencies {
     api 'com.fasterxml.jackson.core:jackson-databind:2.20.1'
 
     // Jetty HTTP Client and Proxy Servlet
-    api 'org.eclipse.jetty:jetty-client:10.0.25' // Apache 2.0
-    api 'org.eclipse.jetty:jetty-proxy:10.0.25' // Apache 2.0
+    // JETTY-001: Updated Jetty 10.0.25 -> 12.1.4 for Jakarta EE 10 support
+    api 'org.eclipse.jetty:jetty-client:12.1.4' // Apache 2.0
+    api 'org.eclipse.jetty.ee10:jetty-ee10-proxy:12.1.4' // Apache 2.0
 
-    // javax.mail
-    // NOTE: javax.mail depends on 'javax.activation:activation' which is the old package for 'javax.activation:javax.activation-api' used by jaxb-api
-    api('com.sun.mail:javax.mail:1.6.2') { // CDDL
+    // Jakarta Mail (JETTY-001: Updated from javax.mail for Jakarta EE 10)
+    // NOTE: Angus Mail is the reference implementation for Jakarta Mail 2.1
+    api('org.eclipse.angus:angus-mail:2.0.3') { // EPL 2.0
         transitive = false
     }
 
@@ -187,8 +188,8 @@ dependencies {
     api 'org.jsoup:jsoup:1.19.1' // MIT
 
     // Apache Shiro - upgraded to 2.0.6 for security fixes (SHIRO-001)
-    api module('org.apache.shiro:shiro-core:2.0.6') // Apache 2.0
-    api module('org.apache.shiro:shiro-web:2.0.6') // Apache 2.0
+    api('org.apache.shiro:shiro-core:2.0.6') { transitive = false } // Apache 2.0
+    api('org.apache.shiro:shiro-web:2.0.6') { transitive = false } // Apache 2.0
     // Shiro 2.x split modules - need these for compatibility
     api 'org.apache.shiro:shiro-crypto-hash:2.0.6' // Apache 2.0
     api 'org.apache.shiro:shiro-crypto-cipher:2.0.6' // Apache 2.0
@@ -239,18 +240,18 @@ dependencies {
     testImplementation 'org.hamcrest:hamcrest-core:2.2' // BSD 3-Clause
 
     // ========== executable war dependencies ==========
-    // Jetty
-    execWarRuntimeOnly 'org.eclipse.jetty:jetty-server:10.0.25' // Apache 2.0
-    execWarRuntimeOnly 'org.eclipse.jetty:jetty-webapp:10.0.25' // Apache 2.0
-    execWarRuntimeOnly 'org.eclipse.jetty:jetty-jndi:10.0.25' // Apache 2.0
-    execWarRuntimeOnly 'org.eclipse.jetty.websocket:websocket-javax-server:10.0.25' // Apache 2.0
-    execWarRuntimeOnly ('org.eclipse.jetty.websocket:websocket-javax-client:10.0.25') { // Apache 2.0
-        exclude group: 'javax.websocket' } // we have the full websocket API, including the client one causes problems
-    execWarRuntimeOnly 'javax.websocket:javax.websocket-api:1.1'
-    execWarRuntimeOnly ('org.eclipse.jetty.websocket:websocket-jetty-server:10.0.25') // Apache 2.0
+    // Jetty - JETTY-001: Updated to 12.1.4 with EE10 (Jakarta EE 10) modules
+    execWarRuntimeOnly 'org.eclipse.jetty:jetty-server:12.1.4' // Apache 2.0
+    execWarRuntimeOnly 'org.eclipse.jetty.ee10:jetty-ee10-webapp:12.1.4' // Apache 2.0
+    execWarRuntimeOnly 'org.eclipse.jetty:jetty-jndi:12.1.4' // Apache 2.0
+    execWarRuntimeOnly 'org.eclipse.jetty.ee10.websocket:jetty-ee10-websocket-jakarta-server:12.1.4' // Apache 2.0
+    execWarRuntimeOnly ('org.eclipse.jetty.ee10.websocket:jetty-ee10-websocket-jakarta-client:12.1.4') { // Apache 2.0
+        exclude group: 'jakarta.websocket' } // we have the full websocket API, including the client one causes problems
+    execWarRuntimeOnly 'jakarta.websocket:jakarta.websocket-api:2.1.1'
+    execWarRuntimeOnly ('org.eclipse.jetty.ee10.websocket:jetty-ee10-websocket-jetty-server:12.1.4') // Apache 2.0
     // only include this if using Endpoint and MessageHandler annotations:
-    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:10.0.25') // Apache 2.0
-    execWarRuntimeOnly 'org.apache.logging.log4j:log4j-slf4j18-impl:2.18.0'
+    // execWarRuntime ('org.eclipse.jetty.ee10:jetty-ee10-annotations:12.1.4') // Apache 2.0
+    execWarRuntimeOnly 'org.apache.logging.log4j:log4j-slf4j2-impl:2.25.0'
 }
 
 // setup task dependencies to make sure the start sourceSets always get run
