@@ -97,7 +97,7 @@ class H2ServerToolFactory implements ToolFactory<Server> {
         // NOTE: using shutdown() instead of stop() so it shuts down the DB and stops the TCP server
         if (h2Server != null) {
             h2Server.shutdown()
-            System.out.println("Shut down H2 Server")
+            logger.info("Shut down H2 Server")
         }
     }
 }
