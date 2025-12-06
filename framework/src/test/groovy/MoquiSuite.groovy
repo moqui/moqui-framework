@@ -24,7 +24,7 @@ import org.moqui.Moqui
 @SelectClasses([ MNodeSecurityTests.class, PasswordHasherTests.class, ShiroAuthenticationTests.class, NarayanaTransactionTests.class,
         CacheFacadeTests.class, EntityCrud.class, EntityFindTests.class, EntityFacadeCharacterizationTests.class, EntityNoSqlCrud.class,
         L10nFacadeTests.class, MessageFacadeTests.class, ResourceFacadeTests.class, ServiceCrudImplicit.class,
-        ServiceFacadeTests.class, SubSelectTests.class, TimezoneTest.class, TransactionFacadeTests.class, UserFacadeTests.class,
+        ServiceFacadeTests.class, ServiceFacadeCharacterizationTests.class, SubSelectTests.class, TimezoneTest.class, TransactionFacadeTests.class, UserFacadeTests.class,
         SystemScreenRenderTests.class, ToolsRestApiTests.class, ToolsScreenRenderTests.class])
 class MoquiSuite {
     @AfterAll
