@@ -168,7 +168,7 @@ class ElasticFacadeImpl implements ElasticFacade {
         private Map serverInfo = (Map) null
         private String esVersion = (String) null
         private boolean esVersionUnder7 = false
-        private boolean isOpenSearch = false
+        private boolean isOpenSearch = true
 
         ElasticClientImpl(MNode clusterNode, ExecutionContextFactoryImpl ecfi) {
             this.ecfi = ecfi
@@ -357,7 +357,8 @@ class ElasticFacadeImpl implements ElasticFacade {
                 jacksonMapper.writeValue(bodyWriter, entry)
                 bodyWriter.append((char) '\n')
             }
-            RestClient restClient = makeRestClient(Method.POST, index, "_bulk", [refresh:(refresh ? "true" : "wait_for")])
+            Map params = isOpenSearch ? [:] : [refresh:(refresh ? "true" : "wait_for")]
+            RestClient restClient = makeRestClient(Method.POST, index, "_bulk", params)
                     .contentType("application/x-ndjson")
             restClient.timeout(600)
             restClient.text(bodyWriter.toString())
