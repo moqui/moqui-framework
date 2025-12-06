@@ -256,7 +256,31 @@ test {
     useJUnitPlatform()
     testLogging { events "passed", "skipped", "failed" }
     testLogging.showStandardStreams = true; testLogging.showExceptions = true
-    maxParallelForks 1
+
+    // TEST-006: Parallel test execution configuration
+    // Note: Moqui tests share ExecutionContextFactory and database state within a suite,
+    // so true parallel execution requires running separate test suites in different forks.
+    // The current MoquiSuite runs all tests sequentially within a single fork for database consistency.
+    // For CI optimization, consider splitting into multiple independent test suites.
+    //
+    // Set via gradle property: ./gradlew test -PmaxForks=4
+    // Or environment variable: MAX_TEST_FORKS=4 ./gradlew test
+    def forks = project.hasProperty('maxForks') ? project.property('maxForks').toInteger() :
+                System.getenv('MAX_TEST_FORKS') ? System.getenv('MAX_TEST_FORKS').toInteger() : 1
+    maxParallelForks = Math.min(forks, Runtime.runtime.availableProcessors())
+
+    // Configure memory per fork when running in parallel
+    if (maxParallelForks > 1) {
+        minHeapSize = "256m"
+        maxHeapSize = "1g"
+        // Ensure each fork gets a unique temp directory for test isolation
+        systemProperty 'java.io.tmpdir', "${buildDir}/test-tmp-${System.currentTimeMillis()}"
+    }
+
+    // Fail fast on first test failure in CI environments
+    if (System.getenv('CI') == 'true') {
+        failFast = true
+    }
 
     dependsOn cleanTest, jar
     include '**/*MoquiSuite.class'
