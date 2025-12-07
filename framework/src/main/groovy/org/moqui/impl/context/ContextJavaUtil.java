@@ -297,19 +297,13 @@ public class ContextJavaUtil {
         }
     }
 
-    static class RollbackInfo {
-        public String causeMessage;
-        /** A rollback is often done because of another error, this represents that error. */
-        public Throwable causeThrowable;
-        /** This is for a stack trace for where the rollback was actually called to help track it down more easily. */
-        public Exception rollbackLocation;
-
-        public RollbackInfo(String causeMessage, Throwable causeThrowable, Exception rollbackLocation) {
-            this.causeMessage = causeMessage;
-            this.causeThrowable = causeThrowable;
-            this.rollbackLocation = rollbackLocation;
-        }
-    }
+    /**
+     * Immutable record for transaction rollback information.
+     * @param causeMessage The message describing the rollback cause
+     * @param causeThrowable A rollback is often done because of another error, this represents that error
+     * @param rollbackLocation Stack trace for where the rollback was actually called to help track it down
+     */
+    record RollbackInfo(String causeMessage, Throwable causeThrowable, Exception rollbackLocation) {}
 
     static final AtomicLong moquiTxIdLast = new AtomicLong(0L);
     static class TxStackInfo {

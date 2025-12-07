@@ -21,11 +21,11 @@ import org.moqui.Moqui
 // for JUnit 5 Jupiter annotations see: https://junit.org/junit5/docs/current/user-guide/index.html#writing-tests-annotations
 
 @Suite
-@SelectClasses([ MNodeSecurityTests.class, PasswordHasherTests.class, ShiroAuthenticationTests.class, NarayanaTransactionTests.class,
-        CacheFacadeTests.class, EntityCrud.class, EntityFindTests.class, EntityNoSqlCrud.class,
+@SelectClasses([ MNodeSecurityTests.class, PasswordHasherTests.class, ShiroAuthenticationTests.class, SecurityAuthIntegrationTests.class,
+        NarayanaTransactionTests.class, CacheFacadeTests.class, EntityCrud.class, EntityFindTests.class, EntityFacadeCharacterizationTests.class, EntityNoSqlCrud.class,
         L10nFacadeTests.class, MessageFacadeTests.class, ResourceFacadeTests.class, ServiceCrudImplicit.class,
-        ServiceFacadeTests.class, SubSelectTests.class, TimezoneTest.class, TransactionFacadeTests.class, UserFacadeTests.class,
-        SystemScreenRenderTests.class, ToolsRestApiTests.class, ToolsScreenRenderTests.class])
+        ServiceFacadeTests.class, ServiceFacadeCharacterizationTests.class, SubSelectTests.class, TimezoneTest.class, TransactionFacadeTests.class, UserFacadeTests.class,
+        ScreenFacadeCharacterizationTests.class, SystemScreenRenderTests.class, RestApiContractTests.class, ToolsRestApiTests.class, ToolsScreenRenderTests.class])
 class MoquiSuite {
     @AfterAll
     static void destroyMoqui() {

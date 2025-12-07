@@ -347,8 +347,8 @@ class TransactionFacadeImpl implements TransactionFacade {
                 logger.warn("Current transaction marked for rollback, so no transaction begun (NOTE: No stack trace to show where transaction began).")
             }
             if (txStackInfo.rollbackOnlyInfo != null) {
-                logger.warn("Current transaction marked for rollback, not beginning a new transaction. The rollback-only was set here: ", txStackInfo.rollbackOnlyInfo.rollbackLocation)
-                throw new TransactionException((String) "Current transaction marked for rollback, so no transaction begun. The rollback was originally caused by: " + txStackInfo.rollbackOnlyInfo.causeMessage, txStackInfo.rollbackOnlyInfo.causeThrowable)
+                logger.warn("Current transaction marked for rollback, not beginning a new transaction. The rollback-only was set here: ", txStackInfo.rollbackOnlyInfo.rollbackLocation())
+                throw new TransactionException((String) "Current transaction marked for rollback, so no transaction begun. The rollback was originally caused by: " + txStackInfo.rollbackOnlyInfo.causeMessage(), txStackInfo.rollbackOnlyInfo.causeThrowable())
             } else {
                 return false
             }
@@ -398,7 +398,7 @@ class TransactionFacadeImpl implements TransactionFacade {
             txStackInfo.closeTxConnections()
             if (status == Status.STATUS_MARKED_ROLLBACK) {
                 if (txStackInfo.rollbackOnlyInfo != null) {
-                    logger.warn("Tried to commit transaction but marked rollback only, doing rollback instead; rollback-only was set here:", txStackInfo.rollbackOnlyInfo.rollbackLocation)
+                    logger.warn("Tried to commit transaction but marked rollback only, doing rollback instead; rollback-only was set here:", txStackInfo.rollbackOnlyInfo.rollbackLocation())
                 } else {
                     logger.warn("Tried to commit transaction but marked rollback only, doing rollback instead; no rollback-only info, current location:", new BaseException("Rollback instead of commit location"))
                 }
@@ -413,8 +413,8 @@ class TransactionFacadeImpl implements TransactionFacade {
             }
         } catch (RollbackException e) {
             if (txStackInfo.rollbackOnlyInfo != null) {
-                logger.warn("Could not commit transaction, was marked rollback-only. The rollback-only was set here: ", txStackInfo.rollbackOnlyInfo.rollbackLocation)
-                throw new TransactionException("Could not commit transaction, was marked rollback-only. The rollback was originally caused by: " + txStackInfo.rollbackOnlyInfo.causeMessage, txStackInfo.rollbackOnlyInfo.causeThrowable)
+                logger.warn("Could not commit transaction, was marked rollback-only. The rollback-only was set here: ", txStackInfo.rollbackOnlyInfo.rollbackLocation())
+                throw new TransactionException("Could not commit transaction, was marked rollback-only. The rollback was originally caused by: " + txStackInfo.rollbackOnlyInfo.causeMessage(), txStackInfo.rollbackOnlyInfo.causeThrowable())
             } else {
                 throw new TransactionException("Could not commit transaction, was rolled back instead (and we don't have a rollback-only cause)", e)
             }

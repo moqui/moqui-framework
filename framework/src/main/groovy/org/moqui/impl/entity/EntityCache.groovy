@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory
 
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
+import java.util.concurrent.CopyOnWriteArrayList
 
 @CompileStatic
 class EntityCache {
@@ -289,8 +290,9 @@ class EntityCache {
             }
 
             // see if this entity is a member of a cached view-entity
+            // CopyOnWriteArrayList provides thread-safe iteration without explicit synchronization
             List<String> cachedViewEntityNames = (List<String>) cachedListViewEntitiesByMember.get(fullEntityName)
-            if (cachedViewEntityNames != null) synchronized (cachedViewEntityNames) {
+            if (cachedViewEntityNames != null) {
                 int cachedViewEntityNamesSize = cachedViewEntityNames.size()
                 for (int i = 0; i < cachedViewEntityNamesSize; i++) {
                     String cachedViewEntityName = (String) cachedViewEntityNames.get(i)
@@ -452,7 +454,7 @@ class EntityCache {
                 // remember that this member entity has been used in a cached view entity
                 List<String> cachedViewEntityNames = cachedListViewEntitiesByMember.get(memberEntityName)
                 if (cachedViewEntityNames == null) {
-                    cachedViewEntityNames = Collections.synchronizedList(new ArrayList<>()) as List<String>
+                    cachedViewEntityNames = new CopyOnWriteArrayList<String>()
                     cachedListViewEntitiesByMember.put(memberEntityName, cachedViewEntityNames)
                     cachedViewEntityNames.add(entityName)
                     // logger.info("Added ${entityName} as a cached view-entity for member ${memberEntityName}")
