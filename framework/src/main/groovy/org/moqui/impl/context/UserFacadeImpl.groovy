@@ -18,12 +18,12 @@ import org.apache.shiro.authc.AuthenticationToken
 import org.apache.shiro.authc.ExpiredCredentialsException
 import org.moqui.context.PasswordChangeRequiredException
 
-import javax.websocket.server.HandshakeRequest
+import jakarta.websocket.server.HandshakeRequest
 import java.sql.Timestamp
-import javax.servlet.http.Cookie
-import javax.servlet.http.HttpServletRequest
-import javax.servlet.http.HttpServletResponse
-import javax.servlet.http.HttpSession
+import jakarta.servlet.http.Cookie
+import jakarta.servlet.http.HttpServletRequest
+import jakarta.servlet.http.HttpServletResponse
+import jakarta.servlet.http.HttpSession
 
 import org.apache.shiro.authc.AuthenticationException
 import org.apache.shiro.authc.UsernamePasswordToken

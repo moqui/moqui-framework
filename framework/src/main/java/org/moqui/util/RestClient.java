@@ -15,19 +15,15 @@ package org.moqui.util;
 
 import groovy.json.JsonBuilder;
 import groovy.json.JsonSlurperClassic;
-import org.eclipse.jetty.client.HttpClient;
-import org.eclipse.jetty.client.HttpClientTransport;
-import org.eclipse.jetty.client.HttpResponseException;
-import org.eclipse.jetty.client.ValidatingConnectionPool;
-import org.eclipse.jetty.client.api.*;
-import org.eclipse.jetty.client.dynamic.HttpClientTransportDynamic;
-import org.eclipse.jetty.client.http.HttpClientTransportOverHTTP;
-import org.eclipse.jetty.client.util.*;
+import org.eclipse.jetty.client.*;
+import org.eclipse.jetty.client.transport.HttpClientTransportDynamic;
+import org.eclipse.jetty.client.transport.HttpClientTransportOverHTTP;
 import org.eclipse.jetty.http.HttpField;
 import org.eclipse.jetty.http.HttpFields;
 import org.eclipse.jetty.http.HttpHeader;
+import org.eclipse.jetty.http.HttpCookieStore;
+import org.eclipse.jetty.http.MultiPart;
 import org.eclipse.jetty.io.ClientConnector;
-import org.eclipse.jetty.util.HttpCookieStore;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
 import org.eclipse.jetty.util.thread.ScheduledExecutorScheduler;
@@ -221,7 +217,8 @@ public class RestClient {
         if (method != Method.POST) throw new IllegalStateException("Can only use multipart body with POST method, not supported for method " + method + "; if you need a different effective request method try using the X-HTTP-Method-Override header");
 
         if (multiPart == null) multiPart = new MultiPartRequestContent();
-        multiPart.addFieldPart(field, new StringRequestContent(value), null);
+        // Jetty 12: Use MultiPart.ContentSourcePart instead of addFieldPart
+        multiPart.addPart(new MultiPart.ContentSourcePart(field, null, HttpFields.EMPTY, new StringRequestContent(value)));
         return this;
     }
     /** Add a String file part to a multi part request **/
@@ -238,7 +235,9 @@ public class RestClient {
     public RestClient addFilePart(String name, String fileName, Request.Content content, HttpFields fields) {
         if (method != Method.POST) throw new IllegalStateException("Can only use multipart body with POST method, not supported for method " + method + "; if you need a different effective request method try using the X-HTTP-Method-Override header");
         if (multiPart == null) multiPart = new MultiPartRequestContent();
-        multiPart.addFilePart(name, fileName, content, fields);
+        // Jetty 12: Use MultiPart.ContentSourcePart instead of addFilePart
+        HttpFields httpFields = (fields != null) ? fields : HttpFields.EMPTY;
+        multiPart.addPart(new MultiPart.ContentSourcePart(name, fileName, httpFields, content));
         return this;
     }
 
@@ -312,16 +311,14 @@ public class RestClient {
             Request request = makeRequest(tempFactory != null ? tempFactory : (overrideRequestFactory != null ? overrideRequestFactory : getDefaultRequestFactory()));
             if (timeoutSeconds < 2) timeoutSeconds = 2;
             request.idleTimeout(timeoutSeconds > 30 ? 30 : timeoutSeconds-1, TimeUnit.SECONDS);
-            // use a FutureResponseListener so we can set the timeout and max response size (old: response = request.send(); )
-            FutureResponseListener listener = new FutureResponseListener(request, maxResponseSize);
+            // Jetty 12: use CompletableResponseListener instead of FutureResponseListener
+            CompletableResponseListener listener = new CompletableResponseListener(request, maxResponseSize);
             try {
-                request.send(listener);
-                ContentResponse response = listener.get(timeoutSeconds, TimeUnit.SECONDS);
+                CompletableFuture<ContentResponse> completable = listener.send();
+                ContentResponse response = completable.get(timeoutSeconds, TimeUnit.SECONDS);
                 return new RestResponse(this, response);
             } catch (TimeoutException e) {
                 logger.warn("RestClient request timed out after " + timeoutSeconds + "s to " + request.getURI());
-                // cancel listener, just in case
-                listener.cancel(true);
                 // abort request to make sure it gets closed and cleaned up
                 request.abort(e);
                 throw e;
@@ -338,14 +335,14 @@ public class RestClient {
         request.method(method.name());
         // set charset on request?
 
-        // add headers and parameters
-        for (KeyValueString nvp : headerList) request.header(nvp.key, nvp.value);
+        // add headers and parameters (Jetty 12: use headers() consumer pattern)
+        for (KeyValueString nvp : headerList) request.headers(h -> h.put(nvp.key, nvp.value));
         for (KeyValueString nvp : bodyParameterList) request.param(nvp.key, nvp.value);
         // authc
         if (username != null && !username.isEmpty()) {
             String unPwString = username + ':' + password;
             String basicAuthStr  = "Basic " + Base64.getEncoder().encodeToString(unPwString.getBytes());
-            request.header(HttpHeader.AUTHORIZATION, basicAuthStr);
+            request.headers(h -> h.put(HttpHeader.AUTHORIZATION, basicAuthStr));
             // using basic Authorization header instead, too many issues with this: httpClient.getAuthenticationStore().addAuthentication(new BasicAuthentication(uri, BasicAuthentication.ANY_REALM, username, password));
         }
 
@@ -600,7 +597,8 @@ public class RestClient {
     public static class RestClientFuture implements Future<RestResponse> {
         RestClient rci;
         RequestFactory tempRequestFactory = null;
-        FutureResponseListener listener;
+        // Jetty 12: Use CompletableFuture instead of FutureResponseListener
+        CompletableFuture<ContentResponse> responseFuture;
         volatile float curWaitSeconds;
         volatile int retryCount = 0;
         volatile boolean cancelled = false;
@@ -625,23 +623,23 @@ public class RestClient {
                         (rci.overrideRequestFactory != null ? rci.overrideRequestFactory : getDefaultRequestFactory()));
                 // use a CompleteListener to retry in background
                 request.onComplete(new RetryListener(this));
-                // use a FutureResponseListener so we can set the timeout and max response size (old: response = request.send(); )
-                listener = new FutureResponseListener(request, rci.maxResponseSize);
-                request.send(listener);
+                // Jetty 12: use CompletableResponseListener instead of FutureResponseListener
+                CompletableResponseListener listener = new CompletableResponseListener(request, rci.maxResponseSize);
+                responseFuture = listener.send();
             } catch (Exception e) {
                 throw new BaseException("Error calling REST request to " + rci.uriString, e);
             }
         }
 
-        @Override public boolean isCancelled() { return cancelled || listener.isCancelled(); }
-        @Override public boolean isDone() { return retryCount >= rci.maxRetries && listener.isDone(); }
+        @Override public boolean isCancelled() { return cancelled || responseFuture.isCancelled(); }
+        @Override public boolean isDone() { return retryCount >= rci.maxRetries && responseFuture.isDone(); }
 
         @Override public boolean cancel(boolean mayInterruptIfRunning) {
             retryLock.lock();
             try {
                 try {
                     cancelled = true;
-                    return listener.cancel(mayInterruptIfRunning);
+                    return responseFuture.cancel(mayInterruptIfRunning);
                 } finally {
                     if (tempRequestFactory != null) {
                         tempRequestFactory.destroy();
@@ -667,7 +665,7 @@ public class RestClient {
                 retryLock.lock();
                 try {
                     try {
-                        lastResponse = listener.get(timeout, unit);
+                        lastResponse = responseFuture.get(timeout, unit);
                         if (lastResponse.getStatus() != TOO_MANY) break;
                     } finally {
                         if (tempRequestFactory != null) {
@@ -701,7 +699,8 @@ public class RestClient {
             clientConnector.setSslContextFactory(sslContextFactory);
             httpClient = new HttpClient(new HttpClientTransportDynamic(clientConnector));
 
-            if (disableCookieManagement) httpClient.setCookieStore(new HttpCookieStore.Empty());
+            // Jetty 12: Use setHttpCookieStore instead of setCookieStore
+            if (disableCookieManagement) httpClient.setHttpCookieStore(new HttpCookieStore.Empty());
             // use a default idle timeout of 15 seconds, should be lower than server idle timeouts which will vary by server but 30 seconds seems to be common
             httpClient.setIdleTimeout(15000);
             try { httpClient.start(); } catch (Exception e) { throw new BaseException("Error starting HTTP client", e); }
@@ -770,8 +769,9 @@ public class RestClient {
             if (executor == null) { executor = new QueuedThreadPool(); executor.setName(shortName + "-queue"); }
             if (scheduler == null) scheduler = new ScheduledExecutorScheduler(shortName + "-scheduler", false);
 
+            // Jetty 12: ValidatingConnectionPool constructor changed - removed duplicate destination parameter
             transport.setConnectionPoolFactory(destination -> new ValidatingConnectionPool(destination,
-                    destination.getHttpClient().getMaxConnectionsPerDestination(), destination,
+                    destination.getHttpClient().getMaxConnectionsPerDestination(),
                     destination.getHttpClient().getScheduler(), validationTimeoutMillis));
 
             httpClient = new HttpClient(transport);
