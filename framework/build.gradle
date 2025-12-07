@@ -151,6 +151,8 @@ dependencies {
     // NOTE: as of Java 11 the com.sun packages no longer available so for javax.mail need full javax.activation jar (also includes javax.activation-api)
     // JETTY-001: Updated to Jakarta EE 10 APIs for Jetty 12 compatibility
     api 'jakarta.activation:jakarta.activation-api:2.1.3' // EDL 1.0
+    // JETTY-002: Angus Activation implementation required for MimetypesFileTypeMap functionality
+    api 'org.eclipse.angus:angus-activation:2.0.2' // EDL 1.0
     api 'jakarta.websocket:jakarta.websocket-api:2.1.1' // Server-side WebSocket API
     api 'jakarta.websocket:jakarta.websocket-client-api:2.1.1' // Client-side WebSocket API (includes Extension)
     // TODO: this should be compileOnlyApi, but that was not included in Gradle 5... so cannot have excluded from

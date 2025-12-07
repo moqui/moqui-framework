@@ -30,7 +30,26 @@ import java.util.*;
 
 public abstract class ResourceReference implements Serializable {
     private static final Logger logger = LoggerFactory.getLogger(ResourceReference.class);
-    private static final MimetypesFileTypeMap mimetypesFileTypeMap = new MimetypesFileTypeMap();
+    private static final MimetypesFileTypeMap mimetypesFileTypeMap = initMimetypesFileTypeMap();
+
+    /** Initialize MimetypesFileTypeMap with common MIME types not in the default map */
+    private static MimetypesFileTypeMap initMimetypesFileTypeMap() {
+        MimetypesFileTypeMap map = new MimetypesFileTypeMap();
+        // Add common MIME types that aren't in the default map
+        map.addMimeTypes("text/xml xml xsl xsd");
+        map.addMimeTypes("text/plain txt ini conf cfg");
+        map.addMimeTypes("text/x-java-properties properties");
+        map.addMimeTypes("text/x-freemarker ftl");
+        map.addMimeTypes("text/x-groovy groovy gvy gy gsh");
+        map.addMimeTypes("application/json json");
+        map.addMimeTypes("application/javascript js mjs");
+        map.addMimeTypes("text/css css");
+        map.addMimeTypes("text/html html htm");
+        map.addMimeTypes("text/csv csv");
+        map.addMimeTypes("text/markdown md markdown");
+        map.addMimeTypes("application/yaml yaml yml");
+        return map;
+    }
 
     protected ResourceReference childOfResource = null;
     private Map<String, ResourceReference> subContentRefByPath = null;

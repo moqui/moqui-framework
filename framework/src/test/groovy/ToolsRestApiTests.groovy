@@ -68,8 +68,9 @@ class ToolsRestApiTests extends Specification {
 
         where:
         screenPath | containsText1 | containsText2
+        // Use Enumeration which is heavily used during test startup (1800+ creates)
         "s1/moqui/artifacts/hitSummary?artifactType=AT_ENTITY&artifactSubType=create&artifactName=moqui.basic&artifactName_op=contains" |
-                "moqui.basic.StatusType" | '"artifactSubType" : "create"'
+                "moqui.basic.Enumeration" | '"artifactSubType" : "create"'
         "s1/moqui/basic/geos/USA" | "United States" | "Country"
         "s1/moqui/basic/geos/USA/regions" | "" | ""
         "s1/moqui/email/templates" | "PASSWORD_RESET" | "Default Password Reset"

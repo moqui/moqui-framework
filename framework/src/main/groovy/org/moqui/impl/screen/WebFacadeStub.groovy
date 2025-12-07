@@ -188,8 +188,32 @@ class WebFacadeStub implements WebFacade {
     @Override void sendError(int errorCode, String message, Throwable origThrowable) { response.sendError(errorCode, message) }
 
     @Override void handleJsonRpcServiceCall() { throw new IllegalArgumentException("WebFacadeStub handleJsonRpcServiceCall not supported") }
-    @Override void handleEntityRestCall(List<String> extraPathNameList, boolean masterNameInPath) {
-        throw new IllegalArgumentException("WebFacadeStub handleEntityRestCall not supported") }
+
+    @Override
+    void handleEntityRestCall(List<String> extraPathNameList, boolean masterNameInPath) {
+        long startTime = System.currentTimeMillis()
+        ExecutionContextImpl eci = ecfi.getEci()
+        ContextStack parmStack = (ContextStack) getParameters()
+        String method = requestMethod ?: "get"
+
+        try {
+            Object responseObj = eci.entityFacade.rest(method, extraPathNameList, parmStack, masterNameInPath)
+            response.addIntHeader('X-Run-Time-ms', (System.currentTimeMillis() - startTime) as int)
+
+            // Set pagination headers if available
+            if (parmStack.xTotalCount != null) response.addIntHeader('X-Total-Count', parmStack.xTotalCount as int)
+            if (parmStack.xPageIndex != null) response.addIntHeader('X-Page-Index', parmStack.xPageIndex as int)
+            if (parmStack.xPageSize != null) response.addIntHeader('X-Page-Size', parmStack.xPageSize as int)
+            if (parmStack.xPageMaxIndex != null) response.addIntHeader('X-Page-Max-Index', parmStack.xPageMaxIndex as int)
+            if (parmStack.xPageRangeLow != null) response.addIntHeader('X-Page-Range-Low', parmStack.xPageRangeLow as int)
+            if (parmStack.xPageRangeHigh != null) response.addIntHeader('X-Page-Range-High', parmStack.xPageRangeHigh as int)
+
+            sendJsonResponse(responseObj)
+        } catch (Throwable t) {
+            logger.warn("Error in entity REST call: ${t.message}", t)
+            sendJsonError(500, t.message, t)
+        }
+    }
 
     @Override
     void handleServiceRestCall(List<String> extraPathNameList) {
