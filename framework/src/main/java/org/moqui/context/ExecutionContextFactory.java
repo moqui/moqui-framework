@@ -17,12 +17,17 @@ import groovy.lang.GroovyClassLoader;
 import org.moqui.entity.EntityFacade;
 import org.moqui.screen.ScreenFacade;
 import org.moqui.service.ServiceFacade;
+import org.moqui.util.MNode;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import jakarta.servlet.ServletContext;
 import jakarta.websocket.server.ServerContainer;
+import java.net.InetAddress;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ThreadPoolExecutor;
 
 /**
  * Interface for the object that will be used to get an ExecutionContext object and manage framework life cycle.
@@ -98,4 +103,56 @@ public interface ExecutionContextFactory {
 
     void registerLogEventSubscriber(@Nonnull LogEventSubscriber subscriber);
     List<LogEventSubscriber> getLogEventSubscribers();
+
+    // ======== Additional Methods for Dependency Inversion (ARCH-001) ========
+
+    /** Get the main configuration XML root node. */
+    @Nonnull MNode getConfXmlRoot();
+
+    /** Get the server stats configuration node. */
+    @Nullable MNode getServerStatsNode();
+
+    /** Get the localhost address for this server instance. */
+    @Nullable InetAddress getLocalhostAddress();
+
+    /** Get the main worker thread pool for async operations, service calls, etc. */
+    @Nonnull ThreadPoolExecutor getWorkerPool();
+
+    /** Get the Shiro SecurityManager for authentication and authorization. */
+    @Nonnull org.apache.shiro.mgt.SecurityManager getSecurityManager();
+
+    /** Get the time this factory was initialized (start time in milliseconds). */
+    long getInitStartTime();
+
+    /**
+     * Get artifact execution configuration for a given artifact type.
+     * @param artifactTypeEnumId The artifact type (e.g., "AT_XML_SCREEN", "AT_SERVICE")
+     * @return The configuration node or null if not found
+     */
+    @Nullable MNode getArtifactExecutionNode(String artifactTypeEnumId);
+
+    /**
+     * Get map indicating which artifact types have authorization enabled.
+     * @return Map of ArtifactType to Boolean (true if authz enabled)
+     */
+    @Nonnull Map<ArtifactExecutionInfo.ArtifactType, Boolean> getArtifactTypeAuthzEnabled();
+
+    /**
+     * Get map indicating which artifact types have tarpit (rate limiting) enabled.
+     * @return Map of ArtifactType to Boolean (true if tarpit enabled)
+     */
+    @Nonnull Map<ArtifactExecutionInfo.ArtifactType, Boolean> getArtifactTypeTarpitEnabled();
+
+    /**
+     * Count an artifact hit for statistics tracking.
+     * @param artifactType The type of artifact
+     * @param artifactSubType The sub-type (e.g., "entity" for AT_ENTITY)
+     * @param artifactName The name of the artifact
+     * @param parameters Optional parameters map
+     * @param startTime When the artifact execution started
+     * @param runningTimeMillis How long the execution took
+     * @param outputSize Optional output size in bytes
+     */
+    void countArtifactHit(ArtifactExecutionInfo.ArtifactType artifactType, String artifactSubType,
+            String artifactName, Map<String, Object> parameters, long startTime, double runningTimeMillis, Long outputSize);
 }
