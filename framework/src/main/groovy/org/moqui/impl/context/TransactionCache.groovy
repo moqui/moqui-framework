@@ -32,6 +32,7 @@ import org.slf4j.LoggerFactory
 import jakarta.transaction.Synchronization
 import javax.transaction.xa.XAException
 import java.sql.Connection
+import javax.transaction.xa.XAException
 
 /** This is a per-transaction cache that basically pretends to be the database for the scope of the transaction.
  * Test your code well when using this as it doesn't support everything.
