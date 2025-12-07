@@ -674,7 +674,7 @@ task load(type: JavaExec) {
         '--add-opens', 'java.base/java.io=ALL-UNNAMED',
         '--add-opens', 'java.base/sun.nio.ch=ALL-UNNAMED',
         '--add-opens', 'java.base/sun.security.ssl=ALL-UNNAMED',
-        '--add-opens', 'java.base/java.security=ALL-UNNAMED']; main = '-jar'
+        '--add-opens', 'java.base/java.security=ALL-UNNAMED']; mainClass = '-jar'
     args = [warName, 'load', (project.properties.containsKey('types') ? "types=${types}" : "types=all")]
 }
 // Common JVM args for Java 9+ module system compatibility
