@@ -380,50 +380,8 @@ class EntityFacadeImpl implements EntityFacade {
         logger.info("Loaded ${entityCount} framework entity definitions in ${System.currentTimeMillis() - startTime}ms")
     }
 
-    final static Set<String> cachedCountEntities = new HashSet<>(["moqui.basic.EnumerationType"])
-    final static Set<String> cachedListEntities = new HashSet<>([ "moqui.entity.document.DataDocument",
-        "moqui.entity.document.DataDocumentCondition", "moqui.entity.document.DataDocumentField",
-        "moqui.entity.feed.DataFeedAndDocument", "moqui.entity.view.DbViewEntity", "moqui.entity.view.DbViewEntityAlias",
-        "moqui.entity.view.DbViewEntityKeyMap", "moqui.entity.view.DbViewEntityMember",
-
-        "moqui.screen.ScreenThemeResource", "moqui.screen.SubscreensItem", "moqui.screen.form.DbFormField",
-        "moqui.screen.form.DbFormFieldAttribute", "moqui.screen.form.DbFormFieldEntOpts", "moqui.screen.form.DbFormFieldEntOptsCond",
-        "moqui.screen.form.DbFormFieldEntOptsOrder", "moqui.screen.form.DbFormFieldOption", "moqui.screen.form.DbFormLookup",
-
-        "moqui.security.ArtifactAuthzCheckView", "moqui.security.ArtifactTarpitCheckView", "moqui.security.ArtifactTarpitLock",
-        "moqui.security.UserGroupMember", "moqui.security.UserGroupPreference"
-    ])
-    final static Set<String> cachedOneEntities = new HashSet<>([ "moqui.basic.Enumeration", "moqui.basic.LocalizedMessage",
-            "moqui.entity.document.DataDocument", "moqui.entity.view.DbViewEntity", "moqui.screen.form.DbForm",
-            "moqui.security.UserAccount", "moqui.security.UserPreference", "moqui.security.UserScreenTheme", "moqui.server.Visit"
-    ])
-    void warmCache()  {
-        logger.info("Warming cache for all entity definitions")
-        long startTime = System.currentTimeMillis()
-        Set<String> entityNames = getAllEntityNames()
-        for (String entityName in entityNames) {
-            try {
-                EntityDefinition ed = getEntityDefinition(entityName)
-                ed.getRelationshipInfoMap()
-                // must use EntityDatasourceFactory.checkTableExists, NOT entityDbMeta.tableExists(ed)
-                ed.entityInfo.datasourceFactory.checkTableExists(ed.getFullEntityName())
-
-                if (cachedCountEntities.contains(entityName)) ed.getCacheCount(entityCache)
-                if (cachedListEntities.contains(entityName)) {
-                    ed.getCacheList(entityCache)
-                    ed.getCacheListRa(entityCache)
-                    ed.getCacheListViewRa(entityCache)
-                }
-                if (cachedOneEntities.contains(entityName)) {
-                    ed.getCacheOne(entityCache)
-                    ed.getCacheOneRa(entityCache)
-                    ed.getCacheOneViewRa(entityCache)
-                }
-            } catch (Throwable t) { logger.warn("Error warming entity cache: ${t.toString()}") }
-        }
-
-        logger.info("Warmed entity definition cache for ${entityNames.size()} entities in ${System.currentTimeMillis() - startTime}ms")
-    }
+    // ARCH-003: Delegate cache warming to EntityCache
+    void warmCache() { entityCache.warmCache() }
 
     Set<String> getDatasourceGroupNames() {
         Set<String> groupNames = new TreeSet<String>()
