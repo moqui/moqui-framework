@@ -109,9 +109,6 @@ public interface ExecutionContextFactory {
 
     // ======== Additional Methods for Dependency Inversion (ARCH-001) ========
 
-    /** Get the main configuration XML root node. */
-    @Nonnull MNode getConfXmlRoot();
-
     /** Get the server stats configuration node. */
     @Nullable MNode getServerStatsNode();
 
