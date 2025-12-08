@@ -51,6 +51,9 @@ public interface ExecutionContextFactory {
     @Nonnull String getRuntimePath();
     @Nonnull String getMoquiVersion();
 
+    /** Get the root configuration XML node (MoquiConf merged from all sources) */
+    @Nonnull MNode getConfXmlRoot();
+
     /** Get the named ToolFactory instance (loaded by configuration) */
     <V> ToolFactory<V> getToolFactory(@Nonnull String toolName);
     /** Get an instance object from the named ToolFactory instance (loaded by configuration); the instanceClass may be
