@@ -153,7 +153,6 @@ class Jetty12IntegrationTests extends Specification {
         str.assertContains("john.doe")
     }
 
-    @Ignore("Requires WebFacade - WebFacadeStub.handleEntityRestCall not supported")
     def "REST API returns JSON response"() {
         given:
         def restTest = ec.screen.makeTest().baseScreenPath("rest")
@@ -253,7 +252,6 @@ class Jetty12IntegrationTests extends Specification {
 
     // ========== Content Type Handling ==========
 
-    @Ignore("Requires WebFacade - WebFacadeStub.handleEntityRestCall not supported")
     def "JSON content type is supported"() {
         given:
         def restTest = ec.screen.makeTest().baseScreenPath("rest")
@@ -315,7 +313,6 @@ class Jetty12IntegrationTests extends Specification {
         webFacadeStub.request.characterEncoding == "UTF-8" || webFacadeStub.request.characterEncoding == null
     }
 
-    @Ignore("Requires WebFacade - WebFacadeStub.handleEntityRestCall not supported")
     def "URL-encoded parameters are handled"() {
         given:
         def restTest = ec.screen.makeTest().baseScreenPath("rest")
@@ -456,9 +453,11 @@ class Jetty12IntegrationTests extends Specification {
         !str.errorMessages
 
         where:
-        // Only s1 endpoints work with WebFacadeStub - e1/m1 require handleEntityRestCall
+        // s1, e1, m1 endpoints now all work with WebFacadeStub.handleEntityRestCall
         endpoint << [
-            "s1/moqui/basic/geos/USA"
+            "s1/moqui/basic/geos/USA",
+            "e1/moqui.basic.Geo/USA",
+            "m1/moqui.basic.Geo/default/USA"
         ]
     }
 }

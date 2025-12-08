@@ -16,8 +16,11 @@ package org.moqui.impl.screen
 import groovy.transform.CompileStatic
 import org.moqui.impl.context.ContextJavaUtil
 import org.moqui.util.ContextStack
+import org.moqui.context.ArtifactAuthorizationException
 import org.moqui.context.ValidationError
 import org.moqui.context.WebFacade
+import org.moqui.entity.EntityNotFoundException
+import org.moqui.entity.EntityValueNotFoundException
 import org.moqui.context.MessageFacade.MessageInfo
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
@@ -187,8 +190,51 @@ class WebFacadeStub implements WebFacade {
     @Override void sendError(int errorCode, String message, Throwable origThrowable) { response.sendError(errorCode, message) }
 
     @Override void handleJsonRpcServiceCall() { throw new IllegalArgumentException("WebFacadeStub handleJsonRpcServiceCall not supported") }
-    @Override void handleEntityRestCall(List<String> extraPathNameList, boolean masterNameInPath) {
-        throw new IllegalArgumentException("WebFacadeStub handleEntityRestCall not supported") }
+
+    @Override
+    void handleEntityRestCall(List<String> extraPathNameList, boolean masterNameInPath) {
+        long startTime = System.currentTimeMillis()
+        ExecutionContextImpl eci = ecfi.getEci()
+        ContextStack parmStack = (ContextStack) getParameters()
+
+        // Check user is logged in (entity REST requires authentication)
+        if (!eci.getUser().getUsername()) {
+            String errorMessage = eci.message.errorsString ?: "Authentication required for entity REST operations"
+            sendJsonError(HttpServletResponse.SC_UNAUTHORIZED, errorMessage, null)
+            return
+        }
+
+        String method = request.getMethod()
+
+        try {
+            Object responseObj = eci.entityFacade.rest(method, extraPathNameList, parmStack, masterNameInPath)
+            response.addIntHeader('X-Run-Time-ms', (System.currentTimeMillis() - startTime) as int)
+
+            // Add pagination headers if present
+            if (parmStack.xTotalCount != null) response.addIntHeader('X-Total-Count', parmStack.xTotalCount as int)
+            if (parmStack.xPageIndex != null) response.addIntHeader('X-Page-Index', parmStack.xPageIndex as int)
+            if (parmStack.xPageSize != null) response.addIntHeader('X-Page-Size', parmStack.xPageSize as int)
+            if (parmStack.xPageMaxIndex != null) response.addIntHeader('X-Page-Max-Index', parmStack.xPageMaxIndex as int)
+            if (parmStack.xPageRangeLow != null) response.addIntHeader('X-Page-Range-Low', parmStack.xPageRangeLow as int)
+            if (parmStack.xPageRangeHigh != null) response.addIntHeader('X-Page-Range-High', parmStack.xPageRangeHigh as int)
+
+            sendJsonResponse(responseObj)
+        } catch (ArtifactAuthorizationException e) {
+            logger.warn("REST Access Forbidden (403 no authz): " + e.message)
+            sendJsonError(HttpServletResponse.SC_FORBIDDEN, null, e)
+        } catch (EntityNotFoundException e) {
+            logger.warn((String) "REST Entity Not Found (404): " + e.message)
+            sendJsonError(HttpServletResponse.SC_NOT_FOUND, null, e)
+        } catch (EntityValueNotFoundException e) {
+            logger.warn("REST Entity Value Not Found (404): " + e.message)
+            sendJsonError(HttpServletResponse.SC_NOT_FOUND, null, e)
+        } catch (Throwable t) {
+            String errorMessage = t.toString()
+            if (eci.message.hasError()) errorMessage = errorMessage + ' ' + eci.message.errorsString
+            logger.warn((String) "General error in entity REST: " + t.toString(), t)
+            sendJsonError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, errorMessage, null)
+        }
+    }
 
     @Override
     void handleServiceRestCall(List<String> extraPathNameList) {
