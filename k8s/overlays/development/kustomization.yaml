@@ -1,0 +1,81 @@
+# Kustomize development overlay for Moqui Framework
+# Deploy with: kubectl apply -k k8s/overlays/development
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: moqui-development
+
+namespace: moqui-dev
+
+resources:
+  - ../../base
+
+# Development-specific labels
+commonLabels:
+  app.kubernetes.io/environment: development
+
+# Development-specific patches
+patches:
+  # Reduce resources for development
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: "256Mi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: "100m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: "1Gi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: "1000m"
+    target:
+      kind: Deployment
+      name: moqui
+
+  # Disable HPA in development (single replica)
+  - patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 1
+      - op: replace
+        path: /spec/maxReplicas
+        value: 1
+    target:
+      kind: HorizontalPodAutoscaler
+      name: moqui
+
+  # Reduce PVC sizes for development
+  - patch: |-
+      - op: replace
+        path: /spec/resources/requests/storage
+        value: "1Gi"
+    target:
+      kind: PersistentVolumeClaim
+      name: moqui-logs
+  - patch: |-
+      - op: replace
+        path: /spec/resources/requests/storage
+        value: "500Mi"
+    target:
+      kind: PersistentVolumeClaim
+      name: moqui-txlog
+  - patch: |-
+      - op: replace
+        path: /spec/resources/requests/storage
+        value: "500Mi"
+    target:
+      kind: PersistentVolumeClaim
+      name: moqui-sessions
+
+# Override ConfigMap values for development
+configMapGenerator:
+  - name: moqui-config
+    behavior: merge
+    literals:
+      - MOQUI_INSTANCE_PURPOSE=dev
+      - ENTITY_EMPTY_DB_LOAD=all
+      - MOQUI_RUNTIME_CONF=conf/MoquiDevConf.xml
+      - JAVA_TOOL_OPTIONS=-Xms256m -Xmx512m -XX:+UseG1GC -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005

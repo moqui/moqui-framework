@@ -213,6 +213,14 @@
             <!-- Moqui Session Listener (necessary to handle expired sessions, etc) -->
             <listener class="org.moqui.impl.webapp.MoquiSessionListener"/>
 
+            <!-- Health check endpoints for container orchestration (Docker, Kubernetes, etc.)
+                 /health/live   - Liveness probe (is the app running?)
+                 /health/ready  - Readiness probe (can accept traffic?)
+                 /health/startup - Startup probe (initialization complete?) -->
+            <servlet name="HealthServlet" class="org.moqui.impl.webapp.HealthServlet" load-on-startup="1">
+                <url-pattern>/health/*</url-pattern>
+            </servlet>
+
             <servlet name="MoquiServlet" class="org.moqui.impl.webapp.MoquiServlet" load-on-startup="1">
                 <url-pattern>/*</url-pattern>
             </servlet>
