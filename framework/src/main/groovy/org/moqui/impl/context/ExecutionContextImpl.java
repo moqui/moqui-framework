@@ -33,8 +33,8 @@ import org.slf4j.MDC;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.cache.Cache;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.*;
 import java.util.concurrent.Future;
 

@@ -101,6 +101,9 @@ class EntityFacadeImpl implements EntityFacade {
 
     protected final EntityListImpl emptyList
 
+    // ARCH-005: EntityAutoServiceProvider for decoupled entity-auto service calls
+    protected EntityAutoServiceProvider entityAutoServiceProvider
+
     private static class ExecThreadFactory implements ThreadFactory {
         private final ThreadGroup workerGroup = new ThreadGroup("MoquiEntityExec")
         private final AtomicInteger threadNumber = new AtomicInteger(1)
@@ -154,6 +157,12 @@ class EntityFacadeImpl implements EntityFacade {
         emptyList = new EntityListImpl(this)
         emptyList.setFromCache()
     }
+
+    // ARCH-005: Setter for EntityAutoServiceProvider to decouple from ServiceFacade
+    void setEntityAutoServiceProvider(EntityAutoServiceProvider provider) {
+        this.entityAutoServiceProvider = provider
+    }
+
     void postFacadeInit() {
         // ========== load a few things in advance so first page hit is faster in production (in dev mode will reload anyway as caches timeout)
         // load entity definitions
@@ -1749,8 +1758,10 @@ class EntityFacadeImpl implements EntityFacade {
                 }
             }
         } else {
-            // use the entity auto service runner for other operations (create, store, update, delete)
-            Map result = ecfi.serviceFacade.sync().name(operation, lastEd.fullEntityName).parameters(parameters).call()
+            // ARCH-005: use EntityAutoServiceProvider for decoupled entity auto service execution
+            if (entityAutoServiceProvider == null)
+                throw new EntityException("EntityAutoServiceProvider not set, cannot execute entity auto operation ${operation} on ${lastEd.fullEntityName}")
+            Map result = entityAutoServiceProvider.executeEntityAutoService(operation, lastEd.fullEntityName, parameters)
             return result
         }
     }

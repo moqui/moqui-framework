@@ -14,24 +14,25 @@
 package org.moqui.util;
 
 import org.eclipse.jetty.client.HttpClient;
-import org.eclipse.jetty.client.api.ContentResponse;
-import org.eclipse.jetty.client.api.Request;
-import org.eclipse.jetty.client.dynamic.HttpClientTransportDynamic;
-import org.eclipse.jetty.client.util.StringContentProvider;
+import org.eclipse.jetty.client.ContentResponse;
+import org.eclipse.jetty.client.Request;
+import org.eclipse.jetty.client.StringRequestContent;
+import org.eclipse.jetty.client.transport.HttpClientTransportDynamic;
 import org.eclipse.jetty.io.ClientConnector;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
-import org.apache.commons.fileupload.FileItem;
+// JETTY-002: FileUpload 2.x with Jakarta Servlet 6 support
+import org.apache.commons.fileupload2.core.FileItem;
 import org.moqui.BaseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
-import javax.servlet.ServletContext;
-import javax.servlet.ServletRequest;
-import javax.servlet.http.Cookie;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import java.io.*;
 import java.math.BigDecimal;
 import java.net.URLDecoder;
@@ -335,7 +336,7 @@ public class WebUtilities {
             httpClient.start();
             Request request = httpClient.POST(location);
             if (requestBody != null && !requestBody.isEmpty())
-                request.content(new StringContentProvider(contentType, requestBody, StandardCharsets.UTF_8), contentType);
+                request.body(new StringRequestContent(contentType, requestBody, StandardCharsets.UTF_8));
             ContentResponse response = request.send();
             resultString = StringUtilities.toStringCleanBom(response.getContent());
         } catch (Exception e) {
@@ -488,7 +489,7 @@ public class WebUtilities {
         @Override public void removeAttribute(String name) { scxt.removeAttribute(name); }
     }
 
-    static final Set<String> keysToIgnore = new HashSet<>(Arrays.asList("javax.servlet.context.tempdir",
+    static final Set<String> keysToIgnore = new HashSet<>(Arrays.asList("jakarta.servlet.context.tempdir",
             "org.apache.catalina.jsp_classpath", "org.apache.commons.fileupload.servlet.FileCleanerCleanup.FileCleaningTracker"));
     public static class AttributeContainerMap implements Map<String, Object> {
         private AttributeContainer cont;

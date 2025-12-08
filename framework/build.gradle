@@ -79,6 +79,8 @@ tasks.withType(GroovyCompile) {
 }
 
 // NOTE: for dependency types and 'api' definition see: https://docs.gradle.org/current/userguide/java_library_plugin.html
+
+
 dependencies {
     // Groovy
     // OLD NOTE (watch out for): Groovy 3.0.10-3.0.18 has a bug that somehow causes EntityDefinition.isViewEntity (public final boolean) to switch
@@ -120,7 +122,8 @@ dependencies {
     api 'commons-codec:commons-codec:1.18.0' // Apache 2.0
     api 'commons-collections:commons-collections:3.2.2' // Apache 2.0
     api 'commons-digester:commons-digester:2.1' // Apache 2.0
-    api 'commons-fileupload:commons-fileupload:1.6.0' // Apache 2.0
+    // JETTY-002: Upgraded to FileUpload 2.x for Jakarta Servlet 6 compatibility
+    api 'org.apache.commons:commons-fileupload2-jakarta-servlet6:2.0.0-M4' // Apache 2.0
     api 'commons-io:commons-io:2.18.0' // Apache 2.0
     api 'commons-logging:commons-logging:1.3.5' // Apache 2.0
     api 'commons-validator:commons-validator:1.9.0' // Apache 2.0
@@ -198,6 +201,10 @@ dependencies {
 
     // BCrypt password hashing (SEC-002: modern password hashing)
     api 'at.favre.lib:bcrypt:0.10.2' // Apache 2.0
+
+    // NOTE: Bitronix Transaction Manager removed - incompatible with Java 21
+    // TransactionInternalBitronix.groovy moved to src/main/groovy-disabled/
+    // Use Narayana (TransactionInternalNarayana) instead
 
     // SLF4J, Log4j 2 (note Log4j 2 is used by various libraries, best not to replace it even if mostly possible with SLF4J)
     // DEP-004: Updated Log4j 2.24.3 -> 2.25.0 for security fixes and improvements

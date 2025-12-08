@@ -299,7 +299,7 @@ public class MoquiStart {
 
             // WebSocket
             Object wsContainer = wsInitializerClass.getMethod("configure", scHandlerClass, wsInitializerConfiguratorClass).invoke(null, webapp, null);
-            webappClass.getMethod("setAttribute", String.class, Object.class).invoke(webapp, "javax.websocket.server.ServerContainer", wsContainer);
+            webappClass.getMethod("setAttribute", String.class, Object.class).invoke(webapp, "jakarta.websocket.server.ServerContainer", wsContainer);
 
             // GzipHandler
             Object gzipHandler = gzipHandlerClass.getConstructor().newInstance();
@@ -369,7 +369,7 @@ public class MoquiStart {
             // WebSocket
             // NOTE: ServletContextHandler.SESSIONS = 1 (int)
             ServerContainer wsContainer = org.eclipse.jetty.websocket.jsr356.server.deploy.WebSocketServerContainerInitializer.configureContext(webapp);
-            webapp.setAttribute("javax.websocket.server.ServerContainer", wsContainer);
+            webapp.setAttribute("jakarta.websocket.server.ServerContainer", wsContainer);
 
             // GzipHandler
             GzipHandler gzipHandler = new GzipHandler();
