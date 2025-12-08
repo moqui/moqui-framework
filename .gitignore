@@ -80,3 +80,5 @@ Desktop.ini
 
 logs/
 ObjectStore/
+
+.playwright-mcp/
