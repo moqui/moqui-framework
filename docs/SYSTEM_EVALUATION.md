@@ -1,8 +1,50 @@
 # Moqui Framework - Comprehensive System Evaluation
 
-**Evaluation Date**: 2025-11-25
+**Evaluation Date**: 2025-11-25 (Updated: 2025-12-08)
 **Framework Version**: 3.1.0-rc2
 **Codebase Size**: ~77,000 lines (50,096 Groovy + 26,841 Java)
+
+---
+
+## Recent Updates (2025-12-08)
+
+### Jakarta EE 10 Migration - COMPLETED
+
+The framework has been successfully migrated to Jakarta EE 10, enabling full Java 21 compatibility.
+
+| Component | Previous | Current | Status |
+|-----------|----------|---------|--------|
+| Jetty | 10.0.25 | **12.1.4** | Completed |
+| Jakarta Servlet API | 5.0.0 | **6.0.0** | Completed |
+| Jakarta WebSocket API | 2.0.0 | **2.1.1** | Completed |
+| Apache Shiro | 2.0.6 | **1.13.0:jakarta** | Completed |
+| Transaction Manager | Bitronix | **Narayana** | Completed |
+| Jakarta Activation | N/A | **angus-activation 2.0.3** | Added |
+
+#### Key Changes Made
+- All `javax.*` imports converted to `jakarta.*`
+- Jetty 12 EE10 modules with updated session handling APIs
+- Shiro 1.13.0 with `jakarta` classifier for servlet compatibility
+- Removed Bitronix TM (incompatible with Java 21), replaced with Narayana
+- Added angus-activation for Jakarta Activation SPI provider
+
+#### Files Modified
+- `framework/build.gradle` - Updated dependencies
+- `MoquiShiroRealm.groovy` - Shiro 1.x import paths
+- `ShiroAuthenticationTests.groovy` - Updated test imports
+- `MoquiStart.java` - Jetty 12 session handling
+- `WebFacadeImpl.groovy`, `WebFacadeStub.groovy` - Jakarta servlet imports
+- `RestClient.java`, `WebUtilities.java` - Jakarta servlet imports
+- `ElFinderConnector.groovy` - Jakarta servlet imports
+- Removed `TransactionInternalBitronix.groovy`
+
+#### Verification
+- Server starts successfully on port 8080
+- Login/authentication works with Shiro 1.13.0:jakarta
+- Session management functional
+- Vue-based Material UI loads correctly
+
+**PR**: https://github.com/hunterino/moqui/pull/61 (Draft)
 
 ---
 
