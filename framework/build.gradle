@@ -28,7 +28,7 @@ apply plugin: 'org.owasp.dependencycheck'
 buildscript {
     repositories {
         mavenCentral()
-        maven { url "https://plugins.gradle.org/m2/" }
+        maven { url = 'https://plugins.gradle.org/m2/' }
     }
     dependencies {
         classpath 'com.github.ben-manes:gradle-versions-plugin:0.52.0'
@@ -47,10 +47,14 @@ repositories {
     mavenCentral()
 }
 
-// Java 21 compatibility (JAVA21-001)
-sourceCompatibility = 21
-targetCompatibility = 21
-archivesBaseName = 'moqui'
+java {
+    sourceCompatibility = 21
+    targetCompatibility = 21
+}
+
+base {
+    archivesName.set('moqui')
+}
 
 sourceSets {
     start
@@ -111,8 +115,8 @@ dependencies {
     // Apache Commons
     // DEP-005: Updated Apache Commons libraries to latest versions
     api 'org.apache.commons:commons-csv:1.14.0' // Apache 2.0
-    // NOTE: commons-email depends on com.sun.mail:javax.mail, included below, so use module() here to not get dependencies
-    api module('org.apache.commons:commons-email:1.6.0') // Apache 2.0
+    // NOTE: commons-email depends on javax.mail, use transitive=false to avoid pulling in javax namespace
+    api('org.apache.commons:commons-email:1.6.0') { transitive = false } // Apache 2.0
     api 'org.apache.commons:commons-lang3:3.18.0' // Apache 2.0; used by cron-utils
     api 'commons-beanutils:commons-beanutils:1.11.0' // Apache 2.0
     api 'commons-codec:commons-codec:1.18.0' // Apache 2.0
@@ -141,23 +145,20 @@ dependencies {
     api 'com.h2database:h2:2.4.240' // MPL 2.0, EPL 1.0
 
     // Java Specifications
-    // DEP-006: Updated to Jakarta EE for Java 21 / Narayana compatibility
     api 'jakarta.transaction:jakarta.transaction-api:2.0.1'
     api 'javax.cache:cache-api:1.1.1'
     api 'javax.jcr:jcr:2.0'
     // jaxb-api no longer included in Java 9 and later, also tested with openjdk-8
-    api module('javax.xml.bind:jaxb-api:2.3.1') // CDDL 1.1
+    api('javax.xml.bind:jaxb-api:2.3.1') { // CDDL 1.1
+        transitive = false
+    }
     // NOTE: javax.activation:javax.activation-api is required by jaxb-api, has classes same as old 2012 javax.activation:activation used by javax.mail
     // NOTE: as of Java 11 the com.sun packages no longer available so for javax.mail need full javax.activation jar (also includes javax.activation-api)
     // JETTY-001: Updated to Jakarta EE 10 APIs for Jetty 12 compatibility
     api 'jakarta.activation:jakarta.activation-api:2.1.3' // EDL 1.0
-    // JETTY-002: Angus Activation implementation required for MimetypesFileTypeMap functionality
-    api 'org.eclipse.angus:angus-activation:2.0.2' // EDL 1.0
-    api 'jakarta.websocket:jakarta.websocket-api:2.1.1' // Server-side WebSocket API
-    api 'jakarta.websocket:jakarta.websocket-client-api:2.1.1' // Client-side WebSocket API (includes Extension)
+    api 'jakarta.websocket:jakarta.websocket-api:2.1.1'
     // TODO: this should be compileOnlyApi, but that was not included in Gradle 5... so cannot have excluded from
     //     runtime in a single way for Gradle 5 and 7; for now leaving in api, not desirable because we don't want it in the war file
-    // JETTY-001: Updated to Jakarta EE 10 Servlet API for Jetty 12 compatibility
     api 'jakarta.servlet:jakarta.servlet-api:6.0.0'
     // Specs not needed by default:
     // api 'javax.resource:connector-api:1.5'
@@ -173,14 +174,12 @@ dependencies {
     api 'com.fasterxml.jackson.core:jackson-databind:2.20.1'
 
     // Jetty HTTP Client and Proxy Servlet
-    // JETTY-001: Updated to Jetty 12.x for Jakarta EE 10 compatibility
+    // JETTY-001: Updated Jetty 10.0.25 -> 12.1.4 for Jakarta EE 10 support
     api 'org.eclipse.jetty:jetty-client:12.1.4' // Apache 2.0
     api 'org.eclipse.jetty.ee10:jetty-ee10-proxy:12.1.4' // Apache 2.0
 
     // Jakarta Mail (JETTY-001: Updated from javax.mail for Jakarta EE 10)
     // NOTE: Angus Mail is the reference implementation for Jakarta Mail 2.1
-    // NOTE: jakarta.mail-api is required for compile-time interfaces (MimeMessage, etc.)
-    api 'jakarta.mail:jakarta.mail-api:2.1.3' // EPL 2.0
     api('org.eclipse.angus:angus-mail:2.0.3') { // EPL 2.0
         transitive = false
     }
@@ -192,11 +191,8 @@ dependencies {
     api 'org.jsoup:jsoup:1.19.1' // MIT
 
     // Apache Shiro - upgraded to 2.0.6 for security fixes (SHIRO-001)
-    // JETTY-002: Use jakarta classifier for Jakarta EE 10 servlet compatibility
-    // NOTE: Standard Gradle classifier syntax doesn't work reliably with Groovy compiler,
-    // so we use local copies of the jakarta-classified JARs
-    api files('lib/shiro-jakarta/shiro-core-2.0.6-jakarta.jar')
-    api files('lib/shiro-jakarta/shiro-web-2.0.6-jakarta.jar')
+    api('org.apache.shiro:shiro-core:2.0.6') { transitive = false } // Apache 2.0
+    api('org.apache.shiro:shiro-web:2.0.6') { transitive = false } // Apache 2.0
     // Shiro 2.x split modules - need these for compatibility
     api 'org.apache.shiro:shiro-crypto-hash:2.0.6' // Apache 2.0
     api 'org.apache.shiro:shiro-crypto-cipher:2.0.6' // Apache 2.0
@@ -219,7 +215,9 @@ dependencies {
     runtimeOnly 'org.apache.logging.log4j:log4j-slf4j2-impl:2.25.0'
 
     // SubEtha SMTP (module as depends on old javax.mail location; also uses SLF4J, activation included elsewhere)
-    api module('org.subethamail:subethasmtp:3.1.7')
+    api('org.subethamail:subethasmtp:3.1.7') {
+        transitive = false
+    }
 
     // Snake YAML
     api 'org.yaml:snakeyaml:2.4' // Apache 2.0
@@ -249,17 +247,18 @@ dependencies {
     testImplementation 'org.hamcrest:hamcrest-core:2.2' // BSD 3-Clause
 
     // ========== executable war dependencies ==========
-    // Jetty 12 with Jakarta EE 10 support (JETTY-001)
+    // Jetty - JETTY-001: Updated to 12.1.4 with EE10 (Jakarta EE 10) modules
     execWarRuntimeOnly 'org.eclipse.jetty:jetty-server:12.1.4' // Apache 2.0
     execWarRuntimeOnly 'org.eclipse.jetty.ee10:jetty-ee10-webapp:12.1.4' // Apache 2.0
-    execWarRuntimeOnly 'org.eclipse.jetty.ee10:jetty-ee10-jndi:12.1.4' // Apache 2.0
+    execWarRuntimeOnly 'org.eclipse.jetty:jetty-jndi:12.1.4' // Apache 2.0
     execWarRuntimeOnly 'org.eclipse.jetty.ee10.websocket:jetty-ee10-websocket-jakarta-server:12.1.4' // Apache 2.0
     execWarRuntimeOnly ('org.eclipse.jetty.ee10.websocket:jetty-ee10-websocket-jakarta-client:12.1.4') { // Apache 2.0
         exclude group: 'jakarta.websocket' } // we have the full websocket API, including the client one causes problems
+    execWarRuntimeOnly 'jakarta.websocket:jakarta.websocket-api:2.1.1'
     execWarRuntimeOnly ('org.eclipse.jetty.ee10.websocket:jetty-ee10-websocket-jetty-server:12.1.4') // Apache 2.0
     // only include this if using Endpoint and MessageHandler annotations:
     // execWarRuntime ('org.eclipse.jetty.ee10:jetty-ee10-annotations:12.1.4') // Apache 2.0
-    execWarRuntimeOnly 'org.apache.logging.log4j:log4j-slf4j2-impl:2.24.3'
+    execWarRuntimeOnly 'org.apache.logging.log4j:log4j-slf4j2-impl:2.25.0'
 }
 
 // setup task dependencies to make sure the start sourceSets always get run
@@ -300,6 +299,7 @@ test {
     if (System.getenv('CI') == 'true') {
         failFast = true
     }
+    maxParallelForks = 1
 
     dependsOn cleanTest, jar
     include '**/*MoquiSuite.class'
@@ -328,7 +328,7 @@ jar {
 war {
     dependsOn jar
     // put the war file in the parent directory, ie the moqui dir instead of the framework dir
-    destinationDirectory = projectDir.parentFile
+    destinationDirectory.set(projectDir.parentFile)
     archiveFileName = 'moqui.war'
     // add MoquiInit.properties to the WEB-INF/classes dir for the deployed war mode of operation
     from(fileTree(dir: destinationDirectory.get().asFile, includes: ['MoquiInit.properties'])) { into 'WEB-INF/classes' }
