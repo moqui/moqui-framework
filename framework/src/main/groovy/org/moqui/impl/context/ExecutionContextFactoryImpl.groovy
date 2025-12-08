@@ -235,6 +235,12 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         logger.info("Entity Facade initialized")
         serviceFacade = new ServiceFacadeImpl(this)
         logger.info("Service Facade initialized")
+
+        // ARCH-005: Wire up decoupled dependencies between EntityFacade and ServiceFacade
+        entityFacade.setEntityAutoServiceProvider(serviceFacade)
+        serviceFacade.setEntityExistenceChecker({ String entityName -> entityFacade.isEntityDefined(entityName) })
+        logger.info("Entity-Service dependencies wired")
+
         screenFacade = new ScreenFacadeImpl(this)
         logger.info("Screen Facade initialized")
 
@@ -295,6 +301,12 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         logger.info("Entity Facade initialized")
         serviceFacade = new ServiceFacadeImpl(this)
         logger.info("Service Facade initialized")
+
+        // ARCH-005: Wire up decoupled dependencies between EntityFacade and ServiceFacade
+        entityFacade.setEntityAutoServiceProvider(serviceFacade)
+        serviceFacade.setEntityExistenceChecker({ String entityName -> entityFacade.isEntityDefined(entityName) })
+        logger.info("Entity-Service dependencies wired")
+
         screenFacade = new ScreenFacadeImpl(this)
         logger.info("Screen Facade initialized")
 
