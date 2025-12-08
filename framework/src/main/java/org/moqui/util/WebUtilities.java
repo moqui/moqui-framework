@@ -16,11 +16,10 @@ package org.moqui.util;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.ContentResponse;
 import org.eclipse.jetty.client.Request;
-import org.eclipse.jetty.client.StringRequestContent;
 import org.eclipse.jetty.client.transport.HttpClientTransportDynamic;
+import org.eclipse.jetty.client.StringRequestContent;
 import org.eclipse.jetty.io.ClientConnector;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
-// JETTY-002: FileUpload 2.x with Jakarta Servlet 6 support
 import org.apache.commons.fileupload2.core.FileItem;
 import org.moqui.BaseException;
 import org.slf4j.Logger;
@@ -489,7 +488,7 @@ public class WebUtilities {
         @Override public void removeAttribute(String name) { scxt.removeAttribute(name); }
     }
 
-    static final Set<String> keysToIgnore = new HashSet<>(Arrays.asList("jakarta.servlet.context.tempdir",
+    static final Set<String> keysToIgnore = new HashSet<>(Arrays.asList("javax.servlet.context.tempdir",
             "org.apache.catalina.jsp_classpath", "org.apache.commons.fileupload.servlet.FileCleanerCleanup.FileCleaningTracker"));
     public static class AttributeContainerMap implements Map<String, Object> {
         private AttributeContainer cont;

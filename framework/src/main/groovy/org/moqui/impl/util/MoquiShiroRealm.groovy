@@ -21,7 +21,8 @@ import org.apache.shiro.authz.Permission
 import org.apache.shiro.authz.UnauthorizedException
 import org.apache.shiro.realm.Realm
 import org.apache.shiro.subject.PrincipalCollection
-import org.apache.shiro.lang.util.SimpleByteSource
+// SHIRO-001: Changed import path for Shiro 1.13.0 compatibility (was shiro.lang.util in 2.x)
+import org.apache.shiro.util.SimpleByteSource
 import org.moqui.BaseArtifactException
 import org.moqui.Moqui
 import org.moqui.context.PasswordChangeRequiredException

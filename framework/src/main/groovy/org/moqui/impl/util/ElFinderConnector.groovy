@@ -13,7 +13,6 @@
  */
 package org.moqui.impl.util
 
-// JETTY-002: FileUpload 2.x with Jakarta Servlet 6 support
 import org.apache.commons.fileupload2.core.FileItem
 import org.moqui.context.ExecutionContext
 import org.moqui.resource.ResourceReference

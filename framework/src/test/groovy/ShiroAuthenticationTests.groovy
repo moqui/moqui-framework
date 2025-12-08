@@ -19,12 +19,13 @@ import org.apache.shiro.authc.credential.HashedCredentialsMatcher
 import org.apache.shiro.crypto.hash.SimpleHash
 import org.apache.shiro.mgt.DefaultSecurityManager
 import org.apache.shiro.SecurityUtils
-import org.apache.shiro.lang.util.SimpleByteSource
+// SHIRO-001: Using Shiro 1.13.0:jakarta - import path is org.apache.shiro.util (not shiro.lang.util as in 2.x)
+import org.apache.shiro.util.SimpleByteSource
 import org.moqui.util.PasswordHasher
 
 /**
- * Tests for Shiro 2.x authentication integration after migration.
- * Verifies that authentication flows work correctly with the upgraded Shiro version.
+ * Tests for Shiro 1.13.0:jakarta authentication integration after migration.
+ * Verifies that authentication flows work correctly with the Jakarta EE 10 compatible Shiro version.
  */
 class ShiroAuthenticationTests extends Specification {
 
@@ -71,11 +72,11 @@ class ShiroAuthenticationTests extends Specification {
         wrongMatch == false
     }
 
-    def "SimpleByteSource should work with Shiro 2.x package location"() {
+    def "SimpleByteSource should work with Shiro 1.13.0 package location"() {
         given: "A salt string"
         String salt = "testSalt123"
 
-        when: "Creating SimpleByteSource from the new package location"
+        when: "Creating SimpleByteSource from org.apache.shiro.util package"
         SimpleByteSource byteSource = new SimpleByteSource(salt.getBytes())
 
         then: "It should be created successfully"
