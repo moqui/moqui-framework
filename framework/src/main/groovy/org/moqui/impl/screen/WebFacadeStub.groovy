@@ -46,7 +46,6 @@ import jakarta.servlet.http.Cookie
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import jakarta.servlet.http.HttpSession
-// NOTE: HttpSessionContext was removed in Jakarta Servlet 6.0 (deprecated since Servlet 2.1)
 import jakarta.servlet.http.HttpUpgradeHandler
 import jakarta.servlet.http.Part
 import java.security.Principal
@@ -188,32 +187,8 @@ class WebFacadeStub implements WebFacade {
     @Override void sendError(int errorCode, String message, Throwable origThrowable) { response.sendError(errorCode, message) }
 
     @Override void handleJsonRpcServiceCall() { throw new IllegalArgumentException("WebFacadeStub handleJsonRpcServiceCall not supported") }
-
-    @Override
-    void handleEntityRestCall(List<String> extraPathNameList, boolean masterNameInPath) {
-        long startTime = System.currentTimeMillis()
-        ExecutionContextImpl eci = ecfi.getEci()
-        ContextStack parmStack = (ContextStack) getParameters()
-        String method = requestMethod ?: "get"
-
-        try {
-            Object responseObj = eci.entityFacade.rest(method, extraPathNameList, parmStack, masterNameInPath)
-            response.addIntHeader('X-Run-Time-ms', (System.currentTimeMillis() - startTime) as int)
-
-            // Set pagination headers if available
-            if (parmStack.xTotalCount != null) response.addIntHeader('X-Total-Count', parmStack.xTotalCount as int)
-            if (parmStack.xPageIndex != null) response.addIntHeader('X-Page-Index', parmStack.xPageIndex as int)
-            if (parmStack.xPageSize != null) response.addIntHeader('X-Page-Size', parmStack.xPageSize as int)
-            if (parmStack.xPageMaxIndex != null) response.addIntHeader('X-Page-Max-Index', parmStack.xPageMaxIndex as int)
-            if (parmStack.xPageRangeLow != null) response.addIntHeader('X-Page-Range-Low', parmStack.xPageRangeLow as int)
-            if (parmStack.xPageRangeHigh != null) response.addIntHeader('X-Page-Range-High', parmStack.xPageRangeHigh as int)
-
-            sendJsonResponse(responseObj)
-        } catch (Throwable t) {
-            logger.warn("Error in entity REST call: ${t.message}", t)
-            sendJsonError(500, t.message, t)
-        }
-    }
+    @Override void handleEntityRestCall(List<String> extraPathNameList, boolean masterNameInPath) {
+        throw new IllegalArgumentException("WebFacadeStub handleEntityRestCall not supported") }
 
     @Override
     void handleServiceRestCall(List<String> extraPathNameList) {
@@ -293,12 +268,7 @@ class WebFacadeStub implements WebFacade {
         @Override boolean isRequestedSessionIdValid() { return true }
         @Override boolean isRequestedSessionIdFromCookie() { return false }
         @Override boolean isRequestedSessionIdFromURL() { return false }
-        // NOTE: isRequestedSessionIdFromUrl() removed in Jakarta Servlet 6.0 (deprecated since Servlet 2.1)
-
-        // JETTY-002: New methods added in Jakarta Servlet 6.0
-        @Override String getRequestId() { return UUID.randomUUID().toString() }
-        @Override String getProtocolRequestId() { return "" }
-        @Override jakarta.servlet.ServletConnection getServletConnection() { return null }
+        // Note: isRequestedSessionIdFromUrl() was removed in Jakarta Servlet 6.0
 
         @Override Object getAttribute(String s) { return wfs.requestParameters.get(s) }
         @Override Enumeration getAttributeNames() { return wfs.requestParameters.keySet() as Enumeration }
@@ -347,8 +317,7 @@ class WebFacadeStub implements WebFacade {
         @Override boolean isSecure() { return true }
 
         @Override RequestDispatcher getRequestDispatcher(String s) { return null }
-
-        // NOTE: getRealPath() removed in Jakarta Servlet 6.0 (deprecated since Servlet 2.1)
+        // Note: getRealPath(String) was removed in Jakarta Servlet 6.0
 
         @Override int getRemotePort() { return 0 }
         @Override String getLocalName() { return "TestLocalName" }
@@ -371,6 +340,11 @@ class WebFacadeStub implements WebFacade {
         @Override boolean isAsyncSupported() { return false }
         @Override AsyncContext getAsyncContext() { throw new UnsupportedOperationException("getAsyncContext not supported") }
         @Override DispatcherType getDispatcherType() { throw new UnsupportedOperationException("getDispatcherType not supported") }
+
+        // ========== New methods for Jakarta Servlet 6.0 ==========
+        @Override String getRequestId() { return "TestRequestId" }
+        @Override String getProtocolRequestId() { return "TestProtocolRequestId" }
+        @Override jakarta.servlet.ServletConnection getServletConnection() { return null }
     }
 
     static class HttpSessionStub implements HttpSession {
@@ -383,10 +357,10 @@ class WebFacadeStub implements WebFacade {
         ServletContext getServletContext() { return wfs.servletContext }
         void setMaxInactiveInterval(int i) { }
         int getMaxInactiveInterval() { return 0 }
-        // NOTE: getSessionContext() was removed in Jakarta Servlet 6.0 (deprecated since Servlet 2.1)
+        // Note: getSessionContext(), getValue(), getValueNames(), putValue(), removeValue()
+        // were deprecated and removed in Jakarta Servlet 6.0
 
         @Override Object getAttribute(String s) { return wfs.sessionAttributes.get(s) }
-        // NOTE: getValue() removed in Jakarta Servlet 6.0 (deprecated since Servlet 2.2)
         @Override Enumeration getAttributeNames() {
             return new Enumeration() {
                 Iterator i = wfs.sessionAttributes.keySet().iterator()
@@ -394,7 +368,6 @@ class WebFacadeStub implements WebFacade {
                 Object nextElement() { return i.next() }
             }
         }
-        // NOTE: getValueNames(), putValue(), removeValue() removed in Jakarta Servlet 6.0 (deprecated since Servlet 2.2)
         @Override void setAttribute(String s, Object o) { wfs.sessionAttributes.put(s, o) }
         @Override void removeAttribute(String s) { wfs.sessionAttributes.remove(s) }
 
@@ -500,7 +473,7 @@ class WebFacadeStub implements WebFacade {
 
         @Override String encodeURL(String s) { return null }
         @Override String encodeRedirectURL(String s) { return null }
-        // NOTE: encodeUrl(), encodeRedirectUrl() removed in Jakarta Servlet 6.0 (deprecated since Servlet 2.1)
+        // Note: encodeUrl(String) and encodeRedirectUrl(String) were removed in Jakarta Servlet 6.0
 
         @Override void sendError(int i, String s) throws IOException {
             status = i
@@ -515,8 +488,8 @@ class WebFacadeStub implements WebFacade {
         @Override void addHeader(String s, String s1) { headers.put(s, s1) }
         @Override void setIntHeader(String s, int i) { headers.put(s, i) }
         @Override void addIntHeader(String s, int i) { headers.put(s, i) }
-
-        // NOTE: setStatus(int, String) removed in Jakarta Servlet 6.0 (deprecated since Servlet 2.1)
+        // Note: setStatus(int, String) was removed in Jakarta Servlet 6.0
+        @Override void setStatus(int i) { status = i }
 
         @Override String getCharacterEncoding() { return characterEncoding }
         @Override String getContentType() { return contentType }

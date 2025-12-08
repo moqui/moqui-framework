@@ -79,8 +79,6 @@ tasks.withType(GroovyCompile) {
 }
 
 // NOTE: for dependency types and 'api' definition see: https://docs.gradle.org/current/userguide/java_library_plugin.html
-
-
 dependencies {
     // Groovy
     // OLD NOTE (watch out for): Groovy 3.0.10-3.0.18 has a bug that somehow causes EntityDefinition.isViewEntity (public final boolean) to switch
@@ -122,8 +120,8 @@ dependencies {
     api 'commons-codec:commons-codec:1.18.0' // Apache 2.0
     api 'commons-collections:commons-collections:3.2.2' // Apache 2.0
     api 'commons-digester:commons-digester:2.1' // Apache 2.0
-    // JETTY-002: Upgraded to FileUpload 2.x for Jakarta Servlet 6 compatibility
-    api 'org.apache.commons:commons-fileupload2-jakarta-servlet6:2.0.0-M4' // Apache 2.0
+    // JETTY-001: Updated to FileUpload 2.x for Jakarta Servlet 6 compatibility
+    api 'org.apache.commons:commons-fileupload2-jakarta-servlet6:2.0.0-M2' // Apache 2.0
     api 'commons-io:commons-io:2.18.0' // Apache 2.0
     api 'commons-logging:commons-logging:1.3.5' // Apache 2.0
     api 'commons-validator:commons-validator:1.9.0' // Apache 2.0
@@ -157,9 +155,12 @@ dependencies {
     // JETTY-001: Updated to Jakarta EE 10 APIs for Jetty 12 compatibility
     api 'jakarta.activation:jakarta.activation-api:2.1.3' // EDL 1.0
     api 'jakarta.websocket:jakarta.websocket-api:2.1.1'
+    api 'jakarta.websocket:jakarta.websocket-client-api:2.1.1' // Required for jakarta.websocket.Extension class
     // TODO: this should be compileOnlyApi, but that was not included in Gradle 5... so cannot have excluded from
     //     runtime in a single way for Gradle 5 and 7; for now leaving in api, not desirable because we don't want it in the war file
     api 'jakarta.servlet:jakarta.servlet-api:6.0.0'
+    // Note: With Shiro 1.13.0:jakarta classifier, javax.servlet-api is no longer needed
+    // The jakarta classifier transforms all javax.servlet references to jakarta.servlet
     // Specs not needed by default:
     // api 'javax.resource:connector-api:1.5'
     // api 'javax.jms:jms:1.1'
@@ -180,9 +181,12 @@ dependencies {
 
     // Jakarta Mail (JETTY-001: Updated from javax.mail for Jakarta EE 10)
     // NOTE: Angus Mail is the reference implementation for Jakarta Mail 2.1
+    api 'jakarta.mail:jakarta.mail-api:2.1.3' // EPL 2.0
     api('org.eclipse.angus:angus-mail:2.0.3') { // EPL 2.0
         transitive = false
     }
+    // JETTY-001: Angus Activation provides jakarta.activation.spi.MimeTypeRegistryProvider implementation
+    api 'org.eclipse.angus:angus-activation:2.0.3' // EPL 2.0
 
     // Joda Time (used by elasticsearch, aws)
     api 'joda-time:joda-time:2.13.1' // Apache 2.0
@@ -190,21 +194,20 @@ dependencies {
     // JSoup (HTML parser, cleaner)
     api 'org.jsoup:jsoup:1.19.1' // MIT
 
-    // Apache Shiro - upgraded to 2.0.6 for security fixes (SHIRO-001)
-    api('org.apache.shiro:shiro-core:2.0.6') { transitive = false } // Apache 2.0
-    api('org.apache.shiro:shiro-web:2.0.6') { transitive = false } // Apache 2.0
-    // Shiro 2.x split modules - need these for compatibility
-    api 'org.apache.shiro:shiro-crypto-hash:2.0.6' // Apache 2.0
-    api 'org.apache.shiro:shiro-crypto-cipher:2.0.6' // Apache 2.0
-    api 'org.apache.shiro:shiro-cache:2.0.6' // Apache 2.0
-    api 'org.apache.shiro:shiro-event:2.0.6' // Apache 2.0
+    // Apache Shiro - using 1.13.0 with jakarta classifier for Jakarta EE 10 compatibility (SHIRO-001)
+    // Note: Shiro 2.x shiro-web still uses javax.servlet internally, 1.13.0:jakarta is the proven approach
+    // See: https://stackoverflow.com/questions/75838823/apache-shiro-encountering-java-lang-noclassdeffounderror-javax-servlet-filter-w
+    api('org.apache.shiro:shiro-core:1.13.0:jakarta') {
+        transitive = false
+    } // Apache 2.0
+    api('org.apache.shiro:shiro-web:1.13.0:jakarta') {
+        transitive = false
+        // Exclude non-jakarta shiro-core that might be pulled in
+        exclude group: 'org.apache.shiro', module: 'shiro-core'
+    } // Apache 2.0
 
     // BCrypt password hashing (SEC-002: modern password hashing)
     api 'at.favre.lib:bcrypt:0.10.2' // Apache 2.0
-
-    // NOTE: Bitronix Transaction Manager removed - incompatible with Java 21
-    // TransactionInternalBitronix.groovy moved to src/main/groovy-disabled/
-    // Use Narayana (TransactionInternalNarayana) instead
 
     // SLF4J, Log4j 2 (note Log4j 2 is used by various libraries, best not to replace it even if mostly possible with SLF4J)
     // DEP-004: Updated Log4j 2.24.3 -> 2.25.0 for security fixes and improvements
@@ -249,6 +252,7 @@ dependencies {
     // ========== executable war dependencies ==========
     // Jetty - JETTY-001: Updated to 12.1.4 with EE10 (Jakarta EE 10) modules
     execWarRuntimeOnly 'org.eclipse.jetty:jetty-server:12.1.4' // Apache 2.0
+    execWarRuntimeOnly 'org.eclipse.jetty:jetty-session:12.1.4' // Apache 2.0 - JETTY-012: Session classes in separate module in Jetty 12
     execWarRuntimeOnly 'org.eclipse.jetty.ee10:jetty-ee10-webapp:12.1.4' // Apache 2.0
     execWarRuntimeOnly 'org.eclipse.jetty:jetty-jndi:12.1.4' // Apache 2.0
     execWarRuntimeOnly 'org.eclipse.jetty.ee10.websocket:jetty-ee10-websocket-jakarta-server:12.1.4' // Apache 2.0
