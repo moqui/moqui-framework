@@ -1,0 +1,54 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+*.iml
+.vscode
+*.swp
+*.swo
+
+# Build artifacts
+build/
+*/build/
+*.war
+wartemp/
+out/
+
+# Gradle
+.gradle/
+gradle-app.setting
+
+# Runtime data (will be mounted as volumes)
+runtime/db/
+runtime/log/
+runtime/txlog/
+runtime/sessions/
+runtime/opensearch/
+runtime/elasticsearch/
+
+# Logs
+logs/
+*.log
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Docker
+docker/
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# CI/CD
+.github/
+.travis.yml
+
+# Testing
+ObjectStore/
+
+# macOS
+.DS_Store
