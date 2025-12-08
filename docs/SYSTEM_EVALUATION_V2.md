@@ -114,6 +114,16 @@ response.setHeader("X-XSS-Protection", "1; mode=block")
 3. **Shiro 1.13.0:jakarta**: Using Jakarta classifier for servlet compatibility
 4. **Narayana TM**: Replaced incompatible Bitronix with Java 21-compatible Narayana
 5. **HikariCP**: Added for connection pooling with Narayana
+6. **Jetty 12 ProxyServlet**: Updated from `org.eclipse.jetty.proxy` to `org.eclipse.jetty.ee10.proxy`
+7. **H2 Console Servlet**: Updated from `org.h2.server.web.WebServlet` to `org.h2.server.web.JakartaWebServlet`
+
+### Servlet Configuration Updates (Runtime Testing - 2025-12-08)
+
+| Servlet | Previous Class | Current Class | Config File |
+|---------|---------------|---------------|-------------|
+| ElasticSearchProxy | `o.e.jetty.proxy.ProxyServlet$Transparent` | `o.e.jetty.ee10.proxy.ProxyServlet$Transparent` | MoquiDefaultConf.xml |
+| KibanaProxy | `o.e.jetty.proxy.ProxyServlet$Transparent` | `o.e.jetty.ee10.proxy.ProxyServlet$Transparent` | MoquiDefaultConf.xml |
+| H2Console | `org.h2.server.web.WebServlet` | `org.h2.server.web.JakartaWebServlet` | MoquiDevConf.xml |
 
 ### Files Modified
 - `framework/build.gradle` - All dependencies updated
@@ -122,6 +132,8 @@ response.setHeader("X-XSS-Protection", "1; mode=block")
 - `WebFacadeImpl.groovy`, `WebFacadeStub.groovy` - Jakarta servlet imports
 - `RestClient.java`, `WebUtilities.java` - Jakarta servlet imports
 - `ElFinderConnector.groovy` - Jakarta servlet imports
+- `framework/src/main/resources/MoquiDefaultConf.xml` - Jetty 12 EE10 ProxyServlet classes
+- `runtime/conf/MoquiDevConf.xml` - H2 JakartaWebServlet for Jakarta EE 10
 - **Removed**: `TransactionInternalBitronix.groovy`
 - **Added**: `TransactionInternalNarayana.groovy`
 
