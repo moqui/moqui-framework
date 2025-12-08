@@ -14,6 +14,7 @@
 package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
+import groovy.transform.TypeCheckingMode
 import org.apache.shiro.authc.AuthenticationToken
 import org.apache.shiro.authc.ExpiredCredentialsException
 import org.moqui.context.PasswordChangeRequiredException
@@ -79,6 +80,9 @@ class UserFacadeImpl implements UserFacade {
         pushUser(null)
     }
 
+    // Note: TypeCheckingMode.SKIP needed because Shiro web classes still use javax.servlet types
+    // in their method signatures, but we pass jakarta.servlet types (compatible at runtime)
+    @CompileStatic(TypeCheckingMode.SKIP)
     Subject makeEmptySubject() {
         if (session != null) {
             WebSubjectContext wsc = new DefaultWebSubjectContext()

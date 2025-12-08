@@ -17,7 +17,6 @@ import com.fasterxml.jackson.core.io.JsonStringEncoder
 import com.fasterxml.jackson.databind.JsonNode
 import groovy.transform.CompileStatic
 
-// JETTY-002: FileUpload 2.x with Jakarta Servlet 6 support
 import org.apache.commons.fileupload2.core.FileItem
 import org.apache.commons.fileupload2.core.FileItemFactory
 import org.apache.commons.fileupload2.core.DiskFileItemFactory
@@ -156,7 +155,7 @@ class WebFacadeImpl implements WebFacade {
         } else if (JakartaServletFileUpload.isMultipartContent(request)) {
             // if this is a multi-part request, get the data for it
             multiPartParameters = new HashMap()
-            DiskFileItemFactory factory = makeDiskFileItemFactory()
+            FileItemFactory factory = makeDiskFileItemFactory()
             JakartaServletFileUpload upload = new JakartaServletFileUpload(factory)
 
             List<FileItem> items = (List<FileItem>) upload.parseRequest(request)
@@ -165,8 +164,8 @@ class WebFacadeImpl implements WebFacade {
 
             for (FileItem item in items) {
                 if (item.isFormField()) {
-                    // JETTY-002: FileUpload 2.x uses Charset instead of String
-                    addValueToMultipartParameterMap(item.getFieldName(), item.getString(StandardCharsets.UTF_8))
+                    // FileUpload 2.x uses Charset instead of String
+                    addValueToMultipartParameterMap(item.getFieldName(), item.getString(java.nio.charset.StandardCharsets.UTF_8))
                 } else {
                     if (!uploadExecutableAllow) {
                         if (WebUtilities.isExecutable(item)) {
@@ -1417,14 +1416,12 @@ class WebFacadeImpl implements WebFacade {
         File repository = new File(eci.ecfi.runtimePath + "/tmp")
         if (!repository.exists()) repository.mkdir()
 
-        // JETTY-002: FileUpload 2.x uses builder pattern
+        // FileUpload 2.x uses builder pattern
         DiskFileItemFactory factory = DiskFileItemFactory.builder()
+                .setBufferSize(DiskFileItemFactory.DEFAULT_THRESHOLD)
                 .setPath(repository.toPath())
                 .get()
 
-        // TODO: this was causing files to get deleted before the upload was streamed... need to figure out something else
-        //FileCleaningTracker fileCleaningTracker = FileCleanerCleanup.getFileCleaningTracker(request.getServletContext())
-        //factory.setFileCleaningTracker(fileCleaningTracker)
         return factory
     }
 }
