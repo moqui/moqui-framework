@@ -929,7 +929,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     @Override @Nonnull String getRuntimePath() { return runtimePath }
     @Override @Nonnull String getMoquiVersion() { return moquiVersion }
     Map getVersionMap() { return versionMap }
-    MNode getConfXmlRoot() { return confXmlRoot }
+    @Override @Nonnull MNode getConfXmlRoot() { return confXmlRoot }
     MNode getServerStatsNode() { return serverStatsNode }
     MNode getArtifactExecutionNode(String artifactTypeEnumId) {
         return confXmlRoot.first("artifact-execution-facade")

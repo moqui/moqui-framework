@@ -17,6 +17,7 @@ import groovy.lang.GroovyClassLoader;
 import org.moqui.entity.EntityFacade;
 import org.moqui.screen.ScreenFacade;
 import org.moqui.service.ServiceFacade;
+import org.moqui.util.MNode;
 
 import javax.annotation.Nonnull;
 import jakarta.servlet.ServletContext;
@@ -45,6 +46,9 @@ public interface ExecutionContextFactory {
     /** Get the path of the runtime directory */
     @Nonnull String getRuntimePath();
     @Nonnull String getMoquiVersion();
+
+    /** Get the root configuration XML node (MoquiConf merged from all sources) */
+    @Nonnull MNode getConfXmlRoot();
 
     /** Get the named ToolFactory instance (loaded by configuration) */
     <V> ToolFactory<V> getToolFactory(@Nonnull String toolName);
