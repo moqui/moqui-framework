@@ -930,13 +930,17 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     @Override @Nonnull String getMoquiVersion() { return moquiVersion }
     Map getVersionMap() { return versionMap }
     @Override @Nonnull MNode getConfXmlRoot() { return confXmlRoot }
-    MNode getServerStatsNode() { return serverStatsNode }
-    MNode getArtifactExecutionNode(String artifactTypeEnumId) {
+    @Override MNode getServerStatsNode() { return serverStatsNode }
+    @Override MNode getArtifactExecutionNode(String artifactTypeEnumId) {
         return confXmlRoot.first("artifact-execution-facade")
                 .first({ MNode it -> it.name == "artifact-execution" && it.attribute("type") == artifactTypeEnumId })
     }
 
-    InetAddress getLocalhostAddress() { return localhostAddress }
+    @Override InetAddress getLocalhostAddress() { return localhostAddress }
+    @Override @Nonnull ThreadPoolExecutor getWorkerPool() { return workerPool }
+    @Override long getInitStartTime() { return initStartTime }
+    @Override @Nonnull Map<ArtifactType, Boolean> getArtifactTypeAuthzEnabled() { return artifactTypeAuthzEnabled }
+    @Override @Nonnull Map<ArtifactType, Boolean> getArtifactTypeTarpitEnabled() { return artifactTypeTarpitEnabled }
 
     @Override void registerNotificationMessageListener(@Nonnull NotificationMessageListener nml) {
         nml.init(this)
@@ -970,7 +974,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
     NotificationWebSocketListener getNotificationWebSocketListener() { return notificationWebSocketListener }
 
-    org.apache.shiro.mgt.SecurityManager getSecurityManager() {
+    @Override @Nonnull org.apache.shiro.mgt.SecurityManager getSecurityManager() {
         if (internalSecurityManager != null) return internalSecurityManager
 
         // init Apache Shiro programmatically (Shiro 2.x removed IniSecurityManagerFactory)
@@ -1536,7 +1540,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             'moqui.entity.view.DbViewEntity', 'moqui.entity.view.DbViewEntityMember',
             'moqui.entity.view.DbViewEntityKeyMap', 'moqui.entity.view.DbViewEntityAlias'])
 
-    void countArtifactHit(ArtifactType artifactTypeEnum, String artifactSubType, String artifactName,
+    @Override void countArtifactHit(ArtifactType artifactTypeEnum, String artifactSubType, String artifactName,
               Map<String, Object> parameters, long startTime, double runningTimeMillis, Long outputSize) {
         boolean isEntity = ArtifactExecutionInfo.AT_ENTITY.is(artifactTypeEnum) || (artifactSubType != null && artifactSubType.startsWith('entity'))
         // don't count the ones this calls

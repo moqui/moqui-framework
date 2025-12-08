@@ -22,7 +22,7 @@ import org.slf4j.LoggerFactory
 class LoggerFacadeImpl implements LoggerFacade {
     protected final static Logger logger = LoggerFactory.getLogger(LoggerFacadeImpl.class)
 
-    // ARCH-001: Use interface instead of concrete implementation for dependency inversion
+    // ARCH-001: Changed from ExecutionContextFactoryImpl to interface for dependency inversion
     protected final ExecutionContextFactory ecf
 
     LoggerFacadeImpl(ExecutionContextFactory ecf) { this.ecf = ecf }

@@ -49,7 +49,7 @@ import java.util.concurrent.TimeUnit
 public class CacheFacadeImpl implements CacheFacade {
     protected final static Logger logger = LoggerFactory.getLogger(CacheFacadeImpl.class)
 
-    // ARCH-001: Use interface instead of concrete implementation for dependency inversion
+    // ARCH-001: Changed from ExecutionContextFactoryImpl to interface for dependency inversion
     protected final ExecutionContextFactory ecf
 
     protected CacheManager localCacheManagerInternal = (CacheManager) null
