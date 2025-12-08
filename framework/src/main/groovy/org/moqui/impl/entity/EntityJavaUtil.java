@@ -328,7 +328,7 @@ public class EntityJavaUtil {
 
             String sbsAttr = internalEntityNode.attribute("sequence-bank-size");
             if (sbsAttr != null && !sbsAttr.isEmpty()) sequenceBankSize = Long.parseLong(sbsAttr);
-            else sequenceBankSize = EntityFacadeImpl.defaultBankSize;
+            else sequenceBankSize = SequenceGenerator.defaultBankSize;
 
             sequencePrimaryUseUuid = "true".equals(internalEntityNode.attribute("sequence-primary-use-uuid")) ||
                     (datasourceNode != null && "true".equals(datasourceNode.attribute("sequence-primary-use-uuid")));

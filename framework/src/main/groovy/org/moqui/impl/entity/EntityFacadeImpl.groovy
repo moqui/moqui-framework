@@ -77,10 +77,8 @@ class EntityFacadeImpl implements EntityFacade {
     /** Map for framework entity definitions, avoid cache overhead and timeout issues */
     final HashMap<String, EntityDefinition> frameworkEntityDefinitions = new HashMap<>()
 
-    /** Sequence name (often entity name) is the key and the value is an array of 2 Longs the first is the next
-     * available value and the second is the highest value reserved/cached in the bank. */
-    final Cache<String, long[]> entitySequenceBankCache
-    protected final ConcurrentHashMap<String, Lock> dbSequenceLocks = new ConcurrentHashMap<String, Lock>()
+    // ARCH-004: Sequence generation delegated to SequenceGenerator
+    protected SequenceGenerator sequenceGenerator
     protected final ReentrantLock locationLoadLock = new ReentrantLock()
 
     protected HashMap<String, ArrayList<EntityEcaRule>> eecaRulesByEntityName = new HashMap<>()
@@ -91,7 +89,6 @@ class EntityFacadeImpl implements EntityFacade {
     protected final TimeZone databaseTimeZone
     protected final Locale databaseLocale
     protected final ThreadLocal<Calendar> databaseTzLcCalendar = new ThreadLocal<>()
-    protected final String sequencedIdPrefix
     boolean queryStats = false
 
     protected EntityDbMeta dbMeta = null
@@ -119,7 +116,7 @@ class EntityFacadeImpl implements EntityFacade {
         MNode entityFacadeNode = getEntityFacadeNode()
         entityFacadeNode.setSystemExpandAttributes(true)
         defaultGroupName = entityFacadeNode.attribute("default-group-name")
-        sequencedIdPrefix = entityFacadeNode.attribute("sequenced-id-prefix") ?: null
+        String sequencedIdPrefix = entityFacadeNode.attribute("sequenced-id-prefix") ?: null
         queryStats = entityFacadeNode.attribute("query-stats") == "true"
 
         TimeZone theTimeZone = null
@@ -145,7 +142,6 @@ class EntityFacadeImpl implements EntityFacade {
         entityDefinitionCache = ecfi.cacheFacade.getCache("entity.definition")
         entityLocationSingleCache = ecfi.cacheFacade.getCache("entity.location")
         // NOTE: don't try to load entity locations before constructor is complete; this.loadAllEntityLocations()
-        entitySequenceBankCache = ecfi.cacheFacade.getCache("entity.sequence.bank")
 
         // init connection pool (DataSource) for each group
         initAllDatasources()
@@ -153,6 +149,8 @@ class EntityFacadeImpl implements EntityFacade {
         entityCache = new EntityCache(this)
         entityDataFeed = new EntityDataFeed(this)
         entityDataDocument = new EntityDataDocument(this)
+        // ARCH-004: Initialize SequenceGenerator after other entity components
+        sequenceGenerator = new SequenceGenerator(this, ecfi, sequencedIdPrefix)
 
         emptyList = new EntityListImpl(this)
         emptyList.setFromCache()
@@ -389,50 +387,8 @@ class EntityFacadeImpl implements EntityFacade {
         logger.info("Loaded ${entityCount} framework entity definitions in ${System.currentTimeMillis() - startTime}ms")
     }
 
-    final static Set<String> cachedCountEntities = new HashSet<>(["moqui.basic.EnumerationType"])
-    final static Set<String> cachedListEntities = new HashSet<>([ "moqui.entity.document.DataDocument",
-        "moqui.entity.document.DataDocumentCondition", "moqui.entity.document.DataDocumentField",
-        "moqui.entity.feed.DataFeedAndDocument", "moqui.entity.view.DbViewEntity", "moqui.entity.view.DbViewEntityAlias",
-        "moqui.entity.view.DbViewEntityKeyMap", "moqui.entity.view.DbViewEntityMember",
-
-        "moqui.screen.ScreenThemeResource", "moqui.screen.SubscreensItem", "moqui.screen.form.DbFormField",
-        "moqui.screen.form.DbFormFieldAttribute", "moqui.screen.form.DbFormFieldEntOpts", "moqui.screen.form.DbFormFieldEntOptsCond",
-        "moqui.screen.form.DbFormFieldEntOptsOrder", "moqui.screen.form.DbFormFieldOption", "moqui.screen.form.DbFormLookup",
-
-        "moqui.security.ArtifactAuthzCheckView", "moqui.security.ArtifactTarpitCheckView", "moqui.security.ArtifactTarpitLock",
-        "moqui.security.UserGroupMember", "moqui.security.UserGroupPreference"
-    ])
-    final static Set<String> cachedOneEntities = new HashSet<>([ "moqui.basic.Enumeration", "moqui.basic.LocalizedMessage",
-            "moqui.entity.document.DataDocument", "moqui.entity.view.DbViewEntity", "moqui.screen.form.DbForm",
-            "moqui.security.UserAccount", "moqui.security.UserPreference", "moqui.security.UserScreenTheme", "moqui.server.Visit"
-    ])
-    void warmCache()  {
-        logger.info("Warming cache for all entity definitions")
-        long startTime = System.currentTimeMillis()
-        Set<String> entityNames = getAllEntityNames()
-        for (String entityName in entityNames) {
-            try {
-                EntityDefinition ed = getEntityDefinition(entityName)
-                ed.getRelationshipInfoMap()
-                // must use EntityDatasourceFactory.checkTableExists, NOT entityDbMeta.tableExists(ed)
-                ed.entityInfo.datasourceFactory.checkTableExists(ed.getFullEntityName())
-
-                if (cachedCountEntities.contains(entityName)) ed.getCacheCount(entityCache)
-                if (cachedListEntities.contains(entityName)) {
-                    ed.getCacheList(entityCache)
-                    ed.getCacheListRa(entityCache)
-                    ed.getCacheListViewRa(entityCache)
-                }
-                if (cachedOneEntities.contains(entityName)) {
-                    ed.getCacheOne(entityCache)
-                    ed.getCacheOneRa(entityCache)
-                    ed.getCacheOneViewRa(entityCache)
-                }
-            } catch (Throwable t) { logger.warn("Error warming entity cache: ${t.toString()}") }
-        }
-
-        logger.info("Warmed entity definition cache for ${entityNames.size()} entities in ${System.currentTimeMillis() - startTime}ms")
-    }
+    // ARCH-003: Delegate cache warming to EntityCache
+    void warmCache() { entityCache.warmCache() }
 
     Set<String> getDatasourceGroupNames() {
         Set<String> groupNames = new TreeSet<String>()
@@ -1901,121 +1857,23 @@ class EntityFacadeImpl implements EntityFacade {
         return entityDataFeed.getFeedDocuments(dataFeedId, fromUpdateStamp, thruUpdatedStamp)
     }
 
+    // ARCH-004: Sequence methods now delegate to SequenceGenerator
     void tempSetSequencedIdPrimary(String seqName, long nextSeqNum, long bankSize) {
-        long[] bank = new long[2]
-        bank[0] = nextSeqNum
-        bank[1] = nextSeqNum + bankSize
-        entitySequenceBankCache.put(seqName, bank)
+        sequenceGenerator.tempSetSequencedIdPrimary(seqName, nextSeqNum, bankSize)
     }
     void tempResetSequencedIdPrimary(String seqName) {
-        entitySequenceBankCache.put(seqName, null)
+        sequenceGenerator.tempResetSequencedIdPrimary(seqName)
     }
-
     @Override
     String sequencedIdPrimary(String seqName, Long staggerMax, Long bankSize) {
-        try {
-            // is the seqName an entityName?
-            if (isEntityDefined(seqName)) {
-                EntityDefinition ed = getEntityDefinition(seqName)
-                if (ed.entityInfo.sequencePrimaryUseUuid) return UUID.randomUUID().toString()
-            }
-        } catch (EntityException e) {
-            // do nothing, just means seqName is not an entity name
-            if (isTraceEnabled) logger.trace("Ignoring exception for entity not found: ${e.toString()}")
-        }
-        // fall through to default to the db sequenced ID
-        long staggerMaxPrim = staggerMax != null ? staggerMax.longValue() : 0L
-        long bankSizePrim = (bankSize != null && bankSize.longValue() > 0) ? bankSize.longValue() : defaultBankSize
-        return dbSequencedIdPrimary(seqName, staggerMaxPrim, bankSizePrim)
+        return sequenceGenerator.sequencedIdPrimary(seqName, staggerMax, bankSize)
     }
-
     String sequencedIdPrimaryEd(EntityDefinition ed) {
-        EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
-        try {
-            // is the seqName an entityName?
-            if (entityInfo.sequencePrimaryUseUuid) return UUID.randomUUID().toString()
-        } catch (EntityException e) {
-            // do nothing, just means seqName is not an entity name
-            if (isTraceEnabled) logger.trace("Ignoring exception for entity not found: ${e.toString()}")
-        }
-        // fall through to default to the db sequenced ID
-        return dbSequencedIdPrimary(ed.getFullEntityName(), entityInfo.sequencePrimaryStagger, entityInfo.sequenceBankSize)
+        return sequenceGenerator.sequencedIdPrimaryEd(ed)
     }
-
-    protected final static long defaultBankSize = 50L
-    protected Lock getDbSequenceLock(String seqName) {
-        Lock oldLock, dbSequenceLock = dbSequenceLocks.get(seqName)
-        if (dbSequenceLock == null) {
-            dbSequenceLock = new ReentrantLock()
-            oldLock = dbSequenceLocks.putIfAbsent(seqName, dbSequenceLock)
-            if (oldLock != null) return oldLock
-        }
-        return dbSequenceLock
-    }
-    protected String dbSequencedIdPrimary(String seqName, long staggerMax, long bankSize) {
-
-        // TODO: find some way to get this running non-synchronized for performance reasons (right now if not
-        // TODO:     synchronized the forUpdate won't help if the record doesn't exist yet, causing errors in high
-        // TODO:     traffic creates; is it creates only?)
-
-        Lock dbSequenceLock = getDbSequenceLock(seqName)
-        dbSequenceLock.lock()
-
-        // NOTE: simple approach with forUpdate, not using the update/select "ethernet" approach used in OFBiz; consider
-        // that in the future if there are issues with this approach
-
-        try {
-            // first get a bank if we don't have one already
-            long[] bank = (long[]) entitySequenceBankCache.get(seqName)
-            if (bank == null || bank[0] > bank[1]) {
-                if (bank == null) {
-                    bank = new long[2]
-                    bank[0] = 0
-                    bank[1] = -1
-                    entitySequenceBankCache.put(seqName, bank)
-                }
-
-                ecfi.transactionFacade.runRequireNew(null, "Error getting primary sequenced ID", true, true, {
-                    ArtifactExecutionFacadeImpl aefi = ecfi.getEci().artifactExecutionFacade
-                    boolean enableAuthz = !aefi.disableAuthz()
-                    try {
-                        EntityValue svi = find("moqui.entity.SequenceValueItem").condition("seqName", seqName)
-                                .useCache(false).forUpdate(true).one()
-                        if (svi == null) {
-                            svi = makeValue("moqui.entity.SequenceValueItem")
-                            svi.set("seqName", seqName)
-                            // a new tradition: start sequenced values at one hundred thousand instead of ten thousand
-                            bank[0] = 100000L
-                            bank[1] = bank[0] + bankSize
-                            svi.set("seqNum", bank[1])
-                            svi.create()
-                        } else {
-                            Long lastSeqNum = svi.getLong("seqNum")
-                            bank[0] = (lastSeqNum > bank[0] ? lastSeqNum + 1L : bank[0])
-                            bank[1] = bank[0] + bankSize
-                            svi.set("seqNum", bank[1])
-                            svi.update()
-                        }
-                    } finally {
-                        if (enableAuthz) aefi.enableAuthz()
-                    }
-                })
-            }
-
-            long seqNum = bank[0]
-            if (staggerMax > 1L) {
-                long stagger = Math.round(Math.random() * staggerMax)
-                bank[0] = seqNum + stagger
-                // NOTE: if bank[0] > bank[1] because of this just leave it and the next time we try to get a sequence
-                //     value we'll get one from a new bank
-            } else {
-                bank[0] = seqNum + 1L
-            }
-
-            return sequencedIdPrefix != null ? sequencedIdPrefix + seqNum : seqNum
-        } finally {
-            dbSequenceLock.unlock()
-        }
+    /** For diagnostics - get the current sequence bank */
+    long[] getSequenceBank(String seqName) {
+        return sequenceGenerator.getSequenceBank(seqName)
     }
 
     Set<String> getAllEntityNamesInGroup(String groupName) {

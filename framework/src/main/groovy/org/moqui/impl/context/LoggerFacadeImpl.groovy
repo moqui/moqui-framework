@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.context
 
+import org.moqui.context.ExecutionContextFactory
 import org.moqui.context.LoggerFacade
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -21,9 +22,10 @@ import org.slf4j.LoggerFactory
 class LoggerFacadeImpl implements LoggerFacade {
     protected final static Logger logger = LoggerFactory.getLogger(LoggerFacadeImpl.class)
 
-    protected final ExecutionContextFactoryImpl ecfi
+    // ARCH-001: Changed from ExecutionContextFactoryImpl to interface for dependency inversion
+    protected final ExecutionContextFactory ecf
 
-    LoggerFacadeImpl(ExecutionContextFactoryImpl ecfi) { this.ecfi = ecfi }
+    LoggerFacadeImpl(ExecutionContextFactory ecf) { this.ecf = ecf }
 
     void log(String levelStr, String message, Throwable thrown) {
         int level
