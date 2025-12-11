@@ -562,7 +562,12 @@ public class MoquiStart {
         }
         String javaHome = System.getProperty("java.home");
         System.out.println("Starting " + (osDirExists ? "OpenSearch" : "ElasticSearch") + " install found in " + workDir + ", pid file not found (JDK: " + javaHome + ")");
-        boolean isWindows = System.getProperty("os.name").toLowerCase().startsWith("windows");
+
+        String os = System.getProperty("os.name").toLowerCase();
+        boolean isWindows = os.startsWith("windows");
+        boolean isMac = os.startsWith("mac");
+        boolean isLinux = os.contains("nix") || os.contains("nux") || os.contains("aix");
+
         try {
             String[] command;
             if (isWindows) {
@@ -571,9 +576,16 @@ public class MoquiStart {
                 command = new String[]{"./bin/" + baseName};
                 try {
                     boolean elasticsearchOwner = Files.getOwner(Paths.get(runtimePath, baseName)).getName().equals(baseName);
-                    boolean suAble = Runtime.getRuntime().exec(new String[]{"/bin/su", "-c", "/bin/true", baseName}).waitFor() == 0;
+                    boolean suAble = false;
+                    if (isLinux) {
+                        suAble = Runtime.getRuntime().exec(new String[]{"/bin/su", "-c", "/bin/true", baseName}).waitFor() == 0;
+                    } else if(isMac) {
+                        suAble = Runtime.getRuntime().exec(new String[]{"/usr/bin/sudo", "-n", "/usr/bin/true"}).waitFor() == 0;
+                    }
                     if (elasticsearchOwner && suAble) command = new String[]{"su", "-c", "./bin/" + baseName, baseName};
-                } catch (IOException e) {}
+                } catch (IOException e) {
+                    System.out.println("Error to run " + (Arrays.toString(new String[]{"/usr/bin/sudo", "-n", "/usr/bin/true"})) + ": " + e.getMessage());
+                }
             }
             ProcessBuilder pb = new ProcessBuilder(command);
             pb.redirectErrorStream(true);
