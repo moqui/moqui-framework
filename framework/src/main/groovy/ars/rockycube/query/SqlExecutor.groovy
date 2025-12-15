@@ -1,5 +1,6 @@
 package ars.rockycube.query
 
+import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 import org.moqui.resource.ResourceReference
 import org.slf4j.Logger
@@ -285,7 +286,11 @@ class SqlExecutor {
 
             // Set IN parameters
             for (int i = 0; i < inputParameters.size(); i++) {
-                callableStmt.setObject(outputParameterTypes.size() + i + 1, inputParameters.get(i))
+                def param = inputParameters.get(i)
+                if (param instanceof Collection) {
+                    param = JsonOutput.toJson(param)
+                }
+                callableStmt.setObject(outputParameterTypes.size() + i + 1, param)
             }
 
             // Execute the stored procedure
