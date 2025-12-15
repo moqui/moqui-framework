@@ -27,6 +27,35 @@
     <default-property name="webapp_upload_executable_allow" value="false"/>
 
     <!--
+        Security / Authentication
+        This key MUST be provided in production for logins to survive server
+        restarts. A default value may be provided in MoquiDevConf for
+        convenience but not in MoquiProductionConf to avoid a security
+        vulnerability (cross-deployment replay).
+
+        The value MUST be Base64 encoding of 16, 24, or 32 random bytes
+        (AES-128/192/256). Recommended: 32 bytes (AES-256).
+
+        Example generation commands:
+
+        Unix / macOS:
+          openssl rand -base64 32
+            or
+          head -c 32 /dev/urandom | base64
+
+        Java (portable, no external tools):
+          jshell
+          import java.util.Base64;
+          byte[] b = new byte[32];
+          new java.security.SecureRandom().nextBytes(b);
+          System.out.println(Base64.getEncoder().encodeToString(b));
+
+        Windows (PowerShell):
+          [Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Maximum 256 }))
+    -->
+    <default-property name="security_rememberme_key" value="" is-secret="true"/>
+
+    <!--
         While there is no default value for webapp_client_ip_header, embedded Jetty looks at Forwarded and
         X-Forwarded-For headers via ForwardedRequestCustomizer (see MoquiStart.java); this is necessary so that
         Jetty knows if a proxied request came via HTTPS vs HTTP, but is risky because clients can set a value for

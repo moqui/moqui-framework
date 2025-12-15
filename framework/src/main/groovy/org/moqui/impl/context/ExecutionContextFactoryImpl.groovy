@@ -20,8 +20,10 @@ import org.apache.logging.log4j.core.LoggerContext
 import org.apache.shiro.SecurityUtils
 import org.apache.shiro.authc.credential.CredentialsMatcher
 import org.apache.shiro.authc.credential.HashedCredentialsMatcher
-import org.apache.shiro.config.IniSecurityManagerFactory
 import org.apache.shiro.crypto.hash.SimpleHash
+import org.apache.shiro.mgt.SecurityManager
+import org.apache.shiro.web.mgt.CookieRememberMeManager
+import org.apache.shiro.web.mgt.DefaultWebSecurityManager
 import org.codehaus.groovy.control.CompilationUnit
 import org.codehaus.groovy.control.CompilerConfiguration
 import org.codehaus.groovy.tools.GroovyClass
@@ -45,6 +47,7 @@ import org.moqui.impl.context.ContextJavaUtil.ScheduledRunnableInfo
 import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.impl.screen.ScreenFacadeImpl
 import org.moqui.impl.service.ServiceFacadeImpl
+import org.moqui.impl.util.MoquiShiroRealm
 import org.moqui.impl.webapp.NotificationWebSocketListener
 import org.moqui.screen.ScreenFacade
 import org.moqui.service.ServiceFacade
@@ -65,6 +68,7 @@ import javax.websocket.server.ServerContainer
 import java.lang.management.ManagementFactory
 import java.math.RoundingMode
 import java.sql.Timestamp
+import java.util.Base64
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.LinkedBlockingQueue
@@ -123,7 +127,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     final ConcurrentLinkedQueue<ArtifactHitInfo> deferredHitInfoQueue = new ConcurrentLinkedQueue<ArtifactHitInfo>()
 
     /** The SecurityManager for Apache Shiro */
-    protected org.apache.shiro.mgt.SecurityManager internalSecurityManager
+    protected SecurityManager internalSecurityManager
     /** The ServletContext, if Moqui was initialized in a webapp (generally through MoquiContextListener) */
     protected ServletContext internalServletContext = null
     /** The WebSocket ServerContainer, if found in 'javax.websocket.server.ServerContainer' ServletContext attribute */
@@ -966,16 +970,22 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
     NotificationWebSocketListener getNotificationWebSocketListener() { return notificationWebSocketListener }
 
-    org.apache.shiro.mgt.SecurityManager getSecurityManager() {
-        if (internalSecurityManager != null) return internalSecurityManager
-
-        // init Apache Shiro; NOTE: init must be done here so that ecfi will be fully initialized and in the static context
-        org.apache.shiro.util.Factory<org.apache.shiro.mgt.SecurityManager> factory =
-                new IniSecurityManagerFactory("classpath:shiro.ini")
-        internalSecurityManager = factory.getInstance()
+    SecurityManager getSecurityManager() {
+        if (internalSecurityManager != null) { return internalSecurityManager }
+        MoquiShiroRealm moquiRealm = new MoquiShiroRealm(this)
+        DefaultWebSecurityManager sm = new DefaultWebSecurityManager(moquiRealm)
+        String rememberKey = System.getProperty("security_rememberme_key")
+        if (rememberKey) {
+            byte[] byteKey = Base64.decoder.decode(rememberKey)
+            CookieRememberMeManager rmm = new CookieRememberMeManager()
+            rmm.setCipherKey(byteKey)
+            sm.setRememberMeManager(rmm)
+        } else {
+            logger.warn("property 'security_rememberme_key' not set, cookies will be invalid on server restarts")
+        }
+        internalSecurityManager = sm
         // NOTE: setting this statically just in case something uses it, but for Moqui we'll be getting the SecurityManager from the ecfi
         SecurityUtils.setSecurityManager(internalSecurityManager)
-
         return internalSecurityManager
     }
     CredentialsMatcher getCredentialsMatcher(String hashType, boolean isBase64) {

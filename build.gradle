@@ -13,7 +13,7 @@
  */
 plugins {
   id 'com.github.ben-manes.versions' version '0.53.0'
-  id 'org.ajoberstar.grgit' version '5.0.0'
+  id 'org.ajoberstar.grgit' version '5.3.3'
 }
 
 // Filters dependencyUpdates to report only stable (official) releases
