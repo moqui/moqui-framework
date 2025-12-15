@@ -50,7 +50,6 @@ class ResourceFacadeTests extends Specification {
         "component://tools/screen/ToolsFoo.xml" | "file" | null | "ToolsFoo.xml" | "text/xml" | false | false | false
         "classpath://entity/BasicEntities.xml" | "file" | null | "BasicEntities.xml" | "text/xml" | true | true | false
         "classpath://bitronix-default-config.properties" | "file" | null | "bitronix-default-config.properties" | "text/x-java-properties" | true | true | false
-        "classpath://shiro.ini" | "file" | null | "shiro.ini" | "text/plain" | true | true | false
         "template/screen-macro/ScreenHtmlMacros.ftl" | "file" | null | "ScreenHtmlMacros.ftl" | "text/x-freemarker" | true | true | false
         "template/screen-macro" | "file" | null | "screen-macro" | "application/octet-stream" | true | false | true
     }
@@ -64,7 +63,6 @@ class ResourceFacadeTests extends Specification {
         where:
         location | contents
         "component://tools/screen/Tools.xml" | "<subscreens default-item=\"dashboard\">"
-        "classpath://shiro.ini" | "org.moqui.impl.util.MoquiShiroRealm"
     }
 
     // TODO: add tests for template() and script()
