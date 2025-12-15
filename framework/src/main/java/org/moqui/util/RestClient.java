@@ -719,13 +719,6 @@ public class RestClient {
                 catch (Exception e) { logger.error("Error stopping SimpleRequestFactory HttpClient", e); }
             }
         }
-        @Override protected void finalize() throws Throwable {
-            if (httpClient != null && httpClient.isRunning()) {
-                logger.warn("SimpleRequestFactory finalize and httpClient still running, stopping");
-                try { httpClient.stop(); } catch (Exception e) { logger.error("Error stopping SimpleRequestFactory HttpClient", e); }
-            }
-            super.finalize();
-        }
     }
     /** RequestFactory with explicit pooling parameters and options specific to the Jetty HttpClient */
     public static class PooledRequestFactory implements RequestFactory {
@@ -796,13 +789,6 @@ public class RestClient {
                 try { httpClient.stop(); }
                 catch (Exception e) { logger.error("Error stopping PooledRequestFactory HttpClient for " + shortName, e); }
             }
-        }
-        @Override protected void finalize() throws Throwable {
-            if (httpClient != null && httpClient.isRunning()) {
-                logger.warn("PooledRequestFactory finalize and httpClient still running for " + shortName + ", stopping");
-                try { httpClient.stop(); } catch (Exception e) { logger.error("Error stopping PooledRequestFactory HttpClient for " + shortName, e); }
-            }
-            super.finalize();
         }
     }
 }
