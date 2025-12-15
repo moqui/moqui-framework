@@ -22,7 +22,6 @@ import org.apache.shiro.authc.credential.CredentialsMatcher
 import org.apache.shiro.authc.credential.HashedCredentialsMatcher
 import org.apache.shiro.crypto.hash.SimpleHash
 import org.apache.shiro.mgt.SecurityManager
-import org.apache.shiro.web.mgt.CookieRememberMeManager
 import org.apache.shiro.web.mgt.DefaultWebSecurityManager
 import org.codehaus.groovy.control.CompilationUnit
 import org.codehaus.groovy.control.CompilerConfiguration
@@ -68,7 +67,6 @@ import javax.websocket.server.ServerContainer
 import java.lang.management.ManagementFactory
 import java.math.RoundingMode
 import java.sql.Timestamp
-import java.util.Base64
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.LinkedBlockingQueue
@@ -973,17 +971,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     SecurityManager getSecurityManager() {
         if (internalSecurityManager != null) { return internalSecurityManager }
         MoquiShiroRealm moquiRealm = new MoquiShiroRealm(this)
-        DefaultWebSecurityManager sm = new DefaultWebSecurityManager(moquiRealm)
-        String rememberKey = System.getProperty("security_rememberme_key")
-        if (rememberKey) {
-            byte[] byteKey = Base64.decoder.decode(rememberKey)
-            CookieRememberMeManager rmm = new CookieRememberMeManager()
-            rmm.setCipherKey(byteKey)
-            sm.setRememberMeManager(rmm)
-        } else {
-            logger.warn("property 'security_rememberme_key' not set, cookies will be invalid on server restarts")
-        }
-        internalSecurityManager = sm
+        internalSecurityManager = new DefaultWebSecurityManager(moquiRealm)
         // NOTE: setting this statically just in case something uses it, but for Moqui we'll be getting the SecurityManager from the ecfi
         SecurityUtils.setSecurityManager(internalSecurityManager)
         return internalSecurityManager
