@@ -12,29 +12,13 @@
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
 
-version = '3.1.0-rc2'
-
-apply plugin: 'java-library'
-apply plugin: 'groovy'
-apply plugin: 'war'
-// to run gradle-versions-plugin use "gradle dependencyUpdates"
-apply plugin: 'com.github.ben-manes.versions'
-// uncomment to add the Error Prone compiler; not enabled by default (doesn't work on Travis CI)
-// apply plugin: 'net.ltgt.errorprone'
-buildscript {
-    repositories {
-        mavenCentral()
-        maven { url = 'https://plugins.gradle.org/m2/' }
-    }
-    dependencies {
-        classpath 'com.github.ben-manes:gradle-versions-plugin:0.52.0'
-        // uncomment to add the Error Prone compiler: classpath 'net.ltgt.gradle:gradle-errorprone-plugin:0.0.8'
-    }
+plugins {
+    id 'java-library'
+    id 'groovy'
+    id 'war'
 }
-dependencyUpdates.resolutionStrategy { componentSelection { rules -> rules.all { ComponentSelection selection ->
-    boolean rejected = ['alpha', 'beta', 'rc', 'cr', 'm', 'b'].any { qualifier -> selection.candidate.version ==~ /(?i).*[.-]${qualifier}[.\d-].*/ }
-    if (rejected) selection.reject('Release candidate')
-} } }
+
+version = '4.0.0-rc1'
 
 // NOTE: packages should match group, name, version found at https://bintray.com/bintray/jcenter
 repositories {
