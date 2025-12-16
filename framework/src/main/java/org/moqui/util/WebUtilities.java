@@ -17,7 +17,7 @@ import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.api.ContentResponse;
 import org.eclipse.jetty.client.api.Request;
 import org.eclipse.jetty.client.dynamic.HttpClientTransportDynamic;
-import org.eclipse.jetty.client.util.StringContentProvider;
+import org.eclipse.jetty.client.util.StringRequestContent;
 import org.eclipse.jetty.io.ClientConnector;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.apache.commons.fileupload.FileItem;
@@ -333,7 +333,7 @@ public class WebUtilities {
             httpClient.start();
             Request request = httpClient.POST(location);
             if (requestBody != null && !requestBody.isEmpty())
-                request.content(new StringContentProvider(contentType, requestBody, StandardCharsets.UTF_8), contentType);
+                request.body(new StringRequestContent(contentType, requestBody, StandardCharsets.UTF_8));
             ContentResponse response = request.send();
             resultString = StringUtilities.toStringCleanBom(response.getContent());
         } catch (Exception e) {

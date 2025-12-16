@@ -904,18 +904,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
     @Override boolean isDestroyed() { return destroyed }
 
-    @Override void finalize() throws Throwable {
-        try {
-            if (!this.destroyed) {
-                this.destroy()
-                logger.warn("ExecutionContextFactoryImpl not destroyed, caught in finalize.")
-            }
-        } catch (Exception e) {
-            logger.warn("Error in destroy, called in finalize of ExecutionContextFactoryImpl", e)
-        }
-        super.finalize()
-    }
-
     /** Trigger ECF destroy and re-init in another thread, after short wait */
     void triggerDynamicReInit() {
         Thread.start("EcfiReInit", {
@@ -971,7 +959,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     SecurityManager getSecurityManager() {
         if (internalSecurityManager != null) { return internalSecurityManager }
         MoquiShiroRealm moquiRealm = new MoquiShiroRealm(this)
-        internalSecurityManager = new DefaultWebSecurityManager(moquiRealm)
+        DefaultWebSecurityManager sm = new DefaultWebSecurityManager(moquiRealm)
+        sm.setRememberMeManager(null)
+        internalSecurityManager = sm
         // NOTE: setting this statically just in case something uses it, but for Moqui we'll be getting the SecurityManager from the ecfi
         SecurityUtils.setSecurityManager(internalSecurityManager)
         return internalSecurityManager
