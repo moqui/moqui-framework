@@ -273,7 +273,8 @@ class MoquiShiroRealm implements Realm, Authorizer {
             userId = newUserAccount.getString("userId")
 
             // create the salted SimpleAuthenticationInfo object
-            SimpleByteSource saltBs = new SimpleByteSource(newUserAccount.passwordSalt ?: newUserAccount.userId)
+            String salt = (newUserAccount.passwordSalt ?: newUserAccount.userId) as String
+            SimpleByteSource saltBs = new SimpleByteSource(salt)
             info = new SimpleAuthenticationInfo(username, newUserAccount.currentPassword, saltBs, realmName)
             if (!isForceLogin) {
                 // check the password (credentials for this case)
@@ -307,7 +308,8 @@ class MoquiShiroRealm implements Realm, Authorizer {
         EntityValue newUserAccount = ecfi.entity.find("moqui.security.UserAccount").condition("username", username)
                 .useCache(true).disableAuthz().one()
 
-        SimpleByteSource saltBs = new SimpleByteSource(newUserAccount.passwordSalt ?: newUserAccount.userId)
+        String salt = (newUserAccount.passwordSalt ?: newUserAccount.userId) as String
+        SimpleByteSource saltBs = new SimpleByteSource(salt)
         SimpleAuthenticationInfo info = new SimpleAuthenticationInfo(username, newUserAccount.currentPassword, saltBs, "moquiRealm")
 
         CredentialsMatcher cm = ecfi.getCredentialsMatcher((String) newUserAccount.passwordHashType, "Y".equals(newUserAccount.passwordBase64))
