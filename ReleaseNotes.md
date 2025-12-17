@@ -95,7 +95,7 @@ Given the upgrade to gradle, Java and bitronix, the following community componen
 
 - Upgrade groovy to version 4
 - Upgrade to JDK21 by default
-- Upgrade to Apache Shiro 2, no longer using INI based configuration, different security manager init
+- Upgrade to Apache Shiro 2, no longer using INI factory, but rather INI environment classes
 - Enforce warnings during build
 - Upgrade all dependencies to their latest versions
 - Switch from Thread.getId() to Thread.threadId() to work on both virtual and platform threads
