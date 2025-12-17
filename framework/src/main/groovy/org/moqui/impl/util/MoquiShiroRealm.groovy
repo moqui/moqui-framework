@@ -21,7 +21,7 @@ import org.apache.shiro.authz.Permission
 import org.apache.shiro.authz.UnauthorizedException
 import org.apache.shiro.realm.Realm
 import org.apache.shiro.subject.PrincipalCollection
-import org.apache.shiro.lang.util.ByteSource
+import org.apache.shiro.lang.util.SimpleByteSource
 import org.moqui.BaseArtifactException
 import org.moqui.Moqui
 import org.moqui.context.PasswordChangeRequiredException
@@ -273,7 +273,7 @@ class MoquiShiroRealm implements Realm, Authorizer {
             userId = newUserAccount.getString("userId")
 
             // create the salted SimpleAuthenticationInfo object
-            ByteSource saltBs = ByteSource.Util.bytes((String) newUserAccount.passwordSalt ?: '')
+            SimpleByteSource saltBs = new SimpleByteSource(newUserAccount.passwordSalt ?: newUserAccount.userId)
             info = new SimpleAuthenticationInfo(username, newUserAccount.currentPassword, saltBs, realmName)
             if (!isForceLogin) {
                 // check the password (credentials for this case)
@@ -307,7 +307,7 @@ class MoquiShiroRealm implements Realm, Authorizer {
         EntityValue newUserAccount = ecfi.entity.find("moqui.security.UserAccount").condition("username", username)
                 .useCache(true).disableAuthz().one()
 
-        ByteSource saltBs = ByteSource.Util.bytes((String) newUserAccount.passwordSalt ?: '')
+        SimpleByteSource saltBs = new SimpleByteSource(newUserAccount.passwordSalt ?: newUserAccount.userId)
         SimpleAuthenticationInfo info = new SimpleAuthenticationInfo(username, newUserAccount.currentPassword, saltBs, "moquiRealm")
 
         CredentialsMatcher cm = ecfi.getCredentialsMatcher((String) newUserAccount.passwordHashType, "Y".equals(newUserAccount.passwordBase64))

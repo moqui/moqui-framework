@@ -157,6 +157,8 @@ dependencies {
     api('org.apache.shiro:shiro-lang:2.0.6') { transitive = false } // Apache 2.0
     api('org.apache.shiro:shiro-cache:2.0.6') { transitive = false } // Apache 2.0
     api('org.apache.shiro:shiro-event:2.0.6') { transitive = false } // Apache 2.0
+    api('org.apache.shiro:shiro-config-core:2.0.6') { transitive = false } // Apache 2.0
+    api('org.apache.shiro:shiro-config-ogdl:2.0.6') { transitive = false } // Apache 2.0
     api('org.apache.shiro:shiro-crypto-core:2.0.6') { transitive = false } // Apache 2.0
     api('org.apache.shiro:shiro-crypto-hash:2.0.6') { transitive = false } // Apache 2.0
     api('org.apache.shiro:shiro-crypto-cipher:2.0.6') { transitive = false } // Apache 2.0
