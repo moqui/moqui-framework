@@ -47,6 +47,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:enumeration value="date-time"/>
             <xs:enumeration value="date-time-tz"/>
             <xs:enumeration value="number-integer"/>
+            <xs:enumeration value="number-bigint"/>
             <xs:enumeration value="number-decimal"/>
             <xs:enumeration value="number-float"/>
             <xs:enumeration value="number-bigint"/>
@@ -226,6 +227,11 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:annotation><xs:documentation>If true values are immutable, can only be set on create and not update.
                     Overrides entity.@create-only value, set to false explicitly to allow update of certain fields on
                     create-only entities.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="auto-generated" type="boolean">
+                <xs:annotation><xs:documentation>If set to true, it sets the field to mode where values are automatically
+                    generated without the need to provide values for it. It is primarily used when
+                    the developer cannot use Entity handler to manipulate data.</xs:documentation></xs:annotation>
             </xs:attribute>
         </xs:complexType>
     </xs:element>
