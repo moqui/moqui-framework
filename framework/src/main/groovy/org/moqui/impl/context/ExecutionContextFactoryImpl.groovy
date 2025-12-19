@@ -984,7 +984,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     // NOTE: used in UserServices.xml
     String getSimpleHash(String source, String salt) { return getSimpleHash(source, salt, getPasswordHashType(), false) }
     String getSimpleHash(String source, String salt, String hashType, boolean isBase64) {
-        SimpleHash simple = new SimpleHash(hashType ?: getPasswordHashType(), source, salt)
+        SimpleHash simple = new SimpleHash(hashType ?: getPasswordHashType(), source, salt ?: '')
         return isBase64 ? simple.toBase64() : simple.toHex()
     }
 
