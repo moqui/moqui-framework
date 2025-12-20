@@ -1,0 +1,156 @@
+# Moqui Framework Development Environment
+#
+# Usage:
+#   docker-compose up -d              # Start all services
+#   docker-compose up -d --build      # Rebuild and start
+#   docker-compose logs -f moqui      # Follow Moqui logs
+#   docker-compose down               # Stop all services
+#   docker-compose down -v            # Stop and remove volumes
+#
+# Access:
+#   Moqui:      http://localhost:8080
+#   PostgreSQL: localhost:5432
+#   OpenSearch: http://localhost:9200
+
+services:
+  moqui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: moqui-dev
+    ports:
+      - "8080:8080"
+      - "8443:8443"  # HTTPS (optional)
+      - "5005:5005"  # Java debug port
+    env_file:
+      - docker/.env.example  # Override with docker/.env if present
+    environment:
+      # Runtime configuration
+      - MOQUI_RUNTIME_CONF=conf/MoquiDevConf.xml
+      # Database connection
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=moqui
+      - DB_USER=moqui
+      - DB_PASSWORD=moqui
+      # OpenSearch connection
+      - OPENSEARCH_HOST=opensearch
+      - OPENSEARCH_PORT=9200
+      # JVM settings (override defaults for development)
+      - JAVA_TOOL_OPTIONS=-Xms256m -Xmx1024m -XX:+UseG1GC -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
+      # Timezone
+      - TZ=UTC
+    depends_on:
+      postgres:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+    volumes:
+      # Mount runtime for live development
+      - ./runtime/conf:/opt/moqui/runtime/conf:ro
+      - ./runtime/component:/opt/moqui/runtime/component:ro
+      - ./runtime/base-component:/opt/moqui/runtime/base-component:ro
+      # Docker-specific configuration (optional override)
+      - ./docker/conf:/opt/moqui/docker/conf:ro
+      # Persist logs and data
+      - moqui_logs:/opt/moqui/runtime/log
+      - moqui_txlog:/opt/moqui/runtime/txlog
+      - moqui_sessions:/opt/moqui/runtime/sessions
+    networks:
+      - moqui-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health/ready || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 120s
+      retries: 3
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: moqui-postgres
+    environment:
+      POSTGRES_DB: moqui
+      POSTGRES_USER: moqui
+      POSTGRES_PASSWORD: moqui
+      # Performance tuning for development
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Optional: mount init scripts
+      # - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - moqui-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U moqui -d moqui"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  opensearch:
+    image: opensearchproject/opensearch:2.11.1
+    container_name: moqui-opensearch
+    environment:
+      - discovery.type=single-node
+      - DISABLE_SECURITY_PLUGIN=true
+      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
+      - bootstrap.memory_lock=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    ports:
+      - "9200:9200"
+      - "9600:9600"  # Performance Analyzer
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+    networks:
+      - moqui-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # Optional: OpenSearch Dashboards for debugging
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:2.11.1
+    container_name: moqui-dashboards
+    environment:
+      - OPENSEARCH_HOSTS=["http://opensearch:9200"]
+      - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
+    ports:
+      - "5601:5601"
+    depends_on:
+      opensearch:
+        condition: service_healthy
+    networks:
+      - moqui-network
+    restart: unless-stopped
+    profiles:
+      - dashboards  # Only starts with: docker-compose --profile dashboards up
+
+networks:
+  moqui-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  opensearch_data:
+    driver: local
+  moqui_logs:
+    driver: local
+  moqui_txlog:
+    driver: local
+  moqui_sessions:
+    driver: local

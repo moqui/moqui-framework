@@ -68,7 +68,7 @@ try {
     email.setSmtpPort(port)
     if (emailServer.mailUsername) {
         email.setAuthenticator(new DefaultAuthenticator((String) emailServer.mailUsername, (String) emailServer.mailPassword))
-        // logger.info("Set user=${emailServer.mailUsername}, password=${emailServer.mailPassword}")
+        // SECURITY: Never log credentials (CWE-532)
     }
     if (emailServer.smtpStartTls == "Y") {
         email.setStartTLSEnabled(true)

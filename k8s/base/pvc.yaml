@@ -1,0 +1,46 @@
+# Moqui Framework Persistent Volume Claims
+# Storage for logs, transaction logs, and session data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: moqui-logs
+  labels:
+    app.kubernetes.io/name: moqui
+    app.kubernetes.io/component: storage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  # Uncomment to specify storage class
+  # storageClassName: standard
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: moqui-txlog
+  labels:
+    app.kubernetes.io/name: moqui
+    app.kubernetes.io/component: storage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: moqui-sessions
+  labels:
+    app.kubernetes.io/name: moqui
+    app.kubernetes.io/component: storage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

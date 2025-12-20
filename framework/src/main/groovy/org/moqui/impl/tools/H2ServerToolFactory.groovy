@@ -67,23 +67,6 @@ class H2ServerToolFactory implements ToolFactory<Server> {
                 }
             }
         }
-
-        // a hack, disable the H2 shutdown hook (org.h2.engine.DatabaseCloser) so it doesn't shut down before the rest of framework
-        if (h2Server != null) {
-            Class clazz = Class.forName("java.lang.ApplicationShutdownHooks")
-            Field field = clazz.getDeclaredField("hooks")
-            field.setAccessible(true)
-            IdentityHashMap<Thread, Thread> hooks = (IdentityHashMap<Thread, Thread>) field.get(null)
-            List<Thread> hookList = new ArrayList<>(hooks.keySet())
-            for (Thread hook in hookList) {
-                String clazzName = hook.class.name
-                logger.info("Found shutdown hook: ${clazzName} ${hook}")
-                if ("org.h2.engine.DatabaseCloser".equals(clazzName) || "org.h2.engine.OnExitDatabaseCloser".equals(clazzName)) {
-                    logger.info("Removing H2 shutdown hook with class ${clazzName}")
-                    Runtime.getRuntime().removeShutdownHook(hook)
-                }
-            }
-        }
     }
 
     @Override
@@ -97,7 +80,7 @@ class H2ServerToolFactory implements ToolFactory<Server> {
         // NOTE: using shutdown() instead of stop() so it shuts down the DB and stops the TCP server
         if (h2Server != null) {
             h2Server.shutdown()
-            System.out.println("Shut down H2 Server")
+            logger.info("Shut down H2 Server")
         }
     }
 }

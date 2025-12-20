@@ -17,13 +17,13 @@ import groovy.transform.CompileStatic
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.util.MNode
 
-import javax.servlet.DispatcherType
-import javax.servlet.Filter
-import javax.servlet.FilterRegistration
-import javax.servlet.Servlet
-import javax.servlet.ServletContext
-import javax.servlet.ServletContextEvent
-import javax.servlet.ServletContextListener
+import jakarta.servlet.DispatcherType
+import jakarta.servlet.Filter
+import jakarta.servlet.FilterRegistration
+import jakarta.servlet.Servlet
+import jakarta.servlet.ServletContext
+import jakarta.servlet.ServletContextEvent
+import jakarta.servlet.ServletContextListener
 
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextFactoryImpl.WebappInfo
@@ -32,11 +32,11 @@ import org.moqui.Moqui
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
-import javax.servlet.ServletRegistration
-import javax.websocket.HandshakeResponse
-import javax.websocket.server.HandshakeRequest
-import javax.websocket.server.ServerContainer
-import javax.websocket.server.ServerEndpointConfig
+import jakarta.servlet.ServletRegistration
+import jakarta.websocket.HandshakeResponse
+import jakarta.websocket.server.HandshakeRequest
+import jakarta.websocket.server.ServerContainer
+import jakarta.websocket.server.ServerEndpointConfig
 
 @CompileStatic
 class MoquiContextListener implements ServletContextListener {
@@ -222,7 +222,7 @@ class MoquiContextListener implements ServletContextListener {
     }
 
     static class MoquiServerEndpointConfigurator extends ServerEndpointConfig.Configurator {
-        // for a good explanation of javax.websocket details related to this see:
+        // for a good explanation of jakarta.websocket details related to this see:
         // http://stackoverflow.com/questions/17936440/accessing-httpsession-from-httpservletrequest-in-a-web-socket-serverendpoint
         ExecutionContextFactoryImpl ecfi
         Long maxIdleTimeout = null
