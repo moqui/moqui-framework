@@ -802,6 +802,41 @@ class UserFacadeImpl implements UserFacade {
         return loginKey
     }
 
+    @Override String getLoginKeyAndResetLogoutStatus() {
+        return getLoginKeyAndResetLogoutStatus(eci.ecfi.getLoginKeyExpireHours())
+    }
+
+    @Override String getLoginKeyAndResetLogoutStatus(float expireHours) {
+        String userId = getUserId()
+        if (!userId) throw new AuthenticationRequiredException("No active user, cannot get login key")
+
+        // CRITICAL: Order matters to avoid deadlock!
+        // 1. First update UserAccount (acquires exclusive lock)
+        // 2. Then create UserLoginKey (FK validation needs shared lock on UserAccount)
+        // Fix for hunterino/moqui#5 - Deadlock in Login operations
+
+        // Step 1: Reset hasLoggedOut flag (exclusive lock on UserAccount)
+        eci.serviceFacade.sync().name("update", "moqui.security.UserAccount")
+                .parameters([userId:userId, hasLoggedOut:"N"])
+                .disableAuthz().call()
+
+        // Step 2: Create login key (shared lock on UserAccount via FK)
+        // Using requireNewTransaction(false) to keep in same transaction as the update above
+        String loginKey = StringUtilities.getRandomString(40)
+        String hashedKey = eci.ecfi.getSimpleHash(loginKey, "", eci.ecfi.getLoginKeyHashType(), false)
+        Timestamp fromDate = getNowTimestamp()
+        long thruTime = fromDate.getTime() + Math.round(expireHours * 60*60*1000)
+        eci.serviceFacade.sync().name("create", "moqui.security.UserLoginKey")
+                .parameters([loginKey:hashedKey, userId:userId, fromDate:fromDate, thruDate:new Timestamp(thruTime)])
+                .disableAuthz().call()
+
+        // Clean out expired keys
+        eci.entity.find("moqui.security.UserLoginKey").condition("userId", userId)
+                .condition("thruDate", EntityCondition.LESS_THAN, fromDate).disableAuthz().deleteAll()
+
+        return loginKey
+    }
+
     @Override boolean loginAnonymousIfNoUser() {
         if (currentInfo.username == null && !currentInfo.loggedInAnonymous) {
             currentInfo.loggedInAnonymous = true
