@@ -277,4 +277,35 @@ class EntityFindTests extends Specification {
         then:
         geo.isMutable()
     }
+
+    // Test for issue #606: Entity find should NOT ignore non-PK conditions when full PK is present
+    def "find with PK and non-PK conditions should honor all conditions"() {
+        when:
+        // Create a test entity with specific values
+        ec.entity.makeValue("moqui.test.TestEntity").setAll([testId:"EXTST_NONPK", 
+                testMedium:"Active Status", testNumberInteger:9999]).createOrUpdate()
+        
+        // Query with full PK (testId) AND non-PK condition (testMedium)
+        // This should return null because testMedium doesnt match
+        EntityValue notFound = ec.entity.find("moqui.test.TestEntity")
+                .condition("testId", "EXTST_NONPK")
+                .condition("testMedium", "Wrong Status")
+                .one()
+        
+        // This should return the entity because both conditions match
+        EntityValue found = ec.entity.find("moqui.test.TestEntity")
+                .condition("testId", "EXTST_NONPK")
+                .condition("testMedium", "Active Status")
+                .one()
+        
+        // Cleanup
+        ec.entity.makeValue("moqui.test.TestEntity").set("testId", "EXTST_NONPK").delete()
+        
+        then:
+        // Before the fix, notFound would incorrectly return the entity (ignoring testMedium)
+        notFound == null
+        found != null
+        found.testId == "EXTST_NONPK"
+        found.testMedium == "Active Status"
+    }
 }

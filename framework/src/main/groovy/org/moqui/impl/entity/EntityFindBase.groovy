@@ -780,20 +780,11 @@ abstract class EntityFindBase implements EntityFind {
                 }
             }
         }
-        // if over-constrained (anything in addition to a full PK), just use the full PK
-        if (hasFullPk && samSize > 1) {
-            Map<String, Object> pks = new HashMap<>()
-            if (singleCondField != null) {
-                // this shouldn't generally happen, added to simpleAndMap internally on the fly when needed, but just in case
-                pks.put(singleCondField, singleCondValue)
-                singleCondField = (String) null; singleCondValue = null
-            }
-            for (int i = 0; i < pkSize; i++) {
-                String fieldName = (String) pkNameList.get(i)
-                pks.put(fieldName, simpleAndMap.get(fieldName))
-            }
-            simpleAndMap = pks
-        }
+        // FIX for issue #606: Preserve non-PK conditions even when full PK is present
+        // Previously this code stripped non-PK conditions when a full PK was provided,
+        // assuming "over-constrained" queries only need PK. This was incorrect as users
+        // may legitimately want to validate additional conditions (e.g., status checks)
+        // alongside PK lookups. The non-PK conditions are now preserved in the query.
 
         // if any PK fields are null, for whatever reason in calling code, the result is null so no need to send to DB or cache or anything
         if (hasEmptyPk) return (EntityValue) null
