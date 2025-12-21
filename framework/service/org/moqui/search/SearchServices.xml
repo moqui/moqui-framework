@@ -89,7 +89,7 @@ along with this software (see the LICENSE.md file). If not, see
                     if (dataDocument?.indexName) elasticClient.checkCreateDataDocumentIndexes((String) dataDocument.indexName)
 
                     int docListSize = ec.entity.entityDataDocument.feedDataDocuments(dfDoc.dataDocumentId, null,
-                            fromUpdateStamp, thruUpdatedStamp, feedReceiveServiceName, batchSize)
+                            fromUpdateStamp, thruUpdateStamp, feedReceiveServiceName, batchSize)
                     documentsIndexed += docListSize
                 }
             ]]></script>
