@@ -395,11 +395,11 @@ abstract class EntityFindBase implements EntityFind {
 
         boolean addedConditions = false
         if (inputFieldsMap != null && inputFieldsMap.size() > 0)
-            addedConditions = processInputFields(inputFieldsMap, skipFieldSet, ec)
+            addedConditions = processInputFields(inputFieldsMap, defaultParameters, skipFieldSet, ec)
         hasSearchFormParameters = addedConditions
 
         if (!addedConditions && defaultParameters != null && defaultParameters.size() > 0) {
-            processInputFields(defaultParameters, skipFieldSet, ec)
+            processInputFields(defaultParameters, null, skipFieldSet, ec)
             for (Map.Entry<String, Object> dpEntry in defaultParameters.entrySet()) ec.contextStack.put(dpEntry.key, dpEntry.value)
         }
 
@@ -427,7 +427,8 @@ abstract class EntityFindBase implements EntityFind {
         return this
     }
 
-    protected boolean processInputFields(Map<String, Object> inputFieldsMap, Set<String> skipFieldSet, ExecutionContextImpl ec) {
+    protected boolean processInputFields(Map<String, Object> inputFieldsMap, Map<String, Object> defaultParameters,
+                                         Set<String> skipFieldSet, ExecutionContextImpl ec) {
         EntityDefinition ed = getEntityDef()
         boolean addedConditions = false
         for (FieldInfo fi in ed.allFieldInfoList) {
@@ -440,9 +441,12 @@ abstract class EntityFindBase implements EntityFind {
             if (inputFieldsMap.containsKey(fn) || inputFieldsMap.containsKey(fn + "_op")) {
                 Object value = inputFieldsMap.get(fn)
                 boolean valueEmpty = ObjectUtilities.isEmpty(value)
-                String op = inputFieldsMap.get(fn + "_op") ?: "equals"
-                boolean not = (inputFieldsMap.get(fn + "_not") == "Y" || inputFieldsMap.get(fn + "_not") == "true")
-                boolean ic = (inputFieldsMap.get(fn + "_ic") == "Y" || inputFieldsMap.get(fn + "_ic") == "true")
+                // Issue #12 fix: use defaultParameters as fallback for _op, _not, _ic when not in inputFieldsMap
+                String op = inputFieldsMap.get(fn + "_op") ?: defaultParameters?.get(fn + "_op") ?: "equals"
+                Object notValue = inputFieldsMap.get(fn + "_not") ?: defaultParameters?.get(fn + "_not")
+                boolean not = (notValue == "Y" || notValue == "true")
+                Object icValue = inputFieldsMap.get(fn + "_ic") ?: defaultParameters?.get(fn + "_ic")
+                boolean ic = (icValue == "Y" || icValue == "true")
 
                 EntityCondition cond = null
                 switch (op) {
