@@ -1,8 +1,133 @@
-
-
 # Moqui Framework Release Notes
 
-## Release 3.1.0 - Not Yet Released
+## Release 4.0.0 - Not Yet Released
+
+Moqui framework v4.0.0 is a major new release with massive changes some of which
+are breaking changes. All users are advised to upgrade to benefit from all the
+new features, security fixes, upgrades, performance improvements and so on.
+
+### Major Changes
+
+#### Java Upgrade to Version 21 (BREAKING CHANGE)
+
+Moqui Framework now requires Java 21. This provides improved performance,
+long-term support, and access to modern JVM features, while removing legacy
+APIs. All custom code and components must be validated against Java 21 to ensure
+compatibility.
+
+#### Integration with the New Bitronix Fork (BREAKING CHANGE)
+
+Moqui Framework now depends on the actively maintained Bitronix fork at:
+https://github.com/moqui/bitronix
+
+The current integrated version is 4.0.0-BETA1, with stabilization ongoing.
+
+This fork includes:
+
+- Major modernization and cleanup
+- Jakarta namespace migration
+- JMS namespace migration
+- Important bug fixes and stability improvements
+- Legacy Bitronix artifacts are no longer supported.
+- Deployments must remove old Bitronix dependencies.
+
+#### Migration From javax.transaction to jakarta.transaction (BREAKING CHANGE)
+
+Moqui has migrated all transaction-related imports and internal APIs from
+javax.transaction.* to jakarta.transaction.*, following changes in the new
+Bitronix fork.
+
+Impact on developers:
+
+- Any code referencing javax.transaction.* must update imports to
+  jakarta.transaction.*.
+- Affects transaction facade usage, user transactions, and service-layer
+  transaction management.
+- If using custom transaction API, then compilation failures should be expected
+  until imports are updated. This does not impact projects that are purely
+  depending on moqui facades without accessing the underlying APIs
+
+This aligns Moqui with the Jakarta EE namespace changes and the newer Bitronix
+transaction manager.
+
+#### Gradle Wrapper Updated to 9.2 (BREAKING CHANGE)
+
+The framework now builds using Gradle 9.2, bringing:
+
+- Faster builds
+- Stricter validation and deprecation cleanup
+
+Changes included:
+- Refactored property assignments and function calls to satisfy newer Gradle immutability rules.
+- Replaced deprecated exec {} blocks with Groovy execute() usage (Windows support still being refined).
+- Updated and corrected dependency declarations, including replacing deprecated modules and fixing invalid version strings.
+- Numerous misc. updates required by Gradle 9.x API changes.
+
+This upgrade required significant modifications to component build scripts.
+
+Given the upgrade to gradle, Java and bitronix, the following community components were upgraded to comply with new requirements:
+- HiveMind
+- PopCommerce
+- PopRestStore
+- example
+- mantle-braintree
+- mantle-usl
+- moqui-camel
+- moqui-cups
+- moqui-fop
+- moqui-hazelcast
+- moqui-image
+- moqui-orientdb
+- moqui-poi
+- moqui-runtime
+- moqui-sftp
+- moqui-sso
+- moqui-wikitext
+- start
+
+### Remaining Work
+
+- A comprehensive review and modernization of all framework and component
+  dependency versions is still pending. This includes all libraries in the
+  framework and external components
+- Groovy upgrade: This is a large project, as it impacts many areas and must be
+  done with extreme care. Might be done in a subsequent release.
+- Residual Deprecation updates which are listed below:
+
+```
+moqui-framework/framework/src/main/java/org/moqui/util/RestClient.java:722: warning: [removal] finalize() in Object has been deprecated and marked for removal
+        @Override protected void finalize() throws Throwable {
+                                 ^
+moqui-framework/framework/src/main/java/org/moqui/util/RestClient.java:727: warning: [removal] finalize() in Object has been deprecated and marked for removal
+            super.finalize();
+                 ^
+moqui-framework/framework/src/main/java/org/moqui/util/RestClient.java:800: warning: [removal] finalize() in Object has been deprecated and marked for removal
+        @Override protected void finalize() throws Throwable {
+                                 ^
+moqui-framework/framework/src/main/java/org/moqui/util/RestClient.java:805: warning: [removal] finalize() in Object has been deprecated and marked for removal
+            super.finalize();
+                  ^
+-framework/framework/src/main/groovy/org/moqui/impl/entity/EntityListIteratorWrapper.java:190: warning: [removal] finalize() in Object has been deprecated and marked for removal
+    @Override protected void finalize() throws Throwable {
+                             ^
+moqui-framework/framework/src/main/groovy/org/moqui/impl/entity/EntityListIteratorWrapper.java:195: warning: [removal] finalize() in Object has been deprecated and marked for removal
+        super.finalize();
+             ^
+moqui-framework/framework/src/main/groovy/org/moqui/impl/entity/elastic/ElasticEntityListIterator.java:560: warning: [removal] finalize() in Object has been deprecated and marked for removal
+    protected void finalize() throws Throwable {
+                   ^
+moqui-framework/framework/src/main/groovy/org/moqui/impl/entity/elastic/ElasticEntityListIterator.java:578: warning: [removal] finalize() in Object has been deprecated and marked for removal
+        super.finalize();
+             ^
+moqui-framework/framework/src/main/groovy/org/moqui/impl/entity/EntityListIteratorImpl.java:381: warning: [removal] finalize() in Object has been deprecated and marked for removal
+    protected void finalize() throws Throwable {
+                   ^
+moqui-framework/framework/src/main/groovy/org/moqui/impl/entity/EntityListIteratorImpl.java:399: warning: [removal] finalize() in Object has been deprecated and marked for removal
+        super.finalize();
+```
+
+
+## Release 3.1.0 - Canceled release
 
 Moqui Framework 3.1.0 is a minor new feature and bug fix release with no changes that are not backward compatible.
 

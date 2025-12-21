@@ -1,0 +1,8 @@
+# Moqui Framework Kubernetes Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: moqui
+  labels:
+    app.kubernetes.io/name: moqui
+    app.kubernetes.io/component: namespace

@@ -50,8 +50,8 @@ import org.moqui.util.StringUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
-import javax.servlet.http.HttpServletRequest
-import javax.servlet.http.HttpServletResponse
+import jakarta.servlet.http.HttpServletRequest
+import jakarta.servlet.http.HttpServletResponse
 
 @CompileStatic
 class ScreenRenderImpl implements ScreenRender {
@@ -495,8 +495,8 @@ class ScreenRenderImpl implements ScreenRender {
 
             if ("none".equals(ri.type)) {
                 // for response type none also save parameters if configured to do so, and save errors if there are any
-                if (ri.saveParameters) wfi.saveRequestParametersToSession()
-                if (ec.message.hasError()) wfi.saveErrorParametersToSession()
+                if (ri.saveParameters && wfi != null) wfi.saveRequestParametersToSession()
+                if (ec.message.hasError() && wfi != null) wfi.saveErrorParametersToSession()
                 if (logger.isTraceEnabled()) logger.trace("Transition ${screenUrlInfo.getFullPathNameList().join("/")} in ${System.currentTimeMillis() - renderStartTime}ms, type none response")
                 return
             }

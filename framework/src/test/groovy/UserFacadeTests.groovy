@@ -124,4 +124,103 @@ class UserFacadeTests extends Specification {
         expect:
         ec.user.logoutUser()
     }
+
+    // Tests for getLoginKeyAndResetLogoutStatus - Fix for hunterino/moqui#5
+    def "getLoginKeyAndResetLogoutStatus creates login key and resets logout status"() {
+        when:
+        // Login as john.doe
+        ec.user.loginUser("john.doe", "moqui")
+        String userId = ec.user.userId
+
+        // Set hasLoggedOut to Y to simulate a logged out state
+        ec.service.sync().name("update", "moqui.security.UserAccount")
+                .parameters([userId: userId, hasLoggedOut: "Y"])
+                .disableAuthz().call()
+
+        // Call the new deadlock-safe method
+        String loginKey = ec.user.getLoginKeyAndResetLogoutStatus()
+
+        // Verify the login key was created
+        def userLoginKey = ec.entity.find("moqui.security.UserLoginKey")
+                .condition("userId", userId)
+                .orderBy("-fromDate")
+                .disableAuthz().one()
+
+        // Verify hasLoggedOut was reset to N
+        def userAccount = ec.entity.find("moqui.security.UserAccount")
+                .condition("userId", userId)
+                .disableAuthz().one()
+
+        then:
+        loginKey != null
+        loginKey.length() == 40
+        userLoginKey != null
+        userLoginKey.userId == userId
+        userAccount.hasLoggedOut == "N"
+
+        cleanup:
+        ec.user.logoutUser()
+    }
+
+    def "getLoginKeyAndResetLogoutStatus with custom expireHours"() {
+        when:
+        ec.user.loginUser("john.doe", "moqui")
+        String loginKey = ec.user.getLoginKeyAndResetLogoutStatus(2.0f)
+        String userId = ec.user.userId
+
+        def userLoginKey = ec.entity.find("moqui.security.UserLoginKey")
+                .condition("userId", userId)
+                .orderBy("-fromDate")
+                .disableAuthz().one()
+
+        // Calculate expected expiry (approximately 2 hours from now)
+        long expectedThruTime = System.currentTimeMillis() + (2 * 60 * 60 * 1000)
+        long actualThruTime = userLoginKey.thruDate.time
+        long timeDiff = Math.abs(expectedThruTime - actualThruTime)
+
+        then:
+        loginKey != null
+        // Allow 5 second tolerance for test execution time
+        timeDiff < 5000
+
+        cleanup:
+        ec.user.logoutUser()
+    }
+
+    def "getLoginKeyAndResetLogoutStatus concurrent execution does not deadlock"() {
+        when:
+        ec.user.loginUser("john.doe", "moqui")
+        String userId = ec.user.userId
+
+        // Run multiple concurrent operations to verify no deadlock
+        def results = Collections.synchronizedList([])
+        def threads = []
+        int numThreads = 5
+
+        for (int i = 0; i < numThreads; i++) {
+            threads << Thread.start {
+                try {
+                    def threadEc = Moqui.getExecutionContext()
+                    threadEc.user.loginUser("john.doe", "moqui")
+                    String key = threadEc.user.getLoginKeyAndResetLogoutStatus()
+                    results << [success: true, key: key]
+                    threadEc.user.logoutUser()
+                    threadEc.destroy()
+                } catch (Exception e) {
+                    results << [success: false, error: e.message]
+                }
+            }
+        }
+
+        // Wait for all threads with timeout (30 seconds to detect deadlock)
+        threads.each { it.join(30000) }
+
+        then:
+        // All threads should complete successfully
+        results.size() == numThreads
+        results.every { it.success }
+
+        cleanup:
+        ec.user.logoutUser()
+    }
 }

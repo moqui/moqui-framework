@@ -39,6 +39,14 @@ class EntityFindTests extends Specification {
     }
 
     def cleanupSpec() {
+        // Clean up test data that persists between test runs
+        ec.artifactExecution.disableAuthz()
+        try {
+            ec.entity.find("moqui.security.ArtifactAuthz").condition("artifactAuthzId", "SCREEN_TREE_ADMIN").one()?.delete()
+        } catch (Exception e) {
+            // Ignore cleanup errors
+        }
+        ec.artifactExecution.enableAuthz()
         ec.destroy()
     }
 

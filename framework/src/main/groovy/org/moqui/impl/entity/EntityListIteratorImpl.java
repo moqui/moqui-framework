@@ -377,25 +377,4 @@ public class EntityListIteratorImpl implements EntityListIterator {
         // TODO implement this
     }
 
-    @Override
-    protected void finalize() throws Throwable {
-        try {
-            if (!closed) {
-                StringBuilder errorSb = new StringBuilder(1000);
-                errorSb.append("EntityListIterator not closed for entity [").append(entityDefinition.getFullEntityName())
-                        .append("], caught in finalize()");
-                if (constructStack != null) for (int i = 0; i < constructStack.length; i++)
-                    errorSb.append("\n").append(constructStack[i].toString());
-                if (artifactStack != null) for (int i = 0; i < artifactStack.size(); i++)
-                    errorSb.append("\n").append(artifactStack.get(i).toBasicString());
-                logger.error(errorSb.toString());
-
-                this.close();
-            }
-        } catch (Exception e) {
-            logger.error("Error closing the ResultSet or Connection in finalize EntityListIterator", e);
-        }
-
-        super.finalize();
-    }
 }
