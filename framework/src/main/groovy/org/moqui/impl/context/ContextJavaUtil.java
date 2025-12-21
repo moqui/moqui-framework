@@ -422,7 +422,9 @@ public class ContextJavaUtil {
                                     .append(": ").append(otherErl.artifactStack.get(mi).toBasicString());
                         }
                     }
-                    logger.warn(msgBuilder.toString());
+                    // Changed from warn to info to reduce log noise (issue #596/#15)
+                    // These are potential conflicts, not confirmed issues, so info level is appropriate
+                    logger.info(msgBuilder.toString());
                 }
 
                 // add new lock to this.recordLockByEntityPk, and TxStackInfo.recordLockList
