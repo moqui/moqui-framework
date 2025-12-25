@@ -1299,6 +1299,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     static class ComponentInfo {
+        protected final static Logger logger = LoggerFactory.getLogger(ComponentInfo.class)
         ExecutionContextFactoryImpl ecfi
         String name, location, version
         Map versionMap = null
@@ -1499,6 +1500,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     static class DeferredHitInfoFlush implements Runnable {
+        protected final static Logger logger = LoggerFactory.getLogger(DeferredHitInfoFlush.class)
         // max creates per chunk, one transaction per chunk (unless error)
         final static int maxCreates = 1000
         final ExecutionContextFactoryImpl ecfi
@@ -1786,6 +1788,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     static class WebappInfo {
+        protected final static Logger logger = LoggerFactory.getLogger(WebappInfo.class)
         String webappName
         MNode webappNode
         XmlAction firstHitInVisitActions = null
