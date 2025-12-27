@@ -12,18 +12,33 @@
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
 
-import java.io.*;
+import java.io.BufferedOutputStream;
+import java.io.DataInputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Array;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
-import java.net.URI;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.CodeSource;
 import java.security.ProtectionDomain;
 import java.security.cert.Certificate;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
@@ -749,7 +764,7 @@ public class MoquiStart {
                     try {
                         String jarFileName = jarFile.getName();
                         if (jarFileName.contains("\\")) jarFileName = jarFileName.replace('\\', '/');
-                        URL resourceUrl = URI.create("jar:file:" + jarFileName + "!/" + jarEntry).toURL();
+                        URL resourceUrl = new URL("jar:file:" + jarFileName + "!/" + jarEntry);
                         resourceCache.put(resourceName, resourceUrl);
                         return resourceUrl;
                     } catch (MalformedURLException e) {
@@ -776,7 +791,7 @@ public class MoquiStart {
                     try {
                         String jarFileName = jarFile.getName();
                         if (jarFileName.contains("\\")) jarFileName = jarFileName.replace('\\', '/');
-                        urlList.add(URI.create("jar:file:" + jarFileName + "!/" + jarEntry).toURL());
+                        urlList.add(new URL("jar:file:" + jarFileName + "!/" + jarEntry));
                     } catch (MalformedURLException e) {
                         System.out.println("Error making URL for [" + resourceName + "] in jar [" + jarFile + "] in war file [" + wrapperUrl + "]: " + e.toString());
                     }
@@ -875,7 +890,7 @@ public class MoquiStart {
             String seal = mf.getMainAttributes().getValue(Attributes.Name.SEALED);
             if (seal == null) return null;
             try {
-                return URI.create(seal).toURL();
+                return new URL(seal);
             } catch (MalformedURLException e) {
                 return null;
             }
