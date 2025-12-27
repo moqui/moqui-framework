@@ -14,6 +14,7 @@
 package org.moqui.impl.screen
 
 import groovy.transform.CompileStatic
+
 import org.moqui.impl.context.ContextJavaUtil
 import org.moqui.util.ContextStack
 import org.moqui.context.ValidationError
@@ -23,32 +24,34 @@ import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.WebFacadeImpl
 import org.moqui.impl.service.RestApi
+
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
-import javax.servlet.AsyncContext
-import javax.servlet.DispatcherType
-import javax.servlet.Filter
-import javax.servlet.FilterRegistration
-import javax.servlet.RequestDispatcher
-import javax.servlet.Servlet
-import javax.servlet.ServletContext
-import javax.servlet.ServletException
-import javax.servlet.ServletInputStream
-import javax.servlet.ServletOutputStream
-import javax.servlet.ServletRegistration
-import javax.servlet.ServletRequest
-import javax.servlet.ServletResponse
-import javax.servlet.SessionCookieConfig
-import javax.servlet.SessionTrackingMode
-import javax.servlet.descriptor.JspConfigDescriptor
-import javax.servlet.http.Cookie
-import javax.servlet.http.HttpServletRequest
-import javax.servlet.http.HttpServletResponse
-import javax.servlet.http.HttpSession
-import javax.servlet.http.HttpSessionContext
-import javax.servlet.http.HttpUpgradeHandler
-import javax.servlet.http.Part
+import jakarta.servlet.AsyncContext
+import jakarta.servlet.DispatcherType
+import jakarta.servlet.Filter
+import jakarta.servlet.FilterRegistration
+import jakarta.servlet.RequestDispatcher
+import jakarta.servlet.Servlet
+import jakarta.servlet.ServletConnection
+import jakarta.servlet.ServletContext
+import jakarta.servlet.ServletException
+import jakarta.servlet.ServletInputStream
+import jakarta.servlet.ServletOutputStream
+import jakarta.servlet.ServletRegistration
+import jakarta.servlet.ServletRequest
+import jakarta.servlet.ServletResponse
+import jakarta.servlet.SessionCookieConfig
+import jakarta.servlet.SessionTrackingMode
+import jakarta.servlet.descriptor.JspConfigDescriptor
+import jakarta.servlet.http.Cookie
+import jakarta.servlet.http.HttpServletRequest
+import jakarta.servlet.http.HttpServletResponse
+import jakarta.servlet.http.HttpSession
+import jakarta.servlet.http.HttpUpgradeHandler
+import jakarta.servlet.http.Part
+
 import java.security.Principal
 
 /** A test stub for the WebFacade interface, used in ScreenTestImpl */
@@ -216,6 +219,9 @@ class WebFacadeStub implements WebFacade {
             this.wfs = wfs
         }
 
+        String getRequestId() { return null }
+        String getProtocolRequestId() { return null }
+        ServletConnection getServletConnection() { return null }
         String getAuthType() { return null }
         Cookie[] getCookies() { return new Cookie[0] }
         long getDateHeader(String s) { return System.currentTimeMillis() }
@@ -269,7 +275,6 @@ class WebFacadeStub implements WebFacade {
         @Override boolean isRequestedSessionIdValid() { return true }
         @Override boolean isRequestedSessionIdFromCookie() { return false }
         @Override boolean isRequestedSessionIdFromURL() { return false }
-        @Override boolean isRequestedSessionIdFromUrl() { return false }
 
         @Override Object getAttribute(String s) { return wfs.requestParameters.get(s) }
         @Override Enumeration getAttributeNames() { return wfs.requestParameters.keySet() as Enumeration }
@@ -319,8 +324,6 @@ class WebFacadeStub implements WebFacade {
 
         @Override RequestDispatcher getRequestDispatcher(String s) { return null }
 
-        @Override String getRealPath(String s) { return null }
-
         @Override int getRemotePort() { return 0 }
         @Override String getLocalName() { return "TestLocalName" }
         @Override String getLocalAddr() { return "TestLocalAddr" }
@@ -354,10 +357,8 @@ class WebFacadeStub implements WebFacade {
         ServletContext getServletContext() { return wfs.servletContext }
         void setMaxInactiveInterval(int i) { }
         int getMaxInactiveInterval() { return 0 }
-        HttpSessionContext getSessionContext() { return null }
 
         @Override Object getAttribute(String s) { return wfs.sessionAttributes.get(s) }
-        @Override Object getValue(String s) { return wfs.sessionAttributes.get(s) }
         @Override Enumeration getAttributeNames() {
             return new Enumeration() {
                 Iterator i = wfs.sessionAttributes.keySet().iterator()
@@ -365,11 +366,8 @@ class WebFacadeStub implements WebFacade {
                 Object nextElement() { return i.next() }
             }
         }
-        @Override String[] getValueNames() { return null }
         @Override void setAttribute(String s, Object o) { wfs.sessionAttributes.put(s, o) }
-        @Override void putValue(String s, Object o) { wfs.sessionAttributes.put(s, o) }
         @Override void removeAttribute(String s) { wfs.sessionAttributes.remove(s) }
-        @Override void removeValue(String s) { wfs.sessionAttributes.remove(s) }
 
         void invalidate() { }
         boolean isNew() { return false }
@@ -473,15 +471,13 @@ class WebFacadeStub implements WebFacade {
 
         @Override String encodeURL(String s) { return null }
         @Override String encodeRedirectURL(String s) { return null }
-        @Override String encodeUrl(String s) { return null }
-        @Override String encodeRedirectUrl(String s) { return null }
 
         @Override void sendError(int i, String s) throws IOException {
             status = i
             if (s != null) wfs.responseWriter.append(s)
         }
         @Override void sendError(int i) throws IOException { status = i }
-        @Override void sendRedirect(String s) throws IOException { logger.info("HttpServletResponseStub sendRedirect to: ${s}") }
+        @Override void sendRedirect(String s, int i, boolean b) { logger.info("HttpServletResponseStub sendRedirect to: ${s}") }
 
         @Override void setDateHeader(String s, long l) { headers.put(s, l) }
         @Override void addDateHeader(String s, long l) { headers.put(s, l) }
@@ -489,8 +485,6 @@ class WebFacadeStub implements WebFacade {
         @Override void addHeader(String s, String s1) { headers.put(s, s1) }
         @Override void setIntHeader(String s, int i) { headers.put(s, i) }
         @Override void addIntHeader(String s, int i) { headers.put(s, i) }
-
-        @Override void setStatus(int i, String s) { status = i; wfs.responseWriter.append(s) }
 
         @Override String getCharacterEncoding() { return characterEncoding }
         @Override String getContentType() { return contentType }

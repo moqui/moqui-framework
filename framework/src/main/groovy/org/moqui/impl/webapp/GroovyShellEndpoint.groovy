@@ -19,9 +19,9 @@ import org.moqui.impl.context.ExecutionContextImpl
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
-import javax.websocket.CloseReason
-import javax.websocket.EndpointConfig
-import javax.websocket.Session
+import jakarta.websocket.CloseReason
+import jakarta.websocket.EndpointConfig
+import jakarta.websocket.Session
 
 @CompileStatic
 class GroovyShellEndpoint extends MoquiAbstractEndpoint {

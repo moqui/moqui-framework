@@ -19,9 +19,10 @@ import org.moqui.impl.context.ExecutionContextImpl
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
-import javax.servlet.http.HttpSession
-import javax.websocket.*
-import javax.websocket.server.HandshakeRequest
+import jakarta.servlet.http.HttpSession
+
+import jakarta.websocket.*
+import jakarta.websocket.server.HandshakeRequest
 
 /**
  * An abstract class for WebSocket Endpoint that does basic setup, including creating an ExecutionContext with the user

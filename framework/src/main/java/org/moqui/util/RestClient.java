@@ -15,26 +15,6 @@ package org.moqui.util;
 
 import groovy.json.JsonBuilder;
 import groovy.json.JsonSlurperClassic;
-import org.eclipse.jetty.client.HttpClient;
-import org.eclipse.jetty.client.HttpClientTransport;
-import org.eclipse.jetty.client.HttpResponseException;
-import org.eclipse.jetty.client.ValidatingConnectionPool;
-import org.eclipse.jetty.client.api.*;
-import org.eclipse.jetty.client.dynamic.HttpClientTransportDynamic;
-import org.eclipse.jetty.client.http.HttpClientTransportOverHTTP;
-import org.eclipse.jetty.client.util.*;
-import org.eclipse.jetty.http.HttpField;
-import org.eclipse.jetty.http.HttpFields;
-import org.eclipse.jetty.http.HttpHeader;
-import org.eclipse.jetty.io.ClientConnector;
-import org.eclipse.jetty.util.HttpCookieStore;
-import org.eclipse.jetty.util.ssl.SslContextFactory;
-import org.eclipse.jetty.util.thread.QueuedThreadPool;
-import org.eclipse.jetty.util.thread.ScheduledExecutorScheduler;
-import org.eclipse.jetty.util.thread.Scheduler;
-import org.moqui.BaseException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
@@ -43,9 +23,52 @@ import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.EnumSet;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReentrantLock;
+
+import org.eclipse.jetty.client.CompletableResponseListener;
+import org.eclipse.jetty.client.ContentResponse;
+import org.eclipse.jetty.client.HttpClient;
+import org.eclipse.jetty.client.HttpClientTransport;
+import org.eclipse.jetty.client.HttpResponseException;
+import org.eclipse.jetty.client.InputStreamRequestContent;
+import org.eclipse.jetty.client.MultiPartRequestContent;
+import org.eclipse.jetty.client.Request;
+import org.eclipse.jetty.client.Response;
+import org.eclipse.jetty.client.Result;
+import org.eclipse.jetty.client.StringRequestContent;
+import org.eclipse.jetty.client.ValidatingConnectionPool;
+import org.eclipse.jetty.client.transport.HttpClientTransportDynamic;
+import org.eclipse.jetty.client.transport.HttpClientTransportOverHTTP;
+import org.eclipse.jetty.http.HttpCookieStore;
+import org.eclipse.jetty.http.HttpField;
+import org.eclipse.jetty.http.HttpFields;
+import org.eclipse.jetty.http.HttpHeader;
+import org.eclipse.jetty.http.MultiPart;
+import org.eclipse.jetty.io.ClientConnector;
+import org.eclipse.jetty.util.ssl.SslContextFactory;
+import org.eclipse.jetty.util.thread.QueuedThreadPool;
+import org.eclipse.jetty.util.thread.ScheduledExecutorScheduler;
+import org.eclipse.jetty.util.thread.Scheduler;
+
+import org.moqui.BaseException;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @SuppressWarnings("unused")
 public class RestClient {
@@ -221,7 +244,7 @@ public class RestClient {
         if (method != Method.POST) throw new IllegalStateException("Can only use multipart body with POST method, not supported for method " + method + "; if you need a different effective request method try using the X-HTTP-Method-Override header");
 
         if (multiPart == null) multiPart = new MultiPartRequestContent();
-        multiPart.addFieldPart(field, new StringRequestContent(value), null);
+        multiPart.addPart(new MultiPart.ContentSourcePart(field, null, null, new StringRequestContent(value)));
         return this;
     }
     /** Add a String file part to a multi part request **/
@@ -238,7 +261,7 @@ public class RestClient {
     public RestClient addFilePart(String name, String fileName, Request.Content content, HttpFields fields) {
         if (method != Method.POST) throw new IllegalStateException("Can only use multipart body with POST method, not supported for method " + method + "; if you need a different effective request method try using the X-HTTP-Method-Override header");
         if (multiPart == null) multiPart = new MultiPartRequestContent();
-        multiPart.addFilePart(name, fileName, content, fields);
+        multiPart.addPart(new MultiPart.ContentSourcePart(name, fileName, fields, content));
         return this;
     }
 
@@ -312,16 +335,13 @@ public class RestClient {
             Request request = makeRequest(tempFactory != null ? tempFactory : (overrideRequestFactory != null ? overrideRequestFactory : getDefaultRequestFactory()));
             if (timeoutSeconds < 2) timeoutSeconds = 2;
             request.idleTimeout(timeoutSeconds > 30 ? 30 : timeoutSeconds-1, TimeUnit.SECONDS);
-            // use a FutureResponseListener so we can set the timeout and max response size (old: response = request.send(); )
-            FutureResponseListener listener = new FutureResponseListener(request, maxResponseSize);
+            CompletableResponseListener listener = new CompletableResponseListener(request, maxResponseSize);
             try {
-                request.send(listener);
-                ContentResponse response = listener.get(timeoutSeconds, TimeUnit.SECONDS);
+                CompletableFuture<ContentResponse> future = listener.send();
+                ContentResponse response = future.get(timeoutSeconds, TimeUnit.SECONDS);
                 return new RestResponse(this, response);
             } catch (TimeoutException e) {
                 logger.warn("RestClient request timed out after " + timeoutSeconds + "s to " + request.getURI());
-                // cancel listener, just in case
-                listener.cancel(true);
                 // abort request to make sure it gets closed and cleaned up
                 request.abort(e);
                 throw e;
@@ -601,7 +621,8 @@ public class RestClient {
     public static class RestClientFuture implements Future<RestResponse> {
         RestClient rci;
         RequestFactory tempRequestFactory = null;
-        FutureResponseListener listener;
+        CompletableResponseListener listener;
+        CompletableFuture<ContentResponse> future;
         volatile float curWaitSeconds;
         volatile int retryCount = 0;
         volatile boolean cancelled = false;
@@ -626,23 +647,22 @@ public class RestClient {
                         (rci.overrideRequestFactory != null ? rci.overrideRequestFactory : getDefaultRequestFactory()));
                 // use a CompleteListener to retry in background
                 request.onComplete(new RetryListener(this));
-                // use a FutureResponseListener so we can set the timeout and max response size (old: response = request.send(); )
-                listener = new FutureResponseListener(request, rci.maxResponseSize);
-                request.send(listener);
+                listener = new CompletableResponseListener(request, rci.maxResponseSize);
+                future = listener.send();
             } catch (Exception e) {
                 throw new BaseException("Error calling REST request to " + rci.uriString, e);
             }
         }
 
-        @Override public boolean isCancelled() { return cancelled || listener.isCancelled(); }
-        @Override public boolean isDone() { return retryCount >= rci.maxRetries && listener.isDone(); }
+        @Override public boolean isCancelled() { return cancelled || (future != null && future.isCancelled()); }
+        @Override public boolean isDone() { return retryCount >= rci.maxRetries && (future != null && future.isDone()); }
 
         @Override public boolean cancel(boolean mayInterruptIfRunning) {
             retryLock.lock();
             try {
                 try {
                     cancelled = true;
-                    return listener.cancel(mayInterruptIfRunning);
+                    return future != null && future.cancel(mayInterruptIfRunning);
                 } finally {
                     if (tempRequestFactory != null) {
                         tempRequestFactory.destroy();
@@ -668,7 +688,7 @@ public class RestClient {
                 retryLock.lock();
                 try {
                     try {
-                        lastResponse = listener.get(timeout, unit);
+                        lastResponse = future.get(timeout, unit);
                         if (lastResponse.getStatus() != TOO_MANY) break;
                     } finally {
                         if (tempRequestFactory != null) {
@@ -702,7 +722,7 @@ public class RestClient {
             clientConnector.setSslContextFactory(sslContextFactory);
             httpClient = new HttpClient(new HttpClientTransportDynamic(clientConnector));
 
-            if (disableCookieManagement) httpClient.setCookieStore(new HttpCookieStore.Empty());
+            if (disableCookieManagement) httpClient.setHttpCookieStore(new HttpCookieStore.Empty());
             // use a default idle timeout of 15 seconds, should be lower than server idle timeouts which will vary by server but 30 seconds seems to be common
             httpClient.setIdleTimeout(15000);
             try { httpClient.start(); } catch (Exception e) { throw new BaseException("Error starting HTTP client", e); }
@@ -765,7 +785,7 @@ public class RestClient {
             if (scheduler == null) scheduler = new ScheduledExecutorScheduler(shortName + "-scheduler", false);
 
             transport.setConnectionPoolFactory(destination -> new ValidatingConnectionPool(destination,
-                    destination.getHttpClient().getMaxConnectionsPerDestination(), destination,
+                    destination.getHttpClient().getMaxConnectionsPerDestination(),
                     destination.getHttpClient().getScheduler(), validationTimeoutMillis));
 
             httpClient = new HttpClient(transport);

@@ -13,14 +13,15 @@
  */
 package org.moqui.impl.context
 
-import com.fasterxml.jackson.core.io.JsonStringEncoder
-import com.fasterxml.jackson.databind.JsonNode
 import groovy.transform.CompileStatic
 
-import org.apache.commons.fileupload.FileItem
-import org.apache.commons.fileupload.FileItemFactory
-import org.apache.commons.fileupload.disk.DiskFileItemFactory
-import org.apache.commons.fileupload.servlet.ServletFileUpload
+import com.fasterxml.jackson.core.io.JsonStringEncoder
+import com.fasterxml.jackson.databind.JsonNode
+
+import org.apache.commons.fileupload2.core.DiskFileItemFactory
+import org.apache.commons.fileupload2.core.FileItem
+import org.apache.commons.fileupload2.core.FileItemFactory
+import org.apache.commons.fileupload2.jakarta.servlet6.JakartaServletFileUpload
 import org.apache.commons.io.IOUtils
 import org.apache.commons.io.output.StringBuilderWriter
 import org.moqui.context.*
@@ -28,29 +29,32 @@ import org.moqui.context.MessageFacade.MessageInfo
 import org.moqui.entity.EntityNotFoundException
 import org.moqui.entity.EntityValue
 import org.moqui.entity.EntityValueNotFoundException
-import org.moqui.impl.util.SimpleSigner
-import org.moqui.util.MNode
-import org.moqui.util.WebUtilities
 import org.moqui.impl.context.ExecutionContextFactoryImpl.WebappInfo
 import org.moqui.impl.screen.ScreenDefinition
 import org.moqui.impl.screen.ScreenUrlInfo
 import org.moqui.impl.service.RestApi
 import org.moqui.impl.service.ServiceJsonRpcDispatcher
-import org.moqui.util.ContextStack
+import org.moqui.impl.util.SimpleSigner
 import org.moqui.resource.ResourceReference
+import org.moqui.util.ContextStack
+import org.moqui.util.MNode
 import org.moqui.util.ObjectUtilities
 import org.moqui.util.StringUtilities
+import org.moqui.util.WebUtilities
+
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
-import javax.crypto.Mac
-import javax.crypto.spec.SecretKeySpec
-import javax.servlet.ServletContext
-import javax.servlet.http.HttpServletRequest
-import javax.servlet.http.HttpServletResponse
-import javax.servlet.http.HttpSession
+import jakarta.servlet.ServletContext
+import jakarta.servlet.http.HttpServletRequest
+import jakarta.servlet.http.HttpServletResponse
+import jakarta.servlet.http.HttpSession
+
 import java.nio.charset.StandardCharsets
 import java.sql.Timestamp
+
+import javax.crypto.Mac
+import javax.crypto.spec.SecretKeySpec
 
 /** This class is a facade to easily get information from and about the web context. */
 @CompileStatic
@@ -152,11 +156,11 @@ class WebFacadeImpl implements WebFacade {
                     // logger.warn("=========== Got JSON HTTP request body: ${jsonParameters}")
                 }
             }
-        } else if (ServletFileUpload.isMultipartContent(request)) {
+        } else if (JakartaServletFileUpload.isMultipartContent(request)) {
             // if this is a multi-part request, get the data for it
             multiPartParameters = new HashMap()
             FileItemFactory factory = makeDiskFileItemFactory()
-            ServletFileUpload upload = new ServletFileUpload(factory)
+            JakartaServletFileUpload upload = new JakartaServletFileUpload(factory)
 
             List<FileItem> items = (List<FileItem>) upload.parseRequest(request)
             List<FileItem> fileUploadList = []
@@ -164,7 +168,7 @@ class WebFacadeImpl implements WebFacade {
 
             for (FileItem item in items) {
                 if (item.isFormField()) {
-                    addValueToMultipartParameterMap(item.getFieldName(), item.getString("UTF-8"))
+                    addValueToMultipartParameterMap(item.getFieldName(), item.getString(StandardCharsets.UTF_8))
                 } else {
                     if (!uploadExecutableAllow) {
                         if (WebUtilities.isExecutable(item)) {
@@ -1412,9 +1416,10 @@ class WebFacadeImpl implements WebFacade {
         // NOTE: consider keeping this factory somewhere to be more efficient, if it even makes a difference...
         File repository = new File(eci.ecfi.runtimePath + "/tmp")
         if (!repository.exists()) repository.mkdir()
-
-        DiskFileItemFactory factory = new DiskFileItemFactory(DiskFileItemFactory.DEFAULT_SIZE_THRESHOLD, repository)
-
+        DiskFileItemFactory factory = DiskFileItemFactory.builder()
+                .setPath(repository.toPath())
+                .setBufferSize(DiskFileItemFactory.DEFAULT_THRESHOLD)
+                .get()
         // TODO: this was causing files to get deleted before the upload was streamed... need to figure out something else
         //FileCleaningTracker fileCleaningTracker = FileCleanerCleanup.getFileCleaningTracker(request.getServletContext())
         //factory.setFileCleaningTracker(fileCleaningTracker)

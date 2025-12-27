@@ -28,11 +28,11 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 
-import javax.servlet.ServletConfig
-import javax.servlet.http.HttpServlet
-import javax.servlet.http.HttpServletResponse
-import javax.servlet.http.HttpServletRequest
-import javax.servlet.ServletException
+import jakarta.servlet.ServletConfig
+import jakarta.servlet.http.HttpServlet
+import jakarta.servlet.http.HttpServletResponse
+import jakarta.servlet.http.HttpServletRequest
+import jakarta.servlet.ServletException
 
 
 @CompileStatic
