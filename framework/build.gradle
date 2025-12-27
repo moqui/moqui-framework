@@ -111,9 +111,7 @@ dependencies {
     api 'javax.cache:cache-api:1.1.1'
     api 'javax.jcr:jcr:2.0'
     // jaxb-api no longer included in Java 9 and later, also tested with openjdk-8
-    api('javax.xml.bind:jaxb-api:2.3.1') { // CDDL 1.1
-        transitive = false
-    }
+    api('jakarta.xml.bind:jakarta.xml.bind-api:4.0.4') { transitive = false } // EPL 2.0
     api 'jakarta.activation:jakarta.activation-api:2.1.4'
     api 'org.eclipse.angus:angus-activation:2.0.3'
     api 'jakarta.websocket:jakarta.websocket-api:2.2.0'
@@ -195,7 +193,6 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter-api:6.0.1'
     // Spock Framework
     testImplementation platform('org.spockframework:spock-bom:2.4-groovy-5.0') // Apache 2.0
-    testImplementation 'org.spockframework:spock-core:2.4-groovy-5.0'
     testImplementation 'org.spockframework:spock-core:2.4-groovy-5.0' // Apache 2.0
     testImplementation 'org.spockframework:spock-junit4:2.4-groovy-5.0' // Apache 2.0
     testImplementation 'org.hamcrest:hamcrest-core:3.0' // BSD 3-Clause

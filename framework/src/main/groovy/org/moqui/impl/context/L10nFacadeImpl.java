@@ -21,7 +21,7 @@ import org.moqui.entity.EntityFind;
 
 import groovy.json.JsonOutput;
 
-import javax.xml.bind.DatatypeConverter;
+import jakarta.xml.bind.DatatypeConverter;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
