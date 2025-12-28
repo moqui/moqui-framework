@@ -578,7 +578,9 @@ public class ContextJavaUtil {
 
 
     public final static ObjectMapper jacksonMapper = new ObjectMapper()
-            .setSerializationInclusion(JsonInclude.Include.ALWAYS)
+            .setDefaultPropertyInclusion(JsonInclude.Value.construct(
+                        JsonInclude.Include.ALWAYS,
+                        JsonInclude.Include.ALWAYS))
             .enable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS).enable(SerializationFeature.INDENT_OUTPUT)
             .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
             .configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true);
@@ -669,7 +671,7 @@ public class ContextJavaUtil {
         @Override protected void afterExecute(Runnable runnable, Throwable throwable) {
             ExecutionContextImpl activeEc = ecfi.activeContext.get();
             if (activeEc != null) {
-                logger.warn("In WorkerThreadPoolExecutor.afterExecute() there is still an ExecutionContext for runnable " + runnable.getClass().getName() + " in thread (" + Thread.currentThread().getId() + ":" + Thread.currentThread().getName() + "), destroying");
+                logger.warn("In WorkerThreadPoolExecutor.afterExecute() there is still an ExecutionContext for runnable " + runnable.getClass().getName() + " in thread (" + Thread.currentThread().threadId() + ":" + Thread.currentThread().getName() + "), destroying");
                 try {
                     activeEc.destroy();
                 } catch (Throwable t) {

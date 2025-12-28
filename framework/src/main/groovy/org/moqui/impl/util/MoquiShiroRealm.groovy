@@ -21,7 +21,7 @@ import org.apache.shiro.authz.Permission
 import org.apache.shiro.authz.UnauthorizedException
 import org.apache.shiro.realm.Realm
 import org.apache.shiro.subject.PrincipalCollection
-import org.apache.shiro.util.SimpleByteSource
+import org.apache.shiro.lang.util.SimpleByteSource
 import org.moqui.BaseArtifactException
 import org.moqui.Moqui
 import org.moqui.context.PasswordChangeRequiredException
@@ -273,9 +273,9 @@ class MoquiShiroRealm implements Realm, Authorizer {
             userId = newUserAccount.getString("userId")
 
             // create the salted SimpleAuthenticationInfo object
-            info = new SimpleAuthenticationInfo(username, newUserAccount.currentPassword,
-                    newUserAccount.passwordSalt ? new SimpleByteSource((String) newUserAccount.passwordSalt) : null,
-                    realmName)
+            String salt = (newUserAccount.passwordSalt ?: '') as String
+            SimpleByteSource saltBs = new SimpleByteSource(salt)
+            info = new SimpleAuthenticationInfo(username, newUserAccount.currentPassword, saltBs, realmName)
             if (!isForceLogin) {
                 // check the password (credentials for this case)
                 CredentialsMatcher cm = ecfi.getCredentialsMatcher((String) newUserAccount.passwordHashType, "Y".equals(newUserAccount.passwordBase64))
@@ -308,8 +308,9 @@ class MoquiShiroRealm implements Realm, Authorizer {
         EntityValue newUserAccount = ecfi.entity.find("moqui.security.UserAccount").condition("username", username)
                 .useCache(true).disableAuthz().one()
 
-        SimpleAuthenticationInfo info = new SimpleAuthenticationInfo(username, newUserAccount.currentPassword,
-                newUserAccount.passwordSalt ? new SimpleByteSource((String) newUserAccount.passwordSalt) : null, "moquiRealm")
+        String salt = (newUserAccount.passwordSalt ?: '') as String
+        SimpleByteSource saltBs = new SimpleByteSource(salt)
+        SimpleAuthenticationInfo info = new SimpleAuthenticationInfo(username, newUserAccount.currentPassword, saltBs, "moquiRealm")
 
         CredentialsMatcher cm = ecfi.getCredentialsMatcher((String) newUserAccount.passwordHashType, "Y".equals(newUserAccount.passwordBase64))
         UsernamePasswordToken token = new UsernamePasswordToken(username, password)

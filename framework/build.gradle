@@ -12,29 +12,13 @@
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
 
-version = '3.1.0-rc2'
-
-apply plugin: 'java-library'
-apply plugin: 'groovy'
-apply plugin: 'war'
-// to run gradle-versions-plugin use "gradle dependencyUpdates"
-apply plugin: 'com.github.ben-manes.versions'
-// uncomment to add the Error Prone compiler; not enabled by default (doesn't work on Travis CI)
-// apply plugin: 'net.ltgt.errorprone'
-buildscript {
-    repositories {
-        mavenCentral()
-        maven { url = 'https://plugins.gradle.org/m2/' }
-    }
-    dependencies {
-        classpath 'com.github.ben-manes:gradle-versions-plugin:0.52.0'
-        // uncomment to add the Error Prone compiler: classpath 'net.ltgt.gradle:gradle-errorprone-plugin:0.0.8'
-    }
+plugins {
+    id 'java-library'
+    id 'groovy'
+    id 'war'
 }
-dependencyUpdates.resolutionStrategy { componentSelection { rules -> rules.all { ComponentSelection selection ->
-    boolean rejected = ['alpha', 'beta', 'rc', 'cr', 'm', 'b'].any { qualifier -> selection.candidate.version ==~ /(?i).*[.-]${qualifier}[.\d-].*/ }
-    if (rejected) selection.reject('Release candidate')
-} } }
+
+version = '4.0.0-rc1'
 
 // NOTE: packages should match group, name, version found at https://bintray.com/bintray/jcenter
 repositories {
@@ -61,10 +45,10 @@ groovydoc {
     source = sourceSets.main.allSource
 }
 
-// tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:unchecked" }
-// tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:deprecation" }
-// tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:unchecked" }
-// tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:deprecation" }
+tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:unchecked" }
+tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:deprecation" }
+tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:unchecked" }
+tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:deprecation" }
 
 // Log4J has annotation processors, disable to avoid warning
 tasks.withType(JavaCompile) { options.compilerArgs << "-proc:none" }
@@ -73,20 +57,16 @@ tasks.withType(GroovyCompile) { options.compilerArgs << "-proc:none" }
 // NOTE: for dependency types and 'api' definition see: https://docs.gradle.org/current/userguide/java_library_plugin.html
 dependencies {
     // Groovy
-    // OLD NOTE (watch out for): Groovy 3.0.10-3.0.18 has a bug that somehow causes EntityDefinition.isViewEntity (public final boolean) to switch
-    //     from true during constructor to false later on; see EntityFindBuilder.java:112-114 and EntityDefinition.groovy:50-53,94-95;
-    //     for now using Boolean instead of boolean to resolve, but staying at 3.0.9 to avoid risk with other code
-    // Now using latest Groovy in 3 series (with code adjustments as needed)
-    api 'org.codehaus.groovy:groovy:3.0.19' // Apache 2.0
-    api 'org.codehaus.groovy:groovy-dateutil:3.0.19' // Apache 2.0
-    api 'org.codehaus.groovy:groovy-groovysh:3.0.19' // Apache 2.0
-    // jline, an older version, is required by groovy-groovysh but not in its dependencies
-    implementation 'jline:jline:2.14.6' // BSD
-    api 'org.codehaus.groovy:groovy-json:3.0.19' // Apache 2.0
-    api 'org.codehaus.groovy:groovy-templates:3.0.19' // Apache 2.0
-    api 'org.codehaus.groovy:groovy-xml:3.0.19' // Apache 2.0
+    api 'org.apache.groovy:groovy:4.0.29' // Apache 2.0
+    api 'org.apache.groovy:groovy-dateutil:4.0.29' // Apache 2.0
+    api 'org.apache.groovy:groovy-groovysh:4.0.29' // Apache 2.0
+    api 'org.apache.groovy:groovy-json:4.0.29' // Apache 2.0
+    api 'org.apache.groovy:groovy-templates:4.0.29' // Apache 2.0
+    api 'org.apache.groovy:groovy-xml:4.0.29' // Apache 2.0
     // jansi is needed for groovydoc only, so in compileOnly (not included in war) - don't update to version 2, keep at version 1 for compatibility
-    compileOnly 'org.fusesource.jansi:jansi:1.18'
+    compileOnly 'org.fusesource.jansi:jansi:2.4.2'
+    // jline needed by groovy
+    compileOnly 'jline:jline:2.14.6'
     // Findbugs need only during compile (used by freemarker and various moqui classes)
     compileOnly 'com.google.code.findbugs:annotations:3.0.1'
 
@@ -98,20 +78,20 @@ dependencies {
     // ========== General Libraries from Maven Central ==========
 
     // Apache Commons
-    api 'org.apache.commons:commons-csv:1.14.0' // Apache 2.0
-    api('org.apache.commons:commons-email:1.5') { // Apache 2.0
+    api 'org.apache.commons:commons-csv:1.14.1' // Apache 2.0
+    api('org.apache.commons:commons-email:1.6.0') { // Apache 2.0
         // NOTE: commons-email depends on com.sun.mail:javax.mail, so excluding transitive dependencies
         transitive = false
     }
-    api 'org.apache.commons:commons-lang3:3.18.0' // Apache 2.0; used by cron-utils
+    api 'org.apache.commons:commons-lang3:3.20.0' // Apache 2.0; used by cron-utils
+    api 'org.apache.commons:commons-collections4:4.5.0' // Apache 2.0
     api 'commons-beanutils:commons-beanutils:1.11.0' // Apache 2.0
-    api 'commons-codec:commons-codec:1.18.0' // Apache 2.0
-    api 'commons-collections:commons-collections:3.2.2' // Apache 2.0
+    api 'commons-codec:commons-codec:1.20.0' // Apache 2.0
     api 'commons-digester:commons-digester:2.1' // Apache 2.0
-    api 'commons-fileupload:commons-fileupload:1.5' // Apache 2.0
-    api 'commons-io:commons-io:2.18.0' // Apache 2.0
+    api 'commons-fileupload:commons-fileupload:1.6.0' // Apache 2.0
+    api 'commons-io:commons-io:2.21.0' // Apache 2.0
     api 'commons-logging:commons-logging:1.3.5' // Apache 2.0
-    api 'commons-validator:commons-validator:1.9.0' // Apache 2.0
+    api 'commons-validator:commons-validator:1.10.1' // Apache 2.0
 
     // Cron Utils
     api 'com.cronutils:cron-utils:9.2.1' // Apache 2.0
@@ -126,7 +106,7 @@ dependencies {
     api 'org.freemarker:freemarker:2.3.34' // Apache 2.0
 
     // H2 Database
-    api 'com.h2database:h2:2.3.232' // MPL 2.0, EPL 1.0
+    api 'com.h2database:h2:2.4.240' // MPL 2.0, EPL 1.0
 
     // Java Specifications
     api 'jakarta.transaction:jakarta.transaction-api:2.0.1'
@@ -153,7 +133,7 @@ dependencies {
     api 'com.beust:jcommander:1.82'
 
     // Jackson Databind (JSON, etc)
-    api 'com.fasterxml.jackson.core:jackson-databind:2.18.3'
+    api 'com.fasterxml.jackson.core:jackson-databind:2.20.1'
 
     // Jetty HTTP Client and Proxy Servlet
     api 'org.eclipse.jetty:jetty-client:10.0.25' // Apache 2.0
@@ -166,25 +146,30 @@ dependencies {
     }
 
     // Joda Time (used by elasticsearch, aws)
-    api 'joda-time:joda-time:2.13.1' // Apache 2.0
+    api 'joda-time:joda-time:2.14.0' // Apache 2.0
 
     // JSoup (HTML parser, cleaner)
-    api 'org.jsoup:jsoup:1.19.1' // MIT
+    api 'org.jsoup:jsoup:1.21.2' // MIT
 
     // Apache Shiro
-    api('org.apache.shiro:shiro-core:1.13.0') { // Apache 2.0
-        transitive = false
-    }
-    api('org.apache.shiro:shiro-web:1.13.0') { // Apache 2.0
-        transitive = false
-    }
+    api('org.apache.shiro:shiro-core:2.0.6') { transitive = false } // Apache 2.0
+    api('org.apache.shiro:shiro-web:2.0.6') { transitive = false } // Apache 2.0
+    api('org.apache.shiro:shiro-lang:2.0.6') { transitive = false } // Apache 2.0
+    api('org.apache.shiro:shiro-cache:2.0.6') { transitive = false } // Apache 2.0
+    api('org.apache.shiro:shiro-event:2.0.6') { transitive = false } // Apache 2.0
+    api('org.apache.shiro:shiro-config-core:2.0.6') { transitive = false } // Apache 2.0
+    api('org.apache.shiro:shiro-config-ogdl:2.0.6') { transitive = false } // Apache 2.0
+    api('org.apache.shiro:shiro-crypto-core:2.0.6') { transitive = false } // Apache 2.0
+    api('org.apache.shiro:shiro-crypto-hash:2.0.6') { transitive = false } // Apache 2.0
+    api('org.apache.shiro:shiro-crypto-cipher:2.0.6') { transitive = false } // Apache 2.0
+    api('org.owasp.encoder:encoder:1.4.0') // BSD - transitive dependency of shiro-web
 
     // SLF4J, Log4j 2 (note Log4j 2 is used by various libraries, best not to replace it even if mostly possible with SLF4J)
     api 'org.slf4j:slf4j-api:2.0.17'
-    implementation 'org.apache.logging.log4j:log4j-core:2.24.3'
-    implementation 'org.apache.logging.log4j:log4j-api:2.24.3'
-    runtimeOnly 'org.apache.logging.log4j:log4j-jcl:2.24.3'
-    runtimeOnly 'org.apache.logging.log4j:log4j-slf4j2-impl:2.24.3'
+    implementation 'org.apache.logging.log4j:log4j-core:2.25.2'
+    implementation 'org.apache.logging.log4j:log4j-api:2.25.2'
+    runtimeOnly 'org.apache.logging.log4j:log4j-jcl:2.25.2'
+    runtimeOnly 'org.apache.logging.log4j:log4j-slf4j2-impl:2.25.2'
 
     // SubEtha SMTP (module as depends on old javax.mail location; also uses SLF4J, activation included elsewhere)
     api('org.subethamail:subethasmtp:3.1.7') {
@@ -192,7 +177,7 @@ dependencies {
     }
 
     // Snake YAML
-    api 'org.yaml:snakeyaml:2.4' // Apache 2.0
+    api 'org.yaml:snakeyaml:2.5' // Apache 2.0
 
     // Apache Jackrabbit - uncomment here or include elsewhere when Jackrabbit repository configurations are used
     // api 'org.apache.jackrabbit:jackrabbit-jcr-rmi:2.12.1' // Apache 2.0
@@ -207,16 +192,17 @@ dependencies {
     // ========== test dependencies ==========
 
     // junit-platform-launcher is a dependency from spock-core, included explicitly to get more recent version as needed
-    testImplementation 'org.junit.platform:junit-platform-launcher:1.12.1'
+    testImplementation 'org.junit.platform:junit-platform-launcher:6.0.1'
     // junit-platform-suite required for test suites to specify test class order, etc
-    testImplementation 'org.junit.platform:junit-platform-suite:1.12.1'
+    testImplementation 'org.junit.platform:junit-platform-suite:6.0.1'
     // junit-jupiter-api for using JUnit directly, not generally needed for Spock based tests
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.12.1'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:6.0.1'
     // Spock Framework
-    testImplementation platform("org.spockframework:spock-bom:2.1-groovy-3.0") // Apache 2.0
-    testImplementation 'org.spockframework:spock-core:2.1-groovy-3.0' // Apache 2.0
-    testImplementation 'org.spockframework:spock-junit4:2.1-groovy-3.0' // Apache 2.0
-    testImplementation 'org.hamcrest:hamcrest-core:2.2' // BSD 3-Clause
+    testImplementation platform('org.spockframework:spock-bom:2.4-groovy-4.0') // Apache 2.0
+    testImplementation 'org.spockframework:spock-core:2.4-groovy-4.0'
+    testImplementation 'org.spockframework:spock-core:2.4-groovy-4.0' // Apache 2.0
+    testImplementation 'org.spockframework:spock-junit4:2.4-groovy-4.0' // Apache 2.0
+    testImplementation 'org.hamcrest:hamcrest-core:3.0' // BSD 3-Clause
 
     // ========== executable war dependencies ==========
     // Jetty

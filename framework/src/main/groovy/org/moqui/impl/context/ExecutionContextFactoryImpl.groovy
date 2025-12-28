@@ -20,8 +20,9 @@ import org.apache.logging.log4j.core.LoggerContext
 import org.apache.shiro.SecurityUtils
 import org.apache.shiro.authc.credential.CredentialsMatcher
 import org.apache.shiro.authc.credential.HashedCredentialsMatcher
-import org.apache.shiro.config.IniSecurityManagerFactory
 import org.apache.shiro.crypto.hash.SimpleHash
+import org.apache.shiro.env.BasicIniEnvironment
+import org.apache.shiro.mgt.SecurityManager
 import org.codehaus.groovy.control.CompilationUnit
 import org.codehaus.groovy.control.CompilerConfiguration
 import org.codehaus.groovy.tools.GroovyClass
@@ -123,7 +124,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     final ConcurrentLinkedQueue<ArtifactHitInfo> deferredHitInfoQueue = new ConcurrentLinkedQueue<ArtifactHitInfo>()
 
     /** The SecurityManager for Apache Shiro */
-    protected org.apache.shiro.mgt.SecurityManager internalSecurityManager
+    protected SecurityManager internalSecurityManager
     /** The ServletContext, if Moqui was initialized in a webapp (generally through MoquiContextListener) */
     protected ServletContext internalServletContext = null
     /** The WebSocket ServerContainer, if found in 'javax.websocket.server.ServerContainer' ServletContext attribute */
@@ -902,18 +903,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
     @Override boolean isDestroyed() { return destroyed }
 
-    @Override void finalize() throws Throwable {
-        try {
-            if (!this.destroyed) {
-                this.destroy()
-                logger.warn("ExecutionContextFactoryImpl not destroyed, caught in finalize.")
-            }
-        } catch (Exception e) {
-            logger.warn("Error in destroy, called in finalize of ExecutionContextFactoryImpl", e)
-        }
-        super.finalize()
-    }
-
     /** Trigger ECF destroy and re-init in another thread, after short wait */
     void triggerDynamicReInit() {
         Thread.start("EcfiReInit", {
@@ -966,16 +955,13 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
     NotificationWebSocketListener getNotificationWebSocketListener() { return notificationWebSocketListener }
 
-    org.apache.shiro.mgt.SecurityManager getSecurityManager() {
-        if (internalSecurityManager != null) return internalSecurityManager
-
+    SecurityManager getSecurityManager() {
+        if (internalSecurityManager != null) { return internalSecurityManager }
         // init Apache Shiro; NOTE: init must be done here so that ecfi will be fully initialized and in the static context
-        org.apache.shiro.util.Factory<org.apache.shiro.mgt.SecurityManager> factory =
-                new IniSecurityManagerFactory("classpath:shiro.ini")
-        internalSecurityManager = factory.getInstance()
+        BasicIniEnvironment env = new BasicIniEnvironment("classpath:shiro.ini");
+        internalSecurityManager = env.getSecurityManager()
         // NOTE: setting this statically just in case something uses it, but for Moqui we'll be getting the SecurityManager from the ecfi
         SecurityUtils.setSecurityManager(internalSecurityManager)
-
         return internalSecurityManager
     }
     CredentialsMatcher getCredentialsMatcher(String hashType, boolean isBase64) {
@@ -998,7 +984,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     // NOTE: used in UserServices.xml
     String getSimpleHash(String source, String salt) { return getSimpleHash(source, salt, getPasswordHashType(), false) }
     String getSimpleHash(String source, String salt, String hashType, boolean isBase64) {
-        SimpleHash simple = new SimpleHash(hashType ?: getPasswordHashType(), source, salt)
+        SimpleHash simple = new SimpleHash(hashType ?: getPasswordHashType(), source, salt ?: '')
         return isBase64 ? simple.toBase64() : simple.toHex()
     }
 
