@@ -39,7 +39,6 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint {
         logger.info("Opening GroovyShellEndpoint session ${session.getId()} for user ${userId}:${username}")
         eci = ecf.getEci()
 
-        // make sure user has special permission
         if (!eci.userFacade.hasPermission("GROOVY_SHELL_WEB"))
             throw new IllegalAccessException("User ${eci.userFacade.getUsername()} does not have permission to use Groovy Shell via WebSocket")
 
