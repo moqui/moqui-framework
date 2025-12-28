@@ -20,6 +20,17 @@ As part of this work:
 - Remove deprecated finalize methods no longer applicable in JDK21.
 - Lots of code improvements to comply with JDK21.
 
+#### Groovy upgrade to version 5 (Incompatible Change)
+
+Groovy 5 in combination with newer JDK21 is more strict in @CompileStatic. There
+were illegal bytecodes being generated, and it has to do with accessing fields
+from inner classes.
+
+Another change is that Groovysh is removed. Therefore, the terminal interface
+was rewritten from scratch using a different architecture based on 
+`groovy.lang.GroovyShell`. This led to both Screen changes (in runtime) and
+backend changes.
+
 #### Integration with the New Bitronix Fork (Incompatible Change)
 
 Moqui Framework now depends on the actively maintained Bitronix fork at:
@@ -93,7 +104,7 @@ Given the upgrade to gradle, Java and bitronix, the following community componen
 
 ### New Features
 
-- Upgrade groovy to version 4
+- Upgrade groovy to version 5
 - Upgrade to JDK21 by default
 - Upgrade to Apache Shiro 2, no longer using INI factory, but rather INI environment classes
 - Enforce warnings during build

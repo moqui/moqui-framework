@@ -39,7 +39,6 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint {
         logger.info("Opening GroovyShellEndpoint session ${session.getId()} for user ${userId}:${username}")
         eci = ecf.getEci()
 
-        // make sure user has special permission
         if (!eci.userFacade.hasPermission("GROOVY_SHELL_WEB"))
             throw new IllegalAccessException("User ${eci.userFacade.getUsername()} does not have permission to use Groovy Shell via WebSocket")
 
@@ -96,7 +95,6 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint {
     }
 
     void registerEci() {
-        // register eci with thread, destroy active eci if one
         ExecutionContextImpl activeEc = ecfi.activeContext.get()
         if (activeEc != null && activeEc != eci) {
             logger.warn("In GroovyShellEndpoint there is already an ExecutionContext for user ${activeEc.user.username} (from ${activeEc.forThreadId}:${activeEc.forThreadName}) in this thread (${Thread.currentThread().threadId()}:${Thread.currentThread().getName()}), destroying")
@@ -113,7 +111,6 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint {
     }
 
     void deregisterEci() {
-        // don't destroy eci, but remove references:
         ecfi.activeContext.remove()
         ecfi.activeContextMap.remove(Thread.currentThread().threadId())
     }
