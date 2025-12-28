@@ -232,7 +232,6 @@ public class MoquiStart {
             Class<?> sessionHandlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.ee10.servlet.SessionHandler");
             Class<?> defaultSessionIdManagerClass = moquiStartLoader.loadClass("org.eclipse.jetty.session.DefaultSessionIdManager");
 
-
             Class<?> connectorClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.Connector");
             Class<?> serverConnectorClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.ServerConnector");
             Class<?> webappClass = moquiStartLoader.loadClass("org.eclipse.jetty.ee10.webapp.WebAppContext");
