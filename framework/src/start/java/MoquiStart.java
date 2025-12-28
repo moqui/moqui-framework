@@ -278,6 +278,8 @@ public class MoquiStart {
 
             webappClass.getMethod("setContextPath", String.class).invoke(webapp, "/");
             webappClass.getMethod("setServer", serverClass).invoke(webapp, server);
+            // SessionIdManager automatically discovered from server.
+            // SessionHandler must be set on WebAppContext to enable servlet sessions
             webappClass.getMethod("setSessionHandler", sessionHandlerClass).invoke(webapp, sessionHandler);
             webappClass.getMethod("setMaxFormKeys", int.class).invoke(webapp, 5000);
             webappClass.getMethod("setConfigurationDiscovered", boolean.class).invoke(webapp, false);
@@ -350,100 +352,51 @@ public class MoquiStart {
             The classpath dependent code we are running:
 
             Server server = new Server();
-            HttpConfiguration httpConfig = new org.eclipse.jetty.server.HttpConfiguration();
-            ForwardedRequestCustomizer forwardedRequestCustomizer = new ForwardedRequestCustomizer();
-            httpConfig.addCustomizer(forwardedRequestCustomizer);
-
+            HttpConfiguration httpConfig = new HttpConfiguration();
+            httpConfig.addCustomizer(new ForwardedRequestCustomizer());
             HttpConnectionFactory httpConnectionFactory = new HttpConnectionFactory(httpConfig);
             ServerConnector httpConnector = new ServerConnector(server, httpConnectionFactory);
             httpConnector.setPort(port);
             server.addConnector(httpConnector);
-
-            // SessionDataStore
-            SessionIdManager sidMgr = new DefaultSessionIdManager(server);
-            sidMgr.setServer(server);
             SessionHandler sessionHandler = new SessionHandler();
             sessionHandler.setServer(server);
-            SessionCache sessionCache = new DefaultSessionCache(sessionHandler);
-            sessionHandler.setSessionCache(sessionCache);
-            sessionHandler.setSessionIdManager(sidMgr);
-
-            File storeDir = ...;
-            FileSessionDataStore sessionDataStore = new FileSessionDataStore();
-            sessionDataStore.setStoreDir(storeDir);
-            sessionDataStore.setDeleteUnrestorableFiles(true);
-            sessionCache.setSessionDataStore(sessionDataStore);
-
-            sessionHandler.start();
-
-            // WebApp
+            SessionIdManager sessionIdManager = new DefaultSessionIdManager(server);
+            server.addBean(sessionIdManager);
             WebAppContext webapp = new WebAppContext();
             webapp.setContextPath("/");
             webapp.setServer(server);
-            webapp.setWar(moquiStartLoader.wrapperWarUrl.toExternalForm());
-
-            // (Optional) Set the directory the war will extract to.
-            // If not set, java.io.tmpdir will be used, which can cause problems
-            // if the temp directory gets cleaned periodically.
-            // Removed by the code elsewhere that deletes on close
-            webapp.setTempDirectory(new File(tempDirName + "/ROOT"));
-            server.setHandler(webapp);
-
-            // WebSocket
-            // NOTE: ServletContextHandler.SESSIONS = 1 (int)
-            ServerContainer wsContainer = org.eclipse.jetty.websocket.jsr356.server.deploy.WebSocketServerContainerInitializer.configureContext(webapp);
+            webapp.setSessionHandler(sessionHandler);
+            webapp.setMaxFormKeys(5000);
+            webapp.setConfigurationDiscovered(false);
+            webapp.setParentLoaderPriority(false);
+            ResourceFactory resourceFactory = ResourceFactory.root();
+            String base = moquiStartLoader.wrapperUrl.toExternalForm();
+            if (base.endsWith(".war")) {
+                base = "jar:" + base + "!/";
+            }
+            Resource baseResource = resourceFactory.newResource(base);
+            webapp.setAttribute("org.eclipse.jetty.server.webapp.WebInfIncludeJarPattern", "^$");
+            webapp.setAttribute("org.eclipse.jetty.server.webapp.ContainerIncludeJarPattern", "^$");
+            webapp.setBaseResource(baseResource);
+            webapp.setClassLoader(moquiStartLoader);
+            String sessionMaxAge = System.getenv("webapp_session_cookie_max_age");
+            if (sessionMaxAge != null && !sessionMaxAge.isEmpty()) {
+                try {
+                    Integer maxAgeInt = Integer.parseInt(sessionMaxAge);
+                    webapp.setInitParameter("org.eclipse.jetty.servlet.MaxAge", maxAgeInt.toString());
+                } catch (Exception ignored) {}
+            }
+            ServerContainer wsContainer = JakartaWebSocketServletContainerInitializer.configure(webapp, null);
             webapp.setAttribute("jakarta.websocket.server.ServerContainer", wsContainer);
-
-            // GzipHandler
             GzipHandler gzipHandler = new GzipHandler();
-            // gzipHandler.setIncludedMimeTypes("text/html", "text/plain", "text/xml", "text/css", "application/javascript", "text/javascript");
-            server.insertHandler(gzipHandler);
-
-            // Start things up!
+            gzipHandler.setHandler(webapp);
+            server.setHandler(gzipHandler);
+            ThreadPool.SizedThreadPool threadPool = (ThreadPool.SizedThreadPool) server.getThreadPool();
+            threadPool.setMaxThreads(threads);
+            server.setStopAtShutdown(true);
+            server.setStopTimeout(30000L);
             server.start();
-            // The use of server.join() the will make the current thread join and
-            // wait until the server is done executing.
-            // See http://docs.oracle.com/javase/7/docs/api/java/lang/Thread.html#join()
             server.join();
-
-            // Possible code to handle HTTPS, HTTP/2 (h2, h2c):
-
-            // see https://webtide.com/introduction-to-http2-in-jetty/
-            // see https://www.eclipse.org/jetty/documentation/9.3.x/http2.html
-            // org.mortbay.jetty.alpn:alpn-boot:8.1.9.v20160720
-            // http2-common, http2-hpack, http2-server
-
-            Server server = new Server();
-            HttpConfiguration httpConfig = new org.eclipse.jetty.server.HttpConfiguration();
-            httpConfig.setSecureScheme("https");
-            httpConfig.setSecurePort(8443);
-            HttpConfiguration httpsConfig = new HttpConfiguration(httpConfig);
-            httpsConfig.addCustomizer(new SecureRequestCustomizer());
-
-            SslContextFactory sslContextFactory = new org.eclipse.jetty.util.ssl.SslContextFactory();
-            sslContextFactory.setKeyStoreResource(org.eclipse.jetty.util.resource.Resource.newClassPathResource("keystore"));
-            sslContextFactory.setKeyStorePassword("kStorePassword");
-            sslContextFactory.setKeyManagerPassword("kMgrPassword");
-            sslContextFactory.setCipherComparator(org.eclipse.jetty.http2.HTTP2Cipher.COMPARATOR);
-
-            HttpConnectionFactory http1 = new HttpConnectionFactory(httpConfig);
-
-            HTTP2ServerConnectionFactory http2 = new org.eclipse.jetty.http2.server.HTTP2ServerConnectionFactory(httpsConfig);
-            NegotiatingServerConnectionFactory.checkProtocolNegotiationAvailable();
-            ALPNServerConnectionFactory alpn = new org.eclipse.jetty.alpn.server.ALPNServerConnectionFactory();
-            alpn.setDefaultProtocol("h2");
-            SslConnectionFactory ssl = new org.eclipse.jetty.server?.SslConnectionFactory(sslContextFactory,alpn.getProtocol());
-
-            HTTP2CServerConnectionFactory http2c = new org.eclipse.jetty.http2.server.HTTP2CServerConnectionFactory(httpsConfig);
-
-            ServerConnector httpsConnector = new org.eclipse.jetty.server.ServerConnector(server, ssl, alpn, http2, http1 );
-            httpsConnector.setPort(8443);
-            server.addConnector(httpsConnector);
-
-            ServerConnector httpConnector = new org.eclipse.jetty.server.ServerConnector(server, http1, http2c);
-            httpConnector.setPort(8080);
-            server.addConnector(httpConnector);
-
             */
         } catch (Exception e) {
             System.out.println("Error loading or running Jetty embedded server with args [" + argMap + "]: " + e.toString());
