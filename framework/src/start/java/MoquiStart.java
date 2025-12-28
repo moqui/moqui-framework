@@ -229,8 +229,14 @@ public class MoquiStart {
             Class<?> customizerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.HttpConfiguration$Customizer");
 
             Class<?> sessionIdManagerClass = moquiStartLoader.loadClass("org.eclipse.jetty.session.SessionIdManager");
+            Class<?> sessionManagerClass = moquiStartLoader.loadClass("org.eclipse.jetty.session.SessionManager");
             Class<?> sessionHandlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.ee10.servlet.SessionHandler");
             Class<?> defaultSessionIdManagerClass = moquiStartLoader.loadClass("org.eclipse.jetty.session.DefaultSessionIdManager");
+            Class<?> sessionCacheClass = moquiStartLoader.loadClass("org.eclipse.jetty.session.SessionCache");
+            Class<?> sessionCacheFactoryClass = moquiStartLoader.loadClass("org.eclipse.jetty.session.DefaultSessionCacheFactory");
+            Class<?> defaultSessionCacheClass = moquiStartLoader.loadClass("org.eclipse.jetty.session.DefaultSessionCache");
+            Class<?> sessionDataStoreClass = moquiStartLoader.loadClass("org.eclipse.jetty.session.SessionDataStore");
+            Class<?> fileSessionDataStoreClass = moquiStartLoader.loadClass("org.eclipse.jetty.session.FileSessionDataStore");
 
             Class<?> connectorClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.Connector");
             Class<?> serverConnectorClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.ServerConnector");
@@ -266,10 +272,22 @@ public class MoquiStart {
 
             serverClass.getMethod("addConnector", connectorClass).invoke(server, httpConnector);
 
-            // SessionHandler (in-memory, non-persistent sessions)
+            // SessionDataStore
+            File storeDir = new File(runtimePath + "/sessions");
+            if (!storeDir.exists()) storeDir.mkdirs();
+            System.out.println("Creating Jetty FileSessionDataStore with directory " + storeDir.getCanonicalPath());
             Object sessionHandler = sessionHandlerClass.getConstructor().newInstance();
             sessionHandlerClass.getMethod("setServer", serverClass).invoke(sessionHandler, server);
+            Object sessionCacheFactory = sessionCacheFactoryClass.getConstructor().newInstance();
+            Object sessionCache = sessionCacheFactoryClass.getMethod("newSessionCache", sessionManagerClass).invoke(sessionCacheFactory, sessionHandler);
+            Object sessionDataStore = fileSessionDataStoreClass.getConstructor().newInstance();
+            fileSessionDataStoreClass.getMethod("setStoreDir", File.class).invoke(sessionDataStore, storeDir);
+            fileSessionDataStoreClass.getMethod("setDeleteUnrestorableFiles", boolean.class).invoke(sessionDataStore, true);
+            sessionCacheClass.getMethod("setSessionDataStore", sessionDataStoreClass).invoke(sessionCache, sessionDataStore);
+            sessionHandlerClass.getMethod("setSessionCache", sessionCacheClass).invoke(sessionHandler, sessionCache);
             Object sidMgr = defaultSessionIdManagerClass.getConstructor(serverClass).newInstance(server);
+            defaultSessionIdManagerClass.getMethod("setServer", serverClass).invoke(sidMgr, server);
+            sessionHandlerClass.getMethod("setSessionIdManager", sessionIdManagerClass).invoke(sessionHandler, sidMgr);
             serverClass.getMethod("addBean", Object.class).invoke(server, sidMgr);
 
             // WebApp
