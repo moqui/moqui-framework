@@ -47,6 +47,7 @@ https://logging.apache.org/log4j/2.x/manual/layouts.html#PatternLayout
     </Appenders>
     <Loggers>
         <Logger name="org.apache" level="warn"/>
+        <Logger name="org.eclipse.jetty.annotations" level="error"/>
         <Logger name="org.apache.fop.fo.extensions.svg.SVGElementMapping" level="fatal"/>
 
         <Logger name="freemarker" level="warn"/>

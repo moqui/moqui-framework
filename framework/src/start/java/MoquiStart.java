@@ -213,6 +213,9 @@ public class MoquiStart {
             Class<?> handlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.Handler");
             Class<?> sizedThreadPoolClass = moquiStartLoader.loadClass("org.eclipse.jetty.util.thread.ThreadPool$SizedThreadPool");
 
+            Class<?> resourceClass = moquiStartLoader.loadClass("org.eclipse.jetty.util.resource.Resource");
+            Class<?> resourceFactoryClass = moquiStartLoader.loadClass("org.eclipse.jetty.util.resource.ResourceFactory");
+
             Class<?> httpConfigurationClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.HttpConfiguration");
             Class<?> forwardedRequestCustomizerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.ForwardedRequestCustomizer");
             Class<?> customizerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.HttpConfiguration$Customizer");
@@ -224,7 +227,8 @@ public class MoquiStart {
             Class<?> sessionCacheClass = moquiStartLoader.loadClass("org.eclipse.jetty.session.SessionCache");
             Class<?> defaultSessionCacheClass = moquiStartLoader.loadClass("org.eclipse.jetty.session.DefaultSessionCache");
             Class<?> sessionDataStoreClass = moquiStartLoader.loadClass("org.eclipse.jetty.session.SessionDataStore");
-            Class<?> fileSessionDataStoreClass = moquiStartLoader.loadClass("org.eclipse.jetty.session.FileSessionDataStore");
+            Class<?> nullSessionDataStoreClass = moquiStartLoader.loadClass("org.eclipse.jetty.session.NullSessionDataStore");
+
 
             Class<?> connectorClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.Connector");
             Class<?> serverConnectorClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.ServerConnector");
@@ -260,38 +264,35 @@ public class MoquiStart {
 
             serverClass.getMethod("addConnector", connectorClass).invoke(server, httpConnector);
 
-            // SessionDataStore
-            File storeDir = new File(runtimePath + "/sessions");
-            if (!storeDir.exists()) storeDir.mkdirs();
-            System.out.println("Creating Jetty FileSessionDataStore with directory " + storeDir.getCanonicalPath());
-
+            // SessionHandler (in-memory, non-persistent sessions)
             Object sessionHandler = sessionHandlerClass.getConstructor().newInstance();
             sessionHandlerClass.getMethod("setServer", serverClass).invoke(sessionHandler, server);
             Object sessionCache = defaultSessionCacheClass.getConstructor(sessionManagerClass).newInstance(sessionHandler);
-            Object sessionDataStore = fileSessionDataStoreClass.getConstructor().newInstance();
-            fileSessionDataStoreClass.getMethod("setStoreDir", File.class).invoke(sessionDataStore, storeDir);
-            fileSessionDataStoreClass.getMethod("setDeleteUnrestorableFiles", boolean.class).invoke(sessionDataStore, true);
-            sessionCacheClass.getMethod("setSessionDataStore", sessionDataStoreClass).invoke(sessionCache, sessionDataStore);
+            Object nullSessionDataStore = nullSessionDataStoreClass.getConstructor().newInstance();
+            sessionCacheClass.getMethod("setSessionDataStore", sessionDataStoreClass).invoke(sessionCache, nullSessionDataStore);
             sessionHandlerClass.getMethod("setSessionCache", sessionCacheClass).invoke(sessionHandler, sessionCache);
-
             Object sidMgr = defaultSessionIdManagerClass.getConstructor(serverClass).newInstance(server);
-            defaultSessionIdManagerClass.getMethod("setServer", serverClass).invoke(sidMgr, server);
-            sessionHandlerClass.getMethod("setSessionIdManager", sessionIdManagerClass).invoke(sessionHandler, sidMgr);
+            serverClass.getMethod("addBean", Object.class).invoke(server, sidMgr);
 
             // WebApp
             Object webapp = webappClass.getConstructor().newInstance();
 
             webappClass.getMethod("setContextPath", String.class).invoke(webapp, "/");
-            webappClass.getMethod("setDescriptor", String.class).invoke(webapp, moquiStartLoader.wrapperUrl.toExternalForm() + "/WEB-INF/web.xml");
             webappClass.getMethod("setServer", serverClass).invoke(webapp, server);
             webappClass.getMethod("setSessionHandler", sessionHandlerClass).invoke(webapp, sessionHandler);
             webappClass.getMethod("setMaxFormKeys", int.class).invoke(webapp, 5000);
-            if (isInWar) {
-                webappClass.getMethod("setWar", String.class).invoke(webapp, moquiStartLoader.wrapperUrl.toExternalForm());
-                webappClass.getMethod("setTempDirectory", File.class).invoke(webapp, new File(tempDirName + "/ROOT"));
-            } else {
-                webappClass.getMethod("setResourceBase", String.class).invoke(webapp, moquiStartLoader.wrapperUrl.toExternalForm());
+            webappClass.getMethod("setConfigurationDiscovered", boolean.class).invoke(webapp, false);
+            webappClass.getMethod("setParentLoaderPriority", boolean.class).invoke(webapp, false);
+            Object resourceFactory = resourceFactoryClass.getMethod("root").invoke(null);
+            Method newResourceMethod = resourceFactoryClass.getMethod("newResource", String.class);
+            String base = moquiStartLoader.wrapperUrl.toExternalForm();
+            if (base.endsWith(".war")) {
+                base = "jar:" + base + "!/";
             }
+            Object baseResource = newResourceMethod.invoke(resourceFactory, base);
+            webappClass.getMethod("setAttribute", String.class, Object.class).invoke(webapp, "org.eclipse.jetty.server.webapp.WebInfIncludeJarPattern", "^$");
+            webappClass.getMethod("setAttribute", String.class, Object.class).invoke(webapp, "org.eclipse.jetty.server.webapp.ContainerIncludeJarPattern", "^$");
+            webappClass.getMethod("setBaseResource", resourceClass).invoke(webapp, baseResource);
 
             // NOTE DEJ20210520: now always using StartClassLoader because of breaking classloader changes in 9.4.37 (likely from https://github.com/eclipse/jetty.project/pull/5894)
             webappClass.getMethod("setClassLoader", ClassLoader.class).invoke(webapp, moquiStartLoader);
@@ -359,7 +360,6 @@ public class MoquiStart {
             // SessionDataStore
             SessionIdManager sidMgr = new DefaultSessionIdManager(server);
             sidMgr.setServer(server);
-            server.setSessionIdManager(sidMgr);
             SessionHandler sessionHandler = new SessionHandler();
             sessionHandler.setServer(server);
             SessionCache sessionCache = new DefaultSessionCache(sessionHandler);
@@ -377,7 +377,6 @@ public class MoquiStart {
             // WebApp
             WebAppContext webapp = new WebAppContext();
             webapp.setContextPath("/");
-            webapp.setDescriptor(moquiStartLoader.wrapperWarUrl.toExternalForm() + "/WEB-INF/web.xml");
             webapp.setServer(server);
             webapp.setWar(moquiStartLoader.wrapperWarUrl.toExternalForm());
 
@@ -769,9 +768,9 @@ public class MoquiStart {
                 if (loadWebInf && jarEntry == null) jarEntry = jarFile.getJarEntry(webInfResourceName);
                 if (jarEntry != null) {
                     try {
-                        String jarFileName = jarFile.getName();
-                        if (jarFileName.contains("\\")) jarFileName = jarFileName.replace('\\', '/');
-                        URL resourceUrl = new URL("jar:file:" + jarFileName + "!/" + jarEntry);
+                        URL jarLocation = jarLocationByJarName.get(jarFile.getName());
+                        if (jarLocation == null) jarLocation = new File(jarFile.getName()).toURI().toURL();
+                        URL resourceUrl = new URL("jar:" + jarLocation.toExternalForm() + "!/" + jarEntry.getName());
                         resourceCache.put(resourceName, resourceUrl);
                         return resourceUrl;
                     } catch (MalformedURLException e) {
@@ -796,9 +795,9 @@ public class MoquiStart {
                 if (loadWebInf && jarEntry == null) jarEntry = jarFile.getJarEntry(webInfResourceName);
                 if (jarEntry != null) {
                     try {
-                        String jarFileName = jarFile.getName();
-                        if (jarFileName.contains("\\")) jarFileName = jarFileName.replace('\\', '/');
-                        urlList.add(new URL("jar:file:" + jarFileName + "!/" + jarEntry));
+                        URL jarLocation = jarLocationByJarName.get(jarFile.getName());
+                        if (jarLocation == null) jarLocation = new File(jarFile.getName()).toURI().toURL();
+                        urlList.add(new URL("jar:" + jarLocation.toExternalForm() + "!/" + jarEntry.getName()));
                     } catch (MalformedURLException e) {
                         System.out.println("Error making URL for [" + resourceName + "] in jar [" + jarFile + "] in war file [" + wrapperUrl + "]: " + e.toString());
                     }
