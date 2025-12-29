@@ -226,7 +226,7 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint {
                 }
             } catch (Throwable ignored) { }
         }
-        @Override void flush() { }
-        @Override void close() { }
+        @Override void flush() throws IOException { }
+        @Override void close() throws IOException { }
     }
 }
