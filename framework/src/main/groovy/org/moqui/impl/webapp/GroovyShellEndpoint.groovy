@@ -13,22 +13,39 @@
  */
 package org.moqui.impl.webapp
 
-import groovy.lang.GroovyShell
-import groovy.transform.CompileStatic
-import org.moqui.impl.context.ExecutionContextImpl
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
+import java.io.PrintWriter
+import java.io.Writer
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.TimeUnit
 
 import javax.websocket.CloseReason
 import javax.websocket.EndpointConfig
 import javax.websocket.Session
 
+import groovy.lang.GroovyShell
+import groovy.transform.CompileStatic
+
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
+
+import org.moqui.impl.context.ExecutionContextImpl
+
 @CompileStatic
 class GroovyShellEndpoint extends MoquiAbstractEndpoint {
     private static final Logger logger = LoggerFactory.getLogger(GroovyShellEndpoint.class)
+    private static final int idleSeconds = 300
+    private static final int maxEvalSeconds = 900 // kill infinite loops
 
     ExecutionContextImpl eci
     GroovyShell groovyShell
+    ExecutorService exec
+    ScheduledExecutorService scheduler
+    ScheduledFuture<?> idleTask
+    ScheduledFuture<?> evalTimeoutTask
+    volatile boolean closing = false
 
     GroovyShellEndpoint() { super() }
 
@@ -38,71 +55,97 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint {
         super.onOpen(session, config)
         logger.info("Opening GroovyShellEndpoint session ${session.getId()} for user ${userId}:${username}")
         eci = ecf.getEci()
-
-        if (!eci.userFacade.hasPermission("GROOVY_SHELL_WEB"))
-            throw new IllegalAccessException("User ${eci.userFacade.getUsername()} does not have permission to use Groovy Shell via WebSocket")
-
-        groovyShell = new GroovyShell(
-            ecf.classLoader,
-            eci.getContextBinding()
-        )
+        if (!eci.userFacade.hasPermission("GROOVY_SHELL_WEB")) {
+            throw new IllegalAccessException("User ${username} does not have permission to use Groovy Shell")
+        }
+        exec = Executors.newSingleThreadExecutor(Thread.ofVirtual().name("GroovyShell-" + session.getId(), 0).factory())
+        scheduler = Executors.newSingleThreadScheduledExecutor()
+        Writer wsWriter = new WsWriter(session)
+        def binding = eci.getContextBinding()
+        binding.setVariable("out", new PrintWriter(wsWriter, true))
+        binding.setVariable("err", new PrintWriter(wsWriter, true))
+        groovyShell = new GroovyShell(ecf.classLoader, binding)
+        resetIdleTimer()
     }
 
     @Override
-    synchronized void onMessage(String message) {
-        if (groovyShell == null) return
+    void onMessage(String message) {
+        if (closing || groovyShell == null) return
         String trimmed = message?.trim()
         if (trimmed == ':exit') {
-            session.asyncRemote.sendText("Ending Session.${System.lineSeparator()}")
-            session.close(new CloseReason(CloseReason.CloseCodes.NORMAL_CLOSURE, "Client requested exit"))
+            try {
+                checkSend("Ending session.${System.lineSeparator()}")
+                session.close(new CloseReason(CloseReason.CloseCodes.NORMAL_CLOSURE, "Client requested exit"))
+            } catch (Throwable t) {
+                logger.trace("Error in closing session", t)
+            }
             return
         }
-        registerEci()
-        eci.artifactExecutionFacade.disableAuthz()
+        suspendIdleTimer()
         try {
-            Object result = groovyShell.evaluate(message)
-            if (result != null) {
-                session.asyncRemote.sendText(result.toString() + System.lineSeparator())
+            exec.submit {
+                scheduleEvalTimeout()
+                registerEci()
+                eci.artifactExecutionFacade.disableAuthz()
+                try {
+                    Object result = groovyShell.evaluate(message)
+                    if (result != null) checkSend(result.toString() + System.lineSeparator())
+                } catch (Throwable t) {
+                    logger.error("GroovyShell evaluation error", t)
+                    checkSend("ERROR: ${t.class.simpleName}: ${t.message}${System.lineSeparator()}")
+                } finally {
+                    try {
+                        if (!closing) eci.artifactExecutionFacade.enableAuthz()
+                    } finally {
+                        if (!closing) deregisterEci()
+                        cancelEvalTimeout()
+                        resumeIdleTimer()
+                    }
+                }
             }
         } catch (Throwable t) {
-            logger.error("GroovyShell evaluation error", t)
-            session.asyncRemote.sendText(
-                "ERROR: ${t.class.simpleName}: ${t.message}${System.lineSeparator()}"
-            )
-        } finally {
-            try {
-                eci.artifactExecutionFacade.enableAuthz()
-            } finally {
-                deregisterEci()
-            }
+            resumeIdleTimer()
         }
     }
 
     @Override
     void onClose(Session session, CloseReason closeReason) {
-        logger.info("Closing GroovyShellEndpoint session ${session.getId()} for user ${userId}:${username}")
-        groovyShell = null
-        if (eci != null) {
-            try {
-                eci.destroy()
-            } catch (Throwable t) {
-                logger.error("Error destroying ExecutionContext in GroovyShellEndpoint", t)
-            } finally {
-                eci = null
-            }
+        if (closing) {
+            super.onClose(session, closeReason)
+            return
         }
-        super.onClose(session, closeReason)
+        closing = true
+        logger.info("Closing GroovyShellEndpoint session ${session.getId()} for user ${userId}:${username}")
+        try {
+            idleTask?.cancel(false)
+            evalTimeoutTask?.cancel(false)
+            scheduler?.shutdownNow()
+            exec?.shutdownNow()
+            groovyShell = null
+            if (eci != null) {
+                try {
+                    eci.destroy()
+                } catch (Throwable t) {
+                    logger.error("Error destroying ExecutionContext in GroovyShellEndpoint", t)
+                } finally {
+                    eci = null
+                }
+            }
+        } finally {
+            super.onClose(session, closeReason)
+        }
     }
 
+    /**
+     * Bind this session's ExecutionContext to the current executor thread
+     * for the duration of a single Groovy evaluation.
+     */
     void registerEci() {
         ExecutionContextImpl activeEc = ecfi.activeContext.get()
         if (activeEc != null && activeEc != eci) {
-            logger.warn("In GroovyShellEndpoint there is already an ExecutionContext for user ${activeEc.user.username} (from ${activeEc.forThreadId}:${activeEc.forThreadName}) in this thread (${Thread.currentThread().threadId()}:${Thread.currentThread().getName()}), destroying")
-            try {
-                activeEc.destroy()
-            } catch (Throwable t) {
-                logger.error("Error destroying ExecutionContext already in place in GroovyShellEndpoint", t)
-            }
+            logger.warn("Foreign ExecutionContext found on thread; clearing ThreadLocal only")
+            ecfi.activeContext.remove()
+            ecfi.activeContextMap.remove(Thread.currentThread().threadId())
         }
         eci.forThreadId = Thread.currentThread().threadId()
         eci.forThreadName = Thread.currentThread().getName()
@@ -110,8 +153,80 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint {
         ecfi.activeContextMap.put(Thread.currentThread().threadId(), eci)
     }
 
+    /**
+     * Remove the ExecutionContext from the executor thread after evaluation
+     * to avoid leaking it to the next task on the same thread.
+     */
     void deregisterEci() {
         ecfi.activeContext.remove()
         ecfi.activeContextMap.remove(Thread.currentThread().threadId())
+    }
+
+    void resetIdleTimer() {
+        if (closing || scheduler == null || scheduler.isShutdown()) return
+        idleTask?.cancel(false)
+        try {
+            idleTask = scheduler.schedule({
+                try {
+                   if (session?.isOpen()) {
+                        session.close(new CloseReason(CloseReason.CloseCodes.NORMAL_CLOSURE, "Idle timeout"))
+                    }
+                } catch (Throwable t) {
+                    logger.trace('Error in closing session', t)
+                }
+            }, idleSeconds, TimeUnit.SECONDS)
+        } catch (Throwable ignored) { }
+    }
+
+    void suspendIdleTimer() {
+        idleTask?.cancel(false)
+        idleTask = null
+    }
+
+    void resumeIdleTimer() {
+        resetIdleTimer()
+    }
+
+    void scheduleEvalTimeout() {
+        if (closing || scheduler == null || scheduler.isShutdown()) return
+        evalTimeoutTask?.cancel(false)
+        try {
+            evalTimeoutTask = scheduler.schedule({
+                try {
+                    if (session?.isOpen()) {
+                        checkSend("ERROR: Evaluation exceeded ${maxEvalSeconds} seconds, closing session.${System.lineSeparator()}")
+                        session.close(new CloseReason(CloseReason.CloseCodes.NORMAL_CLOSURE, "Evaluation timeout"))
+                    }
+                } catch (Throwable ignored) { }
+            }, maxEvalSeconds, TimeUnit.SECONDS)
+        } catch (Throwable ignored) { }
+    }
+
+    void cancelEvalTimeout() {
+        evalTimeoutTask?.cancel(false)
+        evalTimeoutTask = null
+    }
+
+    void checkSend(String text) {
+        try {
+            if (session?.isOpen()) {
+                session.asyncRemote.sendText(text)
+            }
+        } catch (Throwable ignored) { }
+    }
+
+    static class WsWriter extends Writer {
+        final Session session
+        WsWriter(Session session) { this.session = session }
+        @Override
+        void write(char[] cbuf, int off, int len) {
+            try {
+                if (session?.isOpen()) {
+                    session.asyncRemote.sendText(new String(cbuf, off, len))
+                }
+            } catch (Throwable ignored) { }
+        }
+        @Override void flush() { }
+        @Override void close() { }
     }
 }
