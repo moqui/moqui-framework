@@ -89,7 +89,7 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint {
                 eci.artifactExecutionFacade.disableAuthz()
                 try {
                     Object result = groovyShell.evaluate(message)
-                    if (result != null) checkSend(result.toString() + System.lineSeparator())
+                    checkSend(result.toString() + System.lineSeparator())
                 } catch (Throwable t) {
                     logger.error("GroovyShell evaluation error", t)
                     checkSend("ERROR: ${t.class.simpleName}: ${t.message}${System.lineSeparator()}")
