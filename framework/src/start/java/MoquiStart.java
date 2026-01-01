@@ -230,7 +230,7 @@ public class MoquiStart {
 
             Class<?> sessionIdManagerClass = moquiStartLoader.loadClass("org.eclipse.jetty.session.SessionIdManager");
             Class<?> sessionManagerClass = moquiStartLoader.loadClass("org.eclipse.jetty.session.SessionManager");
-            Class<?> sessionHandlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.ee10.servlet.SessionHandler");
+            Class<?> sessionHandlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.ee11.servlet.SessionHandler");
             Class<?> defaultSessionIdManagerClass = moquiStartLoader.loadClass("org.eclipse.jetty.session.DefaultSessionIdManager");
             Class<?> sessionCacheClass = moquiStartLoader.loadClass("org.eclipse.jetty.session.SessionCache");
             Class<?> sessionCacheFactoryClass = moquiStartLoader.loadClass("org.eclipse.jetty.session.DefaultSessionCacheFactory");
@@ -240,15 +240,15 @@ public class MoquiStart {
 
             Class<?> connectorClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.Connector");
             Class<?> serverConnectorClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.ServerConnector");
-            Class<?> webappClass = moquiStartLoader.loadClass("org.eclipse.jetty.ee10.webapp.WebAppContext");
+            Class<?> webappClass = moquiStartLoader.loadClass("org.eclipse.jetty.ee11.webapp.WebAppContext");
 
             Class<?> connectionFactoryClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.ConnectionFactory");
             Class<?> connectionFactoryArrayClass = Array.newInstance(connectionFactoryClass, 1).getClass();
             Class<?> httpConnectionFactoryClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.HttpConnectionFactory");
 
-            Class<?> scHandlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.ee10.servlet.ServletContextHandler");
-            Class<?> wsInitializerClass = moquiStartLoader.loadClass("org.eclipse.jetty.ee10.websocket.jakarta.server.config.JakartaWebSocketServletContainerInitializer");
-            Class<?> wsInitializerConfiguratorClass = moquiStartLoader.loadClass("org.eclipse.jetty.ee10.websocket.jakarta.server.config.JakartaWebSocketServletContainerInitializer$Configurator");
+            Class<?> scHandlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.ee11.servlet.ServletContextHandler");
+            Class<?> wsInitializerClass = moquiStartLoader.loadClass("org.eclipse.jetty.ee11.websocket.jakarta.server.config.JakartaWebSocketServletContainerInitializer");
+            Class<?> wsInitializerConfiguratorClass = moquiStartLoader.loadClass("org.eclipse.jetty.ee11.websocket.jakarta.server.config.JakartaWebSocketServletContainerInitializer$Configurator");
 
             Class<?> gzipHandlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.handler.gzip.GzipHandler");
 

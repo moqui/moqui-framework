@@ -202,11 +202,11 @@ dependencies {
     execWarRuntimeOnly 'org.eclipse.jetty:jetty-server:12.1.5' // Apache 2.0
     execWarRuntimeOnly 'org.eclipse.jetty:jetty-annotations:12.1.5' // Apache 2.0
     execWarRuntimeOnly 'org.eclipse.jetty:jetty-jndi:12.1.5' // Apache 2.0
-    execWarRuntimeOnly 'org.eclipse.jetty.ee10:jetty-ee10-webapp:12.1.5' // Apache 2.0
-    execWarRuntimeOnly 'org.eclipse.jetty.ee10:jetty-ee10-proxy:12.1.5'
-    execWarRuntimeOnly 'org.eclipse.jetty.ee10.websocket:jetty-ee10-websocket-jakarta-server:12.1.5' // Apache 2.0
-    execWarRuntimeOnly 'org.eclipse.jetty.ee10.websocket:jetty-ee10-websocket-jakarta-client:12.1.5' // Apache 2.0
-    execWarRuntimeOnly 'org.eclipse.jetty.ee10.websocket:jetty-ee10-websocket-jetty-server:12.1.5' // Apache 2.0
+    execWarRuntimeOnly 'org.eclipse.jetty.ee11:jetty-ee11-webapp:12.1.5' // Apache 2.0
+    execWarRuntimeOnly 'org.eclipse.jetty.ee11:jetty-ee11-proxy:12.1.5'
+    execWarRuntimeOnly 'org.eclipse.jetty.ee11.websocket:jetty-ee11-websocket-jakarta-server:12.1.5' // Apache 2.0
+    execWarRuntimeOnly 'org.eclipse.jetty.ee11.websocket:jetty-ee11-websocket-jakarta-client:12.1.5' // Apache 2.0
+    execWarRuntimeOnly 'org.eclipse.jetty.ee11.websocket:jetty-ee11-websocket-jetty-server:12.1.5' // Apache 2.0
     execWarRuntimeOnly 'org.apache.logging.log4j:log4j-slf4j2-impl:2.25.2' // Apache 2.0
 }
 

@@ -11,6 +11,9 @@
     <!-- Moqui Context Listener (necessary to init Moqui, etc) -->
     <listener><listener-class>org.moqui.impl.webapp.MoquiContextListener</listener-class></listener>
 
+    <!-- Apache Commons FileUpload Cleanup; this must be configured here as it is a ServletContextListener -->
+    <listener><listener-class>org.apache.commons.fileupload2.jakarta.servlet6.JakartaFileCleaner</listener-class></listener>
+
     <session-config>
         <!-- session timeout in minutes; note that this may be overridden with webapp.session-config.@timeout in the Moqui Conf XML file -->
         <session-timeout>60</session-timeout>
