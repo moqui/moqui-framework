@@ -19,12 +19,11 @@
 # Test locally by adding the virtual host to /etc/hosts or with something like:
 # $ curl -H "Host: moqui1.local" localhost/Login
 
-version: "2"
 services:
   nginx-proxy:
     # For documentation on SSL and other settings see:
-    # https://github.com/jwilder/nginx-proxy
-    image: jwilder/nginx-proxy
+    # https://github.com/nginx-proxy/nginx-proxy
+    image: nginxproxy/nginx-proxy
     container_name: nginx-proxy
     restart: always
     ports:
@@ -152,7 +151,7 @@ services:
       - hazelcast_group_password=test-pass
 
   moqui-database:
-    image: mysql:8.0
+    image: mysql:9.5
     container_name: moqui-database
     restart: always
     ports:
@@ -169,7 +168,7 @@ services:
      - MYSQL_PASSWORD=moqui
 
   moqui-search:
-    image: opensearchproject/opensearch:2.4.0
+    image: opensearchproject/opensearch:3.4.0
     container_name: moqui-search
     restart: always
     ports:
@@ -194,7 +193,7 @@ services:
         hard: 65536
 
   opensearch-dashboards:
-    image: opensearchproject/opensearch-dashboards:2.4.0
+    image: opensearchproject/opensearch-dashboards:3.4.0
     container_name: opensearch-dashboards
     links:
       - moqui-search
