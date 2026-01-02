@@ -38,7 +38,7 @@ https://github.com/moqui/bitronix
 
 The current integrated version is 4.0.0-BETA1, with stabilization ongoing.
 
-This fork includes:
+This fork includes
 
 - Major modernization and cleanup
 - Jakarta namespace migration
@@ -46,6 +46,20 @@ This fork includes:
 - Important bug fixes and stability improvements
 - Legacy Bitronix artifacts are no longer supported.
 - Deployments must remove old Bitronix dependencies.
+
+#### Upgrade to Jetty version 12.1 and EE 11
+
+This is a major migration. It bumps jetty to version 12.1 and also servlet
+related packages (websocket, webapp, proxy) to jakarta EE 11.
+
+The upgrade broke the existing custom moqui class loaders, and required
+significant refactoring of class loaders and webapp structure (e.g.
+WebAppContext, Session Handling, etc ...)
+
+Impact on developers:
+
+Any custom work for jetty should be upgraded to the new versions compatible with
+jetty 12.1 and jakarta EE 11
 
 #### Migration From javax.transaction to jakarta.transaction (BREAKING CHANGE)
 
