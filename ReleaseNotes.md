@@ -80,6 +80,23 @@ Impact on developers:
 This aligns Moqui with the Jakarta EE namespace changes and the newer Bitronix
 transaction manager.
 
+#### Upgrade Infrastructure
+
+- Postgres to version 18.1
+- MySQL to version 9.5
+- Remove docker compose "version" obsolete key
+- Upgrade opensearch to 3.4.0
+- Upgrade java in docker to eclipse-temurin:21
+- Switch jwilder/nginx-proxy to nginxproxy/nginx-proxy
+
+These upgrades require careful planning when migrating to moqui V4. It is
+recommended to delete elastic / open search and reindex, and to switch
+from elasticsearch to opensearch. Also ensure an upgrade path for your chosen
+database.
+
+Also, in newer versions of docker, the "version" key is obsolete, so ensure
+updating installed docker so that it works without the "version" setting.
+
 #### Gradle Wrapper Updated to 9.2 (BREAKING CHANGE)
 
 The framework now builds using Gradle 9.2, bringing:
