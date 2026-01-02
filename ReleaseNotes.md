@@ -31,6 +31,20 @@ was rewritten from scratch using a different architecture based on
 `groovy.lang.GroovyShell`. This led to both Screen changes (in runtime) and
 backend changes.
 
+#### Upgrade to Jetty version 12.1 and EE 11
+
+This is a major migration. It bumps jetty to version 12.1 and also servlet
+related packages (websocket, webapp, proxy) to jakarta EE 11.
+
+The upgrade broke the existing custom moqui class loaders, and required
+significant refactoring of class loaders and webapp structure (e.g.
+WebAppContext, Session Handling, etc ...)
+
+Impact on developers:
+
+Any custom work for jetty should be upgraded to the new versions compatible with
+jetty 12.1 and jakarta EE 11
+
 #### Integration with the New Bitronix Fork (Incompatible Change)
 
 Moqui Framework now depends on the actively maintained Bitronix fork at:
@@ -46,20 +60,6 @@ This fork includes
 - Important bug fixes and stability improvements
 - Legacy Bitronix artifacts are no longer supported.
 - Deployments must remove old Bitronix dependencies.
-
-#### Upgrade to Jetty version 12.1 and EE 11
-
-This is a major migration. It bumps jetty to version 12.1 and also servlet
-related packages (websocket, webapp, proxy) to jakarta EE 11.
-
-The upgrade broke the existing custom moqui class loaders, and required
-significant refactoring of class loaders and webapp structure (e.g.
-WebAppContext, Session Handling, etc ...)
-
-Impact on developers:
-
-Any custom work for jetty should be upgraded to the new versions compatible with
-jetty 12.1 and jakarta EE 11
 
 #### Migration From javax.transaction to jakarta.transaction (BREAKING CHANGE)
 
@@ -138,7 +138,8 @@ Given the upgrade to gradle, Java and bitronix, the following community componen
 - Upgrade groovy to version 5
 - Upgrade to JDK21 by default
 - Upgrade to Apache Shiro 2, no longer using INI factory, but rather INI environment classes
-- Enforce warnings during build
+- Upgrade to jetty 2.1 and jakarta EE 11
+- Upgrade docker infrastructure including opensearch, mysql, postgres to latest
 - Upgrade all dependencies to their latest versions
 - Switch from Thread.getId() to Thread.threadId() to work on both virtual and platform threads
 
