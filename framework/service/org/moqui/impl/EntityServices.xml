@@ -32,7 +32,7 @@ along with this software (see the LICENSE.md file). If not, see
         </in-parameters>
         <out-parameters><parameter name="documentList" type="List"><parameter name="document" type="Map"/></parameter></out-parameters>
         <actions>
-            <set field="documentList" from="ec.entity.getEntityDataFeed().getFeedDocuments(dataFeedId, fromUpdateStamp, thruUpdateStamp)"/>
+            <set field="documentList" from="ec.entity.getEntityDataFeed().getFeedDocuments(dataFeedId, fromUpdateStamp, thruUpdatedStamp)"/>
         </actions>
     </service>
     <service verb="get" noun="DataFeedLatestDocuments">

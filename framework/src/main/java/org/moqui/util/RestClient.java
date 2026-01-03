@@ -334,17 +334,20 @@ public class RestClient {
         request.method(method.name());
         // set charset on request?
 
-        // add headers and parameters
-        for (KeyValueString nvp : headerList) request.headers(headers -> headers.put(nvp.key, nvp.value));
-        for (KeyValueString nvp : bodyParameterList) request.param(nvp.key, nvp.value);
-        // authc
-        if (username != null && !username.isEmpty()) {
-            String unPwString = username + ':' + password;
-            String basicAuthStr  = "Basic " + Base64.getEncoder().encodeToString(unPwString.getBytes());
-            request.headers(headers -> headers.put(HttpHeader.AUTHORIZATION, basicAuthStr));
+        // add headers using Jetty 12 API
+        request.headers(headers -> {
+            for (KeyValueString nvp : headerList) headers.put(nvp.key, nvp.value);
+            // authc
+            if (username != null && !username.isEmpty()) {
+                String unPwString = username + ':' + password;
+                String basicAuthStr  = "Basic " + Base64.getEncoder().encodeToString(unPwString.getBytes());
+                headers.put(HttpHeader.AUTHORIZATION, basicAuthStr);
+                // using basic Authorization header instead, too many issues with this: httpClient.getAuthenticationStore().addAuthentication(new BasicAuthentication(uri, BasicAuthentication.ANY_REALM, username, password));
+            }
+        });
 
-            // using basic Authorization header instead, too many issues with this: httpClient.getAuthenticationStore().addAuthentication(new BasicAuthentication(uri, BasicAuthentication.ANY_REALM, username, password));
-        }
+        // add parameters
+        for (KeyValueString nvp : bodyParameterList) request.param(nvp.key, nvp.value);
 
         if (multiPart != null) {
             multiPart.close();

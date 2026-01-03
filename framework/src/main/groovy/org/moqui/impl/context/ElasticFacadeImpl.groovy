@@ -655,13 +655,22 @@ class ElasticFacadeImpl implements ElasticFacade {
 
                 if (curBulkDocs >= docsPerBulk) {
                     // logger.info("Bulk index batch ${batchCount}, cur docs ${curBulkDocs} of ${docListSize}, last index ${esIndexName} (for index ${_index} type ${_type})")
-                    // Issue #592/#16: Add retry logic for bulk indexing failures
-                    boolean success = bulkIndexWithRetry(actionSourceList, batchCount, 3, 1000)
-                    if (!success) {
-                        logger.warn("Bulk index batch ${batchCount} failed after retries, continuing with remaining documents")
+                    // logger.warn("last document: ${document}")
+                    RestClient.RestResponse response = bulkResponse(null, actionSourceList, false)
+                    if (response.statusCode < 200 || response.statusCode >= 300) {
+                        checkResponse(response, "Bulk index", null)
+                        curBulkDocs = 0
+                        actionSourceList = null
+                        break
                     }
 
-                    // reset for the next set (continue even on failure to process remaining documents)
+                    /* don't support getting versions any more, generally waste of resources:
+                    BulkItemResponse[] itemResponses = bulkResponse.getItems()
+                    int itemResponsesSize = itemResponses.length
+                    for (int i = 0; i < itemResponsesSize; i++) documentVersionList.add(itemResponses[i].getVersion())
+                     */
+
+                    // reset for the next set
                     curBulkDocs = 0
                     actionSourceList = new ArrayList<Map>(docsPerBulk * 2)
                     batchCount++
@@ -669,42 +678,15 @@ class ElasticFacadeImpl implements ElasticFacade {
             }
             if (curBulkDocs > 0) {
                 // logger.info("Bulk index last, cur docs ${curBulkDocs} of ${docListSize}, last index ${esIndexName} (for index ${_index} type ${_type})")
-                // Issue #592/#16: Add retry logic for final batch
-                boolean success = bulkIndexWithRetry(actionSourceList, batchCount, 3, 1000)
-                if (!success) {
-                    logger.warn("Bulk index final batch failed after retries")
-                }
-            }
-        }
+                RestClient.RestResponse response = bulkResponse(null, actionSourceList, false)
+                checkResponse(response, "Bulk index", null)
 
-        /** Helper method to perform bulk index with retry logic (Issue #592/#16) */
-        private boolean bulkIndexWithRetry(ArrayList<Map> actionSourceList, int batchNum, int maxRetries, long retryDelayMs) {
-            int attempts = 0
-            while (attempts < maxRetries) {
-                attempts++
-                try {
-                    RestClient.RestResponse response = bulkResponse(null, actionSourceList, false)
-                    if (response.statusCode >= 200 && response.statusCode < 300) {
-                        return true // success
-                    }
-                    if (attempts < maxRetries) {
-                        logger.info("Bulk index batch ${batchNum} failed (status ${response.statusCode}), attempt ${attempts}/${maxRetries}, retrying in ${retryDelayMs}ms")
-                        Thread.sleep(retryDelayMs)
-                        retryDelayMs *= 2 // exponential backoff
-                    } else {
-                        checkResponse(response, "Bulk index batch ${batchNum}", null)
-                    }
-                } catch (Exception e) {
-                    if (attempts < maxRetries) {
-                        logger.info("Bulk index batch ${batchNum} exception: ${e.message}, attempt ${attempts}/${maxRetries}, retrying in ${retryDelayMs}ms")
-                        try { Thread.sleep(retryDelayMs) } catch (InterruptedException ie) { Thread.currentThread().interrupt(); break }
-                        retryDelayMs *= 2 // exponential backoff
-                    } else {
-                        logger.error("Bulk index batch ${batchNum} failed after ${maxRetries} attempts: ${e.message}")
-                    }
-                }
+                /* don't support getting versions any more, generally waste of resources:
+                BulkItemResponse[] itemResponses = bulkResponse.getItems()
+                int itemResponsesSize = itemResponses.length
+                for (int i = 0; i < itemResponsesSize; i++) documentVersionList.add(itemResponses[i].getVersion())
+                 */
             }
-            return false
         }
 
         @Override String objectToJson(Object jsonObject) { return ElasticFacadeImpl.objectToJson(jsonObject) }

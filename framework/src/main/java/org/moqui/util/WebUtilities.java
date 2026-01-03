@@ -14,10 +14,10 @@
 package org.moqui.util;
 
 import org.eclipse.jetty.client.HttpClient;
-import org.eclipse.jetty.client.api.ContentResponse;
-import org.eclipse.jetty.client.api.Request;
-import org.eclipse.jetty.client.dynamic.HttpClientTransportDynamic;
-import org.eclipse.jetty.client.util.StringRequestContent;
+import org.eclipse.jetty.client.ContentResponse;
+import org.eclipse.jetty.client.Request;
+import org.eclipse.jetty.client.transport.HttpClientTransportDynamic;
+import org.eclipse.jetty.client.StringRequestContent;
 import org.eclipse.jetty.io.ClientConnector;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.apache.commons.fileupload2.core.FileItem;

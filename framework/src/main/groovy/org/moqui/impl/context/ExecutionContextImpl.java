@@ -77,7 +77,7 @@ public class ExecutionContextImpl implements ExecutionContext {
         // put reference to this in the context root
         contextStack.put("ec", this);
         forThreadName = forThread.getName();
-        forThreadId = forThread.threadId();
+        forThreadId = forThread.getId();
         // createLoc = new BaseException("ec create");
 
         activeEntityFacade = ecfi.entityFacade;
@@ -227,7 +227,7 @@ public class ExecutionContextImpl implements ExecutionContext {
         ecfi.resourceFacade.destroyAllInThread();
         // clear out the ECFI's reference to this as well
         ecfi.activeContext.remove();
-        ecfi.activeContextMap.remove(Thread.currentThread().threadId());
+        ecfi.activeContextMap.remove(Thread.currentThread().getId());
 
         MDC.remove("moqui_userId");
         MDC.remove("moqui_visitorId");

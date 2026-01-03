@@ -22,9 +22,8 @@ import org.apache.shiro.authc.AuthenticationInfo
 import org.apache.shiro.authc.AuthenticationToken
 import org.apache.shiro.authc.credential.CredentialsMatcher
 import org.apache.shiro.authc.credential.HashedCredentialsMatcher
+import org.apache.shiro.mgt.DefaultSecurityManager
 import org.apache.shiro.crypto.hash.SimpleHash
-import org.apache.shiro.env.BasicIniEnvironment
-import org.apache.shiro.mgt.SecurityManager
 import org.codehaus.groovy.control.CompilationUnit
 import org.codehaus.groovy.control.CompilerConfiguration
 import org.codehaus.groovy.tools.GroovyClass
@@ -128,7 +127,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     final ConcurrentLinkedQueue<ArtifactHitInfo> deferredHitInfoQueue = new ConcurrentLinkedQueue<ArtifactHitInfo>()
 
     /** The SecurityManager for Apache Shiro */
-    protected SecurityManager internalSecurityManager
+    protected org.apache.shiro.mgt.SecurityManager internalSecurityManager
     /** The ServletContext, if Moqui was initialized in a webapp (generally through MoquiContextListener) */
     protected ServletContext internalServletContext = null
     /** The WebSocket ServerContainer, if found in 'jakarta.websocket.server.ServerContainer' ServletContext attribute */
@@ -927,6 +926,18 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
     @Override boolean isDestroyed() { return destroyed }
 
+    @Override void finalize() throws Throwable {
+        try {
+            if (!this.destroyed) {
+                this.destroy()
+                logger.warn("ExecutionContextFactoryImpl not destroyed, caught in finalize.")
+            }
+        } catch (Exception e) {
+            logger.warn("Error in destroy, called in finalize of ExecutionContextFactoryImpl", e)
+        }
+        super.finalize()
+    }
+
     /** Trigger ECF destroy and re-init in another thread, after short wait */
     void triggerDynamicReInit() {
         Thread.start("EcfiReInit", {
@@ -983,13 +994,22 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
     NotificationWebSocketListener getNotificationWebSocketListener() { return notificationWebSocketListener }
 
-    SecurityManager getSecurityManager() {
-        if (internalSecurityManager != null) { return internalSecurityManager }
-        // init Apache Shiro; NOTE: init must be done here so that ecfi will be fully initialized and in the static context
-        BasicIniEnvironment env = new BasicIniEnvironment("classpath:shiro.ini");
-        internalSecurityManager = env.getSecurityManager()
+    @Override @Nonnull org.apache.shiro.mgt.SecurityManager getSecurityManager() {
+        if (internalSecurityManager != null) return internalSecurityManager
+
+        // init Apache Shiro programmatically (Shiro 2.x removed IniSecurityManagerFactory)
+        // NOTE: init must be done here so that ecfi will be fully initialized and in the static context
+        DefaultSecurityManager securityManager = new DefaultSecurityManager()
+
+        // Create and configure the MoquiShiroRealm
+        MoquiShiroRealm moquiRealm = new MoquiShiroRealm()
+        securityManager.setRealm(moquiRealm)
+
+        internalSecurityManager = securityManager
+
         // NOTE: setting this statically just in case something uses it, but for Moqui we'll be getting the SecurityManager from the ecfi
         SecurityUtils.setSecurityManager(internalSecurityManager)
+
         return internalSecurityManager
     }
     /**
@@ -1055,7 +1075,17 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
      * For legacy algorithms: uses the provided salt with Shiro's SimpleHash.
      */
     String getSimpleHash(String source, String salt, String hashType, boolean isBase64) {
-        SimpleHash simple = new SimpleHash(hashType ?: getPasswordHashType(), source, salt ?: '')
+        String effectiveHashType = hashType ?: getPasswordHashType()
+
+        // Use BCrypt for BCRYPT hash type
+        if (PasswordHasher.HASH_TYPE_BCRYPT.equalsIgnoreCase(effectiveHashType)) {
+            // BCrypt includes salt in the hash output, ignore the salt parameter
+            return PasswordHasher.hashWithBcrypt(source)
+        }
+
+        // Legacy algorithms use Shiro's SimpleHash
+        // Shiro 2.x requires non-null salt, use empty string for null salt (legacy compatibility)
+        SimpleHash simple = new SimpleHash(effectiveHashType, source, salt ?: "")
         return isBase64 ? simple.toBase64() : simple.toHex()
     }
 
@@ -1378,7 +1408,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     static class ComponentInfo {
-        protected final static Logger logger = LoggerFactory.getLogger(ComponentInfo.class)
         ExecutionContextFactoryImpl ecfi
         String name, location, version
         Map versionMap = null
@@ -1579,7 +1608,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     static class DeferredHitInfoFlush implements Runnable {
-        protected final static Logger logger = LoggerFactory.getLogger(DeferredHitInfoFlush.class)
         // max creates per chunk, one transaction per chunk (unless error)
         final static int maxCreates = 1000
         final ExecutionContextFactoryImpl ecfi
@@ -1867,7 +1895,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     static class WebappInfo {
-        protected final static Logger logger = LoggerFactory.getLogger(WebappInfo.class)
         String webappName
         MNode webappNode
         XmlAction firstHitInVisitActions = null

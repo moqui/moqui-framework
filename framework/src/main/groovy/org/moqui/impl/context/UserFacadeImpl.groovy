@@ -105,7 +105,7 @@ class UserFacadeImpl implements UserFacade {
 
         String preUsername = getUsername()
         Subject webSubject = makeEmptySubject()
-        if (webSubject.isAuthenticated()) {
+        if (webSubject.authenticated) {
             String sesUsername = (String) webSubject.getPrincipal()
             if (preUsername != null && !preUsername.isEmpty()) {
                 if (!preUsername.equals(sesUsername)) {
@@ -276,7 +276,7 @@ class UserFacadeImpl implements UserFacade {
         // WebSocket handshake request is the HTTP upgrade request so this will be the original session
         // login user from value in session
         Subject webSubject = makeEmptySubject()
-        if (webSubject.isAuthenticated()) {
+        if (webSubject.authenticated) {
             // effectively login the user
             pushUserSubject(webSubject)
             if (logger.traceEnabled) logger.trace("For new request found user [${username}] in the session")
@@ -313,7 +313,7 @@ class UserFacadeImpl implements UserFacade {
     void initFromHttpSession(HttpSession session) {
         this.session = session
         Subject webSubject = makeEmptySubject()
-        if (webSubject.isAuthenticated()) {
+        if (webSubject.authenticated) {
             // effectively login the user
             pushUserSubject(webSubject)
             if (logger.traceEnabled) logger.trace("For new request found user [${username}] in the session")

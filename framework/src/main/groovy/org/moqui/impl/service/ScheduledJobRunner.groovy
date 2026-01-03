@@ -153,11 +153,9 @@ class ScheduledJobRunner implements Runnable {
                     ZonedDateTime lastRunDt = (lastRunTime != (Timestamp) null) ?
                             ZonedDateTime.ofInstant(Instant.ofEpochMilli(lastRunTime.getTime()), now.getZone()) : null
                     if (serviceJobRunLock != null && serviceJobRunLock.jobRunId != null && lastRunDt != null) {
-                        // for failure with no lock reset: run recovery, based on expireLockTime
-                        // Issue #591/#17: Reduced default from 1440 (24 hours) to 120 minutes (2 hours)
-                        // This prevents jobs being blocked for too long if a server crashes mid-execution
+                        // for failure with no lock reset: run recovery, based on expireLockTime (default to 1440 minutes)
                         Long expireLockTime = (Long) serviceJob.expireLockTime
-                        if (expireLockTime == null) expireLockTime = 120L
+                        if (expireLockTime == null) expireLockTime = 1440L
                         ZonedDateTime lockCheckTime = now.minusMinutes(expireLockTime.intValue())
                         if (lastRunDt.isBefore(lockCheckTime)) {
                             // recover failed job without lock reset, run it if schedule says to

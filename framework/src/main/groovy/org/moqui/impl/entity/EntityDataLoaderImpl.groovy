@@ -75,7 +75,6 @@ class EntityDataLoaderImpl implements EntityDataLoader {
     char csvDelimiter = ','
     char csvCommentStart = '#'
     char csvQuoteChar = '"'
-    char csvEscapeChar = '\\'
 
     String csvEntityName = null
     List<String> csvFieldNames = null
@@ -116,7 +115,6 @@ class EntityDataLoaderImpl implements EntityDataLoader {
     @Override EntityDataLoader csvDelimiter(char delimiter) { this.csvDelimiter = delimiter; return this }
     @Override EntityDataLoader csvCommentStart(char commentStart) { this.csvCommentStart = commentStart; return this }
     @Override EntityDataLoader csvQuoteChar(char quoteChar) { this.csvQuoteChar = quoteChar; return this }
-    @Override EntityDataLoader csvEscapeChar(char escapeChar) { this.csvEscapeChar = escapeChar; return this }
 
     @Override EntityDataLoader csvEntityName(String entityName) {
         if (!efi.isEntityDefined(entityName) && !sfi.isServiceDefined(entityName))
@@ -927,7 +925,6 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                     .withSkipHeaderRecord(true) // TODO: remove this? does it even do anything?
                     .withIgnoreEmptyLines(true)
                     .withIgnoreSurroundingSpaces(true)
-                    .withEscape(edli.csvEscapeChar)
                     .parse(reader)
 
             Iterator<CSVRecord> iterator = parser.iterator()

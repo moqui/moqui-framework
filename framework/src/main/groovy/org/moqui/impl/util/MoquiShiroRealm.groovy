@@ -21,7 +21,8 @@ import org.apache.shiro.authz.Permission
 import org.apache.shiro.authz.UnauthorizedException
 import org.apache.shiro.realm.Realm
 import org.apache.shiro.subject.PrincipalCollection
-import org.apache.shiro.lang.util.SimpleByteSource
+// SHIRO-001: Changed import path for Shiro 1.13.0 compatibility (was shiro.lang.util in 2.x)
+import org.apache.shiro.util.SimpleByteSource
 import org.moqui.BaseArtifactException
 import org.moqui.Moqui
 import org.moqui.context.PasswordChangeRequiredException
@@ -273,9 +274,10 @@ class MoquiShiroRealm implements Realm, Authorizer {
             userId = newUserAccount.getString("userId")
 
             // create the salted SimpleAuthenticationInfo object
-            String salt = (newUserAccount.passwordSalt ?: '') as String
-            SimpleByteSource saltBs = new SimpleByteSource(salt)
-            info = new SimpleAuthenticationInfo(username, newUserAccount.currentPassword, saltBs, realmName)
+            // Shiro 2.x requires non-null salt, use empty string for legacy passwords without salt
+            info = new SimpleAuthenticationInfo(username, newUserAccount.currentPassword,
+                    new SimpleByteSource((String) (newUserAccount.passwordSalt ?: "")),
+                    realmName)
             if (!isForceLogin) {
                 // check the password (credentials for this case)
                 CredentialsMatcher cm = ecfi.getCredentialsMatcher((String) newUserAccount.passwordHashType, "Y".equals(newUserAccount.passwordBase64))
@@ -308,9 +310,9 @@ class MoquiShiroRealm implements Realm, Authorizer {
         EntityValue newUserAccount = ecfi.entity.find("moqui.security.UserAccount").condition("username", username)
                 .useCache(true).disableAuthz().one()
 
-        String salt = (newUserAccount.passwordSalt ?: '') as String
-        SimpleByteSource saltBs = new SimpleByteSource(salt)
-        SimpleAuthenticationInfo info = new SimpleAuthenticationInfo(username, newUserAccount.currentPassword, saltBs, "moquiRealm")
+        // Shiro 2.x requires non-null salt, use empty string for legacy passwords without salt
+        SimpleAuthenticationInfo info = new SimpleAuthenticationInfo(username, newUserAccount.currentPassword,
+                new SimpleByteSource((String) (newUserAccount.passwordSalt ?: "")), "moquiRealm")
 
         CredentialsMatcher cm = ecfi.getCredentialsMatcher((String) newUserAccount.passwordHashType, "Y".equals(newUserAccount.passwordBase64))
         UsernamePasswordToken token = new UsernamePasswordToken(username, password)
