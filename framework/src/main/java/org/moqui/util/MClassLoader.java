@@ -400,15 +400,14 @@ public class MClassLoader extends ClassLoader {
         try {
             // classes handled opposite of resources, try parent chain first (avoid java.lang.LinkageError)
             ClassLoader cl = getParent();
-            final int MAX_DEPTH = 2; // WebAppClassLoader -> StartClassLoader
             int depth = 0;
-            while (cl != null && depth < MAX_DEPTH) {
+            while (cl != null && depth < 2) {
                 try {
                     c = cl.loadClass(className);
                     break;
                 } catch (ClassNotFoundException|NoClassDefFoundError e) {
-                    depth++;
                     cl = cl.getParent();
+                    depth++;
                 } catch (RuntimeException e) {
                     e.printStackTrace();
                     throw e;
