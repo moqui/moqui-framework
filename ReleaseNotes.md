@@ -38,7 +38,7 @@ https://github.com/moqui/bitronix
 
 The current integrated version is 4.0.0-BETA1, with stabilization ongoing.
 
-This fork includes
+This fork includes:
 
 - Major modernization and cleanup
 - Jakarta namespace migration
