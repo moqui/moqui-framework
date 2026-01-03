@@ -398,7 +398,7 @@ public class MClassLoader extends ClassLoader {
 
         Class<?> c = null;
         try {
-            // classes handled opposite of resources, try parent chain first
+            // classes handled opposite of resources, try parent chain first (avoid java.lang.LinkageError)
             ClassLoader cl = getParent();
             final int MAX_DEPTH = 2; // WebAppClassLoader -> StartClassLoader
             int depth = 0;
