@@ -112,8 +112,8 @@ dependencies {
     api 'javax.jcr:jcr:2.0'
     // jaxb-api no longer included in Java 9 and later, also tested with openjdk-8
     api('jakarta.xml.bind:jakarta.xml.bind-api:4.0.4') { transitive = false } // EPL 2.0
-    api 'jakarta.activation:jakarta.activation-api:2.1.4'
-    api 'org.eclipse.angus:angus-activation:2.0.3'
+    api 'jakarta.activation:jakarta.activation-api:2.1.4' // activation api
+    api 'org.eclipse.angus:angus-activation:2.0.3' // activation implementation
     api 'jakarta.websocket:jakarta.websocket-api:2.2.0'
     api 'jakarta.websocket:jakarta.websocket-client-api:2.2.0'
 
@@ -137,7 +137,8 @@ dependencies {
     api 'org.eclipse.jetty:jetty-proxy:12.1.5' // Apache 2.0
 
     // jakarta.mail
-    api 'jakarta.mail:jakarta.mail-api:2.1.5'
+    api 'jakarta.mail:jakarta.mail-api:2.1.5' // mail api
+    api 'org.eclipse.angus:angus-mail:2.0.5' // mail implementation
 
     // Joda Time (used by elasticsearch, aws)
     api 'joda-time:joda-time:2.14.0' // Apache 2.0
@@ -165,10 +166,8 @@ dependencies {
     runtimeOnly 'org.apache.logging.log4j:log4j-jcl:2.25.2'
     runtimeOnly 'org.apache.logging.log4j:log4j-slf4j2-impl:2.25.2'
 
-    // SubEtha SMTP (module as depends on old javax.mail location; also uses SLF4J, activation included elsewhere)
-    api('org.subethamail:subethasmtp:3.1.7') {
-        transitive = false
-    }
+    // SubEtha SMTP, depends on jakarta.mail-api which is provided
+    api("com.github.davidmoten:subethasmtp:7.2.0") { transitive = false }
 
     // Snake YAML
     api 'org.yaml:snakeyaml:2.5' // Apache 2.0

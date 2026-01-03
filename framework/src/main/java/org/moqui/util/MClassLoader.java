@@ -398,15 +398,18 @@ public class MClassLoader extends ClassLoader {
 
         Class<?> c = null;
         try {
-            // classes handled opposite of resources, try parent first (avoid java.lang.LinkageError)
-            try {
-                ClassLoader cl = getParent();
-                c = cl.loadClass(className);
-            } catch (ClassNotFoundException|NoClassDefFoundError e) {
-                // do nothing, common that class won't be found if expected in additional JARs and class directories
-            } catch (RuntimeException e) {
-                e.printStackTrace();
-                throw e;
+            // classes handled opposite of resources, try parent chain first (Jetty WebAppClassLoader may filter)
+            ClassLoader cl = getParent();
+            while (cl != null) {
+                try {
+                    c = cl.loadClass(className);
+                    break;
+                } catch (ClassNotFoundException|NoClassDefFoundError e) {
+                    cl = cl.getParent();
+                } catch (RuntimeException e) {
+                    e.printStackTrace();
+                    throw e;
+                }
             }
 
             if (c == null) {
