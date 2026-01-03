@@ -342,15 +342,14 @@ public class MoquiStart {
             serverClass.getMethod("join").invoke(server);
 
             /*
-               Jetty 12 / Jakarta EE 10 notes:
+               Jetty 12 / Jakarta EE 11 notes:
                - SessionIdManager is server-scoped and must be registered as a Server bean.
                - SessionHandler discovers the SessionIdManager automatically.
-               - Manual setSessionIdManager(...) is legacy (Jetty <= 11).
-               Handler hierarchy:
-               Server
-                └── GzipHandler
-                    └── WebAppContext
-                        └── SessionHandler
+               - Handler hierarchy:
+                 Server
+                  └── GzipHandler
+                      └── WebAppContext
+                          └── SessionHandler
 
             The classpath dependent code we are running:
 
