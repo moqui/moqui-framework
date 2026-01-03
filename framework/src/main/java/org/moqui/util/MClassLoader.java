@@ -398,13 +398,16 @@ public class MClassLoader extends ClassLoader {
 
         Class<?> c = null;
         try {
-            // classes handled opposite of resources, try parent chain first (Jetty WebAppClassLoader may filter)
+            // classes handled opposite of resources, try parent chain first
             ClassLoader cl = getParent();
-            while (cl != null) {
+            final int MAX_DEPTH = 2; // WebAppClassLoader -> StartClassLoader
+            int depth = 0;
+            while (cl != null && depth < MAX_DEPTH) {
                 try {
                     c = cl.loadClass(className);
                     break;
                 } catch (ClassNotFoundException|NoClassDefFoundError e) {
+                    depth++;
                     cl = cl.getParent();
                 } catch (RuntimeException e) {
                     e.printStackTrace();
