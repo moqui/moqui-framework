@@ -8,14 +8,30 @@ new features, security fixes, upgrades, performance improvements and so on.
 
 ### Major Changes
 
-#### Java Upgrade to Version 21 (BREAKING CHANGE)
+#### Java Upgrade to Version 21 (Incompatible Change)
 
 Moqui Framework now requires Java 21. This provides improved performance,
 long-term support, and access to modern JVM features, while removing legacy
 APIs. All custom code and components must be validated against Java 21 to ensure
 compatibility.
 
-#### Integration with the New Bitronix Fork (BREAKING CHANGE)
+As part of this work:
+
+- Remove deprecated finalize methods no longer applicable in JDK21.
+- Lots of code improvements to comply with JDK21.
+
+#### Groovy upgrade to version 5 (Incompatible Change)
+
+Groovy 5 in combination with newer JDK21 is more strict in @CompileStatic. There
+were illegal bytecodes being generated, and it has to do with accessing fields
+from inner classes.
+
+Another change is that Groovysh is removed. Therefore, the terminal interface
+was rewritten from scratch using a different architecture based on 
+`groovy.lang.GroovyShell`. This led to both Screen changes (in runtime) and
+backend changes.
+
+#### Integration with the New Bitronix Fork (Incompatible Change)
 
 Moqui Framework now depends on the actively maintained Bitronix fork at:
 https://github.com/moqui/bitronix
@@ -62,6 +78,7 @@ Changes included:
 - Replaced deprecated exec {} blocks with Groovy execute() usage (Windows support still being refined).
 - Updated and corrected dependency declarations, including replacing deprecated modules and fixing invalid version strings.
 - Numerous misc. updates required by Gradle 9.x API changes.
+- Unified dependencyUpdates settings
 
 This upgrade required significant modifications to component build scripts.
 
@@ -85,47 +102,14 @@ Given the upgrade to gradle, Java and bitronix, the following community componen
 - moqui-wikitext
 - start
 
-### Remaining Work
+### New Features
 
-- A comprehensive review and modernization of all framework and component
-  dependency versions is still pending. This includes all libraries in the
-  framework and external components
-- Groovy upgrade: This is a large project, as it impacts many areas and must be
-  done with extreme care. Might be done in a subsequent release.
-- Residual Deprecation updates which are listed below:
-
-```
-moqui-framework/framework/src/main/java/org/moqui/util/RestClient.java:722: warning: [removal] finalize() in Object has been deprecated and marked for removal
-        @Override protected void finalize() throws Throwable {
-                                 ^
-moqui-framework/framework/src/main/java/org/moqui/util/RestClient.java:727: warning: [removal] finalize() in Object has been deprecated and marked for removal
-            super.finalize();
-                 ^
-moqui-framework/framework/src/main/java/org/moqui/util/RestClient.java:800: warning: [removal] finalize() in Object has been deprecated and marked for removal
-        @Override protected void finalize() throws Throwable {
-                                 ^
-moqui-framework/framework/src/main/java/org/moqui/util/RestClient.java:805: warning: [removal] finalize() in Object has been deprecated and marked for removal
-            super.finalize();
-                  ^
--framework/framework/src/main/groovy/org/moqui/impl/entity/EntityListIteratorWrapper.java:190: warning: [removal] finalize() in Object has been deprecated and marked for removal
-    @Override protected void finalize() throws Throwable {
-                             ^
-moqui-framework/framework/src/main/groovy/org/moqui/impl/entity/EntityListIteratorWrapper.java:195: warning: [removal] finalize() in Object has been deprecated and marked for removal
-        super.finalize();
-             ^
-moqui-framework/framework/src/main/groovy/org/moqui/impl/entity/elastic/ElasticEntityListIterator.java:560: warning: [removal] finalize() in Object has been deprecated and marked for removal
-    protected void finalize() throws Throwable {
-                   ^
-moqui-framework/framework/src/main/groovy/org/moqui/impl/entity/elastic/ElasticEntityListIterator.java:578: warning: [removal] finalize() in Object has been deprecated and marked for removal
-        super.finalize();
-             ^
-moqui-framework/framework/src/main/groovy/org/moqui/impl/entity/EntityListIteratorImpl.java:381: warning: [removal] finalize() in Object has been deprecated and marked for removal
-    protected void finalize() throws Throwable {
-                   ^
-moqui-framework/framework/src/main/groovy/org/moqui/impl/entity/EntityListIteratorImpl.java:399: warning: [removal] finalize() in Object has been deprecated and marked for removal
-        super.finalize();
-```
-
+- Upgrade groovy to version 5
+- Upgrade to JDK21 by default
+- Upgrade to Apache Shiro 2, no longer using INI factory, but rather INI environment classes
+- Enforce warnings during build
+- Upgrade all dependencies to their latest versions
+- Switch from Thread.getId() to Thread.threadId() to work on both virtual and platform threads
 
 ## Release 3.1.0 - Canceled release
 
