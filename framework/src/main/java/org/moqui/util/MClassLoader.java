@@ -401,6 +401,8 @@ public class MClassLoader extends ClassLoader {
             // classes handled opposite of resources, try parent chain first (avoid java.lang.LinkageError)
             ClassLoader cl = getParent();
             int depth = 0;
+            // first org.eclipse.jetty.ee.webapp.WebAppClassLoader
+            // then MoquiStart.StartClassLoader
             while (cl != null && depth < 2) {
                 try {
                     c = cl.loadClass(className);
@@ -414,6 +416,7 @@ public class MClassLoader extends ClassLoader {
                 }
             }
 
+            // now try MClassLoader if parents fail to load
             if (c == null) {
                 try {
                     if (trackKnown) {
