@@ -383,7 +383,7 @@ public class MoquiStart {
                 webapp.setWar(moquiStartLoader.wrapperUrl.toExternalForm());
                 webapp.setTempDirectory(new File("execwartmp/ROOT"));
             } else {
-                webapp.setResourceBase(moquiStartLoader.wrapperUrl.toExternalForm());
+                webapp.setBaseResourceAsString(moquiStartLoader.wrapperUrl.toExternalForm());
             }
             webapp.setClassLoader(moquiStartLoader);
             String sessionMaxAge = System.getenv("webapp_session_cookie_max_age");
