@@ -58,8 +58,7 @@ public class MoquiStart {
     // this default is for development and is here instead of having a buried properties file that might cause conflicts when trying to override
     private static final String defaultConf = "conf/MoquiDevConf.xml";
     private static final String tempDirName = "execwartmp";
-
-    private final static boolean reportJarsUnused = Boolean.valueOf(System.getProperty("report.jars.unused", "false"));
+    private static final boolean reportJarsUnused = Boolean.valueOf(System.getProperty("report.jars.unused", "false"));
     // private final static boolean reportJarsUnused = true;
 
     public static void main(String[] args) throws IOException {
@@ -221,9 +220,6 @@ public class MoquiStart {
             Class<?> handlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.Handler");
             Class<?> sizedThreadPoolClass = moquiStartLoader.loadClass("org.eclipse.jetty.util.thread.ThreadPool$SizedThreadPool");
 
-            Class<?> resourceClass = moquiStartLoader.loadClass("org.eclipse.jetty.util.resource.Resource");
-            Class<?> resourceFactoryClass = moquiStartLoader.loadClass("org.eclipse.jetty.util.resource.ResourceFactory");
-
             Class<?> httpConfigurationClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.HttpConfiguration");
             Class<?> forwardedRequestCustomizerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.ForwardedRequestCustomizer");
             Class<?> customizerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.HttpConfiguration$Customizer");
@@ -234,7 +230,6 @@ public class MoquiStart {
             Class<?> defaultSessionIdManagerClass = moquiStartLoader.loadClass("org.eclipse.jetty.session.DefaultSessionIdManager");
             Class<?> sessionCacheClass = moquiStartLoader.loadClass("org.eclipse.jetty.session.SessionCache");
             Class<?> sessionCacheFactoryClass = moquiStartLoader.loadClass("org.eclipse.jetty.session.DefaultSessionCacheFactory");
-            Class<?> defaultSessionCacheClass = moquiStartLoader.loadClass("org.eclipse.jetty.session.DefaultSessionCache");
             Class<?> sessionDataStoreClass = moquiStartLoader.loadClass("org.eclipse.jetty.session.SessionDataStore");
             Class<?> fileSessionDataStoreClass = moquiStartLoader.loadClass("org.eclipse.jetty.session.FileSessionDataStore");
 
@@ -295,23 +290,14 @@ public class MoquiStart {
 
             webappClass.getMethod("setContextPath", String.class).invoke(webapp, "/");
             webappClass.getMethod("setServer", serverClass).invoke(webapp, server);
-            // SessionIdManager automatically discovered from server.
-            // SessionHandler must be set on WebAppContext to enable servlet sessions
             webappClass.getMethod("setSessionHandler", sessionHandlerClass).invoke(webapp, sessionHandler);
             webappClass.getMethod("setMaxFormKeys", int.class).invoke(webapp, 5000);
-            webappClass.getMethod("setConfigurationDiscovered", boolean.class).invoke(webapp, false);
-            webappClass.getMethod("setParentLoaderPriority", boolean.class).invoke(webapp, false);
-            Object resourceFactory = resourceFactoryClass.getMethod("root").invoke(null);
-            Method newResourceMethod = resourceFactoryClass.getMethod("newResource", String.class);
-            String base = moquiStartLoader.wrapperUrl.toExternalForm();
-            if (base.endsWith(".war")) {
-                base = "jar:" + base + "!/";
+            if (isInWar) {
+                webappClass.getMethod("setWar", String.class).invoke(webapp, moquiStartLoader.wrapperUrl.toExternalForm());
+                webappClass.getMethod("setTempDirectory", File.class).invoke(webapp, new File(tempDirName + "/ROOT"));
+            } else {
+                webappClass.getMethod("setBaseResourceAsString", String.class).invoke(webapp, moquiStartLoader.wrapperUrl.toExternalForm());
             }
-            Object baseResource = newResourceMethod.invoke(resourceFactory, base);
-            webappClass.getMethod("setAttribute", String.class, Object.class).invoke(webapp, "org.eclipse.jetty.server.webapp.WebInfIncludeJarPattern", "^$");
-            webappClass.getMethod("setAttribute", String.class, Object.class).invoke(webapp, "org.eclipse.jetty.server.webapp.ContainerIncludeJarPattern", "^$");
-            webappClass.getMethod("setBaseResource", resourceClass).invoke(webapp, baseResource);
-
             // NOTE DEJ20210520: now always using StartClassLoader because of breaking classloader changes in 9.4.37 (likely from https://github.com/eclipse/jetty.project/pull/5894)
             webappClass.getMethod("setClassLoader", ClassLoader.class).invoke(webapp, moquiStartLoader);
 
@@ -356,15 +342,14 @@ public class MoquiStart {
             serverClass.getMethod("join").invoke(server);
 
             /*
-               Jetty 12 / Jakarta EE 10 notes:
+               Jetty 12 / Jakarta EE 11 notes:
                - SessionIdManager is server-scoped and must be registered as a Server bean.
                - SessionHandler discovers the SessionIdManager automatically.
-               - Manual setSessionIdManager(...) is legacy (Jetty <= 11).
-               Handler hierarchy:
-               Server
-                └── GzipHandler
-                    └── WebAppContext
-                        └── SessionHandler
+               - Handler hierarchy:
+                 Server
+                  └── GzipHandler
+                      └── WebAppContext
+                          └── SessionHandler
 
             The classpath dependent code we are running:
 
@@ -394,17 +379,12 @@ public class MoquiStart {
             webapp.setServer(server);
             webapp.setSessionHandler(sessionHandler);
             webapp.setMaxFormKeys(5000);
-            webapp.setConfigurationDiscovered(false);
-            webapp.setParentLoaderPriority(false);
-            ResourceFactory resourceFactory = ResourceFactory.root();
-            String base = moquiStartLoader.wrapperUrl.toExternalForm();
-            if (base.endsWith(".war")) {
-                base = "jar:" + base + "!/";
+            if (isInWar) {
+                webapp.setWar(moquiStartLoader.wrapperUrl.toExternalForm());
+                webapp.setTempDirectory(new File("execwartmp/ROOT"));
+            } else {
+                webapp.setBaseResourceAsString(moquiStartLoader.wrapperUrl.toExternalForm());
             }
-            Resource baseResource = resourceFactory.newResource(base);
-            webapp.setAttribute("org.eclipse.jetty.server.webapp.WebInfIncludeJarPattern", "^$");
-            webapp.setAttribute("org.eclipse.jetty.server.webapp.ContainerIncludeJarPattern", "^$");
-            webapp.setBaseResource(baseResource);
             webapp.setClassLoader(moquiStartLoader);
             String sessionMaxAge = System.getenv("webapp_session_cookie_max_age");
             if (sessionMaxAge != null && !sessionMaxAge.isEmpty()) {
@@ -423,6 +403,9 @@ public class MoquiStart {
             server.setStopAtShutdown(true);
             server.setStopTimeout(30000L);
             server.start();
+            // The use of server.join() the will make the current thread join and
+            // wait until the server is done executing.
+            // See http://docs.oracle.com/javase/7/docs/api/java/lang/Thread.html#join()
             server.join();
             */
         } catch (Exception e) {

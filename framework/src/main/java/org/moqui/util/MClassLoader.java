@@ -398,17 +398,25 @@ public class MClassLoader extends ClassLoader {
 
         Class<?> c = null;
         try {
-            // classes handled opposite of resources, try parent first (avoid java.lang.LinkageError)
-            try {
-                ClassLoader cl = getParent();
-                c = cl.loadClass(className);
-            } catch (ClassNotFoundException|NoClassDefFoundError e) {
-                // do nothing, common that class won't be found if expected in additional JARs and class directories
-            } catch (RuntimeException e) {
-                e.printStackTrace();
-                throw e;
+            // classes handled opposite of resources, try parent chain first (avoid java.lang.LinkageError)
+            ClassLoader cl = getParent();
+            int depth = 0;
+            // first org.eclipse.jetty.ee.webapp.WebAppClassLoader
+            // then MoquiStart.StartClassLoader
+            while (cl != null && depth < 2) {
+                try {
+                    c = cl.loadClass(className);
+                    break;
+                } catch (ClassNotFoundException|NoClassDefFoundError e) {
+                    cl = cl.getParent();
+                    depth++;
+                } catch (RuntimeException e) {
+                    e.printStackTrace();
+                    throw e;
+                }
             }
 
+            // now try MClassLoader if parents fail to load
             if (c == null) {
                 try {
                     if (trackKnown) {
