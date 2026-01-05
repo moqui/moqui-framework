@@ -134,10 +134,7 @@ dependencies {
 
     // Jetty HTTP Client and Proxy Servlet
     api 'org.eclipse.jetty:jetty-client:12.1.5' // Apache 2.0
-    api 'org.eclipse.jetty:jetty-proxy:12.1.5' // Apache 2.0
-    // Not war runtime, it is needed by MClassLoader to load classes from MoquiDefaultConf.xml
     api 'org.eclipse.jetty.ee11:jetty-ee11-proxy:12.1.5' // Apache 2.0
-    api 'org.eclipse.jetty:jetty-annotations:12.1.5' // Apache 2.0
     api 'org.eclipse.jetty:jetty-jndi:12.1.5' // Apache 2.0
 
     // jakarta.mail
@@ -205,8 +202,6 @@ dependencies {
     execWarRuntimeOnly 'org.eclipse.jetty:jetty-server:12.1.5' // Apache 2.0
     execWarRuntimeOnly 'org.eclipse.jetty.ee11:jetty-ee11-webapp:12.1.5' // Apache 2.0
     execWarRuntimeOnly 'org.eclipse.jetty.ee11.websocket:jetty-ee11-websocket-jakarta-server:12.1.5' // Apache 2.0
-    execWarRuntimeOnly 'org.eclipse.jetty.ee11.websocket:jetty-ee11-websocket-jakarta-client:12.1.5' // Apache 2.0
-    execWarRuntimeOnly 'org.eclipse.jetty.ee11.websocket:jetty-ee11-websocket-jetty-server:12.1.5' // Apache 2.0
 }
 
 // setup task dependencies to make sure the start sourceSets always get run
