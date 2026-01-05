@@ -1,4 +1,4 @@
-FROM postgres:13.2-alpine
+FROM postgres:13.9-alpine
 RUN apk update && apk add dos2unix
 
 # copy SQL into dump directory
