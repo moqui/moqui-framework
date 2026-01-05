@@ -276,7 +276,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
                 if (clearLock) {
                     ServiceCallSync scs = ecfi.serviceFacade.sync().name("update", "moqui.service.job.ServiceJobRunLock")
                             .parameter("jobName", jobName).parameter("jobRunId", null)
-                            .disableAuthz()
+                            .disableAuthz().requireNewTransaction(true)
                     // if there was an error set lastRunTime to previous
                     if (hasError) scs.parameter("lastRunTime", lastRunTime)
                     scs.call()
@@ -286,7 +286,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
                 ecfi.serviceFacade.sync().name("update", "moqui.service.job.ServiceJobRun")
                         .parameters([jobRunId:jobRunId, endTime:nowTimestamp, results:resultString,
                             messages:messages, hasError:(hasError ? 'Y' : 'N'), errors:errors] as Map<String, Object>)
-                        .disableAuthz().call()
+                        .disableAuthz().requireNewTransaction(true).call()
 
                 // notifications
                 Map<String, Object> msgMap = (Map<String, Object>) null

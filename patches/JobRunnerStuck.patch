@@ -1,0 +1,34 @@
+From 0a1b73472adf7f59a92e2cc80b12135e94f1053c Mon Sep 17 00:00:00 2001
+From: Purushottam Khedre <purushottam.khedre@hotwax.co>
+Date: Tue, 23 Dec 2025 14:58:17 +0530
+Subject: [PATCH] Fix: Prevent jobs from getting stuck in running state
+
+---
+ .../groovy/org/moqui/impl/service/ServiceCallJobImpl.groovy   | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/framework/src/main/groovy/org/moqui/impl/service/ServiceCallJobImpl.groovy b/framework/src/main/groovy/org/moqui/impl/service/ServiceCallJobImpl.groovy
+index 9ccafe31..8fa7c654 100644
+--- a/framework/src/main/groovy/org/moqui/impl/service/ServiceCallJobImpl.groovy
++++ b/framework/src/main/groovy/org/moqui/impl/service/ServiceCallJobImpl.groovy
+@@ -276,7 +276,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
+                 if (clearLock) {
+                     ServiceCallSync scs = ecfi.serviceFacade.sync().name("update", "moqui.service.job.ServiceJobRunLock")
+                             .parameter("jobName", jobName).parameter("jobRunId", null)
+-                            .disableAuthz()
++                            .disableAuthz().requireNewTransaction(true)
+                     // if there was an error set lastRunTime to previous
+                     if (hasError) scs.parameter("lastRunTime", lastRunTime)
+                     scs.call()
+@@ -286,7 +286,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
+                 ecfi.serviceFacade.sync().name("update", "moqui.service.job.ServiceJobRun")
+                         .parameters([jobRunId:jobRunId, endTime:nowTimestamp, results:resultString,
+                             messages:messages, hasError:(hasError ? 'Y' : 'N'), errors:errors] as Map<String, Object>)
+-                        .disableAuthz().call()
++                        .disableAuthz().requireNewTransaction(true).call()
+
+                 // notifications
+                 Map<String, Object> msgMap = (Map<String, Object>) null
+--
+2.50.1 (Apple Git-155)
+
