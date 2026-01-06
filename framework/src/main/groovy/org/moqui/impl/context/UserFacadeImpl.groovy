@@ -267,12 +267,13 @@ class UserFacadeImpl implements UserFacade {
     void initFromHandshakeRequest(HandshakeRequest request) {
         try {
             this.session = (HttpSession) request.getHttpSession()
-            clientIpInternal = getClientIp(null, request, eci.ecfi)
         } catch (Throwable t) {
             // Jetty 12 EE 11 bug https://github.com/jetty/jetty.project/issues/11809
             logger.trace("Failed to get HttpSession from WebSocket HandshakeRequest", t)
-            clientIpInternal = getClientIp(null, null, eci.ecfi)
         }
+
+        // get client IP address, handle proxy original address if exists
+        clientIpInternal = getClientIp(null, request, eci.ecfi)
 
         // WebSocket handshake request is the HTTP upgrade request so this will be the original session
         // login user from value in session
