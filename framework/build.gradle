@@ -104,7 +104,10 @@ dependencies {
     api 'org.eclipse.angus:angus-activation:2.0.3' // activation implementation
     api 'jakarta.websocket:jakarta.websocket-api:2.2.0'
     api 'jakarta.websocket:jakarta.websocket-client-api:2.2.0'
+
+    // servlet-api needed during both compile and test
     compileOnlyApi 'jakarta.servlet:jakarta.servlet-api:6.1.0'
+    testImplementation 'jakarta.servlet:jakarta.servlet-api:6.1.0'
 
     // Java TOTP
     api 'dev.samstevens.totp:totp:1.7.1' // MIT
