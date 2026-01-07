@@ -23,8 +23,8 @@ import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
 import org.moqui.impl.context.ExecutionContextImpl
 
-import javax.activation.DataSource
-import javax.mail.util.ByteArrayDataSource
+import jakarta.activation.DataSource
+import jakarta.mail.util.ByteArrayDataSource
 import javax.xml.transform.stream.StreamSource
 
 import org.slf4j.Logger
