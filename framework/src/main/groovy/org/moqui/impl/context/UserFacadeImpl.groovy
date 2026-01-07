@@ -965,8 +965,14 @@ class UserFacadeImpl implements UserFacade {
         if (httpRequest != null) {
             webappName = httpRequest.servletContext.getInitParameter("moqui-name")
         } else if (handshakeRequest != null) {
-            Object hsrSession = handshakeRequest.httpSession
-            if (hsrSession instanceof HttpSession) webappName = hsrSession.getServletContext().getInitParameter("moqui-name")
+            try {
+                Object hsrSession = handshakeRequest.getHttpSession()
+                if (hsrSession instanceof HttpSession)
+                    webappName = hsrSession.getServletContext().getInitParameter("moqui-name")
+            } catch (Throwable t) {
+                // Jetty 12 EE 11 bug https://github.com/jetty/jetty.project/issues/11809
+                logger.trace("Failed to get HttpSession from WebSocket HandshakeRequest for client IP lookup", t)
+            }
         }
 
         String clientIpHeaderValue = null
