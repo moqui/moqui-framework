@@ -31,6 +31,31 @@ was rewritten from scratch using a different architecture based on
 `groovy.lang.GroovyShell`. This led to both Screen changes (in runtime) and
 backend changes.
 
+#### Upgrade to Jetty version 12.1 and EE 11
+
+This is a major migration. It bumps jetty to version 12.1 and also servlet
+related packages (websocket, webapp, proxy) to jakarta EE 11.
+
+The upgrade broke the existing custom moqui class loaders, and required
+significant refactoring of class loaders and webapp structure (e.g.
+WebAppContext, Session Handling, etc ...)
+
+Impact on developers:
+
+Any custom work for jetty should be upgraded to the new versions compatible with
+jetty 12.1 and jakarta EE 11
+
+#### Upgrade all javax libraries to jakarta
+
+All libraries including commons-fileupload, xml.bind-api, activation, mail,
+websocket, servlets (6.1), and others are all migrated to their jakarta
+equivalents. As part of this exercise, many deprecated, old or irrelevant / not
+used dependencies were removed. This change required refactoring critical moqui
+facades and core API to comply with the switch to Jakarta.
+
+Any custom work for older javax should be upgraded where applicable to use the
+jakarta equivalent libraries.
+
 #### Integration with the New Bitronix Fork (Incompatible Change)
 
 Moqui Framework now depends on the actively maintained Bitronix fork at:
@@ -46,20 +71,6 @@ This fork includes:
 - Important bug fixes and stability improvements
 - Legacy Bitronix artifacts are no longer supported.
 - Deployments must remove old Bitronix dependencies.
-
-#### Upgrade to Jetty version 12.1 and EE 11
-
-This is a major migration. It bumps jetty to version 12.1 and also servlet
-related packages (websocket, webapp, proxy) to jakarta EE 11.
-
-The upgrade broke the existing custom moqui class loaders, and required
-significant refactoring of class loaders and webapp structure (e.g.
-WebAppContext, Session Handling, etc ...)
-
-Impact on developers:
-
-Any custom work for jetty should be upgraded to the new versions compatible with
-jetty 12.1 and jakarta EE 11
 
 #### Migration From javax.transaction to jakarta.transaction (BREAKING CHANGE)
 
