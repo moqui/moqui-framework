@@ -59,17 +59,18 @@ abstract class MoquiAbstractEndpoint extends Endpoint implements MessageHandler.
         this.session = session
         ecfi = (ExecutionContextFactoryImpl) config.userProperties.get("executionContextFactory")
         handshakeRequest = (HandshakeRequest) config.userProperties.get("handshakeRequest")
-        httpSession = handshakeRequest != null ? (HttpSession) handshakeRequest.getHttpSession() : (HttpSession) config.userProperties.get("httpSession")
+        // Jetty 12 EE 11 bug https://github.com/jetty/jetty.project/issues/11809
+        // httpSession = handshakeRequest != null ? (HttpSession) handshakeRequest.getHttpSession() : (HttpSession) config.userProperties.get("httpSession")
+        httpSession = (HttpSession) config.userProperties.get("httpSession")
         ExecutionContextImpl eci = ecfi.getEci()
         try {
-            if (handshakeRequest != null) {
-                eci.userFacade.initFromHandshakeRequest(handshakeRequest)
-            } else if (httpSession != null) {
+            if (httpSession != null) {
                 eci.userFacade.initFromHttpSession(httpSession)
+            } else if (handshakeRequest != null) {
+                eci.userFacade.initFromHandshakeRequest(handshakeRequest)
             } else {
                 logger.warn("No HandshakeRequest or HttpSession found opening WebSocket Session ${session.id}, not logging in user")
             }
-
 
             userId = eci.user.userId
             username = eci.user.username
