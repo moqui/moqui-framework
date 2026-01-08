@@ -298,7 +298,6 @@ public class MoquiStart {
             } else {
                 webappClass.getMethod("setBaseResourceAsString", String.class).invoke(webapp, moquiStartLoader.wrapperUrl.toExternalForm());
             }
-            // NOTE DEJ20210520: now always using StartClassLoader because of breaking classloader changes in 9.4.37 (likely from https://github.com/eclipse/jetty.project/pull/5894)
             webappClass.getMethod("setClassLoader", ClassLoader.class).invoke(webapp, moquiStartLoader);
 
             // handle webapp_session_cookie_max_age with setInitParameter (1209600 seconds is about 2 weeks 60 * 60 * 24 * 14)
