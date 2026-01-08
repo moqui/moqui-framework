@@ -17,8 +17,8 @@
     For JavaMail JavaDocs see: https://javamail.java.net/nonav/docs/api/index.html
  */
 
-import org.apache.commons.mail.DefaultAuthenticator
-import org.apache.commons.mail.HtmlEmail
+import org.apache.commons.mail2.jakarta.DefaultAuthenticator
+import org.apache.commons.mail2.jakarta.HtmlEmail
 import org.moqui.entity.EntityValue
 import org.moqui.impl.context.ExecutionContextImpl
 
