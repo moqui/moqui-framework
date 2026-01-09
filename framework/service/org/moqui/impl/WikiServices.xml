@@ -374,7 +374,7 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters>
             <parameter name="wikiSpaceId"><description>Optional if pagePath is a wikiPageId or the first segment is a wikiSpaceId</description></parameter>
             <parameter name="pagePath"><description>Not required, is empty for the space root page. Can be a wikiPageId or the page path within the space.</description></parameter>
-            <parameter name="attachmentFile" type="org.apache.commons.fileupload.FileItem"/>
+            <parameter name="attachmentFile" type="org.apache.commons.fileupload2.core.FileItem"/>
         </in-parameters>
         <out-parameters><parameter name="attachmentReference" type="org.moqui.resource.ResourceReference"/></out-parameters>
         <actions>
@@ -383,7 +383,7 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="org.moqui.impl.WikiServices.get#WikiPageAttachment" in-map="context" out-map="context"/>
             <script><![CDATA[
                 org.moqui.context.ExecutionContext ec = context.ec
-                org.apache.commons.fileupload.FileItem attachmentFile = context.attachmentFile
+                org.apache.commons.fileupload2.core.FileItem attachmentFile = context.attachmentFile
                 ec.logger.info("Uploading file ${filename} for page path ${pagePath} in space ${wikiSpaceId}")
 
                 InputStream fileStream = attachmentFile.getInputStream()
@@ -982,7 +982,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <matches regexp="[\w\.\-,':()!\? ]*" message="Invalid title (letters, digits, [.,'-_:()!? ] only)"/></parameter>
             <parameter name="summary" allow-html="safe"/>
             <parameter name="publishDate" type="Timestamp" default="ec.user.nowTimestamp"/>
-            <parameter name="smallImage" type="org.apache.commons.fileupload.FileItem"/>
+            <parameter name="smallImage" type="org.apache.commons.fileupload2.core.FileItem"/>
             <parameter name="blogText" allow-html="any"/><!-- allow any HTML here, is checked if needed in update#WikiPage -->
         </in-parameters>
         <out-parameters>
@@ -1015,7 +1015,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="title">
                 <matches regexp="[\w\.\-,':()!\? ]*" message="Invalid title (letters, digits, [.,'-_:()!? ] only)"/></parameter>
             <parameter name="summary" allow-html="safe"/>
-            <parameter name="smallImage" type="org.apache.commons.fileupload.FileItem"/>
+            <parameter name="smallImage" type="org.apache.commons.fileupload2.core.FileItem"/>
             <parameter name="blogText" allow-html="any"/>
         </in-parameters>
         <actions>

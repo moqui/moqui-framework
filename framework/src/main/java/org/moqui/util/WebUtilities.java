@@ -13,35 +13,56 @@
  */
 package org.moqui.util;
 
-import org.eclipse.jetty.client.HttpClient;
-import org.eclipse.jetty.client.api.ContentResponse;
-import org.eclipse.jetty.client.api.Request;
-import org.eclipse.jetty.client.dynamic.HttpClientTransportDynamic;
-import org.eclipse.jetty.client.util.StringRequestContent;
-import org.eclipse.jetty.io.ClientConnector;
-import org.eclipse.jetty.util.ssl.SslContextFactory;
-import org.apache.commons.fileupload.FileItem;
-import org.moqui.BaseException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 
-import javax.annotation.Nonnull;
-import javax.servlet.ServletContext;
-import javax.servlet.ServletRequest;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
-import java.io.*;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.ObjectOutputStream;
+import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Hashtable;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.RandomAccess;
+import java.util.Set;
+
+import javax.annotation.Nonnull;
+
+import org.apache.commons.fileupload2.core.FileItem;
+
+import org.eclipse.jetty.client.ContentResponse;
+import org.eclipse.jetty.client.HttpClient;
+import org.eclipse.jetty.client.Request;
+import org.eclipse.jetty.client.StringRequestContent;
+import org.eclipse.jetty.client.transport.HttpClientTransportDynamic;
+import org.eclipse.jetty.io.ClientConnector;
+import org.eclipse.jetty.util.ssl.SslContextFactory;
+
+import org.moqui.BaseException;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class WebUtilities {
     private static final Logger logger = LoggerFactory.getLogger(WebUtilities.class);
 
     public static Map<String, Object> getPathInfoParameterMap(String pathInfoStr) {
         if (pathInfoStr == null || pathInfoStr.length() == 0) return null;
-
         Map<String, Object> paramMap = null;
         // add in all path info parameters /~name1=value1/~name2=value2/
         String[] pathElements = pathInfoStr.split("/");
@@ -60,7 +81,6 @@ public class WebUtilities {
                 }
             }
         }
-
         return paramMap;
     }
 
@@ -89,7 +109,6 @@ public class WebUtilities {
                 }
             }
         }
-
         // catch strings or lists with a single string in them unwrapped above
         try {
             if (canVal instanceof CharSequence) canVal = URLDecoder.decode(canVal.toString(), "UTF-8");
@@ -165,6 +184,7 @@ public class WebUtilities {
         }
         return newValue.toString();
     }
+
     public static String encodeHtmlJsSafeObject(Object value) {
         if (value == null) {
             return "null";
@@ -182,6 +202,7 @@ public class WebUtilities {
             return "'" + encodeHtmlJsSafe(value.toString()) + "'";
         }
     }
+
     public static String encodeHtmlJsSafeMap(Map fieldValues) {
         if (fieldValues == null) return "null";
         StringBuilder out = new StringBuilder().append("{");
@@ -198,6 +219,7 @@ public class WebUtilities {
         out.append("}");
         return out.toString();
     }
+
     public static String encodeHtmlJsSafeCollection(Collection value) {
         if (value == null) return "null";
         StringBuilder out = new StringBuilder();
@@ -221,6 +243,7 @@ public class WebUtilities {
         out.append("]");
         return out.toString();
     }
+
     // for backward compatibility:
     public static String fieldValuesEncodeHtmlJsSafe(Map fieldValues) { return encodeHtmlJsSafeMap(fieldValues); }
 
@@ -252,7 +275,6 @@ public class WebUtilities {
     public static boolean ip4Matches(String patternString, String address) {
         if (patternString == null || patternString.isEmpty()) return true;
         if (address == null || address.isEmpty()) return false;
-
         String[] patterns = patternString.split(",");
         boolean anyMatches = false;
         for (int pi = 0; pi < patterns.length; pi++) {
@@ -315,10 +337,8 @@ public class WebUtilities {
                 break;
             }
         }
-
         return foundPattern;
     }
-
 
     public static String simpleHttpStringRequest(String location, String requestBody, String contentType) {
         if (contentType == null || contentType.isEmpty()) contentType = "text/plain";
@@ -345,7 +365,6 @@ public class WebUtilities {
                 logger.error("Error stopping http client", e);
             }
         }
-
         return resultString;
     }
 
@@ -376,8 +395,6 @@ public class WebUtilities {
                 logger.error("Error stopping http client", e);
             }
         }
-
-
         return resultString;
     }
 
@@ -429,6 +446,7 @@ public class WebUtilities {
             return nameList;
         }
     }
+
     public static class ServletRequestContainer implements AttributeContainer {
         ServletRequest req;
         public ServletRequestContainer(ServletRequest request) { req = request; }
@@ -436,11 +454,11 @@ public class WebUtilities {
         @Override public Object getAttribute(String name) { return req.getAttribute(name); }
         @Override public void setAttribute(String name, Object value) {
             if (!testSerialization(name, value)) return;
-
             req.setAttribute(name, value);
         }
         @Override public void removeAttribute(String name) { req.removeAttribute(name); }
     }
+
     public static class HttpSessionContainer implements AttributeContainer {
         HttpSession ses;
         public HttpSessionContainer(HttpSession session) { ses = session; }
@@ -477,6 +495,7 @@ public class WebUtilities {
             }
         }
     }
+
     public static class ServletContextContainer implements AttributeContainer {
         ServletContext scxt;
         public ServletContextContainer(ServletContext servletContext) { scxt = servletContext; }
@@ -488,13 +507,12 @@ public class WebUtilities {
 
     static final Set<String> keysToIgnore = new HashSet<>(Arrays.asList("javax.servlet.context.tempdir",
             "org.apache.catalina.jsp_classpath", "org.apache.commons.fileupload.servlet.FileCleanerCleanup.FileCleaningTracker"));
+
     public static class AttributeContainerMap implements Map<String, Object> {
         private AttributeContainer cont;
         public AttributeContainerMap(AttributeContainer container) { cont = container; }
-
         public int size() { return cont.getAttributeNameList().size(); }
         public boolean isEmpty() { return !cont.getAttributeNames().hasMoreElements(); }
-
         public boolean containsKey(Object o) {
             if (keysToIgnore.contains(o)) return false;
             Enumeration<String> attrNames = cont.getAttributeNames();
@@ -504,7 +522,6 @@ public class WebUtilities {
             }
             return false;
         }
-
         public boolean containsValue(Object o) {
             Enumeration<String> attrNames = cont.getAttributeNames();
             while (attrNames.hasMoreElements()) {
@@ -516,27 +533,23 @@ public class WebUtilities {
             }
             return false;
         }
-
         public Object get(Object o) { return cont.getAttribute((String) o); }
         public Object put(String s, Object o) {
             Object orig = cont.getAttribute(s);
             cont.setAttribute(s, o);
             return orig;
         }
-
         public Object remove(Object o) {
             Object orig = cont.getAttribute((String) o);
             cont.removeAttribute((String) o);
             return orig;
         }
-
         public void putAll(Map<? extends String, ? extends Object> map) {
             // if (map == null) return;
             for (Entry entry : map.entrySet()) {
                 cont.setAttribute((String) entry.getKey(), entry.getValue());
             }
         }
-
         public void clear() {
             Enumeration<String> attrNames = cont.getAttributeNames();
             while (attrNames.hasMoreElements()) {
@@ -544,7 +557,6 @@ public class WebUtilities {
                 if (!keysToIgnore.contains(name)) cont.removeAttribute(name);
             }
         }
-
         public @Nonnull Set<String> keySet() {
             Set<String> ks = new HashSet<>();
             Enumeration<String> attrNames = cont.getAttributeNames();
@@ -572,7 +584,6 @@ public class WebUtilities {
             }
             return es;
         }
-
         @Override
         public String toString() {
             StringBuilder sb = new StringBuilder("[");
@@ -582,7 +593,6 @@ public class WebUtilities {
                 if (sb.length() > 1) sb.append(", ");
                 sb.append(name).append(":").append(cont.getAttribute(name));
             }
-
             sb.append("]");
             return sb.toString();
         }
@@ -596,18 +606,15 @@ public class WebUtilities {
             mp = map;
             if (mp instanceof Hashtable) supportsNull = false;
         }
-
         public int size() { return mp.size(); }
         public boolean isEmpty() { return mp.isEmpty(); }
         public boolean containsKey(Object o) { return !(o == null && !supportsNull) && mp.containsKey(o); }
         public boolean containsValue(Object o) { return mp.containsValue(o); }
-
         public Object get(Object o) { return (o == null && !supportsNull) ? null : canonicalizeValue(mp.get(o)); }
         public Object put(String k, Object v) { return canonicalizeValue(mp.put(k, v)); }
         public Object remove(Object o) { return (o == null && !supportsNull) ? null : canonicalizeValue(mp.remove(o)); }
         public void putAll(Map<? extends String, ? extends Object> map) { mp.putAll(map); }
         public void clear() { mp.clear(); }
-
         public @Nonnull Set<String> keySet() { return mp.keySet(); }
         public @Nonnull Collection<Object> values() {
             List<Object> values = new ArrayList<>(mp.size());
@@ -623,12 +630,12 @@ public class WebUtilities {
             return es;
         }
     }
+
     private static class CanonicalizeEntry implements Map.Entry<String, Object> {
         protected String key;
         protected Object value;
         CanonicalizeEntry(String key, Object value) { this.key = key; this.value = value; }
         // CanonicalizeEntry(Map.Entry<String, Object> entry) { this.key = entry.getKey(); this.value = entry.getValue(); }
-
         public String getKey() { return key; }
         public Object getValue() { return canonicalizeValue(value); }
         public Object setValue(Object v) {

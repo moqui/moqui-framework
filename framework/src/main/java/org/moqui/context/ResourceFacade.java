@@ -15,7 +15,8 @@ package org.moqui.context;
 
 import org.moqui.resource.ResourceReference;
 
-import javax.activation.DataSource;
+import jakarta.activation.DataSource;
+
 import javax.xml.transform.stream.StreamSource;
 import java.io.InputStream;
 import java.io.OutputStream;
