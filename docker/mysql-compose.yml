@@ -17,12 +17,11 @@
 # To import data from the docker host using port 3306 mapped for 127.0.0.1 only use something like this:
 # $ mysql -p -u root -h 127.0.0.1 moqui < mysql-export.sql
 
-version: "2"
 services:
   nginx-proxy:
     # For documentation on SSL and other settings see:
-    # https://github.com/jwilder/nginx-proxy
-    image: jwilder/nginx-proxy
+    # https://github.com/nginx-proxy/nginx-proxy
+    image: nginxproxy/nginx-proxy
     container_name: nginx-proxy
     restart: always
     ports:
@@ -38,7 +37,7 @@ services:
       - SSL_POLICY=AWS-TLS-1-1-2017-01
 
   moqui-database:
-    image: mysql:8.0
+    image: mysql:9.5
     container_name: moqui-database
     restart: always
     # expose the port for use outside other containers, needed for external management (like Moqui Instance Management)
@@ -55,7 +54,7 @@ services:
      - MYSQL_PASSWORD=moqui
 
   moqui-search:
-    image: opensearchproject/opensearch:2.4.0
+    image: opensearchproject/opensearch:3.4.0
     container_name: moqui-search
     restart: always
     ports:
@@ -80,7 +79,7 @@ services:
         hard: 65536
 
   opensearch-dashboards:
-    image: opensearchproject/opensearch-dashboards:2.4.0
+    image: opensearchproject/opensearch-dashboards:3.4.0
     container_name: opensearch-dashboards
     links:
       - moqui-search

@@ -17,12 +17,11 @@
 # To import data from the docker host using port 5432 mapped for 127.0.0.1 only use something like this:
 # $ psql -h 127.0.0.1 -p 5432 -U moqui -W moqui < pg-dump.sql
 
-version: "2"
 services:
   nginx-proxy:
     # For documentation on SSL and other settings see:
-    # https://github.com/jwilder/nginx-proxy
-    image: jwilder/nginx-proxy
+    # https://github.com/nginx-proxy/nginx-proxy
+    image: nginxproxy/nginx-proxy
     container_name: nginx-proxy
     restart: always
     ports:
@@ -38,7 +37,7 @@ services:
       - SSL_POLICY=AWS-TLS-1-1-2017-01
 
   moqui-database:
-    image: postgres:14.5
+    image: postgres:18.1
     container_name: moqui-database
     restart: always
     ports:
@@ -55,7 +54,7 @@ services:
       # PGDATA, POSTGRES_INITDB_ARGS
 
   moqui-search:
-    image: opensearchproject/opensearch:2.4.0
+    image: opensearchproject/opensearch:3.4.0
     container_name: moqui-search
     restart: always
     ports:
@@ -80,7 +79,7 @@ services:
         hard: 65536
 
   opensearch-dashboards:
-    image: opensearchproject/opensearch-dashboards:2.4.0
+    image: opensearchproject/opensearch-dashboards:3.4.0
     container_name: opensearch-dashboards
     links:
       - moqui-search
