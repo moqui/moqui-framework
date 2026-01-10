@@ -68,6 +68,7 @@ services:
       # - ./opensearch/logs:/usr/share/opensearch/logs
     environment:
       - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=MoquiElasticChangeMe@2026
       - discovery.type=single-node
       - network.host=_site_
     ulimits:
