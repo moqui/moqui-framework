@@ -32,17 +32,17 @@ settings such as setting the host names, configuring for letsencrypt, etc ...
 
 There are multiple compose files offered providing different services:
 
-- moqui-acme-postgres.yml: Moqui with nginx and automatically issues SSL
+- moqui-acme-postgres.yml: Moqui, nginx, postgres and automatically issues SSL
   certificates from letsencrypt. Requires configuring variables including
-  `VIRTUAL_HOST` and `LETSENCRYPT_HOST` and mysql driver.
-- moqui-cluster1-compose.yml: Moqui with mysql. Designed to be deployed in a
-  hazelcast cluster for horizontal scaling. Requires preparing moqui with
-  the hazelcast component and mysql driver.
-- moqui-mysql-compose.yml: Moqui with mysql and nginx standard deployment.
+  `VIRTUAL_HOST` and `LETSENCRYPT_HOST` and postgres driver.
 - moqui-postgres-compose.yml: Moqui with postgres and nginx standard deployment.
+- moqui-mysql-compose.yml: Moqui with mysql and nginx standard deployment.
 - mysql-compose.yml: deploys all services with mysql except moqui itself. Useful
   when deploying moqui elsewhere like on a servlet container.
 - postgres-compose.yml: Same as mysql-compose but replacing mysql with postgres
+- moqui-cluster1-compose.yml: Moqui with mysql. Designed to be deployed in a
+  hazelcast cluster for horizontal scaling. Requires preparing moqui with
+  the hazelcast component and mysql driver.
 
 ## Helper Scripts
 
