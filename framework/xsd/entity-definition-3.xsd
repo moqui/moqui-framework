@@ -49,6 +49,7 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:enumeration value="number-integer"/>
             <xs:enumeration value="number-decimal"/>
             <xs:enumeration value="number-float"/>
+            <xs:enumeration value="number-bigint"/>
             <xs:enumeration value="currency-amount"/>
             <xs:enumeration value="currency-precise"/>
             <xs:enumeration value="text-indicator"/>
