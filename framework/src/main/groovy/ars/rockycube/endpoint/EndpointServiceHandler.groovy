@@ -550,11 +550,12 @@ class EndpointServiceHandler {
     }
 
     /**
-     * Converts date fields to either formatted string (DATE) or local-date (TZ), otherwise returns original value
+     * Converts date fields to either formatted string (DATE) or local-date (TZ), otherwise returns original value.
+     * Make this method static, so that other can use it as well
      * @param incoming
      * @return
      */
-    private Object sanitizeDates(Object incoming, FieldInfo fi)
+    public static Object sanitizeDates(Object incoming, FieldInfo fi, String requiredFormat=null)
     {
         // fix null in dates
         if (fi != null)
@@ -570,10 +571,10 @@ class EndpointServiceHandler {
         switch (incoming.getClass())
         {
             case Date.class:
-                if (!this.args.containsKey(CONST_REQ_DATE_FIELD_FORMAT)) return incoming
+                if (!requiredFormat) return incoming
                 try {
                     def dt = (Date) incoming
-                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern((String) this.args[CONST_REQ_DATE_FIELD_FORMAT])
+                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern(requiredFormat)
                     def ld = dt.toLocalDate()
                     return ld.format(formatter)
                 } catch (Exception exc) {
@@ -581,10 +582,10 @@ class EndpointServiceHandler {
                 }
                 return incoming
             case Timestamp.class:
-                if (!this.args.containsKey(CONST_REQ_TIMEZONE_FORMAT)) return incoming
+                if (!requiredFormat) return incoming
                 try {
                     def ts = (Timestamp) incoming
-                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern((String) this.args[CONST_REQ_TIMEZONE_FORMAT])
+                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern(requiredFormat)
                     return ts.toLocalDateTime().format(formatter)
                 } catch (Exception exc) {
                     logger.error("Error while converting Timestamp to a custom format: ${exc.message}")
@@ -626,7 +627,18 @@ class EndpointServiceHandler {
             }
 
             // value and it's class
-            def itVal = sanitizeDates(it.value, pkInfo)
+            def tp = it.value.getClass()
+            def rqFormat = null
+            switch (tp){
+                case Date.class:
+                    rqFormat = args.get(CONST_REQ_DATE_FIELD_FORMAT)
+                    break
+                case Timestamp.class:
+                    rqFormat = args.get(CONST_REQ_TIMEZONE_FORMAT)
+                    break
+            }
+
+            def itVal = sanitizeDates(it.value, pkInfo, (String) rqFormat)
 
             // special treatment for maps
             // convert HashMap, watch out if it's array
