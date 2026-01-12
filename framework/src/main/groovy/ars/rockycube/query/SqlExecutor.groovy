@@ -10,7 +10,8 @@ import java.sql.ResultSetMetaData
 import java.sql.Timestamp
 
 class ColumnConfiguration {
-    private boolean dateToString = false
+    private String dateToString = null
+    private String datetimeToString = null
     private String columnName = null
 
     ColumnConfiguration(String columnName, HashMap conf) {
@@ -21,7 +22,8 @@ class ColumnConfiguration {
 
         if (conf.containsKey(this.columnName)) {
             def colConf = (HashMap) conf.getOrDefault(this.columnName, [:])
-            this.dateToString = colConf.getOrDefault('dateToString', false)
+            this.dateToString = colConf.getOrDefault('dateToString', 'false')
+            this.datetimeToString = colConf.getOrDefault('datetimeToString', 'false')
         }
     }
 
@@ -29,8 +31,29 @@ class ColumnConfiguration {
         return columnName
     }
 
-    boolean getDateToString() {
-        return dateToString
+    boolean getConvertToDateString() {
+        if (dateToString == 'false') return false
+        return true
+    }
+
+    boolean getConvertToDatetimeString() {
+        if (datetimeToString == 'false') return false
+        return true
+    }
+
+    String getFormat() {
+        // assertion
+        assert !(this.getConvertToDateString() && this.getConvertToDatetimeString()), "Cannot set conversion to both 'datetimeToString' and 'dateToString', check your configuration."
+
+        if (this.getConvertToDatetimeString()) {
+            if (datetimeToString.toLowerCase() == "true") return "yyyy-MM-dd HH:mm:ss"
+            return datetimeToString
+        } else if (this.getConvertToDateString()) {
+            if (dateToString.toLowerCase() == "true") return "yyyy-MM-dd"
+            return dateToString
+        } else {
+            throw new Exception("Unsupported configuration of column date conversion")
+        }
     }
 }
 
@@ -377,10 +400,8 @@ class SqlExecutor {
                     // if it's Timestamp, allow custom handling
                     if (colValue instanceof Timestamp) {
                         def colConf = new ColumnConfiguration(columnName, colsConf)
-                        if (colConf.dateToString) {
-                            record[columnName] = (colValue as Timestamp).format("yyyy-MM-dd");
-                            continue
-                        }
+                        record[columnName] = (colValue as Timestamp).format(colConf.format);
+                        continue;
                     }
 
                     record[columnName] = colValue;
