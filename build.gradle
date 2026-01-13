@@ -334,7 +334,7 @@ getTasksByName('test', true).each {
 
 task testComponents {
     description = "Runs tests in all components"
-    dependsOn project(':runtime')
+    dependsOn file(':runtime').exists() ? project(':runtime') : []
             .subprojects
             .collect { it.tasks.matching { t -> t.name == "test" } }
             .flatten()
