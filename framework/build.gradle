@@ -18,7 +18,7 @@ plugins {
     id 'war'
 }
 
-version = '4.0.0-rc1'
+version = '4.0.0'
 
 // NOTE: packages should match group, name, version found at https://bintray.com/bintray/jcenter
 repositories {
@@ -64,7 +64,7 @@ dependencies {
     api 'org.apache.groovy:groovy-xml:5.0.3' // Apache 2.0
 
     // Bitronix Transaction Manager, a modernized fork
-    api 'com.github.moqui.bitronix:btm:4.0.0-BETA1' // Apache 2.0
+    api 'com.github.moqui.bitronix:btm:4.0.1' // Apache 2.0
 
     // Apache Commons
     api 'org.apache.commons:commons-csv:1.14.1' // Apache 2.0

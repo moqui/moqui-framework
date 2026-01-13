@@ -19,12 +19,11 @@
 # Test locally by adding the virtual host to /etc/hosts or with something like:
 # $ curl -H "Host: moqui1.local" localhost/Login
 
-version: "2"
 services:
   nginx-proxy:
     # For documentation on SSL and other settings see:
-    # https://github.com/jwilder/nginx-proxy
-    image: jwilder/nginx-proxy
+    # https://github.com/nginx-proxy/nginx-proxy
+    image: nginxproxy/nginx-proxy
     container_name: nginx-proxy
     restart: always
     ports:
@@ -57,7 +56,8 @@ services:
       - ./runtime/log:/opt/moqui/runtime/log
       - ./runtime/txlog:/opt/moqui/runtime/txlog
       - ./runtime/sessions:/opt/moqui/runtime/sessions
-      # this one isn't needed when not using H2/etc: - ./runtime/db:/opt/moqui/runtime/db
+      - ./runtime/db:/opt/moqui/runtime/db
+      - ./runtime/opensearch:/opt/moqui/runtime/opensearch
     environment:
       - "JAVA_TOOL_OPTIONS=-Xms1024m -Xmx1024m"
       - instance_purpose=production
@@ -74,7 +74,7 @@ services:
       # prefix for index names, use something distinct and not 'moqui_' or 'mantle_' which match the beginning of OOTB index names
       - elasticsearch_index_prefix=default_
       - elasticsearch_user=admin
-      - elasticsearch_password=admin
+      - elasticsearch_password=MoquiElasticChangeMe@2026
       # settings for kibana proxy
       - kibana_host=opensearch-dashboards
       # CHANGE ME - note that VIRTUAL_HOST is for nginx-proxy so it picks up this container as one it should reverse proxy
@@ -88,7 +88,7 @@ services:
       # nginx-proxy populates X-Real-IP with remote_addr by default, better option for outer proxy than X-Forwarded-For which defaults to proxy_add_x_forwarded_for
       - webapp_client_ip_header=X-Real-IP
       - default_locale=en_US
-      - default_time_zone=US/Pacific
+      - default_time_zone=UTC
       # hazelcast multicast setup
       - hazelcast_multicast_enabled=true
       - hazelcast_multicast_group=224.2.2.3
@@ -129,7 +129,7 @@ services:
       # prefix for index names, use something distinct and not 'moqui_' or 'mantle_' which match the beginning of OOTB index names
       - elasticsearch_index_prefix=default_
       - elasticsearch_user=admin
-      - elasticsearch_password=admin
+      - elasticsearch_password=MoquiElasticChangeMe@2026
       # settings for kibana proxy
       - kibana_host=opensearch-dashboards
       # CHANGE ME - note that VIRTUAL_HOST is for nginx-proxy so it picks up this container as one it should reverse proxy
@@ -143,7 +143,7 @@ services:
       # nginx-proxy populates X-Real-IP with remote_addr by default, better option for outer proxy than X-Forwarded-For which defaults to proxy_add_x_forwarded_for
       - webapp_client_ip_header=X-Real-IP
       - default_locale=en_US
-      - default_time_zone=US/Pacific
+      - default_time_zone=UTC
       # hazelcast multicast setup
       - hazelcast_multicast_enabled=true
       - hazelcast_multicast_group=224.2.2.3
@@ -152,7 +152,7 @@ services:
       - hazelcast_group_password=test-pass
 
   moqui-database:
-    image: mysql:8.0
+    image: mysql:9.5
     container_name: moqui-database
     restart: always
     ports:
@@ -169,7 +169,7 @@ services:
      - MYSQL_PASSWORD=moqui
 
   moqui-search:
-    image: opensearchproject/opensearch:2.4.0
+    image: opensearchproject/opensearch:3.4.0
     container_name: moqui-search
     restart: always
     ports:
@@ -183,6 +183,7 @@ services:
       # - ./opensearch/logs:/usr/share/opensearch/logs
     environment:
       - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=MoquiElasticChangeMe@2026
       - discovery.type=single-node
       - network.host=_site_
     ulimits:
@@ -194,13 +195,11 @@ services:
         hard: 65536
 
   opensearch-dashboards:
-    image: opensearchproject/opensearch-dashboards:2.4.0
+    image: opensearchproject/opensearch-dashboards:3.4.0
     container_name: opensearch-dashboards
     links:
       - moqui-search
     ports:
       - 5601:5601
-    expose:
-      - 127.0.0.1:5601:5601
     environment:
       OPENSEARCH_HOSTS: '["https://moqui-search:9200"]'

@@ -1,6 +1,6 @@
 # Builds a minimal docker image with openjdk and moqui with various volumes for configuration and persisted data outside the container
 # NOTE: add components, build and if needed load data before building a docker image with this
-ARG RUNTIME_IMAGE=eclipse-temurin:11-jdk
+ARG RUNTIME_IMAGE=eclipse-temurin:21-jdk
 FROM ${RUNTIME_IMAGE}
 MAINTAINER Moqui Framework <moqui@googlegroups.com>
 

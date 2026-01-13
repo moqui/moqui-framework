@@ -17,22 +17,26 @@
 # To import data from the docker host using port 3306 mapped for 127.0.0.1 only use something like this:
 # $ mysql -p -u root -h 127.0.0.1 moqui < mysql-export.sql
 
-version: "2"
 services:
   nginx-proxy:
     # For documentation on SSL and other settings see:
-    # https://github.com/jwilder/nginx-proxy
-    image: jwilder/nginx-proxy
+    # https://github.com/nginxproxy/nginx-proxy
+    image: nginxproxy/nginx-proxy
     container_name: nginx-proxy
     restart: always
     ports:
       - 80:80
       - 443:443
+    labels:
+      com.github.jrcs.letsencrypt_nginx_proxy_companion.nginx_proxy: "true"
     volumes:
       - /var/run/docker.sock:/tmp/docker.sock:ro
+      - /etc/localtime:/etc/localtime:ro
       # note: .crt, .key, and .dhparam.pem files start with the domain name in VIRTUAL_HOST (ie 'moqui.local.*') or use CERT_NAME env var
       - ./certs:/etc/nginx/certs
-      - ./nginx/my_proxy.conf:/etc/nginx/conf.d/my_proxy.conf
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/vhost.d:/etc/nginx/vhost.d
+      - ./nginx/html:/usr/share/nginx/html
     environment:
       # change this for the default host to use when accessing directly by IP, etc
       - DEFAULT_HOST=moqui.local
@@ -55,7 +59,8 @@ services:
       - ./runtime/log:/opt/moqui/runtime/log
       - ./runtime/txlog:/opt/moqui/runtime/txlog
       - ./runtime/sessions:/opt/moqui/runtime/sessions
-      # this one isn't needed when not using H2/etc: - ./runtime/db:/opt/moqui/runtime/db
+      - ./runtime/db:/opt/moqui/runtime/db
+      - ./runtime/opensearch:/opt/moqui/runtime/opensearch
     environment:
       - "JAVA_TOOL_OPTIONS=-Xms1024m -Xmx1024m"
       - instance_purpose=production
@@ -72,7 +77,7 @@ services:
       # prefix for index names, use something distinct and not 'moqui_' or 'mantle_' which match the beginning of OOTB index names
       - elasticsearch_index_prefix=default_
       - elasticsearch_user=admin
-      - elasticsearch_password=admin
+      - elasticsearch_password=MoquiElasticChangeMe@2026
       # CHANGE ME - note that VIRTUAL_HOST is for nginx-proxy so it picks up this container as one it should reverse proxy
       # this can be a comma separate list of hosts like 'example.com,www.example.com'
       - VIRTUAL_HOST=moqui.local
@@ -84,10 +89,10 @@ services:
       # nginx-proxy populates X-Real-IP with remote_addr by default, better option for outer proxy than X-Forwarded-For which defaults to proxy_add_x_forwarded_for
       - webapp_client_ip_header=X-Real-IP
       - default_locale=en_US
-      - default_time_zone=US/Pacific
+      - default_time_zone=UTC
 
   moqui-database:
-    image: mysql:8.0
+    image: mysql:9.5
     container_name: moqui-database
     restart: always
     ports:
@@ -104,7 +109,7 @@ services:
      - MYSQL_PASSWORD=moqui
 
   moqui-search:
-    image: opensearchproject/opensearch:2.4.0
+    image: opensearchproject/opensearch:3.4.0
     container_name: moqui-search
     restart: always
     ports:
@@ -118,6 +123,7 @@ services:
       # - ./opensearch/logs:/usr/share/opensearch/logs
     environment:
       - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=MoquiElasticChangeMe@2026
       - discovery.type=single-node
       - network.host=_site_
     ulimits:
@@ -129,13 +135,11 @@ services:
         hard: 65536
 
   opensearch-dashboards:
-    image: opensearchproject/opensearch-dashboards:2.4.0
+    image: opensearchproject/opensearch-dashboards:3.4.0
     container_name: opensearch-dashboards
     links:
       - moqui-search
     ports:
       - 5601:5601
-    expose:
-      - 127.0.0.1:5601:5601
     environment:
       OPENSEARCH_HOSTS: '["https://moqui-search:9200"]'

@@ -46,7 +46,7 @@ import org.ajoberstar.grgit.*
 
 defaultTasks 'build'
 
-def openSearchVersion = '2.4.0'
+def openSearchVersion = '3.4.0'
 def elasticSearchVersion = '7.10.2'
 
 def tomcatHome = '../apache-tomcat'

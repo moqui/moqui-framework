@@ -491,7 +491,7 @@ class ElasticFacadeImpl implements ElasticFacade {
             RestClient.RestResponse response
             if (isOpenSearch) {
                 // see: https://opensearch.org/docs/latest/opensearch/point-in-time-api#create-a-pit
-                // requires 2.4.0 or later
+                // requires 3.4.0 or later
                 response = makeRestClient(Method.POST, index, "_search/point_in_time", [keep_alive:keepAlive]).call()
             } else {
                 // see: https://www.elastic.co/guide/en/elasticsearch/reference/7.10/paginate-search-results.html#scroll-search-results
@@ -513,7 +513,7 @@ class ElasticFacadeImpl implements ElasticFacade {
             RestClient.RestResponse response
             if (isOpenSearch) {
                 // see: https://opensearch.org/docs/latest/opensearch/point-in-time-api#delete-pits
-                // requires 2.4.0 or later
+                // requires 3.4.0 or later
                 response = makeRestClient(Method.DELETE, null, "_search/point_in_time", null)
                         .text(objectToJson([pit_id:[pitId]])).call()
             } else {

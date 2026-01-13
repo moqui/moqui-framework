@@ -17,7 +17,6 @@
 # To import data from the docker host using port 5432 mapped for 127.0.0.1 only use something like this:
 # $ psql -h 127.0.0.1 -p 5432 -U moqui -W moqui < pg-dump.sql
 
-version: "2"
 services:
   nginx-proxy:
     # For documentation on SSL and other settings see:
@@ -85,7 +84,8 @@ services:
       - ./runtime/log:/opt/moqui/runtime/log
       - ./runtime/txlog:/opt/moqui/runtime/txlog
       - ./runtime/sessions:/opt/moqui/runtime/sessions
-      # this one isn't needed when not using H2/etc:- ./runtime/db:/opt/moqui/runtime/db
+      - ./runtime/db:/opt/moqui/runtime/db
+      - ./runtime/opensearch:/opt/moqui/runtime/opensearch
     environment:
       - "JAVA_TOOL_OPTIONS=-Xms1024m -Xmx1024m"
       - instance_purpose=production
@@ -102,7 +102,7 @@ services:
       # prefix for index names, use something distinct and not 'moqui_' or 'mantle_' which match the beginning of OOTB index names
       - elasticsearch_index_prefix=default_
       - elasticsearch_user=admin
-      - elasticsearch_password=admin
+      - elasticsearch_password=MoquiElasticChangeMe@2026
       # CHANGE ME - note that VIRTUAL_HOST is for nginx-proxy so it picks up this container as one it should reverse proxy
       # this can be a comma separate list of hosts like 'example.com,www.example.com'
       - VIRTUAL_HOST=moqui.local
@@ -115,13 +115,13 @@ services:
       # nginx-proxy populates X-Real-IP with remote_addr by default, better option for outer proxy than X-Forwarded-For which defaults to proxy_add_x_forwarded_for
       - webapp_client_ip_header=X-Real-IP
       - default_locale=en_US
-      - default_time_zone=US/Pacific
+      - default_time_zone=UTC
     networks:
       - proxy-tier
       - default
 
   moqui-database:
-    image: postgres:14.5
+    image: postgres:18.1
     container_name: moqui-database
     restart: always
     ports:
@@ -130,7 +130,7 @@ services:
     volumes:
       - /etc/localtime:/etc/localtime:ro
       # edit these as needed to map configuration and data storage
-      - ./db/postgres/data:/var/lib/postgresql/data
+      - ./db/postgres:/var/lib/postgresql
     environment:
       - POSTGRES_DB=moqui
       - POSTGRES_DB_SCHEMA=public
@@ -141,7 +141,7 @@ services:
       default:
 
   moqui-search:
-    image: opensearchproject/opensearch:2.4.0
+    image: opensearchproject/opensearch:3.4.0
     container_name: moqui-search
     restart: always
     ports:
@@ -156,6 +156,7 @@ services:
       # - ./opensearch/logs:/usr/share/opensearch/logs
     environment:
       - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=MoquiElasticChangeMe@2026
       - discovery.type=single-node
       - network.host=_site_
     ulimits:
@@ -169,7 +170,7 @@ services:
       proxy-tier:
 
   opensearch-dashboards:
-    image: opensearchproject/opensearch-dashboards:2.4.0
+    image: opensearchproject/opensearch-dashboards:3.4.0
     container_name: opensearch-dashboards
     volumes:
       - /etc/localtime:/etc/localtime:ro

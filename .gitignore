@@ -15,6 +15,7 @@ build
 /docker/db
 /docker/elasticsearch/data/nodes
 /docker/opensearch/data/nodes/*
+/docker/opensearch/data/*.conf
 !/docker/opensearch/data/nodes/README
 /docker/acme.sh
 /docker/nginx/conf.d
