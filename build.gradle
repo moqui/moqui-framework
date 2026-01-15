@@ -321,6 +321,37 @@ task setupIntellij {
     }
 }
 
+task setupVsCode {
+    description = "Configures VS Code settings with runtime directory exclusions"
+    doLast {
+        setupVscode()
+    }
+}
+task setupVscode {
+    description = "Configures VS Code settings with runtime directory exclusions"
+    doLast {
+        def settingsFile = file("${rootDir}/.vscode/settings.json")
+        mkdir settingsFile.parentFile
+        
+        def settings = (settingsFile.exists() && settingsFile.length() > 0) ? 
+            new groovy.json.JsonSlurper().parseText(settingsFile.text) : [:]
+        
+        // Disable gitignore for search (so we can manually exclude build/runtime dirs)
+        settings['search.useIgnoreFiles'] = false
+        
+        // Add search.exclude if missing
+        if (!settings['search.exclude']) settings['search.exclude'] = [:]
+        
+        // Add exclusion patterns
+        settings['search.exclude']['**/build'] = true
+        settings['search.exclude']['runtime/{log,sessions,txlog,db,elasticsearch,opensearch}'] = true
+        
+        // Write formatted JSON
+        settingsFile.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(settings))
+        logger.lifecycle("VS Code settings updated at ${settingsFile}")
+    }
+}
+
 // ========== test task ==========
 // NOTE1: to run startElasticSearch before the first test task add it as a dependency to all test tasks
 // NOTE2: to run stopElasticSearch after the last test task make all test tasks finalizedBy stopElasticSearch
@@ -334,7 +365,7 @@ getTasksByName('test', true).each {
 
 task testComponents {
     description = "Runs tests in all components"
-    dependsOn project(':runtime')
+    dependsOn file(':runtime').exists() ? project(':runtime') : []
             .subprojects
             .collect { it.tasks.matching { t -> t.name == "test" } }
             .flatten()

@@ -24,8 +24,53 @@ if [ -e $backup_file ]; then rm $backup_file; fi
 umask 177
 # Dump database into SQL file
 pg_dump -h $host -p 5432 -U $user -w $db_name | gzip > $backup_file
-# Delete files older than 30 days
-find $backup_path/*.sql.gz -mtime +30 -exec rm {} \;
+# Remove all files not within 7 days, most recent per month for 6 months, or most recent of the year
+echo "removing:"
+ls "$backup_path"/moqui-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].sql.gz | awk -v now_epoch="$(date +%s)" '
+{
+  date_string = substr($0, index($0,"-")+1, 8)
+  command = "date -d \"" date_string "\" +%s"
+  command | getline file_epoch
+  close(command)
+
+  files[NR] = $0
+  file_epoch_by_name[$0] = file_epoch
+
+  year_month = substr(date_string,1,6)
+  year_only  = substr(date_string,1,4)
+
+  age_in_months = int((now_epoch - file_epoch) / 2592000)
+
+  if (age_in_months < 6 &&
+      (!(year_month in newest_month_epoch) ||
+        file_epoch > newest_month_epoch[year_month])) {
+    newest_month_epoch[year_month] = file_epoch
+    newest_month_file[year_month]  = $0
+  }
+
+  if (!(year_only in newest_year_epoch) ||
+       file_epoch > newest_year_epoch[year_only]) {
+    newest_year_epoch[year_only] = file_epoch
+    newest_year_file[year_only]  = $0
+  }
+}
+END {
+  for (i in files) {
+    file_name = files[i]
+    file_epoch = file_epoch_by_name[file_name]
+
+    date_string = substr(file_name, index(file_name,"-")+1, 8)
+    year_month  = substr(date_string,1,6)
+    year_only   = substr(date_string,1,4)
+
+    if (now_epoch - file_epoch <= 7*86400) continue
+    if (file_name == newest_month_file[year_month]) continue
+    if (file_name == newest_year_file[year_only]) continue
+
+    printf "%s\0", file_name
+  }
+}' |
+xargs -0 --no-run-if-empty rm -v
 
 # update cloned test instance database using backup file from production/main database
 # docker stop moqui-test
@@ -35,4 +80,3 @@ find $backup_path/*.sql.gz -mtime +30 -exec rm {} \;
 # docker start moqui-test
 
 # example for crontab (safe edit using: 'crontab -e'), each day at midnight: 00 00 * * * /opt/moqui/postgres_backup.sh
-
