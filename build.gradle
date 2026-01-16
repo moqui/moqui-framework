@@ -321,12 +321,6 @@ task setupIntellij {
     }
 }
 
-task setupVsCode {
-    description = "Configures VS Code settings with runtime directory exclusions"
-    doLast {
-        setupVscode()
-    }
-}
 task setupVscode {
     description = "Configures VS Code settings with runtime directory exclusions"
     doLast {
