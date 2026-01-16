@@ -71,13 +71,17 @@ class TransactionInternalBitronix implements TransactionInternal {
 
         EntityFacadeImpl.DatasourceInfo dsi = new EntityFacadeImpl.DatasourceInfo(efi, datasourceNode)
 
+        // NeonDb hack - allows to connect to database even if XA mode is not turned on
+        def xaDsClass = datasourceNode.attributes.get("ds-class")?: dsi.xaDsClass
+        def disallowedXa = (xaDsClass == "org.postgresql.ds.PGSimpleDataSource")
+
         PoolingDataSource pds = new PoolingDataSource()
         pds.setUniqueName(dsi.uniqueName)
-        if (dsi.xaDsClass && dsi.xaDsClass != "org.postgresql.ds.PGSimpleDataSource") {
-            pds.setClassName(dsi.xaDsClass)
+        if (xaDsClass && !disallowedXa) {
+            pds.setClassName(xaDsClass)
             pds.setDriverProperties(dsi.xaProps)
 
-            Class<?> xaFactoryClass = ClassLoaderUtils.loadClass(dsi.xaDsClass)
+            Class<?> xaFactoryClass = ClassLoaderUtils.loadClass(xaDsClass)
             Object xaFactory = xaFactoryClass.newInstance()
             if (!(xaFactory instanceof XADataSource))
                 throw new IllegalArgumentException("xa-ds-class " + xaFactory.getClass().getName() + " does not implement XADataSource")
@@ -96,10 +100,10 @@ class TransactionInternalBitronix implements TransactionInternal {
             pds.setXaDataSource(xaDataSource)
         } else {
             pds.setClassName("bitronix.tm.resource.jdbc.lrc.LrcXADataSource")
-            pds.getDriverProperties().setProperty("driverClassName", dsi.jdbcDriver?:dsi.dsDetails.get("jdbcDriver"))
-            pds.getDriverProperties().setProperty("url", dsi.jdbcUri ?: dsi.dsDetails.get("jdbcUri"))
-            pds.getDriverProperties().setProperty("user", dsi.jdbcUsername ?: dsi.dsDetails.get("user"))
-            pds.getDriverProperties().setProperty("password", dsi.jdbcPassword ?: dsi.dsDetails.get("password") ?: dsi.xaProps.get("password").toString())
+            pds.getDriverProperties().setProperty("driverClassName", dsi.jdbcDriver ?: dsi.xaProps.getProperty("jdbcDriver"))
+            pds.getDriverProperties().setProperty("url", dsi.jdbcUri ?: dsi.xaProps.getProperty("jdbcUri"))
+            pds.getDriverProperties().setProperty("user", dsi.jdbcUsername ?: dsi.xaProps.getProperty("user"))
+            pds.getDriverProperties().setProperty("password", dsi.jdbcPassword ?: dsi.xaProps.getProperty("password"))
         }
 
         String txIsolationLevel = dsi.inlineJdbc.attribute("isolation-level") ?
