@@ -891,7 +891,7 @@
         <database name="postgres" lb-name="postgresql" join-style="ansi" from-lateral-style="lateral" result-fetch-size="50"
                 never-try-insert="true" default-isolation-level="ReadCommitted" use-tm-join="true" default-test-query="SELECT 1"
                 constraint-name-clip-length="60"
-                default-jdbc-driver="org.postgresql.Driver" default-xa-ds-class="org.postgresql.xa.PGXADataSource"
+                default-jdbc-driver="org.postgresql.Driver" default-xa-ds-class="org.postgresql.ds.PGSimpleDataSource"
                 default-startup-add-missing="true" default-runtime-add-missing="false" use-binary-type-for-blob="true"
                   create-to-json-method="to_json" create-format-json-value="?::json"
         >

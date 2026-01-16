@@ -73,7 +73,7 @@ class TransactionInternalBitronix implements TransactionInternal {
 
         PoolingDataSource pds = new PoolingDataSource()
         pds.setUniqueName(dsi.uniqueName)
-        if (dsi.xaDsClass) {
+        if (dsi.xaDsClass && dsi.xaDsClass != "org.postgresql.ds.PGSimpleDataSource") {
             pds.setClassName(dsi.xaDsClass)
             pds.setDriverProperties(dsi.xaProps)
 
@@ -96,10 +96,10 @@ class TransactionInternalBitronix implements TransactionInternal {
             pds.setXaDataSource(xaDataSource)
         } else {
             pds.setClassName("bitronix.tm.resource.jdbc.lrc.LrcXADataSource")
-            pds.getDriverProperties().setProperty("driverClassName", dsi.jdbcDriver)
-            pds.getDriverProperties().setProperty("url", dsi.jdbcUri)
-            pds.getDriverProperties().setProperty("user", dsi.jdbcUsername)
-            pds.getDriverProperties().setProperty("password", dsi.jdbcPassword)
+            pds.getDriverProperties().setProperty("driverClassName", dsi.jdbcDriver?:dsi.dsDetails.get("jdbcDriver"))
+            pds.getDriverProperties().setProperty("url", dsi.jdbcUri ?: dsi.dsDetails.get("jdbcUri"))
+            pds.getDriverProperties().setProperty("user", dsi.jdbcUsername ?: dsi.dsDetails.get("user"))
+            pds.getDriverProperties().setProperty("password", dsi.jdbcPassword ?: dsi.dsDetails.get("password") ?: dsi.xaProps.get("password").toString())
         }
 
         String txIsolationLevel = dsi.inlineJdbc.attribute("isolation-level") ?
