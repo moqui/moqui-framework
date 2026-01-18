@@ -9,6 +9,8 @@ import groovy.yaml.YamlSlurper
 import org.apache.commons.io.FileUtils
 import org.apache.commons.lang3.RandomStringUtils
 import org.apache.groovy.json.internal.LazyMap
+import org.moqui.context.ExecutionContext
+import org.moqui.resource.ResourceReference
 import org.slf4j.Logger
 
 import java.nio.charset.StandardCharsets
@@ -182,6 +184,18 @@ public class TestUtilities {
             js = gson.fromJson(new InputStreamReader(is, StandardCharsets.UTF_8), new TypeToken<ArrayList<Object>>(){}.getType())
         }
         return js
+    }
+
+    /**
+     * Search for the directory and return ResourceReferebce to it
+     * @param ec
+     * @param resDir
+     * @return
+     */
+    public static ResourceReference loadTestResourceDirectory(ExecutionContext ec, String [] resDir) {
+        String[] importFilePath = setResourcePath(resDir)
+        def rr = ec.resource.getLocationReference(getInputFile(importFilePath).getAbsolutePath())
+        return rr
     }
 
     public static void testSingleFile(String[] resDirPath, Closure cb, Logger logger=null) throws IOException, URISyntaxException {
