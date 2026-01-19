@@ -98,7 +98,16 @@ class EndpointCaller {
                 .addHeaders(headers)
                 .jsonObject(payload)
 
-        RestClient.RestResponse resp = restClient.call()
+        // catch the error message
+        RestClient.RestResponse resp
+        try {
+            resp = restClient.call()
+        } catch (Exception e) {
+            ec.message.addMessage(e.message)
+            throw e
+        }
+
+        // process the response
         checkPyCalcResponse(resp)
 
         // must handle all states of the response
