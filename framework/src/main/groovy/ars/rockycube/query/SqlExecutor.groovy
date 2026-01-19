@@ -384,7 +384,11 @@ class SqlExecutor {
         HashMap colsConf = [:]
         boolean columnSetupPresent = kwargs.containsKey('columns')
         columnSetupPresent &= kwargs.get('columns') instanceof Map
-        if (columnSetupPresent) colsConf = (HashMap) kwargs.get('columns')
+        // make sure there is at least some configuration
+        if (columnSetupPresent) {
+            colsConf = (HashMap) kwargs.get('columns')
+            columnSetupPresent &= colsConf.size() > 0
+        }
 
         while (rs.next()) {
             def record = [:]
@@ -398,7 +402,7 @@ class SqlExecutor {
                     def colValue = rs.getObject(columnName);
 
                     // if it's Timestamp, allow custom handling
-                    if (colValue instanceof Timestamp) {
+                    if (colValue instanceof Timestamp && columnSetupPresent) {
                         def colConf = new ColumnConfiguration(columnName, colsConf)
                         record[columnName] = (colValue as Timestamp).format(colConf.format);
                         continue;
