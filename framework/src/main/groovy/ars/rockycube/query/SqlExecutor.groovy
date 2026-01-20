@@ -408,11 +408,13 @@ class SqlExecutor {
 
                     // if it's Timestamp, allow custom handling
                     if (colValue instanceof Timestamp && columnSetupPresent) {
-                        def colConf = new ColumnConfiguration(columnName, colsConf)
-                        record[columnName] = (colValue as Timestamp).format(colConf.format);
-                        continue;
+                        // make sure the specific column is set
+                        if (colsConf.containsKey(columnName)) {
+                            def colConf = new ColumnConfiguration(columnName, colsConf)
+                            record[columnName] = (colValue as Timestamp).format(colConf.format);
+                            continue;
+                        }
                     }
-
                     record[columnName] = colValue;
                 }
             }
