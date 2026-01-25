@@ -357,8 +357,7 @@ class ElasticFacadeImpl implements ElasticFacade {
                 jacksonMapper.writeValue(bodyWriter, entry)
                 bodyWriter.append((char) '\n')
             }
-            Map params = isOpenSearch ? [:] : [refresh:(refresh ? "true" : "wait_for")]
-            RestClient restClient = makeRestClient(Method.POST, index, "_bulk", params)
+            RestClient restClient = makeRestClient(Method.POST, index, "_bulk", [refresh:(refresh ? "true" : "wait_for")])
                     .contentType("application/x-ndjson")
             restClient.timeout(600)
             restClient.text(bodyWriter.toString())
