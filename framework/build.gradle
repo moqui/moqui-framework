@@ -20,7 +20,6 @@ plugins {
 
 version = '4.0.0'
 
-// NOTE: packages should match group, name, version found at https://bintray.com/bintray/jcenter
 repositories {
     flatDir name: 'localLib', dirs: projectDir.absolutePath + '/lib'
     mavenCentral()
