@@ -120,7 +120,7 @@ class EntityFindTests extends Specification {
         when:
         EntityValue enumType = ec.entity.find("moqui.basic.EnumerationType").condition("enumTypeId", "DataSourceType").one()
         EntityList enums = enumType.findRelatedFk(null)
-        // for (EntityValue val in enums) logger.warn("DST Enum ${val.getEntityName()} ${val}")
+        // for (EntityValue val in enums) logger.warn("DST Enum ${val.resolveEntityName()} ${val}")
 
         EntityList noEnums = enumType.findRelatedFk(new HashSet(["moqui.basic.Enumeration"]))
 

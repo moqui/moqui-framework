@@ -413,7 +413,7 @@ class ScreenForm {
                     combinedOptionList.orderByFields(["sequenceNum"])
 
                     for (EntityValue optionValue in combinedOptionList) {
-                        if (optionValue.getEntityName() == "moqui.screen.form.DbFormFieldOption") {
+                        if (optionValue.resolveEntityName() == "moqui.screen.form.DbFormFieldOption") {
                             widgetNode.append("option", [key:(String) optionValue.keyValue, text:(String) optionValue.text])
                         } else {
                             MNode entityOptionsNode = widgetNode.append("entity-options", [text:((String) optionValue.text ?: "\${description}")])

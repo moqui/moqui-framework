@@ -534,10 +534,10 @@ class EntityDataLoaderImpl implements EntityDataLoader {
 
             if (edli.onlyCreate) {
                 if (value.containsPrimaryKey()) {
-                    if (ec.entityFacade.find(value.getEntityName()).condition(value.getPrimaryKeys()).one() == null)
+                    if (ec.entityFacade.find(value.resolveEntityName()).condition(value.getPrimaryKeys()).one() == null)
                         value.create()
                 } else {
-                    String msg = "Doing only insert, not loading entity ${value.getEntityName()} value with partial primary key ${value.getPrimaryKeys()}"
+                    String msg = "Doing only insert, not loading entity ${value.resolveEntityName()} value with partial primary key ${value.getPrimaryKeys()}"
                     logger.info(msg)
                     if (messageList != null) messageList.add(msg)
                 }
@@ -570,10 +570,10 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                 for (int i = 0; i < elSize; i++) {
                     EntityValue curValue = (EntityValue) el.get(i)
                     if (curValue.containsPrimaryKey()) {
-                        if (ec.entityFacade.find(curValue.getEntityName()).condition(curValue.getPrimaryKeys()).one() == null)
+                        if (ec.entityFacade.find(curValue.resolveEntityName()).condition(curValue.getPrimaryKeys()).one() == null)
                             curValue.create()
                     } else {
-                        String msg = "Doing only insert, not loading entity ${curValue.getEntityName()} value with partial primary key ${curValue.getPrimaryKeys()}"
+                        String msg = "Doing only insert, not loading entity ${curValue.resolveEntityName()} value with partial primary key ${curValue.getPrimaryKeys()}"
                         logger.info(msg)
                         if (messageList != null) messageList.add(msg)
                     }
@@ -1013,7 +1013,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                         if (currentEntityValue.getEntityDefinition().getPkFieldNames().size() == 1) {
                             currentEntityValue.setSequencedIdPrimary()
                         } else {
-                            throw new BaseException("Cannot process value with incomplete primary key for [${currentEntityValue.getEntityName()}] with more than 1 primary key field: " + currentEntityValue)
+                            throw new BaseException("Cannot process value with incomplete primary key for [${currentEntityValue.resolveEntityName()}] with more than 1 primary key field: " + currentEntityValue)
                         }
                     }
 

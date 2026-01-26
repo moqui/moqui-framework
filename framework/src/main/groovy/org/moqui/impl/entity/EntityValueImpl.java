@@ -243,7 +243,7 @@ public class EntityValueImpl extends EntityValueBase {
                 setSyncedWithDb();
             } else {
                 if (logger.isTraceEnabled())
-                    logger.trace("No record found in refresh for entity [" + getEntityName() + "] with values [" + String.valueOf(getValueMap()) + "]");
+                    logger.trace("No record found in refresh for entity [" + resolveEntityName() + "] with values [" + String.valueOf(getValueMap()) + "]");
             }
         } catch (SQLException e) {
             String txName = "[could not get]";

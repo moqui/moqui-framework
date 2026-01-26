@@ -81,7 +81,7 @@ class TransactionCache implements Synchronization {
         if (evb == null) return null
         Map<String, Object> key = evb.getPrimaryKeys()
         if (!key) return null
-        key.put("_entityName", evb.getEntityName())
+        key.put("_entityName", evb.resolveEntityName())
         return key
     }
     static Map makeKeyFind(EntityFindBase efb) {
@@ -107,21 +107,21 @@ class TransactionCache implements Synchronization {
             // if create info already exists blow up
             EntityWriteInfo currentEwi = lastWriteInfoMap.get(key)
             if (readOneCache.get(key) != null)
-                throw new EntityException("Tried to create a value that already exists in database, entity ${evb.getEntityName()}, PK ${evb.getPrimaryKeys()}")
+                throw new EntityException("Tried to create a value that already exists in database, entity ${evb.resolveEntityName()}, PK ${evb.getPrimaryKeys()}")
             if (currentEwi != null && currentEwi.writeMode != WriteMode.DELETE)
-                throw new EntityException("Tried to create a value that already exists in write cache, entity ${evb.getEntityName()}, PK ${evb.getPrimaryKeys()}")
+                throw new EntityException("Tried to create a value that already exists in write cache, entity ${evb.resolveEntityName()}, PK ${evb.getPrimaryKeys()}")
 
             EntityWriteInfo newEwi = new EntityWriteInfo(evb, WriteMode.CREATE)
             addWriteInfo(key, newEwi)
             if (currentEwi == null || currentEwi.writeMode != WriteMode.DELETE) {
-                getCreateByEntityMap(evb.getEntityName()).put(evb.getPrimaryKeys(), evb)
+                getCreateByEntityMap(evb.resolveEntityName()).put(evb.getPrimaryKeys(), evb)
             }
         }
 
         // add to readCache after so we don't think it already exists
         readOneCache.put(key, evb)
         // add to any matching list cache entries
-        Map<EntityCondition, EntityListImpl> entityListCache = readListCache.get(evb.getEntityName())
+        Map<EntityCondition, EntityListImpl> entityListCache = readListCache.get(evb.resolveEntityName())
         if (entityListCache != null) {
             for (Map.Entry<EntityCondition, EntityListImpl> entry in entityListCache.entrySet()) {
                 if (entry.getKey().mapMatches(evb)) entry.getValue().add(evb)
@@ -173,7 +173,7 @@ class TransactionCache implements Synchronization {
 
         // NOTE: issue here if the evb is partial, not full from DB/cache, and doesn't have field value that would match; solve higher up by getting full value?
         // update any matching list cache entries, add to list cache if not there (though generally should be, depending on the condition)
-        Map<EntityCondition, EntityListImpl> entityListCache = readListCache.get(evb.getEntityName())
+        Map<EntityCondition, EntityListImpl> entityListCache = readListCache.get(evb.resolveEntityName())
         if (entityListCache != null) {
             for (Map.Entry<EntityCondition, EntityListImpl> entry in entityListCache.entrySet()) {
                 if (entry.getKey().mapMatches(evb)) {
@@ -214,7 +214,7 @@ class TransactionCache implements Synchronization {
                     if (key.equals(makeKey(ewi.evb))) { writeInfoList.remove(i) }
                     else { i++ }
                 }
-                getCreateByEntityMap(evb.getEntityName()).remove(evb.getPrimaryKeys())
+                getCreateByEntityMap(evb.resolveEntityName()).remove(evb.getPrimaryKeys())
             } else {
                 EntityWriteInfo newEwi = new EntityWriteInfo(evb, WriteMode.DELETE)
                 addWriteInfo(key, newEwi)
@@ -224,7 +224,7 @@ class TransactionCache implements Synchronization {
         // remove from readCache if needed
         readOneCache.remove(key)
         // remove any matching list cache entries
-        Map<EntityCondition, EntityListImpl> entityListCache = readListCache.get(evb.getEntityName())
+        Map<EntityCondition, EntityListImpl> entityListCache = readListCache.get(evb.resolveEntityName())
         if (entityListCache != null) {
             for (Map.Entry<EntityCondition, EntityListImpl> entry in entityListCache.entrySet()) {
                 if (entry.getKey().mapMatches(evb)) {
@@ -420,7 +420,7 @@ class TransactionCache implements Synchronization {
             // go through backwards to get the most recent only
             for (int i = (writeInfoListSize - 1); i >= 0 ; i--) {
                 EntityWriteInfo ewi = (EntityWriteInfo) writeInfoList.get(i)
-                if (WriteMode.UPDATE.is(ewi.writeMode) && entityName.equals(ewi.evb.getEntityName()) && econd.mapMatches(ewi.evb)) {
+                if (WriteMode.UPDATE.is(ewi.writeMode) && entityName.equals(ewi.evb.resolveEntityName()) && econd.mapMatches(ewi.evb)) {
                     Map<String, Object> pkMap = ewi.evb.getPrimaryKeys()
                     if (!foundUpdated.contains(pkMap)) {
                         foundUpdated.add(pkMap)
@@ -451,7 +451,7 @@ class TransactionCache implements Synchronization {
                 int createCount = 0
                 int updateCount = 0
                 int deleteCount = 0
-                // for (EntityWriteInfo ewi in writeInfoList) logger.warn("===== TX Cache value to ${ewi.writeMode} ${ewi.evb.getEntityName()}: \n${ewi.evb}")
+                // for (EntityWriteInfo ewi in writeInfoList) logger.warn("===== TX Cache value to ${ewi.writeMode} ${ewi.evb.resolveEntityName()}: \n${ewi.evb}")
                 if (readOnly && writeInfoListSize > 0) logger.warn("Read only TX cache has ${writeInfoListSize} values to write")
                 for (int i = 0; i < writeInfoListSize; i++) {
                     EntityWriteInfo ewi = (EntityWriteInfo) writeInfoList.get(i)
