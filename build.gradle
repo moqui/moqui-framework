@@ -357,20 +357,6 @@ getTasksByName('test', true).each {
     }
 }
 
-task testComponents {
-    description = "Runs tests in all components"
-    dependsOn file(':runtime').exists() ? project(':runtime') : []
-            .subprojects
-            .collect { it.tasks.matching { t -> t.name == "test" } }
-            .flatten()
-}
-
-task testAll {
-    description = "Runs framework tests and all component tests"
-    dependsOn(":framework:test")
-    dependsOn(testComponents)
-}
-
 // ========== check/update tasks ==========
 
 task getRuntime {

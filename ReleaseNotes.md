@@ -31,6 +31,28 @@ was rewritten from scratch using a different architecture based on
 `groovy.lang.GroovyShell`. This led to both Screen changes (in runtime) and
 backend changes.
 
+#### Change EntityValue API (Breaking Change)
+
+Change `EntityValue.getEntityName()` to `EntityValue.resolveEntityName()` and
+`EntityValue.getEntityNamePretty()` to `EntityValue.resolveEntityNamePretty()`.
+
+Groovy 4+ introduced a change in the way property to method mapping happens as
+[documented](https://groovy-lang.org/style-guide.html#_getters_and_setters).
+
+This introduced a bug that occurs when querying an entity that has a field named
+`entityName`. The bug occurs because the query returns an object of type
+`org.moqui.entity.EntityValue`. The problem is that the EntityValue class has a
+method called getEntityName() and as per the groovy 4+ behavior this function is
+called when trying to access a field named `entityName`. Sample code:
+
+```
+def someMember = ec.entity
+    .find('moqui.entity.view.DbViewEntityMember')
+    .condition(...)
+    .one()
+someMember.entityName // BUG returns .getEntityName(), not .get('entityName')
+```
+
 #### Upgrade to Jetty version 12.1 and EE 11
 
 This is a major migration. It bumps jetty to version 12.1 and also servlet

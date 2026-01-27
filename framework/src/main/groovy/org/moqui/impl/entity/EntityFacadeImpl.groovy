@@ -1617,7 +1617,7 @@ class EntityFacadeImpl implements EntityFacade {
         if (valueList == null || valueList.isEmpty()) return
 
         EntityValue firstEv = (EntityValue) valueList.get(0)
-        String groupName = getEntityGroupName(firstEv.getEntityName())
+        String groupName = getEntityGroupName(firstEv.resolveEntityName())
 
         EntityDatasourceFactory datasourceFactory = getDatasourceFactory(groupName)
         if (datasourceFactory == null) throw new EntityException("Datasource Factory not found for group " + groupName)

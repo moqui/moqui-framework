@@ -112,30 +112,30 @@ class EntityDataFeed {
 
     void dataFeedCheckAndRegister(EntityValue ev, boolean isUpdate, Map valueMap, Map oldValues) {
         boolean shouldLogDetail = false
-        // if (ev.getEntityName().startsWith("WikiPage")) logger.warn("============== DataFeed checking entity isModified=${ev.isModified()} [${ev.getEntityName()}] value: ${ev}")
+        // if (ev.resolveEntityName().startsWith("WikiPage")) logger.warn("============== DataFeed checking entity isModified=${ev.isModified()} [${ev.resolveEntityName()}] value: ${ev}")
         if (shouldLogDetail) logger.warn("======= dataFeedCheckAndRegister update? ${isUpdate} mod? ${ev.isModified()}\nev: ${ev}\noldValues=${oldValues}")
 
         // if the value isn't modified don't register for DataFeed at all
         if (!ev.isModified()) {
-            if (shouldLogDetail) logger.warn("Not registering ${ev.getEntityName()} PK ${ev.getPrimaryKeys()}, is not modified")
+            if (shouldLogDetail) logger.warn("Not registering ${ev.resolveEntityName()} PK ${ev.getPrimaryKeys()}, is not modified")
             return
         }
         if (isUpdate && oldValues == null) {
-            if (shouldLogDetail) logger.warn("Not registering ${ev.getEntityName()} PK ${ev.getPrimaryKeys()}, isUpdate and oldValues is null")
+            if (shouldLogDetail) logger.warn("Not registering ${ev.resolveEntityName()} PK ${ev.getPrimaryKeys()}, isUpdate and oldValues is null")
             return
         }
 
         // see if this should be added to the feed
         ArrayList<DocumentEntityInfo> entityInfoList
         try {
-            entityInfoList = getDataFeedEntityInfoList(ev.getEntityName())
+            entityInfoList = getDataFeedEntityInfoList(ev.resolveEntityName())
         } catch (Throwable t) {
-            logger.error("Error getting DataFeed entity info, not registering value for entity ${ev.getEntityName()}", t)
+            logger.error("Error getting DataFeed entity info, not registering value for entity ${ev.resolveEntityName()}", t)
             return
         }
-        if (shouldLogDetail) logger.warn("======= dataFeedCheckAndRegister ${ev.getEntityName()} entityInfoList size ${entityInfoList.size()}")
+        if (shouldLogDetail) logger.warn("======= dataFeedCheckAndRegister ${ev.resolveEntityName()} entityInfoList size ${entityInfoList.size()}")
         if (entityInfoList.size() > 0) {
-            // logger.warn("============== found registered entity [${ev.getEntityName()}] value: ${ev}")
+            // logger.warn("============== found registered entity [${ev.resolveEntityName()}] value: ${ev}")
 
             // populate and pass the dataDocumentIdSet, and/or other things needed?
             Set<String> dataDocumentIdSet = new HashSet<String>()
@@ -179,16 +179,16 @@ class EntityDataFeed {
             }
 
             if (!dataDocumentIdSet.isEmpty()) {
-                // logger.warn("============== DataFeed registering entity value [${ev.getEntityName()}] value: ${ev.getPrimaryKeys()}")
+                // logger.warn("============== DataFeed registering entity value [${ev.resolveEntityName()}] value: ${ev.getPrimaryKeys()}")
                 // NOTE: comment out this line to disable real-time push DataFeed in one simple place:
                 getDataFeedSynchronization().addValueToFeed(ev, dataDocumentIdSet)
             } else if (shouldLogDetail) {
-                logger.warn("Not registering ${ev.getEntityName()} PK ${ev.getPrimaryKeys()}, dataDocumentIdSet is empty")
+                logger.warn("Not registering ${ev.resolveEntityName()} PK ${ev.getPrimaryKeys()}, dataDocumentIdSet is empty")
             }
         }
     }
     void dataFeedCheckDelete(EntityValue ev) {
-        String entityName = ev.getEntityName()
+        String entityName = ev.resolveEntityName()
         if (entityName == null || entityName.isEmpty()) {
             logger.error("Tried to do data feed delete with no entity name for ev: ${ev.toString()}")
             return
@@ -201,9 +201,9 @@ class EntityDataFeed {
         // is this entity in any feeds?
         ArrayList<DocumentEntityInfo> entityInfoList
         try {
-            entityInfoList = getDataFeedEntityInfoList(ev.getEntityName())
+            entityInfoList = getDataFeedEntityInfoList(ev.resolveEntityName())
         } catch (Throwable t) {
-            logger.error("Error getting DataFeed entity info, not registering delete for entity ${ev.getEntityName()}", t)
+            logger.error("Error getting DataFeed entity info, not registering delete for entity ${ev.resolveEntityName()}", t)
             return
         }
 
@@ -223,11 +223,11 @@ class EntityDataFeed {
 
             DataFeedSynchronization dfs = getDataFeedSynchronization()
             if (!updateDocumentIdSet.isEmpty()) {
-                // logger.warn("============== DataFeed registering UPDATE entity value [${ev.getEntityName()}] value: ${ev.getPrimaryKeys()}")
+                // logger.warn("============== DataFeed registering UPDATE entity value [${ev.resolveEntityName()}] value: ${ev.getPrimaryKeys()}")
                 dfs.addValueToFeed(ev, updateDocumentIdSet)
             }
             if (!deleteDocumentIdSet.isEmpty()) {
-                // logger.warn("============== DataFeed registering DELETE entity value [${ev.getEntityName()}] value: ${ev.getPrimaryKeys()}")
+                // logger.warn("============== DataFeed registering DELETE entity value [${ev.resolveEntityName()}] value: ${ev.getPrimaryKeys()}")
                 dfs.addDeleteToFeed(ev)
             }
         }
@@ -596,7 +596,7 @@ class EntityDataFeed {
 
 
                 for (EntityValue currentEv in feedValues) {
-                    String currentEntityName = currentEv.getEntityName()
+                    String currentEntityName = currentEv.resolveEntityName()
                     List<DocumentEntityInfo> currentEntityInfoList = edf.getDataFeedEntityInfoList(currentEntityName)
                     for (DocumentEntityInfo currentEntityInfo in currentEntityInfoList) {
                         if (currentEntityInfo.dataDocumentId == dataDocumentId) {
@@ -796,7 +796,7 @@ class EntityDataFeed {
         }
 
         private void deleteDataDocuments(EntityValue deleteEv, Timestamp feedStamp, ExecutionContextImpl threadEci) {
-            String entityName = deleteEv.getEntityName()
+            String entityName = deleteEv.resolveEntityName()
 
             ArrayList<DocumentEntityInfo> entityInfoList
             try {

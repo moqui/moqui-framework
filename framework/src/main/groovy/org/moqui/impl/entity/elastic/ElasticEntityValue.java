@@ -57,7 +57,7 @@ public class ElasticEntityValue extends EntityValueBase {
         if (edfInternal == null) {
             // not much option other than static access via Moqui object
             EntityFacade ef = Moqui.getExecutionContextFactory().getEntity();
-            edfInternal = (ElasticDatasourceFactory) ef.getDatasourceFactory(ef.getEntityGroupName(getEntityName()));
+            edfInternal = (ElasticDatasourceFactory) ef.getDatasourceFactory(ef.getEntityGroupName(resolveEntityName()));
         }
 
         return edfInternal;
