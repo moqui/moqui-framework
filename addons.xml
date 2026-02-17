@@ -56,7 +56,7 @@
     <component name="moqui-sso" group="moqui" version="1.0.1" branch="master"/>
     <component name="moqui-wikitext" group="moqui" version="1.0.3" branch="master"/>
 
-    <component name="moqui-atomikos" group="moqui" version="1.0.0" branch="master"/><!-- not actively maintained -->
+    <!-- <component name="moqui-atomikos" group="moqui" version="1.0.0" branch="master"/> Deprecated after Moqui 4.0 release and bitronix fork (Atomikos intentionally broke community version to sell commercial; not actively maintained -->
 
     <!-- Mantle Business Artifact and Integration Components -->
     <component name="mantle-udm" group="moqui" version="2.2.0" branch="master"/>
@@ -89,8 +89,8 @@
     <component name="moqui-captcha" group="shendepu" version="" branch="master"/><!-- no releases -->
     <component name="moqui-chile" group="Moitcl" version="" branch="master"/><!-- no releases -->
     <component name="moqui-de_DE-addon" group="mckhoi" version="" branch="master"/><!-- no releases -->
-    <component name="moqui-graphql" group="shendepu" version="" branch="master"/><!-- no releases -->
-    <component name="moqui-react-ssr" group="shendepu" version="" branch="master"/><!-- no releases -->
+    <!-- <component name="moqui-graphql" group="shendepu" version="" branch="master"/> Deprecated, graphql was a bad idea. Don't use it -->
+    <!-- <component name="moqui-react-ssr" group="shendepu" version="" branch="master"/> Deprecated, moqui-react-ssr is an experiment. We suggest you just use standard js tools if you want full control over the UI. no releases -->
     <component name="moqui-zh_CN-addon" group="chunlinyao" version="" branch="master"/><!-- no releases -->
     <!-- moqui-fop replacement use alibaba easyexcel for excel output -->
     <component name="moqui-easyexcel" group="chunlinyao" version="" branch="master"/><!-- no releases -->
@@ -98,6 +98,8 @@
     <component name="ServiceJobMonitor" group="tailorsoft" version="" branch="master"/><!-- no releases -->
     <component name="Sales" group="xolvegroup" version="" branch="main"/><!-- no releases -->
     <component name="WorkManagement" group="xolvegroup" version="" branch="main"/><!-- no releases -->
+    <component name="coarchy" group="coarchy" version="" branch="coarchy"/><!-- no releases -->
+    <component name="stripe" group="coarchy" version="" branch="master"/><!-- no releases -->
 
     <!-- Component Sets -->
     <!-- NOTE: using these component sets is NOT recommended, with so many components doing
@@ -110,6 +112,7 @@
 
     <component-set name="demo" components="moqui-poi,moqui-demo,example,HiveMind,PopCommerce,PopRestStore,MarbleERP"/>
     <component-set name="popc" components="PopCommerce,PopRestStore"/>
+    <component-set name="all-working" components="example,start,moqui-aws,moqui-camel,moqui-cups,moqui-fop,moqui-hazelcast,moqui-image,moqui-kie,moqui-orientdb,moqui-poi,moqui-sftp,moqui-sso,moqui-wikitext,mantle-udm,mantle-usl,AuthorizeDotNet,mantle-edi,mantle-paytrace,mantle-shippo,mantle-yotpo,mantle-braintree,mantle-rsis,mantle-oagis,mantle-ubpl,SimpleScreens,HiveMind,PopCommerce,MarbleERP,PopRestStore,WeCreate,moqui-org,moqui-demo,moqui-de_DE-addon,moqui-zh_CN-addon,Sales,WorkManagement,coarchy,stripe"/>
 
     <!-- Release builds:
         gradle getComponentSet -PcomponentSet=demo -PlocationType=release
