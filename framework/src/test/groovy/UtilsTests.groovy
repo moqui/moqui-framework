@@ -1,11 +1,12 @@
 import ars.rockycube.GenericUtilities
-import com.google.gson.Gson
+import ars.rockycube.util.TestUtilities
 import ars.rockycube.util.CollectionUtils
+import ars.rockycube.connection.JsonFieldManipulator
 import com.google.gson.GsonBuilder
+import com.google.gson.Gson
 import net.javacrumbs.jsonunit.core.Option
 import org.apache.commons.io.FileUtils
 import org.moqui.Moqui
-import org.moqui.context.ExecutionContext
 import org.moqui.entity.EntityCondition
 import org.moqui.impl.ViUtilities
 import org.moqui.impl.context.ExecutionContextFactoryImpl
@@ -13,13 +14,13 @@ import org.moqui.impl.entity.EntityConditionFactoryImpl
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityJavaUtil
 import org.moqui.impl.entity.condition.ConditionField
-import org.moqui.resource.ResourceReference
 import org.moqui.util.CollectionUtilities
 import org.moqui.util.MNode
-import ars.rockycube.util.TestUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import ars.rockycube.connection.JsonFieldManipulator
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+
 import spock.lang.Specification
 import net.javacrumbs.jsonunit.JsonAssert
 
@@ -632,6 +633,22 @@ class UtilsTests extends Specification {
         then:
 
         assert conv
+    }
+
+    def test_convert_stringzoned_to_utc_local() {
+        when:
+
+        def incoming = GenericUtilities.parseZonedDateTime("2026-02-17T19:13:00[Europe/Sofia]")
+        def localTime = GenericUtilities.toUtcString(incoming)
+        assert localTime == '2026-02-17 17:13:00'
+
+        def formatter = DateTimeFormatter.ofPattern('yyyy-MM-dd HH:mm:ss')
+        def localDateTime = LocalDateTime.parse(localTime, formatter)
+        assert localDateTime == GenericUtilities.utcToLocalDateTime(incoming)
+
+        then:
+
+        assert true
     }
 
     def test_convert_string_to_zoned(){

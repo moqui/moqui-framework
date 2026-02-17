@@ -12,6 +12,7 @@ import org.moqui.resource.ResourceReference
 import org.moqui.util.StringUtilities
 
 import java.nio.charset.StandardCharsets
+import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -459,11 +460,40 @@ class GenericUtilities {
     }
 
     /**
+     * Converts any ZonedDateTime to a UTC string representation.
+     * For instance, '2026-02-17T19:13:00[Europe/Sofia]' becomes '2026-02-17T17:13:00'.
+     * @param zonedDateTime The ZonedDateTime to be converted.
+     * @return The UTC formatted string.
+     */
+    public static String toUtcString(ZonedDateTime zonedDateTime) {
+        if (zonedDateTime == null) {
+            return null
+        }
+        return zonedDateTime.withZoneSameInstant(ZoneId.of("UTC"))
+                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+    }
+
+    public static LocalDateTime utcToLocalDateTime(ZonedDateTime zonedDateTime) {
+        if (zonedDateTime == null) {
+            return null
+        }
+
+        def format = "yyyy-MM-dd HH:mm:ss"
+        def utcToString = zonedDateTime.withZoneSameInstant(ZoneId.of("UTC"))
+                .format(DateTimeFormatter.ofPattern(format))
+
+        def formatter = DateTimeFormatter.ofPattern(format)
+        def localDateTime = LocalDateTime.parse(utcToString, formatter)
+        return localDateTime
+    }
+
+    /**
      * Simple conversion into String, of a ZonedDateTime input
      * @param input
      * @return
      */
-    public static String formatZonedDatetime(ZonedDateTime input) {
-        return input.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ssXXX"))
+    public static String formatZonedDatetime(ZonedDateTime input, boolean includeZone=true) {
+        def ptrn = includeZone ? "yyyy-MM-dd HH:mm:ssXXX" : "yyyy-MM-dd HH:mm:ss"
+        return input.format(DateTimeFormatter.ofPattern(ptrn))
     }
 }
