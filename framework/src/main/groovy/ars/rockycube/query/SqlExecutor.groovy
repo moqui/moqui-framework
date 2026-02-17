@@ -10,6 +10,8 @@ import java.sql.Connection
 import java.sql.ResultSetMetaData
 import java.sql.Timestamp
 
+import static ars.rockycube.util.CollectionUtils.toLowerCaseKeys
+
 class ColumnConfiguration {
     private String dateToString = null
     private String datetimeToString = null
@@ -23,8 +25,8 @@ class ColumnConfiguration {
 
         if (conf.containsKey(this.columnName)) {
             def colConf = (HashMap) conf.getOrDefault(this.columnName, [:])
-            this.dateToString = colConf.getOrDefault('dateToString', 'false')
-            this.datetimeToString = colConf.getOrDefault('datetimeToString', 'false')
+            this.dateToString = colConf.getOrDefault('datetostring', 'false')
+            this.datetimeToString = colConf.getOrDefault('datetimetostring', 'false')
         }
     }
 
@@ -376,6 +378,7 @@ class SqlExecutor {
             String query,
             HashMap kwargs=[:])
     {
+        kwargs = toLowerCaseKeys(kwargs)
         def stmt = conn.createStatement()
         def queryResult = stmt.execute(query as String)
         logger.debug("Query result: ${queryResult}")
@@ -387,11 +390,11 @@ class SqlExecutor {
 
         // allow customization using kwargs
         HashMap colsConf = [:]
-        boolean columnSetupPresent = kwargs.containsKey('columns')
-        columnSetupPresent &= kwargs.get('columns') instanceof Map
+        boolean columnSetupPresent = kwargs.containsKey('columns') && kwargs.get('columns') instanceof Map
         // make sure there is at least some configuration
         if (columnSetupPresent) {
             colsConf = (HashMap) kwargs.get('columns')
+
             columnSetupPresent &= colsConf.size() > 0
         }
 
@@ -409,7 +412,7 @@ class SqlExecutor {
                     // if it's Timestamp, allow custom handling
                     if (colValue instanceof Timestamp && columnSetupPresent) {
                         // make sure the specific column is set
-                        if (colsConf.containsKey(columnName)) {
+                        if (colsConf.containsKey(columnName.toLowerCase())) {
                             def colConf = new ColumnConfiguration(columnName, colsConf)
                             record[columnName] = (colValue as Timestamp).format(colConf.format);
                             continue;

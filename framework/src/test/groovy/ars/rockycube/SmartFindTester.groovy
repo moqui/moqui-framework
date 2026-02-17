@@ -91,7 +91,7 @@ class SmartFindTester extends Specification {
         def sqlScript = "Select test_date, last_updated_stamp from test_entity where test_id = 'SQL_CONV'"
         ec.logger.info("SQL: ${sqlScript}")
         def withTimestamp = SqlExecutor.execute(conn, logger, sqlScript)
-        def asStrings = SqlExecutor.execute(conn, logger, sqlScript, [columns:[last_updated_stamp:[dateToString:true]]])
+        def asStrings = SqlExecutor.execute(conn, logger, sqlScript, [columns:[LAST_UPDATED_STAMP:[dateToString:true]]])
 
 
         then:

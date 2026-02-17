@@ -369,4 +369,29 @@ class CollectionUtils {
 
         return sortedMap
     }
+
+    /**
+     * Convert all keys to lowercase.
+     * @param map
+     * @return
+     */
+    static HashMap toLowerCaseKeys(Map map) {
+        if (map == null) {
+            return null
+        }
+        def newMap = [:]
+        map.each { key, value ->
+            def newKey = key.toString().toLowerCase()
+            if (value instanceof Map) {
+                newMap[newKey] = toLowerCaseKeys(value)
+            } else if (value instanceof List) {
+                newMap[newKey] = value.collect {
+                    it instanceof Map ? toLowerCaseKeys(it) : it
+                }
+            } else {
+                newMap[newKey] = value
+            }
+        }
+        return newMap
+    }
 }

@@ -9,6 +9,8 @@ import org.moqui.context.ExecutionContext
 import org.moqui.context.TemplateRenderer
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.resource.ResourceReference
+import org.moqui.util.StringUtilities
+
 import java.nio.charset.StandardCharsets
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -89,7 +91,8 @@ class GenericUtilities {
             String sessionId,
             String fileId,
             Object data,
-            Long internalCounter=0) {
+            Long internalCounter=0,
+            Boolean generateRandomSuffix=false) {
         try {
             // default ext
             def defaultExt = 'json'
@@ -105,6 +108,10 @@ class GenericUtilities {
                 fileExtension = m.group(2)
             }
 
+            // add random suffix
+            if (generateRandomSuffix) {
+                fileName = "${fileName}-${StringUtilities.getRandomString(8)}"
+            }
             // calculate file name with counter, if provided
             if (internalCounter > 0) {
                 fileName = "${fileName}.${internalCounter}"
