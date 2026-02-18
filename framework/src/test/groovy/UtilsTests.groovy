@@ -18,6 +18,8 @@ import org.moqui.util.CollectionUtilities
 import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+
+import java.sql.Timestamp
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -635,7 +637,7 @@ class UtilsTests extends Specification {
         assert conv
     }
 
-    def test_convert_stringzoned_to_utc_local() {
+    def test_convert_string_zoned_to_utc_local() {
         when:
 
         def incoming = GenericUtilities.parseZonedDateTime("2026-02-17T19:13:00[Europe/Sofia]")
@@ -645,6 +647,8 @@ class UtilsTests extends Specification {
         def formatter = DateTimeFormatter.ofPattern('yyyy-MM-dd HH:mm:ss')
         def localDateTime = LocalDateTime.parse(localTime, formatter)
         assert localDateTime == GenericUtilities.utcToLocalDateTime(incoming)
+        def ts = Timestamp.valueOf(localDateTime)
+        assert ts
 
         then:
 
