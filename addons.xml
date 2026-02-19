@@ -59,14 +59,14 @@
     <component name="moqui-atomikos" group="moqui" version="1.0.0" branch="master"/><!-- not actively maintained -->
 
     <!-- Mantle Business Artifact and Integration Components -->
-    <component name="mantle-udm" group="moqui" version="2.2.0" branch="master"/>
+    <component name="mantle-udm" group="moqui" version="2.2.1" branch="master"/>
     <component name="mantle-usl" group="moqui" version="2.9.9" branch="master"/>
 
-    <component name="AuthorizeDotNet" group="moqui" version="1.2.4" branch="master"/>
-    <component name="mantle-edi" group="moqui" version="1.1.4" branch="master"/>
-    <component name="mantle-paytrace" group="moqui" version="1.0.2" branch="master"/>
-    <component name="mantle-shippo" group="moqui" version="1.2.0" branch="master"/>
-    <component name="mantle-yotpo" group="moqui" version="1.0.1" branch="master"/>
+    <component name="AuthorizeDotNet" group="moqui" version="1.2.5" branch="master"/>
+    <component name="mantle-edi" group="moqui" version="1.1.5" branch="master"/>
+    <component name="mantle-paytrace" group="moqui" version="1.0.3" branch="master"/>
+    <component name="mantle-shippo" group="moqui" version="1.2.1" branch="master"/>
+    <component name="mantle-yotpo" group="moqui" version="1.0.2" branch="master"/>
 
     <component name="mantle-braintree" group="moqui" version="1.9.9" branch="master"/><!-- no releases yet -->
     <component name="mantle-rsis" group="moqui" version="" branch="master"/><!-- no releases yet -->
@@ -78,7 +78,7 @@
     <component name="SimpleScreens" group="moqui" version="2.2.1" branch="master"/>
     <component name="HiveMind" group="moqui" version="1.5.1" branch="master"/>
     <component name="PopCommerce" group="moqui" version="2.2.1" branch="master"/>
-    <component name="MarbleERP" group="moqui" version="1.0.0" branch="master"/>
+    <component name="MarbleERP" group="moqui" version="1.0.1" branch="master"/>
     <component name="PopRestStore" group="moqui" version="1.1.1" branch="master"/>
     <component name="WeCreate" group="moqui" version="" branch="master"/><!-- no releases yet -->
     <component name="moqui-mjml" group="moqui" version="" branch="master"/><!-- no releases yet -->
