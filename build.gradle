@@ -1174,6 +1174,8 @@ File getComponent(String compName, String type, Node addons, Node myaddons, Set 
 File downloadComponent(String targetDirPath, String type, Node component, Node addons, Node myaddons) {
     String compName = component.'@name'
     String branch = component.'@branch'
+    // fall back to 'current' (branch-based) if release/binary requested but version is empty
+    if (type in ['release', 'binary'] && !component.'@version') type = 'current'
 
     String repositoryName = (component.'@repository' ?: myaddons?.'@default-repository' ?: addons.'@default-repository' ?: 'github')
     Node repository = myaddons != null ? (Node) myaddons.repository.find({ it."@name" == repositoryName }) : null
