@@ -12,8 +12,8 @@
 
     <!-- Locale and Time Zone Properties -->
     <default-property name="default_locale" value="en_US"/>
-    <default-property name="default_time_zone" value="US/Pacific"/>
-    <default-property name="database_time_zone" value="US/Pacific"/>
+    <default-property name="default_time_zone" value="UTC"/>
+    <default-property name="database_time_zone" value="UTC"/>
 
     <!-- Web App Properties -->
     <default-property name="webapp_http_host" value=""/>

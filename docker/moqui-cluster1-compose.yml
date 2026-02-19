@@ -43,7 +43,7 @@ services:
   moqui-server1:
     image: moqui
     container_name: moqui-server1
-    command: conf=conf/MoquiProductionConf.xml
+    command: conf=conf/MoquiProductionConf.xml port=80
     restart: always
     links:
       - moqui-database
@@ -99,7 +99,7 @@ services:
   moqui-server2:
     image: moqui
     container_name: moqui-server2
-    command: conf=conf/MoquiProductionConf.xml
+    command: conf=conf/MoquiProductionConf.xml port=80
     restart: always
     links:
       - moqui-database
