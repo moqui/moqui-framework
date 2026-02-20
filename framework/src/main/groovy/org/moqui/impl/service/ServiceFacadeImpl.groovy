@@ -26,6 +26,7 @@ import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.resource.ClasspathResourceReference
 import org.moqui.impl.service.runner.EntityAutoServiceRunner
 import org.moqui.impl.service.runner.RemoteJsonRpcServiceRunner
+import org.moqui.entity.EntityAutoServiceProvider
 import org.moqui.service.*
 import org.moqui.util.CollectionUtilities
 import org.moqui.util.MNode
@@ -36,17 +37,19 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import javax.cache.Cache
-import javax.mail.internet.MimeMessage
+import jakarta.mail.internet.MimeMessage
 import java.sql.Timestamp
 import java.util.concurrent.*
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReentrantLock
 
 @CompileStatic
-class ServiceFacadeImpl implements ServiceFacade {
+class ServiceFacadeImpl implements ServiceFacade, EntityAutoServiceProvider {
     protected final static Logger logger = LoggerFactory.getLogger(ServiceFacadeImpl.class)
 
     public final ExecutionContextFactoryImpl ecfi
+    // ARCH-005: EntityExistenceChecker for decoupled entity existence checks
+    protected EntityExistenceChecker entityExistenceChecker
 
     protected final Cache<String, ServiceDefinition> serviceLocationCache
     protected final ReentrantLock locationLoadLock = new ReentrantLock()
@@ -186,8 +189,21 @@ class ServiceFacadeImpl implements ServiceFacade {
 
     boolean isEntityAutoPattern(String path, String verb, String noun) {
         // if no path, verb is create|update|delete and noun is a valid entity name, do an implicit entity-auto
+        // ARCH-005: Use EntityExistenceChecker instead of direct EntityFacade reference
+        if (entityExistenceChecker == null) return false
         return (path == null || path.isEmpty()) && EntityAutoServiceRunner.verbSet.contains(verb) &&
-                ecfi.entityFacade.isEntityDefined(noun)
+                entityExistenceChecker.isEntityDefined(noun)
+    }
+
+    // ARCH-005: Setter for EntityExistenceChecker to decouple from EntityFacade
+    void setEntityExistenceChecker(EntityExistenceChecker checker) {
+        this.entityExistenceChecker = checker
+    }
+
+    // ARCH-005: Implementation of EntityAutoServiceProvider interface
+    @Override
+    Map<String, Object> executeEntityAutoService(String operation, String entityName, Map<String, Object> parameters) {
+        return sync().name(operation, entityName).parameters(parameters).call()
     }
 
     ServiceDefinition getServiceDefinition(String serviceName) {

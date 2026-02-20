@@ -18,9 +18,11 @@ import groovy.transform.CompileStatic
 import org.apache.logging.log4j.LogManager
 import org.apache.logging.log4j.core.LoggerContext
 import org.apache.shiro.SecurityUtils
+import org.apache.shiro.authc.AuthenticationInfo
+import org.apache.shiro.authc.AuthenticationToken
 import org.apache.shiro.authc.credential.CredentialsMatcher
 import org.apache.shiro.authc.credential.HashedCredentialsMatcher
-import org.apache.shiro.config.IniSecurityManagerFactory
+import org.apache.shiro.mgt.DefaultSecurityManager
 import org.apache.shiro.crypto.hash.SimpleHash
 import org.codehaus.groovy.control.CompilationUnit
 import org.codehaus.groovy.control.CompilerConfiguration
@@ -35,6 +37,8 @@ import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
 import org.moqui.util.CollectionUtilities
 import org.moqui.util.MClassLoader
+import org.moqui.util.PasswordHasher
+import org.moqui.impl.util.MoquiShiroRealm
 import org.moqui.impl.actions.XmlAction
 import org.moqui.resource.UrlResourceReference
 import org.moqui.impl.context.ContextJavaUtil.ArtifactBinInfo
@@ -58,10 +62,10 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import javax.annotation.Nonnull
-import javax.servlet.ServletContext
-import javax.servlet.http.HttpServletRequest
-import javax.servlet.http.HttpServletResponse
-import javax.websocket.server.ServerContainer
+import jakarta.servlet.ServletContext
+import jakarta.servlet.http.HttpServletRequest
+import jakarta.servlet.http.HttpServletResponse
+import jakarta.websocket.server.ServerContainer
 import java.lang.management.ManagementFactory
 import java.math.RoundingMode
 import java.sql.Timestamp
@@ -126,7 +130,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     protected org.apache.shiro.mgt.SecurityManager internalSecurityManager
     /** The ServletContext, if Moqui was initialized in a webapp (generally through MoquiContextListener) */
     protected ServletContext internalServletContext = null
-    /** The WebSocket ServerContainer, if found in 'javax.websocket.server.ServerContainer' ServletContext attribute */
+    /** The WebSocket ServerContainer, if found in 'jakarta.websocket.server.ServerContainer' ServletContext attribute */
     protected ServerContainer internalServerContainer = null
 
     /** Notification Message Topic (for distributed notifications) */
@@ -231,14 +235,24 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         logger.info("Entity Facade initialized")
         serviceFacade = new ServiceFacadeImpl(this)
         logger.info("Service Facade initialized")
+
+        // ARCH-005: Wire up decoupled dependencies between EntityFacade and ServiceFacade
+        entityFacade.setEntityAutoServiceProvider(serviceFacade)
+        serviceFacade.setEntityExistenceChecker({ String entityName -> entityFacade.isEntityDefined(entityName) })
+        logger.info("Entity-Service dependencies wired")
+
         screenFacade = new ScreenFacadeImpl(this)
         logger.info("Screen Facade initialized")
 
-        postFacadeInit()
-
-        // NOTE: ElasticFacade init after postFacadeInit() so finds embedded from moqui-elasticsearch if present, can move up once moqui-elasticsearch deprecated
+        /**
+         * NOTE: Moved ElasticFacade init before postFacadeInit() as the moqui-elasticsearch component is not being used.
+         * Before this change, the ElasticFacade was initialized after the postFacadeInit() method.
+         * Fix for hunterino/moqui#1 - NPE loading Elasticsearch entities at startup
+         */
         elasticFacade = new ElasticFacadeImpl(this)
         logger.info("Elastic Facade initialized")
+
+        postFacadeInit()
 
         logger.info("Execution Context Factory initialized in ${(System.currentTimeMillis() - initStartTime)/1000} seconds")
     }
@@ -291,14 +305,24 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         logger.info("Entity Facade initialized")
         serviceFacade = new ServiceFacadeImpl(this)
         logger.info("Service Facade initialized")
+
+        // ARCH-005: Wire up decoupled dependencies between EntityFacade and ServiceFacade
+        entityFacade.setEntityAutoServiceProvider(serviceFacade)
+        serviceFacade.setEntityExistenceChecker({ String entityName -> entityFacade.isEntityDefined(entityName) })
+        logger.info("Entity-Service dependencies wired")
+
         screenFacade = new ScreenFacadeImpl(this)
         logger.info("Screen Facade initialized")
 
-        postFacadeInit()
-
-        // NOTE: ElasticFacade init after postFacadeInit() so finds embedded from moqui-elasticsearch if present, can move up once moqui-elasticsearch deprecated
+        /**
+         * NOTE: Moved ElasticFacade init before postFacadeInit() as the moqui-elasticsearch component is not being used.
+         * Before this change, the ElasticFacade was initialized after the postFacadeInit() method.
+         * Fix for hunterino/moqui#1 - NPE loading Elasticsearch entities at startup
+         */
         elasticFacade = new ElasticFacadeImpl(this)
         logger.info("Elastic Facade initialized")
+
+        postFacadeInit()
 
         logger.info("Execution Context Factory initialized in ${(System.currentTimeMillis() - initStartTime)/1000} seconds")
     }
@@ -925,14 +949,18 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     @Override @Nonnull String getRuntimePath() { return runtimePath }
     @Override @Nonnull String getMoquiVersion() { return moquiVersion }
     Map getVersionMap() { return versionMap }
-    MNode getConfXmlRoot() { return confXmlRoot }
-    MNode getServerStatsNode() { return serverStatsNode }
-    MNode getArtifactExecutionNode(String artifactTypeEnumId) {
+    @Override @Nonnull MNode getConfXmlRoot() { return confXmlRoot }
+    @Override MNode getServerStatsNode() { return serverStatsNode }
+    @Override MNode getArtifactExecutionNode(String artifactTypeEnumId) {
         return confXmlRoot.first("artifact-execution-facade")
                 .first({ MNode it -> it.name == "artifact-execution" && it.attribute("type") == artifactTypeEnumId })
     }
 
-    InetAddress getLocalhostAddress() { return localhostAddress }
+    @Override InetAddress getLocalhostAddress() { return localhostAddress }
+    @Override @Nonnull ThreadPoolExecutor getWorkerPool() { return workerPool }
+    @Override long getInitStartTime() { return initStartTime }
+    @Override @Nonnull Map<ArtifactType, Boolean> getArtifactTypeAuthzEnabled() { return artifactTypeAuthzEnabled }
+    @Override @Nonnull Map<ArtifactType, Boolean> getArtifactTypeTarpitEnabled() { return artifactTypeTarpitEnabled }
 
     @Override void registerNotificationMessageListener(@Nonnull NotificationMessageListener nml) {
         nml.init(this)
@@ -966,40 +994,107 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
     NotificationWebSocketListener getNotificationWebSocketListener() { return notificationWebSocketListener }
 
-    org.apache.shiro.mgt.SecurityManager getSecurityManager() {
+    @Override @Nonnull org.apache.shiro.mgt.SecurityManager getSecurityManager() {
         if (internalSecurityManager != null) return internalSecurityManager
 
-        // init Apache Shiro; NOTE: init must be done here so that ecfi will be fully initialized and in the static context
-        org.apache.shiro.util.Factory<org.apache.shiro.mgt.SecurityManager> factory =
-                new IniSecurityManagerFactory("classpath:shiro.ini")
-        internalSecurityManager = factory.getInstance()
+        // init Apache Shiro programmatically (Shiro 2.x removed IniSecurityManagerFactory)
+        // NOTE: init must be done here so that ecfi will be fully initialized and in the static context
+        DefaultSecurityManager securityManager = new DefaultSecurityManager()
+
+        // Create and configure the MoquiShiroRealm
+        MoquiShiroRealm moquiRealm = new MoquiShiroRealm()
+        securityManager.setRealm(moquiRealm)
+
+        internalSecurityManager = securityManager
+
         // NOTE: setting this statically just in case something uses it, but for Moqui we'll be getting the SecurityManager from the ecfi
         SecurityUtils.setSecurityManager(internalSecurityManager)
 
         return internalSecurityManager
     }
-    CredentialsMatcher getCredentialsMatcher(String hashType, boolean isBase64) {
-        HashedCredentialsMatcher hcm = new HashedCredentialsMatcher()
-        if (hashType) {
-            hcm.setHashAlgorithmName(hashType)
-        } else {
-            hcm.setHashAlgorithmName(getPasswordHashType())
+    /**
+     * BCrypt CredentialsMatcher implementation for Shiro integration.
+     * Verifies passwords hashed with BCrypt algorithm.
+     */
+    private static class BcryptCredentialsMatcher implements CredentialsMatcher {
+        @Override
+        boolean doCredentialsMatch(AuthenticationToken token, AuthenticationInfo info) {
+            String submittedPassword = new String((char[]) token.getCredentials())
+            String storedHash = (String) info.getCredentials()
+            return PasswordHasher.verifyBcrypt(submittedPassword, storedHash)
         }
+    }
+
+    /** Cached BCrypt credentials matcher instance */
+    private static final CredentialsMatcher bcryptMatcher = new BcryptCredentialsMatcher()
+
+    /**
+     * Get the appropriate credentials matcher for the given hash type.
+     * For BCrypt, returns a specialized matcher. For legacy algorithms, returns Shiro's HashedCredentialsMatcher.
+     */
+    CredentialsMatcher getCredentialsMatcher(String hashType, boolean isBase64) {
+        String effectiveHashType = hashType ?: getPasswordHashType()
+
+        // Use BCrypt matcher for BCrypt hashes
+        if (PasswordHasher.HASH_TYPE_BCRYPT.equalsIgnoreCase(effectiveHashType)) {
+            return bcryptMatcher
+        }
+
+        // Legacy hash algorithms use Shiro's HashedCredentialsMatcher
+        HashedCredentialsMatcher hcm = new HashedCredentialsMatcher()
+        hcm.setHashAlgorithmName(effectiveHashType)
         // in Shiro this defaults to true, which is the default unless UserAccount.passwordBase64 = 'Y'
         hcm.setStoredCredentialsHexEncoded(!isBase64)
         return hcm
     }
+
     // NOTE: may not be used
     static String getRandomSalt() { return StringUtilities.getRandomString(8) }
+
+    /**
+     * Get the configured password hash type. Defaults to BCRYPT for security.
+     * Can be overridden in MoquiConf.xml: user-facade > password > encrypt-hash-type
+     */
     String getPasswordHashType() {
         MNode passwordNode = confXmlRoot.first("user-facade").first("password")
-        return passwordNode.attribute("encrypt-hash-type") ?: "SHA-256"
+        // Default to BCRYPT for new installations; legacy configs can override to SHA-256 for backward compatibility
+        return passwordNode.attribute("encrypt-hash-type") ?: PasswordHasher.HASH_TYPE_BCRYPT
     }
-    // NOTE: used in UserServices.xml
-    String getSimpleHash(String source, String salt) { return getSimpleHash(source, salt, getPasswordHashType(), false) }
+
+    /**
+     * Hash a password using the default algorithm (BCrypt) with auto-generated salt.
+     * NOTE: Used in UserServices.xml
+     */
+    String getSimpleHash(String source, String salt) {
+        return getSimpleHash(source, salt, getPasswordHashType(), false)
+    }
+
+    /**
+     * Hash a password using the specified algorithm.
+     * For BCrypt: salt parameter is ignored (BCrypt generates its own salt).
+     * For legacy algorithms: uses the provided salt with Shiro's SimpleHash.
+     */
     String getSimpleHash(String source, String salt, String hashType, boolean isBase64) {
-        SimpleHash simple = new SimpleHash(hashType ?: getPasswordHashType(), source, salt)
+        String effectiveHashType = hashType ?: getPasswordHashType()
+
+        // Use BCrypt for BCRYPT hash type
+        if (PasswordHasher.HASH_TYPE_BCRYPT.equalsIgnoreCase(effectiveHashType)) {
+            // BCrypt includes salt in the hash output, ignore the salt parameter
+            return PasswordHasher.hashWithBcrypt(source)
+        }
+
+        // Legacy algorithms use Shiro's SimpleHash
+        // Shiro 2.x requires non-null salt, use empty string for null salt (legacy compatibility)
+        SimpleHash simple = new SimpleHash(effectiveHashType, source, salt ?: "")
         return isBase64 ? simple.toBase64() : simple.toHex()
+    }
+
+    /**
+     * Check if a password hash should be upgraded to BCrypt.
+     * Call after successful authentication to determine if re-hashing is needed.
+     */
+    boolean shouldUpgradePasswordHash(String currentHashType) {
+        return PasswordHasher.shouldUpgradeHash(currentHashType)
     }
 
     String getLoginKeyHashType() {
@@ -1120,7 +1215,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     @Override @Nonnull ServerContainer getServerContainer() { internalServerContainer }
     @Override void initServletContext(ServletContext sc) {
         internalServletContext = sc
-        internalServerContainer = (ServerContainer) sc.getAttribute("javax.websocket.server.ServerContainer")
+        internalServerContainer = (ServerContainer) sc.getAttribute("jakarta.websocket.server.ServerContainer")
     }
 
 
@@ -1465,7 +1560,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             'moqui.entity.view.DbViewEntity', 'moqui.entity.view.DbViewEntityMember',
             'moqui.entity.view.DbViewEntityKeyMap', 'moqui.entity.view.DbViewEntityAlias'])
 
-    void countArtifactHit(ArtifactType artifactTypeEnum, String artifactSubType, String artifactName,
+    @Override void countArtifactHit(ArtifactType artifactTypeEnum, String artifactSubType, String artifactName,
               Map<String, Object> parameters, long startTime, double runningTimeMillis, Long outputSize) {
         boolean isEntity = ArtifactExecutionInfo.AT_ENTITY.is(artifactTypeEnum) || (artifactSubType != null && artifactSubType.startsWith('entity'))
         // don't count the ones this calls

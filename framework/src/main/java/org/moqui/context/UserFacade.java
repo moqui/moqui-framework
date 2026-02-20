@@ -105,6 +105,20 @@ public interface UserFacade {
     String getLoginKey();
     String getLoginKey(float expireHours);
 
+    /**
+     * Get a login key and reset hasLoggedOut flag in a deadlock-safe manner.
+     * This method performs operations in the correct order to avoid FK constraint deadlocks:
+     * 1. First updates UserAccount.hasLoggedOut to 'N' (acquires exclusive lock)
+     * 2. Then creates UserLoginKey (FK validation uses shared lock on UserAccount)
+     *
+     * Use this method instead of separate getLoginKey() and UserAccount update calls
+     * when both operations are needed in the same logical transaction.
+     *
+     * Fix for hunterino/moqui#5 - Deadlock in Login operations
+     */
+    String getLoginKeyAndResetLogoutStatus();
+    String getLoginKeyAndResetLogoutStatus(float expireHours);
+
     /** If no user is logged in consider an anonymous user logged in. For internal purposes to run things that require authentication. */
     boolean loginAnonymousIfNoUser();
 

@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory
 
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
+import java.util.concurrent.CopyOnWriteArrayList
 
 @CompileStatic
 class EntityCache {
@@ -42,6 +43,25 @@ class EntityCache {
     static final String listRaKeyBase = "entity.record.list_ra."
     static final String listViewRaKeyBase = "entity.record.list_view_ra."
     static final String countKeyBase = "entity.record.count."
+
+    // ARCH-003: Moved cache warming entity sets from EntityFacadeImpl
+    final static Set<String> cachedCountEntities = new HashSet<>(["moqui.basic.EnumerationType"])
+    final static Set<String> cachedListEntities = new HashSet<>([ "moqui.entity.document.DataDocument",
+            "moqui.entity.document.DataDocumentCondition", "moqui.entity.document.DataDocumentField",
+            "moqui.entity.feed.DataFeedAndDocument", "moqui.entity.view.DbViewEntity", "moqui.entity.view.DbViewEntityAlias",
+            "moqui.entity.view.DbViewEntityKeyMap", "moqui.entity.view.DbViewEntityMember",
+
+            "moqui.screen.ScreenThemeResource", "moqui.screen.SubscreensItem", "moqui.screen.form.DbFormField",
+            "moqui.screen.form.DbFormFieldAttribute", "moqui.screen.form.DbFormFieldEntOpts", "moqui.screen.form.DbFormFieldEntOptsCond",
+            "moqui.screen.form.DbFormFieldEntOptsOrder", "moqui.screen.form.DbFormFieldOption", "moqui.screen.form.DbFormLookup",
+
+            "moqui.security.ArtifactAuthzCheckView", "moqui.security.ArtifactTarpitCheckView", "moqui.security.ArtifactTarpitLock",
+            "moqui.security.UserGroupMember", "moqui.security.UserGroupPreference"
+    ])
+    final static Set<String> cachedOneEntities = new HashSet<>([ "moqui.basic.Enumeration", "moqui.basic.LocalizedMessage",
+            "moqui.entity.document.DataDocument", "moqui.entity.view.DbViewEntity", "moqui.screen.form.DbForm",
+            "moqui.security.UserAccount", "moqui.security.UserPreference", "moqui.security.UserScreenTheme", "moqui.server.Visit"
+    ])
 
     Cache<String, Set<EntityCondition>> oneBfCache
     protected final Map<String, List<String>> cachedListViewEntitiesByMember = new HashMap<>()
@@ -68,6 +88,34 @@ class EntityCache {
                 logger.error("Entity distributed cache invalidate is enabled but could not initialize", e)
             }
         }
+    }
+
+    // ARCH-003: Moved from EntityFacadeImpl - cache warming logic now in EntityCache
+    void warmCache() {
+        logger.info("Warming cache for all entity definitions")
+        long startTime = System.currentTimeMillis()
+        Set<String> entityNames = efi.getAllEntityNames()
+        for (String entityName in entityNames) {
+            try {
+                EntityDefinition ed = efi.getEntityDefinition(entityName)
+                ed.getRelationshipInfoMap()
+                // must use EntityDatasourceFactory.checkTableExists, NOT entityDbMeta.tableExists(ed)
+                ed.entityInfo.datasourceFactory.checkTableExists(ed.getFullEntityName())
+
+                if (cachedCountEntities.contains(entityName)) ed.getCacheCount(this)
+                if (cachedListEntities.contains(entityName)) {
+                    ed.getCacheList(this)
+                    ed.getCacheListRa(this)
+                    ed.getCacheListViewRa(this)
+                }
+                if (cachedOneEntities.contains(entityName)) {
+                    ed.getCacheOne(this)
+                    ed.getCacheOneRa(this)
+                    ed.getCacheOneViewRa(this)
+                }
+            } catch (Throwable t) { logger.warn("Error warming entity cache: ${t.toString()}") }
+        }
+        logger.info("Warmed entity definition cache for ${entityNames.size()} entities in ${System.currentTimeMillis() - startTime}ms")
     }
 
     static class EntityCacheInvalidate implements Externalizable {
@@ -289,8 +337,9 @@ class EntityCache {
             }
 
             // see if this entity is a member of a cached view-entity
+            // CopyOnWriteArrayList provides thread-safe iteration without explicit synchronization
             List<String> cachedViewEntityNames = (List<String>) cachedListViewEntitiesByMember.get(fullEntityName)
-            if (cachedViewEntityNames != null) synchronized (cachedViewEntityNames) {
+            if (cachedViewEntityNames != null) {
                 int cachedViewEntityNamesSize = cachedViewEntityNames.size()
                 for (int i = 0; i < cachedViewEntityNamesSize; i++) {
                     String cachedViewEntityName = (String) cachedViewEntityNames.get(i)
@@ -452,7 +501,7 @@ class EntityCache {
                 // remember that this member entity has been used in a cached view entity
                 List<String> cachedViewEntityNames = cachedListViewEntitiesByMember.get(memberEntityName)
                 if (cachedViewEntityNames == null) {
-                    cachedViewEntityNames = Collections.synchronizedList(new ArrayList<>()) as List<String>
+                    cachedViewEntityNames = new CopyOnWriteArrayList<String>()
                     cachedListViewEntitiesByMember.put(memberEntityName, cachedViewEntityNames)
                     cachedViewEntityNames.add(entityName)
                     // logger.info("Added ${entityName} as a cached view-entity for member ${memberEntityName}")

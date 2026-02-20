@@ -39,6 +39,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
 
 import org.moqui.context.CacheFacade
+import org.moqui.context.ExecutionContextFactory
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -48,26 +49,27 @@ import java.util.concurrent.TimeUnit
 public class CacheFacadeImpl implements CacheFacade {
     protected final static Logger logger = LoggerFactory.getLogger(CacheFacadeImpl.class)
 
-    protected final ExecutionContextFactoryImpl ecfi
+    // ARCH-001: Changed from ExecutionContextFactoryImpl to interface for dependency inversion
+    protected final ExecutionContextFactory ecf
 
     protected CacheManager localCacheManagerInternal = (CacheManager) null
     protected CacheManager distCacheManagerInternal = (CacheManager) null
 
     final ConcurrentMap<String, Cache> localCacheMap = new ConcurrentHashMap<>()
 
-    CacheFacadeImpl(ExecutionContextFactoryImpl ecfi) {
-        this.ecfi = ecfi
+    CacheFacadeImpl(ExecutionContextFactory ecf) {
+        this.ecf = ecf
 
-        MNode cacheListNode = ecfi.getConfXmlRoot().first("cache-list")
+        MNode cacheListNode = ecf.getConfXmlRoot().first("cache-list")
         String localCacheFactoryName = cacheListNode.attribute("local-factory") ?: MCacheToolFactory.TOOL_NAME
-        localCacheManagerInternal = ecfi.getTool(localCacheFactoryName, CacheManager.class)
+        localCacheManagerInternal = ecf.getTool(localCacheFactoryName, CacheManager.class)
     }
 
     CacheManager getDistCacheManager() {
         if (distCacheManagerInternal == null) {
-            MNode cacheListNode = ecfi.getConfXmlRoot().first("cache-list")
+            MNode cacheListNode = ecf.getConfXmlRoot().first("cache-list")
             String distCacheFactoryName = cacheListNode.attribute("distributed-factory") ?: MCacheToolFactory.TOOL_NAME
-            distCacheManagerInternal = ecfi.getTool(distCacheFactoryName, CacheManager.class)
+            distCacheManagerInternal = ecf.getTool(distCacheFactoryName, CacheManager.class)
         }
         return distCacheManagerInternal
     }
@@ -181,7 +183,7 @@ public class CacheFacadeImpl implements CacheFacade {
     }
 
     protected MNode getCacheNode(String cacheName) {
-        MNode cacheListNode = ecfi.getConfXmlRoot().first("cache-list")
+        MNode cacheListNode = ecf.getConfXmlRoot().first("cache-list")
         MNode cacheElement = cacheListNode.first({ MNode it -> it.name == "cache" && it.attribute("name") == cacheName })
         // nothing found? try starts with, ie allow the cache configuration to be a prefix
         if (cacheElement == null) cacheElement = cacheListNode

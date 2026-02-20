@@ -33,13 +33,13 @@ import org.moqui.util.StringUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
-import javax.activation.DataSource
+import jakarta.activation.DataSource
 import javax.cache.Cache
 import javax.jcr.Repository
 import javax.jcr.RepositoryFactory
 import javax.jcr.Session
 import javax.jcr.SimpleCredentials
-import javax.mail.util.ByteArrayDataSource
+import jakarta.mail.util.ByteArrayDataSource
 
 import javax.script.ScriptEngine
 import javax.script.ScriptEngineManager

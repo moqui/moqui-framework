@@ -14,16 +14,17 @@
 package org.moqui.impl.context
 
 import groovy.transform.CompileStatic
+import groovy.transform.TypeCheckingMode
 import org.apache.shiro.authc.AuthenticationToken
 import org.apache.shiro.authc.ExpiredCredentialsException
 import org.moqui.context.PasswordChangeRequiredException
 
-import javax.websocket.server.HandshakeRequest
+import jakarta.websocket.server.HandshakeRequest
 import java.sql.Timestamp
-import javax.servlet.http.Cookie
-import javax.servlet.http.HttpServletRequest
-import javax.servlet.http.HttpServletResponse
-import javax.servlet.http.HttpSession
+import jakarta.servlet.http.Cookie
+import jakarta.servlet.http.HttpServletRequest
+import jakarta.servlet.http.HttpServletResponse
+import jakarta.servlet.http.HttpSession
 
 import org.apache.shiro.authc.AuthenticationException
 import org.apache.shiro.authc.UsernamePasswordToken
@@ -79,6 +80,9 @@ class UserFacadeImpl implements UserFacade {
         pushUser(null)
     }
 
+    // Note: TypeCheckingMode.SKIP needed because Shiro web classes still use javax.servlet types
+    // in their method signatures, but we pass jakarta.servlet types (compatible at runtime)
+    @CompileStatic(TypeCheckingMode.SKIP)
     Subject makeEmptySubject() {
         if (session != null) {
             WebSubjectContext wsc = new DefaultWebSubjectContext()
@@ -157,15 +161,19 @@ class UserFacadeImpl implements UserFacade {
                 String password = basicAuthAsString.substring(indexOfColon + 1)
                 this.loginUser(username, password)
             } else {
-                logger.warn("For HTTP Basic Authorization got bad credentials string. Base64 encoded is [${basicAuthEncoded}] and after decoding is [${basicAuthAsString}].")
+                // SECURITY: Don't log credentials - only log that parsing failed (CWE-532)
+                logger.warn("For HTTP Basic Authorization got malformed credentials string (missing colon separator)")
             }
         }
+        // SECURITY (SEC-008): Accept API keys from headers only, never from URL query parameters
+        // URL parameters can leak via referrer headers, browser history, and server logs (CWE-598)
         if (currentInfo.username == null && (request.getHeader("api_key") || request.getHeader("login_key"))) {
             String loginKey = request.getHeader("api_key") ?: request.getHeader("login_key")
             loginKey = loginKey.trim()
             if (loginKey != null && !loginKey.isEmpty() && !"null".equals(loginKey) && !"undefined".equals(loginKey))
                 this.loginUserKey(loginKey)
         }
+        // SECURITY: secureParameters excludes URL query parameters (body params only), which is safe
         if (currentInfo.username == null && (secureParameters.api_key || secureParameters.login_key)) {
             String loginKey = secureParameters.api_key ?: secureParameters.login_key
             loginKey = loginKey.trim()
@@ -173,8 +181,7 @@ class UserFacadeImpl implements UserFacade {
                 this.loginUserKey(loginKey)
         }
         if (currentInfo.username == null && secureParameters.authUsername) {
-            // try the Moqui-specific parameters for instant login
-            // if we have credentials coming in anywhere other than URL parameters, try logging in
+            // Moqui-specific parameters for instant login (from request body only, not URL)
             String authUsername = secureParameters.authUsername
             String authPassword = secureParameters.authPassword
             this.loginUser(authUsername, authPassword)
@@ -218,12 +225,9 @@ class UserFacadeImpl implements UserFacade {
                 }
                 if (cookieVisitorId) {
                     // whether it existed or not, add it again to keep it fresh; stale cookies get thrown away
-                    Cookie visitorCookie = new Cookie("moqui.visitor", cookieVisitorId)
-                    visitorCookie.setMaxAge(60 * 60 * 24 * 365)
-                    visitorCookie.setPath("/")
-                    visitorCookie.setHttpOnly(true)
-                    if (request.isSecure()) visitorCookie.setSecure(true)
-                    response.addCookie(visitorCookie)
+                    // Use SameSite=Lax for CSRF protection (SEC-007)
+                    WebUtilities.addCookieWithSameSiteLax(response, "moqui.visitor", cookieVisitorId,
+                            60 * 60 * 24 * 365, "/", true, request.isSecure())
 
                     session.setAttribute("moqui.visitorId", cookieVisitorId)
                 }
@@ -291,29 +295,20 @@ class UserFacadeImpl implements UserFacade {
                 String password = basicAuthAsString.substring(basicAuthAsString.indexOf(":") + 1)
                 this.loginUser(username, password)
             } else {
-                logger.warn("For HTTP Basic Authorization got bad credentials string. Base64 encoded is [${basicAuthEncoded}] and after decoding is [${basicAuthAsString}].")
+                // SECURITY: Don't log credentials - only log that parsing failed (CWE-532)
+                logger.warn("For HTTP Basic Authorization got malformed credentials string (missing colon separator)")
             }
         }
+        // SECURITY (SEC-008): Accept API keys ONLY from headers, never from URL parameters
+        // URL parameters can leak via referrer headers, browser history, and server logs (CWE-598)
         if (currentInfo.username == null && (headers.api_key || headers.login_key)) {
             String loginKey = headers.api_key ? headers.api_key.get(0) : (headers.login_key ? headers.login_key.get(0) : null)
             loginKey = loginKey.trim()
             if (loginKey != null && !loginKey.isEmpty() && !"null".equals(loginKey) && !"undefined".equals(loginKey))
                 this.loginUserKey(loginKey)
         }
-        if (currentInfo.username == null && (parameters.api_key || parameters.login_key)) {
-            String loginKey = parameters.api_key ? parameters.api_key.get(0) : (parameters.login_key ? parameters.login_key.get(0) : null)
-            loginKey = loginKey.trim()
-            logger.warn("loginKey2 ${loginKey}")
-            if (loginKey != null && !loginKey.isEmpty() && !"null".equals(loginKey) && !"undefined".equals(loginKey))
-                this.loginUserKey(loginKey)
-        }
-        if (currentInfo.username == null && parameters.authUsername) {
-            // try the Moqui-specific parameters for instant login
-            // if we have credentials coming in anywhere other than URL parameters, try logging in
-            String authUsername = parameters.authUsername.get(0)
-            String authPassword = parameters.authPassword ? parameters.authPassword.get(0) : null
-            this.loginUser(authUsername, authPassword)
-        }
+        // SECURITY (SEC-008): Removed authentication via URL parameters - use headers or request body only
+        // Parameters api_key, login_key, authUsername, authPassword are no longer accepted from URL
     }
     void initFromHttpSession(HttpSession session) {
         this.session = session
@@ -642,8 +637,9 @@ class UserFacadeImpl implements UserFacade {
             return false
         }
 
-        // if there is a web session invalidate it so there is a new session for the login (prevent Session Fixation attacks)
-        if (eci.getWebImpl() != null) eci.getWebImpl().makeNewSession()
+        // NOTE: Session regeneration moved to internalLoginToken() AFTER successful authentication
+        // to prevent session fixation attacks (CWE-384). Creating new session before auth creates
+        // a window where attacker could obtain the new session ID.
 
         UsernamePasswordToken token = new UsernamePasswordToken(username, password, true)
         return internalLoginToken(username, token)
@@ -675,6 +671,10 @@ class UserFacadeImpl implements UserFacade {
             // do this first so that the rest will be done as this user
             // just in case there is already a user authenticated push onto a stack to remember
             pushUserSubject(loginSubject)
+
+            // SECURITY: Regenerate session AFTER successful authentication to prevent session fixation (CWE-384)
+            // This ensures any pre-auth session ID known to an attacker is invalidated
+            if (eci.getWebImpl() != null) eci.getWebImpl().makeNewSession()
 
             // after successful login trigger the after-login actions
             if (eci.getWebImpl() != null) {
@@ -796,6 +796,41 @@ class UserFacadeImpl implements UserFacade {
                 .disableAuthz().requireNewTransaction(true).call()
 
         // clean out expired keys
+        eci.entity.find("moqui.security.UserLoginKey").condition("userId", userId)
+                .condition("thruDate", EntityCondition.LESS_THAN, fromDate).disableAuthz().deleteAll()
+
+        return loginKey
+    }
+
+    @Override String getLoginKeyAndResetLogoutStatus() {
+        return getLoginKeyAndResetLogoutStatus(eci.ecfi.getLoginKeyExpireHours())
+    }
+
+    @Override String getLoginKeyAndResetLogoutStatus(float expireHours) {
+        String userId = getUserId()
+        if (!userId) throw new AuthenticationRequiredException("No active user, cannot get login key")
+
+        // CRITICAL: Order matters to avoid deadlock!
+        // 1. First update UserAccount (acquires exclusive lock)
+        // 2. Then create UserLoginKey (FK validation needs shared lock on UserAccount)
+        // Fix for hunterino/moqui#5 - Deadlock in Login operations
+
+        // Step 1: Reset hasLoggedOut flag (exclusive lock on UserAccount)
+        eci.serviceFacade.sync().name("update", "moqui.security.UserAccount")
+                .parameters([userId:userId, hasLoggedOut:"N"])
+                .disableAuthz().call()
+
+        // Step 2: Create login key (shared lock on UserAccount via FK)
+        // Using requireNewTransaction(false) to keep in same transaction as the update above
+        String loginKey = StringUtilities.getRandomString(40)
+        String hashedKey = eci.ecfi.getSimpleHash(loginKey, "", eci.ecfi.getLoginKeyHashType(), false)
+        Timestamp fromDate = getNowTimestamp()
+        long thruTime = fromDate.getTime() + Math.round(expireHours * 60*60*1000)
+        eci.serviceFacade.sync().name("create", "moqui.security.UserLoginKey")
+                .parameters([loginKey:hashedKey, userId:userId, fromDate:fromDate, thruDate:new Timestamp(thruTime)])
+                .disableAuthz().call()
+
+        // Clean out expired keys
         eci.entity.find("moqui.security.UserLoginKey").condition("userId", userId)
                 .condition("thruDate", EntityCondition.LESS_THAN, fromDate).disableAuthz().deleteAll()
 

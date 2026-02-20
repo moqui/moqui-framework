@@ -28,11 +28,11 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 
-import javax.servlet.ServletConfig
-import javax.servlet.http.HttpServlet
-import javax.servlet.http.HttpServletResponse
-import javax.servlet.http.HttpServletRequest
-import javax.servlet.ServletException
+import jakarta.servlet.ServletConfig
+import jakarta.servlet.http.HttpServlet
+import jakarta.servlet.http.HttpServletResponse
+import jakarta.servlet.http.HttpServletRequest
+import jakarta.servlet.ServletException
 
 
 @CompileStatic
@@ -68,6 +68,9 @@ class MoquiServlet extends HttpServlet {
 
         // handle CORS actual and preflight request headers
         if (handleCors(request, response, webappName, ecfi)) return
+
+        // Add security headers to all responses (OWASP recommended)
+        addSecurityHeaders(request, response, webappName, ecfi)
 
         if (!request.characterEncoding) request.setCharacterEncoding("UTF-8")
         long startTime = System.currentTimeMillis()
@@ -246,6 +249,68 @@ class MoquiServlet extends HttpServlet {
         }
 
         return false
+    }
+
+    /**
+     * Add security headers to HTTP responses following OWASP recommendations.
+     * Headers can be overridden via webapp configuration using response-header elements with type="security".
+     *
+     * @see <a href="https://owasp.org/www-project-secure-headers/">OWASP Secure Headers Project</a>
+     */
+    static void addSecurityHeaders(HttpServletRequest request, HttpServletResponse response, String webappName, ExecutionContextFactoryImpl ecfi) {
+        // First, add any configured security headers from webapp config
+        ExecutionContextFactoryImpl.WebappInfo webappInfo = ecfi?.getWebappInfo(webappName)
+        if (webappInfo != null) {
+            webappInfo.addHeaders("security", response)
+        }
+
+        // Then add default security headers if not already set
+
+        // X-Content-Type-Options: Prevents MIME-sniffing attacks
+        if (response.getHeader("X-Content-Type-Options") == null) {
+            response.setHeader("X-Content-Type-Options", "nosniff")
+        }
+
+        // X-Frame-Options: Prevents clickjacking attacks
+        // SAMEORIGIN allows embedding from same origin, DENY blocks all framing
+        if (response.getHeader("X-Frame-Options") == null) {
+            response.setHeader("X-Frame-Options", "SAMEORIGIN")
+        }
+
+        // X-XSS-Protection: Legacy XSS filter for older browsers
+        // Note: Modern browsers use CSP instead, but this helps older browsers
+        if (response.getHeader("X-XSS-Protection") == null) {
+            response.setHeader("X-XSS-Protection", "1; mode=block")
+        }
+
+        // Referrer-Policy: Controls referrer information sent with requests
+        if (response.getHeader("Referrer-Policy") == null) {
+            response.setHeader("Referrer-Policy", "strict-origin-when-cross-origin")
+        }
+
+        // Permissions-Policy: Restricts browser features (formerly Feature-Policy)
+        if (response.getHeader("Permissions-Policy") == null) {
+            response.setHeader("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+        }
+
+        // Strict-Transport-Security (HSTS): Only on HTTPS connections
+        // Forces browsers to use HTTPS for all future requests
+        if (request.isSecure() && response.getHeader("Strict-Transport-Security") == null) {
+            // max-age=31536000 = 1 year; includeSubDomains for subdomains
+            // Note: preload requires submission to browser preload lists
+            response.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+        }
+
+        // Content-Security-Policy: Mitigates XSS and data injection attacks
+        // Default policy allows same-origin with inline scripts/styles (common in legacy apps)
+        // This should be customized per deployment via webapp configuration
+        if (response.getHeader("Content-Security-Policy") == null) {
+            // Conservative default that works with most apps - can be tightened via config
+            response.setHeader("Content-Security-Policy",
+                "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+                "style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; " +
+                "font-src 'self' data:; connect-src 'self'; frame-ancestors 'self'")
+        }
     }
 
     static void sendErrorResponse(HttpServletRequest request, HttpServletResponse response, int errorCode, String errorType,
