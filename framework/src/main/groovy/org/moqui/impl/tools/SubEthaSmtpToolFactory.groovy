@@ -32,8 +32,8 @@ import org.subethamail.smtp.auth.LoginFailedException
 import org.subethamail.smtp.auth.UsernamePasswordValidator
 import org.subethamail.smtp.server.SMTPServer
 
-import javax.mail.Session
-import javax.mail.internet.MimeMessage
+import jakarta.mail.Session
+import jakarta.mail.internet.MimeMessage
 
 /**
  * ToolFactory to initialize SubEtha SMTP server and provide access to an instance of org.subethamail.smtp.server.SMTPServer

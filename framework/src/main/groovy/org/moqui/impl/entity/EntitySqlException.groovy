@@ -16,10 +16,13 @@ package org.moqui.impl.entity
 import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
 import org.moqui.entity.EntityException
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import java.sql.SQLException
 
 /** Wrap an SqlException for more user friendly error messages */
 class EntitySqlException extends EntityException {
+    private static final Logger logger = LoggerFactory.getLogger(EntitySqlException.class)
     // NOTE these are the messages to localize with LocalizedMessage
     // NOTE: don't change these unless there is a really good reason, will break localization
     private static Map<String, String> messageBySqlCode = [
@@ -75,7 +78,7 @@ class EntitySqlException extends EntityException {
                     // overrideMessage += ': ' + ec.l10n.localize(msg)
                     overrideMessage += ': ' + msg
                 } catch (Throwable t) {
-                    System.out.println("Error localizing override message " + t.toString())
+                    logger.warn("Error localizing override message: {}", t.toString())
                 }
             }
         }

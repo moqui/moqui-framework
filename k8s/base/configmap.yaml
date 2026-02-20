@@ -1,0 +1,31 @@
+# Moqui Framework ConfigMap
+# Non-sensitive configuration values
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: moqui-config
+  labels:
+    app.kubernetes.io/name: moqui
+    app.kubernetes.io/component: config
+data:
+  # Instance configuration
+  MOQUI_INSTANCE_PURPOSE: "production"
+  WEBAPP_ALLOW_ORIGINS: ""
+  ENTITY_EMPTY_DB_LOAD: "seed,seed-initial"
+  TZ: "UTC"
+
+  # Database configuration (host/port)
+  DB_HOST: "postgres"
+  DB_PORT: "5432"
+  DB_NAME: "moqui"
+  DB_SCHEMA: "public"
+
+  # OpenSearch configuration
+  OPENSEARCH_HOST: "opensearch"
+  OPENSEARCH_PORT: "9200"
+
+  # JVM settings
+  JAVA_TOOL_OPTIONS: "-Xms512m -Xmx1024m -XX:+UseG1GC -XX:MaxGCPauseMillis=100"
+
+  # Moqui runtime configuration file
+  MOQUI_RUNTIME_CONF: "conf/MoquiProductionConf.xml"

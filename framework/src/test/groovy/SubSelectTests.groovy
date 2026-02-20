@@ -18,6 +18,7 @@ import org.moqui.entity.EntityFind
 import org.moqui.entity.EntityList
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import spock.lang.Ignore
 import spock.lang.Shared
 import spock.lang.Specification
 

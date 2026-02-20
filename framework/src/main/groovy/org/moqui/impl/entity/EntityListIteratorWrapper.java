@@ -186,12 +186,4 @@ class EntityListIteratorWrapper implements EntityListIterator {
         throw new BaseArtifactException("EntityListIteratorWrapper.add() not currently supported");
         // TODO implement this
     }
-
-    @Override protected void finalize() throws Throwable {
-        if (!closed) {
-            this.close();
-            logger.error("EntityListIteratorWrapper not closed for entity " + entityDefinition.fullEntityName + ", caught in finalize()");
-        }
-        super.finalize();
-    }
 }

@@ -15,6 +15,7 @@ package org.moqui.resource;
 
 import org.moqui.BaseException;
 import org.moqui.util.ObjectUtilities;
+import org.moqui.util.PathSanitizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,12 +50,22 @@ public class UrlResourceReference extends ResourceReference {
         if (location.startsWith(runtimePrefix)) location = location.substring(runtimePrefix.length());
 
         if (location.startsWith("/") || !location.contains(":")) {
+            // SEC-010: Validate path to prevent path traversal attacks (CWE-22)
+            if (!PathSanitizer.isPathSafe(location)) {
+                throw new BaseException("Invalid path: path traversal sequences not allowed in " + location);
+            }
+
             // no prefix, local file: if starts with '/' is absolute, otherwise is relative to runtime path
             if (location.charAt(0) != '/') {
                 String moquiRuntime = System.getProperty("moqui.runtime");
                 if (moquiRuntime != null && !moquiRuntime.isEmpty()) {
                     File runtimeFile = new File(moquiRuntime);
-                    location = runtimeFile.getAbsolutePath() + "/" + location;
+                    // SEC-010: Validate that resolved path stays within runtime directory
+                    try {
+                        location = PathSanitizer.validatePath(runtimeFile.getAbsolutePath(), location);
+                    } catch (SecurityException e) {
+                        throw new BaseException("Path traversal detected: " + e.getMessage());
+                    }
                 }
             }
 

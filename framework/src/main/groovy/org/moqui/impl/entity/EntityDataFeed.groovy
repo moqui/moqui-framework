@@ -24,10 +24,10 @@ import org.moqui.impl.entity.EntityJavaUtil.RelationshipInfo
 import org.moqui.jcache.MCache
 
 import javax.cache.Cache
-import javax.transaction.Status
-import javax.transaction.Synchronization
-import javax.transaction.Transaction
-import javax.transaction.TransactionManager
+import jakarta.transaction.Status
+import jakarta.transaction.Synchronization
+import jakarta.transaction.Transaction
+import jakarta.transaction.TransactionManager
 import javax.transaction.xa.XAException
 import java.sql.Timestamp
 

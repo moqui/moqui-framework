@@ -15,7 +15,7 @@ package org.moqui.context;
 
 import groovy.lang.Closure;
 
-import javax.transaction.Synchronization;
+import jakarta.transaction.Synchronization;
 import javax.transaction.xa.XAResource;
 
 /** Use this interface to do transaction demarcation and related operations.
@@ -69,8 +69,8 @@ public interface TransactionFacade {
     /** Run in a separate transaction, even if one is in place. */
     Object runRequireNew(Integer timeout, String rollbackMessage, Closure closure);
 
-    javax.transaction.TransactionManager getTransactionManager();
-    javax.transaction.UserTransaction getUserTransaction();
+    jakarta.transaction.TransactionManager getTransactionManager();
+    jakarta.transaction.UserTransaction getUserTransaction();
 
     /** Get the status of the current transaction */
     int getStatus() throws TransactionException;

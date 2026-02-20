@@ -20,6 +20,7 @@ import org.moqui.impl.entity.condition.ConditionField;
 import org.moqui.util.LiteStringMap;
 import org.moqui.util.MNode;
 import org.moqui.util.ObjectUtilities;
+import org.moqui.util.SafeDeserialization;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -354,10 +355,14 @@ public class FieldInfo {
                     logger.warn("Got byte array back empty for serialized Object with length [" + originalBytes.length + "] for field [" + name + "] (" + index + ")");
                 }
                 if (binaryInput != null) {
+                    // SEC-009: Use safe deserialization with class filtering to prevent CWE-502
                     ObjectInputStream inStream = null;
                     try {
-                        inStream = new ObjectInputStream(binaryInput);
+                        inStream = SafeDeserialization.createSafeObjectInputStream(binaryInput);
                         obj = inStream.readObject();
+                    } catch (InvalidClassException ex) {
+                        // SEC-009: Blocked class by SafeDeserialization filter
+                        logger.warn("Blocked deserialization of potentially unsafe class for field [" + name + "] (" + index + "): " + ex.toString());
                     } catch (IOException ex) {
                         if (logger.isTraceEnabled()) logger.trace("Unable to read BLOB from input stream for field [" + name + "] (" + index + "): " + ex.toString());
                     } catch (ClassNotFoundException ex) {

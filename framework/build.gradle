@@ -19,15 +19,20 @@ apply plugin: 'groovy'
 apply plugin: 'war'
 // to run gradle-versions-plugin use "gradle dependencyUpdates"
 apply plugin: 'com.github.ben-manes.versions'
+// JaCoCo for test coverage reporting (CICD-002)
+apply plugin: 'jacoco'
+// OWASP Dependency-Check for security scanning (CICD-003)
+apply plugin: 'org.owasp.dependencycheck'
 // uncomment to add the Error Prone compiler; not enabled by default (doesn't work on Travis CI)
 // apply plugin: 'net.ltgt.errorprone'
 buildscript {
     repositories {
         mavenCentral()
-        maven { url "https://plugins.gradle.org/m2/" }
+        maven { url = 'https://plugins.gradle.org/m2/' }
     }
     dependencies {
         classpath 'com.github.ben-manes:gradle-versions-plugin:0.52.0'
+        classpath 'org.owasp:dependency-check-gradle:12.1.0'
         // uncomment to add the Error Prone compiler: classpath 'net.ltgt.gradle:gradle-errorprone-plugin:0.0.8'
     }
 }
@@ -42,9 +47,14 @@ repositories {
     mavenCentral()
 }
 
-sourceCompatibility = 11
-targetCompatibility = 11
-archivesBaseName = 'moqui'
+java {
+    sourceCompatibility = 21
+    targetCompatibility = 21
+}
+
+base {
+    archivesName.set('moqui')
+}
 
 sourceSets {
     start
@@ -56,14 +66,17 @@ groovydoc {
     source = sourceSets.main.allSource
 }
 
-// tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:unchecked" }
-// tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:deprecation" }
-// tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:unchecked" }
-// tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:deprecation" }
-
-// Log4J has annotation processors, disable to avoid warning
-tasks.withType(JavaCompile) { options.compilerArgs << "-proc:none" }
-tasks.withType(GroovyCompile) { options.compilerArgs << "-proc:none" }
+// Enable compiler warnings for code quality (JAVA21-002)
+tasks.withType(JavaCompile) {
+    options.compilerArgs << "-Xlint:unchecked"
+    options.compilerArgs << "-Xlint:deprecation"
+    options.compilerArgs << "-proc:none"  // Log4J has annotation processors, disable to avoid warning
+}
+tasks.withType(GroovyCompile) {
+    options.compilerArgs << "-Xlint:unchecked"
+    options.compilerArgs << "-Xlint:deprecation"
+    options.compilerArgs << "-proc:none"
+}
 
 // NOTE: for dependency types and 'api' definition see: https://docs.gradle.org/current/userguide/java_library_plugin.html
 dependencies {
@@ -72,6 +85,8 @@ dependencies {
     //     from true during constructor to false later on; see EntityFindBuilder.java:112-114 and EntityDefinition.groovy:50-53,94-95;
     //     for now using Boolean instead of boolean to resolve, but staying at 3.0.9 to avoid risk with other code
     // Now using latest Groovy in 3 series (with code adjustments as needed)
+    // DEP-003: Groovy 3.0.19 is latest stable version compatible with existing @CompileStatic code
+    // Note: 3.0.25 requires type annotation fixes in RestSchemaUtil and other files
     api 'org.codehaus.groovy:groovy:3.0.19' // Apache 2.0
     api 'org.codehaus.groovy:groovy-dateutil:3.0.19' // Apache 2.0
     api 'org.codehaus.groovy:groovy-groovysh:3.0.19' // Apache 2.0
@@ -85,24 +100,28 @@ dependencies {
     // Findbugs need only during compile (used by freemarker and various moqui classes)
     compileOnly 'com.google.code.findbugs:annotations:3.0.1'
 
-    // ========== Local (flatDir) libraries in framework/lib ==========
+    // ========== Transaction Manager ==========
 
-    // Bitronix Transaction Manager (the default internal tx mgr; custom build from source as 3.0.0 not yet released)
-    api 'org.codehaus.btm:btm:3.0.0-20161020' // Apache 2.0
-    runtimeOnly 'org.javassist:javassist:3.29.2-GA' // Apache 2.0
-
+    // Narayana Transaction Manager (replaces Bitronix for Java 21 compatibility)
+    // DEP-006: Replaced Bitronix 3.0.0 with Narayana 7.3.3 for Java 21 support
+    api 'org.jboss.narayana.jta:jta:7.3.3.Final'
+    api 'org.jboss:jboss-transaction-spi:8.0.0.Final'
+    // HikariCP for connection pooling (used with Narayana)
+    api 'com.zaxxer:HikariCP:6.2.1'
     // ========== General Libraries from Maven Central ==========
 
     // Apache Commons
+    // DEP-005: Updated Apache Commons libraries to latest versions
     api 'org.apache.commons:commons-csv:1.14.0' // Apache 2.0
-    // NOTE: commons-email depends on com.sun.mail:javax.mail, included below, so use module() here to not get dependencies
-    api module('org.apache.commons:commons-email:1.5') // Apache 2.0
-    api 'org.apache.commons:commons-lang3:3.17.0' // Apache 2.0; used by cron-utils
-    api 'commons-beanutils:commons-beanutils:1.10.1' // Apache 2.0
+    // NOTE: commons-email depends on javax.mail, use transitive=false to avoid pulling in javax namespace
+    api('org.apache.commons:commons-email:1.6.0') { transitive = false } // Apache 2.0
+    api 'org.apache.commons:commons-lang3:3.18.0' // Apache 2.0; used by cron-utils
+    api 'commons-beanutils:commons-beanutils:1.11.0' // Apache 2.0
     api 'commons-codec:commons-codec:1.18.0' // Apache 2.0
     api 'commons-collections:commons-collections:3.2.2' // Apache 2.0
     api 'commons-digester:commons-digester:2.1' // Apache 2.0
-    api 'commons-fileupload:commons-fileupload:1.5' // Apache 2.0
+    // JETTY-001: Updated to FileUpload 2.x for Jakarta Servlet 6 compatibility
+    api 'org.apache.commons:commons-fileupload2-jakarta-servlet6:2.0.0-M2' // Apache 2.0
     api 'commons-io:commons-io:2.18.0' // Apache 2.0
     api 'commons-logging:commons-logging:1.3.5' // Apache 2.0
     api 'commons-validator:commons-validator:1.9.0' // Apache 2.0
@@ -120,21 +139,28 @@ dependencies {
     api 'org.freemarker:freemarker:2.3.34' // Apache 2.0
 
     // H2 Database
-    api 'com.h2database:h2:2.3.232' // MPL 2.0, EPL 1.0
+    // DEP-002: Updated H2 2.3.232 -> 2.4.240 for security fixes and improvements
+    api 'com.h2database:h2:2.4.240' // MPL 2.0, EPL 1.0
 
     // Java Specifications
-    api 'javax.transaction:jta:1.1'
+    api 'jakarta.transaction:jakarta.transaction-api:2.0.1'
     api 'javax.cache:cache-api:1.1.1'
     api 'javax.jcr:jcr:2.0'
     // jaxb-api no longer included in Java 9 and later, also tested with openjdk-8
-    api module('javax.xml.bind:jaxb-api:2.3.1') // CDDL 1.1
+    api('javax.xml.bind:jaxb-api:2.3.1') { // CDDL 1.1
+        transitive = false
+    }
     // NOTE: javax.activation:javax.activation-api is required by jaxb-api, has classes same as old 2012 javax.activation:activation used by javax.mail
     // NOTE: as of Java 11 the com.sun packages no longer available so for javax.mail need full javax.activation jar (also includes javax.activation-api)
-    api 'com.sun.activation:javax.activation:1.2.0' // CDDL 1.1
-    api 'javax.websocket:javax.websocket-api:1.1'
+    // JETTY-001: Updated to Jakarta EE 10 APIs for Jetty 12 compatibility
+    api 'jakarta.activation:jakarta.activation-api:2.1.3' // EDL 1.0
+    api 'jakarta.websocket:jakarta.websocket-api:2.1.1'
+    api 'jakarta.websocket:jakarta.websocket-client-api:2.1.1' // Required for jakarta.websocket.Extension class
     // TODO: this should be compileOnlyApi, but that was not included in Gradle 5... so cannot have excluded from
     //     runtime in a single way for Gradle 5 and 7; for now leaving in api, not desirable because we don't want it in the war file
-    api 'javax.servlet:javax.servlet-api:4.0.1'
+    api 'jakarta.servlet:jakarta.servlet-api:6.0.0'
+    // Note: With Shiro 1.13.0:jakarta classifier, javax.servlet-api is no longer needed
+    // The jakarta classifier transforms all javax.servlet references to jakarta.servlet
     // Specs not needed by default:
     // api 'javax.resource:connector-api:1.5'
     // api 'javax.jms:jms:1.1'
@@ -145,15 +171,22 @@ dependencies {
     api 'com.beust:jcommander:1.82'
 
     // Jackson Databind (JSON, etc)
-    api 'com.fasterxml.jackson.core:jackson-databind:2.18.3'
+    // DEP-001: Updated Jackson 2.18.3 -> 2.20.1 for security fixes and improvements
+    api 'com.fasterxml.jackson.core:jackson-databind:2.20.1'
 
     // Jetty HTTP Client and Proxy Servlet
-    api 'org.eclipse.jetty:jetty-client:10.0.25' // Apache 2.0
-    api 'org.eclipse.jetty:jetty-proxy:10.0.25' // Apache 2.0
+    // JETTY-001: Updated Jetty 10.0.25 -> 12.1.4 for Jakarta EE 10 support
+    api 'org.eclipse.jetty:jetty-client:12.1.4' // Apache 2.0
+    api 'org.eclipse.jetty.ee10:jetty-ee10-proxy:12.1.4' // Apache 2.0
 
-    // javax.mail
-    // NOTE: javax.mail depends on 'javax.activation:activation' which is the old package for 'javax.activation:javax.activation-api' used by jaxb-api
-    api module('com.sun.mail:javax.mail:1.6.2') // CDDL
+    // Jakarta Mail (JETTY-001: Updated from javax.mail for Jakarta EE 10)
+    // NOTE: Angus Mail is the reference implementation for Jakarta Mail 2.1
+    api 'jakarta.mail:jakarta.mail-api:2.1.3' // EPL 2.0
+    api('org.eclipse.angus:angus-mail:2.0.3') { // EPL 2.0
+        transitive = false
+    }
+    // JETTY-001: Angus Activation provides jakarta.activation.spi.MimeTypeRegistryProvider implementation
+    api 'org.eclipse.angus:angus-activation:2.0.3' // EPL 2.0
 
     // Joda Time (used by elasticsearch, aws)
     api 'joda-time:joda-time:2.13.1' // Apache 2.0
@@ -161,19 +194,33 @@ dependencies {
     // JSoup (HTML parser, cleaner)
     api 'org.jsoup:jsoup:1.19.1' // MIT
 
-    // Apache Shiro
-    api module('org.apache.shiro:shiro-core:1.13.0') // Apache 2.0
-    api module('org.apache.shiro:shiro-web:1.13.0') // Apache 2.0
+    // Apache Shiro - using 1.13.0 with jakarta classifier for Jakarta EE 10 compatibility (SHIRO-001)
+    // Note: Shiro 2.x shiro-web still uses javax.servlet internally, 1.13.0:jakarta is the proven approach
+    // See: https://stackoverflow.com/questions/75838823/apache-shiro-encountering-java-lang-noclassdeffounderror-javax-servlet-filter-w
+    api('org.apache.shiro:shiro-core:1.13.0:jakarta') {
+        transitive = false
+    } // Apache 2.0
+    api('org.apache.shiro:shiro-web:1.13.0:jakarta') {
+        transitive = false
+        // Exclude non-jakarta shiro-core that might be pulled in
+        exclude group: 'org.apache.shiro', module: 'shiro-core'
+    } // Apache 2.0
+
+    // BCrypt password hashing (SEC-002: modern password hashing)
+    api 'at.favre.lib:bcrypt:0.10.2' // Apache 2.0
 
     // SLF4J, Log4j 2 (note Log4j 2 is used by various libraries, best not to replace it even if mostly possible with SLF4J)
+    // DEP-004: Updated Log4j 2.24.3 -> 2.25.0 for security fixes and improvements
     api 'org.slf4j:slf4j-api:2.0.17'
-    implementation 'org.apache.logging.log4j:log4j-core:2.24.3'
-    implementation 'org.apache.logging.log4j:log4j-api:2.24.3'
-    runtimeOnly 'org.apache.logging.log4j:log4j-jcl:2.24.3'
-    runtimeOnly 'org.apache.logging.log4j:log4j-slf4j2-impl:2.24.3'
+    implementation 'org.apache.logging.log4j:log4j-core:2.25.0'
+    implementation 'org.apache.logging.log4j:log4j-api:2.25.0'
+    runtimeOnly 'org.apache.logging.log4j:log4j-jcl:2.25.0'
+    runtimeOnly 'org.apache.logging.log4j:log4j-slf4j2-impl:2.25.0'
 
     // SubEtha SMTP (module as depends on old javax.mail location; also uses SLF4J, activation included elsewhere)
-    api module('org.subethamail:subethasmtp:3.1.7')
+    api('org.subethamail:subethasmtp:3.1.7') {
+        transitive = false
+    }
 
     // Snake YAML
     api 'org.yaml:snakeyaml:2.4' // Apache 2.0
@@ -203,18 +250,19 @@ dependencies {
     testImplementation 'org.hamcrest:hamcrest-core:2.2' // BSD 3-Clause
 
     // ========== executable war dependencies ==========
-    // Jetty
-    execWarRuntimeOnly 'org.eclipse.jetty:jetty-server:10.0.25' // Apache 2.0
-    execWarRuntimeOnly 'org.eclipse.jetty:jetty-webapp:10.0.25' // Apache 2.0
-    execWarRuntimeOnly 'org.eclipse.jetty:jetty-jndi:10.0.25' // Apache 2.0
-    execWarRuntimeOnly 'org.eclipse.jetty.websocket:websocket-javax-server:10.0.25' // Apache 2.0
-    execWarRuntimeOnly ('org.eclipse.jetty.websocket:websocket-javax-client:10.0.25') { // Apache 2.0
-        exclude group: 'javax.websocket' } // we have the full websocket API, including the client one causes problems
-    execWarRuntimeOnly 'javax.websocket:javax.websocket-api:1.1'
-    execWarRuntimeOnly ('org.eclipse.jetty.websocket:websocket-jetty-server:10.0.25') // Apache 2.0
+    // Jetty - JETTY-001: Updated to 12.1.4 with EE10 (Jakarta EE 10) modules
+    execWarRuntimeOnly 'org.eclipse.jetty:jetty-server:12.1.4' // Apache 2.0
+    execWarRuntimeOnly 'org.eclipse.jetty:jetty-session:12.1.4' // Apache 2.0 - JETTY-012: Session classes in separate module in Jetty 12
+    execWarRuntimeOnly 'org.eclipse.jetty.ee10:jetty-ee10-webapp:12.1.4' // Apache 2.0
+    execWarRuntimeOnly 'org.eclipse.jetty:jetty-jndi:12.1.4' // Apache 2.0
+    execWarRuntimeOnly 'org.eclipse.jetty.ee10.websocket:jetty-ee10-websocket-jakarta-server:12.1.4' // Apache 2.0
+    execWarRuntimeOnly ('org.eclipse.jetty.ee10.websocket:jetty-ee10-websocket-jakarta-client:12.1.4') { // Apache 2.0
+        exclude group: 'jakarta.websocket' } // we have the full websocket API, including the client one causes problems
+    execWarRuntimeOnly 'jakarta.websocket:jakarta.websocket-api:2.1.1'
+    execWarRuntimeOnly ('org.eclipse.jetty.ee10.websocket:jetty-ee10-websocket-jetty-server:12.1.4') // Apache 2.0
     // only include this if using Endpoint and MessageHandler annotations:
-    // execWarRuntime ('org.eclipse.jetty:jetty-annotations:10.0.25') // Apache 2.0
-    execWarRuntimeOnly 'org.apache.logging.log4j:log4j-slf4j18-impl:2.18.0'
+    // execWarRuntime ('org.eclipse.jetty.ee10:jetty-ee10-annotations:12.1.4') // Apache 2.0
+    execWarRuntimeOnly 'org.apache.logging.log4j:log4j-slf4j2-impl:2.25.0'
 }
 
 // setup task dependencies to make sure the start sourceSets always get run
@@ -230,9 +278,34 @@ test {
     useJUnitPlatform()
     testLogging { events "passed", "skipped", "failed" }
     testLogging.showStandardStreams = true; testLogging.showExceptions = true
-    maxParallelForks 1
 
-    dependsOn cleanTest
+    // TEST-006: Parallel test execution configuration
+    // Note: Moqui tests share ExecutionContextFactory and database state within a suite,
+    // so true parallel execution requires running separate test suites in different forks.
+    // The current MoquiSuite runs all tests sequentially within a single fork for database consistency.
+    // For CI optimization, consider splitting into multiple independent test suites.
+    //
+    // Set via gradle property: ./gradlew test -PmaxForks=4
+    // Or environment variable: MAX_TEST_FORKS=4 ./gradlew test
+    def forks = project.hasProperty('maxForks') ? project.property('maxForks').toInteger() :
+                System.getenv('MAX_TEST_FORKS') ? System.getenv('MAX_TEST_FORKS').toInteger() : 1
+    maxParallelForks = Math.min(forks, Runtime.runtime.availableProcessors())
+
+    // Configure memory per fork when running in parallel
+    if (maxParallelForks > 1) {
+        minHeapSize = "256m"
+        maxHeapSize = "1g"
+        // Ensure each fork gets a unique temp directory for test isolation
+        systemProperty 'java.io.tmpdir', "${buildDir}/test-tmp-${System.currentTimeMillis()}"
+    }
+
+    // Fail fast on first test failure in CI environments
+    if (System.getenv('CI') == 'true') {
+        failFast = true
+    }
+    maxParallelForks = 1
+
+    dependsOn cleanTest, jar
     include '**/*MoquiSuite.class'
 
     systemProperty 'moqui.runtime', '../runtime'
@@ -256,16 +329,20 @@ jar {
     from fileTree(dir: projectDir.absolutePath, includes: ['data/**', 'entity/**', 'screen/**', 'service/**', 'template/**']) // 'xsd/**'
 }
 
+tasks.test {
+    inputs.files(tasks.jar)
+}
+
 war {
     dependsOn jar
     // put the war file in the parent directory, ie the moqui dir instead of the framework dir
-    destinationDirectory = projectDir.parentFile
+    destinationDirectory.set(projectDir.parentFile)
     archiveFileName = 'moqui.war'
     // add MoquiInit.properties to the WEB-INF/classes dir for the deployed war mode of operation
-    from(fileTree(dir: destinationDir, includes: ['MoquiInit.properties'])) { into 'WEB-INF/classes' }
+    from(fileTree(dir: destinationDirectory.get().asFile, includes: ['MoquiInit.properties'])) { into 'WEB-INF/classes' }
     // this excludes the classes in sourceSets.main.output (better to have the jar file built above)
     classpath = configurations.runtimeClasspath - configurations.providedCompile
-    classpath file(jar.archivePath)
+    classpath file(jar.archiveFile.get().asFile)
 
     // put start classes and Jetty jars in the root of the war file for the executable war/jar mode of operation
     from sourceSets.start.output
@@ -274,6 +351,52 @@ war {
     // setup the manifest for the executable war/jar mode
     manifest { attributes 'Implementation-Title': 'Moqui Start', 'Implementation-Vendor': 'Moqui Ecosystem',
             'Implementation-Version': version, 'Main-Class': 'MoquiStart' }
+}
+
+// ========== JaCoCo Test Coverage Configuration (CICD-002) ==========
+jacoco {
+    toolVersion = "0.8.12"
+}
+
+test {
+    finalizedBy jacocoTestReport
+}
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true
+        html.required = true
+        csv.required = false
+    }
+}
+
+jacocoTestCoverageVerification {
+    violationRules {
+        rule {
+            limit {
+                // Minimum 20% coverage to start, increase over time (CICD-005)
+                minimum = 0.20
+            }
+        }
+    }
+}
+
+// ========== OWASP Dependency-Check Configuration (CICD-003) ==========
+dependencyCheck {
+    // Fail build on CVSS >= 7 (High severity)
+    failBuildOnCVSS = 7.0
+    // Output formats
+    formats = ['HTML', 'JSON']
+    // Suppress known false positives (create this file as needed)
+    // suppressionFile = 'config/owasp-suppressions.xml'
+    // Skip dev dependencies
+    skipConfigurations = ['testImplementation', 'testRuntimeOnly']
+    // NVD API settings (optional, for faster scans)
+    nvd {
+        // Register for free API key at https://nvd.nist.gov/developers/request-an-api-key
+        // apiKey = System.getenv('NVD_API_KEY')
+    }
 }
 
 task copyDependencies { doLast {

@@ -15,19 +15,15 @@ package org.moqui.util;
 
 import groovy.json.JsonBuilder;
 import groovy.json.JsonSlurperClassic;
-import org.eclipse.jetty.client.HttpClient;
-import org.eclipse.jetty.client.HttpClientTransport;
-import org.eclipse.jetty.client.HttpResponseException;
-import org.eclipse.jetty.client.ValidatingConnectionPool;
-import org.eclipse.jetty.client.api.*;
-import org.eclipse.jetty.client.dynamic.HttpClientTransportDynamic;
-import org.eclipse.jetty.client.http.HttpClientTransportOverHTTP;
-import org.eclipse.jetty.client.util.*;
+import org.eclipse.jetty.client.*;
+import org.eclipse.jetty.client.transport.HttpClientTransportDynamic;
+import org.eclipse.jetty.client.transport.HttpClientTransportOverHTTP;
+import org.eclipse.jetty.http.HttpCookieStore;
 import org.eclipse.jetty.http.HttpField;
 import org.eclipse.jetty.http.HttpFields;
 import org.eclipse.jetty.http.HttpHeader;
+import org.eclipse.jetty.http.MultiPart;
 import org.eclipse.jetty.io.ClientConnector;
-import org.eclipse.jetty.util.HttpCookieStore;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
 import org.eclipse.jetty.util.thread.ScheduledExecutorScheduler;
@@ -221,7 +217,7 @@ public class RestClient {
         if (method != Method.POST) throw new IllegalStateException("Can only use multipart body with POST method, not supported for method " + method + "; if you need a different effective request method try using the X-HTTP-Method-Override header");
 
         if (multiPart == null) multiPart = new MultiPartRequestContent();
-        multiPart.addFieldPart(field, new StringRequestContent(value), null);
+        multiPart.addPart(new MultiPart.ContentSourcePart(field, null, HttpFields.EMPTY, new StringRequestContent(value)));
         return this;
     }
     /** Add a String file part to a multi part request **/
@@ -238,7 +234,8 @@ public class RestClient {
     public RestClient addFilePart(String name, String fileName, Request.Content content, HttpFields fields) {
         if (method != Method.POST) throw new IllegalStateException("Can only use multipart body with POST method, not supported for method " + method + "; if you need a different effective request method try using the X-HTTP-Method-Override header");
         if (multiPart == null) multiPart = new MultiPartRequestContent();
-        multiPart.addFilePart(name, fileName, content, fields);
+        HttpFields partFields = fields != null ? fields : HttpFields.EMPTY;
+        multiPart.addPart(new MultiPart.ContentSourcePart(name, fileName, partFields, content));
         return this;
     }
 
@@ -312,16 +309,15 @@ public class RestClient {
             Request request = makeRequest(tempFactory != null ? tempFactory : (overrideRequestFactory != null ? overrideRequestFactory : getDefaultRequestFactory()));
             if (timeoutSeconds < 2) timeoutSeconds = 2;
             request.idleTimeout(timeoutSeconds > 30 ? 30 : timeoutSeconds-1, TimeUnit.SECONDS);
-            // use a FutureResponseListener so we can set the timeout and max response size (old: response = request.send(); )
-            FutureResponseListener listener = new FutureResponseListener(request, maxResponseSize);
+            // use a CompletableResponseListener so we can set the timeout and max response size (old: response = request.send(); )
+            CompletableFuture<ContentResponse> completable = new CompletableResponseListener(request, maxResponseSize).send();
             try {
-                request.send(listener);
-                ContentResponse response = listener.get(timeoutSeconds, TimeUnit.SECONDS);
+                ContentResponse response = completable.get(timeoutSeconds, TimeUnit.SECONDS);
                 return new RestResponse(this, response);
             } catch (TimeoutException e) {
                 logger.warn("RestClient request timed out after " + timeoutSeconds + "s to " + request.getURI());
-                // cancel listener, just in case
-                listener.cancel(true);
+                // cancel future, just in case
+                completable.cancel(true);
                 // abort request to make sure it gets closed and cleaned up
                 request.abort(e);
                 throw e;
@@ -338,16 +334,20 @@ public class RestClient {
         request.method(method.name());
         // set charset on request?
 
-        // add headers and parameters
-        for (KeyValueString nvp : headerList) request.header(nvp.key, nvp.value);
+        // add headers using Jetty 12 API
+        request.headers(headers -> {
+            for (KeyValueString nvp : headerList) headers.put(nvp.key, nvp.value);
+            // authc
+            if (username != null && !username.isEmpty()) {
+                String unPwString = username + ':' + password;
+                String basicAuthStr  = "Basic " + Base64.getEncoder().encodeToString(unPwString.getBytes());
+                headers.put(HttpHeader.AUTHORIZATION, basicAuthStr);
+                // using basic Authorization header instead, too many issues with this: httpClient.getAuthenticationStore().addAuthentication(new BasicAuthentication(uri, BasicAuthentication.ANY_REALM, username, password));
+            }
+        });
+
+        // add parameters
         for (KeyValueString nvp : bodyParameterList) request.param(nvp.key, nvp.value);
-        // authc
-        if (username != null && !username.isEmpty()) {
-            String unPwString = username + ':' + password;
-            String basicAuthStr  = "Basic " + Base64.getEncoder().encodeToString(unPwString.getBytes());
-            request.header(HttpHeader.AUTHORIZATION, basicAuthStr);
-            // using basic Authorization header instead, too many issues with this: httpClient.getAuthenticationStore().addAuthentication(new BasicAuthentication(uri, BasicAuthentication.ANY_REALM, username, password));
-        }
 
         if (multiPart != null) {
             multiPart.close();
@@ -600,7 +600,7 @@ public class RestClient {
     public static class RestClientFuture implements Future<RestResponse> {
         RestClient rci;
         RequestFactory tempRequestFactory = null;
-        FutureResponseListener listener;
+        CompletableFuture<ContentResponse> completable;
         volatile float curWaitSeconds;
         volatile int retryCount = 0;
         volatile boolean cancelled = false;
@@ -625,23 +625,22 @@ public class RestClient {
                         (rci.overrideRequestFactory != null ? rci.overrideRequestFactory : getDefaultRequestFactory()));
                 // use a CompleteListener to retry in background
                 request.onComplete(new RetryListener(this));
-                // use a FutureResponseListener so we can set the timeout and max response size (old: response = request.send(); )
-                listener = new FutureResponseListener(request, rci.maxResponseSize);
-                request.send(listener);
+                // use a CompletableResponseListener so we can set the timeout and max response size (old: response = request.send(); )
+                completable = new CompletableResponseListener(request, rci.maxResponseSize).send();
             } catch (Exception e) {
                 throw new BaseException("Error calling REST request to " + rci.uriString, e);
             }
         }
 
-        @Override public boolean isCancelled() { return cancelled || listener.isCancelled(); }
-        @Override public boolean isDone() { return retryCount >= rci.maxRetries && listener.isDone(); }
+        @Override public boolean isCancelled() { return cancelled || completable.isCancelled(); }
+        @Override public boolean isDone() { return retryCount >= rci.maxRetries && completable.isDone(); }
 
         @Override public boolean cancel(boolean mayInterruptIfRunning) {
             retryLock.lock();
             try {
                 try {
                     cancelled = true;
-                    return listener.cancel(mayInterruptIfRunning);
+                    return completable.cancel(mayInterruptIfRunning);
                 } finally {
                     if (tempRequestFactory != null) {
                         tempRequestFactory.destroy();
@@ -667,7 +666,7 @@ public class RestClient {
                 retryLock.lock();
                 try {
                     try {
-                        lastResponse = listener.get(timeout, unit);
+                        lastResponse = completable.get(timeout, unit);
                         if (lastResponse.getStatus() != TOO_MANY) break;
                     } finally {
                         if (tempRequestFactory != null) {
@@ -701,7 +700,7 @@ public class RestClient {
             clientConnector.setSslContextFactory(sslContextFactory);
             httpClient = new HttpClient(new HttpClientTransportDynamic(clientConnector));
 
-            if (disableCookieManagement) httpClient.setCookieStore(new HttpCookieStore.Empty());
+            if (disableCookieManagement) httpClient.setHttpCookieStore(new HttpCookieStore.Empty());
             // use a default idle timeout of 15 seconds, should be lower than server idle timeouts which will vary by server but 30 seconds seems to be common
             httpClient.setIdleTimeout(15000);
             try { httpClient.start(); } catch (Exception e) { throw new BaseException("Error starting HTTP client", e); }
@@ -718,13 +717,6 @@ public class RestClient {
                 try { httpClient.stop(); }
                 catch (Exception e) { logger.error("Error stopping SimpleRequestFactory HttpClient", e); }
             }
-        }
-        @Override protected void finalize() throws Throwable {
-            if (httpClient != null && httpClient.isRunning()) {
-                logger.warn("SimpleRequestFactory finalize and httpClient still running, stopping");
-                try { httpClient.stop(); } catch (Exception e) { logger.error("Error stopping SimpleRequestFactory HttpClient", e); }
-            }
-            super.finalize();
         }
     }
     /** RequestFactory with explicit pooling parameters and options specific to the Jetty HttpClient */
@@ -771,7 +763,7 @@ public class RestClient {
             if (scheduler == null) scheduler = new ScheduledExecutorScheduler(shortName + "-scheduler", false);
 
             transport.setConnectionPoolFactory(destination -> new ValidatingConnectionPool(destination,
-                    destination.getHttpClient().getMaxConnectionsPerDestination(), destination,
+                    destination.getHttpClient().getMaxConnectionsPerDestination(),
                     destination.getHttpClient().getScheduler(), validationTimeoutMillis));
 
             httpClient = new HttpClient(transport);
@@ -796,13 +788,6 @@ public class RestClient {
                 try { httpClient.stop(); }
                 catch (Exception e) { logger.error("Error stopping PooledRequestFactory HttpClient for " + shortName, e); }
             }
-        }
-        @Override protected void finalize() throws Throwable {
-            if (httpClient != null && httpClient.isRunning()) {
-                logger.warn("PooledRequestFactory finalize and httpClient still running for " + shortName + ", stopping");
-                try { httpClient.stop(); } catch (Exception e) { logger.error("Error stopping PooledRequestFactory HttpClient for " + shortName, e); }
-            }
-            super.finalize();
         }
     }
 }

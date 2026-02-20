@@ -16,6 +16,7 @@ import java.io.*;
 import java.lang.reflect.Array;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -193,6 +194,18 @@ public class MoquiStart {
 
             System.out.println("Running Jetty server on port " + port + " max threads " + threads + " with args [" + argMap + "]");
 
+            // JETTY-012: Register URLResourceFactory for "jar" scheme to work around FileSystem issues with nested JARs
+            // See https://github.com/jetty/jetty.project/issues/9973
+            try {
+                Class<?> resourceFactoryClass = moquiStartLoader.loadClass("org.eclipse.jetty.util.resource.ResourceFactory");
+                Class<?> urlResourceFactoryClass = moquiStartLoader.loadClass("org.eclipse.jetty.util.resource.URLResourceFactory");
+                Object urlResourceFactory = urlResourceFactoryClass.getConstructor().newInstance();
+                resourceFactoryClass.getMethod("registerResourceFactory", String.class, resourceFactoryClass).invoke(null, "jar", urlResourceFactory);
+                System.out.println("Registered URLResourceFactory for jar: scheme");
+            } catch (Exception e) {
+                System.out.println("Warning: Could not register URLResourceFactory: " + e.getMessage());
+            }
+
             Class<?> serverClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.Server");
             Class<?> handlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.Handler");
             Class<?> sizedThreadPoolClass = moquiStartLoader.loadClass("org.eclipse.jetty.util.thread.ThreadPool$SizedThreadPool");
@@ -201,28 +214,36 @@ public class MoquiStart {
             Class<?> forwardedRequestCustomizerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.ForwardedRequestCustomizer");
             Class<?> customizerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.HttpConfiguration$Customizer");
 
-            Class<?> sessionIdManagerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.SessionIdManager");
-            Class<?> defaultSessionIdManagerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.session.DefaultSessionIdManager");
-            Class<?> sessionHandlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.session.SessionHandler");
-            Class<?> sessionCacheClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.session.SessionCache");
-            Class<?> defaultSessionCacheClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.session.DefaultSessionCache");
-            Class<?> sessionDataStoreClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.session.SessionDataStore");
-            Class<?> fileSessionDataStoreClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.session.FileSessionDataStore");
+            // JETTY-012: Session classes - some in core org.eclipse.jetty.session, some in ee10
+            Class<?> sessionIdManagerClass = moquiStartLoader.loadClass("org.eclipse.jetty.session.SessionIdManager");
+            Class<?> defaultSessionIdManagerClass = moquiStartLoader.loadClass("org.eclipse.jetty.session.DefaultSessionIdManager");
+            // JETTY-012: SessionHandler for EE10 WebAppContext is in ee10.servlet package
+            Class<?> sessionHandlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.ee10.servlet.SessionHandler");
+            // JETTY-012: DefaultSessionCache constructor takes SessionManager interface
+            Class<?> sessionManagerClass = moquiStartLoader.loadClass("org.eclipse.jetty.session.SessionManager");
+            Class<?> sessionCacheClass = moquiStartLoader.loadClass("org.eclipse.jetty.session.SessionCache");
+            Class<?> defaultSessionCacheClass = moquiStartLoader.loadClass("org.eclipse.jetty.session.DefaultSessionCache");
+            Class<?> sessionDataStoreClass = moquiStartLoader.loadClass("org.eclipse.jetty.session.SessionDataStore");
+            Class<?> fileSessionDataStoreClass = moquiStartLoader.loadClass("org.eclipse.jetty.session.FileSessionDataStore");
 
             Class<?> connectorClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.Connector");
             Class<?> serverConnectorClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.ServerConnector");
-            Class<?> webappClass = moquiStartLoader.loadClass("org.eclipse.jetty.webapp.WebAppContext");
+            // JETTY-012: WebAppContext moved to ee10 package in Jetty 12
+            Class<?> webappClass = moquiStartLoader.loadClass("org.eclipse.jetty.ee10.webapp.WebAppContext");
 
             Class<?> connectionFactoryClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.ConnectionFactory");
             Class<?> connectionFactoryArrayClass = Array.newInstance(connectionFactoryClass, 1).getClass();
             Class<?> httpConnectionFactoryClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.HttpConnectionFactory");
 
-            Class<?> scHandlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.servlet.ServletContextHandler");
-            Class<?> wsInitializerClass = moquiStartLoader.loadClass("org.eclipse.jetty.websocket.javax.server.config.JavaxWebSocketServletContainerInitializer");
-            Class<?> wsInitializerConfiguratorClass = moquiStartLoader.loadClass("org.eclipse.jetty.websocket.javax.server.config.JavaxWebSocketServletContainerInitializer$Configurator");
+            // JETTY-012: ServletContextHandler moved to ee10 package in Jetty 12
+            Class<?> scHandlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.ee10.servlet.ServletContextHandler");
+            // JETTY-012: WebSocket classes moved to ee10.websocket.jakarta package in Jetty 12
+            Class<?> wsInitializerClass = moquiStartLoader.loadClass("org.eclipse.jetty.ee10.websocket.jakarta.server.config.JakartaWebSocketServletContainerInitializer");
+            Class<?> wsInitializerConfiguratorClass = moquiStartLoader.loadClass("org.eclipse.jetty.ee10.websocket.jakarta.server.config.JakartaWebSocketServletContainerInitializer$Configurator");
 
             Class<?> gzipHandlerClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.handler.gzip.GzipHandler");
-            Class<?> handlerWrapperClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.handler.HandlerWrapper");
+            // JETTY-012: HandlerWrapper is now Handler.Wrapper in Jetty 12
+            Class<?> handlerWrapperClass = moquiStartLoader.loadClass("org.eclipse.jetty.server.Handler$Wrapper");
 
             Object server = serverClass.getConstructor().newInstance();
             Object httpConfig = httpConfigurationClass.getConstructor().newInstance();
@@ -251,7 +272,8 @@ public class MoquiStart {
 
             Object sessionHandler = sessionHandlerClass.getConstructor().newInstance();
             sessionHandlerClass.getMethod("setServer", serverClass).invoke(sessionHandler, server);
-            Object sessionCache = defaultSessionCacheClass.getConstructor(sessionHandlerClass).newInstance(sessionHandler);
+            // JETTY-012: DefaultSessionCache constructor takes SessionManager interface (which SessionHandler implements)
+            Object sessionCache = defaultSessionCacheClass.getConstructor(sessionManagerClass).newInstance(sessionHandler);
             Object sessionDataStore = fileSessionDataStoreClass.getConstructor().newInstance();
             fileSessionDataStoreClass.getMethod("setStoreDir", File.class).invoke(sessionDataStore, storeDir);
             fileSessionDataStoreClass.getMethod("setDeleteUnrestorableFiles", boolean.class).invoke(sessionDataStore, true);
@@ -261,23 +283,58 @@ public class MoquiStart {
             Object sidMgr = defaultSessionIdManagerClass.getConstructor(serverClass).newInstance(server);
             defaultSessionIdManagerClass.getMethod("setServer", serverClass).invoke(sidMgr, server);
             sessionHandlerClass.getMethod("setSessionIdManager", sessionIdManagerClass).invoke(sessionHandler, sidMgr);
-            serverClass.getMethod("setSessionIdManager", sessionIdManagerClass).invoke(server, sidMgr);
+            // JETTY-012: Server.setSessionIdManager() removed in Jetty 12, use addBean() instead
+            serverClass.getMethod("addBean", Object.class).invoke(server, sidMgr);
 
             // WebApp
             Object webapp = webappClass.getConstructor().newInstance();
 
             webappClass.getMethod("setContextPath", String.class).invoke(webapp, "/");
-            webappClass.getMethod("setDescriptor", String.class).invoke(webapp, moquiStartLoader.wrapperUrl.toExternalForm() + "/WEB-INF/web.xml");
             webappClass.getMethod("setServer", serverClass).invoke(webapp, server);
             webappClass.getMethod("setSessionHandler", sessionHandlerClass).invoke(webapp, sessionHandler);
             webappClass.getMethod("setMaxFormKeys", int.class).invoke(webapp, 5000);
             if (isInWar) {
-                webappClass.getMethod("setWar", String.class).invoke(webapp, moquiStartLoader.wrapperUrl.toExternalForm());
-                webappClass.getMethod("setTempDirectory", File.class).invoke(webapp, new File(tempDirName + "/ROOT"));
+                // JETTY-012: Jetty 12 has issues with FileSystemPool.mount for WAR files
+                // Extract WAR first, then point to extracted directory instead of using setWar()
+                File warFile = new File(moquiStartLoader.wrapperUrl.toURI());
+                File tempDir = new File(tempDirName + "/ROOT/webapp");
+                if (!tempDir.exists()) {
+                    tempDir.mkdirs();
+                    // Extract WAR to temp directory
+                    java.util.jar.JarFile jar = new java.util.jar.JarFile(warFile);
+                    java.util.Enumeration<java.util.jar.JarEntry> entries = jar.entries();
+                    while (entries.hasMoreElements()) {
+                        java.util.jar.JarEntry entry = entries.nextElement();
+                        File entryFile = new File(tempDir, entry.getName());
+                        if (entry.isDirectory()) {
+                            entryFile.mkdirs();
+                        } else {
+                            entryFile.getParentFile().mkdirs();
+                            try (java.io.InputStream is = jar.getInputStream(entry);
+                                 java.io.OutputStream os = new java.io.FileOutputStream(entryFile)) {
+                                byte[] buffer = new byte[4096];
+                                int len;
+                                while ((len = is.read(buffer)) > 0) {
+                                    os.write(buffer, 0, len);
+                                }
+                            }
+                        }
+                    }
+                    jar.close();
+                }
+                System.out.println("Using extracted webapp directory: " + tempDir.getCanonicalPath());
+                // JETTY-012: setResourceBase(String) removed in Jetty 12 EE10, use setWar() with extracted directory
+                webappClass.getMethod("setWar", String.class).invoke(webapp, tempDir.getCanonicalPath());
+                webappClass.getMethod("setDescriptor", String.class).invoke(webapp, new File(tempDir, "WEB-INF/web.xml").getCanonicalPath());
             } else {
-                webappClass.getMethod("setResourceBase", String.class).invoke(webapp, moquiStartLoader.wrapperUrl.toExternalForm());
+                // For non-WAR mode (development), set descriptor path directly
+                // JETTY-012: setResourceBase(String) removed in Jetty 12 EE10, use setWar() instead
+                File devDir = new File(moquiStartLoader.wrapperUrl.toURI());
+                webappClass.getMethod("setDescriptor", String.class).invoke(webapp, new File(devDir, "WEB-INF/web.xml").getCanonicalPath());
+                webappClass.getMethod("setWar", String.class).invoke(webapp, devDir.getCanonicalPath());
             }
-            serverClass.getMethod("setHandler", handlerClass).invoke(server, webapp);
+            // JETTY-012: Don't set webapp as server handler here - will wrap with GzipHandler below
+            // serverClass.getMethod("setHandler", handlerClass).invoke(server, webapp);
 
             // NOTE DEJ20210520: now always using StartClassLoader because of breaking classloader changes in 9.4.37 (likely from https://github.com/eclipse/jetty.project/pull/5894)
             webappClass.getMethod("setClassLoader", ClassLoader.class).invoke(webapp, moquiStartLoader);
@@ -298,13 +355,15 @@ public class MoquiStart {
 
             // WebSocket
             Object wsContainer = wsInitializerClass.getMethod("configure", scHandlerClass, wsInitializerConfiguratorClass).invoke(null, webapp, null);
-            webappClass.getMethod("setAttribute", String.class, Object.class).invoke(webapp, "javax.websocket.server.ServerContainer", wsContainer);
+            webappClass.getMethod("setAttribute", String.class, Object.class).invoke(webapp, "jakarta.websocket.server.ServerContainer", wsContainer);
 
-            // GzipHandler
+            // GzipHandler - JETTY-012: Use setHandler pattern instead of insertHandler
             Object gzipHandler = gzipHandlerClass.getConstructor().newInstance();
             // use defaults, should include all except certain excludes:
             // gzipHandlerClass.getMethod("setIncludedMimeTypes", String[].class).invoke(gzipHandler, new Object[] { new String[] {"text/html", "text/plain", "text/xml", "text/css", "application/javascript", "text/javascript"} });
-            serverClass.getMethod("insertHandler", handlerWrapperClass).invoke(server, gzipHandler);
+            // JETTY-012: Wrap webapp with GzipHandler and set as server handler
+            gzipHandlerClass.getMethod("setHandler", handlerClass).invoke(gzipHandler, webapp);
+            serverClass.getMethod("setHandler", handlerClass).invoke(server, gzipHandler);
 
             // Log getMinThreads, getMaxThreads
             Object threadPool = serverClass.getMethod("getThreadPool").invoke(server);
@@ -368,7 +427,7 @@ public class MoquiStart {
             // WebSocket
             // NOTE: ServletContextHandler.SESSIONS = 1 (int)
             ServerContainer wsContainer = org.eclipse.jetty.websocket.jsr356.server.deploy.WebSocketServerContainerInitializer.configureContext(webapp);
-            webapp.setAttribute("javax.websocket.server.ServerContainer", wsContainer);
+            webapp.setAttribute("jakarta.websocket.server.ServerContainer", wsContainer);
 
             // GzipHandler
             GzipHandler gzipHandler = new GzipHandler();
@@ -760,7 +819,7 @@ public class MoquiStart {
                     try {
                         String jarFileName = jarFile.getName();
                         if (jarFileName.contains("\\")) jarFileName = jarFileName.replace('\\', '/');
-                        URL resourceUrl = new URL("jar:file:" + jarFileName + "!/" + jarEntry);
+                        URL resourceUrl = URI.create("jar:file:" + jarFileName + "!/" + jarEntry).toURL();
                         resourceCache.put(resourceName, resourceUrl);
                         return resourceUrl;
                     } catch (MalformedURLException e) {
@@ -787,7 +846,7 @@ public class MoquiStart {
                     try {
                         String jarFileName = jarFile.getName();
                         if (jarFileName.contains("\\")) jarFileName = jarFileName.replace('\\', '/');
-                        urlList.add(new URL("jar:file:" + jarFileName + "!/" + jarEntry));
+                        urlList.add(URI.create("jar:file:" + jarFileName + "!/" + jarEntry).toURL());
                     } catch (MalformedURLException e) {
                         System.out.println("Error making URL for [" + resourceName + "] in jar [" + jarFile + "] in war file [" + wrapperUrl + "]: " + e.toString());
                     }
@@ -886,7 +945,7 @@ public class MoquiStart {
             String seal = mf.getMainAttributes().getValue(Attributes.Name.SEALED);
             if (seal == null) return null;
             try {
-                return new URL(seal);
+                return URI.create(seal).toURL();
             } catch (MalformedURLException e) {
                 return null;
             }

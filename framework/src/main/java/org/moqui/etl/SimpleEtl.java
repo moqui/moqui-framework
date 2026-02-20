@@ -103,8 +103,8 @@ public class SimpleEtl {
     public boolean hasError() { return extractException != null || transformErrors.size() > 0 || loadErrors.size() > 0; }
     public Throwable getSingleErrorCause() {
         if (extractException != null) return extractException;
-        if (transformErrors.size() > 0) return transformErrors.get(0).error;
-        if (loadErrors.size() > 0) return loadErrors.get(0).error;
+        if (transformErrors.size() > 0) return transformErrors.get(0).error();
+        if (loadErrors.size() > 0) return loadErrors.get(0).error();
         return null;
     }
 
@@ -220,11 +220,8 @@ public class SimpleEtl {
         public StopException(Throwable t) { super(t); }
     }
 
-    public static class EtlError {
-        public final Entry entry;
-        public final Throwable error;
-        EtlError(Entry entry, Throwable t) { this.entry = entry; this.error = t; }
-    }
+    /** Immutable record for ETL errors containing the entry that failed and the error that occurred */
+    public record EtlError(Entry entry, Throwable error) {}
 
     public interface Entry {
         String getEtlType();
