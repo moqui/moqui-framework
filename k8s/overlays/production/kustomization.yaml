@@ -1,0 +1,96 @@
+# Kustomize production overlay for Moqui Framework
+# Deploy with: kubectl apply -k k8s/overlays/production
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: moqui-production
+
+namespace: moqui
+
+resources:
+  - ../../base
+  - ingress.yaml
+
+# Production-specific labels
+commonLabels:
+  app.kubernetes.io/environment: production
+
+# Production-specific patches
+patches:
+  # Increase replicas for production
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 3
+    target:
+      kind: Deployment
+      name: moqui
+
+  # Production resource limits
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: "1Gi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: "500m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: "4Gi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: "4000m"
+    target:
+      kind: Deployment
+      name: moqui
+
+  # Production HPA settings
+  - patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 3
+      - op: replace
+        path: /spec/maxReplicas
+        value: 20
+    target:
+      kind: HorizontalPodAutoscaler
+      name: moqui
+
+  # Production PVC sizes
+  - patch: |-
+      - op: replace
+        path: /spec/resources/requests/storage
+        value: "20Gi"
+    target:
+      kind: PersistentVolumeClaim
+      name: moqui-logs
+  - patch: |-
+      - op: replace
+        path: /spec/resources/requests/storage
+        value: "10Gi"
+    target:
+      kind: PersistentVolumeClaim
+      name: moqui-txlog
+  - patch: |-
+      - op: replace
+        path: /spec/resources/requests/storage
+        value: "5Gi"
+    target:
+      kind: PersistentVolumeClaim
+      name: moqui-sessions
+
+# Production ConfigMap overrides
+configMapGenerator:
+  - name: moqui-config
+    behavior: merge
+    literals:
+      - MOQUI_INSTANCE_PURPOSE=production
+      - ENTITY_EMPTY_DB_LOAD=seed,seed-initial
+      - MOQUI_RUNTIME_CONF=conf/MoquiProductionConf.xml
+      - JAVA_TOOL_OPTIONS=-Xms1g -Xmx2g -XX:+UseG1GC -XX:MaxGCPauseMillis=100 -XX:+UseStringDeduplication
+
+# Image configuration for production
+images:
+  - name: moqui/moqui-framework
+    newTag: "3.0.0"  # Pin to specific version in production

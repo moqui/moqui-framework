@@ -1,6 +1,7 @@
 <?xml version="1.0"?>
-<web-app version="3.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://xmlns.jcp.org/xml/ns/javaee"
-        xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_3_1.xsd">
+<!-- JETTY-003: Updated to Jakarta EE 10 (Servlet 6.0) for Jetty 12 compatibility -->
+<web-app version="6.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="https://jakarta.ee/xml/ns/jakartaee"
+        xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee https://jakarta.ee/xml/ns/jakartaee/web-app_6_0.xsd">
     <display-name>Moqui Root Webapp</display-name>
 
     <context-param>
@@ -11,8 +12,9 @@
     <!-- Moqui Context Listener (necessary to init Moqui, etc) -->
     <listener><listener-class>org.moqui.impl.webapp.MoquiContextListener</listener-class></listener>
 
-    <!-- Apache Commons FileUpload Cleanup; this must be configured here as it is a ServletContextListener -->
-    <listener><listener-class>org.apache.commons.fileupload.servlet.FileCleanerCleanup</listener-class></listener>
+    <!-- Apache Commons FileUpload2 Cleanup; this must be configured here as it is a ServletContextListener -->
+    <!-- JETTY-003: Updated to FileUpload2 Jakarta Servlet 6 version -->
+    <listener><listener-class>org.apache.commons.fileupload2.jakarta.servlet6.JakartaFileCleaner</listener-class></listener>
 
     <session-config>
         <!-- session timeout in minutes; note that this may be overridden with webapp.session-config.@timeout in the Moqui Conf XML file -->

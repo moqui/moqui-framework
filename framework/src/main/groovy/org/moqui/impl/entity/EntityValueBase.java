@@ -741,6 +741,54 @@ public abstract class EntityValueBase implements EntityValue {
         }
     }
 
+    /** Handle audit log for delete operations - logs all audited field values being deleted */
+    private void handleAuditLogDelete(EntityDefinition ed, ExecutionContextImpl ec) {
+        if (!ed.entityInfo.needsAuditLog || ec.artifactExecutionFacade.entityAuditLogDisabled()) return;
+
+        Timestamp nowTimestamp = ec.userFacade.getNowTimestamp();
+
+        LiteStringMap<Object> pksValueMap = new LiteStringMap<>(ed.entityInfo.pkFieldInfoArray.length).useManualIndex();
+        addThreeFieldPkValues(pksValueMap, ed);
+
+        FieldInfo[] fieldInfoList = ed.entityInfo.allFieldInfoArray;
+        for (int i = 0; i < fieldInfoList.length; i++) {
+            FieldInfo fieldInfo = fieldInfoList[i];
+            // Log delete for any field with audit enabled (true or update)
+            if ("true".equals(fieldInfo.enableAuditLog) || "update".equals(fieldInfo.enableAuditLog)) {
+                String fieldName = fieldInfo.name;
+
+                // Get the current (old) value that is being deleted
+                Object oldValue = getKnownField(fieldInfo);
+                // Skip if there is no value to log
+                if (oldValue == null) continue;
+
+                String stackNameString = ec.artifactExecutionFacade.getStackNameString();
+                if (stackNameString.length() > 4000) stackNameString = stackNameString.substring(0, 4000);
+                LinkedHashMap<String, Object> parms = new LinkedHashMap<>();
+                parms.put("changedEntityName", getEntityName());
+                parms.put("changedFieldName", fieldName);
+                parms.put("changedDate", nowTimestamp);
+                parms.put("changedByUserId", ec.getUser().getUserId());
+                parms.put("changedInVisitId", ec.getUser().getVisitId());
+                parms.put("artifactStack", stackNameString);
+                // For delete, newValueText is null (record is being removed)
+                parms.put("newValueText", null);
+
+                // prep old value, encrypt if needed
+                String oldValueText = ObjectUtilities.toPlainString(oldValue);
+                if (fieldInfo.encrypt) oldValueText = EntityJavaUtil.enDeCrypt(oldValueText, true, ec.getEntityFacade());
+                if (oldValueText.length() > 4000) oldValueText = oldValueText.substring(0, 4000);
+                parms.put("oldValueText", oldValueText);
+
+                // set all pk fields by name to support EntityAuditLog extensions
+                parms.putAll(pksValueMap);
+
+                getEntityFacadeImpl().ecfi.serviceFacade.sync().name("create#moqui.entity.EntityAuditLog")
+                        .parameters(parms).disableAuthz().call();
+            }
+        }
+    }
+
     private void addThreeFieldPkValues(Map<String, Object> parms, EntityDefinition ed) {
         // get pkPrimaryValue, pkSecondaryValue, pkRestCombinedValue (just like the AuditLog stuff)
         ArrayList<FieldInfo> pkFieldList = new ArrayList<>();
@@ -1772,6 +1820,9 @@ public abstract class EntityValueBase implements EntityValue {
                 this.deleteExtended(null);
             }
 
+
+            // handle audit log for delete (log field values being deleted)
+            if (ed.entityInfo.needsAuditLog) handleAuditLogDelete(ed, ec);
             // clear the entity cache
             efi.getEntityCache().clearCacheForValue(this, false);
             // run EECA after rules

@@ -214,7 +214,7 @@ class EntityAutoServiceRunner implements ServiceRunner {
             newEntityValue.create()
         } catch (Exception e) {
             if (e.getMessage().contains("primary key")) {
-                long[] bank = (long[]) efi.entitySequenceBankCache.get(ed.getFullEntityName())
+                long[] bank = efi.getSequenceBank(ed.getFullEntityName())
                 EntityValue svi = efi.find("moqui.entity.SequenceValueItem").condition("seqName", ed.getFullEntityName())
                         .useCache(false).disableAuthz().one()
                 logger.warn("Got PK violation, current bank is ${bank}, PK is ${newEntityValue.getPrimaryKeys()}, current SequenceValueItem: ${svi}")
