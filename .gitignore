@@ -57,6 +57,13 @@ nb-configuration.xml
 # VSCode files
 .vscode
 
+# Emacs files
+.projectile
+
+# Version managers (sdkman, mise, asdf)
+mise.toml
+.tool-versions
+
 # OSX auto files
 .DS_Store
 .AppleDouble
@@ -70,3 +77,8 @@ Desktop.ini
 
 # Linux auto files
 *~
+
+logs/
+ObjectStore/
+
+.playwright-mcp/

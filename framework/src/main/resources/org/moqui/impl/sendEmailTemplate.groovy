@@ -23,8 +23,8 @@ import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
 import org.moqui.impl.context.ExecutionContextImpl
 
-import javax.activation.DataSource
-import javax.mail.util.ByteArrayDataSource
+import jakarta.activation.DataSource
+import jakarta.mail.util.ByteArrayDataSource
 import javax.xml.transform.stream.StreamSource
 
 import org.slf4j.Logger
@@ -117,7 +117,7 @@ try {
     email.setSmtpPort(smtpPort)
     if (emailServer.mailUsername) {
         email.setAuthenticator(new DefaultAuthenticator((String) emailServer.mailUsername, (String) emailServer.mailPassword))
-        // logger.info("Set user=${emailServer.mailUsername}, password=${emailServer.mailPassword}")
+        // SECURITY: Never log credentials (CWE-532)
     }
     if (emailServer.smtpStartTls == "Y") {
         email.setStartTLSEnabled(true)

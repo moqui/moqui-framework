@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Moqui Docker Configuration
+     This configuration is designed for containerized deployments.
+     Database connection details are pulled from environment variables. -->
+
+<moqui-conf xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/moqui-conf-3.xsd">
+
+    <!-- Instance Configuration -->
+    <default-property name="instance_purpose" value="${MOQUI_INSTANCE_PURPOSE:-dev}"/>
+    <default-property name="webapp_allow_origins" value="${WEBAPP_ALLOW_ORIGINS:-*}"/>
+    <default-property name="entity_empty_db_load" value="${ENTITY_EMPTY_DB_LOAD:-all}"/>
+    <default-property name="default_time_zone" value="${TZ:-UTC}"/>
+    <default-property name="database_time_zone" value="${TZ:-UTC}"/>
+
+    <!-- Database Configuration (PostgreSQL) -->
+    <default-property name="entity_ds_db_conf" value="postgres"/>
+    <default-property name="entity_ds_host" value="${DB_HOST:-postgres}"/>
+    <default-property name="entity_ds_port" value="${DB_PORT:-5432}"/>
+    <default-property name="entity_ds_database" value="${DB_NAME:-moqui}"/>
+    <default-property name="entity_ds_schema" value="${DB_SCHEMA:-public}"/>
+    <default-property name="entity_ds_user" value="${DB_USER:-moqui}"/>
+    <default-property name="entity_ds_password" value="${DB_PASSWORD:-moqui}" is-secret="true"/>
+
+    <!-- OpenSearch Configuration -->
+    <default-property name="opensearch_host" value="${OPENSEARCH_HOST:-opensearch}"/>
+    <default-property name="opensearch_port" value="${OPENSEARCH_PORT:-9200}"/>
+
+    <!-- Cache Configuration (production-like settings) -->
+    <cache-list warm-on-start="true">
+        <cache name="entity.definition" expire-time-idle="3600"/>
+        <cache name="entity.location" expire-time-live="3600"/>
+        <cache name="entity.data.feed.info" expire-time-idle="3600"/>
+
+        <cache name="service.location" expire-time-idle="3600"/>
+        <cache name="service.rest.api" expire-time-idle="3600"/>
+        <cache name="kie.component.releaseId" expire-time-idle="3600"/>
+
+        <cache name="screen.location" expire-time-idle="3600"/>
+        <cache name="screen.url" expire-time-idle="3600"/>
+        <cache name="screen.template.mode" expire-time-idle="3600"/>
+        <cache name="screen.template.location" expire-time-idle="3600"/>
+        <cache name="screen.find.path" expire-time-idle="3600"/>
+
+        <cache name="resource.xml-actions.location" expire-time-idle="3600"/>
+        <cache name="resource.groovy.location" expire-time-idle="3600"/>
+        <cache name="resource.ftl.location" expire-time-idle="3600"/>
+        <cache name="resource.gstring.location" expire-time-idle="3600"/>
+        <cache name="resource.wiki.location" expire-time-idle="3600"/>
+        <cache name="resource.markdown.location" expire-time-idle="3600"/>
+        <cache name="resource.text.location" expire-time-idle="3600"/>
+        <cache name="resource.reference.location" expire-time-idle="3600"/>
+
+        <cache name="l10n.message" expire-time-idle="3600"/>
+    </cache-list>
+
+    <!-- Server Stats -->
+    <server-stats stats-skip-condition="pathInfo?.startsWith('/status')">
+        <artifact-stats type="AT_XML_SCREEN" persist-bin="true" persist-hit="false"/>
+        <artifact-stats type="AT_XML_SCREEN_CONTENT" persist-bin="true" persist-hit="false"/>
+        <artifact-stats type="AT_XML_SCREEN_TRANS" persist-bin="true" persist-hit="false"/>
+        <artifact-stats type="AT_SERVICE" persist-bin="true" persist-hit="false"/>
+        <artifact-stats type="AT_ENTITY" persist-bin="true"/>
+    </server-stats>
+
+    <!-- Artifact Execution -->
+    <artifact-execution-facade>
+        <artifact-execution type="AT_XML_SCREEN" tarpit-enabled="true"/>
+        <artifact-execution type="AT_XML_SCREEN_TRANS" tarpit-enabled="true"/>
+        <artifact-execution type="AT_SERVICE" tarpit-enabled="true"/>
+    </artifact-execution-facade>
+
+    <!-- Entity Facade with PostgreSQL Datasource -->
+    <entity-facade query-stats="false">
+        <datasource group-name="transactional" database-conf-name="postgres" schema-name="public"
+                    startup-add-missing="true" runtime-add-missing="false">
+            <inline-jdbc jdbc-uri="jdbc:postgresql://${entity_ds_host}:${entity_ds_port}/${entity_ds_database}"
+                         jdbc-username="${entity_ds_user}" jdbc-password="${entity_ds_password}"/>
+        </datasource>
+    </entity-facade>
+
+</moqui-conf>

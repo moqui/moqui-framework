@@ -14,22 +14,24 @@
 package org.moqui.util;
 
 import org.eclipse.jetty.client.HttpClient;
-import org.eclipse.jetty.client.api.ContentResponse;
-import org.eclipse.jetty.client.api.Request;
-import org.eclipse.jetty.client.dynamic.HttpClientTransportDynamic;
-import org.eclipse.jetty.client.util.StringContentProvider;
+import org.eclipse.jetty.client.ContentResponse;
+import org.eclipse.jetty.client.Request;
+import org.eclipse.jetty.client.transport.HttpClientTransportDynamic;
+import org.eclipse.jetty.client.StringRequestContent;
 import org.eclipse.jetty.io.ClientConnector;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
-import org.apache.commons.fileupload.FileItem;
+import org.apache.commons.fileupload2.core.FileItem;
 import org.moqui.BaseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
-import javax.servlet.ServletContext;
-import javax.servlet.ServletRequest;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import java.io.*;
 import java.math.BigDecimal;
 import java.net.URLDecoder;
@@ -333,7 +335,7 @@ public class WebUtilities {
             httpClient.start();
             Request request = httpClient.POST(location);
             if (requestBody != null && !requestBody.isEmpty())
-                request.content(new StringContentProvider(contentType, requestBody, StandardCharsets.UTF_8), contentType);
+                request.body(new StringRequestContent(contentType, requestBody, StandardCharsets.UTF_8));
             ContentResponse response = request.send();
             resultString = StringUtilities.toStringCleanBom(response.getContent());
         } catch (Exception e) {
@@ -636,5 +638,86 @@ public class WebUtilities {
             value = v;
             return orig;
         }
+    }
+
+    // ========== Cookie Utilities with SameSite Support (SEC-007) ==========
+
+    /** SameSite cookie attribute values */
+    public enum SameSite {
+        STRICT("Strict"),
+        LAX("Lax"),
+        NONE("None");
+
+        private final String value;
+        SameSite(String value) { this.value = value; }
+        public String getValue() { return value; }
+    }
+
+    /**
+     * Add a cookie with SameSite attribute support.
+     * Since Servlet API before 5.0 doesn't support SameSite natively,
+     * this method manually builds the Set-Cookie header.
+     *
+     * @param response The HTTP response
+     * @param name Cookie name
+     * @param value Cookie value
+     * @param maxAge Max age in seconds (-1 for session cookie)
+     * @param path Cookie path
+     * @param httpOnly Whether the cookie is HTTP-only
+     * @param secure Whether the cookie requires HTTPS
+     * @param sameSite SameSite attribute value (Strict, Lax, or None)
+     */
+    public static void addCookieWithSameSite(HttpServletResponse response, String name, String value,
+            int maxAge, String path, boolean httpOnly, boolean secure, SameSite sameSite) {
+        StringBuilder cookieBuilder = new StringBuilder();
+
+        // Build the cookie string manually to include SameSite
+        cookieBuilder.append(name).append("=").append(value != null ? value : "");
+
+        if (maxAge >= 0) {
+            cookieBuilder.append("; Max-Age=").append(maxAge);
+        }
+
+        if (path != null && !path.isEmpty()) {
+            cookieBuilder.append("; Path=").append(path);
+        }
+
+        if (httpOnly) {
+            cookieBuilder.append("; HttpOnly");
+        }
+
+        // SameSite=None requires Secure flag
+        if (secure || sameSite == SameSite.NONE) {
+            cookieBuilder.append("; Secure");
+        }
+
+        if (sameSite != null) {
+            cookieBuilder.append("; SameSite=").append(sameSite.getValue());
+        }
+
+        response.addHeader("Set-Cookie", cookieBuilder.toString());
+    }
+
+    /**
+     * Add a cookie with default SameSite=Lax attribute.
+     * This is the recommended default for most cookies.
+     */
+    public static void addCookieWithSameSiteLax(HttpServletResponse response, String name, String value,
+            int maxAge, String path, boolean httpOnly, boolean secure) {
+        addCookieWithSameSite(response, name, value, maxAge, path, httpOnly, secure, SameSite.LAX);
+    }
+
+    /**
+     * Convert a Cookie object to a SameSite-enabled cookie header.
+     * Use this when you have an existing Cookie object but need SameSite support.
+     *
+     * @param response The HTTP response
+     * @param cookie The cookie to add
+     * @param sameSite SameSite attribute value
+     */
+    public static void addCookieWithSameSite(HttpServletResponse response, Cookie cookie, SameSite sameSite) {
+        addCookieWithSameSite(response, cookie.getName(), cookie.getValue(),
+                cookie.getMaxAge(), cookie.getPath(), cookie.isHttpOnly(),
+                cookie.getSecure(), sameSite);
     }
 }

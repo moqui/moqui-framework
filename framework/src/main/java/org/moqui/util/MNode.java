@@ -30,6 +30,7 @@ import org.xml.sax.Locator;
 import org.xml.sax.XMLReader;
 import org.xml.sax.helpers.DefaultHandler;
 
+import javax.xml.XMLConstants;
 import javax.xml.parsers.SAXParserFactory;
 import java.io.*;
 import java.nio.file.Files;
@@ -46,6 +47,51 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
 
     private final static Map<String, MNode> parsedNodeCache = new HashMap<>();
     public static void clearParsedNodeCache() { parsedNodeCache.clear(); }
+
+    /* ========== Secure XML Parser Factory ========== */
+
+    /**
+     * Creates a secure SAXParserFactory with XXE protections enabled.
+     * This prevents XML External Entity (XXE) attacks by:
+     * - Disabling external general and parameter entities
+     * - Disabling external DTD loading
+     * - Disabling XInclude processing
+     *
+     * Note: DOCTYPE declarations are allowed for internal entity definitions
+     * used in Moqui config files. This is secure because external entities
+     * are still disabled, preventing XXE attacks.
+     *
+     * @return A securely configured SAXParserFactory
+     * @see <a href="https://cheatsheetseries.owasp.org/cheatsheets/XML_External_Entity_Prevention_Cheat_Sheet.html">OWASP XXE Prevention</a>
+     */
+    private static SAXParserFactory createSecureSaxParserFactory() {
+        try {
+            SAXParserFactory factory = SAXParserFactory.newInstance();
+
+            // Note: We allow DOCTYPE for internal entity definitions used in config files
+            // This is safe because we disable all external entity resolution below
+            // factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+
+            // Disable external general entities (prevents XXE file disclosure/SSRF)
+            factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+
+            // Disable external parameter entities (prevents XXE attacks)
+            factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+
+            // Disable external DTD loading (prevents XXE via DTD)
+            factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+
+            // Disable XInclude processing
+            factory.setXIncludeAware(false);
+
+            // Additional security: set secure processing feature
+            factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+
+            return factory;
+        } catch (Exception e) {
+            throw new BaseException("Error creating secure SAX parser factory", e);
+        }
+    }
 
     /* ========== Factories (XML Parsing) ========== */
 
@@ -99,7 +145,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
     public static MNode parse(String location, InputSource isrc) {
         try {
             MNodeXmlHandler xmlHandler = new MNodeXmlHandler(false, location);
-            XMLReader reader = SAXParserFactory.newInstance().newSAXParser().getXMLReader();
+            XMLReader reader = createSecureSaxParserFactory().newSAXParser().getXMLReader();
             reader.setContentHandler(xmlHandler);
             reader.parse(isrc);
             return xmlHandler.getRootNode();
@@ -123,7 +169,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
     public static MNode parseRootOnly(String location, InputSource isrc) {
         try {
             MNodeXmlHandler xmlHandler = new MNodeXmlHandler(true, location);
-            XMLReader reader = SAXParserFactory.newInstance().newSAXParser().getXMLReader();
+            XMLReader reader = createSecureSaxParserFactory().newSAXParser().getXMLReader();
             reader.setContentHandler(xmlHandler);
             reader.parse(isrc);
             return xmlHandler.getRootNode();

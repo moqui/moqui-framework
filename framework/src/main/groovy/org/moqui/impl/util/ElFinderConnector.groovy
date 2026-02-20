@@ -13,7 +13,7 @@
  */
 package org.moqui.impl.util
 
-import org.apache.commons.fileupload.FileItem
+import org.apache.commons.fileupload2.core.FileItem
 import org.moqui.context.ExecutionContext
 import org.moqui.resource.ResourceReference
 import org.slf4j.Logger

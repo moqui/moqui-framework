@@ -22,9 +22,9 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import javax.swing.Timer
-import javax.websocket.CloseReason
-import javax.websocket.EndpointConfig
-import javax.websocket.Session
+import jakarta.websocket.CloseReason
+import jakarta.websocket.EndpointConfig
+import jakarta.websocket.Session
 import java.awt.event.ActionEvent
 import java.awt.event.ActionListener
 import java.util.concurrent.atomic.AtomicInteger

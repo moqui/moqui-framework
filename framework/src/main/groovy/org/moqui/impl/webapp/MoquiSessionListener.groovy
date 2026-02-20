@@ -18,12 +18,12 @@ import org.moqui.Moqui
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
-import javax.servlet.http.HttpSessionAttributeListener
-import javax.servlet.http.HttpSessionBindingEvent
+import jakarta.servlet.http.HttpSessionAttributeListener
+import jakarta.servlet.http.HttpSessionBindingEvent
 import java.sql.Timestamp
-import javax.servlet.http.HttpSessionListener
-import javax.servlet.http.HttpSession
-import javax.servlet.http.HttpSessionEvent
+import jakarta.servlet.http.HttpSessionListener
+import jakarta.servlet.http.HttpSession
+import jakarta.servlet.http.HttpSessionEvent
 
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 

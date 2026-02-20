@@ -85,14 +85,14 @@ class CacheFacadeTests extends Specification {
         def caches = ConcurrentExecution.executeConcurrently(10, getCache)
 
         then:
-        caches.size == 10
+        caches.size() == 10
         // all elements must be instances of the Cache class, no exceptions or nulls
         caches.every { item ->
-            item instanceof MCache
+            !(item instanceof Throwable) && item instanceof MCache
         }
         // all elements must be references to the same object
-        caches.every { item ->
-            item.equals(caches[0])
+        caches.findAll { it instanceof MCache }.every { item ->
+            item.equals(caches.find { it instanceof MCache })
         }
     }
 

@@ -20,12 +20,14 @@ import org.moqui.entity.EntityListIterator
 import org.moqui.entity.EntityValue
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import spock.lang.Ignore
 import spock.lang.Shared
 import spock.lang.Specification
 
 import java.sql.Time
 import java.sql.Timestamp
 
+@Ignore("Requires OpenSearch/ElasticSearch to be running")
 class EntityNoSqlCrud extends Specification {
     protected final static Logger logger = LoggerFactory.getLogger(EntityNoSqlCrud.class)
 

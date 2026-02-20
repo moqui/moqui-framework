@@ -17,10 +17,10 @@ import com.fasterxml.jackson.core.io.JsonStringEncoder
 import com.fasterxml.jackson.databind.JsonNode
 import groovy.transform.CompileStatic
 
-import org.apache.commons.fileupload.FileItem
-import org.apache.commons.fileupload.FileItemFactory
-import org.apache.commons.fileupload.disk.DiskFileItemFactory
-import org.apache.commons.fileupload.servlet.ServletFileUpload
+import org.apache.commons.fileupload2.core.FileItem
+import org.apache.commons.fileupload2.core.FileItemFactory
+import org.apache.commons.fileupload2.core.DiskFileItemFactory
+import org.apache.commons.fileupload2.jakarta.servlet6.JakartaServletFileUpload
 import org.apache.commons.io.IOUtils
 import org.apache.commons.io.output.StringBuilderWriter
 import org.moqui.context.*
@@ -45,10 +45,10 @@ import org.slf4j.LoggerFactory
 
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
-import javax.servlet.ServletContext
-import javax.servlet.http.HttpServletRequest
-import javax.servlet.http.HttpServletResponse
-import javax.servlet.http.HttpSession
+import jakarta.servlet.ServletContext
+import jakarta.servlet.http.HttpServletRequest
+import jakarta.servlet.http.HttpServletResponse
+import jakarta.servlet.http.HttpSession
 import java.nio.charset.StandardCharsets
 import java.sql.Timestamp
 
@@ -152,11 +152,11 @@ class WebFacadeImpl implements WebFacade {
                     // logger.warn("=========== Got JSON HTTP request body: ${jsonParameters}")
                 }
             }
-        } else if (ServletFileUpload.isMultipartContent(request)) {
+        } else if (JakartaServletFileUpload.isMultipartContent(request)) {
             // if this is a multi-part request, get the data for it
             multiPartParameters = new HashMap()
             FileItemFactory factory = makeDiskFileItemFactory()
-            ServletFileUpload upload = new ServletFileUpload(factory)
+            JakartaServletFileUpload upload = new JakartaServletFileUpload(factory)
 
             List<FileItem> items = (List<FileItem>) upload.parseRequest(request)
             List<FileItem> fileUploadList = []
@@ -164,7 +164,8 @@ class WebFacadeImpl implements WebFacade {
 
             for (FileItem item in items) {
                 if (item.isFormField()) {
-                    addValueToMultipartParameterMap(item.getFieldName(), item.getString("UTF-8"))
+                    // FileUpload 2.x uses Charset instead of String
+                    addValueToMultipartParameterMap(item.getFieldName(), item.getString(java.nio.charset.StandardCharsets.UTF_8))
                 } else {
                     if (!uploadExecutableAllow) {
                         if (WebUtilities.isExecutable(item)) {
@@ -202,9 +203,10 @@ class WebFacadeImpl implements WebFacade {
         }
 
         // create the session token if needed (protection against CSRF/XSRF attacks; see ScreenRenderImpl)
+        // Uses SecureRandom for cryptographically strong tokens (SEC-006)
         String sessionToken = session.getAttribute("moqui.session.token")
         if (sessionToken == null || sessionToken.length() == 0) {
-            sessionToken = StringUtilities.getRandomString(20)
+            sessionToken = StringUtilities.getRandomString(32)
             session.setAttribute("moqui.session.token", sessionToken)
             request.setAttribute("moqui.session.token.created", "true")
             response.setHeader("moquiSessionToken", sessionToken)
@@ -503,7 +505,8 @@ class WebFacadeImpl implements WebFacade {
             // logger.warn("Copying attr ${attrEntry.getKey()}:${attrEntry.getValue()}")
         }
         // force a new moqui.session.token
-        String sessionToken = StringUtilities.getRandomString(20)
+        // Uses SecureRandom for cryptographically strong tokens (SEC-006)
+        String sessionToken = StringUtilities.getRandomString(32)
         newSession.setAttribute("moqui.session.token", sessionToken)
         request.setAttribute("moqui.session.token.created", "true")
         if (response != null) {
@@ -1413,11 +1416,12 @@ class WebFacadeImpl implements WebFacade {
         File repository = new File(eci.ecfi.runtimePath + "/tmp")
         if (!repository.exists()) repository.mkdir()
 
-        DiskFileItemFactory factory = new DiskFileItemFactory(DiskFileItemFactory.DEFAULT_SIZE_THRESHOLD, repository)
+        // FileUpload 2.x uses builder pattern
+        DiskFileItemFactory factory = DiskFileItemFactory.builder()
+                .setBufferSize(DiskFileItemFactory.DEFAULT_THRESHOLD)
+                .setPath(repository.toPath())
+                .get()
 
-        // TODO: this was causing files to get deleted before the upload was streamed... need to figure out something else
-        //FileCleaningTracker fileCleaningTracker = FileCleanerCleanup.getFileCleaningTracker(request.getServletContext())
-        //factory.setFileCleaningTracker(fileCleaningTracker)
         return factory
     }
 }
