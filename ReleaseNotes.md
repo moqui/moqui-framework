@@ -2,20 +2,14 @@
 
 # Moqui Framework Release Notes
 
-## Release 3.1.0 - Not Yet Released
+## Release 3.9.9 - Feb 25 2026
 
-Moqui Framework 3.1.0 is a minor new feature and bug fix release with no changes that are not backward compatible.
+Moqui Framework 3.9.9 is a minor new feature and bug fix release, but mostly a maintenance release for the Moqui Framework 
+4.0.0 release series.
 
-### New Features
+For a complete list see the commit log:
 
-- Updated Docker Compose files to use more recent recommended configurations, and scripts to use 'docker compose' for
-  the Docker Compose Plugin instead of 'docker-compose' for the old separate package
-- Entity Datasource implementation for Elastic/OpenSearch using the ElasticFacade
-  - supports CrUD operations, filtered finds, and large find result handling with a paginating EntityListIterator
-  - does not currently support view entities as Elastic/OpenSearch do not support any sort of joins; some view entity
-    support may be added for single-member view entities, or perhaps multi-member with nested documents in some way
-  - intended primarily for logging type data with the ArtifactHit as the main test case, which can now be put in the 
-    new `logging` entity group to put ArtifactHit data in Elastic/OpenSearch instead of the transactional database
+https://github.com/moqui/moqui-framework/compare/v3.0.0...v3.9.9
 
 ## Release 3.0.0 - 31 May 2022
 
