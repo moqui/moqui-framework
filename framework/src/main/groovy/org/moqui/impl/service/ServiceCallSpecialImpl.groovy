@@ -24,7 +24,9 @@ import javax.transaction.TransactionManager
 import javax.transaction.Status
 
 import org.moqui.impl.context.ExecutionContextFactoryImpl
+import org.moqui.impl.service.ServiceCallAsyncImpl
 import org.moqui.service.ServiceCallSpecial
+import org.moqui.service.ServiceCallAsync
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -68,16 +70,16 @@ class ServiceCallSpecialImpl extends ServiceCallImpl implements ServiceCallSpeci
         protected final static Logger logger = LoggerFactory.getLogger(ServiceSynchronization.class)
 
         protected ExecutionContextFactoryImpl ecfi
-        protected String serviceName
-        protected Map<String, Object> parameters
+        protected ServiceCallAsync asyncCall
         protected boolean runOnCommit
 
         protected Transaction tx = null
 
         ServiceSynchronization(ServiceCallSpecialImpl scsi, ExecutionContextFactoryImpl ecfi, boolean runOnCommit) {
             this.ecfi = ecfi
-            this.serviceName = scsi.getServiceName()
-            this.parameters = new HashMap(scsi.parameters)
+            String serviceName = scsi.getServiceName()
+            Map<String, Object> parameters = new HashMap(scsi.parameters)
+            this.asyncCall = ecfi.serviceFacade.async().name(serviceName).parameters(parameters)
             this.runOnCommit = runOnCommit
         }
 
@@ -93,14 +95,18 @@ class ServiceCallSpecialImpl extends ServiceCallImpl implements ServiceCallSpeci
         }
 
         @Override
-        void beforeCompletion() { }
+        void beforeCompletion() {
+            if (this.asyncCall instanceof ServiceCallAsyncImpl) {
+                ((ServiceCallAsyncImpl) asyncCall).validateCall(this.ecfi.getEci())
+            }
+        }
 
         @Override
         void afterCompletion(int status) {
             if (status == Status.STATUS_COMMITTED) {
-                if (runOnCommit) ecfi.serviceFacade.async().name(this.serviceName).parameters(this.parameters).call()
+                if (runOnCommit) asyncCall.call()
             } else {
-                if (!runOnCommit) ecfi.serviceFacade.async().name(this.serviceName).parameters(this.parameters).call()
+                if (!runOnCommit) asyncCall.call()
             }
         }
 
