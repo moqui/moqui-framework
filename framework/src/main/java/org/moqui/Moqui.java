@@ -132,10 +132,31 @@ public class Moqui {
 
         // set the data load parameters
         EntityDataLoader edl = ec.getEntity().makeDataLoader();
+        Set<String> loadTypes = new HashSet<>();
         if (argMap.containsKey("types")) {
             String types = argMap.get("types");
-            if (!"all".equals(types)) edl.dataTypes(new HashSet<>(Arrays.asList(types.split(","))));
+            if (!"all".equals(types)) loadTypes.addAll(Arrays.asList(types.split(",")));
         }
+        if (argMap.containsKey("check-empty-types")) {
+            String checkEmptyTypesStr = (String) argMap.get("check-empty-types");
+            List<String> checkEmptyTypes = new ArrayList(Arrays.asList(checkEmptyTypesStr.split(",")));
+            // Remove always-load types from the checkEmpty list
+            if (!loadTypes.isEmpty()) checkEmptyTypes.removeAll(loadTypes);
+            if ("all".equals(checkEmptyTypesStr)) {
+                logger.info("Check empty types set to \"all\", skipping empty database check");
+            } else if (checkEmptyTypes.isEmpty()) {
+                logger.info("Check empty types (" + checkEmptyTypesStr + ") in the always-load list, not checking for empty database");
+            } else {
+                long enumCount = ec.getEntity().find("moqui.basic.Enumeration").disableAuthz().count();
+                if (enumCount == 0) {
+                    logger.info("Found " + enumCount + " Enumeration records, loading data types (" + String.join(",", checkEmptyTypes) + ")");
+                    loadTypes.addAll(checkEmptyTypes);
+                } else {
+                    logger.info("Found " + enumCount + " Enumeration records, NOT loading data types (" + String.join(",", checkEmptyTypes) + ")");
+                }
+            }
+        }
+        if (!loadTypes.isEmpty()) edl.dataTypes(loadTypes);
         if (argMap.containsKey("components")) edl.componentNameList(Arrays.asList(argMap.get("components").split(",")));
         if (argMap.containsKey("location")) edl.location(argMap.get("location"));
         if (argMap.containsKey("timeout")) edl.transactionTimeout(Integer.valueOf(argMap.get("timeout")));
