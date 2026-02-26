@@ -17,6 +17,7 @@ import groovy.transform.CompileStatic
 import org.apache.shiro.authc.AuthenticationToken
 import org.apache.shiro.authc.ExpiredCredentialsException
 import org.moqui.context.PasswordChangeRequiredException
+import org.moqui.security.SingleSignOnTokenLoginHandler
 
 import javax.websocket.server.HandshakeRequest
 import java.sql.Timestamp
@@ -171,6 +172,14 @@ class UserFacadeImpl implements UserFacade {
             loginKey = loginKey.trim()
             if (loginKey != null && !loginKey.isEmpty() && !"null".equals(loginKey) && !"undefined".equals(loginKey))
                 this.loginUserKey(loginKey)
+        }
+        if (currentInfo.username == null && request.getHeader("sso_access_token")) {
+            String ssoAccessToken = request.getHeader("sso_access_token").trim()
+            String ssoAuthFlowId = request.getHeader("sso_auth_flow")
+            if (ssoAuthFlowId)
+                ssoAuthFlowId = ssoAuthFlowId.trim()
+            if (!ssoAccessToken.isEmpty() && !"null".equals(ssoAccessToken) && !"undefined".equals(ssoAccessToken))
+                this.loginSsoToken(ssoAccessToken, ssoAuthFlowId, request, response)
         }
         if (currentInfo.username == null && secureParameters.authUsername) {
             // try the Moqui-specific parameters for instant login
@@ -800,6 +809,15 @@ class UserFacadeImpl implements UserFacade {
                 .condition("thruDate", EntityCondition.LESS_THAN, fromDate).disableAuthz().deleteAll()
 
         return loginKey
+    }
+
+    @Override boolean loginSsoToken(String ssoAccessToken, String ssoAuthFlowId, HttpServletRequest request, HttpServletResponse response) {
+        if (eci.resourceFacade.ssoTokenHandlerFactory == null) {
+            eci.logger.error("No SingleSignOnTokenLoginHandler ToolFactory configured, cannot handle SsoToken login")
+            return false
+        }
+        final SingleSignOnTokenLoginHandler ssoTokenLoginHandler = eci.resourceFacade.ssoTokenHandlerFactory.getInstance()
+        return ssoTokenLoginHandler.handleSsoLoginToken(eci, request, response, ssoAccessToken, ssoAuthFlowId)
     }
 
     @Override boolean loginAnonymousIfNoUser() {
