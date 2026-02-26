@@ -13,7 +13,6 @@
 [![Gitter Chat at https://gitter.im/moqui/moqui-framework](https://badges.gitter.im/moqui/moqui-framework.svg)](https://gitter.im/moqui/moqui-framework?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![Stack Overflow](https://img.shields.io/badge/stack%20overflow-moqui-blue.svg)](http://stackoverflow.com/questions/tagged/moqui)
 
-
 For information about community infrastructure for code, discussions, support, etc see the Community Guide:
 
 <https://www.moqui.org/docs/moqui/Community+Guide>
@@ -36,6 +35,10 @@ Get started with Moqui development quickly using the Tutorial at:
 
 <https://www.moqui.org/docs/framework/Quick+Tutorial>
 
-For comprehensive documentation of Moqui Framework see the wiki based documentation on moqui.org (*running on Moqui HiveMind*):
- 
+For comprehensive documentation of Moqui Framework see the wiki based documentation on moqui.org (_running on Moqui HiveMind_):
+
 <https://www.moqui.org/m/docs/framework>
+
+## Community Components
+
+- [moqui-minio](https://github.com/heguangyong/moqui-minio): Enterprise-grade MinIO integration component for Moqui, featuring full bucket management, object operations, ElFinder-based file manager with Chinese UI, permission control, audit logging, and high-performance connection pooling. Licensed under CC0 1.0 Universal.

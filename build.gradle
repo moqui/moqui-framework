@@ -11,18 +11,26 @@
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
+import org.gradle.api.artifacts.ComponentSelection
 
 buildscript {
     repositories {
         mavenCentral()
+        maven { url 'https://jitpack.io' } // 添加此行
         maven { url "https://plugins.gradle.org/m2/" }
+        maven { url "https://maven.aliyun.com/repository/gradle-plugin" }
     }
     dependencies { classpath 'org.ajoberstar.grgit:grgit-gradle:5.0.0' }
 }
 // Not needed for explicit use, causes problems when not from git repo: plugins { id 'org.ajoberstar.grgit' version 'x.y.z' }
 
 // Run headless so GradleWorkerMain does not steal focus (mostly a macOS annoyance)
-allprojects { tasks.withType(JavaForkOptions) { jvmArgs '-Djava.awt.headless=true' } }
+allprojects {
+    tasks.withType(JavaForkOptions) { jvmArgs '-Djava.awt.headless=true' }
+    // Set default encoding to UTF-8 for Java/Groovy compilation to avoid issues with non-ASCII characters in source files
+    tasks.withType(JavaCompile) { options.encoding = 'UTF-8' }
+    tasks.withType(GroovyCompile) { options.encoding = 'UTF-8' }
+}
 
 import org.ajoberstar.grgit.*
 
@@ -233,17 +241,107 @@ task startElasticSearch { doLast {
 void stopSearch(String moquiRuntime) {
     File osDir = file(moquiRuntime + '/opensearch')
     String workDir = moquiRuntime + (osDir.exists() ? '/opensearch' : '/elasticsearch')
+    String serviceName = osDir.exists() ? 'OpenSearch' : 'ElasticSearch'
     def pidFile = file(workDir + '/pid')
     def binFile = file(workDir + '/bin')
-    if (pidFile.exists() && binFile.exists()) {
-        String pid = pidFile.getText()
-        logger.lifecycle("Stopping ${osDir.exists() ? 'OpenSearch' : 'ElasticSearch'} installed in ${workDir} with pid ${pid}")
-        exec { workingDir workDir; commandLine 'kill', pid }
-        // don't bother waiting in this case: exec { workingDir esDir; commandLine 'tail', "--pid=${pid}", '-f', '/dev/null' }
-        if (pidFile.exists()) delete pidFile
+
+    // 先尝试通过端口查找并终止进程（更可靠）
+    def ports = ['9200', '9300']
+    boolean processKilled = false
+
+    ports.each { port ->
+        try {
+            if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+                // 备用方法：使用 netstat
+                def proc = "cmd /c netstat -ano | findstr :${port}".execute()
+                proc.waitFor()
+                def lines = proc.text.split('\n')
+
+                lines.each { line ->
+                    if (line.contains(":${port}") && line.contains('LISTENING')) {
+                        def parts = line.trim().split(/\s+/)
+                        if (parts.length >= 5 && parts[4].isNumber()) {
+                            def pid = parts[4]
+                            logger.lifecycle("Stopping ${serviceName} process using port ${port}, PID: ${pid}")
+                            // 重定向输出避免乱码
+                            exec {
+                                commandLine 'taskkill', '/F', '/PID', pid
+                                ignoreExitValue true
+                                standardOutput = new ByteArrayOutputStream() // 忽略输出
+                                errorOutput = new ByteArrayOutputStream()    // 忽略错误输出
+                            }
+                            processKilled = true
+                        }
+                    }
+                }
+            } else {
+                // Unix/Linux 保持不变
+                def proc = "lsof -ti:${port}".execute()
+                proc.waitFor()
+                def pid = proc.text.trim()
+                if (pid && pid.isNumber()) {
+                    logger.lifecycle("Stopping ${serviceName} process using port ${port}, PID: ${pid}")
+                    exec {
+                        commandLine 'kill', '-9', pid
+                        ignoreExitValue true
+                    }
+                    processKilled = true
+                }
+            }
+        } catch (Exception e) {
+            logger.debug("Error checking port ${port}: ${e.message}")
+        }
+    }
+
+    // 如果通过端口没找到进程，再尝试 pid 文件方式
+    if (!processKilled && pidFile.exists() && binFile.exists()) {
+        try {
+            String pid = pidFile.getText().trim()
+            if (pid && pid.isNumber()) {
+                logger.lifecycle("Stopping ${serviceName} installed in ${workDir} with pid ${pid}")
+                if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+                    exec {
+                        commandLine 'taskkill', '/F', '/PID', pid
+                        ignoreExitValue true
+                        standardOutput = new ByteArrayOutputStream()
+                        errorOutput = new ByteArrayOutputStream()
+                    }
+                } else {
+                    exec {
+                        commandLine 'kill', pid
+                        ignoreExitValue true
+                    }
+                }
+                processKilled = true
+            }
+        } catch (Exception e) {
+            logger.warn("Failed to stop ${serviceName} by PID: ${e.message}")
+        }
+    }
+
+    // 等待进程完全停止
+    Thread.sleep(3000)
+
+    // 清理锁定文件和目录
+    try {
+        def dataDir = file(workDir + '/data')
+        if (dataDir.exists()) {
+            dataDir.deleteDir()
+            logger.lifecycle("Cleaned up ${serviceName} data directory")
+        }
+
+        if (pidFile.exists()) {
+            pidFile.delete()
+            logger.lifecycle("Removed pid file")
+        }
+    } catch (Exception e) {
+        logger.warn("Failed to cleanup files: ${e.message}")
+    }
+
+    if (processKilled) {
+        logger.lifecycle("${serviceName} stopped successfully")
     } else {
-        if (!pidFile.exists()) logger.lifecycle("Not Stopping ${osDir.exists() ? 'OpenSearch' : 'ElasticSearch'} installed in ${workDir}, no pid file found")
-        if (!binFile.exists()) logger.lifecycle("Not Stopping ${osDir.exists() ? 'OpenSearch' : 'ElasticSearch'}, no ${workDir}/bin directory found")
+        logger.lifecycle("${serviceName} stop procedure completed (no process found)")
     }
 }
 task stopElasticSearch { doLast {

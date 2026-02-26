@@ -1,6 +1,7 @@
 
 # gradle/build files
 build
+gradle.properties
 .gradle
 /framework/dependencies
 
@@ -9,7 +10,6 @@ build
 /Save*.zip
 
 # runtime directory (separate repository so ignore directory entirely)
-/runtime
 /execwartmp
 /docker/runtime
 /docker/db
@@ -70,3 +70,5 @@ Desktop.ini
 
 # Linux auto files
 *~
+/gradle/wrapper/gradle-7.4.1-bin.zip
+/framework/moqui_logs/

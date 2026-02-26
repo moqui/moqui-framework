@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-3.xsd"
+        require-authentication="false">
+        
+    <transition name="login">
+        <service-call name="org.moqui.jwt.JwtServices.login#Jwt"/>
+        <response type="json"/>
+    </transition>
+    
+    <transition name="verify">
+        <service-call name="org.moqui.jwt.JwtServices.verify#JwtToken"/>
+        <response type="json"/>
+    </transition>
+    
+    <widgets>
+        <label text="JWT Auth Test" type="h2"/>
+        <form-single name="LoginJwt" transition="login">
+            <field name="username"><default-field><text-line size="20"/></default-field></field>
+            <field name="password"><default-field><password size="20"/></default-field></field>
+            <field name="submitButton"><default-field><submit text="Login"/></default-field></field>
+        </form-single>
+        
+        <form-single name="VerifyToken" transition="verify">
+            <field name="token"><default-field><text-line size="50"/></default-field></field>
+            <field name="submitButton"><default-field><submit text="Verify"/></default-field></field>
+        </form-single>
+    </widgets>
+</screen>
