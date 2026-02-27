@@ -30,8 +30,8 @@ import java.util.Set;
 @SuppressWarnings("unused")
 public interface EntityValue extends Map<String, Object>, Externalizable, Comparable<EntityValue>, Cloneable, SimpleEtl.Entry {
 
-    String getEntityName();
-    String getEntityNamePretty();
+    String resolveEntityName();
+    String resolveEntityNamePretty();
 
     /** Returns true if any field has been modified */
     boolean isModified();

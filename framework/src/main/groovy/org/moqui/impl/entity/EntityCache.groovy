@@ -145,7 +145,7 @@ class EntityCache {
         EntityDefinition ed = evb.getEntityDefinition()
         if (ed.entityInfo.neverCache) return
 
-        // String entityName = evb.getEntityName()
+        // String entityName = evb.resolveEntityName()
         // if (!entityName.startsWith("moqui.")) logger.info("========== ========== ========== clearCacheForValue ${entityName}")
         if (distributedCacheInvalidate && entityCacheInvalidateTopic != null) {
             // NOTE: this takes some time to run and is done a LOT, for nearly all entity CrUD ops
@@ -355,7 +355,7 @@ class EntityCache {
                 */
             }
         } catch (Throwable t) {
-            logger.error("Suppressed error in entity cache clearing [${evb.getEntityName()}; ${isCreate ? 'create' : 'non-create'}]", t)
+            logger.error("Suppressed error in entity cache clearing [${evb.resolveEntityName()}; ${isCreate ? 'create' : 'non-create'}]", t)
         }
     }
     void registerCacheOneRa(String entityName, EntityCondition ec, EntityValueBase evb) {

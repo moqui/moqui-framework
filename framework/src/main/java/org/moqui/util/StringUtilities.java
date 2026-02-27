@@ -435,7 +435,9 @@ public class StringUtilities {
         return getRandomString(length, null);
     }
     public static String getRandomString(int length, BaseNCodec baseNCodec) {
-        if (baseNCodec == null) baseNCodec = new org.apache.commons.codec.binary.Base64(true);
+        if (baseNCodec == null) baseNCodec = org.apache.commons.codec.binary.Base64.builder()
+                .setUrlSafe(true)
+                .get();
         SecureRandom sr = new SecureRandom();
         byte[] randomBytes = new byte[length];
         sr.nextBytes(randomBytes);

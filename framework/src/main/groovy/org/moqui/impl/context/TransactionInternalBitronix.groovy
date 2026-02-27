@@ -29,8 +29,8 @@ import org.slf4j.LoggerFactory
 
 import javax.sql.DataSource
 import javax.sql.XADataSource
-import javax.transaction.TransactionManager
-import javax.transaction.UserTransaction
+import jakarta.transaction.TransactionManager
+import jakarta.transaction.UserTransaction
 import java.sql.Connection
 
 @CompileStatic

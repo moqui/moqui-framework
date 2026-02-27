@@ -16,8 +16,8 @@ import groovy.transform.CompileStatic
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
 
-import javax.servlet.http.HttpServletRequest
-import javax.servlet.http.HttpServletResponse
+import jakarta.servlet.http.HttpServletRequest
+import jakarta.servlet.http.HttpServletResponse
 
 import org.moqui.context.ArtifactAuthorizationException
 import org.moqui.impl.context.ExecutionContextImpl

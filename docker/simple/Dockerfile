@@ -1,6 +1,6 @@
 # Builds a minimal docker image with openjdk and moqui with various volumes for configuration and persisted data outside the container
 # NOTE: add components, build and if needed load data before building a docker image with this
-ARG RUNTIME_IMAGE=eclipse-temurin:11-jdk
+ARG RUNTIME_IMAGE=eclipse-temurin:21-jdk
 FROM ${RUNTIME_IMAGE}
 MAINTAINER Moqui Framework <moqui@googlegroups.com>
 
@@ -49,8 +49,8 @@ EXPOSE 5701
 
 # this is to run from the war file directly, preferred approach unzips war file in advance
 # ENTRYPOINT ["java", "-jar", "moqui.war"]
-ENTRYPOINT ["java", "-cp", ".", "MoquiStart", "port=80"]
+ENTRYPOINT ["java", "-cp", ".", "MoquiStart"]
 
 HEALTHCHECK --interval=30s --timeout=600ms --start-period=120s CMD curl -f -H "X-Forwarded-Proto: https" -H "X-Forwarded-Ssl: on" http://localhost/status || exit 1
 # specify this as a default parameter if none are specified with docker exec/run, ie run production by default
-CMD ["conf=conf/MoquiProductionConf.xml"]
+CMD ["conf=conf/MoquiProductionConf.xml", "port=80"]

@@ -32,8 +32,8 @@ import org.subethamail.smtp.auth.LoginFailedException
 import org.subethamail.smtp.auth.UsernamePasswordValidator
 import org.subethamail.smtp.server.SMTPServer
 
-import javax.mail.Session
-import javax.mail.internet.MimeMessage
+import jakarta.mail.Session
+import jakarta.mail.internet.MimeMessage
 
 /**
  * ToolFactory to initialize SubEtha SMTP server and provide access to an instance of org.subethamail.smtp.server.SMTPServer
@@ -75,11 +75,14 @@ class SubEthaSmtpToolFactory implements ToolFactory<SMTPServer> {
         messageHandlerFactory = new EmecaMessageHandlerFactory(this)
         authHandlerFactory = new EasyAuthenticationHandlerFactory(new MoquiUsernamePasswordValidator(ecfi))
 
-        smtpServer = new SMTPServer(messageHandlerFactory)
-        smtpServer.setAuthenticationHandlerFactory(authHandlerFactory)
-        smtpServer.setPort(port)
-        // TODO: support EmailServer.smtpStartTls and smtpSsl settings
-        if (emailServer.smtpStartTls == "Y") smtpServer.setEnableTLS(true)
+        def serverBuilder = SMTPServer
+                .port(port)
+                .messageHandlerFactory(messageHandlerFactory)
+                .authenticationHandlerFactory(authHandlerFactory)
+        if (emailServer.smtpStartTls == "Y") {
+            serverBuilder = serverBuilder.enableTLS()
+        }
+        smtpServer = serverBuilder.build()
         smtpServer.start()
     }
     @Override void preFacadeInit(ExecutionContextFactory ecf) { }
@@ -117,9 +120,10 @@ class SubEthaSmtpToolFactory implements ToolFactory<SMTPServer> {
         @Override void from(String from) throws RejectException { this.from = from }
         @Override void recipient(String recipient) throws RejectException { recipientList.add(recipient) }
         @Override
-        void data(InputStream data) throws RejectException, TooMuchDataException, IOException {
+        String data(InputStream data) throws RejectException, TooMuchDataException, IOException {
             // TODO: ever reject? perhaps of the from or no recipient addresses match a valid UserAccount.username?
             mimeMessage = new MimeMessage(toolFactory.session, data)
+            return null
         }
 
         @Override
@@ -135,7 +139,7 @@ class SubEthaSmtpToolFactory implements ToolFactory<SMTPServer> {
         final ExecutionContextFactoryImpl ecf
         MoquiUsernamePasswordValidator(ExecutionContextFactoryImpl ecf) { this.ecf = ecf }
         @Override
-        void login(String username, String password) throws LoginFailedException {
+        void login(String username, String password, MessageContext messageContext) throws LoginFailedException {
             EntityValue emailServer = ecf.entity.find("moqui.basic.email.EmailServer").condition("emailServerId", EMAIL_SERVER_ID)
                     .useCache(true).disableAuthz().one()
             if (emailServer.mailUsername == username) {

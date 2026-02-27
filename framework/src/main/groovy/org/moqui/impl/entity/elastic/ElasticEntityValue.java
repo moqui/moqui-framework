@@ -22,7 +22,7 @@ import org.moqui.impl.entity.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.xml.bind.DatatypeConverter;
+import jakarta.xml.bind.DatatypeConverter;
 import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
@@ -57,7 +57,7 @@ public class ElasticEntityValue extends EntityValueBase {
         if (edfInternal == null) {
             // not much option other than static access via Moqui object
             EntityFacade ef = Moqui.getExecutionContextFactory().getEntity();
-            edfInternal = (ElasticDatasourceFactory) ef.getDatasourceFactory(ef.getEntityGroupName(getEntityName()));
+            edfInternal = (ElasticDatasourceFactory) ef.getDatasourceFactory(ef.getEntityGroupName(resolveEntityName()));
         }
 
         return edfInternal;

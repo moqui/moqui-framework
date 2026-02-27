@@ -18,12 +18,13 @@ import org.apache.shiro.authc.AuthenticationToken
 import org.apache.shiro.authc.ExpiredCredentialsException
 import org.moqui.context.PasswordChangeRequiredException
 
-import javax.websocket.server.HandshakeRequest
+import jakarta.servlet.http.Cookie
+import jakarta.servlet.http.HttpServletRequest
+import jakarta.servlet.http.HttpServletResponse
+import jakarta.servlet.http.HttpSession
+
+import jakarta.websocket.server.HandshakeRequest
 import java.sql.Timestamp
-import javax.servlet.http.Cookie
-import javax.servlet.http.HttpServletRequest
-import javax.servlet.http.HttpServletResponse
-import javax.servlet.http.HttpSession
 
 import org.apache.shiro.authc.AuthenticationException
 import org.apache.shiro.authc.UsernamePasswordToken
@@ -101,7 +102,7 @@ class UserFacadeImpl implements UserFacade {
 
         String preUsername = getUsername()
         Subject webSubject = makeEmptySubject()
-        if (webSubject.authenticated) {
+        if (webSubject.isAuthenticated()) {
             String sesUsername = (String) webSubject.getPrincipal()
             if (preUsername != null && !preUsername.isEmpty()) {
                 if (!preUsername.equals(sesUsername)) {
@@ -264,7 +265,12 @@ class UserFacadeImpl implements UserFacade {
         }
     }
     void initFromHandshakeRequest(HandshakeRequest request) {
-        this.session = (HttpSession) request.getHttpSession()
+        try {
+            this.session = (HttpSession) request.getHttpSession()
+        } catch (Throwable t) {
+            // Jetty 12 EE 11 bug https://github.com/jetty/jetty.project/issues/11809
+            logger.trace("Failed to get HttpSession from WebSocket HandshakeRequest", t)
+        }
 
         // get client IP address, handle proxy original address if exists
         clientIpInternal = getClientIp(null, request, eci.ecfi)
@@ -272,7 +278,7 @@ class UserFacadeImpl implements UserFacade {
         // WebSocket handshake request is the HTTP upgrade request so this will be the original session
         // login user from value in session
         Subject webSubject = makeEmptySubject()
-        if (webSubject.authenticated) {
+        if (webSubject.isAuthenticated()) {
             // effectively login the user
             pushUserSubject(webSubject)
             if (logger.traceEnabled) logger.trace("For new request found user [${username}] in the session")
@@ -318,7 +324,7 @@ class UserFacadeImpl implements UserFacade {
     void initFromHttpSession(HttpSession session) {
         this.session = session
         Subject webSubject = makeEmptySubject()
-        if (webSubject.authenticated) {
+        if (webSubject.isAuthenticated()) {
             // effectively login the user
             pushUserSubject(webSubject)
             if (logger.traceEnabled) logger.trace("For new request found user [${username}] in the session")
@@ -959,8 +965,14 @@ class UserFacadeImpl implements UserFacade {
         if (httpRequest != null) {
             webappName = httpRequest.servletContext.getInitParameter("moqui-name")
         } else if (handshakeRequest != null) {
-            Object hsrSession = handshakeRequest.httpSession
-            if (hsrSession instanceof HttpSession) webappName = hsrSession.getServletContext().getInitParameter("moqui-name")
+            try {
+                Object hsrSession = handshakeRequest.getHttpSession()
+                if (hsrSession instanceof HttpSession)
+                    webappName = hsrSession.getServletContext().getInitParameter("moqui-name")
+            } catch (Throwable t) {
+                // Jetty 12 EE 11 bug https://github.com/jetty/jetty.project/issues/11809
+                logger.trace("Failed to get HttpSession from WebSocket HandshakeRequest for client IP lookup", t)
+            }
         }
 
         String clientIpHeaderValue = null

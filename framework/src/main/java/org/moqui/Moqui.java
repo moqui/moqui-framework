@@ -20,7 +20,7 @@ import org.moqui.entity.EntityDataLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.servlet.ServletContext;
+import jakarta.servlet.ServletContext;
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 

@@ -26,8 +26,9 @@ import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import jakarta.xml.bind.DatatypeConverter
+
 import javax.sql.DataSource
-import javax.xml.bind.DatatypeConverter
 import java.sql.Time
 import java.sql.Timestamp
 

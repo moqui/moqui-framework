@@ -18,9 +18,9 @@ import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
-import javax.transaction.Status
-import javax.transaction.Synchronization
-import javax.transaction.Transaction
+import jakarta.transaction.Status
+import jakarta.transaction.Synchronization
+import jakarta.transaction.Transaction
 import javax.transaction.xa.XAException
 
 /** NOT YET IMPLEMENTED OR USED, may be used for future Elastic Entity transactional behavior (none so far...) */

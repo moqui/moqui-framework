@@ -153,8 +153,8 @@ public abstract class EntityValueBase implements EntityValue {
     }
     public boolean getIsFromDb() { return isFromDb; }
 
-    @Override public String getEntityName() { return entityName; }
-    @Override public String getEntityNamePretty() { return StringUtilities.camelCaseToPretty(getEntityDefinition().getEntityName()); }
+    @Override public String resolveEntityName() { return entityName; }
+    @Override public String resolveEntityNamePretty() { return StringUtilities.camelCaseToPretty(getEntityDefinition().getEntityName()); }
     @Override public boolean isModified() { return modified; }
     @Override public boolean isFieldModified(String name) { if (name == null) return false; return isFieldModifiedIString(name.intern()); }
     private boolean isFieldModifiedIString(String name) {
@@ -565,7 +565,7 @@ public abstract class EntityValueBase implements EntityValue {
 
         // temporarily disable authz for this, just doing lookup to get next value and to allow for a
         //     authorize-skip="create" with authorize-skip of view too this is necessary
-        EntityFind ef = getEntityFacadeImpl().find(getEntityName()).selectField(seqFieldName).condition(otherPkMap);
+        EntityFind ef = getEntityFacadeImpl().find(resolveEntityName()).selectField(seqFieldName).condition(otherPkMap);
         // logger.warn("TOREMOVE in setSequencedIdSecondary ef WHERE=${ef.getWhereEntityCondition()}")
         EntityList allValues = ef.disableAuthz().list();
 
@@ -577,7 +577,7 @@ public abstract class EntityValueBase implements EntityValue {
                     int seqVal = Integer.parseInt(currentSeqId);
                     if (highestSeqVal == null || seqVal > highestSeqVal) highestSeqVal = seqVal;
                 } catch (Exception e) {
-                    logger.warn("Error in secondary sequenced ID converting SeqId [" + currentSeqId + "] in field [" + seqFieldName + "] from entity [" + getEntityName() + "] to a number: " + e.toString());
+                    logger.warn("Error in secondary sequenced ID converting SeqId [" + currentSeqId + "] in field [" + seqFieldName + "] from entity [" + resolveEntityName() + "] to a number: " + e.toString());
                 }
             }
         }
@@ -593,7 +593,7 @@ public abstract class EntityValueBase implements EntityValue {
         // not needed? IDE says never null: if (that == null) return -1;
 
         // first entity names
-        int result = entityName.compareTo(that.getEntityName());
+        int result = entityName.compareTo(that.resolveEntityName());
         if (result != 0) return result;
 
         // next compare all fields (will compare PK fields first, generally first in list)
@@ -707,7 +707,7 @@ public abstract class EntityValueBase implements EntityValue {
                 String stackNameString = ec.artifactExecutionFacade.getStackNameString();
                 if (stackNameString.length() > 4000) stackNameString = stackNameString.substring(0, 4000);
                 LinkedHashMap<String, Object> parms = new LinkedHashMap<>();
-                parms.put("changedEntityName", getEntityName());
+                parms.put("changedEntityName", resolveEntityName());
                 parms.put("changedFieldName", fieldName);
                 if (changeReason != null) parms.put("changeReason", changeReason);
                 parms.put("changedDate", nowTimestamp);
@@ -908,14 +908,14 @@ public abstract class EntityValueBase implements EntityValue {
                 EntityValue relVal = relList.get(j);
                 if (clearRef) {
                     for (String fieldName : reverseInfo.keyMap.keySet()) {
-                        if (relEd.isPkField(fieldName)) throw new EntityException("In deleteWithCascade on entity " + getEntityName() + " related entity " + relEd.fullEntityName + " is in the clear ref set but field " + fieldName + " is a primary key field and cannot be cleared");
+                        if (relEd.isPkField(fieldName)) throw new EntityException("In deleteWithCascade on entity " + resolveEntityName() + " related entity " + relEd.fullEntityName + " is in the clear ref set but field " + fieldName + " is a primary key field and cannot be cleared");
                         relVal.set(fieldName, null);
                     }
                     relVal.update();
                 } else {
                     // if we should validate entities we are attempting to delete do that now
                     if (validateAllowDeleteEntities != null && !validateAllowDeleteEntities.contains(relEd.fullEntityName))
-                        throw new EntityException("Cannot delete " + getEntityNamePretty() + " " + getPrimaryKeys() + ", found " + relVal.getEntityNamePretty() + " " + relVal.getPrimaryKeys() + " that depends on it");
+                        throw new EntityException("Cannot delete " + resolveEntityNamePretty() + " " + getPrimaryKeys() + ", found " + relVal.resolveEntityNamePretty() + " " + relVal.getPrimaryKeys() + " that depends on it");
                     // delete with cascade
                     relVal.deleteWithCascade(clearRefEntities, validateAllowDeleteEntities);
                 }
@@ -933,7 +933,7 @@ public abstract class EntityValueBase implements EntityValue {
             if (!"one".equals(relInfo.type)) continue;
 
             EntityValue value = findRelatedOne(relInfo, false, false);
-            // if (getEntityName().contains("foo")) logger.info("Checking fk " + getEntityName() + ':' + relInfo.relationshipName + " value: " + value);
+            // if (resolveEntityName().contains("foo")) logger.info("Checking fk " + resolveEntityName() + ':' + relInfo.relationshipName + " value: " + value);
             if (value == null) {
                 if (insertDummy) {
                     noneMissing = false;
@@ -950,7 +950,7 @@ public abstract class EntityValueBase implements EntityValue {
                     if (newValue.containsPrimaryKey()) {
                         newValue.checkFks(true);
                         newValue.create();
-                        logger.warn("Created dummy " + newValue.getEntityName() + " PK " + newValue.getPrimaryKeys());
+                        logger.warn("Created dummy " + newValue.resolveEntityName() + " PK " + newValue.getPrimaryKeys());
                     }
                 } else {
                     return false;
@@ -968,14 +968,14 @@ public abstract class EntityValueBase implements EntityValue {
             EntityValue dbValue = this.cloneValue();
             if (!dbValue.refresh()) {
                 Map<String, Object> diffInfo = new HashMap<>();
-                diffInfo.put("entity", getEntityName());
+                diffInfo.put("entity", resolveEntityName());
                 diffInfo.put("pk", getPrimaryKeys());
                 diffInfo.put("createValues", getValueMap());
                 diffInfo.put("notFound", true);
                 diffInfo.put("pkComplete", containsPrimaryKey());
                 diffInfo.put("location", location);
                 diffInfoList.add(diffInfo);
-                // alternative object based, more efficient but way less convenient: diffInfoList.add(new EntityJavaUtil.EntityValueDiffInfo(getEntityName(), getPrimaryKeys()));
+                // alternative object based, more efficient but way less convenient: diffInfoList.add(new EntityJavaUtil.EntityValueDiffInfo(resolveEntityName(), getPrimaryKeys()));
                 return 0;
             }
 
@@ -997,7 +997,7 @@ public abstract class EntityValueBase implements EntityValue {
                     }
                     if (!areSame) {
                         Map<String, Object> diffInfo = new HashMap<>();
-                        diffInfo.put("entity", getEntityName());
+                        diffInfo.put("entity", resolveEntityName());
                         diffInfo.put("pk", getPrimaryKeys());
                         diffInfo.put("field", nonpkFieldName);
                         diffInfo.put("value", checkFieldValue);
@@ -1006,7 +1006,7 @@ public abstract class EntityValueBase implements EntityValue {
                         diffInfo.put("pkComplete", containsPrimaryKey());
                         diffInfo.put("location", location);
                         diffInfoList.add(diffInfo);
-                        // alternative object based, more efficient but way less convenient: diffInfoList.add(new EntityJavaUtil.EntityValueDiffInfo(getEntityName(), getPrimaryKeys(), nonpkFieldName, checkFieldValue, dbFieldValue));
+                        // alternative object based, more efficient but way less convenient: diffInfoList.add(new EntityJavaUtil.EntityValueDiffInfo(resolveEntityName(), getPrimaryKeys(), nonpkFieldName, checkFieldValue, dbFieldValue));
                     }
                 }
                 fieldsChecked++;
@@ -1014,7 +1014,7 @@ public abstract class EntityValueBase implements EntityValue {
         } catch (EntityException e) {
             throw e;
         } catch (Throwable t) {
-            String errMsg = "Error checking entity " + getEntityName() + " with pk " + getPrimaryKeys() + ": " + t.toString();
+            String errMsg = "Error checking entity " + resolveEntityName() + " with pk " + getPrimaryKeys() + ": " + t.toString();
             if (messages != null) messages.add(errMsg);
             logger.error(errMsg, t);
         }
@@ -1028,7 +1028,7 @@ public abstract class EntityValueBase implements EntityValue {
         try {
             EntityValue dbValue = this.cloneValue();
             if (!dbValue.refresh()) {
-                messages.add("Entity " + getEntityName() + " record not found for primary key " + getPrimaryKeys());
+                messages.add("Entity " + resolveEntityName() + " record not found for primary key " + getPrimaryKeys());
                 return 0;
             }
 
@@ -1048,14 +1048,14 @@ public abstract class EntityValueBase implements EntityValue {
                     } else {
                         if (!checkFieldValue.equals(dbFieldValue)) areSame = false;
                     }
-                    if (!areSame) messages.add("Field " + getEntityName() + "." + nonpkFieldName + " did not match; check (file) value [" + checkFieldValue + "], db value [" + dbFieldValue + "] for primary key " + getPrimaryKeys());
+                    if (!areSame) messages.add("Field " + resolveEntityName() + "." + nonpkFieldName + " did not match; check (file) value [" + checkFieldValue + "], db value [" + dbFieldValue + "] for primary key " + getPrimaryKeys());
                 }
                 fieldsChecked++;
             }
         } catch (EntityException e) {
             throw e;
         } catch (Throwable t) {
-            String errMsg = "Error checking entity " + getEntityName() + " with pk " + getPrimaryKeys() + ": " + t.toString();
+            String errMsg = "Error checking entity " + resolveEntityName() + " with pk " + getPrimaryKeys() + ": " + t.toString();
             messages.add(errMsg);
             logger.error(errMsg, t);
         }
@@ -1646,7 +1646,7 @@ public abstract class EntityValueBase implements EntityValue {
                 }
             }
 
-            // if (ed.getEntityName() == "foo") logger.warn("================ evb.update() ${getEntityName()} nonPkFieldList=${nonPkFieldList};\nvalueMap=${valueMap};\noldValues=${oldValues}")
+            // if (ed.getEntityName() == "foo") logger.warn("================ evb.update() ${resolveEntityName()} nonPkFieldList=${nonPkFieldList};\nvalueMap=${valueMap};\noldValues=${oldValues}")
             if (nonPkFieldArrayIndex == 0 || (nonPkFieldArrayIndex == 1 && modifiedLastUpdatedStamp)) {
                 if (logger.isTraceEnabled()) logger.trace("Not doing update on entity with no changed non-PK fields; value=" + this.toString());
                 return this;
@@ -1654,7 +1654,7 @@ public abstract class EntityValueBase implements EntityValue {
 
             // do this after the empty nonPkFieldList check so that if nothing has changed then ignore the attempt to update
             if (changedCreateOnlyFields != null && changedCreateOnlyFields.size() > 0)
-                throw new EntityException("Cannot update create-only (immutable) fields " + changedCreateOnlyFields + " on entity " + getEntityName());
+                throw new EntityException("Cannot update create-only (immutable) fields " + changedCreateOnlyFields + " on entity " + resolveEntityName());
 
             // check optimistic lock with lastUpdatedStamp; if optimisticLock() dbValueMap will have latest from DB
             FieldInfo lastUpdatedStampInfo = ed.entityInfo.lastUpdatedStampInfo;
@@ -1750,7 +1750,7 @@ public abstract class EntityValueBase implements EntityValue {
         final ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade;
 
         // NOTE: this is create-only on the entity, ignores setting on fields (only considered in update)
-        if (entityInfo.createOnly) throw new EntityException("Entity [" + getEntityName() + "] is create-only (immutable), cannot be deleted.");
+        if (entityInfo.createOnly) throw new EntityException("Entity [" + resolveEntityName() + "] is create-only (immutable), cannot be deleted.");
 
         // do the artifact push/authz
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(entityName, ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_DELETE, "delete").setParameters(valueMapInternal);
@@ -1801,8 +1801,8 @@ public abstract class EntityValueBase implements EntityValue {
 
         List<String> pkFieldList = ed.getPkFieldNames();
         if (pkFieldList.size() == 0) {
-            // throw new EntityException("Entity ${getEntityName()} has no primary key fields, cannot do refresh.")
-            if (logger.isTraceEnabled()) logger.trace("Entity " + getEntityName() + " has no primary key fields, cannot do refresh.");
+            // throw new EntityException("Entity ${resolveEntityName()} has no primary key fields, cannot do refresh.")
+            if (logger.isTraceEnabled()) logger.trace("Entity " + resolveEntityName() + " has no primary key fields, cannot do refresh.");
             return false;
         }
 

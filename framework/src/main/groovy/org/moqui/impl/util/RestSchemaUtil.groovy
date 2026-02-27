@@ -36,7 +36,7 @@ import org.slf4j.LoggerFactory
 import org.yaml.snakeyaml.DumperOptions
 import org.yaml.snakeyaml.Yaml
 
-import javax.servlet.http.HttpServletResponse
+import jakarta.servlet.http.HttpServletResponse
 
 @CompileStatic
 class RestSchemaUtil {
@@ -582,7 +582,7 @@ class RestSchemaUtil {
 
         if (extraPathNameList.size() == 0) {
             List allRefList = []
-            Map definitionsMap = [:]
+            Map<String, Object> definitionsMap = [:]
             definitionsMap.put('paginationParameters', jsonPaginationParameters)
             Map rootMap = ['$schema':'http://json-schema.org/draft-04/hyper-schema#', title:'Moqui Entity REST API',
                     anyOf:allRefList, definitions:definitionsMap]

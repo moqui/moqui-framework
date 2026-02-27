@@ -18,9 +18,10 @@ import org.moqui.entity.EntityFacade;
 import org.moqui.screen.ScreenFacade;
 import org.moqui.service.ServiceFacade;
 
+import jakarta.servlet.ServletContext;
+
 import javax.annotation.Nonnull;
-import javax.servlet.ServletContext;
-import javax.websocket.server.ServerContainer;
+import jakarta.websocket.server.ServerContainer;
 import java.util.LinkedHashMap;
 import java.util.List;
 
@@ -89,7 +90,7 @@ public interface ExecutionContextFactory {
 
     /** The ServletContext, if Moqui was initialized in a webapp (generally through MoquiContextListener) */
     @Nonnull ServletContext getServletContext();
-    /** The WebSocket ServerContainer, if found in 'javax.websocket.server.ServerContainer' ServletContext attribute */
+    /** The WebSocket ServerContainer, if found in 'jakarta.websocket.server.ServerContainer' ServletContext attribute */
     @Nonnull ServerContainer getServerContainer();
     /** For starting initialization only, tell the ECF about the ServletContext for getServletContext() and getServerContainer() */
     void initServletContext(ServletContext sc);

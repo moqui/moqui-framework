@@ -35,8 +35,9 @@ import org.moqui.util.StringUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import jakarta.mail.internet.MimeMessage
+
 import javax.cache.Cache
-import javax.mail.internet.MimeMessage
 import java.sql.Timestamp
 import java.util.concurrent.*
 import java.util.concurrent.atomic.AtomicInteger

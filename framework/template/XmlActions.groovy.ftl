@@ -261,7 +261,7 @@ ${.node}
             <#recurse/>
             ${.node["@entry"]}_index++
         }
-    } else if (${.node["@list"]} instanceof Collection<Map.Entry>) {
+    } else if (${.node["@list"]} instanceof Collection) {
         ${.node["@entry"]}_index = 0
         def _${.node["@entry"]}Iterator = ${.node["@list"]}.iterator()
         while (_${.node["@entry"]}Iterator.hasNext()) {

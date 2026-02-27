@@ -17,14 +17,14 @@ JavaMail API Documentation at: https://java.net/projects/javamail/pages/Home
 For JavaMail JavaDocs see: https://javamail.java.net/nonav/docs/api/index.html
  */
 
-import org.apache.commons.mail.DefaultAuthenticator
-import org.apache.commons.mail.HtmlEmail
+import org.apache.commons.mail2.jakarta.DefaultAuthenticator
+import org.apache.commons.mail2.jakarta.HtmlEmail
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
 import org.moqui.impl.context.ExecutionContextImpl
 
-import javax.activation.DataSource
-import javax.mail.util.ByteArrayDataSource
+import jakarta.activation.DataSource
+import jakarta.mail.util.ByteArrayDataSource
 import javax.xml.transform.stream.StreamSource
 
 import org.slf4j.Logger

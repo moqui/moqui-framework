@@ -1,8 +1,182 @@
-
-
 # Moqui Framework Release Notes
 
-## Release 3.9.9 - Feb 25 2026
+## Release 4.0.0 - 27 Feb 2026
+
+Moqui framework v4.0.0 is a major new release with massive changes some of which
+are breaking changes. All users are advised to upgrade to benefit from all the
+new features, security fixes, upgrades, performance improvements and so on.
+
+### Major Changes
+
+#### Java Upgrade to Version 21 (Incompatible Change)
+
+Moqui Framework now requires Java 21. This provides improved performance,
+long-term support, and access to modern JVM features, while removing legacy
+APIs. All custom code and components must be validated against Java 21 to ensure
+compatibility.
+
+As part of this work:
+
+- Remove deprecated finalize methods no longer applicable in JDK21.
+- Lots of code improvements to comply with JDK21.
+
+#### Groovy upgrade to version 5 (Incompatible Change)
+
+Groovy 5 in combination with newer JDK21 is more strict in @CompileStatic. There
+were illegal bytecodes being generated, and it has to do with accessing fields
+from inner classes.
+
+Another change is that Groovysh is removed. Therefore, the terminal interface
+was rewritten from scratch using a different architecture based on
+`groovy.lang.GroovyShell`. This led to both Screen changes (in runtime) and
+backend changes.
+
+#### Change EntityValue API (Breaking Change)
+
+Change `EntityValue.getEntityName()` to `EntityValue.resolveEntityName()` and
+`EntityValue.getEntityNamePretty()` to `EntityValue.resolveEntityNamePretty()`.
+
+Groovy 4+ introduced a change in the way property to method mapping happens as
+[documented](https://groovy-lang.org/style-guide.html#_getters_and_setters).
+
+This introduced a bug that occurs when querying an entity that has a field named
+`entityName`. The bug occurs because the query returns an object of type
+`org.moqui.entity.EntityValue`. The problem is that the EntityValue class has a
+method called getEntityName() and as per the groovy 4+ behavior this function is
+called when trying to access a field named `entityName`. Sample code:
+
+```
+def someMember = ec.entity
+    .find('moqui.entity.view.DbViewEntityMember')
+    .condition(...)
+    .one()
+someMember.entityName // BUG returns .getEntityName(), not .get('entityName')
+```
+
+#### Upgrade to Jetty version 12.1 and EE 11
+
+This is a major migration. It bumps jetty to version 12.1 and also servlet
+related packages (websocket, webapp, proxy) to jakarta EE 11.
+
+The upgrade broke the existing custom moqui class loaders, and required
+significant refactoring of class loaders and webapp structure (e.g.
+WebAppContext, Session Handling, etc ...)
+
+Impact on developers:
+
+Any custom work for jetty should be upgraded to the new versions compatible with
+jetty 12.1 and jakarta EE 11
+
+#### Upgrade all javax libraries to jakarta
+
+All libraries including commons-fileupload, xml.bind-api, activation, mail,
+websocket, servlets (6.1), and others are all migrated to their jakarta
+equivalents. As part of this exercise, many deprecated, old or irrelevant / not
+used dependencies were removed. This change required refactoring critical moqui
+facades and core API to comply with the switch to Jakarta.
+
+Any custom work for older javax should be upgraded where applicable to use the
+jakarta equivalent libraries.
+
+#### Integration with the New Bitronix Fork (Incompatible Change)
+
+Moqui Framework now depends on the actively maintained Bitronix fork at:
+https://github.com/moqui/bitronix
+
+The current integrated version is 4.0.0-BETA1, with stabilization ongoing.
+
+This fork includes:
+
+- Major modernization and cleanup
+- Jakarta namespace migration
+- JMS namespace migration
+- Important bug fixes and stability improvements
+- Legacy Bitronix artifacts are no longer supported.
+- Deployments must remove old Bitronix dependencies.
+
+#### Migration From javax.transaction to jakarta.transaction (BREAKING CHANGE)
+
+Moqui has migrated all transaction-related imports and internal APIs from
+javax.transaction.* to jakarta.transaction.*, following changes in the new
+Bitronix fork.
+
+Impact on developers:
+
+- Any code referencing javax.transaction.* must update imports to
+  jakarta.transaction.*.
+- Affects transaction facade usage, user transactions, and service-layer
+  transaction management.
+- If using custom transaction API, then compilation failures should be expected
+  until imports are updated. This does not impact projects that are purely
+  depending on moqui facades without accessing the underlying APIs
+
+This aligns Moqui with the Jakarta EE namespace changes and the newer Bitronix
+transaction manager.
+
+#### Upgrade Infrastructure
+
+- Postgres to version 18.1
+- MySQL to version 9.5
+- Remove docker compose "version" obsolete key
+- Upgrade opensearch to 3.4.0
+- Upgrade java in docker to eclipse-temurin:21
+- Switch jwilder/nginx-proxy to nginxproxy/nginx-proxy
+
+These upgrades require careful planning when migrating to moqui V4. It is
+recommended to delete elastic / open search and reindex, and to switch
+from elasticsearch to opensearch. Also ensure an upgrade path for your chosen
+database.
+
+Also, in newer versions of docker, the "version" key is obsolete, so ensure
+updating installed docker so that it works without the "version" setting.
+
+#### Gradle Wrapper Updated to 9.2 (BREAKING CHANGE)
+
+The framework now builds using Gradle 9.2, bringing:
+
+- Faster builds
+- Stricter validation and deprecation cleanup
+
+Changes included:
+- Refactored property assignments and function calls to satisfy newer Gradle immutability rules.
+- Replaced deprecated exec {} blocks with Groovy execute() usage (Windows support still being refined).
+- Updated and corrected dependency declarations, including replacing deprecated modules and fixing invalid version strings.
+- Numerous misc. updates required by Gradle 9.x API changes.
+- Unified dependencyUpdates settings
+
+This upgrade required significant modifications to component build scripts.
+
+Given the upgrade to gradle, Java and bitronix, the following community components were upgraded to comply with new requirements:
+- HiveMind
+- PopCommerce
+- PopRestStore
+- example
+- mantle-braintree
+- mantle-usl
+- moqui-camel
+- moqui-cups
+- moqui-fop
+- moqui-hazelcast
+- moqui-image
+- moqui-orientdb
+- moqui-poi
+- moqui-runtime
+- moqui-sftp
+- moqui-sso
+- moqui-wikitext
+- start
+
+### New Features
+
+- Upgrade groovy to version 5
+- Upgrade to JDK21 by default
+- Upgrade to Apache Shiro 2, no longer using INI factory, but rather INI environment classes
+- Upgrade to jetty 2.1 and jakarta EE 11
+- Upgrade docker infrastructure including opensearch, mysql, postgres to latest
+- Upgrade all dependencies to their latest versions
+- Switch from Thread.getId() to Thread.threadId() to work on both virtual and platform threads
+
+## Release 3.9.9 - 25 Feb 2026
 
 Moqui Framework 3.9.9 is a minor new feature and bug fix release, but mostly a maintenance release for the Moqui Framework 
 4.0.0 release series.
@@ -10,6 +184,8 @@ Moqui Framework 3.9.9 is a minor new feature and bug fix release, but mostly a m
 For a complete list see the commit log:
 
 https://github.com/moqui/moqui-framework/compare/v3.0.0...v3.9.9
+
+## Release 3.1.0 - Canceled release
 
 ## Release 3.0.0 - 31 May 2022
 

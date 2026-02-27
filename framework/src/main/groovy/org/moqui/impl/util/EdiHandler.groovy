@@ -473,7 +473,13 @@ class EdiHandler {
         Map<String, List<Object>> makeAk4() {
             Object position = elementPosition as String
             if (compositePosition) position = [position, compositePosition as String]
-            return [elements:['AK4', position, elementErrorX12Codes.get(errorType), elementText]]
+            List<Object> elements = [
+                'AK4',
+                position,
+                elementErrorX12Codes.get(errorType),
+                elementText
+            ]
+            return [elements: elements]
         }
     }
 }

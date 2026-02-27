@@ -17,8 +17,8 @@ import org.moqui.entity.EntityFacade;
 import org.moqui.util.MNode;
 
 import javax.sql.DataSource;
-import javax.transaction.TransactionManager;
-import javax.transaction.UserTransaction;
+import jakarta.transaction.TransactionManager;
+import jakarta.transaction.UserTransaction;
 
 public interface TransactionInternal {
     TransactionInternal init(ExecutionContextFactory ecf);
