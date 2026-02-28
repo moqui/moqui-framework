@@ -594,16 +594,29 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:sequence>
             <xs:element name="cluster" minOccurs="0" maxOccurs="unbounded"><xs:complexType>
                 <xs:attribute name="name" type="xs:string" use="required"/>
-                <xs:attribute name="url" type="xs:string" use="required"/>
+                <xs:attribute name="type" default="elastic"><xs:annotation><xs:documentation>
+                    Backend type for this cluster. Use 'elastic' (default) for ElasticSearch/OpenSearch via HTTP REST.
+                    Use 'postgres' to store and search documents in PostgreSQL using JSONB and tsvector.
+                    When type is 'postgres', url should be the entity datasource group name (e.g. 'transactional').
+                </xs:documentation></xs:annotation>
+                    <xs:simpleType><xs:restriction base="xs:string">
+                        <xs:enumeration value="elastic"/>
+                        <xs:enumeration value="postgres"/>
+                    </xs:restriction></xs:simpleType>
+                </xs:attribute>
+                <xs:attribute name="url" type="xs:string"><xs:annotation><xs:documentation>
+                    For type=elastic: full URL to ElasticSearch/OpenSearch (e.g. http://localhost:9200).
+                    For type=postgres: the Moqui entity datasource group name to use (e.g. 'transactional'), or omit to use the default transactional group.
+                </xs:documentation></xs:annotation></xs:attribute>
                 <xs:attribute name="user" type="xs:string"/>
                 <xs:attribute name="password" type="xs:string"/>
                 <xs:attribute name="index-prefix" type="xs:string"><xs:annotation><xs:documentation>
-                    Prefix added to all ES index names just before requests
-                    Must follow ES index name requirements (lower case, etc)
-                    No separator character is added, recommend ending with underscore (_)
+                    Prefix added to all index names just before requests.
+                    For type=elastic: Must follow ES index name requirements (lower case, etc). No separator character is added, recommend ending with underscore (_).
+                    For type=postgres: Used as a prefix to the index_name column value in moqui_document table.
                 </xs:documentation></xs:annotation></xs:attribute>
-                <xs:attribute name="pool-max" type="xs:positiveInteger"/>
-                <xs:attribute name="queue-size" type="xs:positiveInteger"/>
+                <xs:attribute name="pool-max" type="xs:positiveInteger"><xs:annotation><xs:documentation>For type=elastic only: HTTP connection pool max size.</xs:documentation></xs:annotation></xs:attribute>
+                <xs:attribute name="queue-size" type="xs:positiveInteger"><xs:annotation><xs:documentation>For type=elastic only: HTTP request queue size.</xs:documentation></xs:annotation></xs:attribute>
             </xs:complexType></xs:element>
         </xs:sequence>
     </xs:complexType></xs:element>

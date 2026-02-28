@@ -196,6 +196,8 @@ dependencies {
     testImplementation 'org.junit.platform:junit-platform-suite:1.12.1'
     // junit-jupiter-api for using JUnit directly, not generally needed for Spock based tests
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.12.1'
+    // junit-jupiter-engine required to execute @Test-annotated methods via JUnit Platform
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.12.1'
     // Spock Framework
     testImplementation platform("org.spockframework:spock-bom:2.1-groovy-3.0") // Apache 2.0
     testImplementation 'org.spockframework:spock-core:2.1-groovy-3.0' // Apache 2.0
@@ -234,6 +236,7 @@ test {
 
     dependsOn cleanTest
     include '**/*MoquiSuite.class'
+    include '**/*PostgresSearchSuite.class'
 
     systemProperty 'moqui.runtime', '../runtime'
     systemProperty 'moqui.conf', 'conf/MoquiDevConf.xml'
