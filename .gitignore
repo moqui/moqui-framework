@@ -8,6 +8,18 @@ build
 /moqui*.war
 /Save*.zip
 
+# Sensitive files — do not commit
+/cookies.txt
+
+# Playwright MCP (local browser automation tool logs)
+.playwright-mcp/
+
+# Planning / design docs (not part of shipped code)
+/POSTGRES_SEARCH_PLAN.md
+
+# Log files
+*.log
+
 # runtime directory (separate repository so ignore directory entirely)
 /runtime
 /execwartmp

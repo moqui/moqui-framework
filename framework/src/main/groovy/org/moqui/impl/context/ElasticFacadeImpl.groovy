@@ -32,6 +32,7 @@ import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityJavaUtil
 import org.moqui.impl.entity.FieldInfo
 import org.moqui.impl.util.ElasticSearchLogger
+import org.moqui.impl.util.PostgresSearchLogger
 import org.moqui.util.LiteStringMap
 import org.moqui.util.MNode
 import org.moqui.util.RestClient
@@ -69,8 +70,9 @@ class ElasticFacadeImpl implements ElasticFacade {
     }
 
     public final ExecutionContextFactoryImpl ecfi
-    private final Map<String, ElasticClientImpl> clientByClusterName = new LinkedHashMap<>()
+    private final Map<String, ElasticClient> clientByClusterName = new LinkedHashMap<>()
     private ElasticSearchLogger esLogger = null
+    private PostgresSearchLogger pgLogger = null
 
     ElasticFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
@@ -90,14 +92,22 @@ class ElasticFacadeImpl implements ElasticFacade {
                 logger.warn("ElasticFacade Client for cluster ${clusterName} already initialized, skipping")
                 continue
             }
-            if (!clusterUrl) {
-                logger.warn("ElasticFacade Client for cluster ${clusterName} has no url, skipping")
-                continue
-            }
 
+            String clusterType = clusterNode.attribute("type") ?: "elastic"
             try {
-                ElasticClientImpl elci = new ElasticClientImpl(clusterNode, ecfi)
-                clientByClusterName.put(clusterName, elci)
+                if ("postgres".equals(clusterType)) {
+                    // PostgreSQL backend — url attribute is datasource group name (optional, default "transactional")
+                    PostgresElasticClient pgc = new PostgresElasticClient(clusterNode, ecfi)
+                    clientByClusterName.put(clusterName, pgc)
+                    logger.info("Initialized PostgresElasticClient for cluster ${clusterName}")
+                } else {
+                    if (!clusterUrl) {
+                        logger.warn("ElasticFacade Client for cluster ${clusterName} has no url, skipping")
+                        continue
+                    }
+                    ElasticClientImpl elci = new ElasticClientImpl(clusterNode, ecfi)
+                    clientByClusterName.put(clusterName, elci)
+                }
             } catch (Throwable t) {
                 Throwable cause = t.getCause()
                 if (cause != null && cause.message.contains("refused")) {
@@ -108,22 +118,29 @@ class ElasticFacadeImpl implements ElasticFacade {
             }
         }
 
-        // init ElasticSearchLogger
-        if (esLogger == null || !esLogger.isInitialized()) {
-            ElasticClientImpl loggerEci = clientByClusterName.get("logger") ?: clientByClusterName.get("default")
-            if (loggerEci != null) {
-                logger.info("Initializing ElasticSearchLogger with cluster ${loggerEci.getClusterName()}")
-                esLogger = new ElasticSearchLogger(loggerEci, ecfi)
+        // init ElasticSearchLogger / PostgresSearchLogger depending on backend type
+        ElasticClient loggerClient = clientByClusterName.get("logger") ?: clientByClusterName.get("default")
+        if (loggerClient instanceof PostgresElasticClient) {
+            if (pgLogger == null || !pgLogger.isInitialized()) {
+                logger.info("Initializing PostgresSearchLogger with cluster ${loggerClient.getClusterName()}")
+                pgLogger = new PostgresSearchLogger((PostgresElasticClient) loggerClient, ecfi)
             } else {
-                logger.warn("No Elastic Client found with name 'logger' or 'default', not initializing ElasticSearchLogger")
+                logger.warn("PostgresSearchLogger in place and initialized, skipping")
+            }
+        } else if (loggerClient instanceof ElasticClientImpl) {
+            if (esLogger == null || !esLogger.isInitialized()) {
+                logger.info("Initializing ElasticSearchLogger with cluster ${loggerClient.getClusterName()}")
+                esLogger = new ElasticSearchLogger((ElasticClientImpl) loggerClient, ecfi)
+            } else {
+                logger.warn("ElasticSearchLogger in place and initialized, not initializing ElasticSearchLogger")
             }
         } else {
-            logger.warn("ElasticSearchLogger in place and initialized, not initializing ElasticSearchLogger")
+            logger.warn("No Elastic/Postgres Client found with name 'logger' or 'default', not initializing search logger")
         }
 
         // Index DataFeed with indexOnStartEmpty=Y
         try {
-            ElasticClientImpl defaultEci = clientByClusterName.get("default")
+            ElasticClient defaultEci = clientByClusterName.get("default")
             if (defaultEci != null) {
                 EntityList dataFeedList = ecfi.entityFacade.find("moqui.entity.feed.DataFeed")
                         .condition("indexOnStartEmpty", "Y").disableAuthz().list()
@@ -151,7 +168,11 @@ class ElasticFacadeImpl implements ElasticFacade {
 
     void destroy() {
         if (esLogger != null) esLogger.destroy()
-        for (ElasticClientImpl eci in clientByClusterName.values()) eci.destroy()
+        if (pgLogger != null) pgLogger.destroy()
+        for (ElasticClient eci in clientByClusterName.values()) {
+            if (eci instanceof ElasticClientImpl) ((ElasticClientImpl) eci).destroy()
+            else if (eci instanceof PostgresElasticClient) ((PostgresElasticClient) eci).destroy()
+        }
     }
 
     @Override ElasticClient getDefault() { return clientByClusterName.get("default") }

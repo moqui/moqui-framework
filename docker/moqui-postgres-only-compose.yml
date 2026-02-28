@@ -1,0 +1,88 @@
+# A Docker Compose application with Moqui and PostgreSQL ONLY — no OpenSearch/ElasticSearch.
+# All document storage, full-text search, and logging are handled by PostgreSQL using JSONB
+# and tsvector, via the PostgresElasticClient (type="postgres") backend.
+
+# Run with something like this for detached mode:
+# $ docker compose -f moqui-postgres-only-compose.yml -p moqui up -d
+
+# Or via the compose-run.sh helper:
+# $ ./compose-run.sh moqui-postgres-only-compose.yml
+
+# To configure Moqui, add the following to your runtime/conf/MoquiConf.xml:
+#
+#   <elastic-facade>
+#       <cluster name="default" type="postgres" url="transactional" index-prefix="mq_"/>
+#   </elastic-facade>
+
+version: "2"
+services:
+  nginx-proxy:
+    image: jwilder/nginx-proxy
+    container_name: nginx-proxy
+    restart: always
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - ./certs:/etc/nginx/certs
+      - ./nginx/my_proxy.conf:/etc/nginx/conf.d/my_proxy.conf
+    environment:
+      - DEFAULT_HOST=moqui.local
+      - SSL_POLICY=AWS-TLS-1-2-2017-01
+
+  moqui-server:
+    image: moqui
+    container_name: moqui-server
+    command: conf=conf/MoquiProductionConf.xml
+    restart: always
+    links:
+      - moqui-database
+    volumes:
+      - ./runtime/conf:/opt/moqui/runtime/conf
+      - ./runtime/lib:/opt/moqui/runtime/lib
+      - ./runtime/classes:/opt/moqui/runtime/classes
+      - ./runtime/ecomponent:/opt/moqui/runtime/ecomponent
+      - ./runtime/log:/opt/moqui/runtime/log
+      - ./runtime/txlog:/opt/moqui/runtime/txlog
+      - ./runtime/sessions:/opt/moqui/runtime/sessions
+    environment:
+      - "JAVA_TOOL_OPTIONS=-Xms1024m -Xmx1024m"
+      - instance_purpose=production
+      - entity_ds_db_conf=postgres
+      - entity_ds_host=moqui-database
+      - entity_ds_port=5432
+      - entity_ds_database=moqui
+      - entity_ds_schema=public
+      - entity_ds_user=${MOQUI_DS_USER:-moqui}
+      - entity_ds_password=${MOQUI_DS_PASSWORD:?Set MOQUI_DS_PASSWORD}
+      - entity_ds_crypt_pass=${MOQUI_DS_CRYPT_PASS:?Set MOQUI_DS_CRYPT_PASS}
+      # ---- PostgreSQL-backed search (no OpenSearch required) ----
+      # Override elastic-facade in your MoquiConf.xml:
+      #   <elastic-facade>
+      #       <cluster name="default" type="postgres" url="transactional" index-prefix="mq_"/>
+      #   </elastic-facade>
+      # Or set an empty elasticsearch_url so the default cluster is skipped:
+      - elasticsearch_url=
+      # VIRTUAL_HOST for nginx-proxy
+      - VIRTUAL_HOST=moqui.local
+      - webapp_http_port=80
+      - webapp_https_port=443
+      - webapp_https_enabled=true
+      - webapp_client_ip_header=X-Real-IP
+      - default_locale=en_US
+      - default_time_zone=US/Pacific
+
+  moqui-database:
+    image: postgres:14.5
+    container_name: moqui-database
+    restart: always
+    ports:
+      - 127.0.0.1:5432:5432
+    volumes:
+      - ./db/postgres/data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${MOQUI_DS_DB:-moqui}
+      - POSTGRES_DB_SCHEMA=public
+      - POSTGRES_USER=${MOQUI_DS_USER:-moqui}
+      - POSTGRES_PASSWORD=${MOQUI_DS_PASSWORD:?Set MOQUI_DS_PASSWORD}
