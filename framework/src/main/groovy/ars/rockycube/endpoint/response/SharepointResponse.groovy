@@ -101,7 +101,7 @@ class SharepointResponse {
 
         // execute
         RestClient.RestResponse resp = restClient.call()
-        checkPyCalcResponse(resp)
+        checkPyCalcResponse(ec, resp)
 
         // return response
         return resp

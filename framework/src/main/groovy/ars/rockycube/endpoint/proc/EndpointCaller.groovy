@@ -108,7 +108,7 @@ class EndpointCaller {
         }
 
         // process the response
-        checkPyCalcResponse(resp)
+        checkPyCalcResponse(ec, resp)
 
         // must handle all states of the response
         def rsp = (HashMap) resp.jsonObject()
@@ -169,7 +169,7 @@ class EndpointCaller {
                         ]
                 )
         RestClient.RestResponse resp = restClient.call()
-        checkPyCalcResponse(resp)
+        checkPyCalcResponse(ec, resp)
 
         HashMap response = resp.jsonObject() as HashMap
         return response['data']
@@ -180,8 +180,7 @@ class EndpointCaller {
      * en unexpected response arrive
      * @param restResponse
      */
-    public static void checkPyCalcResponse(RestClient.RestResponse restResponse) {
-
+    public static void checkPyCalcResponse(ExecutionContext ec, RestClient.RestResponse restResponse) {
         // check status code
         if (restResponse.statusCode != 200) {
             def errMessage = "Response with status ${restResponse.statusCode} returned: ${restResponse.reasonPhrase}"
@@ -190,6 +189,9 @@ class EndpointCaller {
             {
                 errMessage = restResponse.headerFirst('x-exception-detail')
             }
+            // append to Moqui's message list
+            ec.message.addMessage(errMessage.toString())
+
             throw new EndpointException(errMessage)
         }
     }
