@@ -261,11 +261,19 @@ public class ExecutionContextImpl implements ExecutionContext {
 
 
         // otherwise return null
-        if (foundProp == null) return (V) instanceClass.cast(defaultValue);
+        if (foundProp == null) return instanceClass.cast(defaultValue);
 
         // return if found
         String valueStr = foundProp.attribute("value");
-        if (valueStr == null) return null;
+        if (valueStr == null || valueStr.isEmpty()) {
+            // give it a chance and check environment variables
+            if (System.getProperty(keyword) != null) {
+                valueStr = System.getProperty(keyword);
+            } else {
+                // ... otherwise return null
+                return null;
+            }
+        }
 
         if (instanceClass == String.class) {
             return instanceClass.cast(valueStr);
