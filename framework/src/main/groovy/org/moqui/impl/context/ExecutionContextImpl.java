@@ -241,18 +241,27 @@ public class ExecutionContextImpl implements ExecutionContext {
      * Find specified keyword in default-properties
      * @param keyword
      * @param instanceClass
+     */
+    public <V> V getConfigurationVariable(@NonNull String keyword, @NonNull Class<V> instanceClass) {
+        return getConfigurationVariable(keyword, instanceClass, null);
+    }
+
+    /**
+     * Find specified keyword in default-properties
+     * @param keyword
+     * @param instanceClass
      * @return
      * @param <V>
      */
     @Override
-    public <V> V getConfigurationVariable(@NonNull String keyword, Class<V> instanceClass) {
+    public <V> V getConfigurationVariable(@NonNull String keyword, @NonNull Class<V> instanceClass, @Nullable Object defaultValue) {
         MNode conf = ecfi.confXmlRoot;
         ArrayList<MNode> props = conf.children("default-property");
         MNode foundProp = props.stream().filter(p -> p.attribute("name").equals(keyword)).findFirst().orElse(null);
 
 
         // otherwise return null
-        if (foundProp == null) return null;
+        if (foundProp == null) return (V) instanceClass.cast(defaultValue);
 
         // return if found
         String valueStr = foundProp.attribute("value");
