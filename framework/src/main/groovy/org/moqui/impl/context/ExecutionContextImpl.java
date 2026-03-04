@@ -14,6 +14,7 @@
 package org.moqui.impl.context;
 
 import groovy.lang.Closure;
+import org.jspecify.annotations.NonNull;
 import org.moqui.context.*;
 import org.moqui.entity.EntityFacade;
 import org.moqui.entity.EntityFind;
@@ -26,6 +27,7 @@ import org.moqui.screen.ScreenFacade;
 import org.moqui.service.ServiceFacade;
 import org.moqui.util.ContextBinding;
 import org.moqui.util.ContextStack;
+import org.moqui.util.MNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -233,6 +235,45 @@ public class ExecutionContextImpl implements ExecutionContext {
         MDC.remove("moqui_visitorId");
 
         if (loggerDirect.isTraceEnabled()) loggerDirect.trace("ExecutionContextImpl destroyed");
+    }
+
+    /**
+     * Find specified keyword in default-properties
+     * @param keyword
+     * @param instanceClass
+     * @return
+     * @param <V>
+     */
+    @Override
+    public <V> V getConfigurationVariable(@NonNull String keyword, Class<V> instanceClass) {
+        MNode conf = ecfi.confXmlRoot;
+        ArrayList<MNode> props = conf.children("default-property");
+        MNode foundProp = props.stream().filter(p -> p.attribute("name").equals(keyword)).findFirst().orElse(null);
+
+
+        // otherwise return null
+        if (foundProp == null) return null;
+
+        // return if found
+        String valueStr = foundProp.attribute("value");
+        if (valueStr == null) return null;
+
+        if (instanceClass == String.class) {
+            return instanceClass.cast(valueStr);
+        } else if (instanceClass == Integer.class) {
+            return instanceClass.cast(Integer.valueOf(valueStr));
+        } else if (instanceClass == Long.class) {
+            return instanceClass.cast(Long.valueOf(valueStr));
+        } else if (instanceClass == Double.class) {
+            return instanceClass.cast(Double.valueOf(valueStr));
+        } else if (instanceClass == Float.class) {
+            return instanceClass.cast(Float.valueOf(valueStr));
+        } else if (instanceClass == Boolean.class) {
+            return instanceClass.cast(Boolean.valueOf(valueStr));
+        } else {
+            // for Object.class or other types not handled, try original behavior
+            return instanceClass.cast(valueStr);
+        }
     }
 
     @Override public String toString() { return "ExecutionContext"; }

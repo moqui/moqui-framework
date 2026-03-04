@@ -107,4 +107,13 @@ public interface ExecutionContext {
      * any active transactions, database connections, etc are closed.
      */
     void destroy();
+
+    /**
+     * Used for returning configuration variables from configuration file
+     * @param keyword
+     * @param instanceClass
+     * @return
+     * @param <V>
+     */
+    <V> V getConfigurationVariable(@Nonnull String keyword, Class<V> instanceClass);
 }
