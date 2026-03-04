@@ -115,5 +115,5 @@ public interface ExecutionContext {
      * @return
      * @param <V>
      */
-    <V> V getConfigurationVariable(@Nonnull String keyword, Class<V> instanceClass);
+    <V> V getConfigurationVariable(@Nonnull String keyword, @Nonnull Class<V> instanceClass, @Nullable Object defaultValue);
 }
