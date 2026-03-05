@@ -188,7 +188,7 @@ public class TestUtilities {
     }
 
     /**
-     * Search for the directory and return ResourceReferebce to it
+     * Search for the directory and return ResourceReference to it
      * @param ec
      * @param resDir
      * @return
