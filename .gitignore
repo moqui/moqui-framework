@@ -9,13 +9,44 @@ build
 /Save*.zip
 
 # Sensitive files — do not commit
-/cookies.txt
+/cookies*.txt
 
 # Playwright MCP (local browser automation tool logs)
 .playwright-mcp/
 
-# Planning / design docs (not part of shipped code)
-/POSTGRES_SEARCH_PLAN.md
+# Screenshots and images (debug/comparison captures)
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.webp
+/flutter_*
+!/flutter/
+/moqui_*
+!/MoquiInit.properties
+
+# Debug/network output files
+*_output*.txt
+/netout*.txt
+/standalone_out.txt
+/dart_files.txt
+/pubspec_files.txt
+
+# Test/debug scripts (ad-hoc, not part of build)
+/test_*.py
+/patch_*.py
+
+# Planning / analysis docs (not part of shipped code)
+/*_PLAN.md
+/*_PATTERNS*.md
+/*_ANALYSIS.md
+/*_REPORT*
+
+# E2E test artifacts
+/e2e_test_report.json
+/E2E_PLAYWRIGHT_TEST_REPORT.md
+/FJSON_RESPONSE_ANALYSIS.md
 
 # Log files
 *.log

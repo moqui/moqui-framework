@@ -64,6 +64,8 @@ class ElasticQueryTranslator {
         String orderBy = null
         /** The tsquery expression (as SQL expression string) for use in ts_rank_cd() and ts_headline() */
         String tsqueryExpr = null
+        /** Bind parameters specifically for tsqueryExpr (separate from WHERE params) */
+        List<Object> tsqueryParams = []
         /** OFFSET value for pagination */
         int fromOffset = 0
         /** LIMIT value for pagination */
@@ -111,6 +113,7 @@ class ElasticQueryTranslator {
             tq.whereClause = qr.clause ?: "TRUE"
             tq.params = qr.params
             tq.tsqueryExpr = qr.tsqueryExpr
+            tq.tsqueryParams = qr.tsqueryParams
         }
 
         return tq
@@ -122,6 +125,8 @@ class ElasticQueryTranslator {
         List<Object> params = []
         /** If this query has a full-text component, the SQL tsquery expression for scoring/highlighting */
         String tsqueryExpr = null
+        /** Bind parameters specifically for tsqueryExpr (separate from WHERE clause params) */
+        List<Object> tsqueryParams = []
     }
 
     static QueryResult translateQuery(Map queryMap) {
@@ -173,10 +178,9 @@ class ElasticQueryTranslator {
         // Use websearch_to_tsquery for natural language queries
         // It handles: "exact phrase", AND/OR/NOT, +required, -exclude
         qr.tsqueryExpr = "websearch_to_tsquery('english', ?)"
+        qr.tsqueryParams = [cleanedQuery]
         qr.params = [cleanedQuery]
         qr.clause = "content_tsv @@ websearch_to_tsquery('english', ?)"
-        // Note: we add the param twice (once for where clause, once for tsquery expression used in scoring)
-        // Callers who need separate tsquery expression access the tsqueryExpr field with their own param binding
         return qr
     }
 
@@ -194,6 +198,7 @@ class ElasticQueryTranslator {
         List<String> clauses = []
         List<Object> params = []
         String combinedTsquery = null
+        List<Object> combinedTsqueryParams = []
 
         // must (AND)
         Object mustVal = boolMap.get("must")
@@ -204,7 +209,10 @@ class ElasticQueryTranslator {
                     QueryResult itemQr = translateQuery((Map) item)
                     mustClauses.add(itemQr.clause)
                     params.addAll(itemQr.params)
-                    if (itemQr.tsqueryExpr) combinedTsquery = combinedTsquery ? "(${combinedTsquery}) && (${itemQr.tsqueryExpr})" : itemQr.tsqueryExpr
+                    if (itemQr.tsqueryExpr) {
+                        combinedTsquery = combinedTsquery ? "(${combinedTsquery}) && (${itemQr.tsqueryExpr})" : itemQr.tsqueryExpr
+                        combinedTsqueryParams.addAll(itemQr.tsqueryParams)
+                    }
                 }
             }
             if (mustClauses) clauses.add("(" + mustClauses.join(" AND ") + ")")
@@ -212,7 +220,10 @@ class ElasticQueryTranslator {
             QueryResult itemQr = translateQuery((Map) mustVal)
             clauses.add(itemQr.clause)
             params.addAll(itemQr.params)
-            if (itemQr.tsqueryExpr) combinedTsquery = itemQr.tsqueryExpr
+            if (itemQr.tsqueryExpr) {
+                combinedTsquery = itemQr.tsqueryExpr
+                combinedTsqueryParams.addAll(itemQr.tsqueryParams)
+            }
         }
 
         // filter (same as must for our purposes)
@@ -242,7 +253,10 @@ class ElasticQueryTranslator {
                     QueryResult itemQr = translateQuery((Map) item)
                     shouldClauses.add(itemQr.clause)
                     params.addAll(itemQr.params)
-                    if (itemQr.tsqueryExpr) combinedTsquery = combinedTsquery ? "(${combinedTsquery}) || (${itemQr.tsqueryExpr})" : itemQr.tsqueryExpr
+                    if (itemQr.tsqueryExpr) {
+                        combinedTsquery = combinedTsquery ? "(${combinedTsquery}) || (${itemQr.tsqueryExpr})" : itemQr.tsqueryExpr
+                        combinedTsqueryParams.addAll(itemQr.tsqueryParams)
+                    }
                 }
             }
             if (shouldClauses) {
@@ -260,7 +274,10 @@ class ElasticQueryTranslator {
             QueryResult itemQr = translateQuery((Map) shouldVal)
             clauses.add(itemQr.clause)
             params.addAll(itemQr.params)
-            if (itemQr.tsqueryExpr) combinedTsquery = itemQr.tsqueryExpr
+            if (itemQr.tsqueryExpr) {
+                combinedTsquery = itemQr.tsqueryExpr
+                combinedTsqueryParams.addAll(itemQr.tsqueryParams)
+            }
         }
 
         // must_not (NOT)
@@ -284,6 +301,7 @@ class ElasticQueryTranslator {
         qr.clause = clauses ? "(" + clauses.join(" AND ") + ")" : "TRUE"
         qr.params = params
         qr.tsqueryExpr = combinedTsquery
+        qr.tsqueryParams = combinedTsqueryParams
         return qr
     }
 
@@ -631,10 +649,8 @@ class ElasticQueryTranslator {
         // Remove fuzzy operators (~number or just ~)
         q = q.replaceAll(/~[\d.]*/, '')
 
-        // Normalize AND/OR/NOT to lowercase for websearch_to_tsquery
-        // (websearch_to_tsquery actually uses lowercase and/or/not)
-        q = q.replaceAll(/\bAND\b/, 'AND')
-        q = q.replaceAll(/\bOR\b/, 'OR')
+        // Normalize AND/OR/NOT — websearch_to_tsquery handles them case-insensitively,
+        // but convert NOT to - (the supported exclusion syntax)
         q = q.replaceAll(/\bNOT\b/, '-')
 
         // Remove wildcards at end of terms (partial matching not directly supported; term will still match as prefix via FTS)

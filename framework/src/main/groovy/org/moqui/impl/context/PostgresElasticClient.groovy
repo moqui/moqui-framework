@@ -93,7 +93,8 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
             Statement stmt = conn.createStatement()
             try {
                 // Enable pg_trgm extension for fuzzy search (available since PG 9.1)
-                stmt.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
+                try { stmt.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm") }
+                catch (Exception extEx) { logger.warn("Could not create pg_trgm extension (may require superuser): ${extEx.message}") }
 
                 // moqui_search_index — index metadata (replaces ES index/alias concept)
                 stmt.execute("""
@@ -459,34 +460,45 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
         if (!actionSourceList) return
         String prefixedIndex = index ? prefixIndexName(index) : null
 
-        // Process pairs: action map + source map
-        for (int i = 0; i + 1 < actionSourceList.size(); i += 2) {
+        // Process actions: most have action + source pairs, but delete is action-only (no source line)
+        int i = 0
+        while (i < actionSourceList.size()) {
             Map action = (Map) actionSourceList.get(i)
-            Map source = (Map) actionSourceList.get(i + 1)
 
-            // Determine operation type
-            if (action.containsKey("index") || action.containsKey("create")) {
-                Map actionSpec = (Map) (action.get("index") ?: action.get("create"))
-                String idxName = ((String) actionSpec.get("_index")) ?: prefixedIndex
-                String _id = (String) actionSpec.get("_id")
-                if (idxName) {
-                    String docJson = objectToJson(source)
-                    String contentText = extractContentText(source)
-                    upsertDocument(idxName, _id, null, docJson, contentText)
-                }
-            } else if (action.containsKey("update")) {
-                Map actionSpec = (Map) action.get("update")
-                String idxName = ((String) actionSpec.get("_index")) ?: prefixedIndex
-                String _id = (String) actionSpec.get("_id")
-                if (idxName && _id) {
-                    Map doc = (Map) source.get("doc") ?: source
-                    update(idxName, _id, doc)
-                }
-            } else if (action.containsKey("delete")) {
+            if (action.containsKey("delete")) {
+                // Delete actions have NO source document — only consume 1 item
                 Map actionSpec = (Map) action.get("delete")
-                String idxName = ((String) actionSpec.get("_index")) ?: prefixedIndex
+                String idxName = actionSpec.get("_index") ? prefixIndexName((String) actionSpec.get("_index")) : prefixedIndex
                 String _id = (String) actionSpec.get("_id")
                 if (idxName && _id) delete(idxName, _id)
+                i += 1
+            } else if (i + 1 < actionSourceList.size()) {
+                // index/create/update actions consume action + source (2 items)
+                Map source = (Map) actionSourceList.get(i + 1)
+
+                if (action.containsKey("index") || action.containsKey("create")) {
+                    Map actionSpec = (Map) (action.get("index") ?: action.get("create"))
+                    String idxName = actionSpec.get("_index") ? prefixIndexName((String) actionSpec.get("_index")) : prefixedIndex
+                    String _id = (String) actionSpec.get("_id")
+                    if (idxName) {
+                        String docJson = objectToJson(source)
+                        String contentText = extractContentText(source)
+                        upsertDocument(idxName, _id, null, docJson, contentText)
+                    }
+                } else if (action.containsKey("update")) {
+                    Map actionSpec = (Map) action.get("update")
+                    String idxName = actionSpec.get("_index") ? prefixIndexName((String) actionSpec.get("_index")) : prefixedIndex
+                    String _id = (String) actionSpec.get("_id")
+                    if (idxName && _id) {
+                        Map doc = (Map) source.get("doc") ?: source
+                        update(idxName, _id, doc)
+                    }
+                }
+                i += 2
+            } else {
+                // Malformed: action without source at end of list
+                logger.warn("bulk(): action at index ${i} has no following source document, skipping")
+                i += 1
             }
         }
     }
@@ -629,12 +641,6 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
             allParams.addAll(tq.params)
         }
 
-        // Add tsquery param for score expression if needed
-        List<Object> scoreParams = []
-        if (tq.tsqueryExpr) {
-            scoreParams.addAll(tq.params) // same param(s) as the where clause tsquery
-        }
-
         // ORDER BY
         String orderByClause = tq.orderBy ?: (tq.tsqueryExpr ? "_score DESC" : "updated_stamp DESC")
 
@@ -669,7 +675,7 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
         // 2. WHERE clause ?s (index names + query params already in allParams)
         // 3. LIMIT and OFFSET
         List<Object> mainParams = []
-        if (tq.tsqueryExpr) mainParams.addAll(tq.params) // score SELECT clause comes first in SQL
+        if (tq.tsqueryExpr) mainParams.addAll(tq.tsqueryParams) // score SELECT clause: only tsquery-specific params
         mainParams.addAll(allParams) // WHERE clause: indexNames then query params
         mainParams.add(tq.sizeLimit)
         mainParams.add(tq.fromOffset)
