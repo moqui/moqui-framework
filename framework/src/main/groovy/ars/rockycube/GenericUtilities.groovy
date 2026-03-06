@@ -209,6 +209,20 @@ class GenericUtilities {
         }
     }
 
+    /**
+     * Converts a Map (e.g., HashMap, LazyMap) into an InputStream by serializing it to a JSON string.
+     * @param map The map to be converted.
+     * @return An InputStream containing the JSON representation of the map.
+     */
+    public static InputStream convertMapToInputStream(Map map) {
+        if (map == null) {
+            // Return an empty input stream for a null map
+            return new ByteArrayInputStream(new byte[0])
+        }
+        String jsonString = JsonOutput.toJson(map)
+        return new ByteArrayInputStream(jsonString.getBytes(StandardCharsets.UTF_8))
+    }
+
     public static Boolean isEmpty(Object obj)
     {
         if (obj == null) return true
@@ -316,6 +330,8 @@ class GenericUtilities {
         is.reset()  // Reset to the marked position
         return firstChar == '['
     }
+
+
 
     /**
      * Method that converts InputStream to either map or list
