@@ -68,13 +68,9 @@ jobs:
           distribution: 'temurin'
           cache: 'gradle'
 
-      - name: Get runtime and demo components
+      - name: Get runtime / config and demo components
         run: |
-          ./gradlew getRuntime getComponentSet -PcomponentSet=demo getComponent -Pcomponent=moqui-poi -PlocationType=release
-
-      - name: Download JDBC drivers and OpenSearch
-        run: |
-          ./gradlew getMySqlJdbc getPostgresJdbc downloadOpenSearch
+          ./gradlew getRuntime getMySqlJdbc getPostgresJdbc downloadOpenSearch getComponentSet -PcomponentSet=demo getComponent -Pcomponent=moqui-poi -PlocationType=release
 
       - name: Load data and run tests
         run: |
