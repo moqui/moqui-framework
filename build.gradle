@@ -267,6 +267,62 @@ task stopElasticSearch { doLast {
     stopSearch(moquiRuntime)
 } }
 
+// ========== JDBC driver download tasks ==========
+
+task getPostgresJdbc {
+    description = "Download the latest PostgreSQL JDBC driver to runtime/lib"
+    dependsOn 'getRuntime'
+    doLast {
+        def libDir = file(moquiRuntime + '/lib')
+        if (!libDir.exists()) libDir.mkdirs()
+
+        // Remove existing Postgres JAR files
+        fileTree(dir: libDir, include: 'postgres*.jar').each { it.delete() }
+
+        // Get the latest version from Maven repository
+        def metadataUrl = 'https://repo1.maven.org/maven2/org/postgresql/postgresql/maven-metadata.xml'
+        def metadataFile = file("${buildDir}/postgresql-maven-metadata.xml")
+        ant.get(src: metadataUrl, dest: metadataFile)
+        def metadata = new XmlSlurper().parse(metadataFile)
+        def latestVersion = metadata.versioning.latest.text()
+        metadataFile.delete()
+
+        // Download the latest version
+        def downloadUrl = "https://repo1.maven.org/maven2/org/postgresql/postgresql/${latestVersion}/postgresql-${latestVersion}.jar"
+        def jarFile = file("${libDir}/postgresql-${latestVersion}.jar")
+        logger.lifecycle("Downloading PostgreSQL JDBC driver ${latestVersion} from ${downloadUrl}")
+        ant.get(src: downloadUrl, dest: jarFile)
+        logger.lifecycle("Downloaded PostgreSQL JDBC driver to ${jarFile}")
+    }
+}
+
+task getMySqlJdbc {
+    description = "Download the latest MySQL JDBC driver to runtime/lib"
+    dependsOn 'getRuntime'
+    doLast {
+        def libDir = file(moquiRuntime + '/lib')
+        if (!libDir.exists()) libDir.mkdirs()
+
+        // Remove existing MySQL connector JAR files
+        fileTree(dir: libDir, include: 'mysql-connector*.jar').each { it.delete() }
+
+        // Get the latest version from Maven repository
+        def metadataUrl = 'https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/maven-metadata.xml'
+        def metadataFile = file("${buildDir}/mysql-connector-j-maven-metadata.xml")
+        ant.get(src: metadataUrl, dest: metadataFile)
+        def metadata = new XmlSlurper().parse(metadataFile)
+        def latestVersion = metadata.versioning.latest.text()
+        metadataFile.delete()
+
+        // Download the latest version
+        def downloadUrl = "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/${latestVersion}/mysql-connector-j-${latestVersion}.jar"
+        def jarFile = file("${libDir}/mysql-connector-j-${latestVersion}.jar")
+        logger.lifecycle("Downloading MySQL JDBC driver ${latestVersion} from ${downloadUrl}")
+        ant.get(src: downloadUrl, dest: jarFile)
+        logger.lifecycle("Downloaded MySQL JDBC driver to ${jarFile}")
+    }
+}
+
 // ========== development tasks ==========
 task setupIntellij {
     description = "Adds all XML catalog items to intellij to enable autocomplete"
