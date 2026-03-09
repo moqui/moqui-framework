@@ -83,8 +83,8 @@ class SharepointResponse {
 
         ec.logger.debug("ARS headers used: ${selectedHeaders}")
 
-        // data prep
-        // @todo consider moving credentials to header
+        // pass NULL in credentials
+        if (credentials.keySet().size() == 0) credentials = null
         HashMap<String, Object> payload = [credentials: credentials, location:location]
         // add content if provided
         if (content) if (!content.empty) payload.put('data', content)
