@@ -10,6 +10,7 @@ import org.apache.commons.io.FileUtils
 import org.apache.commons.lang3.RandomStringUtils
 import org.apache.groovy.json.internal.LazyMap
 import org.moqui.context.ExecutionContext
+import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.resource.ResourceReference
 import org.slf4j.Logger
 
@@ -187,7 +188,7 @@ public class TestUtilities {
     }
 
     /**
-     * Search for the directory and return ResourceReferebce to it
+     * Search for the directory and return ResourceReference to it
      * @param ec
      * @param resDir
      * @return
@@ -499,5 +500,22 @@ public class TestUtilities {
             Gson gs = new GsonBuilder().setPrettyPrinting().create()
             return gs.toJson(output)
         })
+    }
+
+    /**
+     * Static method that checks if a component is initialized/loaded in current setup
+     * @param ec
+     * @param componentName
+     * @return
+     */
+    public static boolean checkComponentExistence(ExecutionContext ec, String componentName) {
+        // list through initialized components, check if test-comp is present
+        ExecutionContextFactoryImpl ecfi = (ExecutionContextFactoryImpl) ec.factory
+
+        def testComp = ecfi.componentInfoList.find {Map<String, Object> it ->
+            return it.get('name') == componentName
+        }
+
+        return testComp != null
     }
 }

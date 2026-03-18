@@ -107,4 +107,24 @@ public interface ExecutionContext {
      * any active transactions, database connections, etc are closed.
      */
     void destroy();
+
+    /**
+     * Used for returning configuration variables from configuration file.
+     * @param keyword Name of the configuration variable.
+     * @param instanceClass The class of the value, for type casting.
+     * @param defaultValue The value to return if the variable is not found.
+     * @param <V> The type of the return value.
+     * @return The value of the configuration variable.
+     */
+    <V> V getConfigurationVariable(@Nonnull String keyword, @Nonnull Class<V> instanceClass, @Nullable Object defaultValue);
+
+    /** A two-parameter alias for getConfigurationVariable. */
+    default <V> V getConfigurationVariable(@Nonnull String keyword, @Nonnull Class<V> instanceClass) {
+        return getConfigurationVariable(keyword, instanceClass, null);
+    }
+
+    /** A Groovy-friendly alias for getConfigurationVariable. */
+    default <V> V configurationVariable(@Nonnull String keyword, @Nonnull Class<V> instanceClass, @Nullable Object defaultValue) {
+        return getConfigurationVariable(keyword, instanceClass, defaultValue);
+    }
 }
