@@ -279,6 +279,10 @@ public class TestUtilities {
     public static Writer createDebugWriter(String[] debugTo)
     {
         // log and store output
+        // 1. check if the path starts with `test-integration` or `__temp`, assume it goes to src of the project
+        // 2. if it's otherwise, treat it as standard path
+
+
         String[] debugFilePath = setResourcePath(debugTo)
 
         // create parent directory
@@ -486,10 +490,6 @@ public class TestUtilities {
      * @return
      */
     public static void storeInTempDir(Object output, String[] dir, String filePrefix, boolean clearBeforeWriting=false) {
-        // first check, if debug is turned on
-        def isDebugEnabled = Boolean.valueOf(System.getenv("DEBUG") ?: "false")
-        if (!isDebugEnabled) return
-
         // cleanup first
         if (clearBeforeWriting) deleteDir(dir)
 
