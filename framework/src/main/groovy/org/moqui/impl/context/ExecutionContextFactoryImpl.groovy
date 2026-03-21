@@ -306,14 +306,24 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     protected void reconfigureLog4j() {
-        URL log4j2Url = this.class.getClassLoader().getResource("log4j2.xml")
+
+        String log4jStr = SystemBinding.getPropOrEnv("log4j.configurationFile")?.trim()
+        
+        URL log4j2Url = log4jStr ?
+                new File(log4jStr).toURI().toURL() :
+                this.class.getClassLoader().getResource("log4j2.xml")
+
         if (log4j2Url == null) {
             logger.warn("No log4j2.xml file found on the classpath, no reconfiguring Log4J")
             return
         }
+        
+        logger.info("Reconfiguring Log4J with ${log4j2Url}")
+
         final LoggerContext ctx = (LoggerContext) LogManager.getContext(true)
         ctx.setConfigLocation(log4j2Url.toURI())
     }
+
 
     protected MNode initBaseConfig(MNode runtimeConfXmlRoot) {
         String version = this.class.getPackage().getImplementationVersion()
