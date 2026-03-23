@@ -5,6 +5,7 @@ import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityDataLoader
 import org.moqui.entity.EntityException
 import org.moqui.entity.EntityFind
+import org.moqui.entity.EntityValue
 import org.moqui.impl.entity.EntityDbMeta
 import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityFacadeImpl
@@ -74,6 +75,61 @@ class EntityHelper {
 
         SerialBlob blob = document.get(blobFieldName)
         return blob.getBinaryStream()
+    }
+
+    /**
+     * Helper method that writes data into required entities. For specific purposes, programmer
+     * is advised to wrap the call into a separate transacation, if it's important to maintain
+     * referential integrity.
+     * @param ec
+     * @param entityName
+     * @param dataToInsert
+     * @return
+     */
+    public ArrayList<EntityValue> insertIntoEntity(ExecutionContext ec, String entityName, ArrayList<HashMap> dataToInsert) {
+        def res = []
+
+        // primary key
+        def pk = this.efi.getEntityDefinition(entityName).pkFieldNames
+
+        dataToInsert.each {
+            // does it contain primary key?
+            def fields = it.keySet()
+            def containsAnyKey = pk.any {fields.contains(it)}
+            def containsAll = pk.every {fields.contains(it)}
+
+            // set values
+            def newId = ec.entity.makeValue(entityName).setAll(it)
+            if (containsAnyKey && ! containsAll) {
+                newId.setSequencedIdSecondary()
+            } else if (!containsAll) {
+                newId.setSequencedIdPrimary()
+            }
+            newId.create()
+
+            res.add(newId)
+        }
+        return res
+    }
+
+    /**
+     * Method that updates an entity, should there be only single item matching the
+     * search condition.
+     * @param ec
+     * @param entityName
+     * @param cond
+     * @param updateMap
+     * @return
+     */
+    public boolean updateSingleEntity(ExecutionContext ec, String entityName, HashMap cond, HashMap updateMap) {
+        def itemToUpdate = this.ec.entity.find(entityName).condition(cond)
+        if (itemToUpdate.count() == 0) return false
+        if (itemToUpdate.count() > 1) throw new Exception("Multiple records found, unable to perform update")
+
+        // write
+        itemToUpdate.one().setFields(updateMap, true, null, false).update()
+
+        return true
     }
 
     /**
