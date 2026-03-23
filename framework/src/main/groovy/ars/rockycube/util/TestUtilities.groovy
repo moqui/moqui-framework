@@ -281,13 +281,25 @@ public class TestUtilities {
         // log and store output
         // 1. check if the path starts with `test-integration` or `__temp`, assume it goes to src of the project
         // 2. if it's otherwise, treat it as standard path
+        def locals = ["test-integration", "test", "__temp"]
+        def localDebug = locals.any {debugTo[0].startsWith(it)}
+        def startsWithSlash = debugTo[0].startsWith("/")
 
-
-        String[] debugFilePath = setResourcePath(debugTo)
+        String[] debugFilePath
+        if (localDebug) {
+            debugFilePath = setResourcePath(debugTo)
+        } else if (startsWithSlash) {
+            debugFilePath = debugTo
+        } else {
+            debugFilePath = setResourcePath(debugTo)
+        }
 
         // create parent directory
         File outputFile = FileUtils.getFile(debugFilePath)
-        if (!outputFile.parentFile.exists()) outputFile.parentFile.mkdirs()
+        if (!outputFile.parentFile.exists()) {
+            def dirCreation = outputFile.parentFile.mkdirs()
+            if (!dirCreation) throw new Exception("Cannot create output file")
+        }
 
         FileOutputStream debug = new FileOutputStream(getInputFile(debugFilePath))
         return new OutputStreamWriter(debug, StandardCharsets.UTF_8)
@@ -333,8 +345,9 @@ public class TestUtilities {
             fw.write(cb() as String)
             fw.close()
         } catch (Exception exc) {
+            exc.printStackTrace()
             // try to close the writer
-            if (fw) try {fw.close()} catch (Exception closeWriter) {}
+            if (fw) try {fw.close()} catch (Exception ignore) {}
         }
     }
 
