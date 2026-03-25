@@ -298,7 +298,7 @@ public class TestUtilities {
         File outputFile = FileUtils.getFile(debugFilePath)
         if (!outputFile.parentFile.exists()) {
             def dirCreation = outputFile.parentFile.mkdirs()
-            if (!dirCreation) throw new Exception("Cannot create output file")
+            if (!dirCreation) throw new Exception("Cannot create output file ${debugTo.join('/')}")
         }
 
         FileOutputStream debug = new FileOutputStream(getInputFile(debugFilePath))
@@ -513,6 +513,27 @@ public class TestUtilities {
             Gson gs = new GsonBuilder().setPrettyPrinting().create()
             return gs.toJson(output)
         })
+    }
+
+    /**
+     * Appends a subdirectory to each path in the given array of paths.
+     * @param basePaths The array of base paths.
+     * @param subDirectory The subdirectory to append.
+     * @return A new String array with the appended subdirectory.
+     */
+    public static String[] appendSubDirectory(String[] basePaths, String subDirectory) {
+        if (subDirectory == null || subDirectory.isEmpty()) {
+            return basePaths
+        }
+        return basePaths.collect { new File(it, subDirectory).getPath() } as String[]
+    }
+
+    /**
+     * Helper method to generate a string to name a file
+     * @return
+     */
+    public static String generateRandomName() {
+        return RandomStringUtils.randomAlphanumeric(6)
     }
 
     /**
