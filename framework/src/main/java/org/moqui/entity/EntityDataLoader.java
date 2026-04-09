@@ -96,6 +96,7 @@ public interface EntityDataLoader {
     EntityDataLoader csvDelimiter(char delimiter);
     EntityDataLoader csvCommentStart(char commentStart);
     EntityDataLoader csvQuoteChar(char quoteChar);
+    EntityDataLoader csvEscapeChar(char escapeChar);
 
     /** For CSV files use this name (entity or service name) instead of looking for it on line one in the file */
     EntityDataLoader csvEntityName(String entityName);
