@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<!--
+    PostgreSQL-backed search and logging entities.
+    These tables are created by PostgresElasticClient.initSchema() at startup when type=postgres is configured.
+    Entity definitions here are provided for Moqui entity framework access (queries, etc) — they reference the
+    same underlying tables. The actual CREATE TABLE SQL includes JSONB columns and GIN/BRIN indexes that go
+    beyond what Moqui entities can express, so the DDL is managed by PostgresElasticClient directly.
+-->
+<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-3.xsd">
+
+    <!-- ======================================================
+         Postgres Search — Document Store (replaces ES indexes)
+         ====================================================== -->
+
+    <!-- moqui_search_index tracks index metadata (equivalent to ES index aliases + mappings storage) -->
+    <!-- authorize-skip="create" allows the internal PostgresElasticClient to create records without
+         per-user authorization. These entities should NOT be exposed via entity-level REST APIs
+         without additional access controls. -->
+    <entity entity-name="SearchIndex" package="moqui.search" table-name="moqui_search_index"
+            group="transactional" use="configuration" cache="never" authorize-skip="create">
+        <field name="indexName" type="text-medium" is-pk="true"/>
+        <field name="aliasName" type="text-medium"/>
+        <field name="docType" type="text-medium"/>
+        <!-- mapping and settings stored as JSON text; actual column is JSONB in PostgreSQL -->
+        <field name="mappingJson" type="text-very-long" column-name="mapping"/>
+        <field name="settingsJson" type="text-very-long" column-name="settings"/>
+        <field name="createdStamp" type="date-time" default="ec.user.nowTimestamp"/>
+    </entity>
+
+    <!-- moqui_document is the main document store for DataDocuments indexed for search -->
+    <entity entity-name="SearchDocument" package="moqui.search" table-name="moqui_document"
+            group="transactional" use="transactional" cache="never" authorize-skip="create">
+        <field name="indexName" type="text-medium" is-pk="true"/>
+        <field name="documentId" type="text-medium" is-pk="true" column-name="doc_id"/>
+        <field name="docType" type="text-medium"/>
+        <!-- document stored as JSON text; actual column is JSONB in PostgreSQL with GIN index -->
+        <field name="documentJson" type="text-very-long" column-name="document"/>
+        <!-- content_text is the extracted text for full-text search; content_tsv is a GENERATED ALWAYS AS tsvector column — not mapped here since Moqui can't express it, but it exists in the DB -->
+        <field name="contentText" type="text-very-long" column-name="content_text"/>
+        <field name="createdStamp" type="date-time" default="ec.user.nowTimestamp" column-name="created_stamp"/>
+        <field name="updatedStamp" type="date-time" column-name="updated_stamp"/>
+        <index name="SRCH_DOC_TYPE" unique="false"><index-field name="docType"/></index>
+    </entity>
+
+    <!-- ======================================================
+         Postgres Search — Application Log (replaces moqui_logs ES index)
+         ====================================================== -->
+
+    <entity entity-name="SearchLog" package="moqui.search" table-name="moqui_logs"
+            group="transactional" use="transactional" cache="never"
+            sequence-bank-size="100" authorize-skip="create">
+        <field name="logId" type="number-integer" is-pk="true" column-name="log_id"/>
+        <field name="logTimestamp" type="date-time" column-name="log_timestamp"/>
+        <field name="logLevel" type="text-short" column-name="log_level"/>
+        <field name="threadName" type="text-short" column-name="thread_name"/>
+        <field name="threadId" type="number-integer" column-name="thread_id"/>
+        <field name="threadPriority" type="number-integer" column-name="thread_priority"/>
+        <field name="loggerName" type="text-medium" column-name="logger_name"/>
+        <field name="message" type="text-very-long"/>
+        <field name="sourceHost" type="text-short" column-name="source_host"/>
+        <field name="userId" type="id" column-name="user_id"/>
+        <field name="visitorId" type="id" column-name="visitor_id"/>
+        <!-- mdc and thrown stored as JSON text; actual columns are JSONB in PostgreSQL -->
+        <field name="mdcJson" type="text-long" column-name="mdc"/>
+        <field name="thrownJson" type="text-very-long" column-name="thrown"/>
+        <index name="MQLOGS_TS" unique="false"><index-field name="logTimestamp"/></index>
+        <index name="MQLOGS_LVL" unique="false"><index-field name="logLevel"/></index>
+    </entity>
+
+    <!-- ======================================================
+         Postgres Search — HTTP Request Log (replaces moqui_http_log ES index)
+         ====================================================== -->
+
+    <entity entity-name="SearchHttpLog" package="moqui.search" table-name="moqui_http_log"
+            group="transactional" use="transactional" cache="never"
+            sequence-bank-size="100" authorize-skip="create">
+        <field name="logId" type="number-integer" is-pk="true" column-name="log_id"/>
+        <field name="logTimestamp" type="date-time" column-name="log_timestamp"/>
+        <field name="remoteIp" type="text-short" column-name="remote_ip"/>
+        <field name="remoteUser" type="text-short" column-name="remote_user"/>
+        <field name="serverIp" type="text-short" column-name="server_ip"/>
+        <field name="contentType" type="text-medium" column-name="content_type"/>
+        <field name="requestMethod" type="text-short" column-name="request_method"/>
+        <field name="requestScheme" type="text-short" column-name="request_scheme"/>
+        <field name="requestHost" type="text-short" column-name="request_host"/>
+        <field name="requestPath" type="text-medium" column-name="request_path"/>
+        <field name="requestQuery" type="text-long" column-name="request_query"/>
+        <field name="httpVersion" type="text-short" column-name="http_version"/>
+        <field name="responseCode" type="number-integer" column-name="response_code"/>
+        <field name="timeInitialMs" type="number-integer" column-name="time_initial_ms"/>
+        <field name="timeFinalMs" type="number-integer" column-name="time_final_ms"/>
+        <field name="bytesSent" type="number-integer" column-name="bytes_sent"/>
+        <field name="referrer" type="text-medium"/>
+        <field name="agent" type="text-medium"/>
+        <field name="sessionId" type="id" column-name="session_id"/>
+        <field name="visitorId" type="id" column-name="visitor_id"/>
+        <index name="MQHTTPLOG_TS" unique="false"><index-field name="logTimestamp"/></index>
+        <index name="MQHTTPLOG_PATH" unique="false"><index-field name="requestPath"/></index>
+    </entity>
+
+</entities>
