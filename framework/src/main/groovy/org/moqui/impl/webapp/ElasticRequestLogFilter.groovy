@@ -15,7 +15,7 @@ package org.moqui.impl.webapp
 
 import groovy.transform.CompileStatic
 import org.moqui.Moqui
-import org.moqui.impl.context.ElasticFacadeImpl.ElasticClientImpl
+import org.moqui.context.ElasticFacade
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.UserFacadeImpl
 import org.slf4j.Logger
@@ -38,7 +38,7 @@ class ElasticRequestLogFilter implements Filter {
     protected FilterConfig filterConfig = null
     protected ExecutionContextFactoryImpl ecfi = null
 
-    private ElasticClientImpl elasticClient = null
+    private ElasticFacade.ElasticClient elasticClient = null
     private boolean disabled = false
     final ConcurrentLinkedQueue<Map> requestLogQueue = new ConcurrentLinkedQueue<>()
 
@@ -51,13 +51,9 @@ class ElasticRequestLogFilter implements Filter {
         ecfi = (ExecutionContextFactoryImpl) filterConfig.servletContext.getAttribute("executionContextFactory")
         if (ecfi == null) ecfi = (ExecutionContextFactoryImpl) Moqui.executionContextFactory
 
-        elasticClient = (ElasticClientImpl) (ecfi.elasticFacade.getClient("logger") ?: ecfi.elasticFacade.getDefault())
+        elasticClient = (ecfi.elasticFacade.getClient("logger") ?: ecfi.elasticFacade.getDefault())
         if (elasticClient == null) {
             logger.error("In ElasticRequestLogFilter init could not find ElasticClient with name logger or default, not starting")
-            return
-        }
-        if (elasticClient.esVersionUnder7) {
-            logger.warn("ElasticClient ${elasticClient.clusterName} has version under 7.0, not starting ElasticRequestLogFilter")
             return
         }
 
