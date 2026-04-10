@@ -52,8 +52,21 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
     private final static Logger logger = LoggerFactory.getLogger(PostgresElasticClient.class)
     private final static Set<String> DOC_META_KEYS = new HashSet<>(["_index", "_type", "_id", "_timestamp"])
 
+    /** Index names that map to the dedicated moqui_http_log table */
+    private static final Set<String> HTTP_LOG_INDEX_NAMES = new HashSet<>(["moqui_http_log"])
+    /** Index names that map to the dedicated moqui_logs table */
+    private static final Set<String> APP_LOG_INDEX_NAMES = new HashSet<>(["moqui_logs"])
+
     /** Jackson mapper shared with ElasticFacadeImpl */
     static final ObjectMapper jacksonMapper = ElasticFacadeImpl.jacksonMapper
+
+    /** SQL for inserting HTTP request logs into the dedicated moqui_http_log table */
+    static final String HTTP_LOG_INSERT_SQL = """
+        INSERT INTO moqui_http_log (log_timestamp, remote_ip, remote_user, server_ip, content_type,
+            request_method, request_scheme, request_host, request_path, request_query, http_version,
+            response_code, time_initial_ms, time_final_ms, bytes_sent, referrer, agent, session_id, visitor_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """.trim()
 
     /** Shared UPSERT SQL for moqui_document — used by upsertDocument(), bulkIndex(), and bulkIndexDataDocument() */
     static final String DOCUMENT_UPSERT_SQL = """
@@ -280,6 +293,8 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
     @Override
     boolean indexExists(String index) {
         if (!index) return false
+        // Dedicated tables always exist (created in initSchema)
+        if (isHttpLogIndex(index) || isAppLogIndex(index)) return true
         String prefixed = prefixIndexName(index)
         Connection conn = getConnection()
         PreparedStatement ps = conn.prepareStatement(
@@ -307,6 +322,8 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
 
     @Override
     void createIndex(String index, Map docMapping, String alias) {
+        // Dedicated tables are created in initSchema — nothing to do
+        if (isHttpLogIndex(index) || isAppLogIndex(index)) return
         createIndex(index, null, docMapping, alias, null)
     }
 
@@ -376,10 +393,29 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
     // Document CRUD
     // ============================================================
 
+    /** Check if the given index name (raw or prefixed) refers to the dedicated HTTP log table */
+    private boolean isHttpLogIndex(String index) {
+        if (!index) return false
+        String raw = unprefixIndexName(index.trim())
+        return HTTP_LOG_INDEX_NAMES.contains(raw)
+    }
+
+    /** Check if the given index name (raw or prefixed) refers to the dedicated app logs table */
+    private boolean isAppLogIndex(String index) {
+        if (!index) return false
+        String raw = unprefixIndexName(index.trim())
+        return APP_LOG_INDEX_NAMES.contains(raw)
+    }
+
     @Override
     void index(String index, String _id, Map document) {
         if (!index) throw new IllegalArgumentException("Index name required for index()")
         if (!_id) throw new IllegalArgumentException("_id required for index()")
+        // Route HTTP log documents to dedicated table
+        if (isHttpLogIndex(index)) {
+            insertHttpLog(document)
+            return
+        }
         String prefixedIndex = prefixIndexName(index)
         String docJson = objectToJson(document)
         String contentText = extractContentText(document)
@@ -392,31 +428,48 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
         if (!_id) throw new IllegalArgumentException("_id required for update()")
         String prefixedIndex = prefixIndexName(index)
         String fragmentJson = objectToJson(documentFragment)
+
+        // Merge the fragment into the existing document, then re-extract content_text using
+        // the same recursive extractContentText() logic used by index()/upsert to keep FTS consistent
         Connection conn = getConnection()
-        PreparedStatement ps = conn.prepareStatement("""
-            UPDATE moqui_document
-            SET document = COALESCE(document, '{}'::jsonb) || ?::jsonb,
-                content_text = (
-                    SELECT string_agg(val::text, ' ')
-                    FROM jsonb_each_text(COALESCE(document, '{}'::jsonb) || ?::jsonb) AS kv(key, val)
-                    WHERE jsonb_typeof(COALESCE(document, '{}'::jsonb) || ?::jsonb -> kv.key) IN ('string', 'number')
-                ),
-                content_tsv = to_tsvector('english', coalesce((
-                    SELECT string_agg(val::text, ' ')
-                    FROM jsonb_each_text(COALESCE(document, '{}'::jsonb) || ?::jsonb) AS kv(key, val)
-                ), '')),
-                updated_stamp = now()
-            WHERE index_name = ? AND doc_id = ?
-        """.trim())
+        PreparedStatement getPs = conn.prepareStatement(
+                "SELECT document FROM moqui_document WHERE index_name = ? AND doc_id = ?")
         try {
-            ps.setString(1, fragmentJson)
-            ps.setString(2, fragmentJson)
-            ps.setString(3, fragmentJson)
-            ps.setString(4, fragmentJson)
-            ps.setString(5, prefixedIndex)
-            ps.setString(6, _id)
-            ps.executeUpdate()
-        } finally { ps.close() }
+            getPs.setString(1, prefixedIndex)
+            getPs.setString(2, _id)
+            ResultSet rs = getPs.executeQuery()
+            try {
+                if (rs.next()) {
+                    String existingJson = rs.getString("document")
+                    Map existingDoc = existingJson ? (Map) jsonToObject(existingJson) : [:]
+                    // Deep merge: fragment overrides existing top-level keys
+                    Map mergedDoc = new LinkedHashMap<>(existingDoc)
+                    mergedDoc.putAll(documentFragment)
+                    String mergedJson = objectToJson(mergedDoc)
+                    String contentText = extractContentText(mergedDoc)
+                    // Update with the fully merged document and properly extracted content
+                    PreparedStatement updPs = conn.prepareStatement("""
+                        UPDATE moqui_document
+                        SET document = ?::jsonb,
+                            content_text = ?,
+                            content_tsv = to_tsvector('english', COALESCE(?, '')),
+                            updated_stamp = now()
+                        WHERE index_name = ? AND doc_id = ?
+                    """.trim())
+                    try {
+                        updPs.setString(1, mergedJson)
+                        updPs.setString(2, contentText)
+                        updPs.setString(3, contentText)
+                        updPs.setString(4, prefixedIndex)
+                        updPs.setString(5, _id)
+                        updPs.executeUpdate()
+                    } finally { updPs.close() }
+                } else {
+                    logger.warn("update(): document not found in index '${prefixedIndex}' with id '${_id}', inserting as new")
+                    upsertDocument(prefixedIndex, _id, null, fragmentJson, extractContentText(documentFragment))
+                }
+            } finally { rs.close() }
+        } finally { getPs.close() }
     }
 
     @Override
@@ -438,6 +491,11 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
     @Override
     Integer deleteByQuery(String index, Map queryMap) {
         if (!index) throw new IllegalArgumentException("Index name required for deleteByQuery()")
+
+        // Route to dedicated tables for logs
+        if (isHttpLogIndex(index)) return deleteByQueryHttpLog(queryMap)
+        if (isAppLogIndex(index)) return deleteByQueryAppLog(queryMap)
+
         String prefixedIndex = prefixIndexName(index)
         ElasticQueryTranslator.QueryResult qr = ElasticQueryTranslator.translateQuery(queryMap ?: [match_all: [:]])
 
@@ -454,6 +512,120 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
             }
             return ps.executeUpdate()
         } finally { ps.close() }
+    }
+
+    /** Delete from the dedicated moqui_http_log table based on query (supports @timestamp range) */
+    private Integer deleteByQueryHttpLog(Map queryMap) {
+        TimestampRange range = extractTimestampRange(queryMap)
+        if (range == null) {
+            // match_all → delete everything
+            Connection conn = getConnection()
+            PreparedStatement ps = conn.prepareStatement("DELETE FROM moqui_http_log")
+            try { return ps.executeUpdate() } finally { ps.close() }
+        }
+        List<String> conditions = []
+        List<Object> params = []
+        if (range.lte != null) { conditions.add("log_timestamp <= ?"); params.add(range.lte) }
+        if (range.lt != null) { conditions.add("log_timestamp < ?"); params.add(range.lt) }
+        if (range.gte != null) { conditions.add("log_timestamp >= ?"); params.add(range.gte) }
+        if (range.gt != null) { conditions.add("log_timestamp > ?"); params.add(range.gt) }
+        String whereClause = conditions ? conditions.join(" AND ") : "TRUE"
+        Connection conn = getConnection()
+        PreparedStatement ps = conn.prepareStatement("DELETE FROM moqui_http_log WHERE ${whereClause}")
+        try {
+            for (int i = 0; i < params.size(); i++) setParam(ps, i + 1, params[i])
+            return ps.executeUpdate()
+        } finally { ps.close() }
+    }
+
+    /** Delete from the dedicated moqui_logs table based on query (supports @timestamp range) */
+    private Integer deleteByQueryAppLog(Map queryMap) {
+        TimestampRange range = extractTimestampRange(queryMap)
+        if (range == null) {
+            Connection conn = getConnection()
+            PreparedStatement ps = conn.prepareStatement("DELETE FROM moqui_logs")
+            try { return ps.executeUpdate() } finally { ps.close() }
+        }
+        List<String> conditions = []
+        List<Object> params = []
+        if (range.lte != null) { conditions.add("log_timestamp <= ?"); params.add(range.lte) }
+        if (range.lt != null) { conditions.add("log_timestamp < ?"); params.add(range.lt) }
+        if (range.gte != null) { conditions.add("log_timestamp >= ?"); params.add(range.gte) }
+        if (range.gt != null) { conditions.add("log_timestamp > ?"); params.add(range.gt) }
+        String whereClause = conditions ? conditions.join(" AND ") : "TRUE"
+        Connection conn = getConnection()
+        PreparedStatement ps = conn.prepareStatement("DELETE FROM moqui_logs WHERE ${whereClause}")
+        try {
+            for (int i = 0; i < params.size(); i++) setParam(ps, i + 1, params[i])
+            return ps.executeUpdate()
+        } finally { ps.close() }
+    }
+
+    /** Simple holder for timestamp range bounds extracted from query DSL */
+    private static class TimestampRange {
+        Timestamp lte, lt, gte, gt
+    }
+
+    /**
+     * Extract @timestamp range bounds from an ES query map (as used by the nightly cleanup jobs).
+     * Handles both epoch millis (Long/String number) and ISO date strings.
+     * Returns null if no timestamp range is found (e.g. match_all).
+     */
+    private static TimestampRange extractTimestampRange(Map queryMap) {
+        if (queryMap == null) return null
+        // Direct range query: {range: {@timestamp: {lte: ...}}}
+        if (queryMap.containsKey("range")) {
+            return parseTimestampRangeSpec(queryMap)
+        }
+        // Bool query with range in must list
+        Map boolMap = (Map) queryMap.get("bool")
+        if (boolMap == null) return null
+        Object mustVal = boolMap.get("must")
+        List<Map> mustList = []
+        if (mustVal instanceof List) mustList = (List<Map>) mustVal
+        else if (mustVal instanceof Map) mustList = [(Map) mustVal]
+        for (Map clause in mustList) {
+            if (clause.containsKey("range")) {
+                return parseTimestampRangeSpec(clause)
+            }
+        }
+        return null
+    }
+
+    private static TimestampRange parseTimestampRangeSpec(Map rangeClause) {
+        Map rangeMap = (Map) rangeClause.get("range")
+        if (rangeMap == null) return null
+        // Look for @timestamp or any timestamp-like field
+        Map specMap = null
+        for (String key in ["@timestamp", "log_timestamp"]) {
+            if (rangeMap.containsKey(key)) { specMap = (Map) rangeMap.get(key); break }
+        }
+        if (specMap == null) {
+            // Try first key
+            String firstKey = rangeMap.keySet().isEmpty() ? null : (String) rangeMap.keySet().iterator().next()
+            if (firstKey) specMap = (Map) rangeMap.get(firstKey)
+        }
+        if (specMap == null) return null
+        TimestampRange range = new TimestampRange()
+        range.lte = toTimestamp(specMap.get("lte"))
+        range.lt = toTimestamp(specMap.get("lt"))
+        range.gte = toTimestamp(specMap.get("gte"))
+        range.gt = toTimestamp(specMap.get("gt"))
+        if (range.lte == null && range.lt == null && range.gte == null && range.gt == null) return null
+        return range
+    }
+
+    /** Convert a value (epoch millis long, numeric string, or ISO string) to a Timestamp */
+    private static Timestamp toTimestamp(Object val) {
+        if (val == null) return null
+        if (val instanceof Number) return new Timestamp(((Number) val).longValue())
+        String s = val.toString().trim()
+        if (!s) return null
+        // Try epoch millis
+        try { return new Timestamp(Long.parseLong(s)) } catch (NumberFormatException ignored) {}
+        // Try ISO format
+        try { return Timestamp.valueOf(s.replace('T', ' ').replace('Z', '')) } catch (Exception ignored) {}
+        return null
     }
 
     @Override
@@ -508,6 +680,11 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
     @Override
     void bulkIndex(String index, String docType, String idField, List<Map> documentList, boolean refresh) {
         if (!documentList) return
+        // Route HTTP log documents to dedicated table
+        if (isHttpLogIndex(index)) {
+            bulkInsertHttpLogs(documentList)
+            return
+        }
         String prefixedIndex = prefixIndexName(index)
         boolean hasId = idField != null && !idField.isEmpty()
 
@@ -593,8 +770,12 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
 
     @Override
     Map search(String index, Map searchMap) {
-        if (index && (index == 'moqui_logs' || prefixIndexName(index) == prefixIndexName('moqui_logs'))) {
+        // Route dedicated log tables
+        if (index && isAppLogIndex(index)) {
             return searchLogsTable(searchMap ?: [:])
+        }
+        if (index && isHttpLogIndex(index)) {
+            return searchHttpLogTable(searchMap ?: [:])
         }
 
         ElasticQueryTranslator.TranslatedQuery tq = ElasticQueryTranslator.translateSearchMap(searchMap ?: [:])
@@ -603,9 +784,6 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
         if (indexNames.isEmpty()) {
             return [hits: [total: [value: 0, relation: "eq"], hits: []]]
         }
-
-        String scoreExpr = tq.tsqueryExpr ?
-                "ts_rank_cd(content_tsv, ${tq.tsqueryExpr})" : "1.0::float"
 
         String idxPlaceholders = indexNames.collect { "?" }.join(", ")
         String whereClause = "index_name IN (${idxPlaceholders})"
@@ -621,11 +799,28 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
 
         String orderByClause = tq.orderBy ?: (tq.tsqueryExpr ? "_score DESC" : "updated_stamp DESC")
 
+        // Build highlight columns (use PostgreSQL ts_headline when we have a tsquery)
+        boolean useDbHighlights = tq.highlightFields && tq.tsqueryExpr
+        List<String> hlColumnExprs = []
+        List<String> hlFieldNames = []
+        List<Object> hlParams = []
+        if (useDbHighlights) {
+            for (String hlField in tq.highlightFields.keySet()) {
+                String jsonPath = ElasticQueryTranslator.fieldToJsonPath("document", hlField)
+                String hlExpr = ElasticQueryTranslator.buildHighlightExpr(jsonPath, tq.tsqueryExpr)
+                hlColumnExprs.add("${hlExpr} AS hl_${hlFieldNames.size()}".toString())
+                hlFieldNames.add(hlField)
+                hlParams.addAll(tq.tsqueryParams)
+            }
+        }
+
+        String hlSelect = hlColumnExprs ? ", " + hlColumnExprs.join(", ") : ""
+
         String countSql = "SELECT COUNT(*) FROM moqui_document WHERE ${whereClause}"
         long totalCount = 0L
 
         String mainSql = """
-            SELECT doc_id, index_name, doc_type, document, ${buildScoreSelect(tq)} AS _score
+            SELECT doc_id, index_name, doc_type, document, ${buildScoreSelect(tq)} AS _score${hlSelect}
             FROM moqui_document
             WHERE ${whereClause}
             ORDER BY ${orderByClause}
@@ -645,6 +840,8 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
 
         List<Object> mainParams = []
         if (tq.tsqueryExpr) mainParams.addAll(tq.tsqueryParams)
+        // Add highlight params (one set of tsquery params per highlight field)
+        mainParams.addAll(hlParams)
         mainParams.addAll(allParams)
         mainParams.add(tq.sizeLimit)
         mainParams.add(tq.fromOffset)
@@ -666,8 +863,13 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
                     Map hit = [_index: idxName, _id: docId, _type: docType,
                                _score: score, _source: source] as Map
 
-                    if (tq.highlightFields && tq.tsqueryExpr) {
-                        Map<String, List<String>> highlights = buildHighlights(source, tq)
+                    // Read ts_headline results from result set columns
+                    if (useDbHighlights) {
+                        Map<String, List<String>> highlights = [:]
+                        for (int h = 0; h < hlFieldNames.size(); h++) {
+                            String hlResult = rs.getString("hl_${h}")
+                            if (hlResult) highlights.put(hlFieldNames[h], [hlResult])
+                        }
                         if (highlights) hit.put("highlight", highlights)
                     }
 
@@ -784,6 +986,116 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
         } finally { ps.close() }
     }
 
+    /** Search the dedicated moqui_http_log table (mirrors searchLogsTable pattern) */
+    private Map searchHttpLogTable(Map searchMap) {
+        ElasticQueryTranslator.TranslatedQuery tq = ElasticQueryTranslator.translateSearchMap(searchMap)
+
+        String rawQuery = null
+        Map queryMap = (Map) searchMap?.get("query")
+        if (queryMap) {
+            Map qsMap = (Map) queryMap.get("query_string")
+            if (qsMap) rawQuery = (String) qsMap.get("query")
+        }
+
+        List<String> conditions = []
+        List<Object> params = []
+
+        if (rawQuery) {
+            java.util.regex.Matcher m = (rawQuery =~ /@timestamp\s*:\s*\[\s*(\*|\d+)\s+TO\s+(\*|\d+)\s*\]/)
+            if (m.find()) {
+                String fromVal = m.group(1)
+                String toVal = m.group(2)
+                if (fromVal != '*') {
+                    conditions.add("log_timestamp >= ?")
+                    params.add(new java.sql.Timestamp(Long.parseLong(fromVal)))
+                }
+                if (toVal != '*') {
+                    conditions.add("log_timestamp <= ?")
+                    params.add(new java.sql.Timestamp(Long.parseLong(toVal)))
+                }
+            }
+        }
+
+        // Also check for range query in bool.must
+        if (queryMap) {
+            TimestampRange range = extractTimestampRange(queryMap)
+            if (range != null) {
+                if (range.lte != null) { conditions.add("log_timestamp <= ?"); params.add(range.lte) }
+                if (range.lt != null) { conditions.add("log_timestamp < ?"); params.add(range.lt) }
+                if (range.gte != null) { conditions.add("log_timestamp >= ?"); params.add(range.gte) }
+                if (range.gt != null) { conditions.add("log_timestamp > ?"); params.add(range.gt) }
+            }
+        }
+
+        String whereClause = conditions ? conditions.join(" AND ") : "TRUE"
+
+        Connection conn = getConnection()
+        long totalCount = 0L
+        if (tq.trackTotal) {
+            PreparedStatement countPs = conn.prepareStatement("SELECT COUNT(*) FROM moqui_http_log WHERE ${whereClause}")
+            try {
+                for (int i = 0; i < params.size(); i++) setParam(countPs, i + 1, params[i])
+                ResultSet rs = countPs.executeQuery()
+                try { if (rs.next()) totalCount = rs.getLong(1) } finally { rs.close() }
+            } finally { countPs.close() }
+        }
+
+        String mainSql = """
+            SELECT log_id, log_timestamp, remote_ip, remote_user, server_ip, content_type,
+                   request_method, request_scheme, request_host, request_path, request_query,
+                   http_version, response_code, time_initial_ms, time_final_ms, bytes_sent,
+                   referrer, agent, session_id, visitor_id
+            FROM moqui_http_log
+            WHERE ${whereClause}
+            ORDER BY log_timestamp DESC
+            LIMIT ? OFFSET ?
+        """.trim()
+
+        PreparedStatement ps = conn.prepareStatement(mainSql)
+        try {
+            int pIdx = 0
+            for (int i = 0; i < params.size(); i++) setParam(ps, ++pIdx, params[i])
+            ps.setInt(++pIdx, tq.sizeLimit)
+            ps.setInt(++pIdx, tq.fromOffset)
+            ResultSet rs = ps.executeQuery()
+            try {
+                List<Map> hits = []
+                while (rs.next()) {
+                    long logId = rs.getLong("log_id")
+                    java.sql.Timestamp ts = rs.getTimestamp("log_timestamp")
+                    Map source = [
+                            "@timestamp"    : ts?.time,
+                            remote_ip       : rs.getString("remote_ip"),
+                            remote_user     : rs.getString("remote_user"),
+                            server_ip       : rs.getString("server_ip"),
+                            content_type    : rs.getString("content_type"),
+                            request_method  : rs.getString("request_method"),
+                            request_scheme  : rs.getString("request_scheme"),
+                            request_host    : rs.getString("request_host"),
+                            request_path    : rs.getString("request_path"),
+                            request_query   : rs.getString("request_query"),
+                            http_version    : rs.getString("http_version"),
+                            response        : rs.getInt("response_code"),
+                            time_initial_ms : rs.getLong("time_initial_ms"),
+                            time_final_ms   : rs.getLong("time_final_ms"),
+                            bytes           : rs.getLong("bytes_sent"),
+                            referrer        : rs.getString("referrer"),
+                            agent           : rs.getString("agent"),
+                            session         : rs.getString("session_id"),
+                            visitor_id      : rs.getString("visitor_id"),
+                    ] as Map
+                    hits.add([_index: "moqui_http_log", _id: String.valueOf(logId),
+                              _type: "MoquiHttpRequest", _score: 1.0, _source: source] as Map)
+                }
+                return [hits: [total: [value: totalCount, relation: "eq"], hits: hits],
+                        _shards: [total: 1, successful: 1, failed: 0]]
+            } finally { rs.close() }
+        } catch (Throwable t) {
+            logger.error("searchHttpLogTable error: " + t.message, t)
+            return [hits: [total: [value: 0, relation: "eq"], hits: []]]
+        } finally { ps.close() }
+    }
+
     @Override
     List<Map> searchHits(String index, Map searchMap) {
         Map result = search(index, searchMap)
@@ -802,8 +1114,49 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
 
     @Override
     long count(String index, Map countMap) {
+        // Route dedicated tables
+        if (isHttpLogIndex(index)) return countHttpLog(countMap)
+        if (isAppLogIndex(index)) return countAppLog(countMap)
         Map result = countResponse(index, countMap)
         return ((Number) result.get("count"))?.longValue() ?: 0L
+    }
+
+    private long countHttpLog(Map countMap) {
+        TimestampRange range = countMap?.get("query") ? extractTimestampRange((Map) countMap.get("query")) : null
+        String sql = "SELECT COUNT(*) FROM moqui_http_log"
+        List<Object> params = []
+        if (range != null) {
+            List<String> conditions = []
+            if (range.lte != null) { conditions.add("log_timestamp <= ?"); params.add(range.lte) }
+            if (range.gte != null) { conditions.add("log_timestamp >= ?"); params.add(range.gte) }
+            if (conditions) sql += " WHERE " + conditions.join(" AND ")
+        }
+        Connection conn = getConnection()
+        PreparedStatement ps = conn.prepareStatement(sql)
+        try {
+            for (int i = 0; i < params.size(); i++) setParam(ps, i + 1, params[i])
+            ResultSet rs = ps.executeQuery()
+            try { return rs.next() ? rs.getLong(1) : 0L } finally { rs.close() }
+        } finally { ps.close() }
+    }
+
+    private long countAppLog(Map countMap) {
+        TimestampRange range = countMap?.get("query") ? extractTimestampRange((Map) countMap.get("query")) : null
+        String sql = "SELECT COUNT(*) FROM moqui_logs"
+        List<Object> params = []
+        if (range != null) {
+            List<String> conditions = []
+            if (range.lte != null) { conditions.add("log_timestamp <= ?"); params.add(range.lte) }
+            if (range.gte != null) { conditions.add("log_timestamp >= ?"); params.add(range.gte) }
+            if (conditions) sql += " WHERE " + conditions.join(" AND ")
+        }
+        Connection conn = getConnection()
+        PreparedStatement ps = conn.prepareStatement(sql)
+        try {
+            for (int i = 0; i < params.size(); i++) setParam(ps, i + 1, params[i])
+            ResultSet rs = ps.executeQuery()
+            try { return rs.next() ? rs.getLong(1) : 0L } finally { rs.close() }
+        } finally { ps.close() }
     }
 
     @Override
@@ -1132,30 +1485,85 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
         return "1.0::float"
     }
 
-    private static Map<String, List<String>> buildHighlights(Map source, ElasticQueryTranslator.TranslatedQuery tq) {
-        Map<String, List<String>> highlights = [:]
-        if (!tq.tsqueryExpr || !tq.highlightFields) return highlights
-        String firstParam = tq.params ? tq.params[0]?.toString() : null
-        if (!firstParam) return highlights
-        for (String field in tq.highlightFields.keySet()) {
-            Object fieldVal = source.get(field)
-            if (fieldVal instanceof String) {
-                String text = (String) fieldVal
-                String highlighted = simpleHighlight(text, firstParam)
-                if (highlighted != text) highlights.put(field, [highlighted])
-            }
-        }
-        return highlights
+    // ============================================================
+    // HTTP log insert helpers
+    // ============================================================
+
+    /** Insert a single HTTP log record into the dedicated moqui_http_log table */
+    private void insertHttpLog(Map document) {
+        Connection conn = getConnection()
+        PreparedStatement ps = conn.prepareStatement(HTTP_LOG_INSERT_SQL)
+        try {
+            setHttpLogParams(ps, document)
+            ps.executeUpdate()
+        } finally { ps.close() }
     }
 
-    private static String simpleHighlight(String text, String query) {
-        if (!text || !query) return text
-        List<String> terms = query.replaceAll(/["()+\-]/, ' ').split(/\s+/).findAll { it.length() > 2 } as List
-        String result = text
-        for (String term in terms) {
-            result = result.replaceAll("(?i)\\b${java.util.regex.Pattern.quote(term)}\\b", "<em>\$0</em>")
-        }
-        return result
+    /** Bulk insert HTTP log records into the dedicated moqui_http_log table */
+    private void bulkInsertHttpLogs(List<Map> documentList) {
+        Connection conn = getConnection()
+        PreparedStatement ps = conn.prepareStatement(HTTP_LOG_INSERT_SQL)
+        try {
+            int batchSize = 0
+            for (Map doc in documentList) {
+                setHttpLogParams(ps, doc)
+                ps.addBatch()
+                batchSize++
+                if (batchSize >= 500) {
+                    ps.executeBatch()
+                    batchSize = 0
+                }
+            }
+            if (batchSize > 0) ps.executeBatch()
+        } finally { ps.close() }
+    }
+
+    /** Set parameters on an HTTP_LOG_INSERT_SQL PreparedStatement from an HTTP log document map */
+    private static void setHttpLogParams(PreparedStatement ps, Map doc) {
+        // @timestamp: epoch millis long (from ElasticRequestLogFilter)
+        Object tsObj = doc.get("@timestamp")
+        if (tsObj instanceof Number) ps.setTimestamp(1, new Timestamp(((Number) tsObj).longValue()))
+        else if (tsObj != null) ps.setTimestamp(1, new Timestamp(Long.parseLong(tsObj.toString())))
+        else ps.setTimestamp(1, new Timestamp(System.currentTimeMillis()))
+
+        setStrParam(ps, 2, doc.get("remote_ip"))
+        setStrParam(ps, 3, doc.get("remote_user"))
+        setStrParam(ps, 4, doc.get("server_ip"))
+        setStrParam(ps, 5, doc.get("content_type"))
+        setStrParam(ps, 6, doc.get("request_method"))
+        setStrParam(ps, 7, doc.get("request_scheme"))
+        setStrParam(ps, 8, doc.get("request_host"))
+        setStrParam(ps, 9, doc.get("request_path"))
+        setStrParam(ps, 10, doc.get("request_query"))
+
+        // http_version: stored as text (filter sends a float/half_float)
+        Object httpVer = doc.get("http_version")
+        setStrParam(ps, 11, httpVer != null ? httpVer.toString() : null)
+
+        // response code
+        Object respObj = doc.get("response")
+        if (respObj instanceof Number) ps.setInt(12, ((Number) respObj).intValue())
+        else if (respObj != null) try { ps.setInt(12, Integer.parseInt(respObj.toString())) } catch (Exception e) { ps.setNull(12, Types.INTEGER) }
+        else ps.setNull(12, Types.INTEGER)
+
+        // timing
+        setLongParam(ps, 13, doc.get("time_initial_ms"))
+        setLongParam(ps, 14, doc.get("time_final_ms"))
+        setLongParam(ps, 15, doc.get("bytes"))
+
+        setStrParam(ps, 16, doc.get("referrer"))
+        setStrParam(ps, 17, doc.get("agent"))
+        setStrParam(ps, 18, doc.get("session"))
+        setStrParam(ps, 19, doc.get("visitor_id"))
+    }
+
+    private static void setStrParam(PreparedStatement ps, int idx, Object val) {
+        if (val == null) ps.setNull(idx, Types.VARCHAR) else ps.setString(idx, val.toString())
+    }
+    private static void setLongParam(PreparedStatement ps, int idx, Object val) {
+        if (val instanceof Number) ps.setLong(idx, ((Number) val).longValue())
+        else if (val != null) try { ps.setLong(idx, Long.parseLong(val.toString())) } catch (Exception e) { ps.setNull(idx, Types.BIGINT) }
+        else ps.setNull(idx, Types.BIGINT)
     }
 
     private static void setParam(PreparedStatement ps, int idx, Object value) {

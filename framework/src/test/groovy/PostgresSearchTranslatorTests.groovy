@@ -195,8 +195,9 @@ class PostgresSearchTranslatorTests {
     @DisplayName("exists translates to JSONB document ? field")
     void exists_translatesJsonbHasKey() {
         QueryResult qr = ElasticQueryTranslator.translateQuery([exists: [field: "email"]])
-        Assertions.assertTrue(qr.clause.contains("document ?"), "should use JSONB ? operator")
-        Assertions.assertTrue(qr.clause.contains("email"))
+        Assertions.assertTrue(qr.clause.contains("document ??"), "should use JSONB ? operator (escaped as ?? for JDBC)")
+        Assertions.assertEquals(1, qr.params.size(), "should have 1 param for field name")
+        Assertions.assertEquals("email", qr.params[0])
     }
 
     // ============================================================

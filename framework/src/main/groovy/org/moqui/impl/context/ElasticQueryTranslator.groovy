@@ -370,8 +370,9 @@ class ElasticQueryTranslator {
         List<String> conditions = []
         List<Object> params = []
 
-        // Determine cast type based on common field name patterns
-        String castType = guessCastType(field)
+        // Determine cast type: first try field name heuristics, then inspect actual values
+        Object sampleValue = rangeSpecMap.get("gte") ?: rangeSpecMap.get("gt") ?: rangeSpecMap.get("lte") ?: rangeSpecMap.get("lt")
+        String castType = guessCastType(field, sampleValue)
 
         Object gte = rangeSpecMap.get("gte")
         Object gt = rangeSpecMap.get("gt")
@@ -397,13 +398,15 @@ class ElasticQueryTranslator {
 
         // Validate field name to prevent SQL injection
         sanitizeFieldName(field)
-        // For nested paths, check the nested path exists
+        // Use parameterized JSONB key existence check
         if (field.contains(".")) {
             List<String> parts = field.split("\\.") as List
             String topLevel = parts[0]
-            qr.clause = "document ? '${topLevel}'"
+            qr.clause = "document ?? ?"
+            qr.params = [topLevel]
         } else {
-            qr.clause = "document ? '${field}'"
+            qr.clause = "document ?? ?"
+            qr.params = [field]
         }
         return qr
     }
@@ -521,13 +524,15 @@ class ElasticQueryTranslator {
         Map rangeSpecMap = (Map) rangeSpec
         String localField = field.startsWith(parentPath + ".") ? field.substring(parentPath.length() + 1) : field
         sanitizeFieldName(localField)
-        String castType = guessCastType(localField)
         List<String> conditions = []
         List<Object> params = []
-        Object gte = rangeSpecMap.get("gte"); if (gte != null) { conditions.add("(elem->>'${localField}')${castType} >= ?"); params.add(gte.toString()) }
-        Object gt = rangeSpecMap.get("gt"); if (gt != null) { conditions.add("(elem->>'${localField}')${castType} > ?"); params.add(gt.toString()) }
-        Object lte = rangeSpecMap.get("lte"); if (lte != null) { conditions.add("(elem->>'${localField}')${castType} <= ?"); params.add(lte.toString()) }
-        Object lt = rangeSpecMap.get("lt"); if (lt != null) { conditions.add("(elem->>'${localField}')${castType} < ?"); params.add(lt.toString()) }
+        Object gte = rangeSpecMap.get("gte"); Object gt = rangeSpecMap.get("gt")
+        Object lte = rangeSpecMap.get("lte"); Object lt = rangeSpecMap.get("lt")
+        String castType = guessCastType(localField, gte ?: gt ?: lte ?: lt)
+        if (gte != null) { conditions.add("(elem->>'${localField}')${castType} >= ?"); params.add(gte.toString()) }
+        if (gt != null) { conditions.add("(elem->>'${localField}')${castType} > ?"); params.add(gt.toString()) }
+        if (lte != null) { conditions.add("(elem->>'${localField}')${castType} <= ?"); params.add(lte.toString()) }
+        if (lt != null) { conditions.add("(elem->>'${localField}')${castType} < ?"); params.add(lt.toString()) }
         qr.clause = conditions ? conditions.join(" AND ") : "TRUE"
         qr.params = params
         return qr
@@ -605,10 +610,12 @@ class ElasticQueryTranslator {
     }
 
     /**
-     * Guess the appropriate PostgreSQL cast type for a field name to use in range/sort comparisons.
+     * Guess the appropriate PostgreSQL cast type for a field to use in range/sort comparisons.
+     * Uses field name heuristics first, then falls back to inspecting the actual value.
      * Returns empty string if no cast is needed (use text comparison).
      */
-    private static String guessCastType(String field) {
+    static String guessCastType(String field, Object sampleValue = null) {
+        // 1. Field name heuristics
         String lf = field.toLowerCase()
         if (lf.contains("date") || lf.contains("stamp") || lf.contains("time") || lf == "@timestamp") {
             return "::timestamptz"
@@ -618,6 +625,20 @@ class ElasticQueryTranslator {
                 lf.contains("number") || lf.contains("num") || lf.contains("id") && lf.endsWith("num")) {
             return "::numeric"
         }
+
+        // 2. Inspect the actual value if field name is ambiguous
+        if (sampleValue != null) {
+            String sv = sampleValue.toString().trim()
+            // Large number (> 10 digits) that's all digits — likely epoch millis timestamp
+            if (sv.matches(/^\d{10,}$/)) return "::numeric"
+            // Decimal number
+            if (sv.matches(/^-?\d+\.\d+$/)) return "::numeric"
+            // Integer
+            if (sv.matches(/^-?\d+$/)) return "::numeric"
+            // ISO date pattern
+            if (sv.matches(/^\d{4}-\d{2}-\d{2}.*/)) return "::timestamptz"
+        }
+
         return ""
     }
 
