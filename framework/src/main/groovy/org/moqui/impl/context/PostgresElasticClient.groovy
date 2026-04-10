@@ -60,6 +60,15 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
     /** Jackson mapper shared with ElasticFacadeImpl */
     static final ObjectMapper jacksonMapper = ElasticFacadeImpl.jacksonMapper
 
+    /** Whether pgvector extension is available for vector/semantic search */
+    private boolean hasPgVector = false
+    /** Embedding API endpoint URL (e.g. OpenAI-compatible /v1/embeddings) */
+    private String embeddingUrl = null
+    /** Embedding model name (e.g. text-embedding-3-small) */
+    private String embeddingModel = null
+    /** Vector dimensions (default 1536 for OpenAI text-embedding-3-small) */
+    private int vectorDimensions = 1536
+
     /** SQL for inserting HTTP request logs into the dedicated moqui_http_log table */
     static final String HTTP_LOG_INSERT_SQL = """
         INSERT INTO moqui_http_log (log_timestamp, remote_ip, remote_user, server_ip, content_type,
@@ -97,6 +106,12 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
         String urlAttr = clusterNode.attribute("url")
         this.datasourceGroup = (urlAttr && !"".equals(urlAttr.trim())) ? urlAttr.trim() : "transactional"
 
+        // Embedding configuration for pgvector hybrid search (optional)
+        this.embeddingUrl = clusterNode.attribute("embedding-url") ?: null
+        this.embeddingModel = clusterNode.attribute("embedding-model") ?: "text-embedding-3-small"
+        String dimStr = clusterNode.attribute("embedding-dimensions")
+        if (dimStr) try { this.vectorDimensions = Integer.parseInt(dimStr.trim()) } catch (Exception e) { /* use default */ }
+
         logger.info("Initializing PostgresElasticClient for cluster '${clusterName}' using datasource group '${datasourceGroup}' with index prefix '${indexPrefix}'")
 
         // Initialize schema (CREATE TABLE IF NOT EXISTS, extensions, indexes)
@@ -120,6 +135,21 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
                 // Enable pg_trgm extension for fuzzy search (available since PG 9.1)
                 try { stmt.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm") }
                 catch (Exception extEx) { logger.warn("Could not create pg_trgm extension (may require superuser): ${extEx.message}") }
+
+                // Detect pgvector extension for vector/semantic search (optional)
+                if (embeddingUrl) {
+                    try {
+                        stmt.execute("CREATE EXTENSION IF NOT EXISTS vector")
+                        hasPgVector = true
+                        logger.info("pgvector extension detected — vector/hybrid search enabled (model: ${embeddingModel}, dimensions: ${vectorDimensions})")
+                        // Try vectorscale for DiskANN index (not required)
+                        try { stmt.execute("CREATE EXTENSION IF NOT EXISTS vectorscale CASCADE") }
+                        catch (Exception e) { logger.info("pgvectorscale not available — using HNSW index instead of DiskANN") }
+                    } catch (Exception extEx) {
+                        hasPgVector = false
+                        logger.info("pgvector extension not available — vector search disabled")
+                    }
+                }
 
                 // moqui_search_index — index metadata (replaces ES index/alias concept)
                 stmt.execute("""
@@ -169,6 +199,23 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_mq_doc_type ON moqui_document (doc_type)")
                 // Index for time-based ordering
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_mq_doc_upd  ON moqui_document (index_name, updated_stamp)")
+
+                // pgvector: Add embedding column and vector index for semantic search
+                if (hasPgVector) {
+                    try {
+                        stmt.execute("ALTER TABLE moqui_document ADD COLUMN IF NOT EXISTS embedding vector(${vectorDimensions})".toString())
+                        // Try DiskANN (pgvectorscale) first, fall back to HNSW
+                        try {
+                            stmt.execute("CREATE INDEX IF NOT EXISTS idx_mq_doc_embed ON moqui_document USING diskann(embedding)".toString())
+                            logger.info("Created DiskANN vector index on moqui_document.embedding")
+                        } catch (Exception e) {
+                            stmt.execute("CREATE INDEX IF NOT EXISTS idx_mq_doc_embed ON moqui_document USING hnsw(embedding vector_cosine_ops)".toString())
+                            logger.info("Created HNSW vector index on moqui_document.embedding")
+                        }
+                    } catch (Exception e) {
+                        logger.warn("Could not set up vector column on moqui_document: ${e.message}")
+                    }
+                }
 
                 // moqui_logs — application log (replaces ES moqui_logs index)
                 stmt.execute("""
@@ -279,11 +326,13 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
                 if (rs.next()) {
                     return [name: clusterName, cluster_name: "postgres",
                             version: [distribution: "postgres", number: rs.getString(1)],
-                            tagline: "Moqui PostgresElasticClient"]
+                            tagline: "Moqui PostgresElasticClient",
+                            features: [pgvector: hasPgVector, embedding_model: embeddingModel]]
                 }
             } finally { rs.close() }
         } finally { ps.close() }
-        return [name: clusterName, cluster_name: "postgres", version: [distribution: "postgres"]]
+        return [name: clusterName, cluster_name: "postgres", version: [distribution: "postgres"],
+                features: [pgvector: hasPgVector]]
     }
 
     // ============================================================
@@ -420,6 +469,8 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
         String docJson = objectToJson(document)
         String contentText = extractContentText(document)
         upsertDocument(prefixedIndex, _id, null, docJson, contentText)
+        // Generate and store embedding asynchronously when pgvector is enabled
+        if (hasPgVector && embeddingUrl) updateDocumentEmbedding(prefixedIndex, _id, contentText)
     }
 
     @Override
@@ -1100,6 +1151,254 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
     List<Map> searchHits(String index, Map searchMap) {
         Map result = search(index, searchMap)
         return (List<Map>) ((Map) result.get("hits")).get("hits")
+    }
+
+    // ============================================================
+    // Vector / Hybrid Search (pgvector)
+    // ============================================================
+
+    /** Whether vector/hybrid search is available (pgvector installed and embedding API configured) */
+    boolean isVectorSearchEnabled() { return hasPgVector && embeddingUrl }
+
+    /**
+     * Perform a hybrid search combining keyword (tsvector/BM25) and semantic (vector) search
+     * using Reciprocal Rank Fusion (RRF) to merge the two result sets.
+     *
+     * @param index Index name (or null for all indexes)
+     * @param queryText The search query text
+     * @param limit Maximum results to return
+     * @param keywordWeight Weight for keyword results (default 0.5)
+     * @param vectorWeight Weight for vector results (default 0.5)
+     * @return ES-compatible search response map
+     */
+    Map hybridSearch(String index, String queryText, int limit = 10, double keywordWeight = 0.5, double vectorWeight = 0.5) {
+        if (!queryText || queryText.trim().isEmpty()) {
+            return [hits: [total: [value: 0, relation: "eq"], hits: []]]
+        }
+        if (!hasPgVector || !embeddingUrl) {
+            // No vector support — fall back to regular keyword search
+            return search(index, [query: [query_string: [query: queryText]], size: limit])
+        }
+
+        List<String> indexNames = resolveIndexNames(index)
+        if (indexNames.isEmpty()) {
+            return [hits: [total: [value: 0, relation: "eq"], hits: []]]
+        }
+
+        // Generate embedding for the query
+        float[] queryEmbedding = generateEmbedding(queryText)
+        if (queryEmbedding == null) {
+            logger.warn("Could not generate embedding for query, falling back to keyword search")
+            return search(index, [query: [query_string: [query: queryText]], size: limit])
+        }
+
+        String cleanedQuery = ElasticQueryTranslator.cleanLuceneQuery(queryText)
+        String idxPlaceholders = indexNames.collect { "?" }.join(", ")
+        int k = 60  // RRF constant (standard value)
+
+        // RRF: 1/(k + rank) for each result set, then sum weighted scores
+        String sql = """
+            WITH keyword AS (
+                SELECT doc_id, index_name, doc_type, document,
+                       ROW_NUMBER() OVER (ORDER BY ts_rank_cd(content_tsv, websearch_to_tsquery('english', ?)) DESC) as rank
+                FROM moqui_document
+                WHERE index_name IN (${idxPlaceholders})
+                  AND content_tsv @@ websearch_to_tsquery('english', ?)
+                LIMIT ${limit * 3}
+            ),
+            semantic AS (
+                SELECT doc_id, index_name, doc_type, document,
+                       ROW_NUMBER() OVER (ORDER BY embedding <=> ?::vector) as rank
+                FROM moqui_document
+                WHERE index_name IN (${idxPlaceholders})
+                  AND embedding IS NOT NULL
+                LIMIT ${limit * 3}
+            )
+            SELECT d.doc_id, d.index_name, d.doc_type, d.document,
+                   COALESCE(? * (1.0 / (${k} + kw.rank)), 0) +
+                   COALESCE(? * (1.0 / (${k} + sem.rank)), 0) AS _score
+            FROM moqui_document d
+            LEFT JOIN keyword kw ON d.doc_id = kw.doc_id AND d.index_name = kw.index_name
+            LEFT JOIN semantic sem ON d.doc_id = sem.doc_id AND d.index_name = sem.index_name
+            WHERE kw.doc_id IS NOT NULL OR sem.doc_id IS NOT NULL
+            ORDER BY _score DESC
+            LIMIT ?
+        """.trim()
+
+        String embeddingStr = vectorToString(queryEmbedding)
+
+        List<Object> allParams = []
+        // keyword CTE params
+        allParams.add(cleanedQuery)      // ts_rank_cd
+        allParams.addAll(indexNames)      // index_name IN (keyword)
+        allParams.add(cleanedQuery)      // content_tsv @@
+        // semantic CTE params
+        allParams.add(embeddingStr)       // embedding <=> ?
+        allParams.addAll(indexNames)      // index_name IN (semantic)
+        // main query params
+        allParams.add(keywordWeight)      // keyword weight
+        allParams.add(vectorWeight)       // vector weight
+        allParams.add(limit)
+
+        Connection conn = getConnection()
+        PreparedStatement ps = conn.prepareStatement(sql)
+        try {
+            for (int i = 0; i < allParams.size(); i++) setParam(ps, i + 1, allParams[i])
+            ResultSet rs = ps.executeQuery()
+            try {
+                List<Map> hits = []
+                while (rs.next()) {
+                    String docJson = rs.getString("document")
+                    Map source = docJson ? (Map) jsonToObject(docJson) : [:]
+                    double score = rs.getDouble("_score")
+                    hits.add([_index: unprefixIndexName(rs.getString("index_name")),
+                              _id: rs.getString("doc_id"),
+                              _type: rs.getString("doc_type"),
+                              _score: score, _source: source] as Map)
+                }
+                return [hits: [total: [value: (long) hits.size(), relation: "eq"], hits: hits],
+                        _shards: [total: 1, successful: 1, failed: 0]]
+            } finally { rs.close() }
+        } finally { ps.close() }
+    }
+
+    /**
+     * Perform a pure vector/semantic search using pgvector cosine distance.
+     * @param index Index name
+     * @param queryText Text to search for (will be embedded)
+     * @param limit Maximum results
+     * @return ES-compatible search response map
+     */
+    Map vectorSearch(String index, String queryText, int limit = 10) {
+        if (!hasPgVector || !embeddingUrl || !queryText) {
+            return [hits: [total: [value: 0, relation: "eq"], hits: []]]
+        }
+
+        float[] queryEmbedding = generateEmbedding(queryText)
+        if (queryEmbedding == null) {
+            return [hits: [total: [value: 0, relation: "eq"], hits: []]]
+        }
+
+        List<String> indexNames = resolveIndexNames(index)
+        if (indexNames.isEmpty()) {
+            return [hits: [total: [value: 0, relation: "eq"], hits: []]]
+        }
+
+        String idxPlaceholders = indexNames.collect { "?" }.join(", ")
+        String sql = """
+            SELECT doc_id, index_name, doc_type, document,
+                   1.0 - (embedding <=> ?::vector) AS _score
+            FROM moqui_document
+            WHERE index_name IN (${idxPlaceholders}) AND embedding IS NOT NULL
+            ORDER BY embedding <=> ?::vector
+            LIMIT ?
+        """.trim()
+
+        String embeddingStr = vectorToString(queryEmbedding)
+        List<Object> allParams = [embeddingStr]
+        allParams.addAll(indexNames)
+        allParams.add(embeddingStr)
+        allParams.add(limit)
+
+        Connection conn = getConnection()
+        PreparedStatement ps = conn.prepareStatement(sql)
+        try {
+            for (int i = 0; i < allParams.size(); i++) setParam(ps, i + 1, allParams[i])
+            ResultSet rs = ps.executeQuery()
+            try {
+                List<Map> hits = []
+                while (rs.next()) {
+                    String docJson = rs.getString("document")
+                    Map source = docJson ? (Map) jsonToObject(docJson) : [:]
+                    double score = rs.getDouble("_score")
+                    hits.add([_index: unprefixIndexName(rs.getString("index_name")),
+                              _id: rs.getString("doc_id"),
+                              _type: rs.getString("doc_type"),
+                              _score: score, _source: source] as Map)
+                }
+                return [hits: [total: [value: (long) hits.size(), relation: "eq"], hits: hits],
+                        _shards: [total: 1, successful: 1, failed: 0]]
+            } finally { rs.close() }
+        } finally { ps.close() }
+    }
+
+    /**
+     * Generate an embedding vector for the given text by calling the configured embedding API.
+     * Supports OpenAI-compatible /v1/embeddings endpoints.
+     * @return float array of embedding values, or null on failure
+     */
+    float[] generateEmbedding(String text) {
+        if (!embeddingUrl || !text) return null
+        try {
+            Map requestBody = [input: text, model: embeddingModel]
+            String requestJson = objectToJson(requestBody)
+
+            java.net.HttpURLConnection httpConn = (java.net.HttpURLConnection) new java.net.URL(embeddingUrl).openConnection()
+            httpConn.setRequestMethod("POST")
+            httpConn.setRequestProperty("Content-Type", "application/json")
+            httpConn.setDoOutput(true)
+            httpConn.setConnectTimeout(10000)
+            httpConn.setReadTimeout(30000)
+
+            httpConn.outputStream.withWriter("UTF-8") { writer -> writer.write(requestJson) }
+
+            if (httpConn.responseCode != 200) {
+                logger.warn("Embedding API returned ${httpConn.responseCode}")
+                return null
+            }
+
+            String responseBody = httpConn.inputStream.getText("UTF-8")
+            Map response = (Map) jsonToObject(responseBody)
+            List dataList = (List) response.get("data")
+            if (!dataList || dataList.isEmpty()) return null
+
+            List<Number> embeddingList = (List<Number>) ((Map) dataList[0]).get("embedding")
+            if (!embeddingList) return null
+
+            float[] result = new float[embeddingList.size()]
+            for (int i = 0; i < embeddingList.size(); i++) {
+                result[i] = embeddingList[i].floatValue()
+            }
+            return result
+        } catch (Exception e) {
+            logger.warn("Error generating embedding: ${e.message}")
+            return null
+        }
+    }
+
+    /** Convert a float array to PostgreSQL vector string format: [0.1,0.2,...] */
+    private static String vectorToString(float[] vector) {
+        StringBuilder sb = new StringBuilder("[")
+        for (int i = 0; i < vector.length; i++) {
+            if (i > 0) sb.append(",")
+            sb.append(vector[i])
+        }
+        sb.append("]")
+        return sb.toString()
+    }
+
+    /**
+     * Generate and store an embedding for a document when indexing.
+     * Called during index() when pgvector is enabled.
+     */
+    private void updateDocumentEmbedding(String prefixedIndex, String docId, String contentText) {
+        if (!hasPgVector || !embeddingUrl || !contentText) return
+        try {
+            float[] embedding = generateEmbedding(contentText)
+            if (embedding == null) return
+
+            Connection conn = getConnection()
+            PreparedStatement ps = conn.prepareStatement(
+                    "UPDATE moqui_document SET embedding = ?::vector WHERE index_name = ? AND doc_id = ?")
+            try {
+                ps.setString(1, vectorToString(embedding))
+                ps.setString(2, prefixedIndex)
+                ps.setString(3, docId)
+                ps.executeUpdate()
+            } finally { ps.close() }
+        } catch (Exception e) {
+            logger.debug("Could not update embedding for doc ${docId}: ${e.message}")
+        }
     }
 
     @Override

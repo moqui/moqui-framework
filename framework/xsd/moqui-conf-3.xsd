@@ -617,6 +617,16 @@ along with this software (see the LICENSE.md file). If not, see
                 </xs:documentation></xs:annotation></xs:attribute>
                 <xs:attribute name="pool-max" type="xs:positiveInteger"><xs:annotation><xs:documentation>For type=elastic only: HTTP connection pool max size.</xs:documentation></xs:annotation></xs:attribute>
                 <xs:attribute name="queue-size" type="xs:positiveInteger"><xs:annotation><xs:documentation>For type=elastic only: HTTP request queue size.</xs:documentation></xs:annotation></xs:attribute>
+                <xs:attribute name="embedding-url" type="xs:string"><xs:annotation><xs:documentation>
+                    For type=postgres only: URL of an OpenAI-compatible embedding API endpoint (e.g. http://localhost:11434/v1/embeddings).
+                    When set and pgvector extension is available, enables vector/hybrid search on documents.
+                </xs:documentation></xs:annotation></xs:attribute>
+                <xs:attribute name="embedding-model" type="xs:string"><xs:annotation><xs:documentation>
+                    For type=postgres only: Embedding model name to use (default: text-embedding-3-small).
+                </xs:documentation></xs:annotation></xs:attribute>
+                <xs:attribute name="embedding-dimensions" type="xs:positiveInteger"><xs:annotation><xs:documentation>
+                    For type=postgres only: Vector dimensions for embeddings (default: 1536). Must match the embedding model's output dimensions.
+                </xs:documentation></xs:annotation></xs:attribute>
             </xs:complexType></xs:element>
         </xs:sequence>
     </xs:complexType></xs:element>

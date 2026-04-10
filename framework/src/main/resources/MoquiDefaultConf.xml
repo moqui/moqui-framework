@@ -426,6 +426,9 @@
         <!-- PostgreSQL backend: set type="postgres" and url to the datasource group-name (or omit url for transactional group).
              To use this, override in MoquiConf.xml:
              <cluster name="default" type="postgres" url="transactional" index-prefix="${elasticsearch_index_prefix}"/>
+             For vector/hybrid search, add an embedding API endpoint:
+             <cluster name="default" type="postgres" url="transactional" index-prefix="${elasticsearch_index_prefix}"
+                      embedding-url="http://localhost:11434/v1/embeddings" embedding-model="nomic-embed-text" embedding-dimensions="768"/>
         -->
     </elastic-facade>
 
