@@ -60,6 +60,11 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
     /** Jackson mapper shared with ElasticFacadeImpl */
     static final ObjectMapper jacksonMapper = ElasticFacadeImpl.jacksonMapper
 
+    /** Whether the pg_textsearch extension (BM25 ranking) is available */
+    private boolean hasBm25Extension = false
+    /** Name of the BM25 index on content_text (if created) */
+    private static final String BM25_INDEX_NAME = "idx_mq_doc_bm25"
+
     /** SQL for inserting HTTP request logs into the dedicated moqui_http_log table */
     static final String HTTP_LOG_INSERT_SQL = """
         INSERT INTO moqui_http_log (log_timestamp, remote_ip, remote_user, server_ip, content_type,
@@ -121,6 +126,16 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
                 try { stmt.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm") }
                 catch (Exception extEx) { logger.warn("Could not create pg_trgm extension (may require superuser): ${extEx.message}") }
 
+                // Detect pg_textsearch extension for BM25 ranking (optional)
+                try {
+                    stmt.execute("CREATE EXTENSION IF NOT EXISTS pg_textsearch")
+                    hasBm25Extension = true
+                    logger.info("pg_textsearch extension detected — BM25 ranking enabled")
+                } catch (Exception extEx) {
+                    hasBm25Extension = false
+                    logger.info("pg_textsearch extension not available — using ts_rank_cd() for scoring")
+                }
+
                 // moqui_search_index — index metadata (replaces ES index/alias concept)
                 stmt.execute("""
                     CREATE TABLE IF NOT EXISTS moqui_search_index (
@@ -165,6 +180,16 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_mq_doc_json ON moqui_document USING GIN (document jsonb_path_ops)")
                 // GIN trigram index on content_text for fuzzy/LIKE queries
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_mq_doc_trgm ON moqui_document USING GIN (content_text gin_trgm_ops)")
+                // BM25 index on content_text for true BM25 ranking (requires pg_textsearch)
+                if (hasBm25Extension) {
+                    try {
+                        stmt.execute("CREATE INDEX IF NOT EXISTS ${BM25_INDEX_NAME} ON moqui_document USING bm25(content_text) WITH (text_config='english')".toString())
+                        logger.info("BM25 index '${BM25_INDEX_NAME}' created on moqui_document.content_text")
+                    } catch (Exception bm25Ex) {
+                        logger.warn("Could not create BM25 index (pg_textsearch may not support this table layout): ${bm25Ex.message}")
+                        hasBm25Extension = false
+                    }
+                }
                 // Index for type-based filtering
                 stmt.execute("CREATE INDEX IF NOT EXISTS idx_mq_doc_type ON moqui_document (doc_type)")
                 // Index for time-based ordering
@@ -279,11 +304,13 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
                 if (rs.next()) {
                     return [name: clusterName, cluster_name: "postgres",
                             version: [distribution: "postgres", number: rs.getString(1)],
-                            tagline: "Moqui PostgresElasticClient"]
+                            tagline: "Moqui PostgresElasticClient",
+                            features: [bm25: hasBm25Extension]]
                 }
             } finally { rs.close() }
         } finally { ps.close() }
-        return [name: clusterName, cluster_name: "postgres", version: [distribution: "postgres"]]
+        return [name: clusterName, cluster_name: "postgres", version: [distribution: "postgres"],
+                features: [bm25: hasBm25Extension]]
     }
 
     // ============================================================
@@ -819,8 +846,11 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
         String countSql = "SELECT COUNT(*) FROM moqui_document WHERE ${whereClause}"
         long totalCount = 0L
 
+        // Use BM25 scoring when pg_textsearch is available and we have a text query
+        boolean useBm25 = hasBm25Extension && tq.tsqueryExpr
+
         String mainSql = """
-            SELECT doc_id, index_name, doc_type, document, ${buildScoreSelect(tq)} AS _score${hlSelect}
+            SELECT doc_id, index_name, doc_type, document, ${buildScoreSelect(tq, useBm25)} AS _score${hlSelect}
             FROM moqui_document
             WHERE ${whereClause}
             ORDER BY ${orderByClause}
@@ -839,7 +869,10 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
         }
 
         List<Object> mainParams = []
-        if (tq.tsqueryExpr) mainParams.addAll(tq.tsqueryParams)
+        // BM25 score expression uses to_bm25query(searchText, indexName) — needs the search text
+        if (useBm25 && tq.tsqueryParams) mainParams.add(tq.tsqueryParams[0])
+        // ts_rank_cd score expression needs the tsquery params
+        else if (tq.tsqueryExpr) mainParams.addAll(tq.tsqueryParams)
         // Add highlight params (one set of tsquery params per highlight field)
         mainParams.addAll(hlParams)
         mainParams.addAll(allParams)
@@ -1479,7 +1512,21 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
     }
 
     private static String buildScoreSelect(ElasticQueryTranslator.TranslatedQuery tq) {
+        return buildScoreSelect(tq, false)
+    }
+
+    /**
+     * Build the score expression for the SELECT clause.
+     * When BM25 is available, uses the <@> operator (returns negative scores, so we negate).
+     * Otherwise falls back to ts_rank_cd().
+     */
+    private static String buildScoreSelect(ElasticQueryTranslator.TranslatedQuery tq, boolean useBm25) {
         if (tq.tsqueryExpr) {
+            if (useBm25) {
+                // pg_textsearch: content_text <@> to_bm25query('query', 'idx_mq_doc_bm25')
+                // Returns negative BM25 scores; negate so higher = better match
+                return "-(content_text <@> to_bm25query(?, '${BM25_INDEX_NAME}'))"
+            }
             return "ts_rank_cd(content_tsv, ${tq.tsqueryExpr})"
         }
         return "1.0::float"
