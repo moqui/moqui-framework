@@ -74,6 +74,8 @@ class ElasticQueryTranslator {
         boolean trackTotal = true
         /** Fields to highlight, keyed by field name */
         Map<String, Map> highlightFields = [:]
+        /** The cleaned search text for use in fuzzy fallback */
+        String cleanedSearchText = null
     }
 
     /**
@@ -114,6 +116,7 @@ class ElasticQueryTranslator {
             tq.params = qr.params
             tq.tsqueryExpr = qr.tsqueryExpr
             tq.tsqueryParams = qr.tsqueryParams
+            tq.cleanedSearchText = qr.cleanedSearchText
         }
 
         return tq
@@ -127,6 +130,10 @@ class ElasticQueryTranslator {
         String tsqueryExpr = null
         /** Bind parameters specifically for tsqueryExpr (separate from WHERE clause params) */
         List<Object> tsqueryParams = []
+        /** If true, this query was a fuzzy/similarity query that should use pg_trgm scoring */
+        boolean isFuzzy = false
+        /** The original cleaned search text (for fuzzy fallback) */
+        String cleanedSearchText = null
     }
 
     static QueryResult translateQuery(Map queryMap) {
@@ -181,6 +188,7 @@ class ElasticQueryTranslator {
         qr.tsqueryParams = [cleanedQuery]
         qr.params = [cleanedQuery]
         qr.clause = "content_tsv @@ websearch_to_tsquery('english', ?)"
+        qr.cleanedSearchText = cleanedQuery
         return qr
     }
 
@@ -692,5 +700,36 @@ class ElasticQueryTranslator {
      */
     static String buildHighlightExpr(String fieldJsonPath, String tsqueryExpr) {
         return "ts_headline('english', coalesce(${fieldJsonPath}, ''), ${tsqueryExpr}, 'StartSel=<em>,StopSel=</em>,MaxWords=35,MinWords=15,ShortWord=3,HighlightAll=false,MaxFragments=3,FragmentDelimiter= ... ')"
+    }
+
+    // ============================================================
+    // pg_trgm Fuzzy Search Support
+    // ============================================================
+
+    /**
+     * Build a fuzzy search WHERE clause using pg_trgm's similarity operator (%).
+     * Falls back to trigram similarity when tsvector full-text search returns zero results.
+     * @param searchText The cleaned search text to match against
+     * @param threshold The minimum similarity threshold (0.0 to 1.0, default 0.3)
+     * @return A QueryResult with the pg_trgm similarity clause
+     */
+    static QueryResult translateFuzzyQuery(String searchText, double threshold = 0.3) {
+        QueryResult qr = new QueryResult()
+        if (!searchText || searchText.trim().isEmpty()) return qr
+
+        String text = searchText.trim()
+        qr.clause = "content_text % ?"
+        qr.params = [text]
+        qr.isFuzzy = true
+        qr.cleanedSearchText = text
+        return qr
+    }
+
+    /**
+     * Build the SQL for a fuzzy search score expression using pg_trgm similarity().
+     * Returns a value between 0.0 and 1.0; higher = more similar.
+     */
+    static String buildFuzzyScoreExpr() {
+        return "similarity(content_text, ?)"
     }
 }

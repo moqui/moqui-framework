@@ -476,4 +476,57 @@ class PostgresSearchTranslatorTests {
         Assertions.assertTrue(tq.whereClause.contains("AND"))
         Assertions.assertTrue(tq.highlightFields.containsKey("productName"))
     }
+
+    // ============================================================
+    // pg_trgm Fuzzy Search Tests
+    // ============================================================
+
+    @Test
+    @DisplayName("translateFuzzyQuery returns pg_trgm similarity clause")
+    void fuzzyQuery_returnsSimilarityClause() {
+        def qr = ElasticQueryTranslator.translateFuzzyQuery("databse")
+        Assertions.assertEquals("content_text % ?", qr.clause)
+        Assertions.assertEquals(["databse"], qr.params)
+        Assertions.assertTrue(qr.isFuzzy)
+        Assertions.assertEquals("databse", qr.cleanedSearchText)
+    }
+
+    @Test
+    @DisplayName("translateFuzzyQuery handles empty input")
+    void fuzzyQuery_emptyInput() {
+        def qr = ElasticQueryTranslator.translateFuzzyQuery("")
+        Assertions.assertEquals("TRUE", qr.clause)
+        Assertions.assertFalse(qr.isFuzzy)
+    }
+
+    @Test
+    @DisplayName("translateFuzzyQuery handles null input")
+    void fuzzyQuery_nullInput() {
+        def qr = ElasticQueryTranslator.translateFuzzyQuery(null)
+        Assertions.assertEquals("TRUE", qr.clause)
+        Assertions.assertFalse(qr.isFuzzy)
+    }
+
+    @Test
+    @DisplayName("buildFuzzyScoreExpr returns similarity expression")
+    void fuzzyScoreExpr_returnsSimilarityFunc() {
+        String expr = ElasticQueryTranslator.buildFuzzyScoreExpr()
+        Assertions.assertEquals("similarity(content_text, ?)", expr)
+    }
+
+    @Test
+    @DisplayName("query_string populates cleanedSearchText in QueryResult")
+    void queryString_populatesCleanedSearchText() {
+        def qr = ElasticQueryTranslator.translateQuery([query_string: [query: "database optimization"]])
+        Assertions.assertNotNull(qr.cleanedSearchText)
+        Assertions.assertEquals("database optimization", qr.cleanedSearchText)
+    }
+
+    @Test
+    @DisplayName("query_string cleanedSearchText propagates to TranslatedQuery")
+    void searchMap_cleanedSearchTextPropagated() {
+        Map searchMap = [query: [query_string: [query: "search terms"]]]
+        TranslatedQuery tq = ElasticQueryTranslator.translateSearchMap(searchMap)
+        Assertions.assertEquals("search terms", tq.cleanedSearchText)
+    }
 }

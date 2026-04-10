@@ -876,6 +876,13 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
                     hits.add(hit)
                 }
 
+                // Fuzzy fallback: if tsvector search returned 0 results and we have a search text,
+                // retry using pg_trgm similarity matching (handles typos, misspellings)
+                if (hits.isEmpty() && tq.cleanedSearchText && tq.tsqueryExpr) {
+                    Map fuzzyResult = searchFuzzyFallback(indexNames, tq, useDbHighlights)
+                    if (fuzzyResult != null) return fuzzyResult
+                }
+
                 return [hits: [total: [value: totalCount, relation: "eq"], hits: hits],
                         _shards: [total: 1, successful: 1, failed: 0]]
             } finally { rs.close() }
@@ -1100,6 +1107,164 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
     List<Map> searchHits(String index, Map searchMap) {
         Map result = search(index, searchMap)
         return (List<Map>) ((Map) result.get("hits")).get("hits")
+    }
+
+    // ============================================================
+    // Fuzzy Search Fallback (pg_trgm)
+    // ============================================================
+
+    /**
+     * Fuzzy fallback search using pg_trgm similarity when tsvector FTS returns zero results.
+     * Uses the existing GIN trigram index (idx_mq_doc_trgm) on content_text.
+     * Returns null if fuzzy search also finds nothing.
+     */
+    private Map searchFuzzyFallback(List<String> indexNames, ElasticQueryTranslator.TranslatedQuery tq, boolean useDbHighlights) {
+        String searchText = tq.cleanedSearchText
+        if (!searchText) return null
+
+        String idxPlaceholders = indexNames.collect { "?" }.join(", ")
+
+        // Set the pg_trgm similarity threshold for this query (lower = more results)
+        Connection conn = getConnection()
+        PreparedStatement threshPs = conn.prepareStatement("SELECT set_limit(0.2)")
+        try { threshPs.executeQuery().close() } catch (Exception e) {
+            // set_limit may not exist in newer PG (use pg_trgm.similarity_threshold GUC instead)
+            try {
+                PreparedStatement gucPs = conn.prepareStatement("SET pg_trgm.similarity_threshold = 0.2")
+                gucPs.execute()
+                gucPs.close()
+            } catch (Exception e2) { logger.trace("Could not set pg_trgm threshold: ${e2.message}") }
+        } finally { threshPs.close() }
+
+        String fuzzyScoreExpr = ElasticQueryTranslator.buildFuzzyScoreExpr()
+
+        // Build highlight columns for fuzzy results (use ILIKE-based highlighting since we don't have a tsquery)
+        String hlSelect = ""
+        List<String> hlFieldNames = []
+        if (useDbHighlights && tq.highlightFields) {
+            List<String> hlExprs = []
+            for (String hlField in tq.highlightFields.keySet()) {
+                String jsonPath = ElasticQueryTranslator.fieldToJsonPath("document", hlField)
+                // For fuzzy matches, use a simple regexp_replace highlight since ts_headline requires a tsquery
+                hlExprs.add("regexp_replace(coalesce(${jsonPath}, ''), '(' || ? || ')', '<em>\\1</em>', 'gi') AS hl_${hlFieldNames.size()}".toString())
+                hlFieldNames.add(hlField)
+            }
+            if (hlExprs) hlSelect = ", " + hlExprs.join(", ")
+        }
+
+        String sql = """
+            SELECT doc_id, index_name, doc_type, document, ${fuzzyScoreExpr} AS _score${hlSelect}
+            FROM moqui_document
+            WHERE index_name IN (${idxPlaceholders}) AND content_text % ?
+            ORDER BY _score DESC
+            LIMIT ? OFFSET ?
+        """.trim()
+
+        // Parameters: fuzzyScoreExpr(?=searchText), hlParams, indexNames, similarity(?=searchText), limit, offset
+        List<Object> allParams = []
+        allParams.add(searchText)  // for similarity() score expression
+        // highlight params (search text for each highlight field's regexp_replace)
+        for (int h = 0; h < hlFieldNames.size(); h++) {
+            allParams.add(escapeRegex(searchText))
+        }
+        allParams.addAll(indexNames)
+        allParams.add(searchText)  // for the WHERE content_text % ?
+        allParams.add(tq.sizeLimit)
+        allParams.add(tq.fromOffset)
+
+        PreparedStatement ps = conn.prepareStatement(sql)
+        try {
+            for (int i = 0; i < allParams.size(); i++) setParam(ps, i + 1, allParams[i])
+            ResultSet rs = ps.executeQuery()
+            try {
+                List<Map> hits = []
+                while (rs.next()) {
+                    String docJson = rs.getString("document")
+                    Map source = docJson ? (Map) jsonToObject(docJson) : [:]
+                    double score = rs.getDouble("_score")
+
+                    Map hit = [_index: unprefixIndexName(rs.getString("index_name")),
+                               _id: rs.getString("doc_id"),
+                               _type: rs.getString("doc_type"),
+                               _score: score, _source: source] as Map
+
+                    if (hlFieldNames) {
+                        Map<String, List<String>> highlights = [:]
+                        for (int h = 0; h < hlFieldNames.size(); h++) {
+                            String hlResult = rs.getString("hl_${h}")
+                            if (hlResult) highlights.put(hlFieldNames[h], [hlResult])
+                        }
+                        if (highlights) hit.put("highlight", highlights)
+                    }
+
+                    hits.add(hit)
+                }
+                if (hits.isEmpty()) return null
+
+                logger.info("Fuzzy fallback matched ${hits.size()} documents for query '${searchText}'")
+                return [hits: [total: [value: (long) hits.size(), relation: "eq"], hits: hits],
+                        _shards: [total: 1, successful: 1, failed: 0]]
+            } finally { rs.close() }
+        } finally { ps.close() }
+    }
+
+    /**
+     * Suggest completions for a partial search term using pg_trgm word_similarity().
+     * Searches against document field values for typeahead/autocomplete.
+     * @param index Index name (or null for all indexes)
+     * @param field Document field to suggest from (e.g. "productName", "description")
+     * @param prefix The partial text to complete
+     * @param maxResults Maximum number of suggestions to return
+     * @return A list of suggestion maps with [text: String, score: double]
+     */
+    List<Map> suggest(String index, String field, String prefix, int maxResults = 10) {
+        if (!prefix || prefix.trim().isEmpty()) return []
+        ElasticQueryTranslator.sanitizeFieldName(field)
+        String cleanPrefix = prefix.trim()
+
+        List<String> indexNames = resolveIndexNames(index)
+        if (indexNames.isEmpty()) return []
+
+        String idxPlaceholders = indexNames.collect { "?" }.join(", ")
+        String jsonPath = ElasticQueryTranslator.fieldToJsonPath("document", field)
+
+        String sql = """
+            SELECT DISTINCT ${jsonPath} AS val, word_similarity(?, ${jsonPath}) AS score
+            FROM moqui_document
+            WHERE index_name IN (${idxPlaceholders})
+              AND ${jsonPath} IS NOT NULL
+              AND ${jsonPath} <> ''
+              AND ? <% ${jsonPath}
+            ORDER BY score DESC
+            LIMIT ?
+        """.trim()
+
+        List<Object> allParams = []
+        allParams.add(cleanPrefix)  // for word_similarity()
+        allParams.addAll(indexNames)
+        allParams.add(cleanPrefix)  // for <% operator
+        allParams.add(maxResults)
+
+        Connection conn = getConnection()
+        PreparedStatement ps = conn.prepareStatement(sql)
+        try {
+            for (int i = 0; i < allParams.size(); i++) setParam(ps, i + 1, allParams[i])
+            ResultSet rs = ps.executeQuery()
+            try {
+                List<Map> suggestions = []
+                while (rs.next()) {
+                    String text = rs.getString("val")
+                    double score = rs.getDouble("score")
+                    if (text) suggestions.add([text: text, score: score])
+                }
+                return suggestions
+            } finally { rs.close() }
+        } finally { ps.close() }
+    }
+
+    /** Escape special regex characters in a string for use in regexp_replace */
+    private static String escapeRegex(String text) {
+        return text.replaceAll(/([.\\+*?\[^\]$(){}=!<>|:\-])/, '\\\\$1')
     }
 
     @Override
