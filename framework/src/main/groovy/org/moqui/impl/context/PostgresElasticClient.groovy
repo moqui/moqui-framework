@@ -60,6 +60,9 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
     /** Jackson mapper shared with ElasticFacadeImpl */
     static final ObjectMapper jacksonMapper = ElasticFacadeImpl.jacksonMapper
 
+    /** Whether the TimescaleDB extension is available for log table hypertables */
+    private boolean hasTimescaleDb = false
+
     /** SQL for inserting HTTP request logs into the dedicated moqui_http_log table */
     static final String HTTP_LOG_INSERT_SQL = """
         INSERT INTO moqui_http_log (log_timestamp, remote_ip, remote_user, server_ip, content_type,
@@ -120,6 +123,16 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
                 // Enable pg_trgm extension for fuzzy search (available since PG 9.1)
                 try { stmt.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm") }
                 catch (Exception extEx) { logger.warn("Could not create pg_trgm extension (may require superuser): ${extEx.message}") }
+
+                // Detect TimescaleDB extension for log table hypertables (optional)
+                try {
+                    stmt.execute("CREATE EXTENSION IF NOT EXISTS timescaledb")
+                    hasTimescaleDb = true
+                    logger.info("TimescaleDB extension detected — log table hypertables enabled")
+                } catch (Exception extEx) {
+                    hasTimescaleDb = false
+                    logger.info("TimescaleDB extension not available — using plain tables for logs")
+                }
 
                 // moqui_search_index — index metadata (replaces ES index/alias concept)
                 stmt.execute("""
@@ -243,6 +256,11 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
                     END \$\$;
                 """.trim())
 
+                // Convert log tables to TimescaleDB hypertables with compression and retention
+                if (hasTimescaleDb) {
+                    initTimescaleHypertables(stmt)
+                }
+
                 logger.info("PostgresElasticClient schema initialized for cluster '${clusterName}'")
             } finally {
                 stmt.close()
@@ -251,6 +269,67 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
         } catch (Throwable t) {
             ecfi.transactionFacade.rollback(started, "Error initializing PostgresElasticClient schema", t)
             throw new BaseException("Error initializing PostgresElasticClient schema for cluster '${clusterName}'", t)
+        }
+    }
+
+    /**
+     * Convert log tables to TimescaleDB hypertables and add compression/retention policies.
+     * Hypertables partition data into time-based chunks for efficient:
+     *   - Compression (90%+ storage reduction for old chunks)
+     *   - Retention (drop_chunks replaces row-by-row DELETE for cleanup)
+     *   - Query performance (chunk exclusion for time-range queries)
+     * Safe to call multiple times — skips if tables are already hypertables.
+     */
+    private void initTimescaleHypertables(Statement stmt) {
+        // Convert moqui_logs to hypertable
+        try {
+            // Check if already a hypertable
+            ResultSet rs = stmt.executeQuery(
+                    "SELECT 1 FROM timescaledb_information.hypertables WHERE hypertable_name = 'moqui_logs'")
+            boolean isHyper = rs.next()
+            rs.close()
+            if (!isHyper) {
+                stmt.execute("SELECT create_hypertable('moqui_logs', 'log_timestamp', migrate_data => true, if_not_exists => true)")
+                logger.info("Converted moqui_logs to TimescaleDB hypertable")
+            }
+            // Enable compression on chunks older than 7 days
+            try {
+                stmt.execute("ALTER TABLE moqui_logs SET (timescaledb.compress, timescaledb.compress_segmentby = 'log_level')")
+                stmt.execute("SELECT add_compression_policy('moqui_logs', INTERVAL '7 days', if_not_exists => true)")
+                logger.info("Added compression policy for moqui_logs (compress after 7 days)")
+            } catch (Exception ex) { logger.debug("Could not set compression on moqui_logs: ${ex.message}") }
+            // Retention policy: automatically drop chunks older than 90 days
+            try {
+                stmt.execute("SELECT add_retention_policy('moqui_logs', INTERVAL '90 days', if_not_exists => true)")
+                logger.info("Added retention policy for moqui_logs (drop after 90 days)")
+            } catch (Exception ex) { logger.debug("Could not set retention on moqui_logs: ${ex.message}") }
+        } catch (Exception ex) {
+            logger.warn("Could not convert moqui_logs to hypertable: ${ex.message}")
+        }
+
+        // Convert moqui_http_log to hypertable
+        try {
+            ResultSet rs = stmt.executeQuery(
+                    "SELECT 1 FROM timescaledb_information.hypertables WHERE hypertable_name = 'moqui_http_log'")
+            boolean isHyper = rs.next()
+            rs.close()
+            if (!isHyper) {
+                stmt.execute("SELECT create_hypertable('moqui_http_log', 'log_timestamp', migrate_data => true, if_not_exists => true)")
+                logger.info("Converted moqui_http_log to TimescaleDB hypertable")
+            }
+            // Enable compression on chunks older than 7 days
+            try {
+                stmt.execute("ALTER TABLE moqui_http_log SET (timescaledb.compress, timescaledb.compress_segmentby = 'request_path')")
+                stmt.execute("SELECT add_compression_policy('moqui_http_log', INTERVAL '7 days', if_not_exists => true)")
+                logger.info("Added compression policy for moqui_http_log (compress after 7 days)")
+            } catch (Exception ex) { logger.debug("Could not set compression on moqui_http_log: ${ex.message}") }
+            // Retention policy: automatically drop chunks older than 90 days
+            try {
+                stmt.execute("SELECT add_retention_policy('moqui_http_log', INTERVAL '90 days', if_not_exists => true)")
+                logger.info("Added retention policy for moqui_http_log (drop after 90 days)")
+            } catch (Exception ex) { logger.debug("Could not set retention on moqui_http_log: ${ex.message}") }
+        } catch (Exception ex) {
+            logger.warn("Could not convert moqui_http_log to hypertable: ${ex.message}")
         }
     }
 
@@ -279,11 +358,13 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
                 if (rs.next()) {
                     return [name: clusterName, cluster_name: "postgres",
                             version: [distribution: "postgres", number: rs.getString(1)],
-                            tagline: "Moqui PostgresElasticClient"]
+                            tagline: "Moqui PostgresElasticClient",
+                            features: [timescaledb: hasTimescaleDb]]
                 }
             } finally { rs.close() }
         } finally { ps.close() }
-        return [name: clusterName, cluster_name: "postgres", version: [distribution: "postgres"]]
+        return [name: clusterName, cluster_name: "postgres", version: [distribution: "postgres"],
+                features: [timescaledb: hasTimescaleDb]]
     }
 
     // ============================================================
@@ -523,6 +604,10 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
             PreparedStatement ps = conn.prepareStatement("DELETE FROM moqui_http_log")
             try { return ps.executeUpdate() } finally { ps.close() }
         }
+        // When TimescaleDB is available and we have an upper bound, use drop_chunks for efficiency
+        if (hasTimescaleDb && (range.lte != null || range.lt != null)) {
+            return dropChunksForTable("moqui_http_log", range)
+        }
         List<String> conditions = []
         List<Object> params = []
         if (range.lte != null) { conditions.add("log_timestamp <= ?"); params.add(range.lte) }
@@ -546,6 +631,10 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
             PreparedStatement ps = conn.prepareStatement("DELETE FROM moqui_logs")
             try { return ps.executeUpdate() } finally { ps.close() }
         }
+        // When TimescaleDB is available and we have an upper bound, use drop_chunks for efficiency
+        if (hasTimescaleDb && (range.lte != null || range.lt != null)) {
+            return dropChunksForTable("moqui_logs", range)
+        }
         List<String> conditions = []
         List<Object> params = []
         if (range.lte != null) { conditions.add("log_timestamp <= ?"); params.add(range.lte) }
@@ -558,6 +647,32 @@ class PostgresElasticClient implements ElasticFacade.ElasticClient {
         try {
             for (int i = 0; i < params.size(); i++) setParam(ps, i + 1, params[i])
             return ps.executeUpdate()
+        } finally { ps.close() }
+    }
+
+    /**
+     * Use TimescaleDB drop_chunks to efficiently delete old data.
+     * drop_chunks drops entire compressed chunks at once — O(1) per chunk vs O(n) per row.
+     * Returns -1 since drop_chunks doesn't report row count.
+     */
+    private Integer dropChunksForTable(String tableName, TimestampRange range) {
+        Timestamp olderThan = range.lte ?: range.lt
+        Connection conn = getConnection()
+        PreparedStatement ps = conn.prepareStatement("SELECT drop_chunks('${tableName}', older_than => ?)")
+        try {
+            ps.setTimestamp(1, olderThan)
+            ps.executeQuery().close()
+            logger.info("drop_chunks('${tableName}', older_than => ${olderThan}) completed")
+            return -1  // drop_chunks doesn't return a row count
+        } catch (Exception e) {
+            logger.warn("drop_chunks failed for ${tableName}, falling back to DELETE: ${e.message}")
+            // Fall back to regular DELETE
+            String where = range.lte != null ? "log_timestamp <= ?" : "log_timestamp < ?"
+            PreparedStatement delPs = conn.prepareStatement("DELETE FROM ${tableName} WHERE ${where}")
+            try {
+                delPs.setTimestamp(1, olderThan)
+                return delPs.executeUpdate()
+            } finally { delPs.close() }
         } finally { ps.close() }
     }
 
