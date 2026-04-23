@@ -149,6 +149,9 @@ try {
     } catch (Throwable t) {
         logger.error("Error in sendEmailTemplate", t)
         ec.message.addMessage("Error sending email: ${t.toString()}")
+        ec.service.sync().name("update", "moqui.basic.email.EmailMessage").requireNewTransaction(true)
+                .parameters([emailMessageId:emailMessageId, lastSendAttemptDate:ec.user.nowTimestamp, sendAttemptCount:((emailMessage.sendAttemptCount?:0)+1)])
+                .disableAuthz().call()
     }
 
     return
