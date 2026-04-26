@@ -174,7 +174,7 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.Uom abbreviation="UYP" description="Uruguayan New Peso" uomId="UYP" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
     <moqui.basic.Uom abbreviation="UYU" description="Uruguay" uomId="UYU" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
     <moqui.basic.Uom abbreviation="VEB" description="Venezuelan Bolivar" uomId="VEB" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
-    <moqui.basic.Uom abbreviation="VND" description="Vietnamese Dong" uomId="VND" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="VND" description="Viet Nam Dong" uomId="VND" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
     <moqui.basic.Uom abbreviation="VUV" description="Vanuatu Vatu" uomId="VUV" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
     <moqui.basic.Uom abbreviation="WST" description="Samoan Tala" uomId="WST" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
     <moqui.basic.Uom abbreviation="XAF" description="Gabon C.f.A Franc" uomId="XAF" uomTypeEnumId="UT_CURRENCY_MEASURE"/>
