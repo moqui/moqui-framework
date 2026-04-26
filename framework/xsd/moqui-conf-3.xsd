@@ -158,6 +158,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:enumeration value="AT_XML_SCREEN_TRANS"/>
                 <xs:enumeration value="AT_SERVICE"/>
                 <xs:enumeration value="AT_ENTITY"/>
+                <xs:enumeration value="AT_REST_PATH"/>
             </xs:restriction></xs:simpleType></xs:attribute>
             <!-- Removed, note that entity-auto and entity-implicit service calls never have hits persisted and that is
                 mainly what this was used for: <xs:attribute name="sub-type" type="xs:string"/> -->
