@@ -16,6 +16,7 @@ package org.moqui.service;
 import org.moqui.util.RestClient;
 
 import java.util.Map;
+import java.util.concurrent.ScheduledFuture;
 
 /** ServiceFacade Interface */
 @SuppressWarnings("unused")
@@ -27,6 +28,12 @@ public interface ServiceFacade {
     /** Get a service caller to call a service asynchronously. */
     ServiceCallAsync async();
 
+    /** Get a service caller to schedule a service call. */
+    ServiceCallScheduled schedule();
+    
+    /** Get a service caller to schedule a service, assigning a specific taskName. */
+    ServiceCallScheduled schedule(String taskName);
+    
     /**
      * Get a service caller to call a service job.
      *

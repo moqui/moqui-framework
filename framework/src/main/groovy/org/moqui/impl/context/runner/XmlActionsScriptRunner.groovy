@@ -25,6 +25,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import javax.cache.Cache
+import java.util.concurrent.locks.ReentrantLock
 
 @CompileStatic
 class XmlActionsScriptRunner implements ScriptRunner {
@@ -32,7 +33,9 @@ class XmlActionsScriptRunner implements ScriptRunner {
 
     protected ExecutionContextFactoryImpl ecfi
     protected Cache<String, XmlAction> scriptXmlActionLocationCache
-    protected Template xmlActionsTemplate = null
+    protected volatile Template xmlActionsTemplate = null
+    private final ReentrantLock loadXmlActionLock = new ReentrantLock()
+    private final ReentrantLock makeTemplateLock = new ReentrantLock()
 
     XmlActionsScriptRunner() { }
 
@@ -54,34 +57,40 @@ class XmlActionsScriptRunner implements ScriptRunner {
         if (xa == null) xa = loadXmlAction(location)
         return xa
     }
-    protected synchronized XmlAction loadXmlAction(String location) {
-        XmlAction xa = (XmlAction) scriptXmlActionLocationCache.get(location)
-        if (xa == null) {
-            xa = new XmlAction(ecfi, ecfi.resourceFacade.getLocationText(location, false), location)
-            scriptXmlActionLocationCache.put(location, xa)
-        }
-        return xa
+    protected XmlAction loadXmlAction(String location) {
+        loadXmlActionLock.lock()
+        try {
+            XmlAction xa = (XmlAction) scriptXmlActionLocationCache.get(location)
+            if (xa == null) {
+                xa = new XmlAction(ecfi, ecfi.resourceFacade.getLocationText(location, false), location)
+                scriptXmlActionLocationCache.put(location, xa)
+            }
+            return xa
+        } finally { loadXmlActionLock.unlock() }
     }
 
     Template getXmlActionsTemplate() {
         if (xmlActionsTemplate == null) makeXmlActionsTemplate()
         return xmlActionsTemplate
     }
-    protected synchronized void makeXmlActionsTemplate() {
-        if (xmlActionsTemplate != null) return
-
-        String templateLocation = ecfi.confXmlRoot.first("resource-facade").attribute("xml-actions-template-location")
-        Template newTemplate = null
-        Reader templateReader = null
+    protected void makeXmlActionsTemplate() {
+        makeTemplateLock.lock()
         try {
-            templateReader = new InputStreamReader(ecfi.resourceFacade.getLocationStream(templateLocation))
-            newTemplate = new Template(templateLocation, templateReader,
-                    ecfi.resourceFacade.ftlTemplateRenderer.getFtlConfiguration())
-        } catch (Exception e) {
-            logger.error("Error while initializing XMLActions template at [${templateLocation}]", e)
-        } finally {
-            if (templateReader != null) templateReader.close()
-        }
-        xmlActionsTemplate = newTemplate
+            if (xmlActionsTemplate != null) return
+
+            String templateLocation = ecfi.confXmlRoot.first("resource-facade").attribute("xml-actions-template-location")
+            Template newTemplate = null
+            Reader templateReader = null
+            try {
+                templateReader = new InputStreamReader(ecfi.resourceFacade.getLocationStream(templateLocation))
+                newTemplate = new Template(templateLocation, templateReader,
+                        ecfi.resourceFacade.ftlTemplateRenderer.getFtlConfiguration())
+            } catch (Exception e) {
+                logger.error("Error while initializing XMLActions template at [${templateLocation}]", e)
+            } finally {
+                if (templateReader != null) templateReader.close()
+            }
+            xmlActionsTemplate = newTemplate
+        } finally { makeTemplateLock.unlock() }
     }
 }

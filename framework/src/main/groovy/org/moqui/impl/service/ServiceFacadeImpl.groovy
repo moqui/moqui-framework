@@ -19,6 +19,7 @@ import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ArtifactExecutionInfoImpl.ArtifactTypeStats
 import org.moqui.impl.context.ContextJavaUtil
 import org.moqui.impl.context.ContextJavaUtil.CustomScheduledExecutor
+import org.moqui.impl.context.ContextJavaUtil.CustomDistributedScheduledExecutor
 import org.moqui.resource.ResourceReference
 import org.moqui.context.ToolFactory
 import org.moqui.impl.context.ExecutionContextFactoryImpl
@@ -59,11 +60,19 @@ class ServiceFacadeImpl implements ServiceFacade {
     protected final Map<String, ServiceRunner> serviceRunners = new HashMap<>()
 
     private ScheduledJobRunner jobRunner = null
-    public final ThreadPoolExecutor jobWorkerPool
-    private LoadRunner loadRunner = null
+    public final ExecutorService jobWorkerPool
+    private volatile LoadRunner loadRunner = null
+    private final ReentrantLock loadRunnerLock = new ReentrantLock()
+    private long jobRunnerRate = 0L
 
     /** Distributed ExecutorService for async services, etc */
     protected ExecutorService distributedExecutorService = null
+    /** An executor for scheduled services */
+    protected CustomScheduledExecutor scheduledExecutor = null
+    /** Distributed ExecutorService for scheduled services */
+    protected CustomDistributedScheduledExecutor distributedScheduledExecutorService = null
+    /** Map of all serviceCallScheduled scheduledFuture (not concelled yet), using taskName as the key. */
+    protected final ConcurrentMap<String, ScheduledFuture<?>> scheduledFutureMap = new ConcurrentHashMap<>()
 
     protected final ConcurrentMap<String, List<ServiceCallback>> callbackRegistry = new ConcurrentHashMap<>()
 
@@ -84,9 +93,10 @@ class ServiceFacadeImpl implements ServiceFacade {
         restApi = new RestApi(ecfi)
 
         jobWorkerPool = makeWorkerPool()
+        scheduledExecutor = makeScheduledExecutor()
     }
 
-    private ThreadPoolExecutor makeWorkerPool() {
+    private ExecutorService makeWorkerPool() {
         MNode serviceFacadeNode = ecfi.confXmlRoot.first("service-facade")
 
         int jobQueueMax = (serviceFacadeNode.attribute("job-queue-max") ?: "0") as int
@@ -99,11 +109,19 @@ class ServiceFacadeImpl implements ServiceFacade {
         }
         long aliveTime = (serviceFacadeNode.attribute("worker-pool-alive") ?: "120") as long
 
-        logger.info("Initializing Service Job ThreadPoolExecutor: queue limit ${jobQueueMax}, pool-core ${coreSize}, pool-max ${maxSize}, pool-alive ${aliveTime}s")
-        // make the actual queue at least maxSize to allow for stuffing the queue to get it to add threads to the pool
+	logger.info("Initializing Service Job worker pool with Virtual Threads (MoquiJob): queue limit ${jobQueueMax}, pool-core ${coreSize}, pool-max ${maxSize}, pool-alive ${aliveTime}s")
         BlockingQueue<Runnable> workQueue = new LinkedBlockingQueue<>(jobQueueMax < maxSize ? maxSize : jobQueueMax)
-        return new ContextJavaUtil.WorkerThreadPoolExecutor(ecfi, coreSize, maxSize, aliveTime, TimeUnit.SECONDS,
-                workQueue, new ContextJavaUtil.JobThreadFactory())
+        return new ContextJavaUtil.VirtualThreadExecutorService(ecfi, "MoquiJob", coreSize, maxSize, aliveTime, TimeUnit.SECONDS, workQueue)
+    }
+
+    private CustomScheduledExecutor makeScheduledExecutor() {
+        MNode serviceFacadeNode = ecfi.confXmlRoot.first("service-facade")
+
+        int coreSize = (serviceFacadeNode.attribute("scheduled-thread-pool-core") ?: "16") as int
+        int maxSize = (serviceFacadeNode.attribute("scheduled-thread-pool-max") ?: "32") as int
+        CustomScheduledExecutor executor = new CustomScheduledExecutor(coreSize)
+        executor.setMaximumPoolSize(maxSize)
+        return executor
     }
 
     void postFacadeInit() {
@@ -115,7 +133,7 @@ class ServiceFacadeImpl implements ServiceFacade {
         MNode serviceFacadeNode = ecfi.confXmlRoot.first("service-facade")
 
         // get distributed ExecutorService
-        String distEsFactoryName = serviceFacadeNode.attribute("distributed-factory")
+        String distEsFactoryName = serviceFacadeNode.attribute("distributed-executor-factory")
         if (distEsFactoryName) {
             logger.info("Getting Async Distributed Service ExecutorService (using ToolFactory ${distEsFactoryName})")
             ToolFactory<ExecutorService> esToolFactory = ecfi.getToolFactory(distEsFactoryName)
@@ -126,12 +144,28 @@ class ServiceFacadeImpl implements ServiceFacade {
                 distributedExecutorService = esToolFactory.getInstance()
             }
         } else {
-            logger.info("No distributed-factory specified, distributed async service calls will be run local only")
+            logger.info("No distributed-executor-factory specified, distributed async service calls will be run local only")
             distributedExecutorService = null
         }
 
+        // get distributed scheduled ExecutorService
+        String distSchedEsFactoryName = serviceFacadeNode.attribute("distributed-scheduled-executor-factory")
+        if (distSchedEsFactoryName) {
+            logger.info("Getting Distributed Scheduled Service ExecutorService (using ToolFactory ${distSchedEsFactoryName})")
+            ToolFactory<CustomDistributedScheduledExecutor> sesToolFactory = ecfi.getToolFactory(distSchedEsFactoryName)
+            if (sesToolFactory == null) {
+                logger.warn("Could not find ExecutorService ToolFactory with name ${distSchedEsFactoryName}, distributed scheduled service calls will be run local only")
+                distributedScheduledExecutorService = null
+            } else {
+                distributedScheduledExecutorService = sesToolFactory.getInstance()
+            }
+        } else {
+            logger.info("No distributed-scheduled-executor-factory specified, distributed scheduled service calls will be run local only")
+            distributedScheduledExecutorService = null
+        }
+
         // setup service job runner
-        long jobRunnerRate = (serviceFacadeNode.attribute("scheduled-job-check-time") ?: "60") as long
+        jobRunnerRate = (serviceFacadeNode.attribute("scheduled-job-check-time") ?: "60") as long
         if (jobRunnerRate > 0L) {
             // wait before first run to make sure all is loaded and we're past an initial activity burst
             long initialDelay = 120L
@@ -150,6 +184,11 @@ class ServiceFacadeImpl implements ServiceFacade {
         this.distributedExecutorService = executorService
     }
 
+    void setDistributedScheduledExecutorService(CustomDistributedScheduledExecutor executorService) {
+        logger.info("Setting DistributedScheduledExecutorService to ${executorService.class.name}, was ${this.distributedScheduledExecutorService?.class?.name}")
+        this.distributedScheduledExecutorService = executorService
+    }
+
     void warmCache()  {
         logger.info("Warming cache for all service definitions")
         long startTime = System.currentTimeMillis()
@@ -164,11 +203,24 @@ class ServiceFacadeImpl implements ServiceFacade {
     void destroy() {
         // destroy all service runners
         for (ServiceRunner sr in serviceRunners.values()) sr.destroy()
+
+        // shutdown scheduled executor
+        try {
+            logger.info("Shutting scheduled executor")
+            scheduledExecutor.shutdown()
+            scheduledExecutor.awaitTermination(30, TimeUnit.SECONDS)
+            if (scheduledExecutor.isTerminated()) logger.info("Scheduled executor shut down and terminated")
+            else logger.warn("Scheduled executor not yet terminated, waited 30 seconds")
+        } catch (Throwable t) { 
+            logger.error("Error in scheduledExecutor shutdown", t) 
+        }
     }
 
     ServiceRunner getServiceRunner(String type) { serviceRunners.get(type) }
     // NOTE: this is used in the ServiceJobList screen
     ScheduledJobRunner getJobRunner() { jobRunner }
+
+    long getJobRunnerRate() { jobRunnerRate }
 
     boolean isServiceDefined(String serviceName) {
         ServiceDefinition sd = getServiceDefinition(serviceName)
@@ -568,10 +620,88 @@ class ServiceFacadeImpl implements ServiceFacade {
         for (EmailEcaRule eer in emecaRuleList) eer.runIfMatches(message, emailServerId, eci)
     }
 
+    /** 
+     * True if a task with this name is registered. 
+     *
+     * @param taskName Unique task name.
+     * @return true if a name is registerd
+    */
+    boolean hasScheduledFuture(String taskName) {
+        return taskName && scheduledFutureMap.containsKey(taskName)
+    }
+
+    /** Get the scheduled future for a scheduled service call by taskName.
+     * @param taskName Unique task name with which the specified scheduled future is associated.
+     * @return scheduledFuture - scheduledFuture associated with the specified task name.
+     */
+    ScheduledFuture<?> getScheduledFuture(String taskName) {
+        // try to get the scheduledFuture instance from the distributed scheduled executor service
+	    if (distributedScheduledExecutorService != null) {
+            ScheduledFuture scheduledFuture = distributedScheduledExecutorService.getScheduledFuture(taskName)
+            if (scheduledFuture != null) {
+                // update the local map
+                scheduledFutureMap.put(taskName, scheduledFuture)
+                return scheduledFuture
+            }
+        }
+        // if was not found in the distributed scheduled executor service, try to get the local scheduledFuture instance 
+        return (ScheduledFuture) scheduledFutureMap.get(taskName)
+    }
+
+    /** Associates the specified scheduled future for a scheduled service call with the specified taskName.
+     * @param taskName Unique task name with which the specified scheduled future is to be associated.
+     * @param scheduledFuture - scheduledFuture to be associated with the specified task name.
+     */
+    ScheduledFuture<?> putScheduledFuture(String taskName, ScheduledFuture<?> scheduledFuture) {
+        if (taskName == null) throw new IllegalArgumentException("The argument taskName is null.")
+        if (scheduledFuture == null) throw new IllegalArgumentException("The argument scheduledFuture is null.")
+        return scheduledFutureMap.put(taskName, scheduledFuture)
+    }
+
+    /** If the specified taskName is not already associated with a scheduled future associates it 
+     *  with the given instance and returns null, else returns the current scheduled future.
+     * @param taskName Unique task name with which the specified scheduled future is to be associated.
+     * @param scheduledFuture - scheduledFuture to be associated with the specified task name.
+     */
+    ScheduledFuture<?> putScheduledFutureIfAbsent(String taskName, ScheduledFuture<?> scheduledFuture) {
+        if (taskName == null) throw new IllegalArgumentException("The argument taskName is null.")
+        if (scheduledFuture == null) throw new IllegalArgumentException("The argument scheduledFuture is null.")
+        return (ScheduledFuture<?>) scheduledFutureMap.putIfAbsent(taskName, scheduledFuture)
+    }
+
+    /** Removes the entry for the scheduled future and the associated taskName if it is present.
+     * @param taskName Unique task name for which the specified scheduled future is to be removed.
+     */
+    boolean removeScheduledFuture(String taskName) {
+        if (taskName == null) throw new IllegalArgumentException("The argument taskName is null.")
+        // try to get the scheduledFuture instance from the distributed scheduled executor service
+        if (distributedScheduledExecutorService) {
+            ScheduledFuture scheduledFuture = distributedScheduledExecutorService.getScheduledFuture(taskName)
+            // if it was found call the dispose method
+            if (scheduledFuture != null) distributedScheduledExecutorService.dispose(scheduledFuture)
+        }
+        // remove the local entry
+        return scheduledFutureMap.remove(taskName)
+    }
+
+    /** Snapshot of current scheduled future task names. */
+    List<String> listScheduledFutureTaskNames() {
+        return new ArrayList<>(scheduledFutureMap.keySet())
+    }
+
+    /** Current scheduled future count. */
+    int scheduledFutureCount() {
+        return scheduledFutureMap.size()
+    }
+
     @Override
     ServiceCallSync sync() { return new ServiceCallSyncImpl(this) }
     @Override
     ServiceCallAsync async() { return new ServiceCallAsyncImpl(this) }
+    @Override
+    ServiceCallScheduled schedule(String taskName) { return new ServiceCallScheduledImpl(this, taskName) }
+    @Override
+    ServiceCallScheduled schedule() { return new ServiceCallScheduledImpl(this) }
     @Override
     ServiceCallJob job(String jobName) { return new ServiceCallJobImpl(jobName, this) }
 
@@ -613,9 +743,15 @@ class ServiceFacadeImpl implements ServiceFacade {
     // Service LoadRunner Classes
     // ==========================
 
-    synchronized LoadRunner getLoadRunner() {
-        if (loadRunner == null) loadRunner = new LoadRunner(ecfi)
-        return loadRunner
+    LoadRunner getLoadRunner() {
+        if (loadRunner != null) return loadRunner
+        loadRunnerLock.lock()
+        try {
+            if (loadRunner == null) loadRunner = new LoadRunner(ecfi)
+            return loadRunner
+        } finally {
+            loadRunnerLock.unlock()
+        }
     }
 
     static class LoadRunnerServiceRunnable implements Runnable, Externalizable {

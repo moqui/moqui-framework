@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.util.HashMap;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.Map;
 
 public class XmlAction {
@@ -39,6 +40,7 @@ public class XmlAction {
     protected final String location;
     /** The Groovy class compiled from the script transformed from the XML actions text using the FTL template. */
     private Class groovyClassInternal = null;
+    private final ReentrantLock groovyClassLock = new ReentrantLock();
 
     public XmlAction(ExecutionContextFactoryImpl ecfi, MNode xmlNode, String location) {
         this.ecfi = ecfi;
@@ -93,18 +95,21 @@ public class XmlAction {
         if (groovyClassInternal != null) return groovyClassInternal;
         return makeGroovyClass();
     }
-    protected synchronized Class makeGroovyClass() {
-        if (groovyClassInternal != null) return groovyClassInternal;
-        String curGroovy = getGroovyString();
-        // if (logger.isTraceEnabled()) logger.trace("Xml Action [${location}] groovyString: ${curGroovy}")
+    protected Class makeGroovyClass() {
+        groovyClassLock.lock();
         try {
-            groovyClassInternal = ecfi.compileGroovy(curGroovy, StringUtilities.cleanStringForJavaName(location));
-        } catch (Throwable t) {
-            groovyClassInternal = null;
-            logger.error("Error parsing groovy String at [" + location + "]:\n" + writeGroovyWithLines() + "\n");
-            throw t;
-        }
-        return groovyClassInternal;
+            if (groovyClassInternal != null) return groovyClassInternal;
+            String curGroovy = getGroovyString();
+            // if (logger.isTraceEnabled()) logger.trace("Xml Action [${location}] groovyString: ${curGroovy}")
+            try {
+                groovyClassInternal = ecfi.compileGroovy(curGroovy, StringUtilities.cleanStringForJavaName(location));
+            } catch (Throwable t) {
+                groovyClassInternal = null;
+                logger.error("Error parsing groovy String at [" + location + "]:\n" + writeGroovyWithLines() + "\n");
+                throw t;
+            }
+            return groovyClassInternal;
+        } finally { groovyClassLock.unlock(); }
     }
 
     public String getGroovyString() {
