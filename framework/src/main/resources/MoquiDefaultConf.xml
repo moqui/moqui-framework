@@ -79,6 +79,13 @@
     <default-property name="elasticsearch_user" value=""/>
     <default-property name="elasticsearch_password" value="" is-secret="true"/>
     <default-property name="elasticsearch_index_prefix" value=""/>
+    <!-- AI Facade settings -->
+    <default-property name="ai_provider"  value=""/>
+    <default-property name="ai_model"     value=""/>
+    <default-property name="ai_base_url"  value=""/>
+    <default-property name="ai_api_key"   value="" is-secret="true"/>
+    <default-property name="ai_timeout"   value="60"/>
+    <default-property name="ai_pool_max"  value="10"/>
     <!-- Kibana Proxy Servlet settings -->
     <default-property name="kibana_host" value="127.0.0.1"/>
     <default-property name="kibana_port" value="5601"/>
@@ -423,6 +430,16 @@
         <cluster name="default" url="${elasticsearch_host1 ?: elasticsearch_url}" user="${elasticsearch_user}" password="${elasticsearch_password}"
                 index-prefix="${elasticsearch_index_prefix}" pool-max="64" queue-size="1024"/>
     </elastic-facade>
+
+    <ai-facade default-config="default">
+        <model-config name="default"
+                      provider="${ai_provider}"
+                      model="${ai_model}"
+                      base-url="${ai_base_url}"
+                      api-key="${ai_api_key}"
+                      timeout="${ai_timeout}"
+                      pool-max="${ai_pool_max}"/>
+    </ai-facade>
 
     <entity-facade default-group-name="transactional" entity-eca-enabled="true" sequenced-id-prefix=""
             distributed-cache-invalidate="false" dci-topic-factory="" query-stats="false"
