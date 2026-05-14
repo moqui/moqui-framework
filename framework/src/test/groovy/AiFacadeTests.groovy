@@ -39,4 +39,21 @@ class AiFacadeTests extends Specification {
         response != null
         !response.isEmpty()
     }
+
+    def "generateStructured returns Map with expected keys"() {
+        given:
+        def messages = [[role: "user", content: "Return a greeting with a single word in a field called 'word'."]]
+        def schema = [word: [type: "string"]]
+
+        when:
+        Map result = ec.ai.getDefault().generateStructured(messages, schema)
+        ec.logger.info("AiFacadeTests generateStructured result: ${result}")
+
+        then:
+        result != null
+        result instanceof Map
+        result.containsKey("word")
+        result.word != null
+        !((String) result.word).isEmpty()
+    }
 }
