@@ -15,6 +15,7 @@ package org.moqui.util;
 
 import java.io.*;
 import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URL;
 import java.security.CodeSource;
 import java.security.ProtectionDomain;
@@ -243,10 +244,10 @@ public class MClassLoader extends ClassLoader {
                 JarEntry jarEntry = jarFile.getJarEntry(resourceName);
                 if (jarEntry != null) {
                     try {
-                        String jarFileName = jarFile.getName();
-                        if (jarFileName.contains("\\")) jarFileName = jarFileName.replace('\\', '/');
-                        resourceUrl = new URL("jar:file:" + jarFileName + "!/" + jarEntry);
-                    } catch (MalformedURLException e) {
+                        File jf = new File(jarFile.getName());
+                        URI jarUri = new URI("jar", jf.toURI().toString() + "!/" + jarEntry, null);
+                        resourceUrl = jarUri.toURL();
+                    } catch (Exception e) {
                         System.out.println("Error making URL for [" + resourceName + "] in jar [" + jarFile + "]: " + e.toString());
                     }
                 }
@@ -312,10 +313,10 @@ public class MClassLoader extends ClassLoader {
             JarEntry jarEntry = jarFile.getJarEntry(resourceName);
             if (jarEntry != null) {
                 try {
-                    String jarFileName = jarFile.getName();
-                    if (jarFileName.contains("\\")) jarFileName = jarFileName.replace('\\', '/');
-                    urlList.add(new URL("jar:file:" + jarFileName + "!/" + jarEntry));
-                } catch (MalformedURLException e) {
+                    File jf = new File(jarFile.getName());
+                    URI jarUri = new URI("jar", jf.toURI().toString() + "!/" + jarEntry, null);
+                    urlList.add(jarUri.toURL());
+                } catch (Exception e) {
                     System.out.println("Error making URL for [" + resourceName + "] in jar [" + jarFile + "]: " + e.toString());
                 }
             }
