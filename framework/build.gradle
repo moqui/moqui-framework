@@ -231,6 +231,31 @@ tasks.test {
     inputs.files(tasks.jar)
 }
 
+task testAi(type: Test) {
+    useJUnitPlatform()
+    testClassesDirs = sourceSets.test.output.classesDirs
+    testLogging { events "passed", "skipped", "failed" }
+    testLogging.showStandardStreams = true; testLogging.showExceptions = true
+    maxParallelForks = 1
+
+    dependsOn cleanTestAi
+    dependsOn jar
+    include '**/*AiFacadeTests.class'
+
+    systemProperty 'moqui.runtime', '../runtime'
+    systemProperty 'moqui.conf', 'conf/MoquiDevConf.xml'
+    systemProperty 'moqui.init.static', 'true'
+
+    classpath = configurations.testRuntimeClasspath
+    classpath += files(sourceSets.test.output.classesDirs)
+    classpath += files(sourceSets.main.output.classesDirs); classpath += files(projectDir.absolutePath)
+    classpath += files(tasks.jar)
+    // filter out classpath entries that don't exist (gradle adds a bunch of these), or ElasticSearch JarHell will blow up
+    classpath = classpath.filter { it.exists() }
+
+    beforeTest { descriptor -> logger.lifecycle("Running test: ${descriptor}") }
+}
+
 war {
     dependsOn jar
     // put the war file in the parent directory, ie the moqui dir instead of the framework dir
