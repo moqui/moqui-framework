@@ -40,9 +40,22 @@ public interface AiFacade {
 
         /** Send a list of chat messages and request a structured response conforming to the given schema.
          *
+         * <p>Schema format uses JSON Schema vocabulary. Example:
+         * <pre>
+         * [status:    [type: "string"],
+         *  amount:    [type: "number"],
+         *  quantity:  [type: "integer"],
+         *  approved:  [type: "boolean"],
+         *  lineItems: [type: "array", items: [
+         *      productId: [type: "string"],
+         *      qty:       [type: "integer"]]]]
+         * </pre>
+         * Supported scalar types: {@code string}, {@code number}, {@code integer}, {@code boolean}.
+         * Structural types: {@code array} (with {@code items} map), {@code object} (with {@code properties} map).
+         *
          * @param messages List of message Maps, each with "role" and "content" keys.
-         * @param schema   Moqui-style nested Map describing the expected output shape
-         *                 (field names as keys, type descriptors as values).
+         * @param schema   JSON Schema vocabulary Map: field names as keys, each value a Map
+         *                 with a "type" key and optional "items" (array) or "properties" (object).
          * @return The model's response parsed into a Map matching the provided schema.
          */
         Map generateStructured(List<Map> messages, Map schema);
