@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Broker template rendered by artemis-start.sh
+  Tokens:
+    @@BROKER_NAME@@ @@DATA_DIR@@ @@THIS_HOST@@ @@BROKER1_HOST@@ @@BROKER2_HOST@@
+    @@CLUSTER_USER@@ @@CLUSTER_PASSWORD@@ @@EXPIRY_DELAY_MS@@
+    @@HA_POLICY@@ @@CLUSTER_STATIC_CONNECTORS@@
+-->
+<configuration xmlns="urn:activemq"
+               xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+               xsi:schemaLocation="urn:activemq /schema/artemis-configuration.xsd">
+
+  <core xmlns="urn:activemq:core" xsi:schemaLocation="urn:activemq:core ">
+
+    <name>@@BROKER_NAME@@</name>
+
+    <persistence-enabled>true</persistence-enabled>
+    <journal-type>ASYNCIO</journal-type>
+
+    <paging-directory>@@DATA_DIR@@/paging</paging-directory>
+    <bindings-directory>@@DATA_DIR@@/bindings</bindings-directory>
+    <journal-directory>@@DATA_DIR@@/journal</journal-directory>
+    <large-messages-directory>@@DATA_DIR@@/large-messages</large-messages-directory>
+
+    <journal-datasync>true</journal-datasync>
+    <journal-min-files>2</journal-min-files>
+    <journal-pool-files>10</journal-pool-files>
+    <journal-file-size>10M</journal-file-size>
+    <journal-max-io>4096</journal-max-io>
+
+    <disk-scan-period>5000</disk-scan-period>
+    <max-disk-usage>90</max-disk-usage>
+
+    <!-- Scan and remove expired messages every 30 seconds -->
+    <message-expiry-scan-period>30000</message-expiry-scan-period>
+
+    <!-- Multi-protocol acceptor (CORE/AMQP/STOMP/MQTT/OPENWIRE) -->
+    <acceptors>
+      <acceptor name="artemis">
+        tcp://0.0.0.0:61616?
+        protocols=CORE,AMQP,STOMP,MQTT,OPENWIRE;
+        tcpSendBufferSize=1048576;
+        tcpReceiveBufferSize=1048576;
+        useEpoll=true;
+        amqpMinLargeMessageSize=102400;
+        amqpDuplicateDetection=true
+      </acceptor>
+
+      <!-- Dedicated MQTT port (v3.1, v3.1.1, v5) -->
+      <acceptor name="mqtt">
+        tcp://0.0.0.0:1883?
+        protocols=MQTT;
+        tcpSendBufferSize=1048576;
+        tcpReceiveBufferSize=1048576;
+        useEpoll=true;
+        mqttSessionExpiryInterval=172800
+      </acceptor>
+
+      <!-- Dedicated AMQP port -->
+      <acceptor name="amqp">
+        tcp://0.0.0.0:5672?
+        protocols=AMQP;
+        tcpSendBufferSize=1048576;
+        tcpReceiveBufferSize=1048576;
+        useEpoll=true;
+        amqpCredits=1000;
+        amqpLowCredits=300;
+        amqpMinLargeMessageSize=102400;
+        amqpDuplicateDetection=true
+      </acceptor>
+    </acceptors>
+
+    <!-- Connectors used for cluster/replication -->
+    <connectors>
+      <connector name="netty-connector">tcp://@@THIS_HOST@@:61616</connector>
+
+      <!-- static peer connectors (service names in the msgnet network) -->
+      <connector name="broker1-connector">tcp://@@BROKER1_HOST@@:61616</connector>
+      <connector name="broker2-connector">tcp://@@BROKER2_HOST@@:61616</connector>
+    </connectors>
+
+    <cluster-connections>
+      <cluster-connection name="artemis-cluster">
+        <connector-ref>netty-connector</connector-ref>
+        <retry-interval>500</retry-interval>
+        <use-duplicate-detection>true</use-duplicate-detection>
+        <message-load-balancing>ON_DEMAND</message-load-balancing>
+        <max-hops>1</max-hops>
+
+        <static-connectors>
+@@CLUSTER_STATIC_CONNECTORS@@
+        </static-connectors>
+      </cluster-connection>
+    </cluster-connections>
+
+    <cluster-user>@@CLUSTER_USER@@</cluster-user>
+    <cluster-password>@@CLUSTER_PASSWORD@@</cluster-password>
+
+    <!-- HA Policy inserted here (primary or backup) -->
+@@HA_POLICY@@
+
+    <security-settings>
+      <security-setting match="#">
+        <permission type="createNonDurableQueue" roles="amq"/>
+        <permission type="deleteNonDurableQueue" roles="amq"/>
+        <permission type="createDurableQueue" roles="amq"/>
+        <permission type="deleteDurableQueue" roles="amq"/>
+        <permission type="createAddress" roles="amq"/>
+        <permission type="deleteAddress" roles="amq"/>
+        <permission type="consume" roles="amq"/>
+        <permission type="browse" roles="amq"/>
+        <permission type="send" roles="amq"/>
+        <permission type="manage" roles="amq"/>
+      </security-setting>
+    </security-settings>
+
+    <address-settings>
+
+      <address-setting match="activemq.management#">
+        <dead-letter-address>DLQ</dead-letter-address>
+        <expiry-address>ExpiryQueue</expiry-address>
+        <redelivery-delay>0</redelivery-delay>
+        <max-size-bytes>-1</max-size-bytes>
+        <message-counter-history-day-limit>30</message-counter-history-day-limit>
+        <address-full-policy>PAGE</address-full-policy>
+        <auto-create-queues>true</auto-create-queues>
+        <auto-create-addresses>true</auto-create-addresses>
+      </address-setting>
+
+      <address-setting match="#">
+        <dead-letter-address>DLQ</dead-letter-address>
+        <expiry-address>ExpiryQueue</expiry-address>
+
+        <!-- Default retention (ms). Set ARTEMIS_EXPIRY_DELAY_MS=-1 to disable automatic expiry -->
+        <expiry-delay>@@EXPIRY_DELAY_MS@@</expiry-delay>
+
+        <redelivery-delay>0</redelivery-delay>
+        <max-size-bytes>-1</max-size-bytes>
+        <message-counter-history-day-limit>30</message-counter-history-day-limit>
+        <address-full-policy>PAGE</address-full-policy>
+
+        <auto-create-queues>true</auto-create-queues>
+        <auto-create-addresses>true</auto-create-addresses>
+
+        <auto-delete-queues>false</auto-delete-queues>
+        <auto-delete-addresses>false</auto-delete-addresses>
+      </address-setting>
+    </address-settings>
+
+    <addresses>
+      <address name="DLQ">
+        <anycast><queue name="DLQ"/></anycast>
+      </address>
+      <address name="ExpiryQueue">
+        <anycast><queue name="ExpiryQueue"/></anycast>
+      </address>
+    </addresses>
+
+  </core>
+</configuration>

@@ -1,0 +1,113 @@
+# A Docker Compose application for a Yugabyte cluster.
+#
+# Bind mount directories (./data/yugabyte/node{1,2,3}) are created automatically
+# by Docker Compose on first run — no manual mkdir needed.
+# For production on physical disks use absolute paths and pre-create them.
+
+networks:
+  dbnet:
+    driver: bridge
+
+services:
+  # Yugabyte node 1
+  moqui-database1:
+    image: yugabytedb/yugabyte:latest
+    hostname: moqui-database1
+    container_name: moqui-database1
+    networks: [dbnet]
+    volumes:
+      - type: bind
+        source: ./yugabyte/data/node1
+        target: /mnt/disk0
+      - ./yugabyte/yb-start.sh:/usr/local/bin/yb-start.sh:ro
+    environment:
+      YB_BASE_DIR: /mnt/disk0/yb-data
+      YB_JOIN: "" # primo nodo: nessun join
+    command: ["/usr/local/bin/yb-start.sh"]
+    ports:
+      - "7001:7000" # Master UI
+      - "9001:9000" # TServer UI
+      - "5433:5433" # YSQL
+    ulimits:
+      memlock: -1
+      nofile:
+        soft: 1048576
+        hard: 1048576
+      nproc: 12000
+    restart: always
+
+  # Yugabyte node 2
+  moqui-database2:
+    image: yugabytedb/yugabyte:latest
+    hostname: moqui-database2
+    container_name: moqui-database2
+    networks: [dbnet]
+    volumes:
+      - type: bind
+        source: ./yugabyte/data/node2
+        target: /mnt/disk0
+      - ./yugabyte/yb-start.sh:/usr/local/bin/yb-start.sh:ro
+    environment:
+      YB_BASE_DIR: /mnt/disk0/yb-data
+      YB_JOIN: moqui-database1
+    command: ["/usr/local/bin/yb-start.sh"]
+    ports:
+      - "7002:7000"
+      - "9002:9000"
+      - "5434:5433" # YSQL (host porta 5434)
+    ulimits:
+      memlock: -1
+      nofile:
+        soft: 1048576
+        hard: 1048576
+      nproc: 12000
+    restart: always
+
+  # Yugabyte node 3
+  moqui-database3:
+    image: yugabytedb/yugabyte:latest
+    hostname: moqui-database3
+    container_name: moqui-database3
+    networks: [dbnet]
+    volumes:
+      - type: bind
+        source: ./yugabyte/data/node3
+        target: /mnt/disk0
+      - ./yugabyte/yb-start.sh:/usr/local/bin/yb-start.sh:ro
+    environment:
+      YB_BASE_DIR: /mnt/disk0/yb-data
+      YB_JOIN: moqui-database1
+    command: ["/usr/local/bin/yb-start.sh"]
+    ports:
+      - "7003:7000"
+      - "9003:9000"
+      - "5435:5433" # YSQL (host porta 5435)
+    ulimits:
+      memlock: -1
+      nofile:
+        soft: 1048576
+        hard: 1048576
+      nproc: 12000
+    restart: always
+
+  # Bootstrap container (one-shot to create Moqui role/db/pgvector/...)
+  moqui-database-bootstrap:
+    image: yugabytedb/yugabyte:latest
+    container_name: moqui-database-bootstrap
+    networks: [dbnet]
+    depends_on:
+      - moqui-database1
+      - moqui-database2
+      - moqui-database3
+    volumes:
+      - ./yugabyte/bootstrap.sh:/bootstrap/bootstrap.sh:ro
+    environment:
+      YSQL_HOST: moqui-database1
+      YSQL_PORT: "5433"
+      YSQL_SUPERUSER: yugabyte
+      YSQL_SUPERDB: yugabyte
+      MOQUI_USER: moqui
+      MOQUI_PASSWORD: moqui
+      MOQUI_DB: moqui
+    command: ["/bootstrap/bootstrap.sh"]
+    restart: "no"

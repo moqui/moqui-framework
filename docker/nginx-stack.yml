@@ -1,0 +1,99 @@
+# A Docker Swarm stack with an nginx HA pair (edge / reverse proxy).
+#
+# Two replicas are placed on different nodes (max_replicas_per_node: 1).
+# Swarm ingress mode publishes ports 80/443 on all cluster nodes via the
+# routing mesh, so any node IP reaches nginx even if nginx isn't running there.
+# If one replica fails, Swarm restarts it on another node while the second
+# replica continues serving traffic.
+#
+# Load balancing to Moqui: nginx proxies to the 'moqui' service VIP.
+# Docker Swarm distributes connections across all healthy Moqui task replicas
+# automatically — no per-instance configuration needed in nginx.
+#
+# Apply labels to nodes (run on manager node):
+#     docker node update --label-add edge_node=true node1
+#     docker node update --label-add edge_node=true node2
+#     docker node update --label-add edge_node=true node3
+#
+# Create configs:
+#     docker config create nginx.conf      ./nginx/nginx-stack.conf
+#     docker config create moqui.conf      ./nginx/moqui-stack.conf
+#     docker config create moqui-proxy.conf ./nginx/moqui-proxy-stack.conf
+#
+# Create secrets:
+#     docker secret create moqui-cert ./nginx/certs/fullchain.pem
+#     docker secret create moqui-key  ./nginx/certs/privkey.pem
+#
+# Deploy the stack:
+#     docker stack deploy -c nginx-stack.yml moqui-edge
+#
+# Remove the stack:
+#     docker stack rm moqui-edge
+
+networks:
+  servernet:
+    driver: overlay
+    attachable: true
+
+configs:
+  nginx.conf:      { external: true }
+  moqui.conf:      { external: true }
+  moqui-proxy.conf: { external: true }
+
+secrets:
+  moqui-cert: { external: true }
+  moqui-key:  { external: true }
+
+services:
+  moqui-edge:
+    image: nginx:1.27-alpine
+    networks: [servernet]
+    ports:
+      # Ingress mode: Swarm routing mesh publishes these ports on every node.
+      # Both nginx replicas receive traffic; either can serve any request.
+      - target: 80
+        published: 80
+        protocol: tcp
+        mode: ingress
+      - target: 443
+        published: 443
+        protocol: tcp
+        mode: ingress
+    configs:
+      - source: nginx.conf
+        target: /etc/nginx/nginx.conf
+      - source: moqui.conf
+        target: /etc/nginx/conf.d/moqui.conf
+      - source: moqui-proxy.conf
+        target: /etc/nginx/snippets/moqui-proxy.conf
+    secrets:
+      - source: moqui-cert
+        target: moqui-cert.pem
+      - source: moqui-key
+        target: moqui-key.pem
+    ulimits:
+      nofile: { soft: 65536, hard: 65536 }
+    deploy:
+      replicas: 2
+      # Ensure the two replicas land on different nodes for true fault isolation.
+      placement:
+        constraints:
+          - node.labels.edge_node == true
+        max_replicas_per_node: 1
+      update_config:
+        parallelism: 1          # rolling update: one at a time
+        delay: 10s
+        failure_action: rollback
+        order: start-first      # new replica up before old one stops
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+        order: stop-first
+      restart_policy:
+        condition: on-failure
+        delay: 3s
+        max_attempts: 5
+        window: 60s
+      resources:
+        limits:       { memory: 256M }
+        reservations: { memory: 64M }

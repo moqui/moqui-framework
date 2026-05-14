@@ -1,0 +1,64 @@
+# A Docker Compose application for moqui-device-gateway attached to a simple
+# Moqui/Postgres environment.
+#
+# Start Moqui first:
+#   docker compose -f moqui-postgres-compose.yml -p moqui up -d
+#
+# Then start the gateway:
+#   docker compose -f device-gateway-compose.yml -p moqui up -d --build
+#
+# Optional native build:
+#   DEVICE_GATEWAY_DOCKERFILE=src/main/docker/Dockerfile.graalvm \
+#   docker compose -f device-gateway-compose.yml -p moqui up -d --build
+#
+# REST examples:
+#   curl -X POST http://localhost:8081/api/device-request/write/MY_REQUEST
+#   curl -X POST http://localhost:8081/api/device-config/export \
+#        -H 'Content-Type: application/json' \
+#        -d '{"deviceRuleSetId":"RULESET_001","deviceId":"PLC_001"}'
+#
+# Health check:
+#   curl http://localhost:8081/q/health/ready
+
+services:
+  moqui-device-gateway:
+    container_name: moqui-device-gateway
+    build:
+      context: ../runtime/moqui-device-gateway
+      dockerfile: ${DEVICE_GATEWAY_DOCKERFILE:-src/main/docker/Dockerfile.jvm}
+    image: ${DEVICE_GATEWAY_IMAGE:-moqui-device-gateway:local}
+    restart: unless-stopped
+    ports:
+      - 127.0.0.1:8081:8081
+    environment:
+      - QUARKUS_HTTP_HOST=0.0.0.0
+      - GATEWAY_DEVICE_ID=${GATEWAY_DEVICE_ID:-GW_EDGE_01}
+      - QUARKUS_DATASOURCE_DB_KIND=postgresql
+      - QUARKUS_DATASOURCE_JDBC_URL=jdbc:postgresql://moqui-database:5432/moqui
+      - QUARKUS_DATASOURCE_USERNAME=moqui
+      - QUARKUS_DATASOURCE_PASSWORD=moqui
+      # Development only. Override with a real secret outside local tests.
+      - GATEWAY_API_AUTH_TOKEN=${GATEWAY_API_AUTH_TOKEN:-change-me}
+      - SMALLRYE_CONFIG_LOCATIONS=/deployments/config
+      # Default local test transport can be overridden to a real broker URI.
+      - MQTT_READ_CONSUME_URI=seda:mqtt-read-device-request-in
+    volumes:
+      - device-gateway-data:/deployments/data
+      - device-gateway-logs:/deployments/logs
+      - ./device-gateway/gateway-mqtt.properties:/deployments/config/gateway-mqtt.properties:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/q/health/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    networks:
+      - moqui_default
+
+volumes:
+  device-gateway-data:
+  device-gateway-logs:
+
+networks:
+  moqui_default:
+    external: true

@@ -1,0 +1,201 @@
+# A Docker Swarm stack for a Yugabyte cluster.
+#
+# Create the overlay network (optional, stack deploy will create it):
+#     docker network create --driver=overlay --attachable dbnet
+#
+# Apply labels to nodes. Each YB master/T-server pair will be pinned to a specific node for data locality.
+#     docker node update --label-add db_node1=true node1
+#     docker node update --label-add db_node2=true node2
+#     docker node update --label-add db_node3=true node3
+#
+# Create bind mount directories on each node (run on EACH physical host):
+#     sudo mkdir -p /data/yugabyte/data
+#
+# Create configs:
+#     docker config create yb_start_node ./yugabyte/yb-start.sh
+#     docker config create bootstrap_run ./yugabyte/bootstrap-run.sh
+#     docker config create bootstrap ./yugabyte/bootstrap.sh
+#
+# Create secrets:
+#     printf "yugabyte" | docker secret create yb_superuser -
+#     printf "yugabyte" | docker secret create yb_superdb -
+#     printf "moqui" | docker secret create moqui_user -
+#     printf "moqui" | docker secret create moqui_password -
+#
+# Deploy the stack:
+#     docker stack deploy -c yugabyte-stack.yml moqui-db
+#
+# Remove the stack:
+#     docker stack rm moqui-db
+#
+# Print logs:
+#     docker service logs moqui-db_moqui-database1 --tail 200
+#     docker service logs moqui-db_moqui-database2 --tail 200
+#     docker service logs moqui-db_moqui-database3 --tail 200
+
+configs:
+  yb_start_node: { external: true }
+  bootstrap_run: { external: true }
+  bootstrap: { external: true }
+
+secrets:
+  yb_superuser: { external: true }
+  yb_superdb: { external: true }
+  moqui_user: { external: true }
+  moqui_password: { external: true }
+
+networks:
+  dbnet:
+    driver: overlay
+    attachable: true
+
+services:
+  # Yugabyte node 1
+  moqui-database1:
+    image: yugabytedb/yugabyte:latest
+    hostname: moqui-database1
+    networks: [dbnet]
+    volumes:
+      - type: bind
+        source: /data/yugabyte/data
+        target: /mnt/disk0
+    configs:
+      - source: yb_start_node
+        target: /usr/local/bin/yb-start.sh
+        mode: 0555
+    environment:
+      YB_BASE_DIR: /mnt/disk0/yb-data
+      YB_JOIN: "" # first node: no join
+    command: ["/usr/local/bin/yb-start.sh"]
+    ports:
+      - target: 7000 # Master UI
+        published: 7001
+        protocol: tcp
+        mode: host
+      - target: 9000 # TServer UI
+        published: 9001
+        protocol: tcp
+        mode: host
+      - target: 5433 # YSQL
+        published: 5433
+        protocol: tcp
+        mode: host
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+      nofile: { soft: 1048576, hard: 1048576 }
+      nproc: 12000
+    deploy:
+      replicas: 1
+      restart_policy: { condition: any, delay: 5s, window: 60s }
+      placement:
+        constraints: ["node.labels.db_node1 == true"]
+
+  # Yugabyte node 2
+  moqui-database2:
+    image: yugabytedb/yugabyte:latest
+    hostname: moqui-database2
+    networks: [dbnet]
+    volumes:
+      - type: bind
+        source: /data/yugabyte/data
+        target: /mnt/disk0
+    configs:
+      - source: yb_start_node
+        target: /usr/local/bin/yb-start.sh
+        mode: 0555
+    environment:
+      YB_BASE_DIR: /mnt/disk0/yb-data
+      YB_JOIN: moqui-database1
+    command: ["/usr/local/bin/yb-start.sh"]
+    ports:
+      - target: 7000
+        published: 7002
+        protocol: tcp
+        mode: host
+      - target: 9000
+        published: 9002
+        protocol: tcp
+        mode: host
+      - target: 5433
+        published: 5433
+        protocol: tcp
+        mode: host
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+      nofile: { soft: 1048576, hard: 1048576 }
+      nproc: 12000
+    deploy:
+      replicas: 1
+      restart_policy: { condition: any, delay: 5s, window: 60s }
+      placement:
+        constraints: ["node.labels.db_node2 == true"]
+
+  # Yugabyte node 3
+  moqui-database3:
+    image: yugabytedb/yugabyte:latest
+    hostname: moqui-database3
+    networks: [dbnet]
+    volumes:
+      - type: bind
+        source: /data/yugabyte/data
+        target: /mnt/disk0
+    configs:
+      - source: yb_start_node
+        target: /usr/local/bin/yb-start.sh
+        mode: 0555
+    environment:
+      YB_BASE_DIR: /mnt/disk0/yb-data
+      YB_JOIN: moqui-database1
+    command: ["/usr/local/bin/yb-start.sh"]
+    ports:
+      - target: 7000
+        published: 7003
+        protocol: tcp
+        mode: host
+      - target: 9000
+        published: 9003
+        protocol: tcp
+        mode: host
+      - target: 5433
+        published: 5433
+        protocol: tcp
+        mode: host
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+      nofile: { soft: 1048576, hard: 1048576 }
+      nproc: 12000
+    deploy:
+      replicas: 1
+      restart_policy: { condition: any, delay: 5s, window: 60s }
+      placement:
+        constraints: ["node.labels.db_node3 == true"]
+
+  # Bootstrap container (one-shot to create Moqui role/db/pgvector/...)
+  moqui-database-bootstrap:
+    image: yugabytedb/yugabyte:latest
+    networks: [dbnet]
+    configs:
+      - source: bootstrap
+        target: /bootstrap/bootstrap.sh
+        mode: 0555
+      - source: bootstrap_run
+        target: /usr/local/bin/bootstrap-run.sh
+        mode: 0555
+    secrets:
+      - yb_superuser
+      - yb_superdb
+      - moqui_user
+      - moqui_password
+    environment:
+      YSQL_HOST: moqui-database1
+      YSQL_PORT: "5433"
+      MOQUI_DB: moqui
+    command: ["/usr/local/bin/bootstrap-run.sh"]
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 10
+      placement:
+        constraints: ["node.labels.db_node1 == true"]

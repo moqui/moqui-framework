@@ -1,0 +1,113 @@
+# A Docker Swarm stack for moqui-device-gateway.
+#
+# The gateway is treated here as a production service:
+# - database credentials come from Docker secrets
+# - route/runtime overrides come from Docker configs
+# - persistent state and logs live on external replicated volumes
+# - the service is restartable on another node as long as the storage backend is
+#   shared/replicated across the swarm
+#
+# Build and publish the image before deployment.
+#
+# JVM image:
+#   docker build -f ../runtime/moqui-device-gateway/src/main/docker/Dockerfile.jvm \
+#     -t ghcr.io/moqui/moqui-device-gateway:latest ../runtime/moqui-device-gateway
+#
+# Native image:
+#   docker build -f ../runtime/moqui-device-gateway/src/main/docker/Dockerfile.graalvm \
+#     -t ghcr.io/moqui/moqui-device-gateway:native ../runtime/moqui-device-gateway
+#
+# Push the chosen image:
+#   docker push ghcr.io/moqui/moqui-device-gateway:latest
+#   docker push ghcr.io/moqui/moqui-device-gateway:native
+#
+# Create secrets:
+#   printf "moqui" | docker secret create moqui_db_user -
+#   printf "moqui" | docker secret create moqui_db_password -
+#   printf "change-me" | docker secret create gateway_api_token -
+#
+# Create configs:
+#   docker config create device_gateway_config ./device-gateway/gateway-mqtt.properties
+#
+# Create external volumes using a swarm-capable replicated/shared storage driver.
+# The default local driver is not sufficient for cross-node failover.
+# Example names expected by this stack:
+#   - moqui-gateway-data
+#   - moqui-gateway-logs
+#
+# Deploy:
+#   docker stack deploy -c device-gateway-stack.yml moqui-gateway
+
+networks:
+  dbnet: { external: true }
+  servernet: { external: true }
+  msgnet: { external: true }
+
+secrets:
+  moqui_db_user: { external: true }
+  moqui_db_password: { external: true }
+  gateway_api_token: { external: true }
+
+configs:
+  device_gateway_config: { external: true }
+
+volumes:
+  moqui-gateway-data: { external: true }
+  moqui-gateway-logs: { external: true }
+
+services:
+  moqui-device-gateway:
+    image: ${DEVICE_GATEWAY_IMAGE:-ghcr.io/moqui/moqui-device-gateway:latest}
+    networks: [dbnet, servernet, msgnet]
+    secrets:
+      - moqui_db_user
+      - moqui_db_password
+      - gateway_api_token
+    configs:
+      - source: device_gateway_config
+        target: /deployments/config/gateway-mqtt.properties
+    volumes:
+      - moqui-gateway-data:/deployments/data
+      - moqui-gateway-logs:/deployments/logs
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        export QUARKUS_DATASOURCE_USERNAME="$(cat /run/secrets/moqui_db_user)"
+        export QUARKUS_DATASOURCE_PASSWORD="$(cat /run/secrets/moqui_db_password)"
+        export GATEWAY_API_AUTH_TOKEN="$(cat /run/secrets/gateway_api_token)"
+        if [ -x /deployments/application ]; then
+          exec /deployments/application
+        fi
+        exec java $${JAVA_OPTS_APPEND} -jar /deployments/quarkus-run.jar
+    environment:
+      - GATEWAY_DEVICE_ID=${GATEWAY_DEVICE_ID:-GW_EDGE_01}
+      - QUARKUS_HTTP_HOST=0.0.0.0
+      - QUARKUS_DATASOURCE_DB_KIND=postgresql
+      - QUARKUS_DATASOURCE_JDBC_URL=jdbc:postgresql://moqui-database:5432/moqui
+      - SMALLRYE_CONFIG_LOCATIONS=/deployments/config
+      - JAVA_OPTS_APPEND=-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/q/health/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 45s
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 15s
+        failure_action: rollback
+        order: start-first
+      rollback_config:
+        parallelism: 1
+        delay: 10s
+        order: stop-first
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 120s
+      resources:
+        limits: { memory: 1024M }
+        reservations: { memory: 256M }

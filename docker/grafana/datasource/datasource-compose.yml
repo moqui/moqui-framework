@@ -1,0 +1,32 @@
+apiVersion: 1
+
+# Grafana datasources for local Docker Compose environment.
+# Database: Postgres (single node), Search: OpenSearch (single node).
+# For production Swarm datasources see datasource.yml.
+
+datasources:
+  - uid: moqui-postgres
+    name: moqui-database
+    type: postgres
+    access: proxy
+    url: moqui-database:5432
+    user: moqui
+    isDefault: true
+    editable: true
+    jsonData:
+      database: "moqui"
+      sslmode: "disable"
+      postgresVersion: 1500
+      timescaledb: false
+    secureJsonData:
+      password: "moqui"
+
+  - name: moqui-search
+    type: elasticsearch
+    url: http://moqui-search:9200
+    database: "[default_]YYYY.MM.DD"
+    jsonData:
+      esVersion: "7.10.0"
+      timeField: "@timestamp"
+      logMessageField: message
+      logLevelField: level

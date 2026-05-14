@@ -1,0 +1,12 @@
+apiVersion: 1
+
+providers:
+  - name: moqui-dashboards
+    orgId: 1
+    folder: Moqui
+    type: file
+    disableDeletion: false
+    editable: true
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/grafana/dashboards

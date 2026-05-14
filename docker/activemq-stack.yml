@@ -1,0 +1,191 @@
+# A Docker Swarm stack for an ActiveMQ Artemis HA cluster (MQTT v5 enabled).
+#
+# Create the overlay network (optional, stack deploy will create it):
+#     docker network create --driver=overlay --attachable brokernet
+#
+# Apply labels to nodes for high availability placement:
+#     docker node update --label-add broker_node1=true node1
+#     docker node update --label-add broker_node2=true node2
+#
+# Create configs:
+#     docker config create artemis_start ./activemq/artemis-start.sh
+#     docker config create artemis_xml ./activemq/broker.xml
+#
+# Create secrets:
+#     printf "artemis" | docker secret create artemis_user -
+#     printf "artemis" | docker secret create artemis_password -
+#     printf "cluster" | docker secret create artemis_cluster_user -
+#     printf "cluster" | docker secret create artemis_cluster_password -
+#
+# Deploy the stack:
+#     docker stack deploy -c activemq-stack.yml moqui-broker
+#
+# Remove the stack:
+#     docker stack rm moqui-broker
+#     docker volume ls | grep moqui-broker
+#     docker volume rm moqui-broker_broker-data1 moqui-broker_broker-data2
+#
+# Print logs:
+#     docker service logs moqui-broker_moqui-broker1 --tail 200
+#     docker service logs moqui-broker_moqui-broker2 --tail 200
+
+configs:
+  artemis_start: { external: true }
+  artemis_xml: { external: true }
+
+secrets:
+  artemis_user: { external: true }
+  artemis_password: { external: true }
+  artemis_cluster_user: { external: true }
+  artemis_cluster_password: { external: true }
+
+networks:
+  brokernet:
+    driver: overlay
+    attachable: true
+
+volumes:
+  broker-data1: { driver: local }
+  broker-data2: { driver: local }
+
+services:
+  # ActiveMQ Artemis Node 1 (Primary)
+  moqui-broker1:
+    image: apache/activemq-artemis:latest
+    hostname: moqui-broker1
+    user: "0:0"
+    networks: [brokernet]
+    volumes:
+      - type: volume
+        source: broker-data1
+        target: /var/lib/artemis/data
+    configs:
+      - source: artemis_start
+        target: /var/lib/artemis-start.sh
+        mode: 0555
+      - source: artemis_xml
+        target: /var/lib/broker-custom.xml
+        mode: 0444
+    secrets:
+      - artemis_user
+      - artemis_password
+      - artemis_cluster_user
+      - artemis_cluster_password
+    environment:
+      ARTEMIS_INSTANCE: moqui-broker1
+      ARTEMIS_DATA_DIR: /var/lib/artemis/data
+      ARTEMIS_USER: /run/secrets/artemis_user
+      ARTEMIS_PASSWORD: /run/secrets/artemis_password
+      ARTEMIS_CLUSTER_USER: /run/secrets/artemis_cluster_user
+      ARTEMIS_CLUSTER_PASSWORD: /run/secrets/artemis_cluster_password
+      ARTEMIS_ROLE: primary
+      ARTEMIS_EXPIRY_DELAY_MS: "172800000" # 2 days
+      ARTEMIS_BROKER1_HOST: moqui-broker1
+      ARTEMIS_BROKER2_HOST: moqui-broker2
+      ARTEMIS_CONNECTOR_HOST: moqui-broker1
+    entrypoint: ["/bin/bash", "/var/lib/artemis-start.sh"]
+    ports:
+      - target: 8161 # Console UI
+        published: 8161
+        protocol: tcp
+        mode: host
+      - target: 61616 # CORE / JMS
+        published: 61616
+        protocol: tcp
+        mode: host
+      - target: 1883 # MQTT v5
+        published: 1883
+        protocol: tcp
+        mode: host
+      - target: 5672 # AMQP
+        published: 5672
+        protocol: tcp
+        mode: host
+    ulimits:
+      nofile: { soft: 10240, hard: 10240 }
+    deploy:
+      replicas: 1
+      restart_policy: { condition: any, delay: 5s, window: 60s }
+      placement:
+        constraints: ["node.labels.broker_node1 == true"]
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - /var/lib/artemis-instance/bin/artemis check node --silent --up --url tcp://127.0.0.1:61616
+        --user "$(cat /run/secrets/artemis_user)" --password "$(cat /run/secrets/artemis_password)"
+        || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  # ActiveMQ Artemis Node 2 (Backup/Failover)
+  moqui-broker2:
+    image: apache/activemq-artemis:latest
+    hostname: moqui-broker2
+    user: "0:0"
+    networks: [brokernet]
+    volumes:
+      - type: volume
+        source: broker-data2
+        target: /var/lib/artemis/data
+    configs:
+      - source: artemis_start
+        target: /var/lib/artemis-start.sh
+        mode: 0555
+      - source: artemis_xml
+        target: /var/lib/broker-custom.xml
+        mode: 0444
+    secrets:
+      - artemis_user
+      - artemis_password
+      - artemis_cluster_user
+      - artemis_cluster_password
+    environment:
+      ARTEMIS_INSTANCE: moqui-broker2
+      ARTEMIS_DATA_DIR: /var/lib/artemis/data
+      ARTEMIS_USER: /run/secrets/artemis_user
+      ARTEMIS_PASSWORD: /run/secrets/artemis_password
+      ARTEMIS_CLUSTER_USER: /run/secrets/artemis_cluster_user
+      ARTEMIS_CLUSTER_PASSWORD: /run/secrets/artemis_cluster_password
+      ARTEMIS_ROLE: backup
+      ARTEMIS_EXPIRY_DELAY_MS: "172800000" # 2 days
+      ARTEMIS_BROKER1_HOST: moqui-broker1
+      ARTEMIS_BROKER2_HOST: moqui-broker2
+      ARTEMIS_CONNECTOR_HOST: moqui-broker2
+    entrypoint: ["/bin/bash", "/var/lib/artemis-start.sh"]
+    ports:
+      - target: 8161
+        published: 8162 # Offset port for Node 2 UI
+        protocol: tcp
+        mode: host
+      - target: 61616
+        published: 61617 # Offset port for Node 2 JMS
+        protocol: tcp
+        mode: host
+      - target: 1883
+        published: 1884 # Offset port for Node 2 MQTT
+        protocol: tcp
+        mode: host
+      - target: 5672
+        published: 5673 # Offset port for Node 2 AMQP
+        protocol: tcp
+        mode: host
+    ulimits:
+      nofile: { soft: 10240, hard: 10240 }
+    deploy:
+      replicas: 1
+      restart_policy: { condition: any, delay: 5s, window: 60s }
+      placement:
+        constraints: ["node.labels.broker_node2 == true"]
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - /var/lib/artemis-instance/bin/artemis check node --silent --up --url tcp://127.0.0.1:61616
+        --user "$(cat /run/secrets/artemis_user)" --password "$(cat /run/secrets/artemis_password)"
+        || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+

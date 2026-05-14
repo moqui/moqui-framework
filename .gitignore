@@ -13,6 +13,8 @@ build
 /execwartmp
 /docker/runtime
 /docker/db
+/docker/data/
+/docker/yugabyte/data/
 /docker/elasticsearch/data/nodes
 /docker/opensearch/data/nodes/*
 /docker/opensearch/data/*.conf
@@ -78,3 +80,4 @@ Desktop.ini
 
 # Linux auto files
 *~
+.codex

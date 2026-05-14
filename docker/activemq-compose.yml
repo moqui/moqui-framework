@@ -1,0 +1,96 @@
+# A Docker Compose application for ActiveMQ Artemis HA.
+
+networks:
+  brokernet:
+    driver: bridge
+
+volumes:
+  broker-data1: { driver: local }
+  broker-data2: { driver: local }
+
+services:
+  # ActiveMQ Artemis Node 1
+  moqui-broker1:
+    image: apache/activemq-artemis:latest
+    hostname: moqui-broker1
+    container_name: moqui-broker1
+    user: "0:0"
+    networks: [brokernet]
+    volumes:
+      - broker-data1:/var/lib/artemis/data
+      - ./activemq/artemis-start.sh:/var/lib/artemis-start.sh:ro
+      - ./activemq/broker.xml:/var/lib/broker-custom.xml:ro
+    environment:
+      ARTEMIS_INSTANCE: moqui-broker1
+      ARTEMIS_USER: artemis
+      ARTEMIS_PASSWORD: artemis
+      ARTEMIS_ROLE: primary
+      ARTEMIS_CLUSTER_USER: cluster
+      ARTEMIS_CLUSTER_PASSWORD: cluster
+      ARTEMIS_EXPIRY_DELAY_MS: "172800000" # 2 days
+      ARTEMIS_BROKER1_HOST: moqui-broker1
+      ARTEMIS_BROKER2_HOST: moqui-broker2
+      ARTEMIS_CONNECTOR_HOST: moqui-broker1
+    entrypoint: ["/bin/bash", "/var/lib/artemis-start.sh"]
+    ports:
+      - "8161:8161" # UI
+      - "61616:61616" # JMS
+      - "1883:1883" # MQTT
+      - "5672:5672" # AMQP
+    ulimits:
+      nofile:
+        soft: 10240
+        hard: 10240
+    restart: always
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - /var/lib/artemis-instance/bin/artemis check node --silent --up --url tcp://127.0.0.1:61616
+        --user "$$ARTEMIS_USER" --password "$$ARTEMIS_PASSWORD" || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  # ActiveMQ Artemis Node 2
+  moqui-broker2:
+    image: apache/activemq-artemis:latest
+    hostname: moqui-broker2
+    container_name: moqui-broker2
+    user: "0:0"
+    networks: [brokernet]
+    volumes:
+      - broker-data2:/var/lib/artemis/data
+      - ./activemq/artemis-start.sh:/var/lib/artemis-start.sh:ro
+      - ./activemq/broker.xml:/var/lib/broker-custom.xml:ro
+    environment:
+      ARTEMIS_INSTANCE: moqui-broker2
+      ARTEMIS_USER: artemis
+      ARTEMIS_PASSWORD: artemis
+      ARTEMIS_ROLE: backup
+      ARTEMIS_CLUSTER_USER: cluster
+      ARTEMIS_CLUSTER_PASSWORD: cluster
+      ARTEMIS_EXPIRY_DELAY_MS: "172800000" # 2 days
+      ARTEMIS_BROKER1_HOST: moqui-broker1
+      ARTEMIS_BROKER2_HOST: moqui-broker2
+      ARTEMIS_CONNECTOR_HOST: moqui-broker2
+    entrypoint: ["/bin/bash", "/var/lib/artemis-start.sh"]
+    ports:
+      - "8162:8161" # UI (Offset)
+      - "61617:61616" # JMS (Offset)
+      - "1884:1883" # MQTT (Offset)
+      - "5673:5672" # AMQP (Offset)
+    ulimits:
+      nofile:
+        soft: 10240
+        hard: 10240
+    restart: always
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - /var/lib/artemis-instance/bin/artemis check node --silent --up --url tcp://127.0.0.1:61616
+        --user "$$ARTEMIS_USER" --password "$$ARTEMIS_PASSWORD" || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s

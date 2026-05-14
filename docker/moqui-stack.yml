@@ -1,0 +1,201 @@
+# A Docker Swarm stack for a Moqui cluster with embedded Grafana.
+#
+# Grafana is co-deployed here because Moqui acts as its reverse proxy:
+#   - Users access Grafana at https://<domain>/grafana (via Moqui's GrafanaProxy servlet)
+#   - GrafanaAuthFilter enforces Moqui authentication before proxying
+#   - Grafana is not exposed externally; it is only reachable through Moqui
+#
+# Prerequisites (run on Swarm manager):
+#
+# Create secrets:
+#     printf "moqui"              | docker secret create moqui_db_password -
+#     printf "CHANGE_ME_CRYPT"    | docker secret create moqui_crypt_password -
+#     printf "CHANGE_ME_HZ"       | docker secret create moqui_hazelcast_password -
+#     printf "admin"              | docker secret create moqui_search_user -
+#     printf "admin"              | docker secret create moqui_search_password -
+#     printf "admin_super_secret" | docker secret create grafana_admin_password -
+#
+# Create configs:
+#     docker config create grafana_datasource ./grafana/datasource/datasource.yml
+#
+# Apply node labels (Grafana is stateful — pin it to one node):
+#     docker node update --label-add grafana_node=true node2
+#
+# Deploy:
+#     docker stack deploy -c moqui-stack.yml moqui
+#
+# Remove:
+#     docker stack rm moqui
+
+networks:
+  dbnet:     { external: true }
+  searchnet: { external: true }
+  msgnet:    { external: true }
+  servernet: { external: true }
+
+configs:
+  grafana_datasource: { external: true }
+
+secrets:
+  moqui_db_password:        { external: true }
+  moqui_crypt_password:     { external: true }
+  moqui_hazelcast_password: { external: true }
+  moqui_search_user:        { external: true }
+  moqui_search_password:    { external: true }
+  grafana_admin_password:   { external: true }
+
+volumes:
+  moqui-logs:
+  moqui-txlogs:
+  moqui-sessions:
+  grafana-data:
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # Moqui application cluster (3 replicas, Hazelcast distributed sessions)
+  # ---------------------------------------------------------------------------
+  moqui-server:
+    image: moqui-prod
+    networks: [servernet, dbnet, searchnet, msgnet]
+    secrets:
+      - moqui_db_password
+      - moqui_crypt_password
+      - moqui_search_user
+      - moqui_search_password
+      - moqui_hazelcast_password
+    volumes:
+      - moqui-logs:/opt/moqui/runtime/log
+      - moqui-txlogs:/opt/moqui/runtime/txlog
+      - moqui-sessions:/opt/moqui/runtime/sessions
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        # --- Read Docker secrets into environment variables ---
+        # Moqui reads these as standard env vars; the _file convention is not supported.
+        export entity_ds_password=$(cat /run/secrets/moqui_db_password)
+        export entity_ds_crypt_pass=$(cat /run/secrets/moqui_crypt_password)
+        export elasticsearch_user=$(cat /run/secrets/moqui_search_user)
+        export elasticsearch_password=$(cat /run/secrets/moqui_search_password)
+        export hazelcast_group_password=$(cat /run/secrets/moqui_hazelcast_password)
+
+        # --- JEP (Java Embedded Python) native library setup ---
+        # If the image was built with WITH_JEP=true, the JEP .so library is inside
+        # the Python venv. Java's System.loadLibrary("jep") needs it on LD_LIBRARY_PATH.
+        # We search dynamically so the Python version in the path doesn't matter.
+        JEP_LIB_DIR=$(find /opt/moqui/runtime/python_venv -name "jep*.so" -type f 2>/dev/null \
+                      | head -1 | xargs -r dirname)
+        if [ -n "$JEP_LIB_DIR" ]; then
+          export LD_LIBRARY_PATH="${JEP_LIB_DIR}${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+          echo "[moqui-start] JEP native library found: $JEP_LIB_DIR"
+        fi
+
+        exec java -cp . MoquiStart conf=conf/MoquiProductionConf.xml
+    environment:
+      - JAVA_TOOL_OPTIONS=-Xms3G -Xmx3G
+      - instance_purpose=production
+      # YugabyteDB datasource
+      - entity_ds_db_conf=yugabyte
+      - entity_ds_url=jdbc:yugabytedb://moqui-database1:5433,moqui-database2:5433,moqui-database3:5433/moqui?loadBalanceHosts=true
+      - entity_ds_host=moqui-database1
+      - entity_ds_port=5433
+      - entity_ds_schema=public
+      - entity_ds_database=moqui
+      - entity_ds_user=moqui
+      # OpenSearch cluster (security disabled — no auth headers needed, but set for forward-compatibility)
+      - elasticsearch_url=http://moqui-search1:9200,http://moqui-search2:9200,http://moqui-search3:9200
+      - elasticsearch_index_prefix=default_
+      # OpenSearch Dashboards proxy (Moqui forwards /kibana/* here)
+      - kibana_host=opensearch-dashboards
+      - kibana_port=5601
+      # Grafana proxy (Moqui forwards /grafana/* here via GrafanaProxy servlet)
+      - grafana_host=grafana
+      - grafana_port=3000
+      # HTTPS behind nginx reverse proxy — required so Moqui generates correct URLs
+      - webapp_https_enabled=true
+      - webapp_http_port=80
+      - webapp_https_port=443
+      - webapp_client_ip_header=X-Real-IP
+      - default_locale=en_US
+      - default_time_zone=UTC
+      # Hazelcast cluster via TCP (tasks.moqui-server resolves all replica IPs via Swarm DNS)
+      - hazelcast_multicast_enabled=false
+      - hazelcast_tcpip_enabled=true
+      - hazelcast_tcpip_members=tasks.moqui-server
+      - hazelcast_group_name=moqui-cluster
+      # Python / JEP environment (no-op if image was built without WITH_JEP=true)
+      - PYTHONNOUSERSITE=1
+      - PYTHONPATH=
+    deploy:
+      replicas: 3
+      update_config:
+        parallelism: 1
+        delay: 30s
+        failure_action: rollback
+        order: start-first
+      rollback_config:
+        parallelism: 1
+        delay: 10s
+        order: stop-first
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:       { memory: 4096M }
+        reservations: { memory: 2048M }
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      # Moqui with 3G heap + YugabyteDB schema check can take 3-5 min to start
+      start_period: 300s
+
+  # ---------------------------------------------------------------------------
+  # Grafana — accessed via Moqui's GrafanaProxy servlet at /grafana
+  # ---------------------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:latest
+    networks: [servernet, dbnet, searchnet]
+    # No published ports — Grafana is only reachable through Moqui's proxy servlet.
+    # Direct access would bypass Moqui's GrafanaAuthFilter authentication.
+    volumes:
+      - grafana-data:/var/lib/grafana
+    configs:
+      - source: grafana_datasource
+        target: /etc/grafana/provisioning/datasources/datasource.yml
+    secrets:
+      - source: grafana_admin_password
+        target: grafana_admin_password
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD__FILE=/run/secrets/grafana_admin_password
+      - GF_SECURITY_ALLOW_EMBEDDING=true
+      - GF_SECURITY_COOKIE_SAMESITE=none
+      - GF_SECURITY_COOKIE_SECURE=true
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+      - GF_ENABLE_GZIP=true
+      - GF_USERS_DEFAULT_THEME=light
+      # Sub-path must match Moqui's GrafanaProxy prefix (/grafana)
+      - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s:%(http_port)s/grafana
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+    deploy:
+      replicas: 1
+      # Grafana is stateful (dashboards in named volume) — pin to one node
+      placement:
+        constraints:
+          - node.labels.grafana_node == true
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+      resources:
+        limits:       { memory: 1024M }
+        reservations: { memory: 256M }

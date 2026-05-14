@@ -1,0 +1,6 @@
+# Generate the private key (privkey.pem)
+openssl genrsa -out privkey.pem 2048
+# Obtain the swarm manager IP address
+multipass info swarm-manager | grep IPv4 | awk '{print $2}'
+# Generate the certificate (fullchain.pem)
+openssl req -new -x509 -key privkey.pem -out fullchain.pem -days 365

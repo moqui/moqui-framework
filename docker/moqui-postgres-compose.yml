@@ -1,19 +1,22 @@
-# A Docker Compose application with Moqui, Postgres, OpenSearch, OpenSearch Dashboards, and virtual hosting through
-# nginx-proxy supporting multiple moqui instances on different hostnames.
-
+# A Docker Compose application with Moqui, Postgres, OpenSearch, OpenSearch Dashboards, Grafana,
+# and virtual hosting through nginx-proxy supporting multiple moqui instances on different hostnames.
+#
 # Run with something like this for detached mode:
 # $ docker compose -f moqui-postgres-compose.yml -p moqui up -d
 # Or to copy runtime directories for mounted volumes, set default settings, etc use something like this:
-# $ ./compose-run.sh moqui-postgres-compose.yml
+# $ ./compose-up.sh moqui-postgres-compose.yml
 # This sets the project/app name to 'moqui' and the network will be 'moqui_default', to be used by external moqui containers
-
+#
 # Test locally by adding the virtual host to /etc/hosts or with something like:
 # $ curl -H "Host: moqui.local" localhost/Login
-
+#
 # To run an additional instance of moqui run something like this (but with
 # many more arguments for volume mapping, db setup, etc):
 # $ docker run -e VIRTUAL_HOST=moqui2.local --name moqui2_local --network moqui_default moqui
-
+#
+# Grafana is accessed through Moqui's proxy servlet at: http://moqui.local/grafana
+# (authenticated via Moqui's GrafanaAuthFilter — users never hit Grafana port directly)
+#
 # To import data from the docker host using port 5432 mapped for 127.0.0.1 only use something like this:
 # $ psql -h 127.0.0.1 -p 5432 -U moqui -W moqui < pg-dump.sql
 
@@ -43,9 +46,6 @@ services:
     container_name: moqui-server
     command: conf=conf/MoquiProductionConf.xml port=80
     restart: always
-    links:
-     - moqui-database
-     - moqui-search
     volumes:
      - ./runtime/conf:/opt/moqui/runtime/conf
      - ./runtime/lib:/opt/moqui/runtime/lib
@@ -73,6 +73,12 @@ services:
      - elasticsearch_index_prefix=default_
      - elasticsearch_user=admin
      - elasticsearch_password=MoquiElasticChangeMe@2026
+     # OpenSearch Dashboards proxy: Moqui forwards /kibana/* to this host:port
+     - kibana_host=opensearch-dashboards
+     - kibana_port=5601
+     # Grafana proxy: Moqui forwards /grafana/* to this host:port (GrafanaAuthFilter applies)
+     - grafana_host=grafana
+     - grafana_port=3000
      # CHANGE ME - note that VIRTUAL_HOST is for nginx-proxy so it picks up this container as one it should reverse proxy
      # this can be a comma separate list of hosts like 'example.com,www.example.com'
      - VIRTUAL_HOST=moqui.local
@@ -132,9 +138,39 @@ services:
   opensearch-dashboards:
     image: opensearchproject/opensearch-dashboards:3.4.0
     container_name: opensearch-dashboards
-    links:
-     - moqui-search
-    ports:
-      - 5601:5601
+    # ports:
+    #   - 5601:5601
+    # Port 5601 is intentionally not published externally: access is via Moqui's
+    # KibanaProxy servlet at /kibana (authenticated through Moqui's KibanaAuthFilter).
     environment:
       OPENSEARCH_HOSTS: '["https://moqui-search:9200"]'
+      # Required so the /kibana sub-path works when proxied through Moqui
+      SERVER_BASEPATH: "/kibana"
+      SERVER_REWRITEBASEPATH: "true"
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    # ports:
+    #   published only on localhost so Grafana can be used directly while building dashboards
+    #    - 127.0.0.1:3000:3000
+    # Port 3000 is intentionally not published externally: access is via Moqui's
+    # GrafanaProxy servlet at /grafana (authenticated through Moqui's GrafanaAuthFilter).
+    volumes:
+      - ./grafana/data:/var/lib/grafana
+      - ./grafana/datasource/datasource-compose.yml:/etc/grafana/provisioning/datasources/datasource.yml
+      - ./grafana/provisioning/dashboards/default.yml:/etc/grafana/provisioning/dashboards/default.yml:ro
+      - ./grafana/dashboards:/etc/grafana/dashboards:ro
+    environment:
+      - GF_SECURITY_ALLOW_EMBEDDING=true
+      - GF_SECURITY_COOKIE_SAMESITE=none
+      - GF_SECURITY_COOKIE_SECURE=false     # false for http in local compose
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+      - GF_ENABLE_GZIP=true
+      - GF_USERS_DEFAULT_THEME=light
+      # Sub-path required so embedded links work when proxied through Moqui at /grafana
+      - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s:%(http_port)s/grafana
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true

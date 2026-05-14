@@ -1,0 +1,366 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "content": "## Moqui Parameter Editor\n\nThis dashboard is focused on the `Parameter` entity defined in `runtime/component/mantle-udm/entity/MathEntities.xml`.\n\n- The main table is read-only because Grafana's built-in table panel does not support inline cell editing.\n- To update a row, set `Edit Parameter ID` and the new values in the dashboard variables above.\n- Leave a value blank to keep the current value.\n- Use `__NULL__` to clear `numericValue`, `symbolicValue`, or `parameterEnumId`.\n- Set `Apply Update` to `Y`, refresh the dashboard once, then set it back to `N`.\n- The `Selected Parameter` panel applies the update first and then reads the current row.\n- Click a `parameter_id` value in the table to reopen this dashboard with that row preselected.",
+        "mode": "markdown"
+      },
+      "title": "Usage",
+      "type": "text"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "moqui-postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 6
+      },
+      "id": 2,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "enablePagination": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "moqui-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH input AS (SELECT NULLIF(trim($pid$${edit_parameter_id}$pid$), '') AS parameter_id, trim($num$${edit_numeric_value}$num$) AS numeric_value_raw, trim($sym$${edit_symbolic_value}$sym$) AS symbolic_value_raw, trim($enum$${edit_parameter_enum_id}$enum$) AS parameter_enum_id_raw, trim($apply$${apply_update}$apply$) AS apply_update), upd AS (UPDATE \"parameter\" p SET \"numeric_value\" = CASE WHEN i.numeric_value_raw = '' THEN p.\"numeric_value\" WHEN upper(i.numeric_value_raw) = '__NULL__' THEN NULL ELSE i.numeric_value_raw::numeric END, \"symbolic_value\" = CASE WHEN i.symbolic_value_raw = '' THEN p.\"symbolic_value\" WHEN upper(i.symbolic_value_raw) = '__NULL__' THEN NULL ELSE i.symbolic_value_raw END, \"parameter_enum_id\" = CASE WHEN i.parameter_enum_id_raw = '' THEN p.\"parameter_enum_id\" WHEN upper(i.parameter_enum_id_raw) = '__NULL__' THEN NULL ELSE i.parameter_enum_id_raw END FROM input i WHERE i.apply_update = 'Y' AND i.parameter_id IS NOT NULL AND p.\"parameter_id\" = i.parameter_id RETURNING p.\"parameter_id\") SELECT p.\"parameter_id\", p.\"parameter_def_id\", pd.\"parameter_code\", pd.\"parameter_name\", pd.\"parameter_type_enum_id\", p.\"sequence_num\", p.\"numeric_value\", p.\"symbolic_value\", p.\"parameter_enum_id\" FROM input i LEFT JOIN upd u ON u.\"parameter_id\" = i.\"parameter_id\" JOIN \"parameter\" p ON p.\"parameter_id\" = i.\"parameter_id\" JOIN \"parameter_def\" pd ON pd.\"parameter_def_id\" = p.\"parameter_def_id\"",
+          "refId": "A"
+        }
+      ],
+      "title": "Selected Parameter",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "moqui-postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 24,
+        "x": 0,
+        "y": 13
+      },
+      "id": 4,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "enablePagination": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "moqui-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT CASE WHEN NULLIF(trim($pid$${edit_parameter_id}$pid$), '') IS NULL THEN 'Set Edit Parameter ID first' WHEN trim($apply$${apply_update}$apply$) = 'Y' THEN 'Update requested on refresh. Check Selected Parameter for the persisted values.' ELSE 'Preview only. Set Apply Update = Y and refresh once to persist changes.' END AS status, NULLIF(trim($pid$${edit_parameter_id}$pid$), '') AS parameter_id, NULLIF(trim($num$${edit_numeric_value}$num$), '') AS requested_numeric_value, NULLIF(trim($sym$${edit_symbolic_value}$sym$), '') AS requested_symbolic_value, NULLIF(trim($enum$${edit_parameter_enum_id}$enum$), '') AS requested_parameter_enum_id",
+          "refId": "A"
+        }
+      ],
+      "title": "Update Request",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "moqui-postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "parameter_id"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "targetBlank": false,
+                    "title": "Edit this parameter",
+                    "url": "/grafana/d/moqui-parameter-editor/moqui-parameter-editor?var-edit_parameter_id=${__value.raw}"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 16,
+        "w": 24,
+        "x": 0,
+        "y": 18
+      },
+      "id": 3,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "enablePagination": true,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "moqui-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT p.\"parameter_id\", p.\"parameter_def_id\", pd.\"parameter_code\", pd.\"parameter_name\", pd.\"parameter_type_enum_id\", p.\"sequence_num\", p.\"numeric_value\", p.\"symbolic_value\", p.\"parameter_enum_id\" FROM \"parameter\" p JOIN \"parameter_def\" pd ON pd.\"parameter_def_id\" = p.\"parameter_def_id\" WHERE (trim($search$${parameter_search}$search$) = '' OR lower(p.\"parameter_id\") LIKE lower('%' || trim($search$${parameter_search}$search$) || '%') OR lower(p.\"parameter_def_id\") LIKE lower('%' || trim($search$${parameter_search}$search$) || '%') OR lower(pd.\"parameter_code\") LIKE lower('%' || trim($search$${parameter_search}$search$) || '%') OR lower(pd.\"parameter_name\") LIKE lower('%' || trim($search$${parameter_search}$search$) || '%')) ORDER BY pd.\"parameter_code\", p.\"parameter_id\" LIMIT 500",
+          "refId": "A"
+        }
+      ],
+      "title": "Parameter Table",
+      "type": "table"
+    }
+  ],
+  "refresh": "",
+  "schemaVersion": 39,
+  "tags": [
+    "moqui",
+    "grafana",
+    "parameter"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "hide": 0,
+        "label": "Search",
+        "name": "parameter_search",
+        "options": [
+          {
+            "selected": true,
+            "text": "",
+            "value": ""
+          }
+        ],
+        "query": "",
+        "skipUrlSync": false,
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "hide": 0,
+        "label": "Edit Parameter ID",
+        "name": "edit_parameter_id",
+        "options": [
+          {
+            "selected": true,
+            "text": "",
+            "value": ""
+          }
+        ],
+        "query": "",
+        "skipUrlSync": false,
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "hide": 0,
+        "label": "Edit Numeric Value",
+        "name": "edit_numeric_value",
+        "options": [
+          {
+            "selected": true,
+            "text": "",
+            "value": ""
+          }
+        ],
+        "query": "",
+        "skipUrlSync": false,
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "hide": 0,
+        "label": "Edit Symbolic Value",
+        "name": "edit_symbolic_value",
+        "options": [
+          {
+            "selected": true,
+            "text": "",
+            "value": ""
+          }
+        ],
+        "query": "",
+        "skipUrlSync": false,
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "hide": 0,
+        "label": "Edit Parameter Enum ID",
+        "name": "edit_parameter_enum_id",
+        "options": [
+          {
+            "selected": true,
+            "text": "",
+            "value": ""
+          }
+        ],
+        "query": "",
+        "skipUrlSync": false,
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "N",
+          "value": "N"
+        },
+        "hide": 0,
+        "label": "Apply Update",
+        "name": "apply_update",
+        "options": [
+          {
+            "selected": true,
+            "text": "N",
+            "value": "N"
+          },
+          {
+            "selected": false,
+            "text": "Y",
+            "value": "Y"
+          }
+        ],
+        "query": "N,Y",
+        "queryValue": "",
+        "skipUrlSync": false,
+        "type": "custom"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Moqui Parameter Editor",
+  "uid": "moqui-parameter-editor",
+  "version": 1,
+  "weekStart": ""
+}
