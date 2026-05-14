@@ -329,9 +329,18 @@ along with this software (see the LICENSE.md file). If not, see
     </entity>
     <entity entity-name="StatusFlow" package="moqui.basic" use="configuration">
         <field name="statusFlowId" type="id" is-pk="true"/>
-        <field name="statusTypeId" type="id"><description>Optional. If specified uses status items with this type.</description></field>
+        <field name="statusTypeId" type="id">
+            <description>Optional. If specified uses status items with this type.</description></field>
+        <field name="parentStatusFlowId" type="id">
+            <description>The parent status flow from which this status flow derives.</description></field>
         <field name="description" type="text-medium"/>
         <relationship type="one" related="moqui.basic.StatusType" short-alias="type"/>
+        <relationship type="one" title="Parent" related="moqui.basic.StatusFlow" short-alias="parent">
+            <key-map field-name="parentStatusFlowId" related="statusFlowId"/></relationship>
+        <relationship type="many" related="moqui.basic.StatusFlowItem" short-alias="items">
+            <key-map field-name="statusFlowId"/></relationship>
+        <relationship type="many" related="moqui.basic.StatusFlowTransition" short-alias="transitions">
+            <key-map field-name="statusFlowId"/></relationship>
         <seed-data>
             <moqui.basic.StatusFlow statusFlowId="Default" description="Default status flow across entire system."/>
         </seed-data>
@@ -346,14 +355,17 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="StatusFlowTransition" package="moqui.basic" use="configuration" cache="true">
         <field name="statusFlowId" type="id" is-pk="true"/>
         <field name="statusId" type="id" is-pk="true"/>
+        <field name="toStatusFlowId" type="id" is-pk="true" default="statusFlowId"/>
         <field name="toStatusId" type="id" is-pk="true"/>
         <field name="transitionSequence" type="number-integer"/>
         <field name="transitionName" type="text-medium" enable-localization="true"/>
         <field name="conditionExpression" type="text-medium"><description>Not currently supported, may be removed, issue with what is the context for the expression</description></field>
         <field name="userPermissionId" type="id-long"/>
-        <relationship type="one" related="moqui.basic.StatusFlow" short-alias="flow"/>
-        <relationship type="one" related="moqui.basic.StatusItem" short-alias="status"/>
-        <relationship type="one" title="To" related="moqui.basic.StatusItem" short-alias="toStatus">
+        <relationship type="one" title="Flow" related="moqui.basic.StatusFlow" short-alias="flow"/>
+        <relationship type="one" title="Status" related="moqui.basic.StatusItem" short-alias="status"/>
+        <relationship type="one" title="ToFlow" related="moqui.basic.StatusFlow" short-alias="toFlow">
+            <key-map field-name="toStatusFlowId" related="statusFlowId"/></relationship>
+        <relationship type="one" title="ToStatus" related="moqui.basic.StatusItem" short-alias="toStatus">
             <key-map field-name="toStatusId" related="statusId"/></relationship>
         <relationship type="one-nofk" related="moqui.security.UserPermission" short-alias="permission">
             <description>No FK in order to allow arbitrary permissions (ie not pre-configured).</description></relationship>
@@ -383,6 +395,24 @@ along with this software (see the LICENSE.md file). If not, see
         <alias-all entity-alias="SIFR" prefix="from"><exclude field="statusId"/></alias-all>
         <alias-all entity-alias="SITO" prefix="to"><exclude field="statusId"/></alias-all>
     </view-entity>
+    <entity entity-name="StatusFlowStack" package="moqui.basic" use="transactional" authorize-skip="create" cache="never" create-only="true">
+        <field name="statusFlowStackId" type="id" is-pk="true"/>
+        <field name="entityName" type="text-medium"/>
+        <field name="pkPrimaryValue" type="text-medium"/>
+        <field name="pkSecondaryValue" type="text-medium"/>
+        <field name="statusFlowId" type="id" not-null="true"/>
+        <field name="statusId" type="id" not-null="true"/>
+        <field name="fromDate" type="date-time"/>
+        <field name="thruDate" type="date-time"/>
+
+        <relationship type="one" related="moqui.basic.StatusFlow" short-alias="flow"/>
+        <relationship type="one" related="moqui.basic.StatusItem" short-alias="status"/>
+        <!-- index for common query looking for changes to a certain field on a certain entity -->
+        <index name="SFSTACK_FLD1PK"><index-field name="entityName"/><index-field name="statusFlowId"/>
+            <index-field name="statusId"/><index-field name="pkPrimaryValue"/></index>
+        <index name="SFSTACK_ENTPKPR"><index-field name="entityName"/><index-field name="pkPrimaryValue"/></index>
+        <index name="SFSTACK_PKPRIM"><index-field name="pkPrimaryValue"/></index>
+    </entity>
 
     <!-- ========== Uom ========== -->
     <entity entity-name="Uom" package="moqui.basic" use="configuration" short-alias="uoms" cache="true">
@@ -407,15 +437,27 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Time/Frequency" enumId="UT_TIME_FREQ_MEASURE" enumTypeId="UomType"/>
             <moqui.basic.Enumeration description="Length" enumId="UT_LENGTH_MEASURE" enumTypeId="UomType"/>
             <moqui.basic.Enumeration description="Velocity" enumId="UT_VELOCITY_MEASURE" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Acceleration" enumId="UT_ACC_MEASURE" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Jerk" enumId="UT_JERK_MEASURE" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Snap" enumId="UT_SNAP_MEASURE" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Angle" enumId="UT_ANGLE_MEASURE" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Angular Velocity" enumId="UT_ANG_VELOCITY_MEASURE" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Angular Acceleration" enumId="UT_ANG_ACC_MEASURE" enumTypeId="UomType"/>
             <moqui.basic.Enumeration description="Area" enumId="UT_AREA_MEASURE" enumTypeId="UomType"/>
             <moqui.basic.Enumeration description="Liquid Volume" enumId="UT_VOLUME_LIQ_MEAS" enumTypeId="UomType"/>
             <moqui.basic.Enumeration description="Dry Volume" enumId="UT_VOLUME_DRY_MEAS" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Flow" enumId="UT_FLOW_MEASURE" enumTypeId="UomType"/>
             <moqui.basic.Enumeration description="Density" enumId="UT_DENSITY_MEAS" enumTypeId="UomType"/>
             <moqui.basic.Enumeration description="Weight" enumId="UT_WEIGHT_MEASURE" enumTypeId="UomType"/>
             <moqui.basic.Enumeration description="Energy" enumId="UT_ENERGY_MEASURE" enumTypeId="UomType"/>
             <moqui.basic.Enumeration description="Power" enumId="UT_POWER_MEASURE" enumTypeId="UomType"/>
             <moqui.basic.Enumeration description="Pressure" enumId="UT_PRESSURE_MEASURE" enumTypeId="UomType"/>
             <moqui.basic.Enumeration description="Temperature" enumId="UT_TEMP_MEASURE" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Sound Level" enumId="UT_SOUND_MEASURE" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Electrical" enumId="UT_ELECTRICAL_MEASURE" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Viscosity" enumId="UT_VISCOS_MEASURE" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Force" enumId="UT_FORCE_MEASURE" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Torque" enumId="UT_TORQUE_MEASURE" enumTypeId="UomType"/>
             <moqui.basic.Enumeration description="Other" enumId="UT_OTHER_MEASURE" enumTypeId="UomType"/>
 
             <!-- see additional seed data in UnitData.xml -->
