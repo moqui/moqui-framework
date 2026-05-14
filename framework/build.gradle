@@ -115,6 +115,10 @@ dependencies {
     // Jackson Databind (JSON, etc)
     api 'com.fasterxml.jackson.core:jackson-databind:2.20.1'
 
+    // LangChain4j AI integration
+    api 'dev.langchain4j:langchain4j:1.8.0'
+    api 'dev.langchain4j:langchain4j-open-ai:1.8.0'
+
     // Jetty HTTP Client and Proxy Servlet
     api 'org.eclipse.jetty:jetty-client:12.1.5' // Apache 2.0
     api 'org.eclipse.jetty.ee11:jetty-ee11-proxy:12.1.5' // Apache 2.0
