@@ -14,6 +14,18 @@
 plugins {
   id 'com.github.ben-manes.versions' version '0.53.0'
   id 'org.ajoberstar.grgit' version '5.3.3'
+  id 'ru.vyarus.use-python' version '4.1.0' apply false
+}
+
+def moquiJepRootGradle = file('runtime/component/moqui-jep/gradle/moqui-jep-root.gradle')
+if (moquiJepRootGradle.exists()) apply from: moquiJepRootGradle
+
+// Keep Gradle's intermediate project outputs out of runtime component directories so Moqui doesn't
+// discover them as components during its runtime/component directory scan.
+project(':runtime').layout.buildDirectory.set(rootProject.layout.buildDirectory.dir('runtime'))
+project(':runtime:base-component').layout.buildDirectory.set(rootProject.layout.buildDirectory.dir('runtime-base-component'))
+if (findProject(':runtime:component') != null) {
+    project(':runtime:component').layout.buildDirectory.set(rootProject.layout.buildDirectory.dir('runtime-component'))
 }
 
 // Filters dependencyUpdates to report only stable (official) releases
@@ -718,11 +730,12 @@ task gitMergeAll {
 // ========== run tasks ==========
 
 task run(type: JavaExec) {
+    description "Run Moqui; to specify port or threads for running embedded Jetty server use something like: gradle run -Pport=<port> -Pthreads=<max threads>"
     dependsOn checkRuntime, allBuildTasks, cleanTempDir
     workingDir = '.'; jvmArgs = ['-server', '-XX:-OmitStackTraceInFastThrow']
     systemProperties = ['moqui.conf':moquiConfDev, 'moqui.runtime':moquiRuntime]
     // NOTE: this is a hack, using -jar instead of a class name, and then the first argument is the name of the jar file
-    mainClass = '-jar'; args = [warName]
+    mainClass = '-jar'; args = [warName, (project.properties.containsKey('port') ? "port=${port}" : "port=8080"), (project.properties.containsKey('threads') ? "threads=${threads}" : "threads=100")]
 }
 task runProduction(type: JavaExec) {
     dependsOn checkRuntime, allBuildTasks, cleanTempDir

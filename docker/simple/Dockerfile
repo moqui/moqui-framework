@@ -6,8 +6,8 @@ MAINTAINER Moqui Framework <moqui@googlegroups.com>
 
 WORKDIR /opt/moqui
 
-# for running from the war directly, preffered approach unzips war in advance (see docker-build.sh that does this)
-#COPY moqui.war .
+# for running from the war directly, preferred approach unzips war in advance (see docker-build.sh that does this)
+# COPY moqui.war .
 # copy files from unzipped moqui.war file
 COPY WEB-INF WEB-INF
 COPY META-INF META-INF
@@ -16,6 +16,31 @@ COPY execlib execlib
 
 # always want the runtime directory
 COPY runtime runtime
+RUN find /opt/moqui/runtime -type d \( -name 'python_venv' -o -name 'venv' -o -name '.venv' \) -prune -exec rm -rf {} +
+
+# curl and ca-certificates are always needed (HEALTHCHECK + HTTPS calls)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Optional: Python + JEP (Java Embedded Python) support.
+# Enabled automatically when the moqui-jep component is present in the build
+# (docker-build.sh detects runtime/component/moqui-jep and passes WITH_JEP=true).
+# Can also be forced manually: docker build --build-arg WITH_JEP=true ...
+ARG WITH_JEP=false
+RUN if [ "$WITH_JEP" = "true" ]; then \
+      apt-get update \
+      && apt-get install -y --no-install-recommends \
+         python3 python3-venv python3-pip python3-dev build-essential \
+      && rm -rf /var/lib/apt/lists/* \
+      && python3 -m venv /opt/moqui/runtime/python_venv \
+      && /opt/moqui/runtime/python_venv/bin/python -m pip install --upgrade pip \
+      && /opt/moqui/runtime/python_venv/bin/pip install --no-cache-dir numpy \
+      && /opt/moqui/runtime/python_venv/bin/pip install --no-cache-dir jep==4.2.2; \
+    fi
+
+ENV PYTHONNOUSERSITE=1
+ENV PYTHONPATH=
 
 # create user for search and chown corresponding files
 ARG search_name=opensearch
@@ -47,10 +72,11 @@ EXPOSE 9300
 # Hazelcast Cluster Port
 EXPOSE 5701
 
-# this is to run from the war file directly, preferred approach unzips war file in advance
-# ENTRYPOINT ["java", "-jar", "moqui.war"]
-ENTRYPOINT ["java", "-cp", ".", "MoquiStart"]
+# Copy the entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
-HEALTHCHECK --interval=30s --timeout=600ms --start-period=120s CMD curl -f -H "X-Forwarded-Proto: https" -H "X-Forwarded-Ssl: on" http://localhost/status || exit 1
+HEALTHCHECK --interval=30s --timeout=2s --start-period=120s CMD curl -f -H "X-Forwarded-Proto: https" -H "X-Forwarded-Ssl: on" http://localhost/status || exit 1
 # specify this as a default parameter if none are specified with docker exec/run, ie run production by default
 CMD ["conf=conf/MoquiProductionConf.xml", "port=80"]

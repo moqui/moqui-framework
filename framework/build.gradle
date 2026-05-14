@@ -92,6 +92,9 @@ dependencies {
 
     // H2 Database
     api 'com.h2database:h2:2.4.240' // MPL 2.0, EPL 1.0
+    // Yugabyte Database
+    implementation 'com.yugabyte:jdbc-yugabytedb:42.7.3-yb-4' // Apache 2.0
+    implementation 'com.zaxxer:HikariCP:5.0.1' // Apache 2.0
 
     // Java Specifications
     api 'jakarta.transaction:jakarta.transaction-api:2.0.1'
