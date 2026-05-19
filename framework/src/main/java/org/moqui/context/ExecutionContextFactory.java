@@ -77,9 +77,6 @@ public interface ExecutionContextFactory {
     /** For interactions with ElasticSearch using the built in HTTP REST client. */
     @Nonnull ElasticFacade getElastic();
 
-    /** For interactions with AI/LLM providers. */
-    @Nonnull AiFacade getAi();
-
     /** For calling services (local or remote, sync or async or scheduled). */
     @Nonnull ServiceFacade getService();
 

@@ -115,10 +115,6 @@ dependencies {
     // Jackson Databind (JSON, etc)
     api 'com.fasterxml.jackson.core:jackson-databind:2.20.1'
 
-    // LangChain4j AI integration
-    api 'dev.langchain4j:langchain4j:1.8.0'
-    api 'dev.langchain4j:langchain4j-open-ai:1.8.0'
-
     // Jetty HTTP Client and Proxy Servlet
     api 'org.eclipse.jetty:jetty-client:12.1.5' // Apache 2.0
     api 'org.eclipse.jetty.ee11:jetty-ee11-proxy:12.1.5' // Apache 2.0
@@ -229,31 +225,6 @@ jar {
 
 tasks.test {
     inputs.files(tasks.jar)
-}
-
-task testAi(type: Test) {
-    useJUnitPlatform()
-    testClassesDirs = sourceSets.test.output.classesDirs
-    testLogging { events "passed", "skipped", "failed" }
-    testLogging.showStandardStreams = true; testLogging.showExceptions = true
-    maxParallelForks = 1
-
-    dependsOn cleanTestAi
-    dependsOn jar
-    include '**/*AiFacadeTests.class'
-
-    systemProperty 'moqui.runtime', '../runtime'
-    systemProperty 'moqui.conf', 'conf/MoquiDevConf.xml'
-    systemProperty 'moqui.init.static', 'true'
-
-    classpath = configurations.testRuntimeClasspath
-    classpath += files(sourceSets.test.output.classesDirs)
-    classpath += files(sourceSets.main.output.classesDirs); classpath += files(projectDir.absolutePath)
-    classpath += files(tasks.jar)
-    // filter out classpath entries that don't exist (gradle adds a bunch of these), or ElasticSearch JarHell will blow up
-    classpath = classpath.filter { it.exists() }
-
-    beforeTest { descriptor -> logger.lifecycle("Running test: ${descriptor}") }
 }
 
 war {
