@@ -122,7 +122,7 @@ ${.node}
 <#macro "entity-find-one">
     <#assign autoFieldMap = .node["@auto-field-map"]?if_exists>
     if (true) {
-        org.moqui.entity.EntityValue find_one_result = ec.entity.find("${.node["@entity-name"]}")<#if .node["@cache"]?has_content>.useCache(${.node["@cache"]})</#if><#if .node["@for-update"]?has_content>.forUpdate(${.node["@for-update"]})</#if><#if .node["@use-clone"]?has_content>.useClone(${.node["@use-clone"]})</#if>
+        org.moqui.entity.EntityValue find_one_result = ec.entity.find("${.node["@entity-name"]}")<#if .node["@cache"]?has_content>.useCache(${.node["@cache"]})</#if><#if .node["@for-update"]?has_content>.forUpdate(${.node["@for-update"]})</#if><#if .node["@use-clone"]?has_content>.useClone(${.node["@use-clone"]})</#if><#if .node["@disable-authz"]?if_exists == "true">.disableAuthz()</#if>
                 <#if autoFieldMap?has_content><#if autoFieldMap == "true">.condition(context)<#elseif autoFieldMap != "false">.condition(${autoFieldMap})</#if><#elseif !.node["field-map"]?has_content>.condition(context)</#if><#list .node["field-map"] as fieldMap>.condition("${fieldMap["@field-name"]}", <#if fieldMap["@from"]?has_content>${fieldMap["@from"]}<#elseif fieldMap["@value"]?has_content>"""${fieldMap["@value"]}"""<#else>${fieldMap["@field-name"]}</#if>)</#list><#list .node["select-field"] as sf>.selectField("${sf["@field-name"]}")</#list>.one()
         if (${.node["@value-field"]} instanceof Map && !(${.node["@value-field"]} instanceof org.moqui.entity.EntityValue)) { if (find_one_result) ${.node["@value-field"]}.putAll(find_one_result) } else { ${.node["@value-field"]} = find_one_result }
     }
@@ -131,7 +131,7 @@ ${.node}
     <#assign useCache = (.node["@cache"]?if_exists == "true")>
     <#assign listName = .node["@list"]>
     <#assign doPaginate = .node["search-form-inputs"]?has_content && !(.node["search-form-inputs"][0]["@paginate"]?if_exists == "false")>
-    ${listName}_xafind = ec.entity.find("${.node["@entity-name"]}")<#if .node["@cache"]?has_content>.useCache(${.node["@cache"]})</#if><#if .node["@for-update"]?has_content>.forUpdate(${.node["@for-update"]})</#if><#if .node["@distinct"]?has_content>.distinct(${.node["@distinct"]})</#if><#if .node["@use-clone"]?has_content>.useClone(${.node["@use-clone"]})</#if><#if .node["@offset"]?has_content>.offset(${.node["@offset"]})</#if><#if .node["@limit"]?has_content>.limit(${.node["@limit"]})</#if><#list .node["select-field"] as sf>.selectField("${sf["@field-name"]}")</#list><#list .node["order-by"] as ob>.orderBy("${ob["@field-name"]}")</#list>
+    ${listName}_xafind = ec.entity.find("${.node["@entity-name"]}")<#if .node["@cache"]?has_content>.useCache(${.node["@cache"]})</#if><#if .node["@for-update"]?has_content>.forUpdate(${.node["@for-update"]})</#if><#if .node["@distinct"]?has_content>.distinct(${.node["@distinct"]})</#if><#if .node["@use-clone"]?has_content>.useClone(${.node["@use-clone"]})</#if><#if .node["@disable-authz"]?if_exists == "true">.disableAuthz()</#if><#if .node["@offset"]?has_content>.offset(${.node["@offset"]})</#if><#if .node["@limit"]?has_content>.limit(${.node["@limit"]})</#if><#list .node["select-field"] as sf>.selectField("${sf["@field-name"]}")</#list><#list .node["order-by"] as ob>.orderBy("${ob["@field-name"]}")</#list>
             <#if !useCache><#list .node["date-filter"] as df>.condition(<#visit df/>)</#list></#if><#list .node["econdition"] as ecn>.condition(<#visit ecn/>)</#list><#list .node["econditions"] as ecs>.condition(<#visit ecs/>)</#list>
     <#list .node["econdition-object"] as eco><#if eco["@field"]?has_content>
         if (${eco["@field"]} != null) { ${listName}_xafind.condition(${eco["@field"]}) }
@@ -205,6 +205,7 @@ ${.node}
     ${.node["@count-field"]} = ec.entity.find("${.node["@entity-name"]}")
         <#t><#if .node["@cache"]?has_content>.useCache(${.node["@cache"]})</#if>
         <#t><#if .node["@distinct"]?has_content>.distinct(${.node["@distinct"]})</#if>
+        <#t><#if .node["@disable-authz"]?if_exists == "true">.disableAuthz()</#if>
         <#t><#if .node["search-form-inputs"]?has_content>.searchFormMap(${"ec.context"}, efSfiDefParams, "${sfiNode["@skip-fields"]!("")}", null, false)</#if>
         <#t><#list .node["select-field"] as sf>.selectField("${sf["@field-name"]}")</#list>
         <#t><#list .node["date-filter"] as df>.condition(<#visit df/>)</#list>
