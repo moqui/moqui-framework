@@ -450,7 +450,15 @@ public class WebUtilities {
     public static class ServletRequestContainer implements AttributeContainer {
         ServletRequest req;
         public ServletRequestContainer(ServletRequest request) { req = request; }
-        @Override public Enumeration<String> getAttributeNames() { return req.getAttributeNames(); }
+        @Override public Enumeration<String> getAttributeNames() {
+            try {
+                return req.getAttributeNames();
+            } catch (NullPointerException e) {
+                // Jetty EE11 recycles the underlying request object after completion; guard against background thread access
+                logger.warn("Tried getAttributeNames() on recycled request: " + e.toString());
+                return emptyStringEnum;
+            }
+        }
         @Override public Object getAttribute(String name) { return req.getAttribute(name); }
         @Override public void setAttribute(String name, Object value) {
             if (!testSerialization(name, value)) return;

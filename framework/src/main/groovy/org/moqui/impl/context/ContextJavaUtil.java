@@ -268,7 +268,7 @@ public class ContextJavaUtil {
                 StringBuilder ps = new StringBuilder();
                 for (Map.Entry<String, Object> pme: parameters.entrySet()) {
                     Object value = pme.getValue();
-                    if (value == null || ObjectUtilities.isEmpty(value) || value instanceof Map || value instanceof Collection) continue;
+                    if (value == null || value instanceof Map || value instanceof Collection || ObjectUtilities.isEmpty(value)) continue;
                     String key = pme.getKey();
                     if (key != null && key.contains("password")) continue;
                     if (ps.length() > 0) ps.append(", ");
