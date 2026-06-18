@@ -75,6 +75,8 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.UomConversion uomConversionId="DATA_SPD_Tbps_Gbps" uomId="DATASPD_Tbps" toUomId="DATASPD_Gbps" conversionFactor="1000"/>
 
     <!-- =============== Time/Frequency =============== -->
+    <moqui.basic.Uom abbreviation="ns" description="Nano-Second" uomId="TF_ns" uomTypeEnumId="UT_TIME_FREQ_MEASURE"/>
+    <moqui.basic.Uom abbreviation="us" description="Micro-Second" uomId="TF_us" uomTypeEnumId="UT_TIME_FREQ_MEASURE"/>
     <moqui.basic.Uom abbreviation="ms" description="Milli-Second" uomId="TF_ms" uomTypeEnumId="UT_TIME_FREQ_MEASURE"/>
     <moqui.basic.Uom abbreviation="s" description="Second" uomId="TF_s" uomTypeEnumId="UT_TIME_FREQ_MEASURE"/>
     <moqui.basic.Uom abbreviation="min" description="Minute" uomId="TF_min" uomTypeEnumId="UT_TIME_FREQ_MEASURE"/>
@@ -87,6 +89,7 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.Uom abbreviation="score" description="Score" uomId="TF_score" uomTypeEnumId="UT_TIME_FREQ_MEASURE"/>
     <moqui.basic.Uom abbreviation="century" description="Century" uomId="TF_century" uomTypeEnumId="UT_TIME_FREQ_MEASURE"/>
     <moqui.basic.Uom abbreviation="millenium" description="Millenium" uomId="TF_millenium" uomTypeEnumId="UT_TIME_FREQ_MEASURE"/>
+    <moqui.basic.Uom abbreviation="hz" description="Hertz - Frequency measured in cycles per second" uomId="TF_hertz" uomTypeEnumId="UT_TIME_FREQ_MEASURE"/>
 
     <moqui.basic.UomConversion uomConversionId="TIME_FREQ_s_ms" uomId="TF_s" toUomId="TF_ms" conversionFactor="1000"/>
     <moqui.basic.UomConversion uomConversionId="TIME_FREQ_min_s" uomId="TF_min" toUomId="TF_s" conversionFactor="60"/>
@@ -184,6 +187,7 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.Uom abbreviation="m/h" description="Meters per hour" uomId="VEL_m_hr" uomTypeEnumId="UT_VELOCITY_MEASURE"/>
     <moqui.basic.Uom abbreviation="m/min" description="Meters per minute" uomId="VEL_m_min" uomTypeEnumId="UT_VELOCITY_MEASURE"/>
     <moqui.basic.Uom abbreviation="m/s" description="Meters per second" uomId="VEL_m_s" uomTypeEnumId="UT_VELOCITY_MEASURE"/>
+    <moqui.basic.Uom abbreviation="mm/s" description="Millimeters per second" uomId="VEL_mm_s" uomTypeEnumId="UT_VELOCITY_MEASURE"/>
     <moqui.basic.Uom abbreviation="ft/hr" description="Feet per hour" uomId="VEL_ft_hr" uomTypeEnumId="UT_VELOCITY_MEASURE"/>
     <moqui.basic.Uom abbreviation="ft/min" description="Feet per minute" uomId="VEL_ft_min" uomTypeEnumId="UT_VELOCITY_MEASURE"/>
     <moqui.basic.Uom abbreviation="ft/s" description="Feet per second" uomId="VEL_ft_s" uomTypeEnumId="UT_VELOCITY_MEASURE"/>
@@ -219,6 +223,27 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.UomConversion uomConversionId="VEL_KPH_m_s" uomId="VEL_KPH" toUomId="VEL_m_s" conversionFactor="0.277777777778"/>
     <moqui.basic.UomConversion uomConversionId="VEL_km_min_m_s" uomId="VEL_km_min" toUomId="VEL_m_s" conversionFactor="16.666666666667"/>
     <moqui.basic.UomConversion uomConversionId="VEL_km_s_m_s" uomId="VEL_km_s" toUomId="VEL_m_s" conversionFactor="1000"/>
+
+
+    <!-- =============== Acceleration =============== -->
+    <moqui.basic.Uom abbreviation="m/s2" description="Meters per second squared" uomId="ACC_m_s2" uomTypeEnumId="UT_ACC_MEASURE"/>
+    <moqui.basic.Uom abbreviation="mm/s2" description="Millimeters per second squared - Acceleration" uomId="VEL_mm_s2" uomTypeEnumId="UT_VELOCITY_MEASURE"/>
+
+    <!-- =============== Jerk =============== -->
+    <moqui.basic.Uom abbreviation="m/s3" description="Meters per second to the third power" uomId="JERK_m_s3" uomTypeEnumId="UT_JERK_MEASURE"/>
+
+    <!-- =============== Snap =============== -->
+    <moqui.basic.Uom abbreviation="m/s4" description="Meters per second to the fourth power" uomId="SNAP_m_s4" uomTypeEnumId="UT_SNAP_MEASURE"/>
+
+    <!-- =============== Angle =============== -->
+    <moqui.basic.Uom abbreviation="deg" description="Angle in Degrees" uomId="ANG_deg" uomTypeEnumId="UT_ANGLE_MEASURE"/>
+    <moqui.basic.Uom abbreviation="uradian" description="Tilt angle in micro radian" uomId="ANG_u_radian" uomTypeEnumId="UT_ANGLE_MEASURE"/>
+
+    <!-- =============== Angular Velocity =============== -->
+    <moqui.basic.Uom abbreviation="deg/sec" description="Angular degrees per second" uomId="ANG_deg_sec" uomTypeEnumId="UT_ANG_VELOCITY_MEASURE"/>
+
+    <!-- =============== Angular Acceleration =============== -->
+    <moqui.basic.Uom abbreviation="deg/sec2" description="Angular degrees per second squared" uomId="ANG_deg_sec2" uomTypeEnumId="UT_ANG_ACC_MEASURE"/>
 
     <!-- =============== Area =============== -->
     <moqui.basic.Uom abbreviation="A" description="Acre" uomId="AREA_A" uomTypeEnumId="UT_AREA_MEASURE"/>
@@ -300,9 +325,14 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.UomConversion uomConversionId="VDRY_m3_yd3" uomId="VDRY_m3" toUomId="VDRY_yd3" conversionFactor="1.3"/>
     <moqui.basic.UomConversion uomConversionId="VDRY_yd3_ft3" uomId="VDRY_yd3" toUomId="VDRY_ft3" conversionFactor="27"/>
 
+    <!-- =============== Flow =============== -->
+    <moqui.basic.Uom abbreviation="L/sec" description="Liters per second" uomId="FLOW_L_sec" uomTypeEnumId="UT_FLOW_MEASURE"/>
+
     <!-- =============== Density =============== -->
     <moqui.basic.Uom abbreviation="kg/m3" description="Kilogram per cubic meter" uomId="DENS_kg_m3" uomTypeEnumId="UT_DENSITY_MEAS"/>
     <moqui.basic.Uom abbreviation="g/cm3" description="Gram per cubic centimeter " uomId="DENS_g_cm3" uomTypeEnumId="UT_DENSITY_MEAS"/>
+    <moqui.basic.Uom abbreviation="g/m3" description="Gram per cubic meter " uomId="DENS_g_m3" uomTypeEnumId="UT_DENSITY_MEAS"/>
+    <moqui.basic.Uom abbreviation="mg/mm3" description="Milligram per cubic millimeter " uomId="DENS_mg_mm3" uomTypeEnumId="UT_DENSITY_MEAS"/>
     <moqui.basic.Uom abbreviation="oz/in3" description="Ounce per cubic inch " uomId="DENS_oz_in3" uomTypeEnumId="UT_DENSITY_MEAS"/>
     <moqui.basic.Uom abbreviation="oz/gal (UK)" description="Ounce per gallon (UK)" uomId="DENS_oz_galUK" uomTypeEnumId="UT_DENSITY_MEAS"/>
     <moqui.basic.Uom abbreviation="oz/gal (US)" description="Ounce per gallon (US)" uomId="DENS_oz_galUS" uomTypeEnumId="UT_DENSITY_MEAS"/>
@@ -360,6 +390,11 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.UomConversion uomConversionId="WT_lt_lb" uomId="WT_lt" toUomId="WT_lb" conversionFactor="2240"/>
     <moqui.basic.UomConversion uomConversionId="WT_mt_kg" uomId="WT_mt" toUomId="WT_kg" conversionFactor="1000"/>
     <moqui.basic.UomConversion uomConversionId="WT_sh_t_lb" uomId="WT_sh_t" toUomId="WT_lb" conversionFactor="2000"/>
+
+    <!-- =============== Force =============== -->
+    <moqui.basic.Uom abbreviation="N" description="Newton" uomId="F_N" uomTypeEnumId="UT_FORCE_MEASURE"/>
+    <!-- =============== Torque =============== -->
+    <moqui.basic.Uom abbreviation="Nm" description="Newton Meter" uomId="TORQ_Nm" uomTypeEnumId="UT_TORQUE_MEASURE"/>
 
     <!-- =============== Power =============== -->
     <moqui.basic.Uom abbreviation="kw" description="Kilowatt" uomId="PW_kw" uomTypeEnumId="UT_POWER_MEASURE"/>
@@ -424,6 +459,9 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.UomConversion uomConversionId="PRES_psi_Pa" uomId="PRES_psi" toUomId="PRES_Pa" conversionFactor="6894.75"/>
     <moqui.basic.UomConversion uomConversionId="PRES_torr_Pa" uomId="PRES_torr" toUomId="PRES_Pa" conversionFactor="133.3223684211"/>
 
+    <!-- =============== Viscosity =============== -->
+    <moqui.basic.Uom abbreviation="Pa-sec" description="Pascal-Second - Viscosity." uomId="VISCOS_Pa_sec" uomTypeEnumId="UT_VISCOS_MEASURE"/>
+
     <!-- =============== Temperature =============== -->
     <moqui.basic.Uom abbreviation="K" description="Kelvin" uomId="TEMP_K" uomTypeEnumId="UT_TEMP_MEASURE"/>
     <moqui.basic.Uom abbreviation="C" description="Degrees Celsius" uomId="TEMP_C" uomTypeEnumId="UT_TEMP_MEASURE"/>
@@ -432,16 +470,32 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.UomConversion uomConversionId="TEMP_C_K" uomId="TEMP_C" toUomId="TEMP_K" conversionFactor="1" conversionOffset="273.15"/>
     <moqui.basic.UomConversion uomConversionId="TEMP_C_F" uomId="TEMP_C" toUomId="TEMP_F" conversionFactor="1.8" conversionOffset="32"/>
 
+    <!-- =============== Sound =============== -->
+    <moqui.basic.Uom abbreviation="DB" description="Decibel" uomId="SOUND_DB" uomTypeEnumId="UT_SOUND_MEASURE"/>
+
     <!-- =============== Other =============== -->
-    <moqui.basic.Uom abbreviation="A" description="Ampere - Electric current" uomId="OTH_A" uomTypeEnumId="UT_OTHER_MEASURE"/>
+    <moqui.basic.Uom abbreviation="C" description="Coulomb - Electric charge" uomId="ELECTR_C" uomTypeEnumId="UT_ELECTRICAL_MEASURE"/>
+    <moqui.basic.Uom abbreviation="A" description="Ampere - Electric current" uomId="ELECTR_A" uomTypeEnumId="UT_ELECTRICAL_MEASURE"/>
+    <moqui.basic.Uom abbreviation="V" description="Volt - Electrical voltage" uomId="ELECTR_V" uomTypeEnumId="UT_ELECTRICAL_MEASURE"/>
+    <moqui.basic.Uom abbreviation="VA" description="Voltampere - Electrical apparent power" uomId="ELECTR_VA" uomTypeEnumId="UT_ELECTRICAL_MEASURE"/>
+    <moqui.basic.Uom abbreviation="VAR" description="Voltampere Reactive - Electrical reactive power" uomId="ELECTR_VAR" uomTypeEnumId="UT_ELECTRICAL_MEASURE"/>
+    <moqui.basic.Uom abbreviation="OHM" description="Ohm - Electrical resistance" uomId="ELECTR_OHM" uomTypeEnumId="UT_ELECTRICAL_MEASURE"/>
+    <moqui.basic.Uom abbreviation="S/m" description="Siemens per meter - Electrical conductivity" uomId="ELECTR_SIEMENS_METER" uomTypeEnumId="UT_ELECTRICAL_MEASURE"/>
+    <moqui.basic.Uom abbreviation="w/s" description="Watts per second - Electrical energy, equal to one Joule" uomId="ELECTR_w_s" uomTypeEnumId="UT_ELECTRICAL_MEASURE"/>
     <moqui.basic.Uom abbreviation="cd" description="Candela - Luminosity (intensity of light)" uomId="OTH_cd" uomTypeEnumId="UT_OTHER_MEASURE"/>
     <moqui.basic.Uom abbreviation="mol" description="Mole - Substance (molecule)" uomId="OTH_mol" uomTypeEnumId="UT_OTHER_MEASURE"/>
     <moqui.basic.Uom abbreviation="RPM" description="Revolutions Per Minute" uomId="OTH_RPM" uomTypeEnumId="UT_OTHER_MEASURE"/>
+    <moqui.basic.Uom abbreviation="RPS" description="Revolutions Per Second - Rotational velocity" uomId="OTH_RPS" uomTypeEnumId="UT_OTHER_MEASURE"/>
+    <moqui.basic.Uom abbreviation="RPS2" description="Revolutions Per Second Squared - Rotational acceleration" uomId="OTH_RPS2" uomTypeEnumId="UT_OTHER_MEASURE"/>
 
     <moqui.basic.Uom abbreviation="ct" description="Count" uomId="OTH_ct" uomTypeEnumId="UT_OTHER_MEASURE"/>
+    <moqui.basic.Uom abbreviation="ct/sec" description="Counts per Second" uomId="OTH_ct_sec" uomTypeEnumId="UT_OTHER_MEASURE"/>
     <moqui.basic.Uom abbreviation="ea" description="Each/Piece" uomId="OTH_ea" uomTypeEnumId="UT_OTHER_MEASURE"/>
     <moqui.basic.Uom abbreviation="pp" description="Per Person" uomId="OTH_pp" uomTypeEnumId="UT_OTHER_MEASURE"/>
     <moqui.basic.Uom abbreviation="pct" description="Percent" uomId="OTH_pct" uomTypeEnumId="UT_OTHER_MEASURE"/>
+    <moqui.basic.Uom abbreviation="ph" description="PH - Acidity or alkalinity of a solution" uomId="OTH_ph" uomTypeEnumId="UT_OTHER_MEASURE"/>
+    <moqui.basic.Uom abbreviation="mm3/sec" description="Cubic Millimeter per Second - Change in geometric volume" uomId="OTH_mm3_sec" uomTypeEnumId="UT_OTHER_MEASURE"/>
+    <moqui.basic.Uom abbreviation="mm3/sec2" description="Cubic Millimeter per Second Squared - Change in geometric volume" uomId="OTH_mm3_sec2" uomTypeEnumId="UT_OTHER_MEASURE"/>
 
     <!-- =============== UOM Dimension Types and Type Groups =============== -->
     <moqui.basic.UomDimensionType description="Quantity Included" uomDimensionTypeId="QuantityIncluded" defaultUomId="OTH_ct"/>
