@@ -73,6 +73,7 @@ along with this software (see the LICENSE.md file). If not, see
                         <xs:enumeration value="remote-json-rpc"/>
                         <xs:enumeration value="remote-rest"/>
                         <xs:enumeration value="camel"/>
+                        <xs:enumeration value="python"/>
                     </xs:restriction>
                 </xs:simpleType>
             </xs:attribute>

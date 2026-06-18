@@ -17,6 +17,7 @@ import static org.moqui.util.StringUtilities.*
 import java.sql.Timestamp
 import java.sql.Time
 import java.time.*
+import java.util.concurrent.*
 // these are in the context by default: ExecutionContext ec, Map<String, Object> context, Map<String, Object> result
 <#visit xmlActionsRoot/>
 
@@ -69,6 +70,41 @@ return;
         <#else>
         if (ec.message.hasError()) return
         </#if><#t>
+    }
+</#macro>
+
+<#macro "service-schedule">
+    <#assign timeUnit = "MILLISECONDS">
+    <#if .node["@time-unit"]?has_content><#assign timeUnit = .node["@time-unit"]?upper_case></#if>
+    if (true) {
+        ec.service.schedule("${.node["@task-name"]}")<#rt>
+            <#t>.name("${.node.@name}")
+            <#t>.timeUnit(java.util.concurrent.TimeUnit.${timeUnit})
+            <#t><#if .node["@initial-delay"]?has_content>.initialDelay(${.node["@initial-delay"]!0})</#if>
+            <#t><#if .node["@polling-interval"]?has_content && .node["@type"]?has_content && .node["@type"] == "at-fixed-rate">.atFixedRate(${.node["@polling-interval"]})</#if>
+            <#t><#if .node["@polling-interval"]?has_content && .node["@type"]?has_content && .node["@type"] == "with-fixed-delay">.withFixedDelay(${.node["@polling-interval"]})</#if>
+            <#t><#if .node["@distribute"]?if_exists == "true">.distribute(true)</#if>
+            <#t><#if .node["@duration"]?has_content>.duration(${.node["@duration"]})</#if>
+            <#t><#if .node["@transaction-timeout"]?has_content>.transactionTimeout(${.node["@transaction-timeout"]})</#if>
+            <#if .node["@in-map"]?if_exists == "true">.parameters(context)<#elseif .node["@in-map"]?has_content && .node["@in-map"] != "false">.parameters(${.node["@in-map"]})</#if><#list .node["field-map"] as fieldMap>.parameter("${fieldMap["@field-name"]}",<#if fieldMap["@from"]?has_content>${fieldMap["@from"]}<#elseif fieldMap["@value"]?has_content>"""${fieldMap["@value"]}"""<#else>${fieldMap["@field-name"]}</#if>)</#list>.call()
+        <#if (.node["@ignore-error"]?if_exists == "true")>
+        if (ec.message.hasError()) {
+            ec.logger.warn("Ignoring error running service ${.node.@name}: " + ec.message.getErrorsString())
+            ec.message.clearErrors()
+        }
+        <#else>
+            if (ec.message.hasError()) return
+        </#if><#t>
+    }
+</#macro>
+
+<#macro "cancel-scheduled-service">
+    <#assign timeUnit = "MILLISECONDS">
+    <#if .node["@time-unit"]?has_content><#assign timeUnit = .node["@time-unit"]?upper_case></#if>
+    if (true) {
+        ec.service.schedule("${.node["@task-name"]}")<#rt><#if .node["@cancel-delay"]?has_content>
+            <#t>.cancel(<#if .node["@may-interrupt-if-running"]?if_exists == "true">true<#else>false</#if>, ${.node["@cancel-delay"]}, java.util.concurrent.TimeUnit.${timeUnit})<#else>
+            <#t>.cancel(<#if .node["@may-interrupt-if-running"]?if_exists == "true">true<#else>false</#if>)</#if>
     }
 </#macro>
 

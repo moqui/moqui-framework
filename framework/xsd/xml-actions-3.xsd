@@ -185,6 +185,95 @@ along with this software (see the LICENSE.md file). If not, see
         </xs:complexType>
     </xs:element>
     -->
+    <xs:element name="service-schedule" substitutionGroup="CallOperations">
+        <xs:annotation><xs:documentation>Schedule a service execution.</xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="field-map"/>
+            </xs:sequence>
+            <xs:attribute name="name" type="name-full" use="required">
+                <xs:annotation><xs:documentation>
+                    The combined service name, like: "${path}.${verb}${noun}". To explicitly separate the verb and noun
+                    put a hash (#) between them, like: "${path}.${verb}#${noun}".
+                </xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="in-map" type="xs:string" default="false">
+                <xs:annotation><xs:documentation>
+                    Creates an in parameters with variables matching the names of service in-parameters elements, doing
+                    type conversions as needed.
+
+                    If false (default) does nothing. If true constructs an in-map from the context.
+                    Otherwise is the name of a Map in the context uses it as the source Map for the service context.
+                </xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="task-name" type="xs:string" use="required">
+                <xs:annotation><xs:documentation>Set a unique task name for the scheduled service.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="type" default="one-shot">
+                <xs:annotation>
+                    <xs:documentation>
+                        The scheduling type used to run the task. Possible values:  
+                            - one-shot
+                              Schedules and executes a one-shot service that becomes enabled after the given delay.
+                            - at-fixed-rate
+                              Schedules a periodic service that becomes enabled first after the given initial delay, and subsequently with the given period; that is executions will commence after initialDelay then initialDelay+period, then initialDelay + 2 * period, and so on.
+                            - with-fixed-delay
+                              Schedules a periodic service that becomes enabled first after the given initial delay, and subsequently with the given delay between the termination of one execution and the commencement of the next.        
+                    </xs:documentation>
+                </xs:annotation>
+                <xs:simpleType>
+                    <xs:restriction base="xs:token">
+                        <xs:enumeration value="one-shot"/>
+                        <xs:enumeration value="at-fixed-rate"/>
+                        <xs:enumeration value="with-fixed-delay"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="distribute" default="false" type="boolean">
+                <xs:annotation><xs:documentation>If false this will be run local only. By default runs on any server in a cluster listening for async or scheduled distributed services (if a distributed executor is configured).</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="time-unit" type="xs:string" default="MILLISECONDS">
+                <xs:annotation><xs:documentation>The time unit, in java.util.concurrent.TimeUnit format, for all time parameters. Defaults to milliseconds.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="initial-delay" type="xs:integer" default="0">
+                <xs:annotation><xs:documentation>The task becomes enabled after the given initial delay. Defaults to 0.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="polling-interval" type="xs:integer" default="-1">
+                <xs:annotation><xs:documentation>Configure a cyclical service. The service is repeated, with the given polling interval, 
+                    at fixed rate or with a fixed delay between the termination of one execution and the commencement of the next.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="duration" type="xs:integer">
+                <xs:annotation><xs:documentation>The duration of the execution of the periodic task. After this interval the cyclical task will be canceled.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="transaction-timeout" type="xs:int" default="0">
+                <xs:annotation><xs:documentation>
+                    Defines the timeout for the transaction, in seconds.
+                    This value is only used if this service begins a transaction (either require-new, or
+                    use-or-begin and there is no other transaction already in place).
+                </xs:documentation></xs:annotation>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="cancel-scheduled-service" substitutionGroup="CallOperations">
+        <xs:annotation><xs:documentation>
+            Attempts to cancel the scheduled execution of the service given the task name.
+            Do nothing if this scheduled service was cancelled before it completed normally.
+        </xs:documentation></xs:annotation>
+        <xs:complexType>
+            <xs:attribute name="task-name" type="xs:string" use="required">
+                <xs:annotation><xs:documentation>Set a unique task name to get the scheduled service.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="may-interrupt-if-running" type="boolean" default="true">
+                <xs:annotation><xs:documentation>If true the service should be interrupted; otherwise, in-progress services are allowed to complete.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="cancel-delay" type="xs:integer">
+                <xs:annotation><xs:documentation>Cancel the execution of the periodic task after the specified delay. If omitted cancels immediately. Must be greater than 0 when specified.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="time-unit" type="xs:string" default="MILLISECONDS">
+                <xs:annotation><xs:documentation>The time unit, in java.util.concurrent.TimeUnit format, for all time parameters. Defaults to milliseconds.</xs:documentation></xs:annotation>
+            </xs:attribute>
+        </xs:complexType>
+    </xs:element>
 
     <xs:element name="script" substitutionGroup="CallOperations">
         <xs:annotation><xs:documentation>
