@@ -70,6 +70,7 @@ import java.sql.Timestamp
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.ScheduledThreadPoolExecutor
 import java.util.concurrent.ThreadPoolExecutor
@@ -111,7 +112,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     public final Map<Long, ExecutionContextImpl> activeContextMap = new HashMap<>()
     protected final LinkedHashMap<String, ToolFactory> toolFactoryMap = new LinkedHashMap<>()
 
-    protected final Map<String, WebappInfo> webappInfoMap = new HashMap<>()
+    protected final Map<String, WebappInfo> webappInfoMap = new java.util.concurrent.ConcurrentHashMap<>()
+    private final java.util.concurrent.locks.ReentrantLock webappInfoLock = new java.util.concurrent.locks.ReentrantLock()
     protected final List<NotificationMessageListener> registeredNotificationMessageListeners = []
 
     protected final Map<String, ArtifactStatsInfo> artifactStatsInfoByType = new HashMap<>()
@@ -147,8 +149,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     @SuppressWarnings("GrFinalVariableAccess") public final ServiceFacadeImpl serviceFacade
     @SuppressWarnings("GrFinalVariableAccess") public final ScreenFacadeImpl screenFacade
 
-    /** The main worker pool for services, running async closures and runnables, etc */
-    @SuppressWarnings("GrFinalVariableAccess") public final ThreadPoolExecutor workerPool
+    /** The main worker pool for services, running async closures and runnables, etc (virtual thread-based) */
+    @SuppressWarnings("GrFinalVariableAccess") public final ExecutorService workerPool
     /** An executor for the scheduled job runner */
     @SuppressWarnings("GrFinalVariableAccess") public final CustomScheduledExecutor scheduledExecutor
     public final ArrayList<ScheduledRunnableInfo> scheduledRunnableList = new ArrayList<>()
@@ -447,7 +449,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         return baseConfigNode
     }
 
-    private ThreadPoolExecutor makeWorkerPool() {
+    private ExecutorService makeWorkerPool() {
         MNode toolsNode = confXmlRoot.first('tools')
 
         int workerQueueSize = (toolsNode.attribute("worker-queue") ?: "65536") as int
@@ -462,21 +464,21 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
         long aliveTime = (toolsNode.attribute("worker-pool-alive") ?: "60") as long
 
-        logger.info("Initializing worker ThreadPoolExecutor: queue limit ${workerQueueSize}, pool-core ${coreSize}, pool-max ${maxSize}, pool-alive ${aliveTime}s")
-        return new ContextJavaUtil.WorkerThreadPoolExecutor(this, coreSize, maxSize, aliveTime, TimeUnit.SECONDS,
-                workQueue, new ContextJavaUtil.WorkerThreadFactory())
+        logger.info("Initializing worker pool with Virtual Threads (MoquiWorker): queue limit ${workerQueueSize}, pool-core ${coreSize}, pool-max ${maxSize}, pool-alive ${aliveTime}s")
+        return new ContextJavaUtil.VirtualThreadExecutorService(this, "MoquiWorker", coreSize, maxSize, aliveTime, TimeUnit.SECONDS, workQueue)
     }
     boolean waitWorkerPoolEmpty(int retryLimit) {
-        ThreadPoolExecutor jobWorkerPool = serviceFacade.jobWorkerPool
+        ThreadPoolExecutor wp = (ThreadPoolExecutor) workerPool
+        ThreadPoolExecutor jwp = (ThreadPoolExecutor) serviceFacade.jobWorkerPool
         int count = 0
-        while (count < retryLimit && (workerPool.getQueue().size() > 0 || workerPool.getActiveCount() > 0 ||
-                jobWorkerPool.getQueue().size() > 0 || jobWorkerPool.getActiveCount() > 0)) {
-            if (count % 10 == 0) logger.warn("Wait for workerPool and jobWorkerPool empty: worker queue size ${workerPool.getQueue().size()} active ${workerPool.getActiveCount()} max threads ${workerPool.getMaximumPoolSize()}; service job queue size ${jobWorkerPool.getQueue().size()} active ${jobWorkerPool.getActiveCount()}")
+        while (count < retryLimit && (wp.getQueue().size() > 0 || wp.getActiveCount() > 0 ||
+                jwp.getQueue().size() > 0 || jwp.getActiveCount() > 0)) {
+            if (count % 10 == 0) logger.warn("Wait for workerPool and jobWorkerPool empty: worker queue size ${wp.getQueue().size()} active ${wp.getActiveCount()} max threads ${wp.getMaximumPoolSize()}; service job queue size ${jwp.getQueue().size()} active ${jwp.getActiveCount()}")
             Thread.sleep(100)
             count++
         }
-        int afterSize = workerPool.getQueue().size() + workerPool.getActiveCount()
-        int jobAfterSize = jobWorkerPool.getQueue().size() + jobWorkerPool.getActiveCount()
+        int afterSize = wp.getQueue().size() + wp.getActiveCount()
+        int jobAfterSize = jwp.getQueue().size() + jwp.getActiveCount()
         if (afterSize > 0 || jobAfterSize > 0) logger.warn("After ${retryLimit} 100ms waits worker pool size is ${afterSize} and service job pool size is ${jobAfterSize}")
         return afterSize == 0 && jobAfterSize == 0
     }
@@ -906,7 +908,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     /** Trigger ECF destroy and re-init in another thread, after short wait */
     void triggerDynamicReInit() {
-        Thread.start("EcfiReInit", {
+        Thread.ofVirtual().name("EcfiReInit").start({
             sleep(2000) // wait 2 seconds
             Moqui.dynamicReInit(ExecutionContextFactoryImpl.class, internalServletContext)
         })
@@ -1064,7 +1066,14 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     @Override @Nonnull ClassLoader getClassLoader() { moquiClassLoader }
     @Override @Nonnull GroovyClassLoader getGroovyClassLoader() { groovyClassLoader }
 
-    synchronized Class compileGroovy(String script, String className) {
+    private final java.util.concurrent.locks.ReentrantLock compileGroovyLock = new java.util.concurrent.locks.ReentrantLock()
+    Class compileGroovy(String script, String className) {
+        compileGroovyLock.lock()
+        try {
+        return compileGroovyInternal(script, className)
+        } finally { compileGroovyLock.unlock() }
+    }
+    private Class compileGroovyInternal(String script, String className) {
         boolean hasClassName = className != null && !className.isEmpty()
         if (groovyCompileCacheToDisk && hasClassName) {
             // if the className already exists just return it
@@ -1269,6 +1278,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                     // if it's a directory and doesn't start with a "." then add it as a component dir
                     String subRrName = componentSubRr.getFileName()
                     if ((!componentSubRr.isDirectory() && !subRrName.endsWith(".zip")) || subRrName.startsWith(".")) continue
+                    // Skip Gradle intermediate project output dirs under runtime/component and runtime/base-component.
+                    if (componentSubRr.isDirectory() && "build".equals(subRrName) &&
+                            componentSubRr.getChild("tmp").getExists() && !componentSubRr.getChild("component.xml").getExists()) continue
                     componentDirEntries.put(componentSubRr.getFileName(), componentSubRr)
                 }
                 for (Map.Entry<String, ResourceReference> componentDirEntry in componentDirEntries.entrySet()) {
@@ -1506,7 +1518,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         final static int maxCreates = 1000
         final ExecutionContextFactoryImpl ecfi
         DeferredHitInfoFlush(ExecutionContextFactoryImpl ecfi) { this.ecfi = ecfi }
-        @Override synchronized void run() {
+        @Override void run() {
             ExecutionContextImpl eci = ecfi.getEci()
             eci.artifactExecutionFacade.disableAuthz()
             try {
@@ -1569,28 +1581,33 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
     }
 
-    protected synchronized void advanceArtifactHitBin(ExecutionContextImpl eci, ArtifactStatsInfo statsInfo,
+    protected void advanceArtifactHitBin(ExecutionContextImpl eci, ArtifactStatsInfo statsInfo,
             long startTime, long hitBinLengthMillis) {
-        ArtifactBinInfo abi = statsInfo.curHitBin
-        if (abi == null) {
+        statsInfo.hitBinLock.lock()
+        try {
+            ArtifactBinInfo abi = statsInfo.curHitBin
+            if (abi == null) {
+                statsInfo.curHitBin = new ArtifactBinInfo(statsInfo, startTime)
+                return
+            }
+
+            // check the time again and return just in case something got in while waiting with the same type
+            long binStartTime = abi.startTime
+            if (startTime < (binStartTime + hitBinLengthMillis)) return
+
+            // otherwise, persist the old and create a new one
+            EntityValue ahb = abi.makeAhbValue(this, new Timestamp(binStartTime + hitBinLengthMillis))
+            eci.runInWorkerThread({
+                ArtifactExecutionFacadeImpl aefi = getEci().artifactExecutionFacade
+                boolean enableAuthz = !aefi.disableAuthz()
+                try { ahb.setSequencedIdPrimary().create() }
+                finally { if (enableAuthz) aefi.enableAuthz() }
+            })
+
             statsInfo.curHitBin = new ArtifactBinInfo(statsInfo, startTime)
-            return
+        } finally {
+            statsInfo.hitBinLock.unlock()
         }
-
-        // check the time again and return just in case something got in while waiting with the same type
-        long binStartTime = abi.startTime
-        if (startTime < (binStartTime + hitBinLengthMillis)) return
-
-        // otherwise, persist the old and create a new one
-        EntityValue ahb = abi.makeAhbValue(this, new Timestamp(binStartTime + hitBinLengthMillis))
-        eci.runInWorkerThread({
-            ArtifactExecutionFacadeImpl aefi = getEci().artifactExecutionFacade
-            boolean enableAuthz = !aefi.disableAuthz()
-            try { ahb.setSequencedIdPrimary().create() }
-            finally { if (enableAuthz) aefi.enableAuthz() }
-        })
-
-        statsInfo.curHitBin = new ArtifactBinInfo(statsInfo, startTime)
     }
 
     // ========================================================
@@ -1781,11 +1798,19 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         if (wi != null) return wi
         return makeWebappInfo(webappName)
     }
-    protected synchronized WebappInfo makeWebappInfo(String webappName) {
+    protected WebappInfo makeWebappInfo(String webappName) {
         if (webappName == null || webappName.isEmpty()) return null
-        WebappInfo wi = new WebappInfo(webappName, this)
-        webappInfoMap.put(webappName, wi)
-        return wi
+        webappInfoLock.lock()
+        try {
+            // re-check inside lock (DCL)
+            WebappInfo existing = webappInfoMap.get(webappName)
+            if (existing != null) return existing
+            WebappInfo wi = new WebappInfo(webappName, this)
+            webappInfoMap.put(webappName, wi)
+            return wi
+        } finally {
+            webappInfoLock.unlock()
+        }
     }
 
     static class WebappInfo {

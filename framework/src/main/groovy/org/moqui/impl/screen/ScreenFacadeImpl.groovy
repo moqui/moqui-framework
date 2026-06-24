@@ -29,12 +29,14 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import javax.cache.Cache
+import java.util.concurrent.locks.ReentrantLock
 
 @CompileStatic
 class ScreenFacadeImpl implements ScreenFacade {
     protected final static Logger logger = LoggerFactory.getLogger(ScreenFacadeImpl.class)
 
     protected final ExecutionContextFactoryImpl ecfi
+    private final ReentrantLock screenDefLock = new ReentrantLock()
 
     protected final Cache<String, ScreenDefinition> screenLocationCache
     protected final Cache<String, ScreenDefinition> screenLocationPermCache
@@ -157,7 +159,12 @@ class ScreenFacadeImpl implements ScreenFacade {
         return makeScreenDefinition(location)
     }
 
-    protected synchronized ScreenDefinition makeScreenDefinition(String location) {
+    protected ScreenDefinition makeScreenDefinition(String location) {
+        screenDefLock.lock()
+        try { return makeScreenDefinitionLocked(location) }
+        finally { screenDefLock.unlock() }
+    }
+    private ScreenDefinition makeScreenDefinitionLocked(String location) {
         ScreenDefinition sd = (ScreenDefinition) screenLocationCache.get(location)
         if (sd != null) return sd
 
@@ -241,7 +248,12 @@ class ScreenFacadeImpl implements ScreenFacade {
         return template
     }
 
-    protected synchronized Template makeTemplateByMode(String renderMode) {
+    protected Template makeTemplateByMode(String renderMode) {
+        screenDefLock.lock()
+        try { return makeTemplateByModeLocked(renderMode) }
+        finally { screenDefLock.unlock() }
+    }
+    private Template makeTemplateByModeLocked(String renderMode) {
         Template template = (Template) screenTemplateModeCache.get(renderMode)
         if (template != null) return template
 
@@ -270,7 +282,12 @@ class ScreenFacadeImpl implements ScreenFacade {
         return makeTemplateByLocation(templateLocation)
     }
 
-    protected synchronized Template makeTemplateByLocation(String templateLocation) {
+    protected Template makeTemplateByLocation(String templateLocation) {
+        screenDefLock.lock()
+        try { return makeTemplateByLocationLocked(templateLocation) }
+        finally { screenDefLock.unlock() }
+    }
+    private Template makeTemplateByLocationLocked(String templateLocation) {
         Template template = (Template) screenTemplateLocationCache.get(templateLocation)
         if (template != null) return template
 
@@ -298,7 +315,12 @@ class ScreenFacadeImpl implements ScreenFacade {
         return makeWidgetTemplatesNodeByLocation(templateLocation)
     }
 
-    protected synchronized MNode makeWidgetTemplatesNodeByLocation(String templateLocation) {
+    protected MNode makeWidgetTemplatesNodeByLocation(String templateLocation) {
+        screenDefLock.lock()
+        try { return makeWidgetTemplatesNodeByLocationLocked(templateLocation) }
+        finally { screenDefLock.unlock() }
+    }
+    private MNode makeWidgetTemplatesNodeByLocationLocked(String templateLocation) {
         MNode templatesNode = (MNode) widgetTemplateLocationCache.get(templateLocation)
         if (templatesNode != null) return templatesNode
 
@@ -318,7 +340,12 @@ class ScreenFacadeImpl implements ScreenFacade {
         if (swr == null) throw new BaseArtifactException("Could not find screen widger renderer for mode ${renderMode}")
         return swr
     }
-    protected synchronized ScreenWidgetRender makeWidgetRenderByMode(String renderMode) {
+    protected ScreenWidgetRender makeWidgetRenderByMode(String renderMode) {
+        screenDefLock.lock()
+        try { return makeWidgetRenderByModeLocked(renderMode) }
+        finally { screenDefLock.unlock() }
+    }
+    private ScreenWidgetRender makeWidgetRenderByModeLocked(String renderMode) {
         ScreenWidgetRender swr = (ScreenWidgetRender) screenWidgetRenderByMode.get(renderMode)
         if (swr != null) return swr
 

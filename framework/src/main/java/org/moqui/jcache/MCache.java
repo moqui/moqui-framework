@@ -30,6 +30,7 @@ import javax.cache.processor.EntryProcessorResult;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,6 +51,7 @@ public class MCache<K, V> implements Cache<K, V> {
 
     private MStats stats = new MStats();
     private boolean statsEnabled = true;
+    private final ReentrantLock maxEntriesLock = new ReentrantLock();
 
     private Duration accessDuration = null;
     private Duration creationDuration = null;
@@ -106,23 +108,26 @@ public class MCache<K, V> implements Cache<K, V> {
         hasExpiry = accessDuration != null || creationDuration != null || updateDuration != null;
     }
 
-    public synchronized void setMaxEntries(int elements) {
-        if (elements == 0) {
-            if (evictRunnable != null) {
-                evictRunnable = null;
-                evictFuture.cancel(false);
-                evictFuture = null;
-            }
-        } else {
-            if (evictRunnable != null) {
-                evictRunnable.maxEntries = elements;
+    public void setMaxEntries(int elements) {
+        maxEntriesLock.lock();
+        try {
+            if (elements == 0) {
+                if (evictRunnable != null) {
+                    evictRunnable = null;
+                    evictFuture.cancel(false);
+                    evictFuture = null;
+                }
             } else {
-                evictRunnable = new EvictRunnable(this, elements);
-                long maxCheckSeconds = 30;
-                if (configuration instanceof MCacheConfiguration) maxCheckSeconds = ((MCacheConfiguration) configuration).maxCheckSeconds;
-                evictFuture = workerPool.scheduleWithFixedDelay(evictRunnable, 1, maxCheckSeconds, TimeUnit.SECONDS);
+                if (evictRunnable != null) {
+                    evictRunnable.maxEntries = elements;
+                } else {
+                    evictRunnable = new EvictRunnable(this, elements);
+                    long maxCheckSeconds = 30;
+                    if (configuration instanceof MCacheConfiguration) maxCheckSeconds = ((MCacheConfiguration) configuration).maxCheckSeconds;
+                    evictFuture = workerPool.scheduleWithFixedDelay(evictRunnable, 1, maxCheckSeconds, TimeUnit.SECONDS);
+                }
             }
-        }
+        } finally { maxEntriesLock.unlock(); }
     }
     public int getMaxEntries() { return evictRunnable != null ? evictRunnable.maxEntries : 0; }
 

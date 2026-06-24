@@ -74,7 +74,7 @@ class ScheduledJobRunner implements Runnable {
     int getLastJobsPaused() { lastJobsPaused }
 
     @Override
-    synchronized void run() {
+    void run() {
         try {
             runInternal()
         } catch (Throwable t) {
@@ -91,7 +91,7 @@ class ScheduledJobRunner implements Runnable {
         ExecutionContextImpl eci = ecfi.getEci()
         eci.artifactExecution.disableAuthz()
         EntityFacadeImpl efi = ecfi.entityFacade
-        ThreadPoolExecutor jobWorkerPool = ecfi.serviceFacade.jobWorkerPool
+        ThreadPoolExecutor jobWorkerPool = (ThreadPoolExecutor) ecfi.serviceFacade.jobWorkerPool
         try {
             // make sure no transaction is in place, shouldn't be any so try to commit if there is one
             if (ecfi.transactionFacade.isTransactionInPlace()) {

@@ -50,11 +50,10 @@ import java.sql.*
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ThreadFactory
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.ThreadLocalRandom
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.Lock
 import java.util.concurrent.locks.ReentrantLock
 
@@ -82,6 +81,7 @@ class EntityFacadeImpl implements EntityFacade {
     final Cache<String, long[]> entitySequenceBankCache
     protected final ConcurrentHashMap<String, Lock> dbSequenceLocks = new ConcurrentHashMap<String, Lock>()
     protected final ReentrantLock locationLoadLock = new ReentrantLock()
+    private final ReentrantLock autoReverseLock = new ReentrantLock()
 
     protected HashMap<String, ArrayList<EntityEcaRule>> eecaRulesByEntityName = new HashMap<>()
     protected final HashMap<String, String> entityGroupNameMap = new HashMap<>()
@@ -101,13 +101,8 @@ class EntityFacadeImpl implements EntityFacade {
 
     protected final EntityListImpl emptyList
 
-    private static class ExecThreadFactory implements ThreadFactory {
-        private final ThreadGroup workerGroup = new ThreadGroup("MoquiEntityExec")
-        private final AtomicInteger threadNumber = new AtomicInteger(1)
-        Thread newThread(Runnable r) { return new Thread(workerGroup, r, "MoquiEntityExec-" + threadNumber.getAndIncrement()) }
-    }
-    protected BlockingQueue<Runnable> statementWorkQueue = new ArrayBlockingQueue<>(1024);
-    protected ThreadPoolExecutor statementExecutor = new ThreadPoolExecutor(5, 100, 60, TimeUnit.SECONDS, statementWorkQueue, new ExecThreadFactory());
+    protected BlockingQueue<Runnable> statementWorkQueue = null
+    protected ThreadPoolExecutor statementExecutor = null
 
     EntityFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
@@ -118,6 +113,16 @@ class EntityFacadeImpl implements EntityFacade {
         defaultGroupName = entityFacadeNode.attribute("default-group-name")
         sequencedIdPrefix = entityFacadeNode.attribute("sequenced-id-prefix") ?: null
         queryStats = entityFacadeNode.attribute("query-stats") == "true"
+
+        int stmtQueueSize = (entityFacadeNode.attribute("worker-pool-queue") ?: "1024") as int
+        int stmtPoolCore = (entityFacadeNode.attribute("worker-pool-core") ?: "5") as int
+        int stmtPoolMax = (entityFacadeNode.attribute("worker-pool-max") ?: "100") as int
+        long stmtPoolAlive = (entityFacadeNode.attribute("worker-pool-alive") ?: "60") as long
+        logger.info("Initializing Entity statement worker pool with Virtual Threads (MoquiEntityExec): queue ${stmtQueueSize}, core ${stmtPoolCore}, max ${stmtPoolMax}, alive ${stmtPoolAlive}s")
+        statementWorkQueue = new ArrayBlockingQueue<>(stmtQueueSize)
+        statementExecutor = new ThreadPoolExecutor(stmtPoolCore, stmtPoolMax, stmtPoolAlive, TimeUnit.SECONDS,
+            statementWorkQueue, Thread.ofVirtual().name("MoquiEntityExec-", 1).factory())
+        statementExecutor.allowCoreThreadTimeOut(true)
 
         TimeZone theTimeZone = null
         if (entityFacadeNode.attribute("database-time-zone")) {
@@ -823,7 +828,9 @@ class EntityFacadeImpl implements EntityFacade {
         return ed
     }
 
-    synchronized void createAllAutoReverseManyRelationships() {
+    void createAllAutoReverseManyRelationships() {
+        autoReverseLock.lock()
+        try {
         int relationshipsCreated = 0
         Set<String> entityNameSet = getAllEntityNames()
         for (String entityName in entityNameSet) {
@@ -916,6 +923,9 @@ class EntityFacadeImpl implements EntityFacade {
         }
 
         if (logger.infoEnabled && relationshipsCreated > 0) logger.info("Created ${relationshipsCreated} automatic reverse relationships")
+        } finally {
+            autoReverseLock.unlock()
+        }
     }
 
     // used in tools screen

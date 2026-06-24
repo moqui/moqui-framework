@@ -27,6 +27,7 @@ import jakarta.servlet.http.HttpServletResponse
 import jakarta.servlet.http.HttpServletResponseWrapper
 import jakarta.servlet.http.HttpSession
 import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.locks.ReentrantLock
 
 /** Save data about HTTP requests to ElasticSearch using a Servlet Filter */
 @CompileStatic
@@ -169,7 +170,7 @@ class ElasticRequestLogFilter implements Filter {
 
         RequestLogQueueFlush(ElasticRequestLogFilter filter) { this.filter = filter }
 
-        @Override synchronized void run() {
+        @Override void run() {
             while (filter.requestLogQueue.size() > 0) { flushQueue() }
         }
         void flushQueue() {
@@ -224,23 +225,30 @@ class ElasticRequestLogFilter implements Filter {
     class CountingHttpServletResponseWrapper extends HttpServletResponseWrapper {
         private OutputStreamCounter outputStream = null;
         private PrintWriter writer = null;
+        private final ReentrantLock streamLock = new ReentrantLock();
 
         CountingHttpServletResponseWrapper(HttpServletResponse response) throws IOException { super(response); }
         long getWritten() { return outputStream != null ? outputStream.getWritten() : 0; }
 
-        @Override synchronized ServletOutputStream getOutputStream() throws IOException {
-            if (writer != null) throw new IllegalStateException("getWriter() already called");
-            if (outputStream == null) outputStream = new OutputStreamCounter(super.getOutputStream());
-            return outputStream;
+        @Override ServletOutputStream getOutputStream() throws IOException {
+            streamLock.lock()
+            try {
+                if (writer != null) throw new IllegalStateException("getWriter() already called");
+                if (outputStream == null) outputStream = new OutputStreamCounter(super.getOutputStream());
+                return outputStream;
+            } finally { streamLock.unlock() }
         }
 
-        @Override synchronized PrintWriter getWriter() throws IOException {
-            if (writer == null && outputStream != null) throw new IllegalStateException("getOutputStream() already called");
-            if (writer == null) {
-                outputStream = new OutputStreamCounter(super.getOutputStream());
-                writer = new PrintWriter(new OutputStreamWriter(outputStream, getCharacterEncoding()));
-            }
-            return this.writer;
+        @Override PrintWriter getWriter() throws IOException {
+            streamLock.lock()
+            try {
+                if (writer == null && outputStream != null) throw new IllegalStateException("getOutputStream() already called");
+                if (writer == null) {
+                    outputStream = new OutputStreamCounter(super.getOutputStream());
+                    writer = new PrintWriter(new OutputStreamWriter(outputStream, getCharacterEncoding()));
+                }
+                return this.writer;
+            } finally { streamLock.unlock() }
         }
 
         @Override void flushBuffer() throws IOException {
