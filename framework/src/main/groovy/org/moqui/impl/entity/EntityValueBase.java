@@ -982,6 +982,7 @@ public abstract class EntityValueBase implements EntityValue {
             for (String nonpkFieldName : this.getEntityDefinition().getNonPkFieldNames()) {
                 // skip the lastUpdatedStamp field
                 if ("lastUpdatedStamp".equals(nonpkFieldName)) continue;
+                if ("createdStamp".equals(nonpkFieldName)) continue;
 
                 final Object checkFieldValue = this.get(nonpkFieldName);
                 final Object dbFieldValue = dbValue.get(nonpkFieldName);
@@ -1035,6 +1036,7 @@ public abstract class EntityValueBase implements EntityValue {
             for (String nonpkFieldName : this.getEntityDefinition().getNonPkFieldNames()) {
                 // skip the lastUpdatedStamp field
                 if ("lastUpdatedStamp".equals(nonpkFieldName)) continue;
+                if ("createdStamp".equals(nonpkFieldName)) continue;
 
                 final Object checkFieldValue = this.get(nonpkFieldName);
                 final Object dbFieldValue = dbValue.get(nonpkFieldName);
@@ -1510,8 +1512,12 @@ public abstract class EntityValueBase implements EntityValue {
         final Long time = ecfi.transactionFacade.getCurrentTransactionStartTime();
         Long lastUpdatedLong = time != null && time > 0 ? time : System.currentTimeMillis();
         FieldInfo lastUpdatedStampInfo = ed.entityInfo.lastUpdatedStampInfo;
+        FieldInfo createdStampInfo = ed.entityInfo.createdStampInfo;
         if (lastUpdatedStampInfo != null && valueMapInternal.getByIString(lastUpdatedStampInfo.name, lastUpdatedStampInfo.index) == null)
             valueMapInternal.putByIString(lastUpdatedStampInfo.name, new Timestamp(lastUpdatedLong), lastUpdatedStampInfo.index);
+
+        if (createdStampInfo != null && valueMapInternal.getByIString(createdStampInfo.name, createdStampInfo.index) == null)
+            valueMapInternal.putByIString(createdStampInfo.name, new Timestamp(lastUpdatedLong), createdStampInfo.index);
 
         // do the artifact push/authz
         ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl(entityName, ArtifactExecutionInfo.AT_ENTITY, ArtifactExecutionInfo.AUTHZA_CREATE, "create").setParameters(valueMapInternal);
