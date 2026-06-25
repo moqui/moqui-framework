@@ -62,7 +62,7 @@ services:
       - ./runtime/db:/opt/moqui/runtime/db
       - ./runtime/opensearch:/opt/moqui/runtime/opensearch
     environment:
-      - "JAVA_TOOL_OPTIONS=-Xms1024m -Xmx1024m"
+      - "JAVA_TOOL_OPTIONS=-Xms1024m -Xmx4096m"
       - instance_purpose=production
       - entity_ds_db_conf=mysql8
       - entity_ds_host=moqui-database
