@@ -395,7 +395,6 @@ class TransactionFacadeImpl implements TransactionFacade {
             int status = ut.getStatus()
             // logger.warn("================ commit TX, currentStatus=${status}")
 
-            txStackInfo.closeTxConnections()
             if (status == Status.STATUS_MARKED_ROLLBACK) {
                 if (txStackInfo.rollbackOnlyInfo != null) {
                     logger.warn("Tried to commit transaction but marked rollback only, doing rollback instead; rollback-only was set here:", txStackInfo.rollbackOnlyInfo.rollbackLocation)
@@ -411,6 +410,8 @@ class TransactionFacadeImpl implements TransactionFacade {
                 if (status != Status.STATUS_NO_TRANSACTION)
                     logger.warn((String) "Not committing transaction because status is " + getStatusString(), new Exception("Bad TX status location"))
             }
+            // closeTxConnections() is not called here; clearCurrent() in finally handles it after the
+            // JTA operation completes, so connections are never released before XA END + XA COMMIT/ROLLBACK.
         } catch (RollbackException e) {
             if (txStackInfo.rollbackOnlyInfo != null) {
                 logger.warn("Could not commit transaction, was marked rollback-only. The rollback-only was set here: ", txStackInfo.rollbackOnlyInfo.rollbackLocation)
@@ -455,7 +456,6 @@ class TransactionFacadeImpl implements TransactionFacade {
         if (ut == null) throw new IllegalStateException("No transaction manager in place")
         TxStackInfo txStackInfo = getTxStackInfo()
         try {
-            txStackInfo.closeTxConnections()
 
             // logger.warn("================ rollback TX, currentStatus=${getStatus()}")
             if (getStatus() == Status.STATUS_NO_TRANSACTION) {
@@ -476,6 +476,12 @@ class TransactionFacadeImpl implements TransactionFacade {
             }
 
             ut.rollback()
+            // closeTxConnections() is intentionally NOT called here. clearCurrent() in the finally block
+            // calls it after ut.rollback() completes, ensuring BTM can issue XA END + XA ROLLBACK on all
+            // enlisted resources while they are still tracked. Calling it before ut.rollback() (the previous
+            // behavior) could leave XA connections in a zombie ROLLBACK_ONLY state in the pool when a MySQL
+            // deadlock (XA_RBDEADLOCK) occurs, causing XAER_RMFAIL on the next transaction that acquires
+            // the same connection.
         } catch (IllegalStateException e) {
             throw new TransactionException("Could not rollback transaction", e)
         } catch (SystemException e) {
