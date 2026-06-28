@@ -30,6 +30,25 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="yearAndMonth" type="text-medium"><description>Format: YYYY-MM</description></field>
         <field name="isWeekEnd" type="text-indicator"/>
     </entity>
+    <entity entity-name="TimeDayDimension" package="moqui.olap" use="analytical">
+        <description>Time of Day Dimension. The natural key is [timeValue]</description>
+        <field name="dimensionId" type="id" is-pk="true"/>
+        <field name="timeValue" type="time"/>
+        <field name="description" type="text-medium"/>
+        <field name="timeOfDay" type="text-medium"><description>Time of the day in the format: hh:mm:ss</description></field>
+        <field name="hourOfDay" type="number-integer"><description>Hour of the day (0 - 11). Hour on a 12-hour clock.</description></field>
+        <field name="militaryHour" type="number-integer"><description>Military hour of the day (0 - 23). Hour on a 24-hour clock.</description></field>
+        <field name="quarterHour" type="text-medium"><description>Extraction of the quarter hours.</description></field>
+        <field name="minuteOfHour" type="number-integer"><description>Minute of the hour (0 - 59).</description></field>
+        <field name="secondOfMinute" type="number-integer"><description>Second of the minute (0 - 59).</description></field>
+        <field name="minuteOfDay" type="number-integer"><description>Minute of the day (0 - 1439).</description></field>
+        <field name="secondOfDay" type="number-integer"><description>Second of the day (0 - 86399).</description></field>
+        <field name="amPm" type="text-medium"><description>AM/PM indicator.</description></field>
+        <field name="dayNight" type="text-medium"><description>Indicator of day or night.</description></field>
+        <field name="dayNightAbbrev" type="text-medium"><description>Abbreviated indicator of day or night.</description></field>
+        <field name="timePeriod" type="text-medium"><description>Names of day periods.</description></field>
+        <field name="timePeriodAbbrev" type="text-medium"><description>Abbreviated names of day periods.</description></field>
+    </entity>
     <entity entity-name="CurrencyDimension" package="moqui.olap" use="analytical">
         <description>Currency Dimension. The natural key is [currencyId]</description>
         <field name="dimensionId" type="id" is-pk="true"/>
