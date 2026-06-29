@@ -2442,9 +2442,35 @@ class ScreenRenderImpl implements ScreenRender {
             int extraPathListSize = extraPathList.size()
             for (int i = 0; i < extraPathListSize; i++) extraPathList.set(i, StringUtilities.urlEncodeIfNeeded((String) extraPathList.get(i)))
         }
+        List<Map> breadcrumbItems = null
+        Object breadcrumbItemsObj = ec.contextStack.getByString("screenBreadcrumbItems")
+        if (breadcrumbItemsObj instanceof Collection) {
+            breadcrumbItems = new LinkedList<>()
+            for (Object itemObj in (Collection) breadcrumbItemsObj) {
+                if (!(itemObj instanceof Map)) continue
+                Map item = (Map) itemObj
+                String title = item.get("title") != null ? item.get("title").toString() : null
+                if (title == null || title.isEmpty()) continue
+                Map crumbMap = [title:title]
+                Object pathWithParamsObj = item.get("pathWithParams")
+                if (pathWithParamsObj != null) {
+                    String crumbPathWithParams = pathWithParamsObj.toString()
+                    if (!crumbPathWithParams.isEmpty()) crumbMap.pathWithParams = crumbPathWithParams
+                } else {
+                    Object pathObj = item.get("path")
+                    if (pathObj != null) {
+                        String crumbPath = pathObj.toString()
+                        if (!crumbPath.isEmpty()) crumbMap.pathWithParams = crumbPath
+                    }
+                }
+                breadcrumbItems.add(crumbMap)
+            }
+            if (breadcrumbItems.isEmpty()) breadcrumbItems = null
+        }
         Map lastMap = [name:lastPathItem, title:lastTitle, path:lastPath, pathWithParams:currentPath.toString(),
                 image:lastImage, imageType:lastImageType, extraPathList:extraPathList, screenDocList:screenDocList,
                 renderModes:fullUrlInfo.targetScreen.renderModes, savedFinds:savedFindsList]
+        if (breadcrumbItems != null) lastMap.breadcrumbItems = breadcrumbItems
         menuDataList.add(lastMap)
         // not needed: screenStatic:fullUrlInfo.targetScreen.isServerStatic(renderMode)
 
