@@ -395,23 +395,47 @@ along with this software (see the LICENSE.md file). If not, see
         <alias-all entity-alias="SIFR" prefix="from"><exclude field="statusId"/></alias-all>
         <alias-all entity-alias="SITO" prefix="to"><exclude field="statusId"/></alias-all>
     </view-entity>
-    <entity entity-name="StatusFlowStack" package="moqui.basic" use="transactional" authorize-skip="create" cache="never" create-only="true">
+    <entity entity-name="StatusFlowStack" package="moqui.basic" use="transactional" authorize-skip="create"
+            cache="never" create-only="true" sequence-bank-size="1000">
+        <description>Append-only status event log and push-down stack memory for one StatusFlow execution.
+            Each push, state change, pop, or reset creates a new row; existing rows are never closed or updated.</description>
         <field name="statusFlowStackId" type="id" is-pk="true"/>
         <field name="entityName" type="text-medium"/>
         <field name="pkPrimaryValue" type="text-medium"/>
         <field name="pkSecondaryValue" type="text-medium"/>
+        <field name="executionId" type="id-long" not-null="true">
+            <description>Correlation ID shared by all stack events in one logical StatusFlow execution.</description></field>
+        <field name="sequenceNum" type="number-integer" not-null="true">
+            <description>Monotonically increasing event sequence within executionId.</description></field>
+        <field name="observedDate" type="date-time" default="ec.user.nowTimestamp" not-null="true"/>
+        <field name="operationEnumId" type="id" not-null="true">
+            <description>Stack/event operation: push, state change, pop, or reset.</description></field>
+        <field name="frameId" type="id-long" not-null="true">
+            <description>Stable ID of the stack frame affected by this event.</description></field>
+        <field name="parentFrameId" type="id-long"/>
+        <field name="stackDepth" type="number-integer" not-null="true"/>
         <field name="statusFlowId" type="id" not-null="true"/>
         <field name="statusId" type="id" not-null="true"/>
-        <field name="fromDate" type="date-time"/>
-        <field name="thruDate" type="date-time"/>
+        <field name="sourceMessageId" type="id-long">
+            <description>Optional external request, MQTT message, or application correlation ID.</description></field>
 
         <relationship type="one" related="moqui.basic.StatusFlow" short-alias="flow"/>
         <relationship type="one" related="moqui.basic.StatusItem" short-alias="status"/>
-        <!-- index for common query looking for changes to a certain field on a certain entity -->
-        <index name="SFSTACK_FLD1PK"><index-field name="entityName"/><index-field name="statusFlowId"/>
-            <index-field name="statusId"/><index-field name="pkPrimaryValue"/></index>
-        <index name="SFSTACK_ENTPKPR"><index-field name="entityName"/><index-field name="pkPrimaryValue"/></index>
-        <index name="SFSTACK_PKPRIM"><index-field name="pkPrimaryValue"/></index>
+        <relationship type="one" title="Operation" related="moqui.basic.Enumeration" short-alias="operation">
+            <key-map field-name="operationEnumId"/></relationship>
+        <index name="SFSTACK_EXECSEQ" unique="true"><index-field name="executionId"/>
+            <index-field name="sequenceNum"/></index>
+        <index name="SFSTACK_ENTPKDT"><index-field name="entityName"/><index-field name="pkPrimaryValue"/>
+            <index-field name="observedDate"/></index>
+        <index name="SFSTACK_FRAME"><index-field name="executionId"/><index-field name="frameId"/>
+            <index-field name="sequenceNum"/></index>
+        <seed-data>
+            <moqui.basic.EnumerationType enumTypeId="StatusFlowStackOperation" description="Status Flow Stack Operation"/>
+            <moqui.basic.Enumeration enumId="SfsoPush" enumTypeId="StatusFlowStackOperation" description="Push" sequenceNum="1"/>
+            <moqui.basic.Enumeration enumId="SfsoStateChange" enumTypeId="StatusFlowStackOperation" description="State Change" sequenceNum="2"/>
+            <moqui.basic.Enumeration enumId="SfsoPop" enumTypeId="StatusFlowStackOperation" description="Pop" sequenceNum="3"/>
+            <moqui.basic.Enumeration enumId="SfsoReset" enumTypeId="StatusFlowStackOperation" description="Reset" sequenceNum="4"/>
+        </seed-data>
     </entity>
 
     <!-- ========== Uom ========== -->
