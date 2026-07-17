@@ -42,6 +42,8 @@
     <default-property name="webapp_client_ip_header" value=""/>
 
     <!-- Properties for the primary (transactional group) datasource -->
+
+    <!-- H2 -->
     <default-property name="entity_ds_db_conf" value="h2"/>
     <default-property name="entity_ds_host" value="127.0.0.1"/>
     <default-property name="entity_ds_port" value=""/>
@@ -50,6 +52,32 @@
     <default-property name="entity_ds_schema" value=""/>
     <default-property name="entity_ds_user" value="sa"/>
     <default-property name="entity_ds_password" value="sa" is-secret="true"/>
+    <!-- Uncomment for Postgres -->
+    <!--
+    <default-property name="entity_ds_db_conf" value="postgres"/>
+    <default-property name="entity_ds_host" value="localhost"/>
+    <default-property name="entity_ds_port" value="5432"/>
+    <default-property name="entity_ds_database" value="moqui"/>
+    -->
+    <!-- <default-property name="entity_ds_url" value="jdbc:postgresql://moqui-database1:5432,moqui-database2:5432/${entity_ds_database}?targetServerType=primary"/> -->
+    <!--
+    <default-property name="entity_ds_url" value="jdbc:postgresql://localhost:5432/${entity_ds_database}"/>
+    <default-property name="entity_ds_schema" value="public"/>
+    <default-property name="entity_ds_user" value="moqui"/>
+    <default-property name="entity_ds_password" value="moqui" is-secret="true"/>
+    -->
+    <!-- Uncomment for Yugabyte -->
+    <!--
+    <default-property name="entity_ds_db_conf" value="yugabyte"/>
+    <default-property name="entity_ds_host" value="localhost"/>
+    <default-property name="entity_ds_port" value="5433"/>
+    <default-property name="entity_ds_database" value="moqui"/>
+    <default-property name="entity_ds_url" value="jdbc:yugabytedb://localhost:5433,localhost:5434,localhost:5435/${entity_ds_database}?loadBalanceHosts=true"/>
+    <default-property name="entity_ds_schema" value="public"/>
+    <default-property name="entity_ds_user" value="moqui"/>
+    <default-property name="entity_ds_password" value="moqui" is-secret="true"/>
+    -->
+
     <default-property name="entity_ds_crypt_pass" value="MoquiDefaultPassword:CHANGEME" is-secret="true"/>
     <default-property name="entity_ds_crypt_pass_old" value="MoquiDefaultPassword:CHANGEME" is-secret="true"/>
     <default-property name="entity_add_missing_runtime" value="false"/>
@@ -68,6 +96,7 @@
     <default-property name="entity_ds_c1_host" value=""/>
     <default-property name="entity_ds_c1_port" value=""/>
     <default-property name="entity_ds_c1_database" value=""/>
+    <!-- <default-property name="entity_ds_c1_url" value="jdbc:postgresql://moqui-database1:5432,moqui-database2:5432/${entity_ds_database}?targetServerType=secondary&amp;loadBalanceHosts=true&amp;readOnly=true"/> -->
     <default-property name="entity_ds_c1_user" value=""/>
     <default-property name="entity_ds_c1_password" value="" is-secret="true"/>
 
@@ -82,6 +111,9 @@
     <!-- Kibana Proxy Servlet settings -->
     <default-property name="kibana_host" value="127.0.0.1"/>
     <default-property name="kibana_port" value="5601"/>
+    <!-- Grafana Proxy Servlet settings -->
+    <default-property name="grafana_host" value="127.0.0.1"/>
+    <default-property name="grafana_port" value="3000"/>
 
     <tools worker-queue="65535" worker-pool-core="16" worker-pool-max="32" worker-pool-alive="60"
             empty-db-load="${entity_empty_db_load}"
@@ -209,6 +241,10 @@
                 <init-param name="permission" value="KibanaRemote"/>
                 <url-pattern>/kibana/*</url-pattern>
             </filter>
+            <filter name="GrafanaAuthFilter" class="org.moqui.impl.webapp.MoquiAuthFilter" async-supported="true">
+                <init-param name="permission" value="GrafanaRemote"/>
+                <url-pattern>/grafana/*</url-pattern>
+            </filter>
 
             <!-- Moqui Session Listener (necessary to handle expired sessions, etc) -->
             <listener class="org.moqui.impl.webapp.MoquiSessionListener"/>
@@ -233,6 +269,14 @@
                 <init-param name="proxyTo" value="http://${kibana_host}:${kibana_port}"/>
                 <init-param name="prefix" value="/kibana"/>
                 <url-pattern>/kibana/*</url-pattern>
+            </servlet>
+            <servlet name="GrafanaProxy" class="org.eclipse.jetty.ee11.proxy.ProxyServlet$Transparent" load-on-startup="1" async-supported="true">
+                <!-- this proxies to a Grafana instance run locally, in another container, etc -->
+                <!-- in grafana.yml set root_url = %(protocol)s://%(domain)s:%(http_port)s/grafana
+                        or using the environment variable set GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s:%(http_port)s/grafana -->
+                <init-param name="proxyTo" value="http://${grafana_host}:${grafana_port}"/>
+                <init-param name="prefix" value="/grafana"/>
+                <url-pattern>/grafana/*</url-pattern>
             </servlet>
 
             <!-- timeout session in 60 minutes without a request -->
@@ -385,7 +429,8 @@
                 macro-template-location="template/screen-macro/DefaultScreenMacros.plain.ftl"/>
     </screen-facade>
 
-    <service-facade distributed-factory="" scheduled-job-check-time="${scheduled_job_check_time}"
+    <service-facade distributed-executor-factory="" distributed-scheduled-executor-factory=""
+            scheduled-thread-pool-core="16" scheduled-thread-pool-max="32" scheduled-job-check-time="${scheduled_job_check_time}"
             job-queue-max="0" job-pool-core="2" job-pool-max="8" job-pool-alive="120">
         <service-location name="main-json" location="http://localhost:8080/rpc/json"/>
 
@@ -427,7 +472,8 @@
     <entity-facade default-group-name="transactional" entity-eca-enabled="true" sequenced-id-prefix=""
             distributed-cache-invalidate="false" dci-topic-factory="" query-stats="false"
             database-locale="${default_locale}" database-time-zone="${database_time_zone ?: default_time_zone}"
-            crypt-salt="20201202" crypt-iter="10" crypt-algo="PBEWithHmacSHA256AndAES_128" crypt-pass="${entity_ds_crypt_pass}">
+            crypt-salt="20201202" crypt-iter="10" crypt-algo="PBEWithHmacSHA256AndAES_128" crypt-pass="${entity_ds_crypt_pass}"
+            worker-pool-queue="1024" worker-pool-core="5" worker-pool-max="100" worker-pool-alive="60">
 
         <!-- alternate decrypt using original algo (PBEWithMD5AndDES), etc for decrypting old values, all new values will encrypt using the 4 attributes on entity-facade element -->
         <decrypt-alt crypt-salt="SkcorIuqom" crypt-iter="10" crypt-algo="PBEWithMD5AndDES" crypt-pass="${entity_ds_crypt_pass}"/>
@@ -490,6 +536,8 @@
                         databaseName="${entity_ds_c1_database}" user="${entity_ds_c1_user}" password="${entity_ds_c1_password}"
                         pinGlobalTxToPhysicalConnection="true" autoReconnectForPools="true" useUnicode="true" encoding="UTF-8"/>
             </inline-jdbc>
+            <!-- Connection settings for PostgreSQL HA cluster -->
+            <!-- <inline-jdbc pool-maxsize="40" isolation-level="ReadUncommitted" jdbc-uri="${entity_ds_c1_url}" jdbc-username="${entity_ds_c1_user}" jdbc-password="${entity_ds_c1_password}"/> -->
         </datasource>
 
         <!-- The logging group and datasource uses the elastic-facade.cluster configuration to talk to Elastic/OpenSearch -->
@@ -859,6 +907,26 @@
             <!-- default max connections for PostgreSQL is 100 -->
             <inline-jdbc pool-maxsize="90"><xa-properties serverName="${entity_ds_host}" portNumber="${entity_ds_port?:'5432'}"
                     databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
+            <!-- Connection settings for PostgreSQL HA cluster -->
+            <!-- <inline-jdbc pool-maxsize="90" jdbc-uri="${entity_ds_url}" jdbc-username="${entity_ds_user}" jdbc-password="${entity_ds_password}"/> -->
+        </database>
+
+        <!-- YugabyteDB (Smart JDBC Driver) -->
+        <database name="yugabyte" lb-name="yugabytedb" join-style="ansi" from-lateral-style="lateral" result-fetch-size="50"
+                never-try-insert="true" default-isolation-level="ReadCommitted" use-tm-join="true" default-test-query="SELECT 1"
+                constraint-name-clip-length="60" default-jdbc-driver="com.yugabyte.Driver" default-startup-add-missing="true"
+                default-runtime-add-missing="false" use-binary-type-for-blob="true">
+            <!-- NOTE: when Postgres JDBC driver updated can set use-tm-join="true" -->
+            <database-type type="number-float" sql-type="FLOAT8"/>
+
+            <database-type type="text-medium" sql-type="TEXT"/>
+            <database-type type="text-intermediate" sql-type="TEXT"/>
+            <database-type type="text-long" sql-type="TEXT"/>
+            <database-type type="text-very-long" sql-type="TEXT"/>
+
+            <database-type type="binary-very-long" sql-type="BYTEA"/>
+
+            <inline-jdbc pool-maxsize="90" jdbc-uri="${entity_ds_url}" jdbc-username="${entity_ds_user}" jdbc-password="${entity_ds_password}"/>
         </database>
     </database-list>
 

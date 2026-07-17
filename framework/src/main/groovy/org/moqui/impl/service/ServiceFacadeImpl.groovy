@@ -1,12 +1,12 @@
 /*
  * This software is in the public domain under CC0 1.0 Universal plus a
  * Grant of Patent License.
- * 
+ *
  * To the extent possible under law, the author(s) have dedicated all
  * copyright and related and neighboring rights to this software to the
  * public domain worldwide. This software is distributed without any
  * warranty.
- * 
+ *
  * You should have received a copy of the CC0 Public Domain Dedication
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
@@ -64,6 +64,10 @@ class ServiceFacadeImpl implements ServiceFacade {
 
     /** Distributed ExecutorService for async services, etc */
     protected ExecutorService distributedExecutorService = null
+    /** An executor for scheduled services */
+    protected CustomScheduledExecutor scheduledExecutor = null
+    /** Map of all serviceCallScheduled scheduledFuture (not concelled yet), using taskName as the key. */
+    protected final ConcurrentMap<String, ScheduledFuture<?>> scheduledFutureMap = new ConcurrentHashMap<>()
 
     protected final ConcurrentMap<String, List<ServiceCallback>> callbackRegistry = new ConcurrentHashMap<>()
 
@@ -84,6 +88,7 @@ class ServiceFacadeImpl implements ServiceFacade {
         restApi = new RestApi(ecfi)
 
         jobWorkerPool = makeWorkerPool()
+        scheduledExecutor = makeScheduledExecutor()
     }
 
     private ThreadPoolExecutor makeWorkerPool() {
@@ -104,6 +109,16 @@ class ServiceFacadeImpl implements ServiceFacade {
         BlockingQueue<Runnable> workQueue = new LinkedBlockingQueue<>(jobQueueMax < maxSize ? maxSize : jobQueueMax)
         return new ContextJavaUtil.WorkerThreadPoolExecutor(ecfi, coreSize, maxSize, aliveTime, TimeUnit.SECONDS,
                 workQueue, new ContextJavaUtil.JobThreadFactory())
+    }
+
+    private CustomScheduledExecutor makeScheduledExecutor() {
+        MNode serviceFacadeNode = ecfi.confXmlRoot.first("service-facade")
+
+        int coreSize = (serviceFacadeNode.attribute("scheduled-thread-pool-core") ?: "16") as int
+        int maxSize = (serviceFacadeNode.attribute("scheduled-thread-pool-max") ?: "32") as int
+        CustomScheduledExecutor executor = new CustomScheduledExecutor(coreSize)
+        executor.setMaximumPoolSize(maxSize)
+        return executor
     }
 
     void postFacadeInit() {
@@ -164,11 +179,24 @@ class ServiceFacadeImpl implements ServiceFacade {
     void destroy() {
         // destroy all service runners
         for (ServiceRunner sr in serviceRunners.values()) sr.destroy()
+
+        // shutdown scheduled executor
+        try {
+            logger.info("Shutting scheduled executor")
+            scheduledExecutor.shutdown()
+            scheduledExecutor.awaitTermination(30, TimeUnit.SECONDS)
+            if (scheduledExecutor.isTerminated()) logger.info("Scheduled executor shut down and terminated")
+            else logger.warn("Scheduled executor not yet terminated, waited 30 seconds")
+        } catch (Throwable t) {
+            logger.error("Error in scheduledExecutor shutdown", t)
+        }
     }
 
     ServiceRunner getServiceRunner(String type) { serviceRunners.get(type) }
     // NOTE: this is used in the ServiceJobList screen
     ScheduledJobRunner getJobRunner() { jobRunner }
+
+    long getJobRunnerRate() { jobRunnerRate }
 
     boolean isServiceDefined(String serviceName) {
         ServiceDefinition sd = getServiceDefinition(serviceName)
@@ -568,10 +596,71 @@ class ServiceFacadeImpl implements ServiceFacade {
         for (EmailEcaRule eer in emecaRuleList) eer.runIfMatches(message, emailServerId, eci)
     }
 
+    /**
+     * True if a task with this name is registered.
+     *
+     * @param taskName Unique task name.
+     * @return true if a name is registerd
+    */
+    boolean hasScheduledFuture(String taskName) {
+        return taskName && scheduledFutureMap.containsKey(taskName)
+    }
+
+    /** Get the scheduled future for a scheduled service call by taskName.
+     * @param taskName Unique task name with which the specified scheduled future is associated.
+     * @return scheduledFuture - scheduledFuture associated with the specified task name.
+     */
+    ScheduledFuture<?> getScheduledFuture(String taskName) {
+        return (ScheduledFuture) scheduledFutureMap.get(taskName)
+    }
+
+    /** Associates the specified scheduled future for a scheduled service call with the specified taskName.
+     * @param taskName Unique task name with which the specified scheduled future is to be associated.
+     * @param scheduledFuture - scheduledFuture to be associated with the specified task name.
+     */
+    ScheduledFuture<?> putScheduledFuture(String taskName, ScheduledFuture<?> scheduledFuture) {
+        if (taskName == null) throw new IllegalArgumentException("The argument taskName is null.")
+        if (scheduledFuture == null) throw new IllegalArgumentException("The argument scheduledFuture is null.")
+        return scheduledFutureMap.put(taskName, scheduledFuture)
+    }
+
+    /** If the specified taskName is not already associated with a scheduled future associates it
+     *  with the given instance and returns null, else returns the current scheduled future.
+     * @param taskName Unique task name with which the specified scheduled future is to be associated.
+     * @param scheduledFuture - scheduledFuture to be associated with the specified task name.
+     */
+    ScheduledFuture<?> putScheduledFutureIfAbsent(String taskName, ScheduledFuture<?> scheduledFuture) {
+        if (taskName == null) throw new IllegalArgumentException("The argument taskName is null.")
+        if (scheduledFuture == null) throw new IllegalArgumentException("The argument scheduledFuture is null.")
+        return (ScheduledFuture<?>) scheduledFutureMap.putIfAbsent(taskName, scheduledFuture)
+    }
+
+    /** Removes the entry for the scheduled future and the associated taskName if it is present.
+     * @param taskName Unique task name for which the specified scheduled future is to be removed.
+     */
+    boolean removeScheduledFuture(String taskName) {
+        if (taskName == null) throw new IllegalArgumentException("The argument taskName is null.")
+        return scheduledFutureMap.remove(taskName)
+    }
+
+    /** Snapshot of current scheduled future task names. */
+    List<String> listScheduledFutureTaskNames() {
+        return new ArrayList<>(scheduledFutureMap.keySet())
+    }
+
+    /** Current scheduled future count. */
+    int scheduledFutureCount() {
+        return scheduledFutureMap.size()
+    }
+
     @Override
     ServiceCallSync sync() { return new ServiceCallSyncImpl(this) }
     @Override
     ServiceCallAsync async() { return new ServiceCallAsyncImpl(this) }
+    @Override
+    ServiceCallScheduled schedule(String taskName) { return new ServiceCallScheduledImpl(this, taskName) }
+    @Override
+    ServiceCallScheduled schedule() { return new ServiceCallScheduledImpl(this) }
     @Override
     ServiceCallJob job(String jobName) { return new ServiceCallJobImpl(jobName, this) }
 
