@@ -407,15 +407,27 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Time/Frequency" enumId="UT_TIME_FREQ_MEASURE" enumTypeId="UomType"/>
             <moqui.basic.Enumeration description="Length" enumId="UT_LENGTH_MEASURE" enumTypeId="UomType"/>
             <moqui.basic.Enumeration description="Velocity" enumId="UT_VELOCITY_MEASURE" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Acceleration" enumId="UT_ACC_MEASURE" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Jerk" enumId="UT_JERK_MEASURE" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Snap" enumId="UT_SNAP_MEASURE" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Angle" enumId="UT_ANGLE_MEASURE" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Angular Velocity" enumId="UT_ANG_VELOCITY_MEASURE" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Angular Acceleration" enumId="UT_ANG_ACC_MEASURE" enumTypeId="UomType"/>
             <moqui.basic.Enumeration description="Area" enumId="UT_AREA_MEASURE" enumTypeId="UomType"/>
             <moqui.basic.Enumeration description="Liquid Volume" enumId="UT_VOLUME_LIQ_MEAS" enumTypeId="UomType"/>
             <moqui.basic.Enumeration description="Dry Volume" enumId="UT_VOLUME_DRY_MEAS" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Flow" enumId="UT_FLOW_MEASURE" enumTypeId="UomType"/>
             <moqui.basic.Enumeration description="Density" enumId="UT_DENSITY_MEAS" enumTypeId="UomType"/>
             <moqui.basic.Enumeration description="Weight" enumId="UT_WEIGHT_MEASURE" enumTypeId="UomType"/>
             <moqui.basic.Enumeration description="Energy" enumId="UT_ENERGY_MEASURE" enumTypeId="UomType"/>
             <moqui.basic.Enumeration description="Power" enumId="UT_POWER_MEASURE" enumTypeId="UomType"/>
             <moqui.basic.Enumeration description="Pressure" enumId="UT_PRESSURE_MEASURE" enumTypeId="UomType"/>
             <moqui.basic.Enumeration description="Temperature" enumId="UT_TEMP_MEASURE" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Sound Level" enumId="UT_SOUND_MEASURE" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Electrical" enumId="UT_ELECTRICAL_MEASURE" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Viscosity" enumId="UT_VISCOS_MEASURE" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Force" enumId="UT_FORCE_MEASURE" enumTypeId="UomType"/>
+            <moqui.basic.Enumeration description="Torque" enumId="UT_TORQUE_MEASURE" enumTypeId="UomType"/>
             <moqui.basic.Enumeration description="Other" enumId="UT_OTHER_MEASURE" enumTypeId="UomType"/>
 
             <!-- see additional seed data in UnitData.xml -->
