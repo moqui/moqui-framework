@@ -523,4 +523,27 @@ along with this software (see the LICENSE.md file). If not, see
         </field>
     </entity>
     -->
+
+    <!-- ========================================================= -->
+    <!-- moqui.screen.dashboard -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="Dashboard" package="moqui.screen.dashboard" short-alias="dashboards" use="configuration" cache="true">
+        <description>Metadata for dashboards and external reports to be included in Moqui screens.</description>
+        <field name="dashboardId" type="id" is-pk="true"/>
+        <field name="dashboardTypeEnumId" type="id" not-null="true"/>
+        <field name="dashboardLocation" type="text-medium" not-null="true"/>
+        <field name="dashboardName" type="text-medium" not-null="true"/>
+        <field name="description" type="text-long"/>
+
+        <relationship type="one" title="DashboardType" related="moqui.basic.Enumeration" short-alias="type">
+            <key-map field-name="dashboardTypeEnumId"/></relationship>
+        <seed-data>
+            <!-- Dashboard Type -->
+            <moqui.basic.EnumerationType description="Dashboard Type" enumTypeId="DashboardType"/>
+            <moqui.basic.Enumeration description="Screen Widgets Dashboard" enumId="DashScreenWidgets" enumTypeId="DashboardType"/>
+            <moqui.basic.Enumeration description="Kibana Dashboard" enumId="DashKibana" enumTypeId="DashboardType"/>
+            <moqui.basic.Enumeration description="Grafana Dashboard" enumId="DashGrafana" enumTypeId="DashboardType"/>
+        </seed-data>
+    </entity>
 </entities>

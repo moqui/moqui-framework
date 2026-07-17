@@ -120,6 +120,9 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.security.UserPermission userPermissionId="KibanaRemote" description="Kibana Remote Access"/>
     <moqui.security.UserGroupPermission userGroupId="ADMIN" userPermissionId="KibanaRemote" fromDate="0"/>
 
+    <moqui.security.UserPermission userPermissionId="GrafanaRemote" description="Grafana Remote Access"/>
+    <moqui.security.UserGroupPermission userGroupId="ADMIN" userPermissionId="GrafanaRemote" fromDate="0"/>
+
     <!-- Handy cron strings: [0 0 2 * * ?] every night at 2:00 am, [0 0/15 * * * ?] every 15 minutes, [0 0/2 * * * ?] every 2 minutes -->
     <moqui.service.job.ServiceJob jobName="clean_ElasticSearchLogMessages_daily" description="Clean log messages stored in ElasticSearch"
             serviceName="org.moqui.search.SearchServices.delete#Documents" cronExpression="0 0 2 * * ?" paused="Y">
